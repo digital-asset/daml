@@ -213,14 +213,13 @@ class ParticipantRepairAdministration(
         |fail under the following circumstances:
         | - the contract salt used to compute the contract ID is missing
         | - the contract ID discriminator version is unknown
-        | - an imported contract references the ID of a contract which is missing from the import
         |
         |Note that only the Canton-specific contract ID suffix will be recomputed. The discriminator cannot be
         |recomputed and will be left as is.
         |
-        |The last requirement means that the import process will fail if you try to import a contract without the
-        |contract ID it references in its payload being present in the import (this is because the contract ID
-        |requires the payload of the contract to exist in order compute the contract ID for it).
+        |The recomputation will not be performed on contract IDs referenced in the payload of some imported contract
+        |but is missing from the import itself (this should mean that the contract was archived, which makes
+        |recomputation unnecessary).
         |
         |If the import process succeeds, the mapping from the old contract IDs to the new contract IDs will be returned.
         |An empty map means that all contract IDs were valid and no contract ID was recomputed.

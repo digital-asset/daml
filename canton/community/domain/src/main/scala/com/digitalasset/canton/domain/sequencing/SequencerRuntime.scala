@@ -8,7 +8,6 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
-import com.digitalasset.canton.domain.admin.v30.SequencerVersionServiceGrpc
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.config.PublicServerConfig
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
@@ -40,6 +39,7 @@ import com.digitalasset.canton.protocol.{
   StaticDomainParameters,
 }
 import com.digitalasset.canton.resource.Storage
+import com.digitalasset.canton.sequencer.admin.v30.SequencerVersionServiceGrpc
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
@@ -256,6 +256,7 @@ class SequencerRuntime(
     )
     // hook for registering enterprise administration service if in an appropriate environment
     additionalAdminServiceFactory(sequencer).foreach(register)
+    sequencer.adminServices.foreach(register)
   }
 
   def domainServices(implicit ec: ExecutionContext): Seq[ServerServiceDefinition] = Seq(

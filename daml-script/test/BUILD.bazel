@@ -71,6 +71,7 @@ dependencies:
   - daml{scriptVersion}-script-{target}.dar
 build-options:
   - --target={target}
+  - --enable-interfaces=yes
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script{scriptVersion}-test-v{name}.dar)
       rm -rf $$TMP_DIR
@@ -205,6 +206,7 @@ da_scala_library(
         "//daml-lf/engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
+        "//daml-lf/stable-packages",
         "//daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
         "//libs-scala/ledger-resources",
@@ -506,6 +508,5 @@ da_scala_test_suite(
         "//observability/metrics",
         "//test-common/canton/it-lib",
         "@maven//:com_auth0_java_jwt",
-        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )

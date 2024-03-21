@@ -1,0 +1,11 @@
+Transactions: 
+  TX 0 1970-01-01T00:00:00Z (LfStableMap:19:3)
+  #0:0
+  │   disclosed to (since): 'Alice' (0)
+  └─> 'Alice' creates LfStableMap:MapTemplate
+              with
+                party = 'Alice'; value = Map[1->"c", 2->"a", 5->"b"]
+
+Active contracts:  #0:0
+
+Return value: #0:0

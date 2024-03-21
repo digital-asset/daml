@@ -15,12 +15,6 @@ import com.digitalasset.canton.domain.sequencing.config.{
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.domain.sequencing.sequencer.{Sequencer, SequencerFactory}
-import com.digitalasset.canton.domain.sequencing.traffic.{
-  BalanceUpdateClientImpl,
-  BalanceUpdateClientTopologyImpl,
-  EnterpriseSequencerRateLimitManager,
-  TrafficBalanceManager,
-}
 import com.digitalasset.canton.domain.server.DynamicDomainGrpcServer
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.admin.data.{SequencerHealthStatus, SequencerNodeStatus}
@@ -41,7 +35,11 @@ import com.digitalasset.canton.time.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessorCommon
-import com.digitalasset.canton.topology.store.TopologyStateForInitializationService
+import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.{
+  TopologyStateForInitializationService,
+  TopologyStoreX,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import io.grpc.ServerServiceDefinition
@@ -114,6 +112,7 @@ trait SequencerNodeBootstrapCommon[
       domainId: DomainId,
       sequencerId: SequencerId,
       staticMembersToRegister: Seq[Member],
+      topologyStore: TopologyStoreX[DomainStore],
       topologyClient: DomainTopologyClientWithInit,
       topologyProcessor: TopologyTransactionProcessorCommon,
       topologyManagerStatus: Option[TopologyManagerStatus],
@@ -128,7 +127,6 @@ trait SequencerNodeBootstrapCommon[
       memberAuthServiceFactory: MemberAuthenticationServiceFactory,
       domainLoggerFactory: NamedLoggerFactory,
       trafficConfig: SequencerTrafficConfig,
-      balanceManager: TrafficBalanceManager,
   ): EitherT[Future, String, SequencerRuntime] = {
     val syncCrypto = new DomainSyncCryptoClient(
       sequencerId,
@@ -141,29 +139,6 @@ trait SequencerNodeBootstrapCommon[
       loggerFactory,
     )
 
-    def newTrafficBalanceClient = new BalanceUpdateClientImpl(balanceManager, loggerFactory)
-
-    // Old balance client from topology
-    def topologyTrafficBalanceClient = {
-      new BalanceUpdateClientTopologyImpl(
-        syncCrypto,
-        staticDomainParameters.protocolVersion,
-        loggerFactory,
-      )
-    }
-
-    val balanceUpdateClient =
-      if (arguments.parameterConfig.useNewTrafficControl) newTrafficBalanceClient
-      else topologyTrafficBalanceClient
-
-    val rateLimitManager = new EnterpriseSequencerRateLimitManager(
-      balanceUpdateClient,
-      loggerFactory,
-      futureSupervisor,
-      timeouts,
-      arguments.metrics,
-    )
-
     for {
       sequencer <- EitherT.liftF[Future, String, Sequencer](
         sequencerFactory.create(
@@ -173,8 +148,7 @@ trait SequencerNodeBootstrapCommon[
           clock,
           syncCrypto,
           futureSupervisor,
-          rateLimitManager,
-          balanceManager.store,
+          trafficConfig,
         )
       )
 
@@ -189,6 +163,7 @@ trait SequencerNodeBootstrapCommon[
         arguments.metrics,
         domainId,
         syncCrypto,
+        topologyStore,
         topologyClient,
         topologyProcessor,
         topologyManagerStatus,

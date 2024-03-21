@@ -151,6 +151,10 @@ message ArchivedEvent {
   // in ``value.proto``).
   // Required
   repeated string witness_parties = 4;
+
+  // The package name of the contract.
+  // Required
+  string package_name = 5;
 }
 
 // Records that a choice has been exercised on a target contract.
@@ -215,4 +219,8 @@ message ExercisedEvent {
   // The result of exercising the choice.
   // Required
   Value exercise_result = 11;
+
+  // The package name of the contract.
+  // Required
+  string package_name = 12;
 }

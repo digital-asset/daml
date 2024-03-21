@@ -29,7 +29,7 @@ import com.digitalasset.canton.time.{
 }
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.version.{ProtoVersion, ProtocolVersion}
-import com.digitalasset.canton.crypto as DomainCrypto
+import com.digitalasset.canton.{config, crypto as DomainCrypto}
 import com.google.common.annotations.VisibleForTesting
 import io.scalaland.chimney.dsl.*
 
@@ -42,7 +42,6 @@ final case class StaticDomainParameters(
     requiredHashAlgorithms: Set[HashAlgorithm],
     requiredCryptoKeyFormats: Set[CryptoKeyFormat],
     protocolVersion: ProtocolVersion,
-    acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpConfig],
 ) {
   def writeToFile(outputFile: String): Unit =
     BinaryFileUtil.writeByteStringToFile(outputFile, toInternal.toByteString)
@@ -65,7 +64,6 @@ final case class StaticDomainParameters(
         requiredCryptoKeyFormats.map(_.transformInto[DomainCrypto.CryptoKeyFormat])
       ),
       protocolVersion = protocolVersion,
-      acsCommitmentsCatchUp = acsCommitmentsCatchUp,
     )
 }
 
@@ -116,7 +114,6 @@ object StaticDomainParameters {
       requiredCryptoKeyFormats =
         domain.requiredCryptoKeyFormats.forgetNE.map(_.transformInto[CryptoKeyFormat]),
       protocolVersion = domain.protocolVersion,
-      acsCommitmentsCatchUp = domain.acsCommitmentsCatchUp,
     )
 
   def tryReadFromFile(inputFile: String): StaticDomainParameters = {
@@ -146,7 +143,11 @@ final case class DynamicDomainParameters(
     sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration,
     trafficControlParameters: Option[TrafficControlParameters],
     onboardingRestriction: OnboardingRestriction,
+    acsCommitmentsCatchUpConfig: Option[AcsCommitmentsCatchUpConfig],
 ) {
+
+  def decisionTimeout: config.NonNegativeFiniteDuration =
+    confirmationResponseTimeout + mediatorReactionTimeout
 
   if (ledgerTimeRecordTimeTolerance * 2 > mediatorDeduplicationTimeout)
     throw new InvalidDynamicDomainParameters(
@@ -179,6 +180,7 @@ final case class DynamicDomainParameters(
         sequencerAggregateSubmissionTimeout,
       trafficControlParameters: Option[TrafficControlParameters] = trafficControlParameters,
       onboardingRestriction: OnboardingRestriction = onboardingRestriction,
+      acsCommitmentsCatchUpConfig: Option[AcsCommitmentsCatchUpConfig] = acsCommitmentsCatchUpConfig,
   ): DynamicDomainParameters = this.copy(
     confirmationResponseTimeout = confirmationResponseTimeout,
     mediatorReactionTimeout = mediatorReactionTimeout,
@@ -192,6 +194,7 @@ final case class DynamicDomainParameters(
     sequencerAggregateSubmissionTimeout = sequencerAggregateSubmissionTimeout,
     trafficControlParameters = trafficControlParameters,
     onboardingRestriction = onboardingRestriction,
+    acsCommitmentsCatchUpConfig = acsCommitmentsCatchUpConfig,
   )
 
   private[canton] def toInternal: Either[String, DynamicDomainParametersInternal] =
@@ -218,6 +221,7 @@ final case class DynamicDomainParameters(
             InternalNonNegativeFiniteDuration.fromConfig(sequencerAggregateSubmissionTimeout),
           trafficControlParameters = trafficControlParameters.map(_.toInternal),
           onboardingRestriction = onboardingRestriction,
+          acsCommitmentsCatchUpConfigParameter = acsCommitmentsCatchUpConfig,
         )(rpv)
       }
 }

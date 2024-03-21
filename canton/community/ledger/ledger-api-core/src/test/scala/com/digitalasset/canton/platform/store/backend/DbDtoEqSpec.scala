@@ -14,12 +14,11 @@ class DbDtoEqSpec extends AnyWordSpec with Matchers {
 
     "compare DbDto when used with `decided` keyword" in {
 
-      val dto0 = DbDto.ConfigurationEntry(
+      val dto0 = DbDto.PackageEntry(
         ledger_offset = "",
         recorded_at = 0,
-        submission_id = "",
+        submission_id = None,
         typ = "",
-        configuration = Array[Byte](),
         rejection_reason = None,
       )
 

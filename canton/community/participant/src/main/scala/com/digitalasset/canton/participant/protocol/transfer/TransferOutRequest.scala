@@ -16,7 +16,7 @@ import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
-import com.digitalasset.canton.{LfPartyId, TransferCounterO}
+import com.digitalasset.canton.{LfPartyId, TransferCounter}
 
 import java.util.UUID
 import scala.concurrent.ExecutionContext
@@ -41,7 +41,7 @@ final case class TransferOutRequest(
     targetDomain: TargetDomainId,
     targetProtocolVersion: TargetProtocolVersion,
     targetTimeProof: TimeProof,
-    transferCounter: TransferCounterO,
+    transferCounter: TransferCounter,
 ) {
 
   def toFullTransferOutTree(
@@ -97,7 +97,7 @@ object TransferOutRequest {
       targetProtocolVersion: TargetProtocolVersion,
       sourceTopology: TopologySnapshot,
       targetTopology: TopologySnapshot,
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
       logger: TracedLogger,
   )(implicit
       traceContext: TraceContext,

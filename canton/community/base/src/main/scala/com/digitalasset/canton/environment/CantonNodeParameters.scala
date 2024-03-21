@@ -32,7 +32,8 @@ object CantonNodeParameters {
     def nonStandardConfig: Boolean
     def dbMigrateAndStart: Boolean
     def useNewTrafficControl: Boolean
-
+    def exitOnFatalFailures: Boolean
+    def useUnifiedSequencer: Boolean
   }
   object General {
     final case class Impl(
@@ -49,6 +50,8 @@ object CantonNodeParameters {
         nonStandardConfig: Boolean,
         dbMigrateAndStart: Boolean,
         useNewTrafficControl: Boolean,
+        exitOnFatalFailures: Boolean,
+        useUnifiedSequencer: Boolean,
     ) extends CantonNodeParameters.General
   }
   trait Protocol {
@@ -86,6 +89,9 @@ trait HasGeneralCantonNodeParameters extends CantonNodeParameters.General {
   override def nonStandardConfig: Boolean = general.nonStandardConfig
   override def dbMigrateAndStart: Boolean = general.dbMigrateAndStart
   override def useNewTrafficControl: Boolean = general.useNewTrafficControl
+  override def exitOnFatalFailures: Boolean = general.exitOnFatalFailures
+  override def useUnifiedSequencer: Boolean = general.useUnifiedSequencer
+
 }
 
 trait HasProtocolCantonNodeParameters extends CantonNodeParameters.Protocol {

@@ -19,8 +19,8 @@ import com.daml.ledger.api.v2.admin.party_management_service.{
   PartyManagementServiceGrpc,
   UpdatePartyDetailsRequest,
   UpdatePartyDetailsResponse,
-  UpdatePartyIdentityProviderRequest,
-  UpdatePartyIdentityProviderResponse,
+  UpdatePartyIdentityProviderIdRequest,
+  UpdatePartyIdentityProviderIdResponse,
 }
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
@@ -377,8 +377,8 @@ private[apiserver] final class ApiPartyManagementService private (
   }
 
   override def updatePartyIdentityProviderId(
-      request: UpdatePartyIdentityProviderRequest
-  ): Future[UpdatePartyIdentityProviderResponse] = {
+      request: UpdatePartyIdentityProviderIdRequest
+  ): Future[UpdatePartyIdentityProviderIdResponse] = {
     implicit val loggingContextWithTrace = LoggingContextWithTrace(telemetry)
 
     logger.info("Updating party identity provider.")
@@ -423,7 +423,7 @@ private[apiserver] final class ApiPartyManagementService private (
             targetIdp = targetIdentityProviderId,
           )
           .flatMap(handlePartyRecordStoreResult("updating party's identity provider"))
-          .map(_ => UpdatePartyIdentityProviderResponse())
+          .map(_ => UpdatePartyIdentityProviderIdResponse())
       } yield result
     }
   }

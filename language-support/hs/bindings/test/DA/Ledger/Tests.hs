@@ -56,7 +56,7 @@ nonFlakyTests =
     , tGetPackage
     , tGetPackageBad
     , tGetPackageStatusRegistered
-    , tGetPackageStatusUnknown
+    , tGetPackageStatusUnspecify
     , tGetParticipantId
     , tUploadDarFileBad
     , tAllocateParty
@@ -124,13 +124,13 @@ tGetPackageBad withSandbox = testCase "getPackage/bad" $ run withSandbox $ \_dar
 tGetPackageStatusRegistered :: SandboxTest
 tGetPackageStatusRegistered withSandbox = testCase "getPackageStatus/Registered" $ run withSandbox $ \DarMetadata{mainPackageId} _testId -> do
     status <- getPackageStatus mainPackageId
-    liftIO $ assertBool "status" (status == PackageStatusREGISTERED)
+    liftIO $ assertBool "status" (status == PackageStatusPACKAGE_STATUS_REGISTERED)
 
-tGetPackageStatusUnknown :: SandboxTest
-tGetPackageStatusUnknown withSandbox = testCase "getPackageStatus/Unknown" $ run withSandbox $ \_darMetadata _testId -> do
+tGetPackageStatusUnspecify :: SandboxTest
+tGetPackageStatusUnspecify withSandbox = testCase "getPackageStatus/Unspecify" $ run withSandbox $ \_darMetadata _testId -> do
     let pid = PackageId "xxxxxxxxxxxxxxxxxxxxxx"
     status <- getPackageStatus pid
-    liftIO $ assertBool "status" (status == PackageStatusUNKNOWN)
+    liftIO $ assertBool "status" (status == PackageStatusPACKAGE_STATUS_UNSPECIFIED)
 
 tUploadDarFileBad :: SandboxTest
 tUploadDarFileBad withSandbox = testCase "tUploadDarFileBad" $ run withSandbox $ \_darMetadata _testId -> do

@@ -27,7 +27,6 @@ import com.digitalasset.canton.console.{
 import com.digitalasset.canton.crypto.CommunityCryptoFactory
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.CommunityGrpcVaultServiceFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
-import com.digitalasset.canton.domain.admin.v30.SequencerPruningAdministrationServiceGrpc
 import com.digitalasset.canton.domain.mediator.*
 import com.digitalasset.canton.domain.metrics.MediatorMetrics
 import com.digitalasset.canton.domain.sequencing.SequencerNodeBootstrapX
@@ -41,6 +40,7 @@ import com.digitalasset.canton.resource.{
   CommunityStorageFactory,
   DbMigrationsFactory,
 }
+import com.digitalasset.canton.sequencer.admin.v30.SequencerPruningAdministrationServiceGrpc
 
 class CommunityEnvironment(
     override val config: CantonCommunityConfig,

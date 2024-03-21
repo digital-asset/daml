@@ -16,6 +16,7 @@
 
 
 // Minor version history:
+// * 2.1 --  2024-03-18: Initial version
 // * dev (special staging area for the next version to be released)
 
 syntax = "proto3";
@@ -169,8 +170,6 @@ enum BuiltinType {
   LIST = 10;
   // Builtin type 'TGenMap`
   GENMAP = 11;
-  // Builtin type 'TTextMap`
-  TEXTMAP = 12;
   // Builtin type 'Any'
   ANY = 13;
   // Builtin type 'TAnyException'
@@ -181,15 +180,19 @@ enum BuiltinType {
   ARROW = 16;
   // Builtin type 'Update'
   UPDATE = 17;
-  // Builtin type 'Scenario'
+
+  // Builtin type 'TTextMap`
   // *Available in versions >= 2.dev*
-  SCENARIO = 1001;
+  TEXTMAP = 1001;
   // Builtin type 'TBigNumeric'
   // *Available in versions >= 2.dev*
   BIGNUMERIC = 1002;
   // Builtin type 'TRoundingMode'
   // *Available in versions >= 2.dev*
   ROUNDING_MODE = 1003;
+  // Builtin type 'Scenario'
+  // *Available in versions >= 2.dev*
+  SCENARIO = 1004;
 }
 
 // Types
@@ -334,13 +337,6 @@ enum BuiltinFunction {
   FOLDR = 44;
   EQUAL_LIST = 45;
 
-  TEXTMAP_EMPTY = 46;
-  TEXTMAP_INSERT = 47;
-  TEXTMAP_LOOKUP = 48;
-  TEXTMAP_DELETE = 49;
-  TEXTMAP_TO_LIST = 50;
-  TEXTMAP_SIZE = 51;
-
   GENMAP_EMPTY = 52;
   GENMAP_INSERT = 53;
   GENMAP_LOOKUP = 54;
@@ -355,18 +351,26 @@ enum BuiltinFunction {
 
   /* Dev Builtins */
 
-  SCALE_BIGNUMERIC = 1001;             // *Available in versions >= 2.dev
-  PRECISION_BIGNUMERIC = 1002;         // *Available in versions >= 2.dev
-  ADD_BIGNUMERIC = 1003;               // *Available in versions >= 2.dev
-  SUB_BIGNUMERIC = 1004;               // *Available in versions >= 2.dev
-  MUL_BIGNUMERIC = 1005;               // *Available in versions >= 2.dev
-  DIV_BIGNUMERIC = 1006;               // *Available in versions >= 2.dev
-  SHIFT_RIGHT_BIGNUMERIC = 1007;       // *Available in versions >= 2.dev
-  BIGNUMERIC_TO_NUMERIC = 1008;        // *Available in versions >= 2.dev*
-  NUMERIC_TO_BIGNUMERIC = 1009;        // *Available in versions >= 2.dev
-  BIGNUMERIC_TO_TEXT = 1010;           // *Available in versions >= 2.dev
 
-  TYPE_REP_TYCON_NAME = 1011;          // *Available in versions >= 2.dev*
+  TEXTMAP_EMPTY = 1001;                // *Available in versions >= 2.dev*
+  TEXTMAP_INSERT = 1002;               // *Available in versions >= 2.dev*
+  TEXTMAP_LOOKUP = 1003;               // *Available in versions >= 2.dev*
+  TEXTMAP_DELETE = 1004;               // *Available in versions >= 2.dev*
+  TEXTMAP_TO_LIST = 1005;              // *Available in versions >= 2.dev*
+  TEXTMAP_SIZE = 1006;                 // *Available in versions >= 2.dev*
+
+  SCALE_BIGNUMERIC = 2001;             // *Available in versions >= 2.dev*
+  PRECISION_BIGNUMERIC = 2002;         // *Available in versions >= 2.dev*
+  ADD_BIGNUMERIC = 2003;               // *Available in versions >= 2.dev*
+  SUB_BIGNUMERIC = 2004;               // *Available in versions >= 2.dev*
+  MUL_BIGNUMERIC = 2005;               // *Available in versions >= 2.dev*
+  DIV_BIGNUMERIC = 2006;               // *Available in versions >= 2.dev*
+  SHIFT_RIGHT_BIGNUMERIC = 2007;       // *Available in versions >= 2.dev*
+  BIGNUMERIC_TO_NUMERIC = 2008;        // *Available in versions >= 2.dev*
+  NUMERIC_TO_BIGNUMERIC = 2009;        // *Available in versions >= 2.dev*
+  BIGNUMERIC_TO_TEXT = 2010;           // *Available in versions >= 2.dev*
+
+  TYPE_REP_TYCON_NAME = 3011;          // *Available in versions >= 2.dev*
 }
 
 // Builtin literals
@@ -811,9 +815,6 @@ message Expr {
     // Update expression ('ExpUpdate')
     Update update = 23;
 
-    // Scenario Expression ('ExpScenario')
-    Scenario scenario = 24;
-
     // empty optional value ('ExpNone')
     OptionalNone optional_none = 25;
 
@@ -859,7 +860,6 @@ message Expr {
     InterfaceTemplateTypeRep interface_template_type_rep = 40;
 
     // Upcast/downcast interface payloads.
-    // *Available in versions >= 2.dev*
     ToRequiredInterface to_required_interface = 41;
     FromRequiredInterface from_required_interface = 42;
     UnsafeFromRequiredInterface unsafe_from_required_interface = 43;
@@ -872,7 +872,11 @@ message Expr {
     // *Available in versions >= 2.dev*
     ChoiceObserver choice_observer = 1002;
 
-    Experimental experimental = 1003; // *Available only in 2.dev*
+    // Scenario Expression ('ExpScenario')
+    // *Available in versions >= 2.dev*
+    Scenario scenario = 1003;
+
+    Experimental experimental = 9999; // *Available only in 2.dev*
   }
 }
 
@@ -1110,7 +1114,6 @@ message Update {
     CreateInterface create_interface = 12;
     ExerciseInterface exercise_interface = 13;
     FetchInterface fetch_interface = 14;
-
 
     DynamicExercise dynamic_exercise = 1001; // *Available in versions >= 2.dev*
     SoftFetch soft_fetch = 1002; // *Available in versions >= 2.dev*
@@ -1365,8 +1368,7 @@ message DefValue {
 
   Expr expr = 3;
 
-  bool is_test = 4;
-
+  bool is_test = 1000; // *Available in versions >= 2.dev*
 }
 
 message FeatureFlags {
@@ -1391,7 +1393,6 @@ message InternedDottedName {
   repeated int32 segments_interned_str = 1;
 }
 
-// *Available in versions >= 2.dev*
 message UpgradedPackageId {
   int32 upgraded_package_id_interned_str = 1;
 }
@@ -1399,7 +1400,7 @@ message UpgradedPackageId {
 message PackageMetadata {
   int32 name_interned_str = 1;
   int32 version_interned_str = 2;
-  UpgradedPackageId upgraded_package_id = 1001; // *optional*, *Available in versions >= 2.dev*
+  UpgradedPackageId upgraded_package_id = 3; // *optional*
 }
 
 message Package {

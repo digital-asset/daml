@@ -236,6 +236,7 @@ final case class RetentionPeriodDefaults(
   * @param devVersionSupport If true, allow domain nodes to use unstable protocol versions and participant nodes to connect to such domains
   * @param timeouts Sets the timeouts used for processing and console
   * @param portsFile A ports file name, where the ports of all participants will be written to after startup
+  * @param exitOnFatalFailures If true the node will exit/stop the process in case of fatal failures
   */
 final case class CantonParameters(
     clock: ClockConfig = ClockConfig.WallClock(),
@@ -250,6 +251,7 @@ final case class CantonParameters(
     timeouts: TimeoutSettings = TimeoutSettings(),
     retentionPeriodDefaults: RetentionPeriodDefaults = RetentionPeriodDefaults(),
     console: AmmoniteConsoleConfig = AmmoniteConsoleConfig(),
+    exitOnFatalFailures: Boolean = true,
 ) {
   def getStartupParallelism(numThreads: Int): Int =
     startupParallelism.fold(numThreads)(_.value)
@@ -489,19 +491,21 @@ private[canton] object CantonNodeParameterConverter {
 
   def general(parent: CantonConfig, node: LocalNodeConfig): CantonNodeParameters.General = {
     CantonNodeParameters.General.Impl(
-      parent.monitoring.tracing,
-      parent.monitoring.delayLoggingThreshold.toInternal,
-      parent.monitoring.logQueryCost,
-      parent.monitoring.logging,
-      parent.parameters.enableAdditionalConsistencyChecks,
-      parent.features.enablePreviewCommands,
-      parent.parameters.timeouts.processing,
-      node.sequencerClient,
-      node.parameters.caching,
-      node.parameters.batching,
-      parent.parameters.nonStandardConfig,
-      node.storage.parameters.migrateAndStart,
-      node.parameters.useNewTrafficControl,
+      tracing = parent.monitoring.tracing,
+      delayLoggingThreshold = parent.monitoring.delayLoggingThreshold.toInternal,
+      logQueryCost = parent.monitoring.logQueryCost,
+      loggingConfig = parent.monitoring.logging,
+      enableAdditionalConsistencyChecks = parent.parameters.enableAdditionalConsistencyChecks,
+      enablePreviewFeatures = parent.features.enablePreviewCommands,
+      processingTimeouts = parent.parameters.timeouts.processing,
+      sequencerClient = node.sequencerClient,
+      cachingConfigs = node.parameters.caching,
+      batchingConfig = node.parameters.batching,
+      nonStandardConfig = parent.parameters.nonStandardConfig,
+      dbMigrateAndStart = node.storage.parameters.migrateAndStart,
+      useNewTrafficControl = node.parameters.useNewTrafficControl,
+      exitOnFatalFailures = parent.parameters.exitOnFatalFailures,
+      useUnifiedSequencer = node.parameters.useUnifiedSequencer,
     )
   }
 
@@ -579,9 +583,6 @@ object CantonConfig {
     implicit val tracingConfigDisabledSpanExporterReader
         : ConfigReader[TracingConfig.Exporter.Disabled.type] =
       deriveReader[TracingConfig.Exporter.Disabled.type]
-    implicit val tracingConfigJaegerSpanExporterReader
-        : ConfigReader[TracingConfig.Exporter.Jaeger] =
-      deriveReader[TracingConfig.Exporter.Jaeger]
     implicit val tracingConfigZipkinSpanExporterReader
         : ConfigReader[TracingConfig.Exporter.Zipkin] =
       deriveReader[TracingConfig.Exporter.Zipkin]
@@ -886,6 +887,10 @@ object CantonConfig {
       deriveReader[MetricsReporterConfig.Prometheus]
     lazy implicit val metricsConfigCsvReader: ConfigReader[MetricsReporterConfig.Csv] =
       deriveReader[MetricsReporterConfig.Csv]
+    lazy implicit val metricsConfigLoggingReader: ConfigReader[MetricsReporterConfig.Logging] =
+      deriveReader[MetricsReporterConfig.Logging]
+    lazy implicit val metricsConfigJvmConfigReader: ConfigReader[MetricsConfig.JvmMetrics] =
+      deriveReader[MetricsConfig.JvmMetrics]
     lazy implicit val metricsReporterConfigReader: ConfigReader[MetricsReporterConfig] =
       deriveReader[MetricsReporterConfig]
     lazy implicit val histogramDefinitionConfigReader: ConfigReader[HistogramDefinition] =
@@ -998,9 +1003,6 @@ object CantonConfig {
     implicit val tracingConfigDisabledSpanExporterWriter
         : ConfigWriter[TracingConfig.Exporter.Disabled.type] =
       deriveWriter[TracingConfig.Exporter.Disabled.type]
-    implicit val tracingConfigJaegerSpanExporterWriter
-        : ConfigWriter[TracingConfig.Exporter.Jaeger] =
-      deriveWriter[TracingConfig.Exporter.Jaeger]
     implicit val tracingConfigZipkinSpanExporterWriter
         : ConfigWriter[TracingConfig.Exporter.Zipkin] =
       deriveWriter[TracingConfig.Exporter.Zipkin]
@@ -1273,7 +1275,10 @@ object CantonConfig {
       deriveWriter[MetricsReporterConfig.Prometheus]
     lazy implicit val metricsConfigCsvWriter: ConfigWriter[MetricsReporterConfig.Csv] =
       deriveWriter[MetricsReporterConfig.Csv]
-
+    lazy implicit val metricsConfigLoggingWriter: ConfigWriter[MetricsReporterConfig.Logging] =
+      deriveWriter[MetricsReporterConfig.Logging]
+    lazy implicit val metricsConfigJvmMetricsWriter: ConfigWriter[MetricsConfig.JvmMetrics] =
+      deriveWriter[MetricsConfig.JvmMetrics]
     lazy implicit val metricsReporterConfigWriter: ConfigWriter[MetricsReporterConfig] =
       deriveWriter[MetricsReporterConfig]
     lazy implicit val histogramDefinitionConfigWriter: ConfigWriter[HistogramDefinition] =

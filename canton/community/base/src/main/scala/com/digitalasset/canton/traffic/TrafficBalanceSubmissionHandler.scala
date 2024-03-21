@@ -161,6 +161,11 @@ class TrafficBalanceSubmissionHandler(
                 s"Traffic balance request with max sequencing time $maxSequencingTime successfully submitted"
               )
               Right(())
+            case SendResult.Error(
+                  DeliverError(_, _, _, _, SequencerErrors.AggregateSubmissionAlreadySent(message))
+                ) =>
+              logger.info(s"The top-up request was already sent: $message")
+              Right(())
             case SendResult.Error(err) =>
               Left(TrafficControlErrors.TrafficBalanceRequestAsyncSendFailed.Error(err.show))
             case SendResult.Timeout(time) =>

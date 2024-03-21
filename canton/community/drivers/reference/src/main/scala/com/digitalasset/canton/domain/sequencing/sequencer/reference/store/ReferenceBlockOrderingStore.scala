@@ -31,9 +31,9 @@ trait ReferenceBlockOrderingStore {
       traceContext: TraceContext
   ): Future[Unit]
 
-  def countBlocks()(implicit
+  def maxBlockHeight()(implicit
       traceContext: TraceContext
-  ): Future[Long]
+  ): Future[Option[Long]]
 
   def queryBlocks(initialHeight: Long)(implicit
       traceContext: TraceContext
@@ -104,9 +104,9 @@ class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore 
     Future.unit
   }
 
-  override def countBlocks()(implicit
+  override def maxBlockHeight()(implicit
       traceContext: TraceContext
-  ): Future[Long] = Future.successful(deque.size().toLong)
+  ): Future[Option[Long]] = Future.successful(Option.when(!deque.isEmpty)(deque.size().toLong - 1))
 
   /** Query available blocks starting with the specified initial height.
     * The blocks need to be returned in consecutive block-height order i.e. contain no "gaps".

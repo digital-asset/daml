@@ -54,7 +54,6 @@ import com.digitalasset.canton.{
   RequestCounter,
   SequencerCounter,
   TransferCounter,
-  TransferCounterO,
   checked,
 }
 
@@ -399,21 +398,6 @@ private[transfer] class TransferInProcessingSteps(
       activenessResult <- EitherT.right[TransferProcessorError](activenessResultFuture)
       requestId = RequestId(ts)
 
-      // construct pending data and response
-      entry = PendingTransferIn(
-        requestId,
-        rc,
-        sc,
-        txInRequest.tree.rootHash,
-        txInRequest.contract,
-        txInRequest.transferCounter,
-        txInRequest.submitterMetadata,
-        txInRequest.creatingTransactionId,
-        transferringParticipant,
-        transferId,
-        hostedStks.toSet,
-        mediator,
-      )
       responses <- validationResultO match {
         case None =>
           EitherT.rightT[FutureUnlessShutdown, TransferProcessorError](Seq.empty)
@@ -479,6 +463,28 @@ private[transfer] class TransferInProcessingSteps(
             .map(transferResponse => Seq(transferResponse -> Recipients.cc(mediator)))
       }
     } yield {
+      // We consider that we rejected if at least one of the responses is not "approve'
+      val locallyRejected = responses.exists { case (response, _) =>
+        !response.localVerdict.isApprove
+      }
+
+      // construct pending data and response
+      val entry = PendingTransferIn(
+        requestId,
+        rc,
+        sc,
+        txInRequest.tree.rootHash,
+        txInRequest.contract,
+        txInRequest.transferCounter,
+        txInRequest.submitterMetadata,
+        txInRequest.creatingTransactionId,
+        transferringParticipant,
+        transferId,
+        hostedStks.toSet,
+        mediator,
+        locallyRejected,
+      )
+
       StorePendingDataAndSendResponseAndCreateTimeout(
         entry,
         responses,
@@ -515,6 +521,7 @@ private[transfer] class TransferInProcessingSteps(
       transferId,
       hostedStakeholders,
       _,
+      locallyRejected,
     ) = pendingRequestData
 
     def rejected(
@@ -585,7 +592,7 @@ private[transfer] class TransferInProcessingSteps(
       transferId: TransferId,
       rootHash: RootHash,
       isTransferringParticipant: Boolean,
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
       hostedStakeholders: List[LfPartyId],
   ): EitherT[Future, TransferProcessorError, LedgerSyncEvent.TransferredIn] = {
     val targetDomain = domainId
@@ -645,11 +652,7 @@ private[transfer] class TransferInProcessingSteps(
       workflowId = submitterMetadata.workflowId,
       isTransferringParticipant = isTransferringParticipant,
       hostedStakeholders = hostedStakeholders,
-      transferCounter = transferCounter.getOrElse(
-        // Default value for protocol version earlier than dev
-        // TODO(#15179) Adapt when releasing BFT
-        TransferCounter.MinValue
-      ),
+      transferCounter = transferCounter,
     )
   }
 }
@@ -672,13 +675,14 @@ object TransferInProcessingSteps {
       override val requestSequencerCounter: SequencerCounter,
       rootHash: RootHash,
       contract: SerializableContract,
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
       submitterMetadata: TransferSubmitterMetadata,
       creatingTransactionId: TransactionId,
       isTransferringParticipant: Boolean,
       transferId: TransferId,
       hostedStakeholders: Set[LfPartyId],
       mediator: MediatorsOfDomain,
+      override val locallyRejected: Boolean,
   ) extends PendingTransfer
       with PendingRequestData {
 
@@ -691,7 +695,7 @@ object TransferInProcessingSteps {
       submitterMetadata: TransferSubmitterMetadata,
       stakeholders: Set[LfPartyId],
       contract: SerializableContract,
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
       creatingTransactionId: TransactionId,
       targetDomain: TargetDomainId,
       targetMediator: MediatorsOfDomain,

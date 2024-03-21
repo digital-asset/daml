@@ -77,7 +77,7 @@ class PersistentUserManagementStore(
           resourceVersion = 0,
           createdAt = now,
         )
-        val internalId = backend.createUser(user = dbUser)(connection)
+        val internalId = retryOnceMore(backend.createUser(user = dbUser)(connection))
         user.metadata.annotations.foreach { case (key, value) =>
           backend.addUserAnnotation(
             internalId = internalId,
@@ -309,16 +309,23 @@ class PersistentUserManagementStore(
       dbMetric: metrics.userManagement.type => DatabaseMetrics
   )(
       thunk: Connection => Result[T]
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[T]] =
-    dbDispatcher
-      .executeSql(dbMetric(metrics.userManagement))(thunk)
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[T]] = {
+    def execute(): Future[Result[T]] =
+      dbDispatcher.executeSql(dbMetric(metrics.userManagement))(thunk)
+    implicit val ec: ExecutionContext = directEc
+    execute()
+      .recoverWith { case RetryOnceMoreException(cause) =>
+        logger.debug("Retrying transaction to handle potential race", cause)
+        execute()
+      }
       .recover[Result[T]] {
         case TooManyUserRightsRuntimeException(userId) => Left(TooManyUserRights(userId))
         case ConcurrentUserUpdateDetectedRuntimeException(userId) =>
           Left(UserManagementStore.ConcurrentUserUpdate(userId))
         case MaxAnnotationsSizeExceededException(userId) =>
           Left(UserManagementStore.MaxAnnotationsSizeExceeded(userId))
-      }(directEc)
+      }
+  }
 
   private def toDomainUser(
       dbUser: UserManagementStorageBackend.DbUserWithId,
@@ -385,6 +392,13 @@ class PersistentUserManagementStore(
     val now = timeProvider.getCurrentTime
     (now.getEpochSecond * 1000 * 1000) + (now.getNano / 1000)
   }
+
+  private def retryOnceMore[T](body: => T): T =
+    try {
+      body
+    } catch {
+      case t: Throwable => throw RetryOnceMoreException(t)
+    }
 }
 
 object PersistentUserManagementStore {
@@ -425,3 +439,5 @@ object PersistentUserManagementStore {
       loggerFactory = loggerFactory,
     )(executionContext, LoggingContextWithTrace(loggerFactory))
 }
+
+final case class RetryOnceMoreException(underlying: Throwable) extends RuntimeException

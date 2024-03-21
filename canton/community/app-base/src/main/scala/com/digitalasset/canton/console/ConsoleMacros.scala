@@ -46,9 +46,14 @@ import com.digitalasset.canton.participant.admin.repair.RepairService
 import com.digitalasset.canton.participant.config.BaseParticipantConfig
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.sequencing.SequencerConnections
+import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, SequencerConnections}
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
+import com.digitalasset.canton.topology.store.{
+  StoredTopologyTransactionX,
+  StoredTopologyTransactionsX,
+}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.{
   GenericSignedTopologyTransactionX,
   PositiveSignedTopologyTransactionX,
@@ -849,7 +854,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           .toRight("you need at least one sequencer")
         neMediators <- NonEmpty.from(mediators.distinct).toRight("you need at least one mediator")
         nodes = neOwners ++ neSequencers ++ neMediators
-        _ = EitherUtil.condUnitE(nodes.forall(_.health.running()), "all nodes must be running")
+        _ = EitherUtil.condUnitE(nodes.forall(_.health.is_running()), "all nodes must be running")
         ns <- expected_namespace(neOwners)
         expectedId = ns.map(ns => DomainId(UniqueIdentifier.tryCreate(name, ns.toProtoPrimitive)))
         actualIdIfAllNodesAreInitialized <- expectedId.fold(
@@ -910,9 +915,22 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         .toSeq
         .sortBy(tx => orderingMap(tx.mapping.code))
 
+      val storedTopologySnapshot = StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX](
+        merged.map(stored =>
+          StoredTopologyTransactionX(
+            SequencedTime(SignedTopologyTransactionX.InitialTopologySequencingTime),
+            EffectiveTime(SignedTopologyTransactionX.InitialTopologySequencingTime),
+            None,
+            stored,
+          )
+        )
+      ).toByteString(staticDomainParameters.protocolVersion)
+
       sequencers
         .filterNot(_.health.initialized())
-        .foreach(x => x.setup.assign_from_beginning(merged, staticDomainParameters).discard)
+        .foreach(x =>
+          x.setup.assign_from_genesis_state(storedTopologySnapshot, staticDomainParameters).discard
+        )
 
       mediators
         .filter(!_.health.initialized())
@@ -926,6 +944,10 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
               PositiveInt.one,
               PositiveInt.one,
             ),
+            // if we run bootstrap ourselves, we should have been able to reach the nodes
+            // so we don't want the bootstrapping to fail spuriously here in the middle of
+            // the setup
+            SequencerConnectionValidation.Disabled,
           )
         )
 

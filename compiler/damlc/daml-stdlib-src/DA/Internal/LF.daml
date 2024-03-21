@@ -19,7 +19,9 @@ module DA.Internal.LF
 
   , Time
 
+#ifdef DAML_TEXTMAP
   , TextMap
+#endif
 
   , Map
 
@@ -121,10 +123,12 @@ instance Show Time where show = primitive @"BEToText"
 instance Eq Time where (==) = primitive @"BEEqual"
 instance Ord Time where (<=) = primitive @"BELessEq"
 
+#ifdef DAML_TEXTMAP
 -- | The `TextMap a` type represents an associative array from keys of type
 -- `Text` to values of type `a`.
 data TextMap a =
   TextMap Opaque
+#endif
 
 -- | The `Map a b` type represents an associative array from keys of type `a`
 -- to values of type `b`. It uses the built-in equality for keys. Import

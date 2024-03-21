@@ -60,7 +60,7 @@ import com.digitalasset.canton.{
   LedgerTransactionId,
   LfPartyId,
   RequestCounter,
-  TransferCounterO,
+  TransferCounter,
 }
 
 import java.io.OutputStream
@@ -133,7 +133,7 @@ final class SyncStateInspection(
       domainAlias: DomainAlias
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, AcsError, Map[LfContractId, (CantonTimestamp, TransferCounterO)]] = {
+  ): EitherT[Future, AcsError, Map[LfContractId, (CantonTimestamp, TransferCounter)]] = {
 
     for {
       state <- EitherT.fromEither[Future](
@@ -143,7 +143,7 @@ final class SyncStateInspection(
       )
 
       snapshotO <- EitherT.liftF(AcsInspection.getCurrentSnapshot(state).map(_.map(_.snapshot)))
-    } yield snapshotO.fold(Map.empty[LfContractId, (CantonTimestamp, TransferCounterO)])(
+    } yield snapshotO.fold(Map.empty[LfContractId, (CantonTimestamp, TransferCounter)])(
       _.toMap
     )
   }

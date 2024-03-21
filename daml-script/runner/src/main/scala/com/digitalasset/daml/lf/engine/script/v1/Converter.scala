@@ -13,12 +13,12 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.engine.script.v1.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.StablePackagesV2
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.{Pretty, SValue, Speedy}
 import com.daml.lf.speedy.SExpr.SExpr
+import com.daml.lf.stablepackages.StablePackagesV2
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import scalaz.std.list._

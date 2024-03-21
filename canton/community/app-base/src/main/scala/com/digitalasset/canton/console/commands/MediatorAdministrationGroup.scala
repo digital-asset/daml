@@ -24,9 +24,9 @@ import com.digitalasset.canton.console.{
   Helpful,
 }
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v30
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.sequencing.SequencerConnections
+import com.digitalasset.canton.mediator.admin.v30
+import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, SequencerConnections}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DomainId
 
@@ -135,12 +135,15 @@ class MediatorXSetupGroup(consoleCommandGroup: ConsoleCommandGroup)
       domainId: DomainId,
       domainParameters: StaticDomainParameters,
       sequencerConnections: SequencerConnections,
+      sequencerConnectionValidation: SequencerConnectionValidation =
+        SequencerConnectionValidation.All,
   ): Unit = consoleEnvironment.run {
     runner.adminCommand(
       InitializeX(
         domainId,
         domainParameters.toInternal,
         sequencerConnections,
+        sequencerConnectionValidation,
       )
     )
   }

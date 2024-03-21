@@ -21,7 +21,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 /** State held in memory by [[com.digitalasset.canton.domain.block.BlockSequencerStateManager]] to keep track of:
   *
-  * @param heads The latest counter value for members who have previously received an event
+  * @param checkpoints The latest counter value for members who have previously received an event
   *              (registered members who have not yet received an event will not have a value)
   * @param inFlightAggregations All aggregatable submission requests by their [[com.digitalasset.canton.sequencing.protocol.AggregationId]]
   *                             whose [[com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregation.maxSequencingTimestamp]] has not yet elapsed.
@@ -34,14 +34,19 @@ final case class EphemeralState(
     checkpoints: Map[Member, CounterCheckpoint],
     trafficState: Map[Member, TrafficState],
 ) extends PrettyPrinting {
-  val registeredMembers: Set[Member] = status.members.map(_.member).toSet
-  val heads: Map[Member, SequencerCounter] = checkpoints.fmap(_.counter)
+  def registeredMembers: Set[Member] = status.membersMap.keySet
+  def heads: Map[Member, SequencerCounter] = checkpoints.fmap(_.counter)
 
-  /** Return true if the head counter for the member is above the genesis counter.
-    * False otherwise
-    */
-  def headCounterAboveGenesis(member: Member): Boolean =
-    heads.get(member).exists(_ > SequencerCounter.Genesis)
+  locally {
+    val registered = registeredMembers
+    val unregisteredMembersWithCounters = checkpoints.keys.filterNot(registered.contains)
+    require(
+      unregisteredMembersWithCounters.isEmpty,
+      s"All members with a head counter value must be registered. " +
+        s"Members ${unregisteredMembersWithCounters.toList} have counters but are not registered.",
+    )
+  }
+
   def toSequencerSnapshot(
       lastTs: CantonTimestamp,
       additional: Option[SequencerSnapshot.ImplementationSpecificInfo],
@@ -64,29 +69,6 @@ final case class EphemeralState(
       trafficBalances,
     )
 
-  assert(
-    heads.keys.forall(registeredMembers.contains),
-    s"All members with a head counter value must be registered. " +
-      s"Members ${heads.toList.filterNot(h => registeredMembers.contains(h._1))} have head counters but are not registered.",
-  )
-
-  /** Next counter value for a single member.
-    * Callers must check that the member has been previously registered otherwise a [[java.lang.IllegalArgumentException]] will be thrown.
-    */
-  def tryNextCounter(member: Member): SequencerCounter = {
-    require(registeredMembers contains member, s"Member ($member) must be registered")
-
-    heads.get(member).fold(SequencerCounter.Genesis)(_ + 1)
-  }
-
-  /** Generate the next counter value for the provided set of members.
-    * Callers must check that all members have been registered otherwise a [[java.lang.IllegalArgumentException]] will be thrown.
-    */
-  def tryNextCounters(members: Set[Member]): Map[Member, SequencerCounter] =
-    members.map { member =>
-      (member, tryNextCounter(member))
-    }.toMap
-
   def evictExpiredInFlightAggregations(upToInclusive: CantonTimestamp): EphemeralState =
     this.copy(
       inFlightAggregations = inFlightAggregations.filterNot { case (_, inFlightAggregation) =>
@@ -94,22 +76,42 @@ final case class EphemeralState(
       }
     )
 
+  def toBlockUpdateEphemeralState: BlockUpdateEphemeralState = BlockUpdateEphemeralState(
+    checkpoints = checkpoints,
+    inFlightAggregations = inFlightAggregations,
+    membersMap = status.membersMap,
+    trafficState = trafficState,
+  )
+
+  def mergeBlockUpdateEphemeralState(other: BlockUpdateEphemeralState): EphemeralState =
+    EphemeralState(
+      checkpoints = other.checkpoints,
+      inFlightAggregations = other.inFlightAggregations,
+      status = this.status.copy(membersMap = other.membersMap),
+      trafficState = other.trafficState,
+    )
+
+  def headCounter(member: Member): Option[SequencerCounter] = checkpoints.get(member).map(_.counter)
+
   override def pretty: Pretty[EphemeralState] = prettyOfClass(
-    param("heads", _.heads),
+    param("checkpoints", _.checkpoints),
     param("in-flight aggregations", _.inFlightAggregations),
     param("status", _.status),
+    param("traffic state", _.trafficState),
   )
 }
 
 object EphemeralState {
-  val empty: EphemeralState = EphemeralState(Map.empty, Map.empty)
-  def counterToCheckpoint(counter: SequencerCounter) =
+  val empty: EphemeralState =
+    EphemeralState(Map.empty, Map.empty, InternalSequencerPruningStatus.Unimplemented)
+
+  def counterToCheckpoint(counter: SequencerCounter): CounterCheckpoint =
     CounterCheckpoint(counter, CantonTimestamp.MinValue, None)
 
   def apply(
       heads: Map[Member, SequencerCounter],
       inFlightAggregations: InFlightAggregations,
-      status: InternalSequencerPruningStatus = InternalSequencerPruningStatus.Unimplemented,
+      status: InternalSequencerPruningStatus,
       trafficState: Map[Member, TrafficState] = Map.empty,
   ): EphemeralState =
     EphemeralState(

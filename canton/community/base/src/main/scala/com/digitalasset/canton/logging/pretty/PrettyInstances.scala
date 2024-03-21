@@ -16,8 +16,8 @@ import com.daml.lf.value.Value
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.RequireTypes.{Port, RefinedNumeric}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
+import com.digitalasset.canton.ledger.offset
 import com.digitalasset.canton.ledger.participant.state.v2.ChangeId
-import com.digitalasset.canton.ledger.{configuration, offset}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.UniqueIdentifier
 import com.digitalasset.canton.tracing.{TraceContext, W3CTraceContext}
@@ -154,8 +154,9 @@ trait PrettyInstances {
   implicit def prettyLedgerString: Pretty[Ref.LedgerString] = prettyOfString(id => id: String)
 
   implicit val prettyLedgerBoundary: Pretty[ParticipantBoundary] = {
-    case ParticipantBoundary.PARTICIPANT_BEGIN => Tree.Literal("PARTICIPANT_BEGIN")
-    case ParticipantBoundary.PARTICIPANT_END => Tree.Literal("PARTICIPANT_END")
+    case ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN =>
+      Tree.Literal("PARTICIPANT_BOUNDARY_BEGIN")
+    case ParticipantBoundary.PARTICIPANT_BOUNDARY_END => Tree.Literal("PARTICIPANT_BOUNDARY_END")
     case ParticipantBoundary.Unrecognized(value) => Tree.Literal(s"Unrecognized($value)")
   }
 
@@ -219,6 +220,9 @@ trait PrettyInstances {
   implicit def prettyLfIdentifier: Pretty[com.daml.lf.data.Ref.Identifier] =
     prettyOfString(id => show"${id.packageId}:${id.qualifiedName}")
 
+  implicit def prettyLfPackageName: Pretty[com.daml.lf.data.Ref.PackageName] =
+    prettyOfString(packageName => show"${packageName.toString}")
+
   implicit def prettyLfContractId: Pretty[LfContractId] = prettyOfString {
     case LfContractId.V1(discriminator, suffix)
         // Shorten only Canton contract ids
@@ -254,18 +258,6 @@ trait PrettyInstances {
   implicit def prettyLfGlobalKey: Pretty[LfGlobalKey] = prettyOfClass(
     param("templateId", _.templateId),
     param("hash", _.hash.toHexString.readableHash),
-  )
-
-  implicit def prettyLedgerTimeModel: Pretty[configuration.LedgerTimeModel] = prettyOfClass(
-    param("avgTransactionLatency", _.avgTransactionLatency),
-    param("minSkew", _.minSkew),
-    param("maxSkew", _.maxSkew),
-  )
-
-  implicit def prettyLedgerConfiguration: Pretty[configuration.Configuration] = prettyOfClass(
-    param("generation", _.generation),
-    param("maxDeduplicationDuration", _.maxDeduplicationDuration),
-    param("timeModel", _.timeModel),
   )
 
   implicit def prettyV2DeduplicationPeriod: Pretty[DeduplicationPeriod] =

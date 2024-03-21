@@ -9,9 +9,7 @@ import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.domain.block.SequencerDriver
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.block.DriverBlockSequencerFactory
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
-import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalanceManager
-import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.Storage
@@ -30,7 +28,6 @@ trait SequencerFactory extends AutoCloseable {
   def initialize(
       initialState: SequencerInitialState,
       sequencerId: SequencerId,
-      balanceManager: TrafficBalanceManager,
   )(implicit ex: ExecutionContext, traceContext: TraceContext): EitherT[Future, String, Unit]
 
   def create(
@@ -40,8 +37,7 @@ trait SequencerFactory extends AutoCloseable {
       driverClock: Clock, // this clock is only used in tests, otherwise can the same clock as above can be passed
       domainSyncCryptoApi: DomainSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
-      rateLimitManager: SequencerRateLimitManager,
-      balanceStore: TrafficBalanceStore,
+      trafficConfig: SequencerTrafficConfig,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -55,7 +51,6 @@ abstract class DatabaseSequencerFactory extends SequencerFactory {
   override def initialize(
       initialState: SequencerInitialState,
       sequencerId: SequencerId,
-      balanceManager: TrafficBalanceManager,
   )(implicit ex: ExecutionContext, traceContext: TraceContext): EitherT[Future, String, Unit] =
     EitherT.leftT(
       "Database sequencer does not support dynamically bootstrapping from a snapshot. " +
@@ -81,8 +76,7 @@ class CommunityDatabaseSequencerFactory(
       driverClock: Clock,
       domainSyncCryptoApi: DomainSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
-      rateLimitManager: SequencerRateLimitManager,
-      balanceStore: TrafficBalanceStore,
+      trafficConfig: SequencerTrafficConfig,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -101,6 +95,7 @@ class CommunityDatabaseSequencerFactory(
       domainSyncCryptoApi,
       metrics,
       loggerFactory,
+      nodeParameters.useUnifiedSequencer,
     )
 
     Future.successful(config.testingInterceptor.map(_(clock)(sequencer)(ec)).getOrElse(sequencer))

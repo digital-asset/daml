@@ -178,6 +178,20 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
               TimeQuery.Range(ts1.some, ts4.some),
               proposals = true,
             )
+            proposalTransactionsFiltered <- inspect(
+              store,
+              TimeQuery.Range(ts1.some, ts4.some),
+              proposals = true,
+              types =
+                Seq(NamespaceDelegationX.code, PartyToParticipantX.code), // to test the types filter
+            )
+            proposalTransactionsFiltered2 <- inspect(
+              store,
+              TimeQuery.Range(ts1.some, ts4.some),
+              proposals = true,
+              types = Seq(PartyToParticipantX.code),
+            )
+
             positiveProposals <- findPositiveTransactions(store, ts6, isProposal = true)
 
             txByTxHash <- store.findProposalsByTxHash(
@@ -220,6 +234,16 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
                 tx1_NSD_Proposal
               ), // only proposal transaction, TimeQueryX.Range is inclusive on both sides
             )
+            expectTransactions(
+              proposalTransactionsFiltered,
+              Seq(
+                tx1_NSD_Proposal
+              ),
+            )
+            expectTransactions(
+              proposalTransactionsFiltered2,
+              Nil, // no proposal transaction of type PartyToParticipantX in the range
+            )
             expectTransactions(positiveProposals, Seq(tx1_NSD_Proposal))
 
             txByTxHash shouldBe Seq(tx1_NSD_Proposal)
@@ -260,7 +284,6 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
               TimeQuery.HeadState,
               types = Seq(PartyToParticipantX.code),
             )
-
           } yield {
             expectTransactions(
               proposalTransactions,
@@ -280,6 +303,43 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
             expectTransactions(
               proposalTransactionsFiltered2,
               Nil, // no proposal transaction of type PartyToParticipantX in the range
+            )
+          }
+        }
+        "able to findEssentialStateAtSequencedTime" in {
+          val store = mk()
+          for {
+            _ <- update(store, ts2, add = Seq(tx2_OTK))
+            _ <- update(store, ts5, add = Seq(tx5_DTC))
+            _ <- update(store, ts6, add = Seq(tx6_MDS))
+
+            proposalTransactions <- store.findEssentialStateAtSequencedTime(
+              asOfInclusive = SequencedTime(ts6),
+              excludeMappings = Nil,
+            )
+
+            proposalTransactionsFiltered <- store.findEssentialStateAtSequencedTime(
+              asOfInclusive = SequencedTime(ts6),
+              excludeMappings = TopologyMappingX.Code.all.diff(
+                Seq(DomainTrustCertificateX.code, OwnerToKeyMappingX.code)
+              ),
+            )
+
+          } yield {
+            expectTransactions(
+              proposalTransactions,
+              Seq(
+                tx2_OTK,
+                tx5_DTC,
+                tx6_MDS,
+              ),
+            )
+            expectTransactions(
+              proposalTransactionsFiltered,
+              Seq(
+                tx2_OTK,
+                tx5_DTC,
+              ),
             )
           }
         }
@@ -311,13 +371,12 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
             idDaTransactions <- inspect(
               store,
               timeQuery = TimeQuery.Range(ts1.some, ts4.some),
-              idFilter = "da",
+              idFilter = Some("da"),
             )
             idNamespaceTransactions <- inspect(
               store,
               timeQuery = TimeQuery.Range(ts1.some, ts4.some),
-              idFilter = "decentralized-namespace",
-              namespaceOnly = true,
+              namespaceFilter = Some("decentralized-namespace"),
             )
             bothParties <- inspectKnownParties(store, ts6)
             onlyFred <- inspectKnownParties(store, ts6, filterParty = "fr::can")
@@ -400,9 +459,9 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
               ),
             )
 
-            essentialStateTransactions <- store.findEssentialStateForMember(
-              tx2_OTK.mapping.member,
-              asOfInclusive = ts5,
+            essentialStateTransactions <- store.findEssentialStateAtSequencedTime(
+              asOfInclusive = SequencedTime(ts5),
+              excludeMappings = Nil,
             )
 
             upcomingTransactions <- store.findUpcomingEffectiveChanges(asOfInclusive = ts4)
@@ -436,11 +495,9 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
             expectTransactions(
               essentialStateTransactions,
               Seq(
-                tx1_NSD_Proposal,
                 tx2_OTK,
                 tx3_IDD_Removal,
                 tx3_NSD,
-                tx3_PTP_Proposal,
                 tx4_DND,
                 tx4_OTK_Proposal,
                 tx5_PTP,

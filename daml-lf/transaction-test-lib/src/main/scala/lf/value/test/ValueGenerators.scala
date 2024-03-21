@@ -152,7 +152,7 @@ object ValueGenerators {
       values <- Gen.listOf(valueGen())
     } yield ValueList(values.to(FrontStack))
 
-  def valueMapGen: Gen[ValueTextMap] =
+  def valueTextMapGen: Gen[ValueTextMap] =
     for {
       list <- Gen.listOf(for {
         k <- Gen.asciiPrintableStr; v <- valueGen()
@@ -204,7 +204,7 @@ object ValueGenerators {
     variantGen,
     recordGen,
     valueOptionalGen,
-    valueMapGen,
+    valueGenMapGen,
   )
 
   private def flatGen = Gen.oneOf(

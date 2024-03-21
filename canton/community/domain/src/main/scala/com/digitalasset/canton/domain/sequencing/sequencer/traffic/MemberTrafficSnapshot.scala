@@ -4,7 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.traffic
 
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v30.SequencerSnapshot.MemberTrafficSnapshot as MemberTrafficSnapshotP
+import com.digitalasset.canton.sequencer.admin.v30.SequencerSnapshot.MemberTrafficSnapshot as MemberTrafficSnapshotP
 import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult

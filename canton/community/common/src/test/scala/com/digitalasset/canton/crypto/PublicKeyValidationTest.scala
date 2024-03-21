@@ -4,7 +4,6 @@
 package com.digitalasset.canton.crypto
 
 import com.digitalasset.canton.BaseTest
-import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
@@ -54,12 +53,7 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
 
     // with wrong fingerprint
     s"Validate $name public key with wrong fingerprint" in {
-      val hash = Hash.digest(
-        HashPurpose.PublicKeyFingerprint,
-        ByteString.copyFrom("mock".getBytes),
-        HashAlgorithm.Sha256,
-      )
-      val invalidFingerprint = new Fingerprint(hash.toLengthLimitedHexString)
+      val invalidFingerprint = TestFingerprint.generateFingerprint("mock")
       for {
         crypto <- newCrypto
         publicKey <- newPublicKey(crypto)

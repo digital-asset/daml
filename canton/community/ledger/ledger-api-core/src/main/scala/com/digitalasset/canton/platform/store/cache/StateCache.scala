@@ -95,6 +95,7 @@ private[platform] case class StateCache[K, V](
     * @param key the key at which to update the cache
     * @param fetchAsync fetches asynchronously the value for key `key` at the current cache index
     */
+  @SuppressWarnings(Array("com.digitalasset.canton.SynchronizedFuture"))
   def putAsync(key: K, fetchAsync: Offset => Future[V])(implicit
       traceContext: TraceContext
   ): Future[V] = Timed.value(

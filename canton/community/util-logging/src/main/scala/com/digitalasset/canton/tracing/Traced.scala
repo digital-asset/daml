@@ -22,6 +22,11 @@ final case class Traced[+A](value: A)(implicit override val traceContext: TraceC
   def traverse[F[_], B](f: A => F[B])(implicit F: Functor[F]): F[Traced[B]] =
     F.map(f(value))(Traced(_))
 
+  def traverseWithTraceContext[F[_], B](fn: TraceContext => A => F[B])(implicit
+      F: Functor[F]
+  ): F[Traced[B]] =
+    F.map(fn(traceContext)(value))(Traced(_))
+
   def withTraceContext[B](fn: TraceContext => A => B): B = fn(traceContext)(value)
 
   def copy[B](value: B): Traced[B] = Traced(value)(traceContext)

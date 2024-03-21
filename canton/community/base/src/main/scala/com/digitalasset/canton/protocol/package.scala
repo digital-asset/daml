@@ -32,8 +32,6 @@ package object protocol {
   type LfTransaction = Transaction
   val LfTransaction: Transaction.type = Transaction
 
-  val LfTransactionErrors: TransactionErrors.type = TransactionErrors
-
   type LfVersionedTransaction = VersionedTransaction
   val LfVersionedTransaction: VersionedTransaction.type = VersionedTransaction
 

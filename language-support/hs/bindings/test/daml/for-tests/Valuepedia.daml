@@ -1,6 +1,7 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
 
 module Valuepedia where
 
@@ -28,7 +29,11 @@ data Bucket = Bucket
     , unit : ()
     , date : Date
     , opts : [Optional Text]
-    , map : TextMap Int
+#ifndef DAML_TEXMAP
+    , textMap : TextMap Int
+#else 
+    , textMap : Unit 
+#endif
     , enum : E
     }
     deriving (Eq,Show)

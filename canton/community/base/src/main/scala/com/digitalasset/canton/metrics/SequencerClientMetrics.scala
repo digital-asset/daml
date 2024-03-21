@@ -50,7 +50,7 @@ class SequencerClientMetrics(
                       |too slow to keep up with the messaging load.""",
       qualification = Debug,
     )
-    val delay: Gauge[Long] = metricsFactory.gauge(prefix :+ "delay", 0L)(MetricsContext.Empty)
+    val delay: Gauge[Long] = metricsFactory.gauge(prefix :+ "delay", 0L)
 
     @MetricDoc.Tag(
       summary =
@@ -89,7 +89,7 @@ class SequencerClientMetrics(
       qualification = Saturation,
     )
     val maxInFlightEventBatches: Gauge[Int] =
-      metricsFactory.gauge(prefix :+ "max-in-flight-event-batches", 0)(MetricsContext.Empty)
+      metricsFactory.gauge(prefix :+ "max-in-flight-event-batches", 0)
   }
 
   object submissions {

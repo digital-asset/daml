@@ -38,6 +38,7 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//daml-lf/language",
+        "//daml-lf/stable-packages",
         "//daml-lf/transaction",
         "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
@@ -98,6 +99,7 @@ da_scala_test_suite(
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",
+        "//daml-lf/stable-packages",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
         "//libs-scala/contextualized-logging",

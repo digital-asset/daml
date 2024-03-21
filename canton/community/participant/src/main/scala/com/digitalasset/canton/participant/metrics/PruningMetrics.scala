@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{Gauge, Timer}
+import com.daml.metrics.api.MetricHandle.{Gauge, Meter, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory
 
@@ -25,6 +25,28 @@ class PruningMetrics(
       qualification = Debug,
     )
     val compute: Timer = metricsFactory.timer(prefix :+ "compute")
+
+    @MetricDoc.Tag(
+      summary = "Time spent in microseconds between commitment and sequencing.",
+      description = """Participant nodes compute bilateral commitments at regular intervals. After a commitment
+                      |has been computed it is send for sequencing. This measures the time between the end of a 
+                      |commitment interval and when the commitment has been sequenced. A high value indicates that 
+                      |the participant is lagging behind in processing messages and computing commitments or the 
+                      |sequencer is slow in sequencing the commitment messages.""",
+      qualification = Debug,
+    )
+    val sequencingTime: Gauge[Long] =
+      metricsFactory.gauge(prefix :+ "sequencing-time", 0L)(MetricsContext.Empty)
+
+    @MetricDoc.Tag(
+      summary = "Times the catch up mode has been activated.",
+      description =
+        """Participant nodes compute bilateral commitments at regular intervals. This metric
+          |exposes how often catch-up mode has been activated. Catch-up mode is triggered according
+          |to catch-up config and happens if the participant lags behind on computation.""",
+      qualification = Debug,
+    )
+    val catchupModeEnabled: Meter = metricsFactory.meter(prefix :+ "catchup-mode-enabled")
   }
 
   object prune {

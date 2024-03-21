@@ -7,6 +7,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands.LocatePruningTimestampCommand
 import com.digitalasset.canton.admin.api.client.commands.{
   EnterpriseSequencerAdminCommands,
+  EnterpriseSequencerBftAdminCommands,
   GrpcAdminCommand,
   PruningSchedulerCommands,
   SequencerAdminCommands,
@@ -19,18 +20,17 @@ import com.digitalasset.canton.console.CommandErrors.NodeNotStarted
 import com.digitalasset.canton.console.commands.*
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v30.SequencerPruningAdministrationServiceGrpc
-import com.digitalasset.canton.domain.admin.v30.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub
 import com.digitalasset.canton.domain.mediator.{
+  MediatorNode,
   MediatorNodeBootstrapX,
   MediatorNodeConfigCommon,
-  MediatorNodeX,
   RemoteMediatorConfig,
 }
 import com.digitalasset.canton.domain.sequencing.config.{
   RemoteSequencerConfig,
   SequencerNodeConfigCommon,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.EnterpriseSequencerBftAdminData.PeerNetworkStatus
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerClients,
   SequencerPruningStatus,
@@ -41,6 +41,7 @@ import com.digitalasset.canton.health.admin.data.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.MetricValue
+import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.participant.config.{
   BaseParticipantConfig,
   LocalParticipantConfig,
@@ -51,6 +52,8 @@ import com.digitalasset.canton.participant.{
   ParticipantNodeCommon,
   ParticipantNodeX,
 }
+import com.digitalasset.canton.sequencer.admin.v30.SequencerPruningAdministrationServiceGrpc
+import com.digitalasset.canton.sequencer.admin.v30.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.topology.*
@@ -536,7 +539,7 @@ abstract class ParticipantReference(
   @Help.Group("Repair")
   def repair: ParticipantRepairAdministration
 
-  /** Waits until for every participant p (drawn from consoleEnvironment.participantsX.all) that is running and initialized
+  /** Waits until for every participant p (drawn from consoleEnvironment.participants.all) that is running and initialized
     * and for each domain to which both this participant and p are connected
     * the vetted_package transactions in the authorized store are the same as in the domain store.
     */
@@ -544,7 +547,7 @@ abstract class ParticipantReference(
     val connected = domains.list_connected().map(_.domainId).toSet
     // for every participant
     consoleEnvironment.participants.all
-      .filter(p => p.health.running() && p.health.initialized())
+      .filter(p => p.health.is_running() && p.health.initialized())
       .foreach { participant =>
         // for every domain this participant is connected to as well
         participant.domains.list_connected().foreach {
@@ -1150,6 +1153,26 @@ abstract class SequencerNodeReference(
       runner.adminCommand(EnterpriseSequencerAdminCommands.DisableMember(member))
     }
   }
+
+  @Help.Summary("Methods used to manage BFT sequencers; they'll fail on non-BFT sequencers")
+  object bft {
+
+    @Help.Summary("Add a new peer endpoint")
+    def add_peer_endpoint(endpoint: Endpoint): Unit = consoleEnvironment.run {
+      runner.adminCommand(EnterpriseSequencerBftAdminCommands.AddPeerEndpoint(endpoint))
+    }
+
+    @Help.Summary("Remove a peer endpoint")
+    def remove_peer_endpoint(endpoint: Endpoint): Unit = consoleEnvironment.run {
+      runner.adminCommand(EnterpriseSequencerBftAdminCommands.RemovePeerEndpoint(endpoint))
+    }
+
+    @Help.Summary("Get peer network status")
+    def get_peer_network_status(endpoints: Option[Iterable[Endpoint]]): PeerNetworkStatus =
+      consoleEnvironment.run {
+        runner.adminCommand(EnterpriseSequencerBftAdminCommands.GetPeerNetworkStatus(endpoints))
+      }
+  }
 }
 
 class LocalSequencerNodeReference(
@@ -1280,7 +1303,7 @@ class LocalMediatorReference(consoleEnvironment: ConsoleEnvironment, val name: S
     extends MediatorReference(consoleEnvironment, name)
     with LocalInstanceReference
     with SequencerConnectionAdministration
-    with BaseInspection[MediatorNodeX] {
+    with BaseInspection[MediatorNode] {
 
   override protected[canton] def executionContext: ExecutionContext =
     consoleEnvironment.environment.executionContext

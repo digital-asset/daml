@@ -7,7 +7,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.time.TimeProvider
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.google.protobuf.ByteString
-import io.grpc.BindableService
+import io.grpc.ServerServiceDefinition
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.stream.{KillSwitch, Materializer}
 import pureconfig.{ConfigReader, ConfigWriter}
@@ -127,7 +127,7 @@ trait SequencerDriver extends AutoCloseable {
   /** Services for administering the ledger driver.
     * These services will be exposed on the sequencer node's admin API endpoint.
     */
-  def adminServices: Seq[BindableService]
+  def adminServices: Seq[ServerServiceDefinition]
 
   // Write operations
 

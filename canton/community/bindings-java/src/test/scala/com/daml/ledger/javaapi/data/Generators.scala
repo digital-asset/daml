@@ -143,7 +143,7 @@ object Generators {
   def listValueGen: Gen[v2.ValueOuterClass.Value] =
     listGen.map(v2.ValueOuterClass.Value.newBuilder().setList(_).build())
 
-  def textMapGen: Gen[v2.ValueOuterClass.Map] =
+  def textMapGen: Gen[v2.ValueOuterClass.TextMap] =
     Gen
       .sized(height =>
         for {
@@ -153,13 +153,13 @@ object Generators {
           keys <- Gen.listOfN(size, Arbitrary.arbString.arbitrary)
           values <- Gen.listOfN(size, Gen.resize(newHeight, valueGen))
         } yield (keys zip values).map { case (k, v) =>
-          v2.ValueOuterClass.Map.Entry.newBuilder().setKey(k).setValue(v).build()
+          v2.ValueOuterClass.TextMap.Entry.newBuilder().setKey(k).setValue(v).build()
         }
       )
-      .map(x => v2.ValueOuterClass.Map.newBuilder().addAllEntries(x.asJava).build())
+      .map(x => v2.ValueOuterClass.TextMap.newBuilder().addAllEntries(x.asJava).build())
 
   def textMapValueGen: Gen[v2.ValueOuterClass.Value] =
-    textMapGen.map(v2.ValueOuterClass.Value.newBuilder().setMap(_).build())
+    textMapGen.map(v2.ValueOuterClass.Value.newBuilder().setTextMap(_).build())
 
   def genMapGen: Gen[v2.ValueOuterClass.GenMap] =
     Gen
@@ -503,9 +503,9 @@ object Generators {
       domainAlias <- Arbitrary.arbString.arbitrary
       domainId <- Arbitrary.arbString.arbitrary
       permission <- Gen.oneOf(
-        v2.StateServiceOuterClass.ParticipantPermission.Submission,
-        v2.StateServiceOuterClass.ParticipantPermission.Confirmation,
-        v2.StateServiceOuterClass.ParticipantPermission.Observation,
+        v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION,
+        v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION,
+        v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION,
       )
     } yield v2.StateServiceOuterClass.GetConnectedDomainsResponse.ConnectedDomain
       .newBuilder()
@@ -532,10 +532,10 @@ object Generators {
           (b: OffsetProto.Builder) => b.setAbsolute(absolute)
         ),
         Gen.const((b: OffsetProto.Builder) =>
-          b.setBoundary(OffsetProto.ParticipantBoundary.PARTICIPANT_BEGIN)
+          b.setBoundary(OffsetProto.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN)
         ),
         Gen.const((b: OffsetProto.Builder) =>
-          b.setBoundary(OffsetProto.ParticipantBoundary.PARTICIPANT_END)
+          b.setBoundary(OffsetProto.ParticipantBoundary.PARTICIPANT_BOUNDARY_END)
         ),
       )
     } yield OffsetProto

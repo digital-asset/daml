@@ -52,14 +52,12 @@ protobuf_version = "3.24.0"
 pekko_version = "1.0.1"
 pekko_http_version = "1.0.0"
 
-#gatling_version = "3.5.1"
 guava_version = "31.1-jre"
 
-# observability libs
-# cannot update to 4.2.x because of https://github.com/dropwizard/metrics/issues/2920
-dropwizard_version = "4.1.33"
-opentelemetry_version = "1.12.0"
-prometheus_version = "0.14.1"
+# Updated 2024-03-15
+opentelemetry_version = "1.36.0"
+opentelemetry_instrumentation_version = "2.1.0-alpha"
+prometheus_version = "0.16.0"
 
 # group libraries controlled by the same org
 circe_version = "0.14.2"
@@ -139,10 +137,8 @@ def install_java_deps():
             "io.circe:circe-generic-extras_{}:{}".format(scala_major_version, circe_version),
             "io.circe:circe-generic_{}:{}".format(scala_major_version, circe_version),
             "io.circe:circe-parser_{}:{}".format(scala_major_version, circe_version),
+            "io.circe:circe-optics_{}:{}".format(scala_major_version, "0.15.0"),
             "io.circe:circe-yaml_{}:{}".format(scala_major_version, "0.15.0-RC1"),
-            "io.dropwizard.metrics:metrics-core:{}".format(dropwizard_version),
-            "io.dropwizard.metrics:metrics-jmx:{}".format(dropwizard_version),
-            "io.dropwizard.metrics:metrics-jvm:{}".format(dropwizard_version),
             #            "io.gatling.highcharts:gatling-charts-highcharts:{}".format(gatling_version),
             #            "io.gatling:gatling-app:{}".format(gatling_version),
             #            "io.gatling:gatling-charts:{}".format(gatling_version),
@@ -178,28 +174,22 @@ def install_java_deps():
             "io.netty:netty-handler:{}".format(netty_version),
             "io.netty:netty-resolver:{}".format(netty_version),
             "io.netty:netty-tcnative-boringssl-static:{}".format(netty_tcnative_version),
-            "io.opentelemetry.instrumentation:opentelemetry-grpc-1.6:{}-alpha".format(opentelemetry_version),
-            "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:{}-alpha".format(opentelemetry_version),
-            "io.opentelemetry.instrumentation:opentelemetry-runtime-metrics:{}-alpha".format(opentelemetry_version),
+            "io.opentelemetry.instrumentation:opentelemetry-grpc-1.6:{}".format(opentelemetry_instrumentation_version),
+            "io.opentelemetry.instrumentation:opentelemetry-runtime-telemetry-java8:{}".format(opentelemetry_instrumentation_version),
             "io.opentelemetry:opentelemetry-api:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-context:{}".format(opentelemetry_version),
-            "io.opentelemetry:opentelemetry-exporter-jaeger:{}".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-exporter-common:{}".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-exporter-otlp:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-exporter-otlp-common:{}".format(opentelemetry_version),
-            "io.opentelemetry:opentelemetry-exporter-otlp-trace:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-exporter-prometheus:{}-alpha".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-exporter-zipkin:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-common:{}".format(opentelemetry_version),
-            "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:{}".format(opentelemetry_version),
-            "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:{}-alpha".format(opentelemetry_version),
-            "io.opentelemetry:opentelemetry-sdk-logs:{}-alpha".format(opentelemetry_version),
-            "io.opentelemetry:opentelemetry-sdk-metrics-testing:{}-alpha".format(opentelemetry_version),
-            "io.opentelemetry:opentelemetry-sdk-metrics:{}-alpha".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-logs:{}".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-metrics:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-testing:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-trace:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk:{}".format(opentelemetry_version),
-            "io.opentelemetry:opentelemetry-semconv:{}-alpha".format(opentelemetry_version),
             "io.prometheus:simpleclient:{}".format(prometheus_version),
-            "io.prometheus:simpleclient_dropwizard:{}".format(prometheus_version),
             "io.prometheus:simpleclient_httpserver:{}".format(prometheus_version),
             "io.prometheus:simpleclient_servlet:{}".format(prometheus_version),
             "io.reactivex.rxjava2:rxjava:2.2.21",
@@ -251,9 +241,9 @@ def install_java_deps():
             "org.slf4j:jul-to-slf4j:2.0.6",
             "org.slf4j:slf4j-api:2.0.6",
             "org.slf4j:slf4j-simple:2.0.6",
-            "org.testcontainers:jdbc:1.15.1",
-            "org.testcontainers:postgresql:1.15.1",
-            "org.testcontainers:testcontainers:1.15.1",
+            "org.testcontainers:jdbc:1.19.7",
+            "org.testcontainers:postgresql:1.19.7",
+            "org.testcontainers:testcontainers:1.19.7",
             "org.tpolecat:doobie-core_{}:0.13.4".format(scala_major_version),
             "org.tpolecat:doobie-hikari_{}:0.13.4".format(scala_major_version),
             "org.tpolecat:doobie-postgres_{}:0.13.4".format(scala_major_version),
@@ -266,7 +256,6 @@ def install_java_deps():
             "org.wartremover:wartremover_{}:2.4.21".format(scala_version),
             "org.xerial:sqlite-jdbc:3.36.0.1",
             maven.artifact("com.github.pureconfig", "pureconfig-macros_2.12", "0.14.0", neverlink = True),
-            maven.artifact("io.dropwizard.metrics", "metrics-graphite", dropwizard_version, exclusions = ["com.rabbitmq:amqp-client"]),
         ],
         fetch_sources = True,
         maven_install_json = "@com_github_digital_asset_daml//:maven_install_{}.json".format(scala_major_version),

@@ -24,9 +24,9 @@ NOTICES     @garyverhaegen-da @dasormeter
 # Language
 /daml-assistant/    @remyhaemmerle-da @filmackay
 /daml-script/       @remyhaemmerle-da
-/compiler/          @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da @paulbrauner-da
-/libs-haskell/      @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da @paulbrauner-da
-/ghc-lib/           @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da @paulbrauner-da
+/compiler/          @basvangijzel-DA @remyhaemmerle-da @moisesackerman-da @dylant-da @samuel-williams-da @paulbrauner-da
+/libs-haskell/      @basvangijzel-DA @remyhaemmerle-da @moisesackerman-da @dylant-da @samuel-williams-da @paulbrauner-da
+/ghc-lib/           @basvangijzel-DA @remyhaemmerle-da @moisesackerman-da @dylant-da @samuel-williams-da @paulbrauner-da
 /test-common/canton/            @remyhaemmerle-da
 
 # Runtime

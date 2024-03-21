@@ -247,7 +247,12 @@ class TestProcessingSteps(
   ] = {
     val res = StorePendingDataAndSendResponseAndCreateTimeout(
       pendingRequestData.getOrElse(
-        TestPendingRequestData(RequestCounter(0), SequencerCounter(0), mediator)
+        TestPendingRequestData(
+          RequestCounter(0),
+          SequencerCounter(0),
+          mediator,
+          locallyRejected = false,
+        )
       ),
       Seq.empty,
       (),
@@ -339,9 +344,10 @@ object TestProcessingSteps {
   type TestViewType = TestViewType.type
 
   final case class TestPendingRequestData(
-      requestCounter: RequestCounter,
-      requestSequencerCounter: SequencerCounter,
-      mediator: MediatorsOfDomain,
+      override val requestCounter: RequestCounter,
+      override val requestSequencerCounter: SequencerCounter,
+      override val mediator: MediatorsOfDomain,
+      override val locallyRejected: Boolean,
   ) extends PendingRequestData {
 
     override def rootHashO: Option[RootHash] = None

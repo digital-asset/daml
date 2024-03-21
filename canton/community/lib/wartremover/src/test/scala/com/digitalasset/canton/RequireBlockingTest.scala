@@ -54,7 +54,7 @@ class RequireBlockingTest extends AnyWordSpec with Matchers {
       result.errors.foreach { _ should include(RequireBlocking.messageSynchronized) }
     }
 
-    "detect nested synchronized calls in the body" in {
+    "detect nested synchronized blocks in the body" in {
       // Technically we shouldn't require another blocking around the inner synchronized,
       // but that's a false positive we can live with as nested synchronization calls are anyway
       // dangerous for their deadlock potential.
@@ -64,7 +64,7 @@ class RequireBlockingTest extends AnyWordSpec with Matchers {
       assertIsErrorSynchronized(result)
     }
 
-    "detect escaping synchronized calls in the body" in {
+    "detect escaping synchronized blocks in the body" in {
       // The inner synchronize call escapes the blocking scope
       val result = WartTestTraverser(RequireBlocking) {
         val f = blocking {

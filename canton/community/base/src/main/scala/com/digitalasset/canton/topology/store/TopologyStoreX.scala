@@ -210,8 +210,8 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
       recentTimestampO: Option[CantonTimestamp],
       op: Option[TopologyChangeOpX],
       types: Seq[TopologyMappingX.Code],
-      idFilter: String,
-      namespaceOnly: Boolean,
+      idFilter: Option[String],
+      namespaceFilter: Option[String],
   )(implicit
       traceContext: TraceContext
   ): Future[StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX]]
@@ -223,21 +223,33 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
       limit: Int,
   )(implicit traceContext: TraceContext): Future[Set[PartyId]]
 
+  /** Finds the topology transaction that first onboarded the sequencer with ID `sequencerId`
+    */
+  def findFirstSequencerStateForSequencer(
+      sequencerId: SequencerId
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Option[StoredTopologyTransactionX[TopologyChangeOpX.Replace, SequencerDomainStateX]]]
+
+  /** Finds the topology transaction that first onboarded the mediator with ID `mediatorId`
+    */
   def findFirstMediatorStateForMediator(
       mediatorId: MediatorId
   )(implicit
       traceContext: TraceContext
   ): Future[Option[StoredTopologyTransactionX[TopologyChangeOpX.Replace, MediatorDomainStateX]]]
 
+  /** Finds the topology transaction that first onboarded the participant with ID `participantId`
+    */
   def findFirstTrustCertificateForParticipant(
       participant: ParticipantId
   )(implicit
       traceContext: TraceContext
   ): Future[Option[StoredTopologyTransactionX[TopologyChangeOpX.Replace, DomainTrustCertificateX]]]
 
-  def findEssentialStateForMember(
-      member: Member,
-      asOfInclusive: CantonTimestamp,
+  def findEssentialStateAtSequencedTime(
+      asOfInclusive: SequencedTime,
+      excludeMappings: Seq[TopologyMappingX.Code],
   )(implicit traceContext: TraceContext): Future[GenericStoredTopologyTransactionsX]
 
   protected def signedTxFromStoredTx(

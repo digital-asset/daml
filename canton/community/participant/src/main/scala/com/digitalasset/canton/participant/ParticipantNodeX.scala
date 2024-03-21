@@ -83,6 +83,7 @@ class ParticipantNodeBootstrapX(
       _ => Future.successful(SchedulersWithParticipantPruning.noop),
     private[canton] val persistentStateFactory: ParticipantNodePersistentStateFactory,
     ledgerApiServerFactory: CantonLedgerApiServerFactory,
+    setInitialized: () => Unit,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     scheduler: ScheduledExecutorService,
@@ -335,6 +336,9 @@ class ParticipantNodeBootstrapX(
           )
           addCloseable(node)
           Some(new RunningNode(bootstrapStageCallback, node))
+      }.map { node =>
+        setInitialized()
+        node
       }
     }
   }
@@ -349,7 +353,12 @@ class ParticipantNodeBootstrapX(
       criticalDependencies = Seq(storage),
       // The sync service won't be reporting Ok until the node is initialized, but that shouldn't prevent traffic from
       // reaching the node
-      Seq(syncDomainHealth, syncDomainEphemeralHealth, syncDomainSequencerClientHealth),
+      Seq(
+        syncDomainHealth,
+        syncDomainEphemeralHealth,
+        syncDomainSequencerClientHealth,
+        syncDomainAcsCommitmentProcessorHealth,
+      ),
     )
 
   override protected def setPostInitCallbacks(
@@ -387,6 +396,7 @@ object ParticipantNodeBootstrapX {
         createReplicationServiceFactory(arguments),
         persistentStateFactory = ParticipantNodePersistentStateFactory,
         ledgerApiServerFactory = ledgerApiServerFactory,
+        setInitialized = () => (),
       )
     }
   }

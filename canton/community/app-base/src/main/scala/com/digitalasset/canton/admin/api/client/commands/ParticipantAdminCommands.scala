@@ -40,6 +40,7 @@ import com.digitalasset.canton.participant.admin.grpc.{
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig as CDomainConnectionConfig
 import com.digitalasset.canton.participant.sync.UpstreamOffsetConvert
 import com.digitalasset.canton.protocol.LfContractId
+import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.serialization.ProtoConverter.InstantConverter
 import com.digitalasset.canton.topology.{DomainId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -736,14 +737,18 @@ object ParticipantAdminCommands {
       }
     }
 
-    final case class RegisterDomain(config: CDomainConnectionConfig, handshakeOnly: Boolean)
-        extends Base[RegisterDomainRequest, RegisterDomainResponse, Unit] {
+    final case class RegisterDomain(
+        config: CDomainConnectionConfig,
+        handshakeOnly: Boolean,
+        sequencerConnectionValidation: SequencerConnectionValidation,
+    ) extends Base[RegisterDomainRequest, RegisterDomainResponse, Unit] {
 
       override def createRequest(): Either[String, RegisterDomainRequest] =
         Right(
           RegisterDomainRequest(
             add = Some(config.toProtoV30),
             handshakeOnly = handshakeOnly,
+            sequencerConnectionValidation = sequencerConnectionValidation.toProtoV30,
           )
         )
 
@@ -761,11 +766,18 @@ object ParticipantAdminCommands {
 
     }
 
-    final case class ModifyDomainConnection(config: CDomainConnectionConfig)
-        extends Base[ModifyDomainRequest, ModifyDomainResponse, Unit] {
+    final case class ModifyDomainConnection(
+        config: CDomainConnectionConfig,
+        sequencerConnectionValidation: SequencerConnectionValidation,
+    ) extends Base[ModifyDomainRequest, ModifyDomainResponse, Unit] {
 
       override def createRequest(): Either[String, ModifyDomainRequest] =
-        Right(ModifyDomainRequest(modify = Some(config.toProtoV30)))
+        Right(
+          ModifyDomainRequest(
+            modify = Some(config.toProtoV30),
+            sequencerConnectionValidation = sequencerConnectionValidation.toProtoV30,
+          )
+        )
 
       override def submitRequest(
           service: DomainConnectivityServiceStub,

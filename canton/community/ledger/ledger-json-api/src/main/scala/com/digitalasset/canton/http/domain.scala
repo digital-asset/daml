@@ -5,7 +5,6 @@ package com.digitalasset.canton.http
 
 import org.apache.pekko.http.scaladsl.model.{StatusCode, StatusCodes}
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
-import com.daml.ledger.api.{v2 as lav2}
 import com.daml.ledger.api.v2 as lav2
 import com.daml.lf.typesig
 import com.daml.nonempty.NonEmpty
@@ -48,10 +47,6 @@ package object domain {
 
   type ResolvedContractRef[LfV] =
     (ContractTypeId.Template.RequiredPkg, LfV) \/ (ContractTypeId.RequiredPkg, ContractId)
-
-  type LedgerIdTag = lar.LedgerIdTag
-  type LedgerId = lar.LedgerId
-  val LedgerId = lar.LedgerId
 
   type ApplicationIdTag = lar.ApplicationIdTag
   type ApplicationId = lar.ApplicationId

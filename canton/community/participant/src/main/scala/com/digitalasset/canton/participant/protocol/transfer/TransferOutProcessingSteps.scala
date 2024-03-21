@@ -33,6 +33,12 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferOutProcesso
 }
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.{ProcessingSteps, ProtocolProcessor}
+import com.digitalasset.canton.participant.store.ActiveContractStore.{
+  Active,
+  Archived,
+  Purged,
+  TransferredAway,
+}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
 import com.digitalasset.canton.participant.util.DAMLe
@@ -48,6 +54,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{
+  LfPackageName,
   LfPartyId,
   RequestCounter,
   SequencerCounter,
@@ -132,16 +139,20 @@ class TransferOutProcessingSteps(
         ephemeralState.tracker
           .getApproximateStates(Seq(contractId))
           .map(_.get(contractId) match {
-            case Some(state) if state.status.isActive => Right(state.status.transferCounter)
             case Some(state) =>
-              Left(TransferOutProcessorError.DeactivatedContract(contractId, status = state.status))
+              state.status match {
+                case Active(tc) => Right(tc)
+                case Archived | Purged | _: TransferredAway =>
+                  Left(
+                    TransferOutProcessorError.DeactivatedContract(contractId, status = state.status)
+                  )
+              }
             case None => Left(TransferOutProcessorError.UnknownContract(contractId))
           })
       ).mapK(FutureUnlessShutdown.outcomeK)
 
       newTransferCounter <- EitherT.fromEither[FutureUnlessShutdown](
-        transferCounter
-          .traverse(_.increment)
+        transferCounter.increment
           .leftMap(_ => TransferOutProcessorError.TransferCounterOverflow)
       )
 
@@ -446,25 +457,6 @@ class TransferOutProcessingSteps(
       )
 
       requestId = RequestId(ts)
-      entry = PendingTransferOut(
-        requestId,
-        rc,
-        sc,
-        fullTree.tree.rootHash,
-        WithContractHash.fromContract(contract, fullTree.contractId),
-        fullTree.transferCounter,
-        contract.rawContractInstance.contractInstance.unversioned.template,
-        transferringParticipant,
-        fullTree.submitterMetadata,
-        transferId,
-        fullTree.targetDomain,
-        fullTree.stakeholders,
-        hostedStks.toSet,
-        fullTree.targetTimeProof,
-        transferInExclusivity,
-        mediator,
-      )
-
       transferOutDecisionTime <- ProcessingSteps
         .getDecisionTime(sourceSnapshot.ipsSnapshot, ts)
         .leftMap(TransferParametersError(domainId.unwrap, _))
@@ -501,16 +493,42 @@ class TransferOutProcessingSteps(
         confirmingStakeholders,
         fullTree.tree.rootHash,
       )
-    } yield StorePendingDataAndSendResponseAndCreateTimeout(
-      entry,
-      responseOpt.map(_ -> Recipients.cc(mediator)).toList,
-      RejectionArgs(
+    } yield {
+      // We consider that we rejected if at least one of the responses is not "approve'
+      val locallyRejected = responseOpt.exists { response => !response.localVerdict.isApprove }
+
+      val entry = PendingTransferOut(
+        requestId,
+        rc,
+        sc,
+        fullTree.tree.rootHash,
+        WithContractHash.fromContract(contract, fullTree.contractId),
+        fullTree.transferCounter,
+        contract.rawContractInstance.contractInstance.unversioned.template,
+        contract.rawContractInstance.contractInstance.unversioned.packageName,
+        transferringParticipant,
+        fullTree.submitterMetadata,
+        transferId,
+        fullTree.targetDomain,
+        fullTree.stakeholders,
+        hostedStks.toSet,
+        fullTree.targetTimeProof,
+        transferInExclusivity,
+        mediator,
+        locallyRejected,
+      )
+
+      StorePendingDataAndSendResponseAndCreateTimeout(
         entry,
-        LocalRejectError.TimeRejects.LocalTimeout
-          .Reject()
-          .toLocalReject(sourceDomainProtocolVersion.v),
-      ),
-    )
+        responseOpt.map(_ -> Recipients.cc(mediator)).toList,
+        RejectionArgs(
+          entry,
+          LocalRejectError.TimeRejects.LocalTimeout
+            .Reject()
+            .toLocalReject(sourceDomainProtocolVersion.v),
+        ),
+      )
+    }
   }
 
   private[this] def getTransferInExclusivity(
@@ -544,6 +562,7 @@ class TransferOutProcessingSteps(
       WithContractHash(contractId, contractHash),
       transferCounter,
       templateId,
+      packageName,
       transferringParticipant,
       submitterMetadata,
       transferId,
@@ -553,6 +572,7 @@ class TransferOutProcessingSteps(
       _targetTimeProof,
       transferInExclusivity,
       _mediatorId,
+      locallyRejected,
     ) = pendingRequestData
 
     val pendingSubmissionData = pendingSubmissionMap.get(rootHash)
@@ -574,7 +594,7 @@ class TransferOutProcessingSteps(
           creations = Map.empty,
           transferOuts = Map(
             contractId -> WithContractHash(
-              CommitSet.TransferOutCommit(targetDomain, stakeholders, Some(transferCounter)),
+              CommitSet.TransferOutCommit(targetDomain, stakeholders, transferCounter),
               contractHash,
             )
           ),
@@ -600,6 +620,7 @@ class TransferOutProcessingSteps(
           transferOutEvent <- createTransferredOut(
             contractId,
             templateId,
+            packageName,
             stakeholders,
             submitterMetadata,
             transferId,
@@ -631,6 +652,7 @@ class TransferOutProcessingSteps(
   private def createTransferredOut(
       contractId: LfContractId,
       templateId: LfTemplateId,
+      packageName: LfPackageName,
       contractStakeholders: Set[LfPartyId],
       submitterMetadata: TransferSubmitterMetadata,
       transferId: TransferId,
@@ -663,6 +685,7 @@ class TransferOutProcessingSteps(
       submitter = Option(submitterMetadata.submitter),
       contractId = contractId,
       templateId = Some(templateId),
+      packageName = packageName,
       contractStakeholders = contractStakeholders,
       transferId = transferId,
       targetDomain = targetDomain,
@@ -709,7 +732,7 @@ class TransferOutProcessingSteps(
       rootHash: RootHash,
   ): Option[ConfirmationResponse] = {
     val expectedPriorTransferCounter = Map[LfContractId, Option[ActiveContractStore.Status]](
-      contractId -> Some(ActiveContractStore.Active(Some(declaredTransferCounter - 1)))
+      contractId -> Some(ActiveContractStore.Active(declaredTransferCounter - 1))
     )
 
     val successful =
@@ -768,6 +791,7 @@ object TransferOutProcessingSteps {
       contractIdAndHash: WithContractHash[LfContractId],
       transferCounter: TransferCounter,
       templateId: LfTemplateId,
+      packageName: LfPackageName,
       transferringParticipant: Boolean,
       submitterMetadata: TransferSubmitterMetadata,
       transferId: TransferId,
@@ -777,6 +801,7 @@ object TransferOutProcessingSteps {
       targetTimeProof: TimeProof,
       transferInExclusivity: Option[CantonTimestamp],
       mediator: MediatorsOfDomain,
+      override val locallyRejected: Boolean,
   ) extends PendingTransfer
       with PendingRequestData {
 

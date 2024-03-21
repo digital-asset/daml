@@ -133,8 +133,8 @@ final class UserManagementServiceAuthorization(
     }
 
   override def updateUserIdentityProviderId(
-      request: UpdateUserIdentityProviderRequest
-  ): Future[UpdateUserIdentityProviderResponse] = {
+      request: UpdateUserIdentityProviderIdRequest
+  ): Future[UpdateUserIdentityProviderIdResponse] = {
     authorizer.requireAdminClaims(
       call = service.updateUserIdentityProviderId
     )(

@@ -477,28 +477,6 @@ class ErrorFactoriesSpec
       )
     }
 
-    "return a missingLedgerConfig error" in {
-      val msg =
-        s"LEDGER_CONFIGURATION_NOT_FOUND(11,$truncatedCorrelationId): The ledger configuration could not be retrieved."
-      assertError(
-        RequestValidationErrors.NotFound.LedgerConfiguration
-          .Reject()(contextualizedErrorLogger)
-      )(
-        code = Code.NOT_FOUND,
-        message = msg,
-        details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail(
-            "LEDGER_CONFIGURATION_NOT_FOUND",
-            Map("category" -> "11", "definite_answer" -> "false", "test" -> getClass.getSimpleName),
-          ),
-          expectedCorrelationIdRequestInfo,
-        ),
-        logLevel = Level.INFO,
-        logMessage = msg,
-        logErrorContextRegEx = expectedLocationRegex,
-      )
-    }
-
     "return an invalid deduplication period error" in {
       val errorDetailMessage = "message"
       val maxDeduplicationDuration = Duration.ofSeconds(5)
@@ -546,28 +524,6 @@ class ErrorFactoriesSpec
           ErrorDetails.ErrorInfoDetail(
             "INVALID_FIELD",
             Map("category" -> "8", "definite_answer" -> "false", "test" -> getClass.getSimpleName),
-          ),
-          expectedCorrelationIdRequestInfo,
-        ),
-        logLevel = Level.INFO,
-        logMessage = msg,
-        logErrorContextRegEx = expectedLocationRegex,
-      )
-    }
-
-    "return a ledgerIdMismatch error" in {
-      val msg =
-        s"LEDGER_ID_MISMATCH(11,$truncatedCorrelationId): Ledger ID 'received' not found. Actual Ledger ID is 'expected'."
-      assertError(
-        RequestValidationErrors.LedgerIdMismatch
-          .Reject("expected", "received")(contextualizedErrorLogger)
-      )(
-        code = Code.NOT_FOUND,
-        message = msg,
-        details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail(
-            "LEDGER_ID_MISMATCH",
-            Map("category" -> "11", "definite_answer" -> "true", "test" -> getClass.getSimpleName),
           ),
           expectedCorrelationIdRequestInfo,
         ),

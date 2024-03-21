@@ -12,5 +12,5 @@ and test the connection.
 The simple topology example can be invoked using
 
 ```
-       ../../bin/canton -c simple-topology-x.conf --bootstrap simple-ping.canton
+       ../../bin/canton -c simple-topology.conf --bootstrap simple-ping.canton
 ```

@@ -19,7 +19,6 @@ import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{
   DeduplicationDuration,
   DeduplicationOffset,
 }
-import com.digitalasset.canton.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{Reassignment, ReassignmentInfo, Update}
 import com.digitalasset.canton.ledger.participant.state.v2 as state
@@ -64,25 +63,13 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
   "UpdateToDbDto" should {
 
-    "handle ConfigurationChanged" in {
-      val update = state.Update.ConfigurationChanged(
-        someRecordTime,
-        someSubmissionId,
-        someParticipantId,
-        someConfiguration,
+    "handle Init" in {
+      val update = state.Update.Init(
+        someRecordTime
       )
       val dtos = updateToDtos(update)
 
-      dtos should contain theSameElementsInOrderAs List(
-        DbDto.ConfigurationEntry(
-          ledger_offset = someOffset.toHexString,
-          recorded_at = someRecordTime.micros,
-          submission_id = someSubmissionId,
-          typ = JdbcLedgerDao.acceptType,
-          configuration = Configuration.encode(update.newConfiguration).toByteArray,
-          rejection_reason = None,
-        )
-      )
+      dtos shouldBe empty
     }
 
     "handle PartyAddedToParticipant (local party)" in {
@@ -406,6 +393,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = EventId(transactionId, exerciseNodeId).toLedgerString,
           contract_id = exerciseNode.targetCoid.coid,
           template_id = exerciseNode.templateId.toString,
+          package_name = exerciseNode.packageName,
           flat_event_witnesses = Set("signatory", "observer"), // stakeholders
           tree_event_witnesses = Set("signatory", "observer"), // informees
           create_key_value = None,
@@ -511,6 +499,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = EventId(transactionId, exerciseNodeId).toLedgerString,
           contract_id = exerciseNode.targetCoid.coid,
           template_id = exerciseNode.templateId.toString,
+          package_name = exerciseNode.packageName,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -636,6 +625,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = EventId(transactionId, exerciseNodeAId).toLedgerString,
           contract_id = exerciseNodeA.targetCoid.coid,
           template_id = exerciseNodeA.templateId.toString,
+          package_name = exerciseNodeA.packageName,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -672,6 +662,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = EventId(transactionId, exerciseNodeBId).toLedgerString,
           contract_id = exerciseNodeB.targetCoid.coid,
           template_id = exerciseNodeB.templateId.toString,
+          package_name = exerciseNodeB.packageName,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -705,6 +696,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = EventId(transactionId, exerciseNodeCId).toLedgerString,
           contract_id = exerciseNodeC.targetCoid.coid,
           template_id = exerciseNodeC.templateId.toString,
+          package_name = exerciseNodeC.packageName,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -881,6 +873,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = EventId(transactionId, exerciseNodeId).toLedgerString,
           contract_id = exerciseNode.targetCoid.coid,
           template_id = exerciseNode.templateId.toString,
+          package_name = exerciseNode.packageName,
           flat_event_witnesses = Set("signatory", "observer"),
           tree_event_witnesses = Set("signatory", "observer", "divulgee"),
           create_key_value = None,
@@ -1025,6 +1018,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_id = EventId(transactionId, exerciseNodeId).toLedgerString,
         contract_id = exerciseNode.targetCoid.coid,
         template_id = exerciseNode.templateId.toString,
+        package_name = exerciseNode.packageName,
         flat_event_witnesses = Set("signatory", "observer"),
         tree_event_witnesses = Set("signatory", "observer", "divulgee"),
         create_key_value = None,
@@ -1572,6 +1566,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         reassignment = Reassignment.Unassign(
           contractId = contractId,
           templateId = createNode.templateId,
+          packageName = createNode.packageName,
           stakeholders =
             List("signatory12", "observer23", "asdasdasd").map(Ref.Party.assertFromString),
           assignmentExclusivity = Some(Time.Timestamp.assertFromLong(123456)),
@@ -1588,6 +1583,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         submitter = someParty,
         contract_id = createNode.coid.coid,
         template_id = createNode.templateId.toString,
+        package_name = createNode.packageName,
         flat_event_witnesses = Set("signatory12", "observer23", "asdasdasd"),
         event_sequential_id = 0,
         source_domain_id = "x::domain1",
@@ -1704,8 +1700,6 @@ object UpdateToDbDtoSpec {
   private val someSubmissionId =
     Ref.SubmissionId.assertFromString("UpdateToDbDtoSpecSubmissionId")
   private val someWorkflowId = Ref.WorkflowId.assertFromString("UpdateToDbDtoSpecWorkflowId")
-  private val someConfiguration =
-    Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofHours(23))
   private val someParty = Ref.Party.assertFromString("UpdateToDbDtoSpecParty")
   private val someHash =
     crypto.Hash.assertFromString("01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086")

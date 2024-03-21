@@ -33,12 +33,8 @@ import com.daml.lf.command._
 import com.daml.lf.crypto.Hash
 import com.daml.lf.engine.Error.Interpretation
 import com.daml.lf.engine.Error.Interpretation.DamlException
-import com.daml.lf.language.{
-  LanguageMajorVersion,
-  LanguageVersion,
-  PackageInterface,
-  StablePackages,
-}
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, PackageInterface}
+import com.daml.lf.stablepackages.StablePackages
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContainer

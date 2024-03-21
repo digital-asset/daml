@@ -9,7 +9,7 @@ import com.digitalasset.canton.http.Generators.{
   nonEmptySetOf,
 }
 import com.digitalasset.canton.http.PackageService.TemplateIdMap
-import com.daml.ledger.api.{v2 as lav2}
+import com.daml.ledger.api.v2 as lav2
 import org.scalacheck.Shrink
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.Inside

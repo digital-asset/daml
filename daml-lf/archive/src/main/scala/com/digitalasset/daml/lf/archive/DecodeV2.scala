@@ -409,6 +409,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     }
 
     private def decodeDefValue(lfValue: PLF.DefValue): Work[DValue] = {
+      if (lfValue.getIsTest) {
+        assertSince(LV.Features.scenarios, "is_test")
+      }
       val name = getInternedDottedName(lfValue.getNameWithType.getNameInternedDname)
       decodeType(lfValue.getNameWithType.getType) { typ =>
         decodeExpr(lfValue.getExpr, name.toString) { body =>
@@ -1604,7 +1607,7 @@ private[lf] object DecodeV2 {
       BuiltinTypeInfo(CONTRACT_ID, BTContractId),
       BuiltinTypeInfo(DATE, BTDate),
       BuiltinTypeInfo(OPTIONAL, BTOptional),
-      BuiltinTypeInfo(TEXTMAP, BTTextMap),
+      BuiltinTypeInfo(TEXTMAP, BTTextMap, minVersion = LV.Features.textMap),
       BuiltinTypeInfo(GENMAP, BTGenMap),
       BuiltinTypeInfo(ARROW, BTArrow),
       BuiltinTypeInfo(NUMERIC, BTNumeric),
@@ -1652,12 +1655,12 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(NUMERIC_TO_INT64, BNumericToInt64),
       BuiltinFunctionInfo(FOLDL, BFoldl),
       BuiltinFunctionInfo(FOLDR, BFoldr),
-      BuiltinFunctionInfo(TEXTMAP_EMPTY, BTextMapEmpty),
-      BuiltinFunctionInfo(TEXTMAP_INSERT, BTextMapInsert),
-      BuiltinFunctionInfo(TEXTMAP_LOOKUP, BTextMapLookup),
-      BuiltinFunctionInfo(TEXTMAP_DELETE, BTextMapDelete),
-      BuiltinFunctionInfo(TEXTMAP_TO_LIST, BTextMapToList),
-      BuiltinFunctionInfo(TEXTMAP_SIZE, BTextMapSize),
+      BuiltinFunctionInfo(TEXTMAP_EMPTY, BTextMapEmpty, minVersion = LV.Features.textMap),
+      BuiltinFunctionInfo(TEXTMAP_INSERT, BTextMapInsert, minVersion = LV.Features.textMap),
+      BuiltinFunctionInfo(TEXTMAP_LOOKUP, BTextMapLookup, minVersion = LV.Features.textMap),
+      BuiltinFunctionInfo(TEXTMAP_DELETE, BTextMapDelete, minVersion = LV.Features.textMap),
+      BuiltinFunctionInfo(TEXTMAP_TO_LIST, BTextMapToList, minVersion = LV.Features.textMap),
+      BuiltinFunctionInfo(TEXTMAP_SIZE, BTextMapSize, minVersion = LV.Features.textMap),
       BuiltinFunctionInfo(GENMAP_EMPTY, BGenMapEmpty),
       BuiltinFunctionInfo(GENMAP_INSERT, BGenMapInsert),
       BuiltinFunctionInfo(GENMAP_LOOKUP, BGenMapLookup),

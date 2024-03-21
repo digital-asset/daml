@@ -25,9 +25,9 @@ val paintId = bootstrap.domain(
 // update parameters
 // disable automatic assignments
 iouDomainOwner.topology.domain_parameters
-  .set_transfer_exclusivity_timeout(iouId, 0 seconds)
+  .propose_update(iouId, _.update(transferExclusivityTimeout = 0 seconds))
 paintDomainOwner.topology.domain_parameters
-  .set_transfer_exclusivity_timeout(paintId, 2 seconds)
+  .propose_update(paintId, _.update(transferExclusivityTimeout = 2 seconds))
 
 // connect participants to the domains
 participant1.domains.connect_local(iou_sequencer, alias = iouAlias)
@@ -48,7 +48,7 @@ participant3.parties.await_topology_observed(partyAssignment)
 
 // upload the Daml model to all participants
 val darPath = Option(System.getProperty("canton-examples.dar-path")).getOrElse("dars/CantonExamples.dar")
-participantsX.all.dars.upload(darPath)
+participants.all.dars.upload(darPath)
 // architecture-handbook-entry-end: topology
 
 // architecture-handbook-entry-begin: imports

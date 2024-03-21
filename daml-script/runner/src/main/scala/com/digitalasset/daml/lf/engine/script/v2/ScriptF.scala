@@ -25,11 +25,12 @@ import com.daml.lf.data.Ref.{
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
-import com.daml.lf.language.{Ast, LanguageVersion, StablePackagesV2}
+import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.speedy.SBuiltinFun.SBVariantCon
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.stablepackages.StablePackagesV2
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import scalaz.{Foldable, OneAnd}

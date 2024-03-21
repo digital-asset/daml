@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.domain.mediator.admin.gprc
 
-import com.digitalasset.canton.domain.admin.v30
+import com.digitalasset.canton.mediator.admin.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 
 final case class InitializeMediatorResponseX() {

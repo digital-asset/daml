@@ -7,7 +7,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.time.TimeProvider
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.google.protobuf.ByteString
-import io.grpc.BindableService
+import io.grpc.ServerServiceDefinition
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.stream.{KillSwitch, Materializer}
 import pureconfig.{ConfigReader, ConfigWriter}
@@ -63,7 +63,7 @@ object BlockOrderingSequencer {
 
     private val logger = loggerFactory.getTracedLogger(getClass)
 
-    override def adminServices: Seq[BindableService] =
+    override def adminServices: Seq[ServerServiceDefinition] =
       // This is a bit of a semantic abuse, as not all exposed services will be administrative (e.g., P2P);
       // perhaps we can rename the field in the sequencer API.
       blockOrderer.grpcServices

@@ -5,10 +5,10 @@ package com.digitalasset.canton.domain.mediator
 
 import cats.data.EitherT
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.domain.admin.v30.MediatorAdministrationServiceGrpc
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.lifecycle.{AsyncOrSyncCloseable, FlagCloseableAsync, SyncCloseable}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.mediator.admin.v30.MediatorAdministrationServiceGrpc
 import com.digitalasset.canton.networking.grpc.{CantonMutableHandlerRegistry, GrpcDynamicService}
 import com.digitalasset.canton.time.admin.v30
 import com.digitalasset.canton.tracing.TraceContext
@@ -48,10 +48,8 @@ trait MediatorReplicaManager extends NamedLogging with FlagCloseableAsync {
   def isActive: Boolean
 
   def getTopologyQueueStatus: TopologyQueueStatus = TopologyQueueStatus(
-    manager =
-      mediatorRuntime.flatMap(_.mediator.topologyManagerStatusO).map(_.queueSize).getOrElse(0),
-    dispatcher =
-      mediatorRuntime.flatMap(_.mediator.domainOutboxStatusO).map(_.queueSize).getOrElse(0),
+    manager = mediatorRuntime.map(_.mediator.topologyManagerStatus.queueSize).getOrElse(0),
+    dispatcher = mediatorRuntime.map(_.mediator.domainOutboxStatus.queueSize).getOrElse(0),
     clients = mediatorRuntime.map(x => x.mediator.topologyClient.numPendingChanges).getOrElse(0),
   )
 

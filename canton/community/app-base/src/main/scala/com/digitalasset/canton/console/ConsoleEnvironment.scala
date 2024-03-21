@@ -326,10 +326,7 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
       locals: Seq[LocalInstanceReference]*
   ): Seq[LocalInstanceReference] =
     locals.flatten
-  def mergeLocalInstancesX(
-      locals: Seq[LocalInstanceReference]*
-  ): Seq[LocalInstanceReference] =
-    locals.flatten
+
   def mergeRemoteInstances(remotes: Seq[InstanceReference]*): Seq[InstanceReference] =
     remotes.flatten
 
@@ -395,20 +392,20 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
     localParticipantXBinds ++ remoteParticipantXBinds ++
       localSequencerXBinds ++ remoteSequencerXBinds ++ localMediatorXBinds ++ remoteMediatorXBinds ++ clockBinds.toList :+
       TopLevelValue(
-        "participantsX",
-        "All participant x nodes" + genericNodeReferencesDoc,
+        "participants",
+        "All participant nodes" + genericNodeReferencesDoc,
         participants,
         referencesTopic,
       ) :+
       TopLevelValue(
-        "mediatorsX",
-        "All mediator-x nodes" + genericNodeReferencesDoc,
+        "mediators",
+        "All mediator nodes" + genericNodeReferencesDoc,
         mediators,
         referencesTopic,
       ) :+
       TopLevelValue(
-        "sequencersX",
-        "All sequencer-x nodes" + genericNodeReferencesDoc,
+        "sequencers",
+        "All sequencer nodes" + genericNodeReferencesDoc,
         sequencers,
         referencesTopic,
       ) :+

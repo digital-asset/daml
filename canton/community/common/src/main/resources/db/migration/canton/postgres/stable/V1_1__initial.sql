@@ -194,7 +194,7 @@ create table common_topology_dispatching (
 create type change_type as enum ('deactivation', 'activation');
 
 -- The specific operation type that introduced a contract change.
-create type operation_type as enum ('create', 'transfer-in', 'archive', 'transfer-out');
+create type operation_type as enum ('create', 'add', 'transfer-in', 'archive', 'purge', 'transfer-out');
 
 -- Maintains the status of contracts
 create table par_active_contracts (
@@ -207,8 +207,8 @@ create table par_active_contracts (
     ts bigint not null,
     -- Request counter of the time of change
     request_counter bigint not null,
-    -- optional remote domain id in case of transfers
-    remote_domain_id int,
+    -- optional remote domain index in case of transfers
+    remote_domain_idx int,
     transfer_counter bigint default null,
     primary key (domain_id, contract_id, ts, request_counter, change)
 );
@@ -1005,11 +1005,10 @@ create table ord_pbft_messages(
     discriminator smallint not null,
 
     -- sender of the message
-    from_host varchar(300) collate "C" not null,
-    from_port smallint not null,
+    from_sequencer_id varchar(300) collate "C" not null,
 
     -- for each block number, we only expect one message of each kind for the same sender.
     -- in the case of pre-prepare, we only expect one message for the whole block, but for simplicity
     -- we won't differentiate that at the database level.
-    primary key (block_number, from_host, from_port, discriminator)
+    primary key (block_number, from_sequencer_id, discriminator)
 );

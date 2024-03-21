@@ -66,15 +66,25 @@ message ReconnectDomainsResponse {}
 message RegisterDomainRequest {
   DomainConnectionConfig add = 1;
 
-  // If true, only performs the handshake but does not connect to the domain
+  // If true, only performs the handshake but does not establish an active connection to the domain
   // Note that in that case domain connection will need to be performed subsequently
+  // This will invoke the "handshake" with the sequencer_connect_service and persist the static
+  // domain parameters for the given domain connection.
+  // This is useful during major version upgrades where we need to locally initialize the domain
+  // connection, but don't want to start processing contracts before we have imported the ACS.
   bool handshake_only = 2;
+
+  // Determines how well the provided sequencer connections should be validated before they are
+  // persisted. The more paranoid the validation, the higher the chance of the command failing,
+  // as it will require the sequencer to be online and responsive.
+  com.digitalasset.canton.admin.domain.v30.SequencerConnectionValidation sequencer_connection_validation = 3;
 }
 
 message RegisterDomainResponse {}
 
 message ModifyDomainRequest {
   DomainConnectionConfig modify = 1;
+  com.digitalasset.canton.admin.domain.v30.SequencerConnectionValidation sequencer_connection_validation = 2;
 }
 
 message ModifyDomainResponse {}

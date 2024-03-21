@@ -204,3 +204,37 @@ object SequencerConnections
     )
   )
 }
+
+sealed trait SequencerConnectionValidation {
+  def toProtoV30: v30.SequencerConnectionValidation
+}
+object SequencerConnectionValidation {
+  object Disabled extends SequencerConnectionValidation {
+    override val toProtoV30: v30.SequencerConnectionValidation =
+      v30.SequencerConnectionValidation.DISABLED
+  }
+  object All extends SequencerConnectionValidation {
+    override val toProtoV30: v30.SequencerConnectionValidation =
+      v30.SequencerConnectionValidation.ALL
+  }
+  object Active extends SequencerConnectionValidation {
+    override val toProtoV30: v30.SequencerConnectionValidation =
+      v30.SequencerConnectionValidation.ACTIVE
+  }
+
+  def fromProtoV30(
+      proto: v30.SequencerConnectionValidation
+  ): ParsingResult[SequencerConnectionValidation] =
+    proto match {
+      case v30.SequencerConnectionValidation.DISABLED => Right(Disabled)
+      case v30.SequencerConnectionValidation.ALL => Right(All)
+      case v30.SequencerConnectionValidation.ACTIVE => Right(Active)
+      case _ =>
+        Left(
+          ProtoDeserializationError.ValueConversionError(
+            "sequencer_connection_validation",
+            s"Unknown value: $proto",
+          )
+        )
+    }
+}

@@ -12,10 +12,6 @@ da_scala_library(
     srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
-        "@maven//:com_chuusai_shapeless",
-        "@maven//:com_github_pureconfig_pureconfig_core",
-        "@maven//:com_github_pureconfig_pureconfig_generic",
-        "@maven//:com_github_scopt_scopt",
         "@maven//:com_thesamet_scalapb_scalapb_runtime",
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
@@ -27,23 +23,15 @@ da_scala_library(
     ],
     runtime_deps = [],
     deps = [
-        "//libs-scala/build-info",
         "//libs-scala/concurrent",
         "//libs-scala/scala-utils",
         "@maven//:com_google_code_findbugs_jsr305",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:io_dropwizard_metrics_metrics_graphite",
-        "@maven//:io_dropwizard_metrics_metrics_jvm",
         "@maven//:io_grpc_grpc_api",
-        "@maven//:io_opentelemetry_instrumentation_opentelemetry_runtime_metrics",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_opentelemetry_opentelemetry_sdk_common",
         "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
-        "@maven//:io_prometheus_simpleclient",
-        "@maven//:io_prometheus_simpleclient_dropwizard",
-        "@maven//:io_prometheus_simpleclient_httpserver",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -61,7 +49,6 @@ da_scala_library(
     deps = [
         ":metrics",
         "//libs-scala/scala-utils",
-        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
 

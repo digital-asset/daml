@@ -4,7 +4,7 @@
 package com.digitalasset.canton.http.json
 
 import com.digitalasset.canton.http.domain
-import com.daml.ledger.api.{v2 as lav2}
+import com.daml.ledger.api.v2 as lav2
 import scalaz.\/
 import scalaz.syntax.bitraverse.*
 import scalaz.syntax.show.*

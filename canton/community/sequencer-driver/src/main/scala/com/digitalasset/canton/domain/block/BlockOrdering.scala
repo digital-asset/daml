@@ -7,7 +7,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.time.TimeProvider
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.google.protobuf.ByteString
-import io.grpc.BindableService
+import io.grpc.ServerServiceDefinition
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.stream.{KillSwitch, Materializer}
 import pureconfig.{ConfigReader, ConfigWriter}
@@ -43,7 +43,7 @@ trait BlockOrderer extends AutoCloseable {
 
   /** Additional services exposed by the [[com.digitalasset.canton.domain.block.BlockOrderer]], e.g., to other peer nodes.
     */
-  def grpcServices: Seq[BindableService]
+  def grpcServices: Seq[ServerServiceDefinition]
 
   /** Send a request.
     * Requests are ordered and delivered as [[com.digitalasset.canton.domain.block.BlockOrderer.Block]] to subscribers.

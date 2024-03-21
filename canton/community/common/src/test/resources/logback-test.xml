@@ -39,6 +39,9 @@
     <appender-ref ref="LAST_ERRORS" />
   </root>
 
+  <!-- Ensure everything is logged before the JVM exits -->
+  <shutdownHook class="ch.qos.logback.core.hook.DefaultShutdownHook" />
+
   <!-- Note that com.daml logs valuable info at TRACE level.
        Set to TRACE for troubleshooting.
   -->

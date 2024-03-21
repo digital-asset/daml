@@ -11,7 +11,11 @@ import com.daml.metrics.api.MetricHandle.Timer
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{LoggerUtil, Thereafter}
-import com.digitalasset.canton.{DoNotDiscardLikeFuture, DoNotTraverseLikeFuture}
+import com.digitalasset.canton.{
+  DoNotDiscardLikeFuture,
+  DoNotReturnFromSynchronizedLikeFuture,
+  DoNotTraverseLikeFuture,
+}
 
 import scala.concurrent.{Awaitable, ExecutionContext, Future}
 import scala.util.chaining.*
@@ -85,6 +89,7 @@ sealed abstract class FutureUnlessShutdownImpl {
     */
   @DoNotDiscardLikeFuture
   @DoNotTraverseLikeFuture
+  @DoNotReturnFromSynchronizedLikeFuture
   type FutureUnlessShutdown[+A] <: Awaitable[UnlessShutdown[A]]
 
   /** Methods to evidence that [[FutureUnlessShutdown]] and [[scala.concurrent.Future]]`[`[[UnlessShutdown]]`]`

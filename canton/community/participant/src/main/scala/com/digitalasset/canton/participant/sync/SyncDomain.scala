@@ -64,6 +64,7 @@ import com.digitalasset.canton.participant.traffic.{
   ParticipantTrafficControlSubscriber,
   TrafficStateController,
 }
+import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
 import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
@@ -164,6 +165,9 @@ class SyncDomain(
       loggerFactory,
     )
 
+  private val packageResolver: PackageResolver = pkgId =>
+    traceContext => packageService.getPackage(pkgId)(traceContext)
+
   private val damle =
     new DAMLe(
       pkgId => traceContext => packageService.getPackage(pkgId)(traceContext),
@@ -187,6 +191,7 @@ class SyncDomain(
     timeouts,
     loggerFactory,
     futureSupervisor,
+    packageResolver = packageResolver,
     enableContractUpgrading = parameters.enableContractUpgrading,
   )
 
@@ -242,7 +247,7 @@ class SyncDomain(
     loggerFactory,
   )
 
-  private val acsCommitmentProcessor = {
+  private[canton] val acsCommitmentProcessor = {
     val listener = new AcsCommitmentProcessor(
       domainId,
       participantId,
@@ -253,7 +258,6 @@ class SyncDomain(
       journalGarbageCollector.observer,
       pruningMetrics,
       staticDomainParameters.protocolVersion,
-      staticDomainParameters.acsCommitmentsCatchUp,
       timeouts,
       futureSupervisor,
       persistent.activeContractStore,
@@ -269,7 +273,12 @@ class SyncDomain(
   )
 
   private val trafficProcessor =
-    new TrafficControlProcessor(domainCrypto, domainId, loggerFactory)
+    new TrafficControlProcessor(
+      domainCrypto,
+      domainId,
+      Option.empty[CantonTimestamp],
+      loggerFactory,
+    )
 
   if (parameters.useNewTrafficControl) {
     trafficProcessor.subscribe(
@@ -432,8 +441,8 @@ class SyncDomain(
           val changeWithAdjustedTransferCountersForUnassignments = ActiveContractIdsChange(
             change.activations,
             change.deactivations.fmap {
-              case StateChangeType(ContractChange.Unassigned, transferCounter) =>
-                StateChangeType(ContractChange.Unassigned, transferCounter.map(_ - 1))
+              case StateChangeType(ContractChange.TransferredOut, transferCounter) =>
+                StateChangeType(ContractChange.TransferredOut, transferCounter - 1)
               case change => change
             },
           )

@@ -11,7 +11,6 @@ import com.daml.lf.data.{Bytes, ImmArray, Ref}
 import com.daml.lf.value.Value as Lf
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
-import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.topology.DomainId
 import scalaz.@@
@@ -153,22 +152,6 @@ object Commands {
       "deduplicationPeriod" -> commands.deduplicationPeriod,
     )
   }
-}
-
-/** Configuration entry describes a change to the current configuration. */
-sealed abstract class ConfigurationEntry extends Product with Serializable
-
-object ConfigurationEntry {
-  final case class Accepted(
-      submissionId: String,
-      configuration: Configuration,
-  ) extends ConfigurationEntry
-
-  final case class Rejected(
-      submissionId: String,
-      rejectionReason: String,
-      proposedConfiguration: Configuration,
-  ) extends ConfigurationEntry
 }
 
 sealed abstract class PackageEntry() extends Product with Serializable

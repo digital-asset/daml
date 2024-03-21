@@ -26,7 +26,6 @@ import com.daml.metrics.{Timed, Tracked}
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, DisclosedContract}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
-import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.participant.state.index.v2.{
   ContractState,
   ContractStore,
@@ -78,7 +77,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
   override def execute(
       commands: ApiCommands,
       submissionSeed: crypto.Hash,
-      ledgerConfiguration: Configuration,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
@@ -119,7 +117,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
           commandExecutionResult(
             commands,
             submissionSeed,
-            ledgerConfiguration,
             updateTx,
             meta,
             interpretationTimeNanos,
@@ -131,7 +128,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
   private def commandExecutionResult(
       commands: ApiCommands,
       submissionSeed: crypto.Hash,
-      ledgerConfiguration: Configuration,
       updateTx: SubmittedTransaction,
       meta: Transaction.Metadata,
       interpretationTimeNanos: Long,
@@ -146,7 +142,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
         commands.commandId.unwrap,
         commands.deduplicationPeriod,
         commands.submissionId.map(_.unwrap),
-        ledgerConfiguration,
       ),
       optDomainId = commands.domainId,
       transactionMeta = state.TransactionMeta(

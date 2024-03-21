@@ -67,15 +67,21 @@ class DispatcherState(
     }
   })
 
-  def stopDispatcher(): Future[Unit] = blocking(synchronized {
-
-    dispatcherStateRef match {
-      case DispatcherNotRunning | DispatcherStateShutdown =>
-        logger.debug(s"$ServiceName already stopped, shutdown or never started.")
-        Future.unit
-      case DispatcherRunning(dispatcher) =>
-        logger.info(s"Stopping active $ServiceName.")
-        dispatcherStateRef = DispatcherNotRunning
+  def stopDispatcher(): Future[Unit] = {
+    val dispatcherToCancel = blocking(synchronized {
+      dispatcherStateRef match {
+        case DispatcherNotRunning | DispatcherStateShutdown =>
+          logger.debug(s"$ServiceName already stopped, shutdown or never started.")
+          None
+        case DispatcherRunning(dispatcher) =>
+          logger.info(s"Stopping active $ServiceName.")
+          dispatcherStateRef = DispatcherNotRunning
+          Some(dispatcher)
+      }
+    })
+    dispatcherToCancel match {
+      case None => Future.unit
+      case Some(dispatcher) =>
         dispatcher
           .cancel(() => dispatcherNotRunning)
           .transform {
@@ -87,14 +93,15 @@ class DispatcherState(
               f
           }(directEc)
     }
-  })
+  }
 
-  private[platform] def shutdown(): Future[Unit] = blocking(synchronized {
+  private[platform] def shutdown(): Future[Unit] = {
     logger.info(s"Shutting down $ServiceName state.")
-
-    val currentDispatcherState = dispatcherStateRef
-    dispatcherStateRef = DispatcherStateShutdown
-
+    val currentDispatcherState = blocking(synchronized {
+      val currentDispatcherState = dispatcherStateRef
+      dispatcherStateRef = DispatcherStateShutdown
+      currentDispatcherState
+    })
     currentDispatcherState match {
       case DispatcherNotRunning =>
         logger.info(s"$ServiceName not running. Transitioned to shutdown.")
@@ -119,7 +126,7 @@ class DispatcherState(
               f
           }(directEc)
     }
-  })
+  }
 
   private def buildDispatcher(initializationOffset: Offset): Dispatcher[Offset] =
     Dispatcher(

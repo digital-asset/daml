@@ -48,9 +48,8 @@ trait ReadService extends ReportsHealth with InternalStateServiceProvider {
     *   strictly smaller than `o2`.
     *
     * - *initialize before transaction acceptance*: before any
-    *   [[Update.TransactionAccepted]], there is a [[Update.ConfigurationChanged]] update
-    *   and [[Update.PublicPackageUpload]] updates for all packages referenced by
-    *   the [[Update.TransactionAccepted]].
+    *   [[Update.TransactionAccepted]], there are [[Update.PublicPackageUpload]] updates for all
+    *   packages referenced by the [[Update.TransactionAccepted]].
     *
     * - *causal monotonicity*: given a [[Update.TransactionAccepted]] with an associated
     *   ledger time `lt_tx`, it holds that `lt_tx >= lt_c` for all `c`, where `c` is a
@@ -66,8 +65,7 @@ trait ReadService extends ReportsHealth with InternalStateServiceProvider {
     * - *time skew*: given a [[Update.TransactionAccepted]] with an associated
     * ledger time `lt_tx` and a record time `rt_tx`, it holds that
     * `rt_TX - minSkew <= lt_TX <= rt_TX + maxSkew`, where `minSkew` and `maxSkew`
-    * are parameters specified in the ledger [[com.digitalasset.canton.ledger.configuration.LedgerTimeModel]]
-    * of the last [[Update.ConfigurationChanged]] before the [[Update.TransactionAccepted]].
+    * are parameters specified in the ledger [[com.digitalasset.canton.ledger.configuration.LedgerTimeModel]].
     *
     * - *command deduplication*: Let there be a [[Update.TransactionAccepted]] with [[CompletionInfo]]
     *   or a [[Update.CommandRejected]] with [[CompletionInfo]] at offset `off2`.

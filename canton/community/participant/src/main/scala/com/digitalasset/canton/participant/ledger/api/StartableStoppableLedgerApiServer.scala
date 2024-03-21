@@ -16,7 +16,6 @@ import com.digitalasset.canton.concurrent.{
 import com.digitalasset.canton.config.{MemoryStorageConfig, ProcessingTimeout}
 import com.digitalasset.canton.http.HttpApiServer
 import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader
-import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{Filters, TransactionFilter}
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
@@ -58,7 +57,7 @@ import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.{DiscardOps, LfPartyId}
 import io.grpc.ServerInterceptor
 import io.opentelemetry.api.trace.Tracer
-import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTracing
+import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTelemetry
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.Source
@@ -263,7 +262,6 @@ class StartableStoppableLedgerApiServer(
       }
       indexService <- new IndexServiceOwner(
         dbSupport = dbSupport,
-        ledgerId = domain.LedgerId(config.ledgerId),
         config = indexServiceConfig,
         participantId = config.participantId,
         metrics = config.metrics,
@@ -316,11 +314,10 @@ class StartableStoppableLedgerApiServer(
           loggerFactory,
         ),
         partyRecordStore = partyRecordStore,
-        ledgerId = config.ledgerId,
         participantId = config.participantId,
         apiStreamShutdownTimeout = config.serverConfig.apiStreamShutdownTimeout,
         command = config.serverConfig.commandService,
-        configurationLoadTimeout = config.serverConfig.configurationLoadTimeout,
+        initSyncTimeout = config.serverConfig.initSyncTimeout,
         managementServiceTimeout = config.serverConfig.managementServiceTimeout,
         userManagement = config.serverConfig.userManagementService,
         tls = config.serverConfig.tls
@@ -345,6 +342,7 @@ class StartableStoppableLedgerApiServer(
         servicesExecutionContext = executionContext,
         checkOverloaded = config.syncService.checkOverloaded,
         ledgerFeatures = getLedgerFeatures,
+        maxDeduplicationDuration = config.maxDeduplicationDuration,
         authService = authService,
         jwtVerifierLoader = jwtVerifierLoader,
         jwtTimestampLeeway =
@@ -405,7 +403,7 @@ class StartableStoppableLedgerApiServer(
       config.loggerFactory,
       config.cantonParameterConfig.loggingConfig.api,
     ),
-    GrpcTracing
+    GrpcTelemetry
       .builder(config.tracerProvider.openTelemetry)
       .build()
       .newServerInterceptor(),

@@ -101,7 +101,7 @@ import           Control.Monad.Extra
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Ast.Numeric
-import           DA.Daml.Options.Types (EnableScenarios (..), AllowLargeTuples (..))
+import           DA.Daml.Options.Types (EnableScenarios (..), EnableInterfaces (..), AllowLargeTuples (..))
 import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
 import           Data.Int
@@ -145,6 +145,7 @@ data Env = Env
     -- packages does not cause performance issues.
     ,envLfVersion :: LF.Version
     ,envEnableScenarios :: EnableScenarios
+    ,envEnableInterfaces :: EnableInterfaces
     ,envAllowLargeTuples :: AllowLargeTuples
     ,envUserWrittenTuple :: Bool
     ,envTypeVars :: !(MS.Map Var TypeVarName)
@@ -157,12 +158,13 @@ data Env = Env
 mkEnv ::
      LF.Version
   -> EnableScenarios
+  -> EnableInterfaces
   -> AllowLargeTuples
   -> MS.Map UnitId DalfPackage
   -> MS.Map (UnitId, LF.ModuleName) PackageId
   -> GHC.Module
   -> Env
-mkEnv envLfVersion envEnableScenarios envAllowLargeTuples envPkgMap envStablePackages ghcModule = do
+mkEnv envLfVersion envEnableScenarios envEnableInterfaces envAllowLargeTuples envPkgMap envStablePackages ghcModule = do
   let
     envGHCModuleName = GHC.moduleName ghcModule
     envModuleUnitId = GHC.moduleUnitId ghcModule
@@ -675,6 +677,7 @@ convertInterface env mc intName ib =
 
     convertDefInterfaceDataType :: ConvertM Definition
     convertDefInterfaceDataType = do
+      checkInterfacesEnabled env
       unless (null (tyConTyVars tyCon)) do
         unhandled "interface type constructor with type parameters" tyCon
       pure $ DDataType DefDataType
@@ -734,6 +737,7 @@ convertModule
     :: SdkVersioned
     => LF.Version
     -> EnableScenarios
+    -> EnableInterfaces
     -> AllowLargeTuples
     -> MS.Map UnitId DalfPackage
     -> MS.Map (GHC.UnitId, LF.ModuleName) LF.PackageId
@@ -743,9 +747,9 @@ convertModule
       -- ^ Only used for information that isn't available in ModDetails.
     -> ModDetails
     -> Either FileDiagnostic (LF.Module, [FileDiagnostic])
-convertModule lfVersion enableScenarios allowLargeTuples pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing) $ do
+convertModule lfVersion enableScenarios enableInterfaces allowLargeTuples pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing) $ do
     let
-      env = mkEnv lfVersion enableScenarios allowLargeTuples pkgMap stablePackages (cm_module coreModule)
+      env = mkEnv lfVersion enableScenarios enableInterfaces allowLargeTuples pkgMap stablePackages (cm_module coreModule)
       mc = extractModuleContents env coreModule modIface details
     defs <- convertModuleContents env mc
     pure (LF.moduleFromDefinitions (envLFModuleName env) (Just $ fromNormalizedFilePath file) flags defs)
@@ -1161,6 +1165,7 @@ convertInterfaceInstance ::
   -> InterfaceInstanceBinds
   -> ConvertM TemplateImplements
 convertInterfaceInstance parent env iib = withRange (iibLoc iib) do
+  checkInterfacesEnabled env
   interfaceQualTypeCon <- qualifyInterfaceCon (iibInterface iib)
   templateQualTypeCon <- qualifyTemplateCon (iibTemplate iib)
   checkParent templateQualTypeCon
@@ -2640,6 +2645,18 @@ ctorLabels con =
     = map convFieldName lbls
   flv = tyConFlavour (dataConTyCon con)
   lbls = dataConFieldLabels con
+
+---------------------------------------------------------------------
+-- Checks
+
+checkInterfacesEnabled :: Env -> ConvertM ()
+checkInterfacesEnabled env =
+  unless (getEnableInterfaces (envEnableInterfaces env)) do
+    unsupported
+      "Interfaces are forbidden by default. To enable them, add \
+      \`--enable-interfaces=yes` to `build-options` in the project's \
+      \`daml.yaml` file."
+      ()
 
 ---------------------------------------------------------------------
 -- SIMPLE WRAPPERS

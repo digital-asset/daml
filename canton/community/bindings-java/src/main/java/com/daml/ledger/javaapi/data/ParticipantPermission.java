@@ -55,11 +55,11 @@ public abstract class ParticipantPermission {
   public static ParticipantPermission fromProto(
       StateServiceOuterClass.ParticipantPermission permission) {
     switch (permission.getNumber()) {
-      case StateServiceOuterClass.ParticipantPermission.Submission_VALUE:
+      case StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION_VALUE:
         return Submission.instance;
-      case StateServiceOuterClass.ParticipantPermission.Confirmation_VALUE:
+      case StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION_VALUE:
         return Confirmation.instance;
-      case StateServiceOuterClass.ParticipantPermission.Observation_VALUE:
+      case StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION_VALUE:
         return Observation.instance;
       default:
         throw new ParticipantPermissionUnrecognized(permission);
@@ -68,11 +68,11 @@ public abstract class ParticipantPermission {
 
   public final StateServiceOuterClass.ParticipantPermission toProto() {
     if (this instanceof Submission) {
-      return StateServiceOuterClass.ParticipantPermission.Submission;
+      return StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION;
     } else if (this instanceof Confirmation) {
-      return StateServiceOuterClass.ParticipantPermission.Confirmation;
+      return StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION;
     } else if (this instanceof Observation) {
-      return StateServiceOuterClass.ParticipantPermission.Observation;
+      return StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION;
     } else {
       throw new ParticipantPermissionUnknown(this);
     }

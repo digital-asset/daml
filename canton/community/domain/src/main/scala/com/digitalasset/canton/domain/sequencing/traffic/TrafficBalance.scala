@@ -5,8 +5,8 @@ package com.digitalasset.canton.domain.sequencing.traffic
 
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v30.SequencerSnapshot.TrafficBalance as TrafficBalanceP
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.sequencer.admin.v30.SequencerSnapshot.TrafficBalance as TrafficBalanceP
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.Member

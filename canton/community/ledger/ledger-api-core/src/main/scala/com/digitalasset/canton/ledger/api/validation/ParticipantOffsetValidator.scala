@@ -89,8 +89,10 @@ object ParticipantOffsetValidator {
             s"Unknown ledger $boundary value '$invalid' in field $fieldName.$boundary"
           )
         )
-      case ParticipantBoundary.PARTICIPANT_BEGIN => Right(domain.ParticipantOffset.ParticipantBegin)
-      case ParticipantBoundary.PARTICIPANT_END => Right(domain.ParticipantOffset.ParticipantEnd)
+      case ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN =>
+        Right(domain.ParticipantOffset.ParticipantBegin)
+      case ParticipantBoundary.PARTICIPANT_BOUNDARY_END =>
+        Right(domain.ParticipantOffset.ParticipantEnd)
     }
   }
 }

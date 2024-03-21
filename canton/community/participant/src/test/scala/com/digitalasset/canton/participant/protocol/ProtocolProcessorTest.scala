@@ -229,13 +229,14 @@ class ProtocolProcessorTest
     val multiDomainEventLog = mock[MultiDomainEventLog]
     val clock = new WallClock(timeouts, loggerFactory)
     val persistentState =
-      new InMemorySyncDomainPersistentStateX(
+      new InMemorySyncDomainPersistentState(
         clock,
         crypto.crypto,
         IndexedDomain.tryCreate(domain, 1),
         testedProtocolVersion,
         enableAdditionalConsistencyChecks = true,
         enableTopologyTransactionValidation = false,
+        new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1), // only one domain needed
         loggerFactory,
         timeouts,
         futureSupervisor,
@@ -285,7 +286,6 @@ class ProtocolProcessorTest
       Eval.now(nodePersistentState.participantEventLog),
       Eval.now(mdel),
       clock,
-      Eval.now(Duration.ofDays(1L)),
       timeouts,
       futureSupervisor,
       loggerFactory,
@@ -509,7 +509,12 @@ class ProtocolProcessorTest
     }
 
     "transit to confirmed" in {
-      val pd = TestPendingRequestData(rc, requestSc, MediatorsOfDomain(MediatorGroupIndex.one))
+      val pd = TestPendingRequestData(
+        rc,
+        requestSc,
+        MediatorsOfDomain(MediatorGroupIndex.one),
+        locallyRejected = false,
+      )
       val (sut, _persistent, ephemeral) =
         testProcessingSteps(overrideConstructedPendingRequestDataO = Some(pd))
       val before = ephemeral.requestJournal.query(rc).value.futureValue
@@ -530,7 +535,12 @@ class ProtocolProcessorTest
 
     "leave the request state unchanged when doing a clean replay" in {
       val pendingData =
-        TestPendingRequestData(rc, requestSc, MediatorsOfDomain(MediatorGroupIndex.one))
+        TestPendingRequestData(
+          rc,
+          requestSc,
+          MediatorsOfDomain(MediatorGroupIndex.one),
+          locallyRejected = false,
+        )
       val (sut, _persistent, ephemeral) =
         testProcessingSteps(
           overrideConstructedPendingRequestDataO = Some(pendingData),
@@ -564,7 +574,12 @@ class ProtocolProcessorTest
     }
 
     "trigger a timeout when the result doesn't arrive" in {
-      val pd = TestPendingRequestData(rc, requestSc, MediatorsOfDomain(MediatorGroupIndex.one))
+      val pd = TestPendingRequestData(
+        rc,
+        requestSc,
+        MediatorsOfDomain(MediatorGroupIndex.one),
+        locallyRejected = false,
+      )
       val (sut, _persistent, ephemeral) =
         testProcessingSteps(overrideConstructedPendingRequestDataO = Some(pd))
 
@@ -911,7 +926,12 @@ class ProtocolProcessorTest
         .complete(
           Some(
             WrappedPendingRequestData(
-              TestPendingRequestData(rc, requestSc, MediatorsOfDomain(MediatorGroupIndex.one))
+              TestPendingRequestData(
+                rc,
+                requestSc,
+                MediatorsOfDomain(MediatorGroupIndex.one),
+                locallyRejected = false,
+              )
             )
           )
         )
@@ -1038,6 +1058,7 @@ class ProtocolProcessorTest
               rc,
               requestSc,
               MediatorsOfDomain(MediatorGroupIndex.one),
+              locallyRejected = false,
             )
           )
         )

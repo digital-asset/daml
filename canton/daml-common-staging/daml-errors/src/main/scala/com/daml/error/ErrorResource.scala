@@ -20,7 +20,6 @@ object ErrorResource {
   lazy val DalfPackage: ErrorResource = ErrorResource("PACKAGE")
   lazy val TemplateId: ErrorResource = ErrorResource("TEMPLATE_ID")
   lazy val InterfaceId: ErrorResource = ErrorResource("INTERFACE_ID")
-  lazy val LedgerId: ErrorResource = ErrorResource("LEDGER_ID")
   lazy val PackageName: ErrorResource = ErrorResource("PACKAGE_NAME")
   lazy val CommandId: ErrorResource = ErrorResource("COMMAND_ID")
   lazy val Party: ErrorResource = ErrorResource("PARTY")
@@ -49,7 +48,6 @@ object ErrorResource {
     ExceptionValue,
     IdentityProviderConfig,
     InterfaceId,
-    LedgerId,
     PackageName,
     Parties,
     Party,

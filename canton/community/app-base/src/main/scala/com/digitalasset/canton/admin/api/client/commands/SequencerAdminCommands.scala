@@ -7,9 +7,9 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerPruningStatus
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
+import com.digitalasset.canton.sequencer.admin
 import com.digitalasset.canton.topology.Member
 import io.grpc.ManagedChannel
 

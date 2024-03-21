@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver
 
-import com.daml.buildinfo.BuildInfo
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
@@ -17,7 +16,6 @@ import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
 import com.digitalasset.canton.ledger.api.util.TimeProvider
-import com.digitalasset.canton.ledger.configuration.LedgerId
 import com.digitalasset.canton.ledger.localstore.api.{
   IdentityProviderConfigStore,
   PartyRecordStore,
@@ -65,17 +63,16 @@ object ApiServiceOwner {
       port: Port = DefaultPort,
       tls: Option[TlsConfiguration] = DefaultTls,
       seeding: Seeding = DefaultSeeding,
-      configurationLoadTimeout: NonNegativeFiniteDuration =
-        ApiServiceOwner.DefaultConfigurationLoadTimeout,
+      initSyncTimeout: NonNegativeFiniteDuration = ApiServiceOwner.DefaultInitSyncTimeout,
       managementServiceTimeout: NonNegativeFiniteDuration =
         ApiServiceOwner.DefaultManagementServiceTimeout,
       ledgerFeatures: LedgerFeatures,
+      maxDeduplicationDuration: NonNegativeFiniteDuration,
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
       tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration],
       upgradingEnabled: Boolean,
       disableUpgradeValidation: Boolean,
       // immutable configuration parameters
-      ledgerId: LedgerId,
       participantId: Ref.ParticipantId,
       meteringReportKey: MeteringReportKey = CommunityKey,
       // objects
@@ -114,7 +111,6 @@ object ApiServiceOwner {
 
     val authorizer = new Authorizer(
       Clock.systemUTC.instant _,
-      ledgerId,
       participantId,
       userManagementStore,
       servicesExecutionContext,
@@ -130,7 +126,7 @@ object ApiServiceOwner {
     val healthChecksWithIndexService = healthChecks + ("index" -> indexService)
 
     val identityProviderConfigLoader = new IdentityProviderConfigLoader {
-      override def getIdentityProviderConfig(issuer: LedgerId)(implicit
+      override def getIdentityProviderConfig(issuer: String)(implicit
           loggingContext: LoggingContextWithTrace
       ): Future[domain.IdentityProviderConfig] =
         identityProviderConfigStore.getActiveIdentityProviderByIssuer(issuer)(
@@ -155,7 +151,7 @@ object ApiServiceOwner {
             TimeProviderType.Static
           ),
         submissionTracker = submissionTracker,
-        configurationLoadTimeout = configurationLoadTimeout.underlying,
+        initSyncTimeout = initSyncTimeout.underlying,
         commandConfig = command,
         optTimeServiceBackend = timeServiceBackend,
         servicesExecutionContext = servicesExecutionContext,
@@ -169,6 +165,7 @@ object ApiServiceOwner {
         identityProviderConfigStore = identityProviderConfigStore,
         partyRecordStore = partyRecordStore,
         ledgerFeatures = ledgerFeatures,
+        maxDeduplicationDuration = maxDeduplicationDuration,
         userManagementServiceConfig = userManagement,
         apiStreamShutdownTimeout = apiStreamShutdownTimeout.underlying,
         meteringReportKey = meteringReportKey,
@@ -206,7 +203,8 @@ object ApiServiceOwner {
       loggerFactory
         .getTracedLogger(getClass)
         .info(
-          s"Initialized API server version ${BuildInfo.Version} with ledger-id = $ledgerId, port = ${apiService.port}."
+          s"Initialized API server listening to port = ${apiService.port} ${if (tls.isDefined) "using tls"
+            else "without tls"}."
         )
       apiService
     }
@@ -216,7 +214,7 @@ object ApiServiceOwner {
   val DefaultAddress: Option[String] = None
   val DefaultTls: Option[TlsConfiguration] = None
   val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
-  val DefaultConfigurationLoadTimeout: NonNegativeFiniteDuration =
+  val DefaultInitSyncTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.ofSeconds(10)
   val DefaultSeeding: Seeding = Seeding.Strong
   val DefaultManagementServiceTimeout: NonNegativeFiniteDuration =

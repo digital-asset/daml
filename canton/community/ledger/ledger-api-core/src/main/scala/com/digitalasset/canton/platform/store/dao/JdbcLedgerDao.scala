@@ -10,9 +10,8 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.entries.LoggingEntry
-import com.digitalasset.canton.ledger.api.domain.{LedgerId, ParticipantId}
+import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
-import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.digitalasset.canton.ledger.participant.state.index.v2.{
@@ -38,11 +37,7 @@ import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.Le
 import com.digitalasset.canton.platform.store.backend.{ParameterStorageBackend, ReadStorageBackend}
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.dao.events.*
-import com.digitalasset.canton.platform.store.entries.{
-  ConfigurationEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry,
-}
+import com.digitalasset.canton.platform.store.entries.{PackageLedgerEntry, PartyLedgerEntry}
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.store.utils.QueueBasedConcurrencyLimiter
 import com.digitalasset.canton.topology.DomainId
@@ -79,8 +74,6 @@ private class JdbcLedgerDao(
 
   private val paginatingAsyncStream = new PaginatingAsyncStream(loggerFactory)
 
-  import JdbcLedgerDao.*
-
   override def currentHealth(): HealthStatus = dbDispatcher.currentHealth()
 
   override def lookupParticipantId()(implicit
@@ -102,8 +95,7 @@ private class JdbcLedgerDao(
       )
 
   override def initialize(
-      ledgerId: LedgerId,
-      participantId: ParticipantId,
+      participantId: ParticipantId
   )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] =
     dbDispatcher
       .executeSql(metrics.index.db.initializeLedgerParameters)(
@@ -114,62 +106,6 @@ private class JdbcLedgerDao(
           loggerFactory,
         )
       )
-
-  override def lookupLedgerConfiguration()(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Option[(Offset, Configuration)]] =
-    dbDispatcher.executeSql(metrics.index.db.lookupConfiguration)(
-      readStorageBackend.configurationStorageBackend.ledgerConfiguration
-    )
-
-  override def getConfigurationEntries(
-      startExclusive: Offset,
-      endInclusive: Offset,
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, ConfigurationEntry), NotUsed] =
-    paginatingAsyncStream.streamFromLimitOffsetPagination(PageSize) { queryOffset =>
-      withEnrichedLoggingContext("queryOffset" -> queryOffset: LoggingEntry) {
-        implicit loggingContext =>
-          dbDispatcher.executeSql(metrics.index.db.loadConfigurationEntries) {
-            readStorageBackend.configurationStorageBackend.configurationEntries(
-              startExclusive = startExclusive,
-              endInclusive = endInclusive,
-              pageSize = PageSize,
-              queryOffset = queryOffset,
-            )
-          }
-      }
-    }
-
-  override def storeConfigurationEntry(
-      offset: Offset,
-      recordedAt: Timestamp,
-      submissionId: String,
-      configuration: Configuration,
-      rejectionReason: Option[String],
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[PersistenceResponse] =
-    withEnrichedLoggingContext(Logging.submissionId(submissionId)) { implicit loggingContext =>
-      logger.info("Storing configuration entry")
-      dbDispatcher.executeSql(
-        metrics.index.db.storeConfigurationEntryDbMetrics
-      ) { implicit conn =>
-        val update = Traced[Update](
-          state.Update.ConfigurationChanged(
-            recordTime = recordedAt,
-            submissionId = SubmissionId.assertFromString(submissionId),
-            participantId =
-              Ref.ParticipantId.assertFromString("1"), // not used for DbDto generation
-            newConfiguration = configuration,
-          )
-        )
-
-        sequentialIndexer.store(conn, offset, Some(update))
-        PersistenceResponse.Ok
-      }
-    }
 
   private val NonLocalParticipantId =
     Ref.ParticipantId.assertFromString("RESTRICTED_NON_LOCAL_PARTICIPANT_ID")
@@ -268,7 +204,7 @@ private class JdbcLedgerDao(
                 recordTime = recordTime,
                 completionInfo = info,
                 reasonTemplate = reason,
-                domainId = DomainId.tryFromString("invalid::deadbeef"), // TODO(i15280)
+                domainId = DomainId.tryFromString("invalid::deadbeef"),
               )
             )
           ),
@@ -663,7 +599,7 @@ private class JdbcLedgerDao(
                 blindingInfoO = blindingInfoO,
                 hostedWitnesses = hostedWitnesses,
                 contractMetadata = Map.empty,
-                domainId = DomainId.tryFromString("invalid::deadbeef"), // TODO(i15280)
+                domainId = DomainId.tryFromString("invalid::deadbeef"),
               )
             )
           ),

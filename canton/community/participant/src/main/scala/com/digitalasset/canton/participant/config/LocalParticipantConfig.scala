@@ -8,7 +8,7 @@ import com.daml.jwt.JwtTimestampLeeway
 import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.http.HttpApiConfig
-import com.digitalasset.canton.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
+import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig.DefaultRateLimit
@@ -157,7 +157,7 @@ final case class RemoteParticipantConfig(
   * @param address                   ledger api server host name.
   * @param internalPort              ledger api server port.
   * @param tls                       tls configuration setting from ledger api server.
-  * @param configurationLoadTimeout  ledger api server startup delay if no timemodel has been sent by canton via ReadService
+  * @param initSyncTimeout           ledger api server startup delay
   * @param commandService            configurations pertaining to the ledger api server's "command service"
   * @param managementServiceTimeout  ledger api server management service maximum duration. Duration has to be finite
   *                                  as the ledger api server uses java.time.duration that does not support infinite scala durations.
@@ -175,8 +175,8 @@ final case class LedgerApiServerConfig(
     internalPort: Option[Port] = None,
     indexService: LedgerIndexServiceConfig = LedgerIndexServiceConfig(),
     tls: Option[TlsServerConfig] = None,
-    configurationLoadTimeout: config.NonNegativeFiniteDuration =
-      LedgerApiServerConfig.DefaultConfigurationLoadTimeout,
+    initSyncTimeout: config.NonNegativeFiniteDuration =
+      LedgerApiServerConfig.DefaultInitSyncTimeout,
     commandService: CommandServiceConfig = CommandServiceConfig(),
     userManagementService: UserManagementServiceConfig = UserManagementServiceConfig(),
     managementServiceTimeout: config.NonNegativeFiniteDuration =
@@ -210,7 +210,7 @@ final case class LedgerApiServerConfig(
 
 object LedgerApiServerConfig {
 
-  private val DefaultConfigurationLoadTimeout: config.NonNegativeFiniteDuration =
+  private val DefaultInitSyncTimeout: config.NonNegativeFiniteDuration =
     config.NonNegativeFiniteDuration.ofSeconds(10L)
   private val DefaultManagementServiceTimeout: config.NonNegativeFiniteDuration =
     config.NonNegativeFiniteDuration.ofMinutes(2L)
@@ -253,7 +253,6 @@ object LedgerApiServerConfig {
               Some(keyCertChainFile),
               Some(keyFile),
               trustCertCollectionFile,
-              secretsUrl,
               authRequirement,
               enableCertRevocationChecking,
               optTlsVersion,
@@ -264,7 +263,6 @@ object LedgerApiServerConfig {
             certChainFile = ExistingFile.tryCreate(keyCertChainFile),
             privateKeyFile = ExistingFile.tryCreate(keyFile),
             trustCollectionFile = trustCertCollectionFile.map(x => ExistingFile.tryCreate(x)),
-            secretsUrl = secretsUrl.map(_.toString),
             clientAuth = fromClientAuth(authRequirement),
             minimumServerProtocolVersion = optTlsVersion.map(_.version),
             enableCertRevocationChecking = enableCertRevocationChecking,
@@ -287,7 +285,6 @@ object LedgerApiServerConfig {
       certChainFile = Some(tlsCantonConfig.certChainFile.unwrap),
       privateKeyFile = Some(tlsCantonConfig.privateKeyFile.unwrap),
       trustCollectionFile = tlsCantonConfig.trustCollectionFile.map(_.unwrap),
-      secretsUrl = tlsCantonConfig.secretsUrl.map(SecretsUrl.fromString),
       clientAuth = tlsCantonConfig.clientAuth match {
         case ServerAuthRequirementConfig.Require(_cert) => ClientAuth.REQUIRE
         case ServerAuthRequirementConfig.Optional => ClientAuth.OPTIONAL
@@ -372,6 +369,7 @@ final case class ParticipantNodeParameterConfig(
       config.NonNegativeFiniteDuration.ofSeconds(0),
     override val useNewTrafficControl: Boolean = false,
     disableUpgradeValidation: Boolean = false,
+    override val useUnifiedSequencer: Boolean = false,
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

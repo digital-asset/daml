@@ -8,8 +8,9 @@ import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
 import com.digitalasset.canton.protocol.{ContractMetadata, LfContractId, WithContractHash}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{LfPartyId, TransferCounterO}
+import com.digitalasset.canton.{LfPartyId, TransferCounter}
 import com.google.common.annotations.VisibleForTesting
 
 /** Components that need to keep a running snapshot of ACS.
@@ -37,7 +38,7 @@ final case class AcsChange(
 
 final case class ContractMetadataAndTransferCounter(
     contractMetadata: ContractMetadata,
-    transferCounter: TransferCounterO,
+    transferCounter: TransferCounter,
 ) extends PrettyPrinting {
   override def pretty: Pretty[ContractMetadataAndTransferCounter] = prettyOfClass(
     param("contract metadata", _.contractMetadata),
@@ -47,7 +48,7 @@ final case class ContractMetadataAndTransferCounter(
 
 final case class ContractStakeholdersAndTransferCounter(
     stakeholders: Set[LfPartyId],
-    transferCounter: TransferCounterO,
+    transferCounter: TransferCounter,
 ) extends PrettyPrinting {
   override def pretty: Pretty[ContractStakeholdersAndTransferCounter] = prettyOfClass(
     param("stakeholders", _.stakeholders),
@@ -78,18 +79,33 @@ object AcsChange extends HasLoggerName {
   /** Returns an AcsChange based on a given CommitSet.
     *
     * @param commitSet The commit set from which to build the AcsChange.
-    * @param transferCounterOfArchivalIncomplete A map containing transfer counters for every contract in archived contracts
-    *                                  in the commitSet, i.e., `commitSet.archivals`. If there are archived contracts
-    *                                  that do not exist in the map, they are assumed to have transfer counter None.
+    * @param transferCounterOfNonTransientArchivals A map containing transfer counters for every non-transient
+    *                                               archived contracts in the commitSet, i.e., `commitSet.archivals`.
+    * @param transferCounterOfTransientArchivals A map containing transfer counters for every transient
+    *                                                archived contracts in the commitSet, i.e., `commitSet.archivals`.
+    * @throws java.lang.IllegalStateException if the contract ids in `transferCounterOfTransientArchivals`;
+    *         if the contract ids in `transferCounterOfNonTransientArchivals` are not a subset of `commitSet.archivals` ;
+    *         if the union of contracts ids in `transferCounterOfTransientArchivals` and
+    *         `transferCounterOfNonTransientArchivals` does not equal the contract ids in `commitSet.archivals`;
     */
-  def fromCommitSet(
+  def tryFromCommitSet(
       commitSet: CommitSet,
-      transferCounterOfArchivalIncomplete: Map[LfContractId, TransferCounterO],
+      transferCounterOfNonTransientArchivals: Map[LfContractId, TransferCounter],
+      transferCounterOfTransientArchivals: Map[LfContractId, TransferCounter],
   )(implicit loggingContext: NamedLoggingContext): AcsChange = {
 
-    val transferCounterOfArchival = commitSet.archivals.keySet
-      .map(k => (k, transferCounterOfArchivalIncomplete.getOrElse(k, None)))
-      .toMap
+    if (
+      transferCounterOfTransientArchivals.keySet.union(
+        transferCounterOfNonTransientArchivals.keySet
+      ) != commitSet.archivals.keySet
+    ) {
+      ErrorUtil.internalError(
+        new IllegalStateException(
+          s"the union of contracts ids in $transferCounterOfTransientArchivals and " +
+            s"$transferCounterOfNonTransientArchivals does not equal the contract ids in ${commitSet.archivals}"
+        )
+      )
+    }
     /* Temporary maps built to easily remove the transient contracts from activate and deactivate the common contracts.
        The keys are made of the contract id and transfer counter.
        A transfer-out with transfer counter c cancels out a transfer-in / create with transfer counter c-1.
@@ -110,24 +126,6 @@ object AcsChange extends HasLoggerName {
         )
       }
 
-    val tmpArchivals = commitSet.archivals.map { case (contractId, data) =>
-      (
-        (
-          contractId,
-          // If the transfer counter for an archival is None, either the protocol version does not support
-          // transfer counters, or the contract might be transient and created / transferred-in in
-          // the same commit set. Thus we search in the commit set the latest transfer counter of the same contract.
-          // transferCounterOfArchival.get(contractId).getOrElse(transferCounterTransient(contractId))
-          transferCountersforArchivedCidInclTransient(
-            contractId,
-            commitSet,
-            transferCounterOfArchival,
-          ),
-        ),
-        WithContractHash(data.unwrap.stakeholders, data.contractHash),
-      )
-    }
-
     /*
     Subtracting the transfer counter of transfer-outs to correctly match deactivated contracts as explained above
      */
@@ -135,21 +133,60 @@ object AcsChange extends HasLoggerName {
       (
         (
           contractId,
-          data.unwrap.transferCounter.map(_ - 1),
+          data.unwrap.transferCounter - 1,
         ),
         data.map(_.stakeholders),
       )
     }
 
+    val tmpArchivalsClean = commitSet.archivals.collect {
+      case (contractId, data) if transferCounterOfNonTransientArchivals.contains(contractId) =>
+        (
+          (
+            contractId,
+            transferCounterOfNonTransientArchivals.getOrElse(
+              contractId,
+              // This should not happen (see assertion above)
+              ErrorUtil.internalError(
+                new IllegalStateException(s"Unable to find transfer counter for $contractId")
+              ),
+            ),
+          ),
+          WithContractHash(data.unwrap.stakeholders, data.contractHash),
+        )
+    }
+
+    val tmpArchivals = commitSet.archivals.collect {
+      case (contractId, data) if transferCounterOfTransientArchivals.contains(contractId) =>
+        (
+          (
+            contractId,
+            transferCounterOfTransientArchivals.getOrElse(
+              contractId,
+              ErrorUtil.internalError(
+                new IllegalStateException(
+                  s"${transferCounterOfTransientArchivals.keySet} is not a subset of ${commitSet.archivals}"
+                )
+              ),
+            ),
+          ),
+          WithContractHash(data.unwrap.stakeholders, data.contractHash),
+        )
+    }
+
     val transient = tmpActivations.keySet.intersect((tmpArchivals ++ tmpTransferOuts).keySet)
     val tmpActivationsClean = tmpActivations -- transient
-    val tmpArchivalsClean = tmpArchivals -- transient
     val tmpTransferOutsClean = tmpTransferOuts -- transient
 
     val activations = tmpActivationsClean.map { case ((contractId, transferCounter), metadata) =>
       (
         contractId,
-        metadata.map(data => ContractMetadataAndTransferCounter(data, transferCounter)),
+        metadata.map(data =>
+          ContractMetadataAndTransferCounter(
+            data,
+            transferCounter,
+          )
+        ),
       )
     }
     val archivalDeactivations = tmpArchivalsClean.map {
@@ -168,8 +205,9 @@ object AcsChange extends HasLoggerName {
     }
     loggingContext.debug(
       show"Called fromCommitSet with inputs commitSet creations=${commitSet.creations};" +
-        show"transferIns=${commitSet.transferIns}; archivals=${commitSet.archivals}; transferOuts=${commitSet.transferOuts} and" +
-        show"archival transfer counters from DB $transferCounterOfArchivalIncomplete" +
+        show"transferIns=${commitSet.transferIns}; archivals=${commitSet.archivals}; transferOuts=${commitSet.transferOuts};" +
+        show"archival transfer counters from DB $transferCounterOfNonTransientArchivals and" +
+        show"archival transfer counters from transient $transferCounterOfTransientArchivals" +
         show"Completed fromCommitSet with results transient=$transient;" +
         show"activations=$activations; archivalDeactivations=$archivalDeactivations; transferOutDeactivations=$transferOutDeactivations"
     )
@@ -180,26 +218,24 @@ object AcsChange extends HasLoggerName {
   }
 
   @VisibleForTesting
-  def transferCountersforArchivedCidInclTransient(
-      contractId: LfContractId,
-      commitSet: CommitSet,
-      transferCounterOfArchival: Map[LfContractId, TransferCounterO],
-  ): TransferCounterO = {
-    transferCounterOfArchival.get(contractId) match {
-      case Some(tc) if tc.isDefined => tc
-      case _ =>
-        // We first search in transfer-ins, because they would have the most recent transfer counter.
-        commitSet.transferIns.get(contractId) match {
-          case Some(tcAndContractHash) if tcAndContractHash.unwrap.transferCounter.isDefined =>
-            tcAndContractHash.unwrap.transferCounter
-          case _ =>
-            // Then we search in creations
-            commitSet.creations.get(contractId) match {
-              case Some(tcAndCHash) if tcAndCHash.unwrap.transferCounter.isDefined =>
-                tcAndCHash.unwrap.transferCounter
-              case _ => None
-            }
-        }
+  def transferCountersForArchivedTransient(
+      commitSet: CommitSet
+  ): Map[LfContractId, TransferCounter] = {
+
+    // We first search in transfer-ins, because they would have the most recent transfer counter.
+    val transientCidsTransferredIn = commitSet.transferIns.collect {
+      case (contractId, tcAndContractHash) if commitSet.archivals.keySet.contains(contractId) =>
+        (contractId, tcAndContractHash.unwrap.transferCounter)
     }
+
+    // Then we search in creations
+    val transientCidsCreated = commitSet.creations.collect {
+      case (contractId, tcAndContractHash)
+          if commitSet.archivals.keySet.contains(contractId) && !transientCidsTransferredIn.keySet
+            .contains(contractId) =>
+        (contractId, tcAndContractHash.unwrap.transferCounter)
+    }
+
+    transientCidsTransferredIn ++ transientCidsCreated
   }
 }

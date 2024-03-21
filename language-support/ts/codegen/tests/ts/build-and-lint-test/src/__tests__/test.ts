@@ -31,6 +31,7 @@ import * as buildAndLint from "@daml.js/build-and-lint-1.0.0";
 const LEDGER_ID = "build-and-lint-test";
 const APPLICATION_ID = "build-and-lint-test";
 const SECRET_KEY = "secret";
+const DAML_TEXTMAP = false;
 
 const computeUserToken = (name: string) =>
   encode(
@@ -506,7 +507,7 @@ test("create + fetch & exercise", async () => {
     optionalOptionalInt2: [], // Some (None)
     optionalOptionalInt3: null, // None
     list: [true, false],
-    textMap: { alice: "2", "bob & carl": "3" },
+    textMap: DAML_TEXTMAP ? { alice: "2", "bob & carl": "3" } : {},
     monoRecord: alice5,
     polyRecord: { one: "10", two: "XYZ" },
     imported: { field: { something: "pqr" } },
@@ -552,7 +553,7 @@ test("create + fetch & exercise", async () => {
     n0: "3.0", // Numeric 0
     n5: "3.14159", // Numeric 5
     n10: "3.1415926536", // Numeric 10
-    rec: { recOptional: null, recList: [], recTextMap: {} },
+    rec: { recOptional: null, recList: [], recGenMap: emptyMap() },
     voidRecord: null,
     voidEnum: null,
     genMap: map,
@@ -626,8 +627,8 @@ test("exercise using explicit disclosure", async () => {
             },
           },
         },
-        beginExclusive: { boundary: "PARTICIPANT_BEGIN" },
-        endInclusive: { boundary: "PARTICIPANT_END" },
+        beginExclusive: { boundary: "PARTICIPANT_BOUNDARY_BEGIN" },
+        endInclusive: { boundary: "PARTICIPANT_BOUNDARY_END" },
       }),
       "localhost:5011",
       "com.daml.ledger.api.v2.UpdateService/GetUpdates",

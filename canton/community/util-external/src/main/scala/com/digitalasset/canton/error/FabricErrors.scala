@@ -23,8 +23,7 @@ object FabricErrors extends FabricErrorGroup {
       """Wait until the sequencer has caught up to the head of the blockchain. Alternatively, if this is a fresh
         |deployment, and not all blocks must be processed, consider restarting the sequencer with an updated
         |`startBlockHeight` to skip ahead to a block height that is closer to the head of the blockchain. Note that for
-        |existing deployments, updating `startBlockHeight` to skip ahead (without properly processing all blocks) may
-        |result in a ledger fork.
+        |existing deployments, updating `startBlockHeight` won't have any effect since it is only used on fresh deployments.
         |"""
     )
     object ManyBlocksBehindHead

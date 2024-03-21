@@ -79,8 +79,8 @@ class CommandCompletionClientImplTest
         .blockingFirst()
       serviceImpl.getLastCompletionStreamRequest.value.applicationId shouldBe applicationId
       serviceImpl.getLastCompletionStreamRequest.value.getBeginExclusive.getAbsolute shouldBe "" // grpc default string is empty string
-      serviceImpl.getLastCompletionStreamRequest.value.getBeginExclusive.getBoundary.isParticipantEnd shouldBe false
-      serviceImpl.getLastCompletionStreamRequest.value.getBeginExclusive.getBoundary.isParticipantBegin shouldBe true
+      serviceImpl.getLastCompletionStreamRequest.value.getBeginExclusive.getBoundary.isParticipantBoundaryEnd shouldBe false
+      serviceImpl.getLastCompletionStreamRequest.value.getBeginExclusive.getBoundary.isParticipantBoundaryBegin shouldBe true
       serviceImpl.getLastCompletionStreamRequest.value.parties should contain theSameElementsAs parties
     }
   }

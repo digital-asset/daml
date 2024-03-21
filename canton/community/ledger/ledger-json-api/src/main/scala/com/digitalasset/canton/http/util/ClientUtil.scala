@@ -8,7 +8,7 @@ import java.util.UUID
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes.{CommandId, Party}
 import com.daml.ledger.api.v2.transaction_filter.{Filters}
 import com.daml.ledger.api.v2.transaction_filter.{TransactionFilter}
-import com.daml.ledger.api.{v2 as lav2}
+import com.daml.ledger.api.v2 as lav2
 
 object ClientUtil {
   def uniqueId(): String = UUID.randomUUID.toString

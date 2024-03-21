@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.protocol
 
 import cats.data.OptionT
-import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.concurrent.{FutureSupervisor, SupervisedPromise}
 import com.digitalasset.canton.data.{
   CantonTimestamp,
@@ -156,16 +155,12 @@ class RequestJournal(
     }
 
   private def incrementNumDirtyRequests(): Unit = {
-    discard {
-      numDirtyRequests.incrementAndGet()
-    }
+    numDirtyRequests.incrementAndGet().discard
     metrics.numDirtyRequests.inc()
   }
 
   private def decrementNumDirtyRequests(): Unit = {
-    discard {
-      numDirtyRequests.decrementAndGet()
-    }
+    numDirtyRequests.decrementAndGet().discard
     metrics.numDirtyRequests.dec()
   }
 

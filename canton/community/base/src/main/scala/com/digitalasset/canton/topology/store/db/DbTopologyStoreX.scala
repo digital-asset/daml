@@ -249,12 +249,12 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
       recentTimestampO: Option[CantonTimestamp],
       op: Option[TopologyChangeOpX],
       types: Seq[TopologyMappingX.Code],
-      idFilter: String,
-      namespaceOnly: Boolean,
+      idFilter: Option[String],
+      namespaceFilter: Option[String],
   )(implicit
       traceContext: TraceContext
   ): Future[StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX]] = {
-    logger.debug(s"Inspecting store for type=$types, filter=$idFilter, time=$timeQuery")
+    logger.debug(s"Inspecting store for types=$types, filter=$idFilter, time=$timeQuery")
 
     val timeFilter: SQLActionBuilderChain = timeQuery match {
       case TimeQuery.HeadState =>
@@ -272,12 +272,13 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
 
     val operationFilter = op.map(value => sql" AND operation = $value").getOrElse(sql"")
 
-    val mappingIdFilter = getIdFilter(idFilter, namespaceOnly)
+    val mappingIdFilter = getIdFilter(idFilter)
+    val mappingNameSpaceFilter = getNamespaceFilter(namespaceFilter)
 
     val mappingTypeFilter = typeFilter(types.toSet)
 
     val mappingProposalsAndPreviousFilter =
-      timeFilter ++ operationFilter ++ mappingIdFilter ++ mappingTypeFilter ++ sql" AND is_proposal = $proposals"
+      timeFilter ++ operationFilter ++ mappingIdFilter ++ mappingNameSpaceFilter ++ mappingTypeFilter ++ sql" AND is_proposal = $proposals"
 
     queryForTransactions(mappingProposalsAndPreviousFilter, "inspect")
   }
@@ -376,6 +377,31 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
       TopologyChangeOpX.Replace.some,
     ).map(_.collectOfType[TopologyChangeOpX.Replace])
 
+  override def findFirstSequencerStateForSequencer(sequencerId: SequencerId)(implicit
+      traceContext: TraceContext
+  ): Future[Option[StoredTopologyTransactionX[Replace, SequencerDomainStateX]]] = {
+    logger.debug(s"Querying first sequencer state for $sequencerId")
+
+    queryForTransactions(
+      // We don't expect too many MediatorDomainStateX mappings in a single domain, so fetching them all from the db
+      // is acceptable and also because we don't expect to run this query frequently. We can only evaluate the
+      // `mediatorId` field locally as the mediator-id is not exposed in a separate column.
+      sql" AND is_proposal = false" ++
+        sql" AND operation = ${TopologyChangeOpX.Replace}" ++
+        sql" AND transaction_type = ${SequencerDomainStateX.code}",
+      operation = "firstSequencerState",
+    ).map(
+      _.collectOfMapping[SequencerDomainStateX]
+        .collectOfType[Replace]
+        .result
+        .filter {
+          _.mapping.allSequencers.contains(sequencerId)
+        }
+        .sortBy(_.serial)
+        .headOption
+    )
+  }
+
   override def findFirstMediatorStateForMediator(mediatorId: MediatorId)(implicit
       traceContext: TraceContext
   ): Future[Option[StoredTopologyTransactionX[Replace, MediatorDomainStateX]]] = {
@@ -425,14 +451,19 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
     )
   }
 
-  override def findEssentialStateForMember(member: Member, asOfInclusive: CantonTimestamp)(implicit
+  override def findEssentialStateAtSequencedTime(
+      asOfInclusive: SequencedTime,
+      excludeMappings: Seq[TopologyMappingX.Code],
+  )(implicit
       traceContext: TraceContext
   ): Future[GenericStoredTopologyTransactionsX] = {
-    val timeFilter = sql" AND sequenced <= $asOfInclusive"
+    val timeFilter = sql" AND sequenced <= ${asOfInclusive.value}"
+    val mappingFilter = excludeMapping(excludeMappings.toSet)
+    logger.debug(s"Querying essential state as of asOfInclusive")
 
-    logger.debug(s"Querying essential state for member $member as of $asOfInclusive")
-
-    queryForTransactions(timeFilter, "essentialState").map(_.asSnapshotAtMaxEffectiveTime)
+    queryForTransactions(timeFilter ++ mappingFilter, "essentialState").map(
+      _.asSnapshotAtMaxEffectiveTime.retainAuthorizedHistoryAndEffectiveProposals
+    )
   }
 
   override def bootstrap(snapshot: GenericStoredTopologyTransactionsX)(implicit
@@ -681,6 +712,14 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
         .intercalate(sql", ") ++ sql")"
   }
 
+  private def excludeMapping(types: Set[TopologyMappingX.Code]): SQLActionBuilderChain = {
+    if (types.isEmpty) sql""
+    else
+      sql" AND transaction_type NOT IN (" ++ types.toSeq
+        .map(t => sql"$t")
+        .intercalate(sql", ") ++ sql")"
+  }
+
   private def findAsOfExclusive(
       effective: EffectiveTime,
       subQuery: SQLActionBuilder,
@@ -804,19 +843,19 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
 
   @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
   private def getIdFilter(
-      idFilter: String,
-      namespaceOnly: Boolean,
-  ): SQLActionBuilderChain = if (idFilter.isEmpty) sql""
-  else if (namespaceOnly) {
-    sql" AND namespace LIKE ${idFilter + "%"}"
-  } else {
-    val (prefix, suffix) = UniqueIdentifier.splitFilter(idFilter, "%")
-    val tmp = sql" AND identifier like $prefix "
-    if (suffix.sizeCompare(1) > 0) {
-      tmp ++ sql" AND namespace like $suffix "
-    } else
-      tmp
-  }
+      idFilter: Option[String]
+  ): SQLActionBuilderChain =
+    idFilter match {
+      case Some(value) if value.nonEmpty => sql" AND identifier like ${value + "%"}"
+      case _ => sql""
+    }
+
+  @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
+  private def getNamespaceFilter(namespaceFilter: Option[String]): SQLActionBuilderChain =
+    namespaceFilter match {
+      case Some(value) if value.nonEmpty => sql" AND namespace LIKE ${value + "%"}"
+      case _ => sql""
+    }
 
 }
 

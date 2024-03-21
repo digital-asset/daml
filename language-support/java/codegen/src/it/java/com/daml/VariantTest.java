@@ -3,6 +3,8 @@
 
 package com.daml;
 
+import static com.daml.ledger.javaapi.data.codegen.PrimitiveValueDecoders.fromInt64;
+import static com.daml.ledger.javaapi.data.codegen.PrimitiveValueDecoders.fromUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.daml.ledger.api.v2.ValueOuterClass;
@@ -33,11 +35,12 @@ public class VariantTest {
             .setValue(ValueOuterClass.Value.newBuilder().setUnit(Empty.getDefaultInstance()))
             .build();
     Variant dataVariant = Variant.fromProto(protoVariant);
-    EmptyVariant fromValue = EmptyVariant.fromValue(dataVariant);
+    EmptyVariant fromValue = (EmptyVariant) EmptyVariant.valueDecoder(fromUnit).decode(dataVariant);
 
     EmptyVariant<?> fromConstructor = new EmptyVariant<>(Unit.getInstance());
 
-    EmptyVariant fromRoundTrip = EmptyVariant.fromValue(fromValue.toValue());
+    EmptyVariant fromRoundTrip =
+        (EmptyVariant) EmptyVariant.valueDecoder(fromUnit).decode(fromValue.toValue());
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataVariant);
@@ -63,11 +66,12 @@ public class VariantTest {
             .setValue(ValueOuterClass.Value.newBuilder().setInt64(42))
             .build();
     Variant dataVariant = Variant.fromProto(protoVariant);
-    PrimVariant fromValue = PrimVariant.fromValue(dataVariant);
+    PrimVariant fromValue = (PrimVariant) PrimVariant.valueDecoder(fromInt64).decode(dataVariant);
 
     PrimVariant<?> fromConstructor = new PrimVariant<>(42L);
 
-    PrimVariant<?> fromRoundTrip = PrimVariant.fromValue(fromValue.toValue());
+    PrimVariant<?> fromRoundTrip =
+        (PrimVariant<?>) PrimVariant.valueDecoder(fromInt64).decode(fromValue.toValue());
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataVariant);
@@ -101,11 +105,13 @@ public class VariantTest {
             .build();
 
     Variant dataVariant = Variant.fromProto(protoVariant);
-    RecordVariant<?> fromValue = RecordVariant.fromValue(dataVariant);
+    RecordVariant<?> fromValue =
+        (RecordVariant<?>) RecordVariant.valueDecoder(fromInt64).decode(dataVariant);
 
     RecordVariant<?> fromConstructor = new RecordVariant<Long>(42L);
 
-    RecordVariant<?> fromRoundTrip = RecordVariant.fromValue(fromValue.toValue());
+    RecordVariant<?> fromRoundTrip =
+        (RecordVariant<?>) RecordVariant.valueDecoder(fromInt64).decode(fromValue.toValue());
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataVariant);
@@ -134,11 +140,14 @@ public class VariantTest {
             .build();
 
     Variant dataVariant = Variant.fromProto(protoVariant);
-    CustomVariant<?> fromValue = CustomVariant.fromValue(dataVariant);
+    CustomVariant<?> fromValue =
+        (CustomVariant<?>) CustomVariant.valueDecoder(Custom.valueDecoder()).decode(dataVariant);
 
     CustomVariant<?> fromConstructor = new CustomVariant<>(new Custom());
 
-    CustomVariant<?> fromRoundTrip = CustomVariant.fromValue(fromConstructor.toValue());
+    CustomVariant<?> fromRoundTrip =
+        (CustomVariant<?>)
+            CustomVariant.valueDecoder(Custom.valueDecoder()).decode(fromConstructor.toValue());
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataVariant);
@@ -170,14 +179,16 @@ public class VariantTest {
             .build();
     Variant dataVariant = Variant.fromProto(protoVariant);
     CustomParametricVariant<Long> fromValue =
-        CustomParametricVariant.fromValue(dataVariant, f -> f.asInt64().get().getValue());
+        (CustomParametricVariant<Long>)
+            CustomParametricVariant.valueDecoder(fromInt64).decode(dataVariant);
 
     CustomParametricVariant<Long> fromConstructor =
         new CustomParametricVariant<>(new CustomParametricCons<>(42L));
 
     CustomParametricVariant<Long> fromRoundTrip =
-        CustomParametricVariant.fromValue(
-            fromConstructor.toValue(Int64::new), f -> f.asInt64().get().getValue());
+        (CustomParametricVariant<Long>)
+            CustomParametricVariant.valueDecoder(fromInt64)
+                .decode(fromConstructor.toValue(Int64::new));
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(Int64::new), dataVariant);
@@ -220,12 +231,18 @@ public class VariantTest {
             .build();
 
     Variant dataVariant = Variant.fromProto(protoVariant);
-    RecordVariantRecord<?> fromValue = RecordVariantRecord.fromValue(dataVariant);
+    RecordVariantRecord<?> fromValue =
+        (RecordVariantRecord<?>)
+            RecordVariantRecord.valueDecoder(VariantItem.valueDecoder(fromInt64))
+                .decode(dataVariant);
 
     RecordVariantRecord<?> fromConstructor =
         new RecordVariantRecord<>(new EmptyVariant<>(Unit.getInstance()));
 
-    RecordVariantRecord<?> fromRoundTrip = RecordVariantRecord.fromValue(fromValue.toValue());
+    RecordVariantRecord<?> fromRoundTrip =
+        (RecordVariantRecord<?>)
+            RecordVariantRecord.valueDecoder(VariantItem.valueDecoder(fromInt64))
+                .decode(fromValue.toValue());
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataVariant);
@@ -274,12 +291,14 @@ public class VariantTest {
 
     Variant dataVariant = Variant.fromProto(protoVariant);
     ParameterizedRecordVariant<Long> fromValue =
-        ParameterizedRecordVariant.fromValue(dataVariant, f -> f.asInt64().get().getValue());
+        (ParameterizedRecordVariant<Long>)
+            ParameterizedRecordVariant.valueDecoder(fromInt64).decode(dataVariant);
     ParameterizedRecordVariant<Long> fromConstructor =
         new ParameterizedRecordVariant<>(42L, 69L, Collections.singletonList(65536L));
     ParameterizedRecordVariant<Long> fromRoundTrip =
-        ParameterizedRecordVariant.fromValue(
-            fromConstructor.toValue(Int64::new), f -> f.asInt64().get().getValue());
+        (ParameterizedRecordVariant<Long>)
+            ParameterizedRecordVariant.valueDecoder(fromInt64)
+                .decode(fromConstructor.toValue(Int64::new));
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(Int64::new), dataVariant);

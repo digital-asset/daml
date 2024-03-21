@@ -21,7 +21,6 @@ import com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationDurat
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.util.TimeProvider
-import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.participant.state.v2.{
   SubmissionResult,
   SubmitterInfo,
@@ -31,7 +30,6 @@ import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.SeedService
-import com.digitalasset.canton.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.digitalasset.canton.platform.apiserver.execution.{
   CommandExecutionResult,
   CommandExecutor,
@@ -162,7 +160,6 @@ class CommandSubmissionServiceImplSpec
               commandExecutor.execute(
                 eqTo(commands),
                 any[Hash],
-                any[Configuration],
               )(any[LoggingContextWithTrace])
             ).thenReturn(Future.successful(Left(error)))
 
@@ -205,7 +202,6 @@ class CommandSubmissionServiceImplSpec
     val writeService = mock[state.WriteService]
     val timeProvider = TimeProvider.Constant(Instant.now)
     val timeProviderType = TimeProviderType.Static
-    val ledgerConfigurationSubscription = mock[LedgerConfigurationSubscription]
     val seedService = SeedService.WeakRandom
     val commandExecutor = mock[CommandExecutor]
     val metrics = Metrics.ForTesting
@@ -255,8 +251,6 @@ class CommandSubmissionServiceImplSpec
       ),
     )
 
-    val ledgerConfiguration = Configuration.reasonableInitialConfiguration.copy(generation = 7L)
-
     val submitterInfo = SubmitterInfo(
       actAs = Nil,
       readAs = Nil,
@@ -264,7 +258,6 @@ class CommandSubmissionServiceImplSpec
       commandId = Ref.CommandId.assertFromString("foobar"),
       deduplicationPeriod = DeduplicationDuration(Duration.ofMinutes(1)),
       submissionId = None,
-      ledgerConfiguration = ledgerConfiguration,
     )
     val transactionMeta = TransactionMeta(
       ledgerEffectiveTime = Timestamp.Epoch,
@@ -288,10 +281,8 @@ class CommandSubmissionServiceImplSpec
       processedDisclosedContracts = processedDisclosedContracts,
     )
 
-    when(ledgerConfigurationSubscription.latestConfiguration())
-      .thenReturn(Some(ledgerConfiguration))
     when(
-      commandExecutor.execute(eqTo(commands), any[Hash], eqTo(ledgerConfiguration))(
+      commandExecutor.execute(eqTo(commands), any[Hash])(
         any[LoggingContextWithTrace]
       )
     )
@@ -314,7 +305,6 @@ class CommandSubmissionServiceImplSpec
       writeService = writeService,
       timeProviderType = timeProviderType,
       timeProvider = timeProvider,
-      ledgerConfigurationSubscription = ledgerConfigurationSubscription,
       seedService = seedService,
       commandExecutor = commandExecutor,
       checkOverloaded = checkOverloaded,

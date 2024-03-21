@@ -13,7 +13,9 @@ da_scala_library(
         "src/main/scala/com/digitalasset/assistant/**/*.scala",
     ]),
     scala_deps = [
+        "@maven//:dev_optics_monocle_core",
         "@maven//:io_circe_circe_core",
+        "@maven//:io_circe_circe_optics",
         "@maven//:io_circe_circe_yaml",
         "@maven//:io_circe_circe_yaml_common",
         "@maven//:org_typelevel_cats_core",

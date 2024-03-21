@@ -28,7 +28,7 @@ public class NumericTestForAll {
             new BigDecimal(17),
             new BigDecimal("0.37"),
             "alice");
-    assertEquals(Box.fromValue(b.toValue()), b);
+    assertEquals(Box.valueDecoder().decode(b.toValue()), b);
   }
 
   @Test
@@ -52,7 +52,7 @@ public class NumericTestForAll {
             new DamlRecord.Field("x17", new Numeric(new BigDecimal(17))),
             new DamlRecord.Field("x37", new Numeric(new BigDecimal("0.37"))),
             new DamlRecord.Field("party", new Party("alice")));
-    assertEquals(Box.fromValue(record).toValue(), record);
+    assertEquals(Box.valueDecoder().decode(record).toValue(), record);
   }
 
   @Test

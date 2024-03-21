@@ -124,7 +124,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
     when(participantNodeEphemeralState.participantEventPublisher).thenReturn(
       participantEventPublisher
     )
-    when(participantEventPublisher.publishTimeModelConfigNeededUpstreamOnlyIfFirst(anyTraceContext))
+    when(participantEventPublisher.publishInitNeededUpstreamOnlyIfFirst(anyTraceContext))
       .thenReturn(FutureUnlessShutdown.unit)
     when(domainConnectionConfigStore.getAll()).thenReturn(Seq.empty)
     when(aliasManager.ids).thenReturn(Set.empty)

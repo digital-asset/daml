@@ -12,11 +12,13 @@ import "scalapb/scalapb.proto";
 
 message Enums {
   enum TopologyChangeOp {
+    TOPOLOGY_CHANGE_OP_UNSPECIFIED = 0;
+
     // Adds a new or replaces an existing mapping
-    TOPOLOGY_CHANGE_OP_REPLACE_UNSPECIFIED = 0;
+    TOPOLOGY_CHANGE_OP_ADD_REPLACE = 1;
 
     // Remove an existing mapping
-    TOPOLOGY_CHANGE_OP_REMOVE = 1;
+    TOPOLOGY_CHANGE_OP_REMOVE = 2;
   }
 
   // enum indicating the participant permission level

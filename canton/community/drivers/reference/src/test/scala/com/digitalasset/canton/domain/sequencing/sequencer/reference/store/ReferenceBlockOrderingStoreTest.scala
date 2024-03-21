@@ -49,11 +49,13 @@ trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest {
       "increment counter when inserting block" in {
         val sut = mk()
         for {
-          count <- sut.countBlocks()
-          _ = count shouldBe 0
+          count <- sut.maxBlockHeight()
+          _ = count shouldBe None
           _ <- sut.insertRequest(event1)
-          count2 <- sut.countBlocks()
-        } yield count2 shouldBe 1
+          count2 <- sut.maxBlockHeight()
+        } yield {
+          count2 shouldBe Some(0)
+        }
       }
     }
     "queryBlocks" should {

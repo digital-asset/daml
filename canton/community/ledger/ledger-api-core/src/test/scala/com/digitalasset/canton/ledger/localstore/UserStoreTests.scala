@@ -22,6 +22,7 @@ import com.digitalasset.canton.ledger.localstore.api.{
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import org.scalatest.freespec.AsyncFreeSpec
 
+import scala.concurrent.Future
 import scala.language.implicitConversions
 
 /** Common tests for implementations of [[UserManagementStore]]
@@ -146,6 +147,19 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
         } yield {
           res1 shouldBe Right(createdUser("user1"))
           res2 shouldBe Left(UserExists(user.id))
+        }
+      }
+    }
+
+    "disallow re-creating an existing user concurrently" in {
+      testIt { tested =>
+        val user = newUser("user1")
+        for {
+          res <- Future.sequence(
+            Seq(tested.createUser(user, Set.empty), tested.createUser(user, Set.empty))
+          )
+        } yield {
+          res should contain(Left(UserExists(user.id)))
         }
       }
     }

@@ -19,11 +19,6 @@ final case class PostgresStorageBackendFactory(loggerFactory: NamedLoggerFactory
   override def createPackageStorageBackend(ledgerEndCache: LedgerEndCache): PackageStorageBackend =
     new PackageStorageBackendTemplate(PostgresQueryStrategy, ledgerEndCache)
 
-  override def createConfigurationStorageBackend(
-      ledgerEndCache: LedgerEndCache
-  ): ConfigurationStorageBackend =
-    new ConfigurationStorageBackendTemplate(PostgresQueryStrategy, ledgerEndCache)
-
   override def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend =
     new PartyStorageBackendTemplate(PostgresQueryStrategy, ledgerEndCache)
 

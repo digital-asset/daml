@@ -127,7 +127,6 @@ final case class AuthorizationInterceptor(
               Future.successful(
                 ClaimSet.Claims(
                   claims = AuthorizationInterceptor.convertUserRightsToClaims(userRights),
-                  ledgerId = None,
                   participantId = participantId,
                   applicationId = Some(userId),
                   expiration = expiration,

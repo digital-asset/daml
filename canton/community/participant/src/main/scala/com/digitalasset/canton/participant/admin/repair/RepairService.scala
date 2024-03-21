@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.admin.repair
 
 import cats.Eval
 import cats.data.{EitherT, OptionT}
-import cats.implicits.catsSyntaxTuple2Semigroupal
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
@@ -134,18 +133,23 @@ final class RepairService(
       acsState: Option[ActiveContractStore.Status],
   )(implicit traceContext: TraceContext): EitherT[Future, String, Option[ContractToAdd]] = {
     val contractId = repairContract.contract.contractId
+
+    def addContract(
+        transferringFrom: Option[SourceDomainId]
+    ): EitherT[Future, String, Option[ContractToAdd]] = Right(
+      Option(
+        ContractToAdd(
+          repairContract.contract,
+          repairContract.witnesses.map(_.toLf),
+          repairContract.transferCounter,
+          transferringFrom,
+        )
+      )
+    ).toEitherT[Future]
+
     acsState match {
-      case None =>
-        Right(
-          Option(
-            ContractToAdd(
-              repairContract.contract,
-              repairContract.witnesses.map(_.toLf),
-              repairContract.transferCounter,
-              None,
-            )
-          )
-        ).toEitherT[Future]
+      case None => addContract(transferringFrom = None)
+
       case Some(ActiveContractStore.Active(_)) =>
         if (ignoreAlreadyAdded) {
           logger.debug(s"Skipping contract $contractId because it is already active")
@@ -177,27 +181,17 @@ final class RepairService(
             s"Cannot add previously archived contract ${repairContract.contract.contractId} as archived contracts cannot become active."
           )
         )
+      case Some(ActiveContractStore.Purged) => addContract(transferringFrom = None)
       case Some(ActiveContractStore.TransferredAway(targetDomain, transferCounter)) =>
         log(
           s"Marking contract ${repairContract.contract.contractId} previously transferred-out to $targetDomain as " +
             s"transferred-in from $targetDomain (even though contract may have been transferred to yet another domain since)."
         ).discard
 
-        val isTransferCounterIncreasing = (transferCounter, repairContract.transferCounter)
-          .mapN { case (tc, repairTc) => repairTc > tc }
-          .getOrElse(true)
+        val isTransferCounterIncreasing = repairContract.transferCounter > transferCounter
 
         if (isTransferCounterIncreasing) {
-          Right(
-            Option(
-              ContractToAdd(
-                repairContract.contract,
-                repairContract.witnesses.map(_.toLf),
-                repairContract.transferCounter,
-                Option(SourceDomainId(targetDomain.unwrap)),
-              )
-            )
-          ).toEitherT[Future]
+          addContract(transferringFrom = Option(SourceDomainId(targetDomain.unwrap)))
         } else {
           EitherT.leftT(
             log(
@@ -721,6 +715,14 @@ final class RepairService(
   private def purgeContract(repair: RepairRequest, ignoreAlreadyPurged: Boolean)(
       cid: LfContractId
   )(implicit traceContext: TraceContext): EitherT[Future, String, Option[SerializableContract]] = {
+    def ignoreOrError(reason: String) = EitherT.cond[Future](
+      ignoreAlreadyPurged,
+      None,
+      log(
+        s"Contract $cid cannot be purged: $reason. Set ignoreAlreadyPurged = true to skip non-existing contracts."
+      ),
+    )
+
     val timeOfChange = repair.tryExactlyOneTimeOfChange
     for {
       acsStatus <- readContractAcsState(repair.domain.persistentState, cid)
@@ -732,47 +734,34 @@ final class RepairService(
       // Not checking that the participant hosts a stakeholder as we might be cleaning up contracts
       // on behalf of stakeholders no longer around.
       contractToArchiveInEvent <- acsStatus match {
-        case None =>
-          EitherT.cond[Future](
-            ignoreAlreadyPurged,
-            None,
-            log(
-              s"Contract $cid does not exist in domain ${repair.domain.alias} and cannot be purged. Set ignoreAlreadyPurged = true to skip non-existing contracts."
-            ),
-          )
+        case None => ignoreOrError("unknown contract")
         case Some(ActiveContractStore.Active(_)) =>
           for {
-            contract <- EitherT
+            _contract <- EitherT
               .fromOption[Future](
                 contractO,
                 log(show"Active contract $cid not found in contract store"),
               )
 
-            _ <- persistArchival(repair, timeOfChange)(cid)
+            _ <- persistPurge(repair, timeOfChange)(cid)
           } yield {
             logger.info(
               s"purged contract $cid at repair request ${repair.tryExactlyOneRequestCounter} at ${repair.timestamp}"
             )
             contractO
           }
-        case Some(ActiveContractStore.Archived) =>
-          EitherT.cond[Future](
-            ignoreAlreadyPurged,
-            None,
-            log(
-              s"Contract $cid is already archived in domain ${repair.domain.alias} and cannot be purged. Set ignoreAlreadyPurged = true to skip archived contracts."
-            ),
-          )
+        case Some(ActiveContractStore.Archived) => ignoreOrError("archived contract")
+        case Some(ActiveContractStore.Purged) => ignoreOrError("purged contract")
         case Some(ActiveContractStore.TransferredAway(targetDomain, transferCounter)) =>
           log(
             s"Purging contract $cid previously marked as transferred away to $targetDomain. " +
               s"Marking contract as transferred-in from $targetDomain (even though contract may have since been transferred to yet another domain) and subsequently as archived."
           ).discard
           for {
-            newTransferCounter <- EitherT.fromEither[Future](transferCounter.traverse(_.increment))
+            newTransferCounter <- EitherT.fromEither[Future](transferCounter.increment)
             sourceDomain = SourceDomainId(targetDomain.unwrap)
             _ <- persistTransferIn(repair, sourceDomain, cid, newTransferCounter, timeOfChange)
-            _ <- persistArchival(repair, timeOfChange)(cid)
+            _ <- persistPurge(repair, timeOfChange)(cid)
           } yield contractO
       }
     } yield contractToArchiveInEvent
@@ -843,16 +832,13 @@ final class RepairService(
   private def persistCreation(
       repair: RepairRequest,
       cid: LfContractId,
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
       timeOfChange: TimeOfChange,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, Unit] = {
     repair.domain.persistentState.activeContractStore
-      .markContractActive(
-        cid -> transferCounter,
-        timeOfChange,
-      )
+      .markContractsAdded(Seq(cid -> transferCounter), timeOfChange)
       .toEitherTWithNonaborts
       .leftMap(e => log(s"Failed to create contract $cid in ActiveContractStore: $e"))
   }
@@ -861,7 +847,7 @@ final class RepairService(
       repair: RepairRequest,
       sourceDomain: SourceDomainId,
       cid: LfContractId,
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
       timeOfChange: TimeOfChange,
   )(implicit
       traceContext: TraceContext
@@ -877,12 +863,12 @@ final class RepairService(
   The latter is due to the fact that we do not know the correct transfer counters
   at the time we persist the deactivation in the ACS.
    */
-  private def persistArchival(
+  private def persistPurge(
       repair: RepairRequest,
       timeOfChange: TimeOfChange,
   )(cid: LfContractId)(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
     repair.domain.persistentState.activeContractStore
-      .archiveContract(cid, timeOfChange)
+      .purgeContract(cid, timeOfChange)
       .toEitherT // not turning warnings to errors on behalf of archived contracts, in contract to created contracts
       .leftMap(e => log(s"Failed to mark contract $cid as archived: $e"))
 
@@ -1386,7 +1372,7 @@ object RepairService {
   private final case class ContractToAdd(
       contract: SerializableContract,
       witnesses: Set[LfPartyId],
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
       transferringFrom: Option[SourceDomainId],
   ) {
     def driverMetadata(protocolVersion: ProtocolVersion): Bytes =

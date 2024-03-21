@@ -10,11 +10,10 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.NonNegativeFiniteDuration as _
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v30.SequencerInitializationServiceGrpc
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.admin.grpc.{
-  InitializeSequencerRequestX,
-  InitializeSequencerResponseX,
+  InitializeSequencerRequest,
+  InitializeSequencerResponse,
 }
 import com.digitalasset.canton.domain.sequencing.authentication.MemberAuthenticationServiceFactory
 import com.digitalasset.canton.domain.sequencing.config.{
@@ -27,16 +26,15 @@ import com.digitalasset.canton.domain.sequencing.sequencer.store.{
   SequencerDomainConfigurationStore,
 }
 import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerInitializationServiceX
-import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalanceManager
-import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
 import com.digitalasset.canton.domain.server.DynamicDomainGrpcServer
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.{ComponentStatus, GrpcHealthReporter, HealthService}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.Storage
+import com.digitalasset.canton.sequencer.admin.v30.SequencerInitializationServiceGrpc
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{EffectiveTime, TopologyTransactionProcessorX}
@@ -91,8 +89,6 @@ class SequencerNodeBootstrapX(
         Sequencer,
         NamedLoggerFactory,
     ) => Option[ServerServiceDefinition],
-    // Allow to pass in additional resources that need to be closed as part of the node bootstrap closing
-    closeables: Seq[AutoCloseable] = Seq.empty,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     scheduler: ScheduledExecutorService,
@@ -153,21 +149,6 @@ class SequencerNodeBootstrapX(
         config.init.autoInit,
       )
       with GrpcSequencerInitializationServiceX.Callback {
-    private val balanceStore = TrafficBalanceStore(
-      storage,
-      arguments.parameterConfig.processingTimeouts,
-      loggerFactory,
-      arguments.parameterConfig.batchingConfig.aggregator,
-    )
-    private val balanceManager = new TrafficBalanceManager(
-      balanceStore,
-      clock,
-      arguments.config.trafficConfig,
-      futureSupervisor,
-      arguments.metrics,
-      arguments.parameterConfig.processingTimeouts,
-      loggerFactory,
-    )
 
     // add initialization service
     adminServerRegistry.addServiceU(
@@ -293,7 +274,6 @@ class SequencerNodeBootstrapX(
         nonInitializedSequencerNodeServer.getAndSet(None),
         healthReporter,
         healthService,
-        balanceManager,
       )
     }
 
@@ -320,14 +300,14 @@ class SequencerNodeBootstrapX(
         .toMap
     }
 
-    override def initialize(request: InitializeSequencerRequestX)(implicit
+    override def initialize(request: InitializeSequencerRequest)(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, String, InitializeSequencerResponseX] = {
+    ): EitherT[FutureUnlessShutdown, String, InitializeSequencerResponse] = {
       if (isInitialized) {
         logger.info(
           "Received a request to initialize an already initialized sequencer. Skipping initialization!"
         )
-        EitherT.pure(InitializeSequencerResponseX(replicated = config.sequencer.supportsReplicas))
+        EitherT.pure(InitializeSequencerResponse(replicated = config.sequencer.supportsReplicas))
       } else {
         completeWithExternalUS {
           logger.info(
@@ -360,7 +340,7 @@ class SequencerNodeBootstrapX(
                 )
                 // TODO(#14070) make initialize idempotent to support crash recovery during init
                 sequencerFactory
-                  .initialize(initialState, sequencerId, balanceManager)
+                  .initialize(initialState, sequencerId)
                   .mapK(FutureUnlessShutdown.outcomeK)
               }
               .getOrElse {
@@ -401,7 +381,7 @@ class SequencerNodeBootstrapX(
               .mapK(FutureUnlessShutdown.outcomeK)
           } yield (request.domainParameters, sequencerFactory, topologyManager)
         }.map { _ =>
-          InitializeSequencerResponseX(replicated = config.sequencer.supportsReplicas)
+          InitializeSequencerResponse(replicated = config.sequencer.supportsReplicas)
         }
       }
     }
@@ -418,7 +398,6 @@ class SequencerNodeBootstrapX(
       preinitializedServer: Option[DynamicDomainGrpcServer],
       healthReporter: GrpcHealthReporter,
       healthService: HealthService,
-      balanceManager: TrafficBalanceManager,
   ) extends BootstrapStage[SequencerNodeX, RunningNode[SequencerNodeX]](
         description = "Startup sequencer node",
         bootstrapStageCallback,
@@ -516,12 +495,12 @@ class SequencerNodeBootstrapX(
             domainLoggerFactory,
             topologyProcessor,
           )
-          _ <- EitherT.liftF(balanceManager.initialize)
           sequencer <- createSequencerRuntime(
             sequencerFactory,
             domainId,
             sequencerId,
             Seq(sequencerId) ++ membersToRegister,
+            domainTopologyStore,
             topologyClient,
             topologyProcessor,
             Some(TopologyManagerStatus.combined(authorizedTopologyManager, domainTopologyManager)),
@@ -541,7 +520,6 @@ class SequencerNodeBootstrapX(
             memberAuthServiceFactory,
             domainLoggerFactory,
             config.trafficConfig,
-            balanceManager,
           )
           // TODO(#14073) subscribe to processor BEFORE sequencer client is created
           _ = addCloseable(sequencer)
@@ -569,7 +547,6 @@ class SequencerNodeBootstrapX(
             (healthService.dependencies ++ sequencerPublicApiHealthService.dependencies).map(
               _.toComponentStatus
             ),
-            closeables,
           )
           addCloseable(node)
           Some(new RunningNode(bootstrapStageCallback, node))
@@ -589,7 +566,6 @@ class SequencerNodeX(
     loggerFactory: NamedLoggerFactory,
     sequencerNodeServer: DynamicDomainGrpcServer,
     components: => Seq[ComponentStatus],
-    closeables: Seq[AutoCloseable],
 )(implicit executionContext: ExecutionContextExecutorService)
     extends SequencerNodeCommon(
       config,
@@ -600,11 +576,4 @@ class SequencerNodeX(
       loggerFactory,
       sequencerNodeServer,
       components,
-    ) {
-
-  override def close(): Unit = {
-    super.close()
-    // TODO(#17222): Close the additional resources (e.g. KMS) last to avoid crypto usage after shutdown
-    Lifecycle.close(closeables*)(logger)
-  }
-}
+    ) {}

@@ -5,9 +5,6 @@ package com.daml.metrics.api.opentelemetry
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit
-
-import com.daml.buildinfo.BuildInfo
-import com.daml.metrics.api.Gauges.VarGauge
 import com.daml.metrics.api.MetricHandle.Gauge.{CloseableGauge, SimpleCloseableGauge}
 import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import com.daml.metrics.api.MetricHandle.{
@@ -34,11 +31,11 @@ import io.opentelemetry.api.metrics.{
   Meter => OtelMeter,
 }
 
+import java.util.concurrent.atomic.AtomicReference
+
 class OpenTelemetryMetricsFactory(
     otelMeter: OtelMeter,
-    globalMetricsContext: MetricsContext = MetricsContext(
-      Map("daml_version" -> BuildInfo.Version)
-    ),
+    globalMetricsContext: MetricsContext = MetricsContext(),
 ) extends LabeledMetricsFactory {
 
   override def timer(name: MetricName, description: String)(implicit
@@ -60,33 +57,28 @@ class OpenTelemetryMetricsFactory(
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Gauge[T] = {
     val attributes = globalMetricsContext.merge(context).asAttributes
-    initial match {
-      case longInitial: Int =>
-        val varGauge = new VarGauge[Int](longInitial)
-        val registeredGauge =
-          otelMeter.gaugeBuilder(name).ofLongs().setDescription(description).buildWithCallback {
-            consumer =>
-              consumer.record(varGauge.getValue.toLong, attributes)
-          }
-        OpenTelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]], registeredGauge)
-      case longInitial: Long =>
-        val varGauge = new VarGauge[Long](longInitial)
-        val registeredGauge =
-          otelMeter.gaugeBuilder(name).ofLongs().setDescription(description).buildWithCallback {
-            consumer =>
-              consumer.record(varGauge.getValue, attributes)
-          }
-        OpenTelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]], registeredGauge)
-      case doubleInitial: Double =>
-        val varGauge = new VarGauge[Double](doubleInitial)
-        val registeredGauge =
-          otelMeter.gaugeBuilder(name).setDescription(description).buildWithCallback { consumer =>
-            consumer.record(varGauge.getValue, attributes)
-          }
-        OpenTelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]], registeredGauge)
+    val gauge = OpenTelemetryGauge(name, initial)
+
+    val registered = initial match {
+      case _: Int =>
+        otelMeter.gaugeBuilder(name).ofLongs().setDescription(description).buildWithCallback {
+          consumer =>
+            consumer.record(gauge.getValue.asInstanceOf[Int].toLong, attributes)
+        }
+      case _: Long =>
+        otelMeter.gaugeBuilder(name).ofLongs().setDescription(description).buildWithCallback {
+          consumer =>
+            consumer.record(gauge.getValue.asInstanceOf[Long], attributes)
+        }
+      case _: Double =>
+        otelMeter.gaugeBuilder(name).setDescription(description).buildWithCallback { consumer =>
+          consumer.record(gauge.getValue.asInstanceOf[Double], attributes)
+        }
       case _ =>
         throw new IllegalArgumentException("Gauges support only numeric values.")
     }
+    gauge.reference.set(Some(registered))
+    gauge
   }
 
   override def gaugeWithSupplier[T](
@@ -217,16 +209,21 @@ object OpenTelemetryTimer {
   }
 }
 
-case class OpenTelemetryGauge[T](name: String, varGauge: VarGauge[T], reference: AutoCloseable)
-    extends Gauge[T] {
+case class OpenTelemetryGauge[T](name: String, initial: T) extends Gauge[T] {
 
-  override def updateValue(newValue: T): Unit = varGauge.updateValue(newValue)
+  private val ref = new AtomicReference[T](initial)
+  private[opentelemetry] val reference = new AtomicReference[Option[AutoCloseable]](None)
 
-  override def getValue: T = varGauge.getValue
+  override def updateValue(newValue: T): Unit = ref.set(newValue)
 
-  override def close(): Unit = reference.close()
+  override def getValue: T = ref.get()
 
-  override def updateValue(f: T => T): Unit = varGauge.updateValue(f)
+  override def updateValue(f: T => T): Unit = {
+    val _ = ref.updateAndGet(f(_))
+  }
+
+  override def close(): Unit = reference.getAndSet(None).foreach(_.close())
+
 }
 
 case class OpenTelemetryMeter(name: String, counter: LongCounter, meterContext: MetricsContext)

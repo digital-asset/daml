@@ -29,12 +29,12 @@ import com.digitalasset.canton.participant.topology.{
   TopologyComponentFactory,
 }
 import com.digitalasset.canton.protocol.StaticDomainParameters
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.sequencing.client.{
   RecordingConfig,
   ReplayConfig,
   RichSequencerClient,
 }
+import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, SequencerConnections}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
@@ -123,7 +123,11 @@ class GrpcDomainRegistry(
 
     val runE = for {
       info <- sequencerInfoLoader
-        .loadSequencerEndpoints(config.domain, sequencerConnections)(
+        .loadAndAggregateSequencerEndpoints(
+          config.domain,
+          sequencerConnections,
+          SequencerConnectionValidation.Active, // only validate active sequencers (not all endpoints)
+        )(
           traceContext,
           CloseContext(this),
         )

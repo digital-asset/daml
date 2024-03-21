@@ -36,6 +36,7 @@ da_java_library(
     ],
     deps = [
         "//canton:bindings-java",
+        "//canton:ledger_api_proto",
         "//libs-scala/rs-grpc-bridge",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",

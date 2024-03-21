@@ -14,8 +14,8 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.data.SequencerBlockStore
 import com.digitalasset.canton.domain.block.{
   BlockSequencerStateManagerBase,
-  BlockUpdateGenerator,
-  RawLedgerBlock,
+  BlockUpdateGeneratorImpl,
+  LocalBlockUpdate,
 }
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.PruningError.UnsafePruningPoint
@@ -43,7 +43,7 @@ import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.traffic.TrafficControlErrors.TrafficControlError
 import com.digitalasset.canton.traffic.{
   MemberTrafficStatus,
@@ -51,8 +51,9 @@ import com.digitalasset.canton.traffic.{
   TrafficControlErrors,
 }
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
-import com.digitalasset.canton.util.{EitherTUtil, PekkoUtil}
+import com.digitalasset.canton.util.{EitherTUtil, PekkoUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.ProtocolVersion
+import io.grpc.ServerServiceDefinition
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.*
 import org.apache.pekko.stream.scaladsl.{Keep, Merge, Sink, Source}
@@ -82,6 +83,7 @@ class BlockSequencer(
     prettyPrinter: CantonPrettyPrinter,
     metrics: SequencerMetrics,
     loggerFactory: NamedLoggerFactory,
+    unifiedSequencer: Boolean,
 )(implicit executionContext: ExecutionContext, materializer: Materializer, tracer: Tracer)
     extends BaseSequencer(
       DomainTopologyManagerId(domainId),
@@ -95,6 +97,13 @@ class BlockSequencer(
 
   override def timeouts: ProcessingTimeout = processingTimeouts
 
+  private[sequencer] val pruningQueue = new SimpleExecutionQueue(
+    "block-sequencer-pruning-queue",
+    futureSupervisor,
+    timeouts,
+    loggerFactory,
+  )
+
   override lazy val rateLimitManager: Option[SequencerRateLimitManager] = Some(
     blockRateLimitManager
   )
@@ -104,11 +113,11 @@ class BlockSequencer(
   override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
     stateManager.firstSequencerCounterServableForSequencer
 
-  noTracingLogger.info(
-    s"Subscribing to block source from ${stateManager.getHeadState.block.height}"
-  )
   private val (killSwitch, localEventsQueue, done) = {
-    val updateGenerator = new BlockUpdateGenerator(
+    val headState = stateManager.getHeadState
+    noTracingLogger.info(s"Subscribing to block source from ${headState.block.height}")
+
+    val updateGenerator = new BlockUpdateGeneratorImpl(
       domainId,
       protocolVersion,
       cryptoApi,
@@ -117,46 +126,27 @@ class BlockSequencer(
       blockRateLimitManager,
       orderingTimeFixMode,
       loggerFactory,
+      unifiedSequencer = unifiedSequencer,
     )(CloseContext(cryptoApi))
+
+    val driverSource = blockSequencerOps
+      .subscribe()(TraceContext.empty)
+      // Explicit async to make sure that the block processing runs in parallel with the block retrieval
+      .async
+      .map(updateGenerator.extractBlockEvents)
+      .via(stateManager.processBlock(updateGenerator))
+
+    val localSource = Source
+      .queue[Traced[BlockSequencer.LocalEvent]](bufferSize = 1000, OverflowStrategy.backpressure)
+      .map(_.map(event => LocalBlockUpdate(event)))
+    val combinedSource = Source.combineMat(driverSource, localSource)(Merge(_))(Keep.both)
+    val combinedSourceWithBlockHandling = combinedSource.async
+      .via(stateManager.applyBlockUpdate)
+      .map { case Traced(lastTs) =>
+        metrics.sequencerClient.handler.delay.updateValue((clock.now - lastTs).toMillis)
+      }
     val ((killSwitch, localEventsQueue), done) = PekkoUtil.runSupervised(
       ex => logger.error("Fatally failed to handle state changes", ex)(TraceContext.empty), {
-        val driverSource = blockSequencerOps
-          .subscribe()(TraceContext.empty)
-          .map(block => Right(block): Either[BlockSequencer.LocalEvent, RawLedgerBlock])
-        val localSource = Source
-          .queue[BlockSequencer.LocalEvent](bufferSize = 1000, OverflowStrategy.backpressure)
-          .map(event => Left(event): Either[BlockSequencer.LocalEvent, RawLedgerBlock])
-        val combinedSource = Source
-          .combineMat(
-            driverSource,
-            localSource,
-          )(Merge(_))(Keep.both)
-        val combinedSourceWithBlockHandling = combinedSource
-          .mapAsync(
-            // `stateManager.handleBlock` in `handleBlockContents` must execute sequentially.
-            parallelism = 1
-          ) {
-            case Right(blockEvents) =>
-              implicit val tc: TraceContext =
-                blockEvents.events.headOption.map(_.traceContext).getOrElse(TraceContext.empty)
-              logger.debug(
-                s"Handle block with height=${blockEvents.blockHeight} with num-events=${blockEvents.events.length}"
-              )
-              stateManager
-                .handleBlock(
-                  updateGenerator.asBlockUpdate(blockEvents)
-                )
-                .map { state =>
-                  metrics.sequencerClient.handler.delay
-                    .updateValue((clock.now - state.latestBlock.lastTs).toMillis)
-                }
-                .onShutdown(
-                  logger.debug(
-                    s"Block with height=${blockEvents.blockHeight} wasn't handled because sequencer is shutting down"
-                  )
-                )
-            case Left(localEvent) => stateManager.handleLocalEvent(localEvent)(TraceContext.empty)
-          }
         combinedSourceWithBlockHandling.toMat(Sink.ignore)(Keep.both)
       },
     )
@@ -216,6 +206,8 @@ class BlockSequencer(
     val signedContent = SignedContent(submission, Signature.noSignature, None, protocolVersion)
     sendAsyncSignedInternal(signedContent)
   }
+
+  override def adminServices: Seq[ServerServiceDefinition] = blockSequencerOps.adminServices
 
   override protected def sendAsyncSignedInternal(
       signedSubmission: SignedContent[SubmissionRequest]
@@ -381,24 +373,42 @@ class BlockSequencer(
       traceContext: TraceContext
   ): EitherT[Future, PruningError, String] = {
 
-    val pruningF = futureSupervisor.supervised(
+    val (isNew, pruningF) = stateManager.waitForPruningToComplete(requestedTimestamp)
+    val supervisedPruningF = futureSupervisor.supervised(
       s"Waiting for local pruning operation at $requestedTimestamp to complete"
-    )(stateManager.waitForPruningToComplete(requestedTimestamp))
+    )(pruningF)
 
-    for {
-      status <- EitherT.right[PruningError](this.pruningStatus)
-      _ <- condUnitET[Future](
-        requestedTimestamp <= status.safePruningTimestamp,
-        UnsafePruningPoint(requestedTimestamp, status.safePruningTimestamp): PruningError,
+    if (isNew)
+      for {
+        status <- EitherT.right[PruningError](this.pruningStatus)
+        _ <- condUnitET[Future](
+          requestedTimestamp <= status.safePruningTimestamp,
+          UnsafePruningPoint(requestedTimestamp, status.safePruningTimestamp): PruningError,
+        )
+        msg <- EitherT.right(
+          pruningQueue
+            .execute(store.prune(requestedTimestamp), s"pruning sequencer at $requestedTimestamp")
+            .unwrap
+            .map(
+              _.onShutdown(s"pruning at $requestedTimestamp canceled because we're shutting down")
+            )
+        )
+        _ <- EitherT.right(
+          placeLocalEvent(BlockSequencer.UpdateInitialMemberCounters(requestedTimestamp))
+        )
+        _ <- EitherT.right(supervisedPruningF)
+      } yield msg
+    else
+      EitherT.right(
+        supervisedPruningF.map(_ =>
+          s"Pruning at $requestedTimestamp is already happening due to an earlier request"
+        )
       )
-      _ <- EitherT.right(placeLocalEvent(BlockSequencer.Prune(requestedTimestamp)))
-      msg <- EitherT.right(pruningF)
-    } yield msg
   }
 
   private def placeLocalEvent(event: BlockSequencer.LocalEvent)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = localEventsQueue.offer(event).flatMap {
+  ): Future[Unit] = localEventsQueue.offer(Traced(event)).flatMap {
     case QueueOfferResult.Enqueued => Future.unit
     case QueueOfferResult.Dropped => // this should never happen
       Future.failed[Unit](new RuntimeException(s"Request queue is full. cannot take local $event"))
@@ -427,7 +437,7 @@ class BlockSequencer(
     for {
       ledgerStatus <- blockSequencerOps.health
       isStorageActive = storage.isActive
-      _ = logger.debug(s"Storage active: ${storage.isActive}")
+      _ = logger.trace(s"Storage active: ${storage.isActive}")
     } yield {
       if (!ledgerStatus.isActive) SequencerHealthStatus(isActive = false, ledgerStatus.description)
       else
@@ -441,6 +451,7 @@ class BlockSequencer(
     import TraceContext.Implicits.Empty.*
     logger.debug(s"$name sequencer shutting down")
     Seq[AsyncOrSyncCloseable](
+      SyncCloseable("pruningQueue", pruningQueue.close()),
       SyncCloseable("stateManager.close()", stateManager.close()),
       SyncCloseable("localEventsQueue.complete", localEventsQueue.complete()),
       AsyncCloseable(
@@ -461,7 +472,7 @@ class BlockSequencer(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[Member, TrafficState]] = {
     upToDateTrafficStatesForMembers(
-      stateManager.getHeadState.chunk.ephemeral.status.members.map(_.member),
+      stateManager.getHeadState.chunk.ephemeral.status.membersMap.keySet,
       Some(clock.now),
     ).map(_.view.mapValues(_.state).toMap)
   }
@@ -472,7 +483,7 @@ class BlockSequencer(
     * @param updateTimestamp optionally, timestamp at which to compute the traffic states
     */
   private def upToDateTrafficStatesForMembers(
-      requestedMembers: Seq[Member],
+      requestedMembers: Set[Member],
       updateTimestamp: Option[CantonTimestamp] = None,
   )(implicit
       traceContext: TraceContext
@@ -484,18 +495,16 @@ class BlockSequencer(
         case Some(parameters) =>
           // Use the head ephemeral state to get the known traffic states
           val headEphemeral = stateManager.getHeadState.chunk.ephemeral
-          val requestedMembersSet = requestedMembers.toSet
-
           // Filter by authenticated, enabled members that have been requested
-          val knownValidMembers = headEphemeral.status.members.collect {
-            case SequencerMemberStatus(m @ (_: ParticipantId | _: MediatorId), _, _, true)
-                if m.isAuthenticated && Option
-                  .when(requestedMembersSet.nonEmpty)(requestedMembersSet)
-                  .forall(_.contains(m)) =>
+          val disabledMembers = headEphemeral.status.disabledMembers
+          val knownValidMembers = headEphemeral.status.membersMap.keySet.collect {
+            case m @ (_: ParticipantId | _: MediatorId)
+                if !disabledMembers.contains(m) &&
+                  (requestedMembers.isEmpty || requestedMembers.contains(m)) =>
               m
           }
           // Log if we're missing any states
-          val missingMembers = requestedMembersSet.diff(knownValidMembers.toSet)
+          val missingMembers = requestedMembers.diff(knownValidMembers)
           if (missingMembers.nonEmpty)
             logger.info(
               s"No traffic state found for the following members: ${missingMembers.mkString(", ")}"
@@ -556,7 +565,7 @@ class BlockSequencer(
   override def trafficStatus(requestedMembers: Seq[Member])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[SequencerTrafficStatus] = {
-    upToDateTrafficStatesForMembers(requestedMembers)
+    upToDateTrafficStatesForMembers(requestedMembers.toSet)
       .map { updated =>
         updated.map { case (member, TrafficStateUpdateResult(state, balanceUpdateSerial)) =>
           MemberTrafficStatus(
@@ -572,9 +581,7 @@ class BlockSequencer(
 }
 
 object BlockSequencer {
-  private case object CounterDiscriminator
-
-  sealed trait LocalEvent
+  sealed trait LocalEvent extends Product with Serializable
   final case class DisableMember(member: Member) extends LocalEvent
-  final case class Prune(timestamp: CantonTimestamp) extends LocalEvent
+  final case class UpdateInitialMemberCounters(timestamp: CantonTimestamp) extends LocalEvent
 }

@@ -4,9 +4,7 @@
 package com.digitalasset.canton.ledger.runner.common
 
 import com.daml.jwt.JwtTimestampLeeway
-import com.daml.metrics.api.reporters.MetricsReporter
-import com.digitalasset.canton.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
-import com.digitalasset.canton.ledger.runner.common
+import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.ledger.runner.common.OptConfigValue.{
   optReaderEnabled,
   optWriterEnabled,
@@ -33,8 +31,6 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import pureconfig.error.ConfigReaderFailures
 import pureconfig.{ConfigConvert, ConfigReader, ConfigSource, ConfigWriter}
 
-import java.net.InetSocketAddress
-import java.nio.file.Path
 import java.time.Duration
 import scala.annotation.nowarn
 import scala.reflect.{ClassTag, classTag}
@@ -75,7 +71,6 @@ class PureConfigReaderWriterSpec
     val readerWriter = new PureConfigReaderWriter(secure)
     import readerWriter.*
     testReaderWriterIsomorphism(secure, ArbitraryConfig.duration)
-    testReaderWriterIsomorphism(secure, ArbitraryConfig.metricsReporter)
     testReaderWriterIsomorphism(secure, Gen.oneOf(TlsVersion.allVersions))
     testReaderWriterIsomorphism(secure, ArbitraryConfig.tlsConfiguration)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.port)
@@ -205,46 +200,6 @@ class PureConfigReaderWriterSpec
       "unknown-key=yes\n" + validTlsConfigurationValue,
     ).left.value
       .prettyPrint(0) should include("Unknown key")
-  }
-
-  behavior of "MetricsReporter"
-
-  it should "read/write against predefined values" in {
-    def compare(
-        reporter: MetricsReporter,
-        expectedString: String,
-    ): Assertion = {
-      metricReporterWriter.to(reporter) shouldBe fromAnyRef(expectedString)
-      metricReporterReader.from(fromAnyRef(expectedString)).value shouldBe reporter
-    }
-    compare(
-      MetricsReporter.Prometheus(new InetSocketAddress("localhost", 1234)),
-      "prometheus://localhost:1234",
-    )
-    compare(
-      MetricsReporter.Graphite(new InetSocketAddress("localhost", 1234)),
-      "graphite://localhost:1234/",
-    )
-    compare(
-      MetricsReporter.Graphite(new InetSocketAddress("localhost", 1234), Some("test")),
-      "graphite://localhost:1234/test",
-    )
-    val path = Path.of("test").toAbsolutePath
-    compare(
-      MetricsReporter.Csv(path),
-      "csv://" + path.toString,
-    )
-    compare(MetricsReporter.Console, "console")
-  }
-
-  behavior of "SecretsUrl"
-
-  it should "read/write against predefined values" in {
-    val secretUrl = "https://www.daml.com/secrets.json"
-    secretsUrlReader.from(fromAnyRef(secretUrl)).value shouldBe SecretsUrl.fromString(secretUrl)
-    secretsUrlWriter.to(SecretsUrl.fromString(secretUrl)) shouldBe fromAnyRef("<REDACTED>")
-    new common.PureConfigReaderWriter(false).secretsUrlWriter
-      .to(SecretsUrl.fromString(secretUrl)) shouldBe fromAnyRef(secretUrl)
   }
 
   behavior of "Seeding"

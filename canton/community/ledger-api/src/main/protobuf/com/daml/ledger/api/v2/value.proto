@@ -22,8 +22,7 @@ option java_package = "com.daml.ledger.api.v2";
 // - ApplicationIdStrings are strings with length <= 255 that match the regexp ``[A-Za-z0-9#:\-_/ @\|]+``.
 //
 message Value {
-  // TODO(#16637) rename to sum
-  oneof Sum {
+  oneof sum {
     // This value is used for example for choices that don't take any arguments.
     google.protobuf.Empty unit = 1;
 
@@ -69,8 +68,8 @@ message Value {
     // Represents a homogeneous list of values.
     List list = 11;
 
-    // The Map type
-    Map map = 12;
+    // The TextMap type
+    TextMap text_map = 12;
 
     // The GenMap type
     GenMap gen_map = 13;
@@ -167,7 +166,7 @@ message Optional {
   Value value = 1; // optional
 }
 
-message Map {
+message TextMap {
   message Entry {
     string key = 1;
     Value value = 2;

@@ -59,7 +59,7 @@ abstract class TopologyTransactionProcessorXTest
         asOf = timestamp,
         asOfInclusive = false,
         isProposal = isProposal,
-        types = TopologyMappingX.Code.all,
+        types = TopologyMappingX.Code.all.toSeq,
         None,
         None,
       )

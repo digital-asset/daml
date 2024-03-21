@@ -7,11 +7,6 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.domain.Domain.FailedToInitialiseDomainNode
-import com.digitalasset.canton.domain.admin.v30
-import com.digitalasset.canton.domain.admin.v30.{
-  InitializeMediatorRequest,
-  InitializeMediatorResponse,
-}
 import com.digitalasset.canton.domain.mediator.admin.gprc.{
   InitializeMediatorRequestX,
   InitializeMediatorResponseX,
@@ -19,6 +14,11 @@ import com.digitalasset.canton.domain.mediator.admin.gprc.{
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.mediator.admin.v30
+import com.digitalasset.canton.mediator.admin.v30.{
+  InitializeMediatorRequest,
+  InitializeMediatorResponse,
+}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 

@@ -7,7 +7,6 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.store.backend.common.{
   CommonStorageBackendFactory,
   CompletionStorageBackendTemplate,
-  ConfigurationStorageBackendTemplate,
   ContractStorageBackendTemplate,
   IngestionStorageBackendTemplate,
   PackageStorageBackendTemplate,
@@ -19,7 +18,6 @@ import com.digitalasset.canton.platform.store.backend.localstore.{
 }
 import com.digitalasset.canton.platform.store.backend.{
   CompletionStorageBackend,
-  ConfigurationStorageBackend,
   ContractStorageBackend,
   DBLockStorageBackend,
   DataSourceStorageBackend,
@@ -40,11 +38,6 @@ object H2StorageBackendFactory extends StorageBackendFactory with CommonStorageB
 
   override def createPackageStorageBackend(ledgerEndCache: LedgerEndCache): PackageStorageBackend =
     new PackageStorageBackendTemplate(H2QueryStrategy, ledgerEndCache)
-
-  override def createConfigurationStorageBackend(
-      ledgerEndCache: LedgerEndCache
-  ): ConfigurationStorageBackend =
-    new ConfigurationStorageBackendTemplate(H2QueryStrategy, ledgerEndCache)
 
   override def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend =
     new PartyStorageBackendTemplate(H2QueryStrategy, ledgerEndCache)

@@ -101,8 +101,17 @@ object HaCoordinator {
       override def protectedExecution(
           initializeExecution: ConnectionInitializer => Future[Handle]
       ): Handle = {
-        def acquireLock(connection: Connection, lockId: LockId, lockMode: LockMode): Lock = {
-          logger.debug(s"Acquiring lock $lockId $lockMode")
+        def acquireLock(
+            connection: Connection,
+            lockId: LockId,
+            lockMode: LockMode,
+            fromHealthCheck: Boolean = false,
+        ): Lock = {
+          // Reduce log level if we check the lock acquisition from the health check
+          if (fromHealthCheck)
+            logger.trace(s"Acquiring lock $lockId $lockMode")
+          else
+            logger.debug(s"Acquiring lock $lockId $lockMode")
           storageBackend
             .tryAcquire(lockId, lockMode)(connection)
             .getOrElse(
@@ -110,8 +119,8 @@ object HaCoordinator {
             )
         }
 
-        def acquireMainLock(connection: Connection): Unit =
-          acquireLock(connection, indexerLockId, LockMode.Exclusive).discard
+        def acquireMainLock(connection: Connection, fromHealthCheck: Boolean = false): Unit =
+          acquireLock(connection, indexerLockId, LockMode.Exclusive, fromHealthCheck).discard
 
         preemptableSequence.executeSequence { sequenceHelper =>
           import sequenceHelper.*
@@ -139,7 +148,13 @@ object HaCoordinator {
               waitMillisBetweenRetries = haConfig.workerLockAcquireRetryTimeout.duration.toMillis,
               maxAmountOfRetries = haConfig.workerLockAcquireMaxRetries.unwrap,
               retryable = _.isInstanceOf[CannotAcquireLockException],
-            )(acquireLock(mainConnection, indexerWorkerLockId, LockMode.Exclusive))
+            )(
+              acquireLock(
+                mainConnection,
+                indexerWorkerLockId,
+                LockMode.Exclusive,
+              )
+            )
             _ = logger.info(
               "Previous IndexDB HA Coordinator finished work, starting DB connectivity polling"
             )
@@ -153,7 +168,7 @@ object HaCoordinator {
             mainLockChecker <- go[PollingChecker](
               new PollingChecker(
                 periodMillis = haConfig.mainLockCheckerPeriod.duration.toMillis,
-                checkBody = acquireMainLock(mainConnection),
+                checkBody = acquireMainLock(mainConnection, fromHealthCheck = true),
                 killSwitch =
                   handle.killSwitch, // meaning: this PollingChecker will shut down the main preemptableSequence
                 loggerFactory = loggerFactory,

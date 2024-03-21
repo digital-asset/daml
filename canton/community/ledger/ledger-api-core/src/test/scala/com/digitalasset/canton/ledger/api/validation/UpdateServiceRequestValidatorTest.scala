@@ -37,7 +37,9 @@ class UpdateServiceRequestValidatorTest
 
   private def txReqBuilder(templateIdsForParty: Seq[Identifier]) = GetUpdatesRequest(
     Some(
-      ParticipantOffset(ParticipantOffset.Value.Boundary(ParticipantBoundary.PARTICIPANT_BEGIN))
+      ParticipantOffset(
+        ParticipantOffset.Value.Boundary(ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN)
+      )
     ),
     Some(ParticipantOffset(ParticipantOffset.Value.Absolute(absoluteOffset))),
     Some(
@@ -76,7 +78,9 @@ class UpdateServiceRequestValidatorTest
 
   private val txTreeReq = GetUpdatesRequest(
     Some(
-      ParticipantOffset(ParticipantOffset.Value.Boundary(ParticipantBoundary.PARTICIPANT_BEGIN))
+      ParticipantOffset(
+        ParticipantOffset.Value.Boundary(ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN)
+      )
     ),
     Some(ParticipantOffset(ParticipantOffset.Value.Absolute(absoluteOffset))),
     Some(TransactionFilter(Map(party -> Filters.defaultInstance))),

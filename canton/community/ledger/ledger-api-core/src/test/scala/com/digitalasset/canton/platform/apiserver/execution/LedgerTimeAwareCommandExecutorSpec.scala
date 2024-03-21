@@ -16,7 +16,6 @@ import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
-import com.digitalasset.canton.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.digitalasset.canton.ledger.participant.state.index.v2.MaximumLedgerTime
 import com.digitalasset.canton.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
@@ -40,15 +39,6 @@ class LedgerTimeAwareCommandExecutorSpec
     LoggingContextWithTrace.ForTesting
 
   private val submissionSeed = Hash.hashPrivateKey("a key")
-  private val configuration = Configuration(
-    generation = 1,
-    timeModel = LedgerTimeModel(
-      avgTransactionLatency = Duration.ZERO,
-      minSkew = Duration.ZERO,
-      maxSkew = Duration.ZERO,
-    ).get,
-    maxDeduplicationDuration = Duration.ZERO,
-  )
 
   private val cid = TransactionBuilder.newCid
 
@@ -97,7 +87,6 @@ class LedgerTimeAwareCommandExecutorSpec
         Ref.CommandId.assertFromString("foobar"),
         DeduplicationDuration(Duration.ofMinutes(1)),
         None,
-        configuration,
       ),
       None,
       TransactionMeta(
@@ -118,7 +107,7 @@ class LedgerTimeAwareCommandExecutorSpec
 
     val mockExecutor = mock[CommandExecutor]
     when(
-      mockExecutor.execute(any[Commands], any[Hash], any[Configuration])(
+      mockExecutor.execute(any[Commands], any[Hash])(
         any[LoggingContextWithTrace]
       )
     )
@@ -166,7 +155,7 @@ class LedgerTimeAwareCommandExecutorSpec
       loggerFactory,
     )
 
-    instance.execute(commands, submissionSeed, configuration)(loggingContext).map { actual =>
+    instance.execute(commands, submissionSeed)(loggingContext).map { actual =>
       val expectedResult = finalExecutionResult.map(let =>
         CommandExecutionResult(
           SubmitterInfo(
@@ -176,7 +165,6 @@ class LedgerTimeAwareCommandExecutorSpec
             Ref.CommandId.assertFromString("foobar"),
             DeduplicationDuration(Duration.ofMinutes(1)),
             None,
-            configuration,
           ),
           None,
           TransactionMeta(
@@ -199,7 +187,6 @@ class LedgerTimeAwareCommandExecutorSpec
       verify(mockExecutor, times(resolveMaximumLedgerTimeResults.size)).execute(
         any[Commands],
         any[Hash],
-        any[Configuration],
       )(any[LoggingContextWithTrace])
 
       actual shouldEqual expectedResult

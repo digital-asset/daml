@@ -8,7 +8,7 @@ import com.daml.ledger.api.v2.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.event.*
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
 import com.daml.ledger.api.v2.transaction.{Transaction, TransactionTree, TreeEvent}
 import com.daml.ledger.api.v2.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v2.value.Value.Sum.Text
@@ -20,9 +20,8 @@ import scala.util.Random
 object MockMessages {
 
   val participantBegin: ParticipantOffset = ParticipantOffset(
-    ParticipantOffset.Value.Boundary(PARTICIPANT_BEGIN)
+    ParticipantOffset.Value.Boundary(PARTICIPANT_BOUNDARY_BEGIN)
   )
-  val ledgerId = "ledgerId"
   val workflowId = "workflowId"
   val applicationId = "applicationId"
   val commandId = "commandId"

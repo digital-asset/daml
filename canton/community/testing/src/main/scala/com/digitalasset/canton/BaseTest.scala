@@ -67,6 +67,7 @@ trait TestEssentials
     BaseTest.testedReleaseProtocolVersion
   protected lazy val defaultStaticDomainParameters: StaticDomainParameters =
     BaseTest.defaultStaticDomainParameters
+  protected lazy val testedUseUnifiedSequencer: Boolean = BaseTest.testedUseUnifiedSequencer
 
   // default to providing an empty trace context to all tests
   protected implicit def traceContext: TraceContext = TraceContext.empty
@@ -311,7 +312,7 @@ trait BaseTest
   lazy val CantonTestsPath: String = BaseTest.CantonTestsPath
   lazy val PerformanceTestPath: String = BaseTest.PerformanceTestPath
   lazy val DamlTestFilesPath: String = BaseTest.DamlTestFilesPath
-  lazy val DamlTestLfV21FilesPath: String = BaseTest.DamlTestLfV21FilesPath
+  lazy val DamlTestLfDevFilesPath: String = BaseTest.DamlTestLfDevFilesPath
 }
 
 object BaseTest {
@@ -407,7 +408,6 @@ object BaseTest {
     requiredHashAlgorithms = SymbolicCryptoProvider.supportedHashAlgorithms,
     requiredCryptoKeyFormats = SymbolicCryptoProvider.supportedCryptoKeyFormats,
     protocolVersion = protocolVersion,
-    acsCommitmentsCatchUp = acsCommitmentsCatchUp,
   )
 
   lazy val testedProtocolVersion: ProtocolVersion =
@@ -420,6 +420,8 @@ object BaseTest {
     testedProtocolVersion
   )
 
+  lazy val testedUseUnifiedSequencer: Boolean = tryGetUseUnifiedSequencerFromEnv
+
   lazy val CantonExamplesPath: String = getResourcePath("CantonExamples.dar")
   lazy val CantonTestsPath: String = getResourcePath("CantonTests.dar")
   lazy val CantonTestsDevPath: String = getResourcePath("CantonTestsDev.dar")
@@ -428,7 +430,7 @@ object BaseTest {
   lazy val PerformanceTestPath: String = getResourcePath("PerformanceTest.dar")
   lazy val DamlScript3TestFilesPath: String = getResourcePath("DamlScript3TestFiles.dar")
   lazy val DamlTestFilesPath: String = getResourcePath("DamlTestFiles.dar")
-  lazy val DamlTestLfV21FilesPath: String = getResourcePath("DamlTestLfV21Files.dar")
+  lazy val DamlTestLfDevFilesPath: String = getResourcePath("DamlTestLfDevFiles.dar")
 
   def getResourcePath(name: String): String =
     Option(getClass.getClassLoader.getResource(name))
@@ -441,6 +443,10 @@ object BaseTest {
   protected def tryGetProtocolVersionFromEnv: Option[ProtocolVersion] = sys.env
     .get("CANTON_PROTOCOL_VERSION")
     .map(ProtocolVersion.tryCreate)
+
+  protected def tryGetUseUnifiedSequencerFromEnv: Boolean = sys.env
+    .get("CANTON_UNIFIED_SEQUENCER")
+    .exists(_.toBoolean)
 
 }
 

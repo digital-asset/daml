@@ -27,7 +27,12 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
-import com.digitalasset.canton.sequencing.protocol.TrafficState
+import com.digitalasset.canton.sequencing.protocol.{
+  AllMembersOfDomain,
+  Deliver,
+  SequencersOfDomain,
+  TrafficState,
+}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
@@ -262,7 +267,18 @@ trait SequencerBlockStore extends AutoCloseable {
         )
     }
 
-    val topologyEventsInBlock = allEventsInBlock.get(topologyClientMember)
+    // Keep only the events addressed to the sequencer that advance `latestSequencerEventTimestamp`.
+    // TODO(i17741): write a security test that checks proper behavior when a sequencer is targeted directly
+    val topologyEventsInBlock = allEventsInBlock
+      .get(topologyClientMember)
+      .map(_.filter(_.signedEvent.content match {
+        case Deliver(_, _, _, _, batch, _) =>
+          val recipients = batch.allRecipients
+          recipients.contains(SequencersOfDomain) || recipients.contains(AllMembersOfDomain)
+        case _ => false
+      }))
+      .flatMap(NonEmpty.from)
+
     topologyEventsInBlock match {
       case None =>
         // For the initial state, the latest topology client timestamp
@@ -275,6 +291,7 @@ trait SequencerBlockStore extends AutoCloseable {
         }
       case Some(topologyEvents) =>
         val lastEvent = topologyEvents.toNEF.maximumBy(_.timestamp)
+
         ErrorUtil.requireState(
           currentBlock.latestSequencerEventTimestamp.contains(lastEvent.timestamp),
           s"The latest topology client timestamp for block ${currentBlock.height} is ${currentBlock.latestSequencerEventTimestamp}, but the last event in the block to $topologyClientMember is at ${lastEvent.timestamp}",

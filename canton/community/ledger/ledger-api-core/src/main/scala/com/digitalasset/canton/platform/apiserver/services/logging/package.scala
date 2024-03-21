@@ -13,7 +13,6 @@ import com.daml.logging.entries.{LoggingEntries, LoggingEntry, LoggingValue}
 import com.digitalasset.canton.ledger.api.domain.{
   Commands,
   EventId,
-  LedgerId,
   ParticipantOffset,
   TransactionFilter,
   TransactionId,
@@ -60,9 +59,6 @@ package object logging {
 
   private[services] def offset(offset: String): LoggingEntry =
     "offset" -> offset
-
-  private[services] def ledgerId(id: Option[LedgerId]): LoggingEntry =
-    "ledgerId" -> OfString(id.map(_.unwrap).getOrElse("<empty-ledger-id>"))
 
   private[services] def commandId(id: String): LoggingEntry =
     "commandId" -> id

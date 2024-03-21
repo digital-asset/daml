@@ -8,11 +8,11 @@ import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Lens
 import Control.Monad
---import Control.Monad.Loops (untilM_)
+import Control.Monad.Loops (untilM_)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
 import Data.List.Extra
---import Data.String (fromString)
+import Data.String (fromString)
 import Data.Maybe (maybeToList, isJust)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -96,8 +96,8 @@ data DamlStartResource = DamlStartResource
     , jsonApiPort :: PortNumber
     }
 
-damlStart :: SdkVersioned => FilePath -> IO DamlStartResource
-damlStart tmpDir = do
+damlStart :: SdkVersioned => FilePath -> Bool -> IO DamlStartResource
+damlStart tmpDir disableUpgradeValidation = do
     let projDir = tmpDir </> "assistant-integration-tests"
     createDirectoryIfMissing True (projDir </> "daml")
     let scriptOutputFile = "script-output.json"
@@ -143,7 +143,7 @@ damlStart tmpDir = do
     jsonApiPort <- getFreePort
     env <- subprocessEnv []
     let startProc =
-            (shell $ unwords
+            (shell $ unwords $
                 [ "daml start"
                 , "--sandbox-port", show $ ledger ports
                 , "--sandbox-admin-api-port", show $ admin ports
@@ -151,7 +151,8 @@ damlStart tmpDir = do
                 , "--sandbox-sequencer-admin-port", show $ sequencerAdmin ports
                 , "--sandbox-mediator-admin-port", show $ mediatorAdmin ports
                 , "--json-api-port", show jsonApiPort
-                ]
+                ] ++
+                if disableUpgradeValidation then [ "--sandbox-option", "-C", "--sandbox-option", "canton.participants.sandbox.parameters.disable-upgrade-validation=true" ] else []
             ) {std_in = CreatePipe, std_out = CreatePipe, cwd = Just projDir, create_group = True, env = Just env}
     (Just startStdin, Just startStdout, _, startPh) <- createProcess startProc
     outChan <- newBroadcastTChanIO
@@ -187,7 +188,8 @@ tests tmpDir =
             , testCase "daml new --list" $
                 callCommandSilentIn tmpDir "daml new --list"
             , packagingTests tmpDir
-            , withResource (damlStart (tmpDir </> "sandbox-canton")) stop damlStartTests
+            , withResource (damlStart (tmpDir </> "sandbox-canton") False) stop damlStartTests
+            , withResource (damlStart (tmpDir </> "sandbox-canton") True) stop damlStartTestsWithoutValidation
             , cleanTests cleanDir
             , templateTests
             , codegenTests codegenDir
@@ -306,66 +308,6 @@ damlStartTests getDamlStart =
                 ]
             contents <- readFileUTF8 (projDir </> "output.json")
             lines contents @?= ["{", "  \"_1\": 0,", "  \"_2\": 1", "}"]
-
-        {-
-        subtest "hot reload" $ do
-            DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan, alice, aliceHeaders} <- getDamlStart
-            stdoutReadChan <- atomically $ dupTChan stdoutChan
-            writeFileUTF8 (projDir </> "daml/Main.daml") $
-                unlines
-                    [ "module Main where"
-                    , "import Daml.Script"
-                    , "template S with newFieldName : Party where signatory newFieldName"
-                    , "init : Script Party"
-                    , "init = do"
-                    , "  let isAlice x = displayName x == Some \"Alice\""
-                    , "  Some aliceDetails <- find isAlice <$> listKnownParties"
-                    , "  let alice = party aliceDetails"
-                    , "  alice `submit` createCmd (S alice)"
-                    , "  pure alice"
-                    ]
-            hPutChar startStdin 'r'
-            hFlush startStdin
-            untilM_ (pure ()) $ do
-                line <- atomically $ readTChan stdoutReadChan
-                pure ("Rebuild complete" `isInfixOf` line)
-            initialRequest <-
-                parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
-            manager <- newManager defaultManagerSettings
-            let queryRequestT =
-                    initialRequest
-                        { method = "POST"
-                        , requestHeaders = aliceHeaders
-                        , requestBody =
-                            RequestBodyLBS $
-                            Aeson.encode $
-                            Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:T"]]
-                        }
-            let queryRequestS =
-                    initialRequest
-                        { method = "POST"
-                        , requestHeaders = aliceHeaders
-                        , requestBody =
-                            RequestBodyLBS $
-                            Aeson.encode $
-                            Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:S"]]
-                        }
-            queryResponseT <- httpLbs queryRequestT manager
-            queryResponseS <- httpLbs queryRequestS manager
-            -- check that there are no more active contracts of template T
-            statusCode (responseStatus queryResponseT) @?= 200
-
-            -- TODO [SW] We no longer clean the ledger, so this test fails.
-            -- preview (key "result" . _Array) (responseBody queryResponseT) @?= Just Vector.empty
-
-            -- check that a new contract of template S was created
-            statusCode (responseStatus queryResponseS) @?= 200
-            preview
-                (key "result" . nth 0 . key "payload" . key "newFieldName")
-                (responseBody queryResponseS) @?=
-                Just (fromString alice)
-        -}
-
         subtest "run a daml deploy without project parties" $ do
             DamlStartResource {projDir, sandboxPort} <- getDamlStart
             copyFile (projDir </> "daml.yaml") (projDir </> "daml.yaml.back")
@@ -383,6 +325,66 @@ damlStartTests getDamlStart =
                 ]
             callCommandSilentIn projDir $ unwords ["daml", "deploy", "--host localhost", "--port", show sandboxPort]
             copyFile (projDir </> "daml.yaml.back") (projDir </> "daml.yaml")
+
+damlStartTestsWithoutValidation :: SdkVersioned => IO DamlStartResource -> TestTree
+damlStartTestsWithoutValidation getDamlStart =
+    -- We use testCaseSteps to make sure each of these tests runs in sequence, not in parallel.
+    testCase "daml start without upgrade validation - hot reload" $ do
+        DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan, alice, aliceHeaders} <- getDamlStart
+        stdoutReadChan <- atomically $ dupTChan stdoutChan
+        writeFileUTF8 (projDir </> "daml/Main.daml") $
+            unlines
+                [ "module Main where"
+                , "import Daml.Script"
+                , "template S with newFieldName : Party where signatory newFieldName"
+                , "init : Script Party"
+                , "init = do"
+                , "  let isAlice x = displayName x == Some \"Alice\""
+                , "  Some aliceDetails <- find isAlice <$> listKnownParties"
+                , "  let alice = party aliceDetails"
+                , "  alice `submit` createCmd (S alice)"
+                , "  pure alice"
+                ]
+        hPutChar startStdin 'r'
+        hFlush startStdin
+        untilM_ (pure ()) $ do
+            line <- atomically $ readTChan stdoutReadChan
+            pure ("Rebuild complete" `isInfixOf` line)
+        initialRequest <-
+            parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
+        manager <- newManager defaultManagerSettings
+        let queryRequestT =
+                initialRequest
+                    { method = "POST"
+                    , requestHeaders = aliceHeaders
+                    , requestBody =
+                        RequestBodyLBS $
+                        Aeson.encode $
+                        Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:T"]]
+                    }
+        let queryRequestS =
+                initialRequest
+                    { method = "POST"
+                    , requestHeaders = aliceHeaders
+                    , requestBody =
+                        RequestBodyLBS $
+                        Aeson.encode $
+                        Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:S"]]
+                    }
+        queryResponseT <- httpLbs queryRequestT manager
+        queryResponseS <- httpLbs queryRequestS manager
+        -- check that there are no more active contracts of template T
+        statusCode (responseStatus queryResponseT) @?= 200
+
+        -- TODO [SW] We no longer clean the ledger, so this test fails.
+        -- preview (key "result" . _Array) (responseBody queryResponseT) @?= Just Vector.empty
+
+        -- check that a new contract of template S was created
+        statusCode (responseStatus queryResponseS) @?= 200
+        preview
+            (key "result" . nth 0 . key "payload" . key "newFieldName")
+            (responseBody queryResponseS) @?=
+            Just (fromString alice)
 
 -- | Ensure that daml clean removes precisely the files created by daml build.
 cleanTests :: FilePath -> TestTree
@@ -521,8 +523,8 @@ cantonTests = testGroup "daml sandbox"
                     | isMac = "script -q -- tty.txt " <> cmd
                     | otherwise = concat ["script -q -c '", cmd, "'"]
                 input =
-                    [ "sandbox.health.running"
-                    , "local.health.running"
+                    [ "sandbox.health.is_running"
+                    , "local.health.is_running"
                     , "exit" -- This "exit" is necessary on Linux, otherwise the REPL expects more input.
                              -- script on Linux doesn't transmit the EOF/^D to the REPL, unlike on Mac.
                     ]

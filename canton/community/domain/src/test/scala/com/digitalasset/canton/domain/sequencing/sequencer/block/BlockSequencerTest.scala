@@ -15,17 +15,17 @@ import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.BlockSequencerStateManager.ChunkState
 import com.digitalasset.canton.domain.block.data.memory.InMemorySequencerBlockStore
-import com.digitalasset.canton.domain.block.data.{
-  BlockEphemeralState,
-  BlockInfo,
-  BlockUpdateClosureWithHeight,
-  EphemeralState,
-}
+import com.digitalasset.canton.domain.block.data.{BlockEphemeralState, BlockInfo, EphemeralState}
 import com.digitalasset.canton.domain.block.{
+  BlockEvents,
   BlockSequencerStateManager,
   BlockSequencerStateManagerBase,
+  BlockUpdate,
+  BlockUpdateGenerator,
+  OrderedBlockUpdate,
   RawLedgerBlock,
   SequencerDriverHealthStatus,
+  SignedChunkEvents,
 }
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
@@ -35,7 +35,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
 }
 import com.digitalasset.canton.domain.sequencing.traffic.RateLimitManagerTesting
 import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficBalanceStore
-import com.digitalasset.canton.lifecycle.{AsyncOrSyncCloseable, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.AsyncOrSyncCloseable
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
 import com.digitalasset.canton.resource.MemoryStorage
@@ -60,10 +60,11 @@ import com.digitalasset.canton.topology.processing.{
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransactionX
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
+import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.scaladsl.{Keep, Source}
+import org.apache.pekko.stream.scaladsl.{Flow, Keep, Source}
 import org.apache.pekko.stream.{KillSwitch, KillSwitches, Materializer}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -77,7 +78,7 @@ class BlockSequencerTest
     with RateLimitManagerTesting {
 
   "BlockSequencer" should {
-    "process a lot of blocks during catch up" in withEnv() { implicit env =>
+    "process a lot of blocks during catch up" in withEnv { implicit env =>
       env.fakeBlockSequencerOps.completed.future.map(_ => succeed)
     }
   }
@@ -87,16 +88,14 @@ class BlockSequencerTest
 
   private val N = 1_000_000
 
-  private def withEnv[T](
-      initial: Option[BlockEphemeralState] = None
-  )(test: Environment => Future[T]): Future[T] = {
-    val env = new Environment(initial)
+  private def withEnv[T](test: Environment => Future[T]): Future[T] = {
+    val env = new Environment
     complete {
       test(env)
     } lastly env.close()
   }
 
-  private class Environment(initial: Option[BlockEphemeralState] = None) extends AutoCloseable {
+  private class Environment extends AutoCloseable {
     private val actorSystem = ActorSystem()
     implicit val materializer: Materializer = Materializer(actorSystem)
 
@@ -149,10 +148,6 @@ class BlockSequencerTest
 
     private val store =
       new InMemorySequencerBlockStore(None, loggerFactory)
-    Await.result(
-      initial.fold(Future.unit)(store.setInitialState(_, None)),
-      1.second,
-    )
 
     private val balanceStore = new InMemoryTrafficBalanceStore(loggerFactory)
 
@@ -184,6 +179,7 @@ class BlockSequencerTest
         ),
         SequencerMetrics.noop(this.getClass.getName),
         loggerFactory,
+        unifiedSequencer = testedUseUnifiedSequencer,
       )
 
     override def close(): Unit = {
@@ -237,12 +233,14 @@ class BlockSequencerTest
 
     override val maybeLowerTopologyTimestampBound: Option[CantonTimestamp] = None
 
-    override def handleBlock(
-        updateClosure: BlockUpdateClosureWithHeight
-    ): FutureUnlessShutdown[BlockEphemeralState] =
-      FutureUnlessShutdown.pure(
-        BlockEphemeralState(BlockInfo.initial, EphemeralState.empty)
-      ) // Discarded anyway
+    override def processBlock(
+        bug: BlockUpdateGenerator
+    ): Flow[BlockEvents, Traced[OrderedBlockUpdate[SignedChunkEvents]], NotUsed] =
+      Flow[BlockEvents].mapConcat(_ => Seq.empty)
+
+    override def applyBlockUpdate
+        : Flow[Traced[BlockUpdate[SignedChunkEvents]], Traced[CantonTimestamp], NotUsed] =
+      Flow[Traced[BlockUpdate[SignedChunkEvents]]].map(_.map(_ => CantonTimestamp.MinValue))
 
     override def getHeadState: BlockSequencerStateManager.HeadState =
       BlockSequencerStateManager.HeadState(
@@ -261,15 +259,7 @@ class BlockSequencerTest
     ): CreateSubscription = ???
     override private[domain] def firstSequencerCounterServableForSequencer
         : com.digitalasset.canton.SequencerCounter = ???
-    override def handleLocalEvent(
-        event: com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer.LocalEvent
-    )(implicit
-        traceContext: com.digitalasset.canton.tracing.TraceContext
-    ): scala.concurrent.Future[Unit] = ???
     override def isMemberEnabled(member: com.digitalasset.canton.topology.Member): Boolean = ???
-    override def pruneLocalDatabase(timestamp: com.digitalasset.canton.data.CantonTimestamp)(
-        implicit traceContext: com.digitalasset.canton.tracing.TraceContext
-    ): scala.concurrent.Future[Unit] = ???
     override def waitForAcknowledgementToComplete(
         member: com.digitalasset.canton.topology.Member,
         timestamp: com.digitalasset.canton.data.CantonTimestamp,
@@ -281,6 +271,6 @@ class BlockSequencerTest
     ): scala.concurrent.Future[Unit] = ???
     override def waitForPruningToComplete(
         timestamp: com.digitalasset.canton.data.CantonTimestamp
-    ): scala.concurrent.Future[String] = ???
+    ): (Boolean, Future[Unit]) = ???
   }
 }

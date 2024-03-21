@@ -7,10 +7,10 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v30
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregation.AggregationBySender
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.MemberTrafficSnapshot
 import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalance
+import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.sequencing.protocol.{AggregationId, AggregationRule}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -104,9 +104,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
       additional,
       trafficState,
       trafficBalances,
-    )(
-      protocolVersionRepresentativeFor(protocolVersion)
-    )
+    )(protocolVersionRepresentativeFor(protocolVersion))
 
   def unimplemented(protocolVersion: ProtocolVersion): SequencerSnapshot = SequencerSnapshot(
     CantonTimestamp.MinValue,

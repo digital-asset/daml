@@ -23,13 +23,8 @@ import com.daml.lf.transaction.{
 import java.nio.file.Files
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.lf.language.{
-  LanguageMajorVersion,
-  LanguageVersion,
-  LookupError,
-  PackageInterface,
-  StablePackages,
-}
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, LookupError, PackageInterface}
+import com.daml.lf.stablepackages.StablePackages
 import com.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
@@ -160,6 +155,7 @@ class Engine(val config: EngineConfig) {
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
+      packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       speedyCommand <- preprocessor.preprocessReplayCommand(command)
@@ -176,7 +172,7 @@ class Engine(val config: EngineConfig) {
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
-        packageResolution = Map.empty,
+        packageResolution = packageResolution,
       )
     } yield result
 
@@ -187,6 +183,7 @@ class Engine(val config: EngineConfig) {
       participantId: Ref.ParticipantId,
       submissionTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
+      packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       commands <- preprocessor.translateTransactionRoots(tx)
@@ -199,7 +196,7 @@ class Engine(val config: EngineConfig) {
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
-        packageResolution = Map.empty,
+        packageResolution = packageResolution,
       )
     } yield result
 

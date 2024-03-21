@@ -8,7 +8,7 @@ import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
-import com.daml.lf.validation.{TypecheckUpgrades, UpgradeError, Upgrading}
+import com.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
 import com.daml.logging.entries.LoggingValue.OfString
 import com.digitalasset.canton.ledger.error.PackageServiceErrors.{InternalError, Validation}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -63,71 +63,24 @@ class PackageUpgradeValidator(
           }
 
         case None =>
-          upgradingPackageAst.metadata.upgradedPackageId match {
-            case Some(upgradedPackageId) if packageMap.contains(upgradedPackageId) =>
-              for {
-                upgradedPackage <- lookupDar(upgradedPackageId).flatMap {
-                  case Some((_, pkg)) =>
-                    Future.successful(pkg)
-                  case None =>
-                    Future.failed(
-                      Validation.Upgradeability
-                        .Error(
-                          upgradingPackageId,
-                          upgradedPackageId,
-                          UpgradeError(
-                            UpgradeError.CouldNotResolveUpgradedPackageId(
-                              Upgrading(upgradingPackageId, upgradedPackageId)
-                            )
-                          ),
-                        )
-                        .asGrpcError
-                    )
-                }
-                _ <- strictTypecheckUpgrades(
-                  TypecheckUpgrades.DarCheck,
-                  optUpgradingDar,
-                  upgradedPackageId,
-                  Some(upgradedPackage),
-                )
-                optMaximalDar <- maximalVersionedDar(
-                  upgradedPackageId,
-                  upgradingPackageAst,
-                  packageMap,
-                )
-                _ <- typecheckUpgrades(
-                  TypecheckUpgrades.MaximalDarCheck,
-                  optMaximalDar,
-                  optUpgradingDar,
-                )
-                optMinimalDar <- minimalVersionedDar(upgradingPackageAst, packageMap)
-                _ <- typecheckUpgrades(
-                  TypecheckUpgrades.MinimalDarCheck,
-                  optUpgradingDar,
-                  optMinimalDar,
-                )
-                _ = logger.info(s"Typechecking upgrades for $upgradingPackageId succeeded.")
-              } yield ()
-
-            case Some(upgradedPackageId) =>
-              Future.failed(
-                Validation.Upgradeability
-                  .Error(
-                    upgradingPackageId,
-                    upgradedPackageId,
-                    UpgradeError(
-                      UpgradeError.CouldNotResolveUpgradedPackageId(
-                        Upgrading(upgradingPackageId, upgradedPackageId)
-                      )
-                    ),
-                  )
-                  .asGrpcError
-              )
-
-            case None =>
-              logger.info(s"Package $upgradingPackageId does not upgrade anything.")
-              Future.unit
-          }
+          for {
+            optMaximalDar <- maximalVersionedDar(
+              upgradingPackageAst,
+              packageMap,
+            )
+            _ <- typecheckUpgrades(
+              TypecheckUpgrades.MaximalDarCheck,
+              optUpgradingDar,
+              optMaximalDar,
+            )
+            optMinimalDar <- minimalVersionedDar(upgradingPackageAst, packageMap)
+            _ <- typecheckUpgrades(
+              TypecheckUpgrades.MinimalDarCheck,
+              optMinimalDar,
+              optUpgradingDar,
+            )
+            _ = logger.info(s"Typechecking upgrades for $upgradingPackageId succeeded.")
+          } yield ()
       }
     } yield result
 
@@ -171,7 +124,6 @@ class PackageUpgradeValidator(
   }
 
   private def maximalVersionedDar(
-      upgradedPackageId: Ref.PackageId,
       pkg: Ast.Package,
       packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
   )(implicit
@@ -183,9 +135,7 @@ class PackageUpgradeValidator(
       .collect { case (pkgId, (`pkgName`, pkgVersion)) =>
         (pkgId, pkgVersion)
       }
-      // typecheckUpgrades has already been performed for upgradedPackageId, so we ignore this package Id for maximal
-      // version checks
-      .filter { case (pkgId, version) => pkgVersion > version && upgradedPackageId != pkgId }
+      .filter { case (_, version) => pkgVersion > version }
       .maxByOption { case (_, version) => version }
       .traverse { case (pId, _) => lookupDar(pId) }
       .map(_.flatten)
@@ -193,28 +143,30 @@ class PackageUpgradeValidator(
 
   private def strictTypecheckUpgrades(
       phase: TypecheckUpgrades.UploadPhaseCheck,
-      optDar1: Option[(Ref.PackageId, Ast.Package)],
-      pkgId2: Ref.PackageId,
-      optPkg2: Option[Ast.Package],
+      optNewDar1: Option[(Ref.PackageId, Ast.Package)],
+      oldPkgId2: Ref.PackageId,
+      optOldPkg2: Option[Ast.Package],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit] = {
     LoggingContextWithTrace.withEnrichedLoggingContext(
       "upgradeTypecheckPhase" -> OfString(phase.toString)
     ) { implicit loggingContext =>
-      optDar1 match {
+      optNewDar1 match {
         case None =>
           Future.unit
 
-        case Some((pkgId1, pkg1)) =>
-          logger.info(s"Package $pkgId1 claims to upgrade package id $pkgId2")
+        case Some((newPkgId1, newPkg1)) =>
+          logger.info(s"Package $newPkgId1 claims to upgrade package id $oldPkgId2")
           Future
-            .fromTry(TypecheckUpgrades.typecheckUpgrades((pkgId1, pkg1), pkgId2, optPkg2))
+            .fromTry(
+              TypecheckUpgrades.typecheckUpgrades((newPkgId1, newPkg1), oldPkgId2, optOldPkg2)
+            )
             .recoverWith {
               case err: UpgradeError =>
                 Future.failed(
                   Validation.Upgradeability
-                    .Error(pkgId2, pkgId1, err)
+                    .Error(newPkgId1, oldPkgId2, err)
                     .asGrpcError
                 )
               case NonFatal(err) =>
@@ -223,7 +175,7 @@ class PackageUpgradeValidator(
                     .Unhandled(
                       err,
                       Some(
-                        s"Typechecking upgrades for $pkgId2 failed with unknown error."
+                        s"Typechecking upgrades for $oldPkgId2 failed with unknown error."
                       ),
                     )
                     .asGrpcError
@@ -235,17 +187,22 @@ class PackageUpgradeValidator(
 
   private def typecheckUpgrades(
       typecheckPhase: TypecheckUpgrades.UploadPhaseCheck,
-      optDar1: Option[(Ref.PackageId, Ast.Package)],
-      optDar2: Option[(Ref.PackageId, Ast.Package)],
+      optNewDar1: Option[(Ref.PackageId, Ast.Package)],
+      optOldDar2: Option[(Ref.PackageId, Ast.Package)],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit] = {
-    (optDar1, optDar2) match {
+    (optNewDar1, optOldDar2) match {
       case (None, _) | (_, None) =>
         Future.unit
 
-      case (Some((pkgId1, pkg1)), Some((pkgId2, pkg2))) =>
-        strictTypecheckUpgrades(typecheckPhase, Some((pkgId1, pkg1)), pkgId2, Some(pkg2))
+      case (Some((newPkgId1, newPkg1)), Some((oldPkgId2, oldPkg2))) =>
+        strictTypecheckUpgrades(
+          typecheckPhase,
+          Some((newPkgId1, newPkg1)),
+          oldPkgId2,
+          Some(oldPkg2),
+        )
     }
   }
 }

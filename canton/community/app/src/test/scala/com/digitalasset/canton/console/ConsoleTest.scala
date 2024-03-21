@@ -60,7 +60,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
   lazy val NameClashConfig: CantonCommunityConfig = CantonCommunityConfig(
     participants = Map(
       // Reserved keyword
-      InstanceName.tryCreate("participantsX") -> ConfigStubs.participant,
+      InstanceName.tryCreate("participants") -> ConfigStubs.participant,
       // Name collision
       InstanceName.tryCreate("s1") -> ConfigStubs.participant,
     ),
@@ -79,9 +79,9 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
       mock[
         ParticipantNodes[ParticipantNodeBootstrapX, ParticipantNodeX, config.ParticipantConfigType]
       ]
-    val sequencersX: SequencerNodesX[config.SequencerNodeXConfigType] =
+    val sequencers: SequencerNodesX[config.SequencerNodeXConfigType] =
       mock[SequencerNodesX[config.SequencerNodeXConfigType]]
-    val mediatorsX: MediatorNodesX[config.MediatorNodeXConfigType] =
+    val mediators: MediatorNodesX[config.MediatorNodeXConfigType] =
       mock[MediatorNodesX[config.MediatorNodeXConfigType]]
     val participant: ParticipantNodeBootstrapX = mock[ParticipantNodeBootstrapX]
     val sequencer: SequencerNodeBootstrapX = mock[SequencerNodeBootstrapX]
@@ -92,8 +92,8 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
       TestingConfigInternal(initializeGlobalOpenTelemetry = false)
     )
     when(environment.participants).thenReturn(participants)
-    when(environment.sequencers).thenReturn(sequencersX)
-    when(environment.mediators).thenReturn(mediatorsX)
+    when(environment.sequencers).thenReturn(sequencers)
+    when(environment.mediators).thenReturn(mediators)
     when(environment.simClock).thenReturn(None)
     when(environment.loggerFactory).thenReturn(loggerFactory)
     when(environment.configuredOpenTelemetry).thenReturn(
@@ -229,15 +229,15 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
     }
 
     "start all participants" in new TestEnvironment {
-      runOrFail("participantsX.local start")
+      runOrFail("participants.local start")
       verifyStart(this, Seq("p1", "p2", "new", "p-4"))
     }
     "start all sequencers" in new TestEnvironment {
-      runOrFail("sequencersX.local start")
+      runOrFail("sequencers.local start")
       verifyStart(this, Seq("s1", "s2", "s-3"))
     }
     "start all mediators" in new TestEnvironment {
-      runOrFail("mediatorsX.local start")
+      runOrFail("mediators.local start")
       verifyStart(this, Seq("m1", "m2", "m-3"))
     }
     "start all" in new TestEnvironment {
@@ -263,13 +263,13 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
       }
     }
 
-    "participantsX.all.dars.upload should attempt to invoke UploadDar on all participants" in new TestEnvironment {
+    "participants.all.dars.upload should attempt to invoke UploadDar on all participants" in new TestEnvironment {
       setupAdminCommandResponse("p1", Right(Seq()))
       setupAdminCommandResponse("p2", Right(Seq()))
       setupAdminCommandResponse("new", Right(Seq()))
       setupAdminCommandResponse("p-4", Right(Seq()))
 
-      runOrFail(s"""participantsX.all.dars.upload("$CantonExamplesPath", false)""")
+      runOrFail(s"""participants.all.dars.upload("$CantonExamplesPath", false)""")
 
       def verifyUploadDar(p: String): ConsoleCommandResult[String] =
         verify(adminCommandRunner).runCommand(
@@ -288,7 +288,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
     "participants.local help shows help from both InstanceExtensions and ParticipantExtensions" in new TestEnvironment {
       testConsoleOutput.assertConsoleOutput(
         {
-          runOrFail("participantsX.local help")
+          runOrFail("participants.local help")
         },
         { helpText =>
           helpText should include("start") // from instance extensions
@@ -306,7 +306,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
         message shouldEqual "Unable to create the console bindings"
         ex.getMessage should startWith(
           """Node names must be unique and must differ from reserved keywords. Please revisit node names in your config file.
-            |Offending names: (`participantsX` (2 occurrences), `s1` (2 occurrences))""".stripMargin
+            |Offending names: (`s1` (2 occurrences), `participants` (2 occurrences))""".stripMargin
         )
       }
     }

@@ -29,12 +29,8 @@ object MildErrorsParent extends ErrorGroup()(ErrorClass.root()) {
 
         override def cause: String = "Some obscure cause"
 
-        override def resources: Seq[(ErrorResource, String)] = Seq(
-          (ErrorResource.LedgerId, LedgerIdResource)
-        )
+        override def resources: Seq[(ErrorResource, String)] = Seq.empty
       }
-
-      private[error] val LedgerIdResource = "some ledger id"
     }
 
   }

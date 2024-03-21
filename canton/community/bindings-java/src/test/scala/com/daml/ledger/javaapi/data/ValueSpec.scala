@@ -45,7 +45,7 @@ class ValueSpec
     SumCase.UNIT -> (((_: Value).asUnit(), "asUnit")),
     SumCase.VARIANT -> (((_: Value).asVariant(), "asVariant")),
     SumCase.OPTIONAL -> (((_: Value).asOptional(), "asOptional")),
-    SumCase.MAP -> (((_: Value).asTextMap(), "asTextMap")),
+    SumCase.TEXT_MAP -> (((_: Value).asTextMap(), "asTextMap")),
     SumCase.GEN_MAP -> (((_: Value).asGenMap(), "asGenMap")),
   )
 
@@ -85,7 +85,7 @@ class ValueSpec
   assertConversions(SumCase.UNIT, Value.fromProto(unitValueGen.sample.get))
   assertConversions(SumCase.VARIANT, Value.fromProto(variantValueGen.sample.get))
   assertConversions(SumCase.OPTIONAL, Value.fromProto(optionalValueGen.sample.get))
-  assertConversions(SumCase.MAP, Value.fromProto(textMapValueGen.sample.get))
+  assertConversions(SumCase.TEXT_MAP, Value.fromProto(textMapValueGen.sample.get))
   assertConversions(SumCase.GEN_MAP, Value.fromProto(genMapValueGen.sample.get))
 
   "Timestamp" should

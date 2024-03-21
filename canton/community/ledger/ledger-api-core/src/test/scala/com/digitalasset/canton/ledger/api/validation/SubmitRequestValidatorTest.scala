@@ -7,7 +7,12 @@ import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod as DeduplicationPeriodProto
 import com.daml.ledger.api.v2.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v2.value.Value.Sum
-import com.daml.ledger.api.v2.value.{List as ApiList, Map as ApiMap, Optional as ApiOptional, *}
+import com.daml.ledger.api.v2.value.{
+  List as ApiList,
+  Optional as ApiOptional,
+  TextMap as ApiTextMap,
+  *,
+}
 import com.daml.lf.command.{ApiCommand as LfCommand, ApiCommands as LfCommands}
 import com.daml.lf.data.Ref.TypeConRef
 import com.daml.lf.data.*
@@ -26,7 +31,7 @@ import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.offset.Offset
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
-import io.grpc.Status.Code.{INVALID_ARGUMENT, NOT_FOUND}
+import io.grpc.Status.Code.INVALID_ARGUMENT
 import io.grpc.StatusRuntimeException
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -189,7 +194,7 @@ class SubmitRequestValidatorTest
           api.commands,
           internal.ledgerTime,
           internal.submittedAt,
-          Some(internal.maxDeduplicationDuration),
+          internal.maxDeduplicationDuration,
         ) shouldEqual Right(internal.emptyCommands)
       }
 
@@ -198,7 +203,7 @@ class SubmitRequestValidatorTest
           api.commands.withSubmissionId(""),
           internal.ledgerTime,
           internal.submittedAt,
-          Some(internal.maxDeduplicationDuration),
+          internal.maxDeduplicationDuration,
         ) shouldEqual Right(internal.emptyCommands.copy(submissionId = None))
       }
 
@@ -208,7 +213,7 @@ class SubmitRequestValidatorTest
             api.commands.withCommands(Seq.empty),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationDuration),
+            internal.maxDeduplicationDuration,
           ),
           code = INVALID_ARGUMENT,
           description =
@@ -217,21 +222,12 @@ class SubmitRequestValidatorTest
         )
       }
 
-      "allow missing ledgerId" in {
-        testedCommandValidator.validateCommands(
-          api.commands,
-          internal.ledgerTime,
-          internal.submittedAt,
-          Some(internal.maxDeduplicationDuration),
-        ) shouldEqual Right(internal.emptyCommands)
-      }
-
       "tolerate a missing workflowId" in {
         testedCommandValidator.validateCommands(
           api.commands.withWorkflowId(""),
           internal.ledgerTime,
           internal.submittedAt,
-          Some(internal.maxDeduplicationDuration),
+          internal.maxDeduplicationDuration,
         ) shouldEqual Right(
           internal.emptyCommands.copy(
             workflowId = None,
@@ -246,7 +242,7 @@ class SubmitRequestValidatorTest
             api.commands.withApplicationId(""),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationDuration),
+            internal.maxDeduplicationDuration,
           ),
           code = INVALID_ARGUMENT,
           description =
@@ -261,7 +257,7 @@ class SubmitRequestValidatorTest
             api.commands.withCommandId(""),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationDuration),
+            internal.maxDeduplicationDuration,
           ),
           code = INVALID_ARGUMENT,
           description =
@@ -276,7 +272,7 @@ class SubmitRequestValidatorTest
             api.commands.withActAs(Seq.empty),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationDuration),
+            internal.maxDeduplicationDuration,
           ),
           code = INVALID_ARGUMENT,
           description =
@@ -297,7 +293,7 @@ class SubmitRequestValidatorTest
               .addReadAs("bob"),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationDuration),
+            internal.maxDeduplicationDuration,
           )
         inside(result) { case Right(cmd) =>
           // actAs parties are gathered from "party" and "readAs" fields
@@ -314,7 +310,7 @@ class SubmitRequestValidatorTest
             api.commands.withActAs(Seq.empty).addActAs(api.submitter),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationDuration),
+            internal.maxDeduplicationDuration,
           ) shouldEqual Right(internal.emptyCommands)
       }
 
@@ -328,7 +324,7 @@ class SubmitRequestValidatorTest
               .addReadAs(api.submitter),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationDuration),
+            internal.maxDeduplicationDuration,
           ) shouldEqual Right(internal.emptyCommands)
       }
 
@@ -341,7 +337,7 @@ class SubmitRequestValidatorTest
           ),
           internal.ledgerTime,
           internal.submittedAt,
-          Some(internal.maxDeduplicationDuration),
+          internal.maxDeduplicationDuration,
         ) shouldEqual Right(withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
       }
 
@@ -354,7 +350,7 @@ class SubmitRequestValidatorTest
           ),
           internal.ledgerTime,
           internal.submittedAt,
-          Some(internal.maxDeduplicationDuration),
+          internal.maxDeduplicationDuration,
         ) shouldEqual Right(withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
       }
 
@@ -384,7 +380,7 @@ class SubmitRequestValidatorTest
               api.commands.copy(deduplicationPeriod = sentDeduplication),
               internal.ledgerTime,
               internal.submittedAt,
-              Some(internal.maxDeduplicationDuration),
+              internal.maxDeduplicationDuration,
             )
             inside(result) { case Right(valid) =>
               valid.deduplicationPeriod shouldBe (expectedDeduplication)
@@ -404,7 +400,7 @@ class SubmitRequestValidatorTest
               api.commands.copy(deduplicationPeriod = deduplication),
               internal.ledgerTime,
               internal.submittedAt,
-              Some(internal.maxDeduplicationDuration),
+              internal.maxDeduplicationDuration,
             ),
             code = INVALID_ARGUMENT,
             description =
@@ -431,7 +427,7 @@ class SubmitRequestValidatorTest
             commandsWithDeduplicationDuration,
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationDuration),
+            internal.maxDeduplicationDuration,
           ) shouldBe Right(
             internal.emptyCommands.copy(
               deduplicationPeriod =
@@ -446,23 +442,12 @@ class SubmitRequestValidatorTest
           api.commands.copy(deduplicationPeriod = DeduplicationPeriodProto.Empty),
           internal.ledgerTime,
           internal.submittedAt,
-          Some(internal.maxDeduplicationDuration),
+          internal.maxDeduplicationDuration,
         ) shouldEqual Right(
           internal.emptyCommands.copy(
             deduplicationPeriod =
               DeduplicationPeriod.DeduplicationDuration(internal.maxDeduplicationDuration)
           )
-        )
-      }
-
-      "not allow missing ledger configuration" in {
-        requestMustFailWith(
-          request = testedCommandValidator
-            .validateCommands(api.commands, internal.ledgerTime, internal.submittedAt, None),
-          code = NOT_FOUND,
-          description =
-            "LEDGER_CONFIGURATION_NOT_FOUND(11,0): The ledger configuration could not be retrieved.",
-          metadata = Map.empty,
         )
       }
 
@@ -489,7 +474,7 @@ class SubmitRequestValidatorTest
               api.commands,
               internal.ledgerTime,
               internal.submittedAt,
-              Some(internal.maxDeduplicationDuration),
+              internal.maxDeduplicationDuration,
             ),
           code = INVALID_ARGUMENT,
           description =
@@ -505,7 +490,7 @@ class SubmitRequestValidatorTest
               api.commands.copy(commands = Seq(api.commandWithPackageNameScoping)),
               internal.ledgerTime,
               internal.submittedAt,
-              Some(internal.maxDeduplicationDuration),
+              internal.maxDeduplicationDuration,
             ),
           code = INVALID_ARGUMENT,
           description =
@@ -521,7 +506,7 @@ class SubmitRequestValidatorTest
               api.commands.copy(packageIdSelectionPreference = Seq("some-package-id")),
               internal.ledgerTime,
               internal.submittedAt,
-              Some(internal.maxDeduplicationDuration),
+              internal.maxDeduplicationDuration,
             ),
           code = INVALID_ARGUMENT,
           description =
@@ -565,7 +550,7 @@ class SubmitRequestValidatorTest
               api.commands.copy(commands = Seq(api.commandWithPackageNameScoping)),
               internal.ledgerTime,
               internal.submittedAt,
-              Some(internal.maxDeduplicationDuration),
+              internal.maxDeduplicationDuration,
             ) shouldBe Right(
             internal.emptyCommandsBuilder(Ref.PackageRef.Name(packageName), packageMap = packageMap)
           )
@@ -578,7 +563,7 @@ class SubmitRequestValidatorTest
               api.commands.copy(packageIdSelectionPreference = userPackageIdPreference),
               internal.ledgerTime,
               internal.submittedAt,
-              Some(internal.maxDeduplicationDuration),
+              internal.maxDeduplicationDuration,
             ) shouldBe Right(
             internal.emptyCommandsBuilder(
               Ref.PackageRef.Id(internal.templateId.packageId),
@@ -963,7 +948,7 @@ class SubmitRequestValidatorTest
 
     "validating map values" should {
       "convert empty maps" in {
-        val input = Value(Sum.Map(ApiMap(List.empty)))
+        val input = Value(Sum.TextMap(ApiTextMap(List.empty)))
         val expected = Lf.ValueTextMap(SortedLookupList.Empty)
         testedValueValidator.validateValue(input) shouldEqual Right(expected)
       }
@@ -975,9 +960,9 @@ class SubmitRequestValidatorTest
           }
           .to(ImmArray)
         val apiEntries = entries.map { case (k, v) =>
-          ApiMap.Entry(k, Some(Value(Sum.Int64(v))))
+          ApiTextMap.Entry(k, Some(Value(Sum.Int64(v))))
         }
-        val input = Value(Sum.Map(ApiMap(apiEntries.toSeq)))
+        val input = Value(Sum.TextMap(ApiTextMap(apiEntries.toSeq)))
         val lfEntries = entries.map { case (k, v) => k -> Lf.ValueInt64(v) }
         val expected =
           Lf.ValueTextMap(SortedLookupList.fromImmArray(lfEntries).getOrElse(unexpectedError))
@@ -992,9 +977,9 @@ class SubmitRequestValidatorTest
           }
           .to(ImmArray)
         val apiEntries = entries.map { case (k, v) =>
-          ApiMap.Entry(k, Some(Value(Sum.Int64(v))))
+          ApiTextMap.Entry(k, Some(Value(Sum.Int64(v))))
         }
-        val input = Value(Sum.Map(ApiMap(apiEntries.toSeq)))
+        val input = Value(Sum.TextMap(ApiTextMap(apiEntries.toSeq)))
         requestMustFailWith(
           request = testedValueValidator.validateValue(input),
           code = INVALID_ARGUMENT,
@@ -1007,10 +992,10 @@ class SubmitRequestValidatorTest
       "reject maps containing invalid value" in {
         val apiEntries =
           List(
-            ApiMap.Entry("1", Some(DomainMocks.values.validApiParty)),
-            ApiMap.Entry("2", Some(DomainMocks.values.invalidApiParty)),
+            ApiTextMap.Entry("1", Some(DomainMocks.values.validApiParty)),
+            ApiTextMap.Entry("2", Some(DomainMocks.values.invalidApiParty)),
           )
-        val input = Value(Sum.Map(ApiMap(apiEntries)))
+        val input = Value(Sum.TextMap(ApiTextMap(apiEntries)))
         requestMustFailWith(
           request = testedValueValidator.validateValue(input),
           code = INVALID_ARGUMENT,

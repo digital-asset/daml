@@ -3,6 +3,7 @@
 
 package com.daml;
 
+import static com.daml.ledger.javaapi.data.codegen.PrimitiveValueDecoders.fromInt64;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.daml.ledger.api.v2.ValueOuterClass;
@@ -29,7 +30,7 @@ public class OptionalTest {
         new DamlRecord(
             new DamlRecord.Field("intOpt", DamlOptional.of(new Int64(42))),
             new DamlRecord.Field("unitOpt", DamlOptional.of(Unit.getInstance())));
-    MyOptionalRecord fromValue = MyOptionalRecord.fromValue(record);
+    MyOptionalRecord fromValue = MyOptionalRecord.valueDecoder().decode(record);
 
     MyOptionalRecord fromUnboxed =
         new MyOptionalRecord(Optional.of(42L), Optional.of(Unit.getInstance()));
@@ -52,7 +53,7 @@ public class OptionalTest {
             new DamlRecord.Field("intOpt", DamlOptional.of(new Int64(42))),
             new DamlRecord.Field("unitOpt", DamlOptional.of(Unit.getInstance())));
 
-    MyOptionalRecord fromValue = MyOptionalRecord.fromValue(record);
+    MyOptionalRecord fromValue = MyOptionalRecord.valueDecoder().decode(record);
 
     assertEquals(record.toProto(), fromValue.toValue().toProto());
   }
@@ -92,7 +93,7 @@ public class OptionalTest {
         new DamlRecord(
             new DamlRecord.Field(
                 DamlOptional.of(DamlOptional.of(DamlOptional.of(new Int64(42L))))));
-    NestedOptionalRecord fromValue = NestedOptionalRecord.fromValue(record);
+    NestedOptionalRecord fromValue = NestedOptionalRecord.valueDecoder().decode(record);
 
     NestedOptionalRecord fromConstructor =
         new NestedOptionalRecord(Optional.of(Optional.of(Optional.of(42L))));
@@ -186,7 +187,8 @@ public class OptionalTest {
     Variant variant = new Variant("OptionalParametricVariant", DamlOptional.of(new Int64(42)));
 
     OptionalParametricVariant<Long> fromValue =
-        OptionalParametricVariant.fromValue(variant, f -> f.asInt64().get().getValue());
+        (OptionalParametricVariant<Long>)
+            OptionalParametricVariant.valueDecoder(fromInt64).decode(variant);
     OptionalParametricVariant<Long> fromConstructor =
         new OptionalParametricVariant<Long>(Optional.of(42L));
 
@@ -208,7 +210,8 @@ public class OptionalTest {
   void primOptionalVariant() {
     Variant variant = new Variant("OptionalPrimVariant", DamlOptional.of(new Int64(42)));
 
-    OptionalPrimVariant<?> fromValue = OptionalPrimVariant.fromValue(variant);
+    OptionalPrimVariant<?> fromValue =
+        (OptionalPrimVariant<?>) OptionalPrimVariant.valueDecoder(fromInt64).decode(variant);
     OptionalPrimVariant<?> fromConstructor = new OptionalPrimVariant(Optional.of(42L));
 
     assertEquals(fromValue, fromConstructor);

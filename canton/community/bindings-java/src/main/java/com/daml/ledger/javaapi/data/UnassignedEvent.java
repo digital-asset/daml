@@ -17,6 +17,8 @@ public final class UnassignedEvent {
 
   private final @NonNull Identifier templateId;
 
+  private final @NonNull String packageName;
+
   private final @NonNull String source;
 
   private final @NonNull String target;
@@ -33,6 +35,7 @@ public final class UnassignedEvent {
       @NonNull String unassignId,
       @NonNull String contractId,
       @NonNull Identifier templateId,
+      @NonNull String packageName,
       @NonNull String source,
       @NonNull String target,
       @NonNull String submitter,
@@ -42,6 +45,7 @@ public final class UnassignedEvent {
     this.unassignId = unassignId;
     this.contractId = contractId;
     this.templateId = templateId;
+    this.packageName = packageName;
     this.source = source;
     this.target = target;
     this.submitter = submitter;
@@ -63,6 +67,11 @@ public final class UnassignedEvent {
   @NonNull
   public Identifier getTemplateId() {
     return templateId;
+  }
+
+  @NonNull
+  public String getPackageName() {
+    return packageName;
   }
 
   @NonNull
@@ -100,6 +109,7 @@ public final class UnassignedEvent {
     UnassignedEvent that = (UnassignedEvent) o;
     return Objects.equals(unassignId, that.unassignId)
         && Objects.equals(contractId, that.contractId)
+        && Objects.equals(packageName, that.packageName)
         && Objects.equals(templateId, that.templateId)
         && Objects.equals(source, that.source)
         && Objects.equals(target, that.target)
@@ -115,6 +125,7 @@ public final class UnassignedEvent {
         unassignId,
         contractId,
         templateId,
+        packageName,
         source,
         target,
         submitter,
@@ -132,6 +143,8 @@ public final class UnassignedEvent {
         + ", contractId='"
         + contractId
         + '\''
+        + ", packageName="
+        + packageName
         + ", templateId="
         + templateId
         + ", source="
@@ -154,6 +167,7 @@ public final class UnassignedEvent {
         .setUnassignId(this.unassignId)
         .setContractId(this.contractId)
         .setTemplateId(this.getTemplateId().toProto())
+        .setPackageName(this.packageName)
         .setSource(this.source)
         .setTarget(this.target)
         .setSubmitter(this.submitter)
@@ -168,6 +182,7 @@ public final class UnassignedEvent {
         unassignedEvent.getUnassignId(),
         unassignedEvent.getContractId(),
         Identifier.fromProto(unassignedEvent.getTemplateId()),
+        unassignedEvent.getPackageName(),
         unassignedEvent.getSource(),
         unassignedEvent.getTarget(),
         unassignedEvent.getSubmitter(),

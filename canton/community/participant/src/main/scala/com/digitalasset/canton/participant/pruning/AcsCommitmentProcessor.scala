@@ -19,7 +19,13 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.AcsCommitmentErrorGroup
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
+import com.digitalasset.canton.lifecycle.{
+  FlagCloseable,
+  FutureUnlessShutdown,
+  Lifecycle,
+  OnShutdownRunner,
+}
 import com.digitalasset.canton.logging.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.event.{
@@ -29,6 +35,7 @@ import com.digitalasset.canton.participant.event.{
   RecordTime,
 }
 import com.digitalasset.canton.participant.metrics.PruningMetrics
+import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors.DegradationError
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors.MismatchError.AcsCommitmentAlarm
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
@@ -48,7 +55,6 @@ import com.digitalasset.canton.sequencing.client.SendAsyncClientError.RequestRef
 import com.digitalasset.canton.sequencing.client.{SendType, SequencerClientSend}
 import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, Recipients, SendAsyncError}
 import com.digitalasset.canton.store.SequencerCounterTrackerStore
-import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -58,9 +64,8 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.retry.Policy
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DiscardOps, LfPartyId, TransferCounter, TransferCounterO}
+import com.digitalasset.canton.{DiscardOps, LfPartyId, TransferCounter}
 import com.google.common.annotations.VisibleForTesting
-import com.google.protobuf.ByteString
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
@@ -161,9 +166,6 @@ class AcsCommitmentProcessor(
     pruningObserver: TraceContext => Unit,
     metrics: PruningMetrics,
     protocolVersion: ProtocolVersion,
-    @VisibleForTesting private[pruning] val acsCommitmentsCatchUpConfig: Option[
-      AcsCommitmentsCatchUpConfig
-    ],
     override protected val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     activeContractStore: ActiveContractStore,
@@ -176,7 +178,11 @@ class AcsCommitmentProcessor(
     with NamedLogging {
 
   import AcsCommitmentProcessor.*
-
+  private[canton] val healthComponent = new AcsCommitmentProcessorHealth(
+    AcsCommitmentProcessor.healthName,
+    this,
+    logger,
+  )
   // As the commitment computation is in the worst case expected to last the same order of magnitude as the
   // reconciliation interval, wait for at least that long
   override protected def closingTimeout: FiniteDuration = {
@@ -215,6 +221,16 @@ class AcsCommitmentProcessor(
   @volatile private[this] var endOfLastProcessedPeriodDuringCatchUp: Option[CantonTimestampSecond] =
     None
 
+  /**  During a coarse-grained catch-up interval, [[runningCmtSnapshotsForCatchUp]] stores in memory the snapshots for the
+    *  fine grained reconciliation periods. In case of a commitment mismatch at the end of a catch-up interval, the
+    *  participant uses these snapshots in the function [[sendCommitmentMessagesInCatchUpInterval]] to compute fine
+    *  grained commitments and send them to the counter-participant, which enables more precise detection of the interval
+    *  when ACS divergence happened.
+    */
+  private val runningCmtSnapshotsForCatchUp =
+    scala.collection.mutable.Map
+      .empty[CommitmentPeriod, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType]]
+
   /** A future checking whether the node should enter catch-up mode by computing the catch-up timestamp.
     * At most one future runs computing this
     */
@@ -225,6 +241,7 @@ class AcsCommitmentProcessor(
   val runningCommitments: Future[RunningCommitments] = initRunningCommitments(store)
 
   private val cachedCommitments: CachedCommitments = new CachedCommitments()
+  private val cachedCommitmentsForRetroactiveSends: CachedCommitments = new CachedCommitments()
 
   private val timestampsWithPotentialTopologyChanges =
     new AtomicReference[List[Traced[EffectiveTime]]](List())
@@ -273,7 +290,7 @@ class AcsCommitmentProcessor(
             s"Initialized from stored snapshot at ${snapshot.watermark} (might be incomplete)"
           )
 
-          _ <- lastComputed.fold(Future.unit)(processBuffered)
+          _ <- lastComputed.fold(Future.unit)(ts => processBuffered(ts, endExclusive = false))
 
           _ = logger.info("Initialized the ACS commitment processor queue")
         } yield ()
@@ -291,34 +308,60 @@ class AcsCommitmentProcessor(
   /** Indicates what timestamp the participant catches up to. */
   @volatile private[this] var catchUpToTimestamp = CantonTimestamp.MinValue
 
-  private def catchUpInProgress(crtTimestamp: CantonTimestamp): Boolean =
-    acsCommitmentsCatchUpConfig.isDefined && catchUpToTimestamp >= crtTimestamp
+  private[pruning] def catchUpConfig(
+      cantonTimestamp: CantonTimestamp
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Option[AcsCommitmentsCatchUpConfig]] = {
+    for {
+      snapshot <- domainCrypto.ipsSnapshot(cantonTimestamp)
+      config <- snapshot.findDynamicDomainParametersOrDefault(
+        protocolVersion,
+        warnOnUsingDefault = false,
+      )
+    } yield { config.acsCommitmentsCatchUpConfig }
+  }
 
-  private def caughtUpToBoundary(timestamp: CantonTimestamp): Boolean =
-    acsCommitmentsCatchUpConfig.isDefined && timestamp == catchUpToTimestamp
+  private def catchUpInProgress(crtTimestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[Boolean] = {
+    for {
+      config <- catchUpConfig(crtTimestamp)
+    } yield config.isDefined && catchUpToTimestamp >= crtTimestamp
 
-  /** Detects whether the participant should trigger or exit catch-up.
-    * In case a catch-up should start, returns the catch-up timestamp; the participant will catch up to the
-    * next published tick >= catch-up timestamp.
-    * Otherwise returns the prior catch-up boundary, which might be in the past when no catch-up is in progress.
+  }
+
+  private def caughtUpToBoundary(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[Boolean] =
+    for {
+      config <- catchUpConfig(timestamp)
+    } yield config.isDefined && catchUpToTimestamp == timestamp
+
+  /** Detects whether the participant is lagging too far behind (w.r.t. the catchUp config) in commitment computation.
+    * If lagging behind, the method returns a new catch-up timestamp, otherwise it returns the existing [[catchUpToTimestamp]].
+    * It is up to the caller to update the [[catchUpToTimestamp]] accordingly.
+    *
+    * Note that, even if the participant is not lagging too far behind, it does not mean it "caught up".
+    * In particular, if the participant's current timestamp is behind [[catchUpToTimestamp]], then the participant is
+    * still catching up. Please use the method [[catchUpInProgress]] to determine whether the participant has caught up.
     */
   private def computeCatchUpTimestamp(
-      completedPeriodTimestamp: CantonTimestamp
+      completedPeriodTimestamp: CantonTimestamp,
+      config: Option[AcsCommitmentsCatchUpConfig],
   )(implicit traceContext: TraceContext): Future[CantonTimestamp] = {
-    if (acsCommitmentsCatchUpConfig.isDefined) {
-      for {
-        catchUpBoundaryTimestamp <- laggingTooFarBehind(completedPeriodTimestamp)
-      } yield {
-        if (catchUpBoundaryTimestamp != completedPeriodTimestamp) {
-          logger.debug(
-            s"Computed catch up boundary when processing end of period $completedPeriodTimestamp: computed catch-up timestamp is $catchUpBoundaryTimestamp"
-          )
-          catchUpBoundaryTimestamp
-        } else {
-          catchUpToTimestamp
-        }
+    for {
+      catchUpBoundaryTimestamp <- laggingTooFarBehind(completedPeriodTimestamp, config)
+    } yield {
+      if (config.isDefined && catchUpBoundaryTimestamp != completedPeriodTimestamp) {
+        logger.debug(
+          s"Computed catch up boundary when processing end of period $completedPeriodTimestamp: computed catch-up timestamp is $catchUpBoundaryTimestamp"
+        )
+        catchUpBoundaryTimestamp
+      } else {
+        catchUpToTimestamp
       }
-    } else Future.successful(catchUpToTimestamp)
+    }
   }
 
   def initializeTicksOnStartup(
@@ -406,11 +449,13 @@ class AcsCommitmentProcessor(
     * processing in [[publish]]. [[checkAndTriggerCatchUpMode]] checks whether the participant received commitments
     * from a period that's significantly ahead the participant's current period.
     *
-    * During catch-up mode, the participant still computes and stores local commitments at reconciliation ticks, just
-    * as before. However, the participant sends out commitments only at catch-up interval boundaries, and check it
-    * against the incoming commitments. To enable fine-grained mismatch detection in case of a mismatch during catch-up,
-    * the participant sends out commitments for each reconciliation interval covered by the catch-up period to those
-    * counter-participants whose commitments do not match.
+    * During catch-up mode, the participant computes, stores and sends commitments to counter-participants only at
+    * catch-up interval boundaries, instead of at each reconciliation tick. In case of a commitment mismatch during
+    * catch-up at a catch-up interval boundary, the participant sends out commitments for each reconciliation
+    * interval covered by the catch-up period to those counter-participants (configurable)
+    *        (a) whose catch-up interval boundary commitments do not match
+    *        (b) *** default *** whose catch-up interval boundary commitments do not match or who haven't sent a
+    *        catch-up interval boundary commitment yet
     */
   private def publishTick(toc: RecordTime, acsChange: AcsChange)(implicit
       traceContext: TraceContext
@@ -427,49 +472,64 @@ class AcsCommitmentProcessor(
     def processCompletedPeriod(
         snapshot: RunningCommitments
     )(completedPeriod: CommitmentPeriod, cryptoSnapshot: SyncCryptoApi): Future[Unit] = {
+      for {
+        // We update `catchUpTimestamp` only if the future computing `computedNewCatchUpTimestamp` has returned by
+        // this point. If `catchUpToTimestamp` is greater or equal to the participant's end of period, then the
+        // participant enters catch up mode up to `catchUpTimestamp`.
+        // Important: `catchUpToTimestamp` is not updated concurrently, because `processCompletedPeriod` runs
+        // sequentially on the `dbQueue`. Moreover, the outer `performPublish` queue inserts `processCompletedPeriod`
+        // sequentially in the order of the timestamps, which is the key to ensuring that it
+        // grows monotonically and that catch-ups are towards the future.
+        config <- catchUpConfig(completedPeriod.toInclusive.forgetRefinement)
 
-      // We update `catchUpTimestamp` only if the future computing `computedNewCatchUpTimestamp` has returned by
-      // this point. If `catchUpToTimestamp` is greater or equal to the participant's end of period, then the
-      // participant enter catch up mode up to `catchUpTimestamp`.
-      // Important: `catchUpToTimestamp` is not updated concurrently, because `processCompletedPeriod` runs
-      // sequentially on the `dbQueue`. Moreover, the outer `performPublish` queue inserts `processCompletedPeriod`
-      // sequentially in the order of the timestamps, which is the key to ensuring that it
-      // grows monotonically and that catch-ups are towards the future.
-      if (acsCommitmentsCatchUpConfig.isDefined && computingCatchUpTimestamp.isCompleted) {
-        computingCatchUpTimestamp.value.foreach { v =>
-          v.fold(
-            exc => logger.error(s"Error when computing the catch up timestamp", exc),
-            res => catchUpToTimestamp = res,
+        _ = if (config.isDefined && computingCatchUpTimestamp.isCompleted) {
+          computingCatchUpTimestamp.value.foreach { v =>
+            v.fold(
+              exc => logger.error(s"Error when computing the catch up timestamp", exc),
+              res => catchUpToTimestamp = res,
+            )
+          }
+          computingCatchUpTimestamp = computeCatchUpTimestamp(
+            completedPeriod.toInclusive.forgetRefinement,
+            config,
           )
         }
-        computingCatchUpTimestamp = computeCatchUpTimestamp(
+
+        // Evaluate in the beginning the catch-up conditions for simplicity
+        catchingUpInProgress <- catchUpInProgress(completedPeriod.toInclusive.forgetRefinement)
+        hasCaughtUpToBoundaryRes <- caughtUpToBoundary(
           completedPeriod.toInclusive.forgetRefinement
         )
-      }
 
-      // Evaluate in the beginning the catch-up conditions for simplicity
-      val catchingUpInProgress = catchUpInProgress(completedPeriod.toInclusive.forgetRefinement)
-      val hasCaughtUpToBoundaryRes = caughtUpToBoundary(
-        completedPeriod.toInclusive.forgetRefinement
-      )
+        _ = if (catchingUpInProgress && healthComponent.isOk) {
+          metrics.commitments.catchupModeEnabled.mark()
+          logger.debug(s"Entered catch-up mode with config ${config.toString}")
+          if (config.exists(cfg => cfg.catchUpIntervalSkip.value == 1))
+            healthComponent.degradationOccurred(
+              DegradationError.AcsCommitmentDegradationWithIneffectiveConfig.Report()
+            )
+          else
+            healthComponent.degradationOccurred(DegradationError.AcsCommitmentDegradation.Report())
+        }
 
-      logger.debug(
-        show"Processing completed period $completedPeriod. Modes: in catch-up mode = $catchingUpInProgress, " +
-          show"and if yes, caught up to catch-up boundary $hasCaughtUpToBoundaryRes"
-      )
+        _ = logger.debug(
+          show"Processing completed period $completedPeriod. Modes: in catch-up mode = $catchingUpInProgress, " +
+            show"and if yes, caught up to catch-up boundary $hasCaughtUpToBoundaryRes"
+        )
 
-      // If there is a commitment mismatch at the end of the catch-up period, we need to send fine-grained commitments
-      // starting at `endOfLastProcessedPeriod` and ending at `endOfLastProcessedPeriodDuringCatchUp` for all
-      // reconciliation intervals covered by the catch-up period.
-      // However, `endOfLastProcessedPeriod` and `endOfLastProcessedPeriodDuringCatchUp` are updated when marking
-      // the period as processed during catch-up, and when processing a catch-up, respectively, therefore
-      // we save their prior values.
-      val lastSentCatchUpCommitmentTimestamp = endOfLastProcessedPeriod
-      val lastProcessedCatchUpCommitmentTimestamp = endOfLastProcessedPeriodDuringCatchUp
+        // If there is a commitment mismatch at the end of the catch-up period, we need to send fine-grained commitments
+        // starting at `endOfLastProcessedPeriod` and ending at `endOfLastProcessedPeriodDuringCatchUp` for all
+        // reconciliation intervals covered by the catch-up period.
+        // However, `endOfLastProcessedPeriod` and `endOfLastProcessedPeriodDuringCatchUp` are updated when marking
+        // the period as processed during catch-up, and when processing a catch-up, respectively, therefore
+        // we save their prior values.
+        lastSentCatchUpCommitmentTimestamp = endOfLastProcessedPeriod
+        lastProcessedCatchUpCommitmentTimestamp = endOfLastProcessedPeriodDuringCatchUp
 
-      val snapshotRes = snapshot.snapshot()
-      logger.debug(show"Commitment snapshot for completed period $completedPeriod: $snapshotRes")
-      for {
+        snapshotRes = snapshot.snapshot()
+        _ = logger.debug(
+          show"Commitment snapshot for completed period $completedPeriod: $snapshotRes"
+        )
         // Detect possible inconsistencies of the running commitments and the ACS state
         // Runs only when enableAdditionalConsistencyChecks is true
         // *** Should not be enabled in production ***
@@ -481,38 +541,50 @@ class AcsCommitmentProcessor(
           completedPeriod.toInclusive.forgetRefinement,
         )
 
-        msgs <- commitmentMessages(completedPeriod, snapshotRes.active, cryptoSnapshot)
-        _ = logger.debug(
-          show"Commitment messages for $completedPeriod: ${msgs.fmap(_.message.commitment)}"
-        )
-
-        _ <- storeCommitments(msgs)
-        _ = logger.debug(
-          s"Computed and stored ${msgs.size} commitment messages for period $completedPeriod"
-        )
-
         _ <-
           if (!catchingUpInProgress || hasCaughtUpToBoundaryRes) {
-            store.markOutstanding(completedPeriod, msgs.keySet)
+            for {
+              msgs <- commitmentMessages(completedPeriod, snapshotRes.active, cryptoSnapshot)
+              _ = logger.debug(
+                show"Commitment messages for $completedPeriod: ${msgs.fmap(_.message.commitment)}"
+              )
+              _ <- storeCommitments(msgs)
+              _ = logger.debug(
+                s"Computed and stored ${msgs.size} commitment messages for period $completedPeriod"
+              )
+              _ <- store.markOutstanding(completedPeriod, msgs.keySet)
+              _ <- persistRunningCommitments(snapshotRes)
+            } yield {
+              sendCommitmentMessages(completedPeriod, msgs)
+            }
           } else Future.unit
 
-        _ <- persistRunningCommitments(snapshotRes)
-
-        // mark the period as processed during catch-up
-        _ = if (catchingUpInProgress) {
-          endOfLastProcessedPeriodDuringCatchUp = Some(completedPeriod.toInclusive)
-        }
-
-        _ =
-          if (!catchingUpInProgress || hasCaughtUpToBoundaryRes) {
-            sendCommitmentMessages(completedPeriod, msgs)
-          }
+        _ <-
+          if (catchingUpInProgress) {
+            for {
+              _ <-
+                if (!hasCaughtUpToBoundaryRes) {
+                  for {
+                    // persist running commitments for crash recovery
+                    _ <- persistRunningCommitments(snapshotRes)
+                    _ <- persistCatchUpPeriod(completedPeriod)
+                  } yield {
+                    // store running commitments in memory, in order to compute and send fine-grained commitments
+                    // if a mismatch appears after catch-up
+                    runningCmtSnapshotsForCatchUp += completedPeriod -> snapshotRes.active
+                  }
+                } else Future.unit
+              // mark the period as processed during catch-up
+              _ = endOfLastProcessedPeriodDuringCatchUp = Some(completedPeriod.toInclusive)
+            } yield ()
+          } else Future.unit
 
         _ <-
           if (!catchingUpInProgress) {
+            healthComponent.resolveUnhealthy()
             indicateReadyForRemote(completedPeriod.toInclusive)
             for {
-              _ <- processBuffered(completedPeriod.toInclusive)
+              _ <- processBuffered(completedPeriod.toInclusive, endExclusive = false)
               _ <- indicateLocallyProcessed(completedPeriod)
             } yield ()
           } else Future.unit
@@ -521,19 +593,24 @@ class AcsCommitmentProcessor(
         _ <-
           if (hasCaughtUpToBoundaryRes) {
             for {
-              _ <- msgs.toList.parTraverse_ { case (_participantId, signedMessage) =>
-                checkMatchAndMarkSafeOrFixDuringCatchUp(
-                  lastSentCatchUpCommitmentTimestamp,
-                  lastProcessedCatchUpCommitmentTimestamp,
-                  signedMessage.message,
-                  cryptoSnapshot,
-                )
-              }
+              _ <- checkMatchAndMarkSafeOrFixDuringCatchUp(
+                lastSentCatchUpCommitmentTimestamp,
+                lastProcessedCatchUpCommitmentTimestamp,
+                completedPeriod,
+                cryptoSnapshot,
+              )
               // The ordering here is important; we shouldn't move `readyForRemote` before we mark the periods as outstanding,
               // as otherwise we can get a race where an incoming commitment doesn't "clear" the outstanding period
               _ = indicateReadyForRemote(completedPeriod.toInclusive)
+              // Processes buffered counter-commitments for the catch-up period and compares them with local commitments,
+              // which are available if there was a mismatch at the catch-up boundary
+              // Ignore the buffered commitment at the boundary
+              _ <- processBuffered(completedPeriod.toInclusive, endExclusive = true)
               // *After the above check* (the order matters), mark all reconciliation intervals as locally processed.
               _ <- indicateLocallyProcessed(completedPeriod)
+              // clear the commitment snapshot in memory once we caught up
+              _ = runningCmtSnapshotsForCatchUp.clear()
+              _ = cachedCommitmentsForRetroactiveSends.clear()
             } yield ()
           } else Future.unit
 
@@ -552,26 +629,27 @@ class AcsCommitmentProcessor(
         periodEndO: Option[CantonTimestampSecond],
     ): FutureUnlessShutdown[Unit] = {
       // Check whether this change pushes us to a new commitment period; if so, the previous one is completed
-      val completedPeriodAndCryptoO = for {
-        periodEnd <- periodEndO
-        endOfLast =
-          if (
-            catchUpInProgress(
-              endOfLastProcessedPeriod.fold(CantonTimestamp.MinValue)(res => res.forgetRefinement)
-            )
-          ) {
-            endOfLastProcessedPeriodDuringCatchUp
-          } else {
-            endOfLastProcessedPeriod
-          }
-        completedPeriod <- reconciliationIntervals
-          .commitmentPeriodPreceding(periodEnd, endOfLast)
-        cryptoSnapshot <- cryptoSnapshotO
-      } yield {
-        (completedPeriod, cryptoSnapshot)
-      }
-
       for {
+        catchingUp <- FutureUnlessShutdown.outcomeF(
+          catchUpInProgress(
+            endOfLastProcessedPeriod.fold(CantonTimestamp.MinValue)(res => res.forgetRefinement)
+          )
+        )
+        completedPeriodAndCryptoO = for {
+          periodEnd <- periodEndO
+          endOfLast = {
+            if (catchingUp) {
+              endOfLastProcessedPeriodDuringCatchUp
+            } else {
+              endOfLastProcessedPeriod
+            }
+          }
+          completedPeriod <- reconciliationIntervals.commitmentPeriodPreceding(periodEnd, endOfLast)
+          cryptoSnapshot <- cryptoSnapshotO
+        } yield {
+          (completedPeriod, cryptoSnapshot)
+        }
+
         // Important invariant:
         // - let t be the tick of [[com.digitalasset.canton.participant.store.AcsCommitmentStore#lastComputedAndSent]];
         //   assume that t is not None
@@ -758,6 +836,50 @@ class AcsCommitmentProcessor(
       .map(_ => logger.debug(s"Persisted ACS commitments at ${res.recordTime}"))
   }
 
+  /** Store special empty commitment to remember we were in catch-up mode,
+    *  with the current participant as the counter-participant.
+    *  Because the special commitment have the current participant as counter-participant, they do not conflict
+    *  with "normal operation" commitments, which have other participants as counter-participants.
+    */
+  private def persistCatchUpPeriod(period: CommitmentPeriod)(implicit
+      traceContext: TraceContext
+  ): Future[Unit] = {
+    val catchUpCmt = AcsCommitment.create(
+      domainId,
+      participantId,
+      participantId,
+      period,
+      AcsCommitmentProcessor.emptyCommitment,
+      protocolVersion,
+    )
+    storeCommitments(
+      Map(
+        participantId -> SignedProtocolMessage.from(
+          catchUpCmt,
+          protocolVersion,
+          Signature.noSignature,
+        )
+      )
+    )
+  }
+
+  private def isCatchUpPeriod(period: CommitmentPeriod)(implicit
+      traceContext: TraceContext
+  ): Future[Boolean] = {
+    for {
+      possibleCatchUpCmts <- store.getComputed(period, participantId)
+    } yield {
+      val response = possibleCatchUpCmts.nonEmpty &&
+        possibleCatchUpCmts.forall { case (_period, commitment) =>
+          commitment == AcsCommitmentProcessor.emptyCommitment
+        }
+      logger.debug(
+        s"Period $period is a catch-up period $response with the computed catch-up commitments $possibleCatchUpCmts"
+      )
+      response
+    }
+  }
+
   private def updateSnapshot(rt: RecordTime, acsChange: AcsChange)(implicit
       traceContext: TraceContext
   ): Future[Unit] = {
@@ -866,15 +988,21 @@ class AcsCommitmentProcessor(
   }
 
   private def processBuffered(
-      timestamp: CantonTimestampSecond
+      timestamp: CantonTimestampSecond,
+      endExclusive: Boolean,
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    logger.debug(s"Processing buffered commitments until $timestamp")
+    logger.debug(s"Processing buffered commitments until $timestamp ${if (endExclusive) "exclusive"
+      else "inclusive"}")
     for {
-      toProcess <- store.queue.peekThrough(timestamp.forgetRefinement)
+      toProcessInclusive <- store.queue.peekThrough(timestamp.forgetRefinement)
+      toProcess =
+        if (endExclusive) toProcessInclusive.filterNot(c => c.period.toInclusive == timestamp)
+        else toProcessInclusive
       _ <- checkMatchAndMarkSafe(toProcess)
     } yield {
       logger.debug(
-        s"Checked buffered remote commitments up to $timestamp and ready to check further ones without buffering"
+        s"Checked buffered remote commitments up to $timestamp ${if (endExclusive) "exclusive"
+          else "inclusive"} and ready to check further ones without buffering"
       )
     }
   }
@@ -884,9 +1012,12 @@ class AcsCommitmentProcessor(
       remote: AcsCommitment,
       local: Iterable[(CommitmentPeriod, AcsCommitment.CommitmentType)],
       lastPruningTime: Option[CantonTimestamp],
+      possibleCatchUp: Boolean = false,
   )(implicit traceContext: TraceContext): Boolean = {
     if (local.isEmpty) {
-      if (lastPruningTime.forall(_ < remote.period.toInclusive.forgetRefinement)) {
+      if (
+        !possibleCatchUp && lastPruningTime.forall(_ < remote.period.toInclusive.forgetRefinement)
+      ) {
         // We do not run in an infinite loop of sending empty commitments to each other:
         // If we receive an empty commitment from a counter-participant, it is because the current participant
         // sent a commitment to them when they didn't have a shared contract with the current participant
@@ -901,6 +1032,9 @@ class AcsCommitmentProcessor(
             cryptoSnapshot <- domainCrypto.awaitSnapshot(
               remote.period.toInclusive.forgetRefinement
             )
+            // Due to the condition of this branch, in catch-up mode we don't reply with an empty commitment in between
+            // catch-up boundaries. If the counter-participant thinks that there is still a shared contract at the
+            // end of the catch-up boundary, we then reply with an empty commitment.
             msg <- signCommitment(
               cryptoSnapshot,
               remote.sender,
@@ -913,8 +1047,14 @@ class AcsCommitmentProcessor(
           ),
           s"Failed to respond empty ACS back to ${remote.sender}",
         )
-      } else
-        logger.info(s"Ignoring incoming commitment for a pruned period: $remote")
+      } else {
+        if (lastPruningTime.forall(_ >= remote.period.toInclusive.forgetRefinement))
+          logger.info(s"Ignoring incoming commitment for a pruned period: $remote")
+        if (possibleCatchUp)
+          logger.info(
+            s"Ignoring incoming commitment for a skipped period due to catch-up: $remote"
+          )
+      }
       false
     } else {
       local.filter(_._2 != remote.commitment) match {
@@ -941,71 +1081,122 @@ class AcsCommitmentProcessor(
     remote.parTraverse_ { cmt =>
       for {
         commitments <- store.getComputed(cmt.period, cmt.sender)
+        // check if we were in a catch-up phase
+        possibleCatchUp <- isCatchUpPeriod(cmt.period)
         lastPruningTime <- store.pruningStatus
         _ <-
-          if (matches(cmt, commitments, lastPruningTime.map(_.timestamp))) {
+          if (matches(cmt, commitments, lastPruningTime.map(_.timestamp), possibleCatchUp)) {
             store.markSafe(cmt.sender, cmt.period, sortedReconciliationIntervalsProvider)
           } else Future.unit
       } yield ()
     }
   }
 
+  /** Checks whether at the end of `completedPeriod` the commitments with the counter-participants match. In case of
+    * mismatch, sends fine-grained commitments to enable fine-grained mismatch detection.
+    * @param lastSentCatchUpCommitmentTimestamp
+    * @param lastProcessedCatchUpCommitmentTimestamp
+    * @param completedPeriod
+    * @param filterInJustMismatches If true, send fine-grained commitments only to counter-participants from whom we
+    *                               have mismatching cmts at the catch-up boundary. If false, send fine-grained
+    *                               commitments to all counter-participants from whom we don't have cmts, or cmts do
+    *                               not match at the catch-up boundary.
+    */
   private def checkMatchAndMarkSafeOrFixDuringCatchUp(
       lastSentCatchUpCommitmentTimestamp: Option[CantonTimestampSecond],
       lastProcessedCatchUpCommitmentTimestamp: Option[CantonTimestampSecond],
-      own: AcsCommitment,
+      completedPeriod: CommitmentPeriod,
       cryptoSnapshot: SyncCryptoApi,
+      filterInJustMismatches: Boolean = false,
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    logger.debug(s"Processing own commitment ${own} ")
+    logger.debug(
+      s"$participantId checkMatchAndMarkSafeOrFixDuringCatchUp for period $completedPeriod"
+    )
     for {
-      counterCommitmentList <- store.queue.peekOverlapsForCounterParticipant(
-        own.period,
-        own.counterParticipant,
-      )(traceContext)
-      lastPruningTime <- store.pruningStatus
-
-      nrIntervals <- sortedReconciliationIntervalsProvider.computeReconciliationIntervalsCovering(
-        own.period.fromExclusive.forgetRefinement,
-        own.period.toInclusive.forgetRefinement,
+      // retrieve commitments computed at catch-up boundary
+      computed <- store.searchComputedBetween(
+        completedPeriod.fromExclusive.forgetRefinement,
+        completedPeriod.toInclusive.forgetRefinement,
       )
-      _ = if (counterCommitmentList.size > nrIntervals.size) {
-        AcsCommitmentAlarm
-          .Warn(
-            s"""There should be at most ${nrIntervals.size} commitments from counter-participant
-               |${own.counterParticipant} covering the period ${own.period.fromExclusive} to ${own.period.toInclusive}),
-               |but we have the following ${counterCommitmentList.size}""".stripMargin
+
+      intervals <- sortedReconciliationIntervalsProvider.computeReconciliationIntervalsCovering(
+        completedPeriod.fromExclusive.forgetRefinement,
+        completedPeriod.toInclusive.forgetRefinement,
+      )
+
+      _ <- computed.toList.parTraverse_ { case (period, counterParticipant, cmt) =>
+        logger.debug(
+          s"Processing own commitment ${cmt} for period $period and counter-participant $counterParticipant"
+        )
+        for {
+          counterCommitmentList <- store.queue.peekOverlapsForCounterParticipant(
+            period,
+            counterParticipant,
+          )(traceContext)
+
+          lastPruningTime <- store.pruningStatus
+
+          _ = if (counterCommitmentList.size > intervals.size) {
+            AcsCommitmentAlarm
+              .Warn(
+                s"""There should be at most ${intervals.size} commitments from counter-participant
+                   |${counterParticipant} covering the period ${completedPeriod.fromExclusive} to ${completedPeriod.toInclusive}),
+                   |but we have the following ${counterCommitmentList.size}""".stripMargin
+              )
+              .report()
+          }
+
+          // check if we were in a catch-up phase
+          possibleCatchUp <- isCatchUpPeriod(period)
+
+          // get lists of counter-commitments that match and, respectively, do not match locally computed commitments
+          (matching, mismatches) = counterCommitmentList.partition(counterCommitment =>
+            matches(
+              counterCommitment,
+              List((period, cmt)),
+              lastPruningTime.map(_.timestamp),
+              possibleCatchUp,
+            )
           )
-          .report()
-      }
 
-      // get lists of counter-commitments that match and, respectively, do not match locally computed commitments
-      (matching, mismatches) = counterCommitmentList.partition(counterCommitment =>
-        matches(
-          counterCommitment,
-          List((own.period, own.commitment)),
-          lastPruningTime.map(_.timestamp),
-        )
-      )
+          // we mark safe all matching counter-commitments
+          _ <- matching.parTraverse_ { counterCommitment =>
+            logger.debug(s"Marked as safe commitment $cmt against counterComm $counterCommitment")
+            store.markSafe(
+              counterCommitment.sender,
+              counterCommitment.period,
+              sortedReconciliationIntervalsProvider,
+            )
+          }
 
-      // we mark safe all matching counter-commitments
-      _ <- matching.parTraverse_ { counterCommitment =>
-        logger.debug(s"Marked as safe commitment $own against counterComm $counterCommitment")
-        store.markSafe(
-          counterCommitment.sender,
-          counterCommitment.period,
-          sortedReconciliationIntervalsProvider,
-        )
-      }
+          // if there is a mismatch, send all fine-grained commitments between `lastSentCatchUpCommitmentTimestamp`
+          // and `lastProcessedCatchUpCommitmentTimestamp`
+          _ <-
+            if (mismatches.nonEmpty) {
+              for {
+                res <-
+                  if (!filterInJustMismatches) {
+                    // send to all counter-participants from whom either I don't have cmts or I have cmts but they don't match
+                    sendCommitmentMessagesInCatchUpInterval(
+                      lastSentCatchUpCommitmentTimestamp,
+                      lastProcessedCatchUpCommitmentTimestamp,
+                      cryptoSnapshot,
+                      filterOutParticipantId = matching.map(c => c.counterParticipant),
+                    )
+                  } else {
+                    // send to all counter-participants from whom I have cmts but they don't match
+                    sendCommitmentMessagesInCatchUpInterval(
+                      lastSentCatchUpCommitmentTimestamp,
+                      lastProcessedCatchUpCommitmentTimestamp,
+                      cryptoSnapshot,
+                      filterInParticipantId = mismatches.map(c => c.counterParticipant),
+                      filterOutParticipantId = matching.map(c => c.counterParticipant),
+                    )
+                  }
+              } yield res
+            } else Future.unit
+        } yield ()
 
-      // if there is a mismatch, send all fine-grained commitments between `lastSentCatchUpCommitmentTimestamp`
-      // and `lastProcessedCatchUpCommitmentTimestamp`
-      _ <- mismatches.headOption.traverse_ { counterCommitment =>
-        sendCommitmentMessagesInCatchUpInterval(
-          lastSentCatchUpCommitmentTimestamp,
-          lastProcessedCatchUpCommitmentTimestamp,
-          cryptoSnapshot,
-          counterCommitment.sender,
-        )
       }
     } yield ()
   }
@@ -1073,9 +1264,10 @@ class AcsCommitmentProcessor(
     * @return The catch-up timestamp, if the node needs to catch-up, otherwise the given completedPeriodTimestamp.
     */
   private def laggingTooFarBehind(
-      completedPeriodTimestamp: CantonTimestamp
+      completedPeriodTimestamp: CantonTimestamp,
+      config: Option[AcsCommitmentsCatchUpConfig],
   )(implicit traceContext: TraceContext): Future[CantonTimestamp] = {
-    acsCommitmentsCatchUpConfig match {
+    config match {
       case Some(cfg) =>
         for {
           sortedReconciliationIntervals <- sortedReconciliationIntervalsProvider
@@ -1096,44 +1288,6 @@ class AcsCommitmentProcessor(
         }
       case None => Future.successful(completedPeriodTimestamp)
     }
-  }
-
-  /** Send the computed commitment messages for all intervals covered by the coarse-grained
-    * catch-up period between `fromExclusive` to `toInclusive`.
-    * The caller should ensure that `fromExclusive` and `toInclusive` represent valid reconciliation ticks.
-    * If `fromExclusive` and/or `toInclusive` are None, they get the value CantonTimestampSecond.MinValue.
-    */
-  private def sendCommitmentMessagesInCatchUpInterval(
-      fromExclusive: Option[CantonTimestampSecond],
-      toInclusive: Option[CantonTimestampSecond],
-      cryptoSnapshot: SyncCryptoApi,
-      pid: ParticipantId,
-  )(implicit
-      traceContext: TraceContext
-  ): Future[Unit] = {
-    val fromExclusiveSeconds = fromExclusive.getOrElse(CantonTimestampSecond.MinValue)
-    val toInclusiveSeconds = toInclusive.getOrElse(CantonTimestampSecond.MinValue)
-
-    val period = CommitmentPeriod(
-      fromExclusiveSeconds,
-      PositiveSeconds.tryOfSeconds(
-        toInclusiveSeconds.getEpochSecond - fromExclusiveSeconds.getEpochSecond
-      ),
-    )
-    for {
-      cmt <- store.getComputed(period, pid)
-      _ <- cmt.toList.parTraverse_ { case (period, commitment) =>
-        for {
-          signedCommitment <- signCommitment(cryptoSnapshot, pid, commitment, period)
-          _ = logger.debug(
-            s"Due to mismatch, sending commitment for period $period to counterP $pid"
-          )
-          // TODO(i15333) batch more commitments and handle the case when we reach the maximum message limit.
-          _ = sendCommitmentMessages(period, Map(pid -> signedCommitment))
-
-        } yield ()
-      }
-    } yield ()
   }
 
   /** Store the computed commitments of the commitment messages */
@@ -1179,6 +1333,117 @@ class AcsCommitmentProcessor(
       }.discard
     }
   }
+
+  /** Computes and sends commitment messages to counter-participants for all (period,snapshot) pairs in
+    * [[runningCmtSnapshotsForCatchUp]] for the last catch-up interval.
+    * The counter-participants are by default all counter-participant at the end of each interval, to which we apply the
+    * filters `filterInParticipantId` and `filterOutParticipantId`.
+    * These snapshots should cover the last catch-up interval, namely between `fromExclusive` to `toInclusive`,
+    * otherwise we throw an [[IllegalStateException]].
+    * The caller should ensure that fromExclusive` and `toInclusive` represent valid reconciliation ticks.
+    * If `fromExclusive` < `toInclusive`, we throw an [[IllegalStateException]].
+    * If `fromExclusive` and/or `toInclusive` are None, they get the value CantonTimestampSecond.MinValue.
+    */
+  private def sendCommitmentMessagesInCatchUpInterval(
+      fromExclusive: Option[CantonTimestampSecond],
+      toInclusive: Option[CantonTimestampSecond],
+      cryptoSnapshot: SyncCryptoApi,
+      filterInParticipantId: Seq[ParticipantId] = Seq.empty,
+      filterOutParticipantId: Seq[ParticipantId] = Seq.empty,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Unit] = {
+    val fromExclusiveSeconds = fromExclusive.getOrElse(CantonTimestampSecond.MinValue)
+    val toInclusiveSeconds = toInclusive.getOrElse(CantonTimestampSecond.MinValue)
+
+    if (fromExclusiveSeconds > toInclusiveSeconds)
+      throw new IllegalStateException(
+        s"$fromExclusive needs to be <= $toInclusive"
+      )
+
+    if (runningCmtSnapshotsForCatchUp.isEmpty && fromExclusiveSeconds < toInclusiveSeconds)
+      throw new IllegalStateException(
+        s"No active snapshots for catchupInterval [$fromExclusive, $toInclusive], but there should be"
+      )
+
+    if (runningCmtSnapshotsForCatchUp.nonEmpty && fromExclusiveSeconds == toInclusiveSeconds)
+      throw new IllegalStateException(
+        s"Active snapshots $runningCmtSnapshotsForCatchUp for catchupInterval [$fromExclusive, $toInclusive], but there shouldn't be"
+      )
+
+    val sortedPeriods = runningCmtSnapshotsForCatchUp.keySet.toList.sortBy(c => c.toInclusive)
+    sortedPeriods.headOption.fold(()) { c =>
+      if (c.fromExclusive != fromExclusiveSeconds)
+        throw new IllegalStateException(
+          s"Wrong fromExclusive ${c.fromExclusive} in the active commitment snapshots, should be $fromExclusiveSeconds"
+        )
+      else ()
+    }
+
+    sortedPeriods.lastOption.fold(()) { c =>
+      if (c.toInclusive != toInclusiveSeconds)
+        throw new IllegalStateException(
+          s"Wrong toInclusive ${c.toInclusive} in the active commitment snapshots, should be $toInclusiveSeconds"
+        )
+      else ()
+    }
+
+    sortedPeriods.sliding(2).foreach {
+      case Seq(prev, next) =>
+        if (prev.toInclusive != next.fromExclusive)
+          throw new IllegalStateException(
+            s"Periods in active snapshots $runningCmtSnapshotsForCatchUp are not consecutive"
+          )
+      case _ =>
+    }
+
+    runningCmtSnapshotsForCatchUp
+      .map { case (period, snapshot) =>
+        if (period.fromExclusive < fromExclusiveSeconds)
+          throw new IllegalStateException(
+            s"Wrong fromExclusive ${period.fromExclusive} in the active commitment snapshots, min is $fromExclusiveSeconds"
+          )
+        if (period.toInclusive > toInclusiveSeconds)
+          throw new IllegalStateException(
+            s"Wrong toInclusive ${period.toInclusive} in the active commitment snapshots, max is $toInclusiveSeconds"
+          )
+
+        for {
+          cmts <- commitments(
+            participantId,
+            snapshot,
+            domainCrypto,
+            period.toInclusive,
+            Some(metrics),
+            threadCount,
+            cachedCommitmentsForRetroactiveSends,
+            filterInParticipantId,
+            filterOutParticipantId,
+          )
+
+          _ = logger.debug(
+            s"Due to mismatch, sending commitment for period $period to counterP ${cmts.keySet}"
+          )
+
+          msgs <- cmts
+            .collect {
+              case (counterParticipant, cmt) if LtHash16.isNonEmptyCommitment(cmt) =>
+                signCommitment(cryptoSnapshot, counterParticipant, cmt, period).map(msg =>
+                  (counterParticipant, msg)
+                )
+            }
+            .toList
+            .sequence
+            .map(_.toMap)
+          _ <- storeCommitments(msgs)
+          // TODO(i15333) batch more commitments and handle the case when we reach the maximum message limit.
+          _ = sendCommitmentMessages(period, msgs)
+        } yield ()
+      }
+      .toSeq
+      .sequence_
+  }
+
   override protected def onClosed(): Unit = {
     Lifecycle.close(dbQueue, publishQueue)(logger)
   }
@@ -1188,9 +1453,21 @@ class AcsCommitmentProcessor(
     // flatMap instead of zip because the `publishQueue` pushes tasks into the `queue`,
     // so we must call `queue.flush()` only after everything in the `publishQueue` has been flushed.
     publishQueue.flush().flatMap(_ => dbQueue.flush())
+
+  private[canton] class AcsCommitmentProcessorHealth(
+      override val name: String,
+      override protected val associatedOnShutdownRunner: OnShutdownRunner,
+      override protected val logger: TracedLogger,
+  ) extends AtomicHealthComponent {
+    override protected def initialHealthState: ComponentHealthState = ComponentHealthState.Ok()
+    override def closingState: ComponentHealthState =
+      ComponentHealthState.failed(s"Disconnected from domain")
+  }
 }
 
 object AcsCommitmentProcessor extends HasLoggerName {
+
+  val healthName: String = "acs-commitment-processor"
 
   type ProcessorType =
     (
@@ -1280,12 +1557,12 @@ object AcsCommitmentProcessor extends HasLoggerName {
       def concatenate(
           contractHash: LfHash,
           contractId: LfContractId,
-          transferCounter: TransferCounterO,
+          transferCounter: TransferCounter,
       ): Array[Byte] =
         (
           contractHash.bytes.toByteString // hash always 32 bytes long per lf.crypto.Hash.underlyingLength
             concat contractId.encodeDeterministically
-            concat transferCounter.fold(ByteString.EMPTY)(TransferCounter.encodeDeterministically)
+            concat TransferCounter.encodeDeterministically(transferCounter)
         ).toByteArray
       import com.digitalasset.canton.lfPartyOrdering
       blocking {
@@ -1307,7 +1584,13 @@ object AcsCommitmentProcessor extends HasLoggerName {
               val sortedStakeholders =
                 SortedSet(stakeholdersAndTransferCounter.stakeholders.toSeq*)
               val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
-              h.remove(concatenate(hash, cid, stakeholdersAndTransferCounter.transferCounter))
+              h.remove(
+                concatenate(
+                  hash,
+                  cid,
+                  stakeholdersAndTransferCounter.transferCounter,
+                )
+              )
               loggingContext.debug(
                 s"Removing from commitment deactivation cid $cid transferCounter ${stakeholdersAndTransferCounter.transferCounter}"
               )
@@ -1401,6 +1684,12 @@ object AcsCommitmentProcessor extends HasLoggerName {
         }
       }
     }
+
+    def clear() = setCachedCommitments(
+      Map.empty[ParticipantId, AcsCommitment.CommitmentType],
+      Map.empty[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
+      Map.empty[ParticipantId, Set[SortedSet[LfPartyId]]],
+    )
   }
 
   /** Compute the ACS commitments at the given timestamp.
@@ -1416,6 +1705,10 @@ object AcsCommitmentProcessor extends HasLoggerName {
       pruningMetrics: Option[PruningMetrics],
       parallelism: PositiveNumeric[Int],
       cachedCommitments: CachedCommitments,
+      // compute commitments just for includeCounterParticipantIds, if non-empty, otherwise for all counter-participants
+      filterInParticipantIds: Seq[ParticipantId] = Seq.empty,
+      // exclude from computing commitments excludeCounterParticipantIds, if non-empty, otherwise do not exclude anyone
+      filterOutParticipantIds: Seq[ParticipantId] = Seq.empty,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -1431,7 +1724,17 @@ object AcsCommitmentProcessor extends HasLoggerName {
         parallelism,
       )
     } yield {
-      val res = computeCommitmentsPerParticipant(byParticipant, cachedCommitments)
+      // compute commitments just for counterParticipantId, if defined, otherwise for all counter-participants
+      val includeCPs =
+        if (filterInParticipantIds.isEmpty) byParticipant.keys
+        else filterInParticipantIds
+      val finalCPs = includeCPs.toSet.diff(filterOutParticipantIds.toSet)
+      val res = computeCommitmentsPerParticipant(
+        byParticipant.filter { case (pid, _) =>
+          finalCPs.contains(pid)
+        },
+        cachedCommitments,
+      )
       commitmentTimer.foreach(_.stop())
       // update cached commitments
       cachedCommitments.setCachedCommitments(
@@ -1702,7 +2005,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
         }
 
     def lookupChangeMetadata(
-        activations: Map[LfContractId, TransferCounterO]
+        activations: Map[LfContractId, TransferCounter]
     ): Future[AcsChange] = {
       for {
         // TODO(i9270) extract magic numbers
@@ -1734,7 +2037,10 @@ object AcsCommitmentProcessor extends HasLoggerName {
           namedLoggingContext.traceContext
         )
         activations = activeContracts.map { case (cid, (toc, transferCounter)) =>
-          (cid, transferCounter)
+          (
+            cid,
+            transferCounter,
+          )
         }
         change <- lookupChangeMetadata(activations)
       } yield {
@@ -1829,6 +2135,46 @@ object AcsCommitmentProcessor extends HasLoggerName {
       @Resolution("Contact support.")
       object AcsCommitmentAlarm extends AlarmErrorCode(id = "ACS_COMMITMENT_ALARM") {
         final case class Warn(override val cause: String) extends Alarm(cause)
+      }
+    }
+
+    trait AcsCommitmentDegradation extends CantonError
+    object DegradationError extends ErrorGroup {
+
+      @Explanation(
+        "The participant is configured to engage catchup mode, however configuration is invalid to have any effect"
+      )
+      @Resolution("Please update catchup mode to have a catchUpIntervalSkip higher than 1")
+      object AcsCommitmentDegradationWithIneffectiveConfig
+          extends ErrorCode(
+            id = "ACS_COMMITMENT_DEGRADATION_WITH_INEFFECTIVE_CONFIG",
+            ErrorCategory.BackgroundProcessDegradationWarning,
+          ) {
+        final case class Report()(implicit
+            val loggingContext: ErrorLoggingContext
+        ) extends CantonError.Impl(
+              cause =
+                "The participant has activated catchup mode, however catchUpIntervalSkip is set to 1, so it will have no improvement."
+            )
+            with AcsCommitmentDegradation
+      }
+
+      @Explanation(
+        "The participant has detected that ACS computation is taking to long and trying to catch up."
+      )
+      @Resolution("Catch up mode is enabled and the participant should recover on its own.")
+      object AcsCommitmentDegradation
+          extends ErrorCode(
+            id = "ACS_COMMITMENT_DEGRADATION",
+            ErrorCategory.BackgroundProcessDegradationWarning,
+          ) {
+        final case class Report()(implicit
+            val loggingContext: ErrorLoggingContext
+        ) extends CantonError.Impl(
+              cause =
+                "The participant has activated ACS catchup mode to combat computation problem."
+            )
+            with AcsCommitmentDegradation
       }
     }
   }

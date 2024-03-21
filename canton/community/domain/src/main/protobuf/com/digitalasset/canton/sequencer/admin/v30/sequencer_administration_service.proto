@@ -1,0 +1,148 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.sequencer.admin.v30;
+
+import "com/digitalasset/canton/admin/traffic/v30/member_traffic_status.proto";
+import "com/digitalasset/canton/protocol/v30/sequencing.proto";
+import "com/digitalasset/canton/sequencer/admin/v30/sequencer_initialization_snapshot.proto";
+import "com/digitalasset/canton/topology/admin/v30/topology_ext.proto";
+import "google/protobuf/timestamp.proto";
+import "scalapb/scalapb.proto";
+
+// administration service for sequencer instances
+service SequencerAdministrationService {
+  // fetch the current status of the sequencer
+  rpc PruningStatus(PruningStatusRequest) returns (PruningStatusResponse);
+
+  /* Return the status of the specified members. If the list is empty, return the status of all members.
+   * Requested members who are not registered or disabled in the Sequencer will not be in the response.
+   * Registered members with no sent or received event will return an empty status.
+   */
+  rpc TrafficControlState(TrafficControlStateRequest) returns (TrafficControlStateResponse);
+
+  // Update the traffic balance of a member
+  // The new balance will only become valid once authorized by a quorum of sequencers of the domain
+  rpc SetTrafficBalance(SetTrafficBalanceRequest) returns (SetTrafficBalanceResponse);
+
+  // fetch a snapshot of the sequencer state based on the given timestamp
+  rpc Snapshot(SnapshotRequest) returns (SnapshotResponse);
+
+  // Fetch the onboarding state for a given sequencer.
+  // the returned bytestring can be used directly to initialize the given sequencer later on
+  rpc OnboardingState(OnboardingStateRequest) returns (OnboardingStateResponse);
+
+  // Fetch the genesis state for a given sequencer. In the genesis state, we exclude VettedPackages transactions.
+  // the returned bytestring can be used directly to initialize the given sequencer later on
+  rpc GenesisState(GenesisStateRequest) returns (GenesisStateResponse);
+
+  // Disable members at the sequencer. Will prevent existing and new instances from connecting, and permit removing their data.
+  rpc DisableMember(DisableMemberRequest) returns (DisableMemberResponse);
+}
+
+message TrafficControlStateRequest {
+  repeated string members = 1; // Members for which to retrieve the traffic state
+}
+
+message TrafficControlStateResponse {
+  repeated com.digitalasset.canton.admin.traffic.v30.MemberTrafficStatus traffic_states = 1;
+}
+
+message SetTrafficBalanceRequest {
+  string member = 1; // Member to top up
+  uint32 serial = 2; // Serial number of the request, will be used for idempotency
+  int64 total_traffic_balance = 3; // Amount of traffic to top up
+}
+
+message SetTrafficBalanceResponse {
+  // Max sequencing timestamp used to send the request. If the new balance is not visible after this timestamp,
+  // the caller should retry it.
+  google.protobuf.Timestamp max_sequencing_timestamp = 1;
+}
+
+message SnapshotRequest {
+  google.protobuf.Timestamp timestamp = 1;
+}
+
+message SnapshotResponse {
+  message Success {
+    SequencerSnapshot state = 1;
+  }
+  message Failure {
+    string reason = 1;
+  }
+  message VersionedSuccess {
+    // Contains a versioned SequencerSnapshot of version v1 or higher
+    bytes snapshot = 1;
+  }
+  oneof value {
+    // Used for sequencers running protocol versions up to v5
+    Success success = 1;
+    Failure failure = 2;
+    // Used for sequencers running protocol version CNTestNet or higher.
+    VersionedSuccess versioned_success = 3;
+  }
+}
+
+message OnboardingStateRequest {
+  oneof request {
+    // The sequencer for which to fetch the onboarding state
+    string sequencer_id = 1;
+    // The effective time the should be "contained" in the sequencer snapshot
+    google.protobuf.Timestamp timestamp = 2;
+  }
+}
+
+message OnboardingStateResponse {
+  message Success {
+    // versioned OnboardingStateForSequencer
+    bytes onboarding_state_for_sequencer = 1;
+  }
+  message Failure {
+    string reason = 1;
+  }
+  oneof value {
+    Success success = 1;
+    Failure failure = 2;
+  }
+}
+message GenesisStateRequest {
+  // Optional - the effective time used to fetch the topology transactions
+  google.protobuf.Timestamp timestamp = 1;
+}
+
+message GenesisStateResponse {
+  message Success {
+    // versioned stored topology transactions
+    bytes genesis_state_for_sequencer = 1;
+  }
+  message Failure {
+    string reason = 1;
+  }
+  oneof value {
+    Success success = 1;
+    Failure failure = 2;
+  }
+}
+
+message OnboardingStateForSequencer {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  com.digitalasset.canton.topology.admin.v30.TopologyTransactions topology_snapshot = 1;
+  com.digitalasset.canton.protocol.v30.StaticDomainParameters static_domain_parameters = 2;
+  SequencerSnapshot sequencer_snapshot = 3;
+}
+
+message PruningStatusRequest {}
+
+message PruningStatusResponse {
+  SequencerPruningStatus pruning_status = 1;
+}
+
+message DisableMemberRequest {
+  string member = 1;
+}
+
+message DisableMemberResponse {}

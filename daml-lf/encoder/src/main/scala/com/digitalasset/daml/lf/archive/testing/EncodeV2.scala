@@ -852,6 +852,9 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
 
     private implicit def encodeValueDef(nameWithDef: (DottedName, DValue)): PLF.DefValue = {
       val (dottedName, value) = nameWithDef
+      if (value.isTest) {
+        assertSince(LV.Features.scenarios, "Value.isTest")
+      }
       PLF.DefValue
         .newBuilder()
         .setNameWithType(dottedName -> value.typ)

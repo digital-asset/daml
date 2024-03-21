@@ -107,6 +107,61 @@ else
 fi
 
 #
+# Determine platform suffix
+#
+major=$(echo "$VERSION" | awk -F. '{print $1}')
+minor=$(echo "$VERSION" | awk -F. '{print $2}')
+
+if [ "$major" -le "1" ]; then
+  platform=
+elif [ "$major" = "2" ] && [ "$minor" -le "8" ]; then
+  platform=
+elif [ "$major" = "2" ] && [ "$minor" -ge "9" ]; then
+  case "$OS-$(uname -m)" in
+    macos-arm64)
+      # TODO
+      #platform=-aarch64
+      platform=
+      ;;
+    macos-x86_64)
+      platform=
+      ;;
+    linux-aarch64)
+      platform=-aarch64
+      ;;
+    linux-x86_64)
+      platform=
+      ;;
+    *)
+      echo "Unsupported architecture: $(uname -m) for $VERSION on $OS."
+      exit 1
+      ;;
+  esac
+elif [ "$major" -ge "3" ]; then
+  case "$OS-$(uname -m)" in
+    macos-arm64)
+      # TODO
+      #platform=-aarch64
+      platform=-x86_64
+      ;;
+    macos-x86_64)
+      # TODO
+      platform=-x86_64
+      ;;
+    linux-aarch64)
+      platform=-aarch64
+      ;;
+    linux-x86_64)
+      platform=-x86_64
+      ;;
+    *)
+      echo "Unsupported architecture: $(uname -m) for $VERSION on $OS."
+      exit 1
+      ;;
+  esac
+fi
+
+#
 # Download SDK tarball
 #
 # Can't assume jq
@@ -120,7 +175,7 @@ URL=$(curl --silent \
            --location \
            https://api.github.com/repos/digital-asset/daml/releases/$release_id/assets \
        | grep browser_download_url \
-       | grep "daml-sdk-.*-$OS.tar.gz\"" \
+       | grep "daml-sdk-.*-$OS$platform.tar.gz\"" \
        | sed 's|.*: "\(https://[^"]*\)"|\1|')
 readonly TARBALL=$(basename $URL)
 sdk_version=$(echo $TARBALL | sed 's|daml-sdk-\(.*\)-[^-]*.tar.gz|\1|')

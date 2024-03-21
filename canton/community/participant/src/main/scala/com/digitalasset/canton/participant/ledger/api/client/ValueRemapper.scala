@@ -63,9 +63,9 @@ object ValueRemapper {
         value.Value.Sum.Record(remapRecord(remapContractId, remapParty, record))
       case value.Value.Sum.List(value.List(seq)) =>
         value.Value.Sum.List(value.List(seq.map(remapValue(remapContractId, remapParty))))
-      case value.Value.Sum.Map(value.Map(entries)) =>
-        value.Value.Sum.Map(value.Map(entries.map { case value.Map.Entry(k, v) =>
-          value.Map.Entry(k, v.map(remapValue(remapContractId, remapParty)))
+      case value.Value.Sum.TextMap(value.TextMap(entries)) =>
+        value.Value.Sum.TextMap(value.TextMap(entries.map { case value.TextMap.Entry(k, v) =>
+          value.TextMap.Entry(k, v.map(remapValue(remapContractId, remapParty)))
         }))
       case value.Value.Sum.GenMap(value.GenMap(entries)) =>
         value.Value.Sum.GenMap(value.GenMap(entries.map { case value.GenMap.Entry(k, v) =>

@@ -25,7 +25,6 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.ledger.api.domain.{
   Filters,
   InclusiveFilters,
-  LedgerId,
   PackageEntry,
   ParticipantOffset,
   TransactionFilter,
@@ -33,7 +32,6 @@ import com.digitalasset.canton.ledger.api.domain.{
 }
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.api.{TraceIdentifiers, domain}
-import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.offset.Offset
@@ -72,7 +70,6 @@ import scala.concurrent.Future
 import scala.util.Success
 
 private[index] class IndexServiceImpl(
-    val ledgerId: LedgerId,
     participantId: Ref.ParticipantId,
     ledgerDao: LedgerReadDao,
     transactionsReader: LedgerDaoTransactionsReader,
@@ -389,34 +386,6 @@ private[index] class IndexServiceImpl(
       .flatMapConcat(dispatcher().startingAt(_, RangeSource(ledgerDao.getPackageEntries)))
       .mapError(shutdownError)
       .map(_._2.toDomain)
-
-  /** Looks up the current configuration, if set, and the offset from which
-    * to subscribe to further configuration changes.
-    * The offset is internal and not exposed over Ledger API.
-    */
-  override def lookupConfiguration()(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Option[(ParticipantOffset.Absolute, Configuration)]] =
-    ledgerDao
-      .lookupLedgerConfiguration()
-      .map(
-        _.map { case (offset, config) => (toAbsolute(offset), config) }
-      )(directEc)
-
-  /** Retrieve configuration entries. */
-  override def configurationEntries(startExclusive: Option[ParticipantOffset.Absolute])(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Source[(domain.ParticipantOffset.Absolute, domain.ConfigurationEntry), NotUsed] =
-    Source
-      .future(concreteOffset(startExclusive))
-      .flatMapConcat(
-        dispatcher()
-          .startingAt(_, RangeSource(ledgerDao.getConfigurationEntries))
-          .mapError(shutdownError)
-          .map { case (offset, config) =>
-            toAbsolute(offset) -> config.toDomain
-          }
-      )
 
   override def prune(
       pruneUpToInclusive: Offset,

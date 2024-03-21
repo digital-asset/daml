@@ -35,7 +35,7 @@ import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 import scala.jdk.CollectionConverters.*
 
 class ReferenceDemoScript(
-    participantsX: Seq[ParticipantReference],
+    participants: Seq[ParticipantReference],
     bankingConnection: SequencerConnection,
     medicalConnection: SequencerConnection,
     rootPath: String,
@@ -56,8 +56,8 @@ class ReferenceDemoScript(
   implicit def toScalaSeq[A](l: java.util.List[A]): Seq[A] = l.asScala.toSeq
   implicit def toJavaList[A](l: List[A]): java.util.List[A] = l.asJava
 
-  require(participantsX.lengthIs > 5, "I need 6 participants for this demo")
-  private val sorted = participantsX.sortBy(_.name)
+  require(participants.lengthIs > 5, "I need 6 participants for this demo")
+  private val sorted = participants.sortBy(_.name)
 
   private val participant1 = sorted(0)
   private val participant2 = sorted(1)
@@ -189,7 +189,7 @@ class ReferenceDemoScript(
       name: String,
       connection: SequencerConnection,
   ): Unit = {
-    participant.domains.connect(
+    participant.domains.connect_by_config(
       DomainConnectionConfig(
         name,
         SequencerConnections.single(connection),
@@ -639,13 +639,13 @@ object ReferenceDemoScript {
     val loggerFactory = consoleEnvironment.environment.loggerFactory
 
     // update domain parameters
-    banking.topology.domain_parameters.set_reconciliation_interval(
+    banking.topology.domain_parameters.propose_update(
       bankingDomainId,
-      config.PositiveDurationSeconds.ofSeconds(1),
+      _.update(reconciliationInterval = config.PositiveDurationSeconds.ofSeconds(1)),
     )
-    medical.topology.domain_parameters.set_reconciliation_interval(
+    medical.topology.domain_parameters.propose_update(
       medicalDomainId,
-      config.PositiveDurationSeconds.ofSeconds(1),
+      _.update(reconciliationInterval = config.PositiveDurationSeconds.ofSeconds(1)),
     )
 
     val script = new ReferenceDemoScript(

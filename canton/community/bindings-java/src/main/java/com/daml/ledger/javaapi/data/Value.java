@@ -38,8 +38,8 @@ public abstract class Value {
         return new Date(value.getDate());
       case OPTIONAL:
         return DamlOptional.fromProto(value.getOptional());
-      case MAP:
-        return DamlTextMap.fromProto(value.getMap());
+      case TEXT_MAP:
+        return DamlTextMap.fromProto(value.getTextMap());
       case GEN_MAP:
         return DamlGenMap.fromProto(value.getGenMap());
       case SUM_NOT_SET:

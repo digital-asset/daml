@@ -25,7 +25,7 @@ sealed trait EnterpriseFeatureInCommunityXIntegrationTest
   private val domainAlias = "da"
 
   override def environmentDefinition: CommunityEnvironmentDefinition =
-    CommunityEnvironmentDefinition.simpleTopologyX
+    CommunityEnvironmentDefinition.simpleTopology
       .addConfigTransforms(
         CommunityConfigTransforms.uniquePorts
       )

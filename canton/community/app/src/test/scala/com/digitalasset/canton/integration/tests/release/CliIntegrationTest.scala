@@ -34,7 +34,7 @@ class CliXIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMix
     s"$resourceDir/config-snippets/disable-ammonite-cache.conf"
 
   private lazy val simpleConf =
-    "community/app/src/pack/examples/01-simple-topology/simple-topology-x.conf"
+    "community/app/src/pack/examples/01-simple-topology/simple-topology.conf"
   private lazy val unsupportedProtocolVersionConfig =
     "enterprise/app/src/test/resources/unsupported-protocol-version.conf"
   // this warning is potentially thrown when starting Canton with --no-tty
@@ -200,7 +200,7 @@ class CliXIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMix
 
       val basicCommand = {
         // user-manual-entry-begin: SetNumThreads
-        "bin/canton -Dscala.concurrent.context.numThreads=12 --config examples/01-simple-topology/simple-topology-x.conf"
+        "bin/canton -Dscala.concurrent.context.numThreads=12 --config examples/01-simple-topology/simple-topology.conf"
         // user-manual-entry-end: SetNumThreads
       }
       val cmd = basicCommand + " --no-tty"

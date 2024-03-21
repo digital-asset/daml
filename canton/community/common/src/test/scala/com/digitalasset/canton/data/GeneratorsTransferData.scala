@@ -177,7 +177,7 @@ final class GeneratorsTransferData(
       contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
       creatingTransactionId <- Arbitrary.arbitrary[TransactionId]
       transferOutResultEvent <- deliveryTransferOutResultGen(contract, sourceProtocolVersion)
-      transferCounter <- transferCounterOGen
+      transferCounter <- transferCounterGen
 
       hashOps = TestHash // Not used for serialization
 
@@ -203,7 +203,7 @@ final class GeneratorsTransferData(
 
       targetDomain <- Arbitrary.arbitrary[TargetDomainId]
       timeProof <- Arbitrary.arbitrary[TimeProof]
-      transferCounter <- transferCounterOGen
+      transferCounter <- transferCounterGen
 
       hashOps = TestHash // Not used for serialization
 

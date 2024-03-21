@@ -96,44 +96,7 @@ class QueueBasedDomainOutboxX(
       }
   }
 
-  protected case class QueueState(
-      queuedApprox: Int,
-      running: Boolean,
-  ) {
-    def updateQueued(queuedNum: Int): QueueState = {
-      val ret = copy(
-        queuedApprox = queuedApprox + queuedNum
-      )
-      if (ret.hasPending) {
-        ensureIdleFutureIsSet()
-      }
-      ret
-    }
-
-    def hasPending: Boolean = queuedApprox > 0
-
-    def done(): QueueState = {
-      if (!hasPending) {
-        idleFuture.getAndSet(None).foreach(_.trySuccess(UnlessShutdown.unit))
-      }
-      copy(running = false)
-    }
-    def setRunning(): QueueState = {
-      if (!running) {
-        ensureIdleFutureIsSet()
-      }
-      copy(running = true)
-    }
-
-  }
-
-  private val queueState =
-    new AtomicReference[QueueState](
-      QueueState(
-        0,
-        false,
-      )
-    )
+  private val isRunning = new AtomicBoolean(false)
   private val initialized = new AtomicBoolean(false)
 
   /** a future we provide that gets fulfilled once we are done dispatching */
@@ -146,13 +109,17 @@ class QueueBasedDomainOutboxX(
     case x => x
   }.discard
 
-  def queueSize: Int = queueState.get().queuedApprox
+  // reflect both unsent and in-process transactions in the topology queue status
+  def queueSize: Int =
+    domainOutboxQueue.numUnsentTransactions + domainOutboxQueue.numInProcessTransactions
+
+  private def hasUnsentTransactions: Boolean = domainOutboxQueue.numUnsentTransactions > 0
 
   def newTransactionsAddedToAuthorizedStore(
       asOf: CantonTimestamp,
       num: Int,
   ): FutureUnlessShutdown[Unit] = {
-    queueState.updateAndGet(_.updateQueued(num)).discard
+    ensureIdleFutureIsSet()
     kickOffFlush()
     FutureUnlessShutdown.unit
   }
@@ -171,24 +138,14 @@ class QueueBasedDomainOutboxX(
   def startup()(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
-    val checkQueueF = performUnlessClosingF(functionFullName) {
-      val enqueued = domainOutboxQueue.size()
-      val cur = queueState.updateAndGet { c =>
-        val next = c.copy(
-          // queuing statistics during startup will be a bit off, we just ensure that we signal that we have something in our queue
-          // we might improve by querying the store, checking for the number of pending tx
-          queuedApprox = enqueued
-        )
-        if (next.hasPending) ensureIdleFutureIsSet()
-        next
-      }
+    performUnlessClosingEitherUSF(functionFullName) {
+      if (hasUnsentTransactions) ensureIdleFutureIsSet()
       logger.debug(
-        s"Resuming dispatching, pending=${cur.hasPending}"
+        s"Resuming dispatching, pending=${hasUnsentTransactions}"
       )
-      Future.unit
+      // run initial flush
+      flush(initialize = true)
     }
-    // run initial flush
-    EitherT.right(checkQueueF).flatMap(_ => flush(initialize = true))
   }
 
   protected def kickOffFlush(): Unit = {
@@ -204,12 +161,15 @@ class QueueBasedDomainOutboxX(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
     def markDone(delayRetry: Boolean = false): Unit = {
-      val updated = queueState.updateAndGet(_.done())
+      isRunning.set(false)
+      if (!hasUnsentTransactions) {
+        idleFuture.getAndSet(None).foreach(_.trySuccess(UnlessShutdown.unit))
+      }
       // if anything has been pushed in the meantime, we need to kick off a new flush
       logger.debug(
-        s"Marked flush as done. Updated queue size: ${updated.queuedApprox}. IsClosing: ${isClosing}"
+        s"Marked flush as done. Current queue size: ${queueSize}. IsClosing: ${isClosing}"
       )
-      if (updated.hasPending && !isClosing) {
+      if (hasUnsentTransactions && !isClosing) {
         if (delayRetry) {
           val delay = 10.seconds
           logger.debug(s"Kick off a new delayed flush in ${delay}")
@@ -232,23 +192,26 @@ class QueueBasedDomainOutboxX(
       }
     }
 
-    val cur = queueState.getAndUpdate(_.setRunning())
+    val transitionedToRunning = isRunning.compareAndSet(false, true)
+    if (transitionedToRunning) {
+      ensureIdleFutureIsSet()
+    }
 
-    logger.debug(s"Invoked flush with queue size ${queueState.get().queuedApprox}")
+    logger.debug(s"Invoked flush with queue size ${queueSize}")
 
     if (isClosing) {
       logger.debug("Flush invoked in spite of closing")
       EitherT.rightT(())
     }
     // only flush if we are not running yet
-    else if (cur.running) {
+    else if (!transitionedToRunning) {
       logger.debug("Another flush cycle is currently ongoing")
       EitherT.rightT(())
     } else {
       // mark as initialised (it's safe now for a concurrent thread to invoke flush as well)
       if (initialize)
         initialized.set(true)
-      if (cur.hasPending) {
+      if (hasUnsentTransactions) {
         val pendingAndApplicableF = performUnlessClosingF(functionFullName)(for {
           // find pending transactions
           pending <- findPendingTransactions()
@@ -262,10 +225,10 @@ class QueueBasedDomainOutboxX(
           notPresent <- notAlreadyPresent(applicable)
           _ = if (notPresent.size != applicable.size)
             logger.debug(s"not already present transactions: $notPresent")
-        } yield (pending, notPresent))
+        } yield notPresent)
+
         val ret = for {
-          pendingAndNotPresent <- EitherT.right(pendingAndApplicableF)
-          (pending, notPresent) = pendingAndNotPresent
+          notPresent <- EitherT.right(pendingAndApplicableF)
 
           _ = lastDispatched.set(notPresent.lastOption)
           // Try to convert if necessary the topology transactions for the required protocol version of the domain
@@ -289,12 +252,6 @@ class QueueBasedDomainOutboxX(
           if (!observed) {
             logger.warn("Did not observe transactions in target domain store.")
           }
-          // update queue state according to responses
-          queueState.updateAndGet { c =>
-            c.copy(
-              queuedApprox = math.max(c.queuedApprox - pending.size, 0)
-            )
-          }.discard
 
           domainOutboxQueue.completeCycle()
           markDone()

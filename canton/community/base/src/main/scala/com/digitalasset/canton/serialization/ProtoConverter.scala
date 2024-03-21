@@ -22,6 +22,7 @@ import com.digitalasset.canton.{
   LedgerParticipantId,
   LedgerSubmissionId,
   LedgerTransactionId,
+  LfPackageName,
   LfPartyId,
   LfWorkflowId,
   ProtoDeserializationError,
@@ -147,11 +148,17 @@ object ProtoConverter {
   def parseCommandId(id: String): ParsingResult[Ref.CommandId] =
     parseString(id)(Ref.CommandId.fromString)
 
+  def parsePackageId(id: String): ParsingResult[Ref.PackageId] =
+    parseString(id)(Ref.PackageId.fromString)
+
   def parseTemplateIdO(id: String): ParsingResult[Option[LfTemplateId]] =
     OptionUtil.emptyStringAsNone(id).traverse(parseTemplateId)
 
   def parseTemplateId(id: String): ParsingResult[LfTemplateId] =
     parseString(id)(LfTemplateId.fromString)
+
+  def parseLfPackageName(packageName: String): ParsingResult[LfPackageName] =
+    parseString(packageName)(LfPackageName.fromString)
 
   private def parseString[T](from: String)(to: String => Either[String, T]): ParsingResult[T] =
     to(from).leftMap(StringConversionError)

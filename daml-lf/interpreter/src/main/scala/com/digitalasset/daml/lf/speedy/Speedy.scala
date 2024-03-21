@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, NoCopy, Ref, Time}
 import com.daml.lf.interpretation.{Error => IError}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LookupError, StablePackages, Util => AstUtil}
+import com.daml.lf.language.{LookupError, Util => AstUtil}
 import com.daml.lf.language.LanguageVersionRangeOps._
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.PartialTransaction.NodeSeeds
@@ -18,6 +18,7 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue.SArithmeticError
 import com.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
+import com.daml.lf.stablepackages.StablePackages
 import com.daml.lf.transaction.ContractStateMachine.KeyMapping
 import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.transaction.{

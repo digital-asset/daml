@@ -61,6 +61,7 @@ import com.digitalasset.canton.protocol.{LfCommittedTransaction, SerializableCon
 import com.digitalasset.canton.sequencing.{
   PossiblyIgnoredProtocolEvent,
   SequencerConnection,
+  SequencerConnectionValidation,
   SequencerConnections,
 }
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -164,10 +165,11 @@ private[console] object ParticipantCommands {
         runner: AdminCommandRunner,
         config: DomainConnectionConfig,
         handshakeOnly: Boolean,
+        validation: SequencerConnectionValidation,
     ) =
       runner.adminCommand(
         ParticipantAdminCommands.DomainConnectivity
-          .RegisterDomain(config, handshakeOnly = handshakeOnly)
+          .RegisterDomain(config, handshakeOnly = handshakeOnly, validation)
       )
 
     def reconnect(runner: AdminCommandRunner, domainAlias: DomainAlias, retry: Boolean) = {
@@ -547,7 +549,7 @@ class ParticipantPruningAdministrationGroup(
   def find_safe_offset(beforeOrAt: Instant = Instant.now()): Option[ParticipantOffset] = {
     check(FeatureFlag.Preview) {
       val ledgerEnd = consoleEnvironment.run(
-        ledgerApiCommand(LedgerApiV2Commands.StateService.LedgerEnd())
+        ledgerApiCommand(LedgerApiCommands.StateService.LedgerEnd())
       )
       consoleEnvironment
         .run(
@@ -1052,6 +1054,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
+        validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): Unit = {
       val config = ParticipantCommands.domains.reference_to_config(
         NonEmpty.mk(Seq, SequencerAlias.Default -> domain).toMap,
@@ -1060,7 +1063,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         maxRetryDelayMillis.map(NonNegativeFiniteDuration.tryOfMillis),
         priority,
       )
-      connectFromConfig(config, synchronize)
+      connect_by_config(config, validation, synchronize)
     }
 
     @Help.Summary(
@@ -1074,6 +1077,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           maxRetryDelayMillis - Maximal amount of time (in milliseconds) between two connection attempts.
           priority - The priority of the domain. The higher the more likely a domain will be used.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
+          validation - Whether to validate the connectivity and ids of the given sequencers (default All)
         """)
     def register(
         domain: SequencerNodeReference,
@@ -1084,6 +1088,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
+        validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): Unit = {
       val config = ParticipantCommands.domains.reference_to_config(
         NonEmpty.mk(Seq, SequencerAlias.Default -> domain).toMap,
@@ -1092,7 +1097,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         maxRetryDelayMillis.map(NonNegativeFiniteDuration.tryOfMillis),
         priority,
       )
-      register_with_config(config, handshakeOnly = handshakeOnly, synchronize)
+      register_with_config(config, handshakeOnly = handshakeOnly, validation, synchronize)
     }
 
     @Help.Summary(
@@ -1102,11 +1107,13 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         The arguments are:
           config - Config for the domain connection
           handshake only - If yes, only the handshake will be perfomed (no domain connection)
+          validation - Whether to validate the connectivity and ids of the given sequencers (default All)
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)
     def register_with_config(
         config: DomainConnectionConfig,
         handshakeOnly: Boolean,
+        validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
@@ -1116,7 +1123,12 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       if (current.isEmpty) {
         // register the domain configuration
         consoleEnvironment.run {
-          ParticipantCommands.domains.register(runner, config, handshakeOnly = handshakeOnly)
+          ParticipantCommands.domains.register(
+            runner,
+            config,
+            handshakeOnly = handshakeOnly,
+            validation,
+          )
         }
       }
       synchronize.foreach { timeout =>
@@ -1135,6 +1147,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         ),
         sequencerTrustThreshold: PositiveInt = PositiveInt.one,
         submissionRequestAmplification: PositiveInt = PositiveInt.one,
+        validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): Unit = {
       val config = ParticipantCommands.domains.reference_to_config(
         domain,
@@ -1145,7 +1158,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         sequencerTrustThreshold,
         submissionRequestAmplification,
       )
-      connectFromConfig(config, synchronize)
+      connect_by_config(config, validation, synchronize)
     }
 
     @Help.Summary("Macro to connect a participant to a domain given by connection")
@@ -1153,46 +1166,25 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |Otherwise the behaviour is equivalent to the connect command with explicit
         |arguments. If the domain is already configured, the domain connection
         |will be attempted. If however the domain is offline, the command will fail.
-        |Generally, this macro should only be used to setup a new domain. However, for
+        |Generally, this macro should only be used for the first connection to a new domain. However, for
         |convenience, we support idempotent invocations where subsequent calls just ensure
         |that the participant reconnects to the domain.
-        |""")
-    def connect(
-        config: DomainConnectionConfig
-    ): Unit = {
-      connectFromConfig(config, None)
-    }
 
-    @Help.Summary("Macro to connect a participant to a domain given by instance")
-    @Help.Description("""This variant of connect expects an instance with a sequencer connection.
-        |Otherwise the behaviour is equivalent to the connect command with explicit
-        |arguments. If the domain is already configured, the domain connection
-        |will be attempted. If however the domain is offline, the command will fail.
-        |Generally, this macro should only be used to setup a new domain. However, for
-        |convenience, we support idempotent invocations where subsequent calls just ensure
-        |that the participant reconnects to the domain.
+        validation - Whether to validate the connectivity and ids of the given sequencers (default all)
         |""")
-    def connect(
-        instance: SequencerNodeReference,
-        domainAlias: DomainAlias,
-    ): Unit =
-      connect(
-        DomainConnectionConfig(
-          domainAlias,
-          SequencerConnections.single(instance.sequencerConnection),
-        )
-      )
-
-    private def connectFromConfig(
+    def connect_by_config(
         config: DomainConnectionConfig,
-        synchronize: Option[NonNegativeDuration],
+        validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.unbounded
+        ),
     ): Unit = {
       val current = this.config(config.domain)
       if (current.isEmpty) {
         // architecture-handbook-entry-begin: OnboardParticipantConnect
         // register the domain configuration
         consoleEnvironment.run {
-          ParticipantCommands.domains.register(runner, config, handshakeOnly = false)
+          ParticipantCommands.domains.register(runner, config, handshakeOnly = false, validation)
         }
         if (!config.manualConnect) {
           reconnect(config.domain.unwrap, retry = false).discard
@@ -1208,6 +1200,26 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         ConsoleMacros.utils.synchronize_topology(Some(timeout))(consoleEnvironment)
       }
     }
+
+    @Help.Summary("Macro to connect a participant to a domain given by instance")
+    @Help.Description("""This variant of connect expects an instance with a sequencer connection.
+        |Otherwise the behaviour is equivalent to the connect command with explicit
+        |arguments. If the domain is already configured, the domain connection
+        |will be attempted. If however the domain is offline, the command will fail.
+        |Generally, this macro should only be used for the first connection to a new domain. However, for
+        |convenience, we support idempotent invocations where subsequent calls just ensure
+        |that the participant reconnects to the domain.
+        |""")
+    def connect(
+        instance: SequencerNodeReference,
+        domainAlias: DomainAlias,
+    ): Unit =
+      connect_by_config(
+        DomainConnectionConfig(
+          domainAlias,
+          SequencerConnections.single(instance.sequencerConnection),
+        )
+      )
 
     @Help.Summary("Macro to connect a participant to a domain given by connection")
     @Help.Description("""The connect macro performs a series of commands in order to connect this participant to a domain.
@@ -1227,6 +1239,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           priority - The priority of the domain. The higher the more likely a domain will be used.
           timeTrackerConfig - The configuration for the domain time tracker.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
+          validation - Whether to validate the connectivity and ids of the given sequencers (default All)
         """)
     def connect(
         domainAlias: DomainAlias,
@@ -1239,6 +1252,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
+        validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): DomainConnectionConfig = {
       val config = ParticipantCommands.domains.to_config(
         domainAlias,
@@ -1249,7 +1263,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         priority,
         timeTrackerConfig = timeTrackerConfig,
       )
-      connectFromConfig(config, synchronize)
+      connect_by_config(config, validation, synchronize)
       config
     }
 
@@ -1272,6 +1286,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           domainAlias - The name you will be using to refer to this domain. Can not be changed anymore.
           connections - The sequencer connection definitions (can be an URL) to connect to this domain. I.e. https://url:port
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
+          validation - Whether to validate the connectivity and ids of the given sequencers (default All)
         """)
     def connect_multi(
         domainAlias: DomainAlias,
@@ -1279,6 +1294,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
+        validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): DomainConnectionConfig = {
       val sequencerConnection =
         SequencerConnection.merge(connections).getOrElse(sys.error("Invalid sequencer connection"))
@@ -1288,7 +1304,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         domainAlias,
         sequencerConnections,
       )
-      connectFromConfig(config, synchronize)
+      connect_by_config(config, validation, synchronize)
       config
     }
 
@@ -1412,6 +1428,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     def modify(
         domain: DomainAlias,
         modifier: DomainConnectionConfig => DomainConnectionConfig,
+        validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): Unit = {
       consoleEnvironment.runE {
         for {
@@ -1427,7 +1444,10 @@ trait ParticipantAdministration extends FeatureFlagFilter {
             if (newConfig.domain == cfg.domain) Right(())
             else Left("We don't support modifying the domain alias of a DomainConnectionConfig.")
           _ <- adminCommand(
-            ParticipantAdminCommands.DomainConnectivity.ModifyDomainConnection(modifier(cfg))
+            ParticipantAdminCommands.DomainConnectivity.ModifyDomainConnection(
+              modifier(cfg),
+              validation,
+            )
           ).toEither
         } yield ()
       }

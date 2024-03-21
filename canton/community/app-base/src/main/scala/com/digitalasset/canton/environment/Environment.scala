@@ -26,6 +26,7 @@ import com.digitalasset.canton.environment.Environment.*
 import com.digitalasset.canton.environment.ParticipantNodes.ParticipantNodesX
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.metrics.MetricsConfig.JvmMetrics
 import com.digitalasset.canton.metrics.MetricsRegistry
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.resource.DbMigrationsFactory
@@ -70,10 +71,12 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     )
   }
 
+  config.monitoring.metrics.jvmMetrics
+    .foreach(JvmMetrics.setup(_, configuredOpenTelemetry.openTelemetry))
+
   // public for buildDocs task to be able to construct a fake participant and domain to document available metrics via reflection
 
   lazy val metricsRegistry: MetricsRegistry = new MetricsRegistry(
-    config.monitoring.metrics.reportJvmMetrics,
     configuredOpenTelemetry.openTelemetry.meterBuilder("canton").build(),
     testingConfig.metricsFactoryType,
   )

@@ -11,6 +11,7 @@ import com.daml.ledger.api.v2.event.{
 }
 import com.daml.ledger.api.v2.transaction.TreeEvent as PbTreeEvent
 import com.daml.lf.crypto.Hash
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageName
 import com.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
@@ -205,6 +206,7 @@ object Raw {
           eventId: String,
           contractId: String,
           templateId: Identifier,
+          packageName: Ref.PackageName,
           eventWitnesses: ArraySeq[String],
       ): Raw.FlatEvent.Archived =
         new Raw.FlatEvent.Archived(
@@ -212,6 +214,7 @@ object Raw {
             eventId = eventId,
             contractId = contractId,
             templateId = Some(LfEngineToApi.toApiIdentifier(templateId)),
+            packageName = packageName,
             witnessParties = eventWitnesses,
           )
         )
@@ -314,6 +317,7 @@ object Raw {
           eventId: String,
           contractId: String,
           templateId: Identifier,
+          packageName: PackageName,
           interfaceId: Option[Identifier],
           exerciseConsuming: Boolean,
           exerciseChoice: String,
@@ -330,6 +334,7 @@ object Raw {
             eventId = eventId,
             contractId = contractId,
             templateId = Some(LfEngineToApi.toApiIdentifier(templateId)),
+            packageName = packageName,
             interfaceId = interfaceId.map(LfEngineToApi.toApiIdentifier),
             choice = exerciseChoice,
             choiceArgument = null,

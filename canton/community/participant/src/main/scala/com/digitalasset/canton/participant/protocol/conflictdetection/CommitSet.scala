@@ -18,8 +18,7 @@ import com.digitalasset.canton.protocol.{
   WithContractHash,
 }
 import com.digitalasset.canton.util.SetsUtil.requireDisjoint
-import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{LfPartyId, TransferCounter, TransferCounterO}
+import com.digitalasset.canton.{LfPartyId, TransferCounter}
 
 /** Describes the effect of a confirmation request on the active contracts, contract keys, and transfers.
   * Transient contracts appear the following two sets:
@@ -59,33 +58,33 @@ object CommitSet {
 
   final case class CreationCommit(
       contractMetadata: ContractMetadata,
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
   ) extends PrettyPrinting {
     override def pretty: Pretty[CreationCommit] = prettyOfClass(
       param("contractMetadata", _.contractMetadata),
-      paramIfDefined("transferCounter", _.transferCounter),
+      param("transferCounter", _.transferCounter),
     )
   }
   final case class TransferOutCommit(
       targetDomainId: TargetDomainId,
       stakeholders: Set[LfPartyId],
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
   ) extends PrettyPrinting {
     override def pretty: Pretty[TransferOutCommit] = prettyOfClass(
       param("targetDomainId", _.targetDomainId),
       paramIfNonEmpty("stakeholders", _.stakeholders),
-      paramIfDefined("transferCounter", _.transferCounter),
+      param("transferCounter", _.transferCounter),
     )
   }
   final case class TransferInCommit(
       transferId: TransferId,
       contractMetadata: ContractMetadata,
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
   ) extends PrettyPrinting {
     override def pretty: Pretty[TransferInCommit] = prettyOfClass(
       param("transferId", _.transferId),
       param("contractMetadata", _.contractMetadata),
-      paramIfDefined("transferCounter", _.transferCounter),
+      param("transferCounter", _.transferCounter),
     )
   }
   final case class ArchivalCommit(
@@ -103,7 +102,7 @@ object CommitSet {
       consumedInputsOfHostedParties: Map[LfContractId, WithContractHash[Set[LfPartyId]]],
       transient: Map[LfContractId, WithContractHash[Set[LfPartyId]]],
       createdContracts: Map[LfContractId, SerializableContract],
-  )(protocolVersion: ProtocolVersion)(implicit loggingContext: ErrorLoggingContext): CommitSet = {
+  )(implicit loggingContext: ErrorLoggingContext): CommitSet = {
     if (activenessResult.isSuccessful) {
       val archivals = (consumedInputsOfHostedParties ++ transient).map {
         case (cid, hostedStakeholders) =>
@@ -115,7 +114,7 @@ object CommitSet {
             ),
           )
       }
-      val transferCounter = Some(TransferCounter.Genesis)
+      val transferCounter = TransferCounter.Genesis
       val creations = createdContracts.fmap(c =>
         WithContractHash.fromContract(c, CommitSet.CreationCommit(c.metadata, transferCounter))
       )
