@@ -26,13 +26,25 @@ import com.daml.lf.validation.Upgrading
 class UpgradesSpecAdminAPIWithoutValidation
     extends UpgradesSpecAdminAPI("Admin API without validation")
     with ShortTests {
-  override val disableUpgradeValidation = true
+  override val disableUpgradeValidation = true;
 }
 
 class UpgradesSpecLedgerAPIWithoutValidation
     extends UpgradesSpecLedgerAPI("Ledger API without validation")
     with ShortTests {
-  override val disableUpgradeValidation = true
+  override val disableUpgradeValidation = true;
+}
+
+class UpgradesSpecAdminAPIDryRun
+    extends UpgradesSpecAdminAPI("Admin API with dry run")
+    with LongTests {
+  override val uploadSecondPackageDryRun = true;
+}
+
+class UpgradesSpecLedgerAPIDryRun
+    extends UpgradesSpecLedgerAPI("Ledger API with dry run")
+    with LongTests {
+  override val uploadSecondPackageDryRun = true;
 }
 
 class UpgradesSpecAdminAPIWithValidation
@@ -55,13 +67,13 @@ abstract class UpgradesSpecAdminAPI(override val suffix: String) extends Upgrade
       (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(path.past)
       (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(path.present)
       uploadV1Result <- client
-        .uploadDar(testPackageV1BS, path.past)
+        .uploadDar(testPackageV1BS, path.past, false)
         .transform({
           case Failure(err) => Success(Some(err));
           case Success(_) => Success(None);
         })
       uploadV2Result <- client
-        .uploadDar(testPackageV2BS, path.present)
+        .uploadDar(testPackageV2BS, path.present, uploadSecondPackageDryRun)
         .transform({
           case Failure(err) => Success(Some(err));
           case Success(_) => Success(None);
@@ -89,7 +101,7 @@ class UpgradesSpecLedgerAPI(override val suffix: String = "Ledger API")
           case Success(_) => Success(None);
         })
       uploadV2Result <- client.packageManagementClient
-        .uploadDarFile(testPackageV2BS)
+        .uploadDarFile(testPackageV2BS, dryRun = uploadSecondPackageDryRun)
         .transform({
           case Failure(err) => Success(Some(err));
           case Success(_) => Success(None);
@@ -528,6 +540,7 @@ abstract class UpgradesSpec(val suffix: String)
     with CantonFixture {
   override lazy val devMode = true;
   override val cantonFixtureDebugMode = CantonFixtureDebugRemoveTmpFiles;
+  val uploadSecondPackageDryRun: Boolean = false;
 
   protected def loadPackageIdAndBS(path: String): Future[(PackageId, ByteString)] = {
     val dar = DarReader.assertReadArchiveFromFile(new File(BazelRunfiles.rlocation(path)))
@@ -586,6 +599,23 @@ abstract class UpgradesSpec(val suffix: String)
           }
         }
 
+        case None if uploadSecondPackageDryRun => {
+          cantonLogSrc should include regex (
+            s"The DAR will not be uploaded because dry run is set in UploadDarRequest err-context:\\{.*, uploadedPackageId=$testPackageV2Id"
+          )
+          uploadV2Result match {
+            case None =>
+              fail(s"Dry run should prevent upload of second package $testPackageV2Id but didn't.");
+            case Some(err) => {
+              val msg = err.toString
+              msg should include("DAR_DONT_UPLOAD_DUE_TO_DRY_RUN")
+              msg should include(
+                "The DAR will not be uploaded because dry run is set in UploadDarRequest"
+              )
+            }
+          }
+        }
+
         // If a failure is not expected, look for a success message
         case None => {
           cantonLogSrc should include(s"Typechecking upgrades for $testPackageV2Id succeeded.")
@@ -613,7 +643,21 @@ abstract class UpgradesSpec(val suffix: String)
     cantonLogSrc should include(
       s"Ignoring upload of package $testPackageV2Id as it has been previously uploaded"
     )
-    uploadV2Result should be(empty)
+    if (uploadSecondPackageDryRun) {
+      uploadV2Result match {
+        case None =>
+          fail(s"Dry run should prevent upload of second package $testPackageV2Id but didn't.");
+        case Some(err) => {
+          val msg = err.toString
+          msg should include("DAR_DONT_UPLOAD_DUE_TO_DRY_RUN")
+          msg should include(
+            "The DAR will not be uploaded because dry run is set in UploadDarRequest"
+          )
+        }
+      }
+    } else {
+      uploadV2Result should be(empty)
+    }
   }
 
   def assertPackageUploadVersionFailure(failureMessage: String, packageVersion: String)(
@@ -628,7 +672,7 @@ abstract class UpgradesSpec(val suffix: String)
       case _ => {}
     }
     cantonLogSrc should include regex (
-      s"KNOWN_DAR_VERSION\\(.+,.+\\): A DAR with the same version number has previously been uploaded. err-context:\\{existingPackage=$testPackageV2Id, location=.+, packageVersion=$packageVersion, uploadedPackage=$testPackageV1Id\\}"
+      s"KNOWN_DAR_VERSION\\(.+,.+\\): A DAR with the same version number has previously been uploaded. err-context:\\{existingPackage=$testPackageV2Id, location=.+, packageVersion=$packageVersion, uploadedPackageId=$testPackageV1Id\\}"
     )
     uploadV2Result match {
       case None =>
