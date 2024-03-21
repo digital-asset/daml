@@ -95,9 +95,10 @@ import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import monocle.PLens
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.nowarn
 import scala.collection.immutable.SortedMap
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 import scala.util.{Failure, Success}
 
 /** The transaction processor that coordinates the Canton transaction protocol.
@@ -1072,6 +1073,7 @@ class TransactionProcessingSteps(
         val pendingTransaction =
           createPendingTransaction(
             requestId,
+            responses,
             transactionValidationResult,
             rc,
             sc,
@@ -1172,6 +1174,7 @@ class TransactionProcessingSteps(
     val RejectionArgs(pendingTransaction, rejectionReason) = rejectionArgs
     val PendingTransaction(
       _,
+      _locallyRejected,
       freshOwnTimelyTx,
       _,
       _,
@@ -1253,6 +1256,7 @@ class TransactionProcessingSteps(
 
   private[this] def createPendingTransaction(
       id: RequestId,
+      responses: Seq[MediatorResponse],
       transactionValidationResult: TransactionValidationResult,
       rc: RequestCounter,
       sc: SequencerCounter,
@@ -1281,8 +1285,17 @@ class TransactionProcessingSteps(
       replayCheckResult,
     ) = transactionValidationResult
 
+    // We consider that we rejected if at least one of the responses is not "approve'
+    val locallyRejected = responses.exists { response =>
+      response.localVerdict match {
+        case _: LocalApprove => false
+        case _ => true
+      }
+    }
+
     validation.PendingTransaction(
       transactionId,
+      locallyRejected = locallyRejected,
       freshOwnTimelyTx,
       modelConformanceResultE,
       internalConsistencyResultE,
@@ -1481,9 +1494,21 @@ class TransactionProcessingSteps(
       }
     }
 
+    def checkContradictoryMediatorApprove()(implicit traceContext: TraceContext): Unit = {
+      if (
+        isApprovalContradictionCheckEnabled(
+          loggerFactory.name
+        ) && pendingRequestData.locallyRejected
+      ) {
+        ErrorUtil.invalidState(s"Mediator approved a request that we have locally rejected")
+      }
+    }
+
     def handleApprovedVerdict(topologySnapshot: TopologySnapshot)(implicit
         traceContext: TraceContext
     ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
+      checkContradictoryMediatorApprove()
+
       pendingRequestData.modelConformanceResultE match {
         case Right(modelConformanceResult) =>
           getCommitSetAndContractsToBeStoredAndEventApproveConform(
@@ -1562,6 +1587,44 @@ class TransactionProcessingSteps(
 }
 
 object TransactionProcessingSteps {
+  private val approvalContradictionCheckIsEnabled = new AtomicReference[Boolean](true)
+  private val testsAllowedToDisableApprovalContradictionCheck = Seq(
+    "LedgerAuthorizationIntegrationTest",
+    "PackageVettingIntegrationTest",
+  )
+
+  private[protocol] def isApprovalContradictionCheckEnabled(loggerName: String): Boolean = {
+    val checkIsEnabled = approvalContradictionCheckIsEnabled.get()
+
+    // Ensure check is enabled except for tests allowed to disable it
+    checkIsEnabled || !testsAllowedToDisableApprovalContradictionCheck.exists(loggerName.startsWith)
+  }
+
+  @VisibleForTesting
+  def withApprovalContradictionCheckDisabled[A](
+      loggerFactory: NamedLoggerFactory
+  )(body: => A): A = {
+    // Limit disabling the checks to specific tests
+    require(
+      testsAllowedToDisableApprovalContradictionCheck.exists(loggerFactory.name.startsWith),
+      "The approval contradiction check can only be disabled for some specific tests",
+    )
+
+    val logger = loggerFactory.getLogger(this.getClass)
+
+    blocking {
+      synchronized {
+        logger.info("Disabling approval contradiction check")
+        approvalContradictionCheckIsEnabled.set(false)
+        try {
+          body
+        } finally {
+          approvalContradictionCheckIsEnabled.set(true)
+          logger.info("Re-enabling approval contradiction check")
+        }
+      }
+    }
+  }
 
   final case class SubmissionParam(
       submitterInfo: SubmitterInfo,
