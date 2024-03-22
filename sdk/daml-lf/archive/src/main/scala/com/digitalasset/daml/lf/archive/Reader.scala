@@ -18,21 +18,21 @@ sealed abstract class ArchivePayload {
 
 object ArchivePayload {
 
-final case class Lf1(
-                      pkgId: PackageId,
-                      proto: ByteString,
-                      minor: language.LanguageMinorVersion,
-                    ) extends ArchivePayload {
-  val version = LanguageVersion(LanguageMajorVersion.V1, minor)
-}
+  final case class Lf1(
+      pkgId: PackageId,
+      proto: ByteString,
+      minor: language.LanguageMinorVersion,
+  ) extends ArchivePayload {
+    val version = LanguageVersion(LanguageMajorVersion.V1, minor)
+  }
 
-final case class Lf2(
-                      pkgId: PackageId,
-                      proto: DamlLf2.Package,
-                      minor: language.LanguageMinorVersion,
-                    ) extends ArchivePayload {
-  val version = LanguageVersion(LanguageMajorVersion.V2, minor)
-}
+  final case class Lf2(
+      pkgId: PackageId,
+      proto: DamlLf2.Package,
+      minor: language.LanguageMinorVersion,
+  ) extends ArchivePayload {
+    val version = LanguageVersion(LanguageMajorVersion.V2, minor)
+  }
 }
 
 object Reader {
