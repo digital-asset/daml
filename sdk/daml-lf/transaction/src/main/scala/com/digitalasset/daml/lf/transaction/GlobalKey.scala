@@ -7,6 +7,7 @@ package transaction
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Party, TypeConName}
+import com.daml.lf.transaction.GlobalKey.dummyHashPackageName
 import com.daml.lf.value.Value
 
 /** Useful in various circumstances -- basically this is what a ledger implementation must use as
@@ -14,6 +15,7 @@ import com.daml.lf.value.Value
   */
 final class GlobalKey private (
     val templateId: Ref.TypeConName,
+    val packageName: Ref.PackageName,
     val key: Value,
     val hash: crypto.Hash,
 ) extends data.NoCopy {
@@ -33,37 +35,48 @@ final class GlobalKey private (
 
 object GlobalKey {
 
+  // #TODO(18828) Use dummy package name until all call sites are updated
+  private[lf] val useDummyHashPackageName = true
+  private[lf] val dummyHashPackageName =
+    Ref.PackageName.assertFromString("dummy-package-name")
+
   def assertWithRenormalizedValue(key: GlobalKey, value: Value): GlobalKey = {
     if (
       key.key != value &&
-      Hash.assertHashContractKey(key.templateId, value) != key.hash &&
-      Hash.assertHashContractKey(key.templateId, value) != key.hash
+      Hash.assertHashContractKey(key.templateId, key.packageName, value) != key.hash
     ) {
       throw new IllegalArgumentException(
         s"Hash must not change as a result of value renormalization key=$key, value=$value"
       )
     }
 
-    new GlobalKey(key.templateId, value, key.hash)
+    new GlobalKey(key.templateId, key.packageName, value, key.hash)
 
   }
 
   // Will fail if key contains contract ids
-  def build(templateId: TypeConName, key: Value): Either[crypto.Hash.HashingError, GlobalKey] =
+  def build(
+      templateId: TypeConName,
+      key: Value,
+      packageName: Ref.PackageName = dummyHashPackageName,
+  ): Either[crypto.Hash.HashingError, GlobalKey] = {
+    val hashPackageName = if (useDummyHashPackageName) dummyHashPackageName else packageName
     crypto.Hash
-      .hashContractKey(templateId, key)
-      .map(new GlobalKey(templateId, key, _))
+      .hashContractKey(templateId, hashPackageName, key)
+      .map(new GlobalKey(templateId, packageName, key, _))
+  }
 
-  // Like `build` but,  in case of error, throws an exception instead of returning a message.
-  @throws[IllegalArgumentException]
-  def assertBuild(templateId: TypeConName, key: Value): GlobalKey =
-    data.assertRight(build(templateId, key).left.map(_.msg))
+  def assertBuild(
+      templateId: TypeConName,
+      key: Value,
+      packageName: Ref.PackageName = dummyHashPackageName,
+  ): GlobalKey = {
+    data.assertRight(build(templateId, key, packageName).left.map(_.msg))
+  }
 
   private[lf] def unapply(globalKey: GlobalKey): Some[(TypeConName, Value)] =
     Some((globalKey.templateId, globalKey.key))
 
-  def isShared(key: GlobalKey): Boolean =
-    Hash.hashContractKey(key.templateId, key.key) == Right(key.hash)
 }
 
 final case class GlobalKeyWithMaintainers(
@@ -79,15 +92,17 @@ object GlobalKeyWithMaintainers {
       templateId: TypeConName,
       value: Value,
       maintainers: Set[Party],
+      packageName: Ref.PackageName = dummyHashPackageName,
   ): GlobalKeyWithMaintainers =
-    data.assertRight(build(templateId, value, maintainers).left.map(_.msg))
+    data.assertRight(build(templateId, value, maintainers, packageName).left.map(_.msg))
 
   def build(
       templateId: TypeConName,
       value: Value,
       maintainers: Set[Party],
+      packageName: Ref.PackageName = dummyHashPackageName,
   ): Either[Hash.HashingError, GlobalKeyWithMaintainers] =
-    GlobalKey.build(templateId, value).map(GlobalKeyWithMaintainers(_, maintainers))
+    GlobalKey.build(templateId, value, packageName).map(GlobalKeyWithMaintainers(_, maintainers))
 }
 
 /** Controls whether the engine should error out when it encounters duplicate keys.
