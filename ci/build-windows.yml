@@ -50,8 +50,6 @@ steps:
     displayName: 'Build'
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
-      ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
-      ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
       # On release, we want to skip testing because:
       # - Caching on Windows is keyed on full path, and full path is somewhat
       #   random (for a given machine, each pipeline has a its own workdir, but
