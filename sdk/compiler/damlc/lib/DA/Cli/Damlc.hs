@@ -1491,6 +1491,10 @@ data MultiPackageManifestEntry = MultiPackageManifestEntry
   }
   deriving (Show, Eq, Generic, ToJSON)
 
+-- Map can't be a bifunctor because of this `Ord` constraint, but its a shame such a function is defined in Data.Map
+bimapMap :: Ord k' => (k -> k') -> (v -> v') -> Map.Map k v -> Map.Map k' v'
+bimapMap keyMap valueMap = fmap valueMap . Map.mapKeys keyMap
+
 execGenerateMultiPackageManifest :: SdkVersion.Class.SdkVersioned => MultiPackageLocation -> GenerateMultiPackageManifestOutput -> Command
 execGenerateMultiPackageManifest multiPackageLocation outputLocation =
     Command GenerateMultiPackageManifest Nothing effect
@@ -1513,7 +1517,7 @@ execGenerateMultiPackageManifest multiPackageLocation outputLocation =
         let configMap = Map.fromList $ (\(_, darPath, config) -> (darPath, config)) <$> configs
 
         manifestEntries <- forM configs $ \(packagePath, darPath, BuildMultiPackageConfig {..}) -> do
-          damlFilesMap <- fmap BSL.toStrict <$> getDamlFilesBuildMulti (hPutStrLn stderr) packagePath bmSourceDaml
+          damlFilesMap <- bimapMap (bmSourceDaml </>) BSL.toStrict <$> getDamlFilesBuildMulti (hPutStrLn stderr) packagePath bmSourceDaml
           damlYamlContent <- B.readFile $ packagePath </> projectConfigName
 
           let makeRelativeToRoot :: FilePath -> FilePath
