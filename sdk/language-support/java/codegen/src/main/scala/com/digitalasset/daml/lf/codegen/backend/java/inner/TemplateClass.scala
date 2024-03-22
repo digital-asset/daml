@@ -524,7 +524,7 @@ private[inner] object TemplateClass extends StrictLogging {
           Modifier.PUBLIC,
         )
         .initializer(
-          "$Z$T.create($>$S, value$$ -> $L,$Wvalue$$ ->$W$L,$Wvalue$$ ->$W$L)$<",
+          "$Z$T.create($>$S, value$$ -> $L,$Wvalue$$ ->$W$L,$Wvalue$$ ->$W$L,$W$L,$W$L)$<",
           fieldClass,
           choiceName,
           generateToValueConverter(
@@ -544,6 +544,8 @@ private[inner] object TemplateClass extends StrictLogging {
             CodeBlock.of("$L", "value$"),
             newNameGenerator,
           ),
+          FromJsonGenerator.jsonDecoderForType(choice.param),
+          FromJsonGenerator.jsonDecoderForType(choice.returnType),
         )
         .build()
     }.toSeq
