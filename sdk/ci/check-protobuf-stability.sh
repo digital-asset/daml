@@ -65,9 +65,6 @@ function check_non_lf_protos() {
   against_config=$(mktemp -d)
   for buf_module in "${BUF_MODULES_AGAINST_STABLE[@]}"; do
     git show $commitish:$against_prefix/$buf_module > $against_config/$buf_module
-    if [ "$commitish_type" = "branch" ]; then # TODO delete as soon as this is merged
-      cp sdk/$buf_module $against_config/$buf_module
-    fi
     buf breaking --config "sdk/${buf_module}" --against "./.git#$commitish_type=$commitish" --against-config "$against_config/$buf_module"
   done
 
