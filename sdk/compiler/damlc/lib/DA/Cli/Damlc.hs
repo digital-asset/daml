@@ -7,6 +7,7 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 -- | Main entry-point of the Daml compiler
 module DA.Cli.Damlc (main, Command (..), fullParseArgs) where
@@ -17,10 +18,12 @@ import Control.Exception.Safe (catchIO)
 import Control.Monad.Except (forM, forM_, liftIO, unless, void, when)
 import Control.Monad.Extra (allM, mapMaybeM, whenM, whenJust)
 import Control.Monad.Trans.Cont (ContT (..), evalContT)
+import qualified Crypto.Hash as Hash
 import DA.Bazel.Runfiles (setRunfilesEnv)
 import qualified DA.Cli.Args as ParseArgs
 import DA.Cli.Options (Debug(..),
                        EnableMultiPackage(..),
+                       GenerateMultiPackageManifestOutput (..),
                        InitPkgDb(..),
                        MultiPackageBuildAll(..),
                        MultiPackageCleanAll(..),
@@ -35,6 +38,7 @@ import DA.Cli.Options (Debug(..),
                        enabledDlintUsageParser,
                        enableMultiPackageOpt,
                        enableScenarioServiceOpt,
+                       generateMultiPackageManifestOutputOpt,
                        incrementalBuildOpt,
                        initPkgDbOpt,
                        inputDarOpt,
@@ -157,6 +161,7 @@ import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
 import qualified DA.Service.Logger.Impl.IO as Logger.IO
 import DA.Signals (installSignalHandlers)
 import qualified Com.Daml.DamlLfDev.DamlLf as PLF
+import Data.Aeson (ToJSON)
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import qualified Data.Aeson.Text as Aeson
 import Data.Bifunctor (bimap, second)
@@ -294,6 +299,7 @@ data CommandName =
   | MergeDars
   | Package
   | Test
+  | GenerateMultiPackageManifest
   deriving (Ord, Show, Eq)
 data Command = Command CommandName (Maybe ProjectOpts) (IO ())
 
@@ -607,6 +613,16 @@ cmdDocTest numProcessors =
             -- and recompiling it alongside Daml.Script causes issues with missing interface files
         <*> many inputFileOpt
 
+cmdGenerateMultiPackageManifest :: SdkVersion.Class.SdkVersioned => Mod CommandFields Command
+cmdGenerateMultiPackageManifest =
+    command "generate-multi-package-manifest" $
+    info (helper <*> cmd) $
+    progDesc "Generates the multi-package manifest file used by external build systems" <> fullDesc
+  where
+    cmd = execGenerateMultiPackageManifest
+        <$> multiPackageLocationOpt
+        <*> generateMultiPackageManifestOutputOpt
+
 --------------------------------------------------------------------------------
 -- Execution
 --------------------------------------------------------------------------------
@@ -853,7 +869,6 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
           withMultiPackageConfig multiPackageConfigPath $ \multiPackageConfig ->
             multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opts mbOutFile incrementalBuild initPkgDb noCache
 
-    -- TODO: This throws if you have the sdk-version only daml.yaml, ideally it should return Nothing
     mPkgConfig <- ContT $ withMaybeConfig $ withPackageConfig defaultProjectPath
     liftIO $ if getEnableMultiPackage enableMultiPackage then do
       mMultiPackagePath <- getMultiPackagePath multiPackageLocation
@@ -1463,6 +1478,75 @@ execDocTest opts scriptDar (ImportSource importSource) files =
       withDamlIdeState opts logger diagnosticsLogger $ \ideState ->
           docTest ideState files'
 
+data MultiPackageManifestEntry = MultiPackageManifestEntry
+  { packageName :: String
+  , packageVersion :: String
+  , packageDir :: FilePath
+  , packageSrc :: FilePath
+  , packageFileHashes :: Map.Map FilePath String
+  , packageHash :: String
+  , output :: FilePath
+  , packageDeps :: [String]
+  , darDeps :: [FilePath]
+  }
+  deriving (Show, Eq, Generic, ToJSON)
+
+execGenerateMultiPackageManifest :: SdkVersion.Class.SdkVersioned => MultiPackageLocation -> GenerateMultiPackageManifestOutput -> Command
+execGenerateMultiPackageManifest multiPackageLocation outputLocation =
+    Command GenerateMultiPackageManifest Nothing effect
+  where
+    effect = do
+      mMultiPackageConfigProjectPath <- getMultiPackagePath multiPackageLocation
+      multiPackageConfigProjectPath <- case mMultiPackageConfigProjectPath of
+        Nothing -> do
+          hPutStrLn stderr "Couldn't find a multi-package.yaml at current or parent directory. Use --multi-package-path to specify its location."
+          exitFailure
+        Just path -> pure path
+      let multiPackageConfigPath = unwrapProjectPath multiPackageConfigProjectPath
+      withMultiPackageConfig multiPackageConfigProjectPath $ \multiPackageConfig -> do
+        configs <- forM (mpPackagePaths multiPackageConfig) $ \path -> do
+          config@BuildMultiPackageConfig {..} <- buildMultiPackageConfigFromDamlYaml path
+          darPath <- deriveDarPath path bmName bmVersion bmOutput
+          pure (path, darPath, config)
+
+        -- Map from dar path to config, for classifying data deps
+        let configMap = Map.fromList $ (\(_, darPath, config) -> (darPath, config)) <$> configs
+
+        manifestEntries <- forM configs $ \(packagePath, darPath, BuildMultiPackageConfig {..}) -> do
+          damlFilesMap <- fmap BSL.toStrict <$> getDamlFilesBuildMulti (hPutStrLn stderr) packagePath bmSourceDaml
+          damlYamlContent <- B.readFile $ packagePath </> projectConfigName
+
+          let makeRelativeToRoot :: FilePath -> FilePath
+              makeRelativeToRoot path = makeRelative multiPackageConfigPath $ normalise $ packagePath </> path
+              relativeDamlFilesMap = Map.mapKeys makeRelativeToRoot $ Map.insert ("." </> projectConfigName) damlYamlContent damlFilesMap
+              relativeDamlFileHashes = show . Hash.hash @_ @Hash.SHA1 <$> relativeDamlFilesMap
+              -- TODO[SW]: This maybe isn't good enough
+              fullHash = show $ Hash.hash @_ @Hash.SHA1 $ BSUTF8.fromString $ Map.foldMapWithKey (<>) relativeDamlFileHashes
+
+          (packageDeps, darDeps) <- fmap partitionEithers $ withCurrentDirectory packagePath $ forM bmDataDeps $ \depPath -> do
+            canonDepPath <- canonicalizePath depPath
+            case Map.lookup canonDepPath configMap of
+              Just BuildMultiPackageConfig {..} -> pure $ Left $ unitIdString $ pkgNameVersion bmName $ Just bmVersion
+              Nothing -> pure $ Right $ makeRelative multiPackageConfigPath canonDepPath
+
+          pure MultiPackageManifestEntry
+            { packageName = T.unpack $ LF.unPackageName bmName
+            , packageVersion = T.unpack $ LF.unPackageVersion bmVersion
+            , packageDir = makeRelative multiPackageConfigPath packagePath
+            , packageSrc = makeRelativeToRoot bmSourceDaml
+            , packageFileHashes = relativeDamlFileHashes
+            , packageHash = fullHash
+            , output = makeRelative multiPackageConfigPath darPath
+            , packageDeps = packageDeps
+            , darDeps = darDeps
+            }
+        let encodedManifestEntries = Aeson.Pretty.encodePretty manifestEntries
+        case getGenerateMultiPackageManifestOutput outputLocation of
+          Nothing -> BSLC.putStrLn encodedManifestEntries
+          Just path -> do
+            BSL.writeFile path encodedManifestEntries
+            putStrLn $ "Wrote manifest to " <> path
+
 --------------------------------------------------------------------------------
 -- main
 --------------------------------------------------------------------------------
@@ -1491,6 +1575,7 @@ options numProcessors =
         <> cmdDesugar numProcessors
         <> cmdDebugIdeSpanInfo numProcessors
         <> cmdClean
+        <> cmdGenerateMultiPackageManifest
       )
 
 parserInfo :: SdkVersion.Class.SdkVersioned => Int -> Bool -> ParserInfo Command
@@ -1657,6 +1742,7 @@ cmdUseDamlYamlArgs = \case
   MergeDars -> False -- just reads the dars
   Package -> False -- deprecated
   Test -> True
+  GenerateMultiPackageManifest -> False -- Just reads config files
 
 withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
 withProjectRoot' ProjectOpts{..} act =
