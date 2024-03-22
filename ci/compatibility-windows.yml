@@ -24,7 +24,7 @@ steps:
     inputs:
       artifactName: 'typescript-libs'
       targetPath: $(Build.SourcesDirectory)/sdk/compatibility/head_sdk
-  - powershell: '.\sdk\compatibility\build-release-artifacts-windows.ps1'
+  - powershell: 'cd sdk; .\compatibility\build-release-artifacts-windows.ps1'
     displayName: 'Build release artifacts'
-  - powershell: '.\sdk\compatibility\test-windows.ps1  ${{ parameters.test_flags }}'
+  - powershell: 'cd sdk; .\compatibility\test-windows.ps1  ${{ parameters.test_flags }}'
     displayName: 'Run tests'
