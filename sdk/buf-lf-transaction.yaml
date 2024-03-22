@@ -5,7 +5,7 @@ version: v1beta1
 
 build:
   roots:
-    - daml-lf/transaction/src/main/protobuf
+    - sdk/daml-lf/transaction/src/main/protobuf
 
 breaking:
   use:
