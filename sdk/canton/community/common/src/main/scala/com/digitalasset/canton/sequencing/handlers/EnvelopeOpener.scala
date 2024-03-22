@@ -26,8 +26,6 @@ class EnvelopeOpener[Box[+_ <: Envelope[_]]](protocolVersion: ProtocolVersion, h
 
   def tryOpen(closed: Box[ClosedEnvelope]): Box[DefaultOpenEnvelope] = {
     open(closed).valueOr { error =>
-      // TODO(i12902) find all usages of this method and change them to use open.
-      //  Throwing an exception here will likely cause availability issues.
       throw EventDeserializationError(error, protocolVersion)
     }
   }

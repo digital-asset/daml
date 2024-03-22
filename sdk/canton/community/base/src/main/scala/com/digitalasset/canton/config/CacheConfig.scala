@@ -35,7 +35,7 @@ final case class CacheConfig(
   */
 final case class CacheConfigWithTimeout(
     maximumSize: PositiveNumeric[Long],
-    expireAfterTimeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMinutes(10),
+    expireAfterTimeout: PositiveFiniteDuration = PositiveFiniteDuration.ofMinutes(10),
 ) {
 
   def buildScaffeine(): Scaffeine[Any, Any] =
@@ -43,10 +43,19 @@ final case class CacheConfigWithTimeout(
 
 }
 
+/** Configuration settings for a cache that stores: (a) the public asymmetric encryptions of the session keys for the sender
+  * and (b) the decrypting results in the receiver. This reduces the amount of asymmetric operations that need to
+  * to be performed for each of the views that share the same participant recipient group (i.e. use the same session key).
+  *
+  * @param enabled enable/disable caching of the session key. Caching is enabled by default, offering
+  *                               a trade-off between secrecy and performance
+  * @param senderCache  configuration for the sender's cache that stores the encryptions of the session keys
+  * @param receiverCache configuration for the receiver's cache that stores the decryptions of the session keys
+  */
 final case class SessionKeyCacheConfig(
-    sessionKeyCacheEnabled: Boolean,
-    sessionKeyForSenderCache: CacheConfigWithTimeout,
-    sessionKeyForReceiverCache: CacheConfigWithTimeout,
+    enabled: Boolean,
+    senderCache: CacheConfigWithTimeout,
+    receiverCache: CacheConfigWithTimeout,
 )
 
 /** Configuration settings for various internal caches
@@ -85,14 +94,14 @@ object CachingConfigs {
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
   val defaultKeyCache: CacheConfig = CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
   val defaultSessionKeyCacheConfig: SessionKeyCacheConfig = SessionKeyCacheConfig(
-    sessionKeyCacheEnabled = true,
-    sessionKeyForSenderCache = CacheConfigWithTimeout(
+    enabled = true,
+    senderCache = CacheConfigWithTimeout(
       maximumSize = PositiveNumeric.tryCreate(10000),
-      expireAfterTimeout = NonNegativeFiniteDuration.ofSeconds(10),
+      expireAfterTimeout = PositiveFiniteDuration.ofSeconds(10),
     ),
-    sessionKeyForReceiverCache = CacheConfigWithTimeout(
+    receiverCache = CacheConfigWithTimeout(
       maximumSize = PositiveNumeric.tryCreate(10000),
-      expireAfterTimeout = NonNegativeFiniteDuration.ofSeconds(20),
+      expireAfterTimeout = PositiveFiniteDuration.ofSeconds(10),
     ),
   )
   val defaultPackageVettingCache: CacheConfig =
