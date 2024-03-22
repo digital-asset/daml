@@ -299,18 +299,25 @@ object Hash {
   // 1 - `templateId` is the identifier for a template with a key of type τ
   // 2 - `key` is a value of type τ
   @throws[HashingError]
-  def assertHashContractKey(templateId: Ref.Identifier, key: Value): Hash = {
+  def assertHashContractKey(
+      templateId: Ref.Identifier,
+      packageName: Ref.PackageName,
+      key: Value,
+  ): Hash = {
     val hashBuilder = builder(Purpose.ContractKey, noCid2String)
-    val sharedPackageIdLength = 0 // To ensure there cannot be a hash collision
     hashBuilder
-      .add(sharedPackageIdLength)
       .addQualifiedName(templateId.qualifiedName)
+      .add(packageName)
       .addTypedValue(key)
       .build
   }
 
-  def hashContractKey(templateId: Ref.Identifier, key: Value): Either[HashingError, Hash] =
-    handleError(assertHashContractKey(templateId, key))
+  def hashContractKey(
+      templateId: Ref.Identifier,
+      packageName: Ref.PackageName,
+      key: Value,
+  ): Either[HashingError, Hash] =
+    handleError(assertHashContractKey(templateId, packageName: Ref.PackageName, key))
 
   // This function assumes that `arg` is well typed, i.e. :
   // 1 - `packageName` is the package name defined in the metadata of the package containing template `templateId`
