@@ -37,7 +37,6 @@ import scala.annotation.tailrec
 private[engine] final class Preprocessor(
     compiledPackages: MutableCompiledPackages,
     requireV1ContractIdSuffix: Boolean = true,
-    enableContractUpgrading: Boolean = false,
 ) {
 
   import Preprocessor._
@@ -48,7 +47,6 @@ private[engine] final class Preprocessor(
     new CommandPreprocessor(
       pkgInterface = pkgInterface,
       requireV1ContractIdSuffix = requireV1ContractIdSuffix,
-      enableContractUpgrading = enableContractUpgrading,
     )
 
   val transactionPreprocessor = new TransactionPreprocessor(commandPreprocessor)

@@ -430,7 +430,11 @@ private[lf] object ScenarioRunner {
       doEnrichment: Boolean = true,
   )(implicit loggingContext: LoggingContext): SubmissionResult[R] = {
     val ledgerMachine = Speedy.UpdateMachine(
-      packageResolution = Map.empty,
+      packageResolution = Map(
+        PackageName.assertFromString("-dummy-package-name-") -> PackageId.assertFromString(
+          "-homePackageId-"
+        )
+      ),
       compiledPackages = compiledPackages,
       submissionTime = Time.Timestamp.MinValue,
       initialSeeding = InitialSeeding.TransactionSeed(seed),

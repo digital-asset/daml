@@ -48,7 +48,7 @@ final case class EngineConfig(
     limits: interpretation.Limits = interpretation.Limits.Lenient,
     checkAuthorization: Boolean = true,
     iterationsBetweenInterruptions: Long = 10000,
-    enableContractUpgrading: Boolean = false,
+    enableContractUpgrading: Boolean = true, // Will be removed once removed from Canton
 ) {
   private[lf] def getCompilerConfig: speedy.Compiler.Config =
     speedy.Compiler.Config(
@@ -68,7 +68,6 @@ final case class EngineConfig(
           speedy.Compiler.FullProfile
         else
           speedy.Compiler.NoProfile,
-      enableContractUpgrading = enableContractUpgrading,
     )
 
   private[lf] def authorizationChecker: AuthorizationChecker =

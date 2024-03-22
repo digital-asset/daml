@@ -609,8 +609,8 @@ object Repl {
     )
 
   def devCompilerConfig(majorLanguageVersion: LanguageMajorVersion): Compiler.Config =
-    defaultCompilerConfig(majorLanguageVersion).copy(
-      allowedLanguageVersions = LV.AllVersions(majorLanguageVersion)
+    defaultCompilerConfig(majorLanguageVersion).copy(allowedLanguageVersions =
+      LV.AllVersions(majorLanguageVersion)
     )
 
   private val nextSeed =

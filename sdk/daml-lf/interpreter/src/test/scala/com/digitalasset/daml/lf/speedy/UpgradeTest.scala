@@ -121,7 +121,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   private lazy val pkgs =
     PureCompiledPackages.assertBuild(
       Map(pkgId1 -> pkg1, pkgId2 -> pkg2, pkgId3 -> pkg3),
-      Compiler.Config.Dev(majorLanguageVersion).copy(enableContractUpgrading = true),
+      Compiler.Config.Dev(majorLanguageVersion),
     )
 
   private val alice = Ref.Party.assertFromString("alice")
