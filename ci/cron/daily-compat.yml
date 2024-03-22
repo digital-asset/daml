@@ -94,6 +94,7 @@ jobs:
           var_name: bash_lib
       - bash: |
           set -euo pipefail
+          cd sdk
           eval "$(dev-env/bin/dade assist)"
           source $(bash_lib)
 
@@ -161,6 +162,7 @@ jobs:
       need_to_build: $[ dependencies.blackduck_scan.outputs['out.need_to_build'] ]
     steps:
       - bash: |
+          cd sdk
           eval "$(./dev-env/bin/dade-assist)"
           if [ "$(need_to_build)" == "true" ]; then
               branch="notices-update-$(Build.BuildId)"
@@ -187,7 +189,7 @@ jobs:
     - bash: |
         set -euo pipefail
 
-        eval "$(./dev-env/bin/dade-assist)"
+        eval "$(sdk/dev-env/bin/dade-assist)"
         source $(bash_lib)
 
         git fetch
@@ -297,6 +299,7 @@ jobs:
         var_name: bash_lib
     - bash: |
         set -euo pipefail
+        cd sdk
         eval "$(./dev-env/bin/dade-assist)"
 
         ## refresh tags, in case someone deleted one
@@ -350,6 +353,7 @@ jobs:
     - bash: |
         set -euo pipefail
 
+        cd sdk
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash_lib)
 

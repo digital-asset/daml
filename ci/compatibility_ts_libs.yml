@@ -17,7 +17,7 @@ steps:
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
   - bash: |
       set -euo pipefail
-      ./compatibility/build-ts-libs.sh "${BUILD_ARTIFACTSTAGINGDIRECTORY}"
+      ./sdk/compatibility/build-ts-libs.sh "${BUILD_ARTIFACTSTAGINGDIRECTORY}"
     displayName: 'Build typescript libraries'
   - task: PublishPipelineArtifact@0
     inputs:

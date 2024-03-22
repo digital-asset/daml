@@ -20,6 +20,7 @@ jobs:
     displayName: 'Build/Install the Developer Environment'
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade assist)"
       export LC_ALL=en_US.UTF-8
 
@@ -29,6 +30,7 @@ jobs:
     displayName: 'Build'
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade-assist)"
 
       #needs to be specified since blackduck can not scan all bazel
@@ -50,6 +52,7 @@ jobs:
       BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade-assist)"
 
       #needs to be specified since blackduck can not scan all bazel
@@ -71,6 +74,7 @@ jobs:
       BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade-assist)"
 
       (cd language-support/ts && yarn install)
@@ -94,6 +98,7 @@ jobs:
       BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade-assist)"
 
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
@@ -113,6 +118,7 @@ jobs:
       BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade-assist)"
 
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
@@ -135,6 +141,7 @@ jobs:
       var_name: bash_lib
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(./dev-env/bin/dade-assist)"
       source $(bash_lib)
 
@@ -171,6 +178,7 @@ jobs:
       var_name: bash_lib
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade-assist)"
       source $(bash_lib)
 

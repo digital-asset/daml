@@ -8,24 +8,44 @@ parameters:
   skip_tests: ''
 
 steps:
-  - bash: ci/configure-bazel.sh
+  - bash: |
+      if [ -f ci/configure-bazel.sh ]; then
+        ci/configure-bazel.sh
+      else
+        sdk/ci/configure-bazel.sh
+      fi
     displayName: 'Configure Bazel'
     env:
       IS_FORK: $(System.PullRequest.IsFork)
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
-  - powershell: '.\ci\windows-diagnostics.ps1'
+  - powershell: |
+      if (Test-Path .\ci\windows-diagnostics.ps1) {
+        .\ci\windows-diagnostics.ps1
+      } else {
+        cd sdk
+        .\ci\windows-diagnostics.ps1
+      }
     displayName: 'Agent diagnostics'
 
   - bash: |
       set -euo pipefail
       if [ -e bazel-testlogs ]; then
-          rm -rf bazel-testlogs/
+        rm -rf bazel-testlogs/
+      fi
+      if [ -e sdk/bazel-testlogs ]; then
+        rm -rf sdk/bazel-testlogs
       fi
     displayName: delete old logs
 
-  - powershell: '.\build.ps1'
+  - powershell: |
+      if (Test-Path .\build.ps1) {
+        .\build.ps1
+      } else {
+        cd sdk
+        .\build.ps1
+      }
     displayName: 'Build'
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
@@ -51,7 +71,7 @@ steps:
     condition: failed()
     displayName: 'Publish the bazel test logs'
     inputs:
-      pathtoPublish: 'bazel-testlogs/'
+      pathtoPublish: '$(Build.StagingDirectory)/bazel-testlogs/'
       artifactName: 'Test logs Windows'
 
   - template: bash-lib.yml
@@ -61,7 +81,12 @@ steps:
   - bash: |
       set -euo pipefail
       mkdir -p '$(Build.StagingDirectory)'/release
-      ./ci/copy-windows-release-artifacts.sh \
+      if [ -f ./ci/copy-windows-release-artifacts.sh ]; then
+        p=.
+      else
+        p=sdk
+      fi
+      $p/ci/copy-windows-release-artifacts.sh \
         ${{parameters.release_tag}} \
         '$(Build.StagingDirectory)'/release \
         "${{ parameters.is_split_release }}"
