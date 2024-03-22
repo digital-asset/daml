@@ -16,7 +16,7 @@ steps:
   - bash: ci/configure-bazel.sh
     displayName: 'Configure Bazel for compatibility workspace'
     env:
-      BAZEL_CONFIG_DIR: compatibility
+      BAZEL_CONFIG_DIR: sdk/compatibility
       IS_FORK: $(System.PullRequest.IsFork)
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
@@ -24,7 +24,7 @@ steps:
     inputs:
       artifactName: 'typescript-libs'
       targetPath: $(Build.SourcesDirectory)/sdk/compatibility/head_sdk
-  - powershell: '.\sdk\compatibility\build-release-artifacts-windows.ps1'
+  - powershell: 'cd sdk; .\compatibility\build-release-artifacts-windows.ps1'
     displayName: 'Build release artifacts'
-  - powershell: '.\sdk\compatibility\test-windows.ps1  ${{ parameters.test_flags }}'
+  - powershell: 'cd sdk; .\compatibility\test-windows.ps1  ${{ parameters.test_flags }}'
     displayName: 'Run tests'

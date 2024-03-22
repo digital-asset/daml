@@ -186,7 +186,7 @@ jobs:
       source $(bash_lib)
 
       latest=$(git ls-remote https://github.com/DACH-NY/security-blackduck.git master | awk '{print $1}')
-      current=$(cat ci/blackduck.yml | grep blackduck_script_sha: | head -1 | cut -f2 -d: | cut -c2- )
+      current=$(cat ../ci/blackduck.yml | grep blackduck_script_sha: | head -1 | cut -f2 -d: | cut -c2- )
 
       branch="bump-blackduck-script-${latest:0:8}-$(Build.SourceBranchName)"
 
@@ -194,8 +194,8 @@ jobs:
         echo "$branch already exists, nothing to do."
       elif [ "$current" != "$latest" ]; then
         echo "s|blackduck_script_sha: $current|blackduck_script_sha: $latest|"
-        sed -i "s|blackduck_script_sha: $current|blackduck_script_sha: $latest|" ci/blackduck.yml
-        git add ci/blackduck.yml
+        sed -i "s|blackduck_script_sha: $current|blackduck_script_sha: $latest|" ../ci/blackduck.yml
+        git add ../ci/blackduck.yml
         open_pr "$branch" "bump blackduck script to ${latest:0:8}"
         az extension add --name azure-devops
         trap "az devops logout" EXIT
