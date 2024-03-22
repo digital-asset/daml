@@ -7,6 +7,9 @@
 # Installs nix on a fresh machine
 set -euo pipefail
 
+DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+cd $DIR/../sdk
+
 ## Functions ##
 
 step() {
