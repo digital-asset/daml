@@ -3,6 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 set -eou pipefail
 
+DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+cd $DIR/../sdk
+
 RELEASE_TAG=$1
 OUTPUT_DIR=$2
 SPLIT_RELEASE=${3:-false}
