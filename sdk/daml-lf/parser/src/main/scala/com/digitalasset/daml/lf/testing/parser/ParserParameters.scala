@@ -14,9 +14,15 @@ private[daml] case class ParserParameters[P](
 
 private[daml] object ParserParameters {
 
-  def defaultFor[P](majorLanguageVersion: LanguageMajorVersion): ParserParameters[P] =
-    ParserParameters(
-      defaultPackageId = Ref.PackageId.assertFromString("-pkgId-"),
-      LanguageVersion.defaultOrLatestStable(majorLanguageVersion),
-    )
+  def defaultFor[P](majorLanguageVersion: LanguageMajorVersion): ParserParameters[P] = {
+    majorLanguageVersion match {
+      case LanguageMajorVersion.V1 =>
+        throw new IllegalArgumentException("Lf1 is not supported")
+      case LanguageMajorVersion.V2 =>
+        ParserParameters(
+          defaultPackageId = Ref.PackageId.assertFromString("-pkgId-"),
+          LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2),
+        )
+    }
+  }
 }

@@ -1,18 +1,39 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.archive
+package com.daml.lf
+package archive
 
 import com.daml.crypto.MessageDigestPrototype
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf_dev.{DamlLf, DamlLf2}
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.language.LanguageMinorVersion
+import com.daml.lf.language.{LanguageVersion, LanguageMajorVersion}
+import com.google.protobuf.ByteString
 
-case class ArchivePayload(
-    pkgId: PackageId,
-    proto: DamlLf.ArchivePayload,
-    version: LanguageVersion,
-)
+sealed abstract class ArchivePayload {
+  def pkgId: PackageId
+  def version: LanguageVersion
+}
+
+object ArchivePayload {
+
+final case class Lf1(
+                      pkgId: PackageId,
+                      proto: ByteString,
+                      minor: language.LanguageMinorVersion,
+                    ) extends ArchivePayload {
+  val version = LanguageVersion(LanguageMajorVersion.V1, minor)
+}
+
+final case class Lf2(
+                      pkgId: PackageId,
+                      proto: DamlLf2.Package,
+                      minor: language.LanguageMinorVersion,
+                    ) extends ArchivePayload {
+  val version = LanguageVersion(LanguageMajorVersion.V2, minor)
+}
+}
 
 object Reader {
 
@@ -44,26 +65,18 @@ object Reader {
     }
   }
 
-  @throws[Error.Parsing]
-  private[this] def readArchiveVersion(
-      lf: DamlLf.ArchivePayload
-  ): Either[Error, LanguageMajorVersion] =
-    lf.getSumCase match {
-      case DamlLf.ArchivePayload.SumCase.DAML_LF_2 =>
-        Right(LanguageMajorVersion.V2)
-      case DamlLf.ArchivePayload.SumCase.SUM_NOT_SET =>
-        Left(Error.Parsing("Unrecognized or Unsupported LF version"))
-    }
-
   // Validate hash and version of a DamlLf.ArchivePayload
   @throws[Error.Parsing]
   def readArchivePayload(
       hash: PackageId,
       lf: DamlLf.ArchivePayload,
   ): Either[Error, ArchivePayload] =
-    for {
-      majorVersion <- readArchiveVersion(lf)
-      version <- majorVersion.toVersion(lf.getMinor).left.map(Error.Parsing)
-    } yield ArchivePayload(hash, lf, version)
-
+    lf.getSumCase match {
+      case DamlLf.ArchivePayload.SumCase.DAML_LF_1 =>
+        Right(ArchivePayload.Lf1(hash, lf.getDamlLf1, LanguageMinorVersion(lf.getMinor)))
+      case DamlLf.ArchivePayload.SumCase.DAML_LF_2 =>
+        Right(ArchivePayload.Lf2(hash, lf.getDamlLf2, LanguageMinorVersion(lf.getMinor)))
+      case DamlLf.ArchivePayload.SumCase.SUM_NOT_SET =>
+        Left(Error.Parsing("Unrecognized or Unsupported LF version"))
+    }
 }
