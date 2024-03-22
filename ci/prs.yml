@@ -17,13 +17,13 @@ jobs:
     test_mode: pr
 - template: check-for-release-job.yml
 
-- job: compatiblity_target_protobuf
+- job: compatibility_target_protobuf
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default
   steps:
     - checkout: self
-    - bash: ci/check-protobuf-stability.sh --target
+    - bash: sdk/ci/check-protobuf-stability.sh --target
 
 # required for collect_build_data
 - job: release
