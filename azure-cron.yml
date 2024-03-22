@@ -69,6 +69,7 @@ jobs:
           set -euo pipefail
 
           eval "$(sdk/dev-env/bin/dade-assist)"
+          cd sdk
 
           HEAD=$(git rev-parse HEAD)
           while ! nix-build --no-out-link -A tools.sed -A tools.jq -A tools.curl -A tools.base64 nix; do :; done
