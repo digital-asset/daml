@@ -5,7 +5,6 @@ package com.digitalasset.canton.store
 
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.SessionKeyCacheConfig
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
@@ -95,7 +94,7 @@ final class SessionKeyStoreWithInMemoryCache(sessionKeysCacheConfig: SessionKeyC
     * Since key rolls are rare and everything still remains consistent we accept this as an expected behavior.
     */
   private lazy val sessionKeysCacheSender: Cache[RecipientGroup, SessionKeyInfo] =
-    sessionKeysCacheConfig.sessionKeyForSenderCache
+    sessionKeysCacheConfig.senderCache
       .buildScaffeine()
       .build()
 
@@ -115,7 +114,7 @@ final class SessionKeyStoreWithInMemoryCache(sessionKeysCacheConfig: SessionKeyC
     */
   private lazy val sessionKeysCacheReceiver
       : Cache[AsymmetricEncrypted[SecureRandomness], SecureRandomness] =
-    sessionKeysCacheConfig.sessionKeyForReceiverCache
+    sessionKeysCacheConfig.receiverCache
       .buildScaffeine()
       .build()
 
@@ -154,11 +153,8 @@ final class SessionKeyStoreWithInMemoryCache(sessionKeysCacheConfig: SessionKeyC
 object SessionKeyStore {
 
   def apply(sessionKeyCacheConfig: SessionKeyCacheConfig): SessionKeyStore =
-    if (
-      sessionKeyCacheConfig.sessionKeyCacheEnabled &&
-      sessionKeyCacheConfig.sessionKeyForSenderCache.expireAfterTimeout != config.NonNegativeFiniteDuration.Zero &&
-      sessionKeyCacheConfig.sessionKeyForReceiverCache.expireAfterTimeout != config.NonNegativeFiniteDuration.Zero
-    ) new SessionKeyStoreWithInMemoryCache(sessionKeyCacheConfig)
+    if (sessionKeyCacheConfig.enabled)
+      new SessionKeyStoreWithInMemoryCache(sessionKeyCacheConfig)
     else SessionKeyStoreDisabled
 
   // Defines a set of recipients and the crypto scheme used to generate the session key for that group

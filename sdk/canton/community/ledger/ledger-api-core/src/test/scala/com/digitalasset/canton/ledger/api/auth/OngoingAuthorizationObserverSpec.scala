@@ -10,7 +10,7 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.ledger.api.auth.AuthorizationError.Expired
 import com.digitalasset.canton.ledger.error.groups.AuthorizationChecksErrors
-import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.logging.{ErrorLoggingContext, SuppressionRule}
 import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.ServerCallStreamObserver
@@ -19,6 +19,7 @@ import org.mockito.{ArgumentCaptor, ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.concurrent.{Eventually, IntegrationPatience}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.slf4j.event.Level.INFO
 
 import java.time.{Clock, Duration, Instant, ZoneId}
 import scala.concurrent.ExecutionContext
@@ -145,7 +146,7 @@ class OngoingAuthorizationObserverSpec
           order.verify(delegate, times(1)).onError(captor.capture())
           order.verifyNoMoreInteractions()
 
-          loggerFactory.assertLogs(
+          loggerFactory.assertLogs(SuppressionRule.Level(INFO))(
             within = {
               // Scheduled task is cancelled
               verify(cancellableMock, times(1)).cancel()
@@ -157,7 +158,7 @@ class OngoingAuthorizationObserverSpec
               )
             },
             assertions =
-              _.warningMessage should include("ACCESS_TOKEN_EXPIRED(6,0): Claims were valid until "),
+              _.infoMessage should include("ACCESS_TOKEN_EXPIRED(2,0): Claims were valid until "),
           )
 
           // onError has already been called by tested implementation so subsequent onNext, onError and onComplete
