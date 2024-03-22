@@ -63,6 +63,7 @@ steps:
     displayName: 'Platform-agnostic lints and checks'
     condition: and(succeeded(),
                    eq(variables.skip, 'false'),
+                   eq(${{parameters.is_release}}, 'false'),
                    eq(${{parameters.name_exp}}, 'linux-intel'))
 
   - bash: |
@@ -88,8 +89,30 @@ steps:
       IS_FORK: $(System.PullRequest.IsFork)
     condition: and(succeeded(),
                    eq(variables.skip, 'false'),
-                   or(eq(${{parameters.is_release}}, 'false'),
-                      ne(${{parameters.name_exp}}, 'm1')))
+                   eq(${{parameters.is_release}}, 'false'))
+
+  - bash: |
+      set -euo pipefail
+      p="_${{parameters.name_str}}"
+      a="_$(Build.BuildNumber)_$(System.JobAttempt)"
+      t="${{parameters.test_mode}}"
+      # Other branches may not have this optimization
+      if [ -f ci/build-release.sh ]; then
+        eval "$(dev-env/bin/dade-assist)"
+        ci/build-release.sh $p $a $t
+      else
+        ./build.sh $p $a $t
+      fi
+    displayName: 'Build Release'
+    env:
+      DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
+      DAML_SCALA_VERSION: ${{parameters.scala_version}}
+      ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
+      ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
+      IS_FORK: $(System.PullRequest.IsFork)
+    condition: and(succeeded(),
+                   eq(variables.skip, 'false'),
+                   eq(${{parameters.is_release}}, 'true'))
 
   # Do not publish dar from m1
   - ${{ if ne(parameters.name_exp, 'm1') }}:
