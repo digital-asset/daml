@@ -5,7 +5,7 @@ version: v1beta1
 
 build:
   roots:
-    - ledger/participant-integration-api/src/main/protobuf
+    - sdk/ledger/participant-integration-api/src/main/protobuf
 
 breaking:
   use:
