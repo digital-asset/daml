@@ -8,15 +8,17 @@ parameters:
   scala_version: ''
 
 steps:
-  - bash: ci/dev-env-install.sh
+  - bash: |
+      ci/dev-env-install.sh
     displayName: 'Build/Install the Developer Environment'
     condition: and(succeeded(),
                    or(eq(${{parameters.is_release}}, 'false'),
                       ne('${{parameters.name}}', 'm1')))
 
   - bash: |
+      cd sdk
       source dev-env/lib/ensure-nix
-      ci/dev-env-push.py
+      ./ci/dev-env-push.py
     displayName: 'Push Developer Environment build results'
     condition: and(succeeded(),
                    eq(variables['System.PullRequest.IsFork'], 'False'),
@@ -27,7 +29,8 @@ steps:
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       NIX_SECRET_KEY_CONTENT: $(NIX_SECRET_KEY_CONTENT)
 
-  - bash: ci/configure-bazel.sh
+  - bash: |
+      ci/configure-bazel.sh
     displayName: 'Configure Bazel'
     env:
       IS_FORK: $(System.PullRequest.IsFork)
@@ -37,21 +40,23 @@ steps:
                    or(eq(${{parameters.is_release}}, 'false'),
                       ne('${{parameters.name}}', 'm1')))
 
-  - bash: ./fmt.sh --test
+  - bash: |
+      set -euo pipefail
+      cd sdk
+      ./fmt.sh --test
     displayName: 'Platform-agnostic lints and checks'
     condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
 
   - bash: |
       set -euo pipefail
-      if [ -e bazel-testlogs ]; then
-          rm -rf bazel-testlogs/
-      fi
+      rm -rf sdk/bazel-testlogs/
     displayName: delete old logs
 
   - bash: |
       set -euo pipefail
       p="_${{parameters.name}}"
-      a="_$(System.JobAttempt)"
+      a="_$(Build.BuildNumber)_$(System.JobAttempt)"
+      cd sdk
       if [ "$p" == "_m1" ]; then
           ./build.sh $p $a || ./build.sh $p $a || ./build.sh $p $a || ./build.sh $p $a
       else
@@ -79,7 +84,7 @@ steps:
       cd '$(Build.StagingDirectory)/logs'
       find . -type f | xargs gzip -9
       cd -
-      cd bazel-testlogs
+      cd sdk/bazel-testlogs
       find . -type f | xargs gzip -9
 
     displayName: compress logs
@@ -102,11 +107,12 @@ steps:
                       ne('${{parameters.name}}', 'm1')))
     displayName: 'Publish the bazel test logs'
     inputs:
-      pathtoPublish: 'bazel-testlogs/'
+      pathtoPublish: 'sdk/bazel-testlogs/'
       artifactName: 'Test logs ${{parameters.name}}'
 
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(./dev-env/bin/dade-assist)"
       ./bazel-bin/release/release --release-dir "$(mktemp -d)" --upload
     env:
@@ -131,7 +137,6 @@ steps:
                         ne('${{parameters.name}}', 'm1')))
   - bash: |
       set -euo pipefail
-      eval "$(./dev-env/bin/dade-assist)"
       mkdir -p $(Build.StagingDirectory)/release
       ./ci/copy-unix-release-artifacts.sh ${{parameters.release_tag}} ${{parameters.name}} $(Build.StagingDirectory)/release
     env:
