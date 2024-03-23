@@ -186,8 +186,7 @@ jobs:
       var_name: bash_lib
   - bash: |
       set -euo pipefail
-      cd sdk
-      eval "$(dev-env/bin/dade-assist)"
+      eval "$(sdk/dev-env/bin/dade-assist)"
       source $(bash_lib)
 
       latest=$(git ls-remote https://github.com/DACH-NY/security-blackduck.git master | awk '{print $1}')
