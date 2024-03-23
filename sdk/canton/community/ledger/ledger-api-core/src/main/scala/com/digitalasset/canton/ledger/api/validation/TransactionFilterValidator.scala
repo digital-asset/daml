@@ -17,7 +17,7 @@ import scalaz.std.either.*
 import scalaz.std.list.*
 import scalaz.syntax.traverse.*
 
-class TransactionFilterValidator(upgradingEnabled: Boolean) {
+object TransactionFilterValidator {
 
   import FieldValidator.*
   import ValidationErrors.*
@@ -35,8 +35,7 @@ class TransactionFilterValidator(upgradingEnabled: Boolean) {
           for {
             key <- requireParty(party)
             validatedFilters <- validateFilters(
-              filters,
-              upgradingEnabled,
+              filters
             )
           } yield key -> validatedFilters
         }
@@ -44,10 +43,7 @@ class TransactionFilterValidator(upgradingEnabled: Boolean) {
     }
 
   // Allow using deprecated Protobuf fields for backwards compatibility
-  private def validateFilters(
-      filters: Filters,
-      upgradingEnabled: Boolean,
-  )(implicit
+  private def validateFilters(filters: Filters)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.Filters] =
     filters.inclusive
@@ -55,7 +51,7 @@ class TransactionFilterValidator(upgradingEnabled: Boolean) {
         inclusive =>
           for {
             validatedTemplates <-
-              inclusive.templateFilters.toList.traverse(validateTemplateFilter(_, upgradingEnabled))
+              inclusive.templateFilters.toList.traverse(validateTemplateFilter(_))
             validatedInterfaces <-
               inclusive.interfaceFilters.toList traverse validateInterfaceFilter
           } yield domain.Filters(
@@ -68,10 +64,7 @@ class TransactionFilterValidator(upgradingEnabled: Boolean) {
           )
       }
 
-  private def validateTemplateFilter(
-      filter: TemplateFilter,
-      upgradingEnabled: Boolean,
-  )(implicit
+  private def validateTemplateFilter(filter: TemplateFilter)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.TemplateFilter] =
     for {
@@ -79,7 +72,7 @@ class TransactionFilterValidator(upgradingEnabled: Boolean) {
       validatedIds <- validateIdentifierWithPackageUpgrading(
         templateId,
         filter.includeCreatedEventBlob,
-      )(upgradingEnabled)
+      )
     } yield validatedIds
 
   private def validateInterfaceFilter(filter: InterfaceFilter)(implicit

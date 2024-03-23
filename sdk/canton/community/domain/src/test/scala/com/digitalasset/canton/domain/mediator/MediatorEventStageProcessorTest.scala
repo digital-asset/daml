@@ -49,6 +49,7 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
       DomainParameters.WithValidity(
         CantonTimestamp.Epoch,
         None,
+        PositiveInt.one,
         initialDomainParameters.tryUpdate(confirmationResponseTimeout = confirmationResponseTimeout),
       )
     )
@@ -232,6 +233,7 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
         DomainParameters.WithValidity(
           CantonTimestamp.Epoch,
           Some(CantonTimestamp.ofEpochSecond(5)),
+          PositiveInt.two,
           initialDomainParameters.tryUpdate(confirmationResponseTimeout =
             NonNegativeFiniteDuration.tryOfSeconds(4)
           ),
@@ -239,6 +241,7 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
         DomainParameters.WithValidity(
           CantonTimestamp.ofEpochSecond(5),
           None,
+          PositiveInt.three,
           initialDomainParameters.tryUpdate(confirmationResponseTimeout =
             NonNegativeFiniteDuration.tryOfSeconds(6)
           ),

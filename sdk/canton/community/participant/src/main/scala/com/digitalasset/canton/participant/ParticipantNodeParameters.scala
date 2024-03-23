@@ -36,7 +36,6 @@ final case class ParticipantNodeParameters(
     ledgerApiServerParameters: LedgerApiServerParametersConfig,
     excludeInfrastructureTransactions: Boolean,
     enableEngineStackTrace: Boolean,
-    enableContractUpgrading: Boolean,
     iterationsBetweenInterruptions: Long,
     journalGarbageCollectionDelay: NonNegativeFiniteDuration,
     disableUpgradeValidation: Boolean,
@@ -88,7 +87,6 @@ object ParticipantNodeParameters {
     ledgerApiServerParameters = LedgerApiServerParametersConfig(),
     excludeInfrastructureTransactions = true,
     enableEngineStackTrace = false,
-    enableContractUpgrading = false,
     iterationsBetweenInterruptions =
       10000, // 10000 is the default value in the engine configuration
     journalGarbageCollectionDelay = NonNegativeFiniteDuration.Zero,

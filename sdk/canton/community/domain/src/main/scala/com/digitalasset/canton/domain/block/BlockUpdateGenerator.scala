@@ -827,7 +827,7 @@ class BlockUpdateGeneratorImpl(
         warnIfApproximate = st.headCounterAboveGenesis(sequencerId),
       )
       _ <- EitherT.cond[FutureUnlessShutdown](
-        SequencerValidations.checkFromParticipantToAtMostOneMediator(submissionRequest),
+        SequencerValidations.checkToAtMostOneMediator(submissionRequest),
         (), {
           SequencerError.MultipleMediatorRecipients
             .Error(submissionRequest, sequencingTimestamp)
@@ -1366,84 +1366,85 @@ class BlockUpdateGeneratorImpl(
       sequencingSnapshot,
       trafficStates,
     ) = unsignedEvents
-    (if (maybeLowerTopologyTimestampBound.forall(signingSnapshot.ipsSnapshot.timestamp >= _)) {
-       FutureUnlessShutdown.outcomeF(
-         events.toSeq
-           .parTraverse { case (member, event) =>
-             SignedContent
-               .create(
-                 signingSnapshot.pureCrypto,
-                 signingSnapshot,
-                 event,
-                 None,
-                 HashPurpose.SequencedEventSignature,
-                 protocolVersion,
-               )
-               .valueOr(syncCryptoError =>
-                 ErrorUtil.internalError(
-                   new RuntimeException(s"Error signing events: $syncCryptoError")
-                 )
-               )
-               .map { signedContent =>
-                 val trafficStateO = Option
-                   .when(!unifiedSequencer || member == sender) { // only include traffic state for the sender
-                     trafficStates
-                       .getOrElse(
-                         member,
-                         ErrorUtil.invalidState(s"Sender $sender unknown by rate limiter."),
-                       )
-                   }
-                 member -> OrdinarySequencedEvent(signedContent, trafficStateO)(
-                   traceContext
-                 )
-               }
-           }
-       )
-     } else {
-       // As the required topology snapshot timestamp is older than the lower topology timestamp bound, the timestamp
-       // of this sequencer's very first topology snapshot, tombstone events. This enables subscriptions to signal to
-       // subscribers that this sequencer is not in a position to serve the events behind these sequencer counters.
-       // Comparing against the lower signing timestamp bound prevents tombstones in "steady-state" sequencing beyond
-       // "soon" after initial sequencer onboarding. See #13609
-       events.toSeq.parTraverse { case (member, event) =>
-         logger.info(
-           s"Sequencer signing key not available on behalf of ${member.uid.id} at ${event.timestamp} and ${event.counter}. Sequencing tombstone."
-         )
-         // sign tombstones using key valid at sequencing timestamp as event timestamp has no signing key and we
-         // are not sequencing the event anyway, but the tombstone
-         val err = DeliverError.create(
-           event.counter,
-           sequencingTimestamp, // use sequencing timestamp for tombstone
-           domainId,
-           MessageId(String73.tryCreate("tombstone")), // dummy message id
-           SequencerErrors.PersistTombstone(event.timestamp, event.counter),
-           protocolVersion,
-         )
-         for {
-           signedContent <- FutureUnlessShutdown.outcomeF(
-             SignedContent
-               .create(
-                 sequencingSnapshot.pureCrypto,
-                 sequencingSnapshot,
-                 err,
-                 Some(sequencingSnapshot.ipsSnapshot.timestamp),
-                 HashPurpose.SequencedEventSignature,
-                 protocolVersion,
-               )
-               .valueOr(syncCryptoError =>
-                 ErrorUtil.internalError(
-                   new RuntimeException(
-                     s"Error signing tombstone deliver error: $syncCryptoError"
-                   )
-                 )
-               )
-           )
-         } yield {
-           member -> OrdinarySequencedEvent(signedContent, None)(traceContext)
-         }
-       }
-     })
-      .map(signedEvents => SignedChunkEvents(signedEvents.toMap))
+    val signingTimestamp = signingSnapshot.ipsSnapshot.timestamp
+    val signedEventsF = maybeLowerTopologyTimestampBound match {
+      case Some(bound) if bound > signingTimestamp =>
+        // As the required topology snapshot timestamp is older than the lower topology timestamp bound, the timestamp
+        // of this sequencer's very first topology snapshot, tombstone the events. This enables subscriptions to signal to
+        // subscribers that this sequencer is not in a position to serve the events behind these sequencer counters.
+        // Comparing against the lower signing timestamp bound prevents tombstones in "steady-state" sequencing beyond
+        // "soon" after initial sequencer onboarding. See #13609
+        events.toSeq.parTraverse { case (member, event) =>
+          logger.info(
+            s"Sequencing tombstone for ${member.uid.id} at ${event.timestamp} and ${event.counter}. Sequencer signing key at $signingTimestamp not available before the bound $bound."
+          )
+          // sign tombstones using key valid at sequencing timestamp as event timestamp has no signing key and we
+          // are not sequencing the event anyway, but the tombstone
+          val err = DeliverError.create(
+            event.counter,
+            sequencingTimestamp, // use sequencing timestamp for tombstone
+            domainId,
+            MessageId(String73.tryCreate("tombstone")), // dummy message id
+            SequencerErrors.PersistTombstone(event.timestamp, event.counter),
+            protocolVersion,
+          )
+          for {
+            signedContent <- FutureUnlessShutdown.outcomeF(
+              SignedContent
+                .create(
+                  sequencingSnapshot.pureCrypto,
+                  sequencingSnapshot,
+                  err,
+                  Some(sequencingSnapshot.ipsSnapshot.timestamp),
+                  HashPurpose.SequencedEventSignature,
+                  protocolVersion,
+                )
+                .valueOr(syncCryptoError =>
+                  ErrorUtil.internalError(
+                    new RuntimeException(
+                      s"Error signing tombstone deliver error: $syncCryptoError"
+                    )
+                  )
+                )
+            )
+          } yield {
+            member -> OrdinarySequencedEvent(signedContent, None)(traceContext)
+          }
+        }
+      case _ =>
+        FutureUnlessShutdown.outcomeF(
+          events.toSeq
+            .parTraverse { case (member, event) =>
+              SignedContent
+                .create(
+                  signingSnapshot.pureCrypto,
+                  signingSnapshot,
+                  event,
+                  None,
+                  HashPurpose.SequencedEventSignature,
+                  protocolVersion,
+                )
+                .valueOr(syncCryptoError =>
+                  ErrorUtil.internalError(
+                    new RuntimeException(s"Error signing events: $syncCryptoError")
+                  )
+                )
+                .map { signedContent =>
+                  val trafficStateO = Option
+                    .when(!unifiedSequencer || member == sender) { // only include traffic state for the sender
+                      trafficStates.getOrElse(
+                        member,
+                        ErrorUtil.invalidState(s"Sender $sender unknown by rate limiter."),
+                      )
+                    }
+                  member -> OrdinarySequencedEvent(signedContent, trafficStateO)(
+                    traceContext
+                  )
+                }
+            }
+        )
+    }
+    signedEventsF.map(signedEvents => SignedChunkEvents(signedEvents.toMap))
   }
 
   private def invalidSubmissionRequest(

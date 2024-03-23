@@ -10,7 +10,7 @@ import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle.Timer
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{LoggerUtil, Thereafter}
+import com.digitalasset.canton.util.{LoggerUtil, Thereafter, ThereafterAsync}
 import com.digitalasset.canton.{
   DoNotDiscardLikeFuture,
   DoNotReturnFromSynchronizedLikeFuture,
@@ -307,17 +307,18 @@ object FutureUnlessShutdownImpl {
   ): Parallel[FutureUnlessShutdown] =
     Instance.subst[Parallel](parallelInstanceFutureUnlessShutdownOpened)
 
-  class FutureUnlessShutdownThereafter extends Thereafter[FutureUnlessShutdown] {
+  class FutureUnlessShutdownThereafter(implicit ec: ExecutionContext)
+      extends ThereafterAsync[FutureUnlessShutdown] {
     override type Content[A] = FutureUnlessShutdownThereafterContent[A]
-    override def thereafter[A](f: FutureUnlessShutdown[A])(body: Try[UnlessShutdown[A]] => Unit)(
-        implicit ec: ExecutionContext
+    override def thereafter[A](f: FutureUnlessShutdown[A])(
+        body: Try[UnlessShutdown[A]] => Unit
     ): FutureUnlessShutdown[A] =
       FutureUnlessShutdown(f.unwrap.thereafter(body))
 
     override def thereafterF[A](f: FutureUnlessShutdown[A])(
         body: Try[UnlessShutdown[A]] => Future[Unit]
-    )(implicit ec: ExecutionContext): FutureUnlessShutdown[A] = {
-      FutureUnlessShutdown(Thereafter[Future].thereafterF(f.unwrap)(body))
+    ): FutureUnlessShutdown[A] = {
+      FutureUnlessShutdown(ThereafterAsync[Future].thereafterF(f.unwrap)(body))
     }
   }
 
@@ -325,8 +326,9 @@ object FutureUnlessShutdownImpl {
     * at least for simple cases.
     */
   type FutureUnlessShutdownThereafterContent[A] = Try[UnlessShutdown[A]]
-  implicit val thereafterFutureUnlessShutdown
-      : Thereafter.Aux[FutureUnlessShutdown, FutureUnlessShutdownThereafterContent] =
+  implicit def thereafterFutureUnlessShutdown(implicit
+      ec: ExecutionContext
+  ): ThereafterAsync.Aux[FutureUnlessShutdown, FutureUnlessShutdownThereafterContent] =
     new FutureUnlessShutdownThereafter
 
   /** Enable `onShutdown` syntax on [[cats.data.EitherT]]`[`[[FutureUnlessShutdown]]`...]`. */

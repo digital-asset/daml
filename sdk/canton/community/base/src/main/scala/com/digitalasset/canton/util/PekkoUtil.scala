@@ -461,6 +461,7 @@ object PekkoUtil extends HasLoggerName {
         // So we make them accessible to the retry directly.
         def uponTermination(handleKillSwitch: killSwitchForSourceQueue.Handle, doneF: Future[Done])
             : NotUsed = {
+          implicit val ec: ExecutionContext = materializer.executionContext
           val afterTerminationF = doneF
             .thereafter { outcome =>
               ErrorUtil.requireArgument(
@@ -499,14 +500,14 @@ object PekkoUtil extends HasLoggerName {
                   loggingContext.debug(s"Not retrying $name any more. Completing the source.")
                   idempotentComplete()
               }
-            }(materializer.executionContext)
+            }
             .thereafter(_.forFailed { ex =>
               loggingContext.error(
                 s"The retry policy for RestartSource $name failed with an error. Stop retrying.",
                 ex,
               )
               idempotentComplete()
-            })(materializer.executionContext)
+            })
           flushFuture.addToFlushAndLogError(show"RestartSource ${name.unquoted} at state $state")(
             afterTerminationF
           )
@@ -538,17 +539,16 @@ object PekkoUtil extends HasLoggerName {
       // Filter out the exceptions from the recover
       .mapConcat(_.toOption.map(WithKillSwitch(_)(killSwitchForSourceQueue)))
       .watchTermination() { case (NotUsed, doneF) =>
+        // The direct execution context ensures that this runs as soon as the future's promise is completed,
+        // i.e., a downstream cancellation signal cannot propagate upstream while this is running.
+        implicit val ec = directExecutionContext
         val everythingTerminatedF =
           doneF.thereafterF { _ =>
             // Complete the queue of elements again, to make sure that
             // downstream cancellations do not race with a restart.
             idempotentComplete()
             flushFuture.flush()
-          }(
-            // The direct execution context ensures that this runs as soon as the future's promise is completed,
-            // i.e., a downstream cancellation signal cannot propagate upstream while this is running.
-            directExecutionContext
-          )
+          }
         killSwitchForSourceQueue -> everythingTerminatedF
       }
   }
