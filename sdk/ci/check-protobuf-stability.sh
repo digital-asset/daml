@@ -8,6 +8,8 @@ cd $DIR/..
 
 eval "$(dev-env/bin/dade assist)"
 
+cd ..
+
 # The `SYSTEM_PULLREQUEST_TARGETBRANCH` environment variable is defined by
 # Azure Pipelines; in order to run this script locally, define it beforehand
 # as the branch being targeted. For example:
@@ -21,7 +23,7 @@ readonly BREAKING_PROTOBUF_CHANGE_TRAILER_KEY="Breaks-protobuf"
 # LF protobufs are checked against local snapshots.
 function check_lf_protos() {
 
-    readonly stable_snapshot_dir="daml-lf/transaction/src/stable/protobuf"
+    readonly stable_snapshot_dir="sdk/daml-lf/transaction/src/stable/protobuf"
 
     declare -a checkSums=(
       "73572a9d1a8985a611a5d8c94c983bd3d03617ddf7782161fdba5f90c3b20672  ${stable_snapshot_dir}/com/daml/lf/value.proto"
@@ -32,12 +34,14 @@ function check_lf_protos() {
       echo ${checkSum} | sha256sum -c
     done
 
-    buf breaking --config "buf-lf-transaction.yaml" --against ${stable_snapshot_dir}
+    buf breaking --config "sdk/buf-lf-transaction.yaml" --against ${stable_snapshot_dir}
 
 }
 
 # Other protobufs are checked against the chosen git target
 function check_non_lf_protos() {
+  local commitish_type=$1
+  local commitish=$2
 
   declare -a BUF_MODULES_AGAINST_STABLE=(
     "buf-ledger-api.yaml"
@@ -45,9 +49,26 @@ function check_non_lf_protos() {
     "buf-participant-integration-api.yaml"
   )
 
-  echo "Checking protobufs against git target '${BUF_GIT_TARGET_TO_CHECK}'"
+  echo "Checking protobufs against git target '$commitish_type=$commitish'"
+
+  if [ "$commitish_type" = "branch" ]; then
+    git fetch origin
+  fi
+
+  if [ "$commitish" = "v2.3.18" ]; then # TODO remove when 2.3.19 gets published
+    against_prefix=.
+  else
+    against_prefix=sdk
+  fi
+
+
+  against_config=$(mktemp -d)
   for buf_module in "${BUF_MODULES_AGAINST_STABLE[@]}"; do
-    buf breaking --config "${buf_module}" --against "$BUF_GIT_TARGET_TO_CHECK" --against-config "${buf_module}"
+    git show $commitish:$against_prefix/$buf_module > $against_config/$buf_module
+    if [ "$commitish_type" = "branch" ]; then # TODO delete as soon as this is merged
+      cp sdk/$buf_module $against_config/$buf_module
+    fi
+    buf breaking --config "sdk/${buf_module}" --against "./.git#$commitish_type=$commitish" --against-config "$against_config/$buf_module"
   done
 
 }
@@ -64,7 +85,7 @@ is_check_skipped() {
 
 check_protos() {
   check_lf_protos
-  check_non_lf_protos
+  check_non_lf_protos $1 $2
 }
 
 case "${1:---stable}" in
@@ -110,20 +131,18 @@ USAGE
     echo "unsupported target branch $TARGET" >&2
     exit 1
   fi
-  BUF_GIT_TARGET_TO_CHECK="../.git#tag=${LATEST_STABLE_TAG}"
-  check_protos
+  check_protos tag $LATEST_STABLE_TAG
   ;;
 --target)
   # Check against the tip of the target branch.
   #
   # This check ensures that backwards compatibility is never broken on the target branch,
   # which is stricter than guaranteeing compatibility between release tags.
-  BUF_GIT_TARGET_TO_CHECK="../.git#branch=origin/${TARGET}"
   # The target check can be skipped by including the following trailer `Breaks-Protobuf: true` into the commit message
   if is_check_skipped; then
     echo "Skipping check for protobuf compatibility"
   else
-    check_protos
+    check_protos branch origin/$TARGET
   fi
   ;;
 *)

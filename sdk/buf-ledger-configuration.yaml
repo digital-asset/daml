@@ -5,7 +5,7 @@ version: v1beta1
 
 build:
   roots:
-    - ledger/ledger-configuration/protobuf
+    - sdk/ledger/ledger-configuration/protobuf
 
 breaking:
   use:
