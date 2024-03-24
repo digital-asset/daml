@@ -91,6 +91,7 @@ steps:
       var_name: bash-lib
   - bash: |
       set -euo pipefail
+      eval "$(sdk/dev-env/bin/dade-assist)"
       mkdir -p $(Build.StagingDirectory)/release
       ./ci/copy-unix-release-artifacts.sh ${{parameters.release_tag}} ${{parameters.name}} $(Build.StagingDirectory)/release
     env:
