@@ -41,7 +41,7 @@ import com.digitalasset.canton.platform.apiserver.services.transaction.{
   TransactionServiceImpl,
 }
 import com.digitalasset.canton.platform.config.{CommandServiceConfig, UserManagementServiceConfig}
-import com.digitalasset.canton.platform.localstore.PackageMetadataStore
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadataStore
 import com.digitalasset.canton.platform.localstore.api.{
   IdentityProviderConfigStore,
   PartyRecordStore,
@@ -109,6 +109,7 @@ object ApiServices {
       val loggerFactory: NamedLoggerFactory,
       multiDomainEnabled: Boolean,
       dynParamGetter: DynamicDomainParameterGetter,
+      disableUpgradeValidation: Boolean,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -447,11 +448,13 @@ object ApiServices {
         val apiPackageManagementService = ApiPackageManagementService.createApiService(
           indexService,
           transactionsService,
+          packageMetadataStore,
           writeService,
           managementServiceTimeout,
           engine,
           telemetry = telemetry,
           loggerFactory = loggerFactory,
+          disableUpgradeValidation = disableUpgradeValidation,
         )
 
         val apiConfigManagementService = ApiConfigManagementService.createApiService(

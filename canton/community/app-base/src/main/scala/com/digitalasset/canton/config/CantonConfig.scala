@@ -439,6 +439,8 @@ trait CantonConfig {
         excludeInfrastructureTransactions = participantParameters.excludeInfrastructureTransactions,
         enableEngineStackTrace = participantParameters.enableEngineStackTraces,
         iterationsBetweenInterruptions = participantParameters.iterationsBetweenInterruptions,
+        enableContractUpgrading = participantParameters.enableContractUpgrading,
+        disableUpgradeValidation = participantParameters.disableUpgradeValidation,
       )
     }
 

@@ -789,6 +789,7 @@ proto_library(
     deps = [
         "@com_google_protobuf//:empty_proto",
     ],
+    visibility = ["//visibility:public"],
 )
 
 proto_gen(
@@ -800,7 +801,7 @@ proto_gen(
         "grpc",
         "flat_package",
     ],
-    visibility = ["//daml-script:__subpackages__"],
+    visibility = ["//visibility:public"],
 )
 
 proto_library(
@@ -913,7 +914,7 @@ scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
-        "//daml-lf/validation",
+        # "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
         "//libs-scala/executors",
         "//libs-scala/jwt",
@@ -962,6 +963,7 @@ scala_library(
         "@maven//:org_typelevel_cats_core_2_13",
         "@maven//:org_typelevel_cats_kernel_2_13",
     ],
+    visibility = ["//visibility:public"],
 )
 
 ### community/app-base ###

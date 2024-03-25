@@ -61,17 +61,25 @@ da_scala_library(
         ) +
         #  we depend on sources to avoid pushing a canton artifact to maven
         [
-            "//canton:community_admin-api_proto_scala",
+            "//canton:community_participant_admin_proto_scala",
+            #"//canton:community_admin-api_proto_scala",
         ],
     scaladoc = False,
+    scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],
+    unused_dependency_checker_mode = "off",
     deps = [
-        "//canton:community_admin-api",
-        "//canton:community_ledger_ledger-common",
-        "//canton:ledger_api_proto_scala",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//ledger/ledger-api-auth-client",
+        "//ledger/ledger-api-client",
         "//libs-scala/ports",
         "//test-common/canton/it-lib",
         "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_grpc_grpc_api",
+        "//canton:ledger_api_proto_scala",
+        "//canton:community_participant",
+        "//language-support/scala/bindings",
     ],
 )
 
@@ -195,17 +203,16 @@ da_scala_test_suite(
             "//test-common:upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v1.dar",
             "//test-common:upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v2.dar",
         ],
-        flaky = True,
+        flaky = False,
         scala_deps = [
             "@maven//:org_apache_pekko_pekko_actor",
             "@maven//:org_apache_pekko_pekko_stream",
         ],
-        scalacopts = lf_scalacopts,
+        visibility = ["//visibility:public"],
         deps = [
             ":upgrade-test-lib",
             ":validation",
             "//bazel_tools/runfiles:scala_runfiles",
-            "//canton:community_ledger_ledger-common",
             "//canton:ledger_api_proto_scala",
             "//daml-lf/archive:daml_lf_archive_reader",
             "//daml-lf/data",
@@ -215,6 +222,10 @@ da_scala_test_suite(
             "//libs-scala/rs-grpc-bridge",
             "//libs-scala/testing-utils",
             "//test-common/canton/it-lib",
+            "//ledger/ledger-api-client",
+            "//language-support/scala/bindings",
+            "//ledger/ledger-api-common",
+            "@maven//:org_scalatest_scalatest_compatible",
         ],
     ),
 ] if not is_windows else []

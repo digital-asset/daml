@@ -38,6 +38,7 @@ object DAMLe {
       profileDir: Option[Path] = None,
       iterationsBetweenInterruptions: Long =
         10000, // 10000 is the default value in the engine configuration
+      enableContractUpgrading: Boolean = true,
   ): Engine =
     new Engine(
       EngineConfig(
@@ -54,6 +55,7 @@ object DAMLe {
           if (uniqueContractKeys) ContractKeyUniquenessMode.Strict
           else ContractKeyUniquenessMode.Off,
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
+        enableContractUpgrading = enableContractUpgrading,
       )
     )
 

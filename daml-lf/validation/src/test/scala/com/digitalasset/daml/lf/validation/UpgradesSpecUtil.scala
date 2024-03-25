@@ -6,9 +6,10 @@
 
 package com.daml.lf.validation
 
-import com.digitalasset.canton.ledger.client.LedgerCallCredentials.authenticatingStub
-import com.digitalasset.canton.ledger.client.GrpcChannel
-import com.digitalasset.canton.admin.participant.{v30 => admin_package_service}
+import com.daml.ledger.api.auth.client.LedgerCallCredentials.authenticatingStub
+//import com.digitalasset.canton.ledger.client.LedgerCallCredentials.authenticatingStub
+import com.daml.ledger.client.GrpcChannel
+import com.digitalasset.canton.participant.admin.{v0 => admin_package_service}
 import io.grpc.Channel
 import io.grpc.stub.AbstractStub
 import java.io.Closeable

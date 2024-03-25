@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.apiserver.services.admin
 
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.error.{ContextualizedErrorLogger, DamlError}
+import com.daml.error.DamlError
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service.*
 import com.daml.lf.archive.{Dar, DarParser, Decode, GenDarReader}
@@ -33,12 +33,12 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPackageManagementService.*
 import com.digitalasset.canton.platform.apiserver.services.logging
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadataStore
 import com.google.protobuf.ByteString
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 import scalaz.std.either.*
-import scalaz.std.list.*
 import scalaz.syntax.traverse.*
 
 import java.util.zip.ZipInputStream
@@ -51,12 +51,14 @@ private[apiserver] final class ApiPackageManagementService private (
     packagesIndex: IndexPackagesService,
     transactionsService: IndexTransactionsService,
     packagesWrite: state.WritePackagesService,
+    packageUpgradeValidator: PackageUpgradeValidator,
     managementServiceTimeout: FiniteDuration,
     engine: Engine,
     darReader: GenDarReader[Archive],
     submissionIdGenerator: String => Ref.SubmissionId,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
+    disableUpgradeValidation: Boolean,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -106,23 +108,32 @@ private[apiserver] final class ApiPackageManagementService private (
   private def decodeAndValidate(
       darFile: ByteString
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      loggingContext: LoggingContextWithTrace
   ): Future[Dar[Archive]] = Future.delegate {
     // Triggering computation in `executionContext` as caller thread (from netty)
     // should not be busy with heavy computation
-    val result = for {
-      darArchive <- Using(new ZipInputStream(darFile.newInput())) { stream =>
-        darReader.readArchive("package-upload", stream)
-      }
-      dar <- darArchive.handleError(Validation.handleLfArchiveError)
-      packages <- dar.all
-        .traverse(Decode.decodeArchive(_))
-        .handleError(Validation.handleLfArchiveError)
-      _ <- engine
-        .validatePackages(packages.toMap)
-        .handleError(Validation.handleLfEnginePackageError)
+    for {
+      (dar, decodedDar) <- Future.fromTry(
+        for {
+          darArchive <- Using(new ZipInputStream(darFile.newInput())) { stream =>
+            darReader.readArchive("package-upload", stream)
+          }
+          dar <- darArchive.handleError(Validation.handleLfArchiveError)
+          decodedDar <- dar
+            .traverse(Decode.decodeArchive(_))
+            .handleError(Validation.handleLfArchiveError)
+          _ <- engine
+            .validatePackages(decodedDar.all.toMap)
+            .handleError(Validation.handleLfEnginePackageError)
+        } yield (dar, decodedDar)
+      )
+      _ <-
+        if (disableUpgradeValidation) {
+          logger.info(s"Skipping upgrade validation for package ${decodedDar.main._1}.")
+          Future { () }
+        } else
+          packageUpgradeValidator.validateUpgrade(decodedDar.main)
     } yield dar
-    Future.fromTry(result)
   }
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
@@ -131,15 +142,6 @@ private[apiserver] final class ApiPackageManagementService private (
       logging.submissionId(submissionId)
     ) { implicit loggingContext: LoggingContextWithTrace =>
       logger.info(s"Uploading DAR file, ${loggingContext.serializeFiltered("submissionId")}.")
-
-      // a new ErrorLoggingContext (that is overriding the default one derived from NamedLogging) is required to contain the loggingContext entries
-      implicit val errorLoggingContext: LedgerErrorLoggingContext =
-        LedgerErrorLoggingContext(
-          logger,
-          loggerFactory.properties ++ loggingContext.toPropertiesMap,
-          loggingContext.traceContext,
-          submissionId,
-        )
 
       val response = for {
         dar <- decodeAndValidate(request.darFile)
@@ -159,13 +161,6 @@ private[apiserver] final class ApiPackageManagementService private (
       response.andThen(logger.logErrorsOnCall[UploadDarFileResponse])
     }
   }
-
-  private implicit class ErrorValidations[E, R](result: Either[E, R]) {
-    def handleError(toSelfServiceErrorCode: E => DamlError): Try[R] =
-      result.left.map { err =>
-        toSelfServiceErrorCode(err).asGrpcError
-      }.toTry
-  }
 }
 
 private[apiserver] object ApiPackageManagementService {
@@ -173,6 +168,7 @@ private[apiserver] object ApiPackageManagementService {
   def createApiService(
       readBackend: IndexPackagesService,
       transactionsService: IndexTransactionsService,
+      packageMetadataStore: PackageMetadataStore,
       writeBackend: state.WritePackagesService,
       managementServiceTimeout: FiniteDuration,
       engine: Engine,
@@ -180,21 +176,31 @@ private[apiserver] object ApiPackageManagementService {
       submissionIdGenerator: String => Ref.SubmissionId = augmentSubmissionId,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
+      disableUpgradeValidation: Boolean,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
-  ): PackageManagementServiceGrpc.PackageManagementService & GrpcApiService =
+  ): PackageManagementServiceGrpc.PackageManagementService & GrpcApiService = {
+    val packageUpgradeValidator =
+      new PackageUpgradeValidator(
+        getPackageMap = _ => Right(packageMetadataStore.getSnapshot.getUpgradablePackageMap),
+        getLfArchive = implicit loggingContextWithTrace => pkgId => readBackend.getLfArchive(pkgId),
+        loggerFactory = loggerFactory,
+      )
     new ApiPackageManagementService(
       readBackend,
       transactionsService,
       writeBackend,
+      packageUpgradeValidator,
       managementServiceTimeout,
       engine,
       darReader,
       submissionIdGenerator,
       telemetry,
       loggerFactory,
+      disableUpgradeValidation,
     )
+  }
 
   private final class SynchronousResponseStrategy(
       packagesIndex: IndexPackagesService,
@@ -240,5 +246,12 @@ private[apiserver] object ApiPackageManagementService {
           )
           .asGrpcError
     }
+  }
+
+  implicit class ErrorValidations[E, R](result: Either[E, R]) {
+    def handleError(toSelfServiceErrorCode: E => DamlError): Try[R] =
+      result.left.map { err =>
+        toSelfServiceErrorCode(err).asGrpcError
+      }.toTry
   }
 }

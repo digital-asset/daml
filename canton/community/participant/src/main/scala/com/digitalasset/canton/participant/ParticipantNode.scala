@@ -446,6 +446,7 @@ object ParticipantNodeBootstrap {
         enableLfDev = arguments.parameterConfig.devVersionSupport,
         enableStackTraces = arguments.parameterConfig.enableEngineStackTrace,
         iterationsBetweenInterruptions = arguments.parameterConfig.iterationsBetweenInterruptions,
+        enableContractUpgrading = arguments.parameterConfig.enableContractUpgrading,
       )
 
     override protected def createResourceService(
