@@ -296,7 +296,8 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
         val event2 =
           generateEvent(
             LedgerSyncRecordTime.MaxValue,
-            Long.MaxValue,
+            // Long.MaxValue would throw out-of-bound exception for the Canton timestamp
+            CantonTimestamp.MaxValue.getEpochSecond,
             Some(SequencerCounter.MaxValue),
           )
 

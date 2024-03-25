@@ -417,8 +417,8 @@ class GrpcSequencerService(
         "Batch contains envelope without content.",
       )
       _ <- refuseUnless(sender)(
-        SequencerValidations.checkFromParticipantToAtMostOneMediator(request),
-        "Batch from participant contains multiple mediators as recipients.",
+        SequencerValidations.checkToAtMostOneMediator(request),
+        "Batch contains multiple mediators as recipients.",
       )
       _ <- refuseUnless(sender)(
         noTopologyTimestampIfUnauthenticated(

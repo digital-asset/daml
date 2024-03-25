@@ -18,8 +18,8 @@ import com.digitalasset.canton.util.TryUtil.*
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
-import scala.concurrent.Future
 import scala.concurrent.duration.Duration
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 /** Functions executed with this class will only run when all previous calls have completed executing.
@@ -287,10 +287,11 @@ object SimpleExecutionQueue {
             FutureUnlessShutdown.failed(ex)
           }
       }(directExecutionContext)
-      val completed = chained.thereafter { _ =>
+      val completed = {
+        implicit val ec: ExecutionContext = directExecutionContext
         // Cut the predecessor as we're now done.
-        predecessorCell.set(None)
-      }(directExecutionContext)
+        chained.thereafter { _ => predecessorCell.set(None) }
+      }
       val propagatedException = completed.flatMap { case (earlierExceptionO, _) =>
         earlierExceptionO.fold(FutureUnlessShutdown.unit)(FutureUnlessShutdown.failed)
       }(directExecutionContext)

@@ -195,6 +195,7 @@ class ProtocolProcessorTest
     DynamicDomainParameters.initialValues(NonNegativeFiniteDuration.Zero, testedProtocolVersion),
     CantonTimestamp.MinValue,
     None,
+    PositiveInt.one,
     domain,
   )
 
@@ -316,7 +317,7 @@ class ProtocolProcessorTest
         startingPoints,
         _ => timeTracker,
         ParticipantTestMetrics.domain,
-        CachingConfigs.defaultSessionKeyCache,
+        CachingConfigs.defaultSessionKeyCacheConfig,
         timeouts,
         loggerFactory,
         FutureSupervisor.Noop,

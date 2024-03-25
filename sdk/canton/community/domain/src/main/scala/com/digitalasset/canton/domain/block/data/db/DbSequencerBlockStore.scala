@@ -100,7 +100,7 @@ class DbSequencerBlockStore(
       storage.query(
         for {
           heightAndTimestamp <-
-            (sql"""select height, latest_event_ts, lastet_sequencer_event_ts from seq_block_height where latest_event_ts >= $timestamp order by height """ ++ topRow)
+            (sql"""select height, latest_event_ts, latest_sequencer_event_ts from seq_block_height where latest_event_ts >= $timestamp order by height """ ++ topRow)
               .as[BlockInfo]
               .headOption
           state <- heightAndTimestamp match {
@@ -349,9 +349,9 @@ class DbSequencerBlockStore(
     insertVerifyingConflicts(
       storage,
       "seq_block_height ( height )",
-      sql"""seq_block_height (height, latest_event_ts, lastet_sequencer_event_ts)
+      sql"""seq_block_height (height, latest_event_ts, latest_sequencer_event_ts)
             values (${block.height}, ${block.lastTs}, ${block.latestSequencerEventTimestamp})""",
-      sql"select latest_event_ts, lastet_sequencer_event_ts from seq_block_height where height = ${block.height}"
+      sql"select latest_event_ts, latest_sequencer_event_ts from seq_block_height where height = ${block.height}"
         .as[(CantonTimestamp, Option[CantonTimestamp])]
         .head,
     )(
@@ -471,17 +471,17 @@ class DbSequencerBlockStore(
   private[this] def readBlockInfo(
       height: Long
   ): DBIOAction[Option[BlockInfo], NoStream, Effect.Read] =
-    sql"select height, latest_event_ts, lastet_sequencer_event_ts from seq_block_height where height = $height"
+    sql"select height, latest_event_ts, latest_sequencer_event_ts from seq_block_height where height = $height"
       .as[BlockInfo]
       .headOption
 
   private[this] def readLatestBlockInfo(): DBIOAction[Option[BlockInfo], NoStream, Effect.Read] =
-    (sql"select height, latest_event_ts, lastet_sequencer_event_ts from seq_block_height order by height desc " ++ topRow)
+    (sql"select height, latest_event_ts, latest_sequencer_event_ts from seq_block_height order by height desc " ++ topRow)
       .as[BlockInfo]
       .headOption
 
   private[this] def readFirstBlockInfo(): DBIOAction[Option[BlockInfo], NoStream, Effect.Read] =
-    (sql"select height, latest_event_ts, lastet_sequencer_event_ts from seq_block_height order by height asc " ++ topRow)
+    (sql"select height, latest_event_ts, latest_sequencer_event_ts from seq_block_height order by height asc " ++ topRow)
       .as[BlockInfo]
       .headOption
 
