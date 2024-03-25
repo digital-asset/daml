@@ -515,8 +515,8 @@ scala_library(
     ],
     unused_dependency_checker_mode = "error",
     deps = [
-        ":ledger_api_proto_scala",
         ":ledger_api_proto_internal_scala",
+        ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         ":pekko-stream-patch",
         "//canton:bindings-java",
@@ -892,8 +892,8 @@ scala_library(
         ":community_util-external",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
-        ":ledger_api_proto_scala",
         ":ledger_api_proto_internal_java",
+        ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
@@ -1315,8 +1315,8 @@ proto_library(
 
 java_proto_library(
     name = "ledger_api_proto_internal_java",
-    deps = [":ledger_api_proto_internal"],
     visibility = ["//visibility:public"],
+    deps = [":ledger_api_proto_internal"],
 )
 
 proto_gen(
@@ -1337,6 +1337,7 @@ scala_library(
     name = "ledger_api_proto_internal_scala",
     srcs = [":ledger_api_proto_internal_scala_sources"],
     unused_dependency_checker_mode = "error",
+    visibility = ["//visibility:public"],
     deps = [
         ":ledger_api_proto_internal_java",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
@@ -1348,7 +1349,6 @@ scala_library(
         "@maven//:io_grpc_grpc_protobuf",
         "@maven//:io_grpc_grpc_stub",
     ],
-    visibility = ["//visibility:public"],
 )
 
 google_protobuf_src = "external/com_google_protobuf/src"
