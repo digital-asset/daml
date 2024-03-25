@@ -1323,6 +1323,7 @@ proto_gen(
     name = "ledger_api_proto_internal_scala_sources",
     srcs = [
         ":ledger_api_proto_internal",
+        "//bazel_tools/scalapb:scalapb-configuration",
         "@go_googleapis//google/rpc:status_proto",
     ],
     plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
