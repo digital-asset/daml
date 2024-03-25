@@ -57,6 +57,7 @@ class IdeLedgerClient(
     warningLog: WarningLog,
     canceled: () => Boolean,
     namedLoggerFactory: NamedLoggerFactory,
+    override val enableContractUpgrading: Boolean = true,
 ) extends ScriptLedgerClient {
   override def transport = "script service"
 
