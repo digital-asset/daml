@@ -1,0 +1,100 @@
+module Main where
+
+import Daml.Script
+import DA.Assert
+
+import V1.Proj qualified
+import V2.Proj qualified
+
+asV1 : ContractId t -> ContractId V1.Proj.T
+asV1 = coerceContractId
+
+asV2 : ContractId t -> ContractId V2.Proj.T
+asV2 = coerceContractId
+
+type SomeContractId = ContractId ()
+
+asSome : ContractId t -> SomeContractId
+asSome = coerceContractId
+
+template Aux
+  with
+    p : Party
+  where
+    signatory p
+
+    choice FetchAsV1 : V1.Proj.T
+      with cid: SomeContractId
+      controller p
+      do
+        fetch (asV1 cid)
+
+    choice FetchAsV2 : V2.Proj.T
+      with cid: SomeContractId
+      controller p
+      do
+        fetch (asV2 cid)
+
+    choice ExeAsV1 : Text
+      with cid: SomeContractId
+      controller p
+      do
+        exercise (asV1 cid) V1.Proj.Debug
+
+    choice ExeAsV2 : Text
+      with cid: SomeContractId
+      controller p
+      do
+        exercise (asV2 cid) V2.Proj.Debug
+
+testUpgradeQuery : Script ()
+testUpgradeQuery = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd
+    V1.Proj.T with p = alice
+  t1 <- alice `queryContractId` (asV1 cid)
+  t1 === Some V1.Proj.T with p = alice
+  t2 <- alice `queryContractId` (asV2 cid)
+  t2 === Some V2.Proj.T with p = alice, extra = None
+  pure ()
+
+testUpgradeExercise : Script ()
+testUpgradeExercise = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd
+    V1.Proj.T with p = alice
+  r1 <- alice `submit` exerciseCmd (asV1 cid) V1.Proj.Debug
+  r1 === "V1:" <> show V1.Proj.T with p = alice
+  r2 <- alice `submit` exerciseCmd (asV2 cid) V2.Proj.Debug
+  r2 === "V2:" <> show V2.Proj.T with p = alice, extra = None
+  pure ()
+
+testUpgradeFetchUpdate : Script ()
+testUpgradeFetchUpdate = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd
+    V1.Proj.T with p = alice
+  t1 <- alice `submit` createAndExerciseCmd
+    (Aux alice)
+    (FetchAsV1 (asSome cid))
+  t1 === V1.Proj.T with p = alice
+  t2 <- alice `submit` createAndExerciseCmd
+    (Aux alice)
+    (FetchAsV2 (asSome cid))
+  t2 === V2.Proj.T with p = alice, extra = None
+  pure ()
+
+testUpgradeExerciseUpdate : Script ()
+testUpgradeExerciseUpdate = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd
+    V1.Proj.T with p = alice
+  r1 <- alice `submit` createAndExerciseCmd
+    (Aux alice)
+    (ExeAsV1 (asSome cid))
+  r1 === "V1:" <> show V1.Proj.T with p = alice
+  r2 <- alice `submit` createAndExerciseCmd
+    (Aux alice)
+    (ExeAsV2 (asSome cid))
+  r2 === "V2:" <> show V2.Proj.T with p = alice, extra = None
+  pure ()

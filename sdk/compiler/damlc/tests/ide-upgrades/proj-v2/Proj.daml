@@ -1,0 +1,13 @@
+module Proj where
+
+template T
+  with
+    p : Party
+    extra: Optional Text -- v 2
+  where
+    signatory p
+
+    nonconsuming choice Debug: Text
+      controller p
+      do
+        pure $ "V2:" <> show this

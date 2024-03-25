@@ -1,0 +1,37 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//rules_daml:daml.bzl", "daml_compile", "daml_test")
+
+
+daml_compile(
+  name = "proj-v1",
+  version = "0.0.1",
+  project_name = "proj",
+  srcs = glob(["proj-v1/**/*.daml"]),
+)
+
+daml_compile(
+  name = "proj-v2",
+  version = "0.0.2",
+  project_name = "proj",
+  srcs = glob(["proj-v2/**/*.daml"]),
+)
+
+daml_test(
+  name = "ide-upgrades",
+  srcs = glob(["main/**/*.daml"]),
+  deps =
+    [
+      "//daml-script/daml3:daml3-script",
+    ],
+  data_deps =
+    [
+      "//compiler/damlc/tests/ide-upgrades:proj-v1.dar",
+      "//compiler/damlc/tests/ide-upgrades:proj-v2.dar",
+    ],
+  module_prefixes =
+    { "proj-0.0.1": "V1"
+    , "proj-0.0.2": "V2"
+    },
+)
