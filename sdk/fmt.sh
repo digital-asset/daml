@@ -84,7 +84,7 @@ USAGE
       ;;
     --diff)
       shift
-      merge_base="$(git merge-base origin/main HEAD)"
+      merge_base="$(git merge-base origin/main-2.x HEAD)"
       scalafmt_args+=('--mode=diff' "--diff-branch=${merge_base}")
       diff_mode=true
       ;;
