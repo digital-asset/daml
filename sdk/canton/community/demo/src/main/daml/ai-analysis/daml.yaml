@@ -1,0 +1,10 @@
+sdk-version: 2.9.0-snapshot.20240321.12695.0.v001e45dc
+name: ai-analysis
+source: AIAnalysis.daml
+init-script: AIAnalysis:setup
+version: 2.9.0
+dependencies: 
+- daml-prim
+- daml-stdlib
+- daml-script
+- ../../scala-2.13/resource_managed/main/medical-records.dar

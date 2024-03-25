@@ -13,7 +13,7 @@ jobs:
     name: ubuntu_20_04
     demands: assignment -equals default
   variables:
-    blackduck_script_sha: e4cf91f8e46df267274db5159f8557da811695b3
+    blackduck_script_sha: 13991807acfd54738421d374a9b7ca67d7b5ca3e
   steps:
   - checkout: self
     persistCredentials: true
@@ -21,6 +21,7 @@ jobs:
     displayName: 'Build/Install the Developer Environment'
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade assist)"
       export LC_ALL=en_US.UTF-8
 
@@ -30,6 +31,7 @@ jobs:
     displayName: 'Build'
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade-assist)"
 
       #needs to be specified since blackduck can not scan all bazel
@@ -51,6 +53,7 @@ jobs:
       BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade-assist)"
 
       #needs to be specified since blackduck can not scan all bazel
@@ -72,6 +75,7 @@ jobs:
       BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade-assist)"
 
       (cd language-support/ts && yarn install)
@@ -95,6 +99,7 @@ jobs:
       BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade-assist)"
 
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
@@ -114,6 +119,7 @@ jobs:
       BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade-assist)"
 
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
@@ -136,6 +142,7 @@ jobs:
       var_name: bash_lib
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(./dev-env/bin/dade-assist)"
       source $(bash_lib)
 
@@ -179,7 +186,7 @@ jobs:
       var_name: bash_lib
   - bash: |
       set -euo pipefail
-      eval "$(dev-env/bin/dade-assist)"
+      eval "$(sdk/dev-env/bin/dade-assist)"
       source $(bash_lib)
 
       latest=$(git ls-remote https://github.com/DACH-NY/security-blackduck.git master | awk '{print $1}')

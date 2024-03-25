@@ -5,6 +5,9 @@ steps:
 - bash: |
     set -euo pipefail
 
+    if [ -d sdk ]; then
+      cd sdk
+    fi
     eval "$(dev-env/bin/dade-assist)"
 
     exec 1> >(while IFS= read -r line; do echo "$(date -uIs) [out]: $line"; done)

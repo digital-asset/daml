@@ -1,0 +1,83 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "lf_scalacopts_stricter",
+)
+load("@build_environment//:configuration.bzl", "artif_pass", "artif_user")
+load("@os_info//:os_info.bzl", "is_windows")
+
+local_ee_canton = False
+
+genrule(
+    name = "canton-lib-ee",
+    # We don't use the else branch but we need a resolvable value
+    srcs = [":lib/canton-ee.jar"] if local_ee_canton else ["//canton:community_app_deploy.jar"],
+    outs = ["canton-lib-ee.jar"],
+    cmd = """
+set -euo pipefail
+
+if [ "{local}" = "true" ]; then
+    cp $(location {src}) $@
+    exit 0
+fi
+
+CANTON_ENTERPRISE_VERSION=2.9.0-snapshot.20240322.11898.0.vcb9fa21a
+CANTON_ENTERPRISE_SHA=313c5f6311d46d53f7a76ade3fa6a535c2832c9d57b5c9faf6be7f4c1c4f7f6c
+CANTON_ENTERPRISE_URL=https://digitalasset.jfrog.io/artifactory/assembly/daml/canton-backup/2.9.0-snapshot.20240322.11898.0.vcb9fa21a/313c5f6311d46d53f7a76ade3fa6a535c2832c9d57b5c9faf6be7f4c1c4f7f6c/canton-enterprise-2.9.0-snapshot.20240322.11898.0.vcb9fa21a.tar.gz
+
+url=$$CANTON_ENTERPRISE_URL
+
+curl=$(location {curl})
+
+tmp=$$(mktemp)
+auth=$$(echo -n "{artif_user}:{artif_pass}" | base64 -w0)
+$$curl --location \
+     --fail \
+     --insecure \
+     --silent \
+     -H "Authorization: Basic $$auth" \
+     $$url \
+ > $$tmp || echo >&2 " Failed to download from $$url \n Have you set your ARTIFACTORY_USERNAME and ARTIFACTORY_PASSWORD env vars correctly?"
+
+computed_sha=$$(sha256sum $$tmp | awk '{{print $$1}}')
+if [ "$$CANTON_ENTERPRISE_SHA" != "$$computed_sha" ]; then
+    echo "Wrong sha for canton enterprise jar." >&2
+    echo "Trying to download from: $$url" >&2
+    echo "Got: $$computed_sha" >&2
+    echo "Expected: $$CANTON_ENTERPRISE_SHA" >&2
+    exit 1
+fi
+
+tar xzf $$tmp
+
+cp canton-*/lib/*.jar $@
+""".format(
+        src = ":lib/canton-ee.jar" if local_ee_canton else "//canton:community_app_deploy.jar",  # not used in else case but still must resolve
+        artif_pass = artif_pass,
+        artif_user = artif_user,
+        curl = "@curl_dev_env//:bin/curl" if not is_windows else "@curl_dev_env//:bin/curl.exe",
+        local = "true" if local_ee_canton else "",
+    ),
+    tags = ["canton-ee"],
+    tools = [
+        "@curl_dev_env//:bin/curl" if not is_windows else "@curl_dev_env//:bin/curl.exe",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+java_import(
+    name = "lib-ee",
+    jars = [":canton-lib-ee.jar"],
+    tags = ["canton-ee"],
+)
+
+java_binary(
+    name = "canton-ee",
+    main_class = "com.digitalasset.canton.CantonEnterpriseApp",
+    tags = ["canton-ee"],
+    visibility = ["//ledger-service:__subpackages__"],
+    runtime_deps = ["//test-common/canton:lib-ee"],
+)

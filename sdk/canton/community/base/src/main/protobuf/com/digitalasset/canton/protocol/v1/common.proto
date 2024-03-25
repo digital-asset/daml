@@ -1,0 +1,34 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v1;
+
+import "com/digitalasset/canton/crypto/v0/crypto.proto";
+import "com/digitalasset/canton/protocol/v0/common.proto";
+import "google/protobuf/timestamp.proto";
+
+// Compared to v0: contract_salt was added
+message SerializableContract {
+  string contract_id = 1;
+  bytes raw_contract_instance = 2;
+  v0.SerializableContract.Metadata metadata = 3;
+  google.protobuf.Timestamp ledger_create_time = 4;
+  com.digitalasset.canton.crypto.v0.Salt contract_salt = 5; // optional
+}
+
+// Compared to v0: add package_name
+message GlobalKey {
+  bytes template_id = 1;
+  bytes key = 2;
+  string package_name = 3;
+}
+
+// Compared to v0: reference v1 GlobalKey
+message Metadata {
+  repeated string non_maintainer_signatories = 1;
+  repeated string non_signatory_stakeholders = 2;
+  GlobalKey key = 3; // optional: only set if contract has a key
+  repeated string maintainers = 4; // optional; only set if contract has a key
+}
