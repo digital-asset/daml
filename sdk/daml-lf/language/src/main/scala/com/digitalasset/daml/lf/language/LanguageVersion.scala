@@ -30,12 +30,12 @@ object LanguageVersion {
   implicit val Ordering: scala.Ordering[LanguageVersion] = {
     case (LanguageVersion(Major.V1, leftMinor), LanguageVersion(Major.V1, rightMinor)) =>
       Major.V2.minorVersionOrdering.compare(leftMinor, rightMinor)
-    case (LanguageVersion(Major.V1, _), _) =>
-      -1
     case (LanguageVersion(Major.V2, leftMinor), LanguageVersion(Major.V2, rightMinor)) =>
       Major.V2.minorVersionOrdering.compare(leftMinor, rightMinor)
-    case _ =>
-      1
+    case (v1, v2) =>
+      throw new IllegalArgumentException(
+        s"cannot compare version ${v1.pretty} with version ${v2.pretty}"
+      )
   }
 
   val All = Major.V2.supportedMinorVersions.map(LanguageVersion(Major.V2, _))
