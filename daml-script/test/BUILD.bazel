@@ -166,8 +166,8 @@ da_scala_library(
         "cpu:4",
         "dev-canton-test",
     ],
-    visibility = ["//visibility:public"],
     unused_dependency_checker_mode = "warn",
+    visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
