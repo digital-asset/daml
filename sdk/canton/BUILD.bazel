@@ -1351,27 +1351,6 @@ scala_library(
     visibility = ["//visibility:public"],
 )
 
-#proto_jars(
-#    name = "ledger_api_proto_internal",
-#    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
-#    grpc = True,
-#    java_conversions = True,
-#    strip_import_prefix = "community/ledger-api/src/main/protobuf",
-#    visibility = ["//visibility:public"],
-#    deps = [
-#        "@com_google_protobuf//:any_proto",
-#        "@com_google_protobuf//:descriptor_proto",
-#        "@com_google_protobuf//:duration_proto",
-#        "@com_google_protobuf//:empty_proto",
-#        "@com_google_protobuf//:field_mask_proto",
-#        "@com_google_protobuf//:struct_proto",
-#        "@com_google_protobuf//:timestamp_proto",
-#        "@com_google_protobuf//:wrappers_proto",
-#        "@go_googleapis//google/rpc:errdetails_proto",
-#        "@go_googleapis//google/rpc:status_proto",
-#    ],
-#)
-
 google_protobuf_src = "external/com_google_protobuf/src"
 
 genrule(

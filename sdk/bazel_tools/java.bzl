@@ -88,18 +88,12 @@ def da_java_library(
         exports = exports,
         **kwargs
     )
-    has_maven_coordinates = False
-    for tag in tags:
-        if tag.startswith("maven_coordinates="):
-            has_maven_coordinates = True
-
-    if has_maven_coordinates:
-        pom_file(
-            name = name + "_pom",
-            tags = tags,
-            target = ":" + name,
-            visibility = ["//visibility:public"],
-        )
+    pom_file(
+        name = name + "_pom",
+        tags = tags,
+        target = ":" + name,
+        visibility = ["//visibility:public"],
+    )
 
     # Disable the building of Javadoc on Windows as the rule fails to
     # find the sources under Windows.
