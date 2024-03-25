@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE PolyKinds           #-}
@@ -128,7 +128,6 @@ addNewSubIDEAndSend miState home msg = do
               , ideInHandleChannel = toSubIDEChan
               , ideOutHandleAsync = subIDEToCoord
               , ideProcess = subIdeProcess
-              , ideProcessID = pid
               , ideHomeDirectory = home
               , ideMessageIdPrefix = T.pack $ show pid
               , ideActive = True
@@ -164,7 +163,7 @@ runSubProc home = do
 shutdownIde :: MultiIdeState -> SubIDE -> IO ()
 shutdownIde miState ide = do
   ides <- atomically $ takeTMVar (subIDEsVar miState)
-  let shutdownId = LSP.IdString $ T.pack $ show (ideProcessID ide) <> "-shutdown"
+  let shutdownId = LSP.IdString $ ideMessageIdPrefix ide <> "-shutdown"
       (shutdownMsg :: LSP.FromClientMessage) = LSP.FromClientMess LSP.SShutdown LSP.RequestMessage 
         { _id = shutdownId
         , _method = LSP.SShutdown
@@ -227,6 +226,8 @@ sendSubIDEByPath miState path msg = do
     sendSubIDEByPath_ path msg = atomically $ do
       idesUnfiltered <- takeTMVar (subIDEsVar miState)
       let ides = onlyActiveSubIdes idesUnfiltered
+          -- Map.keys gives keys in ascending order, so first match will be the shortest.
+          -- No possibility to accidentally pick a nested package.
           mHome = find (`isPrefixOf` path) $ Map.keys ides
           mIde = mHome >>= flip Map.lookup ides
 

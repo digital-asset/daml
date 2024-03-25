@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE PolyKinds           #-}
@@ -25,7 +25,6 @@ import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Language.LSP.Types as LSP
 import System.IO.Extra
-import System.Process (Pid)
 import System.Process.Typed (Process)
 
 data TrackedMethod (m :: LSP.Method from 'LSP.Request) where
@@ -67,7 +66,6 @@ data SubIDE = SubIDE
   , ideOutHandleAsync :: Async ()
     -- ^ For sending messages to that SubIDE
   , ideProcess :: Process Handle Handle ()
-  , ideProcessID :: Pid 
   , ideHomeDirectory :: FilePath
   , ideMessageIdPrefix :: T.Text
     -- ^ Some unique string used to prefix message ids created by the SubIDE, to avoid collisions with other SubIDEs

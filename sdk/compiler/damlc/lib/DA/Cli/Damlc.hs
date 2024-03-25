@@ -14,7 +14,8 @@ module DA.Cli.Damlc (main, Command (..), fullParseArgs) where
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception (bracket, catch, displayException, handle, throwIO, throw)
 import Control.Exception.Safe (catchIO)
-import Control.Monad.Except (liftIO)
+import Control.Monad (forM, forM_, unless, void, when)
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Extra (allM, mapMaybeM, whenM, whenJust)
 import Control.Monad.Trans.Cont (ContT (..), evalContT)
 import DA.Bazel.Runfiles (setRunfilesEnv)
@@ -272,8 +273,6 @@ import GHC.Generics (Generic)
 import Development.Shake (Rules, RuleResult)
 import Development.Shake.Rule (RunChanged (ChangedRecomputeDiff, ChangedRecomputeSame))
 import qualified Development.IDE.Types.Logger as IDELogger
-
-import Control.Monad
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -866,7 +865,6 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
           withMultiPackageConfig multiPackageConfigPath $ \multiPackageConfig ->
             multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opts mbOutFile incrementalBuild initPkgDb noCache
 
-    -- TODO: This throws if you have the sdk-version only daml.yaml, ideally it should return Nothing
     mPkgConfig <- ContT $ withMaybeConfig $ withPackageConfig defaultProjectPath
     liftIO $ if getEnableMultiPackage enableMultiPackage then do
       mMultiPackagePath <- getMultiPackagePath multiPackageLocation
