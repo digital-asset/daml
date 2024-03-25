@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.console.commands
 
-import cats.implicits.toBifunctorOps
+import cats.syntax.either.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
@@ -462,7 +462,9 @@ class LocalParticipantTestingGroup(
       to: Option[Instant] = None,
       limit: PositiveInt = defaultLimit,
   ): Seq[PossiblyIgnoredProtocolEvent] =
-    state_inspection.findMessages(domain, from, to, Some(limit.value))
+    state_inspection
+      .findMessages(domain, from, to, Some(limit.value))
+      .map(_.valueOr(e => throw new IllegalStateException(e.toString)))
 
   @Help.Summary(
     "Return the sync crypto api provider, which provides access to all cryptographic methods",

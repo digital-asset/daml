@@ -77,7 +77,21 @@ final class GeneratorsProtocol(
       sequencerAggregateSubmissionTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
       onboardingRestriction <- Arbitrary.arbitrary[OnboardingRestriction]
 
-      acsCommitmentsCatchupConfig <- Gen.option(Arbitrary.arbitrary[AcsCommitmentsCatchUpConfig])
+      acsCommitmentsCatchupConfig <-
+        for {
+          isNone <- Gen.oneOf(true, false)
+          skip <- Gen.choose(1, Math.sqrt(PositiveInt.MaxValue.value.toDouble).intValue)
+          trigger <- Gen.choose(1, Math.sqrt(PositiveInt.MaxValue.value.toDouble).intValue)
+        } yield {
+          if (!isNone)
+            Some(
+              new AcsCommitmentsCatchUpConfig(
+                PositiveInt.tryCreate(skip),
+                PositiveInt.tryCreate(trigger),
+              )
+            )
+          else None
+        }
 
       dynamicDomainParameters = DynamicDomainParameters.tryCreate(
         confirmationResponseTimeout,

@@ -246,7 +246,7 @@
             <testing>true</testing>
         </rewrite>
 
-        <!-- TODO(i8846) upstream sequencing actor does throw on shutdown -->
+        <!-- TODO(i10394) upstream sequencing actor does throw on shutdown -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
             <logger>com.daml.grpc.adapter.RunnableSequencingActor</logger>
             <maxLevel>INFO</maxLevel>
@@ -356,7 +356,117 @@
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>
-
-    </appender>
-
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiParticipantPruningConformanceTestPostgres</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiShard0ConformanceTestPostgres</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiShard1ConformanceTestPostgres</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiShard2ConformanceTestPostgres</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiConformanceV1_15Postgres</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiInMemoryFanOutConformanceTest</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiTinyBuffersConformanceTestPostgres</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiCachesDisabledConformanceTestPostgres</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiStaticTimeConformanceTestPostgres</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiParticipantPruningConformanceTest</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiConformanceEventByKeyCachedTestPostgres</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiConformanceSuppressedLogsPostgres</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiContractKeyConformanceTestPostgres</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiContractKeyConformanceTestPostgres</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:DemoExampleReferenceIntegrationTest</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiExperimentalConformanceTest_Postgres</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+   </appender>
 </included>
