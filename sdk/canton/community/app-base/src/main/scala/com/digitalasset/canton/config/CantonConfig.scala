@@ -377,7 +377,6 @@ trait CantonConfig {
         ledgerApiServerParameters = participantParameters.ledgerApiServer,
         excludeInfrastructureTransactions = participantParameters.excludeInfrastructureTransactions,
         enableEngineStackTrace = participantParameters.enableEngineStackTraces,
-        enableContractUpgrading = participantParameters.enableContractUpgrading,
         iterationsBetweenInterruptions = participantParameters.iterationsBetweenInterruptions,
         journalGarbageCollectionDelay =
           participantParameters.journalGarbageCollectionDelay.toInternal,
@@ -922,6 +921,8 @@ object CantonConfig {
       deriveReader[CacheConfig]
     lazy implicit val cacheConfigWithTimeoutReader: ConfigReader[CacheConfigWithTimeout] =
       deriveReader[CacheConfigWithTimeout]
+    lazy implicit val sessionKeyCacheConfigReader: ConfigReader[SessionKeyCacheConfig] =
+      deriveReader[SessionKeyCacheConfig]
     lazy implicit val cachingConfigsReader: ConfigReader[CachingConfigs] =
       deriveReader[CachingConfigs]
     lazy implicit val adminWorkflowConfigReader: ConfigReader[AdminWorkflowConfig] =
@@ -1310,6 +1311,8 @@ object CantonConfig {
       deriveWriter[CacheConfig]
     lazy implicit val cacheConfigWithTimeoutWriter: ConfigWriter[CacheConfigWithTimeout] =
       deriveWriter[CacheConfigWithTimeout]
+    lazy implicit val sessionKeyCacheConfigWriter: ConfigWriter[SessionKeyCacheConfig] =
+      deriveWriter[SessionKeyCacheConfig]
     lazy implicit val cachingConfigsWriter: ConfigWriter[CachingConfigs] =
       deriveWriter[CachingConfigs]
     lazy implicit val adminWorkflowConfigWriter: ConfigWriter[AdminWorkflowConfig] =

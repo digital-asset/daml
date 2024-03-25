@@ -35,7 +35,6 @@ object DAMLe {
       enableLfDev: Boolean,
       enableStackTraces: Boolean,
       profileDir: Option[Path] = None,
-      enableContractUpgrading: Boolean = false,
       iterationsBetweenInterruptions: Long =
         10000, // 10000 is the default value in the engine configuration
   ): Engine =
@@ -55,7 +54,7 @@ object DAMLe {
         profileDir = profileDir,
         requireSuffixedGlobalContractId = true,
         contractKeyUniqueness = ContractKeyUniquenessMode.Off,
-        enableContractUpgrading = enableContractUpgrading,
+        enableContractUpgrading = true,
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
       )
     )

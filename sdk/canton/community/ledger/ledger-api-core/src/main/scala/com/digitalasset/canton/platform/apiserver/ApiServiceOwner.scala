@@ -70,7 +70,6 @@ object ApiServiceOwner {
       maxDeduplicationDuration: NonNegativeFiniteDuration,
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
       tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration],
-      upgradingEnabled: Boolean,
       disableUpgradeValidation: Boolean,
       // immutable configuration parameters
       participantId: Ref.ParticipantId,
@@ -171,7 +170,6 @@ object ApiServiceOwner {
         meteringReportKey = meteringReportKey,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
-        upgradingEnabled = upgradingEnabled,
         authenticateContract = authenticateContract,
         dynParamGetter = dynParamGetter,
         disableUpgradeValidation = disableUpgradeValidation,

@@ -180,7 +180,6 @@ class SubmitRequestValidatorTest
 
     new CommandsValidator(
       validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.UpgradingDisabled,
-      upgradingEnabled = false,
       validateDisclosedContracts = validateDisclosedContractsMock,
     )
   }
@@ -464,8 +463,7 @@ class SubmitRequestValidatorTest
           )
 
         val failingDisclosedContractsValidator = new CommandsValidator(
-          upgradingEnabled = false,
-          validateDisclosedContracts = validateDisclosedContractsMock,
+          validateDisclosedContracts = validateDisclosedContractsMock
         )
 
         requestMustFailWith(
@@ -483,39 +481,7 @@ class SubmitRequestValidatorTest
         )
       }
 
-      "not allow missing packageId (if upgrading disabled)" in {
-        requestMustFailWith(
-          request = testedCommandValidator
-            .validateCommands(
-              api.commands.copy(commands = Seq(api.commandWithPackageNameScoping)),
-              internal.ledgerTime,
-              internal.submittedAt,
-              internal.maxDeduplicationDuration,
-            ),
-          code = INVALID_ARGUMENT,
-          description =
-            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: package-name scoping for requests is only possible when smart contract upgrading feature is enabled",
-          metadata = Map.empty,
-        )
-      }
-
-      "not allow population of package_id_selection_preference (if upgrading disabled)" in {
-        requestMustFailWith(
-          request = testedCommandValidator
-            .validateCommands(
-              api.commands.copy(packageIdSelectionPreference = Seq("some-package-id")),
-              internal.ledgerTime,
-              internal.submittedAt,
-              internal.maxDeduplicationDuration,
-            ),
-          code = INVALID_ARGUMENT,
-          description =
-            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: package_id_selection_preference can only be set with smart contract upgrading feature enabled",
-          metadata = Map.empty,
-        )
-      }
-
-      "when upgrading enabled" should {
+      "when upgrading" should {
         val validateDisclosedContractsMock = mock[ValidateDisclosedContracts]
 
         when(validateDisclosedContractsMock(any[Commands])(any[ContextualizedErrorLogger]))
@@ -538,14 +504,13 @@ class SubmitRequestValidatorTest
             )
         }
 
-        val commandsValidatorWithUpgradingEnabled = new CommandsValidator(
-          upgradingEnabled = true,
+        val commandsValidatorForUpgrading = new CommandsValidator(
           validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
           validateDisclosedContracts = validateDisclosedContractsMock,
         )
 
         "allow package name reference instead of package id" in {
-          commandsValidatorWithUpgradingEnabled
+          commandsValidatorForUpgrading
             .validateCommands(
               api.commands.copy(commands = Seq(api.commandWithPackageNameScoping)),
               internal.ledgerTime,
@@ -558,7 +523,7 @@ class SubmitRequestValidatorTest
 
         "allow correctly specifying the package_id_selection_preference" in {
           val userPackageIdPreference = Seq("validPackageId", "anotherPackageId")
-          commandsValidatorWithUpgradingEnabled
+          commandsValidatorForUpgrading
             .validateCommands(
               api.commands.copy(packageIdSelectionPreference = userPackageIdPreference),
               internal.ledgerTime,

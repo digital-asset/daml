@@ -182,6 +182,7 @@ class StoreBasedTopologySnapshotX(
             mapping.parameters,
             storedTx.validFrom.value,
             storedTx.validUntil.map(_.value),
+            storedTx.serial,
             mapping.domain,
           )
         }
@@ -209,6 +210,7 @@ class StoreBasedTopologySnapshotX(
             dps.parameters,
             storedTx.validFrom.value,
             storedTx.validUntil.map(_.value),
+            storedTx.serial,
             dps.domain,
           )
         }
