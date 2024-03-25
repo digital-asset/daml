@@ -11,9 +11,11 @@ import reader.Errors
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.ArchivePayload
 import scalaz.std.either._
+import scalaz.std.tuple._
 import scalaz.syntax.bifunctor._
+import scalaz.syntax.std.boolean._
 
-import scala.collection.immutable.Map
+import scala.collection.immutable.{Map, SeqOps}
 import scala.jdk.CollectionConverters._
 
 // Duplicate of the one in com.daml.lf.language to separate Ast and Iface
@@ -98,6 +100,41 @@ final case class PackageSignature(
       findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT]
   ): PackageSignature = resolveChoices(findInterface, failIfUnresolvedChoicesLeft = false)
 
+  /** Update internal templates, as well as external templates via `setTemplates`,
+    * with retroactive interface implementations. Note retroactive interfaces are
+    * available only on LF 1.x
+    *
+    * @param setTemplate Used to look up templates that can't be found in this
+    *                    interface
+    */
+  private def resolveRetroImplements[S](
+      s: S
+  )(setTemplate: SetterAt[Ref.TypeConName, S, DefTemplate.FWT]): (S, PackageSignature) = {
+    type SandTpls = (S, Map[QualifiedName, TypeDecl.Template])
+    def setTpl(
+        sm: SandTpls,
+        tcn: Ref.TypeConName,
+    ): Option[(DefTemplate.FWT => DefTemplate.FWT) => SandTpls] = {
+      import PackageSignature.findTemplate
+      val (s, tplsM) = sm
+      if (tcn.packageId == packageId)
+        findTemplate(tplsM orElse typeDecls, tcn.qualifiedName).map {
+          case itt @ TypeDecl.Template(_, dt) =>
+            f => (s, tplsM.updated(tcn.qualifiedName, itt.copy(template = f(dt))))
+        }
+      else setTemplate(s, tcn) map (_ andThen ((_, tplsM)))
+    }
+
+    val ((sEnd, newTpls), newIfcs) = interfaces.foldLeft(
+      ((s, Map.empty): SandTpls, Map.empty[QualifiedName, DefInterface.FWT])
+    ) { case ((s, astIfs), (ifcName, astIf)) =>
+      astIf
+        .resolveRetroImplements(Ref.TypeConName(packageId, ifcName), s)(setTpl)
+        .rightMap(newIf => astIfs.updated(ifcName, newIf))
+    }
+    (sEnd, copy(typeDecls = typeDecls ++ newTpls, interfaces = newIfcs))
+  }
+
   private def resolveInterfaceViewType(n: Ref.QualifiedName): Option[Record.FWT] =
     typeDecls get n flatMap (_.asInterfaceViewType)
 }
@@ -155,6 +192,55 @@ object PackageSignature {
       k: K,
   ): Option[TypeDecl.Template] =
     m.lift(k) collect { case itt: TypeDecl.Template => itt }
+
+  // Given a lookup function for package state setters, produce a lookup function
+  // for setters on specific templates in that set of packages.
+  private[this] def setPackageTemplates[S](
+      findPackage: GetterSetterAt[PackageId, S, PackageSignature]
+  ): SetterAt[Ref.TypeConName, S, DefTemplate.FWT] = {
+    def go(s: S, tcn: Ref.TypeConName): Option[(DefTemplate.FWT => DefTemplate.FWT) => S] = for {
+      foundPkg <- findPackage(s, tcn.packageId)
+      (ifc, sIfc) = foundPkg
+      itt <- findTemplate(ifc.typeDecls, tcn.qualifiedName)
+    } yield f =>
+      sIfc(
+        ifc.copy(typeDecls =
+          ifc.typeDecls.updated(tcn.qualifiedName, itt.copy(template = f(itt.template)))
+        )
+      )
+    go
+  }
+
+  /** Extend the set of interfaces represented by `s` and `findPackage` with
+    * `newSignatures`.  Produce the resulting `S` and a replacement copy of
+    * `newSignatures` with templates and interfaces therein resolved.
+    *
+    * Does not search members of `s` for fresh interfaces.
+    */
+  def resolveRetroImplements[S, CC[B] <: Seq[B] with SeqOps[B, CC, CC[B]]](
+      s: S,
+      newSignatures: CC[PackageSignature],
+  )(
+      findPackage: GetterSetterAt[PackageId, S, PackageSignature]
+  ): (S, CC[PackageSignature]) = {
+    type St = (S, CC[PackageSignature])
+    val findTpl = setPackageTemplates[St] { case ((s, newSignatures), pkgId) =>
+      findPackage(s, pkgId).map(_.rightMap(_ andThen ((_, newSignatures)))).orElse {
+        val ix = newSignatures indexWhere (_.packageId == pkgId)
+        (ix >= 0) option ((newSignatures(ix), newSig => (s, newSignatures.updated(ix, newSig))))
+      }
+    }
+
+    (0 until newSignatures.size).foldLeft((s, newSignatures)) {
+      case (st @ (_, newSignatures), ifcK) =>
+        val ((s2, newSignatures2), newAtIfcK) =
+          newSignatures(ifcK).resolveRetroImplements(st)(findTpl)
+        // the tricky part here: newSignatures2 is guaranteed not to have altered
+        // the value at ifcK, and to have made all "self" changes in newAtIfcK.
+        // So there is no conflict, we can discard the value in the seq
+        (s2, newSignatures2.updated(ifcK, newAtIfcK))
+    }
+  }
 
   /** An argument for [[PackageSignature#resolveChoices]] given a package database,
     * such as json-api's `LedgerReader.PackageStore`.

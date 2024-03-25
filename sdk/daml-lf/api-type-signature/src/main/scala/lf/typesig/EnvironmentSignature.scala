@@ -8,6 +8,8 @@ import com.daml.lf.archive.Dar
 import data.Ref, Ref.{Identifier, PackageId}
 
 import scala.collection.immutable.Map
+import scalaz.std.tuple._
+import scalaz.syntax.functor._
 import scalaz.syntax.std.map._
 import scalaz.Semigroup
 
@@ -44,6 +46,21 @@ final case class EnvironmentSignature(
         case z: TypeDecl.Normal => z
       }
     })
+
+  def resolveRetroImplements: EnvironmentSignature = {
+    import PackageSignature.findTemplate
+    val (newTypeDecls, newInterfaces) = interfaces.foldLeft((typeDecls, interfaces)) {
+      case ((typeDecls, interfaces), (ifTc, defIf)) =>
+        defIf
+          .resolveRetroImplements(ifTc, typeDecls) { case (typeDecls, tplName) =>
+            findTemplate(typeDecls, tplName) map { itt => f =>
+              typeDecls.updated(tplName, itt.copy(template = f(itt.template)))
+            }
+          }
+          .map(defIf => interfaces.updated(ifTc, defIf))
+    }
+    copy(typeDecls = newTypeDecls, interfaces = newInterfaces)
+  }
 
   def resolveInterfaceViewType(tcn: Ref.TypeConName): Option[DefInterface.ViewTypeFWT] =
     typeDecls get tcn flatMap (_.asInterfaceViewType)

@@ -49,7 +49,7 @@ class PackageService(
   ) {
 
     def append(diff: PackageStore): State = {
-      val newPackageStore = this.packageStore ++ resolveChoicesIn(diff)
+      val newPackageStore = appendAndResolveRetroactiveInterfaces(resolveChoicesIn(diff))
       val (tpIdMap, ifaceIdMap) = getTemplateIdInterfaceMaps(newPackageStore)
       State(
         packageIds = newPackageStore.keySet,
