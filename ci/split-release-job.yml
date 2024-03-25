@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 jobs:
@@ -7,7 +7,8 @@ jobs:
   condition: and(succeeded(),
                  eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
                  eq(dependencies.check_for_release.outputs['out.split_release_process'], 'true'),
-                 eq(variables['Build.SourceBranchName'], 'main'))
+                 or(eq(variables['Build.SourceBranchName'], 'main'),
+                    eq(variables['Build.SourceBranchName'], 'main-2.x')))
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
@@ -25,11 +26,31 @@ jobs:
     - template: bash-lib.yml
       parameters:
         var_name: bash-lib
+    - bash: |
+        set -euo pipefail
+        major=$(cat sdk/NIGHTLY_PREFIX | awk -F. '{print $1}')
+        minor=$(cat sdk/NIGHTLY_PREFIX | awk -F. '{print $2}')
+        setvar() {
+          echo "Setting '$1' to '$2'"
+          echo "##vso[task.setvariable variable=$1]$2"
+        }
+        if [ "$major" = "2" ] && [ "$minor" -lt "9" ]; then
+          setvar skip_arm true
+        else
+          setvar skip_arm false
+        fi
     - task: DownloadPipelineArtifact@0
       inputs:
-        artifactName: linux-release
+        artifactName: linux-intel-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: linux-arm-release
+        targetPath: $(Build.StagingDirectory)/release-artifacts
+      condition: and(succeeded(),
+                     not(eq(variables.skip_arm, 'true')),
+                     not(eq(variables['skip-github'], 'TRUE')))
     - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: macos-release
@@ -42,6 +63,7 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        cd sdk
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         KEY_FILE=$(mktemp)
@@ -63,7 +85,7 @@ jobs:
     - bash: |
         set -eou pipefail
         # Note: this gets dev-env from the release commit, not the trigger commit
-        eval "$(./dev-env/bin/dade-assist)"
+        eval "$(sdk/dev-env/bin/dade-assist)"
         mkdir -p $(Build.StagingDirectory)/split-release
         ./ci/assembly-split-release-artifacts.sh $(release_tag) $(Build.StagingDirectory)/release-artifacts $(Build.StagingDirectory)/split-release
         jq -n \
@@ -74,6 +96,7 @@ jobs:
            > $(Build.StagingDirectory)/split-release/split-release/info.json
     - bash: |
         set -euo pipefail
+        cd sdk
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
@@ -87,16 +110,18 @@ jobs:
     - bash: |
         set -euo pipefail
         # Note: this gets dev-env from the release commit, not the trigger commit
-        eval "$(./dev-env/bin/dade-assist)"
+        eval "$(sdk/dev-env/bin/dade-assist)"
         ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag) split
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
     - bash: |
         set -euo pipefail
         # Note: this gets dev-env from the release commit, not the trigger commit
-        eval "$(./dev-env/bin/dade-assist)"
+        eval "$(sdk/dev-env/bin/dade-assist)"
         source $(bash-lib)
-        tell_slack "Split release \`$(release_tag)\` just pushed to Artifactory." \
+        sha=$(release_sha)
+        short_sha=${sha:0:8}
+        tell_slack "SDK release \`$(release_tag)\` (\`$short_sha\`) just pushed to Artifactory." \
                    "$(Slack.team-canton)"
     - template: tell-slack-failed.yml
       parameters:

@@ -1,0 +1,14 @@
+Transactions: 
+  TX 0 1970-01-01T00:00:00Z (LfStableMustFails:179:10)
+  #0:0
+  │   disclosed to (since): 'Alice' (0), 'Bob' (0)
+  └─> 'Alice' creates LfStableMustFails:X
+              with
+                p = 'Alice'; p2 = 'Bob'
+  
+  TX 1 1970-01-01T00:00:00Z
+     mustFailAt actAs: {'Alice'} readAs: {} (LfStableMustFails:180:3)
+
+Active contracts:  #0:0
+
+Return value: {}

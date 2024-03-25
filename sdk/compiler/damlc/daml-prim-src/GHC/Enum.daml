@@ -1,0 +1,233 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE CPP #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
+
+-- | MOVE Prelude
+--
+-- A weird module - based on base.GHC.Enum, but not realy in the GHC namespace.
+-- Has to live here so GHC can find it for deriving instances.
+module GHC.Enum
+  ( Bounded(..)
+  , Enum(..)
+  ) where
+
+import GHC.Types
+import GHC.Base
+
+-- Following imports must be loaded if someone tries to do deriving Enum
+import GHC.Err
+import Data.String()
+import GHC.Integer.Type
+import GHC.Num
+import GHC.Classes
+import GHC.CString (fromString)
+
+#ifdef DAML_EXCEPTIONS
+import GHC.Show(show)
+import DA.Exception.ArithmeticError
+#else
+import GHC.Show()
+#endif
+
+-- | Use the `Bounded` class to name the upper and lower limits of a
+-- type.
+--
+-- You can derive an instance of the `Bounded` class for any enumeration
+-- type. `minBound`  is the first constructor listed in the `data`
+-- declaration  and `maxBound` is the last.
+--
+-- You can also derive an instance of `Bounded` for single-constructor data types whose
+-- constituent types are in `Bounded`.
+--
+-- `Ord` is not a superclass of `Bounded` because types that are not
+-- totally ordered can still have upper and lower bounds.
+class Bounded a where
+    minBound, maxBound : a
+
+-- | Use the `Enum` class to define operations on sequentially ordered
+-- types: that is, types that can be enumerated. `Enum` members have
+-- defined successors and predecessors, which you can get with the `succ`
+-- and `pred` functions.
+--
+-- Types that are an instance of class `Bounded` as well as `Enum`
+-- should respect the following laws:
+--
+-- * Both `succ maxBound` and `pred minBound` should result in
+--   a runtime error.
+--
+-- * `fromEnum` and `toEnum` should give a runtime error if the
+--   result value is not representable in the result type.
+--   For example, `toEnum 7 : Bool` is an error.
+--
+-- * `enumFrom` and `enumFromThen` should be defined with an implicit bound,
+--   like this:
+--
+-- ```
+-- enumFrom     x   = enumFromTo     x maxBound
+-- enumFromThen x y = enumFromThenTo x y bound
+--     where
+--         bound | fromEnum y >= fromEnum x = maxBound
+--               | otherwise                = minBound
+-- ```
+--
+class  Enum a   where
+    -- | Returns the successor of the given value. For example, for
+    -- numeric types, `succ` adds 1.
+    --
+    -- If the type is also an instance of `Bounded`, `succ maxBound`
+    -- results in a runtime error.
+    succ                : a -> a
+    -- | Returns the predecessor of the given value. For example, for
+    -- numeric types, `pred` subtracts 1.
+    --
+    -- If the type is also an instance of `Bounded`, `pred minBound`
+    -- results in a runtime error.
+    pred                : a -> a
+    -- | Convert a value from an `Int` to an `Enum` value: ie,
+    -- `toEnum i` returns the item at the `i` th position of
+    -- (the instance of) `Enum`
+    toEnum              : Int -> a
+    -- | Convert a value from an `Enum` value to an `Int`: ie, returns
+    -- the `Int` position of the element within the `Enum`.
+    --
+    -- If `fromEnum` is applied to a value that's too large to
+    -- fit in an `Int`, what is returned is up to your implementation.
+    fromEnum            : a -> Int
+
+    -- | Return a list of the `Enum` values starting at the `Int`
+    -- position. For example:
+    --
+    -- * `enumFrom 6 : [Int] = [6,7,8,9,...,maxBound : Int]`
+    enumFrom            : a -> [a]
+    -- | Returns a list of the `Enum` values with the first value at
+    -- the first `Int` position, the second value at the second `Int`
+    -- position, and further values with the same distance between them.
+    --
+    -- For example:
+    --
+    -- * `enumFromThen 4 6 : [Int] = [4,6,8,10...]`
+    -- * `enumFromThen 6 2 : [Int] = [6,2,-2,-6,...,minBound :: Int]`
+    enumFromThen        : a -> a -> [a]
+    -- | Returns a list of the `Enum` values with the first value at
+    -- the first `Int` position, and the last value at the last `Int`
+    -- position.
+    --
+    -- This is what's behind the language feature that lets you write
+    -- `[n,m..]`.
+    --
+    -- For example:
+    --
+    -- * `enumFromTo 6 10 : [Int] = [6,7,8,9,10]`
+    enumFromTo          : a -> a -> [a]
+    -- | Returns a list of the `Enum` values with the first value at
+    -- the first `Int` position, the second value at the second `Int`
+    -- position, and further values with the same distance between them,
+    -- with the final value at the final `Int` position.
+    --
+    -- This is what's behind the language feature that lets you write
+    -- `[n,n'..m]`.
+    --
+    -- For example:
+    --
+    -- * `enumFromThenTo 4 2 -6 : [Int] = [4,2,0,-2,-4,-6]`
+    -- * `enumFromThenTo 6 8 2 : [Int] = []`
+    enumFromThenTo      : a -> a -> a -> [a]
+
+    succ x                 = toEnum (succ (fromEnum x))
+    pred x                 = toEnum (pred (fromEnum x))
+    enumFrom x             = map toEnum (enumFrom (fromEnum x))
+    enumFromThen x y       = map toEnum (enumFromThen (fromEnum x) (fromEnum y))
+    enumFromTo x y         = map toEnum (enumFromTo (fromEnum x) (fromEnum y))
+    enumFromThenTo x1 x2 y = map toEnum (enumFromThenTo (fromEnum x1) (fromEnum x2) (fromEnum y))
+
+
+instance Bounded Bool where
+    minBound = False
+    maxBound = True
+
+instance Enum Bool where
+    toEnum n | n == 0    = False
+             | n == 1    = True
+             | otherwise = error "Bool.toEnum: bad argument"
+    fromEnum False = 0
+    fromEnum True  = 1
+
+
+instance Bounded Int where
+    minBound =  (0 - 0x7FFFFFFFFFFFFFFF) - 1
+    maxBound =  0x7FFFFFFFFFFFFFFF
+
+instance  Enum Int  where
+
+#ifdef DAML_EXCEPTIONS
+    succ x
+       | x == maxBound  = primitive @"EThrow" (ArithmeticError ("ArithmeticError while evaluating (succ @Int " ++ show x ++ ")."))
+        | otherwise      = x + 1
+    pred x
+       | x == minBound  = primitive @"EThrow" (ArithmeticError ("ArithmeticError while evaluating (pred @Int " ++ show x ++ ")."))
+       | otherwise      = x - 1
+#else
+    succ x
+       | x == maxBound  = error "Prelude.Enum.succ{Int}: tried to take `succ' of maxBound"
+       | otherwise      = x + 1
+    pred x
+       | x == minBound  = error "Prelude.Enum.pred{Int}: tried to take `pred' of minBound"
+       | otherwise      = x - 1
+#endif
+
+    toEnum   x = x
+    fromEnum x = x
+
+    enumFrom x = eftInt x maxBound
+    enumFromTo x y = eftInt x y
+    enumFromThen x1 x2 = efdInt x1 x2
+    enumFromThenTo x1 x2 y = efdtInt x1 x2 y
+
+-- NOTE(MH): The functions below have been copied from ghc's base library.
+-- If we change them, we need to be super careful regarding overflows.
+eftInt : Int -> Int -> [Int]
+-- [x1..x2]
+eftInt x y | x > y = []
+           | x == y = [x]
+           | otherwise = x :: eftInt (x + 1) y
+
+efdInt : Int -> Int -> [Int]
+-- [x1,x2..maxInt]
+efdInt x1 x2
+ | x1 == x2 = error "enumFromThen: from == then"
+ | x2 >  x1 = efdtIntUp x1 x2 maxBound
+ | otherwise    = efdtIntDn x1 x2 minBound
+
+efdtInt : Int -> Int -> Int -> [Int]
+-- [x1,x2..y]
+efdtInt x1 x2 y
+ | x1 == x2 = error "enumFromThenTo: from == then"
+ | x2 >  x1 = efdtIntUp x1 x2 y
+ | otherwise    = efdtIntDn x1 x2 y
+
+-- Requires x2 > x1
+efdtIntUp : Int -> Int -> Int -> [Int]
+efdtIntUp x1 x2 y    -- Be careful about overflow!
+ | y < x2 = if y < x1 then [] else [x1]
+ | otherwise = x1 :: go_up delta y' x2
+    where delta = x2 - x1
+          y' = y - delta
+
+go_up : Int -> Int -> Int -> [Int]
+go_up delta y' x | x > y' = [x]
+                 | otherwise = x :: go_up delta y' (x + delta)
+
+-- Requires x2 < x1
+efdtIntDn : Int -> Int -> Int -> [Int]
+efdtIntDn x1 x2 y    -- Be careful about underflow!
+ | y > x2 = if y > x1 then [] else [x1]
+ | otherwise = x1 :: go_dn delta y' x2
+    where delta = x2 - x1
+          y' = y - delta
+
+go_dn : Int -> Int -> Int -> [Int]
+go_dn delta y' x | x < y' = [x]
+                 | otherwise = x :: go_dn delta y' (x + delta)

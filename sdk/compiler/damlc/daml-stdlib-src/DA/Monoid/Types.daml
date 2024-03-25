@@ -1,0 +1,42 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | MOVE DA.Monoid
+module DA.Monoid.Types
+  ( All(..)
+  , Any(..)
+  , Endo(..)
+  , Sum(..)
+  , Product(..)
+  ) where
+
+-- | Boolean monoid under conjunction (&&)
+newtype All = All { getAll : Bool }
+
+-- | Boolean Monoid under disjunction (||)
+newtype Any = Any { getAny : Bool }
+
+-- While Endo is not serializable and we therefore don’t care that
+-- much about having a stable package id, it seems more confusing than
+-- helpful to have Endo be the only type in DA.Monoid that does not
+-- have a stable package id.
+
+-- | The monoid of endomorphisms under composition.
+newtype Endo a = Endo { appEndo : a -> a }
+
+-- | Monoid under (+)
+--
+-- ```
+-- > Sum 1 <> Sum 2
+-- Sum 3
+-- ```
+newtype Sum a = Sum a
+
+-- | Monoid under (*)
+--
+-- ```
+-- > Product 2 <> Product 3
+-- Product 6
+-- ```
+newtype Product a = Product a
+

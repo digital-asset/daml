@@ -1,0 +1,11 @@
+--- a/absl/synchronization/BUILD.bazel
++++ b/absl/synchronization/BUILD.bazel
+@@ -112,7 +112,7 @@
+         "mutex.h",
+         "notification.h",
+     ],
+-    copts = ABSL_DEFAULT_COPTS,
++    copts = ABSL_DEFAULT_COPTS + ["-D_WIN32_WINNT=0x0A00"],
+     linkopts = select({
+         "//absl:msvc_compiler": [],
+         "//absl:clang-cl_compiler": [],

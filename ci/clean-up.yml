@@ -1,10 +1,13 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 steps:
 - bash: |
     set -euo pipefail
 
+    if [ -d sdk ]; then
+      cd sdk
+    fi
     eval "$(dev-env/bin/dade-assist)"
 
     exec 1> >(while IFS= read -r line; do echo "$(date -uIs) [out]: $line"; done)

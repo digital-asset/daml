@@ -1,0 +1,63 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test", "generate_and_track_cabal")
+load("@os_info//:os_info.bzl", "is_windows")
+
+da_haskell_library(
+    name = "da-hs-base",
+    srcs = glob(["src/**/*.hs"]),
+    hackage_deps = [
+        "aeson-pretty",
+        "aeson",
+        "ansi-terminal",
+        "async",
+        "base",
+        "binary",
+        "blaze-html",
+        "bytestring",
+        "conduit",
+        "containers",
+        "deepseq",
+        "directory",
+        "extra",
+        "filepath",
+        "hashable",
+        "lens",
+        "network",
+        "optparse-applicative",
+        "pretty",
+        "process",
+        "safe",
+        "safe-exceptions",
+        "tar-conduit",
+        "tasty-quickcheck",
+        "tasty",
+        "text",
+        "time",
+        "unordered-containers",
+        "unix-compat",
+        "vector",
+    ] + ([] if is_windows else ["unix"]),
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+)
+
+da_haskell_test(
+    name = "da-hs-base-options-tests",
+    srcs = glob(["tests/Options.hs"]),
+    hackage_deps = [
+        "base",
+        "tasty",
+        "tasty-hunit",
+        "optparse-applicative",
+    ],
+    main_function = "Options.main",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+generate_and_track_cabal("da-hs-base")

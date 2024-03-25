@@ -1,0 +1,14 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Npm1 where
+template T
+  with
+    p : Party
+  where
+    signatory p
+    choice C : Int
+      with
+        controller p
+          do return 42
+

@@ -1,0 +1,32 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+
+module InterfaceNoExerciseRequiring where
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface Token where
+  viewtype EmptyInterfaceView
+
+  getOwner : Party
+  getAmount : Int
+  setAmount : Int -> Token
+
+  choice GetRich : ContractId Token
+    with
+      byHowMuch : Int
+    controller getOwner this
+    do
+        assert (byHowMuch > 0)
+        create $ setAmount this (getAmount this + byHowMuch)
+
+interface SubToken requires Token where
+  viewtype EmptyInterfaceView
+
+-- @ERROR range=31:3-32:26; Possible Daml-specific reason for the following type error: Tried to exercise a choice ‘GetRich’ on interface ‘SubToken’ The choice ‘GetRich’ belongs to interface ‘Token’ which ‘SubToken’ implements.
+cannotExercise : ContractId SubToken -> Update (ContractId Token)
+cannotExercise sub = do
+  exercise sub GetRich with
+    byHowMuch = 1_000_000

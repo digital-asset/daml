@@ -1,0 +1,16 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@os_info//:os_info.bzl", "is_windows")
+
+sh_binary(
+    name = "package-app",
+    srcs = ["package-app.sh"],
+    data = [
+        "//bazel_tools/sh:mktgz",
+        "@gzip_dev_env//:gzip",
+        "@tar_dev_env//:tar",
+    ] + (["@patchelf_nix//:bin/patchelf"] if not is_windows else []),
+    visibility = ["//visibility:public"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)

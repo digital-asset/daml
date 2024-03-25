@@ -1,0 +1,96 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+load("@os_info//:os_info.bzl", "is_windows")
+load("@build_environment//:configuration.bzl", "sdk_version")
+
+genrule(
+    name = "templates-tarball",
+    srcs = glob(
+        [
+            "default-gitattributes",
+            "default-gitignore",
+            "default-dlint.yaml",
+            "skeleton/**",
+            "empty-skeleton/**",
+            "quickstart-java/**",
+        ],
+        exclude = ["**/NO_AUTO_COPYRIGHT"],
+    ) + [
+        "//docs:quickstart-java.tar.gz",
+        "//docs:daml-intro-templates",
+        "//docs:daml-patterns",
+        "//docs:script-example-template",
+        "@daml-finance//:quickstart",
+        "@daml-finance//:lifecycling",
+        "@daml-finance//:settlement",
+        "@daml-finance//:upgrades",
+        "@daml-finance//:payoff-modeling",
+    ],
+    outs = ["templates-tarball.tar.gz"],
+    cmd = """
+        SRC=$$(mktemp -d)
+        OUT=$$(mktemp -d)/templates-tarball
+        trap "rm -rf $$SRC $$OUT" EXIT
+        mkdir -p $$OUT
+
+        cp -rL templates/* $$SRC/
+
+        # templates in templates dir
+        for d in skeleton \
+                 empty-skeleton \
+                 quickstart-java; do
+            mkdir -p $$OUT/$$d
+            cp -rL $$SRC/$$d/* $$OUT/$$d/
+            for f in gitattributes gitignore dlint.yaml; do
+                if [ -f "$$SRC/$$d/.$$f" ]; then
+                    cp "$$SRC/$$d/.$$f" "$$OUT/$$d/.$$f"
+                else
+                    cp "$$SRC/default-$$f" "$$OUT/$$d/.$$f"
+                fi
+            done
+        done
+
+        ## special cases we should work to remove
+
+        # quickstart-java template
+        tar xf $(location //docs:quickstart-java.tar.gz) --strip-components=1 -C $$OUT/quickstart-java
+
+        # daml intro templates
+        tar xf $(location //docs:daml-intro-templates) -C $$OUT
+
+        mkdir -p $$OUT/script-example
+        tar xf $(location //docs:script-example-template) -C $$OUT/script-example
+
+        mkdir -p $$OUT/daml-patterns
+        tar xf $(location //docs:daml-patterns) --strip-components=1 -C $$OUT/daml-patterns
+
+        # daml finance quickstarter
+        mkdir -p $$OUT/quickstart-finance
+        tar xf $(location @daml-finance//:quickstart) -C $$OUT/quickstart-finance
+
+        # daml finance lifecycling
+        mkdir -p $$OUT/finance-lifecycling
+        tar xf $(location @daml-finance//:lifecycling) -C $$OUT/finance-lifecycling
+
+        # daml finance settlement
+        mkdir -p $$OUT/finance-settlement
+        tar xf $(location @daml-finance//:settlement) -C $$OUT/finance-settlement
+
+        # daml finance upgrades
+        mkdir -p $$OUT/finance-upgrades
+        tar xf $(location @daml-finance//:upgrades) -C $$OUT/finance-upgrades
+
+        # daml finance payoff-modeling
+        mkdir -p $$OUT/finance-payoff-modeling
+        tar xf $(location @daml-finance//:payoff-modeling) -C $$OUT/finance-payoff-modeling
+
+        DIR=$$(pwd)
+        cd $$OUT/..
+        $$DIR/$(execpath //bazel_tools/sh:mktgz) $$DIR/$@ templates-tarball
+    """.format(sdk_version = sdk_version),
+    tools = [
+        "//bazel_tools/sh:mktgz",
+        "@patch_dev_env//:patch",
+    ],
+    visibility = ["//visibility:public"],
+)

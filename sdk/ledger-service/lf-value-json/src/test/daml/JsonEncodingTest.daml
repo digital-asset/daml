@@ -1,0 +1,55 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module JsonEncodingTest where
+
+data Foo = Bar Int | Baz BazRecord | Qux
+    deriving (Eq, Show)
+
+data BazRecord = BazRecord { baz : Text }
+    deriving (Eq, Show)
+
+data Person = Person { name : Text, age: Int, address: Text }
+
+data AccountStatus = Enabled Time | Disabled Time
+  deriving (Eq, Show)
+
+template Account with
+    owner : Party
+    number : Text
+    status : AccountStatus
+  where
+    signatory owner
+
+    key (owner, number) : (Party, Text)
+    maintainer key._1
+
+template KeyedByParty with
+    name: Text
+    party: Party
+    age: Int
+  where
+    signatory party
+    key party: Party
+    maintainer key
+
+template KeyedByPartyInt with
+    name: Text
+    party: Party
+    age: Int
+  where
+    signatory party
+    key (party, age): (Party, Int)
+    maintainer key._1
+
+template KeyedByVariantAndRecord with
+    name: Text
+    party: Party
+    age: Int
+    fooVariant: Foo
+    bazRecord: BazRecord
+  where
+    signatory party
+    key (party, (age, fooVariant, bazRecord)): (Party, (Int, Foo, BazRecord))
+    maintainer key._1

@@ -1,0 +1,20 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+module TextMod {
+
+  record @serializable Box = { x: Text, party: Party  } ;
+
+  template (this : Box) =  {
+    precondition True;
+    signatories (PartyMod:one (TextMod:Box {party} this));
+    observers (Nil @Party);
+  };
+
+  val build: Party -> TextMod:Box = \(p : Party) ->
+    TextMod:Box {
+      x  = "some text",
+      party = p
+    };
+
+}

@@ -1,0 +1,108 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module DA.List.Total
+  ( module DA.List
+  , head
+  , tail
+  , init
+  , last
+  , foldl1
+  , foldr1
+  , foldBalanced1
+  , (!!)
+  , minimumBy
+  , maximumBy
+  , minimumOn
+  , maximumOn
+  )
+where
+
+import DA.List hiding (foldBalanced1, head, tail, init, last, foldl1, foldr1,
+                       (!!), minimumBy, maximumBy, minimumOn, maximumOn)
+
+import qualified DA.List
+
+-- | Return the first element of a list. Return `None` if list is empty.
+head : [a] -> Optional a
+head = \case
+  (x :: _) -> Some x
+  [] -> None
+
+-- | Return all but the first element of a list. Return `None` if list is empty.
+tail : [a] -> Optional [a]
+tail = \case
+  (_ :: xs) -> Some xs
+  [] -> None
+
+-- | Extract the last element of a list. Returns `None` if list is empty.
+last : [a] -> Optional a
+last = foldl1 (flip const)
+
+-- | Return all the elements of a list except the last one. Returns `None` if list is empty.
+init : [a] -> Optional [a]
+init = \case
+  [] -> None
+  [_] -> Some []
+  (x :: xs) -> do
+    xs' <- init xs
+    Some (x :: xs')
+
+infixl 9 !!
+-- | Return the nth element of a list. Return `None` if index is out of bounds.
+(!!) : [a] -> Int -> Optional a
+_ !! i | i < 0 = None
+[] !! _ = None
+(x::_) !! 0 = Some x
+(_::xs) !! i = xs !! (i-1)
+
+-- | Fold left starting with the head of the list.
+-- For example, `foldl1 f [a,b,c] = f (f a b) c`.
+-- Return `None` if list is empty.
+foldl1 : (a -> a -> a) -> [a] -> Optional a
+foldl1 f (x::xs) = Some (foldl f x xs)
+foldl1 _  [] = None
+
+-- | Fold right starting with the last element of the list.
+-- For example, `foldr1 f [a,b,c] = f a (f b c)`
+foldr1 : (a -> a -> a) -> [a] -> Optional a
+foldr1 f [] = None
+foldr1 f xs = foldl1 (flip f) (reverse xs)
+
+-- | Fold a non-empty list in a balanced way. Balanced means that each
+-- element has approximately the same depth in the operator
+-- tree. Approximately the same depth means that the difference
+-- between maximum and minimum depth is at most 1. The accumulation
+-- operation must be associative and commutative in order to get the
+-- same result as `foldl1` or `foldr1`.
+--
+-- Return `None` if list is empty.
+foldBalanced1 : (a -> a -> a) -> [a] -> Optional a
+foldBalanced1 f [] = None
+foldBalanced1 f xs = Some (DA.List.foldBalanced1 f xs)
+
+-- | Return the least element of a list according to the given comparison function.
+-- Return `None` if list  is empty.
+minimumBy : (a -> a -> Ordering) -> [a] -> Optional a
+minimumBy _ [] = None
+minimumBy f xs = Some (DA.List.minimumBy f xs)
+
+-- | Return the greatest element of a list according to the given comparison function.
+-- Return `None` if list is empty.
+maximumBy : (a -> a -> Ordering) -> [a] -> Optional a
+maximumBy _ [] = None
+maximumBy f xs = Some (DA.List.maximumBy f xs)
+
+-- | Return the least element of a list when comparing by a key function.
+-- For example `minimumOn (\(x,y) -> x + y) [(1,2), (2,0)] == Some (2,0)`.
+-- Return `None` if list is empty.
+minimumOn : (Ord k) => (a -> k) -> [a] -> Optional a
+minimumOn _ [] = None
+minimumOn f xs = Some (DA.List.minimumOn f xs)
+
+-- | Return the greatest element of a list when comparing by a key function.
+-- For example `maximumOn (\(x,y) -> x + y) [(1,2), (2,0)] == Some (1,2)`.
+-- Return `None` if list is empty.
+maximumOn : (Ord k) => (a -> k) -> [a] -> Optional a
+maximumOn _ [] = None
+maximumOn f xs = Some (DA.List.maximumOn f xs)

@@ -1,0 +1,185 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+
+#ifndef DAML_EXCEPTIONS
+
+-- | HIDE
+module DA.Internal.Exception where
+
+#else
+
+-- | MOVE DA.Exception This module contains the definitions needed for exception desugaring.
+module DA.Internal.Exception
+    ( module DA.Internal.Exception
+    , AnyException
+    , GeneralError (GeneralError)
+    , ArithmeticError (ArithmeticError)
+    , AssertionFailed (AssertionFailed)
+    , PreconditionFailed (PreconditionFailed)
+    ) where
+
+import GHC.Types
+import DA.Exception.GeneralError ( GeneralError (GeneralError) )
+import DA.Exception.ArithmeticError ( ArithmeticError (ArithmeticError) )
+import DA.Exception.AssertionFailed ( AssertionFailed (AssertionFailed) )
+import DA.Exception.PreconditionFailed  ( PreconditionFailed   (PreconditionFailed) )
+import DA.Internal.LF
+import DA.Internal.Prelude
+import DA.Internal.Record
+
+--------------------------------------------------------------
+
+-- | HIDE DatatypeContexts tag for user-defined exception types.
+-- Used internally by the Daml compiler.
+class DamlException
+instance DamlException
+
+--------------------------------------------------------------
+
+-- | Exception typeclass. This should not be implemented directly,
+-- instead, use the `exception` syntax.
+type Exception e =
+    ( HasThrow e
+    , HasMessage e
+    , HasToAnyException e
+    , HasFromAnyException e
+    )
+
+-- | Part of the `Exception` constraint.
+class HasThrow e where
+    -- | Throw exception in a pure context.
+    throwPure : forall t. e -> t
+
+-- | Part of the `Exception` constraint.
+class HasMessage e where
+    -- | Get the error message associated with an exception.
+    message : e -> Text
+
+-- | Part of the `Exception` constraint.
+class HasToAnyException e where
+    -- | Convert an exception type to AnyException.
+    toAnyException : e -> AnyException
+
+-- | Part of the `Exception` constraint.
+class HasFromAnyException e where
+    -- | Convert an AnyException back to the underlying exception type, if possible.
+    fromAnyException : AnyException -> Optional e
+
+--------------------------------------------------------------
+
+-- No throw for AnyException.
+
+instance HasMessage AnyException where
+    message = primitive @"BEAnyExceptionMessage"
+
+instance HasToAnyException AnyException where
+    toAnyException e = e
+
+instance HasFromAnyException AnyException where
+    fromAnyException = Some
+
+--------------------------------------------------------------
+
+instance GetField "message" GeneralError Text where
+    getField (GeneralError m) = m
+
+instance SetField "message" GeneralError Text where
+    setField m (GeneralError _) = GeneralError m
+
+instance HasThrow GeneralError where
+    throwPure = primitive @"EThrow"
+
+instance HasMessage GeneralError where
+    message (GeneralError m) = m
+
+instance HasToAnyException GeneralError where
+    toAnyException = primitive @"EToAnyException"
+
+instance HasFromAnyException GeneralError where
+    fromAnyException = primitive @"EFromAnyException"
+
+--------------------------------------------------------------
+
+instance GetField "message" ArithmeticError Text where
+    getField (ArithmeticError m) = m
+
+instance SetField "message" ArithmeticError Text where
+    setField m (ArithmeticError _) = ArithmeticError m
+
+instance HasThrow ArithmeticError where
+    throwPure = primitive @"EThrow"
+
+instance HasMessage ArithmeticError where
+    message (ArithmeticError m) = m
+
+instance HasToAnyException ArithmeticError where
+    toAnyException = primitive @"EToAnyException"
+
+instance HasFromAnyException ArithmeticError where
+    fromAnyException = primitive @"EFromAnyException"
+
+--------------------------------------------------------------
+
+instance GetField "message" PreconditionFailed Text where
+    getField (PreconditionFailed m) = m
+
+instance SetField "message" PreconditionFailed Text where
+    setField m (PreconditionFailed _) = PreconditionFailed m
+
+instance HasThrow PreconditionFailed where
+    throwPure = primitive @"EThrow"
+
+instance HasMessage PreconditionFailed where
+    message (PreconditionFailed m) = m
+
+instance HasToAnyException PreconditionFailed where
+    toAnyException = primitive @"EToAnyException"
+
+instance HasFromAnyException PreconditionFailed where
+    fromAnyException e =
+      primitive @"EFromAnyException" e
+
+--------------------------------------------------------------
+
+instance GetField "message" AssertionFailed Text where
+    getField (AssertionFailed m) = m
+
+instance SetField "message" AssertionFailed Text where
+    setField m (AssertionFailed _) = AssertionFailed m
+
+instance HasThrow AssertionFailed where
+    throwPure = primitive @"EThrow"
+
+instance HasMessage AssertionFailed where
+    message (AssertionFailed m) = m
+
+instance HasToAnyException AssertionFailed where
+    toAnyException = primitive @"EToAnyException"
+
+instance HasFromAnyException AssertionFailed where
+    fromAnyException = primitive @"EFromAnyException"
+
+--------------------------------------------------------------
+
+-- | Action type in which `throw` is supported.
+class Action m => ActionThrow m where
+    throw : Exception e => e -> m t
+
+-- | Action type in which `try ... catch ...` is supported.
+class ActionThrow m => ActionCatch m where
+    -- | Handle an exception. Use the `try ... catch ...` syntax
+    -- instead of calling this method directly.
+    _tryCatch : (() -> m t) -> (AnyException -> Optional (m t)) -> m t
+
+instance ActionThrow Update where
+    throw e = pure () >>= \_ -> throwPure e
+
+instance ActionCatch Update where
+    _tryCatch = primitive @"UTryCatch"
+
+-- Can't catch in scenarios.
+
+#endif

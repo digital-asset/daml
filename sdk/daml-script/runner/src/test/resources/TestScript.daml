@@ -1,0 +1,22 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module TestScript where
+
+import Daml.Script
+
+-- Each script gets the time to ensure the ledger is called
+myScript : Script ()
+myScript = do
+  _ <- getTime
+  debug "Ran myScript"
+
+myOtherScript : Script ()
+myOtherScript = do
+  _ <- getTime
+  debug "Ran myOtherScript"
+
+inputScript : Int -> Script ()
+inputScript i = do
+  _ <- getTime
+  debug $ "Got " <> show i

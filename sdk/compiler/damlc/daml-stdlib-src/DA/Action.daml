@@ -1,0 +1,93 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | Action
+module DA.Action
+  (void
+  ,mapA
+  ,forA
+  ,sequence
+  ,Action(..)
+  ,join
+  ,module DA.Action
+  ) where
+
+import DA.Functor
+
+-- | Conditional execution of `Action` expressions. For example,
+-- ```
+--   when final (archive contractId)
+-- ```
+-- will archive the contract `contractId` if the Boolean value `final` is
+-- `True`, and otherwise do nothing.
+--
+-- This function has short-circuiting semantics, i.e., when both arguments are
+-- present and the first arguments evaluates to `False`, the second argument
+-- is not evaluated at all.
+when : Applicative f => Bool -> f () -> f ()
+when p s  = if p then s else pure ()
+
+-- | The reverse of `when`.
+--
+-- This function has short-circuiting semantics, i.e., when both arguments are
+-- present and the first arguments evaluates to `True`, the second argument
+-- is not evaluated at all.
+unless : Applicative f => Bool -> f () -> f ()
+unless p s  = if p then pure () else s
+
+-- | The `foldrA` is analogous to `foldr`, except that its result is
+-- encapsulated in an action. Note that `foldrA` works from right-to-left
+-- over the list arguments.
+foldrA : Action m => (a -> b -> m b) -> b -> [a] -> m b
+foldrA f x xs = foldr (\ y acc -> do v <- acc; f y v) (pure x) xs
+
+-- | `foldr1A` is like `foldrA` but raises an error when presented
+-- with an empty list argument.
+foldr1A : Action m => (a -> a -> m a) -> [a] -> m a
+foldr1A f (x :: xs) = foldrA f x xs
+foldr1A _ [] = error "foldr1A: empty list"
+
+-- | `foldlA` is analogous to `foldl`, except that its result is
+-- encapsulated in an action. Note that `foldlA` works from
+-- left-to-right over the list arguments.
+foldlA : Action m => (b -> a -> m b) -> b -> [a] -> m b
+foldlA f x xs = foldl (\ acc y -> do v <- acc; f v y) (pure x) xs
+
+-- | The `foldl1A` is like `foldlA` but raises an errors when
+-- presented with an empty list argument.
+foldl1A : Action m => (a -> a -> m a) -> [a] -> m a
+foldl1A f (x :: xs) = foldlA f x xs
+foldl1A _ [] = error "foldl1M: empty list"
+
+-- | Filters the list using the applicative function: keeps only the elements where the predicate holds.
+-- Example: given a collection of Iou contract IDs one can find only the GBPs.
+--
+-- ```
+-- filterA (fmap (\iou -> iou.currency == "GBP") . fetch) iouCids
+-- ```
+filterA : Applicative m => (a -> m Bool) -> [a] -> m [a]
+filterA p = foldr (\x -> liftA2 (\pHolds -> if pHolds then (x ::) else identity) (p x)) (pure [])
+
+-- | `replicateA n act` performs the action `n` times, gathering the
+--  results.
+replicateA : (Applicative m) => Int -> m a -> m [a]
+replicateA n x
+  | n <= 0 = pure []
+  | otherwise = liftA2 (::) x (replicateA (n-1) x)
+
+-- | Like `replicateA`, but discards the result.
+replicateA_ : Applicative m => Int -> m a -> m ()
+replicateA_ n f
+  | n <= 0 = pure ()
+  | otherwise = f *> replicateA_ (n - 1) f
+
+infixr 1 <=<, >=>
+
+-- | Left-to-right composition of Kleisli arrows.
+(>=>) : Action m => (a -> m b) -> (b -> m c) -> (a -> m c)
+f >=> g = \x -> f x >>= g
+
+-- | Right-to-left composition of Kleisli arrows. @('>=>')@, with the arguments
+-- flipped.
+(<=<) : Action m => (b -> m c) -> (a -> m b) -> (a -> m c)
+(<=<) = flip (>=>)

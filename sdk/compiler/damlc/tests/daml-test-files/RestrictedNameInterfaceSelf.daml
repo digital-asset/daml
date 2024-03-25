@@ -1,0 +1,15 @@
+-- @ERROR range=13:7-13:11; `self' is a prohibited field name, please use something else.
+
+
+module RestrictedNameInterfaceSelf where
+
+data ViewType = ViewType {
+  p : Party
+}
+
+interface I where
+  viewtype ViewType
+  choice Call : () with
+      self : Int
+    controller p view
+    do pure ()

@@ -1,0 +1,42 @@
+{
+  "name": "digital-asset_daml_dummy",
+  "displayName": "digital-asset_daml_dummy",
+  "description": "package for bazel-managed nodejs dependencies",
+  "private": true,
+  "version": "0.0.0",
+  "resolutions": {
+    "@bazel/typescript/**/protobufjs": "^6.10.3",
+    "**/glob-parent": "^5.1.2",
+    "semver": "5.7.2"
+  },
+  "dependencies": {
+    "@mixer/parallel-prettier": "^2.0.1",
+    "bower": "1.8.8",
+    "coffeescript": "^2.5.1",
+    "color-convert": "2.0.1",
+    "colors": "1.4.0",
+    "express": "^4.17.3",
+    "express-session": "^1.15.6",
+    "grunt": "^1.5.3",
+    "grunt-banner": "0.6.0",
+    "grunt-browserify": "6.0.0",
+    "grunt-cli": "^1.4.3",
+    "grunt-contrib-clean": "2.0.0",
+    "grunt-contrib-connect": "2.0.0",
+    "grunt-contrib-copy": "1.0.0",
+    "grunt-contrib-sass": "1.0.0",
+    "grunt-contrib-uglify": "4.0.0",
+    "grunt-contrib-watch": "1.1.0",
+    "grunt-exec": "3.0.0",
+    "grunt-open": "0.2.4",
+    "http-proxy": "^1.17.0",
+    "node-cache": "^4.2.0",
+    "setprototypeof": "^1.2.0",
+    "typescript": "3.7.4",
+    "url": "^0.11.0"
+  },
+  "devDependencies": {
+    "@bazel/hide-bazel-files": "1.7.0",
+    "@bazel/typescript": "4.6.1"
+  }
+}

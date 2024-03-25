@@ -1,0 +1,42 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module LockIou where
+
+import Iou (GetCash(..), Amount)
+
+template LockableIou
+  with
+    payer: Party
+    owner: Party
+    amount: Amount
+  where
+    signatory payer
+    observer owner
+
+    choice Assign : ContractId LockedIou
+      with
+        beneficiary: Party
+      controller owner
+        do
+          create LockedIou with payer; owner; beneficiary; amount
+
+    choice Call : ContractId GetCash
+      controller owner
+        do
+          create GetCash with payer; owner; amount
+
+template LockedIou
+  with
+    payer: Party
+    owner: Party
+    beneficiary: Party
+    amount: Amount
+  where
+    signatory payer
+    observer beneficiary, owner
+
+    choice Transfer : ContractId LockableIou
+      controller owner
+        do
+          create LockableIou with payer; owner = beneficiary; amount

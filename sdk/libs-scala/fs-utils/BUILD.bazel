@@ -1,0 +1,17 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+)
+
+da_scala_library(
+    name = "fs-utils",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.daml:fs-utils:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-scala/resources",
+    ],
+)

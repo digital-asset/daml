@@ -1,0 +1,75 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@os_info//:os_info.bzl", "is_windows")
+load("@build_bazel_rules_nodejs//:index.bzl", "pkg_npm")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//language-support/ts:defs.bzl", "da_ts_library")
+load("//language-support/ts:eslint.bzl", "eslint_test")
+load("//language-support/ts:jest.bzl", "jest_test")
+load("@build_environment//:configuration.bzl", "sdk_version")
+
+sources = [
+    "index.ts",
+    "index.test.ts",
+    "createLedgerContext.ts",
+    "defaultLedgerContext.ts",
+]
+
+da_ts_library(
+    name = "daml-react",
+    srcs = sources,
+    module_name = "@daml/react",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/ts/daml-ledger",
+        "//language-support/ts/daml-types",
+        "@language_support_ts_deps//:node_modules",
+    ],
+) if not is_windows else None
+
+# We can't reference any files outside of the directory, hence this rule.
+genrule(
+    name = "license",
+    srcs = ["//:LICENSE"],
+    outs = ["LICENSE"],
+    cmd = """
+      cp $(location //:LICENSE) $@
+    """,
+)
+
+eslint_test(
+    name = "lint",
+    srcs = sources,
+)
+
+pkg_npm(
+    name = "npm_package",
+    package_name = "@daml/react",
+    srcs = [
+        ":README.md",
+        ":package.json",
+        ":tsconfig.json",
+    ],
+    substitutions = {"0.0.0-SDKVERSION": sdk_version},
+    visibility = ["//visibility:public"],
+    deps = [
+        ":daml-react",
+        ":license",
+    ],
+) if not is_windows else None
+
+jest_test(
+    name = "test",
+    # Use the js outputs because jest cannot resolve imports in the ts_library
+    # despite moduleNameMapper.
+    srcs = [":daml-react"],
+    jest_config = ":jest.config.js",
+    deps = [
+        "//language-support/ts/daml-ledger",
+        "//language-support/ts/daml-types",
+        "@language_support_ts_deps//@testing-library/react-hooks",
+        "@language_support_ts_deps//react",
+        "@language_support_ts_deps//react-test-renderer",
+    ],
+)

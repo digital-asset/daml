@@ -1,0 +1,61 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module AuthTests where
+
+template T1 with
+    party : Party
+  where
+    signatory party
+
+    nonconsuming choice Choice1 : ContractId T2
+      with
+        party1 : Party
+        party2 : Party
+      controller party2
+      do
+        create T2 with party1; party2
+
+template T2 with
+    party1 : Party
+    party2 : Party
+  where
+    signatory [party1,party2]
+
+
+----------------------------------------------------------------------
+-- templates for exercise-within-exercise testcase
+
+template X1 with
+    party : Party
+  where
+    signatory party
+
+    nonconsuming choice ChoiceA : ContractId X2
+      with
+        cid : ContractId X1
+        controllerA : Party
+        controllersB : [Party]
+        party1 : Party
+        party2 : Party
+        party3 : Party
+      controller controllerA
+      do
+        exercise cid ChoiceB with controllersB; party1; party2; party3
+
+    nonconsuming choice ChoiceB : ContractId X2
+      with
+        controllersB : [Party]
+        party1 : Party
+        party2 : Party
+        party3 : Party
+      controller controllersB
+      do
+        create X2 with party1; party2; party3
+
+template X2 with
+    party1 : Party
+    party2 : Party
+    party3 : Party
+  where
+    signatory [party1,party2,party3]

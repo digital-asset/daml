@@ -1,0 +1,108 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+module Daml.Script
+  ( Script
+
+  -- Main submits
+  , submit
+  , submitMustFail
+  , submitResultAndTree
+  , submitTree
+  , submitWithError
+  , trySubmit
+  , trySubmitResultAndTree
+  , trySubmitTree
+  -- Error types
+  , SubmitError (..)
+  , DevErrorType (..)
+  -- Submit options
+  , actAs
+  , readAs
+  , disclose
+  , SubmitOptions
+  , concurrently
+  -- Backwards compat submits
+  , submitMulti
+  , submitMultiMustFail
+  , submitTreeMulti
+  , trySubmitMulti
+  , submitWithDisclosures
+  , submitWithDisclosuresMustFail
+
+  , query
+  , queryInterface
+  , queryContractId
+  , queryInterfaceContractId
+  , queryContractKey
+  , queryFilter
+  , queryDisclosure
+  , PartyIdHint (..)
+  , ParticipantName (..)
+  , PartyDetails(..)
+  , allocateParty
+  , allocatePartyWithHint
+  , allocatePartyOn
+  , allocatePartyWithHintOn
+  , listKnownParties
+  , listKnownPartiesOn
+  , Commands
+  , Disclosure
+  , createCmd
+  , exerciseCmd
+  , exerciseByKeyCmd
+  , createAndExerciseCmd
+  , createAndExerciseWithCidCmd
+  , archiveCmd
+  -- Upgrades commands
+  , createExactCmd
+  , exerciseExactCmd
+  , exerciseByKeyExactCmd
+  , createAndExerciseExactCmd
+  , createAndExerciseWithCidExactCmd
+
+  , getTime
+  , setTime
+  , passTime
+  , sleep
+  , script
+  , TransactionTree(..)
+  , TreeEvent(..)
+  , Created(..)
+  , Exercised(..)
+  , TreeIndex
+  , fromTree
+  , created
+  , createdN
+  , exercised
+  , exercisedN
+  , AnyContractId
+  , fromAnyContractId
+
+  , UserId
+  , InvalidUserId(..)
+  , UserAlreadyExists(..)
+  , UserNotFound(..)
+  , User(..)
+  , UserRight(..)
+  , userIdToText
+  , validateUserId
+  , createUser
+  , createUserOn
+  , getUser
+  , getUserOn
+  , deleteUser
+  , deleteUserOn
+  , listAllUsers
+  , listAllUsersOn
+  , grantUserRights
+  , grantUserRightsOn
+  , revokeUserRights
+  , revokeUserRightsOn
+  , listUserRights
+  , listUserRightsOn
+  , submitUser
+  , submitUserOn
+  ) where
+
+import Daml.Script.Internal.LowLevel
+import Daml.Script.Internal.Questions

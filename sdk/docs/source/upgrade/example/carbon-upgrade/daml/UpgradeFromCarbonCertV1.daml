@@ -1,0 +1,47 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- UPGRADE_MODULE_BEGIN
+module UpgradeFromCarbonCertV1 where
+import CarbonV1
+import CarbonV2
+-- UPGRADE_MODULE_END
+
+-- UPGRADE_PROPOSAL_BEGIN
+template UpgradeCarbonCertProposal
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory issuer
+    observer owner
+    key (issuer, owner) : (Party, Party)
+    maintainer key._1
+    choice Accept : ContractId UpgradeCarbonCertAgreement
+      controller owner
+      do create UpgradeCarbonCertAgreement with ..
+-- UPGRADE_PROPOSAL_END
+
+-- UPGRADE_AGREEMENT_BEGIN
+template UpgradeCarbonCertAgreement
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory issuer, owner
+    key (issuer, owner) : (Party, Party)
+    maintainer key._1
+    nonconsuming choice Upgrade : ContractId CarbonCertWithMethod
+      with
+        certId : ContractId CarbonCert
+      controller issuer
+      do cert <- fetch certId
+         assert (cert.issuer == issuer)
+         assert (cert.owner == owner)
+         archive certId
+         create CarbonCertWithMethod with
+           issuer = cert.issuer
+           owner = cert.owner
+           carbon_metric_tons = cert.carbon_metric_tons
+           carbon_offset_method = "unknown"
+-- UPGRADE_AGREEMENT_END

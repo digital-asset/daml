@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 pr: none
@@ -26,6 +26,7 @@ jobs:
       var_name: bash_lib
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(./dev-env/bin/dade-assist)"
       source "$(bash_lib)"
 

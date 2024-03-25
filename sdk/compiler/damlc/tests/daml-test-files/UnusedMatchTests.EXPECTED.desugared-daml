@@ -1,0 +1,144 @@
+module UnusedMatchTests where
+import (implicit) qualified DA.Internal.Record
+import (implicit) qualified GHC.Types
+import (implicit) qualified DA.Internal.Desugar
+import (implicit) DA.Internal.RebindableSyntax
+f x = 12
+data GHC.Types.DamlTemplate => T
+  = T {p : Party, q : Party}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.GetField "p" T Party where
+  getField = DA.Internal.Record.getFieldPrim @"p" @T @Party
+instance DA.Internal.Record.SetField "p" T Party where
+  setField = DA.Internal.Record.setFieldPrim @"p" @T @Party
+instance DA.Internal.Record.GetField "q" T Party where
+  getField = DA.Internal.Record.getFieldPrim @"q" @T @Party
+instance DA.Internal.Record.SetField "q" T Party where
+  setField = DA.Internal.Record.setFieldPrim @"q" @T @Party
+data Revoke
+  = Revoke {}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Desugar.HasSignatory T where
+  signatory this@T {..}
+    = DA.Internal.Desugar.toParties (sig this)
+    where
+        _ = this
+instance DA.Internal.Desugar.HasObserver T where
+  observer this@T {..}
+    = DA.Internal.Desugar.toParties (obs this)
+    where
+        _ = this
+instance DA.Internal.Desugar.HasEnsure T where
+  ensure this@T {..}
+    = assertion this
+    where
+        _ = this
+instance DA.Internal.Desugar.HasArchive T where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+    where
+        _ = cid
+instance DA.Internal.Desugar.HasCreate T where
+  create = GHC.Types.primitive @"UCreate"
+instance DA.Internal.Desugar.HasFetch T where
+  fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasToAnyTemplate T where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate T where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep T where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasIsInterfaceType T where
+  _isInterfaceType _ = DA.Internal.Desugar.False
+instance DA.Internal.Desugar.HasExercise T DA.Internal.Desugar.Archive (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice T DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice T DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasChoiceController T DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver T DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+instance DA.Internal.Desugar.HasExercise T Revoke (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice T Revoke (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice T Revoke (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasChoiceController T Revoke where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver T Revoke where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+_choice$_T$Archive :
+  (DA.Internal.Desugar.Consuming T,
+   T -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (T
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (T
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId T
+   -> T
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
+_choice$_T$Archive
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
+_choice$_T$Revoke :
+  (DA.Internal.Desugar.Consuming T,
+   T -> Revoke -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (T
+                                 -> Revoke -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (T
+                                 -> Revoke -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId T
+   -> T -> Revoke -> DA.Internal.Desugar.Update (()))
+_choice$_T$Revoke
+  = (DA.Internal.Desugar.Consuming, 
+     \ this@T {..} arg@Revoke
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (p), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ self this@T {..} arg@Revoke
+       -> let _ = self in
+          let _ = this in let _ = arg in do pure (revokeRetVal this))
+instance DA.Internal.Desugar.HasExerciseByKey T (Party,
+                                                 Text) DA.Internal.Desugar.Archive (()) where
+  _exerciseByKey = GHC.Types.primitive @"UExerciseByKey"
+instance DA.Internal.Desugar.HasExerciseByKey T (Party,
+                                                 Text) Revoke (()) where
+  _exerciseByKey = GHC.Types.primitive @"UExerciseByKey"
+instance DA.Internal.Desugar.HasKey T (Party, Text) where
+  key this@T {..}
+    = userWrittenTuple (sig this, ident this)
+    where
+        _ = this
+instance DA.Internal.Desugar.HasMaintainer T (Party, Text) where
+  _maintainer _ key
+    = DA.Internal.Desugar.toParties
+        ((DA.Internal.Record.getField @"_1" key))
+    where
+        _ = key
+instance DA.Internal.Desugar.HasFetchByKey T (Party, Text) where
+  fetchByKey = GHC.Types.primitive @"UFetchByKey"
+instance DA.Internal.Desugar.HasLookupByKey T (Party, Text) where
+  lookupByKey = GHC.Types.primitive @"ULookupByKey"
+instance DA.Internal.Desugar.HasToAnyContractKey T (Party,
+                                                    Text) where
+  _toAnyContractKey = GHC.Types.primitive @"EToAnyContractKey"
+instance DA.Internal.Desugar.HasFromAnyContractKey T (Party,
+                                                      Text) where
+  _fromAnyContractKey = GHC.Types.primitive @"EFromAnyContractKey"
+revokeRetVal : T -> ()
+revokeRetVal _ = ()
+assertion : T -> Bool
+assertion _ = True
+sig : T -> Party
+sig T {p} = p
+obs : T -> Party
+obs T {q} = q
+plainEnglish : T -> Text
+plainEnglish _ = "Chop wood, carry water."
+ident : T -> Text
+ident _ = "123"

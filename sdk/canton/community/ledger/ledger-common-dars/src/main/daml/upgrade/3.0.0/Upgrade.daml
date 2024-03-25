@@ -1,0 +1,23 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Upgrade where
+
+-- Template with the same definition as the one defined in 2.0.0
+template UA with
+  issuer : Party
+  owner : Party
+  field : Int
+  more : Optional[Text]
+ where
+  signatory issuer
+  observer owner
+
+-- Updated with extra field compared to 2.0.0
+template UB with
+  owner : Party
+  field : Int
+  extra: Optional[Text]
+ where
+  signatory owner
+  observer owner

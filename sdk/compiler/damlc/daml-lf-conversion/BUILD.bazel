@@ -1,0 +1,72 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:haskell.bzl",
+    "da_haskell_library",
+    "da_haskell_test",
+)
+
+da_haskell_library(
+    name = "daml-lf-conversion",
+    srcs = glob(["src/**/*.hs"]),
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "Decimal",
+        "directory",
+        "extra",
+        "filepath",
+        "lsp-types",
+        "ghc-lib-parser",
+        "ghc-lib",
+        "ghcide",
+        "lens",
+        "mtl",
+        "recursion-schemes",
+        "safe",
+        "text",
+        "uniplate",
+    ],
+    # hie-bios depends on "ghc" which conflicts with ghc-lib(-parser)
+    repl_ghci_args = ["-hide-package=ghc"],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-tools",
+        "//compiler/damlc/daml-ghc-util",
+        "//compiler/damlc/daml-lf-util",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//compiler/damlc/daml-preprocessor",
+        "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-class-lib",
+    ],
+)
+
+da_haskell_test(
+    name = "test",
+    srcs = glob(["test/**/*.hs"]),
+    hackage_deps = [
+        "base",
+        "containers",
+        "either",
+        "ghc-lib-parser",
+        "ghc-lib",
+        "ghcide",
+        "tasty",
+        "tasty-hunit",
+        "text",
+    ],
+    # repl_ghci_args = ["-hide-package=ghc"], ## determine if necessary
+    main_function = "DA.Daml.LFConversion.Tests.main",
+    src_strip_prefix = "test",
+    visibility = ["//visibility:private"],
+    deps = [
+        ":daml-lf-conversion",
+        "//compiler/daml-lf-ast",
+        "//compiler/damlc/daml-ghc-util",
+    ],
+)

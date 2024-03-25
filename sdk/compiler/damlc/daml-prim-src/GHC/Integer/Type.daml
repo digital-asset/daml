@@ -1,0 +1,28 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE NoImplicitPrelude #-}
+
+-- NOTE: [GHC.Integer.Type loading]
+--
+-- For reasons not yet entirely understood, GHC requires the GHC.Integer.Type module to be in scope
+-- when converting a module to Core and tidying/simplifying it, even when there is no direct dependency.
+-- As a result every module we convert (e.g. all apart from GHC.Types) MUST import GHC.Integer.Type transitively
+-- somewhere in it's dependency tree.
+
+-- GHC desugars Integer literals to this type
+-- | HIDE
+module GHC.Integer.Type where
+
+import GHC.Types
+
+data Integer
+
+mkInteger : Bool   -- non-negative?
+         -> [Int]  -- absolute value in 31 bit chunks, least significant first
+         -> Integer
+mkInteger = magic @"mkInteger"
+
+fromInteger : Integer -> Int
+fromInteger = magic @"fromInteger"
+{-# NOINLINE fromInteger #-}

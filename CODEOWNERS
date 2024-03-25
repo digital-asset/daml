@@ -10,12 +10,10 @@ LATEST       @gerolf-da @bame-da
 /ci/                @garyverhaegen-da
 /dev-env/           @garyverhaegen-da
 /nix/               @garyverhaegen-da
-/infra/             @garyverhaegen-da
 azure-pipelines.yml @garyverhaegen-da
 azure-cron.yml      @garyverhaegen-da
 /release/           @garyverhaegen-da
 /release.sh         @garyverhaegen-da
-/canton_dep.bzl     @garyverhaegen-da @remyhaemmerle-da @rgugliel-da
 
 # Blackduck
 NOTICES     @garyverhaegen-da @dasormeter
@@ -26,15 +24,13 @@ NOTICES     @garyverhaegen-da @dasormeter
 # Language
 /daml-assistant/    @remyhaemmerle-da @filmackay
 /daml-script/       @remyhaemmerle-da
-/triggers/          @remyhaemmerle-da
-/compiler/          @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da @paulbrauner-da
-/libs-haskell/      @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da @paulbrauner-da
-/ghc-lib/           @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da @paulbrauner-da
-/test-common/canton/            @garyverhaegen-da @remyhaemmerle-da
+/compiler/          @basvangijzel-DA @remyhaemmerle-da @moisesackerman-da @dylant-da @samuel-williams-da @paulbrauner-da
+/libs-haskell/      @basvangijzel-DA @remyhaemmerle-da @moisesackerman-da @dylant-da @samuel-williams-da @paulbrauner-da
+/ghc-lib/           @basvangijzel-DA @remyhaemmerle-da @moisesackerman-da @dylant-da @samuel-williams-da @paulbrauner-da
+/test-common/canton/            @remyhaemmerle-da
 
 # Runtime
-/daml-lf/ @remyhaemmerle-da
-/daml-lf/data-scalacheck/src/main/ @remyhaemmerle-da
+/daml-lf/ @remyhaemmerle-da @paulbrauner-da
 /daml-lf/kv-support/ @digital-asset/kv-committer @remyhaemmerle-da
 /daml-lf/transaction-test-lib/src/main/ @remyhaemmerle-da @S11001001
 
@@ -48,22 +44,19 @@ NOTICES     @garyverhaegen-da @dasormeter
 # Owned by KV Participant with KV Committer added for notifications
 /ledger/ledger-api-common/              @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/ledger-api-domain/              @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger-test-tool/                      @digital-asset/kv-participant @digital-asset/kv-committer
-
-# Conformance test on canton
-/ledger-test-tool/ledger-api-test-tool-on-canton @remyhaemmerle-da @rgugliel-da @digital-asset/kv-participant @digital-asset/kv-committer
 
 # Ecosystems
-/language-support/hs/       @nickchapman-da @remyhaemmerle-da
+/language-support/hs/       @remyhaemmerle-da
 /language-support/java/     @filmackay
 /language-support/scala/    @filmackay
 /language-support/ts/       @garyverhaegen-da @filmackay
 
 # Application Runtime
 /ledger-service/       @filmackay
-/navigator/            @filmackay
 /runtime-components/   @filmackay
-/triggers/service/     @filmackay
+
+# Canton code drop
+/canton/               @remyhaemmerle-da
 
 # Misc
 /docs/              @digital-asset/daml-docs @hrischuk-da

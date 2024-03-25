@@ -1,0 +1,25 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module AllTests where
+
+import Stakeholders()
+import Wolpertinger()
+
+template MultiParty
+  with
+    p1: Party
+    p2: Party
+  where
+    signatory p1, p2
+    key (p1, p2): (Party, Party)
+    maintainer key._1, key._2
+    nonconsuming choice MPFetchOtherByKey: ()
+      with
+        k1: Party
+        k2: Party
+      controller p1
+      do
+        _ <- fetchByKey @MultiParty (k1, k2)
+        return ()

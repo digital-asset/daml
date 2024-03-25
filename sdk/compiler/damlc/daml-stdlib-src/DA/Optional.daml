@@ -1,0 +1,91 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+-- | The `Optional` type encapsulates an optional value. A value of type
+-- `Optional a` either contains a value of type `a` (represented as `Some a`),
+-- or it is empty (represented as `None`). Using `Optional` is a good way
+-- to deal with errors or exceptional cases without resorting to
+-- drastic measures such as error.
+--
+-- The Optional type is also an action. It is a simple kind of error
+-- action, where all errors are represented by `None`. A richer
+-- error action can be built using the `Either` type.
+module DA.Optional(Optional(..), optional, module DA.Optional) where
+
+-- | The `fromSome` function extracts the element out of a `Some` and
+-- throws an error if its argument is `None`.
+--
+-- Note that in most cases you should prefer using `fromSomeNote`
+-- to get a better error on failures.
+fromSome : Optional a -> a
+fromSome = fromSomeNote "fromSome: None"
+
+-- | Like `fromSome` but with a custom error message.
+fromSomeNote : Text -> Optional a -> a
+fromSomeNote _ (Some x) = x
+fromSomeNote n None = error n
+
+-- | The `catOptionals` function takes a list of `Optionals` and returns a
+-- list of all the `Some` values.
+catOptionals : [Optional a] -> [a]
+catOptionals = foldr f []
+  where f None acc = acc
+        f (Some x) acc = x :: acc
+
+-- | The `listToOptional` function returns `None` on an empty list or
+-- `Some` a where a is the first element of the list.
+listToOptional : [a] -> Optional a
+listToOptional [] = None
+listToOptional (x::_) = Some x
+
+-- | The `optionalToList` function returns an empty list when given
+-- `None` or a singleton list when not given `None`.
+optionalToList : Optional a -> [a]
+optionalToList None = []
+optionalToList (Some x)  = [x]
+
+-- | The `fromOptional` function takes a default value and a `Optional`
+-- value. If the `Optional` is `None`, it returns the default values
+-- otherwise, it returns the value contained in the `Optional`.
+fromOptional : a -> Optional a -> a
+fromOptional d x = case x of None -> d; Some v  -> v
+
+-- | The `isSome` function returns `True` iff its argument is of the
+-- form `Some _`.
+isSome : Optional a -> Bool
+isSome None = False
+isSome _ = True
+
+-- | The `isNone` function returns `True` iff its argument is
+-- `None`.
+isNone : Optional a -> Bool
+isNone = not . isSome
+
+-- | The `mapOptional` function is a version of `map` which can throw out
+-- elements. In particular, the functional argument returns something
+-- of type `Optional b`. If this is `None`, no element is added on to
+-- the result list. If it is `Some b`, then `b` is included in the
+-- result list.
+mapOptional : (a -> Optional b) -> [a] -> [b]
+mapOptional p = foldr f []
+  where f x acc = case p x of
+          None -> acc
+          Some y -> y :: acc
+
+-- | Perform some operation on `Some`, given the field inside the
+-- `Some`.
+whenSome : Applicative m => Optional a -> (a -> m ()) -> m ()
+whenSome None _ = pure ()
+whenSome (Some v) f = f v
+
+-- | The `findOptional` returns the value of the predicate at the first
+-- element where it returns `Some`. `findOptional` is similar to `find` but it
+-- allows you to return a value from the predicate. This is useful both as a more
+-- type safe version if the predicate corresponds to a pattern match
+-- and for performance to avoid duplicating work performed in the predicate.
+findOptional : (a -> Optional b) -> [a] -> Optional b
+findOptional _ [] = None
+findOptional p (x :: xs) = case p x of
+  None -> findOptional p xs
+  Some y -> Some y

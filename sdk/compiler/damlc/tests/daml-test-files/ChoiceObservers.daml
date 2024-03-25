@@ -1,0 +1,40 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module ChoiceObservers where
+
+-- @SINCE-LF 2.1
+
+-- @QUERY-LF [ $pkg | .modules[] | .templates[] | select(lf::get_template_name($pkg) == ["TheTemplate"]) | .choices[] | select(lf::get_name($pkg) == "C1") | .observers | has("nil") ] == [ true ]
+
+-- @QUERY-LF [ $pkg | .modules[] | .templates[] | select(lf::get_template_name($pkg) == ["TheTemplate"]) | .choices[] | select(lf::get_name($pkg) == "C2") | .observers | has("app") ] == [ true ]
+
+another : Party -> Party
+another s = s
+
+template TheTemplate
+  with
+    s : Party
+  where
+    signatory s
+
+    -- Existing syntax: choice with controller.
+    choice C1 : () with xs : [Party]
+      controller xs
+      do return ()
+
+    -- New syntax: choice with observer and controller.
+    choice C2 : () with ys : [Party]
+      observer ys
+      controller ys
+      do return ()
+
+    choice C3 : () with ys : [Party]
+      observer ([]:[Party]) -- explicit empty choice observers; semantically indistinguishable from no observer clause
+      controller ys
+      do return ()
+
+    choice C4 : () with ys : [Party]
+      observer [this.s, s, another s] ++ arg.ys ++ ys -- check everything is correctly in scope
+      controller ys
+      do return ()

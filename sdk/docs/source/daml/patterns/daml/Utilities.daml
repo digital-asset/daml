@@ -1,0 +1,13 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Utilities where
+
+import Daml.Script
+
+makePartiesFrom names =
+  mapA allocateParty names
+
+makeParties =
+  makePartiesFrom ["Me", "You", "Bank"]

@@ -1,0 +1,383 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Main where
+
+import DA.Assert
+import DA.List.BuiltinOrder (sortOn)
+import Daml.Script
+import DA.Text
+
+import Cash
+import NFT
+
+import IAsset
+
+data Parties = Parties with
+    alice
+      , bob
+      , charlie
+      , dominic
+      , emily
+      : Party
+  deriving (Eq, Ord, Show)
+
+-- Tests
+cashTest : Script ()
+cashTest = allocateParties >>= mkCashTest
+
+archiveCashTest : Script ()
+archiveCashTest = allocateParties >>= mkArchiveCashTest
+
+archiveCashTransferProposalTest : Script ()
+archiveCashTransferProposalTest = allocateParties >>= mkArchiveCashTransferProposalTest
+
+nftTest : Script ()
+nftTest = allocateParties >>= mkNftTest
+
+archiveNftTest : Script ()
+archiveNftTest = allocateParties >>= mkArchiveNftTest
+
+archiveNftTransferProposalTest : Script ()
+archiveNftTransferProposalTest = allocateParties >>= mkArchiveNftTransferProposalTest
+
+-- CASH_ASSET_TEST_BEGIN
+cashAssetTest : Script (ContractId IAsset)
+cashAssetTest = do
+  parties <- allocateParties
+  mkAssetTest "Cash" parties mkCash
+-- CASH_ASSET_TEST_END
+
+cashArchiveAssetTest : Script ()
+cashArchiveAssetTest = do
+  parties <- allocateParties
+  mkArchiveAssetTest parties mkCash
+
+cashArchiveAssetTransferProposalTest : Script ()
+cashArchiveAssetTransferProposalTest = do
+  parties <- allocateParties
+  mkArchiveAssetTransferProposalTest parties mkCash
+
+-- NFT_ASSET_TEST_BEGIN
+nftAssetTest : Script (ContractId IAsset)
+nftAssetTest = do
+  parties <- allocateParties
+  mkAssetTest "NFT" parties mkNft
+-- NFT_ASSET_TEST_END
+
+nftArchiveAssetTest : Script ()
+nftArchiveAssetTest = do
+  parties <- allocateParties
+  mkArchiveAssetTest parties mkNft
+
+nftArchiveAssetTransferProposalTest : Script ()
+nftArchiveAssetTransferProposalTest = do
+  parties <- allocateParties
+  mkArchiveAssetTransferProposalTest parties mkNft
+
+cashAndNftTest : Script ()
+cashAndNftTest = allocateParties >>= mkCashAndNftTest
+
+-- Test helpers
+allocateParties : Script Parties
+allocateParties = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  charlie <- allocateParty "Charlie"
+  dominic <- allocateParty "Dominic"
+  emily <- allocateParty "Emily"
+  pure Parties with ..
+
+mkCashTest : Parties -> Script ()
+mkCashTest Parties {..} = do
+  aliceUsd <-
+    alice `submit` do
+      createCmd Cash with
+        issuer = alice
+        owner = alice
+        currency = "USD"
+        amount = 42.0
+
+  bobUsdTransferProposal <-
+    alice `submit` do
+      exerciseCmd aliceUsd ProposeCashTransfer with
+        newOwner = bob
+
+  bobUsd <-
+    bob `submit` do
+      exerciseCmd bobUsdTransferProposal AcceptCashTransferProposal
+
+  charlieUsdTransferProposal <-
+    bob `submit` do
+      exerciseCmd bobUsd ProposeCashTransfer with
+        newOwner = charlie
+
+  charlieUsd <-
+    charlie `submit` do
+      exerciseCmd charlieUsdTransferProposal AcceptCashTransferProposal
+
+  dominicUsdTransferProposal <-
+    charlie `submit` do
+      exerciseCmd charlieUsd ProposeCashTransfer with
+        newOwner = dominic
+
+  charlieUsd' <-
+    dominic `submit` do
+      exerciseCmd dominicUsdTransferProposal RejectCashTransferProposal
+
+  emilyUsdTransferProposal <-
+    charlie `submit` do
+      exerciseCmd charlieUsd' ProposeCashTransfer with
+        newOwner = emily
+
+  charlieUsd'' <-
+    charlie `submit` do
+      exerciseCmd emilyUsdTransferProposal WithdrawCashTransferProposal
+
+  pure ()
+
+mkArchiveCashTest : Parties -> Script ()
+mkArchiveCashTest Parties {..} = do
+  aliceUsd <-
+    alice `submit` do
+      createCmd Cash with
+        issuer = alice
+        owner = alice
+        currency = "USD"
+        amount = 42.0
+
+  alice `submit` do
+    archiveCmd aliceUsd
+
+mkArchiveCashTransferProposalTest : Parties -> Script ()
+mkArchiveCashTransferProposalTest Parties {..} = do
+  aliceUsd <-
+    alice `submit` do
+      createCmd Cash with
+        issuer = alice
+        owner = alice
+        currency = "USD"
+        amount = 42.0
+
+  bobUsdTransferProposal <-
+    alice `submit` do
+      exerciseCmd aliceUsd ProposeCashTransfer with
+        newOwner = bob
+
+  alice `submit` do
+    archiveCmd bobUsdTransferProposal
+
+mkNftTest : Parties -> Script ()
+mkNftTest Parties {..} = do
+  aliceMeme <-
+    alice `submit` do
+      createCmd NFT with
+        issuer = alice
+        owner = alice
+        url = "https://nyan.feline/"
+
+  bobMemeTransferProposal <-
+    alice `submit` do
+      exerciseCmd aliceMeme ProposeNFTTransfer with
+        newOwner = bob
+
+  bobMeme <-
+    bob `submit` do
+      exerciseCmd bobMemeTransferProposal AcceptNFTTransferProposal
+
+  charlieMemeTransferProposal <-
+    bob `submit` do
+      exerciseCmd bobMeme ProposeNFTTransfer with
+        newOwner = charlie
+
+  charlieMeme <-
+    charlie `submit` do
+      exerciseCmd charlieMemeTransferProposal AcceptNFTTransferProposal
+
+  dominicMemeTransferProposal <-
+    charlie `submit` do
+      exerciseCmd charlieMeme ProposeNFTTransfer with
+        newOwner = dominic
+
+  charlieMeme' <-
+    dominic `submit` do
+      exerciseCmd dominicMemeTransferProposal RejectNFTTransferProposal
+
+  emilyMemeTransferProposal <-
+    charlie `submit` do
+      exerciseCmd charlieMeme' ProposeNFTTransfer with
+        newOwner = emily
+
+  charlieMeme'' <-
+    charlie `submit` do
+      exerciseCmd emilyMemeTransferProposal WithdrawNFTTransferProposal
+
+  pure ()
+
+mkArchiveNftTest : Parties -> Script ()
+mkArchiveNftTest Parties {..} = do
+  aliceMeme <-
+    alice `submit` do
+      createCmd NFT with
+        issuer = alice
+        owner = alice
+        url = "https://nyan.feline/"
+
+  alice `submit` do
+    archiveCmd aliceMeme
+
+mkArchiveNftTransferProposalTest : Parties -> Script ()
+mkArchiveNftTransferProposalTest Parties {..} = do
+  aliceMeme <-
+    alice `submit` do
+      createCmd NFT with
+        issuer = alice
+        owner = alice
+        url = "https://nyan.feline/"
+
+  bobMemeTransferProposal <-
+    alice `submit` do
+      exerciseCmd aliceMeme ProposeNFTTransfer with
+        newOwner = bob
+
+  alice `submit` do
+    archiveCmd bobMemeTransferProposal
+
+-- MK_ASSET_TEST_BEGIN
+mkAssetTest : forall t.
+  (Template t, Implements t IAsset, HasEnsure t) =>
+  Text -> Parties -> (Party -> Party -> t) -> Script (ContractId IAsset)
+mkAssetTest assetTxt Parties {..} mkAsset = do
+  aliceAsset <-
+    alice `submit` do
+      toInterfaceContractId @IAsset <$>
+        createCmd (mkAsset alice alice)
+
+  aliceAssetView <-
+    queryInterfaceContractId @IAsset alice aliceAsset
+
+  debugRaw $ unlines
+    [ "Alice's Asset (" <> assetTxt <> "):"
+    , "\tContractId: " <> show aliceAsset
+    , "\tValue: " <> show aliceAssetView
+    ]
+
+  bobAssetTransferProposal <-
+    alice `submit` do
+      exerciseCmd aliceAsset ProposeIAssetTransfer with
+        newOwner = bob
+
+  bobAsset <-
+    bob `submit` do
+      exerciseCmd bobAssetTransferProposal AcceptIAssetTransferProposal
+
+  charlieAssetTransferProposal <-
+    bob `submit` do
+      exerciseCmd bobAsset ProposeIAssetTransfer with
+        newOwner = charlie
+
+  charlieAsset <-
+    charlie `submit` do
+      exerciseCmd charlieAssetTransferProposal AcceptIAssetTransferProposal
+
+  dominicAssetTransferProposal <-
+    charlie `submit` do
+      exerciseCmd charlieAsset ProposeIAssetTransfer with
+        newOwner = dominic
+
+  charlieAsset' <-
+    dominic `submit` do
+      exerciseCmd dominicAssetTransferProposal RejectIAssetTransferProposal
+
+  emilyAssetTransferProposal <-
+    charlie `submit` do
+      exerciseCmd charlieAsset' ProposeIAssetTransfer with
+        newOwner = emily
+
+  charlieAsset'' <-
+    charlie `submit` do
+      exerciseCmd emilyAssetTransferProposal WithdrawIAssetTransferProposal
+
+  charlieAssetView <-
+    queryInterfaceContractId @IAsset charlie charlieAsset''
+
+  debugRaw $ unlines
+    [ "Charlie's Asset (" <> assetTxt <> "):"
+    , "\tContractId: " <> show charlieAsset''
+    , "\tView: " <> show charlieAssetView
+    ]
+
+  charlieAssetView ===
+    Some (view (toInterface @IAsset (mkAsset alice charlie)))
+
+  pure charlieAsset''
+-- MK_ASSET_TEST_END
+
+mkArchiveAssetTest : forall t.
+  (Template t, Implements t IAsset, HasEnsure t) =>
+  Parties -> (Party -> Party -> t) -> Script ()
+mkArchiveAssetTest Parties {..} mkAsset = do
+  aliceAsset <-
+    alice `submit` do
+      toInterfaceContractId @IAsset <$>
+        createCmd (mkAsset alice alice)
+
+  alice `submit` do
+    archiveCmd aliceAsset
+
+mkArchiveAssetTransferProposalTest : forall t.
+  (Template t, Implements t IAsset, HasEnsure t) =>
+  Parties -> (Party -> Party -> t) -> Script ()
+mkArchiveAssetTransferProposalTest Parties {..} mkAsset = do
+  aliceAsset <-
+    alice `submit` do
+      toInterfaceContractId @IAsset <$>
+        createCmd (mkAsset alice alice)
+
+  bobAssetTransferProposal <-
+    alice `submit` do
+      exerciseCmd aliceAsset ProposeIAssetTransfer with
+        newOwner = bob
+
+  alice `submit` do
+    archiveCmd bobAssetTransferProposal
+
+-- MK_CASH_BEGIN
+mkCash : Party -> Party -> Cash
+mkCash issuer owner = Cash with
+  issuer
+  owner
+  currency = "USD"
+  amount = 42.0
+-- MK_CASH_END
+
+-- MK_NFT_BEGIN
+mkNft : Party -> Party -> NFT
+mkNft issuer owner = NFT with
+  issuer
+  owner
+  url = "https://nyan.feline/"
+-- MK_NFT_END
+
+mkCashAndNftTest : Parties -> Script ()
+mkCashAndNftTest parties@Parties {..} = do
+  charlieAssetCash <- mkAssetTest "Cash" parties mkCash
+  charlieAssetNft <- mkAssetTest "NFT" parties mkNft
+
+  charlieQueriedAssets <- queryInterface @IAsset charlie
+
+  debugRaw $ unlines $
+    "Charlie's Assets:" :: concat
+    [ [ "\tContractId: " <> show cid
+      , "\tView: " <> show mview
+      ]
+    | (cid, mview) <- charlieQueriedAssets
+    ]
+
+  assertMsg
+    "The result of Charlie's query for assets should return the two assets of which we know"
+    (sortOn fst charlieQueriedAssets == sortOn fst
+      [ (charlieAssetCash, Some $ view $ toInterface @IAsset $ mkCash alice charlie)
+      , (charlieAssetNft, Some $ view $ toInterface @IAsset $ mkNft alice charlie)
+      ]
+    )

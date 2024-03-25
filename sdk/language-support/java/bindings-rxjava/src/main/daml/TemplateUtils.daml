@@ -1,0 +1,27 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+
+module TemplateUtils where
+
+template TemplateA
+  with
+    argument: Text
+    owner : Party
+  where
+    signatory owner
+
+template TemplateB
+  with
+    argument: Text
+    owner : Party
+  where
+    signatory owner
+
+template TemplateC
+  with
+    argument: Text
+    owner : Party
+  where
+    signatory owner

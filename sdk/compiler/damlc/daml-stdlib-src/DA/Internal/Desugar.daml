@@ -1,0 +1,152 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
+-- | HIDE Automatically imported qualified in every module.
+module DA.Internal.Desugar (
+    module DA.Internal.Template,
+    module DA.Internal.Template.Functions,
+    module DA.Internal.Exception,
+    module DA.Internal.Interface,
+    module DA.Internal.Interface.AnyView,
+    Eq(..), Show(..),
+    Bool(..), Text, Optional(..),
+    (&&),
+    concat, magic,
+    Party, ContractId, Update, Any,
+    NonConsuming(..), PreConsuming(..), PostConsuming(..), Consuming(..),
+    TypeRep,
+    InterfaceInstance,
+    mkInterfaceInstance,
+    HasIsInterfaceType(..),
+    RequiresT(..),
+    HasMethod,
+    Method,
+    mkMethod,
+    InterfaceView,
+    mkInterfaceView,
+    userWrittenTuple,
+    bypassReduceLambda
+) where
+
+import DA.Internal.Prelude
+import DA.Internal.Template
+import DA.Internal.Template.Functions
+import DA.Internal.Interface
+import DA.Internal.Interface.AnyView
+import DA.Internal.LF
+#ifndef DAML_EXCEPTIONS
+import DA.Internal.Exception ()
+#else
+import DA.Internal.Exception
+#endif
+import GHC.Types (magic, Symbol)
+import GHC.Tuple.Check (userWrittenTuple)
+
+-- These are only used as markers by desugaring, we do not translate them to LF.
+data NonConsuming t = NonConsuming {}
+data PreConsuming t = PreConsuming {}
+data Consuming t = Consuming {}
+data PostConsuming t = PostConsuming {}
+
+-- Used to construct markers representing the fact that a
+-- (template or interface) `p` contains an interface instance of
+-- interface `i` for template `t`.
+-- `p` should equal `i` or `t`; this is checked during parsing
+-- and also during LF conversion.
+newtype InterfaceInstance p i t = InterfaceInstance ()
+
+mkInterfaceInstance : forall p i t. InterfaceInstance p i t
+mkInterfaceInstance = InterfaceInstance ()
+
+class HasIsInterfaceType t where
+  _isInterfaceType : proxy t -> Bool
+
+_typeRepForInterfaceExercise : (HasTemplateTypeRep t, HasIsInterfaceType t) => proxy t -> Optional TypeRep
+_typeRepForInterfaceExercise p =
+  if _isInterfaceType p
+    then None
+    else Some (_templateTypeRep p)
+
+-- Used to mark interface hierarchies, i.e. when
+-- an interface A requires an interface B.
+data RequiresT a b = RequiresT
+
+{-
+Together, `HasMethod`, `Method` and `mkMethod` allow us to desugar the methods of
+an interface instance in `RdrHsSyn`, while ensuring that all interface instances
+have the same type.
+
+Given
+
+> interface Iface where
+>   myMethod : MyMethodType
+
+`RdrHsSyn` generates this instance of `HasMethod`
+
+> instance HasMethod Iface "myMethod" MyMethodType
+
+Meanwhile, given
+
+> template Tplt
+>   with
+>     ...
+>   where
+>     ...
+>     interface instance Iface for Tplt where
+>       let myMethod = myMethodImpl this
+
+`RdrHsSyn` generates the following binding
+
+> _method_Tplt_Iface_Tplt_myMethod : Method Tplt Iface Tplt "myMethod"
+> _method_Tplt_Iface_Tplt_myMethod = mkMethod @Tplt @Iface @Tplt @"myMethod" (\this -> myMethodImpl this)
+
+Note that the signature given to `_method_Tplt_Iface_Tplt_myMethod` doesn't mention the
+type of the method itself. This is because the the type of the method is not
+available in the `interface instance` block.
+
+Then how can we ensure that all implementations of that method have the right type?
+By wrapping the method implementation in the `Method p i t m` type using the
+`mkMethod` function with the necessary type applications, we bind the three
+type variables `i t m` to the template, interface and method name types, respectively.
+Then, the functional dependency `i m -> r` in the `HasMethod` class guarantees
+that for the given interface type and method name, the return type `r` is fixed.
+Finally, the compiler has to unify the argument to `mkMethod` with the type
+`t -> r`, guaranteeing that all implementations have the correct type.
+
+As for the `p` variable, it serves to link the methods and view in an
+interface instance given inside the declaration of `p`, where `p` matches either
+the interface `i` or the template `t`. This is not checked for methods or views,
+instead, only the corresponding `InterfaceInstance p i t` is checked.
+-}
+
+-- Read: Interface `i` has a method named `m` with return type `r`
+class HasMethod i (m : Symbol) r | i m -> r
+
+-- | This is only a marker for the container, it doesn't contain the
+-- actual implementation of the method.
+newtype Method p i t (m : Symbol) = Method ()
+
+-- | This is used to check that the argument has the correct
+-- return type `r` for the given `i t m` type arguments.
+-- At runtime, the argument is ignored, but at compile time,
+-- it's extracted unmodified.
+mkMethod : forall p i t m r. (Implements t i, HasMethod i m r) => (t -> r) -> Method p i t m
+mkMethod = magic @"mkMethod"
+
+-- | This is only a marker for the container, it doesn't contain the
+-- actual implementation of the view.
+newtype InterfaceView p i t = InterfaceView ()
+
+-- | This is used to check that the argument has the correct
+-- return type `r` for the given `i t v` type arguments.
+-- At runtime, the argument is ignored, but at compile time,
+-- it's extracted unmodified.
+mkInterfaceView : forall p i t v. (Implements t i, HasInterfaceView i v) => (t -> v) -> InterfaceView p i t
+mkInterfaceView = magic @"mkInterfaceView"
+
+bypassReduceLambda : forall a. a -> a
+bypassReduceLambda = magic @"bypassReduceLambda"

@@ -1,0 +1,76 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Contact where
+
+import Daml.Script
+
+-- CHOICE_BEGIN
+template Contact
+  with
+    owner : Party
+    party : Party
+    address : Text
+    telephone : Text
+  where
+    signatory owner
+    observer party
+
+    choice UpdateTelephone
+      : ContractId Contact
+      with
+        newTelephone : Text
+      controller owner
+      do
+        create this with
+          telephone = newTelephone
+-- CHOICE_END
+
+-- DELEGATION_BEGIN
+    choice UpdateAddress
+      : ContractId Contact
+      with
+        newAddress : Text
+      controller party
+      do
+        create this with
+          address = newAddress
+-- DELEGATION_END
+
+-- CHOICE_TEST_BEGIN
+choice_test = do
+  owner <- allocateParty "Alice"
+  party <- allocateParty "Bob"
+
+  contactCid <- submit owner do
+     createCmd Contact with
+      owner
+      party
+      address = "1 Bobstreet"
+      telephone = "012 345 6789"
+
+  -- Bob can't change his own telephone number as Alice controls
+  -- that choice.
+  submitMustFail party do
+    exerciseCmd contactCid UpdateTelephone with
+      newTelephone = "098 7654 321"
+
+  newContactCid <- submit owner do
+    exerciseCmd contactCid UpdateTelephone with
+      newTelephone = "098 7654 321"
+
+  Some newContact <- queryContractId owner newContactCid
+
+  assert (newContact.telephone == "098 7654 321")
+-- CHOICE_TEST_END
+
+-- DELEGATION_TEST_BEGIN
+  newContactCid <- submit party do
+    exerciseCmd newContactCid UpdateAddress with
+      newAddress = "1-10 Bobstreet"
+
+  Some newContact <- queryContractId owner newContactCid
+
+  assert (newContact.address == "1-10 Bobstreet")
+-- DELEGATION_TEST_END

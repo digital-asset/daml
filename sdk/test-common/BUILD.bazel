@@ -1,0 +1,228 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//language-support/java/codegen:codegen.bzl",
+    "dar_to_java",
+)
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "lf_version_configuration",
+    "version_in",
+)
+load("//test-common:test-common.bzl", "da_scala_dar_resources_library")
+
+alias(
+    name = "dar-files",
+    actual = "dar-files-default",
+    visibility = ["//visibility:public"],
+)
+
+load("//rules_daml:daml.bzl", "daml_compile")
+
+canonical_lf_versions = [
+    "2.1",
+    "2.dev",
+]
+
+[
+    [
+        # alias model-tests-KEYWORD.dar, dar-files-KEYWORD, and dar-files-KEYWORD-lib
+        # to model-tests-TAG.dar, dar-files-TAG, dar-files-TAG-lib, and test-common-TAG
+        # where : KEYWORD is a keyword like default, latest, or dev
+        #         TAG is a (java friendly) version TAG like 1_8
+        #         The mapping KEYWORD -> TAG is defined by test_common_configurations
+        alias(
+            name = "%s-%s%s" % (target_prefix, name, target_suffix),
+            actual = ":%s-%s%s" % (target_prefix, lf_version, target_suffix),
+            visibility = ["//visibility:public"],
+        ),
+    ]
+    for (target_prefix, target_suffix) in [
+        ("model-tests", ".dar"),
+        ("dar-files", ""),
+        ("dar-files", "-lib"),
+    ]
+    for (name, lf_version) in lf_version_configuration.items()
+]
+
+general_test_names = [
+    "model",
+]
+
+# Correspond to the directories under src/test/lib/daml
+test_names = {
+    lf_version: general_test_names
+    for lf_version in canonical_lf_versions
+}
+
+da_scala_dar_resources_library(
+    add_maven_tag = True,
+    daml_dir_names = test_names,
+    daml_root_dir = "src/main/daml",
+    data_dependencies = {},
+    exclusions = {},
+    lf_versions = canonical_lf_versions,
+    maven_name_prefix = "test",
+    visibility = ["//visibility:public"],
+)
+
+[
+    [
+        daml_compile(
+            name = "upgrades-{}-v1".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/v1/*.daml".format(identifier)]),
+            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            project_name = "upgrades-example-{}".format(identifier),
+            target = "2.dev",
+            version = "1.0.0",
+            visibility = ["//visibility:public"],
+        ),
+        daml_compile(
+            name = "upgrades-{}-v2".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/v2/*.daml".format(identifier)]),
+            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            project_name = "upgrades-example-{}".format(identifier),
+            target = "2.dev",
+            # We want to check the validity of this upgrade on the ledger
+            # client, not during compilation
+            typecheck_upgrades = False,
+            upgrades = "//test-common:upgrades-{}-v1.dar".format(identifier),
+            version = "2.0.0",
+            visibility = ["//visibility:public"],
+        ),
+    ]
+    for identifier in [
+        "MissingModule",
+        "MissingTemplate",
+        "MissingDataCon",
+        "MissingChoice",
+        "RecordFieldsNewNonOptional",
+        "TemplateChangedKeyType",
+        "ValidUpgrade",
+
+        # Ported from DamlcUpgrades.hs
+        "FailsWhenExistingFieldInTemplateChoiceIsChanged",
+        "FailsWhenExistingFieldInTemplateIsChanged",
+        "FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType",
+        "FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType",
+        "FailsWhenOldFieldIsDeletedFromTemplate",
+        "FailsWhenOldFieldIsDeletedFromTemplateChoice",
+        "FailsWhenTemplateAddsKeyType",
+        "FailsWhenTemplateChangesKeyType",
+        "FailsWhenTemplateChoiceChangesItsReturnType",
+        "FailsWhenTemplateRemovesKeyType",
+        "SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate",
+        "SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice",
+        "SucceedsWhenTemplateChoiceInputArgumentHasChanged",
+        "SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged",
+
+        # More tests ported from DamlcUpgrades.hs
+        "FailsWhenATopLevelEnumChanges",
+        "FailsWhenATopLevelRecordAddsANonOptionalField",
+        "FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd",
+        "FailsWhenATopLevelVariantAddsAFieldToAVariantsType",
+        "FailsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType",
+        "FailsWhenATopLevelVariantAddsAVariant",
+        "FailsWhenATopLevelVariantRemovesAVariant",
+        "FailsWhenTwoDeeplyNestedTypeSynonymsResolveToDifferentDatatypes",
+        "SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd",
+        "SucceedsWhenATopLevelTypeSynonymChanges",
+        "SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes",
+
+        # More more tests ported from DamlcUpgrades.hs
+        "FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants",
+        "FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants",
+    ]
+]
+
+[
+    [
+        daml_compile(
+            name = "upgrades-{}-v1a".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/v1a/*.daml".format(identifier)]),
+            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            project_name = "upgrades-example-{}".format(identifier),
+            target = "2.dev",
+            version = "1.0.0",
+            visibility = ["//visibility:public"],
+        ),
+        daml_compile(
+            name = "upgrades-{}-v1b".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/v1b/*.daml".format(identifier)]),
+            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            project_name = "upgrades-example-{}".format(identifier),
+            target = "2.dev",
+            version = "1.0.0",
+            visibility = ["//visibility:public"],
+        ),
+    ]
+    for identifier in [
+        "CommonVersionFailure",
+    ]
+]
+
+[
+    [
+        daml_compile(
+            name = "upgrades-{}-v1".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/v1/*.daml".format(identifier)]),
+            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            project_name = "upgrades-example-{}".format(identifier),
+            target = "2.dev",
+            version = "1.0.0",
+            visibility = ["//visibility:public"],
+        ),
+        daml_compile(
+            name = "upgrades-{}-v2".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/v2/*.daml".format(identifier)]),
+            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            project_name = "upgrades-example-{}".format(identifier),
+            target = "2.dev",
+            # We want to check the validity of this upgrade on the ledger
+            # client, not during compilation
+            typecheck_upgrades = False,
+            upgrades = "//test-common:upgrades-{}-v1.dar".format(identifier),
+            version = "2.0.0",
+            visibility = ["//visibility:public"],
+        ),
+        daml_compile(
+            name = "upgrades-{}-v3".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/v3/*.daml".format(identifier)]),
+            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            project_name = "upgrades-example-{}".format(identifier),
+            target = "2.dev",
+            # We want to check the validity of this upgrade on the ledger
+            # client, not during compilation
+            typecheck_upgrades = False,
+            upgrades = "//test-common:upgrades-{}-v1.dar".format(identifier),
+            version = "3.0.0",
+            visibility = ["//visibility:public"],
+        ),
+    ]
+    for identifier in [
+        "SuccessUpgradingV2ThenV3",
+        "SuccessUpgradingV3ThenV2",
+        "FailsWhenUpgradingV2ThenV3",
+        "FailsWhenUpgradingV3ThenV2",
+    ]
+]
+
+[
+    [
+        [
+            dar_to_java(
+                name = "%s-tests-%s.java-codegen" % (test_name, target),
+                src = ":%s-tests-%s.dar" % (test_name, target),
+                package_prefix = "com.daml.ledger.test.java.%s" % test_name,
+                tags = ["maven_coordinates=com.daml:test-common-%s-tests-java-%s:__VERSION__" % (
+                    test_name.replace("_", "-"),
+                    target,
+                )],
+                visibility = ["//visibility:public"],
+            ),
+        ]
+        for test_name in test_names.get(target, [])
+    ]
+    for target in canonical_lf_versions
+]

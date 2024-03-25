@@ -1,0 +1,67 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- PRAGMA_BEGIN
+
+module Intro.Asset.Role where
+-- PRAGMA_END
+
+
+-- IMPORT_BEGIN
+import Intro.Asset
+-- IMPORT_END
+
+template AssetHolderInvite
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory issuer
+    observer owner
+
+    choice AssetHolderInvite_Accept
+      : ContractId AssetHolder
+      controller owner
+      do
+        create AssetHolder with
+          issuer
+          owner
+
+template AssetHolder
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory issuer, owner
+
+    nonconsuming choice Issue_Asset
+      : ContractId Asset
+      with
+        symbol : Text
+        quantity : Decimal
+      controller issuer
+      do
+        create Asset with
+          issuer
+          owner
+          symbol
+          quantity
+          observers = []
+
+    nonconsuming choice Accept_Transfer
+      : ContractId Asset
+      with
+        transferProposalCid : ContractId TransferProposal
+      controller owner
+      do
+        exercise transferProposalCid TransferProposal_Accept
+
+    nonconsuming choice Preapprove_Transfer
+      : ContractId TransferApproval
+      with
+        asset : Asset
+      controller owner
+      do
+        create TransferApproval with
+          asset
+          newOwner = owner

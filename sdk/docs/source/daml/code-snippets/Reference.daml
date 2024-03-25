@@ -1,0 +1,83 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Reference where
+type ExampleReturnType = ()
+
+exampleFunction : (Party, Text) -> Party
+exampleFunction key = key._1
+
+-- start template intro snippet
+template NameOfTemplate
+-- end template intro snippet
+-- start template params snippet
+  with
+    exampleParty : Party
+    exampleParty2 : Party
+    exampleParty3 : Party
+    exampleParam : Text
+    -- more parameters here
+-- end template params snippet
+  where
+-- start template sigs snippet
+    signatory exampleParty
+-- end template sigs snippet
+-- start template obs snippet
+    observer exampleParty2
+-- end template obs snippet
+-- start template ensure snippet
+    ensure
+      True -- a boolean condition goes here
+-- end template ensure snippet
+-- start contract key snippet
+    key (exampleParty, exampleParam) : (Party, Text)
+    maintainer (exampleFunction key)
+-- end contract key snippet
+
+-- start template choice snippet
+    choice NameOfChoice
+      : ()  -- replace () with the actual return type
+      with
+        exampleParameter : Text -- parameters here
+      controller exampleParty
+      do
+        return () -- replace this line with the choice body
+-- end template choice snippet
+
+-- start choice name snippet
+    choice ExampleChoice
+      : () -- replace () with the actual return type
+-- end choice name snippet
+-- start choice params snippet
+      with
+        exampleParameter : Text
+-- end choice params snippet
+-- start controller snippet
+      controller exampleParty
+-- end controller snippet
+      do
+        return () -- replace () with the actual return type
+-- start preconsuming snippet
+    preconsuming choice ExamplePreconsumingChoice
+      : () -- replace () with the actual return type
+-- end preconsuming snippet
+      with -- params
+      controller exampleParty
+      do
+        return ()
+-- start postconsuming snippet
+    postconsuming choice ExamplePostconsumingChoice
+      : () -- replace () with the actual return type
+-- end postconsuming snippet
+      with -- params
+      controller exampleParty
+      do
+        return ()
+-- start nonconsuming snippet
+    nonconsuming choice ExampleNonconsumingChoice
+      : () -- replace () with the actual return type
+-- end nonconsuming snippet
+      with -- params
+      controller exampleParty
+      do
+        return ()

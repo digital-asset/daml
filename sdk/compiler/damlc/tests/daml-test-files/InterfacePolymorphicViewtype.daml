@@ -1,0 +1,10 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @ERROR expected monomorphic record type in view type, but found a type constructor with type variables:
+
+module InterfacePolymorphicViewtype where
+
+data VariantView a b = VariantView { a : a, b : b }
+interface VariantI where
+    viewtype VariantView Int Text

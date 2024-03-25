@@ -1,0 +1,37 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module LfTranslation where
+
+updateOwner : Party -> Update a
+updateOwner = error "not needed" 
+
+-- start code snippet: type synonyms
+type Username = Text
+data User = User { name: Username }
+-- end code snippet: type synonyms
+
+-- start code snippet: template data types
+template Iou
+  with
+    issuer: Party
+    owner: Party
+    currency: Text
+    amount: Decimal
+  where
+-- end code snippet: template data types
+    signatory issuer
+    observer owner
+-- start code snippet: choice data types
+    nonconsuming choice DoNothing: ()
+      controller owner
+      do
+        return ()
+
+    choice Transfer: ContractId Iou
+      with newOwner: Party
+      controller owner
+      do
+        updateOwner newOwner
+-- end code snippet: choice data types

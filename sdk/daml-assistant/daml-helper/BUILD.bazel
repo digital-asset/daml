@@ -1,0 +1,235 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
+load("//bazel_tools/packaging:packaging.bzl", "package_app")
+load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
+load("//rules_daml:daml.bzl", "daml_compile")
+
+da_haskell_library(
+    name = "daml-helper-lib",
+    srcs = glob(
+        ["src/**/*.hs"],
+        exclude = ["src/DA/Daml/Helper/Main.hs"],
+    ),
+    hackage_deps = [
+        "aeson",
+        "ansi-terminal",
+        "async",
+        "base",
+        "bytestring",
+        "conduit",
+        "conduit-extra",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "grpc-haskell-core",
+        "http-conduit",
+        "http-types",
+        "jwt",
+        "lens",
+        "lens-aeson",
+        "monad-loops",
+        "network",
+        "open-browser",
+        "optparse-applicative",
+        "process",
+        "safe-exceptions",
+        "text",
+        "typed-process",
+        "unordered-containers",
+        "utf8-string",
+        "uuid",
+        "vector",
+        "yaml",
+        "aeson-pretty",
+        "time",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//canton:ledger-api-haskellpb",
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/damlc/daml-compiler",
+        "//compiler/damlc/daml-package-config",
+        "//daml-assistant:daml-project-config",
+        "//language-support/hs/bindings:hs-ledger",
+        "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-class-lib",
+    ],
+)
+
+da_haskell_binary(
+    name = "daml-helper",
+    srcs = ["src/DA/Daml/Helper/Main.hs"],
+    hackage_deps = [
+        "base",
+        "extra",
+        "filepath",
+        "process",
+        "safe-exceptions",
+        "typed-process",
+        "time",
+        "text",
+        "optparse-applicative",
+    ],
+    main_function = "DA.Daml.Helper.Main.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":daml-helper-lib",
+        "//daml-assistant:daml-project-config",
+        "//language-support/hs/bindings:hs-ledger",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-lib",
+    ],
+)
+
+package_app(
+    name = "daml-helper-dist",
+    binary = ":daml-helper",
+    visibility = ["//visibility:public"],
+)
+
+da_haskell_test(
+    name = "test-tls",
+    srcs = ["test/DA/Daml/Helper/Test/Tls.hs"],
+    data = [
+        "daml-helper",
+        "//test-common/test-certificates",
+    ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
+    hackage_deps = [
+        "base",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Daml.Helper.Test.Tls.main",
+    tags = ["cpu:4"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/canton-test-utils",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+da_haskell_test(
+    name = "test-deployment",
+    srcs = glob(["test/DA/Daml/Helper/Test/Deployment.hs"]),
+    data = [
+        "//compiler/damlc",
+        "//daml-assistant/daml-helper",
+    ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
+    # TODO (MK) https://github.com/digital-asset/daml/issues/9768
+    flaky = True,
+    hackage_deps = [
+        "aeson",
+        "async",
+        "base",
+        "bytestring",
+        "containers",
+        "extra",
+        "filepath",
+        "jwt",
+        "main-tester",
+        "network",
+        "process",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "uuid",
+        "zip-archive",
+    ],
+    main_function = "DA.Daml.Helper.Test.Deployment.main",
+    src_strip_prefix = "test",
+    tags = ["cpu:4"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/canton-test-utils",
+        "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-lib",
+    ],
+)
+
+da_haskell_test(
+    name = "test-daml-ledger",
+    srcs = ["test/DA/Daml/Helper/Test/Ledger.hs"],
+    data = [
+        "daml-helper",
+        ":test.dar",
+    ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "extra",
+        "filepath",
+        "process",
+        "regex-tdfa",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "zip-archive",
+    ],
+    main_function = "DA.Daml.Helper.Test.Ledger.main",
+    # Starts Sandbox so needs more resources.
+    tags = ["cpu:4"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-dar-reader",
+        "//compiler/daml-lf-ast",
+        "//language-support/hs/bindings:hs-ledger",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/canton-test-utils",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+da_haskell_test(
+    name = "test-daml-packages",
+    srcs = ["test/DA/Daml/Helper/Test/Packages.hs"],
+    data = [
+        "daml-helper",
+        ":test.dar",
+    ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "zip-archive",
+    ],
+    main_function = "DA.Daml.Helper.Test.Packages.main",
+    # Starts Sandbox so needs more resources.
+    tags = ["cpu:4"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/damlc:damlc-lib",
+        "//language-support/hs/bindings:hs-ledger",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/canton-test-utils",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+daml_compile(
+    name = "test",
+    srcs = glob(["test-data/Test.daml"]),
+    # TODO(#14706): remove explicit target once the default major version is 2
+    target = "2.1",
+)

@@ -1,0 +1,93 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "@daml//bazel_tools:haskell.bzl",
+    "da_haskell_binary",
+    "da_haskell_library",
+)
+
+da_haskell_library(
+    name = "sandbox-helper",
+    srcs = ["Sandbox.hs"],
+    hackage_deps = [
+        "aeson",
+        "base",
+        "bytestring",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "process",
+        "safe",
+        "safe-exceptions",
+        "tasty",
+        "text",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+da_haskell_binary(
+    name = "runner",
+    srcs = ["Main.hs"],
+    hackage_deps = [
+        "aeson",
+        "base",
+        "containers",
+        "extra",
+        "filepath",
+        "jwt",
+        "process",
+        "semver",
+        "tagged",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "uuid",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":sandbox-helper",
+        "//bazel_tools/test_utils",
+        "@rules_haskell//tools/runfiles",
+    ],
+)
+
+genrule(
+    name = "test-certificates",
+    srcs = [":openssl-extensions.cnf"],
+    outs = [
+        "ca.key",
+        "ca.crt",
+        "client.csr",
+        "client.crt",
+        "client.key",
+        "client.pem",
+        "server.csr",
+        "server.crt",
+        "server.key",
+        "server.pem",
+    ],
+    cmd = """
+set -eou pipefail
+# Generate CA key and crt
+$(location @openssl_dev_env//:openssl) genrsa -out $(location ca.key) 4096
+$(location @openssl_dev_env//:openssl) req -new -x509 -key $(location ca.key) -out $(location ca.crt) -subj '/CN=0.0.0.0.ca' -days 3650
+
+# Generate server key, csr and crt
+$(location @openssl_dev_env//:openssl) genrsa -out $(location server.key) 4096
+$(location @openssl_dev_env//:openssl) pkey -in $(location server.key) -out $(location server.pem)
+$(location @openssl_dev_env//:openssl) req -new -key $(location server.key) -out $(location server.csr) -subj '/CN=0.0.0.0.server'
+$(location @openssl_dev_env//:openssl) x509 -req -in $(location server.csr) -CA $(location ca.crt) -CAkey $(location ca.key) -CAcreateserial -out $(location server.crt) -extfile $(location openssl-extensions.cnf) -extensions req_ext -days 3650
+
+# Generate client key, csr and crt
+$(location @openssl_dev_env//:openssl) genrsa -out $(location client.key) 4096
+$(location @openssl_dev_env//:openssl) pkey -in $(location client.key) -out $(location client.pem)
+$(location @openssl_dev_env//:openssl) req -new -key $(location client.key) -out $(location client.csr) -subj '/CN=0.0.0.0.client'
+$(location @openssl_dev_env//:openssl) x509 -req -in $(location client.csr) -CA $(location ca.crt) -CAkey $(location ca.key) -CAcreateserial -out $(location client.crt) -extfile $(location openssl-extensions.cnf) -extensions req_ext -days 3650
+    """,
+    tools = [
+        "@openssl_dev_env//:openssl",
+    ],
+    visibility = ["//visibility:public"],
+)

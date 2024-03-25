@@ -1,0 +1,49 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test",
+    "kind_projector_plugin",
+    "lf_scalacopts",
+)
+
+da_scala_library(
+    name = "scalatest-utils",
+    srcs = glob(["src/main/**/*.scala"]),
+    plugins = [
+        kind_projector_plugin,
+    ],
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_freespec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts,
+    tags = ["maven_coordinates=com.daml:scalatest-utils:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+da_scala_test(
+    name = "test",
+    size = "small",
+    srcs = glob(["src/test/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":scalatest-utils",
+    ],
+)

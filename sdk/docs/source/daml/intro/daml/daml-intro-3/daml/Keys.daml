@@ -1,0 +1,93 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE ApplicativeDo #-}
+
+module Keys where
+
+import DA.Assert
+import Daml.Script
+
+-- KEY_TEST_BEGIN
+data Bank = Bank with
+  party : Party
+  address: Text
+  telephone : Text
+    deriving (Eq, Show)
+
+data AccountKey = AccountKey with
+  accountant : Party
+  number : Text
+  bank_party : Party
+    deriving (Eq, Show)
+
+template Account
+  with
+    accountant : Party
+    owner : Party
+    number : Text
+    bank : Bank
+  where
+    signatory accountant
+
+    key AccountKey with
+        accountant
+        number
+        bank_party = bank.party
+      : AccountKey
+    maintainer key.accountant
+
+data Cash = Cash with
+  currency : Text
+  amount : Decimal
+    deriving (Eq, Show)
+
+template CashBalance
+  with
+    accountant : Party
+    cash : Cash
+    account : AccountKey
+  where
+    signatory accountant
+
+id_ref_test = do
+  accountant <- allocateParty "Bob"
+  owner <- allocateParty "Alice"
+  bank_party <- allocateParty "Bank"
+  let
+    bank = Bank with
+      party = bank_party
+      address = "High Street"
+      telephone = "012 3456 789"
+    cash = Cash with
+      currency = "USD"
+      amount = 100.0
+
+  accountCid <- submit accountant do
+     createCmd Account with
+      accountant
+      owner
+      bank
+      number = "ABC123"
+
+  Some account <- queryContractId accountant accountCid
+  balanceCid <- submit accountant do
+    createCmd CashBalance with
+      accountant
+      cash
+      account = key account
+
+  -- Now the accountant updates the telephone number for the bank on the account
+  Some account <- queryContractId accountant accountCid
+  new_accountCid <- submit accountant do
+    archiveCmd accountCid
+    cid <- createCmd account with
+      bank = account.bank with
+        telephone = "098 7654 321"
+    pure cid
+
+  -- Thanks to contract keys, the current account contract is fetched
+  Some balance <- queryContractId accountant balanceCid
+  Some (new_cid, new_account : Account) <- queryContractKey accountant balance.account 
+  new_cid === new_accountCid
+  new_account =/= account
+-- KEY_TEST_END

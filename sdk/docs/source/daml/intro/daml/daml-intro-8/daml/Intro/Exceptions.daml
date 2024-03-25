@@ -1,0 +1,221 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Intro.Exceptions where
+
+import DA.Action
+import Daml.Script
+import DA.Exception
+import DA.Assert ((===))
+
+-- IOU_BEGIN
+template Iou
+  with
+    issuer : Party
+    owner : Party
+    amount : Decimal
+  where
+    signatory issuer, owner
+-- IOU_END
+
+-- ACCOUNT_BEGIN
+template Account with
+    issuer : Party
+    owner : Party
+    amount : Decimal
+  where
+    signatory issuer, owner
+    ensure amount > 0.0
+    key (issuer, owner) : (Party, Party)
+    maintainer key._2
+
+    choice Transfer : () with
+        newOwner : Party
+        transferredAmount : Decimal
+      controller owner, newOwner
+      do create this with amount = amount - transferredAmount
+         create Iou with issuer = issuer, owner = newOwner, amount = transferredAmount
+         pure ()
+-- ACCOUNT_END
+
+-- TRANSFER_LIMITED_BEGIN
+    choice TransferLimited : () with
+        newOwner : Party
+        transferredAmount : Decimal
+      controller owner, newOwner
+      do let limit = 50.0
+         when (transferredAmount > limit) $
+           throw TransferLimitExceeded with
+             limit = limit
+             attempted = transferredAmount
+         create this with amount = amount - transferredAmount
+         create Iou with issuer = issuer, owner = newOwner, amount = transferredAmount
+         pure ()
+-- TRANSFER_LIMITED_END
+
+-- SHOP_BEGIN
+template Shop
+  with
+    owner : Party
+    bank : Party
+    observers : [Party]
+    price : Decimal
+  where
+    signatory owner
+    observer observers
+-- SHOP_END
+
+-- ORDER_BEGIN
+    nonconsuming choice OrderItem : ContractId Order
+      with
+        shopper : Party
+      controller shopper
+      do exerciseByKey @Account (bank, shopper) (Transfer owner price)
+         create Order
+           with
+             shopOwner = owner
+             shopper = shopper
+-- ORDER_END
+
+-- ORDER_TRUSTED_BEGIN
+    nonconsuming choice OrderItemTrusted : ContractId Order
+      with
+        shopper : Party
+      controller shopper
+      do cid <- create Order
+           with
+             shopOwner = owner
+             shopper = shopper
+         try do
+           exerciseByKey @Account (bank, shopper) (Transfer owner price)
+         catch
+           PreconditionFailed _ -> do
+             create Iou with
+               issuer = shopper
+               owner = owner
+               amount = price
+             pure ()
+         pure cid
+-- ORDER_TRUSTED_END
+
+-- ORDER_TRUSTED_LIMITED_BEGIN
+    nonconsuming choice OrderItemTrustedLimited : ContractId Order
+      with
+        shopper : Party
+      controller shopper
+      do try do
+           exerciseByKey @Account (bank, shopper) (TransferLimited owner price)
+           pure ()
+         catch
+           PreconditionFailed _ -> do
+             create Iou with
+               issuer = shopper
+               owner = owner
+               amount = price
+             pure ()
+           TransferLimitExceeded _ _ -> do
+             create Iou with
+               issuer = shopper
+               owner = owner
+               amount = price
+             pure ()
+         create Order
+           with
+             shopOwner = owner
+             shopper = shopper
+-- ORDER_TRUSTED_LIMITED_END
+
+template Order
+  with
+    shopOwner : Party
+    shopper : Party
+  where
+    signatory shopOwner, shopper
+
+test = script do
+  bank <- allocateParty "Bank"
+  alice <- allocateParty "Alice"
+  shopOwner <- allocateParty "ShopOwner"
+
+  submitMulti [bank, alice] [] $ createCmd Account with
+    issuer = bank
+    owner = alice
+    amount = 1000.0
+
+  shop <- submit shopOwner $ createCmd Shop with
+    owner = shopOwner
+    bank = bank
+    observers = [alice]
+    price = 100.0
+  -- Before we buy anything, Alice has 1000
+  ((_, aliceAccount)::_) <- query @Account alice
+  aliceAccount.amount === 1000.0
+  submit alice $ exerciseCmd shop (OrderItemTrusted alice)
+  -- This transfer happened, so the balance is now 900
+  ((_, aliceAccount)::_) <- query @Account alice
+  aliceAccount.amount === 900.0
+  -- and there's an Iou from Alice's bank to the shop
+  [(_, bankIou)] <- query @Iou bank
+  bankIou === Iou with issuer = bank, owner = shopOwner, amount = 100.0
+  -- Now let's try to go over the limit
+  submit alice $ exerciseCmd shop (OrderItemTrustedLimited alice)
+  -- This one doesn't pass, so the balance is still 900
+  ((_, aliceAccount)::_) <- query @Account alice
+  aliceAccount.amount === 900.0
+  -- and the newly created Iou is in Alice's name instead of her bank's
+  [(_, aliceIou)] <- query @Iou alice
+  [(_, bankIou)] <- query @Iou bank
+  aliceIou === Iou with issuer = alice, owner = shopOwner, amount = 100.0
+  bankIou === Iou with issuer = bank, owner = shopOwner, amount = 100.0
+
+test2 = script do
+  bank <- allocateParty "Bank"
+  alice <- allocateParty "Alice"
+  shopOwner <- allocateParty "ShopOwner"
+
+  aliceAccountId <-
+    submitMulti [bank, alice] [] $ createCmd Account with
+      issuer = bank
+      owner = alice
+      amount = 1000.0
+
+  submitMulti [alice, shopOwner] [] $
+    createAndExerciseCmd
+      (TestThrewTransferLimitExceeded with
+        owner = alice
+        newOwner = shopOwner)
+      (TestThrewTransferLimitExceededChoice with
+        accountId = aliceAccountId)
+
+-- We define this through a helper contract so the `try-catch` happens entirely
+-- ledger-side.
+template TestThrewTransferLimitExceeded
+  with
+    owner : Party
+    newOwner : Party
+  where
+    signatory owner, newOwner
+    choice TestThrewTransferLimitExceededChoice : ()
+      with accountId : ContractId Account
+      controller owner, newOwner
+      do
+        threwTransferLimitExceeded <- do
+          try do
+            -- this must throw since `limit` is hardcoded to `50.0`
+            -- in `TransferLimited`
+            exercise accountId (TransferLimited newOwner 100.0)
+            pure False
+          catch
+            TransferLimitExceeded _ _ -> pure True
+        unless threwTransferLimitExceeded $
+          error "expected TransferLimitExceeded exception"
+
+-- CUSTOM_EXCEPTION_BEGIN
+exception TransferLimitExceeded
+  with
+    limit : Decimal
+    attempted : Decimal
+  where
+    message "Transfer of " <> show attempted <> " exceeds limit of " <> show limit
+-- CUSTOM_EXCEPTION_END

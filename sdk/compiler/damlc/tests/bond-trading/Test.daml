@@ -1,0 +1,24 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Check that the interning tables don't contain duplicates:
+-- Using STREAM as the package generated here is massive
+-- @QUERY-LF-STREAM lf::interned_strings_stream | (unique | length == length)
+-- @QUERY-LF-STREAM lf::interned_dotted_names_stream | (unique | length == length)
+
+module Test where
+
+import Daml.Script
+
+import Bond qualified
+import Cash qualified
+import Dvp qualified
+import Helper qualified
+import Setup qualified
+
+main = script do
+  Bond.main
+  Cash.main
+  Dvp.main
+  Helper.main
+  Setup.main

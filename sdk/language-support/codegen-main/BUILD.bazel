@@ -1,0 +1,81 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "scala_source_jar",
+    "scaladoc_jar",
+)
+load(
+    "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
+    "jar_jar",
+)
+load("//bazel_tools:pom_file.bzl", "pom_file")
+load("@os_info//:os_info.bzl", "is_windows")
+
+da_scala_library(
+    name = "codegen-main-lib",
+    srcs = glob(["src/main/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+    ],
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        "//daml-assistant/scala-daml-project-config",
+        "//language-support/codegen-common",
+        "//language-support/java/codegen:lib",
+    ],
+)
+
+da_scala_binary(
+    name = "codegen-main",
+    srcs = glob(["src/main/**/*.scala"]),
+    main_class = "com.daml.codegen.CodegenMain",
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+    ],
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        "//daml-assistant/scala-daml-project-config",
+        "//language-support/codegen-common",
+        "//language-support/java/codegen:lib",
+    ],
+)
+
+jar_jar(
+    name = "shaded_binary",
+    input_jar = "//language-support/codegen-main:codegen-main_distribute.jar",
+    rules = "shade_rule",
+    tags = ["maven_coordinates=com.daml:codegen-jvm-main:__VERSION__"],
+    visibility = ["//visibility:public"],
+)
+
+pom_file(
+    name = "shaded_binary_pom",
+    target = ":shaded_binary",
+    visibility = ["//visibility:public"],
+)
+
+# Create empty Scaladoc JAR for uploading to Maven Central
+scaladoc_jar(
+    name = "shaded_binary_scaladoc",
+    srcs = [],
+    tags = ["scaladoc"],
+    deps = [],
+) if is_windows == False else None
+
+# Create empty Sources JAR for uploading to Maven Central
+scala_source_jar(
+    name = "shaded_binary_src",
+    srcs = [],
+)

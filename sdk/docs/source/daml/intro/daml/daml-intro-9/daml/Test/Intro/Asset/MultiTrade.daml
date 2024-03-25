@@ -1,0 +1,140 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Test.Intro.Asset.MultiTrade where
+
+import Daml.Script
+
+import Intro.Asset
+import Intro.Asset.MultiTrade
+import Intro.Asset.Role
+
+import Test.Intro.Asset.TradeSetup
+
+-- Define this type to be able pass in JSON.
+-- RELATIONSHIP_BEGIN
+data Relationship = Relationship with
+  issuer : Party
+  owner : Party
+    deriving (Eq, Show)
+-- RELATIONSHIP_END
+
+setupRelationship : Relationship -> Script (ContractId AssetHolder) 
+setupRelationship (Relationship with issuer; owner)  = script do
+  ahi <- submit issuer do
+    createCmd AssetHolderInvite with
+      issuer = issuer
+      owner = owner
+
+  submit owner do
+  exerciseCmd ahi AssetHolderInvite_Accept
+
+-- ISSUE_ASSET_BEGIN
+issueAsset : Asset -> Script (ContractId Asset)
+issueAsset asset@(Asset with ..) = do
+  assetHolders <- queryFilter @AssetHolder issuer
+    (\ah -> (ah.issuer == issuer) && (ah.owner == owner))
+
+  case assetHolders of
+    (ahCid, _)::_ -> submit asset.issuer do
+      exerciseCmd ahCid Issue_Asset with ..
+    [] -> abort ("No AssetHolder found for " <> show asset)
+-- ISSUE_ASSET_END
+
+testMultiTrade = script do
+  -- Use the V1 Trade Setup Script to set up parties and issue assets:
+  -- TUPLE_USE_BEGIN
+  (alice, bob, usdbank, eurbank, usdha, usdhb, eurha, eurhb, usdCid, eurCid) <- tradeSetup
+  -- TUPLE_USE_END
+
+  -- Introduce two more banks:
+  chfbank <- allocateParty "CHF_Bank"
+  gbpbank <- allocateParty "GBP_Bank"
+
+  -- Set up relationships
+  -- MAPA_BEGIN
+  let rels = 
+        [ Relationship chfbank alice
+        , Relationship chfbank bob
+        , Relationship gbpbank alice
+        , Relationship gbpbank bob
+        ]
+  [chfha, chfhb, gbpha, gbphb] <- mapA setupRelationship rels
+  -- MAPA_END
+
+  let chf = Asset with
+        issuer = chfbank
+        owner = alice
+        symbol = "CHF"
+        quantity = 120.0
+        observers = []
+  chfCid <- issueAsset chf
+  
+  let gbp = Asset with
+        issuer = gbpbank
+        owner = bob
+        symbol = "GBP"
+        quantity = 100.0
+        observers = []
+  gbpCid <- issueAsset gbp
+
+  -- Alice wants to swap her 100 USD + 120 CHF for Bob's 90 EUR + 100 GBP
+
+  -- First, she has to show her assets to bob and get pre-approval for the transfer of EUR and GBP
+  let
+    eur = Asset with
+      issuer = eurbank
+      owner = bob
+      symbol = "EUR"
+      quantity = 90.0
+      observers = []
+
+  -- FORA_EXAMPLE_BEGIN
+  [usdCid, chfCid] <- forA [usdCid, chfCid] (\cid -> submit alice do
+    exerciseCmd cid SetObservers with
+      newObservers = [bob]
+    )
+  -- FORA_EXAMPLE_END
+  
+  eurtaCid <- submit alice do
+    exerciseCmd eurha Preapprove_Transfer with
+      asset = eur
+  gbptaCid <- submit alice do
+    exerciseCmd gbpha Preapprove_Transfer with
+      asset = gbp
+  
+  -- Now she can createCmd the trade
+  Some usd <- queryContractId alice usdCid
+  tradeCid <- submit alice do
+    createCmd MultiTrade with
+      baseAssetCids = [usdCid, chfCid]
+      baseAssets = [usd, chf]
+      quoteApprovalCids = [eurtaCid, gbptaCid]
+      quoteAssets = [eur, gbp]
+
+  -- Bob accepts by supplying transfer approvals and assets.
+  Some usd <- queryContractId bob usdCid
+  usdtaCid <- submit bob do
+    exerciseCmd usdhb Preapprove_Transfer with
+      asset = usd
+  chftaCid <- submit bob do
+    exerciseCmd chfhb Preapprove_Transfer with
+      asset = chf
+  ([usdCid, chfCid], [eurCid, gbpCid]) <- submit bob do
+    exerciseCmd tradeCid Trade_Settle with
+      quoteAssetCids = [eurCid, gbpCid]
+      baseApprovalCids = [usdtaCid, chftaCid]
+
+  Some eur <- queryContractId eurbank eurCid
+  assert (eur.owner == alice)
+
+  Some gbp <- queryContractId gbpbank gbpCid
+  assert (gbp.owner == alice)
+
+  Some usd <- queryContractId usdbank usdCid
+  assert (usd.owner == bob)
+
+  Some chf <- queryContractId chfbank chfCid
+  assert (chf.owner == bob)
+
+  return ()

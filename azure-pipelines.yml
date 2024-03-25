@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Azure Pipelines file, see https://aka.ms/yaml
@@ -11,13 +11,15 @@ trigger:
   branches:
     include:
       - main
-      - release/*
+      - main-2.x
 
 # Enable PR triggers that target the main branch
 pr: none
 
 jobs:
 - template: ci/build.yml
+  parameters:
+    test_mode: main
 - template: ci/check-for-release-job.yml
 
 - job: release
@@ -70,6 +72,9 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        if [ -d sdk ]; then
+          cd sdk
+        fi
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         KEY_FILE=$(mktemp)
@@ -111,6 +116,9 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        if [ -d sdk ]; then
+          cd sdk
+        fi
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag)
@@ -120,6 +128,9 @@ jobs:
     - bash: |
         set -euo pipefail
 
+        if [ -d sdk ]; then
+          cd sdk
+        fi
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
@@ -140,6 +151,9 @@ jobs:
     - bash: |
         set -euo pipefail
         source $(bash-lib)
+        if [ -d sdk ]; then
+          cd sdk
+        fi
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         msg=$(git log -n1 --format=%b HEAD | head -1)

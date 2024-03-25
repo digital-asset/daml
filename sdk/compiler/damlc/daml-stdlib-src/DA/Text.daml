@@ -1,0 +1,342 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+
+-- | Functions for working with Text.
+module DA.Text
+  ( Text
+  , DA.Text.explode
+  , DA.Text.implode
+  , DA.Text.isEmpty
+  , DA.Text.length
+  , DA.Text.trim
+  , DA.Text.replace
+  , DA.Text.lines
+  , DA.Text.unlines
+  , DA.Text.words
+  , DA.Text.unwords
+  , DA.Text.linesBy
+  , DA.Text.wordsBy
+  , DA.Text.reverse
+  , DA.Text.intercalate
+  , DA.Text.dropPrefix
+  , DA.Text.dropSuffix
+  , DA.Text.stripSuffix
+  , DA.Text.stripPrefix
+  , DA.Text.isPrefixOf
+  , DA.Text.isSuffixOf
+  , DA.Text.isInfixOf
+  , DA.Text.takeWhile
+  , DA.Text.takeWhileEnd
+  , DA.Text.dropWhile
+  , DA.Text.dropWhileEnd
+  , DA.Text.splitOn
+  , DA.Text.splitAt
+  , DA.Text.take
+  , DA.Text.drop
+  , DA.Text.substring
+  , DA.Text.isPred
+  , DA.Text.isSpace
+  , DA.Text.isNewLine
+  , DA.Text.isUpper
+  , DA.Text.isLower
+  , DA.Text.isDigit
+  , DA.Text.isAlpha
+  , DA.Text.isAlphaNum
+  , DA.Text.parseInt
+  , DA.Text.parseNumeric
+  , DA.Text.parseDecimal
+  , DA.Text.sha256
+  , DA.Text.toCodePoints
+  , DA.Text.fromCodePoints
+  , DA.Text.asciiToLower
+  , DA.Text.asciiToUpper
+  ) where
+
+import Prelude
+import Prelude qualified as P
+import DA.List qualified as L
+import GHC.Types (primitive)
+import GHC.Tuple.Check()
+
+explode : Text -> [Text]
+explode = primitive @"BEExplodeText"
+
+implode : [Text] -> Text
+implode = primitive @"BEImplodeText"
+
+-- | Test for emptiness.
+isEmpty : Text -> Bool
+isEmpty = (=="")
+
+-- | Compute the number of symbols in the text.
+length : Text -> Int
+length = P.length . explode
+
+-- | Remove spaces from either side of the given text.
+trim : Text -> Text
+trim = implode . L.dropWhileEnd isSpace . P.dropWhile isSpace . explode
+
+-- | Replace a subsequence everywhere it occurs. The first argument
+-- must not be empty.
+replace : Text -> Text -> Text -> Text
+replace from to xs
+  | isEmpty from = error "replace: the first argument cannot be empty"
+  | otherwise    = implode $ L.replace (explode from) (explode to) (explode xs)
+
+-- | Breaks a `Text` value up into a list of `Text`'s at newline
+-- symbols. The resulting texts do not contain newline symbols.
+lines : Text -> [Text]
+lines = map implode . L.linesBy isNewLine . explode
+
+-- | Joins lines, after appending a terminating newline to each.
+unlines : [Text] -> Text
+unlines = implode . concatMap (::["\n"])
+
+-- | Breaks a 'Text' up into a list of words, delimited by symbols
+-- representing white space.
+words : Text -> [Text]
+words = map implode . L.wordsBy isSpace . explode
+
+-- | Joins words using single space symbols.
+unwords : [Text] -> Text
+unwords = DA.Text.intercalate " "
+
+-- | A variant of `lines` with a custom test. In particular, if there
+-- is a trailing separator it will be discarded.
+linesBy : (Text -> Bool) -> Text -> [Text]
+linesBy f = map implode . L.linesBy f . explode
+
+-- | A variant of `words` with a custom test. In particular, adjacent
+-- separators are discarded, as are leading or trailing separators.
+wordsBy : (Text -> Bool) -> Text -> [Text]
+wordsBy f = map implode . L.wordsBy f . explode
+
+-- | `intercalate` inserts the text argument `t` in between the items
+-- in `ts` and concatenates the result.
+intercalate : Text -> [Text] -> Text
+intercalate t = implode . L.intersperse t
+
+-- | `dropPrefix` drops the given prefix from the argument. It returns
+-- the original text if the text doesn't start with the given prefix.
+dropPrefix : Text -> Text -> Text
+dropPrefix a b = implode $ L.dropPrefix (explode a) (explode b)
+
+-- | Drops the given suffix from the argument. It returns the original
+-- text if the text doesn't end with the given suffix. Examples:
+-- ```
+--   dropSuffix "!" "Hello World!"  == "Hello World"
+--   dropSuffix "!" "Hello World!!" == "Hello World!"
+--   dropSuffix "!" "Hello World."  == "Hello World."
+-- ```
+dropSuffix : Text -> Text -> Text
+dropSuffix a b = implode $ L.dropSuffix (explode a) (explode b)
+
+-- | Return the prefix of the second text if its suffix matches the
+-- entire first text. Examples:
+-- ```
+--   stripSuffix "bar" "foobar" == Some "foo"
+--   stripSuffix ""    "baz"    == Some "baz"
+--   stripSuffix "foo" "quux"   == None
+-- ```
+stripSuffix : Text -> Text -> Optional Text
+stripSuffix a b = fmap implode $ L.stripSuffix (explode a) (explode b)
+
+-- | The `stripPrefix` function drops the given prefix from the
+-- argument text.  It returns `None` if the text did not start with
+-- the prefix.
+stripPrefix : Text -> Text -> Optional Text
+stripPrefix a b = fmap implode $ L.stripPrefix (explode a) (explode b)
+
+-- | The `isPrefixOf` function takes two text arguments and returns
+-- `True` if and only if the first is a prefix of the second.
+isPrefixOf : Text -> Text -> Bool
+isPrefixOf a b = L.isPrefixOf (explode a) (explode b)
+
+-- | The `isSuffixOf` function takes two text arguments and returns
+-- `True` if and only if the first is a suffix of the second.
+isSuffixOf : Text -> Text -> Bool
+isSuffixOf a b = L.isSuffixOf (explode a) (explode b)
+
+-- | The `isInfixOf` function takes two text arguments and returns
+-- `True` if and only if the first is contained, wholly and intact,
+-- anywhere within the second.
+isInfixOf : Text -> Text -> Bool
+isInfixOf a b = L.isInfixOf (explode a) (explode b)
+
+-- | The function `takeWhile`, applied to a predicate `p` and a text,
+-- returns the longest prefix (possibly empty) of symbols that satisfy
+-- `p`.
+takeWhile : (Text -> Bool) -> Text -> Text
+takeWhile p = implode . P.takeWhile p . explode
+
+-- | The function 'takeWhileEnd', applied to a predicate `p` and a
+-- 'Text', returns the longest suffix (possibly empty) of elements
+-- that satisfy `p`.
+takeWhileEnd : (Text -> Bool) -> Text -> Text
+takeWhileEnd p = implode . L.takeWhileEnd p . explode
+
+-- | `dropWhile p t` returns the suffix remaining after `takeWhile p
+-- t`.
+dropWhile : (Text -> Bool) -> Text -> Text
+dropWhile p = implode . P.dropWhile p . explode
+
+-- | `dropWhileEnd p t` returns the prefix remaining after dropping
+-- symbols that satisfy the predicate `p` from the end of `t`.
+dropWhileEnd : (Text -> Bool) -> Text -> Text
+dropWhileEnd p = implode . L.dropWhileEnd p . explode
+
+-- Separate function because recursion is only allowed at the top-level and we
+-- don't want to pay for many implode/explode operations.
+-- This shoud not be exported.
+splitOnHelper : [Text] -> [Text] -> [Text]
+splitOnHelper s t =
+    case L.stripInfix s t of
+        None -> [implode t]
+        Some (before, after) -> implode before :: splitOnHelper s after
+
+-- | Break a text into pieces separated by the first text argument
+-- (which cannot be empty), consuming the delimiter.
+splitOn : Text -> Text -> [Text]
+splitOn "" t' = [t']
+splitOn s t = splitOnHelper (explode s) (explode t)
+
+-- | Split a text before a given position so that for `0 <= n <= length t`,
+-- `length (fst (splitAt n t)) == n`.
+splitAt : Int -> Text -> (Text, Text)
+splitAt n t = (implode f, implode s)
+  where
+    (f, s) = P.splitAt n (explode t)
+
+-- | `take n`, applied to a text `t`, returns the prefix of `t` of
+-- length `n`, or `t` itself if `n` is greater than the length of `t`.
+take : Int -> Text -> Text
+take n = implode . L.take n . explode
+
+-- | `drop n`, applied to a text `t`, returns the suffix of `t` after
+-- the first `n` characters, or the empty `Text` if `n` is greater
+-- than the length of `t`.
+drop : Int -> Text -> Text
+drop n = implode . L.drop n . explode
+
+-- | Compute the sequence of symbols of length `l` in the argument
+-- text starting at `s`.
+substring : Int -> Int -> Text -> Text
+substring s l = implode . L.take l . L.drop s . explode
+
+-- | `isPred f t` returns `True` if `t` is not empty and `f` is `True`
+-- for all symbols in `t`.
+isPred : (Text -> Bool) -> Text -> Bool
+isPred f t = t /= "" && all f (explode t)
+
+-- | `isSpace t` is `True` if `t` is not empty and consists only of
+-- spaces.
+isSpace : Text -> Bool
+isSpace = isPred (==" ")
+
+-- | `isSpace t` is `True` if `t` is not empty and consists only of
+-- newlines.
+isNewLine : Text -> Bool
+isNewLine = isPred (=="\n")
+
+-- | `isUpper t` is `True` if `t` is not empty and consists only of
+-- uppercase symbols.
+isUpper : Text -> Bool
+isUpper = isPred (\t -> t >= "A" && t <= "Z")
+
+-- | `isLower t` is `True` if `t` is not empty and consists only of
+-- lowercase symbols.
+isLower : Text -> Bool
+isLower = isPred (\t -> t >= "a" && t <= "z")
+
+-- | `isDigit t` is `True` if `t` is not empty and consists only of
+-- digit symbols.
+isDigit : Text -> Bool
+isDigit = isPred (\t -> t >= "0" && t <= "9")
+
+-- | `isAlpha t` is `True` if `t` is not empty and consists only of
+-- alphabet symbols.
+isAlpha : Text -> Bool
+isAlpha = isPred (\t -> t >= "a" && t <= "z" || t >= "A" && t <= "Z")
+
+-- | `isAlphaNum t` is `True` if `t` is not empty and consists only of
+-- alphanumeric symbols.
+isAlphaNum : Text -> Bool
+isAlphaNum = isPred (\t -> t >= "0" && t <= "9" || t >= "a" && t <= "z" || t >= "A" && t <= "Z")
+
+-- | Attempt to parse an `Int` value from a given `Text`.
+parseInt : Text -> Optional Int
+parseInt = primitive @"BETextToInt64"
+
+-- | Attempt to parse a `Numeric` value from a given `Text`.
+-- To get `Some` value, the text must follow the regex
+-- `(-|\+)?[0-9]+(\.[0-9]+)?`
+-- In particular, the shorthands `".12"` and `"12."` do not work,
+-- but the value can be prefixed with `+`.
+-- Leading and trailing zeros are fine, however spaces are not.
+-- Examples:
+-- ```
+--   parseNumeric "3.14" == Some 3.14
+--   parseNumeric "+12.0" == Some 12
+-- ```
+parseNumeric: forall n. NumericScale n => Text -> Optional (Numeric n)
+parseNumeric = primitive @"BETextToNumeric" (numericOne @n)
+
+-- | Attempt to parse a `Decimal` value from a given `Text`.
+-- To get `Some` value, the text must follow the regex
+-- `(-|\+)?[0-9]+(\.[0-9]+)?`
+-- In particular, the shorthands `".12"` and `"12."` do not work,
+-- but the value can be prefixed with `+`.
+-- Leading and trailing zeros are fine, however spaces are not.
+-- Examples:
+-- ```
+--   parseDecimal "3.14" == Some 3.14
+--   parseDecimal "+12.0" == Some 12
+-- ```
+parseDecimal : Text -> Optional Decimal
+parseDecimal = parseNumeric
+
+-- | Computes the SHA256 hash of the UTF8 bytes of the `Text`, and returns it in its hex-encoded
+-- form. The hex encoding uses lowercase letters.
+--
+-- This function will crash at runtime if you compile Daml to Daml-LF < 1.2.
+sha256 : Text -> Text
+sha256 = primitive @"BESha256Text"
+
+
+-- | Reverse some `Text`.
+-- ```
+--   reverse "Daml" == "lmaD"
+-- ```
+reverse : Text -> Text
+reverse = implode . P.reverse . explode
+
+-- | Convert a `Text` into a sequence of unicode code points.
+toCodePoints : Text -> [Int]
+toCodePoints = primitive @"BETextToCodePoints"
+
+-- | Convert a sequence of unicode code points into a `Text`. Raises an
+-- exception if any of the code points is invalid.
+fromCodePoints : [Int] -> Text
+fromCodePoints = primitive @"BECodePointsToText"
+
+-- | Convert the uppercase ASCII characters of a `Text` to lowercase;
+-- all other characters remain unchanged.
+asciiToLower : Text -> Text
+asciiToLower = fromCodePoints . fmap toLowerCP . toCodePoints
+  where
+    toLowerCP x
+      | cpA <= x && x <= cpZ = x + (cpa - cpA)
+      | otherwise = x
+    [cpA, cpZ, cpa] = toCodePoints "AZa"
+
+-- | Convert the lowercase ASCII characters of a `Text` to uppercase;
+-- all other characters remain unchanged.
+asciiToUpper : Text -> Text
+asciiToUpper = fromCodePoints . fmap toUpperCP . toCodePoints
+  where
+    toUpperCP x
+      | cpa <= x && x <= cpz = x - (cpa - cpA)
+      | otherwise = x
+    [cpA, cpa, cpz] = toCodePoints "Aaz"

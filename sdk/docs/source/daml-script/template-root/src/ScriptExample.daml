@@ -1,0 +1,148 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- DAML_SCRIPT_HEADER_BEGIN
+{-# LANGUAGE ApplicativeDo #-}
+
+module ScriptExample where
+
+import DA.Time
+import Daml.Script
+-- DAML_SCRIPT_HEADER_END
+
+import DA.Assert
+
+-- ASSET_INTERFACE_BEGIN
+data AssetInfo = AssetInfo { info : Text } deriving (Eq,Show)
+
+interface Asset where
+  viewtype AssetInfo
+-- ASSET_INTERFACE_END
+
+-- COIN_TEMPLATE_BEGIN
+template Coin
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory issuer, owner
+    
+    interface instance Asset for Coin where
+      view = AssetInfo { info = "A Coin" }    
+-- COIN_TEMPLATE_END
+
+-- COIN_PROPOSAL_TEMPLATE_BEGIN
+template CoinProposal
+  with
+    coin : Coin
+  where
+    signatory coin.issuer
+    observer coin.owner
+
+    choice Accept : ContractId Coin
+      controller coin.owner
+      do create coin
+-- COIN_PROPOSAL_TEMPLATE_END
+
+-- LEDGER_PARTIES_BEGIN
+data LedgerParties = LedgerParties with
+  bank : Party
+  alice : Party
+  bob : Party
+-- LEDGER_PARTIES_END
+
+-- ALLOCATE_PARTIES_BEGIN
+allocateParties : Script LedgerParties
+allocateParties = do
+  alice <- allocateParty "alice"
+  bob <- allocateParty "bob"
+  bank <- allocateParty "Bank"
+  pure (LedgerParties bank alice bob)
+-- ALLOCATE_PARTIES_END
+
+-- INITIALIZE_SIGNATURE_BEGIN
+initialize : LedgerParties -> Script ()
+initialize parties = do
+-- INITIALIZE_SIGNATURE_END
+-- INITIALIZE_PROPOSAL_BEGIN
+  (coinProposalAlice, coinProposalBob, coinProposalBank) <- submit parties.bank $ do
+    coinProposalAlice <- createCmd (CoinProposal (Coin parties.bank parties.alice))
+    coinProposalBob <- createCmd (CoinProposal (Coin parties.bank parties.bob))
+    coinProposalBank <- createCmd (CoinProposal (Coin parties.bank parties.bank))
+    pure (coinProposalAlice, coinProposalBob, coinProposalBank)
+-- INITIALIZE_PROPOSAL_END
+
+-- INITIALIZE_ACCEPT_BEGIN
+  coinAlice <- submit parties.alice $ exerciseCmd coinProposalAlice Accept
+  coinBob <- submit parties.bob $ exerciseCmd coinProposalBob Accept
+-- INITIALIZE_ACCEPT_END
+-- INITIALIZE_PURE_BEGIN
+  pure ()
+-- INITIALIZE_PURE_END
+
+-- TEST_SIGNATURE_BEGIN
+test : Script ()
+test = do
+-- TEST_SIGNATURE_END
+  parties@LedgerParties{..} <- allocateParties
+
+-- TEST_INITIALIZE_BEGIN
+  initialize parties
+-- TEST_INITIALIZE_END
+
+-- TEST_QUERIES_BEGIN
+  proposals <- query @CoinProposal bank
+  assertEq [CoinProposal (Coin bank bank)] (map snd proposals)
+
+  aliceCoins <- query @Coin alice
+  assertEq [Coin bank alice] (map snd aliceCoins)
+
+  bobCoins <- query @Coin bob
+  assertEq [Coin bank bob] (map snd bobCoins)
+-- TEST_QUERIES_END
+
+-- TEST_INTERFACE_BEGIN
+  aliceCoins <- query @Coin alice
+  assertEq [Coin bank alice] (map snd aliceCoins)
+
+  aliceAssets <- queryInterface @Asset alice
+  assertEq [Some $ AssetInfo "A Coin"] (map snd aliceAssets)
+-- TEST_INTERFACE_END
+
+
+-- INITIALIZE_USER_BEGIN
+initializeUser : Script ()
+initializeUser = do
+  parties <- allocateParties
+  bank <- validateUserId "bank"
+  alice <- validateUserId "alice"
+  bob <- validateUserId "bob"
+  _ <- createUser (User bank (Some parties.bank)) [CanActAs parties.bank]
+  _ <- createUser (User alice (Some parties.alice)) [CanActAs parties.alice]
+  _ <- createUser (User bob (Some parties.bob)) [CanActAs parties.bob]
+  initialize parties
+-- INITIALIZE_USER_END
+
+-- SYNC_CONTRACT_IDS_BEGIN
+tries : Int
+tries = 60
+
+waitForCid : (Template t, HasEnsure t) => Int -> Party -> ContractId t -> Script ()
+waitForCid tries p cid
+  | tries <= 0 = abort $ "Cid " <> show cid <> " did not appear"
+  | otherwise = do
+    r <- queryContractId p cid
+    case r of
+      None -> do
+        sleep delay
+        waitForCid (tries - 1) p cid
+      Some _ -> pure ()
+  where delay = seconds 1
+
+testWithSync: LedgerParties -> Script ()
+testWithSync parties = do
+  coinProposalAlice <- submit parties.bank $ createCmd (CoinProposal (Coin parties.bank parties.alice))
+  waitForCid tries parties.alice coinProposalAlice
+  coinAlice <- submit parties.alice $ exerciseCmd coinProposalAlice Accept
+  pure ()
+-- SYNC_CONTRACT_IDS_END

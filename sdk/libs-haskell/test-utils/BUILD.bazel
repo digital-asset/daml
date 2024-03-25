@@ -1,0 +1,36 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:haskell.bzl",
+    "da_haskell_library",
+)
+
+da_haskell_library(
+    name = "test-utils",
+    srcs = glob(["DA/Test/**/*.hs"]),
+    hackage_deps = [
+        "base",
+        "containers",
+        "directory",
+        "extra",
+        "filelock",
+        "filepath",
+        "lens",
+        "network",
+        "process",
+        "QuickCheck",
+        "regex-tdfa",
+        "safe",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "unliftio",
+        "unliftio-core",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/bazel-runfiles",
+        "@rules_haskell//tools/runfiles",
+    ],
+)

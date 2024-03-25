@@ -1,0 +1,69 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_test")
+load("//bazel_tools:java.bzl", "da_java_library")
+
+da_java_library(
+    name = "rs-grpc-bridge",
+    srcs = glob(["src/main/java/**/*.java"]),
+    tags = [
+        "javadoc_root_packages=com.daml.grpc.adapter",
+        "maven_coordinates=com.daml:rs-grpc-bridge:__VERSION__",
+    ],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "@maven//:com_google_code_findbugs_jsr305",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_library(
+    name = "rs-grpc-bridge-test-lib",
+    srcs = glob([
+        "src/test/lib/java/**/*.java",
+    ]),
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        ":rs-grpc-bridge",
+    ],
+)
+
+da_scala_test(
+    name = "rs-grpc-bridge-test",
+    srcs = glob([
+        "src/test/suite/scala/**/*.scala",
+    ]),
+    resource_strip_prefix = "libs-scala/rs-grpc-bridge/src/test/suite/resources/",
+    resources = glob(["src/test/suite/resources/**/*"]),
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_testng_7_5",
+    ],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        ":rs-grpc-bridge",
+        ":rs-grpc-bridge-test-lib",
+        "//libs-scala/rs-grpc-testing-utils",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_reactivestreams_reactive_streams_examples",
+        "@maven//:org_reactivestreams_reactive_streams_tck",
+        "@maven//:org_scalatest_scalatest_compatible",
+        "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_testng_testng",
+    ],
+)

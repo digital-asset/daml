@@ -1,0 +1,27 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:haskell.bzl",
+    "da_haskell_library",
+)
+
+da_haskell_library(
+    name = "daml-ghc-util",
+    srcs = glob(["src/**/*.hs"]),
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "ghc-lib-parser",
+        "ghc-lib",
+        "text",
+        "uniplate",
+    ],
+    repl_ghci_args = ["-hide-package=ghc"],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+    ],
+)

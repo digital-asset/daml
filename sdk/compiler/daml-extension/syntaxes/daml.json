@@ -1,0 +1,201 @@
+{
+  "comment": "DA Modeling Language",
+  "scopeName": "source.daml",
+  "name": "Daml",
+  "fileTypes": ["daml", "daml-core"],
+  "patterns": [
+    {
+      "name": "comment.line.doc.daml",
+      "begin": "-- \\|",
+      "end": "\n",
+      "patterns": [
+        {
+          "name": "doc-bloc.line.doc.ref.daml",
+          "begin": "@",
+          "end": "@",
+          "patterns": [
+            {
+              "name": "entity.name.function doc-bloc.line.doc.ref.func.daml",
+              "match": "\\b(func)\\b"
+            },
+            {
+              "name": "entity.name.type doc-bloc.line.doc.ref.func.daml",
+              "match": "\\b(param)\\b"
+            }
+          ]
+        },
+        {
+          "name": "doc-bloc.line.doc.daml",
+          "begin": ":",
+          "end": ":",
+          "patterns": [
+            {
+              "name": "entity.name.function doc-bloc.line.doc.ref.func.daml",
+              "match": "\\b(func)\\b"
+            },
+            {
+              "name": "entity.name.type doc-bloc.line.doc.ref.func.daml",
+              "match": "\\b(param)\\b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "comment.line.daml",
+      "begin": "--",
+      "end": "\n",
+      "patterns": [
+        {
+          "include": "#todo-fixme"
+        }
+      ]
+    },
+    {
+      "name": "comment.block.daml",
+      "begin": "{-",
+      "end": "-}",
+      "patterns": [
+        {
+          "include": "#todo-fixme"
+        }
+      ]
+    },
+    {
+      "name": "string.unquoted.daml",
+      "begin": "{@",
+      "end": "@}",
+      "patterns": [
+        {
+          "include": "#annotation"
+        }
+      ]
+    },
+    {
+      "include": "#expr"
+    }
+  ],
+  "repository": {
+    "todo-fixme": {
+      "name": "invalid.deprecated.daml",
+      "match": "\\b(TODO|FIXME)\\b"
+    },
+    "expr": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.daml",
+          "match": "\"[^\"]*\""
+        },
+        { "name": "string.quoted.single.daml",
+          "match": "c\\'[^\\']\\'"
+        },
+        {
+          "comment": "module declaration",
+          "match": "(module)\\s*([A-Z][a-zA-Z0-9_.]*)\\s*(where)",
+          "captures": {
+            "1": { "name": "keyword.other.daml" },
+            "2": { "name": "support.other.module.daml" },
+            "3": { "name": "keyword.other.daml" }
+          },
+          "name": "meta.declaration.module.daml"
+        },
+        {
+          "comment": "core: template group declarations",
+          "match": "(template group) (\\w*)",
+          "captures": {
+            "1": { "name": "keyword.function.daml-core" },
+            "2": { "name": "entity.name.type.template-group" }
+          }
+        },
+        {
+          "comment": "template declarations",
+          "match": "(template) ([a-zA-Z0-9_]\\w*)",
+          "captures": {
+            "1": { "name": "keyword.control.daml" },
+            "2": { "name": "entity.name.type.daml" }
+          }
+        },
+        {
+          "name": "keyword.control.daml",
+          "match": "\\b(case|commits|fails|else|ensure|exercise|if|import|in|let|match|must|of|on|qualified|scenario|script|template|then|type|data|where|while|with|anytime|signatory|observer|returning|to|agreement|do|does|test|def|fetch|controller|can)\\b"
+        },
+        {
+          "name": "entity.name.function",
+          "match": "\\b(pure|return|assert|create|mustFailAt|fromRelTime|toRelTime|fromInteger|toInteger|pass|toText|singleton|unpack|divD|remD|round|cons|nil|subTime|addRelTime)\\b"
+        },
+        {
+          "name": "keyword.operator.daml",
+          "match": "\\\\|\\*|\\+|\\^|::|<>|==|/=|=|->|<-|-|<|<=|>|>=|~|&&|\\|\\|"
+        },
+        {
+          "name": "constant.language.daml",
+          "match": "\\b(True|False|this|arg)\\b"
+        },
+        {
+          "name": "constant.time.daml",
+          "match": "\\d{4}-[01]\\d-[0-3]\\dT[0-2]\\d:[0-5]\\d:[0-5]\\d([+-][0-2]\\d:[0-5]\\d|Z)"
+        },
+        {
+          "name": "constant.symbol.daml",
+          "match": "\"[^\"]*\""
+        },
+        {
+          "name": "constant.numeric.daml",
+          "match": "\\b(-?[0-9]+(\\.[0-9]+)?)\\b"
+        },
+        {
+          "name": "entity.name.type.daml",
+          "match": "\\b([A-Z][a-zA-Z0-9]*)(\\.([A-Z][a-zA-Z0-9]*))*\\b"
+        },
+        {
+          "comment": "top-level declarations",
+          "match": "^([a-zA-Z0-9_]\\w*)[\\s ]*(=)",
+          "captures": {
+            "1": { "name": "entity.name.function" },
+            "2": { "name": "keyword.operator.daml" }
+          }
+        },
+
+        {
+          "comment": "typed variables",
+          "match": "([a-zA-Z0-9_]\\w*)[\\s ]*::",
+          "captures": {
+            "1": { "name": "variable.other.declaration" }
+          }
+        },
+
+
+        {
+          "comment": "core: template lambdas",
+          "match": "([a-zA-Z0-9_ ]*)->",
+          "captures": {
+            "1": { "name": "variable.other.declaration" }
+          }
+        },
+
+
+        {
+          "comment": "core: template application",
+          "match": "([a-zA-Z_]\\w*)(@)([a-zA-Z0-9_]*)",
+          "captures": {
+            "1": { "name": "entity.name.function" },
+            "2": { "name": "keyword.at" },
+            "3": { "name": "entity.name.type.template-group" }
+          }
+        }
+
+      ]
+    },
+    "annotation": {
+      "patterns": [
+        {
+          "name": "string.unquoted.daml",
+          "match": "\\b(TOPOLOGY|DESC|writer|readers)\\b"
+        },
+        {
+          "include": "#expr"
+        }
+      ]
+    }
+  }
+}

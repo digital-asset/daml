@@ -1,0 +1,14 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- The TubeSurfaceArea example.
+
+module TubeSurfaceArea2 where
+
+-- Type synonym for Decimal -> Decimal -> Decimal
+type BinaryDecimalFunction = Decimal -> Decimal -> Decimal
+
+pi : Decimal = 3.1415926535
+
+tubeSurfaceArea : BinaryDecimalFunction =
+  \ (r : Decimal) (h : Decimal) -> 2.0 * pi * r * h

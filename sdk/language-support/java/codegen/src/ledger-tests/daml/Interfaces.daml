@@ -1,0 +1,49 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Interfaces where
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface TIf where
+  viewtype EmptyInterfaceView
+  getOwner: Party
+  dup: Update (ContractId TIf)
+  choice Ham: ContractId TIf with
+    controller getOwner this
+    do dup this
+  choice Useless: ContractId TIf with
+      interfacely: ContractId TIf
+    controller getOwner this
+    do
+      dup this
+
+template Child
+    with
+    party: Party
+  where
+    signatory party
+    key party: Party
+    maintainer key
+
+    choice Bar: () with
+      controller party
+      do
+        return ()
+
+    interface instance TIf for Child where
+      view = EmptyInterfaceView
+      getOwner = party
+      dup = toInterfaceContractId <$> create this
+
+template ChildClone
+    with
+    party: Party
+  where
+    signatory party
+
+    interface instance TIf for ChildClone where
+      view = EmptyInterfaceView
+      getOwner = party
+      dup = toInterfaceContractId <$> create this

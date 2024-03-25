@@ -1,0 +1,18 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Tests.Names where
+
+import Prelude hiding (ContractId)
+
+-- Top-level java classes are created for each template.
+-- However each of these will also contain some nested classes/interfaces
+-- and in java a nested class may not have the same name as its parent.
+-- To avoid a name clash, we tweak the nested class names when necessary.
+--
+-- Below we create templates for all of the nested type names.
+template Contract with p: Party where signatory p
+template ContractId with p: Party where signatory p
+template ByKey with p: Party where signatory p
+template CreateAnd with p: Party where signatory p
+template Exercises with p: Party where signatory p

@@ -1,0 +1,224 @@
+module InterfaceNoExerciseRequiring where
+import (implicit) qualified DA.Internal.Record
+import (implicit) qualified GHC.Types
+import (implicit) qualified DA.Internal.Desugar
+import (implicit) DA.Internal.RebindableSyntax
+data EmptyInterfaceView = EmptyInterfaceView {}
+data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
+instance DA.Internal.Desugar.HasInterfaceTypeRep Token where
+  _interfaceTypeRep
+    = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
+instance DA.Internal.Desugar.HasFetch Token where
+  fetch = GHC.Types.primitive @"UFetchInterface"
+instance DA.Internal.Desugar.HasToInterface Token Token where
+  _toInterface this = this
+instance DA.Internal.Desugar.HasFromInterface Token Token where
+  fromInterface this = DA.Internal.Desugar.Some this
+  unsafeFromInterface _ this = this
+instance DA.Internal.Desugar.HasMethod Token "getOwner" (Party)
+getOwner : Token -> Party
+getOwner = GHC.Types.primitiveInterface @"getOwner"
+instance DA.Internal.Desugar.HasMethod Token "getAmount" (Int)
+getAmount : Token -> Int
+getAmount = GHC.Types.primitiveInterface @"getAmount"
+instance DA.Internal.Desugar.HasMethod Token "setAmount" (Int
+                                                          -> Token)
+setAmount : Token -> Int -> Token
+setAmount = GHC.Types.primitiveInterface @"setAmount"
+instance DA.Internal.Desugar.HasToAnyTemplate Token where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate Token where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep Token where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasSignatory Token where
+  signatory = GHC.Types.primitive @"ESignatoryInterface"
+instance DA.Internal.Desugar.HasObserver Token where
+  observer = GHC.Types.primitive @"EObserverInterface"
+instance DA.Internal.Desugar.HasCreate Token where
+  create = GHC.Types.primitive @"UCreateInterface"
+instance DA.Internal.Desugar.HasIsInterfaceType Token where
+  _isInterfaceType _ = DA.Internal.Desugar.True
+instance DA.Internal.Desugar.Eq Token where
+  (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasArchive Token where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+instance DA.Internal.Desugar.HasToAnyChoice Token DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Token DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExerciseGuarded Token DA.Internal.Desugar.Archive (()) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Token cid pred)
+instance DA.Internal.Desugar.HasExercise Token DA.Internal.Desugar.Archive (()) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
+        arg
+instance DA.Internal.Desugar.HasChoiceController Token DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Token DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+instance DA.Internal.Desugar.HasToAnyChoice Token GetRich (ContractId Token) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Token GetRich (ContractId Token) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExerciseGuarded Token GetRich (ContractId Token) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Token cid pred)
+instance DA.Internal.Desugar.HasExercise Token GetRich (ContractId Token) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
+        arg
+instance DA.Internal.Desugar.HasChoiceController Token GetRich where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Token GetRich where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+data GetRich
+  = GetRich {byHowMuch : Int}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.GetField "byHowMuch" GetRich Int where
+  getField
+    = DA.Internal.Record.getFieldPrim @"byHowMuch" @GetRich @Int
+instance DA.Internal.Record.SetField "byHowMuch" GetRich Int where
+  setField
+    = DA.Internal.Record.setFieldPrim @"byHowMuch" @GetRich @Int
+_choice$_Token$Archive :
+  (DA.Internal.Desugar.Consuming Token,
+   Token
+   -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (Token
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Token
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId Token
+   -> Token
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
+_choice$_Token$Archive
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
+_choice$_Token$GetRich :
+  (DA.Internal.Desugar.Consuming Token,
+   Token -> GetRich -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (Token
+                                 -> GetRich -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Token
+                                 -> GetRich -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId Token
+   -> Token
+      -> GetRich -> DA.Internal.Desugar.Update (ContractId Token))
+_choice$_Token$GetRich
+  = (DA.Internal.Desugar.Consuming, 
+     \ this arg@GetRich {..}
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (getOwner this), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ self this arg@GetRich {..}
+       -> let _ = self in
+          let _ = this in
+          let _ = arg
+          in
+            do assert (byHowMuch > 0)
+               create $ setAmount this (getAmount this + byHowMuch))
+instance DA.Internal.Desugar.HasInterfaceView Token EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView Token EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"
+data GHC.Types.DamlInterface => SubToken
+  = SubToken GHC.Types.Opaque
+instance DA.Internal.Desugar.HasInterfaceTypeRep SubToken where
+  _interfaceTypeRep
+    = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
+instance DA.Internal.Desugar.HasFetch SubToken where
+  fetch = GHC.Types.primitive @"UFetchInterface"
+instance DA.Internal.Desugar.HasToInterface SubToken SubToken where
+  _toInterface this = this
+instance DA.Internal.Desugar.HasFromInterface SubToken SubToken where
+  fromInterface this = DA.Internal.Desugar.Some this
+  unsafeFromInterface _ this = this
+_requires$_SubToken_Token :
+  DA.Internal.Desugar.RequiresT SubToken Token
+_requires$_SubToken_Token = DA.Internal.Desugar.RequiresT
+instance DA.Internal.Desugar.HasToInterface SubToken Token where
+  _toInterface = GHC.Types.primitive @"EToRequiredInterface"
+instance DA.Internal.Desugar.HasFromInterface SubToken Token where
+  fromInterface = GHC.Types.primitive @"EFromRequiredInterface"
+  unsafeFromInterface
+    = GHC.Types.primitive @"EUnsafeFromRequiredInterface"
+instance DA.Internal.Desugar.HasToAnyTemplate SubToken where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate SubToken where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep SubToken where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasSignatory SubToken where
+  signatory = GHC.Types.primitive @"ESignatoryInterface"
+instance DA.Internal.Desugar.HasObserver SubToken where
+  observer = GHC.Types.primitive @"EObserverInterface"
+instance DA.Internal.Desugar.HasCreate SubToken where
+  create = GHC.Types.primitive @"UCreateInterface"
+instance DA.Internal.Desugar.HasIsInterfaceType SubToken where
+  _isInterfaceType _ = DA.Internal.Desugar.True
+instance DA.Internal.Desugar.Eq SubToken where
+  (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasArchive SubToken where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+instance DA.Internal.Desugar.HasToAnyChoice SubToken DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice SubToken DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExerciseGuarded SubToken DA.Internal.Desugar.Archive (()) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @SubToken cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @SubToken cid pred)
+instance DA.Internal.Desugar.HasExercise SubToken DA.Internal.Desugar.Archive (()) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @SubToken cid)
+        arg
+instance DA.Internal.Desugar.HasChoiceController SubToken DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver SubToken DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+_choice$_SubToken$Archive :
+  (DA.Internal.Desugar.Consuming SubToken,
+   SubToken
+   -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (SubToken
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (SubToken
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId SubToken
+   -> SubToken
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
+_choice$_SubToken$Archive
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
+instance DA.Internal.Desugar.HasInterfaceView SubToken EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView SubToken EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"
+cannotExercise : ContractId SubToken -> Update (ContractId Token)
+cannotExercise sub
+  = do exercise sub GetRich {byHowMuch = 1_000_000}

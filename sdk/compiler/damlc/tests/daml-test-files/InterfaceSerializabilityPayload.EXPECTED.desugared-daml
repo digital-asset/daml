@@ -1,0 +1,123 @@
+module InterfaceSerializabilityPayload where
+import (implicit) qualified DA.Internal.Record
+import (implicit) qualified GHC.Types
+import (implicit) qualified DA.Internal.Desugar
+import (implicit) DA.Internal.RebindableSyntax
+data EmptyInterfaceView = EmptyInterfaceView {}
+data GHC.Types.DamlInterface => Gettable
+  = Gettable GHC.Types.Opaque
+instance DA.Internal.Desugar.HasInterfaceTypeRep Gettable where
+  _interfaceTypeRep
+    = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
+instance DA.Internal.Desugar.HasFetch Gettable where
+  fetch = GHC.Types.primitive @"UFetchInterface"
+instance DA.Internal.Desugar.HasToInterface Gettable Gettable where
+  _toInterface this = this
+instance DA.Internal.Desugar.HasFromInterface Gettable Gettable where
+  fromInterface this = DA.Internal.Desugar.Some this
+  unsafeFromInterface _ this = this
+instance DA.Internal.Desugar.HasToAnyTemplate Gettable where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate Gettable where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep Gettable where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasSignatory Gettable where
+  signatory = GHC.Types.primitive @"ESignatoryInterface"
+instance DA.Internal.Desugar.HasObserver Gettable where
+  observer = GHC.Types.primitive @"EObserverInterface"
+instance DA.Internal.Desugar.HasCreate Gettable where
+  create = GHC.Types.primitive @"UCreateInterface"
+instance DA.Internal.Desugar.HasIsInterfaceType Gettable where
+  _isInterfaceType _ = DA.Internal.Desugar.True
+instance DA.Internal.Desugar.Eq Gettable where
+  (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasArchive Gettable where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+instance DA.Internal.Desugar.HasToAnyChoice Gettable DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Gettable DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExerciseGuarded Gettable DA.Internal.Desugar.Archive (()) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @Gettable cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Gettable cid pred)
+instance DA.Internal.Desugar.HasExercise Gettable DA.Internal.Desugar.Archive (()) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @Gettable cid)
+        arg
+instance DA.Internal.Desugar.HasChoiceController Gettable DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Gettable DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+instance DA.Internal.Desugar.HasToAnyChoice Gettable Get (Gettable) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Gettable Get (Gettable) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExerciseGuarded Gettable Get (Gettable) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @Gettable cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Gettable cid pred)
+instance DA.Internal.Desugar.HasExercise Gettable Get (Gettable) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @Gettable cid)
+        arg
+instance DA.Internal.Desugar.HasChoiceController Gettable Get where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Gettable Get where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+data Get
+  = Get {anyActor : Party}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.GetField "anyActor" Get Party where
+  getField = DA.Internal.Record.getFieldPrim @"anyActor" @Get @Party
+instance DA.Internal.Record.SetField "anyActor" Get Party where
+  setField = DA.Internal.Record.setFieldPrim @"anyActor" @Get @Party
+_choice$_Gettable$Archive :
+  (DA.Internal.Desugar.Consuming Gettable,
+   Gettable
+   -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (Gettable
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Gettable
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId Gettable
+   -> Gettable
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
+_choice$_Gettable$Archive
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
+_choice$_Gettable$Get :
+  (DA.Internal.Desugar.NonConsuming Gettable,
+   Gettable -> Get -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (Gettable
+                                 -> Get -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Gettable
+                                 -> Get -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId Gettable
+   -> Gettable -> Get -> DA.Internal.Desugar.Update (Gettable))
+_choice$_Gettable$Get
+  = (DA.Internal.Desugar.NonConsuming, 
+     \ this arg@Get {..}
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (anyActor), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ self this arg@Get {..}
+       -> let _ = self in let _ = this in let _ = arg in do return this)
+instance DA.Internal.Desugar.HasInterfaceView Gettable EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView Gettable EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"

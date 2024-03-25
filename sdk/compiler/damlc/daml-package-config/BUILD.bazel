@@ -1,0 +1,55 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:haskell.bzl",
+    "da_haskell_library",
+    "da_haskell_test",
+)
+
+da_haskell_library(
+    name = "daml-package-config",
+    srcs = glob(["src/**/*.hs"]),
+    hackage_deps = [
+        "aeson",
+        "base",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "ghc-lib-parser",
+        "regex-tdfa",
+        "safe-exceptions",
+        "semver",
+        "text",
+        "transformers",
+        "yaml",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//daml-assistant:daml-project-config",
+        "//sdk-version/hs:sdk-version-class-lib",
+    ],
+)
+
+da_haskell_test(
+    name = "tests",
+    srcs = glob(["test/**/*.hs"]),
+    hackage_deps = [
+        "base",
+        "containers",
+        "tasty",
+        "tasty-hunit",
+        "text",
+    ],
+    main_function = "DA.Daml.Package.ConfigTest.main",
+    src_strip_prefix = "src",
+    deps = [
+        ":daml-package-config",
+        "//compiler/daml-lf-ast",
+        "//daml-assistant:daml-project-config",
+        "//libs-haskell/test-utils",
+    ],
+)

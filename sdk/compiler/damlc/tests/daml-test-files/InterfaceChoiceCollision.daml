@@ -1,0 +1,22 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- This checks collisions check for Interface choice
+-- This also covers regression test for interface instance, view and method markers.
+--  See https://github.com/digital-asset/daml/issues/13915
+
+module InterfaceChoiceCollision where
+
+import qualified InterfaceChoiceCollision1
+import qualified InterfaceChoiceCollision2
+
+template T with
+    owner : Party
+  where
+    signatory owner
+    interface instance InterfaceChoiceCollision1.Interface for T where
+        view = InterfaceChoiceCollision1.EmptyInterfaceView
+        getOwner = owner
+    interface instance InterfaceChoiceCollision2.Interface for T where
+        view = InterfaceChoiceCollision2.EmptyInterfaceView
+        getOwner = owner

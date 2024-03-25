@@ -1,0 +1,50 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test_suite",
+)
+
+da_scala_library(
+    name = "testing-utils",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+    ],
+    tags = ["maven_coordinates=com.daml:testing-utils:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    exports = [
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+    deps = [
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/ledger-resources",
+        "//libs-scala/resources",
+        "//libs-scala/resources-grpc",
+        "//libs-scala/resources-pekko",
+        "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/rs-grpc-pekko",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_typesafe_config",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_inprocess",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:org_scalatest_scalatest_compatible",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_test_suite(
+    name = "testing-utils-tests",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    deps = [
+        ":testing-utils",
+    ],
+)

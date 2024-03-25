@@ -1,0 +1,818 @@
+module InterfaceGuardedNotExtended where
+import (implicit) qualified DA.Internal.Record
+import (implicit) qualified GHC.Types
+import (implicit) qualified DA.Internal.Desugar
+import (implicit) DA.Internal.RebindableSyntax
+import Daml.Script
+import DA.Exception ( GeneralError(..), throwPure )
+data EmptyInterfaceView = EmptyInterfaceView {}
+data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
+instance DA.Internal.Desugar.HasInterfaceTypeRep Token where
+  _interfaceTypeRep
+    = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
+instance DA.Internal.Desugar.HasFetch Token where
+  fetch = GHC.Types.primitive @"UFetchInterface"
+instance DA.Internal.Desugar.HasToInterface Token Token where
+  _toInterface this = this
+instance DA.Internal.Desugar.HasFromInterface Token Token where
+  fromInterface this = DA.Internal.Desugar.Some this
+  unsafeFromInterface _ this = this
+instance DA.Internal.Desugar.HasMethod Token "getOwner" (Party)
+getOwner : Token -> Party
+getOwner = GHC.Types.primitiveInterface @"getOwner"
+instance DA.Internal.Desugar.HasMethod Token "getAmount" (Int)
+getAmount : Token -> Int
+getAmount = GHC.Types.primitiveInterface @"getAmount"
+instance DA.Internal.Desugar.HasMethod Token "setAmount" (Int
+                                                          -> Token)
+setAmount : Token -> Int -> Token
+setAmount = GHC.Types.primitiveInterface @"setAmount"
+instance DA.Internal.Desugar.HasToAnyTemplate Token where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate Token where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep Token where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasSignatory Token where
+  signatory = GHC.Types.primitive @"ESignatoryInterface"
+instance DA.Internal.Desugar.HasObserver Token where
+  observer = GHC.Types.primitive @"EObserverInterface"
+instance DA.Internal.Desugar.HasCreate Token where
+  create = GHC.Types.primitive @"UCreateInterface"
+instance DA.Internal.Desugar.HasIsInterfaceType Token where
+  _isInterfaceType _ = DA.Internal.Desugar.True
+instance DA.Internal.Desugar.Eq Token where
+  (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasArchive Token where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+instance DA.Internal.Desugar.HasToAnyChoice Token DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Token DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExerciseGuarded Token DA.Internal.Desugar.Archive (()) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Token cid pred)
+instance DA.Internal.Desugar.HasExercise Token DA.Internal.Desugar.Archive (()) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
+        arg
+instance DA.Internal.Desugar.HasChoiceController Token DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Token DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+instance DA.Internal.Desugar.HasToAnyChoice Token GetRich (ContractId Token) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Token GetRich (ContractId Token) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExerciseGuarded Token GetRich (ContractId Token) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Token cid pred)
+instance DA.Internal.Desugar.HasExercise Token GetRich (ContractId Token) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
+        arg
+instance DA.Internal.Desugar.HasChoiceController Token GetRich where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Token GetRich where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+data GetRich
+  = GetRich {byHowMuch : Int}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.GetField "byHowMuch" GetRich Int where
+  getField
+    = DA.Internal.Record.getFieldPrim @"byHowMuch" @GetRich @Int
+instance DA.Internal.Record.SetField "byHowMuch" GetRich Int where
+  setField
+    = DA.Internal.Record.setFieldPrim @"byHowMuch" @GetRich @Int
+_choice$_Token$Archive :
+  (DA.Internal.Desugar.Consuming Token,
+   Token
+   -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (Token
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Token
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId Token
+   -> Token
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
+_choice$_Token$Archive
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
+_choice$_Token$GetRich :
+  (DA.Internal.Desugar.Consuming Token,
+   Token -> GetRich -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (Token
+                                 -> GetRich -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Token
+                                 -> GetRich -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId Token
+   -> Token
+      -> GetRich -> DA.Internal.Desugar.Update (ContractId Token))
+_choice$_Token$GetRich
+  = (DA.Internal.Desugar.Consuming, 
+     \ this arg@GetRich {..}
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (getOwner this), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ self this arg@GetRich {..}
+       -> let _ = self in
+          let _ = this in
+          let _ = arg
+          in
+            do assert (byHowMuch > 0)
+               create $ setAmount this (getAmount this + byHowMuch))
+instance DA.Internal.Desugar.HasInterfaceView Token EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView Token EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"
+data GHC.Types.DamlInterface => SubToken
+  = SubToken GHC.Types.Opaque
+instance DA.Internal.Desugar.HasInterfaceTypeRep SubToken where
+  _interfaceTypeRep
+    = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
+instance DA.Internal.Desugar.HasFetch SubToken where
+  fetch = GHC.Types.primitive @"UFetchInterface"
+instance DA.Internal.Desugar.HasToInterface SubToken SubToken where
+  _toInterface this = this
+instance DA.Internal.Desugar.HasFromInterface SubToken SubToken where
+  fromInterface this = DA.Internal.Desugar.Some this
+  unsafeFromInterface _ this = this
+_requires$_SubToken_Token :
+  DA.Internal.Desugar.RequiresT SubToken Token
+_requires$_SubToken_Token = DA.Internal.Desugar.RequiresT
+instance DA.Internal.Desugar.HasToInterface SubToken Token where
+  _toInterface = GHC.Types.primitive @"EToRequiredInterface"
+instance DA.Internal.Desugar.HasFromInterface SubToken Token where
+  fromInterface = GHC.Types.primitive @"EFromRequiredInterface"
+  unsafeFromInterface
+    = GHC.Types.primitive @"EUnsafeFromRequiredInterface"
+instance DA.Internal.Desugar.HasToAnyTemplate SubToken where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate SubToken where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep SubToken where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasSignatory SubToken where
+  signatory = GHC.Types.primitive @"ESignatoryInterface"
+instance DA.Internal.Desugar.HasObserver SubToken where
+  observer = GHC.Types.primitive @"EObserverInterface"
+instance DA.Internal.Desugar.HasCreate SubToken where
+  create = GHC.Types.primitive @"UCreateInterface"
+instance DA.Internal.Desugar.HasIsInterfaceType SubToken where
+  _isInterfaceType _ = DA.Internal.Desugar.True
+instance DA.Internal.Desugar.Eq SubToken where
+  (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasArchive SubToken where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+instance DA.Internal.Desugar.HasToAnyChoice SubToken DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice SubToken DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExerciseGuarded SubToken DA.Internal.Desugar.Archive (()) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @SubToken cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @SubToken cid pred)
+instance DA.Internal.Desugar.HasExercise SubToken DA.Internal.Desugar.Archive (()) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @SubToken cid)
+        arg
+instance DA.Internal.Desugar.HasChoiceController SubToken DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver SubToken DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+_choice$_SubToken$Archive :
+  (DA.Internal.Desugar.Consuming SubToken,
+   SubToken
+   -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (SubToken
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (SubToken
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId SubToken
+   -> SubToken
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
+_choice$_SubToken$Archive
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
+instance DA.Internal.Desugar.HasInterfaceView SubToken EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView SubToken EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"
+data GHC.Types.DamlTemplate => Asset
+  = Asset {issuer : Party, owner : Party, amount : Int}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.GetField "issuer" Asset Party where
+  getField = DA.Internal.Record.getFieldPrim @"issuer" @Asset @Party
+instance DA.Internal.Record.SetField "issuer" Asset Party where
+  setField = DA.Internal.Record.setFieldPrim @"issuer" @Asset @Party
+instance DA.Internal.Record.GetField "owner" Asset Party where
+  getField = DA.Internal.Record.getFieldPrim @"owner" @Asset @Party
+instance DA.Internal.Record.SetField "owner" Asset Party where
+  setField = DA.Internal.Record.setFieldPrim @"owner" @Asset @Party
+instance DA.Internal.Record.GetField "amount" Asset Int where
+  getField = DA.Internal.Record.getFieldPrim @"amount" @Asset @Int
+instance DA.Internal.Record.SetField "amount" Asset Int where
+  setField = DA.Internal.Record.setFieldPrim @"amount" @Asset @Int
+instance DA.Internal.Desugar.HasSignatory Asset where
+  signatory this@Asset {..}
+    = DA.Internal.Desugar.toParties (owner)
+    where
+        _ = this
+instance DA.Internal.Desugar.HasObserver Asset where
+  observer this@Asset {..}
+    = []
+    where
+        _ = this
+instance DA.Internal.Desugar.HasEnsure Asset where
+  ensure this@Asset {..}
+    = DA.Internal.Desugar.True
+    where
+        _ = this
+instance DA.Internal.Desugar.HasArchive Asset where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+    where
+        _ = cid
+instance DA.Internal.Desugar.HasCreate Asset where
+  create = GHC.Types.primitive @"UCreate"
+instance DA.Internal.Desugar.HasFetch Asset where
+  fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasToAnyTemplate Asset where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate Asset where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep Asset where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasIsInterfaceType Asset where
+  _isInterfaceType _ = DA.Internal.Desugar.False
+instance DA.Internal.Desugar.HasExercise Asset DA.Internal.Desugar.Archive (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice Asset DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Asset DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasChoiceController Asset DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Asset DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+_choice$_Asset$Archive :
+  (DA.Internal.Desugar.Consuming Asset,
+   Asset
+   -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (Asset
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Asset
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId Asset
+   -> Asset
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
+_choice$_Asset$Archive
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
+_interface_instance$_Asset_Token_Asset :
+  DA.Internal.Desugar.InterfaceInstance Asset Token Asset
+_interface_instance$_Asset_Token_Asset
+  = DA.Internal.Desugar.mkInterfaceInstance @Asset @Token @Asset
+_method$_Asset_Token_Asset_getOwner :
+  DA.Internal.Desugar.Method Asset Token Asset "getOwner"
+_method$_Asset_Token_Asset_getOwner
+  = DA.Internal.Desugar.mkMethod
+      @Asset
+      @Token
+      @Asset
+      @"getOwner"
+      \ this@Asset {..}
+        -> let _ = this in let $getOwner = owner in $getOwner
+_method$_Asset_Token_Asset_getAmount :
+  DA.Internal.Desugar.Method Asset Token Asset "getAmount"
+_method$_Asset_Token_Asset_getAmount
+  = DA.Internal.Desugar.mkMethod
+      @Asset
+      @Token
+      @Asset
+      @"getAmount"
+      \ this@Asset {..}
+        -> let _ = this in let $getAmount = amount in $getAmount
+_method$_Asset_Token_Asset_setAmount :
+  DA.Internal.Desugar.Method Asset Token Asset "setAmount"
+_method$_Asset_Token_Asset_setAmount
+  = DA.Internal.Desugar.mkMethod
+      @Asset
+      @Token
+      @Asset
+      @"setAmount"
+      \ this@Asset {..}
+        -> let _ = this in
+           let $setAmount x = toInterface @Token (this {amount = x})
+           in $setAmount
+_view$_Asset_Token_Asset :
+  DA.Internal.Desugar.InterfaceView Asset Token Asset
+_view$_Asset_Token_Asset
+  = DA.Internal.Desugar.mkInterfaceView
+      @Asset
+      @Token
+      @Asset
+      \ this@Asset {..}
+        -> let _ = this in let $view = EmptyInterfaceView in $view
+instance DA.Internal.Desugar.HasToInterface Asset Token where
+  _toInterface = GHC.Types.primitive @"EToInterface"
+instance DA.Internal.Desugar.HasFromInterface Asset Token where
+  fromInterface = GHC.Types.primitive @"EFromInterface"
+  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+data GHC.Types.DamlTemplate => AnotherAsset
+  = AnotherAsset {owner : Party, amount : Int}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.GetField "owner" AnotherAsset Party where
+  getField
+    = DA.Internal.Record.getFieldPrim @"owner" @AnotherAsset @Party
+instance DA.Internal.Record.SetField "owner" AnotherAsset Party where
+  setField
+    = DA.Internal.Record.setFieldPrim @"owner" @AnotherAsset @Party
+instance DA.Internal.Record.GetField "amount" AnotherAsset Int where
+  getField
+    = DA.Internal.Record.getFieldPrim @"amount" @AnotherAsset @Int
+instance DA.Internal.Record.SetField "amount" AnotherAsset Int where
+  setField
+    = DA.Internal.Record.setFieldPrim @"amount" @AnotherAsset @Int
+instance DA.Internal.Desugar.HasSignatory AnotherAsset where
+  signatory this@AnotherAsset {..}
+    = DA.Internal.Desugar.toParties (owner)
+    where
+        _ = this
+instance DA.Internal.Desugar.HasObserver AnotherAsset where
+  observer this@AnotherAsset {..}
+    = []
+    where
+        _ = this
+instance DA.Internal.Desugar.HasEnsure AnotherAsset where
+  ensure this@AnotherAsset {..}
+    = DA.Internal.Desugar.True
+    where
+        _ = this
+instance DA.Internal.Desugar.HasArchive AnotherAsset where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+    where
+        _ = cid
+instance DA.Internal.Desugar.HasCreate AnotherAsset where
+  create = GHC.Types.primitive @"UCreate"
+instance DA.Internal.Desugar.HasFetch AnotherAsset where
+  fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasToAnyTemplate AnotherAsset where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate AnotherAsset where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep AnotherAsset where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasIsInterfaceType AnotherAsset where
+  _isInterfaceType _ = DA.Internal.Desugar.False
+instance DA.Internal.Desugar.HasExercise AnotherAsset DA.Internal.Desugar.Archive (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice AnotherAsset DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice AnotherAsset DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasChoiceController AnotherAsset DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver AnotherAsset DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+_choice$_AnotherAsset$Archive :
+  (DA.Internal.Desugar.Consuming AnotherAsset,
+   AnotherAsset
+   -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (AnotherAsset
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (AnotherAsset
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId AnotherAsset
+   -> AnotherAsset
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
+_choice$_AnotherAsset$Archive
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
+_interface_instance$_AnotherAsset_Token_AnotherAsset :
+  DA.Internal.Desugar.InterfaceInstance AnotherAsset Token AnotherAsset
+_interface_instance$_AnotherAsset_Token_AnotherAsset
+  = DA.Internal.Desugar.mkInterfaceInstance
+      @AnotherAsset @Token @AnotherAsset
+_method$_AnotherAsset_Token_AnotherAsset_getOwner :
+  DA.Internal.Desugar.Method AnotherAsset Token AnotherAsset "getOwner"
+_method$_AnotherAsset_Token_AnotherAsset_getOwner
+  = DA.Internal.Desugar.mkMethod
+      @AnotherAsset
+      @Token
+      @AnotherAsset
+      @"getOwner"
+      \ this@AnotherAsset {..}
+        -> let _ = this in let $getOwner = owner in $getOwner
+_method$_AnotherAsset_Token_AnotherAsset_getAmount :
+  DA.Internal.Desugar.Method AnotherAsset Token AnotherAsset "getAmount"
+_method$_AnotherAsset_Token_AnotherAsset_getAmount
+  = DA.Internal.Desugar.mkMethod
+      @AnotherAsset
+      @Token
+      @AnotherAsset
+      @"getAmount"
+      \ this@AnotherAsset {..}
+        -> let _ = this in let $getAmount = amount in $getAmount
+_method$_AnotherAsset_Token_AnotherAsset_setAmount :
+  DA.Internal.Desugar.Method AnotherAsset Token AnotherAsset "setAmount"
+_method$_AnotherAsset_Token_AnotherAsset_setAmount
+  = DA.Internal.Desugar.mkMethod
+      @AnotherAsset
+      @Token
+      @AnotherAsset
+      @"setAmount"
+      \ this@AnotherAsset {..}
+        -> let _ = this in
+           let $setAmount x = toInterface @Token (this {amount = x})
+           in $setAmount
+_view$_AnotherAsset_Token_AnotherAsset :
+  DA.Internal.Desugar.InterfaceView AnotherAsset Token AnotherAsset
+_view$_AnotherAsset_Token_AnotherAsset
+  = DA.Internal.Desugar.mkInterfaceView
+      @AnotherAsset
+      @Token
+      @AnotherAsset
+      \ this@AnotherAsset {..}
+        -> let _ = this in let $view = EmptyInterfaceView in $view
+instance DA.Internal.Desugar.HasToInterface AnotherAsset Token where
+  _toInterface = GHC.Types.primitive @"EToInterface"
+instance DA.Internal.Desugar.HasFromInterface AnotherAsset Token where
+  fromInterface = GHC.Types.primitive @"EFromInterface"
+  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+_interface_instance$_AnotherAsset_SubToken_AnotherAsset :
+  DA.Internal.Desugar.InterfaceInstance AnotherAsset SubToken AnotherAsset
+_interface_instance$_AnotherAsset_SubToken_AnotherAsset
+  = DA.Internal.Desugar.mkInterfaceInstance
+      @AnotherAsset @SubToken @AnotherAsset
+_view$_AnotherAsset_SubToken_AnotherAsset :
+  DA.Internal.Desugar.InterfaceView AnotherAsset SubToken AnotherAsset
+_view$_AnotherAsset_SubToken_AnotherAsset
+  = DA.Internal.Desugar.mkInterfaceView
+      @AnotherAsset
+      @SubToken
+      @AnotherAsset
+      \ this@AnotherAsset {..}
+        -> let _ = this in let $view = EmptyInterfaceView in $view
+instance DA.Internal.Desugar.HasToInterface AnotherAsset SubToken where
+  _toInterface = GHC.Types.primitive @"EToInterface"
+instance DA.Internal.Desugar.HasFromInterface AnotherAsset SubToken where
+  fromInterface = GHC.Types.primitive @"EFromInterface"
+  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+data DA.Internal.Desugar.DamlException => GuardException
+  = GuardException {m : Text}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.GetField "m" GuardException Text where
+  getField
+    = DA.Internal.Record.getFieldPrim @"m" @GuardException @Text
+instance DA.Internal.Record.SetField "m" GuardException Text where
+  setField
+    = DA.Internal.Record.setFieldPrim @"m" @GuardException @Text
+instance DA.Internal.Desugar.HasMessage GuardException where
+  message this@GuardException {..} = let _ = this in m
+instance DA.Internal.Desugar.HasThrow GuardException where
+  throwPure = GHC.Types.primitive @"EThrow"
+instance DA.Internal.Desugar.HasToAnyException GuardException where
+  toAnyException = GHC.Types.primitive @"EToAnyException"
+instance DA.Internal.Desugar.HasFromAnyException GuardException where
+  fromAnyException = GHC.Types.primitive @"EFromAnyException"
+assetAsTokenTpl : Party -> Token
+assetAsTokenTpl p
+  = toInterface @Token $ Asset {issuer = p, owner = p, amount = 100}
+getRich : GetRich
+getRich = GetRich {byHowMuch = 1000000}
+data GHC.Types.DamlTemplate => Test
+  = Test {p : Party}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.GetField "p" Test Party where
+  getField = DA.Internal.Record.getFieldPrim @"p" @Test @Party
+instance DA.Internal.Record.SetField "p" Test Party where
+  setField = DA.Internal.Record.setFieldPrim @"p" @Test @Party
+data TrueGuard
+  = TrueGuard {}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+data FalseGuard
+  = FalseGuard {}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+data ErrorGuard
+  = ErrorGuard {}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+data CustomErrorGuard
+  = CustomErrorGuard {}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+data TryErrorGuard
+  = TryErrorGuard {}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+data TryCustomErrorGuard
+  = TryCustomErrorGuard {}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Desugar.HasSignatory Test where
+  signatory this@Test {..}
+    = DA.Internal.Desugar.toParties (p)
+    where
+        _ = this
+instance DA.Internal.Desugar.HasObserver Test where
+  observer this@Test {..}
+    = []
+    where
+        _ = this
+instance DA.Internal.Desugar.HasEnsure Test where
+  ensure this@Test {..}
+    = DA.Internal.Desugar.True
+    where
+        _ = this
+instance DA.Internal.Desugar.HasArchive Test where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+    where
+        _ = cid
+instance DA.Internal.Desugar.HasCreate Test where
+  create = GHC.Types.primitive @"UCreate"
+instance DA.Internal.Desugar.HasFetch Test where
+  fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasToAnyTemplate Test where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate Test where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep Test where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasIsInterfaceType Test where
+  _isInterfaceType _ = DA.Internal.Desugar.False
+instance DA.Internal.Desugar.HasExercise Test DA.Internal.Desugar.Archive (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice Test DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Test DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasChoiceController Test DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Test DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+instance DA.Internal.Desugar.HasExercise Test TrueGuard (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice Test TrueGuard (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Test TrueGuard (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasChoiceController Test TrueGuard where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Test TrueGuard where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+instance DA.Internal.Desugar.HasExercise Test FalseGuard (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice Test FalseGuard (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Test FalseGuard (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasChoiceController Test FalseGuard where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Test FalseGuard where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+instance DA.Internal.Desugar.HasExercise Test ErrorGuard (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice Test ErrorGuard (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Test ErrorGuard (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasChoiceController Test ErrorGuard where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Test ErrorGuard where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+instance DA.Internal.Desugar.HasExercise Test CustomErrorGuard (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice Test CustomErrorGuard (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Test CustomErrorGuard (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasChoiceController Test CustomErrorGuard where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Test CustomErrorGuard where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+instance DA.Internal.Desugar.HasExercise Test TryErrorGuard (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice Test TryErrorGuard (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Test TryErrorGuard (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasChoiceController Test TryErrorGuard where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Test TryErrorGuard where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+instance DA.Internal.Desugar.HasExercise Test TryCustomErrorGuard (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice Test TryCustomErrorGuard (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Test TryCustomErrorGuard (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasChoiceController Test TryCustomErrorGuard where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Test TryCustomErrorGuard where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+_choice$_Test$Archive :
+  (DA.Internal.Desugar.Consuming Test,
+   Test -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (Test
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Test
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId Test
+   -> Test
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
+_choice$_Test$Archive
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
+_choice$_Test$TrueGuard :
+  (DA.Internal.Desugar.NonConsuming Test,
+   Test -> TrueGuard -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (Test
+                                 -> TrueGuard -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Test
+                                 -> TrueGuard -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId Test
+   -> Test -> TrueGuard -> DA.Internal.Desugar.Update (()))
+_choice$_Test$TrueGuard
+  = (DA.Internal.Desugar.NonConsuming, 
+     \ this@Test {..} arg@TrueGuard
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (p), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ self this@Test {..} arg@TrueGuard
+       -> let _ = self in
+          let _ = this in
+          let _ = arg
+          in
+            do assetAsToken <- create (assetAsTokenTpl p)
+               exerciseGuarded (const True) assetAsToken getRich
+               pure ())
+_choice$_Test$FalseGuard :
+  (DA.Internal.Desugar.NonConsuming Test,
+   Test -> FalseGuard -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (Test
+                                 -> FalseGuard -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Test
+                                 -> FalseGuard -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId Test
+   -> Test -> FalseGuard -> DA.Internal.Desugar.Update (()))
+_choice$_Test$FalseGuard
+  = (DA.Internal.Desugar.NonConsuming, 
+     \ this@Test {..} arg@FalseGuard
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (p), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ self this@Test {..} arg@FalseGuard
+       -> let _ = self in
+          let _ = this in
+          let _ = arg
+          in
+            do assetAsToken <- create (assetAsTokenTpl p)
+               exerciseGuarded (const False) assetAsToken getRich
+               pure ())
+_choice$_Test$ErrorGuard :
+  (DA.Internal.Desugar.NonConsuming Test,
+   Test -> ErrorGuard -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (Test
+                                 -> ErrorGuard -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Test
+                                 -> ErrorGuard -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId Test
+   -> Test -> ErrorGuard -> DA.Internal.Desugar.Update (()))
+_choice$_Test$ErrorGuard
+  = (DA.Internal.Desugar.NonConsuming, 
+     \ this@Test {..} arg@ErrorGuard
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (p), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ self this@Test {..} arg@ErrorGuard
+       -> let _ = self in
+          let _ = this in
+          let _ = arg
+          in
+            do assetAsToken <- create (assetAsTokenTpl p)
+               exerciseGuarded (\ _ -> error "foo") assetAsToken getRich
+               pure ())
+_choice$_Test$CustomErrorGuard :
+  (DA.Internal.Desugar.NonConsuming Test,
+   Test -> CustomErrorGuard -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (Test
+                                 -> CustomErrorGuard -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Test
+                                 -> CustomErrorGuard -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId Test
+   -> Test -> CustomErrorGuard -> DA.Internal.Desugar.Update (()))
+_choice$_Test$CustomErrorGuard
+  = (DA.Internal.Desugar.NonConsuming, 
+     \ this@Test {..} arg@CustomErrorGuard
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (p), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ self this@Test {..} arg@CustomErrorGuard
+       -> let _ = self in
+          let _ = this in
+          let _ = arg
+          in
+            do assetAsToken <- create (assetAsTokenTpl p)
+               exerciseGuarded
+                 (\ _ -> throwPure (GuardException "bar")) assetAsToken getRich
+               pure ())
+_choice$_Test$TryErrorGuard :
+  (DA.Internal.Desugar.NonConsuming Test,
+   Test -> TryErrorGuard -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (Test
+                                 -> TryErrorGuard -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Test
+                                 -> TryErrorGuard -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId Test
+   -> Test -> TryErrorGuard -> DA.Internal.Desugar.Update (()))
+_choice$_Test$TryErrorGuard
+  = (DA.Internal.Desugar.NonConsuming, 
+     \ this@Test {..} arg@TryErrorGuard
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (p), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ self this@Test {..} arg@TryErrorGuard
+       -> let _ = self in
+          let _ = this in
+          let _ = arg
+          in
+            do assetAsToken <- create (assetAsTokenTpl p)
+               DA.Internal.Desugar._tryCatch
+                 \ _ -> do exerciseGuarded (\ _ -> error "foo") assetAsToken getRich
+                 \case
+                   (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some GeneralError {})
+                     -> DA.Internal.Desugar.Some
+                          pure $ toInterfaceContractId @Token assetAsToken
+                   _ -> DA.Internal.Desugar.None
+               pure ())
+_choice$_Test$TryCustomErrorGuard :
+  (DA.Internal.Desugar.NonConsuming Test,
+   Test -> TryCustomErrorGuard -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (Test
+                                 -> TryCustomErrorGuard -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Test
+                                 -> TryCustomErrorGuard -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId Test
+   -> Test -> TryCustomErrorGuard -> DA.Internal.Desugar.Update (()))
+_choice$_Test$TryCustomErrorGuard
+  = (DA.Internal.Desugar.NonConsuming, 
+     \ this@Test {..} arg@TryCustomErrorGuard
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (p), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ self this@Test {..} arg@TryCustomErrorGuard
+       -> let _ = self in
+          let _ = this in
+          let _ = arg
+          in
+            do assetAsToken <- create (assetAsTokenTpl p)
+               DA.Internal.Desugar._tryCatch
+                 \ _
+                   -> do exerciseGuarded
+                           (\ _ -> throwPure (GuardException "bar")) assetAsToken getRich
+                 \case
+                   (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some GuardException {})
+                     -> DA.Internal.Desugar.Some
+                          pure $ toInterfaceContractId @Token assetAsToken
+                   _ -> DA.Internal.Desugar.None
+               pure ())
+exerciseTest : Choice Test c () => c -> Script ()
+exerciseTest c
+  = script
+      do p <- allocateParty "Alice"
+         p `submit` createAndExerciseCmd (Test p) c
+         pure ()
+trueGuard = exerciseTest TrueGuard
+falseGuard = exerciseTest FalseGuard
+errorGuard = exerciseTest ErrorGuard
+customErrorGuard = exerciseTest CustomErrorGuard
+tryErrorGuard = exerciseTest TryErrorGuard
+tryCustomErrorGuard = exerciseTest TryCustomErrorGuard

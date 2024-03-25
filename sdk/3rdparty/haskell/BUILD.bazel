@@ -1,0 +1,51 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library")
+
+genrule(
+    name = "remote_apis_src",
+    srcs = [
+        "@com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:remote_execution.proto",
+        "@com_google_protobuf//:well_known_protos",
+        "@go_googleapis//google/rpc:status.proto",
+    ],
+    outs = ["Build/Bazel/Remote/Execution/V2/RemoteExecution.hs"],
+    cmd = """
+    set -eoux pipefail
+    PROTO_FILE="$(location @com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:remote_execution.proto)"
+    PROTO_FILE_NAME="$$(echo "$$PROTO_FILE" | sed 's|^.*\\(build/bazel/.*\\)|\\1|g')"
+    PROTO_DIR=$$(echo $${PROTO_FILE%$$PROTO_FILE_NAME})
+    $(location @proto3-suite//:compile-proto-file) \
+      --proto "$$PROTO_FILE_NAME" \
+      --includeDir "$$PROTO_DIR" \
+      --includeDir "external/com_google_protobuf/src" \
+      --includeDir "external/go_googleapis" \
+      --out $(RULEDIR)
+  """,
+    tools = [
+        "@proto3-suite//:compile-proto-file",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+da_haskell_library(
+    name = "remote_apis",
+    srcs = [
+        ":remote_apis_src",
+        "//canton:google-protobuf-haskellpb-sources",
+        "//canton:google-rpc-haskellpb-sources",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "deepseq",
+        "text",
+        "vector",
+        "proto3-suite",
+        "proto3-wire",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [],
+)

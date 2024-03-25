@@ -1,0 +1,13 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.time.v30;
+
+import "com/digitalasset/canton/protocol/v30/sequencing.proto";
+
+// Messages for sequencing
+message TimeProof {
+  com.digitalasset.canton.protocol.v30.PossiblyIgnoredSequencedEvent event = 1; // must be an ordinary event
+}

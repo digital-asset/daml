@@ -1,0 +1,72 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE CPP #-}
+
+-- | MOVE Prelude
+module DA.Internal.Assert
+  ( module DA.Internal.Assert
+#ifdef DAML_EXCEPTIONS
+  , AssertionFailed (AssertionFailed)
+#endif
+  ) where
+
+import DA.Internal.Prelude
+import DA.Internal.LF
+
+#ifdef DAML_EXCEPTIONS
+import DA.Internal.Exception
+#endif
+
+-- | Constraint that determines whether an assertion can be made
+-- in this context.
+class Action m => CanAssert m where
+    -- | Abort since an assertion has failed. In an Update, Scenario,
+    -- or Script context this will throw an AssertionFailed
+    -- exception. In an `Either Text` context, this will return the
+    -- message as an error.
+    assertFail : Text -> m t
+
+#ifdef DAML_EXCEPTIONS
+
+instance CanAssert Update where
+    assertFail msg = throw (AssertionFailed msg)
+instance CanAssert (Either Text) where
+    assertFail = fail
+
+#else
+
+instance CanAssert Update where
+    assertFail = fail
+instance CanAssert (Either Text) where
+    assertFail = fail
+
+#endif
+
+-- | Check whether a condition is true. If it's not, abort the transaction.
+assert : CanAssert m => Bool -> m ()
+assert = assertMsg "Assertion failed"
+
+-- | Check whether a condition is true. If it's not, abort the transaction
+-- with a message.
+assertMsg : CanAssert m => Text -> Bool -> m ()
+assertMsg msg b = if b then return () else assertFail msg
+
+-- | Check whether the given time is in the future. If it's not, abort the transaction.
+assertAfter : (CanAssert m, HasTime m) => Time -> m ()
+assertAfter time = do
+  now <- getTime
+  if time > now
+    then assertFail ("assertAfter: expected time " <> show time <>
+                     " before current ledger time, but ledger time is " <> show now)
+    else return ()
+
+-- | Check whether the given time is in the past. If it's not, abort the transaction.
+assertBefore : (CanAssert m, HasTime m) => Time -> m ()
+assertBefore time = do
+  now <- getTime
+  if time < now
+    then assertFail ("assertBefore: expected time " <> show time <>
+                     " after current ledger time, but ledger time is " <> show now)
+    else return ()

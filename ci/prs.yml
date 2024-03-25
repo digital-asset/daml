@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 trigger: none
@@ -8,10 +8,13 @@ pr:
   branches:
     include:
       - main
+      - main-2.x
       - release/*
 
 jobs:
 - template: build.yml
+  parameters:
+    test_mode: pr
 - template: check-for-release-job.yml
 
 
@@ -38,19 +41,11 @@ jobs:
             curl https://api.github.com/repos/digital-asset/daml/pulls/$PR -s | jq -r '.labels[].name' | grep -q '^Standard-Change$'
         }
 
-        if has_changed "infra/" || has_changed "LATEST"; then
+        if has_changed "LATEST"; then
             fail_if_missing_std_change_label
         fi
       env:
         PR: $(System.PullRequest.PullRequestNumber)
-
-- job: compatiblity_target_protobuf
-  pool:
-    name: ubuntu_20_04
-    demands: assignment -equals default
-  steps:
-    - checkout: self
-    - bash: ci/check-protobuf-stability.sh --target
 
 # required for collect_build_data
 - job: release
@@ -113,8 +108,7 @@ jobs:
 
 - job: notify_user
   # No Slack tokens on forks
-  condition: and(eq(variables['Build.Reason'], 'PullRequest'),
-                 not(canceled()),
+  condition: and(not(canceled()),
                  eq(variables['System.PullRequest.IsFork'], 'False'))
   dependsOn:
     - git_sha
@@ -139,6 +133,12 @@ jobs:
         if [ "$user" != "" ]; then
             tell_slack "<@${user}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has completed with status $(build_status)." \
                        "$(Slack.team-daml-ci)"
+        fi
+        if [ "$(git log -n1 --format="%(trailers:key=tell-slack,valueonly)" HEAD)" = "canton" ]; then
+          if [ "$(build_status)" = "Failed" ]; then
+            tell_slack "<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|canton update PR $(pr.num)> has completed with status $(build_status)." \
+                       "$(Slack.team-canton-notifications)"
+          fi
         fi
 
 - job: self_service_compat_test

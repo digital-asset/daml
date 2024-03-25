@@ -1,0 +1,15 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Check that invalid code points cause failure.
+-- @ERROR invalid code point
+-- @SINCE-LF 2.1
+
+module BadCodePoint where
+
+import Daml.Script
+import DA.Text qualified as T
+
+test = script do
+    let t = T.fromCodePoints [0x110000]
+    pure ()

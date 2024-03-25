@@ -1,0 +1,351 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Keys where
+
+import Daml.Script
+import DA.Assert
+import DA.Optional
+
+template Keyed
+  with
+    sig : Party
+    obs : Party
+  where
+    signatory sig
+    observer obs
+
+    key sig : Party
+    maintainer key
+
+template Divulger
+  with
+    divulgee : Party
+    sig : Party
+  where
+    signatory divulgee
+    observer sig
+
+    nonconsuming choice DivulgeKeyed
+      : Keyed
+      with
+        keyedCid : ContractId Keyed
+      controller sig
+      do
+        fetch keyedCid
+
+template Delegation
+  with
+    sig : Party
+    delegees : [Party]
+  where
+    signatory sig
+    observer delegees
+
+    nonconsuming choice CreateKeyed
+      : ContractId Keyed
+      with
+        delegee : Party
+        obs : Party
+      controller delegee
+      do
+        create Keyed with sig; obs
+
+    nonconsuming choice ArchiveKeyed
+      : ()
+      with
+        delegee : Party
+        keyedCid : ContractId Keyed
+      controller delegee
+      do
+        archive keyedCid
+
+    nonconsuming choice UnkeyedFetch
+      : Keyed
+      with
+        cid : ContractId Keyed
+        delegee : Party
+      controller delegee
+      do
+        fetch cid
+
+    nonconsuming choice VisibleKeyed
+      : Bool
+      with
+        key : Party
+        delegee : Party
+      controller delegee
+      do
+        visibleByKey @Keyed key
+
+    nonconsuming choice LookupKeyed
+      : Optional (ContractId Keyed)
+      with
+        lookupKey : Party
+        delegee : Party
+      controller delegee
+      do
+        lookupByKey @Keyed lookupKey
+
+    nonconsuming choice FetchKeyed
+      : (ContractId Keyed, Keyed)
+      with
+        lookupKey : Party
+        delegee : Party
+      controller delegee
+      do
+        fetchByKey @Keyed lookupKey
+
+template Helper
+  with
+    p : Party
+  where
+    signatory p
+
+    choice FetchByKey : (ContractId Keyed, Keyed)
+      with
+        keyedKey : Party
+      controller p
+      do fetchByKey @Keyed keyedKey
+
+    choice VisibleByKey : Bool
+      with
+        keyedKey : Party
+      controller p
+      do visibleByKey @Keyed keyedKey
+
+    choice LookupByKey : (Optional (ContractId Keyed))
+      with
+        keyedKey : Party
+      controller p
+      do lookupByKey @Keyed keyedKey
+
+    choice AssertNotVisibleKeyed : ()
+      with
+        delegationCid : ContractId Delegation
+        delegee : Party
+        key : Party
+      controller p
+      do
+        b <- exercise delegationCid VisibleKeyed with
+          delegee
+          key
+        assert $ not b
+
+    choice AssertLookupKeyedIsNone : ()
+      with
+        delegationCid : ContractId Delegation
+        delegee : Party
+        lookupKey : Party
+      controller p
+      do
+        b <- exercise delegationCid LookupKeyed with
+          delegee
+          lookupKey
+        assert $ isNone b
+
+    choice AssertFetchKeyedEqExpected : ()
+      with
+        delegationCid : ContractId Delegation
+        delegee : Party
+        lookupKey : Party
+        expectedCid : ContractId Keyed
+      controller p
+      do
+        (cid, keyed) <- exercise delegationCid FetchKeyed with
+          delegee
+          lookupKey
+        cid === expectedCid
+
+
+lookupTest = script do
+
+  -- Put four parties in the four possible relationships with a `Keyed`
+  sig <- allocateParty "s" -- Signatory
+  obs <- allocateParty "o" -- Observer
+  divulgee <- allocateParty "d" -- Divulgee
+  blind <- allocateParty "b" -- Blind
+
+  keyedCid <- submit sig do createCmd Keyed with ..
+  divulgercid <- submit divulgee do createCmd Divulger with ..
+  submit sig do exerciseCmd divulgercid DivulgeKeyed with ..
+
+  -- Now the signatory and observer delegate their choices
+  sigDelegationCid <- submit sig do
+    createCmd Delegation with
+      sig
+      delegees = [obs, divulgee, blind]
+  obsDelegationCid <- submit obs do
+    createCmd Delegation with
+      sig = obs
+      delegees = [divulgee, blind]
+
+  -- TESTING LOOKUPS AND FETCHES
+
+  -- Maintainer can fetch
+  (cid, keyed) <- submit sig do
+    Helper sig `createAndExerciseCmd` FetchByKey sig
+  cid === keyedCid
+  -- Maintainer can see
+  b <- submit sig do
+    Helper sig `createAndExerciseCmd` VisibleByKey sig
+  assert b
+  -- Maintainer can lookup
+  mcid <- submit sig do
+    Helper sig `createAndExerciseCmd` LookupByKey sig
+  mcid === Some keyedCid
+
+
+  -- Stakeholder can fetch
+  (cid, l) <- submit obs do
+    Helper obs `createAndExerciseCmd` FetchByKey sig
+  keyedCid === cid
+  -- Stakeholder can't see without authorization
+  submitMustFail obs do
+    Helper obs `createAndExerciseCmd` VisibleByKey sig
+
+  -- Stakeholder can see with authorization
+  b <- submit obs do
+    exerciseCmd sigDelegationCid VisibleKeyed with
+      delegee = obs
+      key = sig
+  assert b
+  -- Stakeholder can't lookup without authorization
+  submitMustFail obs do
+    Helper obs `createAndExerciseCmd` LookupByKey sig
+  -- Stakeholder can lookup with authorization
+  mcid <- submit obs do
+    exerciseCmd sigDelegationCid LookupKeyed with
+      delegee = obs
+      lookupKey = sig
+  mcid === Some keyedCid
+
+  -- Divulgee can't fetch the contract directly
+  submitMustFail divulgee do
+    exerciseCmd obsDelegationCid UnkeyedFetch with
+        delegee = divulgee
+        cid = keyedCid
+  -- Divulgee can't fetch through the key
+  submitMustFail divulgee do
+    Helper divulgee `createAndExerciseCmd` FetchByKey sig
+  -- Divulgee can't see
+  submitMustFail divulgee do
+    Helper divulgee `createAndExerciseCmd` VisibleByKey sig
+  -- Divulgee can't see with stakeholder authority
+  submitMustFail divulgee do
+    exerciseCmd obsDelegationCid VisibleKeyed with
+        delegee = divulgee
+        key = sig
+  -- Divulgee can't lookup
+  submitMustFail divulgee do
+    Helper divulgee `createAndExerciseCmd` LookupByKey sig
+  -- Divulgee can't lookup with stakeholder authority
+  submitMustFail divulgee do
+    exerciseCmd obsDelegationCid LookupKeyed with
+        delegee = divulgee
+        lookupKey = sig
+  -- Divulgee can't do positive lookup with maintainer authority.
+  submitMustFail divulgee do
+    Helper divulgee `createAndExerciseCmd` AssertNotVisibleKeyed with
+      delegationCid = sigDelegationCid
+      delegee = divulgee
+      key = sig
+  -- Divulgee can't do positive lookup with maintainer authority.
+  -- Note that the lookup returns `None` so the assertion passes.
+  -- If the assertion is changed to `isSome`, the assertion fails,
+  -- which means the error message changes. The reason is that the
+  -- assertion is checked at interpretation time, before the lookup
+  -- is checked at validation time.
+  submitMustFail divulgee do
+    Helper divulgee `createAndExerciseCmd` AssertLookupKeyedIsNone with
+      delegationCid = sigDelegationCid
+      delegee = divulgee
+      lookupKey = sig
+  -- Divulgee can't fetch with stakeholder authority
+  submitMustFail divulgee do
+    Helper divulgee `createAndExerciseCmd` AssertFetchKeyedEqExpected with
+      delegationCid = obsDelegationCid
+      delegee = divulgee
+      lookupKey = sig
+      expectedCid = keyedCid
+
+  -- Blind party can't fetch
+  submitMustFail blind do
+    Helper blind `createAndExerciseCmd` FetchByKey sig
+  -- Blind party can't see
+  submitMustFail blind do
+    Helper blind `createAndExerciseCmd` VisibleByKey sig
+  -- Blind party can't see with stakeholder authority
+  submitMustFail blind do
+    exerciseCmd obsDelegationCid VisibleKeyed with
+      delegee = blind
+      key = sig
+  -- Blind party can't see with maintainer authority
+  submitMustFail blind do
+    Helper blind `createAndExerciseCmd` AssertNotVisibleKeyed with
+      delegationCid = sigDelegationCid
+      delegee = blind
+      key = sig
+  -- Blind party can't lookup
+  submitMustFail blind do
+    Helper blind `createAndExerciseCmd` LookupByKey sig
+  -- Blind party can't lookup with stakeholder authority
+  submitMustFail blind do
+    exerciseCmd obsDelegationCid LookupKeyed with
+      delegee = blind
+      lookupKey = sig
+  -- Blind party can't lookup with maintainer authority.
+  -- The lookup initially returns `None`, but is rejected at
+  -- validation time
+  submitMustFail blind do
+    Helper blind `createAndExerciseCmd` AssertLookupKeyedIsNone with
+      delegationCid = sigDelegationCid
+      delegee = blind
+      lookupKey = sig
+  -- Blind party can't fetch with stakeholder authority as lookup is negative
+  submitMustFail blind do
+    exerciseCmd obsDelegationCid FetchKeyed with
+      delegee = blind
+      lookupKey = sig
+  -- Blind party can see nonexistence of a contract
+  submit blind do
+    Helper blind `createAndExerciseCmd` AssertNotVisibleKeyed with
+      delegationCid = obsDelegationCid
+      delegee = blind
+      key = obs
+  -- Blind can do a negative lookup on a truly nonexistant contract
+  submit blind do
+    Helper blind `createAndExerciseCmd` AssertLookupKeyedIsNone with
+      delegationCid = obsDelegationCid
+      delegee = blind
+      lookupKey = obs
+
+  -- TESTING CREATES AND ARCHIVES
+
+  -- Divulgee can't archive
+  submitMustFail divulgee do
+    exerciseCmd sigDelegationCid ArchiveKeyed with
+      delegee = divulgee
+      keyedCid
+
+  submit sig do
+     exerciseCmd keyedCid Archive
+
+  -- Divulgee can create
+  keyedCid2 <- submit divulgee do
+    exerciseCmd sigDelegationCid CreateKeyed with
+      delegee = divulgee
+      obs
+
+  -- Stakeholder can archive
+  submit obs do
+    exerciseCmd sigDelegationCid ArchiveKeyed with
+      delegee = obs
+      keyedCid = keyedCid2
+  -- Stakeholder can create
+  keyedCid3 <- submit obs do
+    exerciseCmd sigDelegationCid CreateKeyed with
+      delegee = obs
+      obs
+
+  return ()

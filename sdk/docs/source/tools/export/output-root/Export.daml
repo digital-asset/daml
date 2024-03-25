@@ -1,0 +1,86 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+module Export where
+import Daml.Script
+import qualified DA.Stack
+import qualified DA.TextMap
+import qualified DA.Traversable
+import qualified ScriptExample
+
+-- | Mapping from party names in the original ledger state
+-- to parties to be used in 'export'.
+type Parties = DA.TextMap.TextMap Party
+
+-- | Look-up a party based on the party name in the original ledger state.
+lookupParty : DA.Stack.HasCallStack => Text -> Parties -> Party
+lookupParty old parties =
+  case DA.TextMap.lookup old parties of
+    None -> error ("Missing party " <> old)
+    Some new -> new
+
+-- | Allocates fresh parties from the party management service.
+allocateParties : Script Parties
+allocateParties = DA.Traversable.mapA allocateParty (DA.TextMap.fromList
+  [ ("Bank", "Bank")
+  , ("Alice", "Alice")
+  , ("Bob", "Bob") ])
+
+-- | Mapping from missing contract ids to replacement contract ids.
+--
+-- You can provide replacement contract ids in an input file to
+-- the @--input-file@ argument of @daml script@, or you can provide
+-- replacements from within Daml script.
+--
+-- >>> (replacement, _):_ <- query @T alice_0
+-- >>> let args = Args with
+-- >>>   parties = Parties with alice_0
+-- >>>   contracts = DA.TextMap.fromList [("00737...", replacement)]
+-- >>> export args
+type Contracts = DA.TextMap.TextMap (ContractId ())
+
+-- | Look-up a replacement for a missing contract id. Fails if none is found.
+lookupContract : DA.Stack.HasCallStack => Text -> Contracts -> ContractId a
+lookupContract old contracts =
+  case DA.TextMap.lookup old contracts of
+    None -> error ("Missing contract id " <> old)
+    Some new -> coerceContractId new
+
+-- | Arguments to 'export'. See 'Parties' and 'Contracts' for details.
+data Args = Args with
+  parties : Parties
+  contracts : Contracts
+
+-- | Test 'export' with freshly allocated parties and
+-- no replacements for missing contract ids.
+testExport : Script ()
+testExport = do
+  parties <- allocateParties
+  let contracts = DA.TextMap.empty
+  export Args with ..
+
+-- | The Daml ledger export.
+export : Args -> Script ()
+export Args{parties, contracts} = do
+-- EXPORT_PARTIES_BEGIN
+  let bank_0 = lookupParty "Bank" parties
+  let alice_0 = lookupParty "Alice" parties
+  let bob_0 = lookupParty "Bob" parties
+-- EXPORT_PARTIES_END
+-- EXPORT_PROPOSALS_BEGIN
+  ((coerceContractId @_ @ScriptExample.CoinProposal -> coinProposal_1_0),
+      (coerceContractId @_ @ScriptExample.CoinProposal -> coinProposal_1_1)) <- submit bank_0 do
+    (coerceContractId @_ @ScriptExample.CoinProposal -> coinProposal_1_0) <- createCmd (ScriptExample.CoinProposal {coin = (ScriptExample.Coin {issuer = bank_0,
+            owner = alice_0})})
+    (coerceContractId @_ @ScriptExample.CoinProposal -> coinProposal_1_1) <- createCmd (ScriptExample.CoinProposal {coin = (ScriptExample.Coin {issuer = bank_0,
+            owner = bob_0})})
+    pure (coinProposal_1_0, coinProposal_1_1)
+-- EXPORT_PROPOSALS_END
+-- EXPORT_ACCEPT_BEGIN
+  _ <- submit alice_0 do
+    exerciseCmd coinProposal_1_0 ScriptExample.Accept
+  _ <- submit bob_0 do
+    exerciseCmd coinProposal_1_1 ScriptExample.Accept
+-- EXPORT_ACCEPT_END
+  pure ()

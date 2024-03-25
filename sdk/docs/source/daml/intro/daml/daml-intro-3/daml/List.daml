@@ -1,0 +1,33 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module List where
+
+-- LIST_TEST_BEGIN
+import DA.List
+import Daml.Script
+
+list_test = script do
+  let
+    empty : [Int] = []
+    one = [1]
+    two = [2]
+    many = [3, 4, 5]
+
+  -- `head` gets the first element of a list
+  assert (head one == 1)
+  assert (head many == 3)
+
+  -- `tail` gets the remainder after head
+  assert (tail one == empty)
+  assert (tail many == [4, 5])
+
+  -- `++` concatenates lists
+  assert (one ++ two ++ many == [1, 2, 3, 4, 5])
+  assert (empty ++ many ++ empty == many)
+
+  -- `::` adds an element to the beginning of a list.
+  assert (1 :: 2 :: 3 :: 4 :: 5 :: empty == 1 :: 2 :: many)
+-- LIST_TEST_END
+

@@ -1,0 +1,25 @@
+--- a/absl/BUILD.bazel
++++ b/absl/BUILD.bazel
+@@ -53,6 +53,14 @@
+ )
+ 
+ config_setting(
++    name = "mingw-ghc_gcc_compiler",
++    flag_values = {
++        "@bazel_tools//tools/cpp:compiler": "ghc-mingw-gcc",
++    },
++    visibility = [":__subpackages__"],
++)
++
++config_setting(
+     name = "msvc_compiler",
+     flag_values = {
+         "@bazel_tools//tools/cpp:compiler": "msvc-cl",
+@@ -146,6 +154,7 @@
+     match_any = [
+         ":mingw_unspecified_compiler",
+         ":mingw-gcc_compiler",
++        ":mingw-ghc_gcc_compiler",
+     ],
+     visibility = [":__subpackages__"],
+ )

@@ -1,0 +1,114 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module AIAnalysis where
+
+import Daml.Script
+import MedicalRecord
+import DA.Text
+
+type AnonymizedRecordsId = ContractId AnonymizedRecords
+type AnalysisResultId = ContractId AnalysisResult
+type PendingAnalysisId = ContractId PendingAnalysis
+
+template OfferAnalysis
+  with
+    registry : Party
+    owner : Party
+    analyser : Party
+  where
+
+    signatory registry
+    observer owner
+
+    choice AcceptAnalysis : (AnonymizedRecordsId, PendingAnalysisId)
+      with
+        registerId : RegisterId
+      controller owner
+        do
+          registerData <- fetch registerId
+          assert (registerData.owner == owner)
+          newRegisterId <- exercise registerId AddObserver with party = registry
+          tm <- getTime
+          let clientId = sha256 ((show tm) <> (show owner))
+          pa <- create PendingAnalysis with registry, owner, analyser, clientId, registerId = newRegisterId
+          an <- create AnonymizedRecords with registry, analyser, clientId, records = registerData.records
+          return (an, pa)
+
+template PendingAnalysis
+  with
+    registry : Party
+    owner : Party
+    analyser: Party
+    clientId : Text
+    registerId : RegisterId
+  where
+
+    signatory registry, owner
+
+    choice RecordResult : RegisterId
+      with
+        resultId : AnalysisResultId
+      controller registry
+        do
+          result <- fetch resultId
+          assert (result.clientId == clientId)
+          assert (result.registry == registry)
+          assert (result.analyser == analyser)
+          exercise resultId ResultRecorded
+          exercise registerId AddRecord with description = result.diagnosis, doctor = analyser
+
+template AnonymizedRecords
+  with
+    registry : Party
+    analyser : Party
+    clientId : Text
+    records : [Record]
+  where
+    signatory registry
+    observer analyser
+
+    choice ProcessingDone : AnalysisResultId
+      with
+        diagnosis : Text
+      controller analyser
+        do
+          create AnalysisResult with registry, analyser, clientId, diagnosis
+
+template AnalysisResult
+  with
+    registry : Party
+    analyser : Party
+    clientId : Text
+    diagnosis : Text
+  where
+
+    signatory registry, analyser
+
+    choice ResultRecorded : ()
+      controller registry
+        do
+          return ()
+
+
+setup = script do
+
+  analyser <- allocateParty "Analysis"
+
+  (alice, registry, doctor, rc) <- MedicalRecord.setup
+
+  -- offer analysis
+  ofr <- submit registry do
+    createCmd OfferAnalysis with registry, owner = alice, analyser
+
+  -- accept offer
+  (ar, pa) <- submit alice do
+    exerciseCmd ofr AcceptAnalysis with registerId = rc
+
+  -- process analysis
+  pra <- submit analyser do
+    exerciseCmd ar ProcessingDone with diagnosis = "The person is surprisingly healthy."
+
+  -- record result
+  submit registry do
+    exerciseCmd pa RecordResult with resultId = pra

@@ -1,0 +1,390 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP #-}
+
+-- This is the companion module (is that a word? now it is!) to DA.Internal.Template
+-- which provides functions and typeclasses.
+-- DA.Internal.Template ends up in its own module with
+-- a fixed package id so that the hash of the types does not change.
+-- | MOVE Prelude Daml-LF primitives, just templates/contracts
+module DA.Internal.Template.Functions where
+
+import DA.Internal.Any
+import DA.Internal.LF
+import DA.Internal.Prelude
+import DA.Internal.Template
+
+import GHC.Types (primitive)
+
+type Template t =
+  ( HasTemplateTypeRep t
+  , HasToAnyTemplate t
+  , HasFromAnyTemplate t
+  )
+
+-- | Exposes `signatory` function. Part of the `Template` constraint.
+class HasSignatory t where
+  -- | The signatories of a contract.
+  signatory : t -> [Party]
+
+-- | Exposes `observer` function. Part of the `Template` constraint.
+class HasObserver t where
+  -- | The observers of a contract.
+  observer : t -> [Party]
+
+-- | Exposes `ensure` function. Part of the `Template` constraint.
+class HasEnsure t where
+  -- | A predicate that must be true, otherwise contract creation will fail.
+  ensure : t -> Bool
+
+-- | Exposes `create` function. Part of the `Template` constraint.
+class HasCreate t where
+  -- | Create a contract based on a template `t`.
+  create : t -> Update (ContractId t)
+
+-- | Exposes `fetch` function. Part of the `Template` constraint.
+class HasFetch t where
+  -- | Fetch the contract data associated with the given contract ID.
+  -- If the `ContractId t` supplied is not the contract ID of an active
+  -- contract, this fails and aborts the entire transaction.
+  fetch : ContractId t -> Update t
+
+-- | Exposes `softFetch` function
+class HasSoftFetch t where
+  -- | HIDE
+  _softFetch : ContractId t -> Update t
+
+class HasSoftExercise t c r | t c -> r where
+  -- | HIDE
+  _softExercise : ContractId t -> c -> Update r
+
+softFetch : HasSoftFetch t => ContractId t -> Update t
+softFetch = _softFetch
+
+softExercise : HasSoftExercise t c r => ContractId t -> c -> Update r
+softExercise = _softExercise
+
+-- | Exposes `archive` function. Part of the `Template` constraint.
+class HasArchive t where
+  -- | Archive the contract with the given contract ID.
+  archive : ContractId t -> Update ()
+
+-- | Exposes `templateTypeRep` function in Daml-LF 1.7 or later.
+-- Part of the `Template` constraint.
+class HasTemplateTypeRep t where
+  -- | HIDE
+  _templateTypeRep : proxy t -> TypeRep
+
+-- | Exposes `toAnyTemplate` function in Daml-LF 1.7 or later.
+-- Part of the `Template` constraint.
+class HasToAnyTemplate t where
+  -- | HIDE
+  _toAnyTemplate : t -> Any
+
+-- | Exposes `fromAnyTemplate` function in Daml-LF 1.7 or later.
+-- Part of the `Template` constraint.
+class HasFromAnyTemplate t where
+  -- | HIDE
+  _fromAnyTemplate : Any -> Optional t
+
+-- | The stakeholders of a contract: its signatories and observers.
+stakeholder : (HasSignatory t, HasObserver t) => t -> [Party]
+stakeholder t = signatory t ++ observer t
+
+-- | Constraint satisfied by choices.
+type Choice t c r =
+  ( Template t
+  , HasExercise t c r
+  , HasToAnyChoice t c r
+  , HasFromAnyChoice t c r
+#ifdef DAML_CHOICE_FUNCS
+  , HasChoiceController t c
+  , HasChoiceObserver t c
+#endif -- DAML_CHOICE_FUNCS
+{-
+TODO https://github.com/digital-asset/daml/issues/16154 (dynamic-exercise): add once we generate instances for all templates.
+#ifdef DAML_DYNAMIC_EXERCISE
+  , HasDynamicExercise t c r
+#endif -- DAML_DYNAMIC_EXERCISE
+-}
+  )
+
+-- | Exposes `exercise` function. Part of the `Choice` constraint.
+class HasExercise t c r | t c -> r where
+  -- | Exercise a choice on the contract with the given contract ID.
+  exercise : ContractId t -> c -> Update r
+
+class HasDynamicExercise t c r | t c -> r where
+  -- | HIDE
+  _dynamicExercise : ContractId t -> c -> Update r
+
+-- | Exposes `choiceController` function. Part of the `Choice` constraint.
+class HasChoiceController t c where
+  -- | HIDE
+  _choiceController : t -> c -> [Party]
+
+-- | Exposes `choiceObserver` function. Part of the `Choice` constraint.
+class HasChoiceObserver t c where
+  -- | HIDE
+  _choiceObserver : t -> c -> [Party]
+
+#ifdef DAML_CHOICE_FUNCS
+
+-- | Calculate the controllers needed to exercise a choice on the given contract.
+choiceController : HasChoiceController t c => t -> c -> [Party]
+choiceController = _choiceController
+
+-- | Calculate the observers that will be notified when the given choice is
+-- exercised on the given contract.
+choiceObserver : HasChoiceObserver t c => t -> c -> [Party]
+choiceObserver = _choiceObserver
+
+#endif -- DAML_CHOICE_FUNCS
+
+#ifdef DAML_DYNAMIC_EXERCISE
+
+-- | TODO https://github.com/digital-asset/daml/issues/16154 (dynamic-exercise)
+dynamicExercise : HasDynamicExercise t c r => ContractId t -> c -> Update r
+dynamicExercise = _dynamicExercise
+
+#endif -- DAML_DYNAMIC_EXERCISE
+
+-- | (1.dev only) Exposes `exerciseGuarded` function.
+-- Only available for interface choices.
+class HasExerciseGuarded t c r | t c -> r where
+  -- | (1.dev only) Exercise a choice on the contract with
+  -- the given contract ID, only if the predicate returns `True`.
+  exerciseGuarded : (t -> Bool) -> ContractId t -> c -> Update r
+
+-- | Exposes `toAnyChoice` function for Daml-LF 1.7 or later.
+-- Part of the `Choice` constraint.
+class HasToAnyChoice t c r | t c -> r where
+  -- | HIDE
+  _toAnyChoice : proxy t -> c -> Any
+
+-- | Exposes `fromAnyChoice` function for Daml-LF 1.7 or later.
+-- Part of the `Choice` constraint.
+class HasFromAnyChoice t c r | t c -> r where
+  -- | HIDE
+  _fromAnyChoice : proxy t -> Any -> Optional c
+
+-- | Constraint satisfied by template keys.
+type TemplateKey t k =
+  ( Template t
+  , HasKey t k
+  , HasLookupByKey t k
+  , HasFetchByKey t k
+  , HasMaintainer t k
+  , HasToAnyContractKey t k
+  , HasFromAnyContractKey t k
+  )
+
+-- | Exposes `key` function. Part of the `TemplateKey` constraint.
+class HasKey t k | t -> k where
+  -- | The key of a contract.
+  key : t -> k
+
+-- | Exposes `lookupByKey` function. Part of the `TemplateKey` constraint.
+class HasLookupByKey t k | t -> k where
+  -- | Look up the contract ID `t` associated with a given contract key `k`.
+  --
+  -- You must pass the `t` using an explicit type application. For
+  -- instance, if you want to look up a contract of template `Account` by its
+  -- key `k`, you must call `lookupByKey @Account k`.
+  lookupByKey : k -> Update (Optional (ContractId t))
+
+-- | Exposes `fetchByKey` function. Part of the `TemplateKey` constraint.
+class HasFetchByKey t k | t -> k where
+  -- | Fetch the contract ID and contract data associated with a given
+  -- contract key.
+  --
+  -- You must pass the `t` using an explicit type application. For
+  -- instance, if you want to fetch a contract of template `Account` by its
+  -- key `k`, you must call `fetchByKey @Account k`.
+  fetchByKey : k -> Update (ContractId t, t)
+  -- NOTE(F. Mazzoli): the motivation for this function to return both the
+  -- contract ID and the contract instance is that `fetchByKey` results in
+  -- a fetch node in the transaction structure, and the fetch node
+  -- contains the contract data, so we might as well include it here.
+  --
+  -- The reason why turning it into a fetch node is necessary is that:
+  -- 1. We want to have it a more relaxed authorization rule than
+  --    `lookupByKey`, which gets turned into a LookupByKey node;
+  -- 2. We want it to have the same authorization rules of a normal
+  --    fetch, and to implement _that_, we need to know what the
+  --    stakeholders of the fetched contract are, which requires
+  --    getting the contract instance.
+
+-- | Exposes `maintainer` function. Part of the `TemplateKey` constraint.
+class HasMaintainer t k | t -> k where
+  -- | HIDE
+  _maintainer : proxy t -> k -> [Party]
+
+-- | The list of maintainers of a contract key.
+maintainer : forall t k. HasMaintainer t k => k -> [Party]
+maintainer = _maintainer ([] : [t])
+
+-- | Exposes `toAnyContractKey` function in Daml-LF 1.7 or later.
+-- Part of the `TemplateKey` constraint.
+class HasToAnyContractKey t k | t -> k where
+  -- | HIDE
+  _toAnyContractKey : proxy t -> k -> Any
+
+-- | Exposes `fromAnyContractKey` function in Daml-LF 1.7 or later.
+-- Part of the `TemplateKey` constraint.
+class HasFromAnyContractKey t k | t -> k where
+  -- | HIDE
+  _fromAnyContractKey : proxy t -> Any -> Optional k
+
+-- | Exposes `exerciseByKey` function.
+class HasExerciseByKey t k c r | t -> k, t c -> r where
+   -- | HIDE
+   _exerciseByKey : proxy t -> k -> c -> Update r
+
+-- | Exercise a choice on the contract associated with the given key.
+--
+-- You must pass the `t` using an explicit type application. For
+-- instance, if you want to exercise a choice `Withdraw` on a contract of
+-- template `Account` given by its key `k`, you must call
+-- `exerciseByKey @Account k Withdraw`.
+exerciseByKey : forall t k c r. HasExerciseByKey t k c r => k -> c -> Update r
+exerciseByKey = _exerciseByKey ([] : [t])
+
+-- | Create a contract and exercise the choice on the newly created contract.
+createAndExercise : forall t c r. (HasCreate t, HasExercise t c r) => t -> c -> Update r
+createAndExercise t c = do
+    cid <- create t
+    exercise cid c
+
+-- | Accepted ways to specify a list of parties: either a single party, or a list of parties.
+class IsParties a where
+  -- | Convert to list of parties.
+  toParties : a -> [Party]
+
+instance IsParties Party where
+  toParties p = [p]
+
+instance IsParties [Party] where
+  toParties ps = ps
+
+instance IsParties (Optional Party) where
+  toParties None = []
+  toParties (Some p) = [p]
+
+instance Eq AnyTemplate where
+  (==) = primitive @"BEEqual"
+instance Eq AnyChoice where
+  (==) = primitive @"BEEqual"
+instance Eq AnyContractKey where
+  (==) = primitive @"BEEqual"
+
+instance Ord AnyTemplate where
+  (<=) = primitive @"BELessEq"
+instance Ord AnyChoice where
+  (<=) = primitive @"BELessEq"
+instance Ord AnyContractKey where
+  (<=) = primitive @"BELessEq"
+
+-- | Generate a unique textual representation of the template id.
+templateTypeRep : forall t. HasTemplateTypeRep t => TemplateTypeRep
+templateTypeRep = TemplateTypeRep (_templateTypeRep ([] : [t]))
+
+instance Eq TemplateTypeRep where
+  TemplateTypeRep a == TemplateTypeRep b = a == b
+
+deriving instance Ord TemplateTypeRep
+
+#ifdef DAML_TEMPLATE_TYPEREP_TO_TEXT
+
+-- | (experimental, 1.dev only) Get the template id (or interface id)
+-- represented by a TemplateTypeRep, as a string.
+templateTypeRepToText : TemplateTypeRep -> Text
+templateTypeRepToText (TemplateTypeRep x) =
+  case primitive @"ETypeRepTyConName" x of
+    None -> error "Invalid TemplateTypeRep, does not contain a type constructor."
+    Some y -> y
+
+instance Show TemplateTypeRep where
+  show = templateTypeRepToText
+
+#endif -- DAML_TEMPLATE_TYPEREP_TO_TEXT
+
+-- | Wrap the template in `AnyTemplate`.
+--
+-- Only available for Daml-LF 1.7 or later.
+toAnyTemplate : HasToAnyTemplate t => t -> AnyTemplate
+toAnyTemplate x = AnyTemplate (_toAnyTemplate x)
+
+-- | Extract the underlying template from `AnyTemplate` if the type matches
+-- or return `None`.
+--
+-- Only available for Daml-LF 1.7 or later.
+fromAnyTemplate : HasFromAnyTemplate t => AnyTemplate -> Optional t
+fromAnyTemplate (AnyTemplate x) = _fromAnyTemplate x
+
+-- | Wrap a choice in `AnyChoice`.
+--
+-- You must pass the template type `t` using an explicit type application.
+-- For example `toAnyChoice @Account Withdraw`.
+--
+-- Only available for Daml-LF 1.7 or later.
+toAnyChoice : forall t c r. (HasTemplateTypeRep t, HasToAnyChoice t c r) => c -> AnyChoice
+toAnyChoice c =
+  AnyChoice
+    (_toAnyChoice ([] : [t]) c)
+    (templateTypeRep @t)
+
+-- | Extract the underlying choice from `AnyChoice` if the template and
+-- choice types match, or return `None`.
+--
+-- You must pass the template type `t` using an explicit type application.
+-- For example `fromAnyChoice @Account choice`.
+--
+-- Only available for Daml-LF 1.7 or later.
+fromAnyChoice : forall t c r. (HasTemplateTypeRep t, HasFromAnyChoice t c r) => AnyChoice -> Optional c
+fromAnyChoice (AnyChoice any typeRep)
+  | Some c <- _fromAnyChoice ([] : [t]) any
+  , templateTypeRep @t == typeRep = Some c
+  | otherwise = None
+
+-- | Wrap a contract key in `AnyContractKey`.
+--
+-- You must pass the template type `t` using an explicit type application.
+-- For example `toAnyContractKey @Proposal k`.
+--
+-- Only available for Daml-LF 1.7 or later.
+toAnyContractKey : forall t k. (HasTemplateTypeRep t, HasToAnyContractKey t k) => k -> AnyContractKey
+toAnyContractKey k =
+  AnyContractKey
+    (_toAnyContractKey ([] : [t]) k)
+    (templateTypeRep @t)
+
+-- | Extract the underlying key from `AnyContractKey` if the template and
+-- choice types match, or return `None`.
+--
+-- You must pass the template type `t` using an explicit type application.
+-- For example `fromAnyContractKey @Proposal k`.
+--
+-- Only available for Daml-LF 1.7 or later.
+fromAnyContractKey : forall t k. (HasTemplateTypeRep t, HasFromAnyContractKey t k) => AnyContractKey -> Optional k
+fromAnyContractKey (AnyContractKey any rep)
+  | Some k <- _fromAnyContractKey ([] : [t]) any
+  , templateTypeRep @t == rep = Some k
+  | otherwise = None
+
+deriving instance Eq Archive
+deriving instance Show Archive
+
+-- | True if contract exists, submitter is a stakeholder, and all maintainers
+-- authorize. False if contract does not exist and all maintainers authorize.
+-- Fails otherwise.
+visibleByKey : forall t k. (HasLookupByKey t k) => k -> Update Bool
+visibleByKey k = do
+  m <- lookupByKey @t k
+  case m of
+    Some _ -> pure True
+    None -> pure False

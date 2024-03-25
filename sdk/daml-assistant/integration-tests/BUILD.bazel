@@ -1,0 +1,185 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
+load("@os_info//:os_info.bzl", "is_windows")
+load("@build_environment//:configuration.bzl", "mvn_version")
+
+genrule(
+    name = "integration-tests-mvn",
+    srcs = [
+        "@mvn_dev_env//:mvn",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java_pom",
+        "//canton:libbindings-java.jar",
+        "//canton:bindings-java_pom.xml",
+        "//language-support/java/bindings-rxjava:libbindings-rxjava.jar",
+        "//language-support/java/bindings-rxjava:bindings-rxjava_pom.xml",
+        "//language-support/java/codegen:shaded_binary.jar",
+        "//language-support/java/codegen:shaded_binary_pom.xml",
+        "//libs-scala/rs-grpc-bridge:librs-grpc-bridge.jar",
+        "//libs-scala/rs-grpc-bridge:rs-grpc-bridge_pom.xml",
+        "//docs:quickstart-java.tar.gz",
+    ],
+    outs = ["integration-tests-mvn.tar"],
+    cmd = """
+      set -euo pipefail
+      TMP_DIR=$$(mktemp -d)
+      MVN_DB="$$TMP_DIR/m2"
+      MVN=($(locations @mvn_dev_env//:mvn))
+      MVN="$${{MVN[0]}}"
+      install_mvn() {{
+        "$$MVN" -q install:install-file \\
+          -Dmaven.repo.local=$$MVN_DB \\
+          "-DgroupId=$$1" \\
+          "-DartifactId=$$2" \\
+          "-Dfile=$$3" \\
+          "-DpomFile=$$4" \\
+          -Dpackaging=jar \\
+          -Dversion={mvn}
+      }}
+      tar xf $(location //docs:quickstart-java.tar.gz) -C "$$TMP_DIR"
+      install_mvn \\
+        "com.daml" "daml-lf-archive" \\
+        $$(echo $(locations //daml-lf/archive:daml_lf_dev_archive_proto_java) | xargs -n1 echo | grep -v -- '-src\\.jar$$') \\
+        $(location //daml-lf/archive:daml_lf_dev_archive_proto_java_pom)
+      install_mvn \\
+        "com.daml" "bindings-java" \\
+        $(location //canton:libbindings-java.jar) \\
+        $(location //canton:bindings-java_pom.xml)
+      install_mvn \\
+        "com.daml" "bindings-rxjava" \\
+        $(location //language-support/java/bindings-rxjava:libbindings-rxjava.jar) \\
+        $(location //language-support/java/bindings-rxjava:bindings-rxjava_pom.xml)
+      install_mvn \\
+        "com.daml" "codegen-java" \\
+        $(location //language-support/java/codegen:shaded_binary.jar) \\
+        $(location //language-support/java/codegen:shaded_binary_pom.xml)
+      install_mvn \\
+        "com.daml" "rs-grpc-bridge" \\
+        $(location //libs-scala/rs-grpc-bridge:librs-grpc-bridge.jar) \\
+        $(location //libs-scala/rs-grpc-bridge:rs-grpc-bridge_pom.xml)
+      "$$MVN" -q -Dmaven.repo.local=$$MVN_DB -f "$$TMP_DIR/quickstart-java/pom.xml" dependency:resolve dependency:resolve-plugins
+      $(execpath //bazel_tools/sh:mktar) $@ -C $$(dirname $$MVN_DB) $$(basename $$MVN_DB)
+    """.format(mvn = mvn_version),
+    tools = ["//bazel_tools/sh:mktar"],
+)
+
+ts_libraries = [
+    "//language-support/ts/daml-types:npm_package",
+    "//language-support/ts/daml-ledger:npm_package",
+    "//language-support/ts/daml-react:npm_package",
+]
+
+da_haskell_library(
+    name = "integration-test-utils",
+    srcs = ["src/DA/Daml/Assistant/IntegrationTestUtils.hs"],
+    hackage_deps = [
+        "base",
+        "conduit",
+        "conduit-extra",
+        "extra",
+        "filepath",
+        "tasty",
+        "text",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+da_haskell_test(
+    name = "integration-tests",
+    timeout = "long",
+    srcs = [
+        "src/DA/Daml/Assistant/IntegrationTests.hs",
+    ],
+    args = [
+        "$(location //:yarn)",
+    ],
+    data = [
+        "//release:sdk-release-tarball",
+        "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+        "//:yarn",
+        "//compiler/damlc/tests:generate-simple-dalf",
+    ] + ([] if is_windows else ts_libraries + ["@script_nix//:bin/script"]),
+    # marked flaky for mvn originally; still flaky now? #14281
+    flaky = True,
+    hackage_deps = [
+        "aeson",
+        "base",
+        "bytestring",
+        "extra",
+        "filepath",
+        "http-client",
+        "http-types",
+        "lens",
+        "lens-aeson",
+        "monad-loops",
+        "process",
+        "stm",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "vector",
+    ],
+    main_function = "DA.Daml.Assistant.IntegrationTests.main",
+    tags = ["cpu:2"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":integration-test-utils",
+        "//daml-assistant/daml-helper:daml-helper-lib",
+        "//language-support/hs/bindings:hs-ledger",
+        "//language-support/ts/codegen/tests:daml2js-test-helpers",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-lib",
+    ],
+)
+
+da_haskell_test(
+    name = "quickstart-tests",
+    timeout = "long",
+    srcs = [
+        "src/DA/Daml/Assistant/QuickstartTests.hs",
+    ],
+    data = [
+        ":integration-tests-mvn",
+        "//release:sdk-release-tarball",
+        "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+        "//compiler/damlc/tests:generate-simple-dalf",
+        "@mvn_dev_env//:mvn",
+        "@tar_dev_env//:tar",
+    ] + ([] if is_windows else ts_libraries + ["@script_nix//:bin/script"]),
+    # I’m sure the mvn stuff will be flaky.
+    flaky = True,
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "conduit",
+        "extra",
+        "filepath",
+        "http-client",
+        "http-types",
+        "process",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Daml.Assistant.QuickstartTests.main",
+    tags = ["cpu:1"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":integration-test-utils",
+        "//daml-assistant/daml-helper:daml-helper-lib",
+        "//language-support/hs/bindings:hs-ledger",
+        "//language-support/ts/codegen/tests:daml2js-test-helpers",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-class-lib",
+    ],
+)

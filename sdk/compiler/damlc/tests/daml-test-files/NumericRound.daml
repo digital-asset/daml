@@ -1,0 +1,21 @@
+
+-- @SINCE-LF 2.1
+module NumericRound where
+
+import Daml.Script
+import DA.Assert
+
+testRound : Script ()
+testRound = script do
+    roundCommercial 0 10.5 === (11.0 : Numeric 10)
+    roundCommercial 2 22.105 === (22.110 : Numeric 10)
+    roundBankers 0 10.5 === (10.0 : Numeric 10)
+    roundBankers 2 22.105 === (22.100 : Numeric 10)
+    roundCommercial 0 (-10.5) === (-11.0 : Numeric 10)
+    roundCommercial 2 (-22.105) === (-22.110 : Numeric 10)
+    roundBankers 0 (-10.5) === (-10.0 : Numeric 10)
+    roundBankers 2 (-22.105) === (-22.100 : Numeric 10)
+    roundBankers 9 (1.0000000005 : Numeric 17) === (1.000000000 : Numeric 17)
+    -- These blew up when roundCommercial converted to an Int64
+    roundCommercial 9 (1.0000000005 : Numeric 17) === (1.000000001 : Numeric 17)
+    roundCommercial 11 (1e10 : Numeric 17) === (1e10 : Numeric 17)

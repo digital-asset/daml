@@ -1,0 +1,31 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+
+module DisjunctionChoices where -- module -> keyword.other.daml > meta.declaration.module.daml > source.daml
+-- , where  -> keyword.other.daml > meta.declaration.module.daml > source.daml
+
+
+template FeatureAssignment with -- template -> keyword.other.daml -> source.daml , with -> template -> keyword.other.daml -> source.daml
+    employee : Party -- employee -> source.daml , Party -> storage.type.daml > meta.type-declaration.daml > source.daml
+    sponsor : Party -- sponsor -> source.daml,   Party -> storage.type.daml > meta.type-declaration.daml > source.daml
+    description : Text -- description -> source.daml,   Text -> storage.type.daml > meta.type-declaration.daml > source.daml
+  where -- -> keyword.other.daml > source.daml
+    signatory [employee, sponsor] -- signatory -> keyword.other.daml > source.daml
+
+template FeatureSuggestion
+  with
+    employee: Party
+    founders: [Party]
+    description: Text
+  where
+    signatory employee
+    observer founders
+
+    choice AcceptFeature : ContractId FeatureAssignment with -- choice -> keyword.other.daml > source.daml
+        sponsor: Party
+      controller sponsor -- controller -> keyword.other.daml > source.daml
+      do
+        assert $ elem sponsor founders  -- assert -> source.daml
+        create FeatureAssignment with employee, description, sponsor -- create -> source.daml

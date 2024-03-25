@@ -1,0 +1,45 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Tests.VariantTest where
+
+data VariantItem x = EmptyVariant
+                   | PrimVariant Int
+                   | RecordVariant with x : Int
+                   | RecordVariantRecord with y: VariantItem Int
+                   | ParameterizedRecordVariant with x1: x, x2: x, x3: [x]
+                   | CustomVariant Custom
+                   | CustomParametricVariant (CustomParametric x)
+  deriving (Eq, Show)
+
+data StarKindVariant = EmptySK
+                     | ParameterizedRecordSK with x1: Int, x2: Text, x3: [Int]
+                     | CustomSK Custom
+  deriving (Eq, Show)
+
+data Custom = Custom {}
+  deriving (Eq, Show)
+
+data CustomParametric x = CustomParametricCons x
+  deriving (Eq, Show)
+
+data Foo = Bar Int
+  deriving (Eq, Show)
+
+data Bar = Baz Int
+  deriving (Eq, Show)
+
+-- Not part of the test but the codegen filters out
+-- data definitions which are not used in a template
+template VariantTestTemplate
+    with
+        owner : Party
+        variantItem : VariantItem Int
+        custom : Custom
+        customParametric : CustomParametric Int
+        starKind : StarKindVariant
+        foo : Foo
+        bar : Bar
+    where
+        signatory owner

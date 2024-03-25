@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg %replace(, context: %marker){', context: $',
+                ''} %n
+            </pattern>
+        </encoder>
+    </appender>
+
+    <appender name="ErrorCodeLogCollector" class="com.daml.error.LogCollector">
+        <test>com.daml.error.ErrorCodeSpec</test>
+    </appender>
+
+    <logger name="com.daml.error.ErrorCodeSpec" level="INFO">
+        <appender-ref ref="ErrorCodeLogCollector"/>
+    </logger>
+
+    <root level="DEBUG">
+        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="ASYNC"/>
+    </root>
+</configuration>

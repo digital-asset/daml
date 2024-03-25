@@ -1,0 +1,75 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+{-# LANGUAGE PartialTypeSignatures #-}
+
+
+module CoinDelegation where
+
+import Daml.Script
+import DA.Assert
+
+import CoinIssuance
+import Utilities
+
+-- Delegation pattern gives A the right to exercise a choice on behalf of B
+-- Party A can control a contract on the ledger that allows an action
+-- to be performed on behalf of a second party B without B explicitly committing the action.
+-- Before such delegation takes place, Daml obligable computation will make sure party B has agreed to it.
+-- This is to ensure all contracts on the ledger are well-authorized
+
+-- BEGIN_COIN_POA
+template CoinPoA
+  with
+    attorney: Party
+    principal: Party
+  where
+    signatory principal
+    observer attorney
+
+    choice WithdrawPoA
+      : ()
+      controller principal
+      do return ()
+-- END_COIN_POA
+
+    -- attorney has the delegated right to Transfer
+    -- principal as the signatory on this contract ensures the right to Transfer is delegated voluntarily
+-- BEGIN_COIN_POA_TRANSFER
+    nonconsuming choice TransferCoin
+      : ContractId TransferProposal
+      with
+        coinId: ContractId Coin
+        newOwner: Party
+      controller attorney
+      do
+        exercise coinId Transfer with newOwner
+-- END_COIN_POA_TRANSFER
+
+delegate : Script ()  -- test
+delegate =
+  script do
+
+    [issuer, owner, receiver, attorney] <- makePartiesFrom ["Bank", "Me", "You", "Lawyer"]
+
+    --coin is created without attorney
+    newCoinId <- createCoin issuer owner 100.0
+
+    --poa is created between owner and attorney
+    poa <- owner `submit` do createCmd CoinPoA with principal = owner; attorney
+
+    --owner chooses to disclose coin to the attorney. This is how he devulge his coin to attorney
+    disclosedCoinId <- owner `submit` do exerciseCmd newCoinId Disclose with p = attorney
+
+    --attorney now can Transfer coin on behalf of the owner
+    tprop <- attorney `submit` do exerciseCmd poa TransferCoin with coinId = disclosedCoinId; newOwner = receiver
+
+    --receives can accept
+    newCoinId <- receiver `submit` do
+      exerciseCmd tprop AcceptTransfer
+
+    Some newCoin <- receiver `queryContractId` newCoinId
+    newCoin.owner === receiver
+    newCoin.issuer === issuer
+    newCoin.amount === 100.0

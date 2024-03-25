@@ -1,0 +1,36 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE CPP #-}
+
+-- | MOVE Prelude
+--
+-- A weird module - based on base.GHC.Err, but not realy in the GHC namespace.
+-- Has to live here so GHC can find it for deriving instances.
+module GHC.Err
+  ( error
+  ) where
+
+import GHC.Integer.Type() -- required so Integer optimisation works
+import GHC.Types
+
+#ifdef DAML_EXCEPTIONS
+
+import DA.Exception.GeneralError
+
+-- | Throws a `GeneralError` exception.
+error : Text -> a
+error msg = primitive @"EThrow" (GeneralError msg)
+
+#else
+
+-- | `error` stops execution and displays the given error message.
+--
+-- If called within a transaction, it will abort the current transaction.
+-- Outside of a transaction (scenarios and Daml Script)
+-- it will stop the whole scenario/script.
+error : Text -> a
+error = primitive @"BEError"
+
+#endif

@@ -1,0 +1,156 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
+module DA.Date
+  ( DayOfWeek(..)
+  , Month(..)
+  , addDays
+  , subtractDays
+  , subDate
+  , dayOfWeek
+  , fromGregorian
+  , toGregorian
+  , date
+  , isLeapYear
+  , fromMonth
+  , monthDayCount
+  , datetime
+  , toDateUTC
+  , daysSinceEpochToDate
+  , dateToDaysSinceEpoch
+  ) where
+
+import DA.Text (implode)
+import DA.Date.Types
+import DA.Internal.Date
+import DA.Internal.Time
+import GHC.Tuple.Check()
+
+deriving instance Eq DayOfWeek
+deriving instance Ord DayOfWeek
+deriving instance Show DayOfWeek
+deriving instance Enum DayOfWeek
+deriving instance Bounded DayOfWeek
+
+deriving instance Eq Month
+deriving instance Ord Month
+deriving instance Show Month
+deriving instance Enum Month
+deriving instance Bounded Month
+
+instance Enum Date where
+    toEnum n = daysSinceEpochToDate (n + fromEnumOffset)
+    fromEnum d = dateToDaysSinceEpoch d - fromEnumOffset
+    enumFrom     x   = enumFromTo     x maxBound
+    enumFromThen x y = enumFromThenTo x y (if y >= x then maxBound else minBound)
+
+instance Bounded Date where
+    minBound = date 1 Jan 1
+    maxBound = date 9999 Dec 31
+
+-- | Hide the nummber of days between unix epoch and minBound
+fromEnumOffset : Int
+fromEnumOffset = dateToDaysSinceEpoch minBound
+
+-- | Add the given number of days to a date.
+addDays : Date -> Int -> Date
+addDays d r =
+    let dt = dateToDaysSinceEpoch d
+    in daysSinceEpochToDate (dt + r)
+
+-- | Subtract the given number of days from a date.
+--
+-- `subtractDays d r` is equivalent to `addDays d (- r)`.
+subtractDays : Date -> Int -> Date
+subtractDays d r = addDays d (- r)
+
+-- | Returns the number of days between the two given dates.
+subDate : Date -> Date -> Int
+subDate d1 d2 =
+    let t1 = dateToDaysSinceEpoch d1
+        t2 = dateToDaysSinceEpoch d2
+    in t1 - t2
+
+-- | Returns the day of week for the given date.
+dayOfWeek : Date -> DayOfWeek
+dayOfWeek d = toEnum ((3 + dateToDaysSinceEpoch d) % 7)
+
+-- | Constructs a `Date` from the triplet `(year, month, days)`.
+fromGregorian : (Int, Month, Int) -> Date
+fromGregorian (year, month, day) = date year month day
+
+-- | Turn `Date` value into a `(year, month, day)` triple, according
+-- to the Gregorian calendar.
+toGregorian : Date -> (Int, Month, Int)
+toGregorian date =
+  let a = dateToDaysSinceEpoch date + 2472632
+      b = (4 * a + 3) / 146097
+      c = a - (b * 146097) / 4
+      d = (4 * c + 3) / 1461
+      e = c - (1461 * d) / 4
+      m = (5 * e + 2) / 153
+      year = b * 100 + d - 4800 + m / 10
+      mth = m + 3 - 12 * (m / 10)
+      day = e - (153 * m + 2) / 5 + 1
+   in (year, toEnum $ mth - 1, day)
+
+-- | Given the three values (year, month, day), constructs a `Date` value.
+-- `date y m d` turns the year `y`, month `m`, and day `d` into a `Date` value.
+-- Raises an error if `d` is outside the range `1 .. monthDayCount y m`.
+date : Int -> Month -> Int -> Date
+date year month day =
+  let a = (14 - (fromMonth month)) / 12
+      y = year + 4800 - a
+      m = (fromMonth month) + 12 * a - 3
+      date = day + (153 * m + 2) / 5 + y * 365 + y / 4 - y / 100 + y / 400 - 2472633
+      ml = monthDayCount year month
+  in
+    if 1 <= day && day <= ml
+      then daysSinceEpochToDate date
+      else error $ implode
+          [ "Day ", show day, " falls outside of valid day range (1 .. "
+          , show ml, ") for ", show month, " ", show year, "." ]
+
+-- | Returns `True` if the given year is a leap year.
+isLeapYear : Int -> Bool
+isLeapYear year = (year % 4 == 0) && ((year % 400 == 0) || not (year % 100 == 0))
+
+-- | Get the number corresponding to given month. For example, `Jan` corresponds
+-- to `1`, `Feb` corresponds to `2`, and so on.
+fromMonth : Month -> Int
+fromMonth m = 1 + fromEnum m
+
+-- | Get number of days in the given month in the given year, according to Gregorian calendar.
+-- This does not take historical calendar changes into account (for example, the
+-- moves from Julian to Gregorian calendar), but does count leap years.
+monthDayCount : Int -> Month -> Int
+monthDayCount year month = case month of
+  Jan -> 31
+  Feb -> if isLeapYear year then 29 else 28
+  Mar -> 31
+  Apr -> 30
+  May -> 31
+  Jun -> 30
+  Jul -> 31
+  Aug -> 31
+  Sep -> 30
+  Oct -> 31
+  Nov -> 30
+  Dec -> 31
+
+-- | Constructs an instant using `year`, `month`, `day`, `hours`, `minutes`, `seconds`.
+datetime : Int -> Month -> Int -> Int -> Int -> Int -> Time
+datetime year month day h m s = time (date year month day) h m s
+
+-- | Extracts UTC date from UTC time.
+--
+-- This function will truncate Time to Date, but in many cases it will not return the date you really want.
+-- The reason for this is that usually the source of Time would be getTime, and getTime returns UTC, and most likely
+-- the date you want is something local to a location or an exchange. Consequently the date retrieved this way would be
+-- yesterday if retrieved when the market opens in say Singapore.
+toDateUTC : Time -> Date
+toDateUTC t =
+  daysSinceEpochToDate $ (/ microsecondsPerDay) $ timeToMicrosecondsSinceEpoch t

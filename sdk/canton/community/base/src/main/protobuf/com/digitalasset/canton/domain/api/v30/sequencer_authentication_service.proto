@@ -1,0 +1,68 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.domain.api.v30;
+
+import "com/digitalasset/canton/crypto/v30/crypto.proto";
+import "google/protobuf/timestamp.proto";
+
+// Operations to generate an authentication token for calling sequencer operations
+service SequencerAuthenticationService {
+  // If provided with a supported protocol version and crypto type,
+  // will return a nonce and fingerprint of the expected key to sign this nonce
+  rpc Challenge(SequencerAuthentication.ChallengeRequest) returns (SequencerAuthentication.ChallengeResponse) {}
+  // If provided with a correctly signed nonce, will return a authentication token
+  // to be supplied to SequencerService operations
+  rpc Authenticate(SequencerAuthentication.AuthenticateRequest) returns (SequencerAuthentication.AuthenticateResponse) {}
+}
+
+message SequencerAuthentication {
+  message ChallengeRequest {
+    string member = 1;
+    repeated string member_protocol_versions = 2;
+  }
+
+  message ChallengeResponse {
+    message Success {
+      string domain_version = 1;
+      // random nonce to be used for authentication
+      bytes nonce = 2;
+      // fingerprints of the possible keys the domain expects the member to use for authentication
+      // (many are supplied in case there are many instances running on behalf of the member that only have access to a subset of the registered keys)
+      repeated string fingerprints = 3;
+    }
+    message Failure {
+      uint32 code = 1;
+      string reason = 2;
+    }
+    oneof value {
+      Success success = 1;
+      Failure failure = 2;
+    }
+  }
+
+  message AuthenticateRequest {
+    // member sending request
+    string member = 1;
+    // signature of the handshake nonce concatenated with the identity of the domain (fingerprint)
+    com.digitalasset.canton.crypto.v30.Signature signature = 2;
+    // nonce value that was signed is sent back to identify the challenge
+    bytes nonce = 3;
+  }
+  message AuthenticateResponse {
+    message Success {
+      bytes token = 1;
+      google.protobuf.Timestamp expires_at = 2;
+    }
+    message Failure {
+      uint32 code = 1;
+      string reason = 2;
+    }
+    oneof value {
+      Success success = 1;
+      Failure failure = 2;
+    }
+  }
+}

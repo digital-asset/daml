@@ -1,0 +1,55 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module SimpleIou where
+
+import Daml.Script
+
+data Cash = Cash with
+  currency : Text
+  amount : Decimal
+    deriving (Eq, Show)
+
+template SimpleIou
+  with
+    issuer : Party
+    owner : Party
+    cash : Cash
+  where
+    signatory issuer
+    observer owner
+
+    choice Transfer
+      : ContractId SimpleIou
+      with
+        newOwner : Party
+      controller owner
+      do
+        create this with owner = newOwner
+
+test_iou = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  charlie <- allocateParty "Charlie"
+  dora <- allocateParty "Dora"
+
+  -- Dora issues an Iou for $100 to Alice.
+  iou <- submit dora do
+    createCmd SimpleIou with
+      issuer = dora
+      owner = alice
+      cash = Cash with
+        amount = 100.0
+        currency = "USD"
+
+  -- Alice transfers it to Bob.
+  iou2 <- submit alice do
+    exerciseCmd iou Transfer with
+      newOwner = bob
+
+  -- Bob transfers it to Charlie.
+  submit bob do
+    exerciseCmd iou2 Transfer with
+      newOwner = charlie
+

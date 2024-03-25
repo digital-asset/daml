@@ -1,0 +1,12 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- start snippet: variant example
+
+module Com.Acme.Variants where
+
+data BookAttribute = Pages Int
+                   | Authors [Text]
+                   | Title Text
+                   | Published with year: Int; publisher: Text
+-- end snippet: variant example

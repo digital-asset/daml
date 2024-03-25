@@ -1,0 +1,205 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | Math - Utility Math functions for `Decimal`
+-- The this library is designed to give good precision, typically giving 9 correct decimal places.
+-- The numerical algorithms run with many iterations to achieve that precision and are interpreted
+-- by the Daml runtime so they are not performant. Their use is not advised in performance critical
+-- contexts.
+module DA.Math
+( (**)
+, sqrt
+, exp
+, log
+, logBase
+, sin
+, cos
+, tan
+, pi
+) where
+
+import DA.List
+import DA.Numeric (pi)
+
+infixr 8 **
+
+-- | Take a power of a number Example: `2.0 ** 3.0 == 8.0`.
+(**) : Decimal -> Decimal -> Decimal
+x ** y
+  | y == 0.0 = 1.0
+  | x == 0.0 = 0.0
+  | otherwise = exp (y * log x)
+
+-- | Calculate the square root of a Decimal.
+--
+-- ```
+-- >>> sqrt 1.44
+-- 1.2
+-- ```
+sqrt : Decimal -> Decimal
+sqrt x
+  | x < 0.0 = error "sqrt is defined only for non-negative numbers"
+  | otherwise = x ** 0.5
+
+-- | The exponential function. Example: `exp 0.0 == 1.0`
+exp : Decimal -> Decimal
+exp x
+  | x == 0.0 = 1.0
+  | x < 0.0 = 1.0 / exp (negate x)
+  | otherwise =
+    let (y, e) = expInner 1.0 1.0 x
+    in y `e10` e
+
+-- | The natural logarithm. Example: `log 10.0 == 2.30258509299`
+log : Decimal -> Decimal
+log x
+  | x <= 0.0 = error "logarithm is defined only for positive numbers"
+  | otherwise = logt10k x / 10000.0
+
+-- | The logarithm of a number to a given base. Example: `log 10.0 100.0 == 2.0`
+logBase : Decimal -> Decimal -> Decimal
+logBase b x = log x / log b
+
+-- | `logt10k x` calculates 10000.0 * ln(x). The reason for
+-- doing this is to preserve four additional decimal points
+-- for precision.
+-- The additive nature of `ln` is used to decompose
+-- ln(x) == ln(10^m * 2^n * y) == m * ln(10) + n * ln(2) + ln(y)
+-- where 0.5 < y < 1.5.
+logt10k: Decimal -> Decimal
+logt10k x
+  | x == 1.0 = 0.0
+  | x > 10.0 = ln10t10k + logt10k (x / 10.0)
+  | x < 0.1 = logt10k (x * 10.0) - ln10t10k
+  | x > 1.5 = ln2t10k + logt10k (x / 2.0)
+  | x < 0.5 = logt10k (x * 2.0) - ln2t10k
+  | otherwise = logt10kInner 10 x
+  where
+    ln10t10k : Decimal
+    ln10t10k = 23025.8509299405
+
+    ln2t10k : Decimal
+    ln2t10k = 6931.4718055994
+
+-- | `log10kInner n x` approximates 10000 * ln(x) using n terms of the
+-- power series expansion of ln(x) = 2 * artanh((x - 1) / (x + 1))
+logt10kInner: Int -> Decimal -> Decimal
+logt10kInner n x
+  | n < 0 = 0.0
+  | otherwise = let
+      f = (x - 1.0) / (x + 1.0)
+      p = (2 * n + 1)
+      term = (20000.0 / intToDecimal p) * f ^ p
+    in
+    term + logt10kInner (n - 1) x
+
+-- | `e10` is used to shift the decimal point in decimal notation.
+-- `e10 x n == x * intToDecimal (10 ^ n)`.
+e10: Decimal -> Int -> Decimal
+e10 x n
+  | n == 0 = x
+  | n > 0 = e10 (x * 10.0) (n - 1)
+  | otherwise = e10 (x / 10.0) (n + 1)
+
+-- | `Sci` represents a number in scientific notation. `(x, n)` is
+-- to be read as `x * 10^n`.
+type Sci = (Decimal, Int)
+
+-- | `to36dig` tries to put a number in scientific notation in a form
+-- where the `x` has order of magnitude 10^26. Given the fixed point
+-- NUMBER(38,10) format of `Decimal` in Daml, this gives good
+-- precision with a little bit of room to multiply with numbers less
+-- than 100.
+to36dig: Sci -> Sci
+to36dig (x, n)
+  | x < 1.0 `e10` 25 = to36dig (x * 10.0, n - 1)
+  | x > 1.0 `e10` 26 = to36dig (x / 10.0, n + 1)
+  | otherwise = (x, n)
+
+-- | `expInner` calculates the expansion
+-- 1 + x/n * (1 + x/(n+1) * (1 + x/(n+2) * ...))
+-- to a depth where t * x^k * n! / k! < 10^-10.
+-- The sole purpose is to calculate `exp = expInner 1.0 1.0`
+-- In the most precision-preserving way.
+expInner: Decimal -> Decimal -> Decimal -> Sci
+expInner n t x
+  | t == 0.0 = (1.0, 0)
+  | otherwise =
+    let
+      (y, e) = expInner (n + 1.0) (t * x / n) x
+      z = 1.0 `e10` (negate e)
+    in to36dig (z + x * y / n, e)
+
+-- | `sin` is the sine function
+sin : Decimal -> Decimal
+sin x = snd $ cordic 34 x
+
+-- | `cos` is the cosine function
+cos: Decimal -> Decimal
+cos x = fst $ cordic 34 x
+
+-- | `tan` is the tangent function
+tan: Decimal -> Decimal
+tan x = s / c
+  where
+    (c, s) = cordic 34 x
+
+-- | `cordic` is an implementation of the CORDIC algorithm.
+-- See https://en.wikipedia.org/wiki/CORDIC
+-- `cordic n r == (sin(r), cos(r))` computed to n iterations
+cordic: Int -> Decimal -> (Decimal, Decimal)
+cordic n r
+  | r < 0.0 = cordic n (r + 2.0 * pi)
+  | r > 2.0 * pi = cordic n (r - 2.0 * pi)
+  | r > pi =
+    let (c, s) = cordic n (r - pi)
+    in (-c, -s)
+  | r > pi / 2.0 =
+    let (c, s) = cordic n (pi - r)
+    in (c, -s)
+  | otherwise =
+    let (c, s) = cordicInner n r (1.0, 0.0) 1.0 angles
+    in (kn * c, kn * s)
+  where
+    pi : Decimal
+    pi = 3.1415926536
+
+    angles : [Decimal]
+    angles =
+      [ 0.7853981634, 0.4636476090, 0.2449786631, 0.1243549945
+      , 0.0624188100, 0.0312398334, 0.0156237286, 0.0078123411
+      , 0.0039062301, 0.0019531225, 0.0009765622, 0.0004882812
+      , 0.0002441406, 0.0001220703, 0.0000610352, 0.0000305176
+      , 0.0000152588, 0.0000076294, 0.0000038147, 0.0000019073
+      , 0.0000009537, 0.0000004768, 0.0000002384, 0.0000001192
+      , 0.0000000596, 0.0000000298, 0.0000000149, 0.0000000075
+      , 0.0000000037, 0.0000000019, 0.0000000009, 0.0000000005
+      , 0.0000000002, 0.0000000001 ]
+
+    ks : [Decimal]
+    ks =
+      [ 0.7071067812, 0.6324555320, 0.6135719911, 0.6088339125
+      , 0.6076482563, 0.6073517701, 0.6072776441, 0.6072591123
+      , 0.6072544793, 0.6072533211, 0.6072530315, 0.6072529591
+      , 0.6072529410, 0.6072529365, 0.6072529354, 0.6072529351
+      , 0.6072529350 ]
+
+    kn = if n < 17
+      then ks !! n
+      else last ks
+
+-- | `cordicInner` implements the inner loop of the CORDIC algorithm
+cordicInner: Int -> Decimal -> (Decimal, Decimal) -> Decimal -> [Decimal] -> (Decimal, Decimal)
+cordicInner n r v pt angles
+  | n == 1 = nv
+  | otherwise = cordicInner (n-1) nr nv npt nangles
+  where
+    (nangles, angle) = case angles of
+      [a] -> ([a / 2.0], a / 2.0)
+      a :: as -> (as, a)
+      _ -> error "empty angles"
+    sigma = if r < 0.0 then negate 1.0 else 1.0
+    f = sigma * pt
+    nv = (fst v - f * snd v, f * fst v + snd v)
+    nr = r - sigma * angle
+    npt = pt / 2.0

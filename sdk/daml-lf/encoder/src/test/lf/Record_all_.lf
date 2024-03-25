@@ -1,0 +1,49 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+module RecordMod {
+
+  record @serializable MyUnit = {};
+
+  record @serializable Pair (a:*) (b: *) = { fst: a, snd: b };
+
+  record @serializable Box = { x: RecordMod:Pair Int64 (Numeric 10), party: Party } ;
+
+  template (this : Box) =  {
+    precondition True;
+    signatories (PartyMod:one (RecordMod:Box {party} this));
+    observers (Nil @Party);
+  };
+
+  val createContract:
+    Party -> RecordMod:Pair Int64 (Numeric 10) -> Update (ContractId RecordMod:Box) =
+    \ (bob: Party) (x: RecordMod:Pair Int64 (Numeric 10)) ->
+          create @RecordMod:Box (RecordMod:Box { x = x, party = bob });
+
+  val pair1: RecordMod:Pair Int64 (Numeric 10) =
+    RecordMod:Pair @Int64 @(Numeric 10) {
+      fst = 1,
+      snd = 1.0000000000
+    };
+
+  val pair2: RecordMod:Pair Int64 (Numeric 10) =
+    RecordMod:Pair @Int64 @(Numeric 10) {
+      fst = -2,
+      snd = -2.2222222222
+    };
+    
+  val pair3: RecordMod:Pair Int64 (Numeric 10) =
+    RecordMod:Pair @Int64 @(Numeric 10) {
+      fst = -3,
+      snd = -3333333333333333333333333333.0000000000
+  };
+   
+  val createContracts: Party -> Update Unit =  \(p: Party) ->
+    ubind
+        c1 : ContractId RecordMod:Box <- RecordMod:createContract p RecordMod:pair1 ;
+        c2 : ContractId RecordMod:Box <- RecordMod:createContract p RecordMod:pair2 ;
+        c3 : ContractId RecordMod:Box <- RecordMod:createContract p RecordMod:pair3
+      in
+        upure @Unit () ;
+
+}

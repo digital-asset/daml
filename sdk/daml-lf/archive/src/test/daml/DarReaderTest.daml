@@ -1,0 +1,30 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module DarReaderTest where
+
+template PayOut
+  with
+    receiver: Party
+    giver: Party
+  where
+    signatory receiver
+    signatory giver
+
+template CallablePayout
+  with
+    giver: Party
+    receiver: Party
+  where
+    signatory giver
+    observer receiver
+    choice Call2 : ContractId PayOut
+      controller receiver
+      do create PayOut with receiver; giver
+    choice Transfer : ContractId CallablePayout
+      with newReceiver: Party
+      controller receiver
+      do create this with receiver = newReceiver
+
+reverseCopy = reverse

@@ -1,0 +1,117 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @ SCRIPT-V2
+
+-- @ WARN range=19:1-19:52; Import of internal module Daml.Script.Internal of package daml3-script is discouraged, as this module will change without warning.
+
+{-# LANGUAGE ApplicativeDo #-}
+
+module Daml3ScriptTrySubmitConcurrently where
+
+import DA.Action (when)
+import DA.Assert ((===))
+import DA.Either (partitionEithers)
+import DA.Exception (PreconditionFailed (..), fromAnyException, throw)
+import DA.Foldable (mapA_, sequence_)
+import DA.NonEmpty qualified (singleton)
+import Daml.Script
+import Daml.Script.Internal (trySubmitConcurrently)
+
+--------------------------------------------------------------------------------
+
+-- | Tests that the list of results 'Either SubmitError a' produced by
+-- 'trySubmitConcurrently' corresponds to the given list of concurrently
+-- submitted 'Commands a' and that the individual results match the expected
+-- successful result or exception.
+resultsMatchInputs : Script ()
+resultsMatchInputs = do
+  alice <- allocateParty "alice"
+  submitResults <- alice `trySubmitConcurrently`
+    [ createAndExerciseCmd (Tpl with p = alice, i) C
+    | i <- inputs
+    ]
+  length submitResults === length inputs
+  sequence_ (zipWith match inputs submitResults)
+  where
+    inputs = [0, 1, 2, 0, 1, 2, 3, 4]
+
+    match : Int -> Either SubmitError Int -> Script ()
+    match input submitResult
+      | input == 0 =
+        -- If the input was zero, we expect a PreconditionFailed exception due
+        -- to the ensure clause 'i /= 0'
+        case submitResult of
+          Left (UnhandledException ((>>= fromAnyException) -> Some (PreconditionFailed _))) ->
+            pure ()
+          _ ->
+            assertFail $ "Expected Left(UnhandledException(PreconditionFailed(_))) but got: " <> show submitResult
+      | input % 2 == 1 =
+        -- If the input was odd, we expect an OddException due to the explicit
+        -- throw in the body of 'choice C'
+        case submitResult of
+          Left (UnhandledException ((>>= fromAnyException) -> Some (OddException j))) | input == j ->
+            pure ()
+          _ ->
+            assertFail $ "Expected Left(UnhandledException(OddException(input))) but got: " <> show submitResult
+      | otherwise =
+        -- Otherwise we expect to obtain a successful result equal to the input.
+        case submitResult of
+          Right choiceResult | choiceResult == input ->
+            pure ()
+          _ ->
+            assertFail $ "Expected Right(" <> show input <> ") but got: " <> show submitResult
+
+template Tpl
+  with
+    p : Party
+    i : Int
+  where
+    signatory p
+    ensure i /= 0
+
+    choice C : Int
+      controller p
+      do
+        when (i % 2 == 1) do
+          throw OddException with i
+        pure i
+
+exception OddException with i : Int
+
+--------------------------------------------------------------------------------
+
+-- | Tests that the concurrent submission of multiple consuming 'exercise'
+-- commands on the same contract id will result in exactly one success.
+noDoubleSpend : Script ()
+noDoubleSpend = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd Coin with p = alice
+  (errs, results) <-
+    partitionEithers <$>
+      alice `trySubmitConcurrently`
+        replicate n (archiveCmd cid)
+  results === [()]
+  length errs === n - 1
+  mapA_ (matchContractNotFound cid) errs
+  where
+    n = 10
+
+    matchContractNotFound : ContractId Coin -> SubmitError -> Script ()
+    matchContractNotFound cid err = case err of
+      ContractNotFound { unknownContractIds }
+        | unknownContractIds == expectedUnknownContractIds -> pure ()
+      LocalVerdictLockedContracts _ ->
+        -- TODO: check that the contract id is present in the argument
+        -- https://github.com/DACH-NY/canton/issues/15071
+        pure ()
+      err ->
+        assertFail $ "Expected ContractNotFound(unknownContractIds = " <> show expectedUnknownContractIds <> ") but got: " <> show err
+      where
+        expectedUnknownContractIds = DA.NonEmpty.singleton (show cid)
+
+template Coin
+  with
+    p : Party
+  where
+    signatory p

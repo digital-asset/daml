@@ -1,0 +1,8 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Export Bazel sources for Bazel API docs.
+exports_files(
+    ["client_server_test.bzl"],
+    visibility = ["//bazel_tools/docs:__pkg__"],
+)

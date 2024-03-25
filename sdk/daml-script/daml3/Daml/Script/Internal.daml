@@ -1,0 +1,41 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Includes all "internal" functionality that we intend to use outside of daml-script
+module Daml.Script.Internal
+  ( -- Testing
+    CommandName (..)
+  , ErrorClassName (..)
+  , ErrorMessage (..)
+  , tryCommands
+  , FailedCmd (..)
+  , liftFailedCommandToException
+
+  , -- Packages
+    PackageName (..)
+  , vetPackages
+  , unvetPackages
+  , listVettedPackages
+  , listAllPackages
+  , vetDar
+  , vetDarOnParticipant
+  , unsafeVetDarOnParticipant
+  , unvetDar
+  , unvetDarOnParticipant
+  , unsafeUnvetDarOnParticipant
+
+  , -- Concurrent submit
+    concurrently
+  , trySubmitConcurrently
+
+  , -- Exceptions
+    -- TODO: consider exposing this normally.
+    tryToEither
+  , throwAnyException
+
+  , -- Internal submit error
+    ContractNotFoundAdditionalInfo
+  , isNotActive
+  ) where
+
+import Daml.Script.Internal.Questions

@@ -1,0 +1,164 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+
+module Bank where
+
+import Daml.Script
+
+-- Add a new type alias for currencies
+type Currency = Text
+-- Add a new data type to describe amounts, including the currency
+data Amount = Amount { quantity : Int, currency : Currency } deriving (Eq, Show)
+-- Add a shorter type alias for contract id types we use
+type CashId = ContractId Cash
+type SettleCashId = ContractId SettleCash
+
+{-
+  A simple cash contract which can be used in order to
+  change the ownership of the cash contract.
+
+  Note that the cash contract can be transferred, but the
+  deposition into an account is not included in this contract
+  but in the account contract.
+
+  This is the first example of composability. The cash contract
+  does not know the larger context it exists in.
+-}
+template Cash
+  with
+    bank : Party
+    owner : Party
+    amount : Amount
+  where
+
+    signatory bank
+    observer owner
+
+    {- Choices available to the owner -}
+
+    {- Transfer the ownership of this contract to a new owner -}
+    choice Transfer : CashId
+      with
+        newOwner : Party
+      controller owner
+        do
+          create this with owner = newOwner
+
+    {- Split some amount of this contract. -}
+    choice Split : (CashId, CashId)
+      with
+        quantity : Int
+      controller owner
+        do
+          -- Ensure that the requested amount doesn't exceed available.
+          assert (quantity > 0 && quantity <= amount.quantity)
+          -- Calculate the remaining Cash contract
+          restId <- create this with amount = Amount { currency = amount.currency, quantity = amount.quantity - quantity }
+          -- Create the new contract
+          newId <- create this with amount = Amount { currency = amount.currency, quantity = quantity }
+          return (newId, restId)
+
+    {- Merge this and another cash contract into one -}
+    choice Merge : CashId
+      with
+        cashId : CashId
+      controller owner
+        do
+          -- Load the data of the given cash contract.
+          cash <- fetch cashId
+          -- Ensure that the issuers, owners and currency match
+          assert (cash.owner == owner)
+          assert (cash.bank == bank)
+          assert (cash.amount.currency == amount.currency)
+          -- Archive the other contract
+          exercise cashId Archive
+          -- Create the consolidated contract.
+          create this with amount = Amount { currency = amount.currency, quantity = amount.quantity + cash.amount.quantity }
+
+    choice Settle : SettleCashId
+      with
+        iban : Text
+      controller owner
+        do
+          -- Get the ledger time of this transaction
+          timestamp <- getTime
+          create SettleCash with bank, owner, amount, timestamp, iban
+
+{-
+  A settlement contract indicating a pending cash settlement.
+
+  The given contract denotes a "real world" obligation to the bank,
+  requiring the bank to transfer the given amount to the named
+  bank account.
+
+  Once the money arrives, the owner can confirm the settlement.
+-}
+template SettleCash
+  with
+    bank : Party
+    owner : Party
+    amount : Amount
+    timestamp : Time
+    iban : Text
+  where
+
+    signatory bank
+    observer owner
+
+    choice Received : ()
+      controller owner
+        do
+          return ()
+
+
+money = \x -> Amount { currency = "EUR", quantity = x }
+
+-- Helper template to combine several dependent exercises into one transaction
+template TransferHelper
+  with p: Party
+  where
+    signatory p
+    choice SplitTransferMerge: CashId
+      with
+        cashId: CashId
+        newOwner: Party
+        quantity: Int
+      controller p
+      do
+        (cash1, rest1) <- exercise cashId Split with quantity = quantity
+        cash2 <- exercise cash1 Transfer with newOwner = newOwner
+        exercise rest1 Merge with cashId = cash2
+
+
+setup = script do
+
+  doctor <- allocateParty "Doctor"
+  bank <- allocateParty "Bank"
+  insurer <- allocateParty "Insurance"
+
+  (insurerCash, doctorCash) <- submit bank do
+    ia <- createCmd Bank.Cash with bank, owner = insurer, amount = (money 100)
+    da <- createCmd Bank.Cash with bank, owner = doctor, amount = (money 5)
+    return (ia, da)
+
+  return (bank, doctor, doctorCash, insurer, insurerCash)
+
+
+test = script do
+
+  let currency = "EUR"
+  let initialBalance = Amount { currency = currency, quantity = 100 }
+
+  alice <- allocateParty "Alice"
+  bank <- allocateParty "Bank"
+
+  ba <- submit bank do
+    createCmd Cash with
+      bank = bank
+      owner = alice
+      amount = initialBalance
+
+  submit alice do
+    createAndExerciseCmd (TransferHelper alice) $ SplitTransferMerge ba alice 10

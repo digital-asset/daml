@@ -1,0 +1,79 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Intro.Asset.MultiTrade where
+
+import DA.List
+
+import Intro.Asset
+import DA.Foldable (mapA_)
+
+baseOwner : MultiTrade -> Party
+baseOwner MultiTrade { baseAssets } = (head baseAssets).owner
+
+quoteOwner : MultiTrade -> Party
+quoteOwner MultiTrade { quoteAssets } = (head quoteAssets).owner
+
+template MultiTrade
+  with
+    baseAssetCids : [ContractId Asset]
+    baseAssets : [Asset]
+    quoteApprovalCids : [ContractId TransferApproval]
+    quoteAssets : [Asset]
+  where
+    signatory baseOwner this
+    observer quoteOwner this
+    -- ENSURE_BEGIN
+    ensure (length baseAssetCids == length baseAssets) &&
+      (length quoteApprovalCids == length quoteAssets) &&
+      not (null baseAssets) &&
+      not (null quoteAssets)
+    -- ENSURE_END
+
+    choice Trade_Cancel
+      : ()
+      controller baseOwner this
+      do
+        return ()
+
+    choice Trade_Reject
+      : ()
+      controller quoteOwner this
+      do
+        return ()
+
+    choice Trade_Settle
+      : ([ContractId Asset], [ContractId Asset])
+      with
+        quoteAssetCids : [ContractId Asset]
+        baseApprovalCids : [ContractId TransferApproval]
+      controller quoteOwner this
+      do
+        assertMsg
+          "Wrong number of quoteAssetCids"
+          (length quoteAssetCids == length quoteAssets)
+        assertMsg
+          "Wrong number of baseApprovalCids"
+          (length baseApprovalCids == length baseAssets)
+
+-- LOCAL_FUNCTIONS_BEGIN
+        let
+          validate (asset, assetCid) = do
+            fetchedAsset <- fetch assetCid
+            assertMsg
+              "Asset mismatch"
+              (asset == fetchedAsset with
+                observers = asset.observers)
+
+        mapA_ validate (zip baseAssets baseAssetCids)
+        mapA_ validate (zip quoteAssets quoteAssetCids)
+
+        let
+          transfer (assetCid, approvalCid) = do
+            exercise approvalCid TransferApproval_Transfer with assetCid
+
+        transferredBaseCids <- mapA transfer (zip baseAssetCids baseApprovalCids)
+        transferredQuoteCids <- mapA transfer (zip quoteAssetCids quoteApprovalCids)
+-- LOCAL_FUNCTIONS_END
+
+        return (transferredBaseCids, transferredQuoteCids)

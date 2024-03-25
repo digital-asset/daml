@@ -1,0 +1,43 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module OptionalDemo where
+
+import Daml.Script
+-- start snippet: import Optional
+import DA.Optional
+-- end snippet: import Optional
+
+optionalDemo = script do
+  let
+    j =
+-- start snippet: create some
+      Some "Some text"    -- Optional value exists.
+-- end snippet: create some
+    m : Optional Text =
+-- start snippet: create none
+      None                -- Optional value does not exist.
+-- end snippet: create none
+    yn =
+-- start snippet: test some
+      -- isSome returns True if there is a value.
+      if isSome m
+        then "Yes"
+        else "No"
+-- end snippet: test some
+    ny =
+-- start snippet: test none
+      -- The inverse is isNone.
+      if isNone m
+        then "No"
+        else "Yes"
+-- end snippet: test none
+    someValue = Some 5
+
+-- start snippet: optional
+  let f = \ (i : Int) -> "The number is " <> (show i)
+  let t = optional "No number" f someValue
+-- end snippet: optional
+
+  return ()

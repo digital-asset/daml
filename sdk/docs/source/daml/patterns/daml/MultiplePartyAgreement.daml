@@ -1,0 +1,96 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+{-# LANGUAGE PartialTypeSignatures #-}
+
+
+module MultiplePartyAgreement where
+
+import Daml.Script
+
+import Utilities
+import DA.List
+
+-- start snippet: agreement template
+template Agreement
+  with
+    signatories: [Party]
+  where
+    signatory signatories
+    ensure
+      unique signatories
+  -- The rest of the template to be agreed to would follow here
+-- end snippet: agreement template
+
+-- start snippet: first half pending template
+-- | The parties who need to sign are the finalContract.signatories with alreadySigned filtered out
+toSign : Pending -> [Party]
+toSign Pending { alreadySigned, finalContract } =
+  filter (`notElem` alreadySigned) finalContract.signatories
+
+template Pending
+  with
+    finalContract: Agreement
+    alreadySigned: [Party]
+  where
+    signatory alreadySigned
+    observer finalContract.signatories
+    ensure
+      -- Can't have duplicate signatories
+      unique alreadySigned
+
+    choice Sign : ContractId Pending with
+        signer : Party
+      controller signer
+        do
+          -- Check the controller is in the toSign list, and if they are, sign the Pending contract
+          assert (signer `elem` toSign this)
+          create this with alreadySigned = signer :: alreadySigned
+    -- end snippet: first half pending template
+    -- start snippet: second half pending template
+    choice Finalize : ContractId Agreement with
+        signer : Party
+      controller signer
+        do
+          -- Check that all the required signatories have signed Pending
+          assert (sort alreadySigned == sort finalContract.signatories)
+          create finalContract
+    -- end snippet: second half pending template
+
+multiplePartyAgreementTest : Script (ContractId Agreement)  -- test
+multiplePartyAgreementTest = do
+
+  -- start snippet: testing setup
+  parties@[person1, person2, person3, person4] <- makePartiesFrom ["Alice", "Bob", "Clare", "Dave"]
+  let finalContract = Agreement with signatories = parties
+
+  -- Parties cannot create a contract already signed by someone else
+  initialFailTest <- person1 `submitMustFail` do
+    createCmd Pending with finalContract; alreadySigned = [person1, person2]
+
+  -- Any party can create a Pending contract provided they list themselves as the only signatory
+  pending <- person1 `submit` do
+    createCmd Pending with finalContract; alreadySigned = [person1]
+  -- end snippet: testing setup
+  -- start snippet: testing add agreements
+  -- Each signatory of the finalContract can Sign the Pending contract
+  pending <- person2 `submit` do
+    exerciseCmd pending Sign with signer = person2
+  pending <- person3 `submit` do
+    exerciseCmd pending Sign with signer = person3
+  pending <- person4 `submit` do
+    exerciseCmd pending Sign with signer = person4
+
+  -- A party can't sign the Pending contract twice
+  pendingFailTest <- person3 `submitMustFail` do
+    exerciseCmd pending Sign with signer = person3
+  -- A party can't sign on behalf of someone else
+  pendingFailTest <- person3 `submitMustFail` do
+    exerciseCmd pending Sign with signer = person4
+  -- end snippet: testing add agreements
+
+  -- start snippet: testing finalize
+  person1 `submit` do
+    exerciseCmd pending Finalize with signer = person1
+  -- end snippet: testing finalize

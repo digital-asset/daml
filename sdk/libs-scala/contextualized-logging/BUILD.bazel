@@ -1,0 +1,57 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test_suite",
+)
+
+da_scala_library(
+    name = "contextualized-logging",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:io_spray_spray_json",
+    ],
+    scalacopts = ["-Xsource:2.13"],
+    tags = ["maven_coordinates=com.daml:contextualized-logging:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "//libs-scala/logging-entries",
+        "@maven//:com_fasterxml_jackson_core_jackson_core",
+        "@maven//:net_logstash_logback_logstash_logback_encoder",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_test_suite(
+    name = "contextualized-logging-tests",
+    srcs = glob(["src/test/suite/**/*.scala"]),
+    resources = glob(["src/test/suite/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:io_circe_circe_core",
+        "@maven//:io_circe_circe_generic",
+        "@maven//:io_circe_circe_parser",
+        "@maven//:org_mockito_mockito_scala",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
+        "@maven//:io_spray_spray_json",
+    ],
+    deps = [
+        ":contextualized-logging",
+        "//libs-scala/logging-entries",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:com_fasterxml_jackson_core_jackson_core",
+        "@maven//:net_logstash_logback_logstash_logback_encoder",
+        "@maven//:org_mockito_mockito_core",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)

@@ -1,0 +1,35 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | MOVE DA.Date
+module DA.Date.Types
+  ( DayOfWeek(..)
+  , Month(..)
+  ) where
+
+data DayOfWeek
+    = Monday
+    | Tuesday
+    | Wednesday
+    | Thursday
+    | Friday
+    | Saturday
+    | Sunday
+
+-- | The `Month` type represents a month in the Gregorian calendar.
+--
+-- Note that, while `Month` has an `Enum` instance, the `toEnum` and `fromEnum`
+-- functions start counting at 0, i.e. `toEnum 1 :: Month` is `Feb`.
+data Month
+    = Jan
+    | Feb
+    | Mar
+    | Apr
+    | May
+    | Jun
+    | Jul
+    | Aug
+    | Sep
+    | Oct
+    | Nov
+    | Dec

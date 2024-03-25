@@ -1,0 +1,63 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Check that top-level signatures containing references to GHC.Types.Symbol
+-- result in a warning.
+module SymbolKindWarnings where
+import DA.Record
+-- @WARN range=9:13-9:29; Reference to GHC.Types.Symbol
+type T1 (x: GHC.Types.Symbol) = Int
+
+-- @WARN range=12:16-12:32; Reference to GHC.Types.Symbol
+newtype T2 (x: GHC.Types.Symbol) = T2 Int
+
+-- @WARN range=15:14-15:30; Reference to GHC.Types.Symbol
+class C1 (x: GHC.Types.Symbol) where
+
+-- @WARN range=18:14-18:30; Reference to GHC.Types.Symbol
+class C2 (x: GHC.Types.Symbol -> *) where
+
+-- @WARN range=21:19-21:35; Reference to GHC.Types.Symbol
+class C3 (x: * -> GHC.Types.Symbol) where
+
+-- @WARN range=24:15-24:31; Reference to GHC.Types.Symbol
+class C4 (x: (GHC.Types.Symbol)) where
+    -- Not a duplicate of C1, because a parenthesized kind
+    -- is not the same as a non-parenthesized kind in GHC-land.
+
+-- @WARN range=29:14-29:20; Reference to Symbol kind
+class C5 (x: Symbol) where
+
+----------------
+-- Make sure warning doesn't trigger with uses
+-- of GetField/SetField classes.
+
+data R = R with
+    foo : Int
+    bar : Int
+
+data T = T Int
+
+instance GetField "foo" T Int where
+    getField (T n) = n
+
+instance SetField "foo" T Int where
+    setField n (T _) = T n
+
+getFoo : GetField "foo" a b => a -> b
+getFoo = getField @"foo"
+
+getRFoo : R -> Int
+getRFoo = getFoo
+
+getTFoo : T -> Int
+getTFoo = getFoo
+
+setFoo : SetField "foo" a b => b -> a -> a
+setFoo = setField @"foo"
+
+setRFoo : Int -> R -> R
+setRFoo = setFoo
+
+setTFoo : Int -> T -> T
+setTFoo = setFoo

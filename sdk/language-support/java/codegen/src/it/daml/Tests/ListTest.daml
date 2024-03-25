@@ -1,0 +1,45 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Tests.ListTest where
+
+data MyListRecord = MyListRecord
+    with
+        intList: [Int]
+        unitList: [()]
+        itemList: [ListItem Int]
+  deriving (Eq, Show)
+
+data MyListOfListRecord = MyListOfListRecord
+    with
+        itemList: [[ListItem Int]]
+  deriving (Eq, Show)
+
+data ListItem x = Node x
+  deriving (Eq, Show)
+
+data Color = Red | Green | Blue | Indigo | Violet
+  deriving (Eq, Show)
+
+data ColorListRecord = ColorListRecord
+    with
+        colors: [Color]
+  deriving (Eq, Show)
+
+data ParameterizedListRecord a = ParameterizedListRecord
+    with
+        list: [a]
+  deriving (Eq, Show)
+
+-- Not part of the test but the codegen filters out
+-- data definitions which are not used in a template
+template ListTestTemplate
+    with
+        owner : Party
+        myListRecord : MyListRecord
+        myListOfListRecord : MyListOfListRecord
+        colorListRecord : ColorListRecord
+        parameterizedListRecord : ParameterizedListRecord Int
+    where
+        signatory owner

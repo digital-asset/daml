@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 parameters:
@@ -25,14 +25,14 @@ steps:
   - task: DownloadPipelineArtifact@0
     inputs:
       artifactName: 'typescript-libs'
-      targetPath: $(Build.SourcesDirectory)/compatibility/head_sdk
+      targetPath: $(Build.SourcesDirectory)/sdk/compatibility/head_sdk
   - bash: |
       set -euo pipefail
-      ./compatibility/build-release-artifacts.sh
+      ./sdk/compatibility/build-release-artifacts.sh
     displayName: 'Build release artifacts'
   - bash: |
       set -eou pipefail
-      ./compatibility/test.sh ${{ parameters.test_flags }}
+      ./sdk/compatibility/test.sh ${{ parameters.test_flags }}
     displayName: 'Run tests'
     condition: and(succeeded(), eq(variables['System.PullRequest.IsFork'], 'False'))
     env:

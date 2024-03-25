@@ -1,0 +1,30 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- A Daml file defines a module.
+module Token where
+
+-- Contract Templates define a type of contract that can exist on the ledger,
+-- together with its data, and involved parties.
+
+-- | `Token` is a contract that has no state other than its existence and
+-- who holds the `Token` stored in field `owner`.
+template Token
+  -- Each `template` has a `with` block defining the data type of the data
+  -- stored on an instance of that contract.
+  -- Blocks are indicated through indentation. The `template` is a block so
+  -- `with` is indented. The contents of the `with` block are indented further.
+  with
+    -- `owner` is the only field on an instance of `Token`. It has type
+    -- `Party`, which is an inbuilt type representing an entity present on
+    -- the ledger
+    owner : Party
+  -- Following the `with` block is a `where` block, which gives the contract
+  -- meaning by defining the roles parties play and how contracts can
+  -- be transformed.
+  where
+    -- Every `template` has a `signatory` expression in its `where` block.
+    -- The `signatory` expression defines one or more _parties_ to be
+    -- _signatories_. The signatories must authorize the creation of a
+    -- contract and verify the validity of any action performed on it.
+    signatory owner

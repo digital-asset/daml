@@ -1,0 +1,72 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:haskell.bzl",
+    "da_haskell_library",
+)
+
+da_haskell_library(
+    name = "daml-opts-types",
+    srcs = glob(["daml-opts-types/**/*.hs"]),
+    hackage_deps = [
+        "aeson",
+        "base",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "ghc-lib",
+        "ghc-lib-parser",
+        "ghcide",
+        "mtl",
+        "text",
+    ],
+    src_strip_prefix = "daml-opts-types",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/damlc/daml-package-config",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+# This contains the conversion from the Daml-dependent Options type to
+# ghcide’s IdeOpts. We split this into a separate lib so that daml-opts-types
+# does not need to depend on the preprocessor.
+da_haskell_library(
+    name = "daml-opts",
+    srcs = ["daml-opts/DA/Daml/Options.hs"],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "ghc-lib",
+        "ghc-lib-parser",
+        "ghcide",
+        "mtl",
+        "safe-exceptions",
+        "shake",
+        "text",
+        "transformers",
+        "zip-archive",
+    ],
+    src_strip_prefix = "daml-opts",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":daml-opts-types",
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
+        "//compiler/damlc/daml-preprocessor",
+        "//compiler/damlc/daml-rule-types",
+        "//daml-assistant:daml-project-config",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-class-lib",
+    ],
+)

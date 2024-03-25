@@ -1,0 +1,116 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Doctor where
+
+import Daml.Script
+import Bank
+import MedicalRecord
+import HealthInsurance
+
+type AppointmentId = ContractId Appointment
+
+{-
+  Offer for a doctors appointment
+
+  The given contract allows a patient to schedule an appointment
+  with his doctor.
+-}
+template OfferAppointment
+  with
+    doctor : Party
+    patient : Party
+  where
+    signatory doctor
+    observer patient
+
+    {-
+      Accept the appointment
+
+      The patient can accept an appointment by providing
+      his medical records and by showing his insurance policy.
+    -}
+    choice AcceptAppointment : (AppointmentId, MedicalRecord.RegisterId, HealthInsurance.PolicyId)
+      with
+        registerId : MedicalRecord.RegisterId
+        policyId : HealthInsurance.PolicyId
+      controller patient
+        do
+          -- Add the doctor as an observer to the medical record and to the policy
+          rId <- exercise registerId MedicalRecord.AddObserver with party = doctor
+          pId <- exercise policyId HealthInsurance.AddObserver with party = doctor
+          ap <- create Appointment with doctor, patient, registerId = rId, policyId = pId
+          return (ap, rId, pId)
+
+
+{-
+  A pending appointment
+
+  This contract represents a pending appointment.
+-}
+template Appointment
+  with
+    doctor : Party
+    patient : Party
+    registerId: MedicalRecord.RegisterId
+    policyId : HealthInsurance.PolicyId
+  where
+    signatory doctor, patient
+
+    {-
+      Tick off this appointment by providing a description of the treatment
+    -}
+    choice TickOff : ( MedicalRecord.RegisterId, HealthInsurance.ClaimId)
+      with
+        description : Text
+        treatment : HealthInsurance.Treatment
+        fee : Bank.Amount
+      controller doctor
+        do
+          {-
+            Update medical records
+          -}
+          register <- fetch registerId
+          -- Ensure that this is the right register
+          assert (register.owner == patient)
+          -- Add new record to register
+          registerId2 <- exercise registerId AddRecord with description, doctor
+          {-
+            Invoice treatment
+          -}
+          policy <- fetch policyId
+          -- Ensure that this is the right policy
+          assert (policy.client == patient)
+          -- Create a new claim
+          claimId <- exercise policyId CreateClaim with treatment, doctor, fee
+          return (registerId2, claimId)
+
+setup = script do
+
+  registry <- allocateParty "Registry"
+
+  (bank, doctor, _, insurer, _) <- Bank.setup
+
+  (client, insurer, policyId) <- HealthInsurance.setup
+
+  (_, registry, _, rc) <- MedicalRecord.setup
+
+  return (client, insurer, doctor, bank, registry, policyId, rc)
+
+test = script do
+
+  (client, insurer, doctor, bank, registry, policyId, rc) <- Doctor.setup
+
+  oa <- submit doctor do
+    createCmd OfferAppointment with doctor, patient = client
+
+  (ap, rc2, p2) <- submit client do
+    exerciseCmd oa AcceptAppointment with registerId = rc, policyId
+
+  p2 <- submit doctor do
+    exerciseCmd ap TickOff with
+      description = "Did a hip replacement"
+      treatment = "Hip-replacement"
+      fee = Amount { currency = "EUR", quantity = 15 }
+
+  return policyId

@@ -1,0 +1,130 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+
+-- | Try out some upcasts and downcasts, checking that everything works.
+module InterfaceUpcastDowncast where
+
+import Daml.Script
+import DA.Assert ((===))
+import DA.Optional (isNone)
+import DA.Functor (void)
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface A where
+  viewtype EmptyInterfaceView
+  getOwner : Party
+  nonconsuming choice ChoiceA : Int
+    controller getOwner this
+    do pure 10
+
+interface B requires A where
+  viewtype EmptyInterfaceView
+  getCoolness : Int
+  nonconsuming choice ChoiceB : Int
+    controller getOwner (toInterface @A this)
+    do pure (getCoolness this)
+
+template T1
+  with
+    p1 : Party
+  where
+    signatory p1
+    interface instance A for T1 where
+      view = EmptyInterfaceView
+      getOwner = p1
+    interface instance B for T1 where
+      view = EmptyInterfaceView
+      getCoolness = 20
+
+template T2
+  with
+    p2 : Party
+  where
+    signatory p2
+    interface instance A for T2 where
+      view = EmptyInterfaceView
+      getOwner = p2
+
+useAction : Party -> (ContractId B -> Update ()) -> Update ()
+useAction p action = do
+  cid <- create (toInterface @A (T2 p))
+  action (fromInterfaceContractId @B cid)
+
+template Test
+  with
+    p : Party
+  where
+    signatory p
+    nonconsuming choice TemplateInterfaceMatching : ()
+      controller p
+      do
+        let t1 = T1 p
+            t2 = T2 p
+            t1b = toInterface @B t1
+            t1a = toInterface @A t1b
+            t2a = toInterface @A t2
+
+        Some t1 === fromInterface @T1 t1b
+        Some t1 === fromInterface @T1 t1a
+        Some t1 === (fromInterface @B t1a >>= fromInterface @T1)
+
+        Some t2 === fromInterface @T2 t2a
+        None === (fromInterface @B t2a >> pure ())
+
+        getCoolness t1b === 20
+        getOwner t1a === p
+
+        cidt1 <- create t1
+        cidt2 <- create t2
+
+        let cidt1b = toInterfaceContractId @B cidt1
+            cidt1a = toInterfaceContractId @A cidt1
+        cidt1a === toInterfaceContractId @A cidt1b
+
+        let cidt2a = toInterfaceContractId @A cidt2
+
+        cidt1b === fromInterfaceContractId cidt1a
+
+        fetchPair1 <- fetchFromInterface @B cidt1a
+        fetchPair2 <- fetchFromInterface @B cidt2a
+        assertMsg "fetchPair1 != Some (cidt1b, t1b)" (fetchPair1 == Some (cidt1b, t1b))
+        assertMsg "fetchPair2 != None" (isNone fetchPair2)
+
+        exercise cidt1a ChoiceA
+        exercise cidt1b ChoiceB
+
+        pure ()
+
+    nonconsuming choice VoidUseAction : ()
+      controller p
+      do useAction p $ \_bcid -> pure ()
+
+    nonconsuming choice FetchUseAction : ()
+      controller p
+      do useAction p $ \bcid -> void (fetch bcid)
+
+    nonconsuming choice ExerciseUseAction : ()
+      controller p
+      do useAction p $ \bcid -> void (exercise bcid ChoiceB)
+
+exerciseTest : Choice Test c () => c -> Script ()
+exerciseTest c = script do
+  p <- allocateParty "Alice"
+  p `submit` createAndExerciseCmd (Test p) c
+  pure ()
+
+templateInterfaceMatching = exerciseTest TemplateInterfaceMatching
+
+-- Test that using fromInterfaceContractId incorrectly will result
+-- in failed fetch/exercise, across interface hierarchy.
+-- I.e. Test that using a T2 contract id as if it were a B contract id
+-- will always fail, even for actions that make sense with A contracts.
+-- See useAction
+voidUseAction = exerciseTest VoidUseAction
+-- @ERROR range=128:1-128:15; Attempt to use a contract via an interface that the contract does not implement
+fetchUseAction = exerciseTest FetchUseAction
+-- @ERROR range=130:1-130:18; Attempt to use a contract via an interface that the contract does not implement
+exerciseUseAction = exerciseTest ExerciseUseAction

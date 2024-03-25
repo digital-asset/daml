@@ -1,0 +1,21 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | MOVE DA.Stack
+module DA.Stack.Types
+  ( SrcLoc(..)
+  ) where
+
+-- | Location in the source code.
+--
+-- Line and column are 0-based.
+data SrcLoc = SrcLoc
+-- User-facing type using Text instead of TextLit.
+  { srcLocPackage   : Text
+  , srcLocModule    : Text
+  , srcLocFile      : Text
+  , srcLocStartLine : Int
+  , srcLocStartCol  : Int
+  , srcLocEndLine   : Int
+  , srcLocEndCol    : Int
+  }

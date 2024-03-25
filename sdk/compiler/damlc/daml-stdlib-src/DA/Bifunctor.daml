@@ -1,0 +1,135 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module DA.Bifunctor(Bifunctor(..)) where
+
+
+-- | A bifunctor is a type constructor that takes
+-- two type arguments and is a functor in *both* arguments. That
+-- is, unlike with `Functor`, a type constructor such as `Either`
+-- does not need to be partially applied for a `Bifunctor`
+-- instance, and the methods in this class permit mapping
+-- functions over the Left value or the `Right` value,
+-- or both at the same time.
+--
+-- It is a bifunctor where both the first and second
+-- arguments are covariant.
+--
+-- You can define a `Bifunctor` by either defining bimap or by
+-- defining both first and second.
+--
+-- If you supply bimap, you should ensure that:
+--
+-- ```daml-force
+-- `bimap identity identity` ≡ `identity`
+-- ```
+--
+-- If you supply first and second, ensure:
+--
+-- ```daml-force
+-- first identity ≡ identity
+-- second identity ≡ identity
+-- 
+-- ```
+--
+-- If you supply both, you should also ensure:
+--
+-- ```daml-force
+-- bimap f g ≡ first f . second g
+-- ```
+--
+-- By parametricity, these will ensure that:
+--
+-- ```daml-force
+-- 
+-- bimap  (f . g) (h . i) ≡ bimap f h . bimap g i
+-- first  (f . g) ≡ first  f . first  g
+-- second (f . g) ≡ second f . second g
+-- 
+-- ```
+class Bifunctor p where
+    {-# MINIMAL bimap | first, second #-}
+
+    -- | Map over both arguments at the same time.
+    --
+    -- ```daml-force
+    -- bimap f g ≡ first f . second g
+    -- ```
+    --
+    -- Examples:
+    --
+    -- ```
+    -- >>> bimap not (+1) (True, 3)
+    -- (False,4)
+    --
+    -- >>> bimap not (+1) (Left True)
+    -- Left False
+    --
+    -- >>> bimap not (+1) (Right 3)
+    -- Right 4
+    -- ```
+    bimap : (a -> b) -> (c -> d) -> p a c -> p b d
+    bimap f g = first f . second g
+
+
+    -- | Map covariantly over the first argument.
+    --
+    -- ```daml-force
+    -- first f ≡ bimap f identity
+    -- ```
+    --
+    -- Examples:
+    --
+    -- ```
+    -- >>> first not (True, 3)
+    -- (False,3)
+    --
+    -- >>> first not (Left True : Either Bool Int)
+    -- Left False
+    -- ```
+    first : (a -> b) -> p a c -> p b c
+    first f = bimap f identity
+
+
+    -- | Map covariantly over the second argument.
+    --
+    -- ```daml-force
+    -- second ≡ bimap identity
+    -- ```
+    --
+    -- Examples:
+    --
+    -- ```
+    -- >>> second (+1) (True, 3)
+    -- (True,4)
+    --
+    -- >>> second (+1) (Right 3 : Either Bool Int)
+    -- Right 4
+    -- ```
+    second : (b -> c) -> p a b -> p a c
+    second = bimap identity
+
+
+
+instance Bifunctor (,) where
+    bimap f g (a, b) = (f a, g b)
+
+instance Bifunctor ((,,) x1) where
+    bimap f g (x1, a, b) = (x1, f a, g b)
+
+instance Bifunctor ((,,,) x1 x2) where
+    bimap f g (x1, x2, a, b) = (x1, x2, f a, g b)
+
+instance Bifunctor ((,,,,) x1 x2 x3) where
+    bimap f g (x1, x2, x3, a, b) = (x1, x2, x3, f a, g b)
+
+instance Bifunctor ((,,,,,) x1 x2 x3 x4) where
+    bimap f g (x1, x2, x3, x4, a, b) = (x1, x2, x3, x4, f a, g b)
+
+instance Bifunctor ((,,,,,,) x1 x2 x3 x4 x5) where
+    bimap f g (x1, x2, x3, x4, x5, a, b) = (x1, x2, x3, x4, x5, f a, g b)
+
+instance Bifunctor Either where
+    bimap f _ (Left a) = Left (f a)
+    bimap _ g (Right b) = Right (g b)

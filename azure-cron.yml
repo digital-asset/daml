@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Azure Pipelines file, see https://aka.ms/yaml
@@ -42,6 +42,7 @@ jobs:
           var_name: bash-lib
       - bash: |
           set -euo pipefail
+          cd sdk
           eval "$(dev-env/bin/dade assist)"
 
           bazel build //ci/cron:cron
@@ -57,6 +58,64 @@ jobs:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - template: ci/tell-slack-failed.yml
 
+  - job: docker_image
+    timeoutInMinutes: 60
+    pool:
+      name: 'ubuntu_20_04'
+      demands: assignment -equals default
+    steps:
+      - checkout: self
+      - bash: |
+          set -euo pipefail
+
+          eval "$(sdk/dev-env/bin/dade-assist)"
+          cd sdk
+
+          HEAD=$(git rev-parse HEAD)
+          while ! nix-build --no-out-link -A tools.sed -A tools.jq -A tools.curl -A tools.base64 nix; do :; done
+
+          trap 'rm -rf ~/.docker' EXIT
+          echo $DOCKER_PASSWORD | docker login --username $DOCKER_LOGIN --password-stdin
+          echo $DOCKER_CONTENT_TRUST_KEY | base64 -d > ~/.docker/da_automation.key
+          chmod 600 ~/.docker/da_automation.key
+          docker trust key load ~/.docker/da_automation.key --name $DOCKER_CONTENT_TRUST_USERNAME
+
+          RELEASES=$(curl https://api.github.com/repos/digital-asset/daml/releases -sSfL | jq -r '.[] | .tag_name')
+          DIR=$(pwd)
+          VERSIONS=$(curl 'https://hub.docker.com/v2/repositories/digitalasset/daml-sdk/tags/?page_size=10000' -sSfL)
+          # Our docker tags should be stable. Therefore, we only build the image if it has not already
+          # been built before and we checkout the Dockerfile for the release tag.
+          # We do not update docker images for older releases so only docker images for SDK releases
+          # >= 0.13.43 are built this way.
+          for version in $(echo $RELEASES | sed -e 's/ /\n/g'); do
+            LAST_UPDATE=$(echo $VERSIONS | jq -r '.results[] | select(.name == "'${version#v}'") | .last_updated')
+            if [[ -n "$LAST_UPDATE" ]]; then
+              echo "${version#v} already exists, skipping."
+            else
+              echo "Building version ${version#v}..."
+              #git checkout "$version"
+              cd ci/docker/daml-sdk
+              docker build -t digitalasset/daml-sdk:${version#v} --build-arg VERSION=${version#v} .
+              #git checkout Dockerfile
+              # Despite the name not suggesting it at all, this actually signs
+              # _and pushes_ the image; see
+              # https://docs.docker.com/engine/security/trust/#signing-images-with-docker-content-trust
+              docker trust sign digitalasset/daml-sdk:${version#v}
+              cd "$DIR"
+              git checkout $HEAD
+              echo "Done."
+            fi
+          done
+        env:
+          DOCKER_LOGIN: $(DOCKER_LOGIN)
+          DOCKER_PASSWORD: $(DOCKER_PASSWORD)
+          DOCKER_CONTENT_TRUST_KEY: $(DOCKER_CONTENT_TRUST_KEY)
+          DOCKER_CONTENT_TRUST_USERNAME: $(DOCKER_CONTENT_TRUST_USERNAME)
+          # Does not appear explicitly in the script, but is used by
+          # docker trust key load
+          DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: $(DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE)
+      - template: ci/tell-slack-failed.yml
+
   - job: vscode_marketplace
     timeoutInMinutes: 10
     pool:
@@ -67,7 +126,7 @@ jobs:
       - bash: |
           set -euo pipefail
 
-          eval "$(dev-env/bin/dade-assist)"
+          eval "$(sdk/dev-env/bin/dade-assist)"
 
           AUTH=$(echo -n "OAuth:${MARKETPLACE_TOKEN}" | base64 -w0)
           MARKET=$(curl -H "Authorization: Basic $AUTH" \
@@ -108,6 +167,10 @@ jobs:
           if [[ "$GITHUB" != "$MARKET" ]] && git merge-base --is-ancestor 798e96c9b9034eac85ace786b9e1955cf380285c v$GITHUB; then
             echo "Publishing $GITHUB to VSCode Marketplace"
             git checkout v$GITHUB
+            (
+            if [ -d sdk ]; then
+              cd sdk
+            fi
             cp LICENSE compiler/daml-extension
             trap "rm -rf $PWD/compiler/daml-extension/LICENSE" EXIT
             cd compiler/daml-extension
@@ -116,6 +179,7 @@ jobs:
             bazel run --run_under="cd $PWD &&" @nodejs//:yarn install
             bazel run --run_under="cd $PWD &&" @nodejs//:yarn compile
             bazel run --run_under="cd $PWD && " @daml_extension_deps//vsce/bin:vsce -- publish --yarn $GITHUB -p $MARKETPLACE_TOKEN
+            )
           else
             if [[ "$GITHUB" == "$MARKET" ]]; then
               echo "Version on marketplace is already the latest ($GITHUB)."
@@ -137,7 +201,7 @@ jobs:
       - bash: |
           set -euo pipefail
 
-          eval "$(dev-env/bin/dade-assist)"
+          eval "$(sdk/dev-env/bin/dade-assist)"
 
           STATS=$(mktemp)
           curl https://api.github.com/repos/digital-asset/daml/releases -sSfL | gzip -9 > $STATS

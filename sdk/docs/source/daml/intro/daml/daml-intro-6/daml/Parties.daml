@@ -1,0 +1,294 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Parties where
+
+import DA.Time
+import Daml.Script
+
+data Cash = Cash with
+  currency : Text
+  amount : Decimal
+    deriving (Eq, Show)
+
+-- SIMPLE_IOU_BEGIN
+template SimpleIou
+  with
+    issuer : Party
+    owner : Party
+    cash : Cash
+  where
+    signatory issuer
+-- SIMPLE_IOU_END
+
+-- SIMPLE_IOU_SCENARIO_BEGIN
+simple_iou_test = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  -- Alice and Bob enter into a trade.
+  -- Alice transfers the payment as a SimpleIou.
+  iou <- submit alice do
+    createCmd SimpleIou with
+      issuer = alice
+      owner = bob
+      cash = Cash with
+        amount = 100.0
+        currency = "USD"
+
+  passTime (days 1)
+  -- Bob delivers the goods.
+
+  passTime (minutes 10)
+  -- Alice just deletes the payment.
+  submit alice do
+    archiveCmd iou
+-- SIMPLE_IOU_SCENARIO_END
+
+-- IOU_BEGIN
+template Iou
+  with
+    issuer : Party
+    owner : Party
+    cash : Cash
+  where
+    signatory issuer, owner
+
+    choice Transfer
+      : ContractId Iou
+      with
+        newOwner : Party
+      controller owner
+      do
+        assertMsg "newOwner cannot be equal to owner." (owner /= newOwner)
+        create this with
+          owner = newOwner
+-- IOU_END
+
+-- PROPOSE_TRANSFER_BEGIN
+    choice ProposeTransfer
+      : ContractId IouTransferProposal
+      with
+        newOwner : Party
+      controller owner
+      do
+        assertMsg "newOwner cannot be equal to owner." (owner /= newOwner)
+        create IouTransferProposal with
+          iou = this
+          newOwner
+-- PROPOSE_TRANSFER_END
+
+-- MUTUAL_TRANSFER_BEGIN
+    choice Mutual_Transfer
+      : ContractId Iou
+      with
+        newOwner : Party
+      controller owner, newOwner
+      do
+        create this with
+          owner = newOwner
+-- MUTUAL_TRANSFER_END
+
+-- IOU_PROPOSAL_BEGIN
+template IouProposal
+  with
+    iou : Iou
+  where
+    signatory iou.issuer
+    observer iou.owner
+
+    choice IouProposal_Accept
+        : ContractId Iou
+        controller iou.owner
+        do
+          create iou
+-- IOU_PROPOSAL_END
+
+-- TRANSFER_PROPOSAL_BEGIN
+template IouTransferProposal
+  with
+    iou : Iou
+    newOwner : Party
+  where
+    signatory (signatory iou)
+    observer (observer iou), newOwner
+
+    choice IouTransferProposal_Cancel
+      : ContractId Iou
+      controller iou.owner
+      do
+        create iou
+
+    choice IouTransferProposal_Reject
+      : ContractId Iou
+      controller newOwner
+      do
+        create iou
+
+    choice IouTransferProposal_Accept
+      : ContractId Iou
+      controller newOwner
+      do
+        create iou with
+          owner = newOwner
+-- TRANSFER_PROPOSAL_END
+
+-- SENDER_ROLE_BEGIN
+template IouSender
+  with
+    sender : Party
+    receiver : Party
+  where
+    signatory receiver
+    observer sender
+
+    nonconsuming choice Send_Iou
+      : ContractId Iou
+      with
+        iouCid : ContractId Iou
+      controller sender
+      do
+        iou <- fetch iouCid
+        assert (iou.cash.amount > 0.0)
+        assert (sender == iou.owner)
+        exercise iouCid Mutual_Transfer with
+          newOwner = receiver
+-- SENDER_ROLE_END
+
+-- NON_TRANSITIVE_BEGIN
+template NonTransitive
+  with
+    partyA : Party
+    partyB : Party
+  where
+    signatory partyA
+    observer partyB
+
+    choice TryA
+      : ContractId NonTransitive
+      controller partyA
+      do
+        create NonTransitive with
+          partyA = partyB
+          partyB = partyA
+
+    choice TryB
+      : ContractId NonTransitive
+        with
+          other : ContractId NonTransitive
+      controller partyB
+      do
+        exercise other TryA
+-- NON_TRANSITIVE_END
+
+-- IOU_SCENARIO_BEGIN
+iou_test = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  -- Alice and Bob enter into a trade.
+  -- Alice wants to give Bob an Iou, but she can't without Bob's authority.
+  submitMustFail alice do
+    createCmd Iou with
+      issuer = alice
+      owner = bob
+      cash = Cash with
+        amount = 100.0
+        currency = "USD"
+
+  -- She can issue herself an Iou.
+  iou <- submit alice do
+    createCmd Iou with
+      issuer = alice
+      owner = alice
+      cash = Cash with
+        amount = 100.0
+        currency = "USD"
+
+  -- However, she can't transfer it to Bob.
+  submitMustFail alice do
+    exerciseCmd iou Transfer with
+      newOwner = bob
+-- IOU_SCENARIO_END
+
+-- IOU_PROPOSAL_SCENARIO_BEGIN
+  iouProposal <- submit alice do
+    createCmd IouProposal with
+      iou = Iou with
+        issuer = alice
+        owner = bob
+        cash = Cash with
+          amount = 100.0
+          currency = "USD"
+
+  submit bob do
+    exerciseCmd iouProposal IouProposal_Accept
+-- IOU_PROPOSAL_SCENARIO_END
+
+-- IOU_TRANSFER_SCENARIO_BEGIN
+  charlie <- allocateParty "Charlie"
+
+  -- Alice issues an Iou using a transfer proposal.
+  tpab <- submit alice do
+    createCmd IouTransferProposal with
+      newOwner = bob
+      iou = Iou with
+        issuer = alice
+        owner = alice
+        cash = Cash with
+          amount = 100.0
+          currency = "USD"
+
+  -- Bob accepts the transfer from Alice.
+  iou2 <- submit bob do
+    exerciseCmd tpab IouTransferProposal_Accept
+
+  -- Bob offers Charlie a transfer.
+  tpbc <- submit bob do
+    exerciseCmd iou2 ProposeTransfer with
+      newOwner = charlie
+
+  -- Charlie accepts the transfer from Bob.
+  submit charlie do
+    exerciseCmd tpbc IouTransferProposal_Accept
+-- IOU_TRANSFER_SCENARIO_END
+
+-- SENDER_SCENARIO_BEGIN
+  -- Bob allows Alice to send him Ious.
+  sab <- submit bob do
+    createCmd IouSender with
+      sender = alice
+      receiver = bob
+
+  -- Charlie allows Bob to send him Ious.
+  sbc <- submit charlie do
+    createCmd IouSender with
+      sender = bob
+      receiver = charlie
+
+  -- Alice can now send the Iou she issued herself earlier.
+  iou4 <- submit alice do
+    exerciseCmd sab Send_Iou with
+      iouCid = iou
+
+  -- Bob sends it on to Charlie.
+  submit bob do
+    exerciseCmd sbc Send_Iou with
+      iouCid = iou4
+-- SENDER_SCENARIO_END
+
+-- NON_TRANSITIVE_SCENARIO_BEGIN
+  nt1 <- submit alice do
+    createCmd NonTransitive with
+      partyA = alice
+      partyB = bob
+  nt2 <- submit alice do
+    createCmd NonTransitive with
+      partyA = alice
+      partyB = bob
+
+  submitMustFail bob do
+    exerciseCmd nt1 TryB with
+      other = nt2
+-- NON_TRANSITIVE_SCENARIO_END

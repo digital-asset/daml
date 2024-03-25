@@ -1,0 +1,61 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test",
+    "kind_projector_plugin",
+    "lf_scalacopts_stricter",
+)
+load("@scala_version//:index.bzl", "scala_major_version")
+
+scalacopts = lf_scalacopts_stricter
+
+da_scala_library(
+    name = "nonempty-cats",
+    srcs = glob(["src/main/scala/**/*.scala"]) + glob([
+        "src/main/{}/**/*.scala".format(scala_major_version),
+    ]),
+    plugins = [
+        kind_projector_plugin,
+    ],
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
+    ],
+    scalacopts = scalacopts,
+    tags = ["maven_coordinates=com.daml:nonempty-cats:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "//libs-scala/nonempty",
+        "//libs-scala/scala-utils",
+    ],
+)
+
+da_scala_test(
+    name = "test",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    plugins = [
+        kind_projector_plugin,
+    ],
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
+        "@maven//:org_typelevel_cats_laws",
+        "@maven//:org_typelevel_discipline_core",
+    ],
+    scalacopts = scalacopts,
+    deps = [
+        ":nonempty-cats",
+        "//libs-scala/nonempty",
+        "//libs-scala/scala-utils",
+        "//libs-scala/scalatest-utils",
+    ],
+)

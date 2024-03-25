@@ -1,0 +1,19 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module LfResults where
+
+-- start snippet: data from template
+data Iou = Iou { issuer: Party; owner: Party; currency: Text; amount: Decimal }
+-- end snippet: data from template
+
+
+-- start snippet: data from choices
+data DoNothing = DoNothing {}
+data Transfer = Transfer { newOwner: Party }
+-- end snippet: data from choices
+
+-- start snippet: data from generic template
+data Proposal a = Proposal { proposal: a; proposers: [Party]; receivers: [Party] }
+-- end snippet: data from generic template

@@ -1,0 +1,34 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF 2.dev
+module LfDevBigNumeric where
+
+import Daml.Script
+import qualified DA.BigNumeric as BN
+
+template BigNumericResults
+  with
+    party: Party
+    values: [Numeric 10]
+  where
+    signatory party
+
+x : BN.BigNumeric
+x = 0.5
+
+-- @LEDGER run LfDevBigNumeric.EXPECTED.ledger
+run = script do
+  alice <- allocateParty "Alice"
+  submit alice do
+     createCmd BigNumericResults with
+        party = alice
+        values = map fromBigNumeric [
+              x + x
+            , negate x
+            , x * x
+            , BN.round 0 BN.RoundingUp x
+            , BN.round 0 BN.RoundingDown x
+            , BN.round 0 BN.RoundingHalfUp x
+            , BN.round 0 BN.RoundingCeiling (negate x)
+          ]

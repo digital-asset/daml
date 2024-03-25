@@ -1,0 +1,71 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+module Test.Intro.Asset where
+
+import Daml.Script
+
+import Intro.Asset
+import Intro.Asset.Role
+
+import Test.Intro.Asset.Role
+
+test_asset = do
+  ((alice, bob, bank, aha, ahb), assetCid) <- test_issuance
+
+  tp <- submit alice do
+    exerciseCmd assetCid ProposeTransfer with
+      newOwner = bob
+
+  assetCid <- submit bob do
+    exerciseCmd ahb Accept_Transfer with
+      transferProposalCid = tp
+
+  Some asset <- queryContractId bank assetCid
+  assert (asset == Asset with
+      issuer = bank
+      owner = bob
+      symbol = "USD"
+      quantity = 100.0
+      observers = []
+        )
+
+test_split = do
+  (setupResult@(alice, bob, bank, _, _), assetCid) <- test_issuance
+
+  submitMustFail alice do
+    exerciseCmd assetCid Split with
+      splitQuantity = -30.0
+
+  submitMustFail alice do
+    exerciseCmd assetCid Split with
+      splitQuantity = 0.0
+
+  submitMustFail alice do
+    exerciseCmd assetCid Split with
+      splitQuantity = 101.0
+
+  splitResult <- submit alice do
+    exerciseCmd assetCid Split with
+      splitQuantity = 30.0
+
+  Some splitAsset <- queryContractId bank splitResult.splitAsset
+  Some remainder <- queryContractId bank splitResult.remainder
+
+  assert (splitAsset.quantity == 30.0)
+  assert (remainder.quantity == 70.0)
+
+  return (setupResult, splitResult)
+
+test_merge = do
+  ((alice, bob, bank, _, _), splitResult) <- test_split
+
+  submitMustFail alice do
+    exerciseCmd splitResult.splitAsset Merge with
+      otherCid = splitResult.splitAsset
+
+  assetCid <- submit alice do
+    exerciseCmd splitResult.splitAsset Merge with
+      otherCid = splitResult.remainder
+
+  Some asset <- queryContractId bank assetCid
+  assert (asset.quantity == 100.0)

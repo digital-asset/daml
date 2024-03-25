@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Do not run on PRs
@@ -20,10 +20,10 @@ schedules:
   branches:
     include:
     - main
+    - main-2.x
   always: true
 
 jobs:
-  - template: ../build-local-canton.yml
   - job: compatibility_ts_libs
     timeoutInMinutes: 60
     pool:
@@ -34,39 +34,25 @@ jobs:
       - template: ../clean-up.yml
       - template: ../compatibility_ts_libs.yml
 
-  - job: compatibility
-    dependsOn:
-    - compatibility_ts_libs
-    - build_canton
+  - job: compatibility_linux
+    dependsOn: compatibility_ts_libs
     timeoutInMinutes: 720
-    strategy:
-      matrix:
-        linux:
-          pool: ubuntu_20_04
-#        macos:
-#          pool: macOS-pool
     pool:
-      name: $(pool)
+      name: ubuntu_20_04
       demands: assignment -equals default
     steps:
       - checkout: self
-      - template: ../get-local-canton.yml
-      - ${{ if eq(variables['pool'], 'macos-pool') }}:
-        - template: ../clear-shared-segments-macos.yml
       - template: ../clean-up.yml
       - template: ../compatibility.yml
 
   - job: compatibility_windows
-    dependsOn:
-    - compatibility_ts_libs
-    - build_canton
+    dependsOn: compatibility_ts_libs
     timeoutInMinutes: 720
     pool:
       name: windows-pool
       demands: assignment -equals default
     steps:
       - checkout: self
-      - template: ../get-local-canton.yml
       - template: ../compatibility-windows.yml
       - task: PublishBuildArtifacts@1
         condition: succeededOrFailed()
@@ -79,6 +65,9 @@ jobs:
     pool:
       name: "ubuntu_20_04"
       demands: assignment -equals default
+    # TODO(https://github.com/digital-asset/daml/issues/18222): re-enable once
+    #  the benchmark has been ported to Daml 3.
+    condition: False
     steps:
       - checkout: self
       - bash: ci/dev-env-install.sh
@@ -94,6 +83,7 @@ jobs:
           var_name: bash_lib
       - bash: |
           set -euo pipefail
+          cd sdk
           eval "$(dev-env/bin/dade assist)"
           source $(bash_lib)
 
@@ -137,7 +127,7 @@ jobs:
           var_name: bash_lib
       - bash: |
           set -euo pipefail
-          eval "$(dev-env/bin/dade assist)"
+          eval "$(sdk/dev-env/bin/dade assist)"
           source $(bash_lib)
 
           export AUTH="$(get_gh_auth_header)"
@@ -153,7 +143,8 @@ jobs:
     timeoutInMinutes: 60
     dependsOn: ["blackduck_scan"]
     condition: and(succeeded(),
-                   eq(variables['Build.SourceBranchName'], 'main'))
+                   or(eq(variables['Build.SourceBranchName'], 'main'),
+                      eq(variables['Build.SourceBranchName'], 'main-2.x')))
     pool:
       name: 'ubuntu_20_04'
       demands: assignment -equals default
@@ -161,6 +152,7 @@ jobs:
       need_to_build: $[ dependencies.blackduck_scan.outputs['out.need_to_build'] ]
     steps:
       - bash: |
+          cd sdk
           eval "$(./dev-env/bin/dade-assist)"
           if [ "$(need_to_build)" == "true" ]; then
               branch="notices-update-$(Build.BuildId)"
@@ -173,161 +165,55 @@ jobs:
                                        --project daml
           fi
 
-  - job: update_canton_sources
+  - job: update_canton
+    condition: not(eq(variables['Build.SourceBranchName'], 'not-main'))
     timeoutInMinutes: 60
     pool:
       name: ubuntu_20_04
       demands: assignment -equals default
     steps:
-    - checkout: self
-      persistCredentials: true
-    - template: ../bash-lib.yml
-      parameters:
-        var_name: bash_lib
-    - bash: |
-        set -euo pipefail
+      - checkout: self
+        persistCredentials: true
+      - template: ../bash-lib.yml
+        parameters:
+          var_name: bash_lib
+      - bash: |
+          set -euo pipefail
 
-        eval "$(./dev-env/bin/dade-assist)"
-        source $(bash_lib)
+          cd sdk
+          eval "$(./dev-env/bin/dade-assist)"
+          source $(bash_lib)
 
-        git fetch
-        git checkout origin/main
+          git fetch
+          git checkout origin/$(Build.SourceBranchName)
 
-        tmp=$(mktemp -d)
-        trap "rm -rf ${tmp}" EXIT
+          version=$(ci/refresh-canton.sh)
 
-        git clone git@github.com:DACH-NY/canton.git --depth 1  $tmp
+          branch="main-canton-update-$version"
 
-        for path in community daml-common-staging; do
-          src=$tmp/$path
-          dst=canton/$path
-          rm -rf $dst
-          mkdir -p $(dirname $dst)
-          cp -rf $src $dst
-          git add $dst
-        done
-
-        canton_sha=$(git -C $tmp rev-parse HEAD)"
-        branch="canton-update-${canton_sha}"
-
-        if git diff --exit-code -- canton; then
-            echo "Already up-to-date with latest Canton source."
-        else
-            if [ "main" = "$(Build.SourceBranchName)" ]; then
-                open_pr "$branch" "update canton to ${canton_sha:0:8}"
-                az extension add --name azure-devops
-                trap "az devops logout" EXIT
-                echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
-                az pipelines build queue --branch "$branch" \
-                                         --definition-name "PRs" \
-                                         --org "https://dev.azure.com/digitalasset" \
-                                         --project daml
-            else
-                echo "Would open PR if this were running on main."
-            fi
-        fi
-
-  - job: bump_canton
-    timeoutInMinutes: 60
-    pool:
-      name: ubuntu_20_04
-      demands: assignment -equals default
-    steps:
-    - checkout: self
-      persistCredentials: true
-    - template: ../bash-lib.yml
-      parameters:
-        var_name: bash_lib
-    - bash: |
-        set -euo pipefail
-
-        eval "$(./dev-env/bin/dade-assist)"
-        source $(bash_lib)
-
-        git fetch
-        git checkout origin/main
-
-        canton_version=$(curl -u $AUTH \
-                              --fail \
-                              --location \
-                              --silent \
-                              https://digitalasset.jfrog.io/artifactory/api/storage/assembly/canton \
-                         | jq -r '.children[].uri' \
-                         | sed -e 's/^\///' \
-                         | grep -P '^\d+\.\d+\.\d+' \
-                         | sort -V \
-                         | tail -1)
-
-        os_url="https://digitalasset.jfrog.io/artifactory/assembly/canton/$canton_version/canton-open-source-$canton_version.tar.gz"
-        os_tmp=$(mktemp)
-        curl -u $AUTH --fail --location --silent "$os_url" > $os_tmp
-        os_sha=$(sha256sum $os_tmp | awk '{print $1}')
-        os_url_path=canton-stable/$canton_version/$os_sha/canton-open-source-$canton_version.tar.gz
-        os_upload_url=gs://daml-binaries/$os_url_path
-        os_download_url=https://storage.googleapis.com/daml-binaries/$os_url_path
-        if ! gcs "$GCRED" ls $os_upload_url; then
-            gcs "$GCRED" cp $os_tmp $os_upload_url
-        fi
-
-        ee_url="https://digitalasset.jfrog.io/artifactory/assembly/canton/$canton_version/canton-enterprise-$canton_version.tar.gz"
-        ee_tmp=$(mktemp)
-        curl -u $AUTH --fail --location --silent "$ee_url" > $ee_tmp
-        ee_sha=$(sha256sum $ee_tmp | awk '{print $1}')
-        ee_target_url=https://digitalasset.jfrog.io/artifactory/assembly/daml/canton-backup/$canton_version/$ee_sha/canton-enterprise-$canton_version.tar.gz
-        if ! curl -u $AUTH -f -I $ee_target_url; then
-            curl -u $AUTH \
-                 -f \
-                 -X PUT \
-                 -H "X-Checksum-MD5: $(md5sum $ee_tmp | awk '{print $1}')" \
-                 -H "X-Checksum-SHA1: $(sha1sum $ee_tmp | awk '{print $1}')" \
-                 -H "X-Checksum-SHA256: $(sha256sum $ee_tmp | awk '{print $1}')" \
-                 -T $ee_tmp \
-                 $ee_target_url
-        fi
-
-        sed -i 's|SKIP_DEV_CANTON_TESTS=.*|SKIP_DEV_CANTON_TESTS=false|' build.sh
-        sed -e 's/^/# /' COPY > canton_dep.bzl
-        cat <<EOF >> canton_dep.bzl
-
-        canton = {
-            "sha": "$os_sha",
-            "url": "$os_download_url",
-            "local": False,
-        }
-        EOF
-
-        sed -i "s|CANTON_ENTERPRISE_VERSION=.*|CANTON_ENTERPRISE_VERSION=$canton_version|" test-common/canton/BUILD.bazel
-        sed -i "s|CANTON_ENTERPRISE_SHA=.*|CANTON_ENTERPRISE_SHA=$ee_sha|" test-common/canton/BUILD.bazel
-        sed -i "s|CANTON_ENTERPRISE_URL=.*|CANTON_ENTERPRISE_URL=$ee_target_url|" test-common/canton/BUILD.bazel
-
-        rm -f arbitrary_canton_sha
-
-        branch="canton-update-$canton_version"
-
-        if git diff --exit-code -- canton_dep.bzl build.sh arbitrary_canton_sha test-common/canton/BUILD.bazel; then
-            echo "Already up-to-date with latest Canton snapshot."
-        else
-            if [ "main" = "$(Build.SourceBranchName)" ]; then
-                git add canton_dep.bzl build.sh test-common/canton/BUILD.bazel
-                git ls-files | grep arbitrary_canton_sha >&2 && git rm -f arbitrary_canton_sha
-                open_pr "$branch" "bump canton to $canton_version"
-                az extension add --name azure-devops
-                trap "az devops logout" EXIT
-                echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
-                az pipelines build queue --branch "$branch" \
-                                         --definition-name "PRs" \
-                                         --org "https://dev.azure.com/digitalasset" \
-                                         --project daml
-            else
-                echo "Would open PR if this were running on main."
-            fi
-        fi
-      env:
-        AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
-        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+          if git diff --exit-code origin/$(Build.SourceBranchName) -- canton build.sh >/dev/null; then
+              echo "Already up-to-date with latest Canton source & snapshot."
+          else
+              if [ "main" = "$(Build.SourceBranchName)" ]; then
+                  git add build.sh canton
+                  open_pr "$branch" "update canton to $version" "tell-slack: canton" "" "$(Build.SourceBranchName)"
+                  az extension add --name azure-devops
+                  trap "az devops logout" EXIT
+                  echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
+                  az pipelines build queue --branch "$branch" \
+                                           --definition-name "PRs" \
+                                           --org "https://dev.azure.com/digitalasset" \
+                                           --project daml
+              else
+                  echo "Would open PR if this were running on main."
+              fi
+          fi
+        env:
+          GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
 
   - job: compat_versions_pr
-    condition: eq(variables['Build.SourceBranchName'], 'main')
+    condition: or(eq(variables['Build.SourceBranchName'], 'main'),
+                  eq(variables['Build.SourceBranchName'], 'main-2.x'))
     pool:
       name: ubuntu_20_04
       demands: assignment -equals default
@@ -340,6 +226,7 @@ jobs:
         var_name: bash_lib
     - bash: |
         set -euo pipefail
+        cd sdk
         eval "$(./dev-env/bin/dade-assist)"
 
         ## refresh tags, in case someone deleted one
@@ -347,7 +234,9 @@ jobs:
 
         ## get latest version, in case it's already up to date
         git fetch origin
-        git merge origin/main
+        git -c user.name="Azure Pipelines Daml Build" \
+            -c user.email="support@digitalasset.com" \
+            merge origin/main
 
         source $(bash_lib)
 
@@ -355,11 +244,10 @@ jobs:
         compatibility/update-versions.sh
         git add compatibility/versions.bzl compatibility/maven_install.json
 
-
         if ! git diff --cached --quiet; then
-          BRANCH=update-compat-versions-$(date -I)
-          TITLE="update compat versions ($(date -I))"
-          open_pr "$BRANCH" "$TITLE"
+          BRANCH=update-compat-versions-$(date -I)-$(Build.SourceBranchName)
+          TITLE="update compat versions ($(date -I) $(Build.SourceBranchName))"
+          open_pr "$BRANCH" "$TITLE" "" "" "$(Build.SourceBranchName)"
           trigger_azure $(System.AccessToken) PRs --branch $BRANCH
           trigger_azure $(System.AccessToken) digital-asset.daml-daily-compat --branch $BRANCH
         else
@@ -367,24 +255,26 @@ jobs:
         fi
 
   - job: report
-    dependsOn: [compatibility_ts_libs, compatibility, compatibility_windows,
+    dependsOn: [compatibility_ts_libs, compatibility_linux, compatibility_windows,
                 perf_speedy, check_releases,
-                blackduck_scan, run_notices_pr_build, bump_canton, compat_versions_pr]
+                blackduck_scan, run_notices_pr_build, update_canton,
+                compat_versions_pr]
     condition: and(succeededOrFailed(),
-                   eq(variables['Build.SourceBranchName'], 'main'))
+                   or(eq(variables['Build.SourceBranchName'], 'main'),
+                      eq(variables['Build.SourceBranchName'], 'main-2.x')))
     pool:
       name: ubuntu_20_04
       demands: assignment -equals default
     variables:
       compatibility_ts_libs: $[ dependencies.compatibility_ts_libs.result ]
-      compatibility: $[ dependencies.compatibility.result ]
+      compatibility_linux: $[ dependencies.compatibility_linux.result ]
       compatibility_windows: $[ dependencies.compatibility_windows.result ]
       perf_speedy: $[ dependencies.perf_speedy.result ]
       speedy_perf: $[ dependencies.perf_speedy.outputs['out.speedy_perf'] ]
       check_releases: $[ dependencies.check_releases.result ]
       blackduck_scan: $[ dependencies.blackduck_scan.result ]
       run_notices_pr_build: $[ dependencies.run_notices_pr_build.result ]
-      bump_canton: $[ dependencies.bump_canton.result ]
+      update_canton: $[ dependencies.update_canton.result ]
       compat_versions_pr: $[ dependencies.compat_versions_pr.result ]
     steps:
     - template: ../bash-lib.yml
@@ -393,6 +283,7 @@ jobs:
     - bash: |
         set -euo pipefail
 
+        cd sdk
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash_lib)
 
@@ -400,19 +291,22 @@ jobs:
         COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|${COMMIT_TITLE}>"
 
         if [[ "$(compatibility_ts_libs)" == "Succeeded"
-           && "$(compatibility)" == "Succeeded"
+           && "$(compatibility_linux)" == "Succeeded"
            && "$(compatibility_windows)" == "Succeeded"
-           && "$(perf_speedy)" == "Succeeded"
+           && ("$(perf_speedy)" == "Succeeded" || "$(perf_speedy)" == "Skipped")
            && "$(check_releases)" == "Succeeded"
-           && "$(bump_canton)" == "Succeeded"
+           && "$(update_canton)" == "Succeeded"
            && ("$(blackduck_scan)" == "Succeeded" || "$(blackduck_scan)" == "Skipped")
            && ("$(run_notices_pr_build)" == "Succeeded" || "$(run_notices_pr_build)" == "Skipped")
            && "$(compat_versions_pr)" == "Succeeded"
            ]]; then
-            MSG="Daily tests passed: $COMMIT_LINK"
-            REPORT='```speedy_perf: $(speedy_perf)```
-        '
-            tell_slack "$(echo -e "$MSG\n$REPORT")" "$(Slack.ci-failures-daml)"
+          MSG="Daily tests passed ($(Build.SourceBranchName)): $COMMIT_LINK"
+          if [ "$(perf_speedy)" == "Skipped" ]; then
+            REPORT="Perf test was skipped."
+          else
+            REPORT='```speedy_perf: $(speedy_perf)```'
+          fi
+          tell_slack "$(echo -e "$MSG\n$REPORT\n")" "$(Slack.ci-failures-daml)"
         else
-            tell_slack "Daily tests failed: $COMMIT_LINK." "$(Slack.ci-failures-daml)"
+          tell_slack "Daily tests failed ($(Build.SourceBranchName)): $COMMIT_LINK." "$(Slack.ci-failures-daml)"
         fi

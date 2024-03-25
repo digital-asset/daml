@@ -1,0 +1,21 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Tests.EnumTest where
+
+data FooBar = Foo | Bar deriving (Eq, Show, Enum)
+
+-- In Java the data constructor names (enum values) are uppercased, so this tests the handling 
+-- of name clash between type name and uppercased data constructor.
+data ALLUPPERCASE = AllUpperCase | NotAllUpperCase deriving (Eq, Show, Enum)
+
+-- Not part of the test but the codegen filters out
+-- data definitions which are not used in a template
+template FooBarTemplate
+    with
+        owner : Party
+        foobarItem : FooBar
+        uppercaseItem : ALLUPPERCASE
+    where
+        signatory owner

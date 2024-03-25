@@ -1,0 +1,14 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+module UnitMod {
+
+  record @serializable Box = { x: Unit, party: Party  } ;
+
+  template (this : Box) =  {
+    precondition True;
+    signatories (PartyMod:one (UnitMod:Box {party} this));
+    observers (Nil @Party);
+  };
+
+}

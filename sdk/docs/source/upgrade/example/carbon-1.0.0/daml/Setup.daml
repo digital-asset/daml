@@ -1,0 +1,26 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Setup where
+
+import Daml.Script
+
+data Parties = Parties
+  with
+    alice : Party
+    bob : Party
+    charlie : Party
+
+setup : Script Parties
+setup = do
+  alice <- allocateParty "alice"
+  bob <- allocateParty "bob"
+  charlie <- allocateParty "charlie"
+  aliceId <- validateUserId "alice"
+  bobId <- validateUserId "bob"
+  charlieId <- validateUserId "charlie"
+  createUser (User aliceId (Some alice)) [CanActAs alice]
+  createUser (User bobId (Some bob)) [CanActAs bob]
+  createUser (User charlieId (Some charlie)) [CanActAs charlie]
+  pure Parties with ..
+

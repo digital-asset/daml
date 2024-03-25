@@ -1,0 +1,77 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+
+module ScriptExample where
+
+import DA.Assert
+import Daml.Script
+
+template Coin
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory issuer, owner
+
+template CoinProposal
+  with
+    coin : Coin
+  where
+    signatory coin.issuer
+    observer coin.owner
+
+    choice Accept : ContractId Coin
+      controller coin.owner
+      do create coin
+
+data LedgerParties = LedgerParties with
+  bank : Party
+  alice : Party
+  bob : Party
+
+initialize : LedgerParties -> Script ()
+initialize parties = do
+  (coinProposalAlice, coinProposalBob, coinProposalBank) <- submit parties.bank $ do
+    coinProposalAlice <- createCmd (CoinProposal (Coin parties.bank parties.alice))
+    coinProposalBob <- createCmd (CoinProposal (Coin parties.bank parties.bob))
+    coinProposalBank <- createCmd (CoinProposal (Coin parties.bank parties.bank))
+    pure (coinProposalAlice, coinProposalBob, coinProposalBank)
+
+  coinAlice <- submit parties.alice $ exerciseCmd coinProposalAlice Accept
+  coinBob <- submit parties.bob $ exerciseCmd coinProposalBob Accept
+  pure ()
+
+test : Script ()
+test = do
+  debug "Executing script."
+
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  bank <- allocateParty "Bank"
+  let parties = LedgerParties bank alice bob
+
+  initialize parties
+
+  proposals <- query @CoinProposal bank
+  assertEq [CoinProposal (Coin bank bank)] (map snd proposals)
+
+  aliceCoins <- query @Coin alice
+  assertEq [Coin bank alice] (map snd aliceCoins)
+
+  bobCoins <- query @Coin bob
+  assertEq [Coin bank bob] (map snd bobCoins)
+
+  submitMustFail parties.alice $
+    createCmd (Coin parties.bank parties.alice)
+
+  debug "Script executed successfully."
+
+initializeFixed : Script ()
+initializeFixed = do
+  bank <- allocatePartyWithHint "Bank" (PartyIdHint "Bank")
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
+  let parties = LedgerParties{..}
+  initialize parties

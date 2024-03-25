@@ -1,0 +1,111 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @ SCRIPT-V2
+
+-- @ WARN range=11:1-11:28; Import of internal module Daml.Script.Internal of package daml3-script is discouraged, as this module will change without warning.
+
+module Daml3ScriptPackageVetting where
+
+import Daml.Script
+import Daml.Script.Internal
+import PackageAModule
+import DA.Assert
+
+packageA : PackageName
+packageA = PackageName "package-vetting-package-a" "1.0.0"
+
+packageB : PackageName
+packageB = PackageName "package-vetting-package-b" "1.0.0"
+
+currentPackage: PackageName
+currentPackage = PackageName "-dummy-package-name-" "0.0.0"
+
+canUseImportedPackage : Script ()
+canUseImportedPackage = script do
+  alice <- allocateParty "Alice"
+  alice `submit` createCmd PackageATemplate with p = alice
+  pure ()
+
+canUseReVettedPackage : Script ()
+canUseReVettedPackage = script do
+  alice <- allocateParty "Alice"
+  unvetPackages [packageA]
+  vetPackages [packageA]
+  alice `submit` createCmd PackageATemplate with p = alice
+  pure ()
+
+-- @ ERROR range=40:1-40:25; Failed to find package
+cannotUseUnvettedPackage : Script ()
+cannotUseUnvettedPackage = script do
+  alice <- allocateParty "Alice"
+  unvetPackages [packageA]
+  alice `submit` createCmd PackageATemplate with p = alice
+  pure ()
+
+-- @ ERROR range=48:1-48:30; Failed to find package
+cannotExerciseUnvettedPackage : Script ()
+cannotExerciseUnvettedPackage = script do
+  alice <- allocateParty "Alice"
+  cid <- alice `submit` createCmd PackageATemplate with p = alice
+  unvetPackages [packageA]
+  alice `submit` exerciseCmd cid Call
+  pure ()
+
+hasAllOf : Eq a => [a] -> [a] -> Bool
+hasAllOf as = all (`elem` as)
+
+hasNoneOf : Eq a => [a] -> [a] -> Bool
+hasNoneOf as = not . any (`elem` as)
+
+assertPackages : Script [PackageName] -> [PackageName] -> [PackageName] -> Script ()
+assertPackages getPackages expected notExpected = script do
+  packages <- getPackages
+  assertMsg ("Expected " <> show expected <> " to be a subset of " <> show packages <> ", but it wasn't.") $ packages `hasAllOf` expected
+  assertMsg ("Expected none of " <> show notExpected <> " to be in " <> show packages <> ", but some were.") $ packages `hasNoneOf` notExpected
+
+assertVettedPackages : [PackageName] -> [PackageName] -> Script ()
+assertVettedPackages = assertPackages listVettedPackages
+
+assertAllPackages : Script ()
+assertAllPackages = assertPackages listAllPackages [packageA, packageB, currentPackage] []
+
+listPackagesIsCorrect : Script ()
+listPackagesIsCorrect = script do
+  -- Good starting position
+  assertVettedPackages [packageA, packageB] []
+  assertAllPackages
+
+  -- Check we can disable A
+  unvetPackages [packageA]
+  assertVettedPackages [packageB] [packageA]
+  assertAllPackages
+
+  -- Check we can disable B on top of A
+  unvetPackages [packageB]
+  assertVettedPackages [] [packageA, packageB]
+  assertAllPackages
+
+  -- Check we can bring back in A
+  vetPackages [packageA]
+  assertVettedPackages [packageA] [packageB]
+  assertAllPackages
+
+  -- Check we can bring in packages that are already enabled
+  vetPackages [packageA, packageB]
+  assertVettedPackages [packageA, packageB] []
+  assertAllPackages
+
+  -- Check we can disable multiple at a time
+  unvetPackages [packageA, packageB]
+  assertVettedPackages [] [packageA, packageB]
+  assertAllPackages
+
+  -- Check default packages count (as packageA and packageB previously disabled)
+  -- 12 packages in daml-prim (11 specific modules + prim itself)
+  -- 14 packages in daml-stdlib (13 specific modules + stdlib itself)
+  -- 2 packages in ghc-stdlib
+  -- 1 package for daml3-script
+  -- the current package
+  packages <- listVettedPackages
+  length packages === 30

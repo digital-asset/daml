@@ -1,0 +1,10 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SINCE-LF 2.1
+-- Make sure that invalid kinds are reported as errors by the Daml compiler.
+module KindChecking where
+
+-- @ERROR range=10:1-10:4; Nat kind on the right-hand side of kind arrow
+foo : forall (f: * -> GHC.Types.Nat). Numeric (f ()) -> Numeric (f ()) -> Numeric (f ())
+foo = error "not implemeted"

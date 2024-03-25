@@ -1,0 +1,123 @@
+# Bazel distributed cache, can be temporarily disabled by passing the following
+# flag: --noremote_accept_cached
+build:darwin --remote_cache=https://bazel-cache.da-ext.net/202309/macos
+build:linux --remote_cache=https://bazel-cache.da-ext.net/202309/ubuntu
+# Don't push local build results to the remote cache.
+build --remote_upload_local_results=false
+# Do still push local build results to the local disk cache.
+build --incompatible_remote_results_ignore_disk=true
+# Enable the disk cache in addition to the http cache.
+build:linux --disk_cache=.bazel-cache/disk
+build:darwin --disk_cache=.bazel-cache/disk
+# `--repository_cache` must be repeated for all relevant actions.
+# TODO: use `common` starting from Bazel 2.2.0
+# See https://github.com/bazelbuild/bazel/issues/11232
+build:linux --repository_cache=.bazel-cache/repo
+fetch:linux --repository_cache=.bazel-cache/repo
+sync:linux --repository_cache=.bazel-cache/repo
+build:darwin --repository_cache=.bazel-cache/repo
+fetch:darwin --repository_cache=.bazel-cache/repo
+sync:darwin --repository_cache=.bazel-cache/repo
+
+test:oracle --repo_env DAML_ORACLE_TESTING=true --test_env ORACLE_USERNAME --test_env ORACLE_PORT --test_env ORACLE_PWD
+
+# Improve remote cache hit rate by exluding environment variables from the
+# sandbox that are not whitelisted using --action_env.
+# This will become the default in a future Bazel release.
+build --experimental_strict_action_env
+
+# Drop the heap size of Bazel to 3 GB and force TLS 1.2.
+# With TLS 1.3, we run into the following error on Darwin.
+# > No subject alternative DNS name matching github-releases.githubusercontent.com found.
+# It looks like this is a result of SNI being broken on TLS 1.3 which results
+# in us getting a certificate for githubassets.com instead.
+startup --host_jvm_args=-Xms3g --host_jvm_args=-Xmx3g --host_jvm_args=-Djdk.tls.client.protocols=TLSv1.2
+
+# Limit the number of parallel actions spawned by Bazel to the number of
+# physical CPUs. (Assuming a CPU with hyperthreading enabled)
+build --loading_phase_threads="HOST_CPUS*.5"
+fetch --loading_phase_threads="HOST_CPUS*.5"
+query --loading_phase_threads="HOST_CPUS*.5"
+sync --loading_phase_threads="HOST_CPUS*.5"
+build --local_cpu_resources="HOST_CPUS*.5"
+
+# Enable sandboxing and caching for exclusive tests
+build --incompatible_exclusive_test_sandboxed
+
+# Print test output of failed test.
+# Set --test_output=streamed to get the output of all tests in real time.
+# Note, this will force tests to run locally and sequentially.
+test --test_output=errors
+
+# print verbose failures
+build --verbose_failures
+
+# Enable persistent Scala workers to improve compilation times.
+# Refer to https://github.com/bazelbuild/rules_scala#readme for details.
+build --strategy=Scalac=worker
+test --strategy=Scalac=worker
+
+# Activate MacOS fix for "ld: illegal thread local variable reference
+#  to regular symbol". See
+#  https://github.com/grpc/grpc/pull/13929/files
+build --copt -DGRPC_BAZEL_BUILD
+
+build --java_language_version=11
+build --java_runtime_version=nixpkgs_java_11
+build --tool_java_runtime_version=nixpkgs_java_11
+build --tool_java_language_version=11
+
+# Propagate locales and the java home to the test environment.
+build --test_env=LANG=en_US.utf8 --test_env=LOCALE_ARCHIVE --test_env=JAVA_HOME
+
+# Disable c-ares support in grpc. We don't need a faster DNS library
+# since we're only connecting to localhost.
+build --define=grpc_no_ares=true
+
+# Pass through cacert information for git.
+build --action_env=GIT_SSL_CAINFO
+# Pass through locale archive to ensure that we can get a UTF-8 locale.
+build:linux --action_env=LOCALE_ARCHIVE
+build:windows --action_env=JAVA_HOME
+
+# Tell bazel to use the nixpkgs Haskell toolchain on Linux and Darwin
+build:linux --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host
+build:darwin --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host
+# and GHC's gcc on Windows
+build:windows --crosstool_top=@rules_haskell_ghc_windows_amd64//:cc_toolchain
+
+# Caching is currently disabled on Windows.
+# See: https://github.com/tweag/rules_haskell/issues/744 for details.
+build:windows --noremote_accept_cached
+
+# We use a special windows configuration on CI: cache is enabled. The caching
+# is not totally reliable on Windows yet re. absolute paths, but it is not a
+# problem on CI if all builds share a similar directory structure.
+build:windows-ci --remote_accept_cached=true
+
+# The Windows CI machines have 4 physical and 8 logical cores. By default Bazel
+# will parallelize up to the number of logical cores. This can cause flakyness
+# in timing sensitive tests.
+build:windows-ci --jobs=4
+
+# Instruct bazel to globally use this flag for compiling protobuf files.
+# We need the source info for generating proto docs. By default proto_library strips
+# source information and doesn't provide an option to turn this flag on.
+# Ideally we would only set this option for the proto_library target we care about.
+# See https://github.com/bazelbuild/rules_go/issues/1519#issuecomment-451622947
+build:linux --protocopt=--include_source_info
+build:darwin --protocopt=--include_source_info
+#FIXME: it generates stderr, which is causing error in bazel on windows:
+# https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/compiler/command_line_interface.cc#L1363
+#build:windows --protocopt=--include_source_info
+
+# Some tools used in tests, like postgres CLI, require cmd.exe which can be located by them
+# using ComSpec environment variable. By default it's not passed from Bazel client environment.
+test:windows --test_env=ComSpec
+
+# We default to -c opt. We compile Haskell with -O1 anyway since otherwise
+# it is unusably slow and the C deps change rarely so there is little reason
+# to not compile them with optimizations.
+build -c opt
+
+try-import %workspace%/.bazelrc.local

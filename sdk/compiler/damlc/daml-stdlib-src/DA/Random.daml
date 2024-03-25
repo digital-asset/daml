@@ -1,0 +1,29 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | HIDE
+module DA.Random (Minstd, minstd_rand, minstd_init, minstd_initFromTime) where
+
+import DA.Time
+import DA.Date
+import DA.Random.Types (Minstd (..))
+
+next : Int -> Int
+next s = (48271 * s) % 2147483647
+
+minstd_rand : Int -> Minstd -> (Minstd, Int)
+minstd_rand bound (Minstd state) =
+  let
+    s = next state
+  in
+    (Minstd s, s % bound)
+
+minstd_init : Int -> Minstd
+minstd_init = Minstd . next
+
+minstd_initFromTime : Update Minstd
+minstd_initFromTime = do
+  t <- getTime
+  let clk = convertRelTimeToMicroseconds $ subTime t (datetime 1970 Jan 1 0 0 0)
+  let s = (67826523 + clk) % 2147483647
+  return $ Minstd $ next s

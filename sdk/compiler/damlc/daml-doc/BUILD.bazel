@@ -1,0 +1,106 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:haskell.bzl",
+    "da_haskell_library",
+    "da_haskell_repl",
+    "da_haskell_test",
+)
+
+da_haskell_library(
+    name = "daml-doc",
+    srcs = glob(["src/**/*.hs"]),
+    hackage_deps = [
+        "aeson-pretty",
+        "aeson",
+        "base",
+        "blaze-html",
+        "bytestring",
+        "cmark-gfm",
+        "containers",
+        "data-default",
+        "directory",
+        "extra",
+        "filepath",
+        "filepattern",
+        "ghc-lib-parser",
+        "ghc-lib",
+        "ghcide",
+        "hashable",
+        "lsp",
+        "lsp-types",
+        "mtl",
+        "network-uri",
+        "prettyprinter",
+        "safe",
+        "stache",
+        "text",
+        "transformers",
+        "unordered-containers",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/damlc/daml-ide-core",
+        "//compiler/damlc/daml-opts",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//compiler/damlc/daml-rule-types",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-class-lib",
+    ],
+)
+
+da_haskell_library(
+    name = "daml-doc-testing",
+    srcs = glob(["test/**/*.hs"]),
+    compiler_flags = [
+        "-DPOSIX_DIFF=\"$(POSIX_DIFF)\"",
+    ],
+    hackage_deps = [
+        "aeson-pretty",
+        "base",
+        "bytestring",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "ghcide",
+        "lsp",
+        "mtl",
+        "tasty-hunit",
+        "tasty-golden",
+        "text",
+        "transformers",
+    ],
+    src_strip_prefix = "test",
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/damlc/daml-compiler",
+        "//compiler/damlc/daml-doc",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//compiler/damlc/daml-rule-types",
+        "//compiler/damlc/tests:integration-lib",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-class-lib",
+    ],
+)
+
+da_haskell_repl(
+    name = "repl",
+    testonly = True,
+    visibility = ["//visibility:public"],
+    deps = [
+        ":daml-doc",
+        ":daml-doc-testing",
+        "//compiler/damlc:damlc-lib",
+        "//compiler/damlc/tests:daml-doc",
+    ],
+)

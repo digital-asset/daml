@@ -1,0 +1,75 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@os_info//:os_info.bzl", "is_windows")
+load("@build_bazel_rules_nodejs//:index.bzl", "pkg_npm")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//language-support/ts:defs.bzl", "da_ts_library")
+load("//language-support/ts:eslint.bzl", "eslint_test")
+load("@build_environment//:configuration.bzl", "sdk_version")
+load("//language-support/ts:jest.bzl", "jest_test")
+
+sources = [
+    "index.test.ts",
+    "index.ts",
+]
+
+da_ts_library(
+    name = "daml-ledger",
+    srcs = sources,
+    module_name = "@daml/ledger",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/ts/daml-types",
+        "@language_support_ts_deps//@mojotech/json-type-validation",
+        "@language_support_ts_deps//@types/jest",
+        "@language_support_ts_deps//@types/lodash",
+        "@language_support_ts_deps//@types/ws",
+        "@language_support_ts_deps//cross-fetch",
+        "@language_support_ts_deps//events",
+        "@language_support_ts_deps//isomorphic-ws",
+        "@language_support_ts_deps//jest-mock-console",
+        "@language_support_ts_deps//ws",
+    ],
+) if not is_windows else None
+
+genrule(
+    name = "license",
+    srcs = ["//:LICENSE"],
+    outs = ["LICENSE"],
+    cmd = """
+      cp $(location //:LICENSE) $@
+    """,
+)
+
+eslint_test(
+    name = "lint",
+    srcs = sources,
+)
+
+pkg_npm(
+    name = "npm_package",
+    package_name = "@daml/ledger",
+    srcs = [
+        ":README.md",
+        ":package.json",
+        ":tsconfig.json",
+    ],
+    substitutions = {"0.0.0-SDKVERSION": sdk_version},
+    visibility = ["//visibility:public"],
+    deps = [
+        ":daml-ledger",
+        ":license",
+    ],
+) if not is_windows else None
+
+jest_test(
+    name = "test",
+    # Use the js outputs because jest cannot resolve imports in the ts_library
+    # despite moduleNameMapper.
+    srcs = [":daml-ledger"],
+    jest_config = ":jest.config.js",
+    deps = [
+        "//language-support/ts/daml-types",
+    ],
+)

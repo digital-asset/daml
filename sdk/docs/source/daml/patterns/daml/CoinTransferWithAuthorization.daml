@@ -1,0 +1,117 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+{-# LANGUAGE PartialTypeSignatures #-}
+
+
+module CoinTransferWithAuthorization where
+
+import Daml.Script
+
+import Utilities
+--authorization contract allows more control on a choice
+--in the example below, issuer grants access to the newOwner. which is checked on Accept choice to ensure he is legit coin owner.
+
+-- original contract with no changes needed.
+template Coin
+  with
+    owner: Party
+    issuer: Party
+    amount: Decimal
+  where
+    signatory issuer
+    signatory owner
+
+    ensure amount > 0.0
+
+    choice Transfer : ContractId TransferProposal
+      with newOwner: Party
+      controller owner
+      do create TransferProposal
+            with coin=this; newOwner
+
+template CoinProposal
+  with
+    owner: Party
+    issuer: Party
+    amount: Decimal
+  where
+    signatory issuer
+    observer owner
+
+    choice AcceptProposal
+      : ContractId Coin
+      controller owner
+      do create Coin with issuer; owner; amount
+
+
+-- authorization contract
+-- BEGIN_COIN_OWNER_AUTH_TEMPLATE
+template CoinOwnerAuthorization
+  with
+    owner: Party
+    issuer: Party
+  where
+    signatory issuer
+    observer owner
+
+    choice WithdrawAuthorization
+      : ()
+      controller issuer
+      do return ()
+-- END_COIN_OWNER_AUTH_TEMPLATE
+
+-- TransferProposal contract needs additional logic to ensure the newOwner is authorized to exercise Accept
+template TransferProposal
+  with
+    coin: Coin
+    newOwner: Party
+  where
+    signatory coin.owner
+    signatory coin.issuer
+    observer newOwner
+
+    choice WithdrawTransfer
+      : ContractId Coin
+      controller coin.owner
+      do create coin
+
+-- BEGIN_ACCEPT_COIN_TRANSFER
+    choice AcceptTransfer
+      : ContractId Coin
+      with token: ContractId CoinOwnerAuthorization
+      controller newOwner
+      do
+        t <- fetch token
+        assert (coin.issuer == t.issuer)
+        assert (newOwner == t.owner)
+        create coin with owner = newOwner
+-- END_ACCEPT_COIN_TRANSFER
+
+
+
+tokenAccept : Script ()  -- test
+tokenAccept =
+  script do
+
+    [issuer, owner, newOwner] <- makePartiesFrom ["Bank", "Me", "You"]
+
+    --test 1: token is active, allowing new owner to accept
+
+    creatProp <- issuer `submit` do createCmd CoinProposal with owner; issuer; amount=100.0
+    coinId <- owner `submit` do exerciseCmd creatProp AcceptProposal
+    coinProp <- owner `submit` do exerciseCmd coinId Transfer with newOwner
+
+    tokenId <- issuer `submit` do createCmd CoinOwnerAuthorization with owner = newOwner; issuer
+    newOwner `submit` do exerciseCmd coinProp AcceptTransfer with token = tokenId
+
+    --test 2: token is withdraw before new owner accpet. Hence the accept will fail
+    creatProp <- issuer `submit` do createCmd CoinProposal with owner; issuer; amount=100.0
+    coinId <- owner `submit` do exerciseCmd creatProp AcceptProposal
+    coinProp <- owner `submit` do exerciseCmd coinId Transfer with newOwner
+
+    tokenId <- issuer `submit` do createCmd CoinOwnerAuthorization with owner = newOwner; issuer
+    issuer `submit` do exerciseCmd tokenId WithdrawAuthorization
+    newOwner `submitMustFail` do exerciseCmd coinProp AcceptTransfer with token = tokenId
+

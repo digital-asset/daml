@@ -1,0 +1,79 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protobuf;
+
+message Base {
+  oneof sum {
+    string one = 1;
+  }
+}
+
+// Same as Base, but with another field
+message AddField {
+  oneof sum {
+    string one = 1;
+  }
+  DummyMessage three = 3;
+}
+
+message DummyMessage {
+  string content = 1;
+}
+
+message AttackAddField {
+  string one = 1;
+  int32 three = 3;
+}
+
+message AttackAddFieldSameType {
+  string one = 1;
+  bytes three = 3;
+}
+
+// Same as Base, but with another variant
+message AddVariant {
+  oneof sum {
+    string one = 1;
+    DummyMessage two = 2;
+  }
+}
+
+message AttackAddVariant {
+  string one = 1;
+  bytes two = 2;
+}
+
+message VersionedDummyMessage {
+  oneof version {
+    DummyMessage v0 = 1;
+  }
+}
+
+// Switching to repeated
+message Single {
+  string one = 1;
+  DummyMessage two = 2;
+}
+
+message Repeated {
+  repeated string one = 1;
+  repeated DummyMessage two = 2;
+}
+
+message AttackRepeated {
+  repeated string one = 1;
+  repeated bytes two = 2;
+}
+
+message UnsignedInt {
+  uint32 unsigned = 1;
+}
+message SignedInt {
+  int32 signed = 1;
+}
+message UnsignedLong {
+  uint64 unsigned = 1;
+}

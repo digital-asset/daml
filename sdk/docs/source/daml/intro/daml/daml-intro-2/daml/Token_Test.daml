@@ -1,0 +1,100 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Token_Test where
+
+import Daml.Script
+
+-- The Token template from section 1
+template Token
+  with
+    owner : Party
+  where
+    signatory owner
+
+-- Daml Scripts are specified as top-level variables of type `Script a`. `do` always
+-- introduces a block.
+token_test = do
+
+  -- The `allocateParty` function allocates a new party.
+  -- The `<-` notation _binds_ the result to a variable.
+  alice <- allocateParty "Alice"
+
+  -- The `submit` keyword allows a party to submit a transaction to the ledger.
+  -- Bob and Alice can self-issue tokens as their authority is available to sign the
+  -- Tokens within the transaction submitted by them.
+  submit alice do
+    createCmd Token with owner = alice
+
+  bob <- allocateParty "Bob"
+  bobToken <- submit bob do
+    createCmd Token with owner = bob
+
+  -- If a single statement in a Script fails, the whole Script fails at that point.
+  -- To test failure of more than one submission in a single Script, we need a different
+  -- keyword `submitMustFail`, which succeeds when the submitted transaction fails.
+  -- Alice and Bob cannot issue Tokens to each other, as neither has the authority to put
+  -- the other's signature on the Token.
+  submitMustFail alice do
+    createCmd Token with owner = bob
+  submitMustFail bob do
+    createCmd Token with owner = alice
+
+  -- `archive` is symmetric to `create`. Bob and Alice can't archive each other's
+  -- Tokens, but they can archive their own.
+  submitMustFail alice do
+    archiveCmd bobToken
+
+  submit bob do
+    archiveCmd bobToken
+
+-- TOKEN_TEST_1_BEGIN
+token_test_1 = script do
+  alice <- allocateParty "Alice"
+  submit alice do
+    createCmd Token with owner = alice
+-- TOKEN_TEST_1_END
+
+{-
+-- FAILURE_TEST_1_BEGIN
+failing_test_1 = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  submit alice do
+    createCmd Token with owner = bob
+  submit bob do
+    createCmd Token with owner = alice
+-- FAILURE_TEST_1_END
+-}
+
+-- TOKEN_TEST_2_BEGIN
+token_test_2 = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  submitMustFail alice do
+    createCmd Token with owner = bob
+  submitMustFail bob do
+    createCmd Token with owner = alice
+
+  submit alice do
+    createCmd Token with owner = alice
+  submit bob do
+    createCmd Token with owner = bob
+-- TOKEN_TEST_2_END
+
+-- TOKEN_TEST_3_BEGIN
+token_test_3 = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  alice_token <- submit alice do
+    createCmd Token with owner = alice
+
+  submitMustFail bob do
+    archiveCmd alice_token
+
+  submit alice do
+    archiveCmd alice_token
+-- TOKEN_TEST_3_END

@@ -1,0 +1,27 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+-- | HIDE
+
+-- An internal module based on ghc's base.GHC.CString. It is used for string
+-- literals by ghc. All definitions are removed during conversion to Daml-LF.
+module GHC.CString
+  ( unpackCString#
+  , unpackCStringUtf8#
+  , fromString
+  ) where
+
+import GHC.Integer.Type() -- required so Integer optimisation works
+import GHC.Prim
+import GHC.Types
+
+unpackCString# : Addr# -> TextLit
+unpackCString# = magic @"unpackCString#"
+
+unpackCStringUtf8# : Addr# -> TextLit
+unpackCStringUtf8# = magic @"unpackCStringUtf8#"
+
+fromString : TextLit -> Text
+fromString = magic @"fromString"

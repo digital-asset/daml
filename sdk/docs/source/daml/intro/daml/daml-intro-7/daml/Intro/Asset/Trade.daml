@@ -1,0 +1,60 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Intro.Asset.Trade where
+
+import Intro.Asset
+
+template Trade
+  with
+    baseAssetCid : ContractId Asset
+    baseAsset : Asset
+    quoteApprovalCid : ContractId TransferApproval
+    quoteAsset : Asset
+  where
+    signatory baseAsset.owner
+    observer quoteAsset.owner
+
+    choice Trade_Cancel
+        : ()
+        controller baseAsset.owner
+        do
+          return ()
+
+    choice Trade_Reject
+        : ()
+        controller quoteAsset.owner
+        do
+          return ()
+
+-- TRADE_SETTLE_BEGIN
+    choice Trade_Settle
+      : (ContractId Asset, ContractId Asset)
+      with
+        quoteAssetCid : ContractId Asset
+        baseApprovalCid : ContractId TransferApproval
+      controller quoteAsset.owner
+      do
+        fetchedBaseAsset <- fetch baseAssetCid
+        assertMsg
+          "Base asset mismatch"
+          (baseAsset == fetchedBaseAsset with
+            observers = baseAsset.observers)
+
+        fetchedQuoteAsset <- fetch quoteAssetCid
+        assertMsg
+          "Quote asset mismatch"
+          (quoteAsset == fetchedQuoteAsset with
+            observers = quoteAsset.observers)
+
+        transferredBaseCid <- exercise
+          baseApprovalCid TransferApproval_Transfer with
+            assetCid = baseAssetCid
+
+        transferredQuoteCid <- exercise
+          quoteApprovalCid TransferApproval_Transfer with
+            assetCid = quoteAssetCid
+
+        return (transferredBaseCid, transferredQuoteCid)
+-- TRADE_SETTLE_END

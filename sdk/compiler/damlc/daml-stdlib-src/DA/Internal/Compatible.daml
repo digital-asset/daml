@@ -1,0 +1,98 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE PatternSynonyms #-}
+
+-- | HIDE Our Prelude, extending WiredIn with things that don't need special treatment.
+
+module DA.Internal.Compatible where
+
+import DA.Internal.Prelude
+import DA.Internal.LF
+
+{-# DEPRECATED Datetime "Daml compatibility helper, use Time instead of 'Datetime'" #-}
+type Datetime = Time
+
+{-# DEPRECATED Tuple "Daml compatibility helper, use (a,b) instead of 'Tuple a b'" #-}
+type Tuple a b = (a,b)
+
+{-# DEPRECATED tuple "Daml compatibility helper, use (,)" #-}
+tuple : a -> b -> (a,b)
+tuple = (,)
+
+{-# DEPRECATED Tuple3 "Daml compatibility helper, use (a,b,c) instead of 'Tuple3 a b c'" #-}
+type Tuple3 a b c = (a,b,c)
+
+{-# DEPRECATED tuple3 "Daml compatibility helper, use (,,)" #-}
+tuple3 : a -> b -> c -> (a,b,c)
+tuple3 = (,,)
+
+{-# DEPRECATED List "Daml compatibility helper, use [a] instead of 'List a'" #-}
+type List a = [a]
+
+{-# DEPRECATED nil "Daml compatibility helper, use []" #-}
+nil : [a]
+nil = []
+
+{-# DEPRECATED cons "Daml compatibility helper, use (::), which also works infix as 'x :: xs'" #-}
+cons : a -> [a] -> [a]
+cons = (::)
+
+{-# DEPRECATED does "Daml compatibility helper, does is redundant and the first argument is ignored" #-}
+does : Party -> Update a -> Update a
+does _ x = x
+
+{-# DEPRECATED toText "Daml compatibility helper, use 'show' instead" #-}
+toText : Show a => a -> Text
+toText = show
+
+{-# DEPRECATED Integer "Daml compatibility helper, use 'Int' instead of 'Integer'" #-}
+type Integer = Int
+
+{-# DEPRECATED toInteger "Daml compatibility helper, use 'truncate' instead" #-}
+toInteger : Decimal -> Int
+toInteger = truncate
+
+{-# DEPRECATED mapU "Daml compatibility helper, use 'mapA' instead of 'mapU'" #-}
+mapU : Applicative m => (a -> m b) -> [a] -> m [b]
+mapU = mapA
+
+{-# DEPRECATED forU "Daml compatibility helper, use 'forA' instead of 'forU'" #-}
+forU : Applicative m => [a] -> (a -> m b) -> m [b]
+forU = forA
+
+{-# DEPRECATED mapM "Daml compatibility helper, use 'mapA' instead of 'mapM'" #-}
+mapM : Applicative m => (a -> m b) -> [a] -> m [b]
+mapM = mapA
+
+{-# DEPRECATED forM "Daml compatibility helper, use 'forA' instead of 'forM'" #-}
+forM : Applicative m => [a] -> (a -> m b) -> m [b]
+forM = forA
+
+{-# DEPRECATED Monad "Daml compatibility helper, use 'Action' instead of 'Monad'" #-}
+type Monad = Action
+
+{-# DEPRECATED String "Daml compatibility helper, use 'Text' instead of 'String'" #-}
+type String = Text
+
+{-# DEPRECATED MonadFail "Daml compatibility helper, use 'ActionFail' instead of 'MonadFail'" #-}
+type MonadFail = ActionFail
+
+{-# DEPRECATED Num "Daml compatibility helper, use 'Number' instead of 'Num'" #-}
+type Num = Number
+
+{-# DEPRECATED Maybe "Daml compatibility helper, use 'Optional' instead of 'Maybe'" #-}
+type Maybe = Optional
+
+{-# DEPRECATED Nothing "Daml compatibility helper, use 'None' instead of 'Nothing'" #-}
+pattern Nothing : Maybe a
+pattern Nothing = None
+
+{-# DEPRECATED Just "Daml compatibility helper, use 'Some' instead of 'Just'" #-}
+pattern Just : a -> Maybe a
+pattern Just x = Some x
+
+{-# DEPRECATED maybe "Daml compatibility helper, use 'optional' instead of 'maybe'" #-}
+maybe : b -> (a -> b) -> Maybe a -> b
+maybe = optional

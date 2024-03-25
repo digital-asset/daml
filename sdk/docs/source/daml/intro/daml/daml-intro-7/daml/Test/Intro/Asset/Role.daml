@@ -1,0 +1,55 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Test.Intro.Asset.Role where
+
+import Daml.Script
+
+import Intro.Asset
+import Intro.Asset.Role
+
+setupRoles = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  usdbank <- allocateParty "USD_Bank"
+
+  ahia <- submit usdbank do
+    createCmd AssetHolderInvite with
+      issuer = usdbank
+      owner = alice
+
+  ahib <- submit usdbank do
+    createCmd AssetHolderInvite with
+      issuer = usdbank
+      owner = bob
+
+  aha <- submit alice do
+    exerciseCmd ahia AssetHolderInvite_Accept
+
+  ahb <- submit bob do
+    exerciseCmd ahib AssetHolderInvite_Accept
+
+  return (alice, bob, usdbank, aha, ahb)
+
+-- TEST_ISSUANCE_BEGIN
+test_issuance = do
+  setupResult@(alice, bob, bank, aha, ahb) <- setupRoles
+
+  assetCid <- submit bank do
+    exerciseCmd aha Issue_Asset
+      with
+        symbol = "USD"
+        quantity = 100.0
+
+  Some asset <- queryContractId bank assetCid
+  assert (asset == Asset with
+      issuer = bank
+      owner = alice
+      symbol = "USD"
+      quantity = 100.0
+      observers = []
+        )
+
+  return (setupResult, assetCid)
+-- TEST_ISSUANCE_END

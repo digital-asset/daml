@@ -1,0 +1,14 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+import "scalapb/scalapb.proto";
+
+package com.digitalasset.canton.participant;
+
+option (scalapb.options) = {
+  scope: PACKAGE
+  preserve_unknown_fields: false
+  no_default_values_in_constructor: true
+};

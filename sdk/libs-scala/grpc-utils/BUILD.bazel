@@ -1,0 +1,37 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test_suite",
+)
+
+da_scala_library(
+    name = "grpc-utils",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.daml:grpc-utils:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "//canton:ledger_api_proto_scala",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:io_grpc_grpc_api",
+    ],
+)
+
+da_scala_test_suite(
+    name = "grpc-utils-tests",
+    size = "small",
+    srcs = glob(["src/test/suite/scala/**/*.scala"]),
+    scala_deps = [
+    ],
+    deps = [
+        ":grpc-utils",
+        "//canton:ledger_api_proto_scala",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
+    ],
+)

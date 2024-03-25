@@ -1,0 +1,150 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+
+-- | Test interface conversion functions specifically.
+module InterfaceConversions where
+
+import Daml.Script
+import DA.Assert ((===))
+import DA.Functor (void)
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface Iface where
+    viewtype EmptyInterfaceView
+    getOwner : Party
+    choice MyChoice : ()
+        controller getOwner this
+        do pure ()
+
+interface Iface2 where
+    viewtype EmptyInterfaceView
+    getOwner2 : Party
+    choice MyChoice2 : ()
+        controller getOwner2 this
+        do pure ()
+
+template Template1
+    with
+        owner1: Party
+        value1: Int
+    where
+        signatory owner1
+        interface instance Iface for Template1 where
+            view = EmptyInterfaceView
+            getOwner = owner1
+
+template Template2
+    with
+        owner2: Party
+        value2: Text
+    where
+        signatory owner2
+        interface instance Iface for Template2 where
+            view = EmptyInterfaceView
+            getOwner = owner2
+
+useActionFrom : Party -> (ContractId Template2 -> Update ()) -> Update ()
+useActionFrom p action = do
+    cid <- create (toInterface @Iface (Template1 p 10))
+    action (fromInterfaceContractId @Template2 cid)
+
+useActionCoerce : Party -> (ContractId Iface2 -> Update ()) -> Update ()
+useActionCoerce p action = do
+    cid <- create (toInterface @Iface (Template1 p 10))
+    action (coerceInterfaceContractId @Iface2 cid)
+
+template Test
+    with
+        party : Party
+    where
+        signatory party
+        nonconsuming choice TemplateInterfaceMatching : ()
+            controller party
+            do
+                let template1 = Template1 party 10
+                    template2 = Template2 party "Hi"
+                    iface1 = toInterface @Iface template1
+                    iface2 = toInterface @Iface template2
+                fromInterface @Template1 iface1 === Some template1
+                fromInterface @Template2 iface1 === None
+                fromInterface @Template1 iface2 === None
+                fromInterface @Template2 iface2 === Some template2
+                templateCid1 <- create template1
+                templateCid2 <- create template2
+                let ifaceCid1 = toInterfaceContractId @Iface templateCid1
+                    ifaceCid2 = toInterfaceContractId @Iface templateCid2
+
+                fromInterfaceContractId ifaceCid1 === templateCid1
+                fromInterfaceContractId ifaceCid2 === templateCid2
+
+                x1 <- fetchFromInterface @Template1 ifaceCid1
+                x2 <- fetchFromInterface @Template2 ifaceCid1
+                x3 <- fetchFromInterface @Template1 ifaceCid2
+                x4 <- fetchFromInterface @Template2 ifaceCid2
+
+                x1 === Some (templateCid1, template1)
+                x2 === None
+                x3 === None
+                x4 === Some (templateCid2, template2)
+
+        nonconsuming choice VoidFromInterface : ()
+            controller party
+            do useActionFrom party $ \_cid -> pure ()
+
+        nonconsuming choice FetchFromInterface : ()
+            controller party
+            do useActionFrom party $ \cid -> void (fetch cid)
+
+        nonconsuming choice ArchiveFromInterface : ()
+            controller party
+            do useActionFrom party $ \cid -> archive cid
+
+        nonconsuming choice VoidCoerceInterface : ()
+            controller party
+            do useActionCoerce party $ \_cid -> pure ()
+
+        nonconsuming choice ExerciseCoerceInterface : ()
+            controller party
+            do useActionCoerce party $ \cid -> exercise cid MyChoice2
+
+        nonconsuming choice FetchCoerceInterface : ()
+            controller party
+            do useActionCoerce party $ \cid -> void (fetch cid)
+
+        nonconsuming choice ArchiveCoerceInterface : ()
+            controller party
+            do useActionCoerce party $ \cid -> archive cid
+
+exerciseTest : Choice Test c () => c -> Script ()
+exerciseTest c = script do
+  p <- allocateParty "Alice"
+  p `submit` createAndExerciseCmd (Test p) c
+  pure ()
+
+templateInterfaceMatchingTest = exerciseTest TemplateInterfaceMatching
+
+-- Test that using fromInterfaceContractId incorrectly will result
+-- in failed fetch/exercise/archives. I.e. using a Template1 contract
+-- id as if it were a Template2 contract id will always fail, even
+-- for actions that make sense for the common interface Iface.
+-- See useActionFrom
+voidFromInterfaceTest = exerciseTest VoidFromInterface
+-- @ERROR range=136:1-136:23; Attempt to fetch or exercise a wrongly typed contract.
+fetchFromInterfaceTest = exerciseTest FetchFromInterface
+-- @ERROR range=138:1-138:25; Attempt to fetch or exercise a wrongly typed contract.
+archiveFromInterfaceTest = exerciseTest ArchiveFromInterface
+
+-- Test that using coerceInterfaceContractId incorrectly will result
+-- in failed fetch/exercise/archives. I.e. using an Iface contract
+-- id as if it were a Iface2 contract id will always fail.
+-- See useActionCoerce
+voidCoerceInterfaceTest = exerciseTest VoidCoerceInterface
+-- @ERROR range=146:1-146:28; Attempt to use a contract via an interface that the contract does not implement
+exerciseCoerceInterfaceTest = exerciseTest ExerciseCoerceInterface
+-- @ERROR range=148:1-148:25; Attempt to use a contract via an interface that the contract does not implement
+fetchCoerceInterfaceTest = exerciseTest FetchCoerceInterface
+-- @ERROR range=150:1-150:27; Attempt to use a contract via an interface that the contract does not implement
+archiveCoerceInterfaceTest = exerciseTest ArchiveCoerceInterface

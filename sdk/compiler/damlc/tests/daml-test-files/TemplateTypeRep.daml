@@ -1,0 +1,39 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SINCE-LF 2.1
+module TemplateTypeRep where
+
+import Daml.Script
+import DA.Action
+import qualified TemplateTypeRep2
+
+template T1
+  with
+    x : Int
+    p : Party
+  where
+    signatory p
+
+template T2
+  with
+    y : Text
+    p : Party
+  where
+    signatory p
+
+assertTypeRepEq : CanAbort m => TemplateTypeRep -> TemplateTypeRep -> m ()
+assertTypeRepEq a b =
+  unless (a == b) $ abort "TypeReps are not equal"
+
+assertTypeRepNeq : CanAbort m => TemplateTypeRep -> TemplateTypeRep -> m ()
+assertTypeRepNeq a b =
+  unless (a /= b) $ abort "TypeReps are equal"
+
+
+main = script do
+  assertTypeRepEq (templateTypeRep @T1) (templateTypeRep @T1)
+  assertTypeRepEq (templateTypeRep @T2) (templateTypeRep @T2)
+
+  assertTypeRepNeq (templateTypeRep @T1) (templateTypeRep @T2)
+  assertTypeRepNeq (templateTypeRep @T1) (templateTypeRep @TemplateTypeRep2.T1)

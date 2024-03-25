@@ -1,0 +1,23 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | The `Functor` class is used for types that can be mapped over.
+module DA.Functor where
+
+infixl 4 $>
+infixl 1 <&>
+
+-- | Replace all locations in the input (on the left) with the given
+-- value (on the right).
+($>) : Functor f => f a -> b -> f b
+($>) = flip (<$)
+
+-- | Map a function over a functor. Given a value `as` and a function
+-- `f`, `as <&> f` is `f <$> as`. That is, `<&>` is like `<$>` but the
+-- arguments are in reverse order.
+(<&>) : Functor f => f a -> (a -> b) -> f b
+as <&> f = f <$> as
+
+-- | Replace all the locations in the input with `()`.
+void : Functor f => f a -> f ()
+void x = () <$ x

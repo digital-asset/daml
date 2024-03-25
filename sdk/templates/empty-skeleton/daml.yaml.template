@@ -1,0 +1,10 @@
+sdk-version: __VERSION__
+name: __PROJECT_NAME__
+source: daml
+version: 0.0.1
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml3-script
+sandbox-options:
+  - --wall-clock-time

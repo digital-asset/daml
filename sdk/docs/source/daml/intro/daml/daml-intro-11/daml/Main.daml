@@ -1,0 +1,46 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Main where
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+    key this : T
+    maintainer key.p
+
+f1 : T -> Update  (Optional (ContractId T))
+f1 k = do
+-- OPT_BEGIN
+  lookupResult <- lookupByKey @T k
+  case lookupResult of
+    None -> do -- Do Something
+      return ()
+    Some cid -> do -- Do Something
+      return ()
+-- OPT_END
+  return lookupResult
+
+-- CLASS_BEGIN
+class HasQuantity a q where
+  getQuantity : a -> q
+  setQuantity : q -> a -> a
+-- CLASS_END
+
+-- INSTANCE_BEGIN
+data Foo = Foo with
+  amount : Decimal
+
+instance HasQuantity Foo Decimal where
+  getQuantity foo = foo.amount
+  setQuantity amount foo = foo with amount
+-- INSTANCE_END
+
+-- TUPLE_DEMO_BEGIN
+t1 : (Int, Text) = (1, "a")
+t2 : (,) Int Text = (1, "a")
+t3 : (Int, Text) = (1,) "a"
+t4 : a -> (a, Text) = (,"a")
+-- TUPLE_DEMO_END

@@ -1,0 +1,148 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | Note: This is only supported in Daml-LF 1.11 or later.
+--
+-- This module provides variants of other standard library
+-- functions that are based on the builtin Daml-LF ordering rather
+-- than user-defined ordering. This is the same order also used
+-- by `DA.Map`.
+--
+-- These functions are usually much more efficient than their
+-- `Ord`-based counterparts.
+--
+-- Note that the functions in this module still require `Ord`
+-- constraints. This is purely to enforce that you don’t
+-- pass in values that cannot be compared, e.g., functions. The
+-- implementation of those instances is not used.
+module DA.List.BuiltinOrder
+  ( dedup
+  , dedupOn
+  , dedupSort
+  , dedupOnSort
+  , sort
+  , sortOn
+  , unique
+  , uniqueOn
+  ) where
+
+import DA.Map (Map)
+import qualified DA.Map as Map
+
+-- | `dedup l` removes duplicate elements from a list. In particular,
+-- it keeps only the first occurrence of each element.
+--
+-- `dedup` is stable so the elements in the output are ordered
+-- by their first occurrence in the input. If you do not need
+-- stability, consider using `dedupSort` which is more efficient.
+--
+-- ```
+-- >>> dedup [3, 1, 1, 3]
+-- [3, 1]
+-- ```
+dedup : Ord a => [a] -> [a]
+dedup = dedupOn identity
+
+-- | A version of `dedup` where deduplication is done
+-- after applying the given function. Example use: `dedupOn (.employeeNo) employees`.
+--
+-- `dedupOn` is stable so the elements in the output are ordered
+-- by their first occurrence in the input. If you do not need
+-- stability, consider using `dedupOnSort` which is more efficient.
+--
+-- ```
+-- >>> dedupOn fst [(3, "a"), (1, "b"), (1, "c"), (3, "d")]
+-- [(3, "a"), (1, "b")]
+-- ```
+dedupOn f xs = Map.values (Map.fromList (Map.values deduped))
+  where
+    -- Fused Map.fromListWith + map/fold
+    deduped = snd (foldl insert (0, Map.empty) xs)
+    insert (i, m) x =
+      let k = f x
+          m' = case Map.lookup k m of
+            Some prev@(j, _)
+              | j <= i -> m
+            _ -> Map.insert k (i, x) m
+      in (i + 1, m')
+
+-- | `dedupSort` is a more efficient variant of `dedup`
+-- that does not preserve the order of the input elements.
+-- Instead the output will be sorted acoording to the builtin Daml-LF
+-- ordering.
+--
+-- ```
+-- >>> dedupSort [3, 1, 1, 3]
+-- [1, 3]
+-- ```
+dedupSort : Ord a => [a] -> [a]
+dedupSort = dedupOnSort identity
+
+-- | `dedupOnSort` is a more efficient variant of `dedupOn`
+-- that does not preserve the order of the input elements.
+-- Instead the output will be sorted on the values returned by the function.
+--
+-- For duplicates, the first element in the list will be included in the output.
+--
+-- ```
+-- >>> dedupOnSort fst [(3, "a"), (1, "b"), (1, "c"), (3, "d")]
+-- [(1, "b"), (3, "a")]
+-- ```
+dedupOnSort f xs =
+  let deduped = foldr (\x acc -> Map.insert (f x) x acc) Map.empty xs
+  in Map.values deduped
+
+-- | Sort the list according to the Daml-LF ordering.
+--
+-- Values that are identical according to the builtin Daml-LF ordering
+-- are indistinguishable so stability is not relevant here.
+--
+-- ```
+-- >>> sort [3,1,2]
+-- [1,2,3]
+-- ```
+sort : Ord a => [a] -> [a]
+sort = sortOn identity
+
+-- | `sortOn f` is a version of sort that allows sorting
+-- on the result of the given function.
+--
+-- `sortOn` is stable so elements that map to the same sort key
+-- will be ordered by their position in the input.
+--
+-- ```
+-- >>> sortOn fst [(3, "a"), (1, "b"), (3, "c"), (2, "d")]
+-- [(1, "b"), (2, "d"), (3, "a"), (3, "c")]
+-- ```
+sortOn : Ord b => (a -> b) -> [a] -> [a]
+sortOn f xs = Map.values (snd (foldl insert (0, Map.empty) xs))
+  where
+    insert (i, m) x = (i + 1, Map.insert (f x, i) x m)
+
+-- | Returns True if and only if there are no duplicate elements in the given list.
+--
+-- ```
+-- >>> unique [1, 2, 3]
+-- True
+-- ```
+unique : Ord a => [a] -> Bool
+unique = uniqueOn identity
+
+-- | Returns True if and only if there are no duplicate elements in the given list
+-- after applyng function.
+--
+-- ```
+-- >>> uniqueOn fst [(1, 2), (2, 42), (1, 3)]
+-- False
+-- ```
+uniqueOn : Ord k => (a -> k) -> [a] -> Bool
+uniqueOn f = goUniqueOn f Map.empty
+
+-- hand-written recursion to shortcircuit.
+goUniqueOn : Ord k => (a -> k) -> Map k () -> [a] -> Bool
+goUniqueOn _ _ [] = True
+goUniqueOn f m (x :: xs) =
+  let k = f x
+  in case Map.lookup (f x) m of
+    None -> goUniqueOn f (Map.insert k () m) xs
+    Some _ -> False

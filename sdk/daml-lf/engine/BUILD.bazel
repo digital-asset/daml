@@ -1,0 +1,197 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test",
+    "da_scala_test_suite",
+    "lf_scalacopts",
+    "lf_scalacopts_stricter",
+)
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+)
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "LF_DEV_VERSIONS",
+    "LF_MAJOR_VERSIONS",
+    "lf_version_default_or_latest",
+    "mangle_for_damlc",
+)
+
+da_scala_library(
+    name = "engine",
+    srcs = glob(["src/main/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_paiges_core",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    tags = ["maven_coordinates=com.daml:daml-lf-engine:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/stable-packages",
+        "//daml-lf/transaction",
+        "//daml-lf/validation",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/nameof",
+        "//libs-scala/scala-utils",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+ENGINE_TEST_FILES = \
+    [
+        "BasicTests",
+        "AuthTests",
+        "Demonstrator",
+    ]
+
+[
+    daml_compile(
+        name = "{name}-v{major}".format(
+            name = name,
+            major = major,
+        ),
+        srcs = ["src/test/daml/%s.daml" % name],
+        target = lf_version_default_or_latest(major),
+    )
+    for name in ENGINE_TEST_FILES
+    for major in LF_MAJOR_VERSIONS
+]
+
+[
+    daml_compile(
+        name = "{name}-{version}".format(
+            name = name,
+            version = mangle_for_damlc(version),
+        ),
+        srcs = ["src/test/daml/%s.daml" % name],
+        target = version,
+    )
+    for name in ENGINE_TEST_FILES
+    for version in LF_DEV_VERSIONS
+]
+
+da_scala_test_suite(
+    name = "tests",
+    srcs = glob(
+        [
+            "src/test/**/*Spec.scala",
+            "src/test/**/*Test.scala",
+        ],
+        exclude = [
+            "src/test/**/LargeTransactionTest.scala",
+            "src/test/**/MinVersionTest.scala",
+        ],
+    ),
+    data = [
+        "{name}-v{major}.dar".format(
+            name = name,
+            major = major,
+        )
+        for name in [
+            "//daml-lf/tests:Exceptions",
+            "//daml-lf/tests:Interfaces",
+            "//daml-lf/tests:InterfaceViews",
+            "//daml-lf/tests:MultiKeys",
+            "//daml-lf/tests:ReinterpretTests",
+        ]
+        for major in LF_MAJOR_VERSIONS
+    ] + [
+        ":{name}-v{major}.dar".format(
+            name = name,
+            major = major,
+        )
+        for name in ENGINE_TEST_FILES
+        for major in LF_MAJOR_VERSIONS
+    ] + [
+        "{name}-{version}.dar".format(
+            name = prefix,
+            version = mangle_for_damlc(version),
+        )
+        for prefix in [
+            ":BasicTests",
+            ":Demonstrator",
+            "//daml-lf/tests:MultiKeys",
+            "//daml-lf/tests:Exceptions",
+        ]
+        for version in LF_DEV_VERSIONS
+    ],
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_lihaoyi_sourcecode",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":engine",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/parser",
+        "//daml-lf/stable-packages",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction-test-lib",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
+        "//libs-scala/test-evidence/tag:test-evidence-tag",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+[
+    daml_compile(
+        name = "LargeTransaction-v{}".format(major),
+        srcs = ["src/test/daml/LargeTransaction.daml"],
+        target = lf_version_default_or_latest(major),
+    )
+    for major in LF_MAJOR_VERSIONS
+]
+
+da_scala_test(
+    name = "test-large-transaction",
+    timeout = "moderate",
+    srcs = glob([
+        "src/test/**/LargeTransactionTest.scala",
+        "src/test/**/InMemoryPrivateLedgerData.scala",
+    ]),
+    data = [
+        ":LargeTransaction-v{}.dar".format(major)
+        for major in LF_MAJOR_VERSIONS
+    ],
+    # We setup a large heap size to reduce as much as possible GC overheads.
+    initial_heap_size = "2g",
+    max_heap_size = "2g",
+    scala_deps = [
+        "@maven//:com_storm_enroute_scalameter_core",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":engine",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//libs-scala/contextualized-logging",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)

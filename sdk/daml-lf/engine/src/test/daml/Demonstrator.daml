@@ -1,0 +1,52 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Demonstrator where
+
+template RegistrarRole
+  with
+    operator : Party
+  where
+    signatory operator
+
+    choice AcceptTransfer : ()
+      with
+        transferCid : ContractId TransferRequest
+      controller operator
+      do
+        try do
+          exercise transferCid AcceptTransferRequest
+          return ()
+        catch
+          (ex : AnyException) -> do
+            exercise transferCid CancelTransferRequest
+            return ()
+
+template TransferRequest
+  with
+    operator : Party
+    investor : Party
+  where
+    signatory operator
+    observer investor
+
+    choice AcceptTransferRequest : ()
+      controller operator
+      do
+        assert False
+
+    choice CancelTransferRequest : ContractId CancelledTransfer
+      controller operator
+      do
+        create CancelledTransfer with ..
+
+template CancelledTransfer
+  with
+    operator : Party
+    investor : Party
+  where
+    signatory operator
+    observer investor
+
+    key operator : Party
+    maintainer key

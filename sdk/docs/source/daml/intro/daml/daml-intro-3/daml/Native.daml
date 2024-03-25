@@ -1,0 +1,63 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Native where
+
+-- NATIVE_TEST_BEGIN
+import Daml.Script
+import DA.Time
+import DA.Date
+
+native_test = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  let
+    my_int = -123
+    my_dec = 0.001 : Decimal
+    my_text = "Alice"
+    my_bool = False
+    my_date = date 2020 Jan 01
+    my_time = time my_date 00 00 00
+    my_rel_time = hours 24
+
+  assert (alice /= bob)
+  assert (-my_int == 123)
+  assert (1000.0 * my_dec == 1.0)
+  assert (my_text == "Alice")
+  assert (not my_bool)
+  assert (addDays my_date 1 == date 2020 Jan 02)
+  assert (addRelTime my_time my_rel_time == time (addDays my_date 1) 00 00 00)
+-- NATIVE_TEST_END
+
+-- CASH_BALANCE_BEGIN
+template CashBalance
+  with
+    accountant : Party
+    currency : Text
+    amount : Decimal
+    owner : Party
+    account_number : Text
+    bank : Party
+    bank_address : Text
+    bank_telephone : Text
+  where
+    signatory accountant
+
+cash_balance_test = script do
+  accountant <- allocateParty "Bob"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bank of Bob"
+
+  submit accountant do
+    createCmd CashBalance with
+      accountant
+      currency = "USD"
+      amount = 100.0
+      owner = alice
+      account_number = "ABC123"
+      bank = bob
+      bank_address = "High Street"
+      bank_telephone = "012 3456 789"
+-- CASH_BALANCE_END
+

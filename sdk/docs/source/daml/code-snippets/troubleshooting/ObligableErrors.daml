@@ -1,0 +1,139 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module ObligableErrors where
+
+import Daml.Script
+
+
+template Payout
+  with
+    giver : Party
+    receiver : Party
+    amount : Decimal
+  where
+    signatory giver, receiver
+
+receiverCreates = script do
+  receiver <- allocateParty "Bob"
+  giver <- allocateParty "Alice"
+  submitMustFail receiver do createCmd Payout with giver; receiver; amount = 1000000.0
+
+giverCreates = script do
+  receiver <- allocateParty "Bob"
+  giver <- allocateParty "Alice"
+  submitMustFail giver do createCmd Payout with giver; receiver; amount = 1000000.0
+
+template CallablePayout
+  with
+    giver : Party
+    receiver : Party
+    amount : Decimal
+  where
+    signatory giver
+    observer receiver
+
+    choice CallablePayout_Call : ContractId Payout
+      controller receiver
+      do create Payout with giver; receiver; amount
+
+
+callPayout = script do
+  receiver <- allocateParty "Bob"
+  giver <- allocateParty "Alice"
+  callableId <- submit giver do
+    createCmd CallablePayout with giver; receiver; amount = 1000000.0
+  submit receiver do
+    exerciseCmd callableId CallablePayout_Call
+
+-- Parties from a choice
+{-
+template FlexiblePayout
+  with
+    giver : Party
+  where
+    signatory giver
+
+    choice FlexiblePayout_Call : ContractId Payout
+      with receiver: Party; amount : Decimal
+      controller giver
+      do create Payout with giver; receiver; amount
+-}
+
+-- Better - TransferablePayout
+template TransferablePayout
+  with
+    giver : Party
+    receiver : Party
+    amount : Decimal
+  where
+    signatory giver
+    observer receiver
+
+    choice TransferablePayout_Call : ContractId Payout
+      controller receiver
+      do create Payout with giver; receiver; amount
+
+    choice Transfer : ContractId TransferablePayout
+      with newReceiver : Party
+      controller receiver
+      do create this with receiver = newReceiver
+
+-- Party from a fetch; same as 'coming from a binding'
+{-
+template StealablePayout
+  with
+    receiver : Party
+    giver: Party
+    transferableId : ContractId TransferablePayout
+  where
+    signatory giver
+
+    controller receiver can
+      StealablePayout_Call
+        returning ContractId Payout
+        to do
+          transferable <- fetch transferableId
+          callableId <- transferable.receiver does
+            exercise transferableId Transfer with newReceiver = receiver
+          receiver does exercise callableId TransferablePayout_Call
+-}
+
+-- Complex Party expression
+{-
+def lastOne (x0 : Party) (xs : List Party) : Party =
+  let work = fun (_acc: Party) (x: Party) -> x
+  foldl work x0 xs;
+
+template LastOneOut
+  with
+    employees: List Party
+    janitor: Party
+  where
+    signatory janitor
+
+    controller (lastOne janitor employees) can
+      TurnOffTheLights
+        returning {}
+        to return {}
+-}
+
+-- Argument not serializable
+{-
+-- BEGIN_NOT_SERIALIZABLE_TEMPLATE
+template SupervisedPayout
+  with
+    supervisor : Party -> Party
+    receiver   : Party
+    giver      : Party
+    amount     : Decimal
+  where
+    signatory giver
+    observer (supervisor receiver)
+    choice SupervisedPayout_Call
+      : ContractId Payout
+      controller supervisor receiver
+      do create Payout with giver; receiver; amount
+-- END_NOT_SERIALIZABLE_TEMPLATE
+-}

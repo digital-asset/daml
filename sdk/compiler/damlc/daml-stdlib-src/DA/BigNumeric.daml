@@ -1,0 +1,128 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+
+#ifndef DAML_BIGNUMERIC
+
+-- | HIDE
+module DA.BigNumeric where
+
+#else
+
+-- | This module exposes `BigNumeric` type and the operations for working with it.
+module DA.BigNumeric (
+     BigNumeric
+   , RoundingMode(..)
+   , scale
+   , precision
+   , div
+   , round
+   , shiftRight
+   , shiftLeft
+   , roundToNumeric
+  ) where
+
+import GHC.Types ( 
+      primitive
+    , BigNumeric
+    , RoundingMode(..)
+  )
+import Prelude hiding (round)
+
+-- | Calculate the scale of a `BigNumeric` number. The `BigNumeric` number is
+-- represented as `n * 10^-s` where `n` is an integer with no trailing zeros,
+-- and `s` is the scale.
+--
+-- Thus, the scale represents the number of nonzero digits after the decimal point.
+-- Note that the scale can be negative if the `BigNumeric` represents an integer
+-- with trailing zeros. In that case, it represents the number of trailing zeros
+-- (negated).
+--
+-- The scale ranges between 2^15 and -2^15 + 1.
+-- The scale of `0` is `0` by convention.
+--
+-- ```
+-- >>> scale 1.1
+-- 1
+-- ```
+--
+-- ```
+-- >>> scale (shiftLeft (2^14) 1.0)
+-- -2^14
+-- ```
+scale : BigNumeric -> Int
+scale = primitive @"BEScaleBigNumeric"
+
+-- | Calculate the precision of a `BigNumeric` number. The `BigNumeric` number is
+-- represented as `n * 10^-s` where `n` is an integer with no trailing zeros,
+-- and `s` is the scale. The precision is the number of digits in `n`.
+--
+-- Thus, the precision represents the number of significant digits in the `BigNumeric`.
+--
+-- The precision ranges between 0 and 2^16 - 1.
+--
+-- ```
+-- >>> precision 1.10
+-- 2
+-- ```
+precision : BigNumeric -> Int
+precision = primitive @"BEPrecisionBigNumeric"
+
+-- | Calculate a division of `BigNumeric` numbers. The value of `div n r a b`
+-- is the division of `a` by `b`, rounded to `n` decimal places (i.e. scale),
+-- according to the rounding mode `r`.
+--
+-- This will fail when dividing by `0`, and when using the `RoundingUnnecessary`
+-- mode for a number that cannot be represented exactly with at most `n` decimal
+-- places.
+div : Int -> RoundingMode -> BigNumeric -> BigNumeric -> BigNumeric
+div = primitive @"BEDivBigNumeric"
+
+-- | Round a `BigNumeric` number. The value of `round n r a` is the value
+-- of `a` rounded to `n` decimal places (i.e. scale), according to the rounding
+-- mode `r`.
+--
+-- This will fail when using the `RoundingUnnecessary` mode for a number that cannot
+-- be represented exactly with at most `n` decimal places.
+round : Int -> RoundingMode -> BigNumeric -> BigNumeric
+round scale rounding x = div scale rounding x 1.0
+
+-- | Shift a `BigNumeric` number to the right by a power of 10. The value
+-- `shiftRight n a` is the value of `a` times `10^(-n)`.
+--
+-- This will fail if the resulting `BigNumeric` is out of bounds.
+--
+-- ```
+-- >>> shiftRight 2 32.0
+-- 0.32
+-- ```
+shiftRight : Int -> BigNumeric -> BigNumeric
+shiftRight = primitive @"BEShiftRightBigNumeric"
+
+-- | Shift a `BigNumeric` number to the left by a power of 10. The value
+-- `shiftLeft n a` is the value of `a` times `10^n`.
+--
+-- This will fail if the resulting `BigNumeric` is out of bounds.
+--
+-- ```
+-- >>> shiftLeft 2 32.0
+-- 3200.0
+-- ```
+shiftLeft : Int -> BigNumeric -> BigNumeric
+shiftLeft n x = shiftRight (-n) x
+
+-- | Round a `BigNumeric` and cast it to a `Numeric`. This function uses the
+-- scale of the resulting numeric to determine the scale of the rounding.
+--
+-- This will fail when using the `RoundingUnnecessary` mode if the `BigNumeric`
+-- cannot be represented exactly in the requested `Numeric n`.
+--
+-- ```
+-- >>> (roundToNumeric RoundingHalfUp 1.23456789 : Numeric 5)
+-- 1.23457
+-- ```
+roundToNumeric : forall n. NumericScale n => RoundingMode -> BigNumeric -> Numeric n
+roundToNumeric r x = fromBigNumeric (round (numericScale @n) r x)
+
+#endif

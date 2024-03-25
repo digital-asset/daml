@@ -1,22 +1,24 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 parameters:
 - name: name
 - name: assignment
 - name: job_name
+- name: test_mode
 
 jobs:
 - job: ${{parameters.job_name}}
   dependsOn:
     - check_for_release
-    - build_canton
   timeoutInMinutes: 240
   pool:
     name: macOS-pool
     demands: assignment -equals ${{parameters.assignment}}
-  condition: or(eq('${{parameters.name}}', 'macos'),
-                eq(variables['Build.SourceBranchName'], 'main'))
+  condition: and(succeeded(),
+                 or(eq('${{parameters.name}}', 'macos'),
+                    or(eq(variables['Build.SourceBranchName'], 'main'),
+                       eq(variables['Build.SourceBranchName'], 'main-2.x'))))
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -38,13 +40,15 @@ jobs:
         git checkout $(release_sha)
       name: checkout_release
       condition: and(succeeded(), eq(variables.is_release, 'true'))
-    - template: get-local-canton.yml
     - template: clean-up.yml
     - template: build-unix.yml
       parameters:
         release_tag: $(release_tag)
-        name: ${{parameters.name}}
+        name_str: ${{parameters.name}}
+        # Yes, these quotes are needed. Yes, I know.
+        name_exp: "'${{parameters.name}}'"
         is_release: variables.is_release
+        test_mode: ${{parameters.test_mode}}
     # Do not upload metrics for m1
     - ${{ if eq(parameters.name, 'macos') }}:
       - template: upload-bazel-metrics.yml

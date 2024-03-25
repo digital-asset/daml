@@ -1,0 +1,83 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Iou where
+
+type IouCid = ContractId Iou
+
+template Iou
+  with
+    issuer : Party
+    owner : Party
+    currency : Text
+    amount : Decimal
+    observers : [Party]
+  where
+    ensure amount > 0.0
+
+    signatory issuer, owner
+
+    observer observers
+
+    -- Split the IOU by dividing the amount.
+    choice Iou_Split : (IouCid, IouCid)
+      with splitAmount: Decimal
+      controller owner
+      do let restAmount = amount - splitAmount
+         splitCid <- create this with amount = splitAmount
+         restCid <- create this with amount = restAmount
+         return (splitCid, restCid)
+
+    -- Merge two IOUs by aggregating their amounts.
+    choice Iou_Merge : IouCid
+      with otherCid: IouCid
+      controller owner
+      do otherIou <- fetch otherCid
+         -- Check the two IOU's are compatible
+         assert (
+           currency == otherIou.currency &&
+           owner == otherIou.owner &&
+           issuer == otherIou.issuer
+           )
+         -- Retire the old Iou
+         archive otherCid
+         -- Return the merged Iou
+         create this with amount = amount + otherIou.amount
+
+    choice Iou_Transfer : ContractId IouTransfer
+      with newOwner : Party
+      controller owner
+      do create IouTransfer with iou = this; newOwner
+
+    choice Iou_AddObserver : IouCid
+      with newObserver : Party
+      controller owner
+      do create this with observers = newObserver :: observers
+
+    choice Iou_RemoveObserver : IouCid
+      with oldObserver : Party
+      controller owner
+      do create this with observers = filter (/= oldObserver) observers
+
+template IouTransfer
+  with
+    iou : Iou
+    newOwner : Party
+  where
+    signatory iou.issuer, iou.owner
+    observer newOwner
+
+    choice IouTransfer_Cancel : IouCid
+      controller iou.owner
+      do create iou
+
+    choice IouTransfer_Reject : IouCid
+      controller newOwner
+      do create iou
+
+    choice IouTransfer_Accept : IouCid
+      controller newOwner
+      do create iou with
+           owner = newOwner
+           observers = []

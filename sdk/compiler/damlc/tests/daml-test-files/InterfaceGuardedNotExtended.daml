@@ -1,0 +1,148 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @DOES-NOT-SUPPORT-LF-FEATURE DAML_INTERFACE_EXTENDED
+-- @ERROR Guarded exercises are only available with --target=1.dev
+
+module InterfaceGuardedNotExtended where
+import Daml.Script
+import DA.Exception (GeneralError (..), throwPure)
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface Token where
+  viewtype EmptyInterfaceView
+
+  getOwner : Party
+  getAmount : Int
+  setAmount : Int -> Token
+
+  choice GetRich : ContractId Token
+    with
+      byHowMuch : Int
+    controller getOwner this
+    do
+        assert (byHowMuch > 0)
+        create $ setAmount this (getAmount this + byHowMuch)
+
+interface SubToken requires Token where
+  viewtype EmptyInterfaceView
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory owner
+
+    interface instance Token for Asset where
+      view = EmptyInterfaceView
+      getOwner = owner
+      getAmount = amount
+      setAmount x = toInterface @Token (this with amount = x)
+
+template AnotherAsset
+  with
+    owner: Party
+    amount: Int
+  where
+    signatory owner
+    interface instance Token for AnotherAsset where
+      view = EmptyInterfaceView
+      getOwner = owner
+      getAmount = amount
+      setAmount x = toInterface @Token (this with amount = x)
+    interface instance SubToken for AnotherAsset where
+      view = EmptyInterfaceView
+
+exception GuardException
+    with
+        m : Text
+    where
+        message m
+
+assetAsTokenTpl : Party -> Token
+assetAsTokenTpl p =
+  toInterface @Token $
+    Asset with
+      issuer = p
+      owner = p
+      amount = 100
+
+getRich : GetRich
+getRich = GetRich with byHowMuch = 1000000
+
+template Test
+  with
+    p : Party
+  where
+    signatory p
+
+    nonconsuming choice TrueGuard : ()
+      controller p
+      do
+        assetAsToken <- create (assetAsTokenTpl p)
+        exerciseGuarded (const True) assetAsToken getRich
+        pure ()
+
+    nonconsuming choice FalseGuard : ()
+      controller p
+      do
+        -- Fail if guard returns False
+        assetAsToken <- create (assetAsTokenTpl p)
+        exerciseGuarded (const False) assetAsToken getRich
+        pure ()
+
+    nonconsuming choice ErrorGuard : ()
+      controller p
+      do
+        -- Fail if guard throws exception
+        assetAsToken <- create (assetAsTokenTpl p)
+        exerciseGuarded (\_ -> error "foo") assetAsToken getRich
+        pure ()
+
+    nonconsuming choice CustomErrorGuard : ()
+      controller p
+      do
+        -- Fail if guard throws custom exception
+        assetAsToken <- create (assetAsTokenTpl p)
+        exerciseGuarded (\_ -> throwPure (GuardException "bar")) assetAsToken getRich
+        pure ()
+
+    nonconsuming choice TryErrorGuard : ()
+      controller p
+      do
+        -- Fail if guard throws exception, even in `try-catch` block
+        assetAsToken <- create (assetAsTokenTpl p)
+        try do
+          exerciseGuarded (\_ -> error "foo") assetAsToken getRich
+        catch
+          GeneralError {} ->
+            pure $ toInterfaceContractId @Token assetAsToken
+        pure ()
+
+    nonconsuming choice TryCustomErrorGuard : ()
+      controller p
+      do
+        -- Fail if guard throws custom exception, even in `try-catch` block
+        assetAsToken <- create (assetAsTokenTpl p)
+        try do
+          exerciseGuarded (\_ -> throwPure (GuardException "bar")) assetAsToken getRich
+        catch
+          GuardException {} ->
+            pure $ toInterfaceContractId @Token assetAsToken
+        pure ()
+
+exerciseTest : Choice Test c () => c -> Script ()
+exerciseTest c = script do
+  p <- allocateParty "Alice"
+  p `submit` createAndExerciseCmd (Test p) c
+  pure ()
+
+trueGuard = exerciseTest TrueGuard
+falseGuard = exerciseTest FalseGuard
+errorGuard = exerciseTest ErrorGuard
+customErrorGuard = exerciseTest CustomErrorGuard
+tryErrorGuard = exerciseTest TryErrorGuard
+tryCustomErrorGuard = exerciseTest TryCustomErrorGuard

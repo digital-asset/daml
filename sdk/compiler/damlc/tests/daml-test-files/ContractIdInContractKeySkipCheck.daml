@@ -1,0 +1,109 @@
+-- Copyright (c) 2022, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- This tests that, if the contract id in contract key check is skipped by
+-- defining the type that contains a contract id in a separate module, the
+-- runtime check is still performed.
+
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+
+-- @ERROR range=41:1-41:17; Contract IDs are not supported in contract key
+-- @ERROR range=50:1-50:13; Contract IDs are not supported in contract key
+-- @ERROR range=56:1-56:19; Contract IDs are not supported in contract key
+-- @ERROR range=95:1-95:14; Contract IDs are not supported in contract key
+-- @ERROR range=99:1-99:13; Contract IDs are not supported in contract key
+-- @ERROR range=103:1-103:14; Contract IDs are not supported in contract key
+-- @ERROR range=107:1-107:16; Contract IDs are not supported in contract key
+
+module ContractIdInContractKeySkipCheck where
+
+import Daml.Script
+import ContractIdInContractKeySkipCheckType (ContractId'(..))
+
+template Contract with
+    party : Party
+  where
+    signatory party
+
+template ContractKeyWithCid with
+    party: Party
+    cid: ContractId Contract
+  where
+    signatory [party]
+
+    nonconsuming choice Noop : ()
+      controller party
+      do pure ()
+
+    key (party, ContractId' cid) : (Party, ContractId' Contract)
+    maintainer key._1
+
+createCmdCrashes = script do
+    alice <- allocateParty "Alice"
+    cid <- submit alice $ do
+      createCmd Contract with party = alice
+    submit alice $ do
+      createCmd ContractKeyWithCid with
+        party = alice
+        cid = cid
+
+queryCrashes = script do
+    alice <- allocateParty "Alice"
+    cid <- submit alice $ do
+          createCmd Contract with party = alice
+    queryContractKey @ContractKeyWithCid alice (alice, ContractId' cid)
+
+exerciseCmdCrashes = script do
+    alice <- allocateParty "Alice"
+    cid <- submit alice $ do
+          createCmd Contract with party = alice
+    submit alice $ do exerciseByKeyCmd @ContractKeyWithCid (alice, ContractId' cid) Noop
+
+template Test
+  with
+    p : Party
+  where
+    signatory p
+    choice CreateCrash : ()
+      controller p
+      do
+        cid <- create $ Contract p
+        create $ ContractKeyWithCid p cid
+        pure ()
+    
+    choice FetchCrash : ()
+      controller p
+      do
+        cid <- create $ Contract p
+        fetchByKey @ContractKeyWithCid (p, ContractId' cid)
+        pure ()
+    
+    choice LookupCrash : ()
+      controller p
+      do
+        cid <- create $ Contract p
+        lookupByKey @ContractKeyWithCid (p, ContractId' cid)
+        pure ()
+    
+    choice ExerciseCrash : ()
+      controller p
+      do
+        cid <- create $ Contract p
+        exerciseByKey @ContractKeyWithCid (p, ContractId' cid) Noop
+        pure ()
+
+createCrashes = script do
+  alice <- allocateParty "Alice"
+  alice `submit` createAndExerciseCmd (Test alice) CreateCrash
+
+fetchCrashes = script do
+  alice <- allocateParty "Alice"
+  alice `submit` createAndExerciseCmd (Test alice) FetchCrash
+
+lookupCrashes = script do
+  alice <- allocateParty "Alice"
+  alice `submit` createAndExerciseCmd (Test alice) LookupCrash
+
+exerciseCrashes = script do
+  alice <- allocateParty "Alice"
+  alice `submit` createAndExerciseCmd (Test alice) ExerciseCrash

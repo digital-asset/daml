@@ -1,0 +1,126 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+
+module Setup where
+
+import Daml.Script
+
+import Bond
+import Cash
+import Dvp
+import Helper
+
+import DA.Date
+import DA.Foldable
+
+data MarketSetupEntry = MarketSetupEntry
+  with
+    party : Party
+    bondEntries : [BondEntry]
+    cashEntries : [CashEntry]
+  deriving (Eq, Show)
+
+data BondEntry = BondEntry
+  with
+    isin : Text
+    amount : Decimal
+  deriving (Eq, Show)
+
+data CashEntry = CashEntry
+  with
+    currency : Text
+    amount : Decimal
+  deriving (Eq, Show)
+
+data MarketSetupResult = MarketSetupResult
+  with
+    party : Party
+    helperCid : HelperSetupJobId
+    bondCids : [BondTransferRequestId]
+    cashCids : [CashTransferRequestId]
+
+template MarketSetupJob
+  with
+    issuer : Party
+    entries : [MarketSetupEntry]
+  where
+    signatory issuer
+
+    choice Process : [MarketSetupResult]
+      controller issuer
+      do forA entries $ \mse -> do
+         helperCid <- create HelperSetupJob with issuer; party = mse.party
+
+         bondCids <- forA mse.bondEntries $ \be ->
+             create BondTransferRequest with
+                 issuer; newOwner = mse.party; owner = issuer
+                 isin = be.isin; amount = be.amount
+
+         cashCids <- forA mse.cashEntries $ \ce ->
+             create CashTransferRequest with
+                 issuer; receiver = mse.party
+                 owner = issuer
+                 currency = ce.currency; amount = ce.amount
+                 locker = issuer; lockMaturity = None
+
+         return MarketSetupResult with party = mse.party; helperCid; bondCids; cashCids
+
+type HelperSetupJobId = ContractId HelperSetupJob
+
+template HelperSetupJob
+  with
+    issuer : Party
+    party : Party
+  where
+    signatory issuer
+    observer party
+
+    choice Process2 : HelperId
+      controller party
+      do create Helper with party
+
+marketSetupEntryExample party = script do
+  party1 <- allocateParty party
+  return MarketSetupEntry with
+    party = party1
+    bondEntries = [ BondEntry with isin = "1234"; amount = 100.0 ]
+    cashEntries = [ CashEntry with currency = "USD"; amount = 100.0 ]
+
+marketSetupJobExample acme = script do
+  entries <- mapA marketSetupEntryExample ["party1", "party2", "party3", "party4", "party5"]
+  return MarketSetupJob with
+    issuer = acme
+    entries
+
+
+setupExample = script do
+  setDate 2018 May 14
+
+  acme <- allocateParty "Acme Bank"
+
+  job <- marketSetupJobExample acme
+  acme `submit` createCmd job
+
+  return ()
+
+setupExampleFull = script do
+  acme <- allocateParty "Acme Bank"
+
+  setDate 2018 May 14
+
+  job <- marketSetupJobExample acme
+  jobCid <- acme `submit` createCmd job
+
+  rs <- acme `submit` exerciseCmd jobCid Process
+
+  forA rs $ \r -> r.party `submit` do
+    exerciseCmd r.helperCid Process2
+    forA_ r.bondCids $ (flip exerciseCmd) Bond.Accept
+    forA_ r.cashCids $ (flip exerciseCmd) Cash.Accept
+    pure ()
+
+
+main = script do
+  setupExampleFull

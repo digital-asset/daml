@@ -1,0 +1,49 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "lf_scalacopts_stricter",
+)
+
+da_scala_library(
+    name = "it-lib",
+    srcs = glob(["src/main/**/*.scala"]),
+    data = [
+        "//canton:community_app_deploy.jar",
+        "//test-common/test-certificates",
+    ],
+    scala_deps = [
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    visibility = ["//visibility:public"],
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_ledger_ledger-common",
+        "//canton:community_util-logging",
+        "//daml-lf/data",
+        "//libs-scala/fs-utils",
+        "//libs-scala/jwt",
+        "//libs-scala/ledger-resources",
+        "//libs-scala/ports",
+        "//libs-scala/ports:ports-testing",
+        "//libs-scala/resources",
+        "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/scala-utils",
+        "//libs-scala/testing-utils",
+        "//libs-scala/timer-utils",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_netty_netty_handler",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)

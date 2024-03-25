@@ -1,0 +1,35 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Check where
+
+import MustChoose
+import Daml.Script
+import DA.Assert
+import DA.Date
+import DA.Time
+
+check =
+  script do
+    alice <- allocateParty "Alice"
+    acme <- allocateParty "Acme Corp"
+    let timeWindow = days 50
+    now <- getTime
+    let timeLimit = addRelTime now timeWindow
+    requestId <- submit alice do
+      createCmd RequestPayment with payer = acme; payee = alice
+    invoiceCid <- submit acme do
+      exerciseCmd requestId CreateInvoice with timeLimit; service = "A job well done"; amount = 130.0
+
+-- start snippet: query contract id
+    Some result <- alice `queryContractId` invoiceCid
+-- end snippet: query contract id
+-- start snippet: check contract contents
+    result === Invoice with
+      payee = alice
+      payer = acme
+      amount = 130.0
+      service = "A job well done"
+      timeLimit = datetime 1970 Feb 20 0 0 0
+-- end snippet: check contract contents

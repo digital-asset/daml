@@ -1,0 +1,84 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module TestChoiceAuthority where
+
+import Daml.Script
+
+
+
+template HasAuthority
+  with
+    party: Party
+  where
+    signatory party
+
+
+template ProposeConsortiumAuthority
+  with
+    proposer: Party
+    accepted: [Party]
+    obs: [Party]
+    consortiumParty: Party
+  where
+    signatory proposer, accepted
+    observer obs
+
+    choice Accept : ContractId ProposeConsortiumAuthority
+      with
+        who: Party
+      where
+        controller who
+      do
+        create this with accepted = who :: accepted
+
+    nonconsuming choice Ratify : ContractId HasAuthority
+      where
+        controller proposer
+      do
+        exercise self Ratify1
+
+    -- TODO: https://github.com/digital-asset/daml/issues/15882
+    -- Rework this example to be more convincing.
+
+    -- The example attempts to show how alice (the proposer) can restrict her authority.
+    -- via an explicit authority declaration in choice Ratify1, so that her authority is
+    -- not in scope in Ratify2. Unfortunately her authority is in scope anyway because she
+    -- is a signatory on the template that contains Ratify2.
+
+    nonconsuming choice Ratify1 : ContractId HasAuthority
+      where
+        controller proposer
+        authority accepted -- restrict authority
+      do
+        exercise self Ratify2
+
+    choice Ratify2 : ContractId HasAuthority
+      where
+        controller accepted
+        authority consortiumParty -- gain authority
+      do
+        create HasAuthority with party = consortiumParty
+
+
+test : Script ()
+test = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  charlie <- allocateParty "Charlie"
+
+  org <- allocateParty "TheOrg"
+
+  prop <- submit alice do
+    createCmd ProposeConsortiumAuthority with
+      proposer = alice
+      accepted = []
+      obs = [bob,charlie]
+      consortiumParty = org
+
+  prop <- submit bob do exerciseCmd prop Accept with who = bob
+  prop <- submit charlie do exerciseCmd prop Accept with who = charlie
+
+  submit alice do exerciseCmd prop Ratify
+
+  pure ()

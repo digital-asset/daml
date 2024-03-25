@@ -1,0 +1,694 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
+load("@os_info//:os_info.bzl", "is_windows")
+load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_test")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("@build_environment//:configuration.bzl", "mvn_version", "sdk_version")
+load("@scala_version//:index.bzl", "scala_major_version")
+load("//bazel_tools:scala.bzl", "da_scala_test")
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "LF_DEV_VERSIONS",
+    "LF_VERSIONS",
+    "lf_version_configuration",
+)
+
+exports_files(
+    [
+        "source/tools/export/output-root/Export.daml",
+        "source/tools/export/output-root/args.json",
+        "source/tools/export/output-root/daml.yaml",
+    ],
+)
+
+genrule(
+    name = "hoogle_db",
+    srcs = [
+        "//compiler/damlc:daml-base-hoogle.txt",
+        "//daml-script/daml:daml-script-hoogle.txt",
+    ],
+    outs = ["hoogle_db.tar.gz"],
+    cmd = """
+    mkdir hoogle
+    cp -L $(location //compiler/damlc:daml-base-hoogle.txt) hoogle/
+    cp -L $(location //daml-script/daml:daml-script-hoogle.txt) hoogle/
+    $(execpath //bazel_tools/sh:mktgz) $@ hoogle
+  """,
+    tools = ["//bazel_tools/sh:mktgz"],
+)
+
+genrule(
+    name = "index",
+    srcs = [":sources"],
+    outs = ["index.rst"],
+    cmd = """
+set -euo pipefail
+
+DIR=$$(mktemp -d)
+mkdir -p $$DIR/docs
+tar xf $(location :sources) -C $$DIR/docs
+cat << EOF >> $@
+Daml Files
+----------
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 0
+   :hidden:
+
+   self
+$$(cd $$DIR/docs/source; find . -name \\*.rst | sed 's:\\./\\(.*\\).rst:    \\1 <\\1>:')
+
+Canton References
+-----------------
+
+.. toctree::
+   canton-refs
+EOF
+    """,
+)
+
+genrule(
+    name = "sources",
+    srcs = glob(["source/**"]) + [
+        "//compiler/damlc:daml-base-rst.tar.gz",
+        "//daml-script/daml:daml-script-rst.tar.gz",
+        "//canton:ledger-api-docs",
+        "//:LICENSE",
+        "//:NOTICES",
+        ":generate-docs-error-codes-inventory-into-rst-file",
+        ":generate-docs-error-categories-inventory-into-rst-file",
+    ],
+    outs = ["source.tar.gz"],
+    cmd = """
+        cp -rL docs/source source
+
+        # Copy in error inventories
+        #
+        # These files are meant to be only included into other .rst files and so
+        # in order to prevent Sphinx from recognizing them as source files
+        # we append an '.inc' suffix. (See `source_suffix` in `conf.py`.)
+        cp -L -- $(location //docs:generate-docs-error-codes-inventory-into-rst-file)      source/app-dev/grpc/error-codes-inventory.rst.inc
+        cp -L -- $(location //docs:generate-docs-error-categories-inventory-into-rst-file) source/app-dev/grpc/error-categories-inventory.rst.inc
+
+        # Copy in Stdlib
+        mkdir -p source/daml/stdlib
+        tar xf $(location //compiler/damlc:daml-base-rst.tar.gz) \\
+            --strip-components 1 \\
+            -C source/daml/stdlib
+
+        # Copy in daml-script documentation
+        mkdir -p source/daml-script/api/
+        tar xf $(location //daml-script/daml:daml-script-rst.tar.gz) \\
+            --strip-components 1 \\
+            -C source/daml-script/api/
+
+        # Copy in Protobufs
+        cp -rL $(location //canton:ledger-api-docs) source/app-dev/grpc/proto-docs.rst
+
+        # Copy in License and Notices
+        cp -L $(location //:LICENSE) source/LICENSE
+        cp -L $(location //:NOTICES) source/NOTICES
+
+        $(execpath //bazel_tools/sh:mktgz) $@ source
+    """,
+    tools = ["//bazel_tools/sh:mktgz"],
+)
+
+genrule(
+    name = "sphinx-source-tree-deps",
+    srcs = [
+        "configs/static/pygments_daml_lexer.py",
+        "configs/static/typescript.py",
+        "configs/html/conf.py",
+        "configs/pdf/conf.py",
+        "configs/pdf/logo.png",
+        "//templates:templates-tarball",
+        ":generate-docs-error-codes-inventory-into-rst-file",
+        ":generate-docs-error-categories-inventory-into-rst-file",
+        "//compiler/damlc:daml-base-rst.tar.gz",
+        "//daml-script/daml:daml-script-rst.tar.gz",
+        "//canton:ledger-api-docs",
+        "//:LICENSE",
+        "//:NOTICES",
+    ],
+    outs = ["sphinx-source-tree-deps.tar.gz"],
+    cmd = """
+    set -eou pipefail
+    DIR=$$(mktemp -d)
+    trap "rm -rf $$DIR" EXIT
+
+    mkdir -p $$DIR/deps/configs/{{static,pdf,html}}
+    cp $(location configs/static/pygments_daml_lexer.py) $$DIR/deps/configs/static
+    cp $(location configs/static/typescript.py) $$DIR/deps/configs/static
+    cp $(location configs/html/conf.py) $$DIR/deps/configs/html
+    cp $(location configs/pdf/conf.py) $$DIR/deps/configs/pdf
+    cp $(location configs/pdf/logo.png) $$DIR/deps/configs/pdf
+
+    cp $(location //templates:templates-tarball) $$DIR/deps/
+
+    cp -L -- $(location //docs:generate-docs-error-codes-inventory-into-rst-file) $$DIR/deps/
+    cp -L -- $(location //docs:generate-docs-error-categories-inventory-into-rst-file) $$DIR/deps/
+    cp $(location //compiler/damlc:daml-base-rst.tar.gz) $$DIR/deps/
+    cp $(location //daml-script/daml:daml-script-rst.tar.gz) $$DIR/deps/
+    cp -L $(location //canton:ledger-api-docs) $$DIR/deps/
+    cp -L $(location //:LICENSE) $$DIR/deps/
+    cp -L $(location //:NOTICES) $$DIR/deps/
+
+    MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
+    OUT_PATH=$$PWD/$@
+    cd $$DIR
+    $$MKTGZ $$OUT_PATH deps
+  """.format(sdk = sdk_version),
+    tools = [
+        "//bazel_tools/sh:mktgz",
+    ],
+) if not is_windows else None
+
+genrule(
+    name = "sphinx-source-tree",
+    srcs = [
+        "configs/static/pygments_daml_lexer.py",
+        "configs/static/typescript.py",
+        "configs/html/conf.py",
+        "configs/pdf/conf.py",
+        "configs/pdf/logo.png",
+        ":index",
+        ":sources",
+        "//templates:templates-tarball",
+    ],
+    outs = ["sphinx-source-tree.tar.gz"],
+    cmd = """
+    set -eou pipefail
+    DIR=$$(mktemp -d)
+    trap "rm -rf $$DIR" EXIT
+    mkdir -p $$DIR/docs
+
+    mkdir -p $$DIR/docs/configs/static $$DIR/docs/configs/html $$DIR/docs/configs/pdf/fonts
+    cp $(location configs/static/pygments_daml_lexer.py) $$DIR/docs/configs/static
+    cp $(location configs/static/typescript.py) $$DIR/docs/configs/static
+
+    tar xf $(location :sources) -C $$DIR/docs
+
+    cp $(location configs/html/conf.py) $$DIR/docs/configs/html
+    cp $(location configs/pdf/conf.py) $$DIR/docs/configs/pdf
+    sed -i "s,__VERSION__,"{sdk}"," $$DIR/docs/configs/html/conf.py
+    sed -i "s,__VERSION__,"{sdk}"," $$DIR/docs/configs/pdf/conf.py
+    cp $(location index) $$DIR/docs/source/index.rst
+
+    cp $(location configs/pdf/logo.png) $$DIR/docs/configs/pdf
+
+    # Copy templates for code snippets in getting started guide
+    CODE_DIR=$$DIR/docs/source/getting-started/code/
+    mkdir -p $$CODE_DIR
+    tar -zxf $(location //templates:templates-tarball) -C $$CODE_DIR
+
+    TEMPLATES_DIR=$$DIR/docs/source/_templates
+    mkdir -p $$TEMPLATES_DIR
+    tar xf $(location //templates:templates-tarball) -C $$TEMPLATES_DIR --strip-components=1
+
+    MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
+    OUT_PATH=$$PWD/$@
+    cd $$DIR
+    $$MKTGZ $$OUT_PATH docs
+  """.format(sdk = sdk_version),
+    tools = [
+        "//bazel_tools/sh:mktgz",
+    ],
+) if not is_windows else None
+
+filegroup(
+    name = "pdf-fonts",
+    srcs = glob(["configs/pdf/fonts/**"]) + ["@freefont//:fonts"],
+)
+
+pkg_tar(
+    name = "pdf-fonts-tar",
+    srcs = [":pdf-fonts"],
+    extension = "tar.gz",
+)
+
+genrule(
+    name = "non-sphinx-html-docs",
+    srcs = [
+        ":hoogle_db.tar.gz",
+        "//language-support/java:javadoc",
+        "//language-support/ts/daml-react:docs",
+        "//language-support/ts/daml-ledger:docs",
+        "//language-support/ts/daml-types:docs",
+        "@daml-cheat-sheet//:site",
+        ":redirects",
+        "error.html",
+    ],
+    outs = ["non-sphinx-html-docs.tar.gz"],
+    cmd = """
+    set -eou pipefail
+    DIR=$$(mktemp -d)
+    trap "rm -rf DIR" EXIT
+    mkdir -p $$DIR/html/app-dev/bindings-java/javadocs
+
+    # Copy Javadoc using unzip to avoid having to know the path to the 'jar' binary. Note flag to overwrite
+    unzip -q -o $(locations //language-support/java:javadoc) -d $$DIR/html/app-dev/bindings-java/javadocs
+    # Remove JAR metadata
+    rm -r $$DIR/html/app-dev/bindings-java/javadocs/META-INF
+
+    # Copy generated documentation for typescript libraries
+    mkdir -p $$DIR/html/app-dev/bindings-ts/daml-react
+    mkdir -p $$DIR/html/app-dev/bindings-ts/daml-ledger
+    mkdir -p $$DIR/html/app-dev/bindings-ts/daml-types
+    tar -xzf $(location //language-support/ts/daml-react:docs) --strip-components 1 -C $$DIR/html/app-dev/bindings-ts/daml-react/
+    tar -xzf $(location //language-support/ts/daml-ledger:docs) --strip-components 1 -C $$DIR/html/app-dev/bindings-ts/daml-ledger/
+    tar -xzf $(location //language-support/ts/daml-types:docs) --strip-components 1 -C $$DIR/html/app-dev/bindings-ts/daml-types/
+
+    # Get the daml cheat sheet
+    mkdir -p $$DIR/html/cheat-sheet
+    tar -xzf $(location @daml-cheat-sheet//:site) --strip-components 1 -C $$DIR/html/cheat-sheet
+
+    # Copy in hoogle DB
+    cp -L $(location :hoogle_db.tar.gz) $$DIR/html/hoogle_db.tar.gz
+
+    echo {{ \\"{version}\\" : \\"{version}\\" }} > $$DIR/html/versions.json
+    cp $(location :error.html) $$DIR/html/
+    tar xf $(location :redirects) --strip-components=1 -C $$DIR/html
+
+    MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
+    OUT_PATH=$$PWD/$@
+    cd $$DIR
+    $$MKTGZ $$OUT_PATH html
+  """.format(version = sdk_version),
+    tools = ["//bazel_tools/sh:mktgz"],
+) if not is_windows else None
+
+genrule(
+    name = "redirects",
+    srcs = [
+        "redirects.map",
+        "redirect_template.html",
+    ],
+    outs = ["redirects.tar.gz"],
+    cmd = """
+        mkdir redirects
+        while read l; do
+            from=$$(awk -F' -> ' '{print $$1}' <<<$$l)
+            to=$$(awk -F' -> ' '{print $$2}' <<<"$$l")
+            if [ $$to ]
+            then
+                mkdir -p redirects/$$(dirname $$from)
+                cp -L docs/redirect_template.html redirects/$$from
+                sed -i -e "s,__URL__,$${to}," redirects/$$from
+            fi
+        done <docs/redirects.map
+        $(execpath //bazel_tools/sh:mktgz) $@ redirects
+    """,
+    tools = ["//bazel_tools/sh:mktgz"],
+)
+
+filegroup(
+    name = "daml-assistant-iou-setup",
+    srcs = glob(
+        ["source/app-dev/bindings-java/quickstart/template-root/*"],
+        # excluding quickstart-java stuff
+        exclude = [
+            "source/app-dev/bindings-java/quickstart/template-root/src",
+            "source/app-dev/bindings-java/quickstart/template-root/pom.xml",
+        ],
+        exclude_directories = 0,
+    ),
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "quickstart-java",
+    srcs = glob(["source/app-dev/bindings-java/quickstart/template-root/**"]),
+    outs = ["quickstart-java.tar.gz"],
+    cmd = """
+        set -eou pipefail
+        TMP_DIR=$$(mktemp -d)
+        trap "rm -rf $$TMP_DIR" EXIT
+        mkdir -p $$TMP_DIR/quickstart-java
+        cp -rL docs/source/app-dev/bindings-java/quickstart/template-root/* $$TMP_DIR/quickstart-java/
+        sed -i "s/__VERSION__/{mvn}/" $$TMP_DIR/quickstart-java/pom.xml
+        $(execpath //bazel_tools/sh:mktgz) $@ -C $$TMP_DIR quickstart-java
+    """.format(mvn = mvn_version),
+    tools = ["//bazel_tools/sh:mktgz"],
+    visibility = ["//visibility:public"],
+)
+
+load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
+
+genrule(
+    name = "quickstart-model",
+    srcs = [
+        "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/Main.daml",
+        "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/Iou.daml",
+        "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/IouTrade.daml",
+        "//daml-script/daml:daml-script.dar",
+    ],
+    outs = ["quickstart-model.dar"],
+    cmd = """
+      set -eou pipefail
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/Main.daml) $$TMP_DIR/daml/
+      cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/Iou.daml) $$TMP_DIR/daml/
+      cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/IouTrade.daml) $$TMP_DIR/daml/
+      cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
+      cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: {sdk}
+name: quickstart-model
+source: daml
+version: 0.0.1
+dependencies:
+  - daml-stdlib
+  - daml-prim
+  - daml-script.dar
+build-options: ["--ghc-option", "-Werror"]
+EOF
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location quickstart-model.dar)
+      rm -rf $$TMP_DIR
+    """.format(sdk = sdk_version),
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+dar_to_java(
+    name = "quickstart-model-java",
+    src = "quickstart-model.dar",
+    package_prefix = "com.daml.quickstart.model",
+)
+
+java_binary(
+    name = "quickstart-java-lib",
+    srcs = glob(["source/app-dev/bindings-java/quickstart/template-root/src/main/java/**/*.java"]) + [":quickstart-model-java-src.jar"],
+    main_class = "com.daml.quickstart.iou.IouMain",
+    deps = [
+        "//canton:bindings-java",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//language-support/java/bindings-rxjava",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_google_code_gson_gson",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_sparkjava_spark_core",
+        "@maven//:io_reactivex_rxjava2_rxjava",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+daml_test(
+    name = "ledger-api-daml-test",
+    srcs = glob(["source/app-dev/code-snippets/**/*.daml"]),
+    # TODO(https://github.com/digital-asset/daml/issues/18457): remove contract keys from the
+    #  docs, delete the explicit target, and revert the daml-script.dar to the non-dev version.
+    target = "2.dev",
+    deps = ["//daml-script/daml3:daml3-script-2.dev.dar"],
+)
+
+daml_test(
+    name = "bindings-java-daml-test",
+    srcs = glob(["source/app-dev/bindings-java/code-snippets/**/*.daml"]),
+    enable_interfaces = True,
+    # FIXME: https://github.com/digital-asset/daml/issues/12051
+    #  remove target, once interfaces are stable.
+    target = lf_version_configuration.get("latest"),
+)
+
+daml_test(
+    name = "patterns-daml-test",
+    srcs = glob(["source/daml/patterns/daml/**/*.daml"]),
+    deps = ["//daml-script/daml:daml-script.dar"],
+)
+
+pkg_tar(
+    name = "daml-patterns",
+    srcs = glob(["source/daml/patterns/daml/**/*.daml"]) + ["source/daml/patterns/daml.yaml.template"],
+    strip_prefix = "/docs/source/daml/patterns",
+    visibility = ["//visibility:public"],
+)
+
+daml_test(
+    name = "daml-studio-daml-test",
+    srcs = glob(["source/daml/daml-studio/daml/**/*.daml"]),
+    deps = ["//daml-script/daml:daml-script.dar"],
+)
+
+daml_test(
+    name = "daml-ref-daml-test",
+    timeout = "long",
+    srcs = glob(["source/daml/code-snippets/**/*.daml"]),
+    # TODO(https://github.com/digital-asset/daml/issues/18457): remove contract keys from the
+    #  docs, delete the explicit target, and revert the daml-script.dar to the non-dev version.
+    target = "2.dev",
+    deps = ["//daml-script/daml3:daml3-script-2.dev.dar"],
+)
+
+[
+    daml_test(
+        name = "daml-ref-daml-test-{}".format(version),
+        timeout = "long",
+        srcs = glob(["source/daml/code-snippets-dev/**/*.daml"]),
+        enable_interfaces = True,
+        target = version,
+    )
+    for version in LF_DEV_VERSIONS
+]
+
+daml_test(
+    name = "introduction-daml-test",
+    srcs = glob(["source/getting-started/introduction/code/**/*.daml"]),
+)
+
+daml_test(
+    name = "quickstart-daml-test",
+    srcs = glob(
+        include = ["source/app-dev/bindings-java/quickstart/template-root/daml/**/*.daml"],
+    ),
+    deps = ["//daml-script/daml:daml-script.dar"],
+)
+
+daml_test(
+    name = "ledger-model-daml-test",
+    srcs = glob(["source/concepts/ledger-model/daml/**/*.daml"]),
+    deps = ["//daml-script/daml:daml-script.dar"],
+)
+
+daml_test(
+    name = "java-bindings-docs-daml-test",
+    srcs = glob(["source/app-dev/bindings-java/daml/**/*.daml"]),
+)
+
+daml_test(
+    name = "daml-intro-daml-test-excl-8-9-10-12-13",
+    srcs = glob(
+        ["source/daml/intro/daml/**/*.daml"],
+        exclude = [
+            "source/daml/intro/daml/daml-intro-8/**",
+            "source/daml/intro/daml/daml-intro-9/**",
+            "source/daml/intro/daml/daml-intro-10/**",
+            "source/daml/intro/daml/daml-intro-12-part1/**",
+            "source/daml/intro/daml/daml-intro-12-part2/**",
+            "source/daml/intro/daml/daml-intro-13/**",
+        ],
+    ),
+    # TODO(https://github.com/digital-asset/daml/issues/18457): remove contract keys from the
+    #  docs, delete the explicit target, and revert the daml-script.dar to the non-dev version.
+    target = "2.dev",
+    deps = ["//daml-script/daml3:daml3-script-2.dev.dar"],
+)
+
+daml_test(
+    name = "daml-intro-daml-13-test",
+    srcs = glob(
+        ["source/daml/intro/daml/daml-intro-13/**/*.daml"],
+    ),
+    enable_interfaces = True,
+    target = "2.1",
+    deps = ["//daml-script/daml:daml-script-2.1.dar"],
+)
+
+daml_test(
+    name = "daml-intro-daml-12-part1-test",
+    srcs = glob(
+        ["source/daml/intro/daml/daml-intro-12-part1/**/*.daml"],
+    ),
+    enable_interfaces = True,
+    target = "2.1",
+    deps = ["//daml-script/daml:daml-script-2.1.dar"],
+)
+
+daml_compile(
+    name = "daml-intro12-part1",
+    srcs = glob(
+        ["source/daml/intro/daml/daml-intro-12-part1/**/*.daml"],
+    ),
+    dependencies = ["//daml-script/daml:daml-script-2.1.dar"],
+    enable_interfaces = True,
+    target = "2.1",
+)
+
+daml_test(
+    name = "daml-intro-daml-12-part2-test",
+    srcs = glob(
+        ["source/daml/intro/daml/daml-intro-12-part2/**/*.daml"],
+    ),
+    data_deps = ["daml-intro12-part1.dar"],
+    enable_interfaces = True,
+    target = "2.1",
+    deps = ["//daml-script/daml:daml-script-2.1.dar"],
+)
+
+daml_test(
+    name = "daml-intro-daml-10-test",
+    srcs = glob(
+        ["source/daml/intro/daml/daml-intro-10/**/*.daml"],
+    ),
+    additional_compiler_flags = ["--ghc-option=-Wwarn=incomplete-patterns"],
+    deps = ["//daml-script/daml:daml-script.dar"],
+)
+
+daml_test(
+    name = "daml-intro-9-daml-test",
+    srcs = glob(["source/daml/intro/daml/daml-intro-9/**/*.daml"]),
+    data_deps = [":daml-intro-7.dar"],
+    deps = ["//daml-script/daml:daml-script.dar"],
+)
+
+[
+    daml_test(
+        name = "daml-intro-8-daml-test-{}".format(version),
+        srcs = glob(["source/daml/intro/daml/daml-intro-8/**/*.daml"]),
+        target = version,
+        deps = ["//daml-script/daml:daml-script-{}.dar".format(version)],
+    )
+    for version in LF_DEV_VERSIONS
+]
+
+daml_build_test(
+    name = "daml-intro-7",
+    daml_yaml = ":daml-intro-7.yaml",
+    dar_dict = {
+        "//daml-script/daml:daml-script.dar": "daml-script.dar",
+    },
+    project_dir = "source/daml/intro/daml/daml-intro-7",
+)
+
+daml_build_test(
+    name = "daml-upgrade-example-v1",
+    dar_dict = {
+        "//daml-script/daml:daml-script.dar": "daml-script.dar",
+    },
+    project_dir = "source/upgrade/example/carbon-1.0.0",
+)
+
+daml_build_test(
+    name = "daml-upgrade-example-v2",
+    project_dir = "source/upgrade/example/carbon-2.0.0",
+)
+
+daml_build_test(
+    name = "daml-upgrade-example-upgrade",
+    dar_dict = {
+        ":daml-upgrade-example-v1": "path/to/carbon-1.0.0.dar",
+        ":daml-upgrade-example-v2": "path/to/carbon-2.0.0.dar",
+    },
+    project_dir = "source/upgrade/example/carbon-upgrade",
+)
+
+daml_build_test(
+    name = "daml-upgrade-example-extend",
+    dar_dict = {
+        ":daml-upgrade-example-v1": "path/to/carbon-1.0.0.dar",
+    },
+    project_dir = "source/upgrade/example/carbon-label",
+)
+
+daml_build_test(
+    name = "daml-upgrade-example-upgrade-script",
+    dar_dict = {
+        ":daml-upgrade-example-v1": "path/to/carbon-1.0.0.dar",
+        ":daml-upgrade-example-v2": "path/to/carbon-2.0.0.dar",
+        ":daml-upgrade-example-upgrade": "path/to/carbon-upgrade-1.0.0.dar",
+        "//daml-script/daml:daml-script.dar": "daml-script.dar",
+    },
+    project_dir = "source/upgrade/example/carbon-initiate-upgrade",
+)
+
+filegroup(
+    name = "daml-intro-1",
+    srcs = glob(
+        ["source/daml/intro/daml/1_Token/**/*"],
+        # excluding quickstart-java stuff
+        exclude = [
+            "source/app-dev/bindings-java/quickstart/template-root/src",
+            "source/app-dev/bindings-java/quickstart/template-root/pom.xml",
+        ],
+        exclude_directories = 0,
+    ),
+    visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "daml-intro-templates",
+    srcs = glob(["source/daml/intro/daml/**"]),
+    strip_prefix = "source/daml/intro/daml",
+    visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "script-example-template",
+    srcs = glob(
+        ["source/daml-script/template-root/**"],
+        exclude = ["**/*~"],
+    ),
+    strip_prefix = "source/daml-script/template-root",
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "generate-error-codes-json",
+    srcs = [],
+    outs = ["error_codes_export.json"],
+    cmd = "$(location //ledger/error/generator:export-error-codes-json-app) $(location error_codes_export.json)",
+    tools = ["//ledger/error/generator:export-error-codes-json-app"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "generate-docs-error-codes-inventory-into-rst-file",
+    srcs = [],
+    outs = ["error-codes-inventory.rst"],
+    cmd = "$(location //ledger/error/generator:generate-docs-error-codes-inventory-app) $(location error-codes-inventory.rst)",
+    tools = ["//ledger/error/generator:generate-docs-error-codes-inventory-app"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "generate-docs-error-categories-inventory-into-rst-file",
+    srcs = [],
+    outs = ["error-categories-inventory.rst"],
+    cmd = "$(location //ledger/error/generator:generate-docs-error-categories-inventory-app) $(location error-categories-inventory.rst)",
+    tools = ["//ledger/error/generator:generate-docs-error-categories-inventory-app"],
+    visibility = ["//visibility:public"],
+)
+
+exports_files([
+    "source/daml-script/template-root/src/ScriptExample.daml",
+])
+
+da_scala_test(
+    name = "generated-error-pages-are-up-to-date",
+    srcs = glob(["src/test/**/*.scala"]),
+    resources = glob(["resources/**/*"]),
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+    ],
+    deps = [
+        "//ledger/error/generator:lib",
+        "@maven//:commons_io_commons_io",
+    ],
+) if not is_windows else None

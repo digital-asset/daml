@@ -1,0 +1,226 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+module Main where
+
+import DA.Action
+import DA.List
+
+-- INCREMENT_BEGIN
+increment : Int -> Int
+increment n = n + 1
+-- INCREMENT_END
+
+
+-- ADD_SIG_BEGIN
+add : Additive a => a -> a -> a
+-- ADD_SIG_END
+
+-- ADD_BEGIN
+add n m = n + m
+-- ADD_END
+
+-- ADD2_BEGIN
+add2 : Additive a => a -> a -> a
+add2 = (+)
+-- ADD2_END
+
+-- INFIX_BEGIN
+three = 1 `add` 2
+-- INFIX_END
+
+-- INCREMENT2_BEGIN
+increment2 = add 1
+-- INCREMENT2_END
+
+-- INFIX2_BEGIN
+increment3 = (1 +)
+double = (* 2)
+-- INFIX2_END
+
+-- UNCURRY_SIG_BEGIN
+uncurry : (a -> b -> c) -> (a, b) -> c
+-- UNCURRY_SIG_END
+
+-- UNCURRY_BEGIN
+uncurry1 f t = f t._1 t._2
+
+uncurry2 f t = case t of
+  (x, y) -> f x y
+
+uncurry f (x, y) = f x y
+-- UNCURRY_END
+
+-- FROM_SOME_BEGIN
+fromSome : Optional a -> a
+fromSome (Some x) = x
+-- FROM_SOME_END
+
+-- FUNCTION_IN_DATA_BEGIN
+data Predicate a = Predicate with
+  test : a -> Bool
+-- FUNCTION_IN_DATA_END
+
+-- BOOL_TO_INT_BEGIN
+boolToInt b = case b of
+  True -> 1
+  False -> 0
+-- BOOL_TO_INT_END
+
+-- BOOL_TO_INT2_BEGIN
+boolToInt2 b = if b
+  then 1
+  else 0
+-- BOOL_TO_INT2_END
+
+-- TEXT_TO_BOOL_BEGIN
+doError t = case t of
+  "True" -> True
+  "False" -> False
+  _ -> error ("Not a Bool: " <> t)
+-- TEXT_TO_BOOL_END
+
+-- IFELSE_BEGIN
+ifelse b t e = if b then t else e
+boom = ifelse True 1 (error "Boom")
+-- IFELSE_END
+
+{-
+-- TYPE_ERROR_BEGIN
+typeError b = if b
+  then 1
+  else "a"
+-- TYPE_ERROR_END
+-}
+
+-- INT_OR_TEXT_BEGIN
+intOrText : Bool -> Either Int Text
+intOrText b = if b
+  then Left 1
+  else Right "a"
+-- INT_OR_TEXT_END
+
+-- S_T_BEGIN
+template T
+  with
+    p : Party
+  where
+    signatory p
+
+template S
+  with
+    p : Party
+  where
+    signatory p
+-- S_T_END
+
+{-
+-- TYPE_ERROR2_BEGIN
+typeError b p = if b
+  then create T with p
+  else create S with p
+-- TYPE_ERROR2_END
+-}
+
+-- S_OR_T_BEGIN
+ifThenSElseT1 b p = if b
+  then do
+    cid <- create S with p
+    return (Left cid)
+  else do
+    cid <- create T with p
+    return (Right cid)
+
+ifThenSElseT2 b p = if b
+  then do
+    create S with p
+    return ()
+  else do
+    create T with p
+    return ()
+-- S_OR_T_END
+
+-- VOID_BEGIN
+ifThenSElseT3 b p = if b
+  then void (create S with p)
+  else void (create T with p)
+-- VOID_END
+
+-- CUSTOM_WHEN_BEGIN
+conditionalS b p = if b
+  then void (create S with p)
+  else return ()
+-- CUSTOM_WHEN_END
+
+-- WHEN_BEGIN
+conditionalS2 b p = when b (void (create S with p))
+-- WHEN_END
+
+-- MAGIC_WHEN_BEGIN
+noop : Update () = when False (error "Foo")
+-- MAGIC_WHEN_END
+
+-- TELL_SIZE_BEGIN
+tellSize : Int -> Text
+tellSize d
+  | d < 0 = "Negative"
+  | d == 0 = "Zero"
+  | d == 1 = "Non-Zero"
+  | d < 10 = "Small"
+  | d < 100 = "Big"
+  | d < 1000 = "Huge"
+  | otherwise = "Enormous"
+-- TELL_SIZE_END
+
+-- SUM_BEGIN
+sum ints = foldl (+) 0 ints
+-- SUM_END
+
+-- SUM_ARR_BEGIN
+sumArrs : [Int] -> [Int] -> [Int]
+sumArrs arr1 arr2 =
+  let l = min (length arr1) (length arr2)
+      sumAtI i = (arr1 !! i) + (arr2 !! i)
+   in foldl (\state i -> (sumAtI i) :: state) [] [1..(l-1)]
+-- SUM_ARR_END
+
+-- SUM_ARR2_BEGIN
+sumArrs2 arr1 arr2 = foldl (\state (x, y) -> (x + y) :: state) [] (zip arr1 arr2)
+-- SUM_ARR2_END
+
+-- SUM_ARR3_BEGIN
+sumArrs3 arr1 arr2 = map (\(x, y) -> (x + y)) (zip arr1 arr2)
+-- SUM_ARR3_END
+
+-- REVERSE_BEGIN
+reverseWorker rev rem = case rem of
+  [] -> rev
+  x::xs -> reverseWorker (x::rev) xs
+reverse xs = reverseWorker [] xs
+-- REVERSE_END
+
+-- MAPA_BEGIN
+mapA f xs = sequence (map f xs)
+-- MAPA_END
+
+-- IMPLEMENTATIONS_BEGIN
+foldlA2 fn init xs =
+  let
+    work accA x = do
+      acc <- accA
+      fn acc x
+   in foldl work (pure init) xs
+
+mapA2 fn xs =
+  let
+    work ys x = do
+      y <- fn x
+      return (y :: ys)
+   in foldlA2 work [] xs
+
+sequence2 actions =
+  let
+    work ys action = do
+      y <- action
+      return (y :: ys)
+   in foldlA2 work [] actions
+-- IMPLEMENTATIONS_END

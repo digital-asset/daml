@@ -1,0 +1,57 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module IAsset where
+
+-- DATA_VASSET_DEF_BEGIN
+data VAsset = VAsset with
+    issuer : Party
+    owner : Party
+    description : Text
+  deriving (Eq, Ord, Show)
+-- DATA_VASSET_DEF_END
+
+-- INTERFACE_IASSET_DEF_BEGIN
+interface IAsset
+  where
+    viewtype VAsset
+
+    setOwner : Party -> IAsset
+    toTransferProposal : Party -> IAssetTransferProposal
+
+    choice ProposeIAssetTransfer : ContractId IAssetTransferProposal
+      with newOwner : Party
+      controller (view this).owner
+      do
+        create (toTransferProposal this newOwner)
+-- INTERFACE_IASSET_DEF_END
+
+-- DATA_VASSET_TF_DEF_BEGIN
+data VAssetTransferProposal = VAssetTransferProposal with
+    assetView : VAsset
+    newOwner : Party
+  deriving (Eq, Ord, Show)
+-- DATA_VASSET_TF_DEF_END
+
+-- INTERFACE_IASSET_TF_DEF_BEGIN
+interface IAssetTransferProposal
+  where
+    viewtype VAssetTransferProposal
+
+    asset : IAsset
+
+    choice AcceptIAssetTransferProposal : ContractId IAsset
+      controller (view this).newOwner
+      do
+        create $ setOwner (asset this) (view this).newOwner
+
+    choice RejectIAssetTransferProposal : ContractId IAsset
+      controller (view this).newOwner
+      do
+        create (asset this)
+
+    choice WithdrawIAssetTransferProposal : ContractId IAsset
+      controller (view (asset this)).owner
+      do
+        create (asset this)
+-- INTERFACE_IASSET_TF_DEF_END

@@ -1,0 +1,65 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @ SCRIPT-V2
+-- @ WARN range=12:1-12:28; Import of internal module Daml.Script.Internal of package daml3-script is discouraged, as this module will change without warning.
+
+{-# LANGUAGE ApplicativeDo #-}
+
+module TryCommands where
+
+import Daml.Script
+import Daml.Script.Internal
+import DA.Assert
+import DA.Text
+
+template Name
+  with
+    party : Party
+  where
+    signatory party
+
+-- Throws the failed auth error, a script we use for testing
+-- Takes a unit to avoid it being run directly
+failedAuthScript : () -> Script ()
+failedAuthScript _ = do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  a `submit` createCmd Name with party = b
+  pure ()
+
+-- The error we expect to be thrown from the above script
+failedAuthError : FailedCmd
+failedAuthError =
+  FailedCmd with
+    commandName = CommandName "Submit"
+    errorClassName = ErrorClassName "FailedAuthorization"
+    errorMessage = ErrorMessage "Error: node NodeId(0) (-homePackageId-:TryCommands:Name) requires authorizers bob, but only alice were given"
+
+-- Tests an error that is nested into SError
+tryCommandsAuthorizationFailure : Script ()
+tryCommandsAuthorizationFailure = do
+  res <- tryCommands $ failedAuthScript ()
+  res === Left failedAuthError
+
+tryCommandsContractNotActive : Script ()
+tryCommandsContractNotActive = do
+  res <- tryCommands $ do
+    a <- allocateParty "alice"
+    cid <- a `submit` createCmd Name with party = a
+    a `submit` archiveCmd cid
+    a `submit` archiveCmd cid
+  case res of
+    Left cmd
+      | cmd.commandName == CommandName "Submit"
+      , cmd.errorClassName == ErrorClassName "ContractNotActive"
+      , "The contract had been consumed in transaction" `isInfixOf` cmd.errorMessage.getErrorMessage
+      -> pure ()
+    _ -> assertFail $ "Expected ContractNotActive error but got " <> show res
+
+-- Check that the lifted error can be caught
+liftedFailedCmdException : Script ()
+liftedFailedCmdException = do
+  try
+    liftFailedCommandToException $ failedAuthScript ()
+  catch (e : FailedCmd) -> e === failedAuthError

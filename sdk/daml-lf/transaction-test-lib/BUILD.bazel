@@ -1,0 +1,34 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "kind_projector_plugin",
+    "lf_scalacopts_stricter",
+)
+
+da_scala_library(
+    name = "transaction-test-lib",
+    srcs = glob(["src/main/**/*.scala"]),
+    plugins = [
+        kind_projector_plugin,
+    ],
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    tags = ["maven_coordinates=com.daml:daml-lf-transaction-test-lib:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-lf/api-type-signature",
+        "//daml-lf/data",
+        "//daml-lf/data-scalacheck",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)

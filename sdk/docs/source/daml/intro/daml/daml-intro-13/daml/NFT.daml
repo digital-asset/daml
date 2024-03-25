@@ -1,0 +1,70 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module NFT where
+
+import IAsset
+
+template NFT
+  with
+    issuer : Party
+    owner : Party
+    url : Text
+  where
+    signatory issuer, owner
+
+    choice ProposeNFTTransfer : ContractId NFTTransferProposal
+      with newOwner : Party
+      controller owner
+      do
+        create NFTTransferProposal with
+          nft = this
+          newOwner = newOwner
+
+    interface instance IAsset for NFT where
+      view = VAsset with
+        issuer
+        owner
+        description = show @NFT this
+
+      setOwner newOwner =
+        toInterface @IAsset $
+          this with
+            owner = newOwner
+
+      toTransferProposal newOwner =
+        toInterface @IAssetTransferProposal $
+          NFTTransferProposal with
+            nft = this
+            newOwner
+
+template NFTTransferProposal
+  with
+    nft : NFT
+    newOwner : Party
+  where
+    signatory (signatory nft)
+    observer newOwner
+
+    choice AcceptNFTTransferProposal : ContractId NFT
+      controller newOwner
+      do
+        create nft with
+          owner = newOwner
+
+    choice RejectNFTTransferProposal : ContractId NFT
+      controller newOwner
+      do
+        create nft
+
+    choice WithdrawNFTTransferProposal : ContractId NFT
+      controller nft.owner
+      do
+        create nft
+
+    interface instance IAssetTransferProposal for NFTTransferProposal where
+      view = VAssetTransferProposal with
+        assetView = view (toInterface @IAsset nft)
+        newOwner
+
+      asset = toInterface @IAsset nft

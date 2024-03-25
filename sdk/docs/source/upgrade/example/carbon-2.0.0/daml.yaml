@@ -1,0 +1,12 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+sdk-version: 0.0.0
+# BEGIN
+name: carbon
+version: 2.0.0
+dependencies:
+  - daml-prim
+  - daml-stdlib
+# END
+source: .

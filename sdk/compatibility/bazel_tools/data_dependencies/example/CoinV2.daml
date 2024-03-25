@@ -1,0 +1,14 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- COIN_AMOUNT_BEGIN
+module CoinV2 where
+
+template CoinWithAmount
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory issuer, owner
+-- COIN_AMOUNT_END

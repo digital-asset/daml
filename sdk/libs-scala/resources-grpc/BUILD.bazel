@@ -1,0 +1,43 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_test_suite")
+
+da_scala_library(
+    name = "resources-grpc",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.daml:resources-grpc:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "//libs-scala/resources",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_netty_netty_common",
+        "@maven//:io_netty_netty_transport",
+    ],
+)
+
+da_scala_test_suite(
+    name = "test",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    resource_strip_prefix = "libs-scala/resources-grpc/src/test/resources/",
+    resources = [
+        ":src/test/resources/logback-test.xml",
+    ],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        ":resources-grpc",
+        "//libs-scala/resources",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_inprocess",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_grpc_grpc_services",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_netty_netty_common",
+        "@maven//:io_netty_netty_transport",
+    ],
+)

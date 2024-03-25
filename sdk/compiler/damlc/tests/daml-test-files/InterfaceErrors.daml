@@ -1,0 +1,54 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module InterfaceErrors where
+
+import Daml.Script
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface MyInterface where
+    viewtype EmptyInterfaceView
+    myVirtualChoiceImpl : Update ()
+    choice MyVirtualChoice : ()
+        controller [] : [Party]
+        do
+            myVirtualChoiceImpl this
+
+template MyTemplate
+    with
+        p : Party
+    where
+        signatory p
+
+template Test
+    with
+        p : Party
+    where
+        signatory p
+        choice CoercedFetch : ()
+            controller p
+            do
+                cid <- create (MyTemplate p)
+                let cid' : ContractId MyInterface = coerceContractId cid
+                fetch cid'
+                pure ()
+
+        choice CoercedExercise : ()
+            controller p
+            do
+                cid <- create (MyTemplate p)
+                let cid' : ContractId MyInterface = coerceContractId cid
+                exercise cid' MyVirtualChoice
+                pure ()
+
+-- @ERROR range=47:1-47:17; Attempt to use a contract via an interface that the contract does not implement
+fetchBadContract = script do
+    p <- allocateParty "Alice"
+    p `submit` do createAndExerciseCmd (Test p) CoercedFetch
+
+-- @ERROR range=52:1-52:20; Attempt to use a contract via an interface that the contract does not implement
+exerciseBadContract = script do
+    p <- allocateParty "Alice"
+    p `submit` do createAndExerciseCmd (Test p) CoercedExercise

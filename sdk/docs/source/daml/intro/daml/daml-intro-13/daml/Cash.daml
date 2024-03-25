@@ -1,0 +1,87 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Cash where
+
+import IAsset
+
+-- TEMPLATE_CASH_DEF_BEGIN
+template Cash
+  with
+    issuer : Party
+    owner : Party
+    currency : Text
+    amount : Decimal
+  where
+    signatory issuer, owner
+    ensure amount > 0.0
+
+    choice ProposeCashTransfer : ContractId CashTransferProposal
+      with newOwner : Party
+      controller owner
+      do
+        create CashTransferProposal with
+          cash = this
+          newOwner = newOwner
+-- TEMPLATE_CASH_DEF_END
+
+-- INTERFACE_INSTANCE_IASSET_FOR_CASH_BEGIN
+    interface instance IAsset for Cash where
+      view = VAsset with
+        issuer
+        owner
+        description = show @Cash this
+
+      setOwner newOwner =
+        toInterface @IAsset $
+          this with
+            owner = newOwner
+
+      toTransferProposal newOwner =
+        toInterface @IAssetTransferProposal $
+          CashTransferProposal with
+            cash = this
+            newOwner
+-- INTERFACE_INSTANCE_IASSET_FOR_CASH_END
+
+-- TEMPLATE_CASH_TF_DEF_BEGIN
+template CashTransferProposal
+  with
+    cash : Cash
+    newOwner : Party
+  where
+    signatory (signatory cash)
+    observer newOwner
+
+    choice AcceptCashTransferProposal : ContractId Cash
+      controller newOwner
+      do
+        create cash with
+          owner = newOwner
+
+    -- Note that RejectCashTransferProposal and WithdrawCashTransferProposal are
+    -- almost identical except for the controller - the "recipient" (the new
+    -- owner) can reject the proposal, while the "sender" (the old owner) can
+    -- withdraw the proposal if the recipient hasn't accepted it already. The
+    -- effect in either case is the same: the CashTransferProposal contract is
+    -- archived and a new Cash contract is created with the same contents as the
+    -- original, but with a new ContractId on the ledger.
+    choice RejectCashTransferProposal : ContractId Cash
+      controller newOwner
+      do
+        create cash
+
+    choice WithdrawCashTransferProposal : ContractId Cash
+      controller cash.owner
+      do
+        create cash
+-- TEMPLATE_CASH_TF_DEF_END
+
+-- INTERFACE_INSTANCE_IASSET_TF_FOR_CASH_TF_BEGIN
+    interface instance IAssetTransferProposal for CashTransferProposal where
+      view = VAssetTransferProposal with
+        assetView = view (toInterface @IAsset cash)
+        newOwner
+
+      asset = toInterface @IAsset cash
+-- INTERFACE_INSTANCE_IASSET_TF_FOR_CASH_TF_END

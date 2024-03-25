@@ -1,0 +1,53 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Exceptions where
+
+import DA.Exception
+
+template Error
+  with
+    p : Party
+    msg : Text
+  where
+    signatory p
+
+-- BEGIN_EXCEPTION
+exception MyException
+  with
+    field1 : Int
+    field2 : Text
+  where
+    message "MyException(" <> show field1 <> ", " <> show field2 <> ")"
+-- END_EXCEPTION
+
+template Test with
+    p : Party
+  where
+    signatory p
+    choice C : ContractId Error
+      controller p
+      do
+-- BEGIN_TRY
+         try do
+           _ <- create (T p)
+           throw MyException with
+             field1 = 0
+             field2 = "42"
+         catch
+           (MyException field1 field2) ->
+             create Error with
+               p = p
+               msg = "MyException"
+           (ArithmeticError _) ->
+             create Error with
+               p = p
+               msg = "ArithmeticError"
+-- END_TRY
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+

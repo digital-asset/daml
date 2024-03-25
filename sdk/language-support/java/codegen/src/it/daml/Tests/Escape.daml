@@ -1,0 +1,59 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Tests.Escape where
+-- In this module we test that the codegen runs successfully for "poisonous" models with
+-- java reserved names in various places
+
+--------------------
+-- Records
+--------------------
+-- * java reserved names as type parameter names
+-- * java reserved names as field names
+data EscapeRecords int void synchronized = EscapeRecords
+    with
+        int : int
+        void : void
+        synchronized : synchronized
+  deriving (Eq, Show)
+
+--------------------
+-- Variants
+--------------------
+-- * java reserved names as type parameter names
+-- * java reserved names as type for the constructor
+-- * java reserved names as field name and type
+data EscapeVariants abstract new = New new
+                                 | Abstract abstract
+                                 | VarRecord with abstract : abstract; new : new
+  deriving (Eq, Show)
+
+
+data FieldVsPackage = FieldVsPackage
+    with
+        -- The field name is the same as the (lowercased) package name of the field type.
+        -- Ensure that generated Java does not get confused by "obscuring".
+        -- https://docs.oracle.com/javase/specs/jls/se7/html/jls-6.html#jls-6.4.2
+        tests: EscapeRecords () () ()
+  deriving (Eq, Show)
+
+--------------------
+-- Templates
+--------------------
+-- * java reserved names as field names
+-- * java reserved names as choice field names
+template EscapeTemplates
+    with
+        int : Int
+        owner : Party
+        r : EscapeRecords () () ()
+        v : EscapeVariants () ()
+        p : FieldVsPackage
+    where
+        signatory owner
+
+        choice Void : ()
+            with switch : ()
+            controller owner
+            do return ()

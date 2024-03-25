@@ -1,0 +1,13 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+// start snippet
+message Foo {
+  string field_with_primitive_type = 1;
+  Bar field_with_message_type = 2;
+}
+
+message Bar {
+  repeated int64 repeated_field_inside_bar = 1;
+}
+// end snippet

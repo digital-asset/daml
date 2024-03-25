@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 parameters:
@@ -23,6 +23,8 @@ steps:
            -H 'Content-type: application/json' \
            --data "{\"text\":\"$WARNING\n\"}" \
            $(Slack.ci-failures-daml)
+    name: tell_slack_failed
     condition: and(failed(),
                    or(eq(variables['Build.SourceBranchName'], 'main'),
+                      eq(variables['Build.SourceBranchName'], 'main-2.x'),
                       startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))

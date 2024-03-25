@@ -1,0 +1,306 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module MultiKeys where
+
+import DA.Assert
+import DA.Exception (throw)
+import DA.Optional
+
+exception E
+  where
+    message "E"
+
+template Keyed
+  with
+    p : Party
+  where
+    signatory p
+    key p : Party
+    maintainer key
+
+-- All these tests operate under the assumption that there
+-- exists two global contracts with the same key `p` and one
+-- of those will always be returned by fetch/lookup-by-key at
+-- the beginning of the choice.
+-- All choices here are accepted in non-uck (unique contract key) mode.
+-- Behavior in uck-mode is documented in comments.
+-- Note that uck-mode here refers to the uck mode in the engine
+-- (not yet implemented, TODO(MK) remove this comment once it is) which only detects
+-- a subset of unique key errors.
+-- Note: At the moment, we do not provide any stability guarantees for
+-- non-uck at this point so these tests serve only as an indication of the
+-- current behavior and can be changed freely.
+template KeyOperations
+  with
+    p : Party
+  where
+    signatory p
+
+    -- should be rejected in uck
+    nonconsuming choice CreateOverwritesLocal : ()
+      controller p
+      do cid1 <- create (Keyed p)
+         cid2 <- create (Keyed p)
+         (cid, _) <- fetchByKey @Keyed p
+         cid2 === cid
+
+    -- should be accepted in uck
+    nonconsuming choice CreateOverwritesUnknownGlobal : ()
+      controller p
+      do -- assume the global exists but do not fetch it
+         cid1 <- create (Keyed p)
+         (cid, _) <- fetchByKey @Keyed p
+         cid1 === cid
+
+    -- should be rejected in uck
+    nonconsuming choice CreateOverwritesKnownGlobal : ()
+      controller p
+      do _ <- fetchByKey @Keyed p
+         cid1 <- create (Keyed p)
+         (cid, _) <- fetchByKey @Keyed p
+         cid1 === cid
+
+    -- should be accepted in uck, cid not fetched by key
+    nonconsuming choice FetchDoesNotOverwriteGlobal : ()
+      with
+        cid : ContractId Keyed
+      controller p
+      do (cidByKey, _) <- fetchByKey @Keyed p
+         cid =/= cidByKey -- sanity-check the choice argument
+         c <- fetch cid
+         key c === p
+         (cidByKey', _) <- fetchByKey @Keyed p
+         cidByKey' === cidByKey
+
+    -- should be accepted in uck, cid not fetched by key
+    nonconsuming choice FetchDoesNotOverwriteLocal : ()
+      with
+        cid : ContractId Keyed
+      controller p
+      do local <- create (Keyed p)
+         c <- fetch cid
+         key c === p
+         (cid', _) <- fetchByKey @Keyed p
+         local === cid'
+
+    -- should be accepted in uck
+    nonconsuming choice LocalArchiveOverwritesUnknownGlobal : ()
+      controller p
+      do local <- create (Keyed p)
+         archive local
+         None <- lookupByKey @Keyed p
+         pure ()
+
+    -- should be rejected in uck
+    nonconsuming choice LocalArchiveOverwritesKnownGlobal : ()
+      controller p
+      do _ <- fetchByKey @Keyed p
+         local <- create (Keyed p)
+         archive local
+         None <- lookupByKey @Keyed p
+         pure ()
+
+    -- Should be accepted in uck
+    nonconsuming choice GlobalArchiveOverwritesUnknownGlobal : ()
+      with
+        cid1 : ContractId Keyed
+        cid2 : ContractId Keyed
+      controller p
+      do cid1 =/= cid2
+         c1 <- fetch cid1
+         key c1 === p
+         c2 <- fetch cid2
+         key c2 === p
+         archive cid1
+         None <- lookupByKey @Keyed p
+         pure ()
+
+    -- should be accepted in uck
+    nonconsuming choice GlobalArchiveOverwritesKnownGlobal1 : ()
+      with
+        cid1 : ContractId Keyed
+        cid2 : ContractId Keyed
+      controller p
+      do cid1 =/= cid2
+         c1 <- fetch cid1
+         key c1 === p
+         c2 <- fetch cid2
+         key c2 === p
+         (keyCid, _) <- fetchByKey @Keyed p
+         assert (keyCid `elem` [cid1, cid2])
+         archive (fromSome (find (/= keyCid) [cid1, cid2]))
+         -- archive can only influence result for a contract fetched by key before.
+         Some keyCid' <- lookupByKey @Keyed p
+         keyCid' === keyCid
+         pure ()
+
+    -- should be accepted in uck
+    nonconsuming choice GlobalArchiveOverwritesKnownGlobal2 : ()
+      with
+        cid1 : ContractId Keyed
+        cid2 : ContractId Keyed
+      controller p
+      do cid1 =/= cid2
+         c1 <- fetch cid1
+         key c1 === p
+         c2 <- fetch cid2
+         key c2 === p
+         (keyCid, _) <- fetchByKey @Keyed p
+         assert (keyCid `elem` [cid1, cid2])
+         archive keyCid
+         None <- lookupByKey @Keyed p
+         pure ()
+
+    -- should be rejected in uck
+    nonconsuming choice RollbackCreateNonRollbackFetchByKey : ()
+      controller p
+      do cid1 <- fetchByKey @Keyed p
+         try do
+           cid <- create (Keyed p)
+           (cid', _) <- fetchByKey @Keyed p
+           cid === cid'
+           throw E
+         catch E -> pure ()
+         cid2 <- fetchByKey @Keyed p
+         cid1 === cid2
+
+    -- should be rejected in uck
+    nonconsuming choice RollbackFetchByKeyRollbackCreateNonRollbackFetchByKey : ()
+      controller p
+      do try do
+          cid <- fetchByKey @Keyed p
+          throw E
+         catch E -> pure ()
+         try do
+           cid <- create (Keyed p)
+           (cid', _) <- fetchByKey @Keyed p
+           cid === cid'
+           throw E
+         catch E -> pure ()
+         cid2 <- fetchByKey @Keyed p
+         pure ()
+         -- cid1 === cid2
+
+    -- should be rejected in uck
+    nonconsuming choice RollbackFetchByKeyNonRollbackCreate : ()
+      controller p
+      do try do
+           _ <- fetchByKey @Keyed p
+           throw E
+         catch E -> pure ()
+         cid <- create (Keyed p)
+         (cid', _) <- fetchByKey @Keyed p
+         cid === cid'
+
+    -- should be accepted in uck
+    nonconsuming choice RollbackFetchNonRollbackCreate : ()
+      with
+        cid : ContractId Keyed
+      controller p
+      do try do
+           c <- fetch cid
+           key c === p
+           throw E
+         catch E -> pure ()
+         cid <- create (Keyed p)
+         (cid', _) <- fetchByKey @Keyed p
+         cid === cid'
+
+    -- should be accepted in uck, fetch and archive not by key.
+    nonconsuming choice RollbackGlobalArchiveNonRollbackCreate : ()
+      with
+        cid : ContractId Keyed
+      controller p
+      do try do
+           c <- fetch cid
+           key c === p
+           archive cid
+           throw E
+         catch E -> pure ()
+         cid <- create (Keyed p)
+         (cid', _) <- fetchByKey @Keyed p
+         cid === cid'
+
+    -- should be accepted in uck, fetch and archive not by key
+    nonconsuming choice RollbackCreateNonRollbackGlobalArchive : ()
+      with
+        cid : ContractId Keyed
+      controller p
+      do try do
+           create (Keyed p)
+           throw E
+         catch E -> pure ()
+         c <- fetch cid
+         key c === p
+         archive cid
+         None <- lookupByKey @Keyed p
+         pure ()
+
+    -- should be accepted in uck, archive not for an active key.
+    nonconsuming choice RollbackGlobalArchiveUpdates : ()
+      with
+        cid1 : ContractId Keyed
+        cid2 : ContractId Keyed
+      controller p
+      do (cid', _) <- fetchByKey @Keyed p
+         cid1 === cid'
+         try do
+           archive cid2
+           throw E
+         catch
+           E -> pure ()
+         (cid', _) <- fetchByKey @Keyed p
+         cid1 === cid'
+
+     -- should be accepted in uck, regression test for https://github.com/digital-asset/daml/pull/14080
+    nonconsuming choice RollbackGlobalArchivedLookup : ()
+        with
+          cid: ContractId Keyed
+        controller p
+        do
+          archive cid
+          try do
+            None <- lookupByKey @Keyed p
+            throw E
+          catch E -> pure ()
+          None <- lookupByKey @Keyed p
+          pure ()
+
+    -- should be accepted in uck, regression test for https://github.com/digital-asset/daml/pull/14080
+    choice RollbackGlobalArchivedCreate : ()
+      with
+        cid : ContractId Keyed
+      controller p
+      do archive cid
+         try do
+           None <- lookupByKey @Keyed p
+           throw E
+         catch
+           E -> pure ()
+         create (Keyed p)
+         pure ()
+
+    choice RollbackExerciseCreateFetchByKey: ()
+      with  cid : ContractId Keyed
+      controller p
+      do
+        try do
+          exercise cid Archive
+          create (Keyed p)
+          throw E
+        catch E -> pure ()
+        fetchByKey @Keyed p
+        pure ()
+
+    choice RollbackExerciseCreateLookup: ()
+      with  cid : ContractId Keyed
+      controller p
+      do
+        try do
+          exercise cid Archive
+          create (Keyed p)
+          throw E
+        catch E -> pure ()
+        result <- lookupByKey @Keyed p
+        result === Some cid

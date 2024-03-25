@@ -1,0 +1,13 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+-- @ERROR range=13:3-13:7; Interface methods with name `view` are disallowed.
+
+-- | Check that error is thrown if method with name `view` is declared
+module InterfaceMethodNamedView where
+
+data UnitPlaceholderView = UnitPlaceholderView
+
+interface I where
+  view : UnitPlaceholderView

@@ -1,9 +1,0 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
--- SPDX-License-Identifier: Apache-2.0
-
--- start snippet: enum example
-
-module Com.Acme.Enum where
-
-data Color = Red | Blue | Green
--- end snippet: enum example

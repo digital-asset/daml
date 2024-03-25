@@ -1,0 +1,555 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | List
+module DA.List
+  ( breakEnd
+  , breakOn
+  , breakOnEnd
+  , combinePairs
+  , dedup
+  , dedupBy
+  , dedupOn
+  , dedupSort
+  , dedupSortBy
+  , dropPrefix
+  , dropSuffix
+  , dropWhileEnd
+  , foldBalanced1
+  , group
+  , groupBy
+  , groupOn
+  , inits
+  , intercalate
+  , intersperse
+  , isInfixOf
+  , isPrefixOf
+  , isSuffixOf
+  , linesBy
+  , mapAccumL
+  , mergeBy
+  , replace
+  , sort
+  , sortBy
+  , minimumBy
+  , maximumBy
+  , sortOn
+  , minimumOn
+  , maximumOn
+  , stripPrefix
+  , stripSuffix
+  , stripInfix
+  , tails
+  , takeWhileEnd
+  , transpose
+  , wordsBy
+
+  , reverse
+  , lookup
+  , foldl
+  , foldr
+  , find
+  , length
+  , any
+  , all
+  , or
+  , and
+  , elem
+  , notElem
+  , (++)
+  , concat
+  , concatMap
+  , replicate
+  , take
+  , drop
+  , splitAt
+  , takeWhile
+  , dropWhile
+  , span
+  , break
+  , zip
+  , zip3
+  , zipWith
+  , zipWith3
+  , unzip
+  , unzip3
+  , null
+  , filter
+
+  , head
+  , tail
+  , last
+  , init
+  , (!!)
+  , foldl1
+  , foldr1
+  , delete
+  , deleteBy
+  , (\\)
+  , singleton
+
+  , repeatedly
+  , chunksOf
+
+  , elemIndex
+  , findIndex
+
+  , unique
+  , uniqueBy
+  , uniqueOn
+  )
+where
+
+import DA.Optional
+import DA.Tuple
+
+-- | The `sort` function implements a stable sorting algorithm. It is
+-- a special case of `sortBy`, which allows the programmer to supply
+-- their own comparison function.
+--
+-- Elements are arranged from lowest to highest, keeping duplicates in
+-- the order they appeared in the input (a stable sort).
+sort : Ord a => [a] -> [a]
+sort = sortBy compare
+
+-- | The `sortBy` function is the non-overloaded version of `sort`.
+sortBy : (a -> a -> Ordering) -> [a] -> [a]
+sortBy _ [] = []
+sortBy cmp xs = foldBalanced1 (mergeBy cmp) (map (:: []) xs)
+
+-- | `minimumBy f xs` returns the first element `x` of `xs` for which `f x y`
+-- is either `LT` or `EQ` for all other `y` in `xs`. `xs` must be non-empty.
+minimumBy : (a -> a -> Ordering) -> [a] -> a
+minimumBy _ [] = error "minimumBy: empty list"
+minimumBy f (x::xs) = foldl keep_min x xs
+  where keep_min acc e = case f acc e of
+                           LT -> acc
+                           EQ -> acc
+                           GT -> e
+
+-- | `maximumBy f xs` returns the first element `x` of `xs` for which `f x y`
+-- is either `GT` or `EQ` for all other `y` in `xs`. `xs` must be non-empty.
+maximumBy : (a -> a -> Ordering) -> [a] -> a
+maximumBy _ [] = error "maximumBy: empty list"
+maximumBy f (x::xs) = foldl keep_max x xs
+  where keep_max acc e = case f acc e of
+                           LT -> e
+                           EQ -> acc
+                           GT -> acc
+
+-- | Sort a list by comparing the results of a key function applied to
+-- each element. `sortOn f` is equivalent to `sortBy (comparing f)`,
+-- but has the performance advantage of only evaluating `f` once for
+-- each element in the input list. This is sometimes called the
+-- decorate-sort-undecorate paradigm.
+--
+-- Elements are arranged from from lowest to highest, keeping
+-- duplicates in the order they appeared in the input.
+sortOn : Ord k => (a -> k) -> [a] -> [a]
+sortOn f = map snd . sortBy (compare `on` fst) . map (\x -> (f x, x))
+  where
+    on op f x y = f x `op` f y
+
+-- | `minimumOn f xs` returns the first element `x` of `xs` for which `f x`
+-- is smaller than or equal to any other `f y` for `y` in `xs`. `xs` must be
+-- non-empty.
+minimumOn : Ord k => (a -> k) -> [a] -> a
+minimumOn _ [] = error "minimumOn: empty list"
+minimumOn f (x::xs) = fst $ foldl keep_min (x, f x) xs
+  where keep_min (m, km) e = let ke = f e
+                             in if ke < km
+                                then (e, ke)
+                                else (m, km)
+
+-- | `maximumOn f xs` returns the first element `x` of `xs` for which `f x`
+-- is greater than or equal to any other `f y` for `y` in `xs`. `xs` must be
+-- non-empty.
+maximumOn : Ord k => (a -> k) -> [a] -> a
+maximumOn _ [] = error "maximumOn: empty list"
+maximumOn f (x::xs) = fst $ foldl keep_max (x, f x) xs
+  where keep_max (m, km) e = let ke = f e
+                             in if ke > km
+                                then (e, ke)
+                                else (m, km)
+
+-- | Merge two sorted lists using into a single, sorted whole, allowing
+-- the programmer to specify the comparison function.
+mergeBy : (a -> a -> Ordering) -> [a] -> [a] -> [a]
+mergeBy _ [] ys = ys
+mergeBy _ xs [] = xs
+mergeBy cmp (x :: xs) (y :: ys) =
+  case cmp x y of
+    GT -> y :: mergeBy cmp (x :: xs) ys
+    _ -> x :: mergeBy cmp xs (y :: ys)  -- LT but also EQ in order for sort to be stable.
+
+-- | Combine elements pairwise by means of a programmer supplied
+-- function from two list inputs into a single list.
+combinePairs : (a -> a -> a) -> [a] -> [a]
+combinePairs _ [] = []
+combinePairs _ [x] = [x]
+combinePairs f (x1 :: x2 :: xs) = f x1 x2 :: combinePairs f xs
+
+-- | Fold a non-empty list in a balanced way. Balanced means that each
+-- element has approximately the same depth in the operator
+-- tree. Approximately the same depth means that the difference
+-- between maximum and minimum depth is at most 1. The accumulation
+-- operation must be associative and commutative in order to get the
+-- same result as `foldl1` or `foldr1`.
+foldBalanced1 : (a -> a -> a) -> [a] -> a
+foldBalanced1 _ [] = error "foldBalanced1: empty list"
+foldBalanced1 _ [x] = x
+foldBalanced1 f xs = foldBalanced1 f (combinePairs f xs)
+
+-- | The 'group' function groups equal elements into sublists such
+-- that the concatenation of the result is equal to the argument.
+group : Eq a => [a] -> [[a]]
+group = groupBy (==)
+
+-- | The 'groupBy' function is the non-overloaded version of 'group'.
+groupBy : (a -> a -> Bool) -> [a] -> [[a]]
+groupBy _  []     = []
+groupBy eq (x::xs) = (x::ys) :: groupBy eq zs
+  where
+    (ys,zs) = span (eq x) xs
+
+-- | Similar to 'group', except that the equality is done on an
+-- extracted value.
+groupOn : Eq k => (a -> k) -> [a] -> [[a]]
+groupOn _ [] = []
+groupOn f (x::xs) =
+    let k = f x
+        (ys, zs) = span ((k ==) . f) xs
+    in  (x :: ys) :: groupOn f zs
+
+-- | `dedup l` removes duplicate elements from a list. In particular,
+-- it keeps only the first occurrence of each element. It is a
+-- special case of `dedupBy`, which allows the programmer to supply
+-- their own equality test.
+-- `dedup` is called `nub` in Haskell.
+dedup : Ord a => [a] -> [a]
+dedup = dedupBy compare
+
+-- | A version of `dedup` with a custom predicate.
+dedupBy : (a -> a -> Ordering) -> [a] -> [a]
+dedupBy cmp xs =
+  let
+    indexed = zip xs [1..length xs]
+    comp x y = cmp (fst x) (fst y)
+    deduped = dedupSortBy comp indexed
+    sorted = sortOn snd deduped
+  in map fst sorted
+
+-- | A version of `dedup` where deduplication is done
+-- after applyng function. Example use: `dedupOn (.employeeNo) employees`
+dedupOn : Ord k => (a -> k) -> [a] -> [a]
+dedupOn f = map snd . dedupBy (compare `on` fst) . map (\x -> (f x, x))
+  where
+    on op f x y = f x `op` f y
+
+-- | The `dedupSort` function sorts and removes duplicate elements from a
+-- list. In particular, it keeps only the first occurrence of each
+-- element.
+dedupSort : Ord a => [a] -> [a]
+dedupSort = dedupSortBy compare
+
+-- | A version of `dedupSort` with a custom predicate.
+dedupSortBy : (a -> a -> Ordering) -> [a] -> [a]
+dedupSortBy cmp =
+  let eq x y = EQ == cmp x y
+  in map head . groupBy eq . sortBy cmp
+
+-- | Returns True if and only if there are no duplicate elements in the given list.
+unique : Ord a => [a] -> Bool
+unique = uniqueBy compare
+
+-- | A version of `unique` with a custom predicate.
+uniqueBy : (a -> a -> Ordering) -> [a] -> Bool
+uniqueBy cmp xs = length xs == length (dedupBy cmp xs)
+
+-- | Returns True if and only if there are no duplicate elements in the given list
+-- after applyng function. Example use: `assert $ uniqueOn (.employeeNo) employees`
+uniqueOn : Ord k => (a -> k) -> [a] -> Bool
+uniqueOn f = unique . map f
+
+-- | Given a list and a replacement list, replaces each occurance of
+-- the search list with the replacement list in the operation list.
+replace : Eq a => [a] -> [a] -> [a] -> [a]
+replace [] _ xs = xs
+replace from to xs | Some xs <- stripPrefix from xs = to ++ replace from to xs
+replace from to (x :: xs) = x :: replace from to xs
+replace _ _ [] = []
+
+-- | Drops the given prefix from a list. It returns the original
+-- sequence if the sequence doesn't start with the given prefix.
+dropPrefix : Eq a => [a] -> [a] -> [a]
+dropPrefix a b = fromOptional b $ stripPrefix a b
+
+-- | Drops the given suffix from a list. It returns the original
+-- sequence if the sequence doesn't end with the given suffix.
+dropSuffix : Eq a => [a] -> [a] -> [a]
+dropSuffix a b = fromOptional b $ stripSuffix a b
+
+-- | The `stripPrefix` function drops the given prefix from a list.
+-- It returns `None` if the list did not start with the prefix
+-- given, or `Some` the list after the prefix, if it does.
+stripPrefix : Eq a => [a] -> [a] -> Optional [a]
+stripPrefix [] ys = Some ys
+stripPrefix (x :: xs) (y :: ys)
+   | x == y = stripPrefix xs ys
+stripPrefix _ _ = None
+
+-- | Return the prefix of the second list if its suffix matches the
+-- entire first list.
+stripSuffix : Eq a => [a] -> [a] -> Optional [a]
+stripSuffix a b = reverse <$> stripPrefix (reverse a) (reverse b)
+
+-- | Return the string before and after the search string or `None`
+-- if the search string is not found.
+--
+-- ```
+-- >>> stripInfix [0,0] [1,0,0,2,0,0,3]
+-- Some ([1], [2,0,0,3])
+--
+-- >>> stripInfix [0,0] [1,2,0,4,5]
+-- None
+-- ```
+stripInfix : Eq a => [a] -> [a] -> Optional ([a], [a])
+stripInfix a b
+  | Some rest <- stripPrefix a b = Some ([], rest)
+stripInfix _ [] = None
+stripInfix a (b::bs) = first (b::) <$> stripInfix a bs
+
+-- | The `isPrefixOf` function takes two lists and returns `True` if
+-- and only if the first is a prefix of the second.
+isPrefixOf : Eq a => [a] -> [a] -> Bool
+isPrefixOf [] _  = True
+isPrefixOf _  [] = False
+isPrefixOf (x::xs) (y::ys) = x == y && isPrefixOf xs ys
+
+-- | The `isSuffixOf` function takes two lists and returns `True` if
+-- and only if the first list is a suffix of the second.
+isSuffixOf : Eq a => [a] -> [a] -> Bool
+isSuffixOf xs ys = isPrefixOf (reverse xs) (reverse ys)
+
+-- | The `isInfixOf` function takes two lists and returns `True` if
+-- and only if the first list is contained anywhere within the second.
+isInfixOf : Eq a => [a] -> [a] -> Bool
+isInfixOf needle haystack = any (isPrefixOf needle) (tails haystack)
+
+-- | The `mapAccumL` function combines the behaviours of `map` and
+-- `foldl`; it applies a function to each element of a list, passing
+-- an accumulating parameter from left to right, and returning a final
+-- value of this accumulator together with the new list.
+mapAccumL : (acc -> x -> (acc, y))
+         -> acc
+         -> [x]
+         -> (acc, [y])
+mapAccumL _ z []      = (z, [])
+mapAccumL f z (x::xs) = (z'', y::ys)
+  where (z',  y ) = f z x
+        (z'', ys) = mapAccumL f z' xs
+
+-- | The `inits` function returns all initial segments of the argument,
+-- shortest first.
+inits : [a] -> [[a]]
+inits []      = [[]]
+inits (x::xs) = [[]] ++ map (x::) (inits xs)
+
+-- | The `intersperse` function takes an element and a list and
+-- "intersperses" that element between the elements of the list.
+intersperse : a -> [a] -> [a]
+intersperse sep = foldr f []
+  where
+    f x xs | null xs = [x]
+           | otherwise = x::sep::xs
+
+-- | `intercalate` inserts the list `xs` in between the lists in `xss`
+-- and concatenates the result.
+intercalate : [a] -> [[a]] -> [a]
+intercalate xs = concat . intersperse xs
+
+-- | The `tails` function returns all final segments of the argument,
+-- longest first.
+tails : [a] -> [[a]]
+tails []          =  [[]]
+tails xxs@(_::xs) =  xxs :: tails xs
+
+-- | A version of `dropWhile` operating from the end.
+dropWhileEnd : (a -> Bool) -> [a] -> [a]
+dropWhileEnd p = reverse . dropWhile p . reverse
+
+-- | A version of `takeWhile` operating from the end.
+takeWhileEnd : (a -> Bool) -> [a] -> [a]
+takeWhileEnd f = reverse . takeWhile f . reverse
+
+-- | The `transpose` function transposes the rows and columns of its
+-- argument.
+transpose : [[a]] -> [[a]]
+transpose []             = []
+transpose ([]::xss)      = transpose xss
+transpose ((x::xs)::xss) =
+    (x::[h | (h::_) <- xss])::transpose (xs::[ t | (_::t) <- xss])
+
+-- | Break, but from the end.
+breakEnd : (a -> Bool) -> [a] -> ([a], [a])
+breakEnd f = swap . both reverse . break f . reverse
+
+-- | Find the first instance of `needle` in `haystack`.
+-- The first element of the returned tuple is the prefix of `haystack`
+-- before `needle` is matched. The second is the remainder of
+-- `haystack`, starting with the match.  If you want the remainder
+-- *without* the match, use `stripInfix`.
+breakOn : Eq a => [a] -> [a] -> ([a], [a])
+breakOn needle haystack | needle `isPrefixOf` haystack = ([], haystack)
+breakOn _ [] = ([], [])
+breakOn needle (x::xs) = first (x::) $ breakOn needle xs
+
+-- | Similar to `breakOn`, but searches from the end of the
+-- string.
+--
+-- The first element of the returned tuple is the prefix of `haystack`
+-- up to and including the last match of `needle`.  The second is the
+-- remainder of `haystack`, following the match.
+breakOnEnd : Eq a => [a] -> [a] -> ([a], [a])
+breakOnEnd needle haystack =
+    both reverse $ swap $ breakOn (reverse needle) (reverse haystack)
+
+-- | A variant of `lines` with a custom test. In particular, if there
+-- is a trailing separator it will be discarded.
+linesBy : (a -> Bool) -> [a] -> [[a]]
+linesBy _ [] = []
+linesBy p xs = let (x, xs') = break p xs
+               in x :: case xs' of
+                           []      -> []
+                           _::xs'' -> linesBy p xs''
+
+-- | A variant of `words` with a custom test. In particular, adjacent
+-- separators are discarded, as are leading or trailing separators.
+wordsBy : (a -> Bool) -> [a] -> [[a]]
+wordsBy _ [] = []
+wordsBy p xs = case dropWhile p xs of
+                     []  -> []
+                     xs' -> let (x, xs'') = break p xs'
+                            in x :: wordsBy p xs''
+
+-- | Extract the first element of a list, which must be non-empty.
+head : [a] -> a
+head (x :: _) = x
+head [] = error "head: empty list"
+
+-- | Extract the elements after the head of a list, which must be
+-- non-empty.
+tail : [a] -> [a]
+tail (_ :: xs) = xs
+tail [] = error "tail: empty list"
+
+-- | Extract the last element of a list, which must be finite and
+-- non-empty.
+last : [a] -> a
+last [x] = x
+last (x :: xs) = foldl (\_ x -> x) x xs
+last [] = error "last: empty list"
+
+-- | Return all the elements of a list except the last one. The list
+-- must be non-empty.
+init : [a] -> [a]
+init [_] = []
+init (x :: xs) = x :: init xs
+init [] = error "init: empty list"
+
+-- | Left associative fold of a list that must be non-empty.
+foldl1 : (a -> a -> a) -> [a] -> a
+foldl1 f (x :: xs) =  foldl f x xs
+foldl1 _ [] = error "foldl1: empty list"
+
+-- | Right associative fold of a list that must be non-empty.
+foldr1 : (a -> a -> a) -> [a] -> a
+foldr1 f xs = fromSomeNote "foldr1: empty list" (foldr mf None xs)
+  where
+    mf x = \case None -> Some x; Some y -> Some (f x y)
+
+-- | Apply some operation repeatedly, producing an element of output
+-- and the remainder of the list.
+repeatedly : ([a] -> (b, [a])) -> [a] -> [b]
+repeatedly _ [] = []
+repeatedly f as = b :: repeatedly f as'
+    where (b, as') = f as
+
+-- | Splits a list into chunks of length @n@.
+-- @n@ must be strictly greater than zero.
+-- The last chunk will be shorter than @n@ in case the length of the input is
+-- not divisible by @n@.
+chunksOf : Int -> [a] -> [[a]]
+chunksOf n | n <= 0 = error $ "chunksOf: chunk size must be greater than zero, got " <> show n
+chunksOf n = repeatedly (splitAt n)
+
+-- | `delete x` removes the first occurrence of `x` from its list argument.
+-- For example,
+--
+-- ```
+-- > delete "a" ["b","a","n","a","n","a"]
+-- ["b","n","a","n","a"]
+-- ```
+--
+-- It is a special case of 'deleteBy', which allows the programmer to
+-- supply their own equality test.
+delete                  : (Eq a) => a -> [a] -> [a]
+delete                  =  deleteBy (==)
+
+-- | The 'deleteBy' function behaves like 'delete', but takes a
+-- user-supplied equality predicate.
+--
+-- ```
+-- > deleteBy (<=) 4 [1..10]
+-- [1,2,3,5,6,7,8,9,10]
+-- ```
+deleteBy                 : (a -> a -> Bool) -> a -> [a] -> [a]
+deleteBy _  _ []         = []
+deleteBy eq x (y::ys)    = if x `eq` y then ys else y :: deleteBy eq x ys
+
+-- | The `\\` function is list difference (non-associative).
+-- In the result of `xs \\ ys`, the first occurrence of each element of
+-- `ys` in turn (if any) has been removed from `xs`.  Thus
+--
+-- ```
+-- (xs ++ ys) \\ xs == ys
+-- ```
+--
+-- Note this function is _O(n*m)_ given lists of size _n_ and _m_.
+(\\)                    : (Eq a) => [a] -> [a] -> [a]
+(\\)                    =  foldl (flip delete)
+
+-- | Produce a singleton list.
+--
+-- ```
+-- >>> singleton True
+-- [True]
+-- ```
+singleton : a -> [a]
+singleton x = [x]
+
+
+-- | List index (subscript) operator, starting from 0.
+--   For example, `xs !! 2` returns the third element in `xs`.
+--   Raises an error if the index is not suitable for the given list.
+--   The function has complexity _O(n)_ where _n_ is the index given,
+--   unlike in languages such as Java where array indexing is _O(1)_.
+(!!) : [a] -> Int -> a
+_ !! n | n < 0 = error "(!!): negative index"
+[] !! _ =  error "(!!): index too large"
+(x :: _) !! 0 =  x
+(_ :: xs) !! n =  xs !! (n-1)
+
+-- | Find index of element in given list.
+-- Will return `None` if not found.
+elemIndex : Eq a => a -> [a] -> Optional Int
+elemIndex x = findIndex (x==)
+
+-- | Find index, given predicate, of first matching element.
+-- Will return `None` if not found.
+findIndex : (a -> Bool) -> [a] -> Optional Int
+findIndex = findIndex_ 0
+
+findIndex_ : Int -> (a -> Bool) -> [a] -> Optional Int
+findIndex_ _ _ [] = None
+findIndex_ i p (x::xs) = if p x then Some i else findIndex_ (i + 1) p xs

@@ -1,0 +1,68 @@
+/* Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.  */
+/* SPDX-License-Identifier: Apache-2.0  */
+
+table, th, td {
+  border: 1px solid;
+  border-collapse: collapse;
+}
+th, td {
+  padding-left: 2px;
+  padding-right: 2px;
+}
+body.hide_archived .archived {
+  display: none;
+}
+body.hide_table .table {
+  display: none;
+}
+body.hide_transaction .transaction {
+  display: none;
+}
+body.hide_note .note {
+  display: none;
+}
+tr.archived td {
+  text-decoration: line-through;
+}
+td.disclosure {
+  max-width: 1em;
+  text-align: center;
+}
+tr.archived td.disclosure {
+  text-decoration: none;
+}
+.hidden_disclosure td.disclosed.disclosure span {
+  display: none;
+}
+.hidden_disclosure td.disclosed.disclosure:after {
+  content: 'X';
+}
+th {
+  vertical-align: bottom;
+}
+div.observer {
+  max-width: 1em;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+}
+.tooltip {
+  position: relative;
+  display: inline-block;
+}
+.tooltip .tooltiptext {
+  visibility: hidden;
+  width: 5em;
+  background-color: var(--vscode-editor-foreground);
+  color: var(--vscode-editor-background);
+  text-align: center;
+  border-radius: 4px;
+  padding: 4px 4px;
+  position: absolute;
+  z-index: 1;
+  top: -4px;
+  left: 105%;
+}
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+}

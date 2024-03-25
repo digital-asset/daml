@@ -1,0 +1,16 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE NoImplicitPrelude #-}
+
+-- | HIDE
+module GHC.Natural where
+
+import GHC.Types
+import GHC.Integer.Type()
+
+data Natural
+
+mkNatural : [Word]
+         -> Natural
+mkNatural = magic @"mkNatural"

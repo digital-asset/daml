@@ -1,0 +1,19 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Ensure numeric literal must have a fixed scale, even if we
+-- condition on `NumericScale n`. That is, we still get a
+-- conversion error even if we try to be clever.
+--
+-- @SINCE-LF 2.1
+-- @ERROR range=19:1-19:8; Polymorphic numeric literal. Specify a fixed scale by giving the type, e.g. (2.71828 : Numeric 10)
+
+
+
+module NumericLitPoly where
+
+-- Polymorphic numeric literals are not allowed. To get a polymorphic
+-- numeric value, you need to import DA.Numeric and use `cast` or
+-- `castAndRound` explicitly.
+polyLit : NumericScale n => Numeric n
+polyLit = 2.71828

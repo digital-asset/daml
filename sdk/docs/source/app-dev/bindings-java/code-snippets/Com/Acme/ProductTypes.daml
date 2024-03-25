@@ -1,0 +1,10 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- start snippet: product types example
+
+module Com.Acme.ProductTypes where
+
+data Person = Person with name : Name; age : Decimal
+data Name = Name with firstName : Text; lastName : Text
+-- end snippet: product types example

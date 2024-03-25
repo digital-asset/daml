@@ -1,0 +1,315 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+-- BEGIN_EXT
+{-# LANGUAGE ApplicativeDo #-}
+module Restrictions where
+-- END_EXT
+
+import DA.Assert
+import DA.Date
+import DA.Text as T
+import DA.Time
+import DA.Tuple
+import Daml.Script
+
+data Cash = Cash with
+  currency : Text
+  amount : Decimal
+    deriving (Eq, Show)
+
+-- RESTRICTED_IOU_BEGIN
+template SimpleIou
+  with
+    issuer : Party
+    owner : Party
+    cash : Cash
+  where
+    signatory issuer
+    observer owner
+
+    ensure cash.amount > 0.0
+        && T.length cash.currency == 3
+        && T.isUpper cash.currency
+-- RESTRICTED_IOU_END
+
+-- TRANSFER_CHOICE_BEGIN
+    choice Transfer
+      : ContractId SimpleIou
+      with
+        newOwner : Party
+      controller owner
+      do
+        assertMsg "newOwner cannot be equal to owner." (owner /= newOwner)
+        create this with owner = newOwner
+-- TRANSFER_CHOICE_END
+
+-- REDEEM_CHOICE_BEGIN
+    choice Redeem
+      : ()
+      controller owner
+      do
+        now <- getTime
+        let
+          today = toDateUTC now
+          dow = dayOfWeek today
+          timeofday = now `subTime` time today 0 0 0
+          hrs = convertRelTimeToMicroseconds timeofday / 3600000000
+        if (hrs < 8 || hrs > 18) then
+          abort $ "Cannot redeem outside business hours. Current time: " <> show timeofday
+        else case dow of
+          Saturday -> abort "Cannot redeem on a Saturday."
+          Sunday -> abort "Cannot redeem on a Sunday."
+          _ -> return ()
+-- REDEEM_CHOICE_END
+
+-- RESTRICTIONS_TEST_BEGIN
+test_restrictions = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  dora <- allocateParty "Dora"
+
+  -- Dora can't issue negative Ious.
+  submitMustFail dora do
+    createCmd SimpleIou with
+      issuer = dora
+      owner = alice
+      cash = Cash with
+        amount = -100.0
+        currency = "USD"
+
+  -- Or even zero Ious.
+  submitMustFail dora do
+    createCmd SimpleIou with
+      issuer = dora
+      owner = alice
+      cash = Cash with
+        amount = 0.0
+        currency = "USD"
+
+  -- Nor positive Ious with invalid currencies.
+  submitMustFail dora do
+    createCmd SimpleIou with
+      issuer = dora
+      owner = alice
+      cash = Cash with
+        amount = 100.0
+        currency = "Swiss Francs"
+
+  -- But positive Ious still work, of course.
+  iou <- submit dora do
+    createCmd SimpleIou with
+      issuer = dora
+      owner = alice
+      cash = Cash with
+        amount = 100.0
+        currency = "USD"
+-- RESTRICTIONS_TEST_END
+
+-- TRANSFER_TEST_BEGIN
+  -- Alice can't transfer to herself...
+  submitMustFail alice do
+    exerciseCmd iou Transfer with
+      newOwner = alice
+
+  -- ... but can transfer to Bob.
+  iou2 <- submit alice do
+    exerciseCmd iou Transfer with
+      newOwner = bob
+-- TRANSFER_TEST_END
+
+
+-- REDEEM_TEST_BEGIN
+  -- June 1st 2019 is a Saturday.
+  setTime (time (date 2019 Jun 1) 0 0 0)
+  -- Bob cannot redeem on a Saturday.
+  submitMustFail bob do
+    exerciseCmd iou2 Redeem
+
+  -- Not even at mid-day.
+  passTime (hours 12)
+  -- Bob cannot redeem on a Saturday.
+  submitMustFail bob do
+    exerciseCmd iou2 Redeem
+
+  -- Bob also cannot redeem at 6am on a Monday.
+  passTime (hours 42)
+  submitMustFail bob do
+    exerciseCmd iou2 Redeem
+
+  -- Bob can redeem at 8am on Monday.
+  passTime (hours 2)
+  submit bob do
+    exerciseCmd iou2 Redeem
+-- REDEEM_TEST_END
+
+  -- CAUSALITY_TEST_BEGIN
+  iou3 <- submit dora do
+    createCmd SimpleIou with
+      issuer = dora
+      owner = alice
+      cash = Cash with
+        amount = 100.0
+        currency = "USD"
+
+  passTime (days (-3))
+  submitMustFail alice do
+    exerciseCmd iou3 Redeem
+  -- CAUSALITY_TEST_END
+
+-- DO_DEMO_BEGIN
+sub_script1 (alice, dora) = do
+  submit dora do
+    createCmd SimpleIou with
+      issuer = dora
+      owner = alice
+      cash = Cash with
+        amount = 100.0
+        currency = "USD"
+
+sub_script2 = do
+  passTime (days 1)
+  passTime (days (-1))
+  return 42
+
+sub_script3 (bob, dora) = do
+  submit dora do
+    createCmd SimpleIou with
+      issuer = dora
+      owner = bob
+      cash = Cash with
+        amount = 100.0
+        currency = "USD"
+
+main_: Script () = do
+  dora <- allocateParty "Dora"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  iou1 <- sub_script1 (alice, dora)
+  sub_script2
+  iou2 <- sub_script3 (bob, dora)
+
+  submit dora do
+    archiveCmd iou1
+    archiveCmd iou2
+    pure ()
+-- DO_DEMO_END
+
+-- COIN_BEGIN
+data Face = Heads | Tails
+  deriving (Eq, Show, Enum)
+
+data CoinGame a = CoinGame with
+  play : Coin -> (Coin, a)
+
+flipCoin : CoinGame Face
+getCoin : Script Coin
+-- COIN_END
+
+-- COIN_SCENARIO_BEGIN
+coin_test = do
+  -- The coin is pseudo-random on LT so change the parameter to change the game.
+  setTime (time (date 2019 Jun 1) 0 0 0)
+  passTime (seconds 2)
+  coin <- getCoin
+  let
+    game = do
+      f1r <- flipCoin
+      f2r <- flipCoin
+      f3r <- flipCoin
+
+      if all (== Heads) [f1r, f2r, f3r]
+        then return "Win"
+        else return "Loss"
+    (newCoin, result) = game.play coin
+
+  assert (result == "Win")
+-- COIN_SCENARIO_END
+
+-- What follows is the implementation of the CoinGame Action.
+-- Don't worry if this doesn't make sense yet.
+type Coin = Int
+
+flipCoin = CoinGame with
+  play = (\c ->
+    let
+      s = next c
+    in
+      (s, toEnum @Face (s % 2))
+    )
+
+next : Int -> Int
+next s = (48271 * s) % 2147483647
+
+getCoin = do
+  t <- getTime
+  let clk = convertRelTimeToMicroseconds $ subTime t (datetime 1970 Jan 1 0 0 0)
+  let s = (67826523 + clk) % 2147483647
+  return $ next s
+
+instance Functor CoinGame where
+  fmap f gs = CoinGame with
+    play = (\c -> second f (gs.play c))
+
+instance Applicative CoinGame where
+  pure x = CoinGame with
+    play = (\c -> (c, x))
+
+  f <*> x = CoinGame with
+    play = (\c ->
+        let
+          (nc1, rf) = f.play c
+          (nc2, rx) = x.play nc1
+        in (nc2, rf rx)
+      )
+
+instance Action CoinGame where
+  x >>= f = CoinGame with
+    play = (\c ->
+        let
+          (nc1, rx) = x.play c
+          ng = f rx
+        in ng.play nc1
+      )
+
+-- NON_PERFORMED_ABORT_BEGIN
+nonPerformedAbort = do
+  let abortScript = False
+  let failingAction : Script () = abort "Foo"
+  let successfulAction : Script () = return ()
+  if abortScript then failingAction else successfulAction
+-- NON_PERFORMED_ABORT_END
+
+-- OPTIONAL_POW_BEGIN
+optPow : Int -> Int -> Optional Int
+optPow base exponent
+ | exponent == 0 = Some 1
+ | exponent > 0 =
+   let Some result = optPow base (exponent - 1)
+   in Some (base * result)
+ | otherwise = None
+-- OPTIONAL_POW_END
+
+-- ERROR_POW_BEGIN
+errPow : Int -> Int -> Int
+errPow base exponent
+ | exponent == 0 = 1
+ | exponent > 0 = base * errPow base (exponent - 1)
+ | otherwise = error "Negative exponent not supported"
+-- ERROR_POW_END
+
+{-
+-- NON_PERFORMED_ERROR_BEGIN
+nonPerformedError = script do
+  let causeError = False
+  let failingComputation = errPow 1 (-1)
+  let successfulComputation = errPow 1 1
+  return if causeError then failingComputation else successfulComputation
+-- NON_PERFORMED_ERROR_END
+-}
+
+test = script do
+  optPow 2 5 === Some 32
+  optPow 5 2 === Some 25
+  errPow 2 5 === 32
+  errPow 5 2 === 25

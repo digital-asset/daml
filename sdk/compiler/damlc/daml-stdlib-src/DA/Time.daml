@@ -1,0 +1,81 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
+module DA.Time
+  ( RelTime
+  , addRelTime
+  , subTime
+  , wholeDays
+  , days
+  , hours
+  , minutes
+  , seconds
+  , milliseconds
+  , microseconds
+  , time
+  , convertRelTimeToMicroseconds
+  , convertMicrosecondsToRelTime
+  ) where
+
+import DA.Time.Types hiding (microseconds)
+import DA.Internal.Time
+
+-- | Adjusts `Time` with given time offset.
+addRelTime : Time -> RelTime -> Time
+addRelTime d rt =
+    let dt = timeToMicrosecondsSinceEpoch d
+    in microsecondsSinceEpochToTime (dt + convertRelTimeToMicroseconds rt)
+
+-- | Returns time offset between two given instants.
+subTime : Time -> Time -> RelTime
+subTime d1 d2 =
+    let t1 = timeToMicrosecondsSinceEpoch d1
+        t2 = timeToMicrosecondsSinceEpoch d2
+    in convertMicrosecondsToRelTime (t1 - t2)
+
+-- | Returns the number of whole days in a time offset. Fraction of time is rounded towards zero.
+wholeDays : RelTime -> Int
+wholeDays rt = convertRelTimeToMicroseconds rt / microsecondsPerDay
+
+-- | A number of days in relative time.
+days : Int -> RelTime
+days x = hours (24 * x)
+
+-- | A number of hours in relative time.
+hours : Int -> RelTime
+hours x = minutes (60 * x)
+
+-- | A number of minutes in relative time.
+minutes : Int -> RelTime
+minutes x = seconds (60 * x)
+
+-- | A number of seconds in relative time.
+seconds : Int -> RelTime
+seconds x = convertMicrosecondsToRelTime (1000000 * x)
+
+-- | A number of milliseconds in relative time.
+milliseconds : Int -> RelTime
+milliseconds x = convertMicrosecondsToRelTime (1000 * x)
+
+-- | A number of microseconds in relative time.
+microseconds : Int -> RelTime
+microseconds x = convertMicrosecondsToRelTime x
+
+-- | Convert RelTime to microseconds
+-- Use higher level functions instead of the internal microseconds
+convertRelTimeToMicroseconds : RelTime -> Int
+convertRelTimeToMicroseconds (RelTime msec) = msec
+
+-- | Convert microseconds to RelTime
+-- Use higher level functions instead of the internal microseconds
+convertMicrosecondsToRelTime : Int -> RelTime
+convertMicrosecondsToRelTime msec = RelTime msec
+
+deriving instance Eq RelTime
+deriving instance Ord RelTime
+deriving instance Show RelTime
+deriving instance Additive RelTime
+deriving instance Signed RelTime

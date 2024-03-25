@@ -1,0 +1,112 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+{-# LANGUAGE PartialTypeSignatures #-}
+
+
+module LockingByChangingState where
+
+import Daml.Script
+
+import Utilities
+
+-- BEGIN_LOCKABLE_COIN_TEMPLATE
+template LockableCoin
+  with
+    owner: Party
+    issuer: Party
+    amount: Decimal
+    locker: Party
+  where
+    signatory issuer
+    signatory owner
+    observer locker
+
+    ensure amount > 0.0
+
+    --Transfer can happen only if it is not locked
+    choice Transfer : ContractId TransferProposal
+      with newOwner: Party
+      controller owner
+      do
+        assert (locker == owner)
+        create TransferProposal
+          with coin=this; newOwner
+
+      --Lock can be done if owner decides to bring a locker on board
+    choice Lock : ContractId LockableCoin
+      with newLocker: Party
+      controller owner
+      do
+        assert (newLocker /= owner)
+        create this with locker = newLocker
+
+    --Unlock only makes sense if the coin is in locked state
+    choice Unlock
+      : ContractId LockableCoin
+      controller locker
+      do
+        assert (locker /= owner)
+        create this with locker = owner
+-- END_LOCKABLE_COIN_TEMPLATE
+
+
+--TransferProposal
+template TransferProposal
+  with
+    coin: LockableCoin
+    newOwner: Party
+  where
+    signatory coin.owner, coin.issuer
+    observer newOwner
+
+    choice WithdrawTransfer
+      : ContractId LockableCoin
+      controller coin.owner
+      do create coin
+
+    choice AcceptTransfer
+      : ContractId LockableCoin
+      controller newOwner
+      do create coin with owner = newOwner; locker = newOwner
+
+    choice RejectTransfer
+      : ()
+      controller newOwner
+      do return ()
+
+template CoinProposal
+  with
+    owner: Party
+    issuer: Party
+    amount: Decimal
+  where
+    signatory issuer
+    observer owner
+
+    choice AcceptProposal
+      : ContractId LockableCoin
+      controller owner
+      do create LockableCoin with issuer; owner; amount; locker=owner
+
+
+locking : Script (ContractId LockableCoin)  -- test
+locking =
+  script do
+
+    [issuer, owner, newOwner, locker] <- makePartiesFrom ["Bank", "Me", "You", "Custodian Bank"]
+    --when coin is created, owner = locker. it is unlocked
+
+    propId <- issuer `submit` do createCmd CoinProposal with owner; issuer; amount=100.0
+    coinCid <- owner `submit` do exerciseCmd propId AcceptProposal
+
+    --owner can choose to lock it with his custodian bank
+    lockedCid <- owner `submit` do exerciseCmd coinCid Lock with newLocker=locker
+    --since coin is locked, owner cannot transfer
+    owner `submitMustFail` do exerciseCmd lockedCid Transfer with newOwner
+
+    unlockedCid <- locker `submit` do exerciseCmd lockedCid Unlock
+
+    propId <- owner `submit` do exerciseCmd unlockedCid Transfer with newOwner
+    newOwner `submit` do exerciseCmd propId AcceptTransfer

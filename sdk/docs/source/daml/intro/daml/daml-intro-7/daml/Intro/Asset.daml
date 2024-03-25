@@ -1,0 +1,146 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Intro.Asset where
+
+data SplitResult = SplitResult with
+  splitAsset : ContractId Asset
+  remainder : ContractId Asset
+    deriving (Eq, Show)
+
+-- ASSET_BEGIN
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    symbol : Text
+    quantity : Decimal
+    observers : [Party]
+  where
+    signatory issuer, owner
+    ensure quantity > 0.0
+
+    observer observers
+-- ASSET_END
+
+
+-- MERGE_SPLIT_BEGIN
+    choice Split
+      : SplitResult
+      with
+        splitQuantity : Decimal
+      controller owner
+      do
+        splitAsset <- create this with
+          quantity = splitQuantity
+        remainder <- create this with
+          quantity = quantity - splitQuantity
+        return SplitResult with
+          splitAsset
+          remainder
+
+    choice Merge
+      : ContractId Asset
+      with
+        otherCid : ContractId Asset
+      controller owner
+      do
+        other <- fetch otherCid
+        assertMsg
+          "Merge failed: issuer does not match"
+          (issuer == other.issuer)
+        assertMsg
+          "Merge failed: owner does not match"
+          (owner == other.owner)
+        assertMsg
+          "Merge failed: symbol does not match"
+          (symbol == other.symbol)
+        archive otherCid
+        create this with
+          quantity = quantity + other.quantity
+-- MERGE_SPLIT_END
+
+    choice ProposeTransfer
+      : ContractId TransferProposal
+      with
+        newOwner : Party
+      controller owner
+      do
+        create TransferProposal with
+          asset = this
+          newOwner
+
+    choice  SetObservers
+      : ContractId Asset
+      with
+        newObservers : [Party]
+      controller owner
+      do
+        create this with
+          observers = newObservers
+
+template TransferProposal
+  with
+    asset : Asset
+    newOwner : Party
+  where
+    signatory (signatory asset)
+    observer newOwner
+
+    choice TransferProposal_Accept
+        : ContractId Asset
+        controller asset.issuer, newOwner
+        do
+          create asset with
+            owner = newOwner
+
+    choice TransferProposal_Cancel
+        : ContractId Asset
+        controller asset.owner
+        do
+          create asset with
+            observers = []
+
+    choice TransferProposal_Reject
+        : ContractId Asset
+        controller newOwner
+        do
+          create asset
+
+template TransferApproval
+  with
+    asset : Asset
+    newOwner : Party
+  where
+    signatory asset.issuer
+    observer asset.owner, newOwner
+
+    choice TransferApproval_Cancel
+        : ()
+        controller asset.owner
+        do
+          return ()
+
+    choice TransferApproval_Reject
+        : ()
+        controller newOwner
+        do
+          return ()
+
+    choice TransferApproval_Transfer
+        : ContractId Asset
+        with
+          assetCid : ContractId Asset
+        controller asset.owner, newOwner
+        do
+          sentAsset <- fetch assetCid
+          assertMsg
+            "Transfer failed: Assets do not match."
+            (asset == sentAsset with
+              observers = asset.observers
+            )
+          archive assetCid
+          create asset with
+            owner = newOwner
+            observers = []

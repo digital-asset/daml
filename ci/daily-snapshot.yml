@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 pr: none
@@ -9,6 +9,7 @@ schedules:
   branches:
     include:
     - main
+    - main-2.x
 
 parameters:
 - name: version
@@ -29,6 +30,7 @@ jobs:
         var_name: bash-lib
     - bash: |
         set -euo pipefail
+        cd sdk
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
 
@@ -75,6 +77,8 @@ jobs:
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
 - template: build.yml
+  parameters:
+    test_mode: main
 - template: split-release-job.yml
 - job: release
   condition: false

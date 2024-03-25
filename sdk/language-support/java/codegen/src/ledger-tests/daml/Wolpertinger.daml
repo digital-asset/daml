@@ -1,0 +1,50 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Wolpertinger where
+
+import DA.Date
+import DA.List (dedup)
+
+data Color = Grey
+           | RGB
+                with r: Int; g: Int; b: Int
+           | Custom Text
+           deriving (Eq, Show, Ord)
+
+data WolpertingerKey = WolpertingerKey with owner: Party; age: Decimal
+
+template Wolpertinger
+    with
+        owner : Party
+        wings : Int
+        age : Decimal
+        name : Text
+        alive : Bool
+        dayOfBirth : Date
+        timeOfBirth : Time
+        parents: [ContractId Wolpertinger]
+        colors: [Color]
+    where
+        signatory owner
+
+        key WolpertingerKey owner age : WolpertingerKey
+        maintainer key.owner
+
+        choice Reproduce : ContractId Wolpertinger
+            with mateId : ContractId Wolpertinger
+                 tob : Time
+            controller owner
+            do
+                mate <- fetch mateId
+                create Wolpertinger with
+                    owner = owner
+                    wings = this.wings + mate.wings
+                    age = 0.0
+                    name = this.name <> "-" <> mate.name
+                    alive = True
+                    dayOfBirth = toDateUTC tob
+                    timeOfBirth = tob
+                    parents = [self, mateId]
+                    colors = dedup (this.colors ++ mate.colors)

@@ -1,0 +1,47 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Structure where
+
+exampleFunction : (Party, Text) -> Party
+exampleFunction key = key._1
+
+-- start of template outline snippet
+template NameOfTemplate
+  with
+    exampleParty : Party
+    exampleParty2 : Party
+    exampleParty3 : Party
+    exampleParameter : Text
+    -- more parameters here
+  where
+    signatory exampleParty
+    observer exampleParty2
+    ensure
+      -- boolean condition
+      True
+    key (exampleParty, exampleParameter) : (Party, Text)
+    maintainer (exampleFunction key)
+    -- a choice goes here; see next section
+    -- end of template outline snippet
+
+    -- start of choice snippet
+    choice NameOfChoice
+      : () -- replace () with the actual return type
+      with
+        party : Party -- parameters here
+      controller party
+      do
+        return () -- replace this line with the choice body
+    -- end of choice snippet
+
+    -- start of choice observer snippet
+    choice NameOfChoiceWithObserver
+      : () -- replace () with the actual return type
+      with
+        party : Party -- parameters here
+      observer party -- optional specification of choice observers
+      controller exampleParty
+      do
+        return () -- replace this line with the choice body
+    -- end of choice observer snippet

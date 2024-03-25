@@ -1,0 +1,44 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:haskell.bzl",
+    "da_haskell_library",
+)
+
+da_haskell_library(
+    name = "daml-preprocessor",
+    srcs = glob(["src/**/*.hs"]),
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "ghc-lib-parser",
+        "ghc-lib",
+        "ghcide",
+        "lens",
+        "mtl",
+        "recursion-schemes",
+        "safe",
+        "split",
+        "text",
+        "uniplate",
+    ],
+    # hie-bios depends on "ghc" which conflicts with ghc-lib(-parser)
+    repl_ghci_args = ["-hide-package=ghc"],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-tools",
+        "//compiler/damlc/daml-ghc-util",
+        "//compiler/damlc/stable-packages:stable-packages-lib",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-class-lib",
+    ],
+)

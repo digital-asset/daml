@@ -1,0 +1,24 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_binary")
+
+da_haskell_binary(
+    name = "runner_with_port_check",
+    srcs = ["Main.hs"],
+    hackage_deps = [
+        "base",
+        "extra",
+        "typed-process",
+        "process",
+        "async",
+        "text",
+        "safe",
+        "split",
+        "network",
+        "monad-loops",
+        "safe-exceptions",
+    ],
+    visibility = ["//visibility:public"],
+    deps = ["//libs-haskell/da-hs-base"],
+)

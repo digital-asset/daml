@@ -1,0 +1,42 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SINCE-LF 2.1
+module AnyChoice where
+
+import Daml.Script
+import DA.Assert
+
+template T1
+  with
+    x : Int
+    p : Party
+  where
+    signatory p
+    choice C1 : ()
+      controller p
+      do pure ()
+    choice C1' : ()
+      controller p
+      do pure ()
+
+template T2
+  with
+    y : Text
+    p : Party
+  where
+    signatory p
+    choice C2 : ()
+      controller p
+      do pure ()
+
+main = script do
+  let c1 = C1
+  let c1' = C1'
+  let c2 = C2
+  let x = toAnyChoice @T1 @C1 c1
+  fromAnyChoice @T1 @C1 (toAnyChoice @T1 c1) === Some c1
+  fromAnyChoice @T1 @C1' (toAnyChoice @T1 c1) === None
+  fromAnyChoice @T2 @C2 (toAnyChoice @T2 c2) === Some c2
+  fromAnyChoice @T1 @Archive (toAnyChoice @T2 Archive) === None
+  fromAnyChoice @T2 @Archive (toAnyChoice @T2 Archive) === Some Archive

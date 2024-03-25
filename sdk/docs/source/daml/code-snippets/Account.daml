@@ -1,0 +1,127 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Account where
+
+import Daml.Script
+
+template Cash with
+    issuer : Party
+    owner : Party
+    amount : Decimal
+  where
+    signatory [issuer, owner]
+    ensure amount > 0.0
+
+    choice Transfer : ContractId Cash with
+        newOwner : Party
+      controller [owner, newOwner]
+      do
+        create this with owner = newOwner
+
+-- start contract key setup snippet
+type AccountKey = (Party, Text)
+
+template Account with
+    bank : Party
+    number : Text
+    owner : Party
+    balance : Decimal
+    observers : [Party]
+  where
+    signatory [bank, owner]
+    observer observers
+
+    key (bank, number) : AccountKey
+    maintainer key._1
+-- end contract key setup snippet
+
+    choice Withdraw : ContractId Cash with
+        amount : Decimal
+      controller owner
+      do
+        assert (amount <= balance)
+        create this with balance = balance - amount
+        create Cash with
+          issuer = bank
+          owner
+          amount
+
+    choice AddAccountObserver : () with
+        newObserver : Party
+      controller owner
+      do
+        create this with observers = newObserver :: observers
+        pure ()
+
+template AccountOffer with
+    account : Account
+  where
+    signatory account.bank
+    observer account.owner
+
+    choice AcceptAccount : ContractId Account
+      controller account.owner
+      do
+        create account
+
+template Shipment with
+    receiver : Party
+    retailer : Party
+    item : Text
+    price : Decimal
+  where
+    signatory [receiver, retailer]
+
+template Order with
+    shipment : Shipment
+    account : AccountKey
+  where
+    signatory shipment.receiver
+    observer shipment.retailer
+
+    choice ShipAndPay : (ContractId Shipment, ContractId Cash)
+      controller shipment.retailer
+      do
+        shipmentId <- create shipment
+        receiverCashId <- exerciseByKey @Account account Withdraw with amount = shipment.price
+        retailerCashId <- exercise receiverCashId Transfer with newOwner = shipment.retailer
+        pure (shipmentId, retailerCashId)
+
+
+test = script do
+  alice <- allocateParty "Alice"
+  bank <- allocateParty "Bank"
+  wonderland <- allocateParty "Wonderland"
+
+  let account = Account with
+        bank
+        number = "ABC123"
+        owner = alice
+        balance = 100.0
+        observers = []
+  accountOfferId <- submit bank do
+    createCmd AccountOffer with account
+  submit alice do
+    exerciseCmd accountOfferId AcceptAccount
+
+  let shipment = Shipment with
+        receiver = alice
+        retailer = wonderland
+        item = "Rainbow coloured unicorn"
+        price = 50.0
+  submit alice do
+    exerciseByKeyCmd @Account (key account) AddAccountObserver with newObserver = wonderland
+  orderId <- submit alice do
+    createCmd Order with
+      shipment
+      account = key account
+
+  cashId <- submit alice do
+    exerciseByKeyCmd @Account (key account) Withdraw with amount = 20.0
+
+  shipmentId <- submit wonderland do
+    exerciseCmd orderId ShipAndPay
+
+  pure ()

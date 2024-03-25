@@ -1,0 +1,239 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Based on https://github.com/ghc/ghc/blob/23f6f31dd66d7c370cb8beec3f1d96a0cb577393/libraries/ghc-prim/GHC/Types.hs
+
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE CPP #-}
+{-# OPTIONS -Wno-unused-binds #-} -- the opaque constructors are not exported
+
+-- | MOVE Prelude
+module GHC.Types (
+        -- Data types that are built-in syntax
+        -- They are defined here, but not explicitly exported
+        --
+        --    Lists:          []( [], (::) )
+
+        Bool(..), Int (..), Word, TextLit,
+        Ordering(..),
+        Symbol,
+        Text, Decimal,
+        Opaque,
+        ifThenElse,
+        primitive, primitiveInterface, magic, external,
+        DamlEnum,
+        DamlInterface,
+        DamlTemplate,
+
+        Nat, Numeric,
+#ifdef DAML_BIGNUMERIC
+        BigNumeric,
+        RoundingMode(..),
+#endif
+    ) where
+
+import GHC.Prim
+
+infixr 5 ::
+
+-- | A kind for constraints, like `Show a`
+data Constraint
+
+-- | HIDE
+-- (Kind) This is the kind of type-level symbols.
+-- Declared here because class IP needs it
+data Symbol
+
+-- | A type for lists, for example `[1,2,3]`.
+data [] a = [] | a :: [a]
+
+
+-- | A type for giving information about ordering:
+--  being less than (`LT`), equal to (`EQ`), or greater than
+--  (`GT`) something.
+data Ordering = LT | EQ | GT
+
+-- | A type representing a 64-bit integer.
+data Int =
+  -- | HIDE
+  I# Int#
+
+-- | HIDE
+-- This is a dummy type we need for string literals.
+data Char
+
+-- | HIDE The type of string literals.
+type TextLit = [Char]
+
+-- | HIDE
+-- A dummy type for Word.
+data Word
+
+-- | A type for Boolean values, ie `True` and `False`.
+data Bool = False | True
+
+-- | HIDE
+isTrue# : Int# -> Bool
+isTrue# x = tagToEnum# x
+
+-- | HIDE
+ifThenElse : Bool -> a -> a -> a
+ifThenElse c t f = case c of True -> t; False -> f
+
+
+-- NOTE(MH): We're remove all the produced runtime represenations when
+-- converting to Daml-LF but still need them here for type checking.
+
+{- Note [Runtime representation of modules and tycons]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+We generate a binding for M.$modName and M.$tcT for every module M and
+data type T.  Things to think about
+
+  - We want them to be economical on space; ideally pure data with no thunks.
+
+  - We do this for every module (except this module GHC.Types), so we can't
+    depend on anything else (eg string unpacking code)
+
+That's why we have these terribly low-level representations.  The TrName
+type lets us use the TrNameS constructor when allocating static data;
+but we also need TrNameD for the case where we are deserialising a TyCon
+or Module (for example when deserialising a TypeRep), in which case we
+can't conveniently come up with an Addr#.
+-}
+
+-- | HIDE
+data Module = Module
+                TrName   -- Package name
+                TrName   -- Module name
+
+-- | HIDE
+data TrName
+  = TrNameS Addr#  -- Static
+  | TrNameD [Char] -- Dynamic
+
+-- | HIDE A de Bruijn index for a binder within a 'KindRep'.
+type KindBndr = Int
+
+-- | HIDE
+data RuntimeRep
+
+-- | HIDE The representation produced by GHC for conjuring up the kind of a
+-- 'TypeRep'.  See Note [Representing TyCon kinds: KindRep] in TcTypeable.
+data KindRep = KindRepTyConApp TyCon [KindRep]
+             | KindRepVar !KindBndr
+             | KindRepApp KindRep KindRep
+             | KindRepFun KindRep KindRep
+             | KindRepTYPE !RuntimeRep
+             | KindRepTypeLitS TypeLitSort Addr#
+             | KindRepTypeLitD TypeLitSort [Char]
+
+-- | HIDE
+data TypeLitSort = TypeLitSymbol
+                 | TypeLitNat
+
+-- | HIDE Show instance for TyCon found in GHC.Show
+data TyCon = TyCon Word# Word#           -- Fingerprint
+                   Module                -- Module in which this is defined
+                   TrName                -- Type constructor name
+                   Int#                  -- How many kind variables do we accept?
+                   KindRep               -- A representation of the type's kind
+
+
+-- | HIDE A Daml-LF call to an external package
+external : forall (f : Symbol) b. b
+external = external --deleted by the compiler
+
+-- | HIDE A Daml-LF primitive
+primitive : forall (f : Symbol) b. b
+primitive = primitive -- deleted by the compiler
+
+-- | HIDE Used by desugaring of interface methods
+primitiveInterface : forall (f : Symbol) b. b
+primitiveInterface = primitiveInterface -- deleted by the compiler
+
+-- | HIDE Handled actually in the guts of the compiler
+magic : forall (f : Symbol) b. b
+magic = magic -- deleted by the compiler
+
+-- | HIDE Dummy type to mark types built into Daml-LF.
+data Opaque = Opaque
+
+-- | A type for text strings, that can represent any unicode code point.
+-- For example `"Hello, world"`.
+data Text =
+  -- | HIDE
+  Text Opaque
+
+-- | HIDE Used to tag single-constructor enum types.
+class DamlEnum
+instance DamlEnum
+
+-- | HIDE Used to tag daml template types in the desugarer.
+class DamlTemplate
+instance DamlTemplate
+
+-- | HIDE Used to tag daml interface types in the desugarer.
+class DamlInterface
+instance DamlInterface
+
+-- | (Kind) This is the kind of type-level naturals.
+data Nat
+
+-- | A type for fixed-point decimal numbers, with the scale
+-- being passed as part of the type.
+--
+-- `Numeric n` represents a fixed-point decimal number with a
+-- fixed precision of 38 (i.e. 38 digits not including a leading zero)
+-- and a scale of `n`, i.e., `n` digits after the decimal point.
+--
+-- `n` must be between 0 and 37 (bounds inclusive).
+--
+-- Examples:
+-- ```
+-- 0.01 : Numeric 2
+-- 0.0001 : Numeric 4
+-- ```
+data Numeric (n:Nat) =
+  -- | HIDE
+  Numeric Opaque
+
+type Decimal = Numeric 10
+
+#ifdef DAML_BIGNUMERIC
+
+-- | A big numeric type, capable of holding large decimal values with many digits.
+--
+-- `BigNumeric` represents any positive or negative decimal number with up to
+-- 2^15 digits before the decimal point, and up to 2^15 digits after the decimal
+-- point.
+--
+-- `BigNumeric` is not serializable, it is only intended for intermediate computation.
+-- You must round and convert `BigNumeric` to a fixed-width numeric (`Numeric n`)
+-- in order to store it in a template. The rounding operations are `round` and
+-- `div` from the `DA.BigNumeric` module. The casting operations are `fromNumeric`
+-- and `fromBigNumeric` from the `IsNumeric` typeclass.
+data BigNumeric =
+  -- | HIDE
+  BigNumeric Opaque
+
+-- | Rounding modes for `BigNumeric` operations like `div` and `round` from `DA.BigNumeric`.
+data RoundingMode
+  = RoundingUp -- ^ Round away from zero.
+  | RoundingDown -- ^ Round towards zero.
+  | RoundingCeiling -- ^ Round towards positive infinity.
+  | RoundingFloor -- ^ Round towards negative infinity.
+  | RoundingHalfUp
+      -- ^ Round towards the nearest neighbor unless both neighbors
+      -- are equidistant, in which case round away from zero.
+  | RoundingHalfDown
+      -- ^ Round towards the nearest neighbor unless both neighbors
+      -- are equidistant, in which case round towards zero.
+  | RoundingHalfEven
+      -- ^ Round towards the nearest neighbor unless both neighbors
+      -- are equidistant, in which case round towards the even neighbor.
+  | RoundingUnnecessary
+      -- ^ Do not round. Raises an error if the result cannot
+      -- be represented without rounding at the targeted scale.
+
+#endif

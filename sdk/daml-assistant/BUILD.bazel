@@ -1,0 +1,164 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test", "generate_and_track_cabal")
+load("//bazel_tools/packaging:packaging.bzl", "package_app")
+load("@os_info//:os_info.bzl", "is_windows")
+
+# This library is intended to be used by applications called by the assistant,
+# e.g., damlc, to get the names of the various environment variables set by the assistant.
+da_haskell_library(
+    name = "daml-project-config",
+    srcs = glob(["daml-project-config/**/*.hs"]),
+    hackage_deps = [
+        "aeson",
+        "array",
+        "base",
+        "directory",
+        "extra",
+        "filepath",
+        "lens",
+        "regex-tdfa",
+        "safe-exceptions",
+        "semver",
+        "text",
+        "transformers",
+        "uniplate",
+        "yaml",
+    ],
+    src_strip_prefix = "daml-project-config",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/da-version-types",
+    ],
+)
+
+da_haskell_library(
+    name = "daml-lib",
+    srcs = glob(
+        ["src/**/*.hs"],
+    ),
+    hackage_deps = [
+        "aeson",
+        "base",
+        "bytestring",
+        "conduit",
+        "conduit-extra",
+        "containers",
+        "unordered-containers",
+        "directory",
+        "extra",
+        "filelock",
+        "filepath",
+        "http-client",
+        "http-client-tls",
+        "http-conduit",
+        "http-types",
+        "lens",
+        "optparse-applicative",
+        "process",
+        "safe",
+        "safe-exceptions",
+        "semver",
+        "tar-conduit",
+        "tasty",
+        "tasty-hunit",
+        "tasty-quickcheck",
+        "temporary",
+        "terminal-progress-bar",
+        "text",
+        "time",
+        "tls",
+        "typed-process",
+        "unix-compat",
+        "uri-encode",
+        "utf8-string",
+        "yaml",
+    ] + (["Win32"] if is_windows else []),
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":daml-project-config",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+da_haskell_binary(
+    name = "daml",
+    srcs = ["exe/DA/Daml/Assistant.hs"],
+    hackage_deps = [
+        "aeson",
+        "base",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "safe",
+        "safe-exceptions",
+        "typed-process",
+        "text",
+        "unordered-containers",
+    ],
+    main_function = "DA.Daml.Assistant.main",
+    src_strip_prefix = "exe",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":daml-lib",
+        ":daml-project-config",
+        "//libs-haskell/da-gcp-logger",
+        "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-lib",
+    ],
+)
+
+package_app(
+    name = "daml-dist",
+    binary = ":daml",
+    visibility = ["//visibility:public"],
+)
+
+da_haskell_test(
+    name = "test",
+    srcs = ["test/DA/Daml/Assistant/Tests.hs"],
+    hackage_deps = [
+        "base",
+        "conduit",
+        "conduit-extra",
+        "directory",
+        "extra",
+        "filepath",
+        "safe-exceptions",
+        "tar-conduit",
+        "tasty",
+        "tasty-hunit",
+        "tasty-quickcheck",
+        "temporary",
+        "text",
+        "unix-compat",
+        "yaml",
+    ],
+    main_function = "DA.Daml.Assistant.Tests.main",
+    src_strip_prefix = "test",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":daml-lib",
+        ":daml-project-config",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+# Target for da-ghcid, includes everything except integration tests.
+da_haskell_repl(
+    name = "repl",
+    testonly = True,
+    collect_data = False,
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-assistant:daml",
+        "//daml-assistant:test",
+        "//daml-assistant/daml-helper",
+    ],
+)
+
+generate_and_track_cabal("daml-project-config", None, "daml-project-config")

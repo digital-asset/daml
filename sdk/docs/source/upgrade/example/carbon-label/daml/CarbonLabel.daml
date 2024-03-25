@@ -1,0 +1,15 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- CARBON_LABEL_BEGIN
+module CarbonLabel where
+
+import CarbonV1
+
+template CarbonLabel
+  with
+    cert : ContractId CarbonCert
+    labelOwner : Party
+  where
+    signatory labelOwner
+-- CARBON_LABEL_END

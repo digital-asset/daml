@@ -1,0 +1,58 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test", "generate_and_track_cabal")
+
+da_haskell_library(
+    name = "daml-lf-ast",
+    srcs = glob(["src/**/*.hs"]),
+    hackage_deps = [
+        "aeson",
+        "base",
+        "bytestring",
+        "containers",
+        "deepseq",
+        "Decimal",
+        "extra",
+        "filepath",
+        "ghc-lib-parser",
+        "hashable",
+        "lens",
+        "mtl",
+        "recursion-schemes",
+        "safe",
+        "scientific",
+        "template-haskell",
+        "text",
+        "time",
+        "unordered-containers",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+da_haskell_test(
+    name = "tests",
+    srcs = glob(["test/**/*.hs"]),
+    hackage_deps = [
+        "base",
+        "containers",
+        "extra",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Daml.LF.Ast.Tests.main",
+    src_strip_prefix = "test",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":daml-lf-ast",
+        "//compiler/daml-lf-tools",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+generate_and_track_cabal("daml-lf-ast")

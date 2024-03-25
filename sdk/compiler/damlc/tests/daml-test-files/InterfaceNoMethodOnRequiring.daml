@@ -1,0 +1,25 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+
+module InterfaceNoMethodOnRequiring where
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface Token where
+  viewtype EmptyInterfaceView
+
+  getOwner : Party
+  getAmount : Int
+  setAmount : Int -> Token
+
+interface SubToken requires Token where
+  viewtype EmptyInterfaceView
+
+-- @ERROR range=25:13-25:16; Couldn't match expected type ‘Token’ with actual type ‘SubToken’
+-- An interface I method cannot be used on a different interface J,
+-- even if J requires I
+cannotCall : SubToken -> Token
+cannotCall sub =
+  setAmount sub 1_000_000

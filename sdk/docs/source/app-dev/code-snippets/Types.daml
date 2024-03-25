@@ -1,0 +1,54 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Types where
+
+import Daml.Script
+import DA.Date
+
+-- PRODUCT_TYPE_DEF_BEGIN
+data MyProductType = MyProductType with
+  intField : Int
+  textField : Text
+  decimalField : Decimal
+  boolField : Bool
+  partyField : Party
+  timeField : Time
+  listField : [Int]
+  contractIdField : ContractId SomeTemplate
+-- PRODUCT_TYPE_DEF_END
+
+-- SUM_TYPE_DEF_BEGIN
+data MySumType = MySumConstructor1 Int
+               | MySumConstructor2 (Text, Bool)
+-- SUM_TYPE_DEF_END
+
+template SomeTemplate
+  with owner: Party
+  where
+    signatory owner
+
+myTest = script do
+-- PRODUCT_TYPE_CREATE_BEGIN
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
+    someCid <- submit alice do createCmd SomeTemplate with owner=alice
+
+    let myProduct = MyProductType with
+                intField = 17
+                textField = "some text"
+                decimalField = 17.42
+                boolField = False
+                partyField = bob
+                timeField = datetime 2018 May 16 0 0 0
+                listField = [1,2,3]
+                contractIdField = someCid
+-- PRODUCT_TYPE_CREATE_END
+
+-- SUM_TYPE_CREATE_BEGIN
+    let mySum1 = MySumConstructor1 17
+    let mySum2 = MySumConstructor2 ("it's a sum", True)
+-- SUM_TYPE_CREATE_END
+
+    return ()

@@ -1,0 +1,18 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Check that functional dependency metadata is added when available.
+
+-- @SINCE-LF 2.1
+-- @QUERY-LF $pkg | .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$fdFoo"]) | .type | lf::norm_ty($pkg) | .forall | select(.vars | length == 2) | .body | lf::norm_ty($pkg) | .struct | .fields | length == 1
+-- @QUERY-LF $pkg | .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$fdBar"]) | .type | lf::norm_ty($pkg) | .forall | select(.vars | length == 5) | .body | lf::norm_ty($pkg) | .struct | .fields | length == 3
+module FunctionalDependencies where
+
+class Foo a b | a -> b where
+    foo : a -> b
+
+-- The crazy kinds here are to make sure that the functional dependency metadata works
+-- regardless of the kind. (A naïve implementation falls over when the type variables
+-- are not of kind star.)
+class Bar a (b: GHC.Types.Nat) c (d: GHC.Types.Nat -> *) (e: * -> *) | a -> b c, a d -> e, d -> a where
+    bar : a -> d b -> e c

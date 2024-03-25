@@ -1,0 +1,107 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module MedicalRecord where
+
+import Daml.Script
+
+{-
+    Simple representation of a medical record including a
+    description, a reference to the doctor and the time it got entered
+-}
+data Record = Record with
+    description : Text
+    timestamp : Time
+    doctor : Party
+        deriving (Show, Eq)
+
+type RegisterId = ContractId Register
+type TransferId = ContractId TransferRegisterRequest
+
+addOnce : [Party] -> Party -> [Party]
+addOnce list party = if (any (\x -> x == party) list) then list else party :: list
+
+{-
+    Container to manage the medical records.
+-}
+template Register
+  with
+    registry : Party
+    owner : Party
+    observers : [Party]
+    records : [Record]
+  where
+
+    signatory registry
+    observer owner, observers
+
+
+    choice TransferRecords : Either RegisterId TransferId
+      with
+        newRegistry : Party
+      controller owner
+        do
+          if newRegistry == owner then do
+            cr <- create this with registry = owner
+            return $ Left(cr)
+          else do
+            cr <- create TransferRegisterRequest with
+              registry = newRegistry, owner, observers, records
+            return $ Right(cr)
+
+    choice AddRecord : RegisterId
+      with
+        description : Text
+        doctor : Party
+      controller owner
+        do
+          timestamp <- getTime
+          let newRecord = Record with description, timestamp, doctor
+          create this with records = newRecord :: records
+
+    choice AddObserver : RegisterId
+      with
+        party : Party
+      controller owner
+        do
+          create this with observers = addOnce observers party
+
+{-
+  Request to transfer the records to a new registry.
+-}
+template TransferRegisterRequest
+  with
+    registry : Party
+    owner : Party
+    observers : [Party]
+    records : [Record]
+  where
+
+    signatory owner
+    observer registry
+
+
+    {- Choice to accept transfer -}
+    choice AcceptTransferRequest : RegisterId
+      controller registry
+        do
+          create Register with registry, owner, observers, records
+    {- Omitting unhappy path for brevity -}
+
+setup = script do
+  alice <- allocateParty "Alice"
+  registry <- allocateParty "Registry"
+  doctor <- allocateParty "Doctor"
+
+  mb <- submit registry do
+    createCmd Register with registry, owner = alice, observers = [], records = []
+
+  mb2 <- submit alice do
+    exerciseCmd mb AddRecord with description = "Don't think the patient will last long unless he quits smoking.", doctor
+
+  return (alice, registry, doctor, mb2)
+
+test = script do
+  (alice, registry, doctor, records) <- setup
+  submit alice do
+    exerciseCmd records TransferRecords with newRegistry = alice

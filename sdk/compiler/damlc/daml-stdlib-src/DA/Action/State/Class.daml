@@ -1,0 +1,35 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE DefaultSignatures #-}
+
+-- | DA.Action.State.Class
+module DA.Action.State.Class
+  ( ActionState(..)
+  ) where
+
+-- | Action `m` has a state variable of type `s`.
+--
+-- Rules:
+--   * `get *> ma  =  ma`
+--   * `ma <* get  =  ma`
+--   * `put a >>= get   =  put a $> a`
+--   * `put a *> put b  =  put b`
+--   * `(,) <$> get <*> get  =  get <&> \a -> (a, a)`
+--
+-- Informally, these rules mean it behaves like an ordinary assignable variable:
+-- it doesn't magically change value by looking at it, if you put a value there
+-- that's always the value you'll get if you read it, assigning a value but
+-- never reading that value has no effect, and so on.
+class ActionState s m | m -> s where
+  {-# MINIMAL get, (put | modify) #-}
+  -- | Fetch the current value of the state variable.
+  get : m s
+
+  -- | Set the value of the state variable.
+  put : s -> m ()
+  put = modify . const
+
+  -- | Modify the state variable with the given function.
+  modify : (s -> s) -> m ()
+  default modify : Action m => (s -> s) -> m ()
+  modify f = put . f =<< get

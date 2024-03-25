@@ -1,0 +1,43 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Tests.OptionalTest where
+
+data MyOptionalRecord = MyOptionalRecord
+    with
+        intOpt : Optional Int
+        unitOpt: Optional ()
+  deriving (Eq, Show)
+
+data NestedOptionalRecord = NestedOptionalRecord
+    with
+        outerOptional : Optional (Optional (Optional Int))
+  deriving (Eq, Show)
+
+data MyOptionalListRecord = MyOptionalListRecord
+    with
+        list: Optional [Int]
+  deriving (Eq, Show)
+
+data MyListOfOptionalsRecord = MyListOfOptionalsRecord
+    with
+        list: [Optional Int]
+  deriving (Eq, Show)
+
+data OptionalVariant x = OptionalParametricVariant (Optional x)
+                       | OptionalPrimVariant (Optional Int)
+  deriving (Eq, Show)
+
+-- Not part of the test but the codegen filters out
+-- data definitions which are not used in a template
+template OptionalTestTemplate
+    with
+        owner : Party
+        myOptionalRecord : MyOptionalRecord
+        nestedOptionalRecord : NestedOptionalRecord
+        myOptionalListRecord : MyOptionalListRecord
+        myListOfOptionalsRecord : MyListOfOptionalsRecord
+        optionalVariant : OptionalVariant Int
+    where
+        signatory owner

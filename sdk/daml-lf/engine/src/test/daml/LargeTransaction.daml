@@ -1,0 +1,60 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module LargeTransaction where
+
+range: a -> (a -> a) -> Int -> [a]
+range x next n =
+  if n <= 0 then []
+  else reverse (rangeHelper [x] next (n - 1))
+
+rangeHelper: [a] -> (a -> a) -> Int -> [a]
+rangeHelper xs next n =
+  if n <= 0 then xs
+  else
+    case xs of
+      []     -> []
+      h :: _ -> rangeHelper ((next h) :: xs) next (n - 1)
+
+template IntContainer
+  with
+    party: Party
+    value: Int
+  where
+    signatory party
+
+template ListContainer
+  with
+    party: Party
+    list: [Int]
+  where
+    signatory party
+
+template RangeOfInts
+  with
+    party: Party
+    start: Int
+    step: Int
+    size: Int
+  where
+    signatory party
+    choice ToList: [Int]
+      controller party
+      do return (range start (\x -> x + step) size)
+    choice ToListContainer: ContractId ListContainer
+      controller party
+      do create ListContainer with party = party, list = (range start (\x -> x + step) size)
+    choice ToListOfIntContainers: [ContractId IntContainer]
+      controller party
+      do let xs: [Int] = (range start (\x -> x + step) size)
+         mapA (\x -> create IntContainer with party = party, value = x) xs
+
+template ListUtil
+  with
+    party: Party
+  where
+    signatory party
+    choice Size: ContractId IntContainer
+      with list: [Int]
+      controller party
+      do create IntContainer with party = party, value = (length list)

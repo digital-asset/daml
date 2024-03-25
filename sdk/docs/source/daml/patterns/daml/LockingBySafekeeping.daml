@@ -1,0 +1,99 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+{-# LANGUAGE PartialTypeSignatures #-}
+
+
+module LockingBySafekeeping where
+
+import Daml.Script
+
+import CoinIssuance
+import Utilities
+import DA.Time
+
+data LockResult = LockResult {
+  coinCid : ContractId Coin;
+  lockCid : ContractId LockedCoinV2
+}
+
+-- BEGIN_LOCKED_COIN_V2_TEMPLATE
+template LockedCoinV2
+  with
+    coin: Coin
+    maturity: Time
+    locker: Party
+  where
+    signatory locker, coin.owner
+
+    choice UnlockV2
+      : ContractId Coin
+      with coinCid : ContractId Coin
+      controller locker
+      do
+        inputCoin <- fetch coinCid
+        assert (inputCoin.owner == locker)
+        tpCid <- exercise coinCid Transfer with newOwner = coin.owner
+        exercise tpCid AcceptTransfer
+
+    choice ClawbackV2
+      : ContractId Coin
+      with coinCid : ContractId Coin
+      controller coin.owner
+      do
+        currTime <- getTime
+        assert (currTime >= maturity)
+        inputCoin <- fetch coinCid
+        assert (inputCoin == coin with owner=locker)
+        tpCid <- exercise coinCid Transfer with newOwner = coin.owner
+        exercise tpCid AcceptTransfer
+-- END_LOCKED_COIN_V2_TEMPLATE
+
+-- BEGIN_LOCK_REQUEST_TEMPLATE
+template LockRequest
+  with
+    locker: Party
+    maturity: Time
+    coin: Coin
+  where
+    signatory locker
+    observer coin.owner
+
+    choice Accept : LockResult
+      with coinCid : ContractId Coin
+      controller coin.owner
+      do
+        inputCoin <- fetch coinCid
+        assert (inputCoin == coin)
+        tpCid <- exercise coinCid Transfer with newOwner = locker
+        coinCid <- exercise tpCid AcceptTransfer
+        lockCid <- create LockedCoinV2 with locker; maturity; coin
+        return LockResult {coinCid; lockCid}
+-- END_LOCK_REQUEST_TEMPLATE
+
+
+locking : Script (ContractId Coin)  -- test
+locking =
+  script do
+
+    [issuer, owner, newOwner, locker] <- makePartiesFrom ["Bank", "Me", "You", "Custodian Bank"]
+
+    passTime (days 0)
+    now <- getTime
+
+   --when coin is created, owner = locker. it is unlocked
+    coinId <- createCoin issuer owner 100.0
+
+    Some coin <- issuer `queryContractId` coinId
+    lockRequestCid <- locker `submit` do
+      createCmd LockRequest with locker; maturity= (addRelTime now (days 2)); coin
+    lockResult <- owner `submit` do exerciseCmd lockRequestCid Accept with coinCid = coinId
+
+    --since it is locked and maturity time hasn't elapsed yet, owner cannot clawback
+    owner `submitMustFail` do exerciseCmd lockResult.lockCid ClawbackV2 with coinCid = lockResult.coinCid
+
+    --only after unlock, owner can access the coin
+    unlockedCoin <- locker `submit` exerciseCmd lockResult.lockCid UnlockV2 with coinCid = lockResult.coinCid
+    propId <- owner `submit` exerciseCmd unlockedCoin Transfer with newOwner
+    newOwner `submit` exerciseCmd propId AcceptTransfer

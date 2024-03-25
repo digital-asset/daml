@@ -1,0 +1,36 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "generate_and_track_cabal")
+
+da_haskell_library(
+    name = "daml-lf-proto-encode",
+    srcs = [
+        "src/DA/Daml/LF/Proto3/Archive/Encode.hs",
+        "src/DA/Daml/LF/Proto3/Encode.hs",
+        "src/DA/Daml/LF/Proto3/EncodeV2.hs",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "cryptonite",
+        "memory",
+        "containers",
+        "mtl",
+        "lens",
+        "text",
+        "vector",
+        "proto3-suite",
+        "unordered-containers",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto-util",
+        "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+generate_and_track_cabal("daml-lf-proto-encode")

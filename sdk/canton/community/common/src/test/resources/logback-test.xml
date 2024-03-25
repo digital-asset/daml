@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration debug="false">
+  <!-- propagate logback changes to jul handlers -->
+  <contextListener class="ch.qos.logback.classic.jul.LevelChangePropagator">
+    <resetJUL>true</resetJUL>
+  </contextListener>
+
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <!-- attempt to place the trace-id with a trailing space, however replace with an empty string if it's empty -->
+      <pattern>%highlight(%-5level %logger{10} %replace(tid:%mdc{trace-id} ){'tid: ', ''}- %msg%replace(, context: %marker){', context: $', ''}%replace( err-context:%mdc{err-context} ){' err-context: ', ''}%n)</pattern>
+    </encoder>
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <level>WARN</level>
+    </filter>
+  </appender>
+
+  <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+    <file>${LOG_FILE_NAME:-log/canton_test.log}</file>
+    <append>${LOG_APPEND:-true}</append>
+    <encoder>
+      <!-- attempt to place the trace-id with a trailing space, however replace with an empty string if it's empty -->
+      <pattern>%date [%thread] %-5level %logger{10} %replace(tid:%mdc{trace-id} ){'tid: ', ''}- %msg%replace(, context: %marker){', context: $', ''}%replace( err-context:%mdc{err-context} ){' err-context: ', ''}%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Include general rewrite rules for messages we also want to rewrite in production
+       By setting the REWRITE_TESTING variable we can include the warning suppression of testing messages.
+  -->
+  <property name="REWRITE_TESTING" value="true" />
+  <include resource="rewrite-appender.xml"/>
+
+  <!-- Buffer errors for the last_errors command before passing them on to the rewrite appender -->
+  <appender name="LAST_ERRORS" class="com.digitalasset.canton.logging.LastErrorsAppender">
+    <appender-ref ref="REWRITE_LOG_LEVEL_SYNC"/>
+  </appender>
+
+  <root level="INFO">
+    <appender-ref ref="LAST_ERRORS" />
+  </root>
+
+  <!-- Ensure everything is logged before the JVM exits -->
+  <shutdownHook class="ch.qos.logback.core.hook.DefaultShutdownHook" />
+
+  <!-- Note that com.daml logs valuable info at TRACE level.
+       Set to TRACE for troubleshooting.
+  -->
+  <logger name="com.daml" level="${LOG_LEVEL_CANTON:-DEBUG}"/>
+  <logger name="com.digitalasset" level="${LOG_LEVEL_CANTON:-DEBUG}"/>
+  <!-- The TransactionsReader is quite noisy. -->
+  <logger name="com.digitalasset.canton.platform.store.dao.events.TransactionsReaderCanton" level="${LOG_LEVEL_CANTON:-INFO}"/>
+  <!-- netty reports ssl errors on DEBUG level ... -->
+  <logger name="io.netty.handler.ssl" level="${LOG_LEVEL_CANTON:-DEBUG}"/>
+
+  <!-- Set the logging level for Pekko so that if someone configures pekko to actually log something, this will end up in the log -->
+  <logger name="pekko" level="${LOG_LEVEL_CANTON:-DEBUG}"/>
+  <!-- janino can be too verbose in tests -->
+  <logger name="org.codehaus.janino" level="WARN"/>
+
+  <logger name="com.digitalasset.canton.resource.DbLockOracle:DbLockTestOracle" level="TRACE" />
+
+  <!-- Enable for database-relevant debug logs -->
+<!--  <logger name="slick" level="DEBUG"/>-->
+<!--  <logger name="com.zaxxer.hikari" level="DEBUG"/>-->
+<!--  <logger name="org.testcontainers" level="DEBUG"/>-->
+</configuration>

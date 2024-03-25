@@ -1,0 +1,15 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+resolver: nightly-2022-01-26
+packages:
+  - aeson-2.0.3.0
+
+# We drop the Win32 package from the stack snapshot so that stack considers it a toolchain library.
+# In this case we will use the Win32 provided by the compiler instead of recompiling it.
+# 
+# Recompiling it should be fine for future versions of Win32,
+# but with versions <= 2.13.2.0 we encounter the following issue:
+# https://github.com/haskell/win32/issues/193
+drop-packages:
+  - Win32

@@ -1,0 +1,96 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- architecture-handbook-entry-begin: IouDaml
+module Iou where
+
+import Daml.Script
+
+data Amount = Amount {value: Decimal; currency: Text} deriving (Eq, Ord, Show)
+
+amountAsText (amount : Amount) : Text = show amount.value <> amount.currency
+
+template Iou
+  with
+    payer: Party
+    owner: Party
+    amount: Amount
+    viewers: [Party]
+  where
+
+    ensure (amount.value >= 0.0)
+
+    signatory payer
+    observer owner
+    observer viewers
+
+    choice Call : ContractId GetCash
+      controller owner
+      do
+        create GetCash with payer; owner; amount
+
+    choice Transfer : ContractId Iou
+      with
+        newOwner: Party
+      controller owner
+      do
+        create this with owner = newOwner; viewers = []
+
+    choice Share : ContractId Iou
+      with
+        viewer : Party
+      controller owner
+        do
+          create this with viewers = (viewer :: viewers)
+-- architecture-handbook-entry-end: IouDaml
+
+template GetCash
+  with
+    payer: Party
+    owner: Party
+    amount: Amount
+  where
+    signatory payer, owner
+
+template Dummy
+  with
+    party: Party
+  where
+    signatory party
+
+issue owner payer =
+  script do
+    payer <- allocateParty payer
+    owner <- allocateParty owner
+    submit payer do
+        createCmd $ Iou with payer = payer; owner = owner; amount = Amount {value = 100.0; currency = "USD"}; viewers = []
+
+bankIssuesIouToAlice = issue "Alice" "Bank"
+
+davidsBankIssuesIouToDavid = issue "David" "DavidsBank"
+
+transfer owner newOwner payer =
+  script do
+    payer <- allocateParty payer
+    owner <- allocateParty owner
+    newOwner <- allocateParty newOwner
+    iouId <- submit payer do
+        createCmd $ Iou with payer = payer; owner = owner; amount = Amount {value = 100.0; currency = "USD"}; viewers = []
+    submit owner do
+        exerciseCmd iouId Transfer with newOwner = newOwner
+
+aliceTransfersIouToBob = transfer "Alice" "Bob" "Bank"
+
+transferAndCall owner newOwner payer =
+  script do
+    payer <- allocateParty payer
+    owner <- allocateParty owner
+    newOwner <- allocateParty newOwner
+    iouId <- submit payer do
+        createCmd $ Iou with payer = payer; owner = owner; amount = Amount {value = 100.0; currency = "USD"}; viewers = []
+    newIouId <- submit owner do
+        exerciseCmd iouId Transfer with newOwner = newOwner
+    submit newOwner do
+        exerciseCmd newIouId Call
+
+aliceTransfersAndBobCallsIou = transferAndCall "Alice" "Bob" "Bank"

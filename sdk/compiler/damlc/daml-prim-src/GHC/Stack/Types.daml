@@ -1,0 +1,80 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ImplicitParams #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+
+-- | MOVE DA.Stack
+module GHC.Stack.Types where
+
+import GHC.Classes ()
+import GHC.CString
+import GHC.Err
+import GHC.Tuple ()
+import GHC.Types
+
+-- | Request a `CallStack`. Use this as a constraint in type signatures in order
+-- to get nicer callstacks for error and debug messages.
+--
+-- For example, instead of declaring the following type signature:
+--
+-- ```
+-- myFunction : Int -> Update ()
+-- ```
+--
+-- You can declare a type signature with the `HasCallStack` constraint:
+--
+-- ```
+-- myFunction : HasCallStack => Int -> Update ()
+-- ```
+--
+-- The function `myFunction` will still be called the same way, but it will also show up
+-- as an entry in the current callstack, which you can obtain with `callStack`.
+--
+-- Note that only functions with the `HasCallStack` constraint will be added to the
+-- current callstack, and if any function does not have the `HasCallStack` constraint,
+-- the callstack will be reset within that function.
+type HasCallStack = (?callStack : CallStack)
+
+-- NOTE (MK): Note that everything in this module
+-- needs to use `TextLit`. Otherwise, you will get core linting errors
+-- due to mismatch between TextLit and Text.
+
+-- | Type of callstacks constructed automatically from `HasCallStack` constraints.
+--
+-- Use `callStack` to get the current callstack, and use `getCallStack`
+-- to deconstruct the `CallStack`.
+data CallStack
+  = EmptyCallStack -- ^ HIDE
+  | PushCallStack (TextLit, SrcLoc, CallStack) -- ^ HIDE
+  | FreezeCallStack CallStack -- ^ HIDE
+
+-- | HIDE
+emptyCallStack : CallStack
+emptyCallStack = EmptyCallStack
+
+-- | HIDE
+pushCallStack : (TextLit, SrcLoc) -> CallStack -> CallStack
+pushCallStack (fn, loc) stk = case stk of
+  FreezeCallStack _ -> stk
+  _                 -> PushCallStack (fn, loc, stk)
+
+-- | HIDE
+popCallStack : CallStack -> CallStack
+popCallStack stk = case stk of
+  EmptyCallStack         -> error "popCallStack: empty stack"
+  PushCallStack (_, _, stk') -> stk'
+  FreezeCallStack _      -> stk
+
+-- | HIDE Location in the source code.
+--
+-- Line and column are 1-based.
+data SrcLoc = SrcLoc
+  { srcLocPackage   : TextLit
+  , srcLocModule    : TextLit
+  , srcLocFile      : TextLit
+  , srcLocStartLine : Int
+  , srcLocStartCol  : Int
+  , srcLocEndLine   : Int
+  , srcLocEndCol    : Int
+  }

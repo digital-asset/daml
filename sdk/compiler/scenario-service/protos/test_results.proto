@@ -1,0 +1,85 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+package daml_lf_dev;
+
+import "com/daml/daml_lf_dev/daml_lf2.proto";
+import "scenario_service.proto";
+
+message TestResults {
+  // What was defined
+  repeated Template templates = 1;
+  repeated Interface interfaces = 2;
+  repeated InterfaceInstanceIdentifier interface_instances = 3;
+
+  // What was used
+  repeated Created created = 4;
+  repeated Exercise exercised = 5;
+}
+
+// A template, with the list of its choices
+message Template {
+  TemplateIdentifier id = 1;
+  Choices choices = 2;
+}
+
+// An interface, with the list of its choices
+message Interface {
+  InterfaceIdentifier id = 1;
+  Choices choices = 2;
+}
+
+// The list of choice names, used by Template/Interface
+message Choices {
+  repeated string choice = 1;
+}
+
+// TemplateIdentifier and InterfaceIdentifier
+message TemplateIdentifier {
+  string qualified_name = 1;
+  PackageId package_id = 2;
+}
+
+message InterfaceIdentifier {
+  string qualified_name = 1;
+  PackageId package_id = 2;
+}
+
+// InterfaceInstanceIdentifier, with its template and interface, the location
+// of definition (coimplements, implements)
+message InterfaceInstanceIdentifier {
+  TemplateIdentifier instance_template = 1;
+  InterfaceIdentifier instance_interface = 2;
+  PackageId package_id = 3;
+}
+
+// A template with all of the locations where it was created
+message Created {
+  TemplateIdentifier templateIdentifier = 1;
+  repeated PackageId locations = 2;
+}
+
+// A choice with all of the templates and locations it was exercised on
+message Exercise {
+  string choice = 1;
+  repeated ExerciseOnTemplate exercise = 2;
+}
+
+message ExerciseOnTemplate {
+  TemplateIdentifier template = 1;
+  repeated PackageId locations = 2;
+}
+
+// A package id, either local or external (with its name memoized)
+message PackageId {
+  message ExternalPackageId {
+    string id = 1;
+    string name = 2;
+  }
+
+  oneof variety {
+    Unit local = 1;
+    ExternalPackageId external = 2;
+  }
+}

@@ -1,0 +1,20 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | MOVE DA.Logic
+module DA.Logic.Types
+  ( Formula(..)
+  ) where
+
+-- | A `Formula t` is a formula in propositional calculus with
+-- propositions of type t.
+data Formula t
+  -- | `Proposition p` is the formula p
+  = Proposition t
+  -- | For a formula f, `Negation f` is ¬f
+  | Negation (Formula t)
+  -- | For formulas f1, ..., fn, `Conjunction [f1, ..., fn]` is f1 ∧ ... ∧ fn
+  | Conjunction [Formula t]
+  -- | For formulas f1, ..., fn, `Disjunction [f1, ..., fn]` is f1 ∨ ... ∨ fn
+  | Disjunction [Formula t]
+

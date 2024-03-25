@@ -1,0 +1,64 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module LfStableDivulgeIou where
+
+import Daml.Script
+
+-- @LEDGER run LfStableDivulgeIou.EXPECTED.ledger
+run = script do
+  payer <- allocateParty "AlicesBank"
+  owner <- allocateParty "Alice"
+  divulgee <- allocateParty "Bob"
+  iouCid <-
+    submit payer do createCmd Iou with
+                         owner = owner
+                         payer = payer
+                         amount = Amount {value = 1.0; currency = "USD"}
+  divulgeeCid <-
+    submit divulgee do createCmd DivulgeIouByExercise with
+                         payer = payer
+                         divulgee = divulgee
+  submit payer do exerciseCmd divulgeeCid Divulge with ref = iouCid
+
+data Amount = Amount {value: Decimal; currency: Text} deriving (Eq, Show)
+
+amountAsText (amount : Amount) : Text = show amount.value <> amount.currency
+
+template GetCash
+ with
+   payer: Party
+   owner: Party
+   amount: Amount
+ where
+   signatory payer, owner
+
+template Iou
+
+ with
+   payer: Party
+   owner: Party
+   amount: Amount
+ where
+   signatory payer
+   observer owner
+   choice Call: ContractId GetCash
+     controller owner
+     do create GetCash with payer; owner; amount
+
+   choice Transfer: ContractId Iou with newOwner: Party
+     controller owner
+     do create Iou with payer; owner = newOwner; amount
+
+template DivulgeIouByExercise
+ with
+   payer: Party
+   divulgee: Party
+ where
+   signatory divulgee
+   observer payer
+   nonconsuming choice Divulge: ()
+     with ref : ContractId Iou
+     controller payer
+     do iou <- fetch ref
+        pure ()

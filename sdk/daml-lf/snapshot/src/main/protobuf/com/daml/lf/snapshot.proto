@@ -1,0 +1,25 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+
+syntax = "proto3";
+
+package com.daml.lf.testing.snapshot;
+
+option java_package = "com.daml.lf.testing.snapshot";
+
+message TransactionEntry {
+    bytes rawTransaction = 1;
+    string participantId = 2;
+    repeated string submitters = 3;
+    int64 ledgerTime = 4;
+    int64 submissionTime = 5;
+    bytes submissionSeed = 6;
+}
+
+message SubmissionEntry {
+    oneof entry {
+        TransactionEntry transaction = 1;
+        bytes archives = 2;
+    }
+}

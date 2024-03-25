@@ -1,0 +1,23 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module DA.Semigroup
+  ( Min(..)
+  , Max(..)
+  ) where
+
+import DA.Semigroup.Types
+
+deriving instance Eq a => Eq (Min a)
+deriving instance Ord a => Ord (Min a)
+deriving instance Show a => Show (Min a)
+
+instance Ord a => Semigroup (Min a) where
+  Min a <> Min b = Min (min a b)
+
+deriving instance Eq a => Eq (Max a)
+deriving instance Ord a => Ord (Max a)
+deriving instance Show a => Show (Max a)
+
+instance Ord a => Semigroup (Max a) where
+  Max a <> Max b = Max (max a b)

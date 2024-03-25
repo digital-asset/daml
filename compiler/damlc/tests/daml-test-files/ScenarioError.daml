@@ -1,7 +1,0 @@
--- This tests that defining a scenario triggers an error when scenarios are disabled.
--- @ERROR Scenarios are no longer supported.
--- Remove when scenarios are fully deleted (See #16583 for steps towards this)
-module ScenarioError where
-
-test = scenario do
-  pure ()

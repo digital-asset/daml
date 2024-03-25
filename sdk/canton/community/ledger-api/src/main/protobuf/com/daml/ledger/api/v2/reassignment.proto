@@ -1,0 +1,147 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v2;
+
+import "com/daml/ledger/api/v2/event.proto";
+import "com/daml/ledger/api/v2/trace_context.proto";
+import "com/daml/ledger/api/v2/value.proto";
+import "google/protobuf/timestamp.proto";
+
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
+option java_outer_classname = "ReassignmentOuterClass";
+option java_package = "com.daml.ledger.api.v2";
+
+// Complete view of an on-ledger reassignment.
+message Reassignment {
+  // Assigned by the server. Useful for correlating logs.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string update_id = 1;
+
+  // The ID of the command which resulted in this reassignment. Missing for everyone except the submitting party on the submitting participant.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string command_id = 2;
+
+  // The workflow ID used in reassignment command submission. Only set if the ``workflow_id`` for the command was set.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string workflow_id = 3;
+
+  // The absolute offset. The format of this field is described in ``participant_offset.proto``.
+  // Required
+  string offset = 4;
+
+  oneof event {
+    UnassignedEvent unassigned_event = 5;
+    AssignedEvent assigned_event = 6;
+  }
+
+  // Optional; ledger api trace context
+  //
+  // The trace context transported in this message corresponds to the trace context supplied
+  // by the client application in a HTTP2 header of the original command submission.
+  // We typically use a header to transfer this type of information. Here we use message
+  // body, because it is used in gRPC streams which do not support per message headers.
+  // This field will be populated with the trace context contained in the original submission.
+  // If that was not provided, a unique ledger-api-server generated trace context will be used
+  // instead.
+  com.daml.ledger.api.v2.TraceContext trace_context = 7;
+
+  // The time at which the reassignment was recorded. The record time refers to the source/target
+  // domain for an unassign/assign event respectively.
+  // Required
+  google.protobuf.Timestamp record_time = 8;
+}
+
+// Records that a contract has been unassigned, and it becomes unusable on the source domain
+message UnassignedEvent {
+  // The ID of the unassignment. This needs to be used as an input for a assign ReassignmentCommand.
+  // For one contract the (unassign_id, source domain) pair is unique.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string unassign_id = 1;
+
+  // The ID of the reassigned contract.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string contract_id = 2;
+
+  //  The template of the reassigned contract.
+  //  Required
+  com.daml.ledger.api.v2.Identifier template_id = 3;
+
+  // The ID of the source domain
+  // Must be a valid domain ID
+  // Required
+  string source = 4;
+
+  // The ID of the target domain
+  // Must be a valid domain ID
+  // Required
+  string target = 5;
+
+  // Party on whose behalf the unassign command was executed.
+  // Empty if the unassignment happened offline via the repair service.
+  // Must be a valid PartyIdString (as described in ``value.proto``).
+  // Optional
+  string submitter = 6;
+
+  // Each corresponding assigned and unassigned event has the same reassignment_counter. This strictly increases
+  // with each unassign command for the same contract. Creation of the contract corresponds to reassignment_counter
+  // equals zero.
+  // Required
+  uint64 reassignment_counter = 7;
+
+  // Assignment exclusivity
+  // Before this time (measured on the target domain), only the submitter of the unassignment can initiate the assignment
+  // Defined for reassigning participants.
+  // Optional
+  google.protobuf.Timestamp assignment_exclusivity = 8;
+
+  // The parties that are notified of this event.
+  // Required
+  repeated string witness_parties = 9;
+
+  // The package name of the contract.
+  // Required
+  string package_name = 10;
+}
+
+// Records that a contract has been assigned, and it can be used on the target domain.
+message AssignedEvent {
+  // The ID of the source domain.
+  // Must be a valid domain ID.
+  // Required
+  string source = 1;
+
+  // The ID of the target domain.
+  // Must be a valid domain ID.
+  // Required
+  string target = 2;
+
+  // The ID from the unassigned event.
+  // For correlation capabilities.
+  // For one contract the (unassign_id, source domain) pair is unique.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string unassign_id = 3;
+
+  // Party on whose behalf the assign command was executed.
+  // Empty if the assignment happened offline via the repair service.
+  // Must be a valid PartyIdString (as described in ``value.proto``).
+  // Optional
+  string submitter = 4;
+
+  // Each corresponding assigned and unassigned event has the same reassignment_counter. This strictly increases
+  // with each unassign command for the same contract. Creation of the contract corresponds to reassignment_counter
+  // equals zero.
+  // Required
+  uint64 reassignment_counter = 5;
+
+  // Required
+  com.daml.ledger.api.v2.CreatedEvent created_event = 6;
+}

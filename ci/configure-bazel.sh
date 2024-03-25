@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../sdk"
 
 ## Functions
 
@@ -70,7 +70,7 @@ if is_windows; then
   # three characters.
   echo "Working directory: $PWD"
   SUFFIX="$(echo $PWD $RULES_HASKELL_REV | openssl dgst -md5 -r)"
-  CACHE_URL="https://storage.googleapis.com/daml-bazel-cache/202309/win/${SUFFIX:0:4}"
+  CACHE_URL="https://storage.googleapis.com/daml-bazel-cache/20231114/win/${SUFFIX:0:4}"
   echo "CACHE_URL=$CACHE_URL"
   echo "build:windows-ci --remote_cache=$CACHE_URL" >> .bazelrc.local
 fi

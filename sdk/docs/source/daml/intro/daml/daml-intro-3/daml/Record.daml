@@ -1,0 +1,177 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Record where
+
+import Daml.Script
+
+-- RECORD_TEST_BEGIN
+data MyRecord = MyRecord with
+  my_txt : Text
+  my_int : Int
+  my_dec : Decimal
+  my_list : [Text]
+
+-- Fields of same type can be declared in one line
+data Coordinate = Coordinate with
+  x, y, z : Decimal
+
+-- Custom data types can also have variables
+data KeyValue k v = KeyValue with
+  my_key : k
+  my_val : v
+
+data Nested = Nested with
+  my_coord : Coordinate
+  my_record : MyRecord
+  my_kv : KeyValue Text Int
+
+record_test = script do
+  let
+    my_record = MyRecord with
+      my_txt = "Text"
+      my_int = 2
+      my_dec = 2.5
+      my_list = ["One", "Two", "Three"]
+
+    my_coord = Coordinate with
+      x = 1.0
+      y = 2.0
+      z = 3.0
+
+    -- `my_text_int` has type `KeyValue Text Int`
+    my_text_int = KeyValue with
+      my_key = "Key"
+      my_val = 1
+
+    -- `my_int_decimal` has type `KeyValue Int Decimal`
+    my_int_decimal = KeyValue with
+      my_key = 2
+      my_val = 2.0 : Decimal
+
+    -- If variables are in scope that match field names, we can pick them up
+    -- implicitly, writing just `my_coord` instead of `my_coord = my_coord`.
+    my_nested = Nested with
+      my_coord
+      my_record
+      my_kv = my_text_int
+
+  -- Fields can be accessed with dot syntax
+  assert (my_coord.x == 1.0)
+  assert (my_text_int.my_key == "Key")
+  assert (my_nested.my_record.my_dec == 2.5)
+-- RECORD_TEST_END
+
+-- EQ_TEST_BEGIN
+data EqRecord = EqRecord with
+  my_txt : Text
+  my_int : Int
+  my_dec : Decimal
+  my_list : [Text]
+    deriving (Eq)
+
+data MyContainer a = MyContainer with
+  contents : a
+    deriving (Eq)
+
+eq_test = script do
+  let
+    eq_record = EqRecord with
+      my_txt = "Text"
+      my_int = 2
+      my_dec = 2.5
+      my_list = ["One", "Two", "Three"]
+
+    my_container = MyContainer with
+      contents = eq_record
+    other_container = MyContainer with
+      contents = eq_record
+
+  assert(my_container.contents == eq_record)
+  assert(my_container == other_container)
+-- EQ_TEST_END
+
+-- CASH_BALANCE_BEGIN
+data Bank = Bank with
+  party : Party
+  address: Text
+  telephone : Text
+    deriving (Eq, Show)
+
+data Account = Account with
+  owner : Party
+  number : Text
+  bank : Bank
+    deriving (Eq, Show)
+
+data Cash = Cash with
+  currency : Text
+  amount : Decimal
+    deriving (Eq, Show)
+
+template CashBalance
+  with
+    accountant : Party
+    cash : Cash
+    account : Account
+  where
+    signatory accountant
+
+cash_balance_test = script do
+  accountant <- allocateParty "Bob"
+  owner <- allocateParty "Alice"
+  bank_party <- allocateParty "Bank"
+  let
+    bank = Bank with
+      party = bank_party
+      address = "High Street"
+      telephone = "012 3456 789"
+    account = Account with
+      owner
+      bank
+      number = "ABC123"
+    cash = Cash with
+      currency = "USD"
+      amount = 100.0
+
+  submit accountant do
+    createCmd CashBalance with
+      accountant
+      cash
+      account
+  pure ()
+-- CASH_BALANCE_END
+
+-- MANIPULATION_BEGIN
+manipulation_demo = script do
+  let
+    eq_record = EqRecord with
+      my_txt = "Text"
+      my_int = 2
+      my_dec = 2.5
+      my_list = ["One", "Two", "Three"]
+
+    -- A verbose way to change `eq_record`
+    changed_record = EqRecord with
+      my_txt = eq_record.my_txt
+      my_int = 3
+      my_dec = eq_record.my_dec
+      my_list = eq_record.my_list
+
+    -- A better way
+    better_changed_record = eq_record with
+      my_int = 3
+
+    record_with_changed_list = eq_record with
+      my_list = "Zero" :: eq_record.my_list
+
+  assert (eq_record.my_int == 2)
+  assert (changed_record == better_changed_record)
+
+  -- The list on `eq_record` can't be changed.
+  assert (eq_record.my_list == ["One", "Two", "Three"])
+  -- The list on `record_with_changed_list` is a new one.
+  assert (record_with_changed_list.my_list == ["Zero", "One", "Two", "Three"])
+-- MANIPULATION_END
+

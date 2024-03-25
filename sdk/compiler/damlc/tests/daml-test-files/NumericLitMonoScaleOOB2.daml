@@ -1,0 +1,17 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Ensure numeric literal cannot be out of bounds even if we
+-- condition on `NumericScale 38`. That is, we still get a
+-- conversion error even if we try to be clever.
+--
+-- @SINCE-LF 2.1
+-- @ERROR range=17:1-17:9; type-level natural outside of supported range [0, 37]
+
+
+
+module NumericLitMonoScaleOOB2 where
+
+-- Scale out of bounds for numeric literal.
+scaleOOB : NumericScale 38 => Numeric 38
+scaleOOB = 0.00001

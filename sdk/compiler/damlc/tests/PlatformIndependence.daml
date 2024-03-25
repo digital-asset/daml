@@ -1,0 +1,40 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module PlatformIndependence where
+
+import DA.Stack
+
+type AssetId = ContractId Asset
+
+data ADT
+  = Foo
+  | Bar
+  | Baz
+
+give : HasCallStack => Party -> Party -> Text -> Update (ContractId Asset)
+give issuer owner name = do
+  let fs = [ srcLocFile srcLoc | (_t, srcLoc) <- getCallStack callStack]
+  trace (show fs) $ create Asset{..}
+
+incompletePattternMatch : ADT -> Update ()
+incompletePattternMatch adt =
+  case adt of
+    Foo -> pure ()
+    Bar -> pure ()
+
+template Asset
+  with
+    issuer : Party
+    owner  : Party
+    name   : Text
+  where
+    ensure name /= ""
+    signatory issuer
+    choice Give : AssetId
+      with
+        newOwner : Party
+      controller owner
+      do incompletePattternMatch Baz
+         create this with
+          owner = newOwner

@@ -1,0 +1,63 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:haskell.bzl",
+    "da_haskell_library",
+)
+
+# Split into a separate library to make it a bit easier to avoid module cycles.
+da_haskell_library(
+    name = "daml-rule-types",
+    srcs = glob(["src/**/*.hs"]),
+    hackage_deps = [
+        "aeson",
+        "base",
+        "binary",
+        "bytestring",
+        "containers",
+        "deepseq",
+        "directory",
+        "extra",
+        "filepath",
+        "ghc-lib-parser",
+        "ghc-lib-parser-ex",
+        "ghc-lib",
+        "ghcide",
+        "hashable",
+        "lsp",
+        "lsp-types",
+        "haskell-src-exts",
+        "hlint",
+        "http-types",
+        "mtl",
+        "network-uri",
+        "pretty",
+        "safe",
+        "shake",
+        "stm",
+        "temporary",
+        "text",
+        "time",
+        "transformers",
+        "unordered-containers",
+        "utf8-string",
+        "vector",
+        "proto3-suite",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
+        "//compiler/daml-lf-tools",
+        "//compiler/damlc/daml-doctest",
+        "//compiler/damlc/daml-lf-conversion",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//compiler/scenario-service/client",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-class-lib",
+    ],
+)

@@ -1,0 +1,146 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Variants where
+
+import Daml.Script
+
+-- CASH_BALANCE_BEGIN
+data Bank = Bank with
+  party : Party
+  address: Text
+  telephone : Text
+    deriving (Eq, Show)
+
+data Account = Account with
+  number : Text
+  bank : Bank
+    deriving (Eq, Show)
+
+data Cash = Cash with
+  currency : Text
+  amount : Decimal
+    deriving (Eq, Show)
+
+data Location
+  = InHand
+  | InAccount Account
+    deriving (Eq, Show)
+
+template CashBalance
+  with
+    accountant : Party
+    owner : Party
+    cash : Cash
+    location : Location
+  where
+    signatory accountant
+
+cash_balance_test = do
+  accountant <- allocateParty "Bob"
+  owner <- allocateParty "Alice"
+  bank_party <- allocateParty "Bank"
+  let
+    bank = Bank with
+      party = bank_party
+      address = "High Street"
+      telephone = "012 3456 789"
+    account = Account with
+      bank
+      number = "ABC123"
+    cash = Cash with
+      currency = "USD"
+      amount = 100.0
+
+  submit accountant do
+    createCmd CashBalance with
+      accountant
+      owner
+      cash
+      location = InHand
+
+  submit accountant do
+    createCmd CashBalance with
+      accountant
+      owner
+      cash
+      location = InAccount account
+-- CASH_BALANCE_END
+
+{-
+-- Commented out as `Optional` is already defined
+-- OPTIONAL_BEGIN
+data Optional a
+  = None
+  | Some a
+    deriving (Eq, Show)
+-- OPTIONAL_END
+-}
+
+-- ENUM_BEGIN
+data DayOfWeek
+  = Monday
+  | Tuesday
+  | Wednesday
+  | Thursday
+  | Friday
+  | Saturday
+  | Sunday
+    deriving (Eq, Show)
+-- ENUM_END
+
+-- VARIANT_ACCESS_BEGIN
+{-
+-- Commented out as `Either` is defined in the standard library.
+data Either a b
+  = Left a
+  | Right b
+-}
+
+variant_access_test = script do
+  let
+    l : Either Int Text = Left 1
+    r : Either Int Text = Right "r"
+
+    -- If we know that `l` is a `Left`, we can error on the `Right` case.
+    l_value = case l of
+      Left i -> i
+      Right i -> error "Expecting Left"
+    -- Comment out at your own peril
+    {-
+    r_value = case r of
+      Left i -> i
+      Right i -> error "Expecting Left"
+    -}
+
+    -- If we are unsure, we can return an `Optional` in both cases
+    ol_value = case l of
+      Left i -> Some i
+      Right i -> None
+    or_value = case r of
+      Left i -> Some i
+      Right i -> None
+
+    -- If we don't care about values or even constructors, we can use wildcards
+    l_value2 = case l of
+      Left i -> i
+      Right _ -> error "Expecting Left"
+    l_value3 = case l of
+      Left i -> i
+      _ -> error "Expecting Left"
+
+    day = Sunday
+    weekend = case day of
+      Saturday -> True
+      Sunday -> True
+      _ -> False
+
+  assert (l_value == 1)
+  assert (l_value2 == 1)
+  assert (l_value3 == 1)
+  assert (ol_value == Some 1)
+  assert (or_value == None)
+  assert weekend
+-- VARIANT_ACCESS_END
+

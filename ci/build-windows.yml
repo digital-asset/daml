@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 parameters:
@@ -6,31 +6,50 @@ parameters:
   is_release: ''
   is_split_release: 'false'
   skip_tests: ''
+  test_mode: ''
 
 steps:
-  - bash: ci/configure-bazel.sh
+  - bash: |
+      if [ -f ci/configure-bazel.sh ]; then
+        ci/configure-bazel.sh
+      else
+        sdk/ci/configure-bazel.sh
+      fi
     displayName: 'Configure Bazel'
     env:
       IS_FORK: $(System.PullRequest.IsFork)
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
-  - powershell: '.\ci\windows-diagnostics.ps1'
+  - powershell: |
+      if (Test-Path .\ci\windows-diagnostics.ps1) {
+        .\ci\windows-diagnostics.ps1
+      } else {
+        cd sdk
+        .\ci\windows-diagnostics.ps1
+      }
     displayName: 'Agent diagnostics'
 
   - bash: |
       set -euo pipefail
       if [ -e bazel-testlogs ]; then
-          rm -rf bazel-testlogs/
+        rm -rf bazel-testlogs/
+      fi
+      if [ -e sdk/bazel-testlogs ]; then
+        rm -rf sdk/bazel-testlogs
       fi
     displayName: delete old logs
 
-  - powershell: '.\build.ps1'
+  - powershell: |
+      if (Test-Path .\build.ps1) {
+        .\build.ps1
+      } else {
+        cd sdk
+        .\build.ps1
+      }
     displayName: 'Build'
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
-      ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
-      ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
       # On release, we want to skip testing because:
       # - Caching on Windows is keyed on full path, and full path is somewhat
       #   random (for a given machine, each pipeline has a its own workdir, but
@@ -41,6 +60,7 @@ steps:
       #   part of the release PR that triggered the build (with correct version
       #   number).
       SKIP_TESTS: ${{parameters.skip_tests}}
+      TEST_MODE: ${{parameters.test_mode}}
 
   - template: publish-platform-independence-dar.yml
     parameters:
@@ -51,7 +71,7 @@ steps:
     condition: failed()
     displayName: 'Publish the bazel test logs'
     inputs:
-      pathtoPublish: 'bazel-testlogs/'
+      pathtoPublish: '$(Build.StagingDirectory)/bazel-testlogs/'
       artifactName: 'Test logs Windows'
 
   - template: bash-lib.yml
@@ -61,7 +81,12 @@ steps:
   - bash: |
       set -euo pipefail
       mkdir -p '$(Build.StagingDirectory)'/release
-      ./ci/copy-windows-release-artifacts.sh \
+      if [ -f ./ci/copy-windows-release-artifacts.sh ]; then
+        p=.
+      else
+        p=sdk
+      fi
+      $p/ci/copy-windows-release-artifacts.sh \
         ${{parameters.release_tag}} \
         '$(Build.StagingDirectory)'/release \
         "${{ parameters.is_split_release }}"
@@ -75,12 +100,12 @@ steps:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'main'))
+                   in(variables['Build.SourceBranchName'], 'main', 'main-2.x'))
 
   - task: PublishPipelineArtifact@0
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'main'))
+                   in(variables['Build.SourceBranchName'], 'main', 'main-2.x'))
     inputs:
       targetPath: $(Build.StagingDirectory)/release
       artifactName: windows-release

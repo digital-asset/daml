@@ -1,0 +1,36 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+
+module InterfaceNoMethodOnTemplate where
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface Token where
+  viewtype EmptyInterfaceView
+
+  getOwner : Party
+  getAmount : Int
+  setAmount : Int -> Token
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory owner
+
+    interface instance Token for Asset where
+      view = EmptyInterfaceView
+      getOwner = owner
+      getAmount = amount
+      setAmount x = toInterface @Token (this with amount = x)
+
+-- @ERROR range=36:13-36:18; Couldn't match expected type ‘Token’ with actual type ‘Asset’
+-- An interface method cannot be used directly on a template,
+-- even if it implements the interface.
+cannotCall : Asset -> Token
+cannotCall asset =
+  setAmount asset 1_000_000

@@ -1,0 +1,130 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module CoinUpgrade where
+
+import Daml.Script
+import Coin_1_0_0.Coin qualified
+import Coin_2_0_0.Coin qualified
+
+template Aux -- for fetch
+  with
+    party : Party
+  where
+    signatory party
+
+    choice Fetch_Coin_1_0_0 : (Text, Coin_1_0_0.Coin.Coin)
+      with cid : ContractId Coin_1_0_0.Coin.Coin
+      controller party
+      do
+        coin <- fetch cid
+        pure $
+          ( "fetch v1\n" <> show coin
+          , coin
+          )
+
+    choice Fetch_Coin_2_0_0 : (Text, Coin_2_0_0.Coin.Coin)
+      with cid : ContractId Coin_2_0_0.Coin.Coin
+      controller party
+      do
+        coin <- fetch cid
+        pure $
+          ( "fetch v2\n" <> show coin
+          , coin
+          )
+
+create_v1_fetch_v1 : Script ()
+create_v1_fetch_v1 = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd Coin_1_0_0.Coin.Coin with
+    issuer = alice
+    owner = alice
+    obs = []
+  _ <- alice `submit` createAndExerciseCmd (Aux alice) Fetch_Coin_1_0_0 with
+    cid = cid
+  pure ()
+
+create_v2_fetch_v2 : Script ()
+create_v2_fetch_v2 = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd Coin_2_0_0.Coin.Coin with
+    issuer = alice
+    owner = alice
+    obs = []
+  _ <- alice `submit` createAndExerciseCmd (Aux alice) Fetch_Coin_2_0_0 with
+    cid = cid
+  pure ()
+
+create_v1_fetch_v2 : Script ()
+create_v1_fetch_v2 = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd Coin_1_0_0.Coin.Coin with
+    issuer = alice
+    owner = alice
+    obs = []
+  _ <- alice `submit` createAndExerciseCmd (Aux alice) Fetch_Coin_2_0_0 with -- Upgrade
+    cid = coerceContractId cid
+  pure ()
+
+create_v2_fetch_v1 : Script ()
+create_v2_fetch_v1 = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd Coin_2_0_0.Coin.Coin with
+    issuer = alice
+    owner = alice
+    obs = []
+  _ <- alice `submit` createAndExerciseCmd (Aux alice) Fetch_Coin_1_0_0 with -- Downgrade
+    cid = coerceContractId cid
+  pure ()
+
+
+template Aux2 -- for exercise
+  with
+    party : Party
+  where
+    signatory party
+
+    choice Exercise_Steal_1_0_0 : (Text, ContractId Coin_2_0_0.Coin.Coin)
+      with cid : ContractId Coin_1_0_0.Coin.Coin
+      controller party
+      do
+        let cid1 = coerceContractId @_ @Coin_2_0_0.Coin.Coin cid
+        cid2 <- exercise cid1 (Coin_2_0_0.Coin.V2Steal party)
+        pure $
+          ( "exercise v1\n"
+          , cid2
+          )
+
+    choice Exercise_Steal_2_0_0 : (Text, ContractId Coin_2_0_0.Coin.Coin)
+      with cid : ContractId Coin_2_0_0.Coin.Coin
+      controller party
+      do
+        cid2 <- exercise cid (Coin_2_0_0.Coin.V2Steal party)
+        pure $
+          ( "exercise v2\n"
+          , cid2
+          )
+
+create_v2_exercise_v2 : Script ()
+create_v2_exercise_v2 = do
+  alice <- allocateParty "alice"
+  bob <- allocateParty "bob"
+  cid <- alice `submit` createCmd Coin_2_0_0.Coin.Coin with
+    issuer = alice
+    owner = alice
+    obs = [bob]
+  _ <- bob `submit` createAndExerciseCmd (Aux2 bob) Exercise_Steal_2_0_0 with
+    cid = cid
+  pure ()
+
+create_v1_exercise_v2 : Script ()
+create_v1_exercise_v2 = do
+  alice <- allocateParty "alice"
+  bob <- allocateParty "bob"
+  cid <- alice `submit` createCmd Coin_1_0_0.Coin.Coin with
+    issuer = alice
+    owner = alice
+    obs = [bob]
+  _ <- bob `submit` createAndExerciseCmd (Aux2 bob) Exercise_Steal_1_0_0 with -- Upgrade
+    cid = cid
+  pure ()

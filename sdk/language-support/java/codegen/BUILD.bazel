@@ -1,0 +1,452 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_benchmark_jmh",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test",
+    "scala_source_jar",
+    "scaladoc_jar",
+)
+load(
+    "//rules_daml:daml.bzl",
+    "daml_build_test",
+    "daml_compile",
+)
+load(
+    ":codegen.bzl",
+    "dar_to_java",
+    "mangle_for_java",
+    "test_exclusions",
+)
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "LF_VERSIONS",
+    "lf_version_configuration",
+    "lf_version_default_or_latest",
+    "lf_version_is_dev",
+)
+load(
+    "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
+    "jar_jar",
+)
+load("//bazel_tools:pom_file.bzl", "pom_file")
+load("@os_info//:os_info.bzl", "is_windows")
+
+da_scala_binary(
+    name = "codegen",
+    main_class = "com.daml.lf.codegen.StandaloneMain",
+    visibility = ["//visibility:public"],
+    deps = [":lib"],
+)
+
+da_scala_library(
+    name = "lib",
+    srcs = glob(["src/main/**/*.scala"]),
+    resources = [
+        "src/main/resources/logback.xml",
+    ],
+    scala_deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    tags = ["maven_coordinates=com.daml:codegen-java-lib:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//canton:bindings-java",
+        "//daml-lf/api-type-signature",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//language-support/codegen-common",
+        "//libs-scala/nonempty",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_squareup_javapoet",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+########################################################
+####  Unit Tests
+########################################################
+da_scala_test(
+    name = "test",
+    srcs = glob(["src/test/**/*.scala"]),
+    data = [
+        ":test-daml.dar",
+        ":test-daml-with-same-dependencies.dar",
+        ":test-daml-with-same-dependencies-but-different-target-version.dar",
+        ":test-daml-with-same-source-project-name.dar",
+        ":test-depending-on-bar-template.dar",
+        ":test-template.dar",
+    ],
+    resource_strip_prefix = "language-support/java/codegen/src/test/resources/",
+    resources = glob(["src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_chuusai_shapeless",
+    ],
+    deps = [
+        ":lib",
+        ":test-daml-java",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:bindings-java",
+        "//daml-lf/api-type-signature",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//daml-lf/stable-packages",
+        "//language-support/codegen-common",
+        "@maven//:com_squareup_javapoet",
+        "@maven//:org_scalatest_scalatest_compatible",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+daml_compile(
+    name = "test-daml",
+    srcs = ["src/test/daml/Foo.daml"],
+)
+
+daml_compile(
+    name = "test-daml-with-same-dependencies",
+    srcs = ["src/test/daml/Foo2.daml"],
+)
+
+daml_compile(
+    name = "test-daml-with-same-source-project-name",
+    srcs = ["src/test/daml/Foo.daml"],
+    project_name = "test-daml",
+)
+
+daml_compile(
+    name = "test-daml-with-same-dependencies-but-different-target-version",
+    srcs = ["src/test/daml/Foo2.daml"],
+    target = "2.dev",
+)
+
+daml_compile(
+    name = "test-template",
+    srcs = ["src/test/daml/Bar.daml"],
+)
+
+daml_compile(
+    name = "test-another-bar",
+    srcs = ["src/test/daml/AnotherBar.daml"],
+)
+
+daml_compile(
+    name = "test-depending-on-bar-template",
+    srcs = ["src/test/daml/UsingBar.daml"],
+    data_dependencies = [
+        "//language-support/java/codegen:test-template.dar",
+        "//language-support/java/codegen:test-another-bar.dar",
+    ],
+)
+
+daml_compile(
+    name = "test-contract-id-daml",
+    srcs = [
+        "src/test/daml/Bar.daml",
+    ],
+    target = lf_version_configuration.get("default"),
+)
+
+dar_to_java(
+    name = "test-daml-java",
+    src = ":test-contract-id-daml.dar",
+    package_prefix = "ut",
+)
+
+jar_jar(
+    name = "shaded_binary",
+    input_jar = "//language-support/java/codegen:codegen_distribute.jar",
+    rules = "shade_rule",
+    tags = ["maven_coordinates=com.daml:codegen-java:__VERSION__"],
+    visibility = ["//visibility:public"],
+)
+
+pom_file(
+    name = "shaded_binary_pom",
+    target = ":shaded_binary",
+    visibility = ["//visibility:public"],
+)
+
+# Create empty Scaladoc JAR for uploading to Maven Central
+scaladoc_jar(
+    name = "shaded_binary_scaladoc",
+    srcs = [],
+    tags = ["scaladoc"],
+    deps = [],
+) if is_windows == False else None
+
+# Create empty Sources JAR for uploading to Maven Central
+scala_source_jar(
+    name = "shaded_binary_src",
+    srcs = [],
+)
+
+[
+    [
+        dar_to_java(
+            name = "test-model-%s" % target,
+            src = "//daml-lf/encoder:testing-dar-%s" % target,
+            package_prefix = "test",
+        ),
+        java_test(
+            name = "tests-%s" % target,
+            srcs = glob([
+                "src/test/java/**/*ForAll*.java",
+                "src/test/java/**/*For%s*.java" % mangle_for_java(target),
+            ]),
+            test_class = "com.daml.testing.AllTestsFor%s" % mangle_for_java(target),
+            deps = [
+                ":test-model-%s" % target,
+                "//canton:bindings-java",
+                "@maven//:com_google_protobuf_protobuf_java",
+                "@maven//:org_junit_jupiter_junit_jupiter_api",
+                "@maven//:org_junit_jupiter_junit_jupiter_engine",
+                "@maven//:org_junit_platform_junit_platform_runner",
+            ],
+        ),
+    ]
+    for target in LF_VERSIONS
+    # we skip 1.13 as their serializable types are the same as 1.12.
+    # We include 1.14 since while it has no new serializable types
+    # it is the earliest version supported by HEAD damlc.
+    if target != "1.13"
+]
+
+########################################################
+####  Integration Tests
+########################################################
+
+[
+    daml_compile(
+        name = "integration-tests-model-{}".format(mangle_for_java(ver)),
+        srcs = glob(
+            [
+                "src/it/daml/Tests/*.daml",
+                "src/it/daml/Tests/Lib{}.daml".format(mangle_for_java(ver)),
+            ],
+            exclude = test_exclusions.get(ver, []),
+        ),
+        project_name = "integration-tests-model",
+        target = ver,
+    )
+    for ver in LF_VERSIONS
+]
+
+daml_compile(
+    name = "pkg1",
+    srcs = glob(
+        [
+            "src/it/daml/Pkg1.0/*.daml",
+        ],
+    ),
+    project_name = "pkg",
+    version = "1.0.0",
+)
+
+daml_compile(
+    name = "pkg2",
+    srcs = glob(
+        [
+            "src/it/daml/Pkg2.0/*.daml",
+        ],
+    ),
+    project_name = "pkg",
+    version = "2.0.0",
+)
+
+daml_build_test(
+    name = "pkg-root",
+    dar_dict = {
+        ":pkg1.dar": "pkg1.dar",
+        ":pkg2.dar": "pkg2.dar",
+        "//daml-script/daml:daml-script.dar": "daml-script.dar",
+    },
+    project_dir = "src/it/daml/pkg-root",
+)
+
+# This sidesteps dar_to_java so it can read the config from daml.yaml
+# which is currently the only way to specify module-prefixes.
+genrule(
+    name = "pkg-root-srcjar",
+    srcs = [
+        "src/it/daml/pkg-root/daml.yaml",
+        ":pkg-root.dar",
+    ],
+    outs = ["pkg-root.srcjar"],
+    cmd = """
+      set -eou pipefail
+      work_dir=$$(mktemp -d)
+      trap "rm -rf $$work_dir" EXIT
+      export DAML_PROJECT=$$work_dir
+      cp $(location :src/it/daml/pkg-root/daml.yaml) $$work_dir/daml.yaml
+      mkdir -p $$work_dir/.daml/dist
+      cp $(location :pkg-root.dar) $$work_dir/.daml/dist/root-1.0.0.dar
+      PREV=$$PWD
+      cd $$work_dir
+      $$PREV/$(execpath //language-support/codegen-main:codegen-main) java
+      cd $$PREV
+      $(JAVABASE)/bin/jar -cf $@ -C $$work_dir/out .
+    """,
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    tools = ["//language-support/codegen-main"],
+)
+
+java_library(
+    name = "pkg-root.jar",
+    srcs = [":pkg-root.srcjar"],
+    deps = [
+        "//canton:bindings-java",
+    ],
+)
+
+module_prefix_test = "src/it/java/com/daml/ModulePrefixes.java"
+
+java_test(
+    name = "integration-tests-module-prefixes",
+    srcs = [module_prefix_test],
+    test_class = "com.daml.ModulePrefixes",
+    deps = [
+        ":pkg-root.jar",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_jupiter_junit_jupiter_engine",
+        "@maven//:org_junit_platform_junit_platform_commons",
+        "@maven//:org_junit_platform_junit_platform_runner",
+    ],
+)
+
+[
+    [
+        #
+        #
+        # Compile the DAR files with and without a package to allow
+        # Daml-LF version agnostic tests to be run using generated
+        # Java classes with the same qualified name, while the Daml-LF
+        # specific tests run using Java classes generated with a
+        # package name qualified by the Daml-LF version.
+        #
+        dar_to_java(
+            name = "integration-tests-model-%s" % target,
+            src = ":integration-tests-model-%s.dar" % mangle_for_java(target),
+        ),
+        java_test(
+            name = "integration-tests-%s" % target,
+            srcs = glob(
+                [
+                    "src/it/java-%s/**/*.java" % target,
+                    "src/it/java/**/*.java",
+                ],
+                exclude = [
+                    module_prefix_test,
+                ],
+            ),
+            test_class = "com.daml.AllTests",
+            deps = [
+                ":integration-tests-model-%s" % target,
+                "//canton:bindings-java",
+                "@maven//:com_google_protobuf_protobuf_java",
+                "@maven//:org_junit_jupiter_junit_jupiter_api",
+                "@maven//:org_junit_jupiter_junit_jupiter_engine",
+                "@maven//:org_junit_platform_junit_platform_commons",
+                "@maven//:org_junit_platform_junit_platform_runner",
+            ],
+        ),
+    ]
+    for target in LF_VERSIONS
+    # we skip 1.13 as their serializable types are the same as 1.12.
+    # We include 1.14 since while it has no new serializable types
+    # it is the earliest version supported by HEAD damlc.
+    if target != "1.13"
+]
+
+########################################################
+####  Ledger Tests
+########################################################
+
+daml_compile(
+    name = "ledger-tests-model",
+    srcs = glob(["src/ledger-tests/daml/**/*.daml"]),
+    enable_interfaces = True,
+    # TODO(https://github.com/digital-asset/daml/issues/18457): split the dar into a 2.dev one using
+    #  keys, and a default one without keys.
+    target = "2.dev",
+)
+
+dar_to_java(
+    name = "ledger-tests-model",
+    src = ":ledger-tests-model.dar",
+)
+
+da_scala_test(
+    name = "ledger-tests",
+    srcs = glob(["src/ledger-tests/scala/**/*.scala"]),
+    data = [
+        ":ledger-tests-model.dar",
+    ],
+    resource_strip_prefix = "language-support/java/codegen/src/ledger-tests/resources/",
+    resources = ["src/ledger-tests/resources/logback-test.xml"],
+    scala_deps = [
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+    ],
+    tags = ["cpu:4"],
+    deps = [
+        ":ledger-tests-model",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:bindings-java",
+        "//canton:community_ledger_ledger-common",
+        "//daml-lf/data",
+        "//libs-scala/ledger-resources",
+        "//libs-scala/ledger-resources:ledger-resources-test-lib",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/testing-utils",
+        "//test-common/canton/it-lib",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_reactivex_rxjava2_rxjava",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+da_scala_benchmark_jmh(
+    name = "from-json-bench",
+    srcs = glob(["src/bench/**/FromJsonBench.scala"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":test-model-2.dev",
+        "//canton:bindings-java",
+    ],
+)
+
+da_scala_benchmark_jmh(
+    name = "to-json-bench",
+    srcs = glob(["src/bench/**/ToJsonBench.scala"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":test-model-2.dev",
+        "//canton:bindings-java",
+    ],
+)
+
+exports_files(["src/main/resources/logback.xml"])

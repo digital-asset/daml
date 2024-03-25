@@ -1,0 +1,67 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Snippets where
+
+import Daml.Script
+import DA.Time
+
+-- The DoubleUp example.
+-- BEGIN_LET_EXPRESSION
+doubled =
+  -- let binds values or functions to be in scope beneath the expression
+  let
+    double (x : Int) = 2 * x
+    up = 5
+  in double up
+-- END_LET_EXPRESSION
+
+-- BEGIN_LET_IN_DO
+blah = script
+  do
+    let
+      x = 1
+      y = 2
+      -- x and y are in scope for all subsequent expressions of the do block,
+      -- so can be used in expression1 and expression2.
+    expression1
+    expression2
+-- END_LET_IN_DO
+    return ()
+  where
+    expression1 = pure ()
+    expression2 = pure ()
+
+-- The GetTime example.
+template FullfillTaskWithinTimeWindow
+  with
+    begin : Time
+    period : RelTime
+    party : Party
+  where
+    signatory party
+
+    -- A choice using a check on the current time
+-- BEGIN_CHOICE_WITH_TIME_CHECK
+    choice Complete : ()
+      controller party
+      do
+        -- bind the ledger effective time to the tchoose variable using getTime
+        tchoose <- getTime
+        -- assert that tchoose is no earlier than the begin time
+        assert (begin <= tchoose && tchoose < addRelTime begin period)
+-- END_CHOICE_WITH_TIME_CHECK
+
+-- Lists example.
+-- BEGIN_LISTS_EXAMPLE
+twoEquivalentListConstructions =
+  script do
+    assert ( [1, 2, 3] == 1 :: 2 :: 3 :: [] )
+-- END_LISTS_EXAMPLE
+
+-- Folding example.
+-- BEGIN_SUM_LIST_EXAMPLE
+sumList =
+  script do
+    assert (foldl (+) 0 [1, 2, 3] == 6)
+-- END_SUM_LIST_EXAMPLE

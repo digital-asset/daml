@@ -1,0 +1,40 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Tests.GenMapTest where
+
+import DA.Map
+
+data MapRecord = MapRecord
+    with
+        field: Map (Optional Int) Text
+  deriving (Eq, Show)
+
+data MapMapRecord = MapMapRecord
+    with
+        field: Map (Map Int Text) (Map Text Int)
+  deriving (Eq, Show)
+
+template TemplateWithMap
+    with
+        owner : Party
+        valueMap : Map Int Text
+    where
+        signatory owner
+
+data MapVariant x y = IntVariant (Map Int Int) |
+                      TextVariant (Map Text Text) |
+                      ParameterizedVariant (Map x y) |
+                      RecordVariant with x: Map Text Int
+  deriving (Eq, Show)
+
+-- Not part of the test but the codegen filters out
+-- data definitions which are not used in a template
+template GenMapTestTemplate
+    with
+        owner : Party
+        mapRecord : MapRecord
+        mapMapRecord : MapMapRecord
+        mapVariant : MapVariant Int Text
+    where
+        signatory owner

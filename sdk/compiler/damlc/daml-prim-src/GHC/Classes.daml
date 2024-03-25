@@ -1,0 +1,795 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Copied from https://github.com/ghc/ghc/blob/23f6f31dd66d7c370cb8beec3f1d96a0cb577393/libraries/ghc-prim/GHC/Classes.hs
+-- All DA specific modifications are marked with [DA]
+
+{-# LANGUAGE DamlSyntax #-} -- [DA]
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE Trustworthy #-}
+{-# LANGUAGE NoImplicitPrelude, MagicHash, StandaloneDeriving, BangPatterns,
+             KindSignatures, DataKinds, ConstraintKinds,
+              MultiParamTypeClasses, FunctionalDependencies #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+  -- ip :: IP x a => a  is strictly speaking ambiguous, but IP is magic
+{-# LANGUAGE UndecidableSuperClasses #-}
+  -- Because of the type-variable superclasses for tuples
+
+{-# OPTIONS_GHC -Wno-unused-imports #-}
+-- -Wno-unused-imports needed for the GHC.Tuple import below. Sigh.
+
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
+-- -Wno-unused-top-binds is there (I hope) to stop Haddock complaining
+-- about the constraint tuples being defined but not used
+
+{-# OPTIONS_HADDOCK hide #-}
+-- | MOVE Prelude
+
+--------------------------------------------------------------------------------
+--
+-- Module      :  GHC.Classes
+-- Copyright   :  (c) The University of Glasgow, 1992-2002
+-- License     :  see libraries/base/LICENSE
+--
+-- Maintainer  :  cvs-ghc@haskell.org
+-- Stability   :  internal
+-- Portability :  non-portable (GHC extensions)
+--
+-- Basic classes.
+--
+--------------------------------------------------------------------------------
+
+module GHC.Classes(
+    -- * Implicit paramaters
+    IP(..),
+
+    -- * Equality and ordering
+    Eq(..),
+    Ord(..),
+
+    -- * Functions over Bool
+    (&&), (||), not,
+
+    NumericScale (
+      numericScale
+    , numericOne
+    ),
+    #ifdef DAML_BIGNUMERIC
+    IsNumeric (..),
+    #endif
+ ) where
+
+import GHC.Base
+import GHC.Prim
+import GHC.Tuple
+import GHC.CString (unpackCString#)
+import GHC.Types
+import GHC.Integer.Type
+import DA.Types
+import GHC.Tuple.Check()
+
+infix  4  ==, /=, <, <=, >=, >
+infixr 3  &&
+infixr 2  ||
+
+default ()              -- Double isn't available yet
+
+-- | HIDE The syntax `?x :: a` is desugared into `IP "x" a`
+-- IP is declared very early, so that libraries can take
+-- advantage of the implicit-call-stack feature
+class IP (x : Symbol) a | x -> a where
+  ip : a
+
+{- $matching_overloaded_methods_in_rules
+
+Matching on class methods (e.g. `(==)`) in rewrite rules tends to be a bit
+fragile. For instance, consider this motivating example from the `bytestring`
+library,
+
+> break :: (Word8 -> Bool) -> ByteString -> (ByteString, ByteString)
+> breakByte :: Word8 -> ByteString -> (ByteString, ByteString)
+> {-# RULES "break -> breakByte" forall a. break (== x) = breakByte x #-}
+
+Here we have two functions, with `breakByte` providing an optimized
+implementation of `break` where the predicate is merely testing for equality
+with a known `Word8`. As written, however, this rule will be quite fragile as
+the `(==)` class operation rule may rewrite the predicate before our `break`
+rule has a chance to fire.
+
+For this reason, most of the primitive types in `base` have 'Eq' and 'Ord'
+instances defined in terms of helper functions with inlinings delayed to phase
+1. For instance, `Word8`\'s `Eq` instance looks like,
+
+> instance Eq Word8 where
+>     (==) = eqWord8
+>     (/=) = neWord8
+>
+> eqWord8, neWord8 :: Word8 -> Word8 -> Bool
+> eqWord8 (W8# x) (W8# y) = ...
+> neWord8 (W8# x) (W8# y) = ...
+> {-# INLINE [1] eqWord8 #-}
+> {-# INLINE [1] neWord8 #-}
+
+This allows us to save our `break` rule above by rewriting it to instead match
+against `eqWord8`,
+
+> {-# RULES "break -> breakByte" forall a. break (`eqWord8` x) = breakByte x #-}
+
+Currently this is only done for '(==)', '(/=)', '(<)', '(<=)', '(>)', and '(>=)'
+for the types in "GHC.Word" and "GHC.Int".
+-}
+
+-- | The `Eq` class defines equality (`==`) and inequality (`/=`).
+-- All the basic datatypes exported by the "Prelude" are instances of `Eq`,
+-- and `Eq` may be derived for any datatype whose constituents are also
+-- instances of `Eq`.
+--
+-- Usually, `==` is expected to implement an equivalence relationship where two
+-- values comparing equal are indistinguishable by "public" functions, with
+-- a "public" function being one not allowing to see implementation details. For
+-- example, for a type representing non-normalised natural numbers modulo 100,
+-- a "public" function doesn't make the difference between 1 and 201. It is
+-- expected to have the following properties:
+--
+-- **Reflexivity**: `x == x` = `True`
+--
+-- **Symmetry**: `x == y` = `y == x`
+--
+-- **Transitivity**: if `x == y && y == z` = `True`, then `x == z` = `True`
+--
+-- **Substitutivity**: if `x == y` = `True` and `f` is a "public" function
+-- whose return type is an instance of `Eq`, then `f x == f y` = `True`
+--
+-- **Negation**: `x /= y` = `not (x == y)`
+--
+-- Minimal complete definition: either `==` or `/=`.
+--
+class Eq a  where
+    (==), (/=)           : a -> a -> Bool
+
+    x /= y               = not (x == y)
+    x == y               = not (x /= y)
+    {-# MINIMAL (==) | (/=) #-}
+
+deriving instance Eq ()
+deriving instance (Eq  a, Eq  b) => Eq  (a, b)
+deriving instance (Eq  a, Eq  b, Eq  c) => Eq  (a, b, c)
+deriving instance (Eq  a, Eq  b, Eq  c, Eq  d) => Eq  (a, b, c, d)
+deriving instance (Eq  a, Eq  b, Eq  c, Eq  d, Eq  e) => Eq  (a, b, c, d, e)
+deriving instance (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f)
+               => Eq (a, b, c, d, e, f)
+deriving instance (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f, Eq g)
+               => Eq (a, b, c, d, e, f, g)
+deriving instance (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f, Eq g,
+                   Eq h)
+               => Eq (a, b, c, d, e, f, g, h)
+deriving instance (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f, Eq g,
+                   Eq h, Eq i)
+               => Eq (a, b, c, d, e, f, g, h, i)
+deriving instance (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f, Eq g,
+                   Eq h, Eq i, Eq j)
+               => Eq (a, b, c, d, e, f, g, h, i, j)
+deriving instance (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f, Eq g,
+                   Eq h, Eq i, Eq j, Eq k)
+               => Eq (a, b, c, d, e, f, g, h, i, j, k)
+deriving instance (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f, Eq g,
+                   Eq h, Eq i, Eq j, Eq k, Eq l)
+               => Eq (a, b, c, d, e, f, g, h, i, j, k, l)
+deriving instance (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f, Eq g,
+                   Eq h, Eq i, Eq j, Eq k, Eq l, Eq m)
+               => Eq (a, b, c, d, e, f, g, h, i, j, k, l, m)
+deriving instance (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f, Eq g,
+                   Eq h, Eq i, Eq j, Eq k, Eq l, Eq m, Eq n)
+               => Eq (a, b, c, d, e, f, g, h, i, j, k, l, m, n)
+deriving instance (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f, Eq g,
+                   Eq h, Eq i, Eq j, Eq k, Eq l, Eq m, Eq n, Eq o)
+               => Eq (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o)
+-- Deliberately not supporting larger sizes. Do not add support for them.
+
+deriving instance (Eq a, Eq b) => Eq (Either a b)
+
+-- slightly strange encoding to avoid value level recursion
+-- and to optimise so we avoid going through the dictionary lots of times
+eqList : (a -> a -> Bool) -> [a] -> [a] -> Bool
+eqList = primitive @"BEEqualList"
+
+instance (Eq a) => Eq [a] where
+    (==) = eqList (==)
+
+deriving instance Eq Ordering
+
+instance Eq Bool where
+    (==) = primitive @"BEEqual"
+
+instance Eq Int where
+    (==) = primitive @"BEEqual"
+
+instance Eq (Numeric n) where
+    (==) = primitive @"BEEqual"
+
+#ifdef DAML_BIGNUMERIC
+instance Eq BigNumeric where
+    (==) = primitive @"BEEqual"
+instance Eq RoundingMode where
+    (==) = primitive @"BEEqual"
+#endif
+
+instance Eq Text where
+    (==) = primitive @"BEEqual"
+
+-- | The `Ord` class is used for totally ordered datatypes.
+--
+-- Instances of `Ord` can be derived for any user-defined datatype whose
+-- constituent types are in `Ord`. The declared order of the constructors in
+-- the data declaration determines the ordering in derived `Ord` instances. The
+-- `Ordering` datatype allows a single comparison to determine the precise
+-- ordering of two objects.
+--
+-- The Haskell Report defines no laws for `Ord`. However, `<=` is customarily
+-- expected to implement a non-strict partial order and have the following
+-- properties:
+--
+-- **Transitivity**: if `x <= y && y <= z` = `True`, then `x <= z` = `True`
+--
+-- **Reflexivity**: `x <= x` = `True`
+--
+-- **Antisymmetry**: if `x <= y && y <= x` = `True`, then `x == y` = `True`
+--
+-- Note that the following operator interactions are expected to hold:
+--
+-- 1. `x >= y` = `y <= x`
+-- 2. `x < y` = `x <= y && x /= y`
+-- 3. `x > y` = `y < x`
+-- 4. `x < y` = `compare x y == LT`
+-- 5. `x > y` = `compare x y == GT`
+-- 6. `x == y` = `compare x y == EQ`
+-- 7. `min x y == if x <= y then x else y` = 'True'
+-- 8. `max x y == if x >= y then x else y` = 'True'
+--
+-- Minimal complete definition: either `compare` or `<=`.
+-- Using `compare` can be more efficient for complex types.
+--
+class (Eq a) => Ord a  where
+    compare              : a -> a -> Ordering
+    (<), (<=), (>), (>=) : a -> a -> Bool
+    max, min             : a -> a -> a
+
+    compare x y = if x == y then EQ
+                  -- NB: must be '<=' not '<' to validate the
+                  -- above claim about the minimal things that
+                  -- can be defined for an instance of Ord:
+                  else if x <= y then LT
+                  else GT
+
+    x <  y = case compare x y of { LT -> True;  _ -> False }
+    x <= y = case compare x y of { GT -> False; _ -> True }
+    x >  y = case compare x y of { GT -> True;  _ -> False }
+    x >= y = case compare x y of { LT -> False; _ -> True }
+
+        -- These two default methods use '<=' rather than 'compare'
+        -- because the latter is often more expensive
+    max x y = if x <= y then y else x
+    min x y = if x <= y then x else y
+    {-# MINIMAL compare | (<=) #-}
+
+deriving instance Ord ()
+deriving instance (Ord a, Ord b) => Ord (a, b)
+deriving instance (Ord a, Ord b, Ord c) => Ord (a, b, c)
+deriving instance (Ord a, Ord b, Ord c, Ord d) => Ord (a, b, c, d)
+deriving instance (Ord a, Ord b, Ord c, Ord d, Ord e) => Ord (a, b, c, d, e)
+deriving instance (Ord a, Ord b, Ord c, Ord d, Ord e, Ord f)
+               => Ord (a, b, c, d, e, f)
+deriving instance (Ord a, Ord b, Ord c, Ord d, Ord e, Ord f, Ord g)
+               => Ord (a, b, c, d, e, f, g)
+deriving instance (Ord a, Ord b, Ord c, Ord d, Ord e, Ord f, Ord g,
+                   Ord h)
+               => Ord (a, b, c, d, e, f, g, h)
+deriving instance (Ord a, Ord b, Ord c, Ord d, Ord e, Ord f, Ord g,
+                   Ord h, Ord i)
+               => Ord (a, b, c, d, e, f, g, h, i)
+deriving instance (Ord a, Ord b, Ord c, Ord d, Ord e, Ord f, Ord g,
+                   Ord h, Ord i, Ord j)
+               => Ord (a, b, c, d, e, f, g, h, i, j)
+deriving instance (Ord a, Ord b, Ord c, Ord d, Ord e, Ord f, Ord g,
+                   Ord h, Ord i, Ord j, Ord k)
+               => Ord (a, b, c, d, e, f, g, h, i, j, k)
+deriving instance (Ord a, Ord b, Ord c, Ord d, Ord e, Ord f, Ord g,
+                   Ord h, Ord i, Ord j, Ord k, Ord l)
+               => Ord (a, b, c, d, e, f, g, h, i, j, k, l)
+deriving instance (Ord a, Ord b, Ord c, Ord d, Ord e, Ord f, Ord g,
+                   Ord h, Ord i, Ord j, Ord k, Ord l, Ord m)
+               => Ord (a, b, c, d, e, f, g, h, i, j, k, l, m)
+deriving instance (Ord a, Ord b, Ord c, Ord d, Ord e, Ord f, Ord g,
+                   Ord h, Ord i, Ord j, Ord k, Ord l, Ord m, Ord n)
+               => Ord (a, b, c, d, e, f, g, h, i, j, k, l, m, n)
+deriving instance (Ord a, Ord b, Ord c, Ord d, Ord e, Ord f, Ord g,
+                   Ord h, Ord i, Ord j, Ord k, Ord l, Ord m, Ord n, Ord o)
+               => Ord (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o)
+-- Deliberately not supporting larger sizes. Do not add support for them.
+
+deriving instance (Ord a, Ord b) => Ord (Either a b)
+
+instance (Ord a) => Ord [a] where
+    compare []     []     = EQ
+    compare []     (_ :: _)  = LT
+    compare (_ :: _)  []     = GT
+    compare (x :: xs) (y :: ys) = case compare x y of
+                                EQ    -> compare xs ys
+                                other -> other
+
+deriving instance Ord Ordering
+
+instance Ord Bool where
+    b1 `compare` b2 = case (b1, b2) of
+      (False, False) -> EQ
+      (False, True ) -> LT
+      (True , False) -> GT
+      (True , True ) -> EQ
+
+instance Ord Int where
+    (<)  = primitive @"BELess"
+    (<=) = primitive @"BELessEq"
+    (>=) = primitive @"BEGreaterEq"
+    (>)  = primitive @"BEGreater"
+
+instance Ord (Numeric n) where
+    (<)  = primitive @"BELess"
+    (<=) = primitive @"BELessEq"
+    (>=) = primitive @"BEGreaterEq"
+    (>)  = primitive @"BEGreater"
+
+#ifdef DAML_BIGNUMERIC
+instance Ord BigNumeric where
+    (<)  = primitive @"BELess"
+    (<=) = primitive @"BELessEq"
+    (>=) = primitive @"BEGreaterEq"
+    (>)  = primitive @"BEGreater"
+instance Ord RoundingMode where
+    (<)  = primitive @"BELess"
+    (<=) = primitive @"BELessEq"
+    (>=) = primitive @"BEGreaterEq"
+    (>)  = primitive @"BEGreater"
+#endif
+
+instance Ord Text where
+    (<)  = primitive @"BELess"
+    (<=) = primitive @"BELessEq"
+    (>=) = primitive @"BEGreaterEq"
+    (>)  = primitive @"BEGreater"
+
+-- TODO(MH): Move this to GHC.Base and force inlining.
+-- OK, so they're technically not part of a class...:
+
+-- Boolean functions
+
+-- | Boolean \"and\".
+-- This function has short-circuiting semantics, i.e., when both arguments are
+-- present and the first arguments evaluates to 'False', the second argument
+-- is not evaluated at all.
+(&&)                    : Bool -> Bool -> Bool
+True  && x              =  x
+False && _              =  False
+
+-- | Boolean \"or\".
+-- This function has short-circuiting semantics, i.e., when both arguments are
+-- present and the first arguments evaluates to 'True', the second argument
+-- is not evaluated at all.
+(||)                    : Bool -> Bool -> Bool
+True  || _              =  True
+False || x              =  x
+
+-- | Boolean \"not\"
+not                     : Bool -> Bool
+not True                =  False
+not False               =  True
+
+
+-- | Is this a valid scale for the `Numeric` type?
+--
+-- This typeclass is used to prevent the creation of Numeric values
+-- with too large a scale. The scale controls the number of digits available
+-- after the decimal point, and it must be between 0 and 37 inclusive.
+--
+-- Thus the only available instances of this typeclass are `NumericScale 0`
+-- through `NumericScale 37`. This cannot be extended without additional
+-- compiler and runtime support. You cannot implement a custom instance
+-- of this typeclass.
+--
+-- If you have an error message in your code of the form "No instance for
+-- `(NumericScale n)`", this is probably caused by having a numeric literal
+-- whose scale cannot be inferred by the compiler. You can usually fix this
+-- by adding a type signature to the definition, or annotating the numeric
+-- literal directly (for example, instead of writing `3.14159` you can write
+-- `(3.14159 : Numeric 5)`).
+class NumericScale (n : Nat) where
+    -- | Get the scale of a `Numeric` as an integer. For example,
+    -- `numericScale (3.14159 : Numeric 5)` equals `5`.
+    numericScale : Int
+
+    -- | 1 with scale n
+    numericOne: Numeric n
+
+    -- | Hide
+    -- this prevents definition of orphan instances
+    privateUnit: ()
+
+instance NumericScale 0 where numericScale = 0; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 1 where numericScale = 1; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 2 where numericScale = 2; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 3 where numericScale = 3; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 4 where numericScale = 4; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 5 where numericScale = 5; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 6 where numericScale = 6; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 7 where numericScale = 7; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 8 where numericScale = 8; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 9 where numericScale = 9; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 10 where numericScale = 10; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 11 where numericScale = 11; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 12 where numericScale = 12; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 13 where numericScale = 13; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 14 where numericScale = 14; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 15 where numericScale = 15; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 16 where numericScale = 16; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 17 where numericScale = 17; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 18 where numericScale = 18; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 19 where numericScale = 19; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 20 where numericScale = 20; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 21 where numericScale = 21; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 22 where numericScale = 22; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 23 where numericScale = 23; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 24 where numericScale = 24; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 25 where numericScale = 25; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 26 where numericScale = 26; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 27 where numericScale = 27; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 28 where numericScale = 28; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 29 where numericScale = 29; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 30 where numericScale = 30; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 31 where numericScale = 31; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 32 where numericScale = 32; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 33 where numericScale = 33; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 34 where numericScale = 34; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 35 where numericScale = 35; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 36 where numericScale = 36; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 37 where numericScale = 37; numericOne = primitive @"BENumericOne"; privateUnit = ();
+
+#ifdef DAML_BIGNUMERIC
+
+-- | Types that can be represented by decimal literals in Daml.
+class IsNumeric t where
+    -- | Convert from `Numeric`. Raises an error if the number can't be
+    -- represented exactly in the target type.
+    fromNumeric : NumericScale m => Numeric m -> t
+
+    -- | Convert from `BigNumeric`. Raises an error if the number can't be
+    -- represented exactly in the target type.
+    fromBigNumeric : BigNumeric -> t
+
+instance NumericScale n => IsNumeric (Numeric n) where
+    fromNumeric = primitive @"BECastNumeric" (numericOne @n)
+    fromBigNumeric = primitive @"BEBigNumericToNumeric" (numericOne @n)
+
+instance IsNumeric BigNumeric where
+    fromNumeric = primitive @"BENumericToBigNumeric"
+    fromBigNumeric x = x
+
+#endif
+
+-- Constraint tuples
+
+class ()
+class (c1, c2)     => (c1, c2)
+class (c1, c2, c3) => (c1, c2, c3)
+class (c1, c2, c3, c4) => (c1, c2, c3, c4)
+class (c1, c2, c3, c4, c5) => (c1, c2, c3, c4, c5)
+class (c1, c2, c3, c4, c5, c6) => (c1, c2, c3, c4, c5, c6)
+class (c1, c2, c3, c4, c5, c6, c7) => (c1, c2, c3, c4, c5, c6, c7)
+class (c1, c2, c3, c4, c5, c6, c7, c8) => (c1, c2, c3, c4, c5, c6, c7, c8)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17,c18)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52, c53)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52, c53)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52, c53, c54)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52, c53, c54)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52, c53, c54, c55)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52, c53, c54, c55)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52, c53, c54, c55, c56)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52, c53, c54, c55, c56)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52, c53, c54, c55, c56, c57)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52, c53, c54, c55, c56, c57)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52, c53, c54, c55, c56, c57, c58)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52, c53, c54, c55, c56, c57, c58)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52, c53, c54, c55, c56, c57, c58,
+       c59)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52, c53, c54, c55, c56, c57, c58,
+       c59)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52, c53, c54, c55, c56, c57, c58,
+       c59, c60)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52, c53, c54, c55, c56, c57, c58,
+       c59, c60)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52, c53, c54, c55, c56, c57, c58,
+       c59, c60, c61)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52, c53, c54, c55, c56, c57, c58,
+       c59, c60, c61)
+class (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52, c53, c54, c55, c56, c57, c58,
+       c59, c60, c61, c62)
+   => (c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16,
+       c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30,
+       c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44,
+       c45, c46, c47, c48, c49, c50, c51, c52, c53, c54, c55, c56, c57, c58,
+       c59, c60, c61, c62)
