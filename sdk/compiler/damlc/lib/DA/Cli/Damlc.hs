@@ -10,7 +10,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 
 -- | Main entry-point of the Daml compiler
-module DA.Cli.Damlc (main, Command (..), fullParseArgs) where
+module DA.Cli.Damlc (main, Command (..), MultiPackageManifestEntry (..), fullParseArgs) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception (bracket, catch, displayException, handle, throwIO, throw)
@@ -161,7 +161,7 @@ import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
 import qualified DA.Service.Logger.Impl.IO as Logger.IO
 import DA.Signals (installSignalHandlers)
 import qualified Com.Daml.DamlLfDev.DamlLf as PLF
-import Data.Aeson (ToJSON)
+import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import qualified Data.Aeson.Text as Aeson
 import Data.Bifunctor (bimap, second)
@@ -1489,7 +1489,7 @@ data MultiPackageManifestEntry = MultiPackageManifestEntry
   , packageDeps :: [String]
   , darDeps :: [FilePath]
   }
-  deriving (Show, Eq, Generic, ToJSON)
+  deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 -- Map can't be a bifunctor because of this `Ord` constraint, but its a shame such a function is defined in Data.Map
 bimapMap :: Ord k' => (k -> k') -> (v -> v') -> Map.Map k v -> Map.Map k' v'
