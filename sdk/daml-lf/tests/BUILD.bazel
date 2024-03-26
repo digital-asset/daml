@@ -8,8 +8,8 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "LF_DEV_VERSIONS",
-    "LF_MAJOR_VERSIONS",
+    "SUPPORTED_LF_DEV_VERSIONS",
+    "SUPPORTED_LF_MAJOR_VERSIONS",
     "lf_version_default_or_latest",
     "mangle_for_damlc",
 )
@@ -22,7 +22,7 @@ load("@os_info//:os_info.bzl", "is_intel")
         target = lf_version_default_or_latest(major),
         visibility = ["//daml-lf:__subpackages__"],
     )
-    for major in LF_MAJOR_VERSIONS
+    for major in SUPPORTED_LF_MAJOR_VERSIONS
 ]
 
 [
@@ -32,7 +32,7 @@ load("@os_info//:os_info.bzl", "is_intel")
         target = version,
         visibility = ["//daml-lf:__subpackages__"],
     )
-    for version in LF_DEV_VERSIONS
+    for version in SUPPORTED_LF_DEV_VERSIONS
 ]
 
 [
@@ -43,7 +43,7 @@ load("@os_info//:os_info.bzl", "is_intel")
         target = lf_version_default_or_latest(major),
         visibility = ["//daml-lf:__subpackages__"],
     )
-    for major in LF_MAJOR_VERSIONS
+    for major in SUPPORTED_LF_MAJOR_VERSIONS
 ]
 
 [
@@ -54,7 +54,7 @@ load("@os_info//:os_info.bzl", "is_intel")
         target = lf_version_default_or_latest(major),
         visibility = ["//daml-lf:__subpackages__"],
     )
-    for major in LF_MAJOR_VERSIONS
+    for major in SUPPORTED_LF_MAJOR_VERSIONS
 ]
 
 daml_build_test(
@@ -84,7 +84,7 @@ daml_compile(
         target = lf_version_default_or_latest(major),
         visibility = ["//daml-lf:__subpackages__"],
     )
-    for major in LF_MAJOR_VERSIONS
+    for major in SUPPORTED_LF_MAJOR_VERSIONS
 ]
 
 [
@@ -94,5 +94,5 @@ daml_compile(
         target = version,
         visibility = ["//daml-lf:__subpackages__"],
     )
-    for version in LF_DEV_VERSIONS
+    for version in SUPPORTED_LF_DEV_VERSIONS
 ]

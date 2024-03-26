@@ -15,8 +15,8 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "LF_DEV_VERSIONS",
-    "LF_MAJOR_VERSIONS",
+    "SUPPORTED_LF_DEV_VERSIONS",
+    "SUPPORTED_LF_MAJOR_VERSIONS",
     "SUPPORTED_PROTO_STABLE_LF_VERSIONS",
     "mangle_for_damlc",
     "mangle_for_java",
@@ -135,7 +135,7 @@ da_scala_test_suite(
         ":DarReaderTest.dar",
     ] + [
         ":DarReaderTest-{}.dar".format(mangle_for_damlc(version))
-        for version in LF_DEV_VERSIONS
+        for version in SUPPORTED_LF_DEV_VERSIONS
     ],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
@@ -171,7 +171,7 @@ daml_compile_with_dalf(
         srcs = ["src/test/daml/DarReaderTest.daml"],
         target = version,
     )
-    for version in LF_DEV_VERSIONS
+    for version in SUPPORTED_LF_DEV_VERSIONS
 ]
 
 # An ad-hoc tool for testing, benchmarking and profiling package decoding performance in isolation.
