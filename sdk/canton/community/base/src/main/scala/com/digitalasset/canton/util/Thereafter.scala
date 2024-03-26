@@ -38,6 +38,13 @@ trait Thereafter[F[_]] {
     *         If `body` throws, the result includes the thrown exception.
     */
   def thereafter[A](f: F[A])(body: Content[A] => Unit): F[A]
+
+  /** Returns the single `A` in `content` if any. */
+  def maybeContent[A](content: Content[A]): Option[A]
+
+  def thereafterSuccessOrFailure[A](f: F[A])(success: A => Unit, failure: => Unit): F[A] =
+    thereafter(f)(result => maybeContent(result).fold(failure)(success))
+
 }
 
 /** Extension of [[Thereafter]] that adds the possibility to run an asynchronous piece of code afterwards
@@ -53,6 +60,11 @@ trait ThereafterAsync[F[_]] extends Thereafter[F] {
     *         If `body` produces a failed computation, the result includes the thrown exception.
     */
   def thereafterF[A](f: F[A])(body: Content[A] => Future[Unit]): F[A]
+
+  def thereafterFSuccessOrFailure[A](
+      f: F[A]
+  )(success: A => Future[Unit], failure: => Future[Unit]): F[A] =
+    thereafterF(f)(result => maybeContent(result).fold(failure)(success))
 }
 
 object Thereafter {
@@ -71,6 +83,8 @@ object Thereafter {
     protected val typeClassInstance: Thereafter.Aux[F, C]
     def thereafter(body: C[A] => Unit): F[A] =
       typeClassInstance.thereafter(self)(body)
+    def thereafterSuccessOrFailure(success: A => Unit, failure: => Unit): F[A] =
+      typeClassInstance.thereafterSuccessOrFailure(self)(success, failure)
   }
 
   /** Extension method for instances of [[Thereafter]]. */
@@ -98,6 +112,8 @@ object Thereafter {
         }
         result
     }
+
+    override def maybeContent[A](content: Try[A]): Option[A] = content.toOption
   }
   implicit def TryThereafter: Thereafter.Aux[Try, Try] = TryTherafter
 
@@ -109,6 +125,8 @@ object Thereafter {
         f: Future[A]
     )(body: Try[A] => Unit): Future[A] =
       f.transform { result => TryThereafter.thereafter(result)(body) }
+
+    override def maybeContent[A](content: Try[A]): Option[A] = content.toOption
   }
   implicit def futureThereafter(implicit ec: ExecutionContext): Thereafter.Aux[Future, Try] =
     new FutureThereafter
@@ -123,6 +141,8 @@ object Thereafter {
     override type Content[A] = EitherTThereafterContent[FContent, E, A]
     override def thereafter[A](f: EitherT[F, E, A])(body: Content[A] => Unit): EitherT[F, E, A] =
       EitherT(F.thereafter(f.value)(body))
+    override def maybeContent[A](content: EitherTThereafterContent[FContent, E, A]): Option[A] =
+      F.maybeContent(content).flatMap(_.toOption)
   }
 
   /** [[Thereafter]] instance lifted through [[cats.data.EitherT]]. */
@@ -143,6 +163,8 @@ object Thereafter {
     override type Content[A] = OptionTThereafterContent[FContent, A]
     override def thereafter[A](f: OptionT[F, A])(body: Content[A] => Unit): OptionT[F, A] =
       OptionT(F.thereafter(f.value)(body))
+    override def maybeContent[A](content: OptionTThereafterContent[FContent, A]): Option[A] =
+      F.maybeContent(content).flatten
   }
 
   /** [[Thereafter]] instance lifted through [[cats.data.OptionT]]. */
@@ -180,6 +202,8 @@ object ThereafterAsync {
     protected override val typeClassInstance: ThereafterAsync.Aux[F, C]
     def thereafterF(body: C[A] => Future[Unit]): F[A] =
       typeClassInstance.thereafterF(self)(body)
+    def thereafterFSuccessOrFailure(success: A => Future[Unit], failure: => Future[Unit]): F[A] =
+      typeClassInstance.thereafterFSuccessOrFailure(self)(success, failure)
   }
 
   class FutureThereafterAsync(implicit ec: ExecutionContext)

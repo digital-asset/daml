@@ -202,6 +202,11 @@ private[transfer] class TransferInValidation(
           _ <- EitherT.fromEither[Future](checkSubmitterIsStakeholder)
           res <-
             if (transferringParticipant) {
+              // This happens either in case of malicious transfer-ins (incorrectly declared transferring participants)
+              // OR if the transfer data has been pruned.
+              // The transfer-in should be rejected due to other validations (e.g. conflict detection), but
+              // we could code this more defensively at some point
+
               val targetIps = targetCrypto.ipsSnapshot
               val confirmingPartiesF = targetIps
                 .canConfirm(

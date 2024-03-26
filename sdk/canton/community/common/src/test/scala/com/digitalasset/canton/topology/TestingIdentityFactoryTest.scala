@@ -5,7 +5,6 @@ package com.digitalasset.canton.topology
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.{DomainParameters, DynamicDomainParameters}
@@ -33,14 +32,12 @@ class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecu
   private val domainParameters1 = DomainParameters.WithValidity(
     CantonTimestamp.Epoch,
     Some(CantonTimestamp.ofEpochSecond(10)),
-    PositiveInt.one,
     increaseConfirmationResponseTimeout(defaultDynamicDomainParameters),
   )
 
   private val domainParameters2 = DomainParameters.WithValidity(
     CantonTimestamp.ofEpochSecond(10),
     None,
-    PositiveInt.two,
     increaseConfirmationResponseTimeout(domainParameters1.parameter),
   )
 

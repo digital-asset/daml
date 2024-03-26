@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.pruning
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.protocol.messages.CommitmentPeriod
 import com.digitalasset.canton.protocol.{
@@ -34,7 +33,6 @@ trait SortedReconciliationIntervalsHelpers {
       validFrom: Long,
       validTo: Long,
       reconciliationInterval: Long,
-      serial: PositiveInt,
       protocolVersion: ProtocolVersion,
   ): DynamicDomainParametersWithValidity =
     DynamicDomainParametersWithValidity(
@@ -45,7 +43,6 @@ trait SortedReconciliationIntervalsHelpers {
       ),
       fromEpoch(validFrom),
       Some(fromEpoch(validTo)),
-      serial,
       defaultDomainId,
     )
 
@@ -62,7 +59,6 @@ trait SortedReconciliationIntervalsHelpers {
       ),
       fromEpoch(validFrom),
       None,
-      PositiveInt.MaxValue,
       defaultDomainId,
     )
 
@@ -74,7 +70,6 @@ trait SortedReconciliationIntervalsHelpers {
     DomainParameters.WithValidity(
       validFrom,
       Some(validTo),
-      serial = PositiveInt.one,
       PositiveSeconds.tryOfSeconds(reconciliationInterval),
     )
 
@@ -85,7 +80,6 @@ trait SortedReconciliationIntervalsHelpers {
     DomainParameters.WithValidity(
       validFrom,
       None,
-      serial = PositiveInt.MaxValue,
       PositiveSeconds.tryOfSeconds(reconciliationInterval),
     )
 
@@ -97,7 +91,6 @@ trait SortedReconciliationIntervalsHelpers {
       defaultParameters.tryUpdate(reconciliationInterval = reconciliationInterval),
       validFrom,
       None,
-      serial = PositiveInt.MaxValue,
       defaultDomainId,
     )
 

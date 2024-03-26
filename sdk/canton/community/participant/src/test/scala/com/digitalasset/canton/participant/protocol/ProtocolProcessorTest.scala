@@ -195,7 +195,6 @@ class ProtocolProcessorTest
     DynamicDomainParameters.initialValues(NonNegativeFiniteDuration.Zero, testedProtocolVersion),
     CantonTimestamp.MinValue,
     None,
-    PositiveInt.one,
     domain,
   )
 

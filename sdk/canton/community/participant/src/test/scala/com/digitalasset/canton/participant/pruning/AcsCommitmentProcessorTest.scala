@@ -289,7 +289,6 @@ sealed trait AcsCommitmentProcessorBaseTest
             .sortBy(_.validFrom)
             .headOption
             .fold(Some(CantonTimestamp.MaxValue))(param => Some(param.validFrom)),
-          serial = PositiveInt.MaxValue,
           parameter = defaultParameters.tryUpdate(acsCommitmentsCatchUpConfigParameter =
             acsCommitmentsCatchUpConfig
           ),
@@ -2213,7 +2212,6 @@ class AcsCommitmentProcessorTest
             val startConfigWithValidity = DomainParameters.WithValidity(
               validFrom = CantonTimestamp.MinValue,
               validUntil = Some(CantonTimestamp.MaxValue),
-              serial = PositiveInt.MaxValue,
               parameter = defaultParameters.tryUpdate(acsCommitmentsCatchUpConfigParameter =
                 Some(startConfig)
               ),
@@ -2298,7 +2296,6 @@ class AcsCommitmentProcessorTest
         val startConfigWithValidity = DomainParameters.WithValidity(
           validFrom = testSequences.head.addMicros(-1),
           validUntil = Some(CantonTimestamp.MaxValue),
-          serial = PositiveInt.MaxValue,
           parameter =
             defaultParameters.tryUpdate(acsCommitmentsCatchUpConfigParameter = Some(startConfig)),
         )
@@ -2370,7 +2367,6 @@ class AcsCommitmentProcessorTest
         val startConfigWithValidity = DomainParameters.WithValidity(
           validFrom = testSequences.head.addMicros(-1),
           validUntil = Some(CantonTimestamp.MaxValue),
-          serial = PositiveInt.MaxValue,
           parameter =
             defaultParameters.tryUpdate(acsCommitmentsCatchUpConfigParameter = Some(startConfig)),
         )
@@ -2651,7 +2647,6 @@ class AcsCommitmentProcessorTest
         val changedConfigWithValidity = DomainParameters.WithValidity(
           validFrom = testSequences.last.head,
           validUntil = None,
-          serial = PositiveInt.MaxValue,
           parameter =
             defaultParameters.tryUpdate(acsCommitmentsCatchUpConfigParameter = Some(midConfig)),
         )
@@ -2659,7 +2654,6 @@ class AcsCommitmentProcessorTest
         val disabledConfigWithValidity = DomainParameters.WithValidity(
           validFrom = testSequences.apply(1).head,
           validUntil = Some(testSequences.apply(1).last),
-          serial = PositiveInt.one,
           parameter =
             defaultParameters.tryUpdate(acsCommitmentsCatchUpConfigParameter = Some(disabledConfig)),
         )
@@ -2750,7 +2744,6 @@ class AcsCommitmentProcessorTest
         val startConfigWithValidity = DomainParameters.WithValidity(
           validFrom = testSequences.head.addMicros(-1),
           validUntil = Some(changeConfigTimestamp),
-          serial = PositiveInt.one,
           parameter =
             defaultParameters.tryUpdate(acsCommitmentsCatchUpConfigParameter = Some(startConfig)),
         )
@@ -2758,7 +2751,6 @@ class AcsCommitmentProcessorTest
         val disabledConfigWithValidity = DomainParameters.WithValidity(
           validFrom = changeConfigTimestamp,
           validUntil = None,
-          serial = PositiveInt.MaxValue,
           parameter = defaultParameters.tryUpdate(acsCommitmentsCatchUpConfigParameter = None),
         )
         val (processor, store, sequencerClient, changes) =
@@ -2829,7 +2821,6 @@ class AcsCommitmentProcessorTest
         val startConfigWithValidity = DomainParameters.WithValidity(
           validFrom = testSequences.head.addMicros(-1),
           validUntil = Some(changeConfigTimestamp),
-          serial = PositiveInt.one,
           parameter =
             defaultParameters.tryUpdate(acsCommitmentsCatchUpConfigParameter = Some(startConfig)),
         )
@@ -2839,7 +2830,6 @@ class AcsCommitmentProcessorTest
         val changeConfigWithValidity = DomainParameters.WithValidity(
           validFrom = changeConfigTimestamp,
           validUntil = None,
-          serial = PositiveInt.MaxValue,
           parameter =
             defaultParameters.tryUpdate(acsCommitmentsCatchUpConfigParameter = Some(changeConfig)),
         )

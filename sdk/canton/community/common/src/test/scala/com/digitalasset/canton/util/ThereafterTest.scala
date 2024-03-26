@@ -85,6 +85,17 @@ trait ThereafterTest extends AnyWordSpec with BaseTest {
         Try(fixture.theContent(z)) shouldBe Failure(ex)
       }
     }
+
+    "theContent" should {
+      "return the content" in {
+        forEvery(fixture.contents) { content =>
+          sut.maybeContent(content) match {
+            case Some(x) => x shouldBe fixture.theContent(content)
+            case None => a[Throwable] should be thrownBy fixture.theContent(content)
+          }
+        }
+      }
+    }
   }
 
   def thereafterAsync[F[_], Content[_]](

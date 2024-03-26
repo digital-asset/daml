@@ -96,8 +96,7 @@ trait BlockUpdateGenerator {
   ): FutureUnlessShutdown[(InternalState, OrderedBlockUpdate[UnsignedChunkEvents])]
 
   def signChunkEvents(events: UnsignedChunkEvents)(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
+      ec: ExecutionContext
   ): FutureUnlessShutdown[SignedChunkEvents]
 }
 
@@ -611,6 +610,7 @@ class BlockUpdateGeneratorImpl(
                 sequencingTimestamp,
                 sequencingSnapshot,
                 trafficUpdatedState.trafficState.view.mapValues(_.toSequencedEventTrafficState),
+                traceContext,
               )
               (
                 unsignedEvents +: reversedEvents,
@@ -1355,8 +1355,7 @@ class BlockUpdateGeneratorImpl(
   }
 
   override def signChunkEvents(unsignedEvents: UnsignedChunkEvents)(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
+      ec: ExecutionContext
   ): FutureUnlessShutdown[SignedChunkEvents] = {
     val UnsignedChunkEvents(
       sender,
@@ -1365,7 +1364,9 @@ class BlockUpdateGeneratorImpl(
       sequencingTimestamp,
       sequencingSnapshot,
       trafficStates,
+      submissionRequestTraceContext,
     ) = unsignedEvents
+    implicit val traceContext: TraceContext = submissionRequestTraceContext
     val signingTimestamp = signingSnapshot.ipsSnapshot.timestamp
     val signedEventsF = maybeLowerTopologyTimestampBound match {
       case Some(bound) if bound > signingTimestamp =>
@@ -1430,16 +1431,15 @@ class BlockUpdateGeneratorImpl(
                   )
                 )
                 .map { signedContent =>
-                  val trafficStateO = Option
-                    .when(!unifiedSequencer || member == sender) { // only include traffic state for the sender
-                      trafficStates.getOrElse(
-                        member,
-                        ErrorUtil.invalidState(s"Sender $sender unknown by rate limiter."),
-                      )
-                    }
-                  member -> OrdinarySequencedEvent(signedContent, trafficStateO)(
-                    traceContext
-                  )
+                  // only include traffic state for the sender
+                  val trafficStateO = Option.when(!unifiedSequencer || member == sender) {
+                    trafficStates.getOrElse(
+                      member,
+                      ErrorUtil.invalidState(s"Sender $sender unknown by rate limiter."),
+                    )
+                  }
+                  member ->
+                    OrdinarySequencedEvent(signedContent, trafficStateO)(traceContext)
                 }
             }
         )

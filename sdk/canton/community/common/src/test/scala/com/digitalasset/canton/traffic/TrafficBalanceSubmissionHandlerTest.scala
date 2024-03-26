@@ -61,7 +61,6 @@ class TrafficBalanceSubmissionHandlerTest
       DomainParameters.WithValidity(
         validFrom = CantonTimestamp.Epoch.minusSeconds(1),
         validUntil = None,
-        serial = PositiveInt.one,
         parameter = DynamicDomainParameters
           .defaultValues(testedProtocolVersion)
           .tryUpdate(trafficControlParameters = Some(trafficParams)),

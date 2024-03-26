@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.pruning
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.messages.CommitmentPeriod
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds, SimClock}
@@ -29,7 +28,7 @@ class SortedReconciliationIntervalsProviderTest
       val clock = new SimClock(fromEpoch(0), loggerFactory)
 
       val domainParameters = Vector(
-        mkDynamicDomainParameters(0, 10, 1, PositiveInt.one, protocolVersion),
+        mkDynamicDomainParameters(0, 10, 1, protocolVersion),
         mkDynamicDomainParameters(10, 2, protocolVersion),
       )
 
@@ -111,7 +110,7 @@ class SortedReconciliationIntervalsProviderTest
       val clock = new SimClock(fromEpoch(0), loggerFactory)
 
       val domainParameters = Vector(
-        mkDynamicDomainParameters(0, 13, 2, PositiveInt.one, testedProtocolVersion),
+        mkDynamicDomainParameters(0, 13, 2, testedProtocolVersion),
         mkDynamicDomainParameters(13, 9, testedProtocolVersion),
       )
 
