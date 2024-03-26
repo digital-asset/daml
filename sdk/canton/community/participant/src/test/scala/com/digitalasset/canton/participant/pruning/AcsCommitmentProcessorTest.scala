@@ -50,7 +50,10 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.CursorPrehead
-import com.digitalasset.canton.store.memory.InMemorySequencerCounterTrackerStore
+import com.digitalasset.canton.store.memory.{
+  InMemoryIndexedStringStore,
+  InMemorySequencerCounterTrackerStore,
+}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -116,16 +119,19 @@ sealed trait AcsCommitmentProcessorBaseTest
 
   protected def mkChangeIdHash(index: Int) = ChangeIdHash(DefaultDamlValues.lfhash(index))
 
+  private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
+
   protected def acsSetup(
       contracts: Map[LfContractId, NonEmpty[Seq[Lifespan]]]
   )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[ActiveContractSnapshot] = {
-    val acs = new InMemoryActiveContractStore(testedProtocolVersion, loggerFactory)
+    val acs =
+      new InMemoryActiveContractStore(indexedStringStore, testedProtocolVersion, loggerFactory)
     contracts.toList
       .flatMap { case (cid, seq) => seq.forgetNE.map(lifespan => (cid, lifespan)) }
       .parTraverse_ { case (cid, lifespan) =>
         for {
           _ <- acs
-            .markContractActive(
+            .markContractCreated(
               cid,
               TimeOfChange(RequestCounter(0), lifespan.createdTs),
             )
@@ -283,7 +289,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       DefaultProcessingTimeouts.testing
         .copy(storageMaxRetryInterval = NonNegativeDuration.tryFromDuration(1.millisecond)),
       futureSupervisor,
-      new InMemoryActiveContractStore(testedProtocolVersion, loggerFactory),
+      new InMemoryActiveContractStore(indexedStringStore, testedProtocolVersion, loggerFactory),
       new InMemoryContractStore(loggerFactory),
       // no additional consistency checks; if enabled, one needs to populate the above ACS and contract stores
       // correctly, otherwise the test will fail
@@ -658,14 +664,15 @@ sealed trait AcsCommitmentProcessorBaseTest
     (contracts, acsChanges)
   }
 
-  val testHash: LfHash = ExampleTransactionFactory.lfHash(0)
+  protected val testHash: LfHash = ExampleTransactionFactory.lfHash(0)
 
   protected def withTestHash[A]: A => WithContractHash[A] = WithContractHash[A](_, testHash)
 
   protected def rt(timestamp: Long, tieBreaker: Int): RecordTime =
     RecordTime(ts(timestamp).forgetRefinement, tieBreaker.toLong)
 
-  val coid = (txId, discriminator) => ExampleTransactionFactory.suffixedId(txId, discriminator)
+  protected val coid = (txId, discriminator) =>
+    ExampleTransactionFactory.suffixedId(txId, discriminator)
 }
 
 class AcsCommitmentProcessorTest

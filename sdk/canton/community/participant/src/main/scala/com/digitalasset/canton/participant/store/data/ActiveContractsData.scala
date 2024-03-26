@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.store.data
 
 import cats.syntax.either.*
+import com.digitalasset.canton.participant.store.ActiveContractStore.ActivenessChangeDetail
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.version.ProtocolVersion
@@ -19,8 +20,10 @@ final case class ActiveContractsData private (
 ) {
   def contractIds: Seq[LfContractId] = contracts.map(_.contractId).toSeq
 
-  def asMap: Map[LfContractId, TimeOfChange] =
-    contracts.view.map(tc => tc.contractId -> toc).toMap
+  def asMap(
+      change: ActivenessChangeDetail
+  ): Map[(LfContractId, TimeOfChange), ActivenessChangeDetail] =
+    contracts.view.map(tc => (tc.contractId, toc) -> change).toMap
 
   def asSeq: Seq[ActiveContractData] =
     contracts.toSeq

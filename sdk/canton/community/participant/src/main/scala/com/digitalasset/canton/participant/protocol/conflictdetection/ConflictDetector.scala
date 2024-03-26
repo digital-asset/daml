@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.protocol.conflictdetection
 
 import cats.Monad
-import cats.data.NonEmptyChain
+import cats.data.{Chain, NonEmptyChain}
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
@@ -489,7 +489,7 @@ private[participant] class ConflictDetector(
            */
           logger.trace(withRC(rc, s"About to write commit set to the conflict detection stores"))
           val archivalWrites = acs.archiveContracts(archivals.keySet.to(LazyList), toc)
-          val creationWrites = acs.markContractsActive(
+          val creationWrites = acs.markContractsCreated(
             creations.keySet.to(LazyList),
             toc,
           )
@@ -557,7 +557,9 @@ private[participant] class ConflictDetector(
               )
             )
             runSequentially(s"evict states for request $rc") {
-              val result = results.sequence_.toEither
+              val result = results.sequence_.toEither.leftMap { chainNE =>
+                NonEmptyChain.fromChainUnsafe(Chain.fromSeq(chainNE.toList.distinct))
+              }
               logger.debug(withRC(rc, "Evicting states"))
               // Schedule evictions only if no shutdown is happening. (ecForCd is shut down before ecForAcs.)
               pendingContractWrites.foreach(contractStates.signalWriteAndTryEvict(rc, _))

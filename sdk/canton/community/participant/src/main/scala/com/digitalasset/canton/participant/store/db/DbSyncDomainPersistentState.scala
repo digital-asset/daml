@@ -10,10 +10,7 @@ import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.config.ParticipantStoreConfig
 import com.digitalasset.canton.participant.store.EventLogId.DomainEventLogId
-import com.digitalasset.canton.participant.store.{
-  SyncDomainPersistentState,
-  SyncDomainPersistentStateOld,
-}
+import com.digitalasset.canton.participant.store.SyncDomainPersistentState
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{
@@ -31,7 +28,7 @@ import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
 
 import scala.concurrent.ExecutionContext
 
-abstract class DbSyncDomainPersistentStateCommon(
+class DbSyncDomainPersistentState(
     override val domainId: IndexedDomain,
     val protocolVersion: ProtocolVersion,
     storage: DbStorage,
@@ -48,6 +45,15 @@ abstract class DbSyncDomainPersistentStateCommon(
     extends SyncDomainPersistentState
     with AutoCloseable
     with NoTracing {
+
+  val topologyStore =
+    new DbTopologyStore(
+      storage,
+      DomainStore(domainId.item),
+      timeouts,
+      loggerFactory,
+      futureSupervisor,
+    )
 
   val eventLog: DbSingleDimensionEventLog[DomainEventLogId] = new DbSingleDimensionEventLog(
     DomainEventLogId(domainId),
@@ -145,6 +151,7 @@ abstract class DbSyncDomainPersistentStateCommon(
   override def isMemory(): Boolean = false
 
   override def close(): Unit = Lifecycle.close(
+    topologyStore,
     eventLog,
     contractStore,
     transferStore,
@@ -157,52 +164,4 @@ abstract class DbSyncDomainPersistentStateCommon(
     sequencerCounterTrackerStore,
     sendTrackerStore,
   )(logger)
-}
-
-class DbSyncDomainPersistentStateOld(
-    domainId: IndexedDomain,
-    protocolVersion: ProtocolVersion,
-    storage: DbStorage,
-    pureCryptoApi: CryptoPureApi,
-    parameters: ParticipantStoreConfig,
-    caching: CachingConfigs,
-    batching: BatchingConfig,
-    timeouts: ProcessingTimeout,
-    enableAdditionalConsistencyChecks: Boolean,
-    indexedStringStore: IndexedStringStore,
-    loggerFactory: NamedLoggerFactory,
-    futureSupervisor: FutureSupervisor,
-)(implicit ec: ExecutionContext)
-    extends DbSyncDomainPersistentStateCommon(
-      domainId,
-      protocolVersion,
-      storage,
-      pureCryptoApi,
-      parameters,
-      caching,
-      batching,
-      timeouts,
-      enableAdditionalConsistencyChecks,
-      indexedStringStore,
-      loggerFactory,
-      futureSupervisor,
-    )
-    with SyncDomainPersistentStateOld {
-
-  val topologyStore =
-    new DbTopologyStore(
-      storage,
-      DomainStore(domainId.item),
-      timeouts,
-      loggerFactory,
-      futureSupervisor,
-    )
-
-  override def close(): Unit = {
-    Lifecycle.close(
-      topologyStore
-    )(logger)
-    super.close()
-  }
-
 }

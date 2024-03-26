@@ -15,6 +15,7 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.{
 import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
 import com.digitalasset.canton.protocol.{LfContractId, SourceDomainId, TargetDomainId}
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
+import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{Checked, CheckedT}
 
@@ -25,21 +26,31 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
     extends ActiveContractStore {
   private[this] type M = Checked[AcsError, AcsWarning, Unit]
 
-  override def markContractsActive(
-      contracts: Seq[LfContractId],
-      toc: TimeOfChange,
-  )(implicit
-      traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
-    CheckedT(Future.failed[M](mk(s"createContracts for $contracts at $toc")))
+  override private[store] def indexedStringStore: IndexedStringStore = throw new RuntimeException(
+    "I should not be called"
+  )
 
-  override def archiveContracts(
+  override def markContractsCreatedOrAdded(
       contracts: Seq[LfContractId],
       toc: TimeOfChange,
+      isCreation: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
-    CheckedT(Future.failed[M](mk(s"archiveContracts for $contracts at $toc")))
+  ): CheckedT[Future, AcsError, AcsWarning, Unit] = {
+    val operation = if (isCreation) "create contracts" else "add contracts"
+    CheckedT(Future.failed[M](mk(s"$operation for $contracts at $toc")))
+  }
+
+  override def purgeOrArchiveContracts(
+      contracts: Seq[LfContractId],
+      toc: TimeOfChange,
+      isArchival: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): CheckedT[Future, AcsError, AcsWarning, Unit] = {
+    val operation = if (isArchival) "archive contracts" else "purge contracts"
+    CheckedT(Future.failed[M](mk(s"$operation for $contracts at $toc")))
+  }
 
   override def transferInContracts(
       transferIns: Seq[(LfContractId, SourceDomainId, TimeOfChange)]

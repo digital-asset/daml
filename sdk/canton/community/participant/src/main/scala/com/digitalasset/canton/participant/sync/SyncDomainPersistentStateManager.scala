@@ -297,7 +297,7 @@ class SyncDomainPersistentStateManagerOld(
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
-    extends SyncDomainPersistentStateManagerImpl[SyncDomainPersistentStateOld](
+    extends SyncDomainPersistentStateManagerImpl[SyncDomainPersistentState](
       aliasResolution,
       storage,
       indexedStringStore,
@@ -308,8 +308,8 @@ class SyncDomainPersistentStateManagerOld(
       alias: DomainAlias,
       domainId: IndexedDomain,
       protocolVersion: ProtocolVersion,
-  ): SyncDomainPersistentStateOld = SyncDomainPersistentState
-    .createOld(
+  ): SyncDomainPersistentState = SyncDomainPersistentState
+    .create(
       storage,
       alias,
       domainId,

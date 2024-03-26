@@ -9,6 +9,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.store.ActiveContractStore.{
   Active,
   Archived,
+  Purged,
   TransferredAway,
 }
 import com.digitalasset.canton.participant.store.memory.{
@@ -25,6 +26,7 @@ import com.digitalasset.canton.participant.store.{
 }
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.topology.{DomainId, MediatorId, MediatorRef}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutorService, LfPartyId, ScalaFuturesWithPatience}
@@ -41,8 +43,10 @@ private[protocol] trait ConflictDetectionHelpers {
 
   def parallelExecutionContext: ExecutionContext = executorService
 
+  private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 2)
+
   def mkEmptyAcs(): ActiveContractStore =
-    new InMemoryActiveContractStore(testedProtocolVersion, loggerFactory)(
+    new InMemoryActiveContractStore(indexedStringStore, testedProtocolVersion, loggerFactory)(
       parallelExecutionContext
     )
 
@@ -95,12 +99,9 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
   )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[Unit] = {
     Future
       .traverse(entries) {
-        case (coid, toc, Active) =>
-          acs
-            .markContractActive(coid, toc)
-            .value
-        case (coid, toc, Archived) =>
-          acs.archiveContract(coid, toc).value
+        case (coid, toc, Active) => acs.markContractCreated(coid, toc).value
+        case (coid, toc, Archived) => acs.archiveContract(coid, toc).value
+        case (coid, toc, Purged) => acs.purgeContract(coid, toc).value
         case (coid, toc, TransferredAway(targetDomain)) =>
           acs.transferOutContract(coid, toc, targetDomain).value
       }

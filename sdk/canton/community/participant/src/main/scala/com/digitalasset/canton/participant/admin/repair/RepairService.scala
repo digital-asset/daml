@@ -139,21 +139,28 @@ final class RepairService(
       keyState: Option[RepairService.KeyState],
   )(implicit traceContext: TraceContext): EitherT[Future, String, Option[ContractToAdd]] = {
     val contractId = repairContract.contract.contractId
+
+    def addContract(
+        transferringFrom: Option[SourceDomainId],
+        keyToAssign: Option[LfGlobalKey],
+    ): Option[ContractToAdd] =
+      Option(
+        ContractToAdd(
+          repairContract.contract,
+          repairContract.witnesses.map(_.toLf),
+          transferringFrom,
+          keyToAssign,
+        )
+      )
+
     acsState match {
       case None =>
-        keyState
-          .traverse(_.checkAssignable(domain))
-          .map { keyToAssign =>
-            Option(
-              ContractToAdd(
-                repairContract.contract,
-                repairContract.witnesses.map(_.toLf),
-                None,
-                keyToAssign,
-              )
-            )
-          }
-          .toEitherT[Future]
+        EitherT.fromEither[Future](
+          keyState
+            .traverse(_.checkAssignable(domain))
+            .map(addContract(None, _))
+        )
+
       case Some(ActiveContractStore.Active) =>
         if (ignoreAlreadyAdded) {
           logger.debug(s"Skipping contract $contractId because it is already active")
@@ -185,25 +192,30 @@ final class RepairService(
             s"Cannot add previously archived contract ${repairContract.contract.contractId} as archived contracts cannot become active."
           )
         )
+
+      case Some(ActiveContractStore.Purged) =>
+        EitherT.fromEither[Future](
+          keyState
+            .traverse(_.checkAssignable(domain))
+            .map { keyToAssign =>
+              addContract(None, keyToAssign)
+            }
+        )
+
       case Some(ActiveContractStore.TransferredAway(targetDomain)) =>
         log(
           s"Marking contract ${repairContract.contract.contractId} previously transferred-out to $targetDomain as " +
             s"transferred-in from $targetDomain (even though contract may have been transferred to yet another domain since)."
         ).discard
 
-        keyState
-          .traverse(_.checkAssignable(domain))
-          .map { keyToAssign =>
-            Option(
-              ContractToAdd(
-                repairContract.contract,
-                repairContract.witnesses.map(_.toLf),
-                Option(SourceDomainId(targetDomain.unwrap)),
-                keyToAssign,
-              )
-            )
-          }
-          .toEitherT[Future]
+        EitherT.fromEither[Future](
+          keyState
+            .traverse(_.checkAssignable(domain))
+            .map { keyToAssign =>
+              addContract(Option(SourceDomainId(targetDomain.unwrap)), keyToAssign)
+            }
+        )
+
     }
   }
 
@@ -760,6 +772,14 @@ final class RepairService(
   )(
       cid: LfContractId
   )(implicit traceContext: TraceContext): EitherT[Future, String, Option[SerializableContract]] = {
+    def ignoreOrError(reason: String) = EitherT.cond[Future](
+      ignoreAlreadyPurged,
+      None,
+      log(
+        s"Contract $cid cannot be purged: $reason. Set ignoreAlreadyPurged = true to skip non-existing contracts."
+      ),
+    )
+
     val timeOfChange = repair.tryExactlyOneTimeOfChange
     for {
       acsStatus <- readContractAcsState(repair.domain.persistentState, cid)
@@ -771,14 +791,8 @@ final class RepairService(
       // Not checking that the participant hosts a stakeholder as we might be cleaning up contracts
       // on behalf of stakeholders no longer around.
       contractToArchiveInEvent <- acsStatus match {
-        case None =>
-          EitherT.cond[Future](
-            ignoreAlreadyPurged,
-            None,
-            log(
-              s"Contract $cid does not exist in domain ${repair.domain.alias} and cannot be purged. Set ignoreAlreadyPurged = true to skip non-existing contracts."
-            ),
-          )
+        case None => ignoreOrError("unknown contract")
+
         case Some(ActiveContractStore.Active) =>
           for {
             contract <- EitherT
@@ -803,21 +817,15 @@ final class RepairService(
                 .addKeyStateUpdates(Map(key -> (ContractKeyJournal.Unassigned, timeOfChange)))
                 .leftMap(err => log(s"Error while persisting key state updates: $err"))
             }
-            _ <- persistArchival(repair, timeOfChange)(cid)
+            _ <- persistPurge(repair, timeOfChange)(cid)
           } yield {
             logger.info(
               s"purged contract $cid at repair request ${repair.tryExactlyOneRequestCounter} at ${repair.timestamp}"
             )
             contractO
           }
-        case Some(ActiveContractStore.Archived) =>
-          EitherT.cond[Future](
-            ignoreAlreadyPurged,
-            None,
-            log(
-              s"Contract $cid is already archived in domain ${repair.domain.alias} and cannot be purged. Set ignoreAlreadyPurged = true to skip archived contracts."
-            ),
-          )
+        case Some(ActiveContractStore.Archived) => ignoreOrError("archived contract")
+        case Some(ActiveContractStore.Purged) => ignoreOrError("purged contract")
         case Some(ActiveContractStore.TransferredAway(targetDomain)) =>
           log(
             s"Purging contract $cid previously marked as transferred away to $targetDomain. " +
@@ -827,7 +835,7 @@ final class RepairService(
           val sourceDomain = SourceDomainId(targetDomain.unwrap)
           for {
             _ <- persistTransferIn(repair, sourceDomain, cid, timeOfChange)
-            _ <- persistArchival(repair, timeOfChange)(cid)
+            _ <- persistPurge(repair, timeOfChange)(cid)
           } yield contractO
       }
     } yield contractToArchiveInEvent
@@ -903,7 +911,7 @@ final class RepairService(
       traceContext: TraceContext
   ): EitherT[Future, String, Unit] = {
     repair.domain.persistentState.activeContractStore
-      .markContractActive(cid, timeOfChange)
+      .markContractAdded(cid, timeOfChange)
       .toEitherTWithNonaborts
       .leftMap(e => log(s"Failed to create contract $cid in ActiveContractStore: $e"))
   }
@@ -921,12 +929,12 @@ final class RepairService(
       .toEitherTWithNonaborts
       .leftMap(e => log(s"Failed to transfer in contract ${cid} in ActiveContractStore: ${e}"))
 
-  private def persistArchival(
+  private def persistPurge(
       repair: RepairRequest,
       timeOfChange: TimeOfChange,
   )(cid: LfContractId)(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
     repair.domain.persistentState.activeContractStore
-      .archiveContract(cid, timeOfChange)
+      .purgeContract(cid, timeOfChange)
       .toEitherT // not turning warnings to errors on behalf of archived contracts, in contract to created contracts
       .leftMap(e => log(s"Failed to mark contract $cid as archived: $e"))
 
