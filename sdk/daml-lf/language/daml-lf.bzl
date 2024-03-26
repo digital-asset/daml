@@ -119,7 +119,7 @@ ENGINE_LF_VERSIONS = ["2.1"] + SUPPORTED_LF_DEV_VERSIONS
 COMPILER_LF_VERSIONS = ["2.1"] + SUPPORTED_LF_DEV_VERSIONS
 
 # LF Versions supported by the dar reader
-LF_VERSIONS = []  + ENGINE_LF_VERSIONS
+LF_VERSIONS = [] + ENGINE_LF_VERSIONS
 
 def lf_version_is_dev(versionStr):
     return _minor_str(versionStr) == "dev"
