@@ -27,13 +27,7 @@ object EitherTUtil {
   def onErrorOrFailure[A, B](errorHandler: () => Unit)(
       fn: => EitherT[Future, A, B]
   )(implicit executionContext: ExecutionContext): EitherT[Future, A, B] =
-    fn.thereafter {
-      case Failure(_) =>
-        errorHandler()
-      case Success(Left(_)) =>
-        errorHandler()
-      case _ => ()
-    }
+    fn.thereafterSuccessOrFailure(_ => (), errorHandler())
 
   def onErrorOrFailureUnlessShutdown[A, B](
       errorHandler: Either[Throwable, A] => Unit,

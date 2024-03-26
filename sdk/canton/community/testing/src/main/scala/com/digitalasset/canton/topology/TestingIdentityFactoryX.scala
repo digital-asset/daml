@@ -104,7 +104,6 @@ final case class TestingTopologyX(
       DomainParameters.WithValidity(
         validFrom = CantonTimestamp.Epoch,
         validUntil = None,
-        serial = PositiveInt.one,
         parameter = DefaultTestIdentities.defaultDynamicDomainParameters,
       )
     ),
@@ -738,7 +737,6 @@ object TestingIdentityFactoryX {
       DomainParameters.WithValidity(
         validFrom = CantonTimestamp.Epoch,
         validUntil = None,
-        serial = PositiveInt.one,
         parameter = dynamicDomainParameters,
       )
     ),

@@ -7,7 +7,6 @@ import cats.Eval
 import cats.implicits.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, TestHash}
@@ -797,7 +796,6 @@ final class TransferOutProcessingStepsTest
         DynamicDomainParameters.defaultValues(testedProtocolVersion),
         CantonTimestamp.MinValue,
         None,
-        PositiveInt.one,
         targetDomain.unwrap,
       )
 

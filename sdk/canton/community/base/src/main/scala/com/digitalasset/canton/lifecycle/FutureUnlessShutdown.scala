@@ -320,6 +320,12 @@ object FutureUnlessShutdownImpl {
     ): FutureUnlessShutdown[A] = {
       FutureUnlessShutdown(ThereafterAsync[Future].thereafterF(f.unwrap)(body))
     }
+
+    override def maybeContent[A](content: FutureUnlessShutdownThereafterContent[A]): Option[A] =
+      content match {
+        case Success(UnlessShutdown.Outcome(x)) => Some(x)
+        case _ => None
+      }
   }
 
   /** Use a type synonym instead of a type lambda so that the Scala compiler does not get confused during implicit resolution,

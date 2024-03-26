@@ -243,17 +243,14 @@ class BlockSequencerStateManager(
     NotUsed,
   ] = {
     implicit val traceContext: TraceContext = TraceContext.empty
-    Flow[Traced[OrderedBlockUpdate[UnsignedChunkEvents]]].mapAsyncAndDrainUS(parallelism =
-      chunkSigningParallelism
-    )(
-      _.traverseWithTraceContext { implicit traceContext => update =>
-        update match {
+    Flow[Traced[OrderedBlockUpdate[UnsignedChunkEvents]]]
+      .mapAsyncAndDrainUS(parallelism = chunkSigningParallelism)(
+        _.traverse {
           case chunk: ChunkUpdate[UnsignedChunkEvents] =>
             chunk.events.parTraverse(bug.signChunkEvents).map(signed => chunk.copy(events = signed))
           case complete: CompleteBlockUpdate => FutureUnlessShutdown.pure(complete)
         }
-      }
-    )
+      )
   }
 
   override def applyBlockUpdate
