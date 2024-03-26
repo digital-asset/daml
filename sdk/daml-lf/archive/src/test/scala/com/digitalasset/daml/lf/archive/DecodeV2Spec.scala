@@ -1118,11 +1118,11 @@ class DecodeV2Spec
 
   "decodeModuleRef" should {
 
-    lazy val Right(ArchivePayload(pkgId, dalfProto, version)) =
+    lazy val Right(ArchivePayload.Lf2(pkgId, pkgProto, minorVersion)) =
       ArchiveReader.fromFile(Paths.get(rlocation("daml-lf/archive/DarReaderTest.dalf")))
 
     lazy val extId = {
-      val dalf1 = dalfProto.getDamlLf2
+      val dalf1 = pkgProto
       val iix = dalf1
         .getModules(0)
         .getValuesList
@@ -1144,17 +1144,16 @@ class DecodeV2Spec
     }
 
     "take a dalf with interned IDs" in {
-      version.major should ===(LV.Major.V2)
 
-      version.minor should !==("dev")
+      minorVersion.identifier should !==("dev")
 
       extId should not be empty
       (extId: String) should !==(pkgId: String)
     }
 
     "decode resolving the interned package ID" in {
-      val decoder = new DecodeV2(version.minor)
-      inside(decoder.decodePackage(pkgId, dalfProto.getDamlLf2, false)) { case Right(pkg) =>
+      val decoder = new DecodeV2(minorVersion)
+      inside(decoder.decodePackage(pkgId, pkgProto, false)) { case Right(pkg) =>
         inside(
           pkg
             .modules(Ref.DottedName.assertFromString("DarReaderTest"))

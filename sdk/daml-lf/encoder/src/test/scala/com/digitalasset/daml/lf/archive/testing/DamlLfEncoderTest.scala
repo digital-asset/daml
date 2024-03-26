@@ -17,7 +17,6 @@ import com.daml.lf.data.Ref.DottedName
 import com.daml.lf.data.Ref.ModuleName
 import com.daml.lf.language.Ast
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.language.LanguageVersion.Major
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -91,10 +90,9 @@ class DamlLfEncoderTest
   private def getNonEmptyModules(dar: Dar[ArchivePayload]): Seq[ModuleName] = {
     for {
       payload <- dar.all
-      ArchivePayload(_, pkg, version) = payload
-      name <- version match {
-        case LanguageVersion(Major.V2, _) => getNonEmptyModules(pkg.getDamlLf2)
-        case _ => throw new RuntimeException(s"Unsupported language version: $version")
+      name <- payload match {
+        case ArchivePayload.Lf2(_, pkg, _) => getNonEmptyModules(pkg)
+        case _ => throw new RuntimeException(s"Unsupported language version: ${payload.version}")
       }
     } yield name
   }

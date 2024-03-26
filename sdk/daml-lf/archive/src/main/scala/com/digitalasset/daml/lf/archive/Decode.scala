@@ -6,7 +6,7 @@ package com.daml.lf.archive
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.util.PackageInfo
-import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.language.{Ast, LanguageMajorVersion}
 
 object Decode {
 
@@ -15,17 +15,17 @@ object Decode {
       payload: ArchivePayload,
       onlySerializableDataDefs: Boolean = false,
   ): Either[Error, (PackageId, Ast.Package)] =
-    payload.version match {
-      case LanguageVersion(LanguageMajorVersion.V2, minor)
+    payload match {
+      case ArchivePayload.Lf2(pkgId, protoPkg, minor)
           if LanguageMajorVersion.V2.supportedMinorVersions.contains(minor) =>
         new DecodeV2(minor)
           .decodePackage(
-            payload.pkgId,
-            payload.proto.getDamlLf2,
+            pkgId,
+            protoPkg,
             onlySerializableDataDefs,
           )
           .map(payload.pkgId -> _)
-      case v => Left(Error.Parsing(s"$v unsupported"))
+      case _ => Left(Error.Parsing(s"${payload.version} unsupported"))
     }
 
   @throws[Error]

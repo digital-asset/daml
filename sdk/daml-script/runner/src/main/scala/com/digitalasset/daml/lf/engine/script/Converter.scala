@@ -77,6 +77,7 @@ object Converter {
   def apply(majorLanguageVersion: LanguageMajorVersion): ConverterMethods = {
     majorLanguageVersion match {
       case V2 => com.daml.lf.engine.script.v2.Converter
+      case _ => throw new IllegalArgumentException(s"${majorLanguageVersion.pretty} not supported")
     }
   }
 }
