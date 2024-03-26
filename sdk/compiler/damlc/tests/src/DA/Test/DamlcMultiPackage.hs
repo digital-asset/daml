@@ -500,7 +500,7 @@ tests damlAssistant =
               ]
             ]
             (\(sortOn packageName -> entries) -> do
-              output (entries !! 0) @?= "package-a/my-dar.dar"
+              output (head entries) @?= "package-a/my-dar.dar"
               packageDeps (entries !! 1) @?= ["package-a-0.0.1"]
             )
         ]
