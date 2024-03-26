@@ -30,7 +30,7 @@ class GenericACSGrowth(triggerName: String) extends TriggerMultiProcessSimulatio
   override protected implicit lazy val simulationConfig: TriggerSimulationConfig =
     TriggerSimulationConfig(simulationDuration = 30.seconds)
 
-  override protected val cantonFixtureDebugMode: Boolean = true
+  override protected val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles
 
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
     implicit val applicationId: Option[Ref.ApplicationId] = this.applicationId
