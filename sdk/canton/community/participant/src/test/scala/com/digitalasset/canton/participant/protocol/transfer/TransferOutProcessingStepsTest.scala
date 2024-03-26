@@ -40,6 +40,7 @@ import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.store.{IndexedDomain, SessionKeyStore}
 import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil}
 import com.digitalasset.canton.topology.*
@@ -123,12 +124,15 @@ final class TransferOutProcessingStepsTest
   private val pureCrypto = TestingIdentityFactory.pureCrypto()
 
   private val multiDomainEventLog = mock[MultiDomainEventLog]
+
+  private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
   private val persistentState =
-    new InMemorySyncDomainPersistentStateOld(
+    new InMemorySyncDomainPersistentState(
       IndexedDomain.tryCreate(sourceDomain.unwrap, 1),
       testedProtocolVersion,
       pureCrypto,
       enableAdditionalConsistencyChecks = true,
+      indexedStringStore = indexedStringStore,
       loggerFactory,
       timeouts,
       futureSupervisor,
@@ -562,7 +566,7 @@ final class TransferOutProcessingStepsTest
           contract,
         )
         _ <- persistentState.activeContractStore
-          .markContractsActive(
+          .markContractsCreated(
             Seq(contractId),
             TimeOfChange(RequestCounter(1), timeEvent.timestamp),
           )

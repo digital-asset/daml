@@ -20,7 +20,7 @@ import scala.concurrent.Future
 trait DbActiveContractStoreTest extends AsyncWordSpec with BaseTest with ActiveContractStoreTest {
   this: DbTest =>
 
-  val domainIndex = 1
+  private val domainIndex = 1
 
   override def cleanDb(storage: DbStorage): Future[Unit] = {
     import storage.api.*
@@ -39,12 +39,10 @@ trait DbActiveContractStoreTest extends AsyncWordSpec with BaseTest with ActiveC
       ec => {
         val indexStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = maxDomainIndex)
 
-        val domainId = {
-          IndexedDomain.tryCreate(
-            acsDomainId,
-            indexStore.getOrCreateIndexForTesting(IndexedStringType.domainId, acsDomainStr),
-          )
-        }
+        val domainId = IndexedDomain.tryCreate(
+          acsDomainId,
+          indexStore.getOrCreateIndexForTesting(IndexedStringType.domainId, acsDomainStr),
+        )
         // Check we end up with the expected domain index. If we don't, then test isolation may get broken.
         assert(domainId.index == domainIndex)
         new DbActiveContractStore(
