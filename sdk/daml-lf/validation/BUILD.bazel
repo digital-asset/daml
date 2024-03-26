@@ -64,9 +64,7 @@ da_scala_library(
             "//canton:community_participant_admin_proto_scala",
             #"//canton:community_admin-api_proto_scala",
         ],
-    scalacopts = lf_scalacopts_stricter,
     scaladoc = False,
-    unused_dependency_checker_mode = "off",
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
@@ -90,7 +88,7 @@ da_scala_test_suite(
     size = "small",
     srcs = glob(
         ["src/test/**/*.scala"],
-        exclude = ["src/test/**/*SpecUtil.scala"],
+        exclude = ["src/test/**/*SpecUtil.scala", upgrade_test_file],
     ),
     data = [],
     scala_deps = [
