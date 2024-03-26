@@ -144,6 +144,7 @@ steps:
       set -euo pipefail
       cd sdk
       eval "$(./dev-env/bin/dade-assist)"
+      bazel build //release:release
       ./bazel-bin/release/release --release-dir "$(mktemp -d)" --upload
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
