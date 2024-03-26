@@ -36,6 +36,7 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.protocol.{LfCommittedTransaction, LfContractId, SerializableContract}
 import com.digitalasset.canton.sequencing.PossiblyIgnoredProtocolEvent
 import com.digitalasset.canton.sequencing.handlers.EnvelopeOpener
+import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.CursorPrehead.{
   RequestCounterCursorPrehead,
   SequencerCounterCursorPrehead,
@@ -44,11 +45,7 @@ import com.digitalasset.canton.store.SequencedEventStore.{
   ByTimestampRange,
   PossiblyIgnoredSequencedEvent,
 }
-import com.digitalasset.canton.store.{
-  SequencedEventNotFoundError,
-  SequencedEventRangeOverlapsWithPruning,
-  SequencedEventStore,
-}
+import com.digitalasset.canton.store.{SequencedEventRangeOverlapsWithPruning, SequencedEventStore}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
@@ -365,7 +362,7 @@ final class SyncStateInspection(
       from: Option[Instant],
       to: Option[Instant],
       limit: Option[Int],
-  )(implicit traceContext: TraceContext): Seq[PossiblyIgnoredProtocolEvent] = {
+  )(implicit traceContext: TraceContext): Seq[ParsingResult[PossiblyIgnoredProtocolEvent]] = {
     val state = getPersistentState(domain).getOrElse(
       throw new NoSuchElementException(s"Unknown domain $domain")
     )
@@ -389,23 +386,25 @@ final class SyncStateInspection(
         tryGetProtocolVersion(state, domain),
         state.pureCryptoApi,
       )
-    closed.map(opener.tryOpen)
+    closed.map(opener.open)
   }
 
   def findMessage(domain: DomainAlias, criterion: SequencedEventStore.SearchCriterion)(implicit
       traceContext: TraceContext
-  ): Either[SequencedEventNotFoundError, PossiblyIgnoredProtocolEvent] = {
+  ): Option[ParsingResult[PossiblyIgnoredProtocolEvent]] = {
     val state = getPersistentState(domain).getOrElse(
       throw new NoSuchElementException(s"Unknown domain $domain")
     )
     val messageF = state.sequencedEventStore.find(criterion).value
     val closed =
-      timeouts.inspection.await(s"$functionFullName on $domain matching $criterion")(messageF)
+      timeouts.inspection
+        .await(s"$functionFullName on $domain matching $criterion")(messageF)
+        .toOption
     val opener = new EnvelopeOpener[PossiblyIgnoredSequencedEvent](
       tryGetProtocolVersion(state, domain),
       state.pureCryptoApi,
     )
-    closed.map(opener.tryOpen)
+    closed.map(opener.open)
   }
 
   def findComputedCommitments(

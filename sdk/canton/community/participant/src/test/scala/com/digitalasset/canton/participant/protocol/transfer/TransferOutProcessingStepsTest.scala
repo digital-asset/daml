@@ -153,7 +153,7 @@ final class TransferOutProcessingStepsTest
       ProcessingStartingPoints.default,
       _ => mock[DomainTimeTracker],
       ParticipantTestMetrics.domain,
-      CachingConfigs.defaultSessionKeyCache,
+      CachingConfigs.defaultSessionKeyCacheConfig,
       DefaultProcessingTimeouts.testing,
       loggerFactory,
       FutureSupervisor.Noop,
@@ -663,7 +663,7 @@ final class TransferOutProcessingStepsTest
       }
 
     "succeed without errors" in {
-      val sessionKeyStore = SessionKeyStore(CachingConfigs.defaultSessionKeyCache)
+      val sessionKeyStore = SessionKeyStore(CachingConfigs.defaultSessionKeyCacheConfig)
       for {
         encryptedOutRequest <- encryptTransferOutTree(outTree, sessionKeyStore)
         envelopes =

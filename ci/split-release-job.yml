@@ -28,8 +28,8 @@ jobs:
         var_name: bash-lib
     - bash: |
         set -euo pipefail
-        major=$(cat NIGHTLY_PREFIX | awk -F. '{print $1}')
-        minor=$(cat NIGHTLY_PREFIX | awk -F. '{print $2}')
+        major=$(cat sdk/NIGHTLY_PREFIX | awk -F. '{print $1}')
+        minor=$(cat sdk/NIGHTLY_PREFIX | awk -F. '{print $2}')
         setvar() {
           echo "Setting '$1' to '$2'"
           echo "##vso[task.setvariable variable=$1]$2"
@@ -84,9 +84,8 @@ jobs:
         GPG_KEY: $(gpg-code-signing)
     - bash: |
         set -eou pipefail
-        cd sdk
         # Note: this gets dev-env from the release commit, not the trigger commit
-        eval "$(./dev-env/bin/dade-assist)"
+        eval "$(sdk/dev-env/bin/dade-assist)"
         mkdir -p $(Build.StagingDirectory)/split-release
         ./ci/assembly-split-release-artifacts.sh $(release_tag) $(Build.StagingDirectory)/release-artifacts $(Build.StagingDirectory)/split-release
         jq -n \
@@ -110,17 +109,15 @@ jobs:
         GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
     - bash: |
         set -euo pipefail
-        sdk
         # Note: this gets dev-env from the release commit, not the trigger commit
-        eval "$(./dev-env/bin/dade-assist)"
+        eval "$(sdk/dev-env/bin/dade-assist)"
         ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag) split
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
     - bash: |
         set -euo pipefail
-        cd sdk
         # Note: this gets dev-env from the release commit, not the trigger commit
-        eval "$(./dev-env/bin/dade-assist)"
+        eval "$(sdk/dev-env/bin/dade-assist)"
         source $(bash-lib)
         sha=$(release_sha)
         short_sha=${sha:0:8}

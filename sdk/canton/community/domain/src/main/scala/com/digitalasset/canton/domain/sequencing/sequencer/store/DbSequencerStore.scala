@@ -848,12 +848,12 @@ class DbSequencerStore(
         -- the max counter for each member will be either the number of events -1 (because the index is 0 based)
         -- or the checkpoint counter + number of events after that checkpoint
         -- the timestamp for a member will be the maximum between the highest event timestamp and the checkpoint timestamp (if it exists)
-        select sequencer_members.member, coalesce(checkpoints.counter, - 1) + count(events.ts), coalesce(max(events.ts), checkpoints.ts), checkpoints.lastet_sequencer_event_ts
+        select sequencer_members.member, coalesce(checkpoints.counter, - 1) + count(events.ts), coalesce(max(events.ts), checkpoints.ts), checkpoints.latest_sequencer_event_ts
         from sequencer_members
         left join (
             -- if the member has checkpoints, let's find the one latest one that's still before or at the given timestamp.
             -- using checkpoints is essential for cases where the db has been pruned
-            select member, max(counter) as counter, max(ts) as ts, max(lastet_sequencer_event_ts) as lastet_sequencer_event_ts
+            select member, max(counter) as counter, max(ts) as ts, max(latest_sequencer_event_ts) as latest_sequencer_event_ts
             from sequencer_counter_checkpoints
             where ts <= $timestamp
             group by member
@@ -878,7 +878,7 @@ class DbSequencerStore(
                  and (watermarks.sequencer_online = true or events.ts <= watermarks.watermark_ts)
                 ))
           )
-        group by (sequencer_members.member, checkpoints.counter, checkpoints.ts, checkpoints.lastet_sequencer_event_ts)
+        group by (sequencer_members.member, checkpoints.counter, checkpoints.ts, checkpoints.latest_sequencer_event_ts)
         """
     }
 
@@ -958,7 +958,7 @@ class DbSequencerStore(
             for {
               _ <- profile match {
                 case _: Postgres =>
-                  sqlu"""insert into sequencer_counter_checkpoints (member, counter, ts, lastet_sequencer_event_ts)
+                  sqlu"""insert into sequencer_counter_checkpoints (member, counter, ts, latest_sequencer_event_ts)
              values ($memberId, $counter, $ts, $latestSequencerEventTimestamp)
              on conflict (member, counter) do nothing
              """
@@ -966,17 +966,17 @@ class DbSequencerStore(
                   sqlu"""merge into sequencer_counter_checkpoints using dual
                     on member = $memberId and counter = $counter
                     when not matched then
-                      insert (member, counter, ts, lastet_sequencer_event_ts)
+                      insert (member, counter, ts, latest_sequencer_event_ts)
                       values ($memberId, $counter, $ts, $latestSequencerEventTimestamp)
                   """
                 case _: Oracle =>
                   sqlu""" insert /*+  IGNORE_ROW_ON_DUPKEY_INDEX ( sequencer_counter_checkpoints ( member, counter ) ) */
-            into sequencer_counter_checkpoints (member, counter, ts, lastet_sequencer_event_ts)
+            into sequencer_counter_checkpoints (member, counter, ts, latest_sequencer_event_ts)
           values ($memberId, $counter, $ts, $latestSequencerEventTimestamp)
           """
               }
               id <- sql"""
-            select ts, lastet_sequencer_event_ts
+            select ts, latest_sequencer_event_ts
               from sequencer_counter_checkpoints
               where member = $memberId and counter = $counter
               """
@@ -1013,7 +1013,7 @@ class DbSequencerStore(
     storage
       .query(
         sql"""
-           select counter, ts, lastet_sequencer_event_ts
+           select counter, ts, latest_sequencer_event_ts
            from sequencer_counter_checkpoints
            where member = $memberId
              and counter < $counter

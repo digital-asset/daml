@@ -334,7 +334,6 @@ object TestingTimeServiceConfig {
   * @param warnIfOverloadedFor If all incoming commands have been rejected due to PARTICIPANT_BACKPRESSURE during this interval, the participant will log a warning.
   * @param excludeInfrastructureTransactions If set, infrastructure transactions (i.e. ping, bong and dar distribution) will be excluded from participant metering.
   * @param enableEngineStackTraces If true, DAMLe stack traces will be enabled
-  * @param enableContractUpgrading If true contracts may be automatically upgraded or downgraded as needed.
   * @param iterationsBetweenInterruptions Number of engine iterations between forced interruptions (outside needs of information).
   * @param journalGarbageCollectionDelay How much time to delay the canton journal garbage collection
   * @param disableUpgradeValidation Disable the package upgrade verification on DAR upload
@@ -362,7 +361,6 @@ final case class ParticipantNodeParameterConfig(
     ledgerApiServer: LedgerApiServerParametersConfig = LedgerApiServerParametersConfig(),
     excludeInfrastructureTransactions: Boolean = true,
     enableEngineStackTraces: Boolean = false,
-    enableContractUpgrading: Boolean = false,
     iterationsBetweenInterruptions: Long =
       10000, // 10000 is the default value in the engine configuration
     journalGarbageCollectionDelay: config.NonNegativeFiniteDuration =

@@ -270,15 +270,6 @@ private[script] object RunnerMainConfigIntermediate {
         s"Uploads the dar before running. Only available over GRPC. Default behaviour is to upload with --all, not with --script-name."
       )
 
-    opt[Unit]("enable-contract-upgrading")
-      .hidden()
-      .action { (_, c) =>
-        c.copy(enableContractUpgrading = true)
-      }
-      .text(
-        "Experimental: Enables daml3-script upgrades support."
-      )
-
     help("help").text("Print this usage text")
 
     checkConfig(c => {

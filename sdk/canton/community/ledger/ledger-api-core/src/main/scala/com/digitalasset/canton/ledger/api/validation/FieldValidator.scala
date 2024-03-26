@@ -5,7 +5,7 @@ package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.value.Identifier
-import com.daml.lf.data.Ref.{PackageRef, Party, TypeConRef}
+import com.daml.lf.data.Ref.{Party, TypeConRef}
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.domain
@@ -211,7 +211,7 @@ object FieldValidator {
     if (s.nonEmpty) Right(s)
     else Left(missingField(fieldName))
 
-  def validateTypeConRef(identifier: Identifier)(upgradingEnabled: Boolean)(implicit
+  def validateTypeConRef(identifier: Identifier)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, TypeConRef] =
     for {
@@ -220,25 +220,16 @@ object FieldValidator {
         .fromString(identifier.packageId)
         .left
         .map(invalidField("package reference", _))
-      _ <- pkgRef match {
-        case PackageRef.Name(_) if !upgradingEnabled =>
-          Left(
-            invalidArgument(
-              "package-name scoping for requests is only possible when smart contract upgrading feature is enabled"
-            )
-          )
-        case _ => Right(())
-      }
     } yield Ref.TypeConRef(pkgRef, qualifiedName)
 
   def validateIdentifierWithPackageUpgrading(
       identifier: Identifier,
       includeCreatedEventBlob: Boolean,
-  )(upgradingEnabled: Boolean)(implicit
+  )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, TemplateFilter] =
     for {
-      typeRef <- validateTypeConRef(identifier)(upgradingEnabled)
+      typeRef <- validateTypeConRef(identifier)
       templateFilter = TemplateFilter(
         templateTypeRef = typeRef,
         includeCreatedEventBlob = includeCreatedEventBlob,

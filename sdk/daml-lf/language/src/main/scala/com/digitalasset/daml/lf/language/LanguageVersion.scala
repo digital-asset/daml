@@ -28,8 +28,14 @@ object LanguageVersion {
   def assertFromString(s: String): LanguageVersion = data.assertRight(fromString(s))
 
   implicit val Ordering: scala.Ordering[LanguageVersion] = {
+    case (LanguageVersion(Major.V1, leftMinor), LanguageVersion(Major.V1, rightMinor)) =>
+      Major.V2.minorVersionOrdering.compare(leftMinor, rightMinor)
     case (LanguageVersion(Major.V2, leftMinor), LanguageVersion(Major.V2, rightMinor)) =>
       Major.V2.minorVersionOrdering.compare(leftMinor, rightMinor)
+    case (v1, v2) =>
+      throw new IllegalArgumentException(
+        s"cannot compare version ${v1.pretty} with version ${v2.pretty}"
+      )
   }
 
   val All = Major.V2.supportedMinorVersions.map(LanguageVersion(Major.V2, _))
@@ -68,6 +74,9 @@ object LanguageVersion {
 
   }
 
+  private[lf] def notSupported(majorLanguageVersion: LanguageMajorVersion) =
+    throw new IllegalArgumentException(s"${majorLanguageVersion.pretty} not supported")
+
   /** All the stable versions for a given major language version.
     * Version ranges don't make sense across major language versions because major language versions
     * break backwards compatibility. Clients of [[VersionRange]] in the codebase assume that all LF
@@ -77,6 +86,7 @@ object LanguageVersion {
   def StableVersions(majorLanguageVersion: LanguageMajorVersion): VersionRange[LanguageVersion] =
     majorLanguageVersion match {
       case Major.V2 => VersionRange(v2_1, v2_1)
+      case _ => notSupported(majorLanguageVersion)
     }
 
   /** All the stable and preview versions for a given major language version.
@@ -92,6 +102,7 @@ object LanguageVersion {
   def AllVersions(majorLanguageVersion: LanguageMajorVersion): VersionRange[LanguageVersion] = {
     majorLanguageVersion match {
       case Major.V2 => VersionRange(v2_1, v2_dev)
+      case _ => notSupported(majorLanguageVersion)
     }
   }
 
@@ -103,6 +114,7 @@ object LanguageVersion {
   def defaultOrLatestStable(majorLanguageVersion: LanguageMajorVersion): LanguageVersion = {
     majorLanguageVersion match {
       case Major.V2 => v2_1
+      case _ => notSupported(majorLanguageVersion)
     }
   }
 

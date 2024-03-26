@@ -6,7 +6,6 @@ package com.daml.lf.archive
 import java.io.File
 
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.lf.language.LanguageMajorVersion
 import com.daml.daml_lf_dev.DamlLf2
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
@@ -38,17 +37,20 @@ class DarReaderTest
   s"should read dar file: $darFile, main archive: DarReaderTest returned first" in {
 
     val Right(dar) = DarReader.readArchiveFromFile(darFile)
-    val mainArchive = dar.main.proto
 
-    forAll(dar.all) { case ArchivePayload(packageId, archive, ver) =>
-      packageId shouldNot be(Symbol("empty"))
-      archive.getDamlLf2.getModulesCount should be > 0
-      ver.major should be(LanguageMajorVersion.V2)
+    forAll(dar.all) {
+      case ArchivePayload.Lf1(_, _, _) =>
+        Assertions.fail("unexpected Lf1 payload")
+      case ArchivePayload.Lf2(packageId, protoPkg, _) =>
+        packageId shouldNot be(Symbol("empty"))
+        protoPkg.getModulesCount should be > 0
     }
 
-    val mainArchiveModules = mainArchive.getDamlLf2.getModulesList.asScala
-    val mainArchiveInternedDotted = mainArchive.getDamlLf2.getInternedDottedNamesList.asScala
-    val mainArchiveInternedStrings = mainArchive.getDamlLf2.getInternedStringsList.asScala
+    val mainPkg = dar.main.asInstanceOf[ArchivePayload.Lf2].proto
+
+    val mainArchiveModules = mainPkg.getModulesList.asScala
+    val mainArchiveInternedDotted = mainPkg.getInternedDottedNamesList.asScala
+    val mainArchiveInternedStrings = mainPkg.getInternedStringsList.asScala
     inside(
       mainArchiveModules
         .find(m =>
@@ -70,28 +72,31 @@ class DarReaderTest
       actualTypes should contain.allOf("Transfer", "Call2", "CallablePayout", "PayOut")
     }
 
-    forExactly(1, dar.dependencies) { case ArchivePayload(_, archive, _) =>
-      val archiveModules = archive.getDamlLf2.getModulesList.asScala
-      val archiveInternedDotted = archive.getDamlLf2.getInternedDottedNamesList.asScala
-      val archiveInternedStrings = archive.getDamlLf2.getInternedStringsList.asScala
-      val archiveModuleNames = archiveModules
-        .map(m =>
-          internedName(archiveInternedDotted, archiveInternedStrings, m.getNameInternedDname)
+    forExactly(1, dar.dependencies) {
+      case ArchivePayload.Lf1(_, _, _) =>
+        Assertions.fail("unexpected Lf1 payload")
+      case ArchivePayload.Lf2(_, protoPkg, _) =>
+        val archiveModules = protoPkg.getModulesList.asScala
+        val archiveInternedDotted = protoPkg.getInternedDottedNamesList.asScala
+        val archiveInternedStrings = protoPkg.getInternedStringsList.asScala
+        val archiveModuleNames = archiveModules
+          .map(m =>
+            internedName(archiveInternedDotted, archiveInternedStrings, m.getNameInternedDname)
+          )
+          .toSet
+        archiveModuleNames shouldBe Set(
+          "GHC.Enum",
+          "GHC.Show",
+          "GHC.Show.Text",
+          "GHC.Num",
+          "GHC.Stack.Types",
+          "GHC.Classes",
+          "Control.Exception.Base",
+          "GHC.Err",
+          "GHC.Base",
+          "LibraryModules",
+          "GHC.Tuple.Check",
         )
-        .toSet
-      archiveModuleNames shouldBe Set(
-        "GHC.Enum",
-        "GHC.Show",
-        "GHC.Show.Text",
-        "GHC.Num",
-        "GHC.Stack.Types",
-        "GHC.Classes",
-        "Control.Exception.Base",
-        "GHC.Err",
-        "GHC.Base",
-        "LibraryModules",
-        "GHC.Tuple.Check",
-      )
     }
   }
 

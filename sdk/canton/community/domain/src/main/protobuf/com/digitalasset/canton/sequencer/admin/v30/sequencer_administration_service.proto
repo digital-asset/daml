@@ -34,7 +34,7 @@ service SequencerAdministrationService {
   // the returned bytestring can be used directly to initialize the given sequencer later on
   rpc OnboardingState(OnboardingStateRequest) returns (OnboardingStateResponse);
 
-  // Fetch the genesis state for a given sequencer. In the genesis state, we exclude VettedPackages transactions.
+  // Fetch the genesis state for a given sequencer.
   // the returned bytestring can be used directly to initialize the given sequencer later on
   rpc GenesisState(GenesisStateRequest) returns (GenesisStateResponse);
 
@@ -109,7 +109,7 @@ message OnboardingStateResponse {
   }
 }
 message GenesisStateRequest {
-  // Optional - the effective time used to fetch the topology transactions
+  // Optional - the effective time used to fetch the topology transactions. If not provided the effective time of the last topology transaction is used.
   google.protobuf.Timestamp timestamp = 1;
 }
 

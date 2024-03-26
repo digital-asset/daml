@@ -44,6 +44,7 @@ private[daml] final object StablePackagesV2
 private[daml] object StablePackages {
   def apply(languageMajorVersion: LanguageMajorVersion): StablePackages =
     languageMajorVersion match {
+      case LanguageMajorVersion.V1 => throw new IllegalArgumentException("LF1 is not supported")
       case LanguageMajorVersion.V2 => StablePackagesV2
     }
 

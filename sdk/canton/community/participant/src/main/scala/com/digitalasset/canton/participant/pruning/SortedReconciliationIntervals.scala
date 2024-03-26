@@ -166,6 +166,9 @@ object SortedReconciliationIntervals {
 
     val overlappingValidityIntervals =
       sortedReconciliationIntervals
+        // filter the transaction with empty interval, we cannot sort them using validFrom.
+        // When we import topology transactions during an upgrade, we set the validFrom and validUntil to MinValue.immediateSuccessor which leads to empty intervals.
+        .filterNot(_.emptyInterval)
         .sliding(2)
         .collectFirst { // If validUntil is None it means no end validity, so it should be the first interval
           case Seq(p1, p2) if p2.validUntil.forall(_ > p1.validFrom) => Some((p1, p2))
@@ -178,7 +181,11 @@ object SortedReconciliationIntervals {
 
       case None =>
         val intervals = sortedReconciliationIntervals.map {
-          case DomainParameters.WithValidity(validFrom, validUntil, reconciliationInterval) =>
+          case DomainParameters.WithValidity(
+                validFrom,
+                validUntil,
+                reconciliationInterval,
+              ) =>
             ReconciliationInterval(validFrom, validUntil, reconciliationInterval)
         }.toList
 

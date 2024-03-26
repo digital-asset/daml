@@ -140,6 +140,8 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
         LanguageVersion.v2_1,
         LanguageVersion.v2_dev,
       )
+    case _ =>
+      throw new IllegalArgumentException(s"${majorLanguageVersion.pretty} is not supported")
   }
 
   implicit val parserParameters: parser.ParserParameters[this.type] =
