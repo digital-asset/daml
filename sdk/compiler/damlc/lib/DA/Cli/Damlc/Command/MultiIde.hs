@@ -31,6 +31,7 @@ import DA.Daml.LanguageServer.SplitGotoDefinition
 import DA.Daml.Package.Config (MultiPackageConfigFields(..), findMultiPackageConfig, withMultiPackageConfig)
 import DA.Daml.Project.Types (ProjectPath (..))
 import Data.Either (lefts)
+import Data.Foldable (traverse_)
 import Data.Functor.Product
 import Data.List (find, isPrefixOf)
 import qualified Data.Map as Map
@@ -279,12 +280,10 @@ subIDEMessageHandler miState unblock ide bs = do
   mMsg <- either error id <$> parseServerMessageWithTracker (fromClientMethodTrackerVar miState) (ideHomeDirectory ide) val
 
   -- Adds the various prefixes needed for from server messages to not clash with those from other IDEs
-  mPrefixedMsg <-
-    mapM 
-      ( addProgressTokenPrefixToServerMessage (progessTokenPrefixesVar miState) (ideHomeDirectory ide) (ideMessageIdPrefix ide)
-      . addLspPrefixToServerMessage ide
-      )
-      mMsg
+  let prefixer = 
+        addProgressTokenPrefixToServerMessage (ideMessageIdPrefix ide)
+          . addLspPrefixToServerMessage ide
+      mPrefixedMsg = prefixer <$> mMsg
 
   forM_ mPrefixedMsg $ \msg -> do
     -- If its a request (builtin or custom), save it for response handling.
@@ -370,7 +369,7 @@ clientMessageHandler miState bs = do
       val = er "eitherDecode" $ Aeson.eitherDecodeStrict bs
 
   unPrefixedMsg <- either error id <$> parseClientMessageWithTracker (fromServerMethodTrackerVar miState) val
-  msg <- addProgressTokenPrefixToClientMessage (progessTokenPrefixesVar miState) unPrefixedMsg
+  let msg = addProgressTokenPrefixToClientMessage unPrefixedMsg
 
   case msg of
     -- Store the initialize params for starting subIDEs, respond statically with what ghc-ide usually sends.
@@ -378,11 +377,16 @@ clientMessageHandler miState bs = do
       putMVar (initParamsVar miState) _params
       sendClient miState $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) (Right initializeResult)
     LSP.FromClientMess LSP.SWindowWorkDoneProgressCancel notif -> do
-      (newNotif, mHome) <- removeWorkDoneProgressCancelTokenPrefix (progessTokenPrefixesVar miState) notif
-      let newMsg = LSP.FromClientMess LSP.SWindowWorkDoneProgressCancel newNotif
-      case mHome of
+      let (newNotif, mPrefix) = removeWorkDoneProgressCancelTokenPrefix notif
+          newMsg = LSP.FromClientMess LSP.SWindowWorkDoneProgressCancel newNotif
+      -- Find IDE with the correct prefix, send to it if it exists. If it doesn't, the message can be thrown away.
+      ides <- atomically $ takeTMVar $ subIDEsVar miState
+      case mPrefix of
         Nothing -> void $ sendAllSubIDEs miState newMsg
-        Just home -> void $ sendSubIDEByPath miState home newMsg
+        Just prefix ->
+          let mIde = find (\ide -> ideMessageIdPrefix ide == prefix) $ onlyActiveSubIdes ides
+           in traverse_ (`unsafeSendSubIDE` newMsg) mIde
+      atomically $ putTMVar (subIDEsVar miState) ides
 
     -- Special handing for STextDocumentDefinition to ask multiple IDEs (the W approach)
     -- When a getDefinition is requested, we cast this request into a tryGetDefinition
