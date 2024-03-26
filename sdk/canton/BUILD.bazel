@@ -786,10 +786,10 @@ proto_library(
     name = "community_participant_admin_proto",
     srcs = glob(["community/participant/src/main/protobuf/com/digitalasset/canton/participant/admin/v0/package_service.proto"]),
     strip_import_prefix = "community/participant/src/main/protobuf",
+    visibility = ["//visibility:public"],
     deps = [
         "@com_google_protobuf//:empty_proto",
     ],
-    visibility = ["//visibility:public"],
 )
 
 proto_gen(
@@ -889,6 +889,7 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
+    visibility = ["//visibility:public"],
     exports = [
         "@maven//:io_netty_netty_handler",
     ],
@@ -963,7 +964,6 @@ scala_library(
         "@maven//:org_typelevel_cats_core_2_13",
         "@maven//:org_typelevel_cats_kernel_2_13",
     ],
-    visibility = ["//visibility:public"],
 )
 
 ### community/app-base ###
