@@ -862,10 +862,17 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
               , controllers Cons @Party [call_method @Mod:Person asParty this] (Nil @Party)
               , observers Nil @Party
               to upure @Int64 i;
+            coimplements Mod1:Company {
+              view = Mod1:PersonView { name = callMethod @Mod:Person getName this };
+              method asParty = Mod1:Company {party} this;
+              method getName = Mod1:Company {legalName} this;
+            };
           } ;
        }
 
       """
+      val TTyCon(company) = t"Mod1:Company"
+
       val interface =
         DefInterface(
           requires = Set.empty,
@@ -897,6 +904,25 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
               returnType = t"Int64",
               update = e"upure @Int64 i",
             ),
+          ),
+          coImplements = Map(
+            company ->
+              InterfaceCoImplements(
+                company,
+                InterfaceInstanceBody(
+                  Map(
+                    n"asParty" -> InterfaceInstanceMethod(
+                      n"asParty",
+                      e"Mod1:Company {party} this",
+                    ),
+                    n"getName" -> InterfaceInstanceMethod(
+                      n"getName",
+                      e"Mod1:Company {legalName} this",
+                    ),
+                  ),
+                  e"Mod1:PersonView { name = callMethod @Mod:Person getName this }",
+                ),
+              )
           ),
           view = t"Mod1:PersonView",
         )

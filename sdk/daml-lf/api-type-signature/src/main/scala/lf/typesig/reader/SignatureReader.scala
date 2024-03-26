@@ -260,7 +260,8 @@ object SignatureReader {
           s"interface view type ${astIf.view.pretty} must be either a no-argument type reference or unit",
         )
     }
-  } yield name -> typesig.DefInterface(choices, viewType)
+    retroImplements = astIf.coImplements.keySet
+  } yield name -> typesig.DefInterface(choices, viewType, retroImplements)
 
   private[lf] def toIfaceType(
       ctx: QualifiedName,
