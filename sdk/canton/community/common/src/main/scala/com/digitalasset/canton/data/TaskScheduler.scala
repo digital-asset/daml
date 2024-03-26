@@ -184,7 +184,6 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
       traceContext: TraceContext
   ): Unit = blocking {
     // We lock the whole method here because the priority queue and the peano queue are not thread-safe.
-    // TODO (#1406): Avoid the coarse-grained locking.
     lock.synchronized {
       logger.trace(
         s"Signalling sequencer counter $sequencerCounter at $timestamp to the task scheduler. Head is ${sequencerCounterQueue.head}"

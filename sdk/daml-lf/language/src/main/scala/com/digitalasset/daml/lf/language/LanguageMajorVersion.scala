@@ -54,6 +54,12 @@ object LanguageMajorVersion {
         minorAscending = List("1"),
       )
 
+  case object V1
+      extends LanguageMajorVersion(
+        pretty = "1",
+        minorAscending = List.empty,
+      )
+
   val All: List[LanguageMajorVersion] = List(V2)
 
   implicit val languageMajorVersionOrdering: scala.Ordering[LanguageMajorVersion] =

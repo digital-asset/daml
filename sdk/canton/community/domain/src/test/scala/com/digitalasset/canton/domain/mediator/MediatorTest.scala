@@ -50,7 +50,12 @@ class MediatorTest extends AnyWordSpec with BaseTest {
 
       def test(validUntil: Option[CantonTimestamp]): Assertion = {
         val parameters =
-          DynamicDomainParametersWithValidity(defaultParameters, validFrom, validUntil, domainId)
+          DynamicDomainParametersWithValidity(
+            defaultParameters,
+            validFrom,
+            validUntil,
+            domainId,
+          )
 
         // Capping happen
         Mediator.checkPruningStatus(parameters, validFrom.plusSeconds(1)) shouldBe SafeUntil(
@@ -69,7 +74,12 @@ class MediatorTest extends AnyWordSpec with BaseTest {
 
     "deal with future domain parameters" in {
       val parameters =
-        DynamicDomainParametersWithValidity(defaultParameters, origin, None, domainId)
+        DynamicDomainParametersWithValidity(
+          defaultParameters,
+          origin,
+          None,
+          domainId,
+        )
 
       Mediator.checkPruningStatus(
         parameters,
@@ -81,7 +91,12 @@ class MediatorTest extends AnyWordSpec with BaseTest {
       val dpChangeTs = relTime(60)
 
       val parameters =
-        DynamicDomainParametersWithValidity(defaultParameters, origin, Some(dpChangeTs), domainId)
+        DynamicDomainParametersWithValidity(
+          defaultParameters,
+          origin,
+          Some(dpChangeTs),
+          domainId,
+        )
 
       {
         val cleanTimestamp = dpChangeTs + NonNegativeFiniteDuration.tryOfSeconds(1)
@@ -116,7 +131,12 @@ class MediatorTest extends AnyWordSpec with BaseTest {
     val dpChangeTs2 = relTime(40)
 
     val parameters = NonEmptySeq.of(
-      DynamicDomainParametersWithValidity(defaultParameters, origin, Some(dpChangeTs1), domainId),
+      DynamicDomainParametersWithValidity(
+        defaultParameters,
+        origin,
+        Some(dpChangeTs1),
+        domainId,
+      ),
       // This one prevents pruning for some time
       DynamicDomainParametersWithValidity(
         parametersWith(hugeTimeout),
@@ -124,7 +144,12 @@ class MediatorTest extends AnyWordSpec with BaseTest {
         Some(dpChangeTs2),
         domainId,
       ),
-      DynamicDomainParametersWithValidity(defaultParameters, dpChangeTs2, None, domainId),
+      DynamicDomainParametersWithValidity(
+        defaultParameters,
+        dpChangeTs2,
+        None,
+        domainId,
+      ),
     )
 
     "query in the first slice" in {

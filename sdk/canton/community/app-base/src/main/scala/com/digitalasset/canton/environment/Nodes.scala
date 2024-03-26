@@ -31,7 +31,6 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
-import scala.util.{Failure, Success}
 
 /** Group of CantonNodes of the same type (domains, participants, sequencers). */
 trait Nodes[+Node <: CantonNode, +NodeBootstrap <: CantonNodeBootstrap[Node]]
@@ -180,13 +179,7 @@ class ManagedNodes[
       import com.digitalasset.canton.util.Thereafter.syntax.*
       promise.completeWith(startup.value)
       // remove node upon failure
-      startup.thereafter {
-        case Success(Right(_)) => ()
-        case Success(Left(_)) =>
-          nodes.remove(name).discard
-        case Failure(_) =>
-          nodes.remove(name).discard
-      }
+      startup.thereafterSuccessOrFailure(_ => (), nodes.remove(name).discard)
     }
 
     blocking(synchronized {

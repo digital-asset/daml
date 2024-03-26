@@ -70,6 +70,13 @@ class TopologyTransactionTestFactoryX(loggerFactory: NamedLoggerFactory, initEc:
   val sequencer1 = SequencerId(UniqueIdentifier(Identifier.tryCreate("sequencer1"), ns1))
   val okmS1k7_k1 =
     mkAdd(OwnerToKeyMappingX(sequencer1, Some(domainId1), NonEmpty(Seq, key7)), key1)
+  val sdmS1_k1 =
+    mkAdd(
+      SequencerDomainStateX
+        .create(domainId1, PositiveInt.one, Seq(sequencer1), Seq.empty)
+        .getOrElse(sys.error("Failed to create SequencerDomainStateX")),
+      key1,
+    )
   def add_OkmS1k9_k1(otk: OwnerToKeyMappingX, serial: PositiveInt) =
     mkAdd(otk.copy(keys = otk.keys :+ key9), key1)
   def remove_okmS1k7_k1(otk: OwnerToKeyMappingX, serial: PositiveInt) = {

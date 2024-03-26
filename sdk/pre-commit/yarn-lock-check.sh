@@ -5,11 +5,13 @@
 set -euo pipefail
 
 TMP_DIR=$(mktemp -d)
-cp package.json yarn.lock $TMP_DIR
+trap 'rm -rf -- "$TMP_DIR"' EXIT
+
+cp sdk/package.json sdk/yarn.lock $TMP_DIR
 
 (cd $TMP_DIR; yarn install --silent > /dev/null)
 
-if ! diff yarn.lock $TMP_DIR/yarn.lock; then
+if ! diff -u sdk/yarn.lock $TMP_DIR/yarn.lock; then
     echo "FAIL: yarn.lock could not satisfy package.json" 1>&2
     echo "FAIL: yarn.lock requires all of the above changes" 1>&2
     exit 1

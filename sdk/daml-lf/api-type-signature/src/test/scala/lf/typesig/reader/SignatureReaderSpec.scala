@@ -201,6 +201,14 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
     lazy val itpES = EnvironmentSignature.fromPackageSignatures(itp).resolveChoices
 
+    lazy val itpWithoutRetroImplements = itp.copy(
+      main = itp.main.copy(
+        interfaces = itp.main.interfaces - qn("RetroInterface:RetroIf")
+      )
+    )
+    lazy val itpESWithoutRetroImplements =
+      EnvironmentSignature.fromPackageSignatures(itpWithoutRetroImplements).resolveChoices
+
     "load without errors" in {
       itp shouldBe itp
     }
@@ -320,6 +328,13 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
         Useless -> Set(Some(Ref.Identifier(itpPid, TIf)), Some(Ref.Identifier(itpPid, LibTIf))),
         Bar -> Set(None),
       )
+    }
+
+    "resolve retro implements harmlessly when there are none" in {
+      PackageSignature.resolveRetroImplements((), itpWithoutRetroImplements.all)((_, _) =>
+        None
+      ) should ===((), itpWithoutRetroImplements.all)
+      itpESWithoutRetroImplements.resolveRetroImplements should ===(itpESWithoutRetroImplements)
     }
   }
 

@@ -8,7 +8,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SendAsyncError,
   SubmissionRequest,
 }
-import com.digitalasset.canton.topology.{Member, ParticipantId}
+import com.digitalasset.canton.topology.Member
 
 object SequencerValidations {
   def checkSenderAndRecipientsAreRegistered(
@@ -64,13 +64,9 @@ object SequencerValidations {
     } yield ()
   }
 
-  /** An util to reject requests from participants that try to send something to multiple mediators (mediator groups).
+  /** An util to reject requests that try to send something to multiple mediators (mediator groups).
     * Mediators/groups are identified by their [[com.digitalasset.canton.topology.MemberCode]]
     */
-  def checkFromParticipantToAtMostOneMediator(submissionRequest: SubmissionRequest): Boolean =
-    submissionRequest.sender match {
-      case ParticipantId(_) =>
-        submissionRequest.batch.allMediatorRecipients.sizeCompare(1) <= 0
-      case _ => true
-    }
+  def checkToAtMostOneMediator(submissionRequest: SubmissionRequest): Boolean =
+    submissionRequest.batch.allMediatorRecipients.sizeCompare(1) <= 0
 }

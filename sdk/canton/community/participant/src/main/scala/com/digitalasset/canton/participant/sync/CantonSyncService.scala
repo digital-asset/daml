@@ -1301,7 +1301,7 @@ class CantonSyncService(
                     loggerFactory,
                   ),
                 domainMetrics,
-                parameters.cachingConfigs.sessionKeyCache,
+                parameters.cachingConfigs.sessionKeyCacheConfig,
                 participantId,
               )
           )

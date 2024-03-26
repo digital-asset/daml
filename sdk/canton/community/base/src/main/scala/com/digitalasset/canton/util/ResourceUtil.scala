@@ -59,7 +59,7 @@ object ResourceUtil {
   ) extends AnyVal {
     def apply[T <: AutoCloseable, V](r: => T)(
         f: T => M[V]
-    )(implicit M: MonadThrow[M], TM: Thereafter[M], executionContext: ExecutionContext): M[V] = {
+    )(implicit M: MonadThrow[M], TM: Thereafter[M]): M[V] = {
       import Thereafter.syntax.*
       import cats.syntax.flatMap.*
       MonadThrow[M].fromTry(Try(f(r))).flatten.thereafter(_ => r.close())

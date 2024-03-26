@@ -4,14 +4,12 @@
 package com.digitalasset.canton.sequencing.handlers
 
 import cats.instances.either.*
-import cats.syntax.either.*
 import com.daml.error.{ContextualizedErrorLogger, Explanation, Resolution}
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode}
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
-import com.digitalasset.canton.sequencing.handlers.EnvelopeOpenerError.EventDeserializationError
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Envelope}
 import com.digitalasset.canton.sequencing.{ApplicationHandler, EnvelopeBox, HandlerResult}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -23,14 +21,6 @@ class EnvelopeOpener[Box[+_ <: Envelope[_]]](protocolVersion: ProtocolVersion, h
 ) {
   def open(closed: Box[ClosedEnvelope]): ParsingResult[Box[DefaultOpenEnvelope]] =
     Box.traverse(closed)(_.openEnvelope(hashOps, protocolVersion))
-
-  def tryOpen(closed: Box[ClosedEnvelope]): Box[DefaultOpenEnvelope] = {
-    open(closed).valueOr { error =>
-      // TODO(i12902) find all usages of this method and change them to use open.
-      //  Throwing an exception here will likely cause availability issues.
-      throw EventDeserializationError(error, protocolVersion)
-    }
-  }
 }
 
 object EnvelopeOpener {

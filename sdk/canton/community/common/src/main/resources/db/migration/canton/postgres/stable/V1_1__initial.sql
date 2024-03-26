@@ -532,12 +532,12 @@ create table par_pruning_operation (
 create table seq_block_height (
     height bigint primary key check(height >= -1),
     latest_event_ts bigint not null,
-    -- The column lastet_sequencer_event_ts denotes the sequencing timestamp of an event
+    -- The column latest_sequencer_event_ts denotes the sequencing timestamp of an event
     -- addressed to the sequencer such that
-    -- there is further event addressed to the sequencer between this timestamp
+    -- there is no further event addressed to the sequencer between this timestamp
     -- and the last event in the block.
     -- NULL if no such timestamp is known, e.g., because this block was added before this column was added.
-    lastet_sequencer_event_ts bigint
+    latest_sequencer_event_ts bigint
 );
 
 create table seq_initial_state (
@@ -642,12 +642,12 @@ create table sequencer_counter_checkpoints (
     member integer not null,
     counter bigint not null,
     ts bigint not null,
-    -- The column lastet_sequencer_event_ts stores the latest timestamp before or at the sequencer counter checkpoint
+    -- The column latest_sequencer_event_ts stores the latest timestamp before or at the sequencer counter checkpoint
     -- at which the original batch of a deliver event sent to the member also contained an enveloped addressed
     -- to the member that updates the SequencerReader's topology client (the sequencer in case of an external sequencer
     -- and the domain topology manager for embedding sequencers)
     -- NULL if the sequencer counter checkpoint was generated before this column was added.
-   lastet_sequencer_event_ts bigint null,
+   latest_sequencer_event_ts bigint null,
    primary key (member, counter)
 );
 

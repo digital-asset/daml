@@ -17,6 +17,7 @@ message ArchivePayload {
   reserved 1; // was daml_lf_0
 
   oneof Sum {
+    bytes daml_lf_1 = 2;
     daml_lf_2.Package daml_lf_2 = 4;
   }
 }

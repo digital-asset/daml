@@ -22,10 +22,7 @@ object UpdateServiceRequestValidator {
   type Result[X] = Either[StatusRuntimeException, X]
 
 }
-class UpdateServiceRequestValidator(
-    partyValidator: PartyValidator,
-    transactionFilterValidator: TransactionFilterValidator,
-) {
+class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
 
   import FieldValidator.*
   import UpdateServiceRequestValidator.Result
@@ -75,7 +72,7 @@ class UpdateServiceRequestValidator(
         partial.end,
         ledgerEnd,
       )
-      convertedFilter <- transactionFilterValidator.validate(partial.transactionFilter)
+      convertedFilter <- TransactionFilterValidator.validate(partial.transactionFilter)
     } yield {
       transaction.GetTransactionsRequest(
         partial.begin,
