@@ -5,7 +5,6 @@ parameters:
   release_tag: ''
   is_release: ''
   is_split_release: 'false'
-  skip_tests: ''
   test_mode: ''
 
 steps:
@@ -41,25 +40,25 @@ steps:
     displayName: delete old logs
 
   - powershell: |
-      if (Test-Path .\build.ps1) {
-        .\build.ps1
-      } else {
-        cd sdk
-        .\build.ps1
-      }
+      cd sdk
+      .\build.ps1
     displayName: 'Build'
+    condition: and(succeeded(), ne('true', ${{parameters.is_release}}))
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
-      # On release, we want to skip testing because:
-      # - Caching on Windows is keyed on full path, and full path is somewhat
-      #   random (for a given machine, each pipeline has a its own workdir, but
-      #   they are not the same across machines).
-      # - In the specific case of a release commit on `main`, the exact same
-      #   code has already been tested twice: once as part of the target
-      #   commit's own build (albeit with 0.0.0 as version number), and once as
-      #   part of the release PR that triggered the build (with correct version
-      #   number).
-      SKIP_TESTS: ${{parameters.skip_tests}}
+      TEST_MODE: ${{parameters.test_mode}}
+
+  - powershell: |
+      cd sdk
+      if (Test-Path .\ci\build-release.ps1) {
+        .\ci\build-release.ps1
+      } else {
+        .\build.ps1
+      }
+    displayName: 'Build Release'
+    condition: and(succeeded(), eq('true', ${{parameters.is_release}}))
+    env:
+      DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
       TEST_MODE: ${{parameters.test_mode}}
 
   - template: publish-platform-independence-dar.yml
