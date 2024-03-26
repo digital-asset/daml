@@ -67,10 +67,8 @@ da_scala_library(
     scaladoc = False,
     visibility = ["//visibility:public"],
     deps = [
-        "//bazel_tools/runfiles:scala_runfiles",
         "//canton:community_participant",
         "//canton:ledger_api_proto_scala",
-        "//daml-lf/archive:daml_lf_archive_reader",
         "//language-support/scala/bindings",
         "//ledger/ledger-api-auth-client",
         "//ledger/ledger-api-client",
