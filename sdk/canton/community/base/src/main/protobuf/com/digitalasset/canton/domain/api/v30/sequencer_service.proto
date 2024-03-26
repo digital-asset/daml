@@ -216,7 +216,7 @@ message AcknowledgeSignedRequest {
 message AcknowledgeSignedResponse {}
 
 message DownloadTopologyStateForInitRequest {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   string member = 1;
 }

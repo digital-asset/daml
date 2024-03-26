@@ -109,7 +109,6 @@ object ApiServices {
       authenticateContract: AuthenticateContract,
       telemetry: Telemetry,
       val loggerFactory: NamedLoggerFactory,
-      upgradingEnabled: Boolean,
       dynParamGetter: DynamicDomainParameterGetter,
       disableUpgradeValidation: Boolean,
   )(implicit
@@ -173,11 +172,9 @@ object ApiServices {
         executionContext: ExecutionContext
     ): List[BindableService] = {
 
-      val transactionFilterValidator = new TransactionFilterValidator(upgradingEnabled)
       val transactionServiceRequestValidator =
         new UpdateServiceRequestValidator(
-          partyValidator = new PartyValidator(PartyNameChecker.AllowAllParties),
-          transactionFilterValidator = transactionFilterValidator,
+          partyValidator = new PartyValidator(PartyNameChecker.AllowAllParties)
         )
 
       val (ledgerApiV2Services, ledgerApiUpdateService) = {
@@ -213,7 +210,6 @@ object ApiServices {
             metrics = metrics,
             telemetry = telemetry,
             loggerFactory = loggerFactory,
-            transactionFilterValidator = transactionFilterValidator,
           )
         val apiVersionService =
           new ApiVersionService(
@@ -327,8 +323,7 @@ object ApiServices {
         val validateUpgradingPackageResolutions =
           ValidateUpgradingPackageResolutions(packageMetadataStore)
         val commandsValidator = CommandsValidator(
-          validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
-          upgradingEnabled = upgradingEnabled,
+          validateUpgradingPackageResolutions = validateUpgradingPackageResolutions
         )
         val commandSubmissionService =
           CommandSubmissionServiceImpl.createApiService(

@@ -35,7 +35,7 @@ message MediatorReject {
 }
 
 message Verdict {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   oneof some_verdict {
     google.protobuf.Empty approve = 1;
@@ -46,7 +46,7 @@ message Verdict {
 
 // This covers transactions and transfers
 message ConfirmationResultMessage {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   string domain_id = 1;
   com.digitalasset.canton.protocol.v30.ViewType view_type = 2;

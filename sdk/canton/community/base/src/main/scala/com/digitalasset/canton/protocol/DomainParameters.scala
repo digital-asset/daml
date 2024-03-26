@@ -47,9 +47,11 @@ object DomainParameters {
   final case class WithValidity[+P](
       validFrom: CantonTimestamp,
       validUntil: Option[CantonTimestamp],
+      serial: PositiveInt,
       parameter: P,
   ) {
-    def map[T](f: P => T): WithValidity[T] = WithValidity(validFrom, validUntil, f(parameter))
+    def map[T](f: P => T): WithValidity[T] =
+      WithValidity(validFrom, validUntil, serial, f(parameter))
     def isValidAt(ts: CantonTimestamp) = validFrom < ts && validUntil.forall(ts <= _)
   }
   final case class MaxRequestSize(value: NonNegativeInt) extends AnyVal {
@@ -788,15 +790,17 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
   *
   * @param validFrom Start point of the validity interval (exclusive)
   * @param validUntil End point of the validity interval (inclusive)
+  * @param serial The serial number of the corresponding topology transaction. It's incremented for each domain change.
   */
 final case class DynamicDomainParametersWithValidity(
     parameters: DynamicDomainParameters,
     validFrom: CantonTimestamp,
     validUntil: Option[CantonTimestamp],
+    serial: PositiveInt,
     domainId: DomainId,
 ) {
   def map[T](f: DynamicDomainParameters => T): DomainParameters.WithValidity[T] =
-    DomainParameters.WithValidity(validFrom, validUntil, f(parameters))
+    DomainParameters.WithValidity(validFrom, validUntil, serial, f(parameters))
 
   def isValidAt(ts: CantonTimestamp): Boolean =
     validFrom < ts && validUntil.forall(ts <= _)

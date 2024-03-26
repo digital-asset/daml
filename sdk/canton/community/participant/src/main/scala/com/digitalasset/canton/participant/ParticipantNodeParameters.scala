@@ -36,7 +36,6 @@ final case class ParticipantNodeParameters(
     ledgerApiServerParameters: LedgerApiServerParametersConfig,
     excludeInfrastructureTransactions: Boolean,
     enableEngineStackTrace: Boolean,
-    enableContractUpgrading: Boolean,
     iterationsBetweenInterruptions: Long,
     journalGarbageCollectionDelay: NonNegativeFiniteDuration,
     disableUpgradeValidation: Boolean,
@@ -58,8 +57,7 @@ object ParticipantNodeParameters {
       logQueryCost = None,
       processingTimeouts = DefaultProcessingTimeouts.testing,
       enablePreviewFeatures = false,
-      // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-      nonStandardConfig = true,
+      nonStandardConfig = false,
       cachingConfigs = CachingConfigs(),
       batchingConfig = BatchingConfig(
         maxPruningBatchSize = PositiveNumeric.tryCreate(10),
@@ -80,15 +78,13 @@ object ParticipantNodeParameters {
     transferTimeProofFreshnessProportion = NonNegativeInt.tryCreate(3),
     protocolConfig = ParticipantProtocolConfig(
       Some(testedProtocolVersion),
-      // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-      devVersionSupport = true,
+      devVersionSupport = false,
       dontWarnOnDeprecatedPV = false,
       initialProtocolVersion = testedProtocolVersion,
     ),
     ledgerApiServerParameters = LedgerApiServerParametersConfig(),
     excludeInfrastructureTransactions = true,
     enableEngineStackTrace = false,
-    enableContractUpgrading = false,
     iterationsBetweenInterruptions =
       10000, // 10000 is the default value in the engine configuration
     journalGarbageCollectionDelay = NonNegativeFiniteDuration.Zero,

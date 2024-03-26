@@ -11,7 +11,7 @@ import "scalapb/scalapb.proto";
 // Definition of the ConfirmationResponse message which is shared between the transaction and transfer protocol
 
 message LocalVerdict {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   VerdictCode code = 1;
   google.rpc.Status reason = 2; // ok iff code is approve
@@ -25,7 +25,7 @@ message LocalVerdict {
 }
 
 message ConfirmationResponse {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   int64 request_id = 1; // in microseconds of UTC time since Unix epoch
   string sender = 2;

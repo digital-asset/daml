@@ -192,7 +192,6 @@ class SyncDomain(
     loggerFactory,
     futureSupervisor,
     packageResolver = packageResolver,
-    enableContractUpgrading = parameters.enableContractUpgrading,
   )
 
   private val transferOutProcessor: TransferOutProcessor = new TransferOutProcessor(

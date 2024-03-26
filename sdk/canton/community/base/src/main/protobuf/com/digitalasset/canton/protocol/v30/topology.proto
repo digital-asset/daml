@@ -325,7 +325,7 @@ message TopologyMapping {
 }
 
 message TopologyTransaction {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   Enums.TopologyChangeOp operation = 1;
 
@@ -339,7 +339,7 @@ message TopologyTransaction {
 }
 
 message SignedTopologyTransaction {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   // serialized topology transaction (protobuf bytestring)
   bytes transaction = 1;
@@ -361,7 +361,7 @@ message SignedTopologyTransaction {
  * including the member the submitted the broadcast.
  */
 message TopologyTransactionsBroadcast {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   message Broadcast {
     string broadcast_id = 1;

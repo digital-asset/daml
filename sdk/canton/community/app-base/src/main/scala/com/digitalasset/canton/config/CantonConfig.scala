@@ -243,10 +243,8 @@ final case class CantonParameters(
     enableAdditionalConsistencyChecks: Boolean = false,
     manualStart: Boolean = false,
     startupParallelism: Option[PositiveInt] = None,
-    // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-    nonStandardConfig: Boolean = true,
-    // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-    devVersionSupport: Boolean = true,
+    nonStandardConfig: Boolean = false,
+    devVersionSupport: Boolean = false,
     portsFile: Option[String] = None,
     timeouts: TimeoutSettings = TimeoutSettings(),
     retentionPeriodDefaults: RetentionPeriodDefaults = RetentionPeriodDefaults(),
@@ -285,6 +283,9 @@ trait CantonConfig {
   ]
   type MediatorNodeXConfigType <: MediatorNodeConfigCommon
   type SequencerNodeXConfigType <: SequencerNodeConfigCommon
+
+  def allNodes: Map[InstanceName, LocalNodeConfig] =
+    (participants: Map[InstanceName, LocalNodeConfig]) ++ sequencers ++ mediators
 
   /** all participants that this Canton process can operate or connect to
     *
@@ -377,7 +378,6 @@ trait CantonConfig {
         ledgerApiServerParameters = participantParameters.ledgerApiServer,
         excludeInfrastructureTransactions = participantParameters.excludeInfrastructureTransactions,
         enableEngineStackTrace = participantParameters.enableEngineStackTraces,
-        enableContractUpgrading = participantParameters.enableContractUpgrading,
         iterationsBetweenInterruptions = participantParameters.iterationsBetweenInterruptions,
         journalGarbageCollectionDelay =
           participantParameters.journalGarbageCollectionDelay.toInternal,
@@ -922,6 +922,8 @@ object CantonConfig {
       deriveReader[CacheConfig]
     lazy implicit val cacheConfigWithTimeoutReader: ConfigReader[CacheConfigWithTimeout] =
       deriveReader[CacheConfigWithTimeout]
+    lazy implicit val sessionKeyCacheConfigReader: ConfigReader[SessionKeyCacheConfig] =
+      deriveReader[SessionKeyCacheConfig]
     lazy implicit val cachingConfigsReader: ConfigReader[CachingConfigs] =
       deriveReader[CachingConfigs]
     lazy implicit val adminWorkflowConfigReader: ConfigReader[AdminWorkflowConfig] =
@@ -1310,6 +1312,8 @@ object CantonConfig {
       deriveWriter[CacheConfig]
     lazy implicit val cacheConfigWithTimeoutWriter: ConfigWriter[CacheConfigWithTimeout] =
       deriveWriter[CacheConfigWithTimeout]
+    lazy implicit val sessionKeyCacheConfigWriter: ConfigWriter[SessionKeyCacheConfig] =
+      deriveWriter[SessionKeyCacheConfig]
     lazy implicit val cachingConfigsWriter: ConfigWriter[CachingConfigs] =
       deriveWriter[CachingConfigs]
     lazy implicit val adminWorkflowConfigWriter: ConfigWriter[AdminWorkflowConfig] =

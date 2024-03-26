@@ -5,8 +5,7 @@ package com.digitalasset.canton.store
 
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config
-import com.digitalasset.canton.config.CacheConfigWithTimeout
+import com.digitalasset.canton.config.SessionKeyCacheConfig
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
 import com.digitalasset.canton.topology.ParticipantId
@@ -72,7 +71,7 @@ object SessionKeyStoreDisabled extends SessionKeyStore {
 
 }
 
-final class SessionKeyStoreWithInMemoryCache(sessionKeysCacheConfig: CacheConfigWithTimeout)
+final class SessionKeyStoreWithInMemoryCache(sessionKeysCacheConfig: SessionKeyCacheConfig)
     extends SessionKeyStore {
 
   /** This cache keeps track of the session key information for each recipient group, which is then used to encrypt the randomness that is
@@ -95,7 +94,7 @@ final class SessionKeyStoreWithInMemoryCache(sessionKeysCacheConfig: CacheConfig
     * Since key rolls are rare and everything still remains consistent we accept this as an expected behavior.
     */
   private lazy val sessionKeysCacheSender: Cache[RecipientGroup, SessionKeyInfo] =
-    sessionKeysCacheConfig
+    sessionKeysCacheConfig.senderCache
       .buildScaffeine()
       .build()
 
@@ -113,16 +112,16 @@ final class SessionKeyStoreWithInMemoryCache(sessionKeysCacheConfig: CacheConfig
   /** This cache keeps track of the matching encrypted randomness for the session keys and their correspondent unencrypted value.
     * This way we can save on the amount of asymmetric decryption operations.
     */
-  private lazy val sessionKeysCacheRecipient
+  private lazy val sessionKeysCacheReceiver
       : Cache[AsymmetricEncrypted[SecureRandomness], SecureRandomness] =
-    sessionKeysCacheConfig
+    sessionKeysCacheConfig.receiverCache
       .buildScaffeine()
       .build()
 
   protected[canton] def getSessionKeyRandomnessIfPresent(
       encryptedRandomness: AsymmetricEncrypted[SecureRandomness]
   ): Option[SecureRandomness] =
-    sessionKeysCacheRecipient.getIfPresent(encryptedRandomness)
+    sessionKeysCacheReceiver.getIfPresent(encryptedRandomness)
 
   def getSessionKeyRandomness(
       privateCrypto: CryptoPrivateApi,
@@ -132,7 +131,7 @@ final class SessionKeyStoreWithInMemoryCache(sessionKeysCacheConfig: CacheConfig
       tc: TraceContext,
       ec: ExecutionContext,
   ): EitherT[Future, DecryptionError, SecureRandomness] =
-    sessionKeysCacheRecipient.getIfPresent(encryptedRandomness) match {
+    sessionKeysCacheReceiver.getIfPresent(encryptedRandomness) match {
       case Some(randomness) => EitherT.rightT[Future, DecryptionError](randomness)
       case None =>
         privateCrypto
@@ -144,7 +143,7 @@ final class SessionKeyStoreWithInMemoryCache(sessionKeysCacheConfig: CacheConfig
              * encrypted randomness for this participant, but for all recipients so that you can also cache the
              * check that everyone can decrypt the randomness if they need it.
              */
-            sessionKeysCacheRecipient.put(encryptedRandomness, randomness)
+            sessionKeysCacheReceiver.put(encryptedRandomness, randomness)
             randomness
           }
     }
@@ -153,10 +152,10 @@ final class SessionKeyStoreWithInMemoryCache(sessionKeysCacheConfig: CacheConfig
 
 object SessionKeyStore {
 
-  def apply(cacheConfig: CacheConfigWithTimeout): SessionKeyStore =
-    if (cacheConfig.expireAfterTimeout == config.NonNegativeFiniteDuration.Zero)
-      SessionKeyStoreDisabled
-    else new SessionKeyStoreWithInMemoryCache(cacheConfig)
+  def apply(sessionKeyCacheConfig: SessionKeyCacheConfig): SessionKeyStore =
+    if (sessionKeyCacheConfig.enabled)
+      new SessionKeyStoreWithInMemoryCache(sessionKeyCacheConfig)
+    else SessionKeyStoreDisabled
 
   // Defines a set of recipients and the crypto scheme used to generate the session key for that group
   final case class RecipientGroup(

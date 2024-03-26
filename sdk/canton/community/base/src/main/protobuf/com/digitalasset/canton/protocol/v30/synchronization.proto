@@ -14,7 +14,7 @@ import "scalapb/scalapb.proto";
 // Messages depending on both participant_transaction.proto and participant_transfer.proto.
 
 message TypedSignedProtocolMessageContent {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   oneof some_signed_protocol_message {
     bytes confirmation_response = 2;
@@ -25,14 +25,14 @@ message TypedSignedProtocolMessageContent {
 }
 
 message SignedProtocolMessage {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   repeated com.digitalasset.canton.crypto.v30.Signature signature = 1;
   bytes typed_signed_protocol_message_content = 2;
 }
 
 message EnvelopeContent {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   oneof some_envelope_content {
     v30.InformeeMessage informee_message = 1;

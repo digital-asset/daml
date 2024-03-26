@@ -11,7 +11,7 @@ import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
 
 message SequencerSnapshot {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   int64 latest_timestamp = 1; // in microseconds of UTC time since Unix epoch
   repeated MemberCounter head_member_counters = 2;

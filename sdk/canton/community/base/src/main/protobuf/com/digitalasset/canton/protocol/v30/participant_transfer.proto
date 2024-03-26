@@ -22,7 +22,7 @@ message TransferId {
 // Messages sent by a participant as part of the transfer protocol
 
 message TransferOutCommonData {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
   string source_domain = 2;
@@ -35,7 +35,7 @@ message TransferOutCommonData {
 }
 
 message TransferViewTree {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   bytes common_data = 1;
   BlindableNode participant_data = 2;
@@ -49,14 +49,14 @@ message TransferInMediatorMessage {
 }
 
 message TransferOutMediatorMessage {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   TransferViewTree tree = 1;
   com.digitalasset.canton.crypto.v30.Signature submitting_participant_signature = 2;
 }
 
 message TransferInCommonData {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
   string target_domain = 2;
@@ -68,7 +68,7 @@ message TransferInCommonData {
 }
 
 message TransferSubmitterMetadata {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   string submitter = 1;
   string submitting_participant = 2;
@@ -79,7 +79,7 @@ message TransferSubmitterMetadata {
 }
 
 message TransferOutView {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
   string target_domain = 3;
@@ -91,7 +91,7 @@ message TransferOutView {
 }
 
 message TransferInView {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
   v30.SerializableContract contract = 3;

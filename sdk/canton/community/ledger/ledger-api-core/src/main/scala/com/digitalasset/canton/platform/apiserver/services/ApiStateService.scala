@@ -41,7 +41,6 @@ final class ApiStateService(
     metrics: Metrics,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
-    transactionFilterValidator: TransactionFilterValidator,
 )(implicit
     mat: Materializer,
     esf: ExecutionSequencerFactory,
@@ -60,7 +59,7 @@ final class ApiStateService(
     registerStream(responseObserver) {
 
       val result = for {
-        filters <- transactionFilterValidator.validate(
+        filters <- TransactionFilterValidator.validate(
           TransactionFilter(request.getFilter.filtersByParty)
         )
         activeAtO <- FieldValidator.optionalString(request.activeAtOffset)(str =>

@@ -426,7 +426,6 @@ class DbTransferStore(
     storage.update_(query, functionFullName)
   }
 
-  // TODO(#11722) Parameter domainIsTarget can be dropped once TransferStore is owned by source domain
   private def findPendingBase(domainId: TransferDomainId = domain, onlyNotFinished: Boolean) = {
     import DbStorage.Implicits.BuilderChain.*
 

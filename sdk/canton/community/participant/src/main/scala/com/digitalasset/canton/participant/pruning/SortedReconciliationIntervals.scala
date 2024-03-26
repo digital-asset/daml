@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.pruning
 
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervals.ReconciliationInterval
 import com.digitalasset.canton.protocol.DomainParameters
@@ -162,10 +163,20 @@ object SortedReconciliationIntervals {
       validUntil: CantonTimestamp,
   ): Either[String, SortedReconciliationIntervals] = {
     val sortedReconciliationIntervals =
-      reconciliationIntervals.sortBy(_.validFrom)(implicitly[Ordering[CantonTimestamp]].reverse)
+      reconciliationIntervals.sortBy(interval => (interval.serial, interval.validFrom))(
+        implicitly[Ordering[(PositiveInt, CantonTimestamp)]].reverse
+      )
 
     val overlappingValidityIntervals =
       sortedReconciliationIntervals
+        // Right now during a major upgrade, we reset the valid from and valid until to MinValue.immediateSuccessor, so we are not
+        // able to sort the transactions anymore. We end up with transactions that seems to never have been valid because validFrom = validUntil.
+        // TODO(i18053): This is a temporary fix to avoid overlapping interval error, when it's not.
+        .filterNot(p =>
+          p.validUntil.forall(
+            _ == p.validFrom
+          ) && p.validFrom <= CantonTimestamp.MinValue.immediateSuccessor
+        )
         .sliding(2)
         .collectFirst { // If validUntil is None it means no end validity, so it should be the first interval
           case Seq(p1, p2) if p2.validUntil.forall(_ > p1.validFrom) => Some((p1, p2))
@@ -178,7 +189,12 @@ object SortedReconciliationIntervals {
 
       case None =>
         val intervals = sortedReconciliationIntervals.map {
-          case DomainParameters.WithValidity(validFrom, validUntil, reconciliationInterval) =>
+          case DomainParameters.WithValidity(
+                validFrom,
+                validUntil,
+                _serial,
+                reconciliationInterval,
+              ) =>
             ReconciliationInterval(validFrom, validUntil, reconciliationInterval)
         }.toList
 

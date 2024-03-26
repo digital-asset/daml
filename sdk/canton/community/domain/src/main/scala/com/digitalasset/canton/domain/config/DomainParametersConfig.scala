@@ -39,8 +39,7 @@ final case class DomainParametersConfig(
     protocolVersion: DomainProtocolVersion = DomainProtocolVersion(
       ProtocolVersion.latest
     ),
-    // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-    override val devVersionSupport: Boolean = true,
+    override val devVersionSupport: Boolean = false,
     override val dontWarnOnDeprecatedPV: Boolean = false,
 ) extends ProtocolConfig
     with PrettyPrinting {

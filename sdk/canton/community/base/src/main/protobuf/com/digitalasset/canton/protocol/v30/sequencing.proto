@@ -67,7 +67,7 @@ message Handshake {
 // Messages used for synchronization between sequencer nodes
 
 message AggregationRule {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   repeated string eligible_members = 1;
   int32 threshold = 2;
@@ -85,7 +85,7 @@ message StaticDomainParameters {
 }
 
 message Envelope {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   // Contains a v30.EnvelopeContent if signatures are empty and a v30.TypedSignedProtocolMessageContent otherwise
   bytes content = 1;
@@ -94,13 +94,13 @@ message Envelope {
 }
 
 message Batch {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   repeated Envelope envelopes = 1;
 }
 
 message CompressedBatch {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   enum CompressionAlgorithm {
     COMPRESSION_ALGORITHM_UNSPECIFIED = 0;
@@ -113,7 +113,7 @@ message CompressedBatch {
 }
 
 message SequencedEvent {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   int64 counter = 1;
   int64 timestamp = 2; // in microseconds of UTC time since Unix epoch
@@ -126,7 +126,7 @@ message SequencedEvent {
 
 // Messages used for synchronization between sequencer nodes
 message SubmissionRequest {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   string sender = 1;
   string message_id = 2;

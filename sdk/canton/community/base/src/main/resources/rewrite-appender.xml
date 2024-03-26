@@ -246,7 +246,7 @@
             <testing>true</testing>
         </rewrite>
 
-        <!-- TODO(i8846) upstream sequencing actor does throw on shutdown -->
+        <!-- TODO(i10394) upstream sequencing actor does throw on shutdown -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
             <logger>com.daml.grpc.adapter.RunnableSequencingActor</logger>
             <maxLevel>INFO</maxLevel>
