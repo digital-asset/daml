@@ -88,8 +88,9 @@ main = do
               out <- readProcess damlHelper ("ledger" : "list-parties" : ledgerOpts) ""
               out `outputContainsParty` PartyDetails (Party "Bob") "Bob" True
           ]
-      , testGroup "allocate-parties then list-parties"
-          [ testCase "succeeds against gRPC" $ do
+      , testGroup "allocate-parties"
+          [ testCase "succeeds against HTTP JSON API" $ do
+              HttpJson {hjPort, hjTokenFile} <- getHttpJson
               sandboxPort <- getSandboxPort
               -- allocate parties via json api
               callCommand $
