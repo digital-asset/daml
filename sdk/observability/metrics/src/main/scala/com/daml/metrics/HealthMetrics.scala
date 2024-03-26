@@ -3,20 +3,24 @@
 
 package com.daml.metrics
 
-import java.util.concurrent.TimeoutException
+import com.daml.metrics.api.MetricQualification
 
+import java.util.concurrent.TimeoutException
 import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
-import com.daml.metrics.api.{MetricsContext, MetricName => MN}
+import com.daml.metrics.api.{MetricInfo, MetricsContext, MetricName => MN}
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 class HealthMetrics(val factory: LabeledMetricsFactory) {
   import HealthMetrics._
 
+  lazy val healthGaugeInfo =
+    MetricInfo(MetricName, "The status of the Daml components", MetricQualification.Saturation)
+
   def registerHealthGauge(componentName: String, supplier: () => Boolean): CloseableGauge = {
     val asLong = () => if (supplier()) 1L else 0L
-    factory.gaugeWithSupplier(MetricName, asLong, "The status of the Daml components")(
+    factory.gaugeWithSupplier(healthGaugeInfo, asLong)(
       MetricsContext((ComponentLabel, componentName))
     )
   }

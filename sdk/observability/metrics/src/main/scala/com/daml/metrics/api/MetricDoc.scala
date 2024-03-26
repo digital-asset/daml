@@ -11,15 +11,6 @@ object MetricDoc {
   // -- use GroupTag for similar leaf metrics that are rooted at multiple places: a.*.c
   // -- use FanTag when a single root fans out into a collection of similar but distinctly named metrics: a.b.*
 
-  sealed trait MetricQualification
-  object MetricQualification {
-    case object Latency extends MetricQualification
-    case object Traffic extends MetricQualification
-    case object Errors extends MetricQualification
-    case object Saturation extends MetricQualification
-    case object Debug extends MetricQualification
-  }
-
   // The Tag can be defined to document a single metric. Its summary, description and
   // qualification will be present as a separate documentation entry unless a GroupTag is defined
   // for the class that may belongs.

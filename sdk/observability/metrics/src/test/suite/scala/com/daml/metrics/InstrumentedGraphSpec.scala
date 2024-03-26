@@ -8,7 +8,8 @@ import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.metrics.InstrumentedGraph._
 import com.daml.metrics.InstrumentedGraphSpec.{MaxValueCounter, SamplingCounter}
-import com.daml.metrics.api.MetricsContext
+import com.daml.metrics.api.MetricQualification
+import com.daml.metrics.api.{MetricInfo, MetricName, MetricsContext}
 import com.daml.metrics.api.noop.NoOpCounter
 import com.daml.metrics.api.testing.InMemoryMetricsFactory.{InMemoryCounter, InMemoryTimer}
 import com.daml.metrics.api.testing.MetricValues
@@ -27,9 +28,13 @@ final class InstrumentedGraphSpec
   behavior of "InstrumentedSource.queue"
 
   it should "correctly enqueue and measure queue delay" in {
-    val capacityCounter = NoOpCounter("capacity")
-    val maxBuffered = NoOpCounter("buffered")
-    val delayTimer = InMemoryTimer("test", MetricsContext.Empty)
+    val capacityCounter =
+      NoOpCounter(MetricInfo(MetricName("capacity"), "", MetricQualification.Debug))
+    val maxBuffered = NoOpCounter(MetricInfo(MetricName("buffered"), "", MetricQualification.Debug))
+    val delayTimer = InMemoryTimer(
+      MetricInfo(MetricName("test"), "", MetricQualification.Debug),
+      MetricsContext.Empty,
+    )
     val bufferSize = 2
 
     val (source, sink) =
@@ -66,8 +71,14 @@ final class InstrumentedGraphSpec
     val highAcceptanceThreshold = bufferSize + acceptanceTolerance
 
     val maxBuffered = new MaxValueCounter
-    val capacityCounter = InMemoryCounter("test", MetricsContext.Empty)
-    val delayTimer = InMemoryTimer("test", MetricsContext.Empty)
+    val capacityCounter = InMemoryCounter(
+      MetricInfo(MetricName("test"), "", MetricQualification.Debug),
+      MetricsContext.Empty,
+    )
+    val delayTimer = InMemoryTimer(
+      MetricInfo(MetricName("test"), "", MetricQualification.Debug),
+      MetricsContext.Empty,
+    )
 
     val stop = Promise[Unit]()
 
@@ -158,14 +169,21 @@ final class InstrumentedGraphSpec
 object InstrumentedGraphSpec extends MetricValues {
   // For testing only, this counter will never decrease
   // so that we can test the maximum value read
-  private final class MaxValueCounter extends InMemoryCounter("test", MetricsContext.Empty) {
+  private final class MaxValueCounter
+      extends InMemoryCounter(
+        MetricInfo(MetricName("test"), "", MetricQualification.Debug),
+        MetricsContext.Empty,
+      ) {
     override def dec(value: Long)(implicit mc: MetricsContext): Unit = ()
 
   }
 
   // For testing only, provides a sampled sequence of the state of the counter until finishSampling is called.
   private final class SamplingCounter(samplingInterval: FiniteDuration)
-      extends InMemoryCounter("test", MetricsContext.Empty) { self =>
+      extends InMemoryCounter(
+        MetricInfo(MetricName("test"), "", MetricQualification.Debug),
+        MetricsContext.Empty,
+      ) { self =>
     private val t = new java.util.Timer()
     private val samples = scala.collection.mutable.ListBuffer[Long]()
     private val task = new java.util.TimerTask {

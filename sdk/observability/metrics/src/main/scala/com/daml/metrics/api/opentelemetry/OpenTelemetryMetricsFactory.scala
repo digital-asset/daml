@@ -3,6 +3,9 @@
 
 package com.daml.metrics.api.opentelemetry
 
+import com.daml.metrics.{MetricsFilter, MetricsFilterConfig}
+import com.daml.metrics.api.MetricQualification
+
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 import com.daml.metrics.api.MetricHandle.Gauge.{CloseableGauge, SimpleCloseableGauge}
@@ -15,13 +18,14 @@ import com.daml.metrics.api.MetricHandle.{
   Meter,
   Timer,
 }
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer.{
   DurationSuffix,
   TimerUnit,
   TimerUnitAndSuffix,
   convertNanosecondsToSeconds,
 }
-import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
+import com.daml.metrics.api.{MetricHandle, MetricInfo, MetricName, MetricsContext}
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.metrics.{
   DoubleHistogram,
@@ -30,49 +34,117 @@ import io.opentelemetry.api.metrics.{
   LongUpDownCounter,
   Meter => OtelMeter,
 }
+import org.slf4j.Logger
 
 import java.util.concurrent.atomic.AtomicReference
 
+class QualificationFilteringMetricsFactory(
+    parent: LabeledMetricsFactory,
+    qualifications: Set[MetricQualification],
+    filters: Seq[MetricsFilterConfig],
+) extends LabeledMetricsFactory {
+
+  private val filter = new MetricsFilter(filters)
+
+  private def include(info: MetricInfo): Boolean =
+    filter.includeMetric(info.name.toString) && qualifications.contains(info.qualification)
+
+  override def timer(info: MetricInfo)(implicit context: MetricsContext): Timer = if (include(info))
+    parent.timer(info)
+  else
+    NoOpMetricsFactory.timer(info)
+  override def gauge[T](info: MetricInfo, initial: T)(implicit
+      context: MetricsContext
+  ): Gauge[T] =
+    if (include(info))
+      parent.gauge(info, initial)
+    else
+      NoOpMetricsFactory.gauge(info, initial)
+
+  override def gaugeWithSupplier[T](info: MetricInfo, gaugeSupplier: () => T)(implicit
+      context: MetricsContext
+  ): CloseableGauge = if (include(info))
+    parent.gaugeWithSupplier(info, gaugeSupplier)
+  else
+    NoOpMetricsFactory.gaugeWithSupplier(info, gaugeSupplier)
+  override def meter(info: MetricInfo)(implicit context: MetricsContext): Meter = if (include(info))
+    parent.meter(info)
+  else
+    NoOpMetricsFactory.meter(info)
+
+  override def counter(info: MetricInfo)(implicit context: MetricsContext): Counter = if (
+    include(info)
+  )
+    parent.counter(info)
+  else
+    NoOpMetricsFactory.counter(info)
+  override def histogram(info: MetricInfo)(implicit context: MetricsContext): Histogram =
+    if (include(info))
+      parent.histogram(info)
+    else
+      NoOpMetricsFactory.histogram(info)
+}
+
 class OpenTelemetryMetricsFactory(
     otelMeter: OtelMeter,
+    knownHistograms: Set[String],
+    onlyLogMissingHistograms: Option[Logger],
     globalMetricsContext: MetricsContext = MetricsContext(),
 ) extends LabeledMetricsFactory {
 
-  override def timer(name: MetricName, description: String)(implicit
-      context: MetricsContext = MetricsContext.Empty
+  override def timer(info: MetricInfo)(implicit
+      context: MetricsContext
   ): MetricHandle.Timer = {
+    if (!knownHistograms.contains(info.name)) {
+      val msg =
+        s"Timer with name ${info.name} is not a known histogram. Please add the name of this timer to the list of known histograms."
+      onlyLogMissingHistograms match {
+        // TODO(#17917) switch to warn
+        case Some(logger) => logger.info(msg)
+        case None => throw new IllegalArgumentException(msg)
+      }
+    }
     val nameWithSuffix =
-      if (name.endsWith(DurationSuffix)) name :+ TimerUnit else name :+ TimerUnitAndSuffix
+      if (info.name.endsWith(DurationSuffix)) info.name :+ TimerUnit
+      else info.name :+ TimerUnitAndSuffix
+
     OpenTelemetryTimer(
-      nameWithSuffix,
+      info,
       otelMeter
         .histogramBuilder(nameWithSuffix)
         .setUnit(TimerUnit)
-        .setDescription(description)
+        .setDescription(info.description)
         .build(),
       globalMetricsContext.merge(context),
     )
   }
-  override def gauge[T](name: MetricName, initial: T, description: String)(implicit
+  override def gauge[T](info: MetricInfo, initial: T)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Gauge[T] = {
     val attributes = globalMetricsContext.merge(context).asAttributes
-    val gauge = OpenTelemetryGauge(name, initial)
+    val gauge = OpenTelemetryGauge(info, initial)
 
     val registered = initial match {
       case _: Int =>
-        otelMeter.gaugeBuilder(name).ofLongs().setDescription(description).buildWithCallback {
-          consumer =>
+        otelMeter
+          .gaugeBuilder(info.name)
+          .ofLongs()
+          .setDescription(info.description)
+          .buildWithCallback { consumer =>
             consumer.record(gauge.getValue.asInstanceOf[Int].toLong, attributes)
-        }
+          }
       case _: Long =>
-        otelMeter.gaugeBuilder(name).ofLongs().setDescription(description).buildWithCallback {
-          consumer =>
+        otelMeter
+          .gaugeBuilder(info.name)
+          .ofLongs()
+          .setDescription(info.description)
+          .buildWithCallback { consumer =>
             consumer.record(gauge.getValue.asInstanceOf[Long], attributes)
-        }
+          }
       case _: Double =>
-        otelMeter.gaugeBuilder(name).setDescription(description).buildWithCallback { consumer =>
-          consumer.record(gauge.getValue.asInstanceOf[Double], attributes)
+        otelMeter.gaugeBuilder(info.name).setDescription(info.description).buildWithCallback {
+          consumer =>
+            consumer.record(gauge.getValue.asInstanceOf[Double], attributes)
         }
       case _ =>
         throw new IllegalArgumentException("Gauges support only numeric values.")
@@ -82,9 +154,8 @@ class OpenTelemetryMetricsFactory(
   }
 
   override def gaugeWithSupplier[T](
-      name: MetricName,
+      info: MetricInfo,
       valueSupplier: () => T,
-      description: String,
   )(implicit
       context: MetricsContext = MetricsContext.Empty
   ): CloseableGauge = {
@@ -93,66 +164,66 @@ class OpenTelemetryMetricsFactory(
     value match {
       case _: Int =>
         val gaugeHandle = otelMeter
-          .gaugeBuilder(name)
+          .gaugeBuilder(info.name)
           .ofLongs()
-          .setDescription(description)
+          .setDescription(info.description)
           .buildWithCallback { consumer =>
             val value = valueSupplier()
             consumer.record(value.asInstanceOf[Int].toLong, attributes)
           }
-        SimpleCloseableGauge(name, gaugeHandle)
+        SimpleCloseableGauge(info, gaugeHandle)
       case _: Long =>
         val gaugeHandle = otelMeter
-          .gaugeBuilder(name)
+          .gaugeBuilder(info.name)
           .ofLongs()
-          .setDescription(description)
+          .setDescription(info.description)
           .buildWithCallback { consumer =>
             val value = valueSupplier()
             consumer.record(value.asInstanceOf[Long], attributes)
           }
-        SimpleCloseableGauge(name, gaugeHandle)
+        SimpleCloseableGauge(info, gaugeHandle)
       case _: Double =>
         val gaugeHandle = otelMeter
-          .gaugeBuilder(name)
-          .setDescription(description)
+          .gaugeBuilder(info.name)
+          .setDescription(info.description)
           .buildWithCallback { consumer =>
             val value = valueSupplier()
             consumer.record(value.asInstanceOf[Double], attributes)
           }
-        SimpleCloseableGauge(name, gaugeHandle)
+        SimpleCloseableGauge(info, gaugeHandle)
       case _ =>
         throw new IllegalArgumentException("Gauges support only numeric values.")
     }
   }
 
-  override def meter(name: MetricName, description: String)(implicit
-      context: MetricsContext = MetricsContext.Empty
+  override def meter(info: MetricInfo)(implicit
+      context: MetricsContext
   ): Meter = OpenTelemetryMeter(
-    name,
-    otelMeter.counterBuilder(name).setDescription(description).build(),
+    info,
+    otelMeter.counterBuilder(info.name).setDescription(info.description).build(),
     globalMetricsContext.merge(context),
   )
 
-  override def counter(name: MetricName, description: String)(implicit
-      context: MetricsContext = MetricsContext.Empty
+  override def counter(info: MetricInfo)(implicit
+      context: MetricsContext
   ): MetricHandle.Counter = OpenTelemetryCounter(
-    name,
-    otelMeter.upDownCounterBuilder(name).setDescription(description).build(),
+    info,
+    otelMeter.upDownCounterBuilder(info.name).setDescription(info.description).build(),
     globalMetricsContext.merge(context),
   )
 
-  override def histogram(name: MetricName, description: String)(implicit
+  override def histogram(info: MetricInfo)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Histogram = OpenTelemetryHistogram(
-    name,
-    otelMeter.histogramBuilder(name).ofLongs().setDescription(description).build(),
+    info,
+    otelMeter.histogramBuilder(info.name).ofLongs().setDescription(info.description).build(),
     globalMetricsContext.merge(context),
   )
 
 }
 
 case class OpenTelemetryTimer(
-    name: String,
+    override val info: MetricInfo,
     histogram: DoubleHistogram,
     timerContext: MetricsContext,
 ) extends Timer {
@@ -209,7 +280,7 @@ object OpenTelemetryTimer {
   }
 }
 
-case class OpenTelemetryGauge[T](name: String, initial: T) extends Gauge[T] {
+case class OpenTelemetryGauge[T](override val info: MetricInfo, initial: T) extends Gauge[T] {
 
   private val ref = new AtomicReference[T](initial)
   private[opentelemetry] val reference = new AtomicReference[Option[AutoCloseable]](None)
@@ -226,8 +297,11 @@ case class OpenTelemetryGauge[T](name: String, initial: T) extends Gauge[T] {
 
 }
 
-case class OpenTelemetryMeter(name: String, counter: LongCounter, meterContext: MetricsContext)
-    extends Meter {
+case class OpenTelemetryMeter(
+    override val info: MetricInfo,
+    counter: LongCounter,
+    meterContext: MetricsContext,
+) extends Meter {
 
   override def mark(value: Long)(implicit
       context: MetricsContext
@@ -235,7 +309,7 @@ case class OpenTelemetryMeter(name: String, counter: LongCounter, meterContext: 
 }
 
 case class OpenTelemetryCounter(
-    name: String,
+    override val info: MetricInfo,
     counter: LongUpDownCounter,
     counterContext: MetricsContext,
 ) extends Counter {
@@ -259,7 +333,7 @@ case class OpenTelemetryCounter(
 }
 
 case class OpenTelemetryHistogram(
-    name: String,
+    override val info: MetricInfo,
     histogram: LongHistogram,
     histogramContext: MetricsContext,
 ) extends Histogram {

@@ -25,7 +25,10 @@ case class MetricsContext(labels: Map[String, String]) {
     * with the label value found in the given context overriding any values with the same key in
     * the current context.
     */
-  def merge(context: MetricsContext): MetricsContext = this.copy(labels = labels ++ context.labels)
+  def merge(context: MetricsContext): MetricsContext =
+    if (this.labels.isEmpty) context
+    else
+      this.copy(labels = labels ++ context.labels)
 
   def withExtraLabels(extraLabels: (String, String)*): MetricsContext =
     this.copy(labels = labels ++ extraLabels)
@@ -35,6 +38,10 @@ case class MetricsContext(labels: Map[String, String]) {
 object MetricsContext {
 
   val Empty: MetricsContext = MetricsContext(Map.empty[String, String])
+
+  object Implicits {
+    implicit val empty: MetricsContext = Empty
+  }
 
   def apply(labels: (String, String)*): MetricsContext =
     MetricsContext(labels.toMap)

@@ -7,8 +7,9 @@ import com.daml.grpc.adapter.utils.implementations.HelloServicePekkoImplementati
 import com.daml.grpc.test.StreamConsumer
 import com.daml.ledger.api.testing.utils.{PekkoBeforeAndAfterAll, TestingServerInterceptors}
 import com.daml.ledger.resources.TestResourceContext
+import com.daml.metrics.api.MetricQualification
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
-import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
+import com.daml.metrics.api.{MetricHandle, MetricInfo, MetricName, MetricsContext}
 import com.daml.metrics.grpc.GrpcMetricsServerInterceptorSpec.TestingGrpcMetrics
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.google.protobuf.ByteString
@@ -81,11 +82,11 @@ class GrpcMetricsServerInterceptorSpec
       streamConsumer.all().map { _ =>
         def meterHasValueForStreaming(
             meter: MetricHandle.Meter,
-            metricsContext: MetricsContext = withStreamingLabels(labelsForSimpleRequest),
+            context: MetricsContext = withStreamingLabels(labelsForSimpleRequest),
             value: Long = 1,
         ) = {
           meter.valuesWithContext should contain theSameElementsAs Map(
-            metricsContext -> value
+            context -> value
           )
         }
         eventually {
@@ -141,7 +142,8 @@ class GrpcMetricsServerInterceptorSpec
 
 object GrpcMetricsServerInterceptorSpec {
 
-  private val metricName: MetricName = MetricName("test")
+  private val metricName: MetricInfo = MetricInfo(MetricName("test"), "", MetricQualification.Debug)
+  import MetricsContext.Implicits.empty
 
   class TestingGrpcMetrics extends GrpcServerMetrics {
     override val callTimer: MetricHandle.Timer =

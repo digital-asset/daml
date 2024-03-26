@@ -3,6 +3,7 @@
 
 package com.daml.metrics.pekkohttp
 
+import com.daml.metrics.api.MetricQualification
 import org.apache.pekko.util.ByteString
 import org.apache.pekko.http.scaladsl.model.{
   ContentTypes,
@@ -19,7 +20,7 @@ import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.scaladsl.Source
 import com.daml.metrics.pekkohttp.PekkoUtils._
-import com.daml.metrics.api.MetricName
+import com.daml.metrics.api.{MetricInfo, MetricName, MetricsContext}
 import com.daml.metrics.api.MetricHandle.{Histogram, Meter, Timer}
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import com.daml.metrics.http.HttpMetrics
@@ -661,10 +662,15 @@ object PekkoHttpMetricsSpec extends MetricValues {
     // Creates a new set of metrics, for one test
     def apply(): TestMetrics = {
       val baseName = MetricName("test")
-      val requestsTotal = metricsFactory.meter(baseName :+ "requests")
-      val latency = metricsFactory.timer(baseName :+ "duration")
-      val requestsPayloadBytes = metricsFactory.histogram(baseName :+ "requests" + "payload")
-      val responsesPayloadBytes = metricsFactory.histogram(baseName :+ "responses" + "payload")
+      def info(name: MetricName): MetricInfo =
+        MetricInfo(name, "", MetricQualification.Debug)
+
+      val requestsTotal = metricsFactory.meter(info(baseName :+ "requests"))(MetricsContext.Empty)
+      val latency = metricsFactory.timer(info(baseName :+ "duration"))(MetricsContext.Empty)
+      val requestsPayloadBytes =
+        metricsFactory.histogram(info(baseName :+ "requests" + "payload"))(MetricsContext.Empty)
+      val responsesPayloadBytes =
+        metricsFactory.histogram(info(baseName :+ "responses" + "payload"))(MetricsContext.Empty)
 
       TestMetrics(
         requestsTotal,

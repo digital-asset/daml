@@ -7,13 +7,13 @@ import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.opentelemetry.{OpenTelemetryMetricsFactory, Slf4jMetricExporter}
 import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.daml.metrics.grpc.DamlGrpcServerMetrics
-import com.daml.metrics.{HealthMetrics, HistogramDefinition}
+import com.daml.metrics.{HealthMetrics, HistogramDefinition, MetricsFilterConfig}
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.domain.metrics.{MediatorMetrics, SequencerMetrics}
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.MetricsConfig.{JvmMetrics, MetricsFilterConfig}
+import com.digitalasset.canton.metrics.MetricsConfig.JvmMetrics
 import com.digitalasset.canton.metrics.MetricsReporterConfig.{Csv, Logging, Prometheus}
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.typesafe.scalalogging.LazyLogging
@@ -23,6 +23,7 @@ import io.opentelemetry.exporter.prometheus.PrometheusHttpServer
 import io.opentelemetry.instrumentation.runtimemetrics.java8.*
 import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
 import io.opentelemetry.sdk.metrics.`export`.{MetricExporter, MetricReader, PeriodicMetricReader}
+import com.digitalasset.canton.logging.{NamedLogging, NamedLoggerFactory}
 
 import java.io.File
 import java.util.concurrent.ScheduledExecutorService
@@ -35,15 +36,6 @@ final case class MetricsConfig(
 )
 
 object MetricsConfig {
-
-  final case class MetricsFilterConfig(
-      startsWith: String = "",
-      contains: String = "",
-      endsWith: String = "",
-  ) {
-    def matches(name: String): Boolean =
-      name.startsWith(startsWith) && name.contains(contains) && name.endsWith(endsWith)
-  }
 
   /** Control and enable jvm metrics */
   final case class JvmMetrics(
@@ -116,8 +108,9 @@ object MetricsReporterConfig {
 final case class MetricsRegistry(
     meter: Meter,
     factoryType: MetricsFactoryType,
+    loggerFactory: NamedLoggerFactory
 ) extends AutoCloseable
-    with MetricsFactoryProvider {
+    with MetricsFactoryProvider with NamedLogging {
 
   private val participants = TrieMap[String, ParticipantMetrics]()
   private val sequencers = TrieMap[String, SequencerMetrics]()
@@ -181,6 +174,8 @@ final case class MetricsRegistry(
       case MetricsFactoryType.External =>
         new OpenTelemetryMetricsFactory(
           meter,
+          Set(),
+          Some(logger.underlying),
           globalMetricsContext = extraContext,
         )
     }

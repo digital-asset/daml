@@ -85,6 +85,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   lazy val metricsRegistry: MetricsRegistry = new MetricsRegistry(
     configuredOpenTelemetry.openTelemetry.meterBuilder("canton").build(),
     testingConfig.metricsFactoryType,
+    loggerFactory
   )
 
   protected def participantNodeFactoryX
