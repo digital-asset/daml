@@ -54,9 +54,9 @@ repos:
     - id: yarn-lock-check
       name: yarn-lock-check
       language: system
-      pass_filenames: false
-      files: ^(package.json|yarn.lock)$
-      entry: "pre-commit/yarn-lock-check.sh"
+      pass_filenames: true
+      files: ^sdk/(package.json|yarn.lock)$
+      entry: "sdk/pre-commit/yarn-lock-check.sh"
     - id: mainonly
       name: main only
       description: Check for changes under packages with targets tagged with main-only
