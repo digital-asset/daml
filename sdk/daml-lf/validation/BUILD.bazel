@@ -88,7 +88,10 @@ da_scala_test_suite(
     size = "small",
     srcs = glob(
         ["src/test/**/*.scala"],
-        exclude = ["src/test/**/*SpecUtil.scala", upgrade_test_file],
+        exclude = [
+            "src/test/**/*SpecUtil.scala",
+            upgrade_test_file,
+        ],
     ),
     data = [],
     scala_deps = [
