@@ -244,7 +244,7 @@ private[inner] object ToJsonGenerator {
     .returns(fieldClass)
     .build()
 
-  private def encoderOf(
+  private[inner] def encoderOf(
       damlType: Type,
       nesting: Int = 0, // Used to avoid clashing argument identifiers in nested encoder definitions
   )(implicit packagePrefixes: PackagePrefixes): CodeBlock = {
