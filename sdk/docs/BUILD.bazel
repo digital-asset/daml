@@ -577,7 +577,7 @@ daml_build_test(
 daml_build_test(
     name = "daml-upgrade-example-v1",
     dar_dict = {
-        "//daml-script/daml:daml-script.dar": "daml-script.dar",
+        "//daml-script/daml3:daml3-script-2.dev.dar": "daml3-script.dar",
     },
     project_dir = "source/upgrade/example/carbon-1.0.0",
 )
@@ -610,7 +610,7 @@ daml_build_test(
         ":daml-upgrade-example-v1": "path/to/carbon-1.0.0.dar",
         ":daml-upgrade-example-v2": "path/to/carbon-2.0.0.dar",
         ":daml-upgrade-example-upgrade": "path/to/carbon-upgrade-1.0.0.dar",
-        "//daml-script/daml:daml-script.dar": "daml-script.dar",
+        "//daml-script/daml3:daml3-script-2.dev.dar": "daml3-script.dar",
     },
     project_dir = "source/upgrade/example/carbon-initiate-upgrade",
 )

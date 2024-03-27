@@ -5,10 +5,12 @@ sdk-version: 0.0.0
 # BEGIN
 name: carbon-initiate-upgrade
 version: 1.0.0
+build-options:
+ - --target=2.dev
 dependencies:
   - daml-prim
   - daml-stdlib
-  - daml-script
+  - daml3-script
 data-dependencies:
   - path/to/carbon-upgrade-1.0.0.dar
   - path/to/carbon-1.0.0.dar
