@@ -105,8 +105,7 @@ addNewSubIDEAndSend miState home msg = do
       subIDEToCoord <- async $ do
         -- Wait until our own IDE exists then pass it forward
         ide <- atomically $ fromMaybe (error "Failed to get own IDE") . Map.lookup home . onlyActiveSubIdes <$> readTMVar (subIDEsVar miState)
-        chunks <- getChunks outHandle
-        mapM_ (subIDEMessageHandler miState unblock ide) chunks
+        onChunks outHandle $ subIDEMessageHandler miState unblock ide
 
       pid <- fromMaybe (error "SubIDE has no PID") <$> getPid (unsafeProcessHandle subIdeProcess)
 
@@ -475,9 +474,8 @@ runMultiIde = do
     putChunk stdout msg
 
   -- Client -> Coord
-  clientToCoordThread <- async $ do
-    chunks <- getChunks stdin
-    mapM_ (clientMessageHandler miState) chunks
+  clientToCoordThread <- async $
+    onChunks stdin $ clientMessageHandler miState
 
   let killAll :: IO ()
       killAll = do
