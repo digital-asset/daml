@@ -12,6 +12,7 @@ import DA.Bazel.Runfiles (exe, locateRunfiles, mainWorkspace)
 import DA.Cli.Damlc (MultiPackageManifestEntry (..))
 import Data.Aeson (eitherDecode)
 import Data.List (intercalate, intersect, isInfixOf, sortOn, union, (\\))
+import Data.List.Extra (replace)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, fromJust)
 import qualified Data.Text as T
@@ -408,11 +409,11 @@ tests damlAssistant =
             ]
             (\entries -> do
               packageFileHashes (head entries) @?= Map.fromList
-                [ ("package-a/daml/MyModule.daml", "9df1995ddbfa03a301f3d9f2692e00730caf31b2")
-                , ("package-a/daml/MyLib.daml", "1a920c03e591d0176d45864fdb81a9344be247dc")
-                , ("package-a/daml.yaml", "be4a2c934bf9f95ab1bb66606114cf7fd4495fea")
+                [ ("package-a/daml/MyModule.daml", "825b02944a1fab528848a38ba7f24ddb4d4568cc0b7d47a5e4ed162fcdb32062")
+                , ("package-a/daml/MyLib.daml", "11c9474f330d1c8d9e39e3d98d5e09b0cd63a026fd1d2731d2d336d2bd92af61")
+                , ("package-a/daml.yaml", "89d0db3e1535d6d94b68defcce7f854e33dc8a05bc371a3ead6551efba061676")
                 ]
-              packageHash (head entries) @?= "0ea1e7aec4e25cc2c35090090b2ac3d5d26344d7"
+              packageHash (head entries) @?= "b1ba6b309c43442af2ec926d6241fbfe8176f1b3caa6e8f6f34e15ed6166c3df"
             )
         , assertManifest "Hash single daml file change"
             [ MultiPackage ["./package-a"] []
@@ -426,11 +427,11 @@ tests damlAssistant =
             ]
             (\entries -> do
               packageFileHashes (head entries) @?= Map.fromList
-                [ ("package-a/daml/MyModule.daml", "9df1995ddbfa03a301f3d9f2692e00730caf31b2")
-                , ("package-a/daml/MyLib.daml", "4f4f1716a92ab4b61580f1a274a053ac812ddde1") -- Only file hash changed from base
-                , ("package-a/daml.yaml", "be4a2c934bf9f95ab1bb66606114cf7fd4495fea")
+                [ ("package-a/daml/MyModule.daml", "825b02944a1fab528848a38ba7f24ddb4d4568cc0b7d47a5e4ed162fcdb32062")
+                , ("package-a/daml/MyLib.daml", "71dfeb00f540d9d32228536e649a4421da7a6cd8254966d96f403890442cce88") -- Only file hash changed from base
+                , ("package-a/daml.yaml", "89d0db3e1535d6d94b68defcce7f854e33dc8a05bc371a3ead6551efba061676")
                 ]
-              packageHash (head entries) @?= "926ae634e4f5b48ae8836421355b849f6b0c75a9" -- Full hash changed
+              packageHash (head entries) @?= "2b969e4e5926c4ebe7ea717c9fbe175597ebcb9bfe68f3ea5768971464ae989a" -- Full hash changed
             )
         , assertManifest "Hash daml.yaml file change"
             [ MultiPackage ["./package-a"] []
@@ -444,11 +445,11 @@ tests damlAssistant =
             ]
             (\entries -> do
               packageFileHashes (head entries) @?= Map.fromList
-                [ ("package-a/daml/MyModule.daml", "9df1995ddbfa03a301f3d9f2692e00730caf31b2")
-                , ("package-a/daml/MyLib.daml", "1a920c03e591d0176d45864fdb81a9344be247dc")
-                , ("package-a/daml.yaml", "a284ea106a7477b5f57d27b0c12b8d7ce5338928") -- Daml yaml hash changed from base
+                [ ("package-a/daml/MyModule.daml", "825b02944a1fab528848a38ba7f24ddb4d4568cc0b7d47a5e4ed162fcdb32062")
+                , ("package-a/daml/MyLib.daml", "11c9474f330d1c8d9e39e3d98d5e09b0cd63a026fd1d2731d2d336d2bd92af61")
+                , ("package-a/daml.yaml", "6f8a5d5580a6fa039c42216376bfabb803831078f743f61aa11f5d67d4b7a26a") -- Daml yaml hash changed from base
                 ]
-              packageHash (head entries) @?= "e42e97550d7118e28394f2774ac90886b010d8ca" -- Full hash changed
+              packageHash (head entries) @?= "1ad5a6fec2ed8464d927c742b533c6da508cd647387d06daad0170908348a0eb" -- Full hash changed
             )
         , assertManifest "Hash non daml file ignored"
             [ MultiPackage ["./package-a"] []
@@ -463,11 +464,11 @@ tests damlAssistant =
             ]
             (\entries -> do
               packageFileHashes (head entries) @?= Map.fromList
-                [ ("package-a/daml/MyModule.daml", "9df1995ddbfa03a301f3d9f2692e00730caf31b2")
-                , ("package-a/daml/MyLib.daml", "1a920c03e591d0176d45864fdb81a9344be247dc")
-                , ("package-a/daml.yaml", "be4a2c934bf9f95ab1bb66606114cf7fd4495fea")
+                [ ("package-a/daml/MyModule.daml", "825b02944a1fab528848a38ba7f24ddb4d4568cc0b7d47a5e4ed162fcdb32062")
+                , ("package-a/daml/MyLib.daml", "11c9474f330d1c8d9e39e3d98d5e09b0cd63a026fd1d2731d2d336d2bd92af61")
+                , ("package-a/daml.yaml", "89d0db3e1535d6d94b68defcce7f854e33dc8a05bc371a3ead6551efba061676")
                 ]
-              packageHash (head entries) @?= "0ea1e7aec4e25cc2c35090090b2ac3d5d26344d7" -- Same as base hash, as SomeFile ignored
+              packageHash (head entries) @?= "b1ba6b309c43442af2ec926d6241fbfe8176f1b3caa6e8f6f34e15ed6166c3df" -- Same as base hash, as SomeFile ignored
             )
         , assertManifest "Data dependencies correctly classified"
             [ MultiPackage ["./package-a", "./package-b"] []
@@ -607,12 +608,22 @@ tests damlAssistant =
         void $ buildProject dir projectStructure
         let args = ["damlc", "generate-multi-package-manifest"]
             process = (proc damlAssistant args) {cwd = Just dir}
-        output <- readCreateProcess process ""
-        let eEntry = eitherDecode @[MultiPackageManifestEntry] (BSLC.pack output)
-        entry <- case eEntry of
+        entriesStr <- readCreateProcess process ""
+        let eEntries = eitherDecode @[MultiPackageManifestEntry] (BSLC.pack entriesStr)
+            convertPath = replace "\\" "/"
+        entries <- case eEntries of
           Left err -> assertFailure $ "Expected valid json output but got: " <> err
-          Right entry -> pure entry
-        predicate entry
+          Right entries -> pure $ do
+            entry <- entries
+            pure $ entry
+              { packageDir = convertPath $ packageDir entry
+              , packageSrc = convertPath $ packageSrc entry
+              , packageFileHashes = Map.mapKeys convertPath $ packageFileHashes entry
+              , output = convertPath $ output entry
+              , darDeps = convertPath <$> darDeps entry
+              }
+
+        predicate entries
 
     runBuildAndAssert
       :: FilePath
