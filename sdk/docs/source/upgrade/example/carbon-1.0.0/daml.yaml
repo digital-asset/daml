@@ -4,10 +4,12 @@
 sdk-version: 0.0.0
 # BEGIN
 name: carbon
+build-options:
+ - --target=2.dev
 version: 1.0.0
 dependencies:
   - daml-prim
   - daml-stdlib
-  - daml-script
+  - daml3-script
 source: .
 # END
