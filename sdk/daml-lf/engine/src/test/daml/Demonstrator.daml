@@ -1,6 +1,8 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
+
 module Demonstrator where
 
 template RegistrarRole
@@ -48,5 +50,7 @@ template CancelledTransfer
     signatory operator
     observer investor
 
+#ifdef DAML_CONTRACT_KEYS
     key operator : Party
     maintainer key
+#endif
