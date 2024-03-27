@@ -397,78 +397,35 @@ tests damlAssistant =
         ]
     , testGroup
         "Manifest Generation"
-        [ assertManifest "Hash base case"
-            [ MultiPackage ["./package-a"] []
-            , Dir "package-a"
-              [ damlYaml "package-a" "0.0.1" []
-              , Dir "daml"
-                  [ GenericFile "MyModule.daml" "module MyModule where"
-                  , GenericFile "MyLib.daml" "module MyLib where"
-                  ]
-              ]
-            ]
-            (\entries -> do
-              packageFileHashes (head entries) @?= Map.fromList
-                [ ("package-a/daml/MyModule.daml", "825b02944a1fab528848a38ba7f24ddb4d4568cc0b7d47a5e4ed162fcdb32062")
-                , ("package-a/daml/MyLib.daml", "11c9474f330d1c8d9e39e3d98d5e09b0cd63a026fd1d2731d2d336d2bd92af61")
-                , ("package-a/daml.yaml", "89d0db3e1535d6d94b68defcce7f854e33dc8a05bc371a3ead6551efba061676")
-                ]
-              packageHash (head entries) @?= "b1ba6b309c43442af2ec926d6241fbfe8176f1b3caa6e8f6f34e15ed6166c3df"
+        [ assertManifestHashChange "Hash single daml file change"
+            manifestHashBaseCase
+            (writeFile "./package-a/daml/MyLib.daml" "module MyLib where a = 3")
+            (\preEntries postEntries -> do
+              fileHashUnchanged (head preEntries) (head postEntries) "package-a/daml/MyModule.daml"
+              fileHashChanged (head preEntries) (head postEntries) "package-a/daml/MyLib.daml"
+              fileHashUnchanged (head preEntries) (head postEntries) "package-a/daml.yaml"
+
+              assertBool "Expected package hash to change" $ packageHash (head preEntries) /= packageHash (head postEntries)
             )
-        , assertManifest "Hash single daml file change"
-            [ MultiPackage ["./package-a"] []
-            , Dir "package-a"
-              [ damlYaml "package-a" "0.0.1" []
-              , Dir "daml"
-                  [ GenericFile "MyModule.daml" "module MyModule where"
-                  , GenericFile "MyLib.daml" "module MyLib where a = 3"
-                  ]
-              ]
-            ]
-            (\entries -> do
-              packageFileHashes (head entries) @?= Map.fromList
-                [ ("package-a/daml/MyModule.daml", "825b02944a1fab528848a38ba7f24ddb4d4568cc0b7d47a5e4ed162fcdb32062")
-                , ("package-a/daml/MyLib.daml", "71dfeb00f540d9d32228536e649a4421da7a6cd8254966d96f403890442cce88") -- Only file hash changed from base
-                , ("package-a/daml.yaml", "89d0db3e1535d6d94b68defcce7f854e33dc8a05bc371a3ead6551efba061676")
-                ]
-              packageHash (head entries) @?= "2b969e4e5926c4ebe7ea717c9fbe175597ebcb9bfe68f3ea5768971464ae989a" -- Full hash changed
+        , assertManifestHashChange "Hash daml.yaml file change"
+            manifestHashBaseCase
+            (appendFile "./package-a/daml.yaml" "\nnewField: true")
+            (\preEntries postEntries -> do
+              fileHashUnchanged (head preEntries) (head postEntries) "package-a/daml/MyModule.daml"
+              fileHashUnchanged (head preEntries) (head postEntries) "package-a/daml/MyLib.daml"
+              fileHashChanged (head preEntries) (head postEntries) "package-a/daml.yaml"
+
+              assertBool "Expected package hash to change" $ packageHash (head preEntries) /= packageHash (head postEntries)
             )
-        , assertManifest "Hash daml.yaml file change"
-            [ MultiPackage ["./package-a"] []
-            , Dir "package-a"
-              [ damlYaml "package-a" "0.0.2" []
-              , Dir "daml"
-                  [ GenericFile "MyModule.daml" "module MyModule where"
-                  , GenericFile "MyLib.daml" "module MyLib where"
-                  ]
-              ]
-            ]
-            (\entries -> do
-              packageFileHashes (head entries) @?= Map.fromList
-                [ ("package-a/daml/MyModule.daml", "825b02944a1fab528848a38ba7f24ddb4d4568cc0b7d47a5e4ed162fcdb32062")
-                , ("package-a/daml/MyLib.daml", "11c9474f330d1c8d9e39e3d98d5e09b0cd63a026fd1d2731d2d336d2bd92af61")
-                , ("package-a/daml.yaml", "6f8a5d5580a6fa039c42216376bfabb803831078f743f61aa11f5d67d4b7a26a") -- Daml yaml hash changed from base
-                ]
-              packageHash (head entries) @?= "1ad5a6fec2ed8464d927c742b533c6da508cd647387d06daad0170908348a0eb" -- Full hash changed
-            )
-        , assertManifest "Hash non daml file ignored"
-            [ MultiPackage ["./package-a"] []
-            , Dir "package-a"
-              [ damlYaml "package-a" "0.0.1" []
-              , Dir "daml"
-                  [ GenericFile "MyModule.daml" "module MyModule where"
-                  , GenericFile "MyLib.daml" "module MyLib where"
-                  , GenericFile "SomeFile.notdaml" "Cool file contents"
-                  ]
-              ]
-            ]
-            (\entries -> do
-              packageFileHashes (head entries) @?= Map.fromList
-                [ ("package-a/daml/MyModule.daml", "825b02944a1fab528848a38ba7f24ddb4d4568cc0b7d47a5e4ed162fcdb32062")
-                , ("package-a/daml/MyLib.daml", "11c9474f330d1c8d9e39e3d98d5e09b0cd63a026fd1d2731d2d336d2bd92af61")
-                , ("package-a/daml.yaml", "89d0db3e1535d6d94b68defcce7f854e33dc8a05bc371a3ead6551efba061676")
-                ]
-              packageHash (head entries) @?= "b1ba6b309c43442af2ec926d6241fbfe8176f1b3caa6e8f6f34e15ed6166c3df" -- Same as base hash, as SomeFile ignored
+        , assertManifestHashChange "Hash non daml file ignored"
+            manifestHashBaseCase
+            (writeFile "./package-a/daml/NonDamlFile.notdaml" "hello world")
+            (\preEntries postEntries -> do
+              fileHashUnchanged (head preEntries) (head postEntries) "package-a/daml/MyModule.daml"
+              fileHashUnchanged (head preEntries) (head postEntries) "package-a/daml/MyLib.daml"
+              fileHashUnchanged (head preEntries) (head postEntries) "package-a/daml.yaml"
+
+              assertBool "Expected package hash not to change" $ packageHash (head preEntries) == packageHash (head postEntries)
             )
         , assertManifest "Data dependencies correctly classified"
             [ MultiPackage ["./package-a", "./package-b"] []
@@ -606,24 +563,52 @@ tests damlAssistant =
       testCase name $
       withTempDir $ \dir -> do
         void $ buildProject dir projectStructure
-        let args = ["damlc", "generate-multi-package-manifest"]
-            process = (proc damlAssistant args) {cwd = Just dir}
-        entriesStr <- readCreateProcess process ""
-        let eEntries = eitherDecode @[MultiPackageManifestEntry] (BSLC.pack entriesStr)
-            convertPath = replace "\\" "/"
-        entries <- case eEntries of
-          Left err -> assertFailure $ "Expected valid json output but got: " <> err
-          Right entries -> pure $ do
-            entry <- entries
-            pure $ entry
-              { packageDir = convertPath $ packageDir entry
-              , packageSrc = convertPath $ packageSrc entry
-              , packageFileHashes = Map.mapKeys convertPath $ packageFileHashes entry
-              , output = convertPath $ output entry
-              , darDeps = convertPath <$> darDeps entry
-              }
-
+        entries <- getManifest dir
         predicate entries
+
+    -- Cannot directly check hashes, as they change between versions + OS.
+    -- Instead, test for changes in hashes
+    assertManifestHashChange
+      :: String
+      -> [ProjectStructure]
+      -> IO ()
+      -> ([MultiPackageManifestEntry] -> [MultiPackageManifestEntry] -> IO ())
+      -> TestTree
+    assertManifestHashChange name projectStructure structureModifier predicate =
+      testCase name $
+      withTempDir $ \dir -> do
+        void $ buildProject dir projectStructure
+        preManifest <- getManifest dir
+        withCurrentDirectory dir structureModifier
+        postManifest <- getManifest dir
+        predicate preManifest postManifest
+
+    fileHashChanged :: MultiPackageManifestEntry -> MultiPackageManifestEntry -> FilePath -> IO ()
+    fileHashChanged preEntry postEntry path =
+      assertBool ("Expected hash of " <> path <> " to change") $ packageFileHashes preEntry Map.! path /= packageFileHashes postEntry Map.! path
+
+    fileHashUnchanged :: MultiPackageManifestEntry -> MultiPackageManifestEntry -> FilePath -> IO ()
+    fileHashUnchanged preEntry postEntry path =
+      assertBool ("Expected hash of " <> path <> " not to change") $ packageFileHashes preEntry Map.! path == packageFileHashes postEntry Map.! path
+    
+    getManifest :: FilePath -> IO [MultiPackageManifestEntry]
+    getManifest dir = do
+      let args = ["damlc", "generate-multi-package-manifest"]
+          process = (proc damlAssistant args) {cwd = Just dir}
+      entriesStr <- readCreateProcess process ""
+      let eEntries = eitherDecode @[MultiPackageManifestEntry] (BSLC.pack entriesStr)
+          convertPath = replace "\\" "/"
+      case eEntries of
+        Left err -> assertFailure $ "Expected valid json output but got: " <> err
+        Right entries -> pure $ do
+          entry <- entries
+          pure $ entry
+            { packageDir = convertPath $ packageDir entry
+            , packageSrc = convertPath $ packageSrc entry
+            , packageFileHashes = Map.mapKeys convertPath $ packageFileHashes entry
+            , output = convertPath $ output entry
+            , darDeps = convertPath <$> darDeps entry
+            }
 
     runBuildAndAssert
       :: FilePath
@@ -932,5 +917,17 @@ simpleTwoPackageProjectModulePrefixes =
   , Dir "package-b"
     [ (damlYaml "package-b" "0.0.1" ["../package-a/.daml/dist/package-a-0.0.1.dar"]) {dyModulePrefixes = [(PackageIdentifier "package-a" "0.0.1", "A")]}
     , Dir "daml" [DamlSource "PackageBMain" ["A.PackageAMain"]]
+    ]
+  ]
+
+manifestHashBaseCase :: [ProjectStructure]
+manifestHashBaseCase =
+  [ MultiPackage ["./package-a"] []
+  , Dir "package-a"
+    [ damlYaml "package-a" "0.0.1" []
+    , Dir "daml"
+        [ GenericFile "MyModule.daml" "module MyModule where"
+        , GenericFile "MyLib.daml" "module MyLib where"
+        ]
     ]
   ]
