@@ -1520,12 +1520,13 @@ execGenerateMultiPackageManifest multiPackageLocation outputLocation =
           damlFilesMap <- bimapMap (bmSourceDaml </>) BSL.toStrict <$> getDamlFilesBuildMulti (hPutStrLn stderr) packagePath bmSourceDaml
           damlYamlContent <- B.readFile $ packagePath </> projectConfigName
 
-          let makeRelativeToRoot :: FilePath -> FilePath
+          let manifestFileHash :: B.ByteString -> String
+              manifestFileHash = show . Hash.hash @_ @Hash.SHA256
+              makeRelativeToRoot :: FilePath -> FilePath
               makeRelativeToRoot path = makeRelative multiPackageConfigPath $ normalise $ packagePath </> path
               relativeDamlFilesMap = Map.mapKeys makeRelativeToRoot $ Map.insert ("." </> projectConfigName) damlYamlContent damlFilesMap
-              relativeDamlFileHashes = show . Hash.hash @_ @Hash.SHA1 <$> relativeDamlFilesMap
-              -- TODO[SW]: This maybe isn't good enough
-              fullHash = show $ Hash.hash @_ @Hash.SHA1 $ BSUTF8.fromString $ Map.foldMapWithKey (<>) relativeDamlFileHashes
+              relativeDamlFileHashes = manifestFileHash <$> relativeDamlFilesMap
+              fullHash = manifestFileHash $ BSUTF8.fromString $ Map.foldMapWithKey (<>) relativeDamlFileHashes
 
           (packageDeps, darDeps) <- fmap partitionEithers $ withCurrentDirectory packagePath $ forM bmDataDeps $ \depPath -> do
             canonDepPath <- canonicalizePath depPath
