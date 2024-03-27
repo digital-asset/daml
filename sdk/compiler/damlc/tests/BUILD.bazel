@@ -459,6 +459,7 @@ da_haskell_test(
         "filepath",
         "process",
         "regex-tdfa",
+        "safe",
         "tasty",
         "tasty-hunit",
         "text",
