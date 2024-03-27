@@ -38,7 +38,7 @@ import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.syntax.std.option._
-import scalaz.{\/, \/-}
+import scalaz.{\/, -\/, \/-}
 import shapeless.record.{Record => ShRecord}
 import spray.json._
 
@@ -995,4 +995,14 @@ trait AbstractHttpServiceIntegrationTestFuns
     } yield offsets
   }
 
+  protected def assertExerciseResponseArchivedContract(
+      exerciseResponse: domain.ExerciseResponse[JsValue],
+      exercise: domain.ExerciseCommand.OptionalPkg[v.Value, domain.EnrichedContractId],
+  ): Assertion =
+    inside(exerciseResponse) { case domain.ExerciseResponse(exerciseResult, List(contract1), _) =>
+      exerciseResult shouldBe JsObject()
+      inside(contract1) { case domain.Contract(-\/(archivedContract)) =>
+        (archivedContract.contractId.unwrap: String) shouldBe (exercise.reference.contractId.unwrap: String)
+      }
+    }
 }
