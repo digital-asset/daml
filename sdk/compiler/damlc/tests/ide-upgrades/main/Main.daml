@@ -3,8 +3,11 @@
 
 module Main where
 
-import Daml.Script
 import DA.Assert
+import DA.Text (isInfixOf)
+
+import Daml.Script
+import Daml.Script.Internal.Questions.Testing (CommandName (..), FailedCmd(..), tryCommands)
 
 import V1.Proj qualified
 import V2.Proj qualified
@@ -152,4 +155,70 @@ testDowngradeExerciseUpdate = do
     (Aux alice)
     (ExeAsV2 (asSome cid))
   r2 === "V2:" <> show V2.Proj.T with p = alice, extra = None
+  pure ()
+
+testBadDowngradeQuery : Script ()
+testBadDowngradeQuery = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd
+    V2.Proj.T with p = alice, extra = Some "hello"
+  r1 <- tryCommands $ alice `queryContractId` (asV1 cid)
+  case r1 of
+    Left FailedCmd {commandName = CommandName "QueryContractId" } -> pure ()
+    _ -> assertFail $ "Expected QueryContractId to error, but got " <> show r1
+  t2 <- alice `queryContractId` (asV2 cid)
+  t2 === Some V2.Proj.T with p = alice, extra = Some "hello"
+  pure ()
+
+testBadDowngradeExercise : Script ()
+testBadDowngradeExercise = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd
+    V2.Proj.T with p = alice, extra = Some "hello"
+  r1 <- alice `trySubmit` exerciseCmd (asV1 cid) V1.Proj.Debug
+  case r1 of
+    Left (DevError Upgrade msg)
+      | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
+      -> pure ()
+    res -> assertFail $ "Expected DevError Upgrade, got " <> show res
+  r2 <- alice `submit` exerciseCmd (asV2 cid) V2.Proj.Debug
+  r2 === "V2:" <> show V2.Proj.T with p = alice, extra = Some "hello"
+  pure ()
+
+testBadDowngradeFetchUpdate : Script ()
+testBadDowngradeFetchUpdate = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd
+    V2.Proj.T with p = alice, extra = Some "hello"
+  r1 <- alice `trySubmit` createAndExerciseCmd
+    (Aux alice)
+    (FetchAsV1 (asSome cid))
+  case r1 of
+    Left (DevError Upgrade msg)
+      | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
+      -> pure ()
+    res -> assertFail $ "Expected DevError Upgrade, got " <> show res
+  t2 <- alice `submit` createAndExerciseCmd
+    (Aux alice)
+    (FetchAsV2 (asSome cid))
+  t2 === V2.Proj.T with p = alice, extra = Some "hello"
+  pure ()
+
+testBadDowngradeExerciseUpdate : Script ()
+testBadDowngradeExerciseUpdate = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd
+    V2.Proj.T with p = alice, extra = Some "hello"
+  r1 <- alice `trySubmit` createAndExerciseCmd
+    (Aux alice)
+    (ExeAsV1 (asSome cid))
+  case r1 of
+    Left (DevError Upgrade msg)
+      | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
+      -> pure ()
+    res -> assertFail $ "Expected DevError Upgrade, got " <> show res
+  r2 <- alice `submit` createAndExerciseCmd
+    (Aux alice)
+    (ExeAsV2 (asSome cid))
+  r2 === "V2:" <> show V2.Proj.T with p = alice, extra = Some "hello"
   pure ()
