@@ -253,7 +253,26 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
       .map(_.toMap)
   }
 
-  def hasVisibleContracts(parties: PartySet, tpid: SurrogateTpId): ConnectionIO[Boolean]
+  def oldestVisibleOffset(
+      parties: PartySet,
+      tpid: SurrogateTpId,
+  )(implicit
+      log: LogHandler
+  ): ConnectionIO[Option[String]] = {
+    sql"""
+      SELECT MIN(last_offset) FROM $ledgerOffsetTableName WHERE tpid = $tpid AND party IN (${commonWitnesses(
+        parties,
+        tpid,
+      )})
+    """
+      .query[Option[String]]
+      .unique
+  }
+
+  /** A query returning a single-column table of all the parties that can also see
+    * contracts that `parties` can see, of template tpid.
+    */
+  protected def commonWitnesses(parties: PartySet, tpid: SurrogateTpId): Fragment
 
   /** Template IDs, parties, and offsets that don't match expected offset values for
     * a particular `tpid`.
@@ -907,19 +926,17 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
           VALUES ($packageName, $packageId, $moduleName, $entityName)
           ON CONFLICT (package_id, template_module_name, template_entity_name) DO NOTHING"""
 
-  override def hasVisibleContracts(
+  protected override def commonWitnesses(
       parties: PartySet,
       tpid: SurrogateTpId,
-  ): ConnectionIO[Boolean] = {
+  ): Fragment = {
     import ipol.pas
     val partyVector: Vector[String] = parties.toVector
-    sql"""SELECT EXISTS(
-            SELECT 1 FROM $contractTableName AS c
-            WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
-                  AND ($tpid = tpid)
-          )"""
-      .query[Boolean]
-      .unique
+    sql"""
+      SELECT DISTINCT unnest(signatories || observers) AS witness FROM $contractTableName AS c
+      WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
+            AND ($tpid = tpid)
+    """
   }
 }
 
@@ -1238,21 +1255,18 @@ private final class OracleQueries(
 	  INTO $templateIdTableName (package_name, package_id, template_module_name, template_entity_name)
           VALUES ($packageName, $packageId, $moduleName, $entityName)"""
 
-  override def hasVisibleContracts(
+  protected override def commonWitnesses(
       parties: PartySet,
       tpid: SurrogateTpId,
-  ): ConnectionIO[Boolean] = {
+  ): Fragment = {
     import Queries.CompatImplicits.catsReducibleFromFoldable1
-    sql"""SELECT 1
-          FROM $contractTableName c
-            JOIN $contractStakeholdersViewName cst
-              ON (c.contract_id = cst.contract_id AND c.tpid = cst.tpid)
-          WHERE (${Fragments.in(fr"cst.stakeholder", parties.toNEF)})
-            AND c.tpid = $tpid
-          FETCH NEXT 1 ROWS ONLY"""
-      .query[Int]
-      .option
-      .map(_.isDefined)
+    sql"""
+        SELECT DISTINCT c2.stakeholder
+        FROM   $contractStakeholdersViewName c1
+          JOIN $contractStakeholdersViewName c2 ON c1.contract_id = c2.contract_id
+        WHERE c1.tpid = $tpid
+          AND ${Fragments.in(fr"""c1.stakeholder""", parties.toNEF)}
+    """
   }
 }
 
