@@ -104,10 +104,11 @@ data MultiIdeState = MultiIdeState
   , initParamsVar :: InitParamsVar
   , toClientChan :: TChan BSL.ByteString
   , multiPackageMapping :: MultiPackageYamlMapping
+  , debugPrint :: String -> IO ()
   }
 
-newMultiIdeState :: MultiPackageYamlMapping -> IO MultiIdeState
-newMultiIdeState multiPackageMapping = do
+newMultiIdeState :: MultiPackageYamlMapping -> (String -> IO ()) -> IO MultiIdeState
+newMultiIdeState multiPackageMapping debugPrint = do
   (fromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient) <- newTVarIO IM.emptyIxMap
   (fromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer) <- newTVarIO IM.emptyIxMap
   subIDEsVar <- newTMVarIO @SubIDEs mempty

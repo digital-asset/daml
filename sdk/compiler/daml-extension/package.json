@@ -116,7 +116,12 @@
                   "type": "boolean",
                   "default": false,
                   "description": "VERY EXPERIMENTAL: Enables the incomplete and experimental multi-ide feature."
-              }
+                },
+                "daml.multiPackageIdeVerbose": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "VERY EXPERIMENTAL: Enables verbose logging from the experimental multi-ide feature."
+                }
             }
         },
         "menus": {
