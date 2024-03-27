@@ -27,7 +27,7 @@ data ConfigError
 
 instance Exception ConfigError where
     displayException (ConfigFileInvalid name err) =
-        concat ["Invalid ", T.unpack name, " config file:", displayException err]
+        concat ["Invalid ", T.unpack name, " config file: ", displayException err]
     displayException (ConfigFieldInvalid name path msg) =
         concat ["Invalid ", T.unpack (T.intercalate "." path)
             , " field in ", T.unpack name, " config: ", msg]

@@ -25,7 +25,8 @@ import System.Directory
 import System.Process.Typed
 import System.Exit
 import System.IO
-import Control.Exception.Safe
+import Control.Exception (throw)
+import Control.Exception.Safe hiding (throw)
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Key as A
 import qualified Data.Aeson.KeyMap as A
@@ -38,7 +39,7 @@ import qualified Data.Text as T
 import Control.Monad.Extra
 import Safe
 
-import SdkVersion (SdkVersioned, withSdkVersions)
+import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
 
 -- | Run the assistant and exit.
 main :: IO ()
@@ -181,7 +182,7 @@ autoInstall env@Env{..} = do
     else
         pure env
 
-handleCommand :: Env -> L.Handle IO -> Command -> IO ()
+handleCommand :: SdkVersioned => Env -> L.Handle IO -> Command -> IO ()
 handleCommand env@Env{..} logger command = do
     runCommand env command
     args' <- anonimizeArgs
@@ -194,7 +195,7 @@ handleCommand env@Env{..} logger command = do
         , ("args", A.toJSON args')
         ]
 
-runCommand :: Env -> Command -> IO ()
+runCommand :: SdkVersioned => Env -> Command -> IO ()
 runCommand env@Env{..} = \case
     Builtin (Version VersionOptions{..}) -> do
         let useCache =
@@ -292,13 +293,42 @@ runCommand env@Env{..} = \case
             sdkPath <- required "Could not determine SDK path." envSdkPath
             let path = unwrapSdkPath sdkPath </> unwrapSdkCommandPath sdkCommandPath
                 args = unwrapSdkCommandArgs sdkCommandArgs ++ unwrapUserCommandArgs cmdArgs
-            dispatch env path args
+            dispatchWithEnvVarWarning env path args
+
+envVarAddedVersion :: ReleaseVersion
+envVarAddedVersion = either throw id $ unsafeParseOldReleaseVersion "2.9.0-snapshot.20240210.0"
+
+dispatchWithEnvVarWarning :: SdkVersioned => Env -> FilePath -> [String] -> IO ()
+dispatchWithEnvVarWarning env@Env{..} path args = do
+  case (envSdkVersion, envProjectPath) of
+    (Just ver, Just projectPath) -> do
+        hasEnvVars <- projectConfigUsesEnvironmentVariables projectPath
+        let sdkMissingEnvSupport = ver < envVarAddedVersion && not (isHeadVersion ver)
+        if hasEnvVars && sdkMissingEnvSupport
+            then do
+                putStrLn $ "WARNING: Using an SDK (" <> versionToString ver
+                  <> ") that does not support Environment Variable Interpolation with a daml.yaml containing Environment Variables."
+                putStrLn "  Something will almost certainly break."
+                putStrLn $ "  Consider updating your package to an SDK version that supports Environment Variable Interpolation, such as " 
+                  <> sdkVersion <> " (your activated assistant version)"
+                exitCode <- dispatchForExitCode env path args
+                case exitCode of
+                  ExitFailure _ -> do
+                    putStrLn $ "This failure may be due to the environment variables in your daml.yaml. The selected SDK Version ("
+                      <> versionToString ver <> ") does not support this feature."
+                    throw exitCode
+                  _ -> pure ()
+            else dispatch env path args
+    _ -> dispatch env path args
 
 dispatch :: Env -> FilePath -> [String] -> IO ()
-dispatch env path args = do
+dispatch env path args = dispatchForExitCode env path args >>= throwIO
+
+dispatchForExitCode :: Env -> FilePath -> [String] -> IO ExitCode
+dispatchForExitCode env path args = do
     dispatchEnv <- getDispatchEnv env
     requiredIO "Failed to spawn command subprocess." $
-        runProcess_ (setEnv dispatchEnv $ proc path args)
+        runProcess (setEnv dispatchEnv $ proc path args)
 
 handleErrors :: forall t. L.Handle IO -> IO t -> IO t
 handleErrors logger m = m `catches`

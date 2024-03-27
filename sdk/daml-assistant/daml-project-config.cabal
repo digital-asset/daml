@@ -21,6 +21,8 @@ library
     build-depends:
       -- @stackage//:aeson
       aeson,
+      -- @stackage//:array
+      array,
       -- @stackage//:base
       base,
       -- //libs-haskell/da-version-types:da-version-types
@@ -33,12 +35,18 @@ library
       filepath,
       -- @stackage//:lens
       lens,
+      -- @stackage//:regex-tdfa
+      regex-tdfa,
       -- @stackage//:safe-exceptions
       safe-exceptions,
       -- @stackage//:semver
       semver,
       -- @stackage//:text
       text,
+      -- @stackage//:transformers
+      transformers,
+      -- @stackage//:uniplate
+      uniplate,
       -- @stackage//:yaml
       yaml,
     exposed-modules:

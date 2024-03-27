@@ -461,6 +461,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "alex",
             "ansi-terminal",
             "ansi-wl-pprint",
+            "array",
             "async",
             "base",
             "base16-bytestring",
