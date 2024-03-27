@@ -62,6 +62,7 @@ trait DbMigrations { this: NamedLogging =>
       .cleanOnValidationError(dbConfig.parameters.unsafeCleanOnValidationError)
       .baselineOnMigrate(dbConfig.parameters.unsafeBaselineOnMigrate)
       .lockRetryCount(60)
+      .mixed(true)
       .load()
   }
 
