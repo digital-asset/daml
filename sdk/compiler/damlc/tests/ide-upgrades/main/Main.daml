@@ -98,3 +98,55 @@ testUpgradeExerciseUpdate = do
     (ExeAsV2 (asSome cid))
   r2 === "V2:" <> show V2.Proj.T with p = alice, extra = None
   pure ()
+
+testDowngradeQuery : Script ()
+testDowngradeQuery = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd
+    V2.Proj.T with p = alice, extra = None
+  t1 <- alice `queryContractId` (asV1 cid)
+  t1 === Some V1.Proj.T with p = alice
+  t2 <- alice `queryContractId` (asV2 cid)
+  t2 === Some V2.Proj.T with p = alice, extra = None
+  pure ()
+
+testDowngradeExercise : Script ()
+testDowngradeExercise = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd
+    V2.Proj.T with p = alice, extra = None
+  r1 <- alice `submit` exerciseCmd (asV1 cid) V1.Proj.Debug
+  r1 === "V1:" <> show V1.Proj.T with p = alice
+  r2 <- alice `submit` exerciseCmd (asV2 cid) V2.Proj.Debug
+  r2 === "V2:" <> show V2.Proj.T with p = alice, extra = None
+  pure ()
+
+testDowngradeFetchUpdate : Script ()
+testDowngradeFetchUpdate = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd
+    V2.Proj.T with p = alice, extra = None
+  t1 <- alice `submit` createAndExerciseCmd
+    (Aux alice)
+    (FetchAsV1 (asSome cid))
+  t1 === V1.Proj.T with p = alice
+  t2 <- alice `submit` createAndExerciseCmd
+    (Aux alice)
+    (FetchAsV2 (asSome cid))
+  t2 === V2.Proj.T with p = alice, extra = None
+  pure ()
+
+testDowngradeExerciseUpdate : Script ()
+testDowngradeExerciseUpdate = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd
+    V2.Proj.T with p = alice, extra = None
+  r1 <- alice `submit` createAndExerciseCmd
+    (Aux alice)
+    (ExeAsV1 (asSome cid))
+  r1 === "V1:" <> show V1.Proj.T with p = alice
+  r2 <- alice `submit` createAndExerciseCmd
+    (Aux alice)
+    (ExeAsV2 (asSome cid))
+  r2 === "V2:" <> show V2.Proj.T with p = alice, extra = None
+  pure ()
