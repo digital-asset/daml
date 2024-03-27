@@ -96,10 +96,8 @@ da_scala_test_suite(
             major = major,
         )
         for name in [
-            "//daml-lf/tests:Exceptions",
             "//daml-lf/tests:Interfaces",
             "//daml-lf/tests:InterfaceViews",
-            "//daml-lf/tests:MultiKeys",
             "//daml-lf/tests:ReinterpretTests",
         ]
         for major in SUPPORTED_LF_MAJOR_VERSIONS

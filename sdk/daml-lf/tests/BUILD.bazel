@@ -17,16 +17,6 @@ load("@os_info//:os_info.bzl", "is_intel")
 
 [
     daml_compile(
-        name = "Exceptions-v{}".format(major),
-        srcs = ["Exceptions.daml"],
-        target = lf_version_default_or_latest(major),
-        visibility = ["//daml-lf:__subpackages__"],
-    )
-    for major in SUPPORTED_LF_MAJOR_VERSIONS
-]
-
-[
-    daml_compile(
         name = "Exceptions-{}".format(mangle_for_damlc(version)),
         srcs = ["Exceptions.daml"],
         target = version,
@@ -76,16 +66,6 @@ daml_compile(
     target = "1.14",
     visibility = ["//daml-lf:__subpackages__"],
 ) if is_intel else None
-
-[
-    daml_compile(
-        name = "MultiKeys-v{}".format(major),
-        srcs = ["MultiKeys.daml"],
-        target = lf_version_default_or_latest(major),
-        visibility = ["//daml-lf:__subpackages__"],
-    )
-    for major in SUPPORTED_LF_MAJOR_VERSIONS
-]
 
 [
     daml_compile(
