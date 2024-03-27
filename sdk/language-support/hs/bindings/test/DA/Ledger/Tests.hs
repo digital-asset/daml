@@ -262,7 +262,15 @@ darPath = mainWorkspace </> "language-support/hs/bindings/for-tests.dar"
 
 testGroupWithSandbox :: FilePath -> Maybe Secret -> TestName -> [WithSandbox -> TestTree] -> TestTree
 testGroupWithSandbox testDar mbSecret name tests =
-    withCantonSandbox defaultSandboxConf { dars = [ testDar ], timeMode = Static, mbLedgerId = Just "my-ledger-id" } $ \getSandboxPort ->
+    withCantonSandbox defaultSandboxConf 
+        { dars = [ testDar ]
+        , timeMode = Static
+        , mbLedgerId = Just "my-ledger-id" 
+        -- TODO(https://github.com/digital-asset/daml/issues/18457): split the
+        -- tests into two sets: those that use contract keys and those that 
+        -- don't. Revert to to non-dev for those that don't.
+        , devVersionSupport = True
+        } $ \getSandboxPort ->
     withResource (readDarMetadata testDar) (const $ pure ()) $ \getDarMetadata ->
     withResource (newIORef $ TestId 0) (const $ pure ()) $ \getTestCounter ->
     let run :: WithSandbox
