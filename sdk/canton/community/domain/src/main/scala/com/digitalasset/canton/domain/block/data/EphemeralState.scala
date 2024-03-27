@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.domain.block.data
 
+import cats.Show
 import cats.syntax.functor.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
@@ -14,7 +15,8 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerSnapshot,
 }
 import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalance
-import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.logging.pretty.Pretty.DefaultPprinter
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyUtil}
 import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.version.ProtocolVersion
@@ -33,7 +35,7 @@ final case class EphemeralState(
     status: InternalSequencerPruningStatus,
     checkpoints: Map[Member, CounterCheckpoint],
     trafficState: Map[Member, TrafficState],
-) extends PrettyPrinting {
+) extends PrettyUtil {
   def registeredMembers: Set[Member] = status.membersMap.keySet
   def heads: Map[Member, SequencerCounter] = checkpoints.fmap(_.counter)
 
@@ -93,7 +95,13 @@ final case class EphemeralState(
 
   def headCounter(member: Member): Option[SequencerCounter] = checkpoints.get(member).map(_.counter)
 
-  override def pretty: Pretty[EphemeralState] = prettyOfClass(
+  implicit val showPretty: Show[EphemeralState] = {
+    import Pretty.PrettyOps
+    // Increase the max height to avoid truncating the output
+    Show.show(_.toPrettyString(DefaultPprinter.copy(defaultHeight = 500)))
+  }
+
+  implicit val pretty: Pretty[EphemeralState] = prettyOfClass(
     param("checkpoints", _.checkpoints),
     param("in-flight aggregations", _.inFlightAggregations),
     param("status", _.status),

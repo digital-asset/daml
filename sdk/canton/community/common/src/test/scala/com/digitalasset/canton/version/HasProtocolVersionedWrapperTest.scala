@@ -159,7 +159,7 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
           ): Assertion
         }
 
-        clue("can not use an unstable proto message in a stable protocol version") {
+        clue("cannot use an unstable proto message in a stable protocol version") {
           assertTypeError(
             """
              val _ = VersionedProtoConverter(stablePV)(VersionedMessageV2)(

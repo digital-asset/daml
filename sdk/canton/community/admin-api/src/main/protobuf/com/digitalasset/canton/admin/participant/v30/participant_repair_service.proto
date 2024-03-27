@@ -104,7 +104,7 @@ message ExportAcsResponse {
 
 // Schema definition for the exported ACS snapshot
 message ActiveContract {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   // The protocol version of the domain the contract is currently assigned to
   // Required

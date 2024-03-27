@@ -64,7 +64,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       context: TraceContext,
   ): EitherT[Future, ContractValidationFailure, Unit] = EitherT.pure(())
 
-  def reinterpret(example: ExampleTransaction, enableContractUpgrading: Boolean = false)(
+  def reinterpret(example: ExampleTransaction)(
       _contracts: ContractLookup,
       _submitters: Set[LfPartyId],
       cmd: LfCommand,
@@ -82,7 +82,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
 
     val (_viewTree, (reinterpretedTx, metadata, keyResolver), _witnesses) =
       example.reinterpretedSubtransactions.find { case (viewTree, (tx, md, keyResolver), _) =>
-        viewTree.viewParticipantData.rootAction(enableContractUpgrading).command == cmd &&
+        viewTree.viewParticipantData.rootAction.command == cmd &&
         // Commands are otherwise not sufficiently unique (whereas with nodes, we can produce unique nodes).
         rootSeed == md.seeds.get(tx.roots(0))
       }.value
@@ -171,7 +171,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
             submittingParticipant,
             dummyAuthenticator,
             packageResolver,
-            enableContractUpgrading = false,
             loggerFactory,
           )
 
@@ -222,7 +221,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         submittingParticipant,
         dummyAuthenticator,
         packageResolver,
-        enableContractUpgrading = false,
         loggerFactory,
       )
 
@@ -260,7 +258,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         submittingParticipant,
         dummyAuthenticator,
         packageResolver,
-        enableContractUpgrading = false,
         loggerFactory,
       )
       val example = factory.MultipleRootsAndViewNestings
@@ -294,13 +291,12 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
 
         val sut =
           new ModelConformanceChecker(
-            reinterpret(example, enableContractUpgrading = true),
+            reinterpret(example),
             validateContractOk,
             transactionTreeFactory,
             submittingParticipant,
             dummyAuthenticator,
             packageResolver,
-            enableContractUpgrading = true,
             loggerFactory,
           )
 
@@ -335,7 +331,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           submittingParticipant,
           dummyAuthenticator,
           packageResolver,
-          enableContractUpgrading = false,
           loggerFactory,
         )
         for {
@@ -414,7 +409,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         participantId = submittingParticipant,
         serializableContractAuthenticator = dummyAuthenticator,
         packageResolver = packageResolver,
-        enableContractUpgrading = false,
         loggerFactory,
       )
 

@@ -33,8 +33,7 @@ trait DbTest
 
   /** Flag to define the migration mode for the schemas */
   def migrationMode: MigrationMode =
-    // TODO(i15561): Revert back to `== ProtocolVersion.dev` once v30 is a stable Daml 3 protocol version
-    if (BaseTest.testedProtocolVersion >= ProtocolVersion.v30) MigrationMode.DevVersion
+    if (BaseTest.testedProtocolVersion == ProtocolVersion.dev) MigrationMode.DevVersion
     else MigrationMode.Standard
 
   protected def mkDbConfig(basicConfig: DbBasicConfig): DbConfig

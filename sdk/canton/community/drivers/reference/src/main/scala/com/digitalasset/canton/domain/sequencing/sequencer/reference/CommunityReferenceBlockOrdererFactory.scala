@@ -188,10 +188,10 @@ object CommunityReferenceBlockOrdererFactory {
     config match {
       case h2: CommunityDbConfig.H2 =>
         h2.focus(_.parameters.migrationsPaths)
-          .replace(Seq("classpath:db/migration/canton/h2/dev/reference/"))
+          .replace(Seq("classpath:db/migration/canton/h2/stable/reference/"))
       case pg: CommunityDbConfig.Postgres =>
         pg.focus(_.parameters.migrationsPaths)
-          .replace(Seq("classpath:db/migration/canton/postgres/dev/reference/"))
+          .replace(Seq("classpath:db/migration/canton/postgres/stable/reference/"))
       case x => x
     }
 }

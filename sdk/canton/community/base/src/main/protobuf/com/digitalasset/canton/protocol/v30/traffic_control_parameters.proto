@@ -9,7 +9,7 @@ import "google/protobuf/duration.proto";
 import "scalapb/scalapb.proto";
 
 message TrafficControlParameters {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   // In bytes, the maximum amount of base traffic that can be accumulated
   uint64 max_base_traffic_amount = 1;
@@ -30,7 +30,7 @@ message TrafficControlParameters {
 }
 
 message SetTrafficBalanceMessage {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   // Member to update the balance for
   string member = 1;

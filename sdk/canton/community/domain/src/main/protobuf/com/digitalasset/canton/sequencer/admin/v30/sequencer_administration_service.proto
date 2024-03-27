@@ -34,7 +34,7 @@ service SequencerAdministrationService {
   // the returned bytestring can be used directly to initialize the given sequencer later on
   rpc OnboardingState(OnboardingStateRequest) returns (OnboardingStateResponse);
 
-  // Fetch the genesis state for a given sequencer. In the genesis state, we exclude VettedPackages transactions.
+  // Fetch the genesis state for a given sequencer.
   // the returned bytestring can be used directly to initialize the given sequencer later on
   rpc GenesisState(GenesisStateRequest) returns (GenesisStateResponse);
 
@@ -109,7 +109,7 @@ message OnboardingStateResponse {
   }
 }
 message GenesisStateRequest {
-  // Optional - the effective time used to fetch the topology transactions
+  // Optional - the effective time used to fetch the topology transactions. If not provided the effective time of the last topology transaction is used.
   google.protobuf.Timestamp timestamp = 1;
 }
 
@@ -128,7 +128,7 @@ message GenesisStateResponse {
 }
 
 message OnboardingStateForSequencer {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   com.digitalasset.canton.topology.admin.v30.TopologyTransactions topology_snapshot = 1;
   com.digitalasset.canton.protocol.v30.StaticDomainParameters static_domain_parameters = 2;

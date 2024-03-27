@@ -7,11 +7,6 @@ DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 cd "$DIR/.."
 
-if [ -z "${GITHUB_TOKEN:-}" ]; then
-  echo "> This script requires GITHUB_TOKEN to be a valid GitHub token with read access to DACH-NY/canton." >&2
-  exit 1
-fi
-
 LOG=$(mktemp)
 
 trap "cat $LOG" EXIT
@@ -21,14 +16,20 @@ CANTON_DIR=${1:-//unset}
 if [ "//unset" = "$CANTON_DIR" ]; then
   CANTON_DIR=$(realpath "$DIR/../.canton")
   echo "> Using '$CANTON_DIR' as '\$1' was not provided." >&2
+  if [ -z "${GITHUB_TOKEN:-}" ]; then
+    echo "> GITHUB_TOKEN is not set, assuming ssh." >&2
+    canton_github=git@github.com:DACH-NY/canton.git
+  else
+    canton_github=https://$GITHUB_TOKEN@github.com/DACH-NY/canton.git
+  fi
   if ! [ -d "$CANTON_DIR" ]; then
     echo "> Cloning canton for the first time, this may take a while..." >&2
-    git clone https://$GITHUB_TOKEN@github.com/DACH-NY/canton "$CANTON_DIR" >$LOG 2>&1
+    git clone $canton_github "$CANTON_DIR" >$LOG 2>&1
   fi
   (
     cd "$CANTON_DIR"
-    git checkout main >$LOG 2>&1
-    git pull >$LOG 2>&1
+    git fetch
+    git checkout origin/release-line-3.0 >$LOG 2>&1
   )
 fi
 

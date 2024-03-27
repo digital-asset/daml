@@ -19,8 +19,7 @@ import com.digitalasset.canton.version.ProtocolVersion
   * @param maxBurstFactor how forgiving the rate limit is in case of bursts (so rate limit starts after observing an initial burst of factor * max_rate commands)
   */
 final case class SequencerNodeParameterConfig(
-    // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-    override val devVersionSupport: Boolean = true,
+    override val devVersionSupport: Boolean = false,
     override val dontWarnOnDeprecatedPV: Boolean = false,
     override val initialProtocolVersion: ProtocolVersion = ProtocolVersion.latest,
     maxBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.5),

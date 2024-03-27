@@ -15,6 +15,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregationUp
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer.LocalEvent
 import com.digitalasset.canton.sequencing.protocol.SequencedEventTrafficState
 import com.digitalasset.canton.topology.Member
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MapsUtil
 
 import scala.collection.MapView
@@ -116,6 +117,7 @@ final case class UnsignedChunkEvents(
     sequencingTimestamp: CantonTimestamp,
     sequencingSnapshot: SyncCryptoApi,
     trafficStates: MapView[Member, SequencedEventTrafficState],
+    traceContext: TraceContext,
 ) extends ChunkEvents {
   override def members: Set[Member] = events.keySet
   override def counters: Map[Member, SequencerCounter] = events.fmap(_.counter)

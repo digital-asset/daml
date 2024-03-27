@@ -99,7 +99,6 @@ object CantonRunner {
          |      storage.type = memory
          |      parameters = {
          |        enable-engine-stack-traces = true
-         |        enable-contract-upgrading = true
          |        dev-version-support = ${config.devMode}
          |        disable-upgrade-validation = ${config.disableUpgradeValidation}
          |      }
@@ -158,8 +157,13 @@ object CantonRunner {
     val bootstrapContent =
       s"""import java.nio.file.{Files, Paths}
          |import java.nio.charset.StandardCharsets
+         |import com.digitalasset.canton.version.ProtocolVersion
          |
-         |val staticDomainParameters = StaticDomainParameters.defaults(sequencer1.config.crypto)
+         |val staticDomainParameters =
+         |    StaticDomainParameters
+         |        .defaults(sequencer1.config.crypto)
+         |        .copy(${if (config.devMode) "protocolVersion = ProtocolVersion.dev"
+        else ""})
          |val domainOwners = Seq(sequencer1, mediator1)
          |bootstrap.domain("mydomain", Seq(sequencer1), Seq(mediator1), domainOwners, staticDomainParameters)
          |${bootstrapConnectParticipants}

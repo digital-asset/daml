@@ -44,7 +44,7 @@ case object BuildInfo {{
   val scalaVersion: String = "{scala_version}"
   val sbtVersion: String = "bazel"
   val damlLibrariesVersion: String = "{sdk_version}"
-  val protocolVersions = Seq()
+  val protocolVersions = Seq("30")
   override val toString: String = {{
     "version: %s, scalaVersion: %s, sbtVersion: %s, damlLibrariesVersion: %s, protocolVersions: %s".format(
       version, scalaVersion, sbtVersion, damlLibrariesVersion, protocolVersions
@@ -800,6 +800,7 @@ scala_library(
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_h2database_h2",
+        "@maven//:com_lihaoyi_fansi_2_13",
         "@maven//:com_lihaoyi_pprint_2_13",
         "@maven//:com_oracle_database_jdbc_ojdbc8",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",

@@ -71,6 +71,7 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
       override def caching: CachingConfigs = CachingConfigs()
       override def useNewTrafficControl: Boolean = false
       override def useUnifiedSequencer: Boolean = false
+      override def devVersionSupport: Boolean = false
     }
   }
 

@@ -59,7 +59,7 @@ message ViewCommonData {
 }
 
 message Informee {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   string party = 1;
   int32 weight = 2; // optional: only set if party is confirming
@@ -83,7 +83,7 @@ message ViewParticipantMessage {
 // InformeeMessage
 
 message InformeeMessage {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   FullInformeeTree full_informee_tree = 1;
   int32 protocol_version = 2;
@@ -113,7 +113,7 @@ message InputContract {
 }
 
 message CommonMetadata {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
   bytes confirmation_policy = 2;
@@ -123,7 +123,7 @@ message CommonMetadata {
 }
 
 message SubmitterMetadata {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
   repeated string act_as = 2;
@@ -147,7 +147,7 @@ message SessionKeyLookup {
 }
 
 message EncryptedViewMessage {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   bytes view_tree = 1;
 
