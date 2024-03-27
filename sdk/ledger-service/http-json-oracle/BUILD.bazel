@@ -59,7 +59,7 @@ da_scala_library(
         "//test-common/canton/it-lib",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
-) if False else []
+) if True else []
 
 da_scala_test_suite(
     name = "integration-tests",
@@ -125,4 +125,4 @@ da_scala_test_suite(
         "//test-common/canton/it-lib",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
-) if False else []
+) if True else []
