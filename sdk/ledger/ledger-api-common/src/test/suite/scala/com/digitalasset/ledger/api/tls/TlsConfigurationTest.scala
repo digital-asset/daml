@@ -61,7 +61,7 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
         )
       }
       "is default" in {
-        getServerEnabledProtocols(None) shouldBe Seq(
+        getServerEnabledProtocols(None).sorted shouldBe Seq(
           "SSLv2Hello",
           "TLSv1.2",
           "TLSv1.3",
