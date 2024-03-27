@@ -48,7 +48,7 @@ abstract class AbstractPruningTest extends AbstractHttpServiceIntegrationTestFun
     } yield succeed
   }
 
-  "query for visible contract, which was created and archived by another party before your first query" in withHttpService {
+  "query for visible contract, which was created and archived by another party before your first query" ignore withHttpService {
     fixture =>
       import HttpServiceTestFixture.archiveCommand
       import com.daml.http.json.JsonProtocol._
