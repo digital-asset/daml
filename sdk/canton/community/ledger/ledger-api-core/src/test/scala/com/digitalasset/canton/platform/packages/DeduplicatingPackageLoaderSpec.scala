@@ -7,9 +7,9 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref.PackageId
 import com.daml.metrics.api.MetricName
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.ledger.resources.TestResourceContext
-import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory.NoOpMetricsFactory
 import com.digitalasset.canton.testing.utils.{TestModels, TestResourceUtils}
 import org.apache.pekko.actor.{ActorSystem, Scheduler}
 import org.scalatest.BeforeAndAfterEach

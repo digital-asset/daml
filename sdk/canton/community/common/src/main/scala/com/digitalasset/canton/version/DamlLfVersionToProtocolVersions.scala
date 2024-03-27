@@ -15,7 +15,7 @@ object DamlLfVersionToProtocolVersions {
   val damlLfVersionToMinimumProtocolVersions: SortedMap[TransactionVersion, ProtocolVersion] =
     SortedMap(
       TransactionVersion.V31 -> ProtocolVersion.v30,
-      TransactionVersion.VDev -> ProtocolVersion.v30,
+      TransactionVersion.VDev -> ProtocolVersion.dev,
     )
 
   def getMinimumSupportedProtocolVersion(

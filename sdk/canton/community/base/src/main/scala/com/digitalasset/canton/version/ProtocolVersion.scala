@@ -4,7 +4,6 @@
 package com.digitalasset.canton.version
 
 import cats.syntax.either.*
-import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.buildinfo.BuildInfo
@@ -81,8 +80,7 @@ sealed case class ProtocolVersion private[version] (v: Int)
 
   def toProtoPrimitive: Int = v
 
-  // We keep the .0.0 so that old binaries can still decode it
-  def toProtoPrimitiveS: String = s"$v.0.0"
+  def toProtoPrimitiveS: String = v.toString
 
   override def compare(that: ProtocolVersion): Int = v.compare(that.v)
 }
@@ -119,54 +117,6 @@ object ProtocolVersion {
   implicit val setParameterProtocolVersion: SetParameter[ProtocolVersion] =
     (pv: ProtocolVersion, pp: PositionedParameters) => pp >> pv.v
 
-  /** Try to parse a semver version.
-    * Return:
-    *
-    * - None if `rawVersion` does not satisfy the semver regexp
-    * - Some(Left(_)) if `rawVersion` satisfies the regex but if an error is found
-    *   (e.g., if minor!=0).
-    * - Some(Right(ProtocolVersion(_))) in case of success
-    */
-  private def parseSemver(rawVersion: String): Option[Either[String, ProtocolVersion]] = {
-    val regex = raw"([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,4})".r
-
-    rawVersion match {
-      case regex(rawMajor, rawMinor, rawPatch) =>
-        val parsedDigits = List(rawMajor, rawMinor, rawPatch).traverse(raw =>
-          raw.toIntOption.toRight(s"Couldn't parse number $raw")
-        )
-
-        parsedDigits match {
-          case Left(error) => Some(Left(error))
-
-          case Right(List(major, minor, patch)) =>
-            Some(
-              Either.cond(
-                minor == 0 && patch == 0,
-                ProtocolVersion(major),
-                s"Protocol version should consist of a single number; but `$rawVersion` found",
-              )
-            )
-
-          case _ => Some(Left(s"Unexpected error while parsing version $rawVersion"))
-        }
-
-      case _ => None
-    }
-  }
-
-  private def parseDev(rawVersion: String): Option[ProtocolVersion] = {
-    // ignore case for dev version ... scala regex doesn't know case insensitivity ...
-    val devRegex = "^[dD][eE][vV]$".r
-    val devFull = ProtocolVersion.dev.toProtoPrimitiveS
-
-    rawVersion match {
-      // Since dev uses Int.MaxValue, it does not satisfy the regex above
-      case `devFull` | devRegex() => Some(ProtocolVersion.dev)
-      case _ => None
-    }
-  }
-
   private[version] def unsupportedErrorMessage(
       pv: ProtocolVersion,
       includeDeleted: Boolean = false,
@@ -196,9 +146,12 @@ object ProtocolVersion {
       case Some(value) => Right(ProtocolVersion(value))
 
       case None =>
-        parseSemver(rawVersion)
-          .orElse(parseDev(rawVersion).map(Right(_)))
-          .getOrElse(Left(s"Unable to convert string `$rawVersion` to a protocol version."))
+        Option
+          .when(rawVersion.toLowerCase() == "dev")(ProtocolVersion.dev)
+          .map(Right(_))
+          .getOrElse {
+            Left(s"Unable to convert string `$rawVersion` to a protocol version.")
+          }
     }
   }
 
@@ -232,8 +185,10 @@ object ProtocolVersion {
   }
 
   /** Like [[create]] ensures a supported protocol version; tailored to (de-)serialization purposes.
+    * For handshake, we want to use a string as the primitive type and not an int because that is
+    * an endpoint that should never change. Using string allows us to evolve the scheme if needed.
     */
-  def fromProtoPrimitiveS(rawVersion: String): ParsingResult[ProtocolVersion] = {
+  def fromProtoPrimitiveHandshake(rawVersion: String): ParsingResult[ProtocolVersion] = {
     ProtocolVersion.create(rawVersion).leftMap(OtherError)
   }
 

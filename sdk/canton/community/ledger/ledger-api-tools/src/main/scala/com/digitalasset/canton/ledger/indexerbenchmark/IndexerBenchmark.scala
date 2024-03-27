@@ -5,6 +5,7 @@ package com.digitalasset.canton.ledger.indexerbenchmark
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.metrics.api.MetricName
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.resources
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.DirectExecutionContext
@@ -16,7 +17,7 @@ import com.digitalasset.canton.ledger.participant.state.v2.{
   Update,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.{CantonLabeledMetricsFactory, Metrics}
+import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.LedgerApiServer
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
 import com.digitalasset.canton.platform.indexer.{Indexer, IndexerServiceOwner, JdbcIndexer}
@@ -61,7 +62,7 @@ class IndexerBenchmark extends NamedLogging {
 
       println("Creating read service and indexer...")
       val readService = createReadService(updates)
-      val metrics = new Metrics(MetricName("noop"), CantonLabeledMetricsFactory.NoOpMetricsFactory)
+      val metrics = new Metrics(MetricName("noop"), NoOpMetricsFactory)
       val resource = for {
         servicesExecutionContext <- ResourceOwner
           .forExecutorService(() => Executors.newWorkStealingPool())

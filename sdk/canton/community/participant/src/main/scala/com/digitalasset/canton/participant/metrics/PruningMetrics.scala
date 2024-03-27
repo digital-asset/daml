@@ -4,13 +4,12 @@
 package com.digitalasset.canton.participant.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{Gauge, Meter, Timer}
+import com.daml.metrics.api.MetricHandle.{Gauge, LabeledMetricsFactory, Meter, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
-import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory
 
 class PruningMetrics(
     val prefix: MetricName,
-    metricsFactory: CantonLabeledMetricsFactory,
+    metricsFactory: LabeledMetricsFactory,
 ) {
 
   object commitments {
@@ -29,9 +28,9 @@ class PruningMetrics(
     @MetricDoc.Tag(
       summary = "Time spent in microseconds between commitment and sequencing.",
       description = """Participant nodes compute bilateral commitments at regular intervals. After a commitment
-                      |has been computed it is send for sequencing. This measures the time between the end of a 
-                      |commitment interval and when the commitment has been sequenced. A high value indicates that 
-                      |the participant is lagging behind in processing messages and computing commitments or the 
+                      |has been computed it is send for sequencing. This measures the time between the end of a
+                      |commitment interval and when the commitment has been sequenced. A high value indicates that
+                      |the participant is lagging behind in processing messages and computing commitments or the
                       |sequencer is slow in sequencing the commitment messages.""",
       qualification = Debug,
     )

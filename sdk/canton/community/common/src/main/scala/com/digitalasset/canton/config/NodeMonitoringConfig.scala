@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.config
 
+import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory
 import com.digitalasset.canton.networking.grpc.{
   CantonCommunityServerInterceptors,
   CantonServerInterceptors,
@@ -31,7 +31,7 @@ final case class GrpcHealthServerConfig(
       tracingConfig: TracingConfig,
       apiLoggingConfig: ApiLoggingConfig,
       metricsPrefix: MetricName,
-      metrics: CantonLabeledMetricsFactory,
+      metrics: LabeledMetricsFactory,
       loggerFactory: NamedLoggerFactory,
       grpcMetrics: GrpcServerMetrics,
   ): CantonServerInterceptors =

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.metrics
 
+import com.daml.metrics.api.testing.InMemoryMetricsFactory
 import com.digitalasset.canton.BaseTest
 import io.opentelemetry.api.OpenTelemetry
 import org.scalatest.wordspec.AnyWordSpec

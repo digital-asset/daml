@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.health
 
+import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.lifecycle.Lifecycle.toCloseableServer
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.tracing.TracingConfig
 import io.grpc.health.v1.HealthCheckResponse.ServingStatus
@@ -19,7 +19,7 @@ import java.util.concurrent.ExecutorService
 
 class GrpcHealthServer(
     config: GrpcHealthServerConfig,
-    metrics: CantonLabeledMetricsFactory,
+    metrics: LabeledMetricsFactory,
     executor: ExecutorService,
     override val loggerFactory: NamedLoggerFactory,
     apiConfig: ApiLoggingConfig,

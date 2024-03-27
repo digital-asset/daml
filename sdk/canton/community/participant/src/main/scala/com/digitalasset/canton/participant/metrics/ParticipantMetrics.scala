@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.metrics
 import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Traffic}
 import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
-import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Meter}
+import com.daml.metrics.api.MetricHandle.{Counter, Gauge, LabeledMetricsFactory, Meter}
 import com.daml.metrics.api.noop.NoOpGauge
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 import com.daml.metrics.grpc.GrpcServerMetrics
@@ -14,15 +14,15 @@ import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.data.TaskSchedulerMetrics
 import com.digitalasset.canton.environment.BaseMetrics
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
-import com.digitalasset.canton.metrics.{CantonLabeledMetricsFactory, *}
-import com.digitalasset.canton.metrics.{Metrics as LedgerApiServerMetrics}
+import com.digitalasset.canton.metrics.*
+import com.digitalasset.canton.metrics.Metrics as LedgerApiServerMetrics
 import com.digitalasset.canton.participant.metrics.PruningMetrics as ParticipantPruningMetrics
 
 import scala.collection.concurrent.TrieMap
 
 class ParticipantMetrics(
     parent: MetricName,
-    override val openTelemetryMetricsFactory: CantonLabeledMetricsFactory,
+    override val openTelemetryMetricsFactory: LabeledMetricsFactory,
 ) extends BaseMetrics {
 
   override val prefix: MetricName = parent
@@ -110,7 +110,7 @@ class ParticipantMetrics(
 
 class SyncDomainMetrics(
     prefix: MetricName,
-    factory: CantonLabeledMetricsFactory,
+    factory: LabeledMetricsFactory,
 )(implicit context: MetricsContext) {
 
   object sequencerClient extends SequencerClientMetrics(prefix, factory)

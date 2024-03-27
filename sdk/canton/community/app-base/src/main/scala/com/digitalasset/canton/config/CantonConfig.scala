@@ -286,6 +286,9 @@ trait CantonConfig {
   type MediatorNodeXConfigType <: MediatorNodeConfigCommon
   type SequencerNodeXConfigType <: SequencerNodeConfigCommon
 
+  def allNodes: Map[InstanceName, LocalNodeConfig] =
+    (participants: Map[InstanceName, LocalNodeConfig]) ++ sequencers ++ mediators
+
   /** all participants that this Canton process can operate or connect to
     *
     * participants are grouped by their local name

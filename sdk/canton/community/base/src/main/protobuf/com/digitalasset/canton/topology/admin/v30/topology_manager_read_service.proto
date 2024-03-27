@@ -76,7 +76,7 @@ message BaseQuery {
     TimeRange range = 7;
   }
   string filter_signed_key = 8;
-  google.protobuf.StringValue protocol_version = 9;
+  google.protobuf.Int32Value protocol_version = 9;
 }
 
 message Store {

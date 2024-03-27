@@ -3,7 +3,8 @@
 
 package com.digitalasset.canton.metrics
 
-import com.daml.metrics.api.opentelemetry.Slf4jMetricExporter
+import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
+import com.daml.metrics.api.opentelemetry.{OpenTelemetryMetricsFactory, Slf4jMetricExporter}
 import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.daml.metrics.grpc.DamlGrpcServerMetrics
 import com.daml.metrics.{HealthMetrics, HistogramDefinition}
@@ -11,7 +12,6 @@ import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.domain.metrics.{MediatorMetrics, SequencerMetrics}
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory.CantonOpenTelemetryMetricsFactory
 import com.digitalasset.canton.metrics.MetricsConfig.{JvmMetrics, MetricsFilterConfig}
 import com.digitalasset.canton.metrics.MetricsReporterConfig.{Csv, Logging, Prometheus}
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
@@ -117,7 +117,7 @@ final case class MetricsRegistry(
     meter: Meter,
     factoryType: MetricsFactoryType,
 ) extends AutoCloseable
-    with CantonLabeledMetricsFactory.Generator {
+    with MetricsFactoryProvider {
 
   private val participants = TrieMap[String, ParticipantMetrics]()
   private val sequencers = TrieMap[String, SequencerMetrics]()
@@ -130,7 +130,7 @@ final case class MetricsRegistry(
           MetricsContext("node" -> name, "component" -> "participant")
         new ParticipantMetrics(
           MetricsRegistry.prefix,
-          create(
+          generateMetricsFactory(
             participantMetricsContext
           ),
         )
@@ -143,7 +143,7 @@ final case class MetricsRegistry(
       name, {
         val sequencerMetricsContext =
           MetricsContext("node" -> name, "component" -> "sequencer")
-        val labeledMetricsFactory = create(
+        val labeledMetricsFactory = generateMetricsFactory(
           sequencerMetricsContext
         )
         new SequencerMetrics(
@@ -161,7 +161,7 @@ final case class MetricsRegistry(
       name, {
         val mediatorMetricsContext = MetricsContext("node" -> name, "component" -> "mediator")
         val labeledMetricsFactory =
-          create(mediatorMetricsContext)
+          generateMetricsFactory(mediatorMetricsContext)
         new MediatorMetrics(
           MetricsRegistry.prefix,
           labeledMetricsFactory,
@@ -172,14 +172,14 @@ final case class MetricsRegistry(
     )
   }
 
-  override def create(
+  override def generateMetricsFactory(
       extraContext: MetricsContext
-  ): CantonLabeledMetricsFactory = {
+  ): LabeledMetricsFactory = {
     factoryType match {
       case MetricsFactoryType.InMemory(provider) =>
-        provider(extraContext)
+        provider.generateMetricsFactory(extraContext)
       case MetricsFactoryType.External =>
-        new CantonOpenTelemetryMetricsFactory(
+        new OpenTelemetryMetricsFactory(
           meter,
           globalMetricsContext = extraContext,
         )

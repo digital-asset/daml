@@ -96,9 +96,13 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
              * therefore actual metrics have to be reported.
              * The in memory metrics are used when no reporters are configured and the metrics are
              * observed directly in the test scenarios.
+             *
+             * In this case, you can grab the metrics from the [[MetricsRegistry.generateMetricsFactory]] method,
+             * which is accessible using env.environment.metricsRegistry
+             *
              * */
             if (finalConfig.monitoring.metrics.reporters.isEmpty)
-              MetricsFactoryType.InMemory(scopedMetricsFactory.forContext)
+              MetricsFactoryType.InMemory(scopedMetricsFactory)
             else MetricsFactoryType.External,
           initializeGlobalOpenTelemetry = false,
         ),

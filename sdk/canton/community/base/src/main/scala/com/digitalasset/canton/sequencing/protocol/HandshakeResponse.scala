@@ -39,10 +39,10 @@ object HandshakeResponse {
       case v30.Handshake.Response.Value.Empty =>
         Left(ProtoDeserializationError.FieldNotSet("Handshake.Response.value"))
       case v30.Handshake.Response.Value.Success(_success) =>
-        ProtocolVersion.fromProtoPrimitiveS(responseP.serverProtocolVersion).map(Success)
+        ProtocolVersion.fromProtoPrimitiveHandshake(responseP.serverProtocolVersion).map(Success)
       case v30.Handshake.Response.Value.Failure(failure) =>
         ProtocolVersion
-          .fromProtoPrimitiveS(responseP.serverProtocolVersion)
+          .fromProtoPrimitiveHandshake(responseP.serverProtocolVersion)
           .map(Failure(_, failure.reason))
     }
 }

@@ -6,8 +6,10 @@ package com.digitalasset.canton.console.commands
 import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
+import com.digitalasset.canton.console.CommandErrors.CommandError
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
+  CommandSuccessful,
   ConsoleCommandResult,
   ConsoleEnvironment,
   ConsoleMacros,
@@ -57,6 +59,23 @@ abstract class TopologyAdministrationGroupCommon(
         idCache.set(Some(r))
         r
     })
+  }
+
+  private[console] def maybeIdHelper[T](
+      apply: UniqueIdentifier => T
+  ): Option[T] = {
+    (idCache.get() match {
+      case Some(v) => Some(v)
+      case None =>
+        consoleEnvironment.run {
+          CommandSuccessful(getIdCommand() match {
+            case CommandSuccessful(v) =>
+              idCache.set(Some(v))
+              Some(v)
+            case _: CommandError => None
+          })
+        }
+    }).map(apply)
   }
 
   @Help.Summary("Topology synchronisation helpers", FeatureFlag.Preview)
