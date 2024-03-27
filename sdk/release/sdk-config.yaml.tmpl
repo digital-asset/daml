@@ -66,6 +66,9 @@ commands:
 - name: ide
   path: damlc/damlc
   args: ["ide"]
+- name: multi-ide
+  path: damlc/damlc
+  args: ["lax", "multi-ide"]
 - name: script
   path: daml-helper/daml-helper
   args: ["run-jar", "--logback-config=daml-sdk/script-logback.xml", "daml-sdk/daml-sdk.jar", "script"]

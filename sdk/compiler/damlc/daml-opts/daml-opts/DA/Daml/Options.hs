@@ -136,6 +136,7 @@ getDamlGhcSession = do
 -- | Find the daml.yaml given a starting file or directory.
 findProjectRoot :: FilePath -> IO (Maybe FilePath)
 findProjectRoot file = do
+    -- TODO[SW]: This logic appears to be wrong, doesFileExist (takeDirectory file) will always be false for wellformed paths.
     isFile <- doesFileExist (takeDirectory file)
     let dir = if isFile then takeDirectory file else file
     findM hasProjectConfig (ascendants dir)

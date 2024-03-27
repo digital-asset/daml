@@ -3,10 +3,10 @@
 
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE ApplicativeDo       #-}
+{-# LANGUAGE RankNTypes       #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE RankNTypes #-}
 
 -- | Main entry-point of the Daml compiler
 module DA.Cli.Damlc (main, Command (..), fullParseArgs) where
@@ -14,7 +14,8 @@ module DA.Cli.Damlc (main, Command (..), fullParseArgs) where
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception (bracket, catch, displayException, handle, throwIO, throw)
 import Control.Exception.Safe (catchIO)
-import Control.Monad.Except (forM, forM_, liftIO, unless, void, when)
+import Control.Monad (forM, forM_, unless, void, when)
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Extra (allM, mapMaybeM, whenM, whenJust)
 import Control.Monad.Trans.Cont (ContT (..), evalContT)
 import DA.Bazel.Runfiles (setRunfilesEnv)
@@ -56,6 +57,7 @@ import DA.Cli.Options (Debug(..),
                        targetFileNameOpt,
                        telemetryOpt)
 import DA.Cli.Damlc.BuildInfo (buildInfo)
+import DA.Cli.Damlc.Command.MultiIde (runMultiIde)
 import qualified DA.Daml.Dar.Reader as InspectDar
 import qualified DA.Cli.Damlc.Command.Damldoc as Damldoc
 import DA.Cli.Damlc.Packaging (createProjectPackageDb, mbErr)
@@ -294,8 +296,18 @@ data CommandName =
   | MergeDars
   | Package
   | Test
+  | MultiIde
   deriving (Ord, Show, Eq)
 data Command = Command CommandName (Maybe ProjectOpts) (IO ())
+
+cmdMultiIde :: Int -> Mod CommandFields Command
+cmdMultiIde _numProcessors =
+    command "multi-ide" $ info (helper <*> cmd) $
+       progDesc
+        "Start the Daml language server on standard input/output."
+    <> fullDesc
+  where
+    cmd = pure $ Command MultiIde Nothing runMultiIde
 
 cmdIde :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdIde numProcessors =
@@ -853,7 +865,6 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
           withMultiPackageConfig multiPackageConfigPath $ \multiPackageConfig ->
             multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opts mbOutFile incrementalBuild initPkgDb noCache
 
-    -- TODO: This throws if you have the sdk-version only daml.yaml, ideally it should return Nothing
     mPkgConfig <- ContT $ withMaybeConfig $ withPackageConfig defaultProjectPath
     liftIO $ if getEnableMultiPackage enableMultiPackage then do
       mMultiPackagePath <- getMultiPackagePath multiPackageLocation
@@ -1471,6 +1482,7 @@ options :: SdkVersion.Class.SdkVersioned => Int -> Parser Command
 options numProcessors =
     subparser
       (  cmdIde numProcessors
+      <> cmdMultiIde numProcessors
       <> cmdLicense
       -- cmdPackage can go away once we kill the old assistant.
       <> cmdPackage numProcessors
@@ -1657,6 +1669,7 @@ cmdUseDamlYamlArgs = \case
   MergeDars -> False -- just reads the dars
   Package -> False -- deprecated
   Test -> True
+  MultiIde -> False
 
 withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
 withProjectRoot' ProjectOpts{..} act =
