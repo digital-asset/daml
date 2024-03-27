@@ -222,12 +222,14 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, s
                     , "public-api" Aeson..= port sequencerPublicPort
                     , "admin-api" Aeson..= port sequencerAdminPort
                     , "crypto" Aeson..= Aeson.object [ "provider" Aeson..= ("tink" :: T.Text) ]
+                    , "parameters" Aeson..= Aeson.object [ "dev-version-support" Aeson..= devVersionSupport ]
                     ]
                 ]
             , "mediators" Aeson..= Aeson.object
                 [ "mediator1" Aeson..= Aeson.object
                      [ "admin-api" Aeson..= port mediatorAdminPort
                      , "crypto" Aeson..= Aeson.object [ "provider" Aeson..= ("tink" :: T.Text) ]
+                     , "parameters" Aeson..= Aeson.object [ "dev-version-support" Aeson..= devVersionSupport ]
                      ]
                 ]
             ]
