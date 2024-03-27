@@ -5,7 +5,7 @@ package com.digitalasset.canton.util.pekkostreams
 
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.metrics.api.MetricName
-import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory.NoOpMetricsFactory
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import org.apache.pekko.stream.scaladsl.{Flow, Source}
 import org.apache.pekko.stream.stage.*
 import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}

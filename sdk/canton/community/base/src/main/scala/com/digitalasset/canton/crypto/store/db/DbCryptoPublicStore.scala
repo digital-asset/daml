@@ -10,7 +10,6 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.*
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.resource.DbStorage.DbAction
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.tracing.TraceContext
@@ -31,11 +30,6 @@ class DbCryptoPublicStore(
 
   import storage.api.*
   import storage.converters.*
-
-  private val insertTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("crypto-public-store-insert")
-  private val queryTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("crypto-public-store-query")
 
   private implicit val setParameterEncryptionPublicKey: SetParameter[EncryptionPublicKey] =
     EncryptionPublicKey.getVersionedSetParameter(releaseProtocolVersion.v)
@@ -75,29 +69,27 @@ class DbCryptoPublicStore(
       key: K,
       name: Option[KeyName],
   )(implicit traceContext: TraceContext): EitherT[Future, CryptoPublicStoreError, Unit] =
-    insertTime.eitherTEvent {
-      for {
-        inserted <- EitherT.right(storage.update(insertKeyUpdate(key, name), functionFullName))
-        res <-
-          if (inserted == 0) {
-            // If no key was inserted by the insert query, check that the existing value matches
-            storage
-              .querySingle(queryKey(key.id, key.purpose), functionFullName)
-              .toRight(
-                CryptoPublicStoreError.FailedToInsertKey(key.id, "No key inserted and no key found")
-              )
-              .flatMap { existingKey =>
-                EitherT
-                  .cond[Future](
-                    existingKey.publicKey == key && existingKey.name == name,
-                    (),
-                    CryptoPublicStoreError.KeyAlreadyExists(key.id, existingKey.name.map(_.unwrap)),
-                  )
-                  .leftWiden[CryptoPublicStoreError]
-              }
-          } else EitherT.rightT[Future, CryptoPublicStoreError](())
-      } yield res
-    }
+    for {
+      inserted <- EitherT.right(storage.update(insertKeyUpdate(key, name), functionFullName))
+      res <-
+        if (inserted == 0) {
+          // If no key was inserted by the insert query, check that the existing value matches
+          storage
+            .querySingle(queryKey(key.id, key.purpose), functionFullName)
+            .toRight(
+              CryptoPublicStoreError.FailedToInsertKey(key.id, "No key inserted and no key found")
+            )
+            .flatMap { existingKey =>
+              EitherT
+                .cond[Future](
+                  existingKey.publicKey == key && existingKey.name == name,
+                  (),
+                  CryptoPublicStoreError.KeyAlreadyExists(key.id, existingKey.name.map(_.unwrap)),
+                )
+                .leftWiden[CryptoPublicStoreError]
+            }
+        } else EitherT.rightT[Future, CryptoPublicStoreError](())
+    } yield res
 
   override def readSigningKey(signingKeyId: Fingerprint)(implicit
       traceContext: TraceContext
@@ -139,9 +131,7 @@ class DbCryptoPublicStore(
       traceContext: TraceContext
   ): EitherT[Future, CryptoPublicStoreError, Set[SigningPublicKeyWithName]] =
     EitherTUtil.fromFuture(
-      queryTime.event(
-        storage.query(queryKeys[SigningPublicKeyWithName](KeyPurpose.Signing), functionFullName)
-      ),
+      storage.query(queryKeys[SigningPublicKeyWithName](KeyPurpose.Signing), functionFullName),
       err => CryptoPublicStoreError.FailedToListKeys(err.toString),
     )
 
@@ -150,10 +140,8 @@ class DbCryptoPublicStore(
   ): EitherT[Future, CryptoPublicStoreError, Set[EncryptionPublicKeyWithName]] =
     EitherTUtil
       .fromFuture(
-        queryTime.event(
-          storage
-            .query(queryKeys[EncryptionPublicKeyWithName](KeyPurpose.Encryption), functionFullName)
-        ),
+        storage
+          .query(queryKeys[EncryptionPublicKeyWithName](KeyPurpose.Encryption), functionFullName),
         err => CryptoPublicStoreError.FailedToListKeys(err.toString),
       )
 }

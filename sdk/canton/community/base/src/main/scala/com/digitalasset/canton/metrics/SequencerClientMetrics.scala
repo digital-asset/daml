@@ -4,13 +4,12 @@
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation}
-import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, Gauge, LabeledMetricsFactory, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
-import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory
 
 class SequencerClientMetrics(
     basePrefix: MetricName,
-    val metricsFactory: CantonLabeledMetricsFactory,
+    val metricsFactory: LabeledMetricsFactory,
 )(implicit context: MetricsContext) {
   val prefix: MetricName = basePrefix :+ "sequencer-client"
 

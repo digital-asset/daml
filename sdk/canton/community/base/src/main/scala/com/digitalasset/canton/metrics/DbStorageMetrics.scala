@@ -4,12 +4,8 @@
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Timer}
-import com.daml.metrics.api.noop.{NoOpGauge, NoOpTimer}
-import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
-import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory
-
-import scala.concurrent.duration.*
+import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory, Timer}
+import com.daml.metrics.api.{MetricDoc, MetricName}
 
 @MetricDoc.GroupTag(
   representative = "canton.db-storage.<service>.executor",
@@ -17,37 +13,10 @@ import scala.concurrent.duration.*
 )
 class DbStorageMetrics(
     basePrefix: MetricName,
-    metricsFactory: CantonLabeledMetricsFactory,
-)(implicit context: MetricsContext) {
+    metricsFactory: LabeledMetricsFactory,
+) {
 
   val prefix: MetricName = basePrefix :+ "db-storage"
-
-  def loadGaugeM(
-      name: String
-  )(implicit gaugeContext: MetricsContext = MetricsContext.Empty): TimedLoadGauge = {
-    val mc = context.merge(gaugeContext)
-    val timerM = metricsFactory.timer(prefix :+ name)(mc)
-    metricsFactory.loadGauge(prefix :+ name :+ "load", 1.second, timerM)(mc)
-  }
-
-  @MetricDoc.Tag(
-    summary = "Timer monitoring duration and rate of accessing the given storage",
-    description = """Covers both read from and writes to the storage.""",
-    qualification = Debug,
-  )
-  @SuppressWarnings(Array("org.wartremover.warts.Null"))
-  val timerExampleForDocs: Timer = NoOpTimer(prefix :+ "<storage>")
-
-  @MetricDoc.Tag(
-    summary = "The load on the given storage",
-    description =
-      """The load is a factor between 0 and 1 describing how much of an existing interval
-          |has been spent reading from or writing to the storage.""",
-    qualification = Debug,
-  )
-  @SuppressWarnings(Array("org.wartremover.warts.Null"))
-  val loadExampleForDocs: Gauge[Double] =
-    NoOpGauge(prefix :+ "<storage>" :+ "load", 0d)
 
   object queue extends DbQueueMetrics(prefix :+ "general", metricsFactory)
 
@@ -58,7 +27,7 @@ class DbStorageMetrics(
 
 class DbQueueMetrics(
     basePrefix: MetricName,
-    factory: CantonLabeledMetricsFactory,
+    factory: LabeledMetricsFactory,
 ) {
   val prefix: MetricName = basePrefix :+ "executor"
 

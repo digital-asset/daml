@@ -4,22 +4,18 @@
 package com.digitalasset.canton.domain.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Traffic}
-import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Meter}
+import com.daml.metrics.api.MetricHandle.{Counter, Gauge, LabeledMetricsFactory, Meter}
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 import com.daml.metrics.grpc.{DamlGrpcServerMetrics, GrpcServerMetrics}
 import com.daml.metrics.{CacheMetrics, HealthMetrics}
 import com.digitalasset.canton.environment.BaseMetrics
-import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory.NoOpMetricsFactory
-import com.digitalasset.canton.metrics.{
-  CantonLabeledMetricsFactory,
-  DbStorageMetrics,
-  SequencerClientMetrics,
-}
+import com.digitalasset.canton.metrics.{DbStorageMetrics, SequencerClientMetrics}
 import com.google.common.annotations.VisibleForTesting
 
 class SequencerMetrics(
     parent: MetricName,
-    val openTelemetryMetricsFactory: CantonLabeledMetricsFactory,
+    val openTelemetryMetricsFactory: LabeledMetricsFactory,
     val grpcMetrics: GrpcServerMetrics,
     val healthMetrics: HealthMetrics,
 ) extends BaseMetrics {
@@ -147,7 +143,7 @@ object SequencerMetrics {
 
 class MediatorMetrics(
     parent: MetricName,
-    val openTelemetryMetricsFactory: CantonLabeledMetricsFactory,
+    val openTelemetryMetricsFactory: LabeledMetricsFactory,
     val grpcMetrics: GrpcServerMetrics,
     val healthMetrics: HealthMetrics,
 ) extends BaseMetrics {

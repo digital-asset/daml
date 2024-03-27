@@ -5,8 +5,8 @@ package com.digitalasset.canton.domain.metrics
 
 import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricName
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.grpc.DamlGrpcServerMetrics
-import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory.NoOpMetricsFactory
 
 object SequencerTestMetrics
     extends SequencerMetrics(

@@ -6,7 +6,9 @@ package com.digitalasset.canton.environment
 import cats.Applicative
 import cats.data.EitherT
 import com.daml.metrics.HealthMetrics
+import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
+import com.daml.metrics.api.testing.InMemoryMetricsFactory
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.{
@@ -20,10 +22,8 @@ import com.digitalasset.canton.crypto.{CommunityCryptoFactory, Crypto}
 import com.digitalasset.canton.health.{GrpcHealthReporter, HealthService}
 import com.digitalasset.canton.lifecycle.{Lifecycle, ShutdownFailedException}
 import com.digitalasset.canton.metrics.{
-  CantonLabeledMetricsFactory,
   CommonMockMetrics,
   DbStorageMetrics,
-  InMemoryMetricsFactory,
   Metrics,
   OnDemandMetricsReader,
 }
@@ -71,6 +71,7 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
       override def caching: CachingConfigs = CachingConfigs()
       override def useNewTrafficControl: Boolean = false
       override def useUnifiedSequencer: Boolean = false
+      override def devVersionSupport: Boolean = false
     }
   }
 
@@ -96,10 +97,10 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
       useUnifiedSequencer: Boolean = false,
   ) extends CantonNodeParameters
 
-  private val metricsFactory: CantonLabeledMetricsFactory = new InMemoryMetricsFactory
+  private val metricsFactory: LabeledMetricsFactory = new InMemoryMetricsFactory
   case class TestMetrics(
       prefix: MetricName = MetricName("test-metrics"),
-      openTelemetryMetricsFactory: CantonLabeledMetricsFactory = metricsFactory,
+      openTelemetryMetricsFactory: LabeledMetricsFactory = metricsFactory,
       grpcMetrics: GrpcServerMetrics = Metrics.ForTesting.grpc,
       healthMetrics: HealthMetrics = Metrics.ForTesting.health,
       storageMetrics: DbStorageMetrics = CommonMockMetrics.dbStorage,
