@@ -91,6 +91,9 @@ commands:
   path: daml-helper/daml-helper
   args: ["run-jar", "--logback-config=daml-sdk/trigger-logback.xml", "daml-sdk/daml-sdk.jar", "trigger"]
   desc: "Run a Daml trigger"
+- name: multi-ide
+  path: damlc/damlc
+  args: ["lax", "multi-ide"]
 - name: script
   path: daml-helper/daml-helper
   args: ["run-jar", "--logback-config=daml-sdk/script-logback.xml", "daml-sdk/daml-sdk.jar", "script"]

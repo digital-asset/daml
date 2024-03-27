@@ -111,7 +111,12 @@
                     "type": "string",
                     "default": "",
                     "description": "Extra arguments passed to `damlc ide`. This can be used to enable additional warnings via `--ghc-option -W`"
-                }
+                },
+                "daml.multiPackageIdeSupport": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "VERY EXPERIMENTAL: Enables the incomplete and experimental multi-ide feature."
+              }
             }
         },
         "menus": {
