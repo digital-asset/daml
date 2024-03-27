@@ -7,6 +7,7 @@ module DA.Test.DamlcUpgrades (main) where
 
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
+import qualified DA.Daml.LF.Ast.Version as LF
 import Data.Foldable
 import System.Directory.Extra
 import System.FilePath
@@ -17,6 +18,7 @@ import Test.Tasty.HUnit
 import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
 import Text.Regex.TDFA
 import qualified Data.Text as T
+import Safe (fromJustNote)
 
 main :: IO ()
 main = withSdkVersions $ do
@@ -30,6 +32,7 @@ tests damlc =
         [ test
               "Warns when template changes signatories"
               (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A signatories:\n  The upgraded template A has changed the definition of its signatories.")
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -53,6 +56,7 @@ tests damlc =
         , test
               "Warns when template changes observers"
               (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A observers:\n  The upgraded template A has changed the definition of its observers.")
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -80,6 +84,7 @@ tests damlc =
         , test
               "Warns when template changes ensure"
               (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A precondition:\n  The upgraded template A has changed the definition of its precondition.")
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -107,6 +112,7 @@ tests damlc =
         , test
               "Warns when template changes key expression"
               (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A key:\n  The upgraded template A has changed the expression for computing its key.")
+              contractKeysMinVersion
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -136,6 +142,7 @@ tests damlc =
         , test
               "Warns when template changes key maintainers"
               (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A key:\n  The upgraded template A has changed the maintainers for its key.")
+              contractKeysMinVersion
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -165,6 +172,7 @@ tests damlc =
         , test
               "Fails when template changes key type"
               (FailWithError "\ESC\\[0;91merror type checking template MyLib.A key:\n  The upgraded template A cannot change its key type.")
+              contractKeysMinVersion
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -194,6 +202,7 @@ tests damlc =
         , test
               "Fails when template removes key type"
               (FailWithError "\ESC\\[0;91merror type checking template MyLib.A key:\n  The upgraded template A cannot remove its key.")
+              contractKeysMinVersion
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -221,6 +230,7 @@ tests damlc =
         , test
               "Fails when template adds key type"
               (FailWithError "\ESC\\[0;91merror type checking template MyLib.A key:\n  The upgraded template A cannot add a key where it didn't have one previously.")
+              contractKeysMinVersion
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -248,6 +258,7 @@ tests damlc =
         , test
               "Fails when new field is added to template without Optional type"
               (FailWithError "\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A has added new fields, but those fields are not Optional.")
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -274,6 +285,7 @@ tests damlc =
         , test
               "Fails when old field is deleted from template"
               (FailWithError "\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A is missing some of its original fields.")
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -298,6 +310,7 @@ tests damlc =
         , test
               "Fails when existing field in template is changed"
               (FailWithError "\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A has changed the types of some of its original fields.")
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -323,6 +336,7 @@ tests damlc =
         , test
               "Succeeds when new field with optional type is added to template"
               Succeed
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -349,6 +363,7 @@ tests damlc =
         , test
               "Fails when new field is added to template choice without Optional type"
               (FailWithError "\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded input type of choice C on template A has added new fields, but those fields are not Optional.")
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -385,6 +400,7 @@ tests damlc =
         , test
               "Fails when old field is deleted from template choice"
               (FailWithError "\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded input type of choice C on template A is missing some of its original fields.")
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -419,6 +435,7 @@ tests damlc =
         , test
               "Fails when existing field in template choice is changed"
               (FailWithError "\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded input type of choice C on template A has changed the types of some of its original fields.")
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -454,6 +471,7 @@ tests damlc =
         , test
               "Warns when controllers of template choice are changed"
               (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A choice C:\n  The upgraded choice C has changed the definition of controllers.")
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -485,6 +503,7 @@ tests damlc =
         , test
               "Warns when observers of template choice are changed"
               (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A choice C:\n  The upgraded choice C has changed the definition of observers.")
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -518,6 +537,7 @@ tests damlc =
         , test
               "Fails when template choice changes its return type"
               (FailWithError "\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded choice C cannot change its return type.")
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -553,6 +573,7 @@ tests damlc =
         , test
               "Succeeds when template choice returns a template which has changed"
               Succeed
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -583,6 +604,7 @@ tests damlc =
         , test
               "Succeeds when template choice input argument has changed"
               Succeed
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -617,6 +639,7 @@ tests damlc =
         , test
               "Succeeds when new field with optional type is added to template choice"
               Succeed
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -653,6 +676,7 @@ tests damlc =
         , test
               "Fails when a top-level record adds a non-optional field"
               (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded data type A has added new fields, but those fields are not Optional.")
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -670,6 +694,7 @@ tests damlc =
         , test
               "Succeeds when a top-level record adds an optional field at the end"
               Succeed
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -687,6 +712,7 @@ tests damlc =
         , test
               "Fails when a top-level record adds an optional field before the end"
               (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded data type A has changed the order of its fields - any new fields must be added at the end of the record.")
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -704,6 +730,7 @@ tests damlc =
         , test
               "Succeeds when a top-level variant adds a variant"
               Succeed
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -721,6 +748,7 @@ tests damlc =
         , test
               "Fails when a top-level variant removes a variant"
               (FailWithError "\ESC\\[0;91merror type checking <none>:\n  Data type A.Z appears in package that is being upgraded, but does not appear in this package.")
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -738,6 +766,7 @@ tests damlc =
         , test
               "Fail when a top-level variant changes changes the order of its variants"
               (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the variant.")
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -755,6 +784,7 @@ tests damlc =
         , test
               "Fails when a top-level variant adds a field to a variant's type"
               (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded variant constructor Y from variant A has added a field.")
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -772,6 +802,7 @@ tests damlc =
         , test
               "Succeeds when a top-level variant adds an optional field to a variant's type"
               Succeed
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -789,6 +820,7 @@ tests damlc =
         , test
               "Succeed when a top-level enum adds a field"
               Succeed
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -806,6 +838,7 @@ tests damlc =
         , test
               "Fail when a top-level enum changes changes the order of its variants"
               (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the enum.")
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -823,6 +856,7 @@ tests damlc =
         , test
               "Succeeds when a top-level type synonym changes"
               Succeed
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -844,6 +878,7 @@ tests damlc =
         , test
               "Succeeds when two deeply nested type synonyms resolve to the same datatypes"
               Succeed
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -872,6 +907,7 @@ tests damlc =
         , test
               "Fails when two deeply nested type synonyms resolve to different datatypes"
               (FailWithError "\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A has changed the types of some of its original fields.")
+              LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -900,20 +936,26 @@ tests damlc =
               ]
         ]
   where
+    contractKeysMinVersion :: LF.Version
+    contractKeysMinVersion = 
+        fromJustNote
+            "Expected at least one LF 2.x version to support contract keys." 
+            (LF.featureMinVersion LF.featureContractKeys LF.V2)
     test ::
            String
         -> Expectation
+        -> LF.Version
         -> [(FilePath, String)]
         -> [(FilePath, String)]
         -> TestTree
-    test name expectation oldVersion newVersion =
+    test name expectation lfVersion oldVersion newVersion =
         testCase name $
         withTempDir $ \dir -> do
             let depDir = dir </> "oldVersion"
             let dar = dir </> "out.dar"
             let depDar = dir </> "oldVersion" </> "dep.dar"
-            writeFiles dir (projectFile "mylib-v2" (Just depDar) : newVersion)
-            writeFiles depDir (projectFile "mylib-v1" Nothing : oldVersion)
+            writeFiles dir (projectFile lfVersion "mylib-v2" (Just depDar) : newVersion)
+            writeFiles depDir (projectFile lfVersion "mylib-v1" Nothing : oldVersion)
             callProcessSilent damlc ["build", "--project-root", depDir, "-o", depDar]
             case expectation of
               Succeed ->
@@ -934,7 +976,7 @@ tests damlc =
             createDirectoryIfMissing True (takeDirectory $ dir </> file)
             writeFileUTF8 (dir </> file) content
 
-    projectFile name upgradedFile =
+    projectFile lfVersion name upgradedFile =
         ( "daml.yaml"
         , unlines $
           [ "sdk-version: " <> sdkVersion
@@ -946,6 +988,7 @@ tests damlc =
           , "  - daml-stdlib"
           , "typecheck-upgrades: true"
           , "build-options:"
+          , "  - --target=" <> LF.renderVersion lfVersion
           ] ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
         )
 
