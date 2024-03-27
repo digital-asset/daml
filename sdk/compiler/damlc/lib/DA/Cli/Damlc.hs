@@ -3,6 +3,7 @@
 
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE ApplicativeDo       #-}
+{-# LANGUAGE RankNTypes       #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -15,7 +16,8 @@ module DA.Cli.Damlc (main, Command (..), MultiPackageManifestEntry (..), fullPar
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception (bracket, catch, displayException, handle, throwIO, throw)
 import Control.Exception.Safe (catchIO)
-import Control.Monad.Except (forM, forM_, liftIO, unless, void, when)
+import Control.Monad (forM, forM_, unless, void, when)
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Extra (allM, mapMaybeM, whenM, whenJust)
 import Control.Monad.Trans.Cont (ContT (..), evalContT)
 import qualified Crypto.Hash as Hash
@@ -60,6 +62,7 @@ import DA.Cli.Options (Debug(..),
                        targetFileNameOpt,
                        telemetryOpt)
 import DA.Cli.Damlc.BuildInfo (buildInfo)
+import DA.Cli.Damlc.Command.MultiIde (runMultiIde)
 import qualified DA.Daml.Dar.Reader as InspectDar
 import qualified DA.Cli.Damlc.Command.Damldoc as Damldoc
 import DA.Cli.Damlc.Packaging (createProjectPackageDb, mbErr)
@@ -300,8 +303,18 @@ data CommandName =
   | Package
   | Test
   | GenerateMultiPackageManifest
+  | MultiIde
   deriving (Ord, Show, Eq)
 data Command = Command CommandName (Maybe ProjectOpts) (IO ())
+
+cmdMultiIde :: Int -> Mod CommandFields Command
+cmdMultiIde _numProcessors =
+    command "multi-ide" $ info (helper <*> cmd) $
+       progDesc
+        "Start the Daml language server on standard input/output."
+    <> fullDesc
+  where
+    cmd = pure $ Command MultiIde Nothing runMultiIde
 
 cmdIde :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdIde numProcessors =
@@ -1560,6 +1573,7 @@ options :: SdkVersion.Class.SdkVersioned => Int -> Parser Command
 options numProcessors =
     subparser
       (  cmdIde numProcessors
+      <> cmdMultiIde numProcessors
       <> cmdLicense
       -- cmdPackage can go away once we kill the old assistant.
       <> cmdPackage numProcessors
@@ -1748,6 +1762,7 @@ cmdUseDamlYamlArgs = \case
   Package -> False -- deprecated
   Test -> True
   GenerateMultiPackageManifest -> False -- Just reads config files
+  MultiIde -> False
 
 withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
 withProjectRoot' ProjectOpts{..} act =

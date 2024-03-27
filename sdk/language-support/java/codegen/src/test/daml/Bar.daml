@@ -3,11 +3,23 @@
 
 module Bar where
 
+data Result = Result
+    with
+        result : Int
+    deriving (Eq, Show)
+
 template Bar
     with
         owner : Party
     where
         signatory owner
+
+        choice AddOne : Result
+            with
+                value : Int
+            controller owner
+            do
+                return Result with result = value + 1
 
 data ParameterizedContractId a = ParameterizedContractId
     with
@@ -20,4 +32,3 @@ template Haha
         owner : Party
     where
         signatory owner
-

@@ -15,6 +15,7 @@ import qualified Data.Aeson as Aeson
 import Data.Default
 
 import qualified DA.Daml.LanguageServer.CodeLens as VirtualResource
+import qualified DA.Daml.LanguageServer.SplitGotoDefinition as SplitGotoDefinition
 import Development.IDE.Types.Logger
 
 import qualified Data.HashSet as HS
@@ -43,7 +44,7 @@ setHandlersKeepAlive :: Plugin c
 setHandlersKeepAlive = Plugin
     { pluginCommands = mempty
     , pluginRules = mempty
-    , pluginHandlers = pluginHandler (SCustomMethod "daml/keepAlive")  $ \_ _ -> pure (Right Aeson.Null)
+    , pluginHandlers = pluginHandler (SCustomMethod "daml/keepAlive") $ \_ _ -> pure (Right Aeson.Null)
     , pluginNotificationHandlers = mempty
     }
 
@@ -87,7 +88,7 @@ runLanguageServer
     -> (LSP.LanguageContextEnv c -> VFSHandle -> Maybe FilePath -> IO IdeState)
     -> IO ()
 runLanguageServer lgr plugins conf getIdeState = SessionTelemetry.withPlugin lgr $ \sessionHandlerPlugin -> do
-    let allPlugins = plugins <> setHandlersKeepAlive <> setHandlersVirtualResource <> VirtualResource.plugin <> sessionHandlerPlugin
+    let allPlugins = plugins <> setHandlersKeepAlive <> setHandlersVirtualResource <> VirtualResource.plugin <> sessionHandlerPlugin <> SplitGotoDefinition.plugin
     let onConfigurationChange c _ = Right c
     let options = def { LSP.executeCommandCommands = Just (commandIds allPlugins) }
     LS.runLanguageServer options conf onConfigurationChange allPlugins getIdeState

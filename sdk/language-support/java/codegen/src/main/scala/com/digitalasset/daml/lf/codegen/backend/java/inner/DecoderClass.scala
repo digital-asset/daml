@@ -85,7 +85,7 @@ object DecoderClass {
 
   private val decodersField = FieldSpec
     .builder(contractDecoderType, "contractDecoder")
-    .addModifiers(Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
+    .addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
     .build()
 
   def generateStaticInitializer(templateNames: Iterable[ClassName]): CodeBlock = {
