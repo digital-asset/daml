@@ -1,7 +1,8 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its
 -- affiliates. All rights reserved.
 
--- @WARN range=19:3-19:4; Defined but not used
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+-- @WARN range=20:3-20:4; Defined but not used
 
 {-# OPTIONS_GHC -Wunused-matches #-}
 {-# OPTIONS_GHC -Wunused-foralls #-}
@@ -11,7 +12,7 @@
 {-# OPTIONS_GHC -Wunused-type-patterns #-}
 -- We know this will fail and why.
 --   {-# OPTIONS_GHC -Wunused-local-binds #-}
-module UnusedMatchTests where
+module UnusedMatchTestsWithKeys where
 
 -- It should be OK to enable -Wunused-* and not get warnings from
 -- template desugared code.
@@ -28,6 +29,8 @@ template T
     signatory sig this
     observer obs this
     ensure assertion this
+    key (sig this, ident this): (Party, Text)
+    maintainer key._1
     choice Revoke: () with
       controller p
       do

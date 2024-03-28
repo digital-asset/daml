@@ -1,7 +1,7 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-
+{-# LANGUAGE CPP #-}
 
 module BasicTests where
 
@@ -70,6 +70,7 @@ template CallablePayout
       controller receiver
       do create this with receiver = newReceiver
 
+#ifdef DAML_CONTRACT_KEYS
 template WithKey
   with p: Party
        k: Int
@@ -132,6 +133,7 @@ template ExerciseByKey
       controller p
       do
         exerciseByKey @WithKey (p, 42) SumToK with n = 0
+#endif
 
 -- Tests for the dynamic computation of fetch actors
 template Fetched
@@ -345,6 +347,7 @@ template TimeGetter with
       controller p
       do pure $ product [1, 2, 3]
 
+#ifdef DAML_CONTRACT_KEYS
 template ComputeContractKeyAfterEnsureClause with
     owner: Party
   where
@@ -376,3 +379,4 @@ template NoMaintainer
       controller sig
       do
         pure ()
+#endif

@@ -1116,6 +1116,9 @@ convertTemplate env mc tplTypeCon tbinds@TemplateBinds{..}
 
 convertTemplateKey :: SdkVersioned => Env -> LF.TypeConName -> TemplateBinds -> ConvertM (Maybe TemplateKey)
 convertTemplateKey env tname TemplateBinds{..}
+    | Just fKey <- tbKey
+    , not (envLfVersion env `supports` featureContractKeys) =
+        unsupported "Contract keys." ()
     | Just keyTy <- tbKeyType
     , Just fKey <- tbKey
     , Just fMaintainer <- tbMaintainer
