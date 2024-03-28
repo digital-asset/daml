@@ -5,7 +5,6 @@ package com.digitalasset.canton.domain.block
 
 import cats.data.Nested
 import cats.syntax.parallel.*
-import com.daml.error.BaseError
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
@@ -25,7 +24,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
-import com.digitalasset.canton.error.SequencerBaseError
+import com.digitalasset.canton.error.BaseAlarm
 import com.digitalasset.canton.lifecycle.{
   AsyncCloseable,
   AsyncOrSyncCloseable,
@@ -626,7 +625,7 @@ class BlockSequencerStateManager(
   private def invalidAcknowledgement(
       member: Member,
       ackTimestamp: CantonTimestamp,
-      error: BaseError,
+      error: BaseAlarm,
   ): Unit = {
     // Use a `var` here to obtain the previous value associated with the `member`,
     // as `updateWith` returns the new value. We could implement our own version of `updateWith` instead,
@@ -652,9 +651,8 @@ class BlockSequencerStateManager(
       .getOrElse(SortedMap.empty[CantonTimestamp, Traced[Promise[Unit]]])
       .get(ackTimestamp)
       .foreach(_.withTraceContext { implicit traceContext => promise =>
-        promise.failure(SequencerBaseError.asGrpcError(error))
+        promise.failure(error.asGrpcError)
       })
-
   }
 
   private def getOrCreateDispatcher(

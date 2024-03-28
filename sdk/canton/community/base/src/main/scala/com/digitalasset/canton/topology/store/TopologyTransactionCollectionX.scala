@@ -69,23 +69,26 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
   ): StoredTopologyTransactionsX[Op, M] =
     StoredTopologyTransactionsX(result.filter(stored => pred(stored)))
 
-  def collectLatestByUniqueKey: StoredTopologyTransactionsX[Op, M] =
+  def collectLatestByUniqueKey: StoredTopologyTransactionsX[Op, M] = {
+    val toRetain = result
+      .groupBy1(_.mapping.uniqueKey)
+      .view
+      .mapValues(_.last1.hash)
+      .values
+      .toSet
+
+    // filtering like this (instead of returning the values after groupBy1 directly)
+    // retains the original order of the topology transactions
     StoredTopologyTransactionsX(
-      result
-        .groupBy1(_.mapping.uniqueKey)
-        .view
-        .mapValues(_.last1)
-        .values
-        .toSeq
+      result.filter(tx => toRetain(tx.hash))
     )
+  }
 
   def signedTransactions: SignedTopologyTransactionsX[Op, M] = SignedTopologyTransactionsX(
     result.map(_.transaction)
   )
 
-  /** The timestamp of the last topology transaction (if there is at least one)
-    * adjusted by topology change delay
-    */
+  /** The timestamp of the last topology transaction (if there is at least one) */
   def lastChangeTimestamp: Option[CantonTimestamp] = result
     .map(_.sequenced.value)
     .maxOption

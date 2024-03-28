@@ -114,7 +114,7 @@ class CommunityReferenceBlockOrdererFactory extends BlockOrdererFactory {
     val store = ReferenceBlockOrderingStore(storage, processingTimeout, lFactory)
     new ReferenceBlockOrderer(
       store,
-      config.pollInterval,
+      config,
       timeProvider,
       storage,
       closeable,

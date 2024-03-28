@@ -168,7 +168,7 @@ class BlockSequencer(
           _ <- EitherTUtil.condUnitET[Future](
             submission.maxSequencingTime > estimatedSequencingTimestamp,
             SendAsyncError.RequestInvalid(
-              s"Max sequencing time ${submission.maxSequencingTime} for submission with id ${submission.messageId} is already past the sequencer clock timestamp $estimatedSequencingTimestamp"
+              s"The sequencer clock timestamp $estimatedSequencingTimestamp is already past the max sequencing time ${submission.maxSequencingTime} for submission with id ${submission.messageId}"
             ),
           )
           // We can't easily use snapshot(topologyTimestamp), because the effective last snapshot transaction

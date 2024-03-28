@@ -28,6 +28,7 @@ object Success {
     Success(!_.isEmpty)
   implicit def tried[A]: Success[Try[A]] =
     Success(_.isSuccess)
+  implicit def boolean: Success[Boolean] = Success(identity)
 
   val always = Success(Function.const(true))
   val never = Success(Function.const(false))
