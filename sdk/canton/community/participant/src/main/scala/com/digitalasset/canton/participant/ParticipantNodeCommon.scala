@@ -464,6 +464,7 @@ trait ParticipantNodeBootstrapCommon {
         loggerFactory,
         skipRecipientsCheck,
         multiDomainLedgerAPIEnabled = ledgerApiServerFactory.multiDomainEnabled,
+        arguments.testingConfig,
       )
 
       _ = {
