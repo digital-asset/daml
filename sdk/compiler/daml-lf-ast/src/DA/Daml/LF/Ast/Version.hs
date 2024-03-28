@@ -194,6 +194,13 @@ featureContractKeys = Feature
     , featureCppFlag = Just "DAML_CONTRACT_KEYS"
     }
 
+featureExplicitDataTypes :: Feature
+featureExplicitDataTypes = Feature
+    { featureName = "Explicit data type declarations"
+    , featureVersionReq = devOnly
+    , featureCppFlag = Just "DAML_EXPLICIT_DATA_TYPES"
+    }
+
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
@@ -223,6 +230,7 @@ allFeatures =
     , featureTemplateTypeRepToText
     , featureScenarios
     , featureContractKeys
+    , featureExplicitDataTypes
     , featureUnstable
     , featureExperimental
     , featureDynamicExercise
