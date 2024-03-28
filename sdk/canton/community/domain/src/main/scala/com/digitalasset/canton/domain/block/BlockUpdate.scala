@@ -4,7 +4,6 @@
 package com.digitalasset.canton.domain.block
 
 import cats.syntax.functor.*
-import com.daml.error.BaseError
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.crypto.SyncCryptoApi
@@ -13,6 +12,7 @@ import com.digitalasset.canton.domain.block.BlockUpdateGenerator.EventsForSubmis
 import com.digitalasset.canton.domain.block.data.{BlockInfo, BlockUpdateEphemeralState}
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregationUpdates
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer.LocalEvent
+import com.digitalasset.canton.error.BaseAlarm
 import com.digitalasset.canton.sequencing.protocol.SequencedEventTrafficState
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
@@ -60,7 +60,7 @@ final case class CompleteBlockUpdate(block: BlockInfo) extends OrderedBlockUpdat
 final case class ChunkUpdate[+E <: ChunkEvents](
     newMembers: Map[Member, CantonTimestamp] = Map.empty,
     acknowledgements: Map[Member, CantonTimestamp] = Map.empty,
-    invalidAcknowledgements: Seq[(Member, CantonTimestamp, BaseError)] = Seq.empty,
+    invalidAcknowledgements: Seq[(Member, CantonTimestamp, BaseAlarm)] = Seq.empty,
     events: Seq[E] = Seq.empty,
     inFlightAggregationUpdates: InFlightAggregationUpdates = Map.empty,
     lastSequencerEventTimestamp: Option[CantonTimestamp],

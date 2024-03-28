@@ -327,8 +327,8 @@ abstract class SequencerApiTest
             }
             inside(inThePast) {
               case RequestInvalid(message)
-                  if message.contains("is already past the sequencer clock timestamp") && message
-                    .contains("Max sequencing time") =>
+                  if message.contains("is already past the max sequencing time") && message
+                    .contains("The sequencer clock timestamp") =>
                 succeed
             }
           }

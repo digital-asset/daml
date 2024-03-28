@@ -9,6 +9,7 @@ import org.slf4j.event.Level
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 object LoggerUtil {
@@ -57,6 +58,23 @@ object LoggerUtil {
     val ret = if (logNonFatalThrowable) logOnThrow(run) else run
     val end = roundDurationForHumans(Duration(System.nanoTime() - st, TimeUnit.NANOSECONDS))
     logger.debug(s"Finished $message after $end")
+    ret
+  }
+
+  /** Log the time taken by a task `run` and optionally non-fatal throwable */
+  def clueF[T](message: => String, logNonFatalThrowable: Boolean = false)(
+      run: => Future[T]
+  )(implicit loggingContext: ErrorLoggingContext, ec: ExecutionContext): Future[T] = {
+    val logger = loggingContext.logger
+    implicit val traceContext: TraceContext = loggingContext.traceContext
+    logger.debug(s"Starting $message")
+    val st = System.nanoTime()
+    val ret = if (logNonFatalThrowable) logOnThrow(run) else run
+    ret.onComplete { _ =>
+      val end = roundDurationForHumans(Duration(System.nanoTime() - st, TimeUnit.NANOSECONDS))
+      logger.debug(s"Finished $message after $end")
+
+    }
     ret
   }
 

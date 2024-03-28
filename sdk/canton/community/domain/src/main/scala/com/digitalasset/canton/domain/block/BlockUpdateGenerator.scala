@@ -12,7 +12,6 @@ import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.daml.error.BaseError
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.CantonRequireTypes.String73
@@ -208,7 +207,7 @@ class BlockUpdateGeneratorImpl(
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[(State, ChunkUpdate[UnsignedChunkEvents])] = {
-    val (lastTs, revFixedTsChanges) =
+    val (lastTsBeforeValidation, revFixedTsChanges) =
       // With this logic, we assign to the initial non-Send events the same timestamp as for the last
       // block. This means that we will include these events in the ephemeral state of the previous block
       // when we re-read it from the database. But this doesn't matter given that all those events are idempotent.
@@ -260,7 +259,7 @@ class BlockUpdateGeneratorImpl(
             snapshot <- SyncCryptoClient
               .getSnapshotForTimestampUS(
                 client = domainSyncCryptoApi,
-                desiredTimestamp = lastTs,
+                desiredTimestamp = lastTsBeforeValidation,
                 previousTimestampO = state.latestSequencerEventTimestamp,
                 protocolVersion = protocolVersion,
                 warnIfApproximate = warnIfApproximate,
@@ -331,7 +330,7 @@ class BlockUpdateGeneratorImpl(
         lastSequencerEventTimestamp,
       ) = result
       val finalEphemeralStateWithAggregationExpiry =
-        finalEphemeralState.evictExpiredInFlightAggregations(lastTs)
+        finalEphemeralState.evictExpiredInFlightAggregations(lastTsBeforeValidation)
       val chunkUpdate = ChunkUpdate(
         newMembers,
         acksByMember,
@@ -341,9 +340,20 @@ class BlockUpdateGeneratorImpl(
         lastSequencerEventTimestamp,
         finalEphemeralStateWithAggregationExpiry,
       )
+
+      // we don't want to take into consideration events that have possibly been discarded, otherwise we could
+      // assign a last ts value to the block based on an event that wasn't included in the block which would cause
+      // validations to fail down the line. That's why we need to compute it using only validated events, instead of
+      // using the lastTs computed initially pre-validation.
+      val lastChunkTsOfSuccessfulEvents = reversedSignedEvents
+        .map(_.sequencingTimestamp)
+        .maxOption
+        .orElse(newMembers.values.maxOption)
+        .getOrElse(state.lastChunkTs)
+
       val newState = State(
         state.lastBlockTs,
-        lastTs,
+        lastChunkTsOfSuccessfulEvents,
         lastSequencerEventTimestamp.orElse(state.latestSequencerEventTimestamp),
         finalEphemeralStateWithAggregationExpiry,
       )
@@ -457,7 +467,7 @@ class BlockUpdateGeneratorImpl(
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[
-    (Map[Member, CantonTimestamp], Seq[(Member, CantonTimestamp, BaseError)])
+    (Map[Member, CantonTimestamp], Seq[(Member, CantonTimestamp, BaseAlarm)])
   ] = {
     for {
       snapshot <- SyncCryptoClient.getSnapshotForTimestampUS(
@@ -481,7 +491,7 @@ class BlockUpdateGeneratorImpl(
         val timestamp = ack.timestamp
         val error =
           SequencerError.InvalidAcknowledgementTimestamp.Error(member, timestamp, state.lastBlockTs)
-        (member, timestamp, error: BaseError)
+        (member, timestamp, error)
       })
       sigChecks <- FutureUnlessShutdown.outcomeF(Future.sequence(goodTsAcks.map(_.withTraceContext {
         implicit traceContext => signedAck =>
@@ -492,12 +502,12 @@ class BlockUpdateGeneratorImpl(
               ack.member,
               HashPurpose.AcknowledgementSignature,
             )
-            .leftMap(e =>
+            .leftMap(error =>
               (
                 ack.member,
                 ack.timestamp,
                 SequencerError.InvalidAcknowledgementSignature
-                  .Error(signedAck, state.lastBlockTs, e): BaseError,
+                  .Error(signedAck, state.lastBlockTs, error): BaseAlarm,
               )
             )
             .map(_ => (ack.member, ack.timestamp))
