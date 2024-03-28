@@ -194,6 +194,14 @@ data Telemetry
                -- disabled. You’ll never get this in the IDE but it is
                -- used when invoking the compiler from a terminal.
 
+newtype GenerateMultiPackageManifestOutput = GenerateMultiPackageManifestOutput {getGenerateMultiPackageManifestOutput :: Maybe FilePath}
+generateMultiPackageManifestOutputOpt :: Parser GenerateMultiPackageManifestOutput
+generateMultiPackageManifestOutputOpt = fmap GenerateMultiPackageManifestOutput $ optional $ optionOnce str
+    (  metavar "FILE"
+    <> help "File to write the manifest to (JSON)"
+    <> long "output"
+    )
+
 telemetryOpt :: Parser Telemetry
 telemetryOpt = fromMaybe TelemetryDisabled <$> optional (optIn <|> optOut <|> optIgnored)
   where
