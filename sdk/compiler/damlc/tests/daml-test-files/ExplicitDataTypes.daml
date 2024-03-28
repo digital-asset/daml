@@ -1,0 +1,20 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SUPPORTS-LF-FEATURE DAML_EXPLICIT_DATA_TYPES
+
+module Fib where
+
+data record R1 = R1 with
+  r1a : Bool
+  r1b : Int
+
+data enum E1
+  = E1A
+  | E1B
+  | E1C
+
+data variant V1
+  = V1A ()
+  | V1B Bool
+  | V1C R1
