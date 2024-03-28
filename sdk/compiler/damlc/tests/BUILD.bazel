@@ -485,7 +485,9 @@ da_haskell_test(
         "//release:sdk-release-tarball",
     ],
     hackage_deps = [
+        "aeson",
         "base",
+        "bytestring",
         "containers",
         "directory",
         "extra",
@@ -501,6 +503,7 @@ da_haskell_test(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        "//compiler/damlc:damlc-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
         "//sdk-version/hs:sdk-version-lib",
