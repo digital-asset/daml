@@ -215,16 +215,25 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       (interfaceView <~ `;`) ~
       rep(interfaceRequires <~ `;`) ~
       rep(interfaceMethod <~ `;`) ~
-      rep(templateChoice <~ `;`) <~
+      rep(templateChoice <~ `;`) ~
+      rep(coImplements <~ `;`) <~
       `}` ^^ {
         case x ~ _ ~ tycon ~ _ ~ _ ~ _ ~
             view ~
             requires ~
             methods ~
-            choices =>
+            choices ~
+            coImplements =>
           IfaceDef(
             tycon,
-            DefInterface.build(Set.from(requires), x, choices, methods, view),
+            DefInterface.build(
+              requires = Set.from(requires),
+              param = x,
+              choices = choices,
+              methods = methods,
+              view = view,
+              coImplements = coImplements,
+            ),
           )
       }
   private val interfaceView: Parser[Type] =
@@ -236,6 +245,14 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   private val interfaceMethod: Parser[InterfaceMethod] =
     Id("method") ~>! id ~ `:` ~ typ ^^ { case name ~ _ ~ typ =>
       InterfaceMethod(name, typ)
+    }
+
+  private lazy val coImplements: Parser[InterfaceCoImplements] =
+    Id("coimplements") ~>! fullIdentifier ~ interfaceInstanceBody ^^ { case tplId ~ body =>
+      InterfaceCoImplements.build(
+        tplId,
+        body,
+      )
     }
 
   private val serializableTag = Ref.Name.assertFromString("serializable")

@@ -13,7 +13,7 @@ load(
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_repl")
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "LF_MAJOR_VERSIONS",
+    "SUPPORTED_LF_MAJOR_VERSIONS",
     "lf_version_default_or_latest",
 )
 
@@ -163,7 +163,7 @@ scala_repl(
             "@maven//:com_google_protobuf_protobuf_java",
         ],
     )
-    for major in LF_MAJOR_VERSIONS
+    for major in SUPPORTED_LF_MAJOR_VERSIONS
 ]
 
 da_scala_benchmark_jmh(
