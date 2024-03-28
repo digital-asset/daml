@@ -50,14 +50,11 @@ private class PackageService(
       packageStore: PackageStore,
   ) {
 
-    val packageNameMap: PackageNameMap = packageStore.view.mapValues(ps =>
-      KeyPackageName(
-        ps.metadata.map(m => Ref.PackageName.assertFromString(m.name)),
-        ps.languageVersion,
-      )
-    )
+    val packageNameMap: PackageNameMap = PackageService.packageNameMap(packageStore)
 
-    def append(diff: PackageStore): State = {
+    def append(diff: PackageStore)(implicit
+        lc: LoggingContextOf[InstanceUUID]
+    ): State = {
       val newPackageStore: PackageStore = appendAndResolveRetroactiveInterfaces(
         resolveChoicesIn(diff)
       )
@@ -103,7 +100,9 @@ private class PackageService(
         Map.empty,
       )
 
-    private def updateState(diff: PackageStore): Unit = synchronized {
+    private def updateState(diff: PackageStore)(implicit
+        lc: LoggingContextOf[InstanceUUID]
+    ): Unit = synchronized {
       this._state = this._state.append(diff)
     }
 
@@ -194,38 +193,42 @@ private class PackageService(
     ): Future[Error \/ Option[(R, KeyPackageName)]] = {
       type ResultType = Option[(R, KeyPackageName)]
       def withKeyPackageName[T[_]](
-          r: ResolvedOf[T]
-      ): Option[(ResolvedOf[T], KeyPackageName)] =
-        latestMaps()._3.get(r.packageId).map(l => (r, l))
+          pkgNames: PackageNameMap
+      )(r: ResolvedOf[T]): Option[(ResolvedOf[T], KeyPackageName)] =
+        pkgNames.get(r.packageId).map(name => (r, name))
       // we use a different resolution strategy depending on the static type
       // determined by 'overload', as well as the class of 'x'.  We figure the
       // strategy exactly once so the reload is cheaper
-      val doSearch: () => ResultType = overload match {
-        case O.Template => () => (latestMaps()._1 resolve x).flatMap(withKeyPackageName)
-        case O.Top =>
-          (x: C.OptionalPkg) match {
-            // only search the template or interface map, if that is the origin
-            // class, since searching the other map would convert template IDs
-            // to interface IDs and vice versa
-            case x: C.Template.OptionalPkg =>
-              () => (latestMaps()._1 resolve x).flatMap(r => withKeyPackageName(r))
-            case x: C.Interface.OptionalPkg =>
-              () => (latestMaps()._2 resolve x).flatMap(r => withKeyPackageName(r))
-            case x: C.Unknown.OptionalPkg => { () =>
-              val (tids, iids, _) = latestMaps()
-              (tids resolve x, iids resolve x) match {
-                case (tid @ Some(_), None) => tid.flatMap(r => withKeyPackageName(r))
-                case (None, iid @ Some(_)) => iid.flatMap(r => withKeyPackageName(r))
-                // presence in both means the ID is ambiguous
-                case (None, None) | (Some(_), Some(_)) => None
+      val doSearch: ((TemplateIdMap, InterfaceIdMap, PackageNameMap)) => ResultType =
+        overload match {
+          case O.Template => { case (tids, _, pkgNames) =>
+            (tids resolve x).flatMap(withKeyPackageName(pkgNames))
+          }
+          case O.Top =>
+            (x: C.OptionalPkg) match {
+              // only search the template or interface map, if that is the origin
+              // class, since searching the other map would convert template IDs
+              // to interface IDs and vice versa
+              case x: C.Template.OptionalPkg => { case (tids, _, pkgNames) =>
+                (tids resolve x).flatMap(withKeyPackageName(pkgNames))
+              }
+              case x: C.Interface.OptionalPkg => { case (_, iids, pkgNames) =>
+                (iids resolve x).flatMap(withKeyPackageName(pkgNames))
+              }
+              case x: C.Unknown.OptionalPkg => { case (tids, iids, pkgNames) =>
+                (tids resolve x, iids resolve x) match {
+                  case (tid @ Some(_), None) => tid.flatMap(withKeyPackageName(pkgNames))
+                  case (None, iid @ Some(_)) => iid.flatMap(withKeyPackageName(pkgNames))
+                  // presence in both means the ID is ambiguous
+                  case (None, None) | (Some(_), Some(_)) => None
+                }
               }
             }
-          }
-      }
-      def doReloadAndSearchAgain() = EitherT(reload(jwt, ledgerId)).map(_ => doSearch())
+        }
+      def doReloadAndSearchAgain() = EitherT(reload(jwt, ledgerId)).map(_ => doSearch(latestMaps()))
       def keep(it: ResultType) = EitherT.pure(it): ET[ResultType]
       for {
-        result <- EitherT.pure(doSearch()): ET[ResultType]
+        result <- EitherT.pure(doSearch(latestMaps())): ET[ResultType]
         _ = logger.trace(s"Result: $result")
         finalResult <- (x: C.OptionalPkg).packageId.fold {
           if (result.isDefined)
@@ -302,6 +305,8 @@ private class PackageService(
 }
 
 object PackageService {
+  private[this] val logger = ContextualizedLogger.get(getClass)
+
   sealed trait Error
   final case class InputError(message: String) extends Error
   final case class ServerError(message: String) extends Error
@@ -370,11 +375,17 @@ object PackageService {
   final case class ContractTypeIdMap[CtId[T] <: ContractTypeId[T]](
       all: Map[RequiredPkg[CtId], ResolvedOf[CtId]],
       unique: Map[NoPkg[CtId], ResolvedOf[CtId]],
+      nameIds: Map[Ref.PackageName, String], // TODO(ETX-451): Multiple package ids per package name
   ) {
+    private def packageRefToPackageId(pkgRef: String): Option[String] = pkgRef match {
+      case s"#${name}" => nameIds.get(asPackageName(name))
+      case pkgId => Some(pkgId)
+    }
+
     private[http] def resolve(
         a: ContractTypeId[Option[String]]
     )(implicit makeKey: ContractTypeId.Like[CtId]): Option[ResolvedOf[CtId]] =
-      a.packageId match {
+      a.packageId.flatMap(packageRefToPackageId) match {
         case Some(p) => all get makeKey(p, a.moduleName, a.entityName)
         case None => unique get makeKey((), a.moduleName, a.entityName)
       }
@@ -385,7 +396,7 @@ object PackageService {
 
   object TemplateIdMap {
     def Empty[CtId[T] <: ContractTypeId[T]]: ContractTypeIdMap[CtId] =
-      ContractTypeIdMap(Map.empty, Map.empty)
+      ContractTypeIdMap(Map.empty, Map.empty, Map.empty)
   }
 
   private type ChoiceTypeMap = Map[ContractTypeId.Resolved, NonEmpty[
@@ -397,23 +408,56 @@ object PackageService {
   type ResolvePackageName = String => KeyPackageName
   type PackageNameMap = MapView[String, KeyPackageName]
 
+  private def asPackageName(name: String): Ref.PackageName = Ref.PackageName.assertFromString(name)
+
+  private def packageNameMap(packageStore: PackageStore): PackageNameMap =
+    packageStore.view.mapValues(ps =>
+      KeyPackageName(
+        ps.metadata.map(m => asPackageName(m.name)),
+        ps.languageVersion,
+      )
+    )
+
   private def getTemplateIdInterfaceMaps(
       packageStore: PackageStore
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID]
   ): (TemplateIdMap, InterfaceIdMap) = {
     import TemplateIds.{getTemplateIds, getInterfaceIds}
     val packageSigs = packageStore.values.toSet
+    val idName = packageNameMap(packageStore)
     (
-      buildTemplateIdMap(getTemplateIds(packageSigs) map ContractTypeId.Template.fromLedgerApi),
-      buildTemplateIdMap(getInterfaceIds(packageSigs) map ContractTypeId.Interface.fromLedgerApi),
+      buildTemplateIdMap(
+        idName,
+        getTemplateIds(packageSigs) map ContractTypeId.Template.fromLedgerApi,
+      ),
+      buildTemplateIdMap(
+        idName,
+        getInterfaceIds(packageSigs) map ContractTypeId.Interface.fromLedgerApi,
+      ),
     )
   }
 
   def buildTemplateIdMap[CtId[T] <: ContractTypeId.Definite[T] with ContractTypeId.Ops[CtId, T]](
-      ids: Set[RequiredPkg[CtId]]
+      idName: PackageNameMap,
+      ids: Set[RequiredPkg[CtId]],
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID]
   ): ContractTypeIdMap[CtId] = {
     val all = ids.view.map(k => (k, k)).toMap
     val unique = filterUniqueTemplateIs(ids)
-    ContractTypeIdMap(all, unique)
+    val nameIds = ids
+      .flatMap(id => idName.get(id.packageId).flatMap(_.toOption).map(n => (n, id.packageId)))
+      .groupBy(_._1)
+      .flatMap {
+        case (_, p) if (p.size == 1) => Some(p.head)
+        case (n, p) => {
+          logger.info(s"Ignoring package name '$n' as we have ${p.size} package ids for it")
+          None
+        }
+      }
+      .toMap
+    ContractTypeIdMap(all, unique, nameIds)
   }
 
   private type RequiredPkg[CtId[_]] = CtId[String]
