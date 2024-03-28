@@ -77,6 +77,7 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest {
         new SymbolicPureCrypto(),
         new PackageOpsForTesting(participantId, loggerFactory),
         ParticipantTestMetrics,
+        true,
         processingTimeouts,
         loggerFactory,
       )

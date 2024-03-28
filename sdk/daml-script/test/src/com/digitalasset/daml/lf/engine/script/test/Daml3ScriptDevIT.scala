@@ -19,7 +19,6 @@ import org.scalatest.wordspec.AsyncWordSpec
 class Daml3ScriptDevIT extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
   final override protected lazy val devMode = true
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
-  final override protected val cantonFixtureDebugMode = true
 
   override val majorLanguageVersion: LanguageMajorVersion = V1
 

@@ -1,6 +1,8 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE TypeFamilies #-}
+
 -- | This module provides a function to check that a Daml-LF module does not
 -- contain recursive data type definitions.
 module DA.Daml.LF.TypeChecker.Recursion

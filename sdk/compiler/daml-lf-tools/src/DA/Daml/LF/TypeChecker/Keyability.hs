@@ -1,6 +1,8 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE TypeFamilies #-}
+
 -- | This module performs a partial check ensuring that the types used as
 -- template keys do not contain 'ContractId's. The check is partial in that
 -- it will only check the key type expression and any types mentioned in it

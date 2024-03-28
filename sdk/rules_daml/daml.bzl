@@ -28,6 +28,7 @@ def _daml_configure_impl(ctx):
     data_dependencies = ctx.attr.data_dependencies
     module_prefixes = ctx.attr.module_prefixes
     upgrades = ctx.attr.upgrades
+    typecheck_upgrades = ctx.attr.typecheck_upgrades
     daml_yaml = ctx.outputs.daml_yaml
     target = ctx.attr.target
     opts = ["--target={}".format(target)] if target else []
@@ -44,6 +45,7 @@ module-prefixes:
 {module_prefixes}
 build-options: [{opts}]
 {upgrades}
+{typecheck_upgrades}
 """.format(
             sdk = sdk_version,
             name = project_name,
@@ -53,6 +55,7 @@ build-options: [{opts}]
             data_dependencies = ", ".join(data_dependencies),
             module_prefixes = "\n".join(["  {}: {}".format(k, v) for k, v in module_prefixes.items()]),
             upgrades = "upgrades: " + upgrades if upgrades else "",
+            typecheck_upgrades = "typecheck-upgrades: true" if typecheck_upgrades else "",
         ),
     )
 
@@ -85,6 +88,9 @@ _daml_configure = rule(
         ),
         "upgrades": attr.string(
             doc = "Upgraded package path.",
+        ),
+        "typecheck_upgrades": attr.bool(
+            doc = "Whether or not to typecheck against the upgraded package.",
         ),
     },
 )
@@ -142,6 +148,7 @@ def _daml_build_impl(ctx):
                 )
                 for k, v in dar_dict.items()
             ]),
+            dars = dar_dict,
             sed = posix.commands["sed"],
             damlc = damlc.path,
             output_dar = output_dar.path,
@@ -314,6 +321,7 @@ def daml_compile(
         data_dependencies = [],
         module_prefixes = None,
         upgrades = None,
+        typecheck_upgrades = False,
         **kwargs):
     "Build a Daml project, with a generated daml.yaml."
     if len(srcs) == 0:
@@ -324,6 +332,7 @@ def daml_compile(
         data_dependencies = [path_to_dar(data) for data in data_dependencies],
         module_prefixes = module_prefixes,
         upgrades = path_to_dar(upgrades) if upgrades else "",
+        typecheck_upgrades = typecheck_upgrades,
         name = name + ".configure",
         project_name = project_name or name,
         project_version = version,

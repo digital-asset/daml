@@ -57,7 +57,7 @@ object UpdatePackageMetadataView {
         Source(packageStorageBackend.lfPackages(connection).map { case (pkgId, _) => pkgId })
       )
 
-    def toMetadataDefinition(packageBytes: Array[Byte]): PackageMetadata = {
+    def toMetadataDefinition(packageBytes: Array[Byte]): Option[PackageMetadata] = {
       val archive = ArchiveParser.assertFromByteArray(packageBytes)
       Timed.value(
         metrics.daml.index.packageMetadata.decodeArchive,
@@ -67,7 +67,7 @@ object UpdatePackageMetadataView {
 
     def processPackage(
         archive: (PackageId, Array[Byte])
-    ): Future[PackageMetadata] = {
+    ): Future[Option[PackageMetadata]] = {
       val (packageId, archiveBytes) = archive
       Future(toMetadataDefinition(archiveBytes)).recoverWith { case NonFatal(e) =>
         logger.error(
@@ -84,7 +84,7 @@ object UpdatePackageMetadataView {
       .futureSource(lfPackagesSource())
       .mapAsyncUnordered(config.initLoadParallelism)(loadLfArchive)
       .mapAsyncUnordered(config.initProcessParallelism)(processPackage)
-      .runWith(Sink.foreach(packageMetadataView.update))
+      .runWith(Sink.foreach(_.foreach(packageMetadataView.update)))
       .checkIfComplete(config.initTakesTooLongInitialDelay, config.initTakesTooLongInterval) {
         logger.warn(
           s"Package Metadata View initialization takes to long (${elapsedDurationNanos() / 1000000L} ms)"

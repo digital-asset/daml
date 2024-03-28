@@ -3,10 +3,10 @@
 
 package com.daml.ledger.javaapi.data.codegen;
 
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfEncoder;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import com.daml.ledger.javaapi.data.codegen.json.JsonLfEncoder;
 
 /**
  * A superclass for all codegen-generated Contracts whose templates have a {@code key} defined.

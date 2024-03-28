@@ -8,22 +8,18 @@ import cats.syntax.semigroup.*
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{PackageId, PackageName}
-import com.daml.lf.language.LanguageVersion
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   InterfacesImplementedBy,
   PackageResolution,
 }
 
-import scala.math.Ordered.orderingToOrdered
-
 final case class PackageMetadata(
     interfaces: Set[Ref.Identifier] = Set.empty,
     templates: Set[Ref.Identifier] = Set.empty,
     interfacesImplementedBy: InterfacesImplementedBy = Map.empty,
-    packageNameMap: Map[PackageName, PackageResolution] = Map.empty,
-    packageIdVersionMap: Map[PackageId, (PackageName, Ref.PackageVersion)] = Map.empty,
+    packageNameMap: Map[Ref.PackageName, PackageResolution] = Map.empty,
+    packageIdVersionMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
 )
 
 object PackageMetadata {
@@ -39,36 +35,27 @@ object PackageMetadata {
       allPackageIdsForName: NonEmpty[Set[Ref.PackageId]],
   )
 
-  def from(archive: DamlLf.Archive): PackageMetadata = {
+  def from(archive: DamlLf.Archive): Option[PackageMetadata] = {
     val ((packageId, pkg), packageInfo) = Decode.assertDecodeInfoPackage(archive)
+    for {
+      packageName <- pkg.metadata.map(_.name)
+      packageVersion <- pkg.metadata.map(_.version)
+    } yield {
+      val packageNameMap = Map(
+        packageName -> PackageResolution(
+          preference = LocalPackagePreference(packageVersion, packageId),
+          allPackageIdsForName = NonEmpty(Set, packageId),
+        )
+      )
 
-    val nonUpgradablePackageMetadata = PackageMetadata(
-      interfaces = packageInfo.definedInterfaces,
-      templates = packageInfo.definedTemplates,
-      interfacesImplementedBy = packageInfo.interfaceInstances,
-      packageNameMap = Map.empty,
-      packageIdVersionMap = Map.empty,
-    )
-
-    pkg.metadata
-      .collect {
-        case decodedPackageMeta
-            if pkg.languageVersion >= LanguageVersion.Features.packageUpgrades =>
-          val packageName = decodedPackageMeta.name
-          val packageVersion = decodedPackageMeta.version
-
-          // Update with upgradable package metadata
-          nonUpgradablePackageMetadata.copy(
-            packageNameMap = Map(
-              packageName -> PackageResolution(
-                preference = LocalPackagePreference(packageVersion, packageId),
-                allPackageIdsForName = NonEmpty(Set, packageId),
-              )
-            ),
-            packageIdVersionMap = Map(packageId -> (packageName, packageVersion)),
-          )
-      }
-      .getOrElse(nonUpgradablePackageMetadata)
+      PackageMetadata(
+        packageNameMap = packageNameMap,
+        interfaces = packageInfo.definedInterfaces,
+        templates = packageInfo.definedTemplates,
+        interfacesImplementedBy = packageInfo.interfaceInstances,
+        packageIdVersionMap = Map(packageId -> (packageName, packageVersion)),
+      )
+    }
   }
 
   object Implicits {
@@ -79,10 +66,10 @@ object PackageMetadata {
     implicit def packageMetadataSemigroup: Semigroup[PackageMetadata] =
       Semigroup.instance { case (x, y) =>
         PackageMetadata(
+          packageNameMap = x.packageNameMap |+| y.packageNameMap,
           interfaces = x.interfaces |+| y.interfaces,
           templates = x.templates |+| y.templates,
           interfacesImplementedBy = x.interfacesImplementedBy |+| y.interfacesImplementedBy,
-          packageNameMap = x.packageNameMap |+| y.packageNameMap,
           packageIdVersionMap = y.packageIdVersionMap
             .foldLeft(x.packageIdVersionMap) { case (acc, (k, v)) =>
               acc.updatedWith(k) {

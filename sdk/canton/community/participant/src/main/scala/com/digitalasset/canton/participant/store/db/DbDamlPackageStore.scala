@@ -240,53 +240,64 @@ class DbDamlPackageStore(
     )
   }
 
-  override def anyPackagePreventsDarRemoval(packages: Seq[PackageId], removeDar: DarDescriptor)(
-      implicit tc: TraceContext
-  ): OptionT[Future, PackageId] = {
-
+  private def packagesNotInAnyOtherDarsQuery(
+      nonEmptyPackages: NonEmpty[Seq[PackageId]],
+      darHash: Hash,
+      limit: Option[Int],
+  )(implicit traceContext: TraceContext) = {
     import DbStorage.Implicits.BuilderChain.*
     import com.digitalasset.canton.resource.DbStorage.Implicits.getResultPackageId
 
-    val darHex = removeDar.hash.toLengthLimitedHexString
+    val limitClause = limit.map(l => sql"#${storage.limit(l)}").getOrElse(sql"")
 
-    def packagesWithoutDar(
-        nonEmptyPackages: NonEmpty[Seq[PackageId]]
-    ) = {
-      val queryActions = DbStorage
-        .toInClauses_(
-          field = "package_id",
-          values = nonEmptyPackages,
-          maxContractIdSqlInListSize,
-        )
-        .map { inStatement =>
-          (sql"""
+    val queryActions = DbStorage
+      .toInClauses_(
+        field = "package_id",
+        values = nonEmptyPackages,
+        maxContractIdSqlInListSize,
+      )
+      .map { inStatement =>
+        (sql"""
                   select package_id
-                  from dar_packages result
+                  from dar_packages remove_candidates
                   where
-                  """ ++ inStatement ++ sql"""
+                  """ ++ inStatement ++
+          sql"""
                   and not exists (
                     select package_id
-                    from dar_packages counterexample
+                    from dar_packages other_dars
                     where
-                      result.package_id = counterexample.package_id
-                      and dar_hash_hex != $darHex
-                  )
-                  #${storage.limit(1)}
-                  """).as[LfPackageId]
-        }
-
-      val resultF = for {
-        packages <- storage.sequentialQueryAndCombine(queryActions, functionFullName)
-      } yield {
-        packages.headOption
+                      remove_candidates.package_id = other_dars.package_id
+                      and dar_hash_hex != ${darHash.toLengthLimitedHexString}
+                  )""" ++ limitClause).as[LfPackageId]
       }
 
-      OptionT(resultF)
-    }
+    storage.sequentialQueryAndCombine(queryActions, functionFullName).map(_.toSeq)
+  }
 
+  override def anyPackagePreventsDarRemoval(packages: Seq[PackageId], removeDar: DarDescriptor)(
+      implicit tc: TraceContext
+  ): OptionT[Future, PackageId] = {
     NonEmpty
       .from(packages)
-      .fold(OptionT.none[Future, PackageId])(packagesWithoutDar)
+      .fold(OptionT.none[Future, PackageId])(pkgs =>
+        OptionT(
+          packagesNotInAnyOtherDarsQuery(pkgs, removeDar.hash, limit = Some(1)).map(_.headOption)
+        )
+      )
+  }
+
+  override def determinePackagesExclusivelyInDar(
+      packages: Seq[PackageId],
+      dar: DarDescriptor,
+  )(implicit
+      tc: TraceContext
+  ): Future[Seq[PackageId]] = {
+    NonEmpty
+      .from(packages)
+      .fold(Future.successful(Seq.empty[PackageId]))(
+        packagesNotInAnyOtherDarsQuery(_, dar.hash, limit = None)
+      )
   }
 
   override def getDar(

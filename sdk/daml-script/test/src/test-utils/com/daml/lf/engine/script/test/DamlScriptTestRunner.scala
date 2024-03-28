@@ -61,11 +61,14 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
         "DA.Exception.$1:$2@XXXXXXXX",
       )
 
-    if (cantonFixtureDebugMode) {
-      discard(
-        Files.writeString(cantonTmpDir.resolve(getClass.getSimpleName + ".expected"), expected)
-      )
-      discard(Files.writeString(cantonTmpDir.resolve(getClass.getSimpleName + ".actual"), actual))
+    cantonFixtureDebugMode match {
+      case CantonFixtureDebugKeepTmpFiles | CantonFixtureDebugRemoveTmpFiles => {
+        discard(
+          Files.writeString(cantonTmpDir.resolve(getClass.getSimpleName + ".expected"), expected)
+        )
+        discard(Files.writeString(cantonTmpDir.resolve(getClass.getSimpleName + ".actual"), actual))
+      }
+      case _ => {}
     }
 
     actual shouldBe expected

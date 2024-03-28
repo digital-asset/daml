@@ -32,7 +32,7 @@ class CatAndFoodTriggerSimulation(override val majorLanguageVersion: LanguageMaj
   override protected implicit lazy val simulationConfig: TriggerSimulationConfig =
     TriggerSimulationConfig(simulationDuration = 30.seconds)
   // For demonstration purposes, we enable saving Canton logging
-  override protected val cantonFixtureDebugMode: Boolean = true
+  override protected val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles
 
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
     implicit def applicationId: Option[Ref.ApplicationId] = this.applicationId
