@@ -21,8 +21,8 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String256M
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiProvider}
 import com.digitalasset.canton.data.{
   CantonTimestamp,
@@ -164,6 +164,7 @@ class CantonSyncService(
     protected val loggerFactory: NamedLoggerFactory,
     skipRecipientsCheck: Boolean,
     multiDomainLedgerAPIEnabled: Boolean,
+    testingConfig: TestingConfigInternal,
 )(implicit ec: ExecutionContext, mat: Materializer, val tracer: Tracer)
     extends state.v2.WriteService
     with WriteParticipantPruningService
@@ -1225,6 +1226,7 @@ class CantonSyncService(
           futureSupervisor,
           domainLoggerFactory,
           skipRecipientsCheck = skipRecipientsCheck,
+          testingConfig,
         )
 
         // update list of connected domains
@@ -1663,6 +1665,7 @@ object CantonSyncService {
         loggerFactory: NamedLoggerFactory,
         skipRecipientsCheck: Boolean,
         multiDomainLedgerAPIEnabled: Boolean,
+        testingConfig: TestingConfigInternal,
     )(implicit ec: ExecutionContext, mat: Materializer, tracer: Tracer): T
   }
 
@@ -1694,6 +1697,7 @@ object CantonSyncService {
         loggerFactory: NamedLoggerFactory,
         skipRecipientsCheck: Boolean,
         multiDomainLedgerAPIEnabled: Boolean,
+        testingConfig: TestingConfigInternal,
     )(implicit
         ec: ExecutionContext,
         mat: Materializer,
@@ -1728,6 +1732,7 @@ object CantonSyncService {
         loggerFactory,
         skipRecipientsCheck = skipRecipientsCheck,
         multiDomainLedgerAPIEnabled: Boolean,
+        testingConfig,
       )
   }
 }
