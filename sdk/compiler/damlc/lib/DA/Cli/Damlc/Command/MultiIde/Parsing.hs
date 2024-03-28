@@ -10,7 +10,7 @@
 {-# LANGUAGE GADTs #-}
 
 module DA.Cli.Damlc.Command.MultiIde.Parsing (
-  getChunks,
+  onChunks,
   parseClientMessageWithTracker,
   parseServerMessageWithTracker,
   putChunk,
@@ -27,7 +27,6 @@ import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
 import qualified Data.Attoparsec.ByteString.Lazy as Attoparsec
 import qualified Data.ByteString as B
-import Data.ByteString.Builder.Extra (defaultChunkSize)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Foldable (forM_)
@@ -38,19 +37,6 @@ import Data.List (delete)
 import Data.Maybe (fromMaybe)
 import qualified Language.LSP.Types as LSP
 import System.IO.Extra
-import System.IO.Unsafe (unsafeInterleaveIO)
-
-
-{-# ANN allBytes ("HLint: ignore Avoid restricted function" :: String) #-}
--- unsafeInterleaveIO used to create a chunked lazy bytestring over IO for a given Handle
-allBytes :: Handle -> IO BSL.ByteString
-allBytes hin = fmap BSL.fromChunks go
-  where
-    go :: IO [B.ByteString]
-    go = do
-      first <- unsafeInterleaveIO $ B.hGetSome hin defaultChunkSize
-      rest <- unsafeInterleaveIO go
-      pure (first : rest)
 
 -- Missing from Data.Attoparsec.ByteString.Lazy, copied from Data.Attoparsec.ByteString.Char8
 decimal :: Attoparsec.Parser Int
@@ -64,14 +50,14 @@ contentChunkParser = do
   _ <- Attoparsec.string "\r\n\r\n"
   Attoparsec.take len
 
-getChunks :: Handle -> IO [B.ByteString]
-getChunks handle =
-  let loop bytes =
+-- Runs a handler on chunks as they come through the handle
+onChunks :: Handle -> (B.ByteString -> IO ()) -> IO ()
+onChunks handle act =
+  let handleResult bytes =
         case Attoparsec.parse contentChunkParser bytes of
-          Attoparsec.Done leftovers result -> result : loop leftovers
-          _ -> []
-  in
-  loop <$> allBytes handle
+          Attoparsec.Done leftovers result -> act result >> handleResult leftovers
+          Attoparsec.Fail _ _ err -> error $ "Chunk parse failed: " <> err
+   in BSL.hGetContents handle >>= handleResult
 
 putChunk :: Handle -> BSL.ByteString -> IO ()
 putChunk handle payload = do
