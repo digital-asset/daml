@@ -104,7 +104,7 @@ object TransactionSubviews {
     for {
       subviewsP <- ProtoConverter.required("ViewNode.subviews", subviewsPO)
       tvParser = TransactionView.fromByteString(expectedProtocolVersion)(context)
-      subviews <- MerkleSeq.fromProtoV30((hashOps, tvParser), subviewsP)
+      subviews <- MerkleSeq.fromProtoV30(((hashOps, tvParser), expectedProtocolVersion), subviewsP)
     } yield TransactionSubviews(subviews)
   }
 

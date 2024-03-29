@@ -324,7 +324,7 @@ class GrpcVaultService(
         keyPairBytes: ByteString
     ): Either[DeserializationError, CryptoKeyPair[PublicKey, PrivateKey]] =
       CryptoKeyPair
-        .fromByteString(keyPairBytes)
+        .fromTrustedByteString(keyPairBytes)
         .leftFlatMap { firstErr =>
           // Fallback to parse the old protobuf message format
           ProtoConverter
@@ -384,7 +384,7 @@ class GrpcVaultService(
         case Some(password) =>
           val resultE = for {
             encrypted <- PasswordBasedEncrypted
-              .fromByteString(request.keyPair)
+              .fromTrustedByteString(request.keyPair)
               .leftMap(err => ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
 
             keyPair <- crypto.pureCrypto

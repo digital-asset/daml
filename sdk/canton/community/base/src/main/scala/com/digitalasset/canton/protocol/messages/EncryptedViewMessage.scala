@@ -465,7 +465,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
         )
       viewKey <- eitherT(
         pureCrypto
-          .createSymmetricKey(viewKeyRandomness)
+          .createSymmetricKey(viewKeyRandomness, encrypted.viewEncryptionScheme)
           .leftMap(err =>
             EncryptedViewMessageError
               .SymmetricDecryptError(DecryptionError.InvalidSymmetricKey(err.toString))

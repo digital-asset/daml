@@ -21,7 +21,7 @@ object ParticipantStorageImplicits {
 
   private def bytesToEvent(bytes: Array[Byte]): LedgerSyncEvent = {
     SerializableLedgerSyncEvent
-      .fromByteArrayUnsafe(bytes)
+      .fromTrustedByteArray(bytes)
       .fold(
         err =>
           throw new DbDeserializationException(

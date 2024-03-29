@@ -126,11 +126,12 @@ class MerkleSeqTest extends AnyWordSpec with BaseTest {
         val merkleSeqP = merkleSeq.toByteString
         val merkleSeqDeserialized =
           MerkleSeq
-            .fromByteString(testedProtocolVersion)(
+            .fromByteString(
               (
                 hashOps,
                 AbstractLeaf.fromByteString(testedProtocolVersion)(_),
-              )
+              ),
+              testedProtocolVersion,
             )(merkleSeqP)
             .value
 

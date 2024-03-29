@@ -100,14 +100,13 @@ class TransactionTreeFactoryImplV3(
       initialResolver: LfKeyResolver,
   ) extends TransactionTreeFactoryImpl.State {
 
-    /** An [[com.digitalasset.canton.protocol.LfGlobalKey]] stores neither the
-      * [[com.digitalasset.canton.protocol.LfTransactionVersion]] to be used during serialization
-      * nor the maintainers, which we need to cache in case no contract is found.
+    /** An [[com.digitalasset.canton.protocol.LfGlobalKey]] does not store
+      * the maintainers, which we need to cache in case no contract is found.
       *
       * Out parameter that stores version and maintainers for all keys
       * that have been referenced by an already-processed node.
       */
-    val keyVersionAndMaintainers: mutable.Map[LfGlobalKey, (LfTransactionVersion, Set[LfPartyId])] =
+    val keyMaintainers: mutable.Map[LfGlobalKey, Set[LfPartyId]] =
       mutable.Map.empty
 
     /** Out parameter for the [[com.daml.lf.transaction.ContractStateMachine.State]]
@@ -265,7 +264,7 @@ class TransactionTreeFactoryImplV3(
           }
 
           suffixedNode.keyOpt.foreach { case LfGlobalKeyWithMaintainers(gkey, maintainers) =>
-            state.keyVersionAndMaintainers += (gkey -> (suffixedNode.version -> maintainers))
+            state.keyMaintainers += (gkey -> maintainers)
           }
 
           state.signalRollbackScope(rbScope)
@@ -316,7 +315,7 @@ class TransactionTreeFactoryImplV3(
       resolvedK <- EitherT.fromEither[Future](
         resolvedKeys(
           viewKeyInputs,
-          state.keyVersionAndMaintainers,
+          state.keyMaintainers,
           subViewKeyResolutions,
         )
       )
@@ -428,7 +427,7 @@ class TransactionTreeFactoryImplV3(
     */
   private def resolvedKeys(
       viewKeyInputs: Map[LfGlobalKey, KeyInput],
-      keyVersionAndMaintainers: collection.Map[LfGlobalKey, (LfTransactionVersion, Set[LfPartyId])],
+      keyVersionAndMaintainers: collection.Map[LfGlobalKey, Set[LfPartyId]],
       subviewKeyResolutions: collection.Map[LfGlobalKey, SerializableKeyResolution],
   )(implicit
       traceContext: TraceContext
@@ -444,10 +443,10 @@ class TransactionTreeFactoryImplV3(
         keyInput: KeyInput,
     ): Either[MissingContractKeyLookupError, SerializableKeyResolution] = {
       keyVersionAndMaintainers.get(key).toRight(MissingContractKeyLookupError(key)).map {
-        case (lfVersion, maintainers) =>
+        maintainers =>
           val resolution = keyInput match {
-            case KeyActive(cid) => AssignedKey(cid)(lfVersion)
-            case KeyCreate | NegativeKeyLookup => FreeKey(maintainers)(lfVersion)
+            case KeyActive(cid) => AssignedKey(cid)
+            case KeyCreate | NegativeKeyLookup => FreeKey(maintainers)
           }
           resolution
       }

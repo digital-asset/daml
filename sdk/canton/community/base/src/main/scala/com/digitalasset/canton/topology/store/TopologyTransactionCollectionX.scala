@@ -156,7 +156,7 @@ object StoredTopologyTransactionsX
           item.validFrom,
         )
         validUntil <- item.validUntil.traverse(EffectiveTime.fromProtoPrimitive)
-        transaction <- SignedTopologyTransactionX.fromByteStringUnsafe(item.transaction)
+        transaction <- SignedTopologyTransactionX.fromTrustedByteString(item.transaction)
       } yield StoredTopologyTransactionX(
         sequenced,
         validFrom,

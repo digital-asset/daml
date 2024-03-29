@@ -87,7 +87,9 @@ class GenTransactionTreeTest
         ) shouldEqual Right(fullInformeeTree)
 
         forAll(example.transactionTree.allLightTransactionViewTrees()) { lt =>
-          LightTransactionViewTree.fromByteString((example.cryptoOps, testedProtocolVersion))(
+          LightTransactionViewTree.fromTrustedByteString(
+            (example.cryptoOps, testedProtocolVersion)
+          )(
             lt.toByteString(testedProtocolVersion)
           ) shouldBe Right(lt)
         }

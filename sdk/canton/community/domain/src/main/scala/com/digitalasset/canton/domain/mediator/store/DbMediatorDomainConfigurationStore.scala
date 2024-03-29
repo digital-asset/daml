@@ -125,10 +125,10 @@ class DbMediatorDomainConfigurationStore(
     for {
       initialKeyFingerprint <- Fingerprint.fromProtoPrimitive(row._1.unwrap)
       domainId <- DomainId.fromProtoPrimitive(row._2.unwrap, "domainId")
-      domainParameters <- StaticDomainParameters.fromByteStringUnsafe(
+      domainParameters <- StaticDomainParameters.fromTrustedByteString(
         row._3
       )
-      sequencerConnections <- SequencerConnections.fromByteString(row._4)
+      sequencerConnections <- SequencerConnections.fromTrustedByteString(row._4)
     } yield MediatorDomainConfiguration(
       initialKeyFingerprint,
       domainId,

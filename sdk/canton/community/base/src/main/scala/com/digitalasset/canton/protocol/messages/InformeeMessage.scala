@@ -66,7 +66,6 @@ case class InformeeMessage(
   def toProtoV30: v30.InformeeMessage =
     v30.InformeeMessage(
       fullInformeeTree = Some(fullInformeeTree.toProtoV30),
-      protocolVersion = protocolVersion.toProtoPrimitive,
       submittingParticipantSignature = Some(submittingParticipantSignature.toProtoV30),
     )
 
@@ -110,11 +109,12 @@ object InformeeMessage
   private[messages] def fromProtoV30(
       context: (HashOps, ProtocolVersion)
   )(informeeMessageP: v30.InformeeMessage): ParsingResult[InformeeMessage] = {
+    val (_, protocolVersion) = context
+
     // Use pattern matching to access the fields of v0.InformeeMessage,
     // because this will break if a field is forgotten.
     val v30.InformeeMessage(
       maybeFullInformeeTreeP,
-      protocolVersionP,
       submittingParticipantSignaturePO,
     ) = informeeMessageP
     for {
@@ -124,7 +124,6 @@ object InformeeMessage
         maybeFullInformeeTreeP,
       )
       fullInformeeTree <- FullInformeeTree.fromProtoV30(context, fullInformeeTreeP)
-      protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
       submittingParticipantSignature <- ProtoConverter
         .required(
           "InformeeMessage.submittingParticipantSignature",

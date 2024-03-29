@@ -21,6 +21,7 @@ import com.digitalasset.canton.topology.transaction.{
   SignedTopologyTransactionX,
   TopologyTransactionX,
 }
+import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{BaseTest, SerializationDeserializationTestHelpers}
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -101,9 +102,15 @@ class SerializationDeserializationTest
         testMemoizedProtocolVersionedWithCtx(CommonMetadata, TestHash)
         testMemoizedProtocolVersionedWithCtx(ParticipantMetadata, TestHash)
         testMemoizedProtocolVersionedWithCtx(SubmitterMetadata, TestHash)
-        testMemoizedProtocolVersionedWithCtx(TransferInCommonData, TestHash)
+        testMemoizedProtocolVersionedWithCtx(
+          TransferInCommonData,
+          (TestHash, TargetProtocolVersion(testedProtocolVersion)),
+        )
         testMemoizedProtocolVersionedWithCtx(TransferInView, TestHash)
-        testMemoizedProtocolVersionedWithCtx(TransferOutCommonData, TestHash)
+        testMemoizedProtocolVersionedWithCtx(
+          TransferOutCommonData,
+          (TestHash, SourceProtocolVersion(testedProtocolVersion)),
+        )
         testMemoizedProtocolVersionedWithCtx(TransferOutView, TestHash)
 
         testMemoizedProtocolVersionedWithCtx(

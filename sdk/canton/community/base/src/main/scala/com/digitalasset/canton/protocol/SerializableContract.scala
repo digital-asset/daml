@@ -142,7 +142,7 @@ object SerializableContract
           )
         else
           DriverContractMetadata
-            .fromByteArray(driverContractMetadataBytes)
+            .fromTrustedByteArray(driverContractMetadataBytes)
             .leftMap(err => s"Failed parsing disclosed contract driver contract metadata: $err")
             .map(m => Some(m.salt))
       }
@@ -150,7 +150,7 @@ object SerializableContract
       cantonContractMetadata <- ContractMetadata.create(
         signatories = create.signatories,
         stakeholders = create.stakeholders,
-        maybeKeyWithMaintainers = create.versionedKeyOpt,
+        maybeKeyWithMaintainers = create.keyOpt,
       )
       contract <- SerializableContract(
         contractId = disclosedContract.contractId,

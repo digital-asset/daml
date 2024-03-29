@@ -63,7 +63,7 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
     for {
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(proto.protocolVersion)
       domainId <- DomainId.fromProtoPrimitive(proto.domainId, "domain_id")
-      contract <- SerializableContract.fromByteString(proto.contract)
+      contract <- SerializableContract.fromTrustedByteString(proto.contract)
       transferCounter = proto.reassignmentCounter
       activeContract <- create(domainId, contract, TransferCounter(transferCounter))(
         protocolVersion
@@ -131,7 +131,7 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
     var errorMessageO: Option[String] = None
 
     while (hasDataInStream && errorMessageO.isEmpty) {
-      ActiveContract.parseDelimitedFromUnsafe(source) match {
+      ActiveContract.parseDelimitedFromTrusted(source) match {
         case None =>
           // parseDelimitedFrom returns None to indicate that there is no more data to read from the input stream
           hasDataInStream = false

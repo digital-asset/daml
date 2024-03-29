@@ -119,8 +119,8 @@ object ExampleTransactionFactory {
   def globalKeyWithMaintainers(
       key: LfGlobalKey = defaultGlobalKey,
       maintainers: Set[LfPartyId] = Set.empty,
-  ): Versioned[LfGlobalKeyWithMaintainers] =
-    LfVersioned(transactionVersion, LfGlobalKeyWithMaintainers(key, maintainers))
+  ): LfGlobalKeyWithMaintainers =
+    LfGlobalKeyWithMaintainers(key, maintainers)
 
   def fetchNode(
       cid: LfContractId,
@@ -544,7 +544,7 @@ class ExampleTransactionFactory(
     val metadata = ContractMetadata.tryCreate(
       signatories,
       signatories ++ observers,
-      maybeKeyWithMaintainers.map(LfVersioned(transactionVersion, _)),
+      maybeKeyWithMaintainers,
     )
     val (salt, unicum) =
       saltAndUnicum(

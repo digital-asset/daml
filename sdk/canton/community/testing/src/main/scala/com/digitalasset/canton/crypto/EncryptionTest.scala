@@ -42,7 +42,7 @@ trait EncryptionTest extends BaseTest with CryptoTestHelper { this: AsyncWordSpe
             crypto <- newCrypto
             key = newSymmetricKey(crypto)
             keyBytes = key.toByteString(testedProtocolVersion)
-            key2 = SymmetricKey.fromByteString(keyBytes).valueOrFail("serialize key")
+            key2 = SymmetricKey.fromTrustedByteString(keyBytes).valueOrFail("serialize key")
           } yield key shouldEqual key2
         }
 

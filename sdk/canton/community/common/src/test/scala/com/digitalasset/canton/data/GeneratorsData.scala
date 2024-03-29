@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.data
 
-import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value.ValueInt64
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{Salt, TestHash}
@@ -131,8 +130,7 @@ final class GeneratorsData(
     for {
       contractId <- Arbitrary.arbitrary[LfContractId]
       seed <- Arbitrary.arbitrary[LfHash]
-      version <- Arbitrary.arbitrary[LfTransactionVersion]
-    } yield CreateActionDescription(contractId, seed, version)(rpv)
+    } yield CreateActionDescription(contractId, seed)(rpv)
 
   private def exerciseActionDescriptionGenFor(
       rpv: RepresentativeProtocolVersion[ActionDescription.type]
@@ -153,7 +151,6 @@ final class GeneratorsData(
 
       actors <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       seed <- Arbitrary.arbitrary[LfHash]
-      version <- Arbitrary.arbitrary[LfTransactionVersion]
       byKey <- Gen.oneOf(true, false)
       failed <- Gen.oneOf(true, false)
 
@@ -167,7 +164,6 @@ final class GeneratorsData(
       actors,
       byKey,
       seed,
-      version,
       failed,
       rpv,
     )
@@ -179,15 +175,14 @@ final class GeneratorsData(
       inputContractId <- Arbitrary.arbitrary[LfContractId]
       actors <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       byKey <- Gen.oneOf(true, false)
-      version <- Arbitrary.arbitrary[LfTransactionVersion]
-    } yield FetchActionDescription(inputContractId, actors, byKey, version)(rpv)
+    } yield FetchActionDescription(inputContractId, actors, byKey)(rpv)
 
   private def lookupByKeyActionDescriptionGenFor(
       rpv: RepresentativeProtocolVersion[ActionDescription.type]
   ): Gen[LookupByKeyActionDescription] =
     for {
-      vk <- Arbitrary.arbitrary[Versioned[LfGlobalKey]]
-    } yield LookupByKeyActionDescription.tryCreate(vk.unversioned, vk.version, rpv)
+      key <- Arbitrary.arbitrary[LfGlobalKey]
+    } yield LookupByKeyActionDescription.tryCreate(key, rpv)
 
   // If this pattern match is not exhaustive anymore, update the method below
   {
@@ -210,13 +205,9 @@ final class GeneratorsData(
     )
   }
 
-  private def assignedKeyGen(cid: LfContractId): Gen[AssignedKey] =
-    Arbitrary.arbitrary[LfTransactionVersion].map(AssignedKey(cid)(_))
-
   private implicit val freeKeyArb: Arbitrary[FreeKey] = Arbitrary(for {
     maintainers <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
-    version <- Arbitrary.arbitrary[LfTransactionVersion]
-  } yield FreeKey(maintainers)(version))
+  } yield FreeKey(maintainers))
 
   implicit val viewParticipantDataArb: Arbitrary[ViewParticipantData] = Arbitrary(
     for {
@@ -262,15 +253,12 @@ final class GeneratorsData(
         (LfGlobalKey, SerializableKeyResolution)
       ], (LfGlobalKey, SerializableKeyResolution)](coreInputWithResolvedKeys.map { contract =>
         // Unsafe .value is fine because we force the key to be defined with the generator above
-        val key = contract.contract.metadata.maybeKeyWithMaintainersVersioned.value
+        val key = contract.contract.metadata.maybeKey.value
         Gen
-          .zip(key, assignedKeyGen(contract.contractId))
-          .map({ case (k, r) => (k.unversioned.globalKey, r.copy()(k.version)) })
+          .zip(key, AssignedKey(contract.contractId))
       })
       freeResolvedKeys <- Gen.listOf(
-        Gen
-          .zip(Arbitrary.arbitrary[Versioned[LfGlobalKey]], Arbitrary.arbitrary[FreeKey])
-          .map({ case (k, r) => (k.unversioned, r.copy()(k.version)) })
+        Gen.zip(Arbitrary.arbitrary[LfGlobalKey], Arbitrary.arbitrary[FreeKey])
       )
 
       resolvedKeys = assignedResolvedKeys ++ freeResolvedKeys

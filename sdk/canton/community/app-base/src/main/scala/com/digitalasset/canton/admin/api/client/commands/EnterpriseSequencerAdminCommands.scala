@@ -134,7 +134,7 @@ object EnterpriseSequencerAdminCommands {
         case v30.SnapshotResponse.Value
               .VersionedSuccess(v30.SnapshotResponse.VersionedSuccess(snapshot)) =>
           SequencerSnapshot
-            .fromByteStringUnsafe(snapshot)
+            .fromTrustedByteString(snapshot)
             .leftMap(_.toString)
         case _ => Left("response is empty")
       }
