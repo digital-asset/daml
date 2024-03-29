@@ -225,7 +225,7 @@ object SignedTopologyTransactionX
 
   def createGetResultDomainTopologyTransaction: GetResult[GenericSignedTopologyTransactionX] =
     GetResult { r =>
-      fromByteStringUnsafe(r.<<[ByteString]).valueOr(err =>
+      fromTrustedByteString(r.<<[ByteString]).valueOr(err =>
         throw new DbSerializationException(
           s"Failed to deserialize SignedTopologyTransactionX: $err"
         )

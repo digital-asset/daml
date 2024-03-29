@@ -4,6 +4,7 @@
 package com.digitalasset.canton.logging.pretty
 
 import cats.Show.Shown
+import com.daml.error.utils.DecodedCantonError
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary
 import com.daml.ledger.javaapi.data.Party
@@ -275,12 +276,40 @@ trait PrettyInstances {
       param("updateId", _.updateId.singleQuoted, _.updateId.nonEmpty),
     )
 
+  implicit def prettyDecodedCantonError: Pretty[DecodedCantonError] = prettyOfClass(
+    param("code", _.code.id.singleQuoted),
+    param("category", _.code.category.toString.unquoted),
+    param("cause", _.cause.doubleQuoted),
+    paramIfDefined("correlationId", _.correlationId.map(_.singleQuoted)),
+    paramIfDefined("traceId", _.traceId.map(_.singleQuoted)),
+    paramIfNonEmpty(
+      "context",
+      _.context
+        // these fields are repetitive
+        .filter { case (k, _) => k != "tid" && k != "category" }
+        .map { case (k, v) => s"$k=>$v".singleQuoted }
+        .toSeq,
+    ),
+    paramIfNonEmpty(
+      "resources",
+      _.resources.map { case (k, v) => s"${k.asString}=>$v".singleQuoted }.toSeq,
+    ),
+  )
+
   implicit def prettyRpcStatus: Pretty[com.google.rpc.status.Status] =
-    prettyOfClass(
-      customParam(rpcStatus => Status.fromCodeValue(rpcStatus.code).getCode.toString),
-      customParam(_.message),
-      paramIfNonEmpty("details", _.details.map(_.toString.unquoted)),
-    )
+    new Pretty[com.google.rpc.status.Status] {
+      // This is a fallback pretty-printer for `com.google.rpc.status.Status` that is used when
+      // the status is not a proper decoded canton error
+      private val fallback = prettyOfClass[com.google.rpc.status.Status](
+        customParam(rpcStatus => Status.fromCodeValue(rpcStatus.code).getCode.toString),
+        customParam(_.message),
+        paramIfNonEmpty("details", _.details.map(_.toString.unquoted)),
+      )
+      override def treeOf(t: com.google.rpc.status.Status): Tree =
+        DecodedCantonError
+          .fromGrpcStatus(t)
+          .fold(_ => fallback.treeOf(t), decoded => prettyDecodedCantonError.treeOf(decoded))
+    }
 
   implicit def prettyGrpcStatus: Pretty[io.grpc.Status] =
     prettyOfClass(

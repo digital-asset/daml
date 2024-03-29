@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.protocol
 
-import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{Salt, TestSalt}
@@ -126,7 +125,7 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
                 ContractMetadata.tryCreate(
                   changedSignatories,
                   contract.metadata.stakeholders - alice,
-                  contract.metadata.maybeKeyWithMaintainersVersioned,
+                  contract.metadata.maybeKeyWithMaintainers,
                 )
               ),
             testedSignatories = changedSignatories,
@@ -143,7 +142,7 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
                 ContractMetadata.tryCreate(
                   contract.metadata.signatories,
                   contract.metadata.stakeholders ++ changedObservers,
-                  contract.metadata.maybeKeyWithMaintainersVersioned,
+                  contract.metadata.maybeKeyWithMaintainers,
                 )
               ),
             testedObservers = changedObservers,
@@ -277,7 +276,7 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
         ExampleTransactionFactory.asSerializableRaw(contractInstance),
       testedSignatories: Set[LfPartyId] = signatories,
       testedObservers: Set[LfPartyId] = observers,
-      testedContractKey: Option[Versioned[protocol.LfGlobalKeyWithMaintainers]] = Some(contractKey),
+      testedContractKey: Option[protocol.LfGlobalKeyWithMaintainers] = Some(contractKey),
   ): Assertion = {
     val recomputedUnicum = unicumGenerator
       .recomputeUnicum(

@@ -118,7 +118,7 @@ object StaticDomainParameters {
 
   def tryReadFromFile(inputFile: String): StaticDomainParameters = {
     val staticDomainParametersInternal = StaticDomainParametersInternal
-      .readFromFileUnsafe(inputFile)
+      .readFromTrustedFile(inputFile)
       .valueOr(err =>
         throw new IllegalArgumentException(
           s"Reading static domain parameters from file $inputFile failed: $err"

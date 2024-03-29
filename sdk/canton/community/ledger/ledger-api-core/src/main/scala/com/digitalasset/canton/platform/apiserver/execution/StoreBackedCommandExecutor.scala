@@ -389,17 +389,16 @@ private[apiserver] final class StoreBackedCommandExecutor(
   ): Future[Option[String]] = {
 
     val stakeholders = signatories ++ observers
-    val maybeKeyWithMaintainers = keyWithMaintainers.map(Versioned(unusedTxVersion, _))
     ContractMetadata.create(
       signatories = signatories,
       stakeholders = stakeholders,
-      maybeKeyWithMaintainers = maybeKeyWithMaintainers,
+      maybeKeyWithMaintainers = keyWithMaintainers,
     ) match {
       case Right(recomputedContractMetadata) =>
         checkContractUpgradable(coid, recomputedContractMetadata, disclosedContracts)
       case Left(message) =>
         val enriched =
-          s"Failed to recompute contract metadata from ($signatories, $stakeholders, $maybeKeyWithMaintainers): $message"
+          s"Failed to recompute contract metadata from ($signatories, $stakeholders, $keyWithMaintainers): $message"
         logger.info(enriched)
         Future.successful(Some(enriched))
     }
@@ -442,7 +441,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
 
       val result: Either[String, SerializableContract] = for {
         salt <- DriverContractMetadata
-          .fromByteArray(driverMetadataBytes)
+          .fromTrustedByteArray(driverMetadataBytes)
           .bimap(
             e => s"Failed to build DriverContractMetadata ($e)",
             m => m.salt,
@@ -544,11 +543,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
           maybeKeyWithMaintainers =
             (disclosedContract.keyValue zip disclosedContract.keyMaintainers).map {
               case (value, maintainers) =>
-                Versioned(
-                  unusedTxVersion,
-                  GlobalKeyWithMaintainers
-                    .assertBuild(disclosedContract.templateId, value, maintainers),
-                )
+                GlobalKeyWithMaintainers
+                  .assertBuild(disclosedContract.templateId, value, maintainers)
             },
         ),
         recomputedMetadata = recomputedMetadata,
@@ -572,7 +568,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               stakeholders = active.stakeholders,
               maybeKeyWithMaintainers =
                 (active.globalKey zip active.maintainers).map { case (globalKey, maintainers) =>
-                  Versioned(unusedTxVersion, GlobalKeyWithMaintainers(globalKey, maintainers))
+                  GlobalKeyWithMaintainers(globalKey, maintainers)
                 },
             ),
             recomputedMetadata = recomputedMetadata,

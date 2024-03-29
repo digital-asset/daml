@@ -29,7 +29,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       companion: HasVersionedMessageCompanion[T],
       defaults: List[DefaultValueUntilExclusive[T]] = Nil,
   )(implicit arb: Arbitrary[T]): Assertion =
-    testVersionedCommon(companion, companion.fromByteString, defaults)
+    testVersionedCommon(companion, companion.fromTrustedByteString, defaults)
 
   /*
    Test for classes extending `HasProtocolVersionedWrapper` (protocol version embedded in the instance),
@@ -45,7 +45,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
   )(implicit arb: Arbitrary[T]): Assertion = {
     testProtocolVersionedCommon(
       companion,
-      companion.fromByteStringUnsafe,
+      companion.fromTrustedByteString,
     )
   }
 
@@ -61,7 +61,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
   )(implicit arb: Arbitrary[T]): Assertion = {
     testProtocolVersionedCommon(
       companion,
-      companion.fromByteStringUnsafe,
+      companion.fromTrustedByteString,
     )
   }
 
@@ -78,7 +78,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
   )(implicit arb: Arbitrary[T]): Assertion =
     testProtocolVersionedCommon(
       companion,
-      companion.fromByteStringUnsafe(context),
+      companion.fromTrustedByteString(context),
     )
 
   /*
@@ -96,7 +96,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
   )(implicit arb: Arbitrary[T]): Assertion =
     testProtocolVersionedCommon(
       companion,
-      companion.fromByteStringUnsafe(context),
+      companion.fromTrustedByteString(context),
     )
 
   /*

@@ -208,7 +208,7 @@ class GrpcTopologyManagerWriteService(
     val res = for {
       storedTxs <- EitherT.fromEither[FutureUnlessShutdown](
         StoredTopologyTransactionsX
-          .fromByteString(request.topologySnapshot)
+          .fromTrustedByteString(request.topologySnapshot)
           .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
       )
       signedTxs = storedTxs.result.map(_.transaction)

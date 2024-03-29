@@ -272,7 +272,7 @@ private[transfer] class TransferInProcessingSteps(
         participantId,
       ) { bytes =>
         FullTransferInTree
-          .fromByteString(snapshot.pureCrypto, targetProtocolVersion.v)(bytes)
+          .fromByteString(snapshot.pureCrypto, targetProtocolVersion)(bytes)
           .leftMap(e => DefaultDeserializationError(e.toString))
       }
       .map(WithRecipients(_, envelope.recipients))

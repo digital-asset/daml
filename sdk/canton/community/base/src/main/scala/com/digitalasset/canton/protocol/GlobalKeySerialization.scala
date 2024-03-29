@@ -5,59 +5,57 @@ package com.digitalasset.canton.protocol
 
 import cats.syntax.either.*
 import com.daml.lf.value.{ValueCoder, ValueOuterClass}
+import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.{LfVersioned, ProtoDeserializationError}
 
 object GlobalKeySerialization {
 
-  def toProto(globalKey: LfVersioned[LfGlobalKey]): Either[String, v30.GlobalKey] = {
-    val serializedTemplateId =
-      ValueCoder.encodeIdentifier(globalKey.unversioned.templateId).toByteString
+  def toProto(globalKey: LfGlobalKey): Either[String, v30.GlobalKey] = {
+    val templateIdP =
+      ValueCoder.encodeIdentifier(globalKey.templateId).toByteString
     for {
       // Contract keys are not allowed to hold contract ids; therefore it is "okay"
       // to use a dummy LfContractId encoder.
-      serializedKey <- ValueCoder
-        .encodeVersionedValue(version = globalKey.version, value = globalKey.unversioned.key)
-        .map(_.toByteString)
+      keyP <- ValueCoder
+        .encodeValue(valueVersion = LfTransactionVersion.maxVersion, globalKey.key)
         .leftMap(_.errorMessage)
-    } yield v30.GlobalKey(serializedTemplateId, serializedKey)
+    } yield v30.GlobalKey(templateId = templateIdP, key = keyP)
   }
 
-  def assertToProto(key: LfVersioned[LfGlobalKey]): v30.GlobalKey =
+  def assertToProto(key: LfGlobalKey): v30.GlobalKey =
     toProto(key)
       .fold(
         err => throw new IllegalArgumentException(s"Can't encode contract key: $err"),
         identity,
       )
 
-  def fromProtoV30(protoKey: v30.GlobalKey): ParsingResult[LfVersioned[LfGlobalKey]] =
+  def fromProtoV30(globalKeyP: v30.GlobalKey): ParsingResult[LfGlobalKey] = {
+    val v30.GlobalKey(templateIdBytes, keyP) = globalKeyP
     for {
-      pTemplateId <- ProtoConverter.protoParser(ValueOuterClass.Identifier.parseFrom)(
-        protoKey.templateId
+      templateIdP <- ProtoConverter.protoParser(ValueOuterClass.Identifier.parseFrom)(
+        templateIdBytes
       )
       templateId <- ValueCoder
-        .decodeIdentifier(pTemplateId)
+        .decodeIdentifier(templateIdP)
         .leftMap(err =>
           ProtoDeserializationError
             .ValueDeserializationError("GlobalKey.templateId", err.errorMessage)
         )
-      deserializedProtoKey <- ProtoConverter.protoParser(ValueOuterClass.VersionedValue.parseFrom)(
-        protoKey.key
-      )
 
-      versionedKey <- ValueCoder
-        .decodeVersionedValue(protoValue0 = deserializedProtoKey)
+      key <- ValueCoder
+        .decodeValue(LfTransactionVersion.maxVersion, keyP)
         .leftMap(err =>
           ProtoDeserializationError.ValueDeserializationError("GlobalKey.proto", err.toString)
         )
 
       globalKey <- LfGlobalKey
-        .build(templateId, versionedKey.unversioned)
+        .build(templateId, key)
         .leftMap(err =>
           ProtoDeserializationError.ValueDeserializationError("GlobalKey.key", err.toString)
         )
 
-    } yield LfVersioned(versionedKey.version, globalKey)
+    } yield globalKey
+  }
 
 }

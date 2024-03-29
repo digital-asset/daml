@@ -256,7 +256,7 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
           archivedInSubviews = Set(otherAbsoluteId),
           resolvedKeys = Map(
             ExampleTransactionFactory.defaultGlobalKey ->
-              AssignedKey(absoluteId)(ExampleTransactionFactory.transactionVersion)
+              AssignedKey(absoluteId)
           ),
         ).value
 

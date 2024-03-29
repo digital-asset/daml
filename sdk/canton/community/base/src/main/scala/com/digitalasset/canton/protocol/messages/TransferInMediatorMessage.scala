@@ -87,7 +87,7 @@ final case class TransferInMediatorMessage(
 object TransferInMediatorMessage
     extends HasProtocolVersionedWithContextCompanion[
       TransferInMediatorMessage,
-      (HashOps, ProtocolVersion),
+      (HashOps, TargetProtocolVersion),
     ] {
 
   val supportedProtoVersions = SupportedProtoVersions(
@@ -97,7 +97,7 @@ object TransferInMediatorMessage
     )
   )
 
-  def fromProtoV30(context: (HashOps, ProtocolVersion))(
+  def fromProtoV30(context: (HashOps, TargetProtocolVersion))(
       transferInMediatorMessageP: v30.TransferInMediatorMessage
   ): ParsingResult[TransferInMediatorMessage] = {
     val v30.TransferInMediatorMessage(treePO, submittingParticipantSignaturePO) =

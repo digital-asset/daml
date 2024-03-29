@@ -10,6 +10,7 @@ import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
@@ -57,7 +58,7 @@ object EnvelopeContent
       context: (HashOps, ProtocolVersion),
       contentP: v30.EnvelopeContent,
   ): ParsingResult[EnvelopeContent] = {
-    val (_, expectedProtocolVersion) = context
+    val (hashOps, expectedProtocolVersion) = context
     import v30.EnvelopeContent.SomeEnvelopeContent as Content
     for {
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
@@ -69,7 +70,9 @@ object EnvelopeContent
         case Content.TransferOutMediatorMessage(messageP) =>
           TransferOutMediatorMessage.fromProtoV30(context)(messageP)
         case Content.TransferInMediatorMessage(messageP) =>
-          TransferInMediatorMessage.fromProtoV30(context)(messageP)
+          TransferInMediatorMessage.fromProtoV30(
+            (hashOps, TargetProtocolVersion(expectedProtocolVersion))
+          )(messageP)
         case Content.RootHashMessage(messageP) =>
           RootHashMessage.fromProtoV30(SerializedRootHashMessagePayload.fromByteString)(messageP)
         case Content.TopologyTransactionsBroadcast(messageP) =>

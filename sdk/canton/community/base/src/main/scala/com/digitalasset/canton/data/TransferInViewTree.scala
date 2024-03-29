@@ -81,7 +81,7 @@ final case class TransferInViewTree(
 object TransferInViewTree
     extends HasVersionedMessageWithContextCompanion[
       TransferInViewTree,
-      (HashOps, ProtocolVersion),
+      (HashOps, TargetProtocolVersion),
     ] {
   override val name: String = "TransferInViewTree"
 
@@ -94,13 +94,15 @@ object TransferInViewTree
   )
 
   def fromProtoV30(
-      context: (HashOps, ProtocolVersion),
+      context: (HashOps, TargetProtocolVersion),
       transferInViewTreeP: v30.TransferViewTree,
   ): ParsingResult[TransferInViewTree] = {
-    val (hashOps, expectedProtocolVersion) = context
+    val (hashOps, targetProtocolVersion) = context
     GenTransferViewTree.fromProtoV30(
-      TransferInCommonData.fromByteString(expectedProtocolVersion)(hashOps),
-      TransferInView.fromByteString(expectedProtocolVersion)(hashOps),
+      TransferInCommonData.fromByteString(targetProtocolVersion.v)(
+        (hashOps, targetProtocolVersion)
+      ),
+      TransferInView.fromByteString(targetProtocolVersion.v)(hashOps),
     )((commonData, view) => new TransferInViewTree(commonData, view)(hashOps))(
       transferInViewTreeP
     )
@@ -149,7 +151,6 @@ final case class TransferInCommonData private (
       stakeholders = stakeholders.toSeq,
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
       submitterMetadata = Some(submitterMetadata.toProtoV30),
-      targetProtocolVersion = targetProtocolVersion.v.toProtoPrimitive,
     )
 
   override def hashPurpose: HashPurpose = HashPurpose.TransferInCommonData
@@ -168,7 +169,10 @@ final case class TransferInCommonData private (
 }
 
 object TransferInCommonData
-    extends HasMemoizedProtocolVersionedWithContextCompanion[TransferInCommonData, HashOps] {
+    extends HasMemoizedProtocolVersionedWithContextCompanion[
+      TransferInCommonData,
+      (HashOps, TargetProtocolVersion),
+    ] {
   override val name: String = "TransferInCommonData"
 
   val supportedProtoVersions = SupportedProtoVersions(
@@ -195,16 +199,19 @@ object TransferInCommonData
     submitterMetadata,
   )(hashOps, targetProtocolVersion, None)
 
-  private[this] def fromProtoV30(hashOps: HashOps, transferInCommonDataP: v30.TransferInCommonData)(
+  private[this] def fromProtoV30(
+      context: (HashOps, TargetProtocolVersion),
+      transferInCommonDataP: v30.TransferInCommonData,
+  )(
       bytes: ByteString
   ): ParsingResult[TransferInCommonData] = {
+    val (hashOps, targetProtocolVersion) = context
     val v30.TransferInCommonData(
       saltP,
       targetDomainP,
       stakeholdersP,
       uuidP,
       targetMediatorP,
-      protocolVersionP,
       submitterMetadataPO,
     ) =
       transferInCommonDataP
@@ -214,7 +221,6 @@ object TransferInCommonData
       targetMediator <- MediatorsOfDomain.fromProtoPrimitive(targetMediatorP, "target_mediator")
       stakeholders <- stakeholdersP.traverse(ProtoConverter.parseLfPartyId)
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP)
-      protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
       submitterMetadata <- ProtoConverter
         .required("submitter_metadata", submitterMetadataPO)
         .flatMap(TransferSubmitterMetadata.fromProtoV30)
@@ -227,7 +233,7 @@ object TransferInCommonData
       submitterMetadata,
     )(
       hashOps,
-      TargetProtocolVersion(protocolVersion),
+      targetProtocolVersion,
       Some(bytes),
     )
   }
@@ -445,10 +451,12 @@ final case class FullTransferInTree(tree: TransferInViewTree)
 object FullTransferInTree {
   def fromByteString(
       crypto: CryptoPureApi,
-      expectedProtocolVersion: ProtocolVersion,
+      targetProtocolVersion: TargetProtocolVersion,
   )(bytes: ByteString): ParsingResult[FullTransferInTree] =
     for {
-      tree <- TransferInViewTree.fromByteString((crypto, expectedProtocolVersion))(bytes)
+      tree <- TransferInViewTree.fromTrustedByteString((crypto, targetProtocolVersion))(
+        bytes
+      ) // FIXME(i18236): validate the proto version to mitigate downgrading attacks
       _ <- EitherUtil.condUnitE(
         tree.isFullyUnblinded,
         OtherError(s"Transfer-in request ${tree.rootHash} is not fully unblinded"),

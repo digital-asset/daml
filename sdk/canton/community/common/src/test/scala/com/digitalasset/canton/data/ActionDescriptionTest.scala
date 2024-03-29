@@ -16,7 +16,6 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
 
   private val suffixedId: LfContractId = ExampleTransactionFactory.suffixedId(0, 0)
   private val seed: LfHash = ExampleTransactionFactory.lfHash(5)
-  private val testTxVersion: LfTransactionVersion = ExampleTransactionFactory.transactionVersion
   private val globalKey: LfGlobalKey =
     LfGlobalKey
       .build(
@@ -42,7 +41,6 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
           Set(ExampleTransactionFactory.submitter),
           byKey = true,
           seed,
-          testTxVersion,
           failed = false,
           representativePV,
         ) shouldBe Left(
@@ -60,7 +58,6 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
               ExampleTransactionFactory.veryDeepValue,
             )
             .value,
-          testTxVersion,
           representativePV,
         ) shouldBe Left(
           InvalidActionDescription(

@@ -151,7 +151,7 @@ final case class ViewParticipantData private (
 
   def rootAction: RootAction =
     actionDescription match {
-      case CreateActionDescription(contractId, _seed, _version) =>
+      case CreateActionDescription(contractId, _seed) =>
         val createdContract = createdCore.headOption.getOrElse(
           throw InvalidViewParticipantData(
             show"No created core contracts declared for a view that creates contract $contractId at the root"
@@ -184,7 +184,6 @@ final case class ViewParticipantData private (
             actors,
             byKey,
             _seed,
-            _version,
             failed,
           ) =>
         val inputContract = coreInputs.getOrElse(
@@ -225,7 +224,7 @@ final case class ViewParticipantData private (
         }
         RootAction(cmd, actors, failed, packagePreference)
 
-      case FetchActionDescription(inputContractId, actors, byKey, _version) =>
+      case FetchActionDescription(inputContractId, actors, byKey) =>
         val inputContract = coreInputs.getOrElse(
           inputContractId,
           throw InvalidViewParticipantData(
@@ -247,7 +246,7 @@ final case class ViewParticipantData private (
         }
         RootAction(cmd, actors, failed = false, packageIdPreference = Set.empty)
 
-      case LookupByKeyActionDescription(key, _version) =>
+      case LookupByKeyActionDescription(key) =>
         val keyResolution = resolvedKeys.getOrElse(
           key,
           throw InvalidViewParticipantData(
@@ -309,7 +308,7 @@ final case class ViewParticipantData private (
               ),
             )
           ).maintainers
-        AssignedKeyWithMaintainers(contractId, maintainers)(assigned.version)
+        AssignedKeyWithMaintainers(contractId, maintainers)
       case free @ FreeKey(_) => free
     }
 

@@ -145,7 +145,7 @@ object SequencedEvent
   def fromByteStringOpen(hashOps: HashOps, protocolVersion: ProtocolVersion)(
       bytes: ByteString
   ): ParsingResult[SequencedEvent[DefaultOpenEnvelope]] =
-    fromByteStringUnsafe(bytes).flatMap(
+    fromTrustedByteString(bytes).flatMap(
       _.traverse(_.openEnvelope(hashOps, protocolVersion))
     )
 
