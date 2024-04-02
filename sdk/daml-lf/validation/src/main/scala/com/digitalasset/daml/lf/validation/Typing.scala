@@ -545,7 +545,7 @@ private[validation] object Typing {
 
     private[Typing] def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
-        case DefInterface(requires, param, choices, methods, view) =>
+        case DefInterface(requires, param, choices, methods, view, _) =>
           val env = introExprVar(param, TTyCon(ifaceName))
           if (requires(ifaceName))
             throw ECircularInterfaceRequires(ctx, ifaceName)
@@ -598,7 +598,7 @@ private[validation] object Typing {
         iiBody: InterfaceInstanceBody,
     ): Unit = {
       val ctx = Context.Reference(Reference.InterfaceInstance(interfaceId, templateId))
-      val DefInterfaceSignature(requires, _, _, methods, view) =
+      val DefInterfaceSignature(requires, _, _, methods, view, _) =
         handleLookup(ctx, pkgInterface.lookupInterface(interfaceId))
 
       // Note (MA): we use an empty environment and add `tmplParam : TTyCon(templateId)`

@@ -15,8 +15,8 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "LF_DEV_VERSIONS",
-    "LF_MAJOR_VERSIONS",
+    "SUPPORTED_LF_DEV_VERSIONS",
+    "SUPPORTED_LF_MAJOR_VERSIONS",
     "lf_version_default_or_latest",
     "mangle_for_damlc",
 )
@@ -62,7 +62,7 @@ ENGINE_TEST_FILES = \
         target = lf_version_default_or_latest(major),
     )
     for name in ENGINE_TEST_FILES
-    for major in LF_MAJOR_VERSIONS
+    for major in SUPPORTED_LF_MAJOR_VERSIONS
 ]
 
 [
@@ -75,7 +75,7 @@ ENGINE_TEST_FILES = \
         target = version,
     )
     for name in ENGINE_TEST_FILES
-    for version in LF_DEV_VERSIONS
+    for version in SUPPORTED_LF_DEV_VERSIONS
 ]
 
 da_scala_test_suite(
@@ -102,14 +102,14 @@ da_scala_test_suite(
             "//daml-lf/tests:MultiKeys",
             "//daml-lf/tests:ReinterpretTests",
         ]
-        for major in LF_MAJOR_VERSIONS
+        for major in SUPPORTED_LF_MAJOR_VERSIONS
     ] + [
         ":{name}-v{major}.dar".format(
             name = name,
             major = major,
         )
         for name in ENGINE_TEST_FILES
-        for major in LF_MAJOR_VERSIONS
+        for major in SUPPORTED_LF_MAJOR_VERSIONS
     ] + [
         "{name}-{version}.dar".format(
             name = prefix,
@@ -121,7 +121,7 @@ da_scala_test_suite(
             "//daml-lf/tests:MultiKeys",
             "//daml-lf/tests:Exceptions",
         ]
-        for version in LF_DEV_VERSIONS
+        for version in SUPPORTED_LF_DEV_VERSIONS
     ],
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
@@ -157,7 +157,7 @@ da_scala_test_suite(
         srcs = ["src/test/daml/LargeTransaction.daml"],
         target = lf_version_default_or_latest(major),
     )
-    for major in LF_MAJOR_VERSIONS
+    for major in SUPPORTED_LF_MAJOR_VERSIONS
 ]
 
 da_scala_test(
@@ -169,7 +169,7 @@ da_scala_test(
     ]),
     data = [
         ":LargeTransaction-v{}.dar".format(major)
-        for major in LF_MAJOR_VERSIONS
+        for major in SUPPORTED_LF_MAJOR_VERSIONS
     ],
     # We setup a large heap size to reduce as much as possible GC overheads.
     initial_heap_size = "2g",
