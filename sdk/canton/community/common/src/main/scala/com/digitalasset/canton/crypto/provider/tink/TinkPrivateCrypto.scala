@@ -9,15 +9,18 @@ import cats.syntax.either.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreExtended
 import com.digitalasset.canton.tracing.TraceContext
-import com.google.crypto.tink.KeysetHandle
 import com.google.crypto.tink.aead.AeadKeyTemplates
-import com.google.crypto.tink.hybrid.HybridKeyTemplates
 import com.google.crypto.tink.proto.*
 import com.google.crypto.tink.signature.SignatureKeyTemplates
+import com.google.crypto.tink.{KeysetHandle, TinkProtoParametersFormat}
+import com.google.protobuf.ByteString
 
 import java.security.GeneralSecurityException
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
+// SignatureKeyTemplates.createEcdsaKeyTemplate is deprecated, however Tink will be outphased anyway so for now we just nowarn it.
+@nowarn("cat=deprecation")
 class TinkPrivateCrypto private (
     pureCrypto: TinkPureCrypto,
     override val defaultSigningKeyScheme: SigningKeyScheme,
@@ -34,7 +37,9 @@ class TinkPrivateCrypto private (
       errFn: GeneralSecurityException => E,
   ): Either[E, KeysetHandle] =
     Either
-      .catchOnly[GeneralSecurityException](KeysetHandle.generateNew(keyTemplate))
+      .catchOnly[GeneralSecurityException](
+        KeysetHandle.generateNew(TinkProtoParametersFormat.parse(keyTemplate.toByteArray))
+      )
       .leftMap(errFn)
 
   override protected[crypto] def generateEncryptionKeypair(scheme: EncryptionKeyScheme)(implicit
@@ -43,14 +48,20 @@ class TinkPrivateCrypto private (
     for {
       keyTemplate <- scheme match {
         case EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm =>
-          val eciesParams =
-            HybridKeyTemplates.createEciesAeadHkdfParams(
-              EllipticCurveType.NIST_P256,
-              HashType.SHA256,
-              EcPointFormat.UNCOMPRESSED,
-              AeadKeyTemplates.AES128_GCM,
-              Array[Byte](),
-            )
+          val kemParams = EciesHkdfKemParams.newBuilder
+            .setCurveType(EllipticCurveType.NIST_P256)
+            .setHkdfHashType(HashType.SHA256)
+            .setHkdfSalt(ByteString.copyFrom(Array[Byte]()))
+            .build
+          val demParams =
+            EciesAeadDemParams.newBuilder.setAeadDem(AeadKeyTemplates.AES128_GCM).build
+
+          val eciesParams = EciesAeadHkdfParams
+            .newBuilder()
+            .setKemParams(kemParams)
+            .setDemParams(demParams)
+            .setEcPointFormat(EcPointFormat.UNCOMPRESSED)
+            .build()
 
           val format = EciesAeadHkdfKeyFormat
             .newBuilder()
@@ -108,7 +119,6 @@ class TinkPrivateCrypto private (
           case SigningKeyScheme.EcDsaP256 =>
             EitherT.rightT(SignatureKeyTemplates.ECDSA_P256)
           case SigningKeyScheme.EcDsaP384 =>
-            // Overwrite the hash function to use SHA384
             EitherT.rightT(
               SignatureKeyTemplates.createEcdsaKeyTemplate(
                 HashType.SHA384,

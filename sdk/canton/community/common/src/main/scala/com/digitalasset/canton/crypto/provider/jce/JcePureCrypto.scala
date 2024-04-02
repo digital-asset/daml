@@ -21,6 +21,7 @@ import com.digitalasset.canton.serialization.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, ShowUtil}
 import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
+import com.google.crypto.tink.hybrid.subtle.AeadOrDaead
 import com.google.crypto.tink.subtle.EllipticCurves.EcdsaEncoding
 import com.google.crypto.tink.subtle.Enums.HashType
 import com.google.crypto.tink.subtle.*
@@ -234,17 +235,19 @@ class JcePureCrypto(
 
     override def getSymmetricKeySizeInBytes: Int = SymmetricKeyScheme.Aes128Gcm.keySizeInBytes
 
-    override def getAead(symmetricKeyValue: Array[Byte]): Aead = new Aead {
-      override def encrypt(plaintext: Array[Byte], associatedData: Array[Byte]): Array[Byte] = {
-        val encrypter = new AesGcmJce(symmetricKeyValue)
-        encrypter.encrypt(plaintext, associatedData)
-      }
+    override def getAeadOrDaead(symmetricKeyValue: Array[Byte]): AeadOrDaead = new AeadOrDaead(
+      new Aead {
+        override def encrypt(plaintext: Array[Byte], associatedData: Array[Byte]): Array[Byte] = {
+          val encrypter = new AesGcmJce(symmetricKeyValue)
+          encrypter.encrypt(plaintext, associatedData)
+        }
 
-      override def decrypt(ciphertext: Array[Byte], associatedData: Array[Byte]): Array[Byte] = {
-        val decrypter = new AesGcmJce(symmetricKeyValue)
-        decrypter.decrypt(ciphertext, associatedData)
+        override def decrypt(ciphertext: Array[Byte], associatedData: Array[Byte]): Array[Byte] = {
+          val decrypter = new AesGcmJce(symmetricKeyValue)
+          decrypter.decrypt(ciphertext, associatedData)
+        }
       }
-    }
+    )
   }
 
   private def toJava(privateKey: PrivateKey): Either[JavaKeyConversionError, JPrivateKey] = {

@@ -19,7 +19,7 @@ import com.google.crypto.tink
 import com.google.crypto.tink.aead.AeadKeyTemplates
 import com.google.crypto.tink.config.TinkConfig
 import com.google.crypto.tink.subtle.{Hkdf, Random}
-import com.google.crypto.tink.{KeysetHandle, proto as tinkproto}
+import com.google.crypto.tink.{KeysetHandle, TinkProtoParametersFormat, proto as tinkproto}
 import com.google.protobuf.ByteString
 
 import java.security.GeneralSecurityException
@@ -173,7 +173,9 @@ class TinkPureCrypto private (
     }
 
     Either
-      .catchOnly[GeneralSecurityException](KeysetHandle.generateNew(keyTemplate))
+      .catchOnly[GeneralSecurityException](
+        KeysetHandle.generateNew(TinkProtoParametersFormat.parse(keyTemplate.toByteArray))
+      )
       .bimap(
         EncryptionKeyGenerationError.GeneralError,
         { keysetHandle =>
