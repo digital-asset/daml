@@ -11,7 +11,7 @@ import com.daml.lf.value.Value
 import Value._
 import com.daml.lf.ledger._
 import com.daml.lf.data.Ref._
-import com.daml.lf.scenario.ScenarioLedger.{TransactionId, Disclosure}
+import com.daml.lf.scenario.ScenarioLedger.{Disclosure, TransactionId}
 import com.daml.lf.scenario._
 import com.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
@@ -106,11 +106,11 @@ private[lf] object Pretty {
         text("Update failed due to a contract key with an empty set of maintainers when creating") &
           prettyTypeConName(tid) & text("with") & prettyValue(true)(arg) /
           text("The computed key is") & prettyValue(true)(key)
-      case FetchEmptyContractKeyMaintainers(tid, key) =>
+      case FetchEmptyContractKeyMaintainers(tid, key, packageName) =>
         text(
           "Update failed due to a contract key with an empty set of maintainers when fetching or looking up by key"
         ) &
-          prettyTypeConName(tid) /
+          text(packageName) & text("/") & prettyTypeConName(tid) /
           text("The provided shared key is") & prettyValue(true)(key)
       case ContractNotFound(cid) =>
         text("Update failed due to a unknown contract") & prettyContractId(cid)

@@ -78,11 +78,11 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val samValue2: Val = V.ValueText(samContractId1.coid)
 
   private val samKWM1 =
-    GlobalKeyWithMaintainers.assertBuild(samTemplateId1, samValue1, samParties1)
+    GlobalKeyWithMaintainers.assertBuild(samTemplateId1, samValue1, samParties1, somePkgName)
   private val samKWM2 =
-    GlobalKeyWithMaintainers.assertBuild(samTemplateId1, samValue1, samParties2)
+    GlobalKeyWithMaintainers.assertBuild(samTemplateId1, samValue1, samParties2, somePkgName)
   private val samKWM3 =
-    GlobalKeyWithMaintainers.assertBuild(samTemplateId2, samValue2, samParties1)
+    GlobalKeyWithMaintainers.assertBuild(samTemplateId2, samValue2, samParties1, somePkgName)
 
   private val samVersion1: TransactionVersion = TransactionVersion.minVersion
   private val samVersion2: TransactionVersion = TransactionVersion.maxVersion

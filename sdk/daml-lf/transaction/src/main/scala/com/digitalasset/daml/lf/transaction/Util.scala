@@ -83,7 +83,9 @@ object Util {
       version: TransactionVersion,
   ): Either[String, GlobalKeyWithMaintainers] =
     normalizeValue(key.globalKey.key, version).map(normalized =>
-      key.copy(globalKey = GlobalKey.assertBuild(key.globalKey.templateId, normalized))
+      key.copy(globalKey =
+        GlobalKey.assertBuild(key.globalKey.templateId, normalized, key.globalKey.packageName)
+      )
     )
 
   def normalizeOptKey(

@@ -111,4 +111,5 @@ message FatContractInstance {
 message KeyWithMaintainers {
   bytes key = 1;
   repeated string maintainers = 2; // the maintainers induced by the key
+  string package_name = 3;
 }

@@ -262,7 +262,12 @@ object Node {
   }
 
   private def rehash(gk: GlobalKeyWithMaintainers) =
-    GlobalKeyWithMaintainers.assertBuild(gk.globalKey.templateId, gk.value, gk.maintainers)
+    GlobalKeyWithMaintainers.assertBuild(
+      gk.globalKey.templateId,
+      gk.value,
+      gk.maintainers,
+      gk.globalKey.packageName,
+    )
 
 }
 

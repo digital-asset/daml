@@ -100,6 +100,7 @@ object TransactionCoder {
     if (version >= TransactionVersion.minVersion) {
       val builder = TransactionOuterClass.KeyWithMaintainers.newBuilder()
       key.maintainers.foreach(builder.addMaintainers(_))
+      discard(builder.setPackageName(key.globalKey.packageName))
       ValueCoder
         .encodeValue(valueVersion = version, v0 = key.value)
         .map(builder.setKey(_).build())
@@ -299,8 +300,9 @@ object TransactionCoder {
         version = version,
         unversionedProto = msg.getKey,
       )
+      pkgName <- decodePackageName(msg.getPackageName)
       gkey <- GlobalKey
-        .build(templateId, value)
+        .build(templateId, value, pkgName)
         .left
         .map(hashErr => DecodeError(hashErr.msg))
     } yield GlobalKeyWithMaintainers(gkey, maintainers)
@@ -312,18 +314,9 @@ object TransactionCoder {
       msg: TransactionOuterClass.KeyWithMaintainers,
   ): Either[DecodeError, GlobalKeyWithMaintainers] =
     for {
-      _ <- ensureNoUnknownFields(msg)
-      maintainers <- toPartyTreeSet(msg.getMaintainersList)
-      _ <- Either.cond(maintainers.nonEmpty, (), DecodeError("key without maintainers"))
-      value <- decodeValue(
-        version = version,
-        unversionedProto = msg.getKey,
-      )
-      gkey <- GlobalKey
-        .build(templateId, value)
-        .left
-        .map(hashErr => DecodeError(hashErr.msg))
-    } yield GlobalKeyWithMaintainers(gkey, maintainers)
+      kwm <- decodeKeyWithMaintainers(version, templateId, msg)
+      _ <- Either.cond(kwm.maintainers.nonEmpty, (), DecodeError("key without maintainers"))
+    } yield kwm
 
   private val RightNone = Right(None)
 
