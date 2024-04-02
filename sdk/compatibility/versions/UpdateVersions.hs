@@ -99,7 +99,7 @@ data Checksums = Checksums
   , damlTypesHash :: Digest SHA256
   , damlLedgerHash :: Digest SHA256
   , damlReactHash :: Digest SHA256
-  , createDamlAppPatchHash :: (Digest SHA256)
+  , createDamlAppPatchHash :: Digest SHA256
   }
 
 getChecksums :: Version -> IO Checksums
@@ -136,7 +136,7 @@ getChecksums ver = do
             "/-/" <> name <> "-" <> SemVer.toString ver <> ".tgz"
         createDamlAppUrl =
           -- TODO: remove condition when 2.7 and 2.8 have post-subdir releases
-            if (getMinor ver) `elem` ["2.7", "2.8"]  then
+            if getMinor ver `elem` ["2.7", "2.8"]  then
                "https://raw.githubusercontent.com/digital-asset/daml/v" <> SemVer.toString ver
                <> "/templates/create-daml-app-test-resources/messaging.patch"
             else
