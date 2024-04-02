@@ -120,7 +120,7 @@ object Reference {
     override def pretty: String = s"template without contract key $tyCon."
   }
 
-  /** References an non-retroactive interface implementation of interfaceName for templateName,
+  /** References an non-retroactive interface implementation of interfaceName for templateName.
     */
   final case class InterfaceInstance(interfaceName: TypeConName, templateName: TypeConName)
       extends Reference {
