@@ -105,10 +105,10 @@ def lf_versions_aggregate(versions):
 # in a stable LF version.
 lf_docs_version = lf_version_configuration.get("preview", lf_version_configuration.get("latest"))
 
-# fully supported LF dev versions
+# LF dev versions supported by archive reader
 SUPPORTED_LF_DEV_VERSIONS = ["2.dev"]
 
-# fully supported LF versions
+# LF dev versions supported by archive reader
 SUPPORTED_LF_VERSIONS = ["2.1"] + SUPPORTED_LF_DEV_VERSIONS
 
 # All LF versions supported by the engine
