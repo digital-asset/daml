@@ -313,7 +313,7 @@ jobs:
 
   - job: snapshots
     timeoutInMinutes: 60
-    #condition: eq(variables['Build.SourceBranchName'], 'main')
+    condition: eq(variables['Build.SourceBranchName'], 'main')
     pool:
       name: 'ubuntu_20_04'
       demands: assignment -equals default
