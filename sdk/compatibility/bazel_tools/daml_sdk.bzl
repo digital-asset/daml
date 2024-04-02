@@ -83,11 +83,19 @@ def _daml_sdk_impl(ctx):
     if ctx.attr.create_daml_app_patch:
         ctx.symlink(ctx.attr.create_daml_app_patch, "create_daml_app.patch")
     elif ctx.attr.test_tool_sha256:
-        ctx.download(
-            output = "create_daml_app.patch",
-            url = "https://raw.githubusercontent.com/digital-asset/daml/v{}/templates/create-daml-app-test-resources/messaging.patch".format(ctx.attr.version),
-            sha256 = ctx.attr.create_daml_app_patch_sha256,
-        )
+        # TODO: update once we have 2.7 and/or 2.8 on subdir
+        if versions.is_at_most("2.4.0", ctx.attr.version):
+            ctx.download(
+                output = "create_daml_app.patch",
+                url = "https://raw.githubusercontent.com/digital-asset/daml/v{}/sdk/templates/create-daml-app-test-resources/messaging.patch".format(ctx.attr.version),
+                sha256 = ctx.attr.create_daml_app_patch_sha256,
+            )
+        else:
+            ctx.download(
+                output = "create_daml_app.patch",
+                url = "https://raw.githubusercontent.com/digital-asset/daml/v{}/templates/create-daml-app-test-resources/messaging.patch".format(ctx.attr.version),
+                sha256 = ctx.attr.create_daml_app_patch_sha256,
+            )
     else:
         fail("Must specify either test_tool or test_tool_sha256")
 
