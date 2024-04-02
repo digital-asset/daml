@@ -5,7 +5,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")"
-eval "$(../dev-env/bin/dade-assist)"
+eval "$(cd ..; dev-env/bin/dade-assist)"
 
 # Note: not using Bazel run so we actually have access to local files to run
 # `git tag`

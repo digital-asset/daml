@@ -12,6 +12,7 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as BSL
 import Data.Either (fromRight, rights)
 import Data.Either.Extra (eitherToMaybe)
+import Data.Function ((&))
 import Data.List
 import Data.Map (Map)
 import Data.Maybe (mapMaybe)
@@ -78,9 +79,7 @@ renderVersionsFile (Versions (Set.toAscList -> versions)) checksums =
         , "        \"daml_types\": " <> renderDigest damlTypesHash <> ","
         , "        \"daml_ledger\": " <> renderDigest damlLedgerHash <> ","
         , "        \"daml_react\": " <> renderDigest damlReactHash <> ","
-        ]
-      , [ "        \"create_daml_app_patch\": " <> renderDigest hash <> ","
-        | Just hash <- [mbCreateDamlAppPatchHash]
+        , "        \"create_daml_app_patch\": " <> renderDigest createDamlAppPatchHash <> ","
         ]
       , [ "    }," ]
       ]
@@ -100,20 +99,8 @@ data Checksums = Checksums
   , damlTypesHash :: Digest SHA256
   , damlLedgerHash :: Digest SHA256
   , damlReactHash :: Digest SHA256
-  , mbCreateDamlAppPatchHash :: Maybe (Digest SHA256)
-  -- ^ Nothing for older versions
+  , createDamlAppPatchHash :: (Digest SHA256)
   }
-
--- | The messaging patch wasn’t included in 1.0.0 directly
--- but only added later.
--- However, the code did not change and we can apply
--- the later patch on the older versions.
--- Therefore we fallback to using the patch from this version
--- for releases before this one.
-firstMessagingPatch :: Version
-firstMessagingPatch =
-    fromRight (error "Invalid version") $
-    SemVer.fromText "1.1.0-snapshot.20200422.3991.0.6391ee9f"
 
 getChecksums :: Version -> IO Checksums
 getChecksums ver = do
@@ -134,7 +121,7 @@ getChecksums ver = do
             , tsLib "ledger"
             , tsLib "react"
             ] getHash
-    mbCreateDamlAppPatchHash <- traverse getHash mbCreateDamlAppUrl
+    createDamlAppPatchHash <- getHash createDamlAppUrl
     pure Checksums {..}
   where sdkFilePath platform = T.pack $
             "./daml-sdk-" <> SemVer.toString ver <> "-" <> platform <> ".tar.gz"
@@ -147,12 +134,14 @@ getChecksums ver = do
         tsLib name =
             "https://registry.npmjs.org/@daml/" <> name <>
             "/-/" <> name <> "-" <> SemVer.toString ver <> ".tgz"
-        mbCreateDamlAppUrl
-          | ver >= firstMessagingPatch =
-             Just $
+        createDamlAppUrl =
+          -- TODO: remove condition when 2.7 and 2.8 have post-subdir releases
+            if (getMinor ver) `elem` ["2.7", "2.8"]  then
                "https://raw.githubusercontent.com/digital-asset/daml/v" <> SemVer.toString ver
                <> "/templates/create-daml-app-test-resources/messaging.patch"
-          | otherwise = Nothing
+            else
+               "https://raw.githubusercontent.com/digital-asset/daml/v" <> SemVer.toString ver
+               <> "/sdk/templates/create-daml-app-test-resources/messaging.patch"
         getHash url = do
           req <- parseRequestThrow url
           bs <- httpLbs req { responseTimeout = responseTimeoutMicro (60 * 10 ^ (6 :: Int) ) }
@@ -163,32 +152,38 @@ optsParser :: Parser Opts
 optsParser = Opts
   <$> strOption (short 'o' <> help "Path to output file")
 
+getMinor :: Version -> String
+getMinor v = show (view SemVer.major v) <> "." <> show (view SemVer.minor v)
+
+-- removelist approach because this list has to be maintained manually and
+-- forgetting to remove is better than forgetting to add
+unsupportedMinors :: Set String
+unsupportedMinors = Set.fromList ["2.0", "2.1", "2.2", "2.4", "2.5", "2.6"]
+
 getVersionsFromTags :: IO (Set Version)
 getVersionsFromTags = do
     tags <- lines <$> System.Process.readProcess "git" ["tag"] ""
-    let versions = Set.fromList $ rights $ mapMaybe (fmap (SemVer.fromText . T.pack) . stripPrefix "v") tags
-    return $ latestPatchVersions $ Set.filter (null . view SemVer.release) versions
+    return $ tags
+           & mapMaybe (fmap (SemVer.fromText . T.pack) . stripPrefix "v")
+           & rights
+           & filter (null . view SemVer.release)
+           & latestPatchVersions
+           & filter (\v -> Set.notMember (getMinor v) unsupportedMinors)
+           & Set.fromList
 
 -- | Given a set of versions filter it to those that are the latest patch release in a given
 -- major.minor series.
-latestPatchVersions :: Set Version -> Set Version
+latestPatchVersions :: [Version] -> [Version]
 latestPatchVersions allVersions =
-    Set.filter (\version -> all (f version) allVersions) allVersions
+    filter (\version -> all (f version) allVersions) allVersions
   where
     f this that = toMajorMinor this /= toMajorMinor that || view SemVer.patch this >= view SemVer.patch that
     toMajorMinor v = (view SemVer.major v, view SemVer.minor v)
-
-additionalVersions :: Set Version
-additionalVersions = Set.fromList [
-    -- we add 2.5.0 as 2.5.1 add a new version in the trigger Daml library
-    SemVer.version 2 5 0 [] []
-  ]
 
 main :: IO ()
 main = do
     Opts{..} <- execParser (info optsParser fullDesc)
     stableVers <- getVersionsFromTags
-    let filterVersions = Set.filter (>= minimumVersion) stableVers
-    let allVersions = Versions (Set.union filterVersions additionalVersions)
+    let allVersions = Versions $ Set.filter (>= minimumVersion) stableVers
     checksums <- mapM (\ver -> (ver,) <$> getChecksums ver) (Set.toList $ getVersions allVersions)
     writeFileUTF8 outputFile (T.unpack $ renderVersionsFile allVersions $ Map.fromList checksums)
