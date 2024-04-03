@@ -92,7 +92,7 @@ class SequencerRuntimeForSeparateNode(
     futureSupervisor: FutureSupervisor,
     memberAuthenticationServiceFactory: MemberAuthenticationServiceFactory,
     topologyStateForInitializationService: Option[TopologyStateForInitializationService],
-    maybeDomainOutboxFactory: Option[DomainOutboxXFactorySingleCreate],
+    maybeDomainOutboxFactory: Option[DomainOutboxFactorySingleCreate],
     clientDiscriminator: SequencerClientDiscriminator,
     loggerFactory: NamedLoggerFactory,
 )(implicit

@@ -222,7 +222,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
           eqTo(String255.tryCreate(submissionId)),
           eqTo(partyId),
           eqTo(f.participantId),
-          eqTo(testedProtocolVersion),
+          eqTo(ProtocolVersion.latest),
         )(anyTraceContext)
         succeed
       })

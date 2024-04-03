@@ -8,7 +8,6 @@ import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.tracing.TracingConfig
-import com.digitalasset.canton.version.ProtocolVersion
 
 object MockedNodeParameters {
   def cantonNodeParameters(
@@ -44,8 +43,6 @@ object MockedNodeParameters {
     override def devVersionSupport: Boolean = ???
 
     override def dontWarnOnDeprecatedPV: Boolean = ???
-
-    override def initialProtocolVersion: ProtocolVersion = ???
 
     override def dbMigrateAndStart: Boolean = false
 

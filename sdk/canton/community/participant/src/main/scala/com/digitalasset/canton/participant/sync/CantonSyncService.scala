@@ -2155,13 +2155,6 @@ object SyncServiceError extends SyncServiceErrorGroup {
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
 
-    final case class UnknownDomainParameters(domain: DomainAlias)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = "The domain parameters for the given domain are missing in the store"
-        )
-        with SyncServiceError
-
     final case class Failure(domain: DomainAlias, throwable: Throwable)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(

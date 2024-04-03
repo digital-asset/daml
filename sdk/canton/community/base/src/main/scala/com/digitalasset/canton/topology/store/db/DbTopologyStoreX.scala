@@ -23,7 +23,10 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.{
 }
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransactionX.GenericValidatedTopologyTransactionX
 import com.digitalasset.canton.topology.store.*
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.{
+  GenericSignedTopologyTransactionX,
+  setParameterTopologyTransaction,
+}
 import com.digitalasset.canton.topology.transaction.TopologyChangeOpX.Replace
 import com.digitalasset.canton.topology.transaction.TopologyMappingX.MappingHash
 import com.digitalasset.canton.topology.transaction.TopologyTransactionX.{

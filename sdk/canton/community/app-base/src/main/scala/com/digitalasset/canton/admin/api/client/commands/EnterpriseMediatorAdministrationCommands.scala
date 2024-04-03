@@ -13,7 +13,7 @@ import com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.mediator.admin.gprc.{
-  InitializeMediatorRequestX,
+  InitializeMediatorRequest,
   InitializeMediatorResponseX,
 }
 import com.digitalasset.canton.mediator.admin.v30
@@ -55,7 +55,7 @@ object EnterpriseMediatorAdministrationCommands {
       ] {
     override def createRequest(): Either[String, v30.InitializeMediatorRequest] =
       Right(
-        InitializeMediatorRequestX(
+        InitializeMediatorRequest(
           domainId,
           domainParameters,
           sequencerConnections,

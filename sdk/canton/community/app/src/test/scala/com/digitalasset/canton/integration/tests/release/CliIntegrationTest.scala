@@ -18,7 +18,7 @@ import scala.sys.process.*
   * the to-be-tested CLI options as arguments.
   * Before being able to run these tests locally, you need to execute `sbt bundle` and `sbt package`.
   */
-class CliXIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixin {
+class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixin {
 
   override protected def withFixture(test: OneArgTest): Outcome = test(new BufferedProcessLogger)
 
@@ -36,7 +36,7 @@ class CliXIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMix
   private lazy val simpleConf =
     "community/app/src/pack/examples/01-simple-topology/simple-topology.conf"
   private lazy val unsupportedProtocolVersionConfig =
-    "enterprise/app/src/test/resources/unsupported-protocol-version.conf"
+    "enterprise/app/src/test/resources/unsupported-minimum-protocol-version.conf"
   // this warning is potentially thrown when starting Canton with --no-tty
   private lazy val ttyWarning =
     "WARN  org.jline - Unable to create a system terminal, creating a dumb terminal (enable debug logging for more information)"
@@ -116,7 +116,7 @@ class CliXIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMix
       s"$cantonBin --config $simpleConf --config $unsupportedProtocolVersionConfig" ! processLogger
       checkOutput(
         processLogger,
-        shouldContain = Seq("unsupported-protocol-version.conf", "42"),
+        shouldContain = Seq("unsupported-minimum-protocol-version.conf", "42"),
         shouldSucceed = false,
       )
     }
