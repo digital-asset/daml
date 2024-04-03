@@ -456,7 +456,7 @@ class DomainOutboxXDynamicObserver(val loggerFactory: NamedLoggerFactory)
   def removeObserver(): Unit = outboxRef.set(None)
 }
 
-class DomainOutboxXFactory(
+class DomainOutboxFactory(
     domainId: DomainId,
     memberId: Member,
     authorizedTopologyManager: AuthorizedTopologyManagerX,
@@ -561,18 +561,18 @@ class DomainOutboxXFactory(
 
       override protected def onClosed(): Unit = {
         Lifecycle.close(storeBasedDomainOutbox, queueBasedDomainOutbox)(
-          DomainOutboxXFactory.this.logger
+          DomainOutboxFactory.this.logger
         )
       }
 
-      override protected def timeouts: ProcessingTimeout = DomainOutboxXFactory.this.timeouts
+      override protected def timeouts: ProcessingTimeout = DomainOutboxFactory.this.timeouts
 
-      override protected def logger: TracedLogger = DomainOutboxXFactory.this.logger
+      override protected def logger: TracedLogger = DomainOutboxFactory.this.logger
     }
   }
 }
 
-class DomainOutboxXFactorySingleCreate(
+class DomainOutboxFactorySingleCreate(
     domainId: DomainId,
     memberId: Member,
     authorizedTopologyManager: AuthorizedTopologyManagerX,
@@ -582,7 +582,7 @@ class DomainOutboxXFactorySingleCreate(
     override val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
-) extends DomainOutboxXFactory(
+) extends DomainOutboxFactory(
       domainId,
       memberId,
       authorizedTopologyManager,

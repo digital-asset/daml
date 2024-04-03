@@ -29,7 +29,6 @@ final case class MediatorDomainConfiguration(
 sealed trait MediatorDomainConfigurationStoreError
 
 object MediatorDomainConfigurationStoreError {
-  final case class DbError(exception: Throwable) extends MediatorDomainConfigurationStoreError
   final case class DeserializationError(deserializationError: ProtoDeserializationError)
       extends MediatorDomainConfigurationStoreError
 }

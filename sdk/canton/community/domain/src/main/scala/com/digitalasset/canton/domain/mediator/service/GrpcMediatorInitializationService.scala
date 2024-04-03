@@ -8,17 +8,13 @@ import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.domain.Domain.FailedToInitialiseDomainNode
 import com.digitalasset.canton.domain.mediator.admin.gprc.{
-  InitializeMediatorRequestX,
+  InitializeMediatorRequest,
   InitializeMediatorResponseX,
 }
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.mediator.admin.v30
-import com.digitalasset.canton.mediator.admin.v30.{
-  InitializeMediatorRequest,
-  InitializeMediatorResponse,
-}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 
@@ -27,8 +23,8 @@ import scala.concurrent.{ExecutionContext, Future}
 /** Hosts the initialization service for the mediator.
   * Upon receiving an initialize request it will the provided `initialize` function.
   */
-class GrpcMediatorInitializationServiceX(
-    handler: GrpcMediatorInitializationServiceX.Callback,
+class GrpcMediatorInitializationService(
+    handler: GrpcMediatorInitializationService.Callback,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
@@ -36,12 +32,12 @@ class GrpcMediatorInitializationServiceX(
     with NamedLogging {
 
   override def initializeMediator(
-      requestP: InitializeMediatorRequest
-  ): Future[InitializeMediatorResponse] = {
+      requestP: v30.InitializeMediatorRequest
+  ): Future[v30.InitializeMediatorResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val res: EitherT[Future, CantonError, InitializeMediatorResponse] = for {
+    val res: EitherT[Future, CantonError, v30.InitializeMediatorResponse] = for {
       request <- EitherT.fromEither[Future](
-        InitializeMediatorRequestX
+        InitializeMediatorRequest
           .fromProtoV30(requestP)
           .leftMap(ProtoDeserializationFailure.Wrap(_))
       )
@@ -59,9 +55,9 @@ class GrpcMediatorInitializationServiceX(
 
 }
 
-object GrpcMediatorInitializationServiceX {
+object GrpcMediatorInitializationService {
   trait Callback {
-    def initialize(request: InitializeMediatorRequestX)(implicit
+    def initialize(request: InitializeMediatorRequest)(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, InitializeMediatorResponseX]
   }

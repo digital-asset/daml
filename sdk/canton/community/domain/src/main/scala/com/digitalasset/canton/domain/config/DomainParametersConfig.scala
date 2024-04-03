@@ -56,8 +56,6 @@ final case class DomainParametersConfig(
     param("dontWarnOnDeprecatedPV", _.dontWarnOnDeprecatedPV),
   )
 
-  override def initialProtocolVersion: ProtocolVersion = protocolVersion.version
-
   /** Converts the domain parameters config into a domain parameters protocol message.
     *
     * Sets the required crypto schemes based on the provided crypto config if they are unset in the config.

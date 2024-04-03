@@ -94,7 +94,6 @@ final case class ParticipantProtocolConfig(
     minimumProtocolVersion: Option[ProtocolVersion],
     override val devVersionSupport: Boolean,
     override val dontWarnOnDeprecatedPV: Boolean,
-    override val initialProtocolVersion: ProtocolVersion,
 ) extends ProtocolConfig
 
 /** Configuration parameters for a single participant

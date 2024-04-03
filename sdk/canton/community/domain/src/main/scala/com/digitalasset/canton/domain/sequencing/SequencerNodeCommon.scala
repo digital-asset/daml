@@ -123,7 +123,7 @@ trait SequencerNodeBootstrapCommon[
       initializedAtHead: => Future[Boolean],
       arguments: CantonNodeBootstrapCommonArguments[_, SequencerNodeParameters, SequencerMetrics],
       topologyStateForInitializationService: Option[TopologyStateForInitializationService],
-      maybeDomainOutboxFactory: Option[DomainOutboxXFactorySingleCreate],
+      maybeDomainOutboxFactory: Option[DomainOutboxFactorySingleCreate],
       memberAuthServiceFactory: MemberAuthenticationServiceFactory,
       domainLoggerFactory: NamedLoggerFactory,
       trafficConfig: SequencerTrafficConfig,

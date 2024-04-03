@@ -66,9 +66,7 @@ trait DownloadTopologyStateForInitializationServiceTest
       storedTransactions: GenericStoredTopologyTransactionsX
   ): Future[TopologyStoreX[DomainStore]] = {
     val store = createTopologyStore()
-    store
-      .bootstrap(storedTransactions)
-      .map(_ => store)
+    store.bootstrap(storedTransactions).map(_ => store)
   }
 
   "DownloadTopologyStateForInitializationService" should {

@@ -228,7 +228,9 @@ class SequencerNodeBootstrapX(
                   crypto,
                   store = createDomainTopologyStore(existing.domainId),
                   outboxQueue = new DomainOutboxQueue(loggerFactory),
-                  config.topology.enableTopologyTransactionValidation,
+                  enableTopologyTransactionValidation =
+                    config.topology.enableTopologyTransactionValidation,
+                  protocolVersion = existing.domainParameters.protocolVersion,
                   timeouts,
                   futureSupervisor,
                   loggerFactory,
@@ -354,7 +356,9 @@ class SequencerNodeBootstrapX(
               crypto,
               store,
               outboxQueue,
-              config.topology.enableTopologyTransactionValidation,
+              enableTopologyTransactionValidation =
+                config.topology.enableTopologyTransactionValidation,
+              request.domainParameters.protocolVersion,
               timeouts,
               futureSupervisor,
               loggerFactory,
@@ -413,7 +417,7 @@ class SequencerNodeBootstrapX(
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, Option[RunningNode[SequencerNodeX]]] = {
 
-      val domainOutboxFactory = new DomainOutboxXFactorySingleCreate(
+      val domainOutboxFactory = new DomainOutboxFactorySingleCreate(
         domainId,
         sequencerId,
         authorizedTopologyManager,
