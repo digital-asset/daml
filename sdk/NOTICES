@@ -237,7 +237,7 @@ end-of-stream 1.4.4 : MIT License
 entropy 0.4.1.10 : BSD 3-clause "New" or "Revised" License
 envoyproxy/protoc-gen-validate v0.6.2 : Apache License 2.0
 error 7.2.1 : MIT License
-error-prone annotations 2.20.0 : Apache License 2.0
+error-prone annotations 2.22.0 : Apache License 2.0
 escape-html 1.0.3 : MIT License
 escape-string-regexp 1.0.5 : MIT License
 Esprima 4.0.1 : BSD 2-clause "Simplified" License
@@ -504,7 +504,6 @@ jshttp/fresh 0.5.2 : MIT License
 jshttp/mime-types 2.1.35 : MIT License
 JSHTTP's negotiator 0.6.3 : MIT License
 js-jquery 3.3.1 : MIT License
-JSON-java 20180813 : JSON License
 jsonparse 0.0.5 : MIT License
 jsonparse 1.3.1 : MIT License
 JSONStream 0.10.0 : (MIT License AND Apache License 2.0)
@@ -931,7 +930,7 @@ tibbe/hashable 1.3.5.0 : BSD 3-clause "New" or "Revised" License
 time-compat 1.9.6.1 : BSD 3-clause "New" or "Revised" License
 timers-browserify 1.4.2 : MIT License
 timers-browserify 2.0.2 : MIT License
-Tink Cryptography Library for Java 1.3.0 : Apache License 2.0
+Tink Cryptography Library for Java 1.12.0 : Apache License 2.0
 tiny-lr 1.1.1 : MIT License
 tmp 0.0.29 : MIT License
 to-absolute-glob 2.0.2 : MIT License
@@ -1027,7 +1026,7 @@ zlib 0.6.3.0 : BSD 3-clause "New" or "Revised" License
 Licenses: 
 
 Apache License 2.0
-(acorn-node 1.8.2, anorm 2.7.0, anorm-tokenizer 2.7.0, aokoli/goutils v1.0.1, Apache Commons Codec 1.11, Apache Commons IO 2.11.0, Apache Commons Lang 3.12.0, Apache Commons Math 3.2, Apache Commons Text 1.10.0, Apache Log4j 2.17.0, Apache Log4J API 2.17.0, Awaitility 4.2.0, bsp4j 2.0.0-M6, Byte Buddy byte-buddy-1.10.18, byte-buddy-agent 1.10.18, Caffeine cache 3.1.2, cats-effect 2.5.1, census-instrumentation/opencensus-go v0.23.0, chimney 0.6.1, Circe core 0.14.2, Circe generic 0.14.2, Circe generic extras 0.14.2, Circe jawn 0.14.2, Circe numbers 0.14.2, Circe parser 0.14.2, circe-yaml 0.15.0-RC1, circe-yaml-common 0.15.0-RC1, com.google.api.grpc:proto-google-common-protos 2.22.0, compilerPlugin 0.11.8, config - com.typesafe:config 1.4.2, core 2.3.6, dash-ast 1.0.0, envoyproxy/protoc-gen-validate v0.6.2, error-prone annotations 2.20.0, FindBugs jsr305 3.0.2, flyway-core 9.15.2, get-assigned-identifiers 1.2.0, ghcide 0.1.0, golang/appengine v1.6.7, Google Android Annotations Library 4.1.1.4, google-cloud-go v0.94.1, google-gson 2.10, google-guava v31.1, googleapis/go-genproto 20210917-snapshot-b395a375, groupcache 20200125-snapshot-8c9f03a8, grpc 1.60.0, grpc-go v1.40.0, Guava InternalFutureFailureAccess and InternalFutures 1.0.1, Guava ListenableFuture only 9999.0-empty-to-avoid-conflict-with-guava, HikariCP 3.2.0, interface 0.0.21, io.grpc:grpc-context 1.60.0, io.grpc:grpc-inprocess 1.60.0, io.grpc:grpc-netty 1.60.0, io.grpc:grpc-protobuf 1.60.0, io.grpc:grpc-protobuf-lite 1.60.0, io.grpc:grpc-services 1.60.0, io.grpc:grpc-stub 1.60.0, io.grpc:grpc-util 1.60.0, J2ObjC Annotations 2.8, jackson-annotations 2.14.0, jackson-annotations 2.14.3, jackson-core 2.14.0, jackson-core 2.14.3, jackson-databind 2.14.0, jackson-databind 2.14.3, Jackson-dataformat-TOML 2.14.0, Java Native Access (JNA) 5.13.0, javaparser-core 3.2.5, JavaPoet 1.13.0, Javassist 3_26_0_ga, JCommander Library 1.78, Jetbrains annotations 17.0.0, Jetty :: Websocket :: API 9.4.48.v20220622, Jetty :: Websocket :: Client 9.4.48.v20220622, Jetty :: Websocket :: Common 9.4.48.v20220622, Jetty :: Websocket :: Server 9.4.48.v20220622, Jetty :: Websocket :: Servlet Interface 9.4.48.v20220622, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server 9.4.48.v20220622, Joda Convert 2.2.2, Joda Time 2.11.1, JSONStream 0.10.0, JSONStream 1.3.5, Kotlin 1.9.10, kotlin-stdlib-common 1.9.10, lenses 0.11.8, logstash-logback-encoder logstash-logback-encoder-6.6, lyft/protoc-gen-star v0.5.3, main-tester 0.2.0.1, mwitkow/go-proto-validators 20180403-snapshot-0950a799, Netty Project 4.1.108, Netty/Transport/Native/Unix/Common 4.1.108.Final, objenesis 3.1, OkHttp 4.12.0, OkIO 3.6.0, OpenTelemetry 1.36.0, OpenTelemetry Instrumentation for Java 2.1.0, OpenTelemetry Instrumentation for Java 2.1.0-alpha, OpenTelemetry Java 1.36.0, OpenTelemetry Java 1.36.0-alpha, OpenTelemetry Java - io.opentelemetry:opentelemetry-sdk-metrics 1.36.0, OpenTelemetry Semantic Conventions Java 1.23.1-alpha, optics 0.15.0, org.apiguardian:apiguardian-api 1.1.2, org.jetbrains.kotlin:kotlin-stdlib-jdk7 1.9.10, org.jetbrains.kotlin:kotlin-stdlib-jdk8 1.9.10, org.opentest4j:opentest4j 1.2.0, paiges-core 0.4.2, parboiled 2.5.0, pekko-actor 1.0.1, pekko-http 1.0.0, pekko-http-core 1.0.0, pekko-http-testkit 1.0.0, pekko-parsing 1.0.0, pekko-protobuf-v3 1.0.1, pekko-slf4j 1.0.1, pekko-stream 1.0.1, pekko-stream-testkit 1.0.1, pekko-testkit 1.0.1, perfmark:perfmark-api 0.26.0, Prometheus Metrics Config 1.1.0, Prometheus Metrics Exporter - Common 1.1.0, Prometheus Metrics Exporter - HTTP Server 1.1.0, Prometheus Metrics Exposition Formats 1.1.0, Prometheus Metrics Model 1.1.0, proto3-suite 0.5.1, proto3-wire 1.2.2, protoc-bridge 0.9.5, protoc-gen 0.9.5, ReactiveX RxJS 6.6.7, RxJava 2.2.21, scaffeine 5.2.1, scala-collection-compat 2.8.1, scala-collection-contrib 0.2.2, scala-csv 1.3.10, scala-java8-compat 1.0.2, scala-logging 3.9.5, scala-parallel-collections 1.0.4, scala-parser-combinators 1.1.2, scala-xml 2.0.1, scalacheck-1.15 3.2.11.0, scalactic 3.2.11, scalapb-runtime 0.11.8, scalapb-runtime-grpc 0.11.8, scalatest-compatible 3.2.11, scalatest-core 3.2.11, scalatest-flatspec 3.2.11, scalatest-freespec 3.2.11, scalatest-matchers-core 3.2.11, scalatest-shouldmatchers 3.2.11, scalatest-wordspec 3.2.11, Shaded Protobuf 1.1.0, shasum-object 1.0.0, SnakeYAML 2.0, spark-java 2.9.4, spf13-afero v1.6.0, spray-json 1.3.6, spray-json-derived-codecs 2.3.10, sqlite-jdbc 3.36.0.1, ssl-config-core 0.6.1, TestNG 7.5, testng-7.5 3.2.11.0, through 2.3.8, Tink Cryptography Library for Java 1.3.0, TypeScript 3.7.4, undeclared-identifiers 1.1.3, wartremover 2.4.21, websocket-driver-node 0.7.4, websocket-extensions-node 0.1.4, yaml for Go 20200512-snapshot-9f266ea9, yaml for Go v2.2.2, Zipkin Reporter: Core 3.3.0, Zipkin Sender: OkHttp 3 3.3.0, Zipkin v2 2.27.1)
+(acorn-node 1.8.2, anorm 2.7.0, anorm-tokenizer 2.7.0, aokoli/goutils v1.0.1, Apache Commons Codec 1.11, Apache Commons IO 2.11.0, Apache Commons Lang 3.12.0, Apache Commons Math 3.2, Apache Commons Text 1.10.0, Apache Log4j 2.17.0, Apache Log4J API 2.17.0, Awaitility 4.2.0, bsp4j 2.0.0-M6, Byte Buddy byte-buddy-1.10.18, byte-buddy-agent 1.10.18, Caffeine cache 3.1.2, cats-effect 2.5.1, census-instrumentation/opencensus-go v0.23.0, chimney 0.6.1, Circe core 0.14.2, Circe generic 0.14.2, Circe generic extras 0.14.2, Circe jawn 0.14.2, Circe numbers 0.14.2, Circe parser 0.14.2, circe-yaml 0.15.0-RC1, circe-yaml-common 0.15.0-RC1, com.google.api.grpc:proto-google-common-protos 2.22.0, compilerPlugin 0.11.8, config - com.typesafe:config 1.4.2, core 2.3.6, dash-ast 1.0.0, envoyproxy/protoc-gen-validate v0.6.2, error-prone annotations 2.22.0, FindBugs jsr305 3.0.2, flyway-core 9.15.2, get-assigned-identifiers 1.2.0, ghcide 0.1.0, golang/appengine v1.6.7, Google Android Annotations Library 4.1.1.4, google-cloud-go v0.94.1, google-gson 2.10, google-guava v31.1, googleapis/go-genproto 20210917-snapshot-b395a375, groupcache 20200125-snapshot-8c9f03a8, grpc 1.60.0, grpc-go v1.40.0, Guava InternalFutureFailureAccess and InternalFutures 1.0.1, Guava ListenableFuture only 9999.0-empty-to-avoid-conflict-with-guava, HikariCP 3.2.0, interface 0.0.21, io.grpc:grpc-context 1.60.0, io.grpc:grpc-inprocess 1.60.0, io.grpc:grpc-netty 1.60.0, io.grpc:grpc-protobuf 1.60.0, io.grpc:grpc-protobuf-lite 1.60.0, io.grpc:grpc-services 1.60.0, io.grpc:grpc-stub 1.60.0, io.grpc:grpc-util 1.60.0, J2ObjC Annotations 2.8, jackson-annotations 2.14.0, jackson-annotations 2.14.3, jackson-core 2.14.0, jackson-core 2.14.3, jackson-databind 2.14.0, jackson-databind 2.14.3, Jackson-dataformat-TOML 2.14.0, Java Native Access (JNA) 5.13.0, javaparser-core 3.2.5, JavaPoet 1.13.0, Javassist 3_26_0_ga, JCommander Library 1.78, Jetbrains annotations 17.0.0, Jetty :: Websocket :: API 9.4.48.v20220622, Jetty :: Websocket :: Client 9.4.48.v20220622, Jetty :: Websocket :: Common 9.4.48.v20220622, Jetty :: Websocket :: Server 9.4.48.v20220622, Jetty :: Websocket :: Servlet Interface 9.4.48.v20220622, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server 9.4.48.v20220622, Joda Convert 2.2.2, Joda Time 2.11.1, JSONStream 0.10.0, JSONStream 1.3.5, Kotlin 1.9.10, kotlin-stdlib-common 1.9.10, lenses 0.11.8, logstash-logback-encoder logstash-logback-encoder-6.6, lyft/protoc-gen-star v0.5.3, main-tester 0.2.0.1, mwitkow/go-proto-validators 20180403-snapshot-0950a799, Netty Project 4.1.108, Netty/Transport/Native/Unix/Common 4.1.108.Final, objenesis 3.1, OkHttp 4.12.0, OkIO 3.6.0, OpenTelemetry 1.36.0, OpenTelemetry Instrumentation for Java 2.1.0, OpenTelemetry Instrumentation for Java 2.1.0-alpha, OpenTelemetry Java 1.36.0, OpenTelemetry Java 1.36.0-alpha, OpenTelemetry Java - io.opentelemetry:opentelemetry-sdk-metrics 1.36.0, OpenTelemetry Semantic Conventions Java 1.23.1-alpha, optics 0.15.0, org.apiguardian:apiguardian-api 1.1.2, org.jetbrains.kotlin:kotlin-stdlib-jdk7 1.9.10, org.jetbrains.kotlin:kotlin-stdlib-jdk8 1.9.10, org.opentest4j:opentest4j 1.2.0, paiges-core 0.4.2, parboiled 2.5.0, pekko-actor 1.0.1, pekko-http 1.0.0, pekko-http-core 1.0.0, pekko-http-testkit 1.0.0, pekko-parsing 1.0.0, pekko-protobuf-v3 1.0.1, pekko-slf4j 1.0.1, pekko-stream 1.0.1, pekko-stream-testkit 1.0.1, pekko-testkit 1.0.1, perfmark:perfmark-api 0.26.0, Prometheus Metrics Config 1.1.0, Prometheus Metrics Exporter - Common 1.1.0, Prometheus Metrics Exporter - HTTP Server 1.1.0, Prometheus Metrics Exposition Formats 1.1.0, Prometheus Metrics Model 1.1.0, proto3-suite 0.5.1, proto3-wire 1.2.2, protoc-bridge 0.9.5, protoc-gen 0.9.5, ReactiveX RxJS 6.6.7, RxJava 2.2.21, scaffeine 5.2.1, scala-collection-compat 2.8.1, scala-collection-contrib 0.2.2, scala-csv 1.3.10, scala-java8-compat 1.0.2, scala-logging 3.9.5, scala-parallel-collections 1.0.4, scala-parser-combinators 1.1.2, scala-xml 2.0.1, scalacheck-1.15 3.2.11.0, scalactic 3.2.11, scalapb-runtime 0.11.8, scalapb-runtime-grpc 0.11.8, scalatest-compatible 3.2.11, scalatest-core 3.2.11, scalatest-flatspec 3.2.11, scalatest-freespec 3.2.11, scalatest-matchers-core 3.2.11, scalatest-shouldmatchers 3.2.11, scalatest-wordspec 3.2.11, Shaded Protobuf 1.1.0, shasum-object 1.0.0, SnakeYAML 2.0, spark-java 2.9.4, spf13-afero v1.6.0, spray-json 1.3.6, spray-json-derived-codecs 2.3.10, sqlite-jdbc 3.36.0.1, ssl-config-core 0.6.1, TestNG 7.5, testng-7.5 3.2.11.0, through 2.3.8, Tink Cryptography Library for Java 1.12.0, TypeScript 3.7.4, undeclared-identifiers 1.1.3, wartremover 2.4.21, websocket-driver-node 0.7.4, websocket-extensions-node 0.1.4, yaml for Go 20200512-snapshot-9f266ea9, yaml for Go v2.2.2, Zipkin Reporter: Core 3.3.0, Zipkin Sender: OkHttp 3 3.3.0, Zipkin v2 2.27.1)
 
 Apache License
 Version 2.0, January 2004
@@ -6612,35 +6611,6 @@ ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
 WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE
-
----
-
-JSON License
-(JSON-java 20180813)
-
-The JSON License
-================
-
-Copyright (c) 2002 JSON.org
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in the
-Software without restriction, including without limitation the rights to use,
-copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
-Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-The Software shall be used for Good, not Evil.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
-AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ---
 
