@@ -1,0 +1,125 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Universal where
+
+import qualified DA.Map as M
+import DA.Exception (ActionThrow(throw))
+
+data Kind = Consuming | NonConsuming
+  deriving (Eq, Show)
+
+data TxAction
+    = Create
+        { contractId : Int
+        , signatories : [Party]
+        , observers : [Party]
+        }
+    | Exercise
+        { kind : Kind
+        , contractId : Int
+        , controllers : [Party]
+        , choiceObservers : [Party]
+        , subTransaction : Transaction
+        }
+    | CreateAndExercise
+        { kind : Kind
+        , contractId : Int
+        , signatories : [Party]
+        , observers : [Party]
+        , controllers : [Party]
+        , choiceObservers : [Party]
+        , subTransaction : Transaction
+        }
+    | Fetch
+        { contractId : Int
+        }
+    | Rollback
+        { subTransaction : Transaction
+        }
+  deriving (Eq, Show)
+
+type Transaction = [TxAction]
+
+data LCommands = LCommands
+    { lActAs : [Party]
+    , lActions : [TxAction]
+    }
+
+type Ledger = [LCommands]
+
+type Env = M.Map Int (ContractId Universal)
+
+template Universal
+  with
+    signatories : [Party]
+    observers : [Party]
+  where
+    signatory signatories
+    observer observers
+
+    nonconsuming choice NonConsumingChoice: Env
+      with
+        env: Env
+        controllers: [Party]
+        choiceObservers: [Party]
+        subTransaction: Transaction
+      observer choiceObservers
+      controller controllers
+      do
+        interpretTransaction env subTransaction
+
+    choice ConsumingChoice: Env
+      with
+        env: Env
+        controllers: [Party]
+        choiceObservers: [Party]
+        subTransaction: Transaction
+      observer choiceObservers
+      controller controllers
+      do
+        interpretTransaction env subTransaction
+
+exception RollbackException
+  with
+  where
+    message "rollback"
+
+
+(!) : (Ord k, Show k) => M.Map k v -> k -> v
+m ! k = 
+  case M.lookup k m of
+    Some v -> v
+    None -> error (show k <> " not found")
+
+interpretTxAction : Env -> TxAction -> Update Env
+interpretTxAction env action = 
+  case action of
+    (Create contractId signatories observers) -> do
+       actualContractId <- create Universal {..}
+       return (M.insert contractId actualContractId env)
+    (Exercise kind contractId controllers choiceObservers subTransaction) -> 
+      case kind of
+        Consuming -> exercise (env ! contractId) ConsumingChoice {..}
+        NonConsuming -> exercise (env ! contractId) NonConsumingChoice {..}
+    (CreateAndExercise kind contractId signatories observers controllers choiceObservers subTransaction) -> do
+      error "unexpected non-toplevel CreateAndExercise node"
+    (Fetch contractId) -> do
+      fetch (env ! contractId)
+      return env
+    (Rollback subTransaction) -> do
+      try do
+        interpretTransaction env subTransaction
+        throw RollbackException
+      catch
+        RollbackException ->
+          return env
+
+interpretTransaction : Env -> Transaction -> Update Env
+interpretTransaction env tx = 
+  case tx of
+    [] -> return env
+    (a::as) -> do
+      env' <- interpretTxAction env a
+      interpretTransaction env' as
+

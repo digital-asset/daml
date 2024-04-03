@@ -1,0 +1,72 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "lf_scalacopts_stricter",
+)
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+)
+
+daml_compile(
+    name = "universal",
+    srcs = ["src/main/daml/Universal.daml"],
+)
+
+da_scala_library(
+    name = "model-test-lib",
+    srcs = glob(
+        ["src/main/**/*.scala"],
+        exclude = ["src/main/scala/com/digitalasset/daml/lf/model/test/Demo.scala"],
+    ),
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_typelevel_cats_kernel",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    tags = ["maven_coordinates=com.daml:daml-lf-model-test-lib:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//daml-script/runner:script-runner-lib",
+    ],
+)
+
+da_scala_binary(
+    name = "demo",
+    srcs = ["src/main/scala/com/digitalasset/daml/lf/model/test/Demo.scala"],
+    data = [":universal.dar"],
+    main_class = "com.daml.lf.model.test.Demo",
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_typelevel_paiges_core",
+    ],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        ":model-test-lib",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_util-logging",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/scenario-interpreter",
+        "//daml-lf/transaction",
+        "//daml-script/runner:script-runner-lib",
+        "//libs-scala/contextualized-logging",
+    ],
+)
