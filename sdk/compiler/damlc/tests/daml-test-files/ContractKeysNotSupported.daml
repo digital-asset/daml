@@ -1,0 +1,12 @@
+-- @DOES-NOT-SUPPORT-LF-FEATURE DAML_CONTRACT_KEYS
+-- @ERROR Contract keys
+
+module ContractKeysNotSupported where
+
+template TemplateWithKey
+  with
+    p: Party
+  where
+    signatory p
+    key p: Party
+    maintainer key

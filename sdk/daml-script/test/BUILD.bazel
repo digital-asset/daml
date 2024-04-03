@@ -14,6 +14,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("//rules_daml:daml.bzl", "daml_compile")
 load(
     "//daml-lf/language:daml-lf.bzl",
+    "LF_DEFAULT_DEV_VERSION",
     "SUPPORTED_LF_DEV_VERSIONS",
     "SUPPORTED_LF_MAJOR_VERSIONS",
     "lf_version_default_or_latest",
@@ -84,10 +85,15 @@ EOF
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],
     )
-    for (target, name) in [(
-        lf_version_default_or_latest(major),
-        major,
-    ) for major in SUPPORTED_LF_MAJOR_VERSIONS] + [
+    for (target, name) in
+    # TODO(https://github.com/digital-asset/daml/issues/18457): re-enable once
+    #  script tests have been split into those that use keys and those that
+    #  don't.
+    #[(
+    #    lf_version_default_or_latest(major),
+    #    major,
+    #) for major in SUPPORTED_LF_MAJOR_VERSIONS] +
+    [
         (target, target)
         for target in SUPPORTED_LF_DEV_VERSIONS
     ]
@@ -141,7 +147,7 @@ genrule(
     name = "script-test-no-ledger",
     srcs =
         glob(["**/*.daml"]) + [
-            "//daml-script/daml3:daml3-script.dar",
+            "//daml-script/daml3:daml3-script-{}.dar".format(LF_DEFAULT_DEV_VERSION),
             "//docs:source/daml-script/template-root/src/ScriptExample.daml",
         ],
     outs = ["script-test-no-ledger.dar"],
@@ -150,7 +156,7 @@ genrule(
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
-      cp -L $(location //daml-script/daml3:daml3-script.dar) $$TMP_DIR/
+      cp -L $(location //daml-script/daml3:daml3-script-{target}.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: script-test-no-ledger
@@ -161,13 +167,13 @@ build-options:
 dependencies:
   - daml-stdlib
   - daml-prim
-  - daml3-script.dar
+  - daml3-script-{target}.dar
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test-no-ledger.dar)
       rm -rf $$TMP_DIR
     """.format(
         sdk = sdk_version,
-        target = lf_version_default_or_latest("2"),
+        target = LF_DEFAULT_DEV_VERSION,
     ),
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
@@ -369,17 +375,20 @@ da_scala_test_suite(
         ":script3-test-v2.dev.dar",
         "//compiler/damlc",
         "//daml-script/runner:daml-script-binary",
-    ] + [
-        ":script{scriptVersion}-test-v{major}.dar".format(
-            major = major,
-            scriptVersion = scriptVersion,
-        )
-        for major in SUPPORTED_LF_MAJOR_VERSIONS
-        for scriptVersion in [
-            "",
-            "3",
-        ]
     ],
+    # TODO(https://github.com/digital-asset/daml/issues/18457): re-enable once
+    #  script tests have been split into those that use keys and those that
+    #  don't.
+    #+ [
+    #     ":script{scriptVersion}-test-v{major}.dar".format(
+    #         major = major,
+    #         scriptVersion = scriptVersion,
+    #     )
+    #     for major in SUPPORTED_LF_MAJOR_VERSIONS
+    #     for scriptVersion in [
+    #         "",
+    #         "3",
+    #    ]
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
         "@maven//:org_apache_pekko_pekko_actor",
