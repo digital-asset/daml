@@ -7,7 +7,7 @@ import java.io.File
 import java.nio.file.Files
 
 import org.apache.pekko.http.scaladsl.Http
-import org.apache.pekko.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri}
+import org.apache.pekko.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri, HttpHeader}
 import AbstractHttpServiceIntegrationTestFuns.HttpServiceTestFixtureData
 import HttpServiceTestFixture.UseHttps
 import dbbackend.JdbcConfig
@@ -225,6 +225,50 @@ abstract class HttpServiceIntegrationTest
           exerciseTid = TpId.IIou.IIou,
         ) map exerciseSucceeded
       } yield result should ===("Bob invoked IIou.Transfer")
+    }
+
+    // This is a hacky way to determine the package id of a dar,
+    // but might suffice for tests for now.
+    def packageIdOfDar(dar: File): Future[String] = Future {
+      import java.util.zip.ZipInputStream
+      val zis = new ZipInputStream(new java.io.FileInputStream(dar))
+      val entry = zis.getNextEntry()
+      // Paths are formatted as: {packageName}-{packageVersion}-{packageId}/{dalfFile}
+      val pkgId = entry.getName.split("/")(0).split("-")(2)
+      zis.closeEntry()
+      zis.close()
+      pkgId
+    }
+
+    def postCreate(
+        fixture: HttpServiceTestFixtureData,
+        payload: JsValue,
+        headers: List[HttpHeader],
+    ): Future[domain.ContractId] = {
+      HttpServiceTestFixture
+        .postJsonRequest(fixture.uri withPath Uri.Path("/v1/create"), payload, headers)
+        .parseResponse[domain.ActiveContract.ResolvedCtTyId[JsValue]]
+        .map(resultContractId)
+    }
+
+    "templateId can include package id" in withHttpService { fixture =>
+      for {
+        pkgId <- packageIdOfDar(ciouDar)
+        _ <- uploadPackage(fixture)(ciouDar)
+        (alice, aliceHeaders) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        _ <- postCreate(
+          fixture,
+          jsObject(s"""{
+                "templateId": "$pkgId:CIou:CIou",
+                "payload": {
+                  "issuer": "$alice",
+                  "owner": "$alice",
+                  "amount": "a lot"
+                }
+              }"""),
+          aliceHeaders,
+        )
+      } yield succeed
     }
 
     // ideally we would upload IIou.daml, then force a reload, then upload ciou;
