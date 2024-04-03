@@ -461,7 +461,11 @@ object PackageService {
       .groupBy1(_._1) // group by name
       .map {
         // Sort the package ids by version, descending
-        case (n, pkgIdVers) => (n, pkgIdVers.toSeq.sortBy(_._2).map(_._1).reversed)
+        case (n, nPkgIdVers) => {
+          val pkgIdVers: NonEmpty[Set[(String, Ref.PackageVersion)]] = nPkgIdVers.map(_._2)
+          val orderedPkgIds: NonEmpty[Seq[String]] = pkgIdVers.toSeq.sortBy(_._2).map(_._1).reversed
+          (n, orderedPkgIds)
+        }
       }
       .toMap
     ContractTypeIdMap(all, unique, nameIds)

@@ -40,7 +40,7 @@ abstract class HttpServiceIntegrationTest
     with BeforeAndAfterAll {
   import HttpServiceIntegrationTest._
   import json.JsonProtocol._
-  import AbstractHttpServiceIntegrationTestFuns.ciouDar
+  import AbstractHttpServiceIntegrationTestFuns.{ciouDar, fooV1Dar, fooV2Dar}
 
   private val staticContent: String = "static"
 
@@ -106,6 +106,43 @@ abstract class HttpServiceIntegrationTest
       .flatMap {
         _.status shouldBe StatusCodes.OK
       }: Future[Assertion]
+  }
+
+  "should handle multiple package ids with the same name" in withHttpService { fixture =>
+    import org.apache.pekko.http.scaladsl.model.HttpHeader
+
+    def postCreate(payload: JsValue, headers: List[HttpHeader]): Future[domain.ContractId] = {
+      HttpServiceTestFixture
+        .postJsonRequest(fixture.uri withPath Uri.Path("/v1/create"), payload, headers)
+        .parseResponse[domain.ActiveContract.ResolvedCtTyId[JsValue]]
+        .map(resultContractId)
+    }
+
+    for {
+      _ <- uploadPackage(fixture)(fooV1Dar)
+      _ <- uploadPackage(fixture)(fooV2Dar)
+
+      (alice, aliceHdrs) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+
+      // create a v1 and a v2 of Foo:Bar, using the package name. Both will be interpreted as V2.
+      v1Cid <- postCreate(
+        jsObject(s"""{"templateId": "#foo:Foo:Bar", "payload": {"owner": "$alice"}}"""),
+        aliceHdrs,
+      )
+      v2Cid <- postCreate(
+        jsObject(s"""{"templateId": "#foo:Foo:Bar", "payload": {"owner": "$alice", "extra":42}}"""),
+        aliceHdrs,
+      )
+      // query Foo:Bar's and get both
+      _ <- searchExpectOk(
+        List(),
+        jsObject(s"""{"templateIds": ["#foo:Foo:Bar"]}"""),
+        fixture,
+        aliceHdrs,
+      ).map { acl => acl.map(_.contractId) shouldBe List(v1Cid, v2Cid) }
+    } yield {
+      succeed
+    }
   }
 
   "query with invalid JSON query should return error" in withHttpService { fixture =>

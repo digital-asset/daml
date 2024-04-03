@@ -10,6 +10,7 @@ import com.daml.http.Generators.{
 }
 import com.daml.http.PackageService.TemplateIdMap
 import com.daml.ledger.api.{v1 => lav1}
+import com.daml.lf.data.Ref
 import org.scalacheck.Shrink
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.Inside
@@ -120,12 +121,34 @@ class PackageServiceTest
     "should resolve by package name when single package id" in forAll(
       nonEmptySetOf(genDomainTemplateId)
     ) { ids =>
-      val idName = buildPackageNameMap(_ + "_name")(ids) // package_id:package_name is 1:1
+      def pkgNameForPkgId(pkgId: String) = pkgId + "_name"
+      val idName = buildPackageNameMap(pkgNameForPkgId)(ids) // package_id:package_name is 1:1
       val map = PackageService.buildTemplateIdMap(idName, ids)
       ids.foreach { id =>
         val unresolvedId: domain.ContractTypeId.Template.OptionalPkg =
-          id.copy(packageId = Some("#" + idName(id.packageId)._1))
+          id.copy(packageId = Some("#" + pkgNameForPkgId(id.packageId)))
         map resolve unresolvedId shouldBe Some(id)
+      }
+    }
+
+    "should resolve by package name when multiple package ids" in forAll(
+      genDuplicateModuleEntityTemplateIds
+    ) { ids =>
+      val idName = buildPackageNameMap(_ => "foo")(ids) // package_id:package_name is n:1
+      val pkgIdWithMaxVer = ids.maxBy(id => packageVersionForId(id.packageId))
+      val map = PackageService.buildTemplateIdMap(idName, ids)
+      ids.foreach { id =>
+        val templateIdWithPackageName = id.copy(packageId = Some("#foo"))
+        val Some(resolvedTemplateId) = map resolve templateIdWithPackageName
+
+        // Selects a package id with the given package name.
+        idName(resolvedTemplateId.packageId)._1.toOption shouldBe Some(
+          Ref.PackageName.assertFromString("foo")
+        )
+        // Should have selected package with highest version
+        resolvedTemplateId.packageId == pkgIdWithMaxVer
+        // The module and entity part of the template ids should be the same.
+        resolvedTemplateId.copy(packageId = None) shouldBe id.copy(packageId = None)
       }
     }
 
@@ -137,19 +160,22 @@ class PackageServiceTest
     }
   }
 
+  // Arbitrary but deterministic assignment of package version to package id.
+  private def packageVersionForId(pkgId: String) = {
+    Ref.PackageVersion.assertFromString(s"0.0.${pkgId.hashCode.abs}")
+  }
+
   private def buildPackageNameMap(
       pkgNameForPkgId: (String => String)
   )(ids: Set[_ <: domain.ContractTypeId.RequiredPkg]): PackageService.PackageNameMap = {
     import com.daml.lf.crypto.Hash.KeyPackageName
-    import com.daml.lf.data.Ref.PackageName
-    import com.daml.lf.data.Ref.PackageVersion
     import com.daml.lf.language.LanguageVersion
-    val pkgVersion = PackageVersion.assertFromString("0.0.0")
     PackageService.PackageNameMap(
       ids
         .map((id: domain.ContractTypeId.RequiredPkg) => {
-          val name = PackageName.assertFromString(pkgNameForPkgId(id.packageId))
-          (id.packageId, (KeyPackageName(Some(name), LanguageVersion.v1_15), pkgVersion))
+          val pkgName = Ref.PackageName.assertFromString(pkgNameForPkgId(id.packageId))
+          val pkgVersion = packageVersionForId(id.packageId)
+          (id.packageId, (KeyPackageName(Some(pkgName), LanguageVersion.v1_dev), pkgVersion))
         })
         .toMap
         .view

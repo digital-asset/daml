@@ -227,6 +227,26 @@ daml_compile(
     visibility = ["//ledger-service:__subpackages__"],
 )
 
+# Upgraded by FooV2
+daml_compile(
+    name = "FooV1",
+    project_name = "foo",
+    version = "0.0.1",
+    srcs = ["src/it/daml/upgrades/v1/Foo.daml"],
+    target = "1.dev",
+    visibility = ["//ledger-service:__subpackages__"],
+)
+
+# Upgrades FooV1
+daml_compile(
+    name = "FooV2",
+    project_name = "foo",
+    version = "0.0.2",
+    srcs = ["src/it/daml/upgrades/v2/Foo.daml"],
+    target = "1.dev",
+    visibility = ["//ledger-service:__subpackages__"],
+)
+
 [
     da_scala_test(
         name = "tests-{}".format(edition),
@@ -463,6 +483,8 @@ alias(
             ":CIou.dar",
             ":RIou.dar",
             ":User.dar",
+            ":FooV1.dar",
+            ":FooV2.dar",
             "//docs:quickstart-model.dar",
             "//test-common:dar-files",
             "//test-common/test-certificates",

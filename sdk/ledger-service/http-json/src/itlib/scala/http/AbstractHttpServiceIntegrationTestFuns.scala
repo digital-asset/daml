@@ -62,6 +62,9 @@ object AbstractHttpServiceIntegrationTestFuns {
 
   private[http] val riouDar = requiredResource("ledger-service/http-json/RIou.dar")
 
+  private[http] val fooV1Dar = requiredResource("ledger-service/http-json/FooV1.dar")
+  private[http] val fooV2Dar = requiredResource("ledger-service/http-json/FooV2.dar")
+
   def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
     import com.google.common.io.BaseEncoding
 
