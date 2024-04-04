@@ -190,7 +190,7 @@ object TopologyTransactionX
 
   val supportedProtoVersions: transaction.TopologyTransactionX.SupportedProtoVersions =
     SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TopologyTransaction)(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.TopologyTransaction)(
         supportedProtoVersionMemoized(_)(fromProtoV30),
         _.toProtoV30.toByteString,
       )

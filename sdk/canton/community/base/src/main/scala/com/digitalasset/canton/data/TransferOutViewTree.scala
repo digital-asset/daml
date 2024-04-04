@@ -85,7 +85,7 @@ object TransferOutViewTree
   override val name: String = "TransferOutViewTree"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferViewTree)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.TransferViewTree)(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
       _.toProtoV30.toByteString,
     )
@@ -197,7 +197,7 @@ object TransferOutCommonData
   override val name: String = "TransferOutCommonData"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferOutCommonData)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.TransferOutCommonData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -326,7 +326,7 @@ object TransferOutView
   override val name: String = "TransferOutView"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferOutView)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.TransferOutView)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )

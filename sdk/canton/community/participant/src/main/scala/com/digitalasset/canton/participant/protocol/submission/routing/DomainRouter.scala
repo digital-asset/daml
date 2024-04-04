@@ -15,16 +15,14 @@ import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.domain.DomainAliasManager
+import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmissionError,
   TransactionSubmitted,
 }
 import com.digitalasset.canton.participant.protocol.submission.routing.DomainRouter.inputContractRoutingParties
-import com.digitalasset.canton.participant.protocol.{
-  SerializableContractAuthenticator,
-  SerializableContractAuthenticatorImpl,
-}
 import com.digitalasset.canton.participant.store.DomainConnectionConfigStore
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.ConfigurationErrors.{
   MultiDomainSupportNotEnabled,
@@ -266,8 +264,7 @@ object DomainRouter {
       domainAliasManager: DomainAliasManager,
       cryptoPureApi: CryptoPureApi,
       participantId: ParticipantId,
-      autoTransferTransaction: Boolean,
-      timeouts: ProcessingTimeout,
+      parameters: ParticipantNodeParameters,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): DomainRouter = {
 
@@ -294,10 +291,9 @@ object DomainRouter {
       loggerFactory = loggerFactory,
     )
 
-    val serializableContractAuthenticator = new SerializableContractAuthenticatorImpl(
-      // This unicum generator is used for all domains uniformly. This means that domains cannot specify
-      // different unicum generator strategies (e.g., different hash functions).
-      new UnicumGenerator(cryptoPureApi)
+    val serializableContractAuthenticator = SerializableContractAuthenticator(
+      cryptoPureApi,
+      parameters,
     )
 
     new DomainRouter(
@@ -305,9 +301,9 @@ object DomainRouter {
       transfer,
       domainStateProvider,
       serializableContractAuthenticator,
-      autoTransferTransaction = autoTransferTransaction,
+      autoTransferTransaction = parameters.enablePreviewFeatures,
       domainSelectorFactory,
-      timeouts,
+      parameters.processingTimeouts,
       loggerFactory,
     )
   }

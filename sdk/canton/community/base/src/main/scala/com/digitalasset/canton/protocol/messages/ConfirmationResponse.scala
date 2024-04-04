@@ -144,7 +144,7 @@ object ConfirmationResponse
   override val name: String = "ConfirmationResponse"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ConfirmationResponse)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.ConfirmationResponse)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )

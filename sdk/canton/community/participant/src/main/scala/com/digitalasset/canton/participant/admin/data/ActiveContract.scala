@@ -51,7 +51,7 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
   override def name: String = "ActiveContract"
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ActiveContract)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.ActiveContract)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )

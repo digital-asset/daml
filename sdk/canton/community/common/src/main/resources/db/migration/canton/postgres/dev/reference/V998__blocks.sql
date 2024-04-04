@@ -3,7 +3,7 @@
 -- Proprietary code. All rights reserved.
 
 create table blocks (
-    id bigint primary key,
-    request bytea not null,
-    uuid varchar(36) collate "C" unique not null
+  id bigint primary key,
+  request bytea not null,
+  uuid varchar(36) collate "C" unique not null
 );

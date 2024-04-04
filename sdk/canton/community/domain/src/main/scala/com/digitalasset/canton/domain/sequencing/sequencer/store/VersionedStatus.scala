@@ -28,7 +28,7 @@ object VersionedStatus extends HasProtocolVersionedCompanion2[VersionedStatus, V
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter
       .storage(
-        ReleaseProtocolVersion(ProtocolVersion.v30),
+        ReleaseProtocolVersion(ProtocolVersion.v31),
         v30.VersionedStatus.messageCompanion,
       )(
         supportedProtoVersion(_)(fromProtoV30),

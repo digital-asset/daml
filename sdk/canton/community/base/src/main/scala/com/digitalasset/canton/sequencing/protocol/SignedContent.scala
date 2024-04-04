@@ -106,14 +106,14 @@ object SignedContent
   override def name: String = "SignedContent"
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SignedContent)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.SignedContent)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
   )
 
   val multipleSignaturesSupportedSince: RepresentativeProtocolVersion[SignedContent.type] =
-    protocolVersionRepresentativeFor(ProtocolVersion.v30)
+    protocolVersionRepresentativeFor(ProtocolVersion.v31)
 
   // TODO(i12076): Start using multiple signatures
   def apply[A <: HasCryptographicEvidence](

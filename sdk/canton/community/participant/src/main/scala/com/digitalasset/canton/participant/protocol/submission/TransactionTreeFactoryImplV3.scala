@@ -36,7 +36,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Generate transaction trees as used from protocol version [[com.digitalasset.canton.version.ProtocolVersion.v30]] on
+/** Generate transaction trees as used from protocol version [[com.digitalasset.canton.version.ProtocolVersion.v31]] on
   */
 class TransactionTreeFactoryImplV3(
     submittingParticipant: ParticipantId,

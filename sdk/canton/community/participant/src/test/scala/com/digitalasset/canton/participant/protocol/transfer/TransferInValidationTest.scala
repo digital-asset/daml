@@ -247,7 +247,7 @@ class TransferInValidationTest
 
     "disallow transfers from source domain supporting transfer counter to destination domain not supporting them" in {
       val transferDataSourceDomainPVCNTestNet =
-        transferData.copy(sourceProtocolVersion = SourceProtocolVersion(ProtocolVersion.v30))
+        transferData.copy(sourceProtocolVersion = SourceProtocolVersion(ProtocolVersion.v31))
       for {
         result <-
           transferInValidation
@@ -260,7 +260,7 @@ class TransferInValidationTest
             )
             .value
       } yield {
-        if (transferOutRequest.targetProtocolVersion.v >= ProtocolVersion.v30) {
+        if (transferOutRequest.targetProtocolVersion.v >= ProtocolVersion.v31) {
           result shouldBe Right(Some(TransferInValidationResult(Set(party1))))
         } else {
           result shouldBe Left(

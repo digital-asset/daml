@@ -69,7 +69,7 @@ object SetTrafficBalanceMessage
   override val name: String = "SetTrafficBalanceMessage"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(
+    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v31)(
       v30.SetTrafficBalanceMessage
     )(
       supportedProtoVersionMemoized(_)(fromProtoV30),

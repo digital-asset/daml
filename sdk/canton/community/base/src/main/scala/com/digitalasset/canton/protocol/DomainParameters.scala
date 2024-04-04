@@ -106,7 +106,7 @@ object StaticDomainParameters
 
   val supportedProtoVersions: protocol.StaticDomainParameters.SupportedProtoVersions =
     SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(
         v30.StaticDomainParameters
       )(
         supportedProtoVersion(_)(fromProtoV30),
@@ -430,7 +430,7 @@ final case class DynamicDomainParameters private (
   override def pretty: Pretty[DynamicDomainParameters] = {
     if (
       representativeProtocolVersion >= companionObj.protocolVersionRepresentativeFor(
-        ProtocolVersion.v30
+        ProtocolVersion.v31
       )
     ) {
       prettyOfClass(
@@ -467,7 +467,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
 
   val supportedProtoVersions: canton.protocol.DynamicDomainParameters.SupportedProtoVersions =
     SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(
         v30.DynamicDomainParameters
       )(
         supportedProtoVersion(_)(fromProtoV30),

@@ -338,7 +338,7 @@ object ViewParticipantData
   override val name: String = "ViewParticipantData"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ViewParticipantData)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.ViewParticipantData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )

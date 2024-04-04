@@ -78,7 +78,7 @@ object UntypedVersionedMessageTest {
   object Message extends HasVersionedMessageCompanion[Message] {
     val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
       ProtoVersion(30) -> ProtoCodec(
-        ProtocolVersion.v30,
+        ProtocolVersion.v31,
         supportedProtoVersion(DummyMessage)(fromProtoV30),
         _.toProtoV30.toByteString,
       )

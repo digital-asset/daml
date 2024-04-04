@@ -50,7 +50,7 @@ object Verdict
 
   val supportedProtoVersions: protocol.messages.Verdict.SupportedProtoVersions =
     SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.Verdict)(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.Verdict)(
         supportedProtoVersion(_)(fromProtoV30),
         _.toProtoV30.toByteString,
       )

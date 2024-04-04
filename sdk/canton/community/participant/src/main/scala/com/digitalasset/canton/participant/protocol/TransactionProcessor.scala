@@ -22,13 +22,11 @@ import com.digitalasset.canton.ledger.participant.state.v2.{
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.metrics.TransactionProcessingMetrics
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.WrapsProcessorError
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.ProcessorError
-import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
-  TransactionSubmitted,
-  buildAuthenticator,
-}
+import com.digitalasset.canton.participant.protocol.TransactionProcessor.TransactionSubmitted
 import com.digitalasset.canton.participant.protocol.submission.TransactionConfirmationRequestFactory.TransactionConfirmationRequestCreationError
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
 import com.digitalasset.canton.participant.protocol.submission.{
@@ -61,6 +59,7 @@ class TransactionProcessor(
     domainId: DomainId,
     damle: DAMLe,
     staticDomainParameters: StaticDomainParameters,
+    parameters: ParticipantNodeParameters,
     crypto: DomainSyncCryptoClient,
     sequencerClient: SequencerClient,
     inFlightSubmissionTracker: InFlightSubmissionTracker,
@@ -90,7 +89,7 @@ class TransactionProcessor(
         ModelConformanceChecker(
           damle,
           confirmationRequestFactory.transactionTreeFactory,
-          buildAuthenticator(crypto),
+          SerializableContractAuthenticator(crypto.pureCrypto, parameters),
           participantId,
           packageResolver,
           loggerFactory,
@@ -99,7 +98,7 @@ class TransactionProcessor(
         crypto,
         ephemeral.contractStore,
         metrics,
-        buildAuthenticator(crypto),
+        SerializableContractAuthenticator(crypto.pureCrypto, parameters),
         new AuthenticationValidator(),
         new AuthorizationValidator(participantId),
         new InternalConsistencyChecker(
@@ -146,12 +145,6 @@ class TransactionProcessor(
 }
 
 object TransactionProcessor {
-
-  private def buildAuthenticator(
-      crypto: DomainSyncCryptoClient
-  ): SerializableContractAuthenticatorImpl = new SerializableContractAuthenticatorImpl(
-    new UnicumGenerator(crypto.pureCrypto)
-  )
 
   sealed trait TransactionProcessorError
       extends WrapsProcessorError

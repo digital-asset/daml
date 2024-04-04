@@ -65,7 +65,7 @@ object TypedSignedProtocolMessageContent
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(
-      ProtocolVersion.v30
+      ProtocolVersion.v31
     )(v30.TypedSignedProtocolMessageContent)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,

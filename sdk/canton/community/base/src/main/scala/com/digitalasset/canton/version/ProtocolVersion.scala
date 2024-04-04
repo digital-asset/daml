@@ -211,10 +211,11 @@ object ProtocolVersion {
       ProtocolVersion(4),
       ProtocolVersion(5),
       ProtocolVersion(6),
+      ProtocolVersion(30),
     )
 
   val unstable: NonEmpty[List[ProtocolVersionWithStatus[ProtocolVersionAnnotation.Unstable]]] =
-    NonEmpty.mk(List, ProtocolVersion.v30, ProtocolVersion.dev)
+    NonEmpty.mk(List, ProtocolVersion.v31, ProtocolVersion.dev)
 
   val supported: NonEmpty[List[ProtocolVersion]] = (unstable ++ stableAndSupported).sorted
 
@@ -224,11 +225,11 @@ object ProtocolVersion {
   lazy val dev: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Unstable] =
     ProtocolVersion.unstable(Int.MaxValue)
 
-  lazy val v30: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Unstable] =
+  lazy val v31: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Unstable] =
     ProtocolVersion.unstable(30)
 
   // Minimum stable protocol version introduced
-  lazy val minimum: ProtocolVersion = v30
+  lazy val minimum: ProtocolVersion = v31
 }
 
 /*
