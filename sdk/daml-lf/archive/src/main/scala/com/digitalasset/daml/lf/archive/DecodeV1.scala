@@ -20,6 +20,7 @@ import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 // taken from main-2.x as of April 4th.
+// https://github.com/digital-asset/daml/commit/5f6bd1d0fe2696453c537a0a6db7054b5d274f23
 // remove part decoding expression.
 
 private[archive] class DecodeV1(minor: LV.Minor) {

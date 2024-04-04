@@ -1,6 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+// taken from main-2.x as of April 4th.
+// https://github.com/digital-asset/daml/commit/5f6bd1d0fe2696453c537a0a6db7054b5d274f23
+
 // .proto representation of the first version of the Daml-LF language,
 // as specified by
 // <https://github.com/digital-asset/daml/blob/main/daml-lf/spec/daml-lf-1.rst>.
