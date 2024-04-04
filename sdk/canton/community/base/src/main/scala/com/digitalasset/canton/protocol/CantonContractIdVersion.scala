@@ -8,6 +8,7 @@ import com.daml.ledger.javaapi.data.codegen.ContractId
 import com.daml.lf.data.Bytes
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.CantonRequireTypes.String255
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes
 import com.digitalasset.canton.version.ProtocolVersion
@@ -17,9 +18,13 @@ object CantonContractIdVersion {
   val versionPrefixBytesSize = 2
 
   def fromProtocolVersion(protocolVersion: ProtocolVersion): CantonContractIdVersion =
-    if (protocolVersion >= ProtocolVersion.v5) AuthenticatedContractIdVersionV2
-    else if (protocolVersion == ProtocolVersion.v4) AuthenticatedContractIdVersion
-    else NonAuthenticatedContractIdVersion
+    protocolVersion match {
+      case protocolVersion if protocolVersion >= ProtocolVersion.v6 =>
+        AuthenticatedContractIdV3
+      case ProtocolVersion.v5 => AuthenticatedContractIdV2
+      case ProtocolVersion.v4 => AuthenticatedContractIdV1
+      case _olderProtocolVersions => NonAuthenticatedContractId
+    }
 
   def ensureCantonContractId(
       contractId: LfContractId
@@ -39,25 +44,36 @@ object CantonContractIdVersion {
   }
 
   def fromContractSuffix(contractSuffix: Bytes): Either[String, CantonContractIdVersion] = {
-    if (contractSuffix.startsWith(AuthenticatedContractIdVersionV2.versionPrefixBytes)) {
-      Right(AuthenticatedContractIdVersionV2)
-    } else if (contractSuffix.startsWith(AuthenticatedContractIdVersion.versionPrefixBytes)) {
-      Right(AuthenticatedContractIdVersion)
-    } else if (contractSuffix.startsWith(NonAuthenticatedContractIdVersion.versionPrefixBytes)) {
-      Right(NonAuthenticatedContractIdVersion)
-    } else {
-      Left(
-        s"""Suffix ${contractSuffix.toHexString} does not start with one of the supported prefixes:
-            | ${AuthenticatedContractIdVersionV2.versionPrefixBytes},
-            | ${AuthenticatedContractIdVersion.versionPrefixBytes}
-            | or ${NonAuthenticatedContractIdVersion.versionPrefixBytes}
-            |""".stripMargin.replaceAll("\r|\n", "")
-      )
-    }
+    def invalidContractIdVersionPrefix = Left(
+      s"""Suffix ${contractSuffix.toHexString} does not start with one of the supported prefixes:
+         | ${AuthenticatedContractIdV3.versionPrefixBytes},
+         | ${AuthenticatedContractIdV2.versionPrefixBytes},
+         | ${AuthenticatedContractIdV1.versionPrefixBytes}
+         | or ${NonAuthenticatedContractId.versionPrefixBytes}
+         |""".stripMargin.replaceAll("\r|\n", "")
+    )
+
+    if (contractSuffix.length < versionPrefixBytesSize)
+      invalidContractIdVersionPrefix
+    else
+      contractSuffix.slice(0, versionPrefixBytesSize) match {
+        case AuthenticatedContractIdV3.versionPrefixBytes =>
+          Right(AuthenticatedContractIdV3)
+        case AuthenticatedContractIdV2.versionPrefixBytes =>
+          Right(AuthenticatedContractIdV2)
+        case AuthenticatedContractIdV1.versionPrefixBytes =>
+          Right(AuthenticatedContractIdV1)
+        case NonAuthenticatedContractId.versionPrefixBytes =>
+          Right(NonAuthenticatedContractId)
+        case _other => invalidContractIdVersionPrefix
+      }
   }
 }
 
-sealed trait CantonContractIdVersion extends Serializable with Product {
+sealed abstract class CantonContractIdVersion(val v: NonNegativeInt)
+    extends Ordered[CantonContractIdVersion]
+    with Serializable
+    with Product {
   require(
     versionPrefixBytes.length == CantonContractIdVersion.versionPrefixBytesSize,
     s"Version prefix of size ${versionPrefixBytes.length} should have size ${CantonContractIdVersion.versionPrefixBytesSize}",
@@ -69,25 +85,35 @@ sealed trait CantonContractIdVersion extends Serializable with Product {
 
   def fromDiscriminator(discriminator: LfHash, unicum: Unicum): LfContractId.V1 =
     LfContractId.V1(discriminator, unicum.toContractIdSuffix(this))
+
+  override final def compare(that: CantonContractIdVersion): Int = this.v.compare(that.v)
 }
 
-case object NonAuthenticatedContractIdVersion extends CantonContractIdVersion {
+case object NonAuthenticatedContractId
+    extends CantonContractIdVersion(NonNegativeInt.tryCreate(0)) {
   // The prefix for the suffix of non-authenticated (legacy) Canton contract IDs
   lazy val versionPrefixBytes: Bytes = Bytes.fromByteArray(Array(0xca.toByte, 0x00.toByte))
 
   val isAuthenticated: Boolean = false
 }
 
-case object AuthenticatedContractIdVersion extends CantonContractIdVersion {
+case object AuthenticatedContractIdV1 extends CantonContractIdVersion(NonNegativeInt.tryCreate(1)) {
   // The prefix for the suffix of Canton contract IDs for contracts that can be authenticated (created in Protocol V4)
   lazy val versionPrefixBytes: Bytes = Bytes.fromByteArray(Array(0xca.toByte, 0x01.toByte))
 
   val isAuthenticated: Boolean = true
 }
 
-case object AuthenticatedContractIdVersionV2 extends CantonContractIdVersion {
-  // The prefix for the suffix of Canton contract IDs for contracts that can be authenticated (created in Protocol V5+)
+case object AuthenticatedContractIdV2 extends CantonContractIdVersion(NonNegativeInt.tryCreate(2)) {
+  // The prefix for the suffix of Canton contract IDs for contracts that can be authenticated (created in Protocol V5)
   lazy val versionPrefixBytes: Bytes = Bytes.fromByteArray(Array(0xca.toByte, 0x02.toByte))
+
+  val isAuthenticated: Boolean = true
+}
+
+case object AuthenticatedContractIdV3 extends CantonContractIdVersion(NonNegativeInt.tryCreate(3)) {
+  // The prefix for the suffix of Canton contract IDs for contracts that can be authenticated (created in Protocol V6+)
+  lazy val versionPrefixBytes: Bytes = Bytes.fromByteArray(Array(0xca.toByte, 0x03.toByte))
 
   val isAuthenticated: Boolean = true
 }
@@ -112,6 +138,7 @@ object ContractIdSyntax {
       * See https://github.com/digital-asset/daml/blob/main/daml-lf/spec/contract-id.rst
       */
     def toLengthLimitedString: String255 = checked(String255.tryCreate(contractId.coid))
+
     def encodeDeterministically: ByteString = ByteString.copyFromUtf8(toProtoPrimitive)
 
     /** Converts an [[LfContractId]] into a contract ID bound to a template usable with the Java codegen API.

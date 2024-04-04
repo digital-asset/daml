@@ -56,6 +56,13 @@ final case class CreatedContract private (
 object CreatedContract {
   private type EnsureContractIdVersion =
     LfContractId => CantonContractIdVersion => Either[String, CantonContractIdVersion]
+  private val ensureAuthenticatedContractId: EnsureContractIdVersion = contractId =>
+    contractIdVersion =>
+      Either.cond(
+        contractIdVersion.isAuthenticated,
+        contractIdVersion,
+        s"Unexpected un-authenticated contract id version (contract id: $contractId)",
+      )
 
   def create(
       contract: SerializableContract,
@@ -66,15 +73,16 @@ object CreatedContract {
     CantonContractIdVersion
       .ensureCantonContractId(contract.contractId)
       .leftMap(err => s"Encountered invalid Canton contract id: ${err.toString}")
+      // TODO(i16362): Remove this check if it's redundant (i.e. if it's covered by model-conformance checking)
       .flatMap(checkContractIdVersion)
       .flatMap {
-        case AuthenticatedContractIdVersion | AuthenticatedContractIdVersionV2 =>
+        case contractIdVersion if contractIdVersion.isAuthenticated =>
           // Contracts created with the "authenticated" contract id prefix-of-suffix
           // must have contract_salt present in order to be properly authenticated (and used for explicit disclosure)
           ProtoConverter
             .required("contract_salt", contract.contractSalt)
             .leftMap(err => s"Failed instantiating created contract: ${err.message}")
-        case NonAuthenticatedContractIdVersion => Right(())
+        case _nonAuthenticated => Right(())
       }
       .map(_ => new CreatedContract(contract, consumedInCore, rolledBack))
 
@@ -97,12 +105,13 @@ object CreatedContract {
     val v0.ViewParticipantData.CreatedContract(contractP, consumedInCore, rolledBack) =
       createdContractP
 
-    val ensureNonAuthenticatedContractId: EnsureContractIdVersion =
-      contractId => {
-        case NonAuthenticatedContractIdVersion => Right(NonAuthenticatedContractIdVersion)
-        case AuthenticatedContractIdVersion | AuthenticatedContractIdVersionV2 =>
-          Left(s"Unexpected authenticated contract id version (contract id: $contractId)")
-      }
+    val ensureNonAuthenticatedContractId: EnsureContractIdVersion = contractId =>
+      contractIdVersion =>
+        Either.cond(
+          !contractIdVersion.isAuthenticated,
+          contractIdVersion,
+          s"Unexpected authenticated contract id version (contract id: $contractId)",
+        )
 
     for {
       contract <- ProtoConverter
@@ -124,14 +133,6 @@ object CreatedContract {
     val v1.CreatedContract(contractP, consumedInCore, rolledBack) =
       createdContractP
 
-    val ensureAuthenticatedContractId: EnsureContractIdVersion =
-      contractId => {
-        case AuthenticatedContractIdVersion => Right(AuthenticatedContractIdVersion)
-        case AuthenticatedContractIdVersionV2 => Right(AuthenticatedContractIdVersionV2)
-        case NonAuthenticatedContractIdVersion =>
-          Left(s"Unexpected un-authenticated contract id version (contract id: $contractId)")
-      }
-
     for {
       contract <- ProtoConverter
         .required("contract", contractP)
@@ -150,14 +151,6 @@ object CreatedContract {
   ): ParsingResult[CreatedContract] = {
     val v2.CreatedContract(contractP, consumedInCore, rolledBack) =
       createdContractP
-
-    val ensureAuthenticatedContractId: EnsureContractIdVersion =
-      contractId => {
-        case AuthenticatedContractIdVersion => Right(AuthenticatedContractIdVersion)
-        case AuthenticatedContractIdVersionV2 => Right(AuthenticatedContractIdVersionV2)
-        case NonAuthenticatedContractIdVersion =>
-          Left(s"Unexpected un-authenticated contract id version (contract id: $contractId)")
-      }
 
     for {
       contract <- ProtoConverter

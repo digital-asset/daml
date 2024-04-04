@@ -105,6 +105,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
     */
   def initialize(
       config: Config,
+      parameters: ParticipantNodeParameters,
       startLedgerApiServer: Boolean,
       futureSupervisor: FutureSupervisor,
       multiDomainEnabled: Boolean,
@@ -145,6 +146,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
             telemetry = new DefaultOpenTelemetry(config.tracerProvider.openTelemetry),
             futureSupervisor = futureSupervisor,
             multiDomainEnabled = multiDomainEnabled,
+            parameters = parameters,
           )
         val startupMode: IndexerStartupMode =
           if (config.cantonParameterConfig.dbMigrateAndStart)

@@ -17,14 +17,14 @@ class CantonContractIdVersionTest extends AnyWordSpec with BaseTest {
       Hash.build(TestHash.testHashPurpose, HashAlgorithm.Sha256).add(0).finish()
 
     val unicum = Unicum(hash)
-    val cid = AuthenticatedContractIdVersionV2.fromDiscriminator(discriminator, unicum)
+    val cid = AuthenticatedContractIdV2.fromDiscriminator(discriminator, unicum)
 
     "creating a contract ID from discriminator and unicum" should {
       "succeed" in {
         cid.coid shouldBe (
           LfContractId.V1.prefix.toHexString +
             discriminator.bytes.toHexString +
-            AuthenticatedContractIdVersionV2.versionPrefixBytes.toHexString +
+            AuthenticatedContractIdV2.versionPrefixBytes.toHexString +
             unicum.unwrap.toHexString
         )
       }
@@ -33,7 +33,7 @@ class CantonContractIdVersionTest extends AnyWordSpec with BaseTest {
     s"ensuring canton contract id of AuthenticatedContractIdVersionV2" should {
       s"return a AuthenticatedContractIdVersionV2" in {
         CantonContractIdVersion.ensureCantonContractId(cid) shouldBe Right(
-          AuthenticatedContractIdVersionV2
+          AuthenticatedContractIdV2
         )
       }
     }
@@ -45,7 +45,7 @@ class CantonContractIdVersionTest extends AnyWordSpec with BaseTest {
         val hash =
           Hash.build(TestHash.testHashPurpose, HashAlgorithm.Sha256).add(0).finish()
         val unicum = Unicum(hash)
-        val lfCid = AuthenticatedContractIdVersionV2.fromDiscriminator(discriminator, unicum)
+        val lfCid = AuthenticatedContractIdV2.fromDiscriminator(discriminator, unicum)
 
         val apiCid = lfCid.toContractIdUnchecked[Iou]
         val lfCid2 = apiCid.toLf
@@ -58,9 +58,21 @@ class CantonContractIdVersionTest extends AnyWordSpec with BaseTest {
   CantonContractIdVersion.getClass.getSimpleName when {
     "fromProtocolVersion" should {
       "return the correct canton contract id version" in {
-        forAll(ProtocolVersion.supported.forgetNE) { pv =>
-          CantonContractIdVersion.fromProtocolVersion(pv) shouldBe AuthenticatedContractIdVersionV2
-        }
+        CantonContractIdVersion.fromProtocolVersion(
+          ProtocolVersion.v3
+        ) shouldBe NonAuthenticatedContractId
+
+        CantonContractIdVersion.fromProtocolVersion(
+          ProtocolVersion.v4
+        ) shouldBe AuthenticatedContractIdV1
+
+        CantonContractIdVersion.fromProtocolVersion(
+          ProtocolVersion.v5
+        ) shouldBe AuthenticatedContractIdV2
+
+        forAll(ProtocolVersion.stableAndSupported.filter(_ >= ProtocolVersion.v6))(
+          CantonContractIdVersion.fromProtocolVersion(_) shouldBe AuthenticatedContractIdV3
+        )
       }
     }
   }

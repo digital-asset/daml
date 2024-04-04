@@ -14,7 +14,7 @@ import scala.concurrent.{ExecutionContext, Future}
 /** A contract lookup that adds a fixed set of contracts to a `backingContractLookup`.
   *
   * @param backingContractLookup The [[ContractLookup]] to default to if no overwrite is given in `additionalContracts`
-  * @param additionalContracts Contracts in this map take precedence over contracts in `backingContractLookup`
+  * @param additionalContracts   Contracts in this map take precedence over contracts in `backingContractLookup`
   * @throws java.lang.IllegalArgumentException if `additionalContracts` stores a contract under a wrong id
   */
 class ExtendedContractLookup(
@@ -32,18 +32,16 @@ class ExtendedContractLookup(
     )
   }
 
-  override def verifyMetadata(coid: LfContractId, metadata: ContractMetadata)(implicit
-      traceContext: TraceContext
-  ): OptionT[Future, String] = {
-
+  override def authenticateForUpgradeValidation(coid: LfContractId, metadata: ContractMetadata)(
+      implicit traceContext: TraceContext
+  ): OptionT[Future, String] =
     lookup(coid).transform {
       case Some(storedContract: StoredContract) =>
-        authenticator.verifyMetadata(storedContract.contract, metadata).left.toOption
+        val contractWithRecomputedMetadata = storedContract.contract.copy(metadata = metadata)
+        authenticator.authenticateUpgradableContract(contractWithRecomputedMetadata).left.toOption
       case None =>
         Some(s"Failed to find contract $coid")
     }
-
-  }
 
   override def lookup(
       id: LfContractId

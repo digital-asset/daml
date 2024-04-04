@@ -176,6 +176,7 @@ class SyncDomain(
     domainId,
     damle,
     staticDomainParameters,
+    parameters,
     domainCrypto,
     sequencerClient,
     inFlightSubmissionTracker,

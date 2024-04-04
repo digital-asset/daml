@@ -7,6 +7,7 @@ import cats.syntax.parallel.*
 import com.daml.lf.value.Value.{ValueText, ValueUnit}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
+import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator.AuthenticationPurpose
 import com.digitalasset.canton.participant.store.memory.InMemoryContractStore
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   asSerializable,
@@ -27,10 +28,9 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest {
   import com.digitalasset.canton.protocol.ExampleTransactionFactory.suffixedId
 
   object dummyAuthenticator extends SerializableContractAuthenticator {
-    override def authenticate(contract: SerializableContract): Either[String, Unit] = Right(())
-    override def verifyMetadata(
+    override def authenticate(
+        purpose: AuthenticationPurpose,
         contract: SerializableContract,
-        metadata: ContractMetadata,
     ): Either[String, Unit] = Right(())
   }
 

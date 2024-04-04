@@ -258,8 +258,7 @@ class CantonSyncService(
       aliasManager,
       syncCrypto.pureCrypto,
       participantId,
-      autoTransferTransaction = parameters.enablePreviewFeatures,
-      parameters.processingTimeouts,
+      parameters,
       loggerFactory,
     )(ec)
 
