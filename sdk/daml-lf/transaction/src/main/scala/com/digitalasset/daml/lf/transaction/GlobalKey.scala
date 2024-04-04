@@ -41,9 +41,10 @@ object GlobalKey {
     Ref.PackageName.assertFromString("dummy-package-name")
 
   def assertWithRenormalizedValue(key: GlobalKey, value: Value): GlobalKey = {
+    val hashPackageName = if (useDummyHashPackageName) dummyHashPackageName else key.packageName
     if (
       key.key != value &&
-      Hash.assertHashContractKey(key.templateId, key.packageName, value) != key.hash
+      Hash.assertHashContractKey(key.templateId, hashPackageName, value) != key.hash
     ) {
       throw new IllegalArgumentException(
         s"Hash must not change as a result of value renormalization key=$key, value=$value"

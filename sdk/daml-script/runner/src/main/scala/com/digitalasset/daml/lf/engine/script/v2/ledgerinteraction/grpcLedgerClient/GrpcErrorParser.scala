@@ -61,6 +61,20 @@ object GrpcErrorParser {
         .lift(resourceDetails)
         .getOrElse(new SubmitError.TruncatedError(classNameOf[A], message))
 
+    // Only needed until canton is updated to provide package names
+    def casePnErr[A <: SubmitError: ClassTag](
+        handler: PartialFunction[Seq[(ErrorResource, String)], A]
+    ): SubmitError = {
+      val hasPn = resourceDetails.exists({ case (er, _) => er == ErrorResource.PackageName })
+      val pnResourceDetails =
+        if (hasPn) resourceDetails
+        else
+          resourceDetails :+ ErrorResource.PackageName -> GlobalKey.dummyHashPackageName
+      handler
+        .lift(pnResourceDetails)
+        .getOrElse(new SubmitError.TruncatedError(classNameOf[A], message))
+    }
+
     errorCode match {
       case "CONTRACT_NOT_FOUND" =>
         caseErr {
@@ -82,7 +96,7 @@ object GrpcErrorParser {
             )
         }
       case "CONTRACT_KEY_NOT_FOUND" =>
-        caseErr {
+        casePnErr {
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
@@ -103,7 +117,7 @@ object GrpcErrorParser {
           )
         }
       case "DISCLOSED_CONTRACT_KEY_HASHING_ERROR" =>
-        caseErr {
+        casePnErr {
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractId, cid),
@@ -120,7 +134,7 @@ object GrpcErrorParser {
             )
         }
       case "DUPLICATE_CONTRACT_KEY" =>
-        caseErr {
+        casePnErr {
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
@@ -149,7 +163,7 @@ object GrpcErrorParser {
           case _ => SubmitError.LocalVerdictLockedContracts(Seq())
         }
       case "INCONSISTENT_CONTRACT_KEY" =>
-        caseErr {
+        casePnErr {
 
           case Seq(
                 (ErrorResource.TemplateId, tid),
@@ -185,7 +199,7 @@ object GrpcErrorParser {
             SubmitError.CreateEmptyContractKeyMaintainers(Identifier.assertFromString(tid), arg)
         }
       case "FETCH_EMPTY_CONTRACT_KEY_MAINTAINERS" =>
-        caseErr {
+        casePnErr {
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
