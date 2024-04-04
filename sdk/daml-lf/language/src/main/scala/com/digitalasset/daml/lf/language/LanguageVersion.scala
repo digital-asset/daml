@@ -38,15 +38,16 @@ object LanguageVersion {
       )
   }
 
-
   val AllV1 = Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
   val AllV2 = Major.V2.supportedMinorVersions.map(LanguageVersion(Major.V2, _))
 
-  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_dev) = AllV1: @nowarn("msg=match may not be exhaustive")
-  val List(v2_1, v2_dev) = AllV2 : @nowarn("msg=match may not be exhaustive")
+  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_dev) = AllV1: @nowarn(
+    "msg=match may not be exhaustive"
+  )
+  val List(v2_1, v2_dev) = AllV2: @nowarn("msg=match may not be exhaustive")
 
   @deprecated("use AllV2", since = "3.1.0")
-  val All =  AllV2
+  val All = AllV2
 
   object Features {
     val default = v2_1

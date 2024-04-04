@@ -26,7 +26,7 @@ object Decode {
           )
           .map(payload.pkgId -> _)
       case ArchivePayload.Lf1(pkgId, protoPkg, minor)
-        if LanguageMajorVersion.V1.supportedMinorVersions.contains(minor) =>
+          if LanguageMajorVersion.V1.supportedMinorVersions.contains(minor) =>
         new DecodeV1(minor)
           .decodePackage(
             pkgId,

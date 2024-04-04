@@ -305,6 +305,6 @@ object Util {
   val NoPackageMetadata = PackageMetadata(
     name = Ref.PackageName.assertFromString("-no-package-metadata"),
     version = Ref.PackageVersion.assertFromString("0"),
-    upgradedPackageId = None
+    upgradedPackageId = None,
   )
 }

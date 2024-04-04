@@ -543,16 +543,16 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         key: PLF.DefTemplate.DefKey,
         tplVar: ExprVarName,
     ): Work[TemplateKey] = {
-        decodeType(key.getType) { typ =>
-          decodeExpr(key.getMaintainers, s"${tpl}:maintainer") { maintainers =>
-            Ret(
-              TemplateKey(
-                typ,
-                EUnit,
-                maintainers,
-              )
+      decodeType(key.getType) { typ =>
+        decodeExpr(key.getMaintainers, s"${tpl}:maintainer") { maintainers =>
+          Ret(
+            TemplateKey(
+              typ,
+              EUnit,
+              maintainers,
             )
-          }
+          )
+        }
       }
     }
 
@@ -1091,9 +1091,9 @@ private[lf] object DecodeV1 {
     val extendedInterfaces = v1_dev
 
     /** Unstable, experimental features. This should stay in x.dev forever.
-     * Features implemented with this flag should be moved to a separate
-     * feature flag once the decision to add them permanently has been made.
-     */
+      * Features implemented with this flag should be moved to a separate
+      * feature flag once the decision to add them permanently has been made.
+      */
     val unstable = v1_dev
 
   }

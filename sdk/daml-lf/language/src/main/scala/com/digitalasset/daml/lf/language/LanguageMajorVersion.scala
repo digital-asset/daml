@@ -50,10 +50,10 @@ sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: L
 object LanguageMajorVersion {
 
   case object V1
-    extends LanguageMajorVersion(
-      pretty = "1",
-      minorAscending = List("6", "7", "8", "11", "12", "13", "14", "15"),
-    )
+      extends LanguageMajorVersion(
+        pretty = "1",
+        minorAscending = List("6", "7", "8", "11", "12", "13", "14", "15"),
+      )
 
   case object V2
       extends LanguageMajorVersion(
