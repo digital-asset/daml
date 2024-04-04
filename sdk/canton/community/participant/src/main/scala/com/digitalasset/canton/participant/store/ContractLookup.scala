@@ -77,7 +77,7 @@ trait ContractAndKeyLookup extends ContractLookup {
 trait ContractLookupAndVerification extends ContractAndKeyLookup {
 
   /** Verify that the contract metadata associated with the contract id is consistent with the provided metadata */
-  def verifyMetadata(coid: LfContractId, metadata: ContractMetadata)(implicit
+  def authenticateForUpgradeValidation(coid: LfContractId, metadata: ContractMetadata)(implicit
       traceContext: TraceContext
   ): OptionT[Future, String]
 
@@ -114,8 +114,8 @@ object ContractLookupAndVerification {
       ): EitherT[Future, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] =
         EitherT.cond(ids.isEmpty, Map.empty, UnknownContracts(ids))
 
-      override def verifyMetadata(coid: LfContractId, metadata: ContractMetadata)(implicit
-          traceContext: TraceContext
+      override def authenticateForUpgradeValidation(coid: LfContractId, metadata: ContractMetadata)(
+          implicit traceContext: TraceContext
       ): OptionT[Future, String] =
         OptionT.pure[Future]("Not expecting call to verifyMetadata")
 

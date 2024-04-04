@@ -5,7 +5,7 @@ package com.digitalasset.canton
 
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, TestHash}
 import com.digitalasset.canton.protocol.{
-  AuthenticatedContractIdVersion,
+  AuthenticatedContractIdV1,
   ExampleTransactionFactory,
   LfContractId,
   LfHash,
@@ -28,7 +28,7 @@ object GeneratorsLf {
       contractIdSuffix = Unicum(
         Hash.build(TestHash.testHashPurpose, HashAlgorithm.Sha256).add(suffix).finish()
       )
-    } yield AuthenticatedContractIdVersion.fromDiscriminator(
+    } yield AuthenticatedContractIdV1.fromDiscriminator(
       contractIdDiscriminator,
       contractIdSuffix,
     )

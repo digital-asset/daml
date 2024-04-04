@@ -23,10 +23,7 @@ import com.digitalasset.canton.participant.domain.{
   DomainRegistryError,
   ParticipantInitializeTopology,
 }
-import com.digitalasset.canton.participant.store.{
-  SyncDomainPersistentState,
-  SyncDomainPersistentStateOld,
-}
+import com.digitalasset.canton.participant.store.SyncDomainPersistentState
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManagerImpl
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.protocol.messages.RegisterTopologyTransactionResponseResult
@@ -184,13 +181,13 @@ abstract class ParticipantTopologyDispatcherImplCommon[S <: SyncDomainPersistent
 class ParticipantTopologyDispatcher(
     val manager: ParticipantTopologyManager,
     participantId: ParticipantId,
-    state: SyncDomainPersistentStateManagerImpl[SyncDomainPersistentStateOld],
+    state: SyncDomainPersistentStateManagerImpl[SyncDomainPersistentState],
     crypto: Crypto,
     clock: Clock,
     override protected val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends ParticipantTopologyDispatcherImplCommon[SyncDomainPersistentStateOld](state) {
+    extends ParticipantTopologyDispatcherImplCommon[SyncDomainPersistentState](state) {
 
   override protected def managerQueueSize: Int = manager.queueSize
 

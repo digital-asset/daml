@@ -1232,7 +1232,7 @@ class TransactionProcessingSteps(
       inputContracts.toList
         .traverse_ { case (contractId, contract) =>
           serializableContractAuthenticator
-            .authenticate(contract)
+            .authenticateInputContract(contract)
             .leftMap(message => ContractAuthenticationFailed.Error(contractId, message).reported())
         }
     )
@@ -1316,7 +1316,7 @@ class TransactionProcessingSteps(
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
     val txValidationResult = pendingRequestData.transactionValidationResult
-    val commitSet = txValidationResult.commitSet(pendingRequestData.requestId)(protocolVersion)
+    val commitSet = txValidationResult.commitSet(pendingRequestData.requestId)
 
     computeCommitAndContractsAndEvent(
       requestTime = pendingRequestData.requestTime,
@@ -1440,7 +1440,7 @@ class TransactionProcessingSteps(
         transient = usedAndCreated.contracts.transient,
         createdContracts = createdContracts,
         keyUpdates = usedAndCreated.keys.uckUpdatedKeysOfHostedMaintainers,
-      )(protocolVersion)
+      )
 
       commitAndContractsAndEvent <- computeCommitAndContractsAndEvent(
         requestTime = pendingRequestData.requestTime,

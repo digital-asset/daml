@@ -45,6 +45,7 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{submitter, su
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.store.{IndexedDomain, SessionKeyStore}
 import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil}
 import com.digitalasset.canton.topology.*
@@ -104,7 +105,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
     .withSimpleParticipants(participant) // required such that `participant` gets a signing key
     .build(loggerFactory)
 
-  private val cryptoSnapshot =
+  private lazy val cryptoSnapshot =
     identityFactory
       .forOwnerAndDomain(submitterParticipant, sourceDomain.unwrap)
       .currentSnapshotApproximation
@@ -113,18 +114,21 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
 
   private val seedGenerator = new SeedGenerator(pureCrypto)
 
-  private val transferInProcessingSteps =
+  private lazy val transferInProcessingSteps =
     testInstance(targetDomain, Set(party1), Set(party1), cryptoSnapshot, None)
+
+  private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
 
   private def statefulDependencies
       : Future[(SyncDomainPersistentState, SyncDomainEphemeralState)] = {
     val multiDomainEventLog = mock[MultiDomainEventLog]
     val persistentState =
-      new InMemorySyncDomainPersistentStateOld(
+      new InMemorySyncDomainPersistentState(
         IndexedDomain.tryCreate(targetDomain.unwrap, 1),
         testedProtocolVersion,
         pureCrypto,
         enableAdditionalConsistencyChecks = true,
+        indexedStringStore = indexedStringStore,
         loggerFactory,
         timeouts,
         futureSupervisor,

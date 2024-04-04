@@ -534,6 +534,7 @@ class ExampleTransactionFactory(
         asSerializableRaw(suffixedContractInstance, agreementText),
         cantonContractIdVersion,
       )
+      .value
 
     contractSalt.unwrap -> unicum
   }

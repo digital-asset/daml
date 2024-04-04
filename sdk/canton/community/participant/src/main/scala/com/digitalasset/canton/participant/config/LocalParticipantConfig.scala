@@ -482,6 +482,9 @@ object TestingTimeServiceConfig {
   * @param iterationsBetweenInterruptions Number of engine iterations between forced interruptions (outside needs of information).
   * @param enableContractUpgrading If true contracts may be automatically upgraded or downgraded as needed.
   * @param disableUpgradeValidation Disable the package upgrade verification on DAR upload
+  * @param allowForUnauthenticatedContractIds Skip contract id authentication check, if the contract id scheme does not support authentication.
+  *                                           You should enable this only if all participants on a domain mutually trust each other.
+  *                                           Otherwise, an attacker may compromise integrity of the ledger.
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -509,6 +512,7 @@ final case class ParticipantNodeParameterConfig(
     iterationsBetweenInterruptions: Long = 10000,
     enableContractUpgrading: Boolean = false,
     disableUpgradeValidation: Boolean = false,
+    allowForUnauthenticatedContractIds: Boolean = false,
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

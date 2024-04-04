@@ -791,7 +791,7 @@ class GenTransactionTreeTest
           serializable,
           consumedInCore = false,
           rolledBack = false,
-          checkContractIdVersion = _ => Right(NonAuthenticatedContractIdVersion),
+          checkContractIdVersion = _ => Right(NonAuthenticatedContractId),
         )
         .value
 

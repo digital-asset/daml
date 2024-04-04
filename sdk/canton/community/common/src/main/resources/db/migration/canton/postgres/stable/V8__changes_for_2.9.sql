@@ -2,3 +2,5 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 ALTER TABLE active_contracts DROP COLUMN transfer_counter;
+ALTER TYPE operation_type ADD VALUE 'add';
+ALTER TYPE operation_type ADD VALUE 'purge';

@@ -528,6 +528,7 @@ scala_library(
         "//language-support/java:__subpackages__",
     ],
     deps = [
+        ":ledger_api_proto_internal_scala",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         ":pekko-stream-patch",
@@ -906,6 +907,7 @@ scala_library(
         ":community_util-external",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
+        ":ledger_api_proto_internal_java",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -1287,7 +1289,7 @@ ledger_api_proto_source_root = "canton/community/ledger-api/src/main/protobuf"
 
 proto_jars(
     name = "ledger_api_proto",
-    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
+    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v1/**/*.proto"]),
     grpc = True,
     java_conversions = True,
     maven_artifact_prefix = "ledger-api",
@@ -1306,6 +1308,63 @@ proto_jars(
         "@com_google_protobuf//:wrappers_proto",
         "@go_googleapis//google/rpc:errdetails_proto",
         "@go_googleapis//google/rpc:status_proto",
+    ],
+)
+
+proto_library(
+    name = "ledger_api_proto_internal",
+    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
+    strip_import_prefix = "community/ledger-api/src/main/protobuf",
+    deps = [
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:descriptor_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:field_mask_proto",
+        "@com_google_protobuf//:struct_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
+        "@go_googleapis//google/rpc:errdetails_proto",
+        "@go_googleapis//google/rpc:status_proto",
+    ],
+)
+
+java_proto_library(
+    name = "ledger_api_proto_internal_java",
+    visibility = ["//visibility:public"],
+    deps = [":ledger_api_proto_internal"],
+)
+
+proto_gen(
+    name = "ledger_api_proto_internal_scala_sources",
+    srcs = [
+        ":ledger_api_proto_internal",
+        "//bazel_tools/scalapb:scalapb-configuration",
+        "@go_googleapis//google/rpc:status_proto",
+    ],
+    plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
+    plugin_name = "scalapb",
+    plugin_options = [
+        "grpc",
+        "java_conversions",
+    ],
+)
+
+scala_library(
+    name = "ledger_api_proto_internal_scala",
+    srcs = [":ledger_api_proto_internal_scala_sources"],
+    unused_dependency_checker_mode = "error",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":ledger_api_proto_internal_java",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_thesamet_scalapb_lenses_2_13",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc_2_13",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_protobuf",
+        "@maven//:io_grpc_grpc_stub",
     ],
 )
 

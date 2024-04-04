@@ -11,7 +11,6 @@ import com.digitalasset.canton.participant.protocol.validation.InternalConsisten
 import com.digitalasset.canton.participant.protocol.validation.TimeValidator.TimeCheckFailure
 import com.digitalasset.canton.participant.store.ContractKeyJournal
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, WorkflowId}
 
 final case class TransactionValidationResult(
@@ -41,7 +40,7 @@ final case class TransactionValidationResult(
 
   def commitSet(
       requestId: RequestId
-  )(protocolVersion: ProtocolVersion)(implicit loggingContext: ErrorLoggingContext): CommitSet =
+  )(implicit loggingContext: ErrorLoggingContext): CommitSet =
     CommitSet.createForTransaction(
       successfulActivenessCheck,
       requestId,
@@ -49,5 +48,5 @@ final case class TransactionValidationResult(
       transient,
       createdContracts,
       keyUpdates,
-    )(protocolVersion)
+    )
 }

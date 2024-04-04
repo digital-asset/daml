@@ -3,26 +3,28 @@
 
 package com.digitalasset.canton.participant.store
 
-import cats.kernel.Order
+import cats.syntax.parallel.*
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.RequestCounter
+import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String100, String36}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
+import com.digitalasset.canton.participant.store.ActiveContractStore.ActivenessChangeDetail.ChangeType
 import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
-import com.digitalasset.canton.protocol.{
-  LfContractId,
-  SourceDomainId,
-  TargetDomainId,
-  TransferDomainId,
-}
+import com.digitalasset.canton.protocol.{LfContractId, SourceDomainId, TargetDomainId}
+import com.digitalasset.canton.store.db.DbDeserializationException
+import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.CheckedT
+import com.digitalasset.canton.util.FutureInstances.*
 import com.google.common.annotations.VisibleForTesting
+import slick.jdbc.{GetResult, SetParameter}
 
 import scala.collection.immutable.SortedMap
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 /** <p>The active contract store (ACS) stores for every contract ID
   * whether it is inexistent, [[ActiveContractStore.Active]],
@@ -49,7 +51,7 @@ import scala.concurrent.Future
   * If the future returned by a call completes and observing the completion happens before another call,
   * then all changes of the former call must be ordered before all changes of the later call.</p>
   *
-  * <p>Bulk methods like [[ActiveContractStore.markContractsActive]] and [[ActiveContractStore.archiveContracts]]
+  * <p>Bulk methods like [[ActiveContractStore.markContractsCreated]] and [[ActiveContractStore.archiveContracts]]
   * generate one individual change for each contract.
   * So their changes may be interleaved with other calls.</p>
   *
@@ -61,6 +63,7 @@ trait ActiveContractStore
   import ActiveContractStore.*
 
   override protected def kind: String = "active contract journal entries"
+  private[store] def indexedStringStore: IndexedStringStore
 
   /** Marks the given contracts as active from `timestamp` (inclusive) onwards.
     *
@@ -81,15 +84,40 @@ trait ActiveContractStore
     *           <li>[[ActiveContractStore.ChangeAfterArchival]] if this creation is later than the earliest archival of the contract.</li>
     *         </ul>
     */
-  def markContractsActive(contracts: Seq[LfContractId], toc: TimeOfChange)(implicit
-      traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit]
-
-  /** Shorthand for `markContractsActive(Seq(contractId), toc)` */
-  def markContractActive(contract: LfContractId, toc: TimeOfChange)(implicit
+  def markContractsCreated(contracts: Seq[LfContractId], toc: TimeOfChange)(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] =
-    markContractsActive(Seq(contract), toc)
+    markContractsCreatedOrAdded(contracts, toc: TimeOfChange, isCreation = true)
+
+  /** Shorthand for `markContractsCreated(Seq(contract), toc)` */
+  def markContractCreated(contract: LfContractId, toc: TimeOfChange)(implicit
+      traceContext: TraceContext
+  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
+    markContractsCreatedOrAdded(Seq(contract), toc, isCreation = true)
+
+  /** Shorthand for `markContractAdded(Seq(contract), toc)` */
+  def markContractAdded(contract: LfContractId, toc: TimeOfChange)(implicit
+      traceContext: TraceContext
+  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
+    markContractsAdded(Seq(contract), toc)
+
+  /** Marks the given contracts as active from `timestamp` (inclusive) onwards.
+    *
+    * Unlike creation, add can be done several times in the life of a contract.
+    * It is intended to use from the repair service.
+    */
+  def markContractsAdded(contracts: Seq[LfContractId], toc: TimeOfChange)(implicit
+      traceContext: TraceContext
+  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
+    markContractsCreatedOrAdded(contracts, toc: TimeOfChange, isCreation = false)
+
+  protected def markContractsCreatedOrAdded(
+      contracts: Seq[LfContractId],
+      toc: TimeOfChange,
+      isCreation: Boolean, // true if create, false if add
+  )(implicit
+      traceContext: TraceContext
+  ): CheckedT[Future, AcsError, AcsWarning, Unit]
 
   /** Marks the given contracts as archived from `toc`'s timestamp (inclusive) onwards.
     *
@@ -112,13 +140,40 @@ trait ActiveContractStore
     */
   def archiveContracts(contractIds: Seq[LfContractId], toc: TimeOfChange)(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit]
+  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
+    purgeOrArchiveContracts(contractIds, toc, isArchival = true)
 
-  /** Shorthand for `archiveContracts(Seq(contractId), toc)` */
+  /** Shorthand for `archiveContracts(Seq(cid), toc)` */
   def archiveContract(cid: LfContractId, toc: TimeOfChange)(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] =
     archiveContracts(Seq(cid), toc)
+
+  /** Shorthand for `purgeContracts(Seq(cid), toc)` */
+  def purgeContract(cid: LfContractId, toc: TimeOfChange)(implicit
+      traceContext: TraceContext
+  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
+    purgeOrArchiveContracts(Seq(cid), toc, isArchival = false)
+
+  /** Marks the given contracts as inactive from `timestamp` (inclusive) onwards.
+    *
+    * Unlike archival, purge can be done several times in the life of a contract.
+    * It is intended to use from the repair service.
+    */
+  def purgeContracts(contractIds: Seq[LfContractId], toc: TimeOfChange)(implicit
+      traceContext: TraceContext
+  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
+    purgeOrArchiveContracts(contractIds, toc, isArchival = false)
+
+  /** Depending on the `isArchival`, will archive (effect of a Daml transaction) or purge (repair service)
+    */
+  protected def purgeOrArchiveContracts(
+      contractIds: Seq[LfContractId],
+      toc: TimeOfChange,
+      isArchival: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): CheckedT[Future, AcsError, AcsWarning, Unit]
 
   /** Returns the latest [[com.digitalasset.canton.participant.store.ActiveContractStore.Status]]
     * for the given contract IDs along with its [[com.digitalasset.canton.participant.util.TimeOfChange]].
@@ -224,6 +279,32 @@ trait ActiveContractStore
   private[participant] def contractCount(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Future[Int]
+
+  protected def domainIdFromIdx(
+      idx: Int
+  )(implicit ec: ExecutionContext, loggingContext: ErrorLoggingContext): Future[DomainId] =
+    IndexedDomain
+      .fromDbIndexOT("active_contracts remote domain index", indexedStringStore)(idx)
+      .map(_.domainId)
+      .value
+      .flatMap {
+        case Some(domainId) => Future.successful(domainId)
+        case None =>
+          Future.failed(
+            new RuntimeException(s"Unable to find domain ID for domain with index $idx")
+          )
+      }
+
+  protected def getDomainIndices(
+      domains: Seq[DomainId]
+  ): CheckedT[Future, AcsError, AcsWarning, Map[DomainId, IndexedDomain]] =
+    CheckedT.result(
+      domains
+        .parTraverse { domainId =>
+          IndexedDomain.indexed(indexedStringStore)(domainId).map(domainId -> _)
+        }
+        .map(_.toMap)
+    )
 }
 
 object ActiveContractStore {
@@ -232,48 +313,169 @@ object ActiveContractStore {
   val ContractState: StateChange.type = StateChange
 
   sealed trait ActivenessChangeDetail extends Product with Serializable {
-    def unwrap: Option[DomainId]
+    def name: LengthLimitedString
+
+    def remoteDomainIdxO: Option[Int]
+
+    def changeType: ChangeType
+    def contractChange: ContractChange
+
     def isTransfer: Boolean
   }
 
-  final case class TransferDetails(
-      remoteDomainId: DomainId
-  ) extends ActivenessChangeDetail {
-    override def unwrap: Option[DomainId] = Some(remoteDomainId)
-    override def isTransfer: Boolean = true
-  }
-
-  object TransferDetails {
-    def apply(domain: TransferDomainId): TransferDetails = TransferDetails(domain.unwrap)
-  }
-
   object ActivenessChangeDetail {
+    val create: String36 = String36.tryCreate("create")
+    val archive: String36 = String36.tryCreate("archive")
+    val add: String36 = String36.tryCreate("add")
+    val purge: String36 = String36.tryCreate("purge")
+    val transferIn: String36 = String36.tryCreate("transfer-in")
+    val transferOut: String36 = String36.tryCreate("transfer-out")
 
-    def apply(
-        domainIdO: Option[DomainId]
-    ): ActivenessChangeDetail =
-      domainIdO match {
-        case None => CreationArchivalDetail
-        case Some(domainId) => TransferDetails(domainId)
+    sealed trait ChangeType {
+      def name: String
+
+      // lazy val so that `kind` is initialized first in the subclasses
+      final lazy val toDbPrimitive: String100 =
+        // The Oracle DB schema allows up to 100 chars; Postgres, H2 map this to an enum
+        String100.tryCreate(name)
+    }
+
+    object ChangeType {
+      case object Activation extends ChangeType {
+        override val name = "activation"
       }
 
-    private[store] implicit val orderForActivenessChangeDetail: Order[ActivenessChangeDetail] =
-      Order.by[ActivenessChangeDetail, Option[DomainId]](_.unwrap)
-  }
+      case object Deactivation extends ChangeType {
+        override val name = "deactivation"
+      }
 
-  case object CreationArchivalDetail extends ActivenessChangeDetail {
-    override def unwrap: None.type = None
+      implicit val setParameterChangeType: SetParameter[ChangeType] = (v, pp) =>
+        pp >> v.toDbPrimitive
+      implicit val getResultChangeType: GetResult[ChangeType] = GetResult(r =>
+        r.nextString() match {
+          case ChangeType.Activation.name => ChangeType.Activation
+          case ChangeType.Deactivation.name => ChangeType.Deactivation
+          case unknown => throw new DbDeserializationException(s"Unknown change type [$unknown]")
+        }
+      )
+    }
 
-    override def isTransfer: Boolean = false
+    sealed trait TransferChangeDetail extends ActivenessChangeDetail {
+      def toTransferType: ActiveContractStore.TransferType
+      def remoteDomainIdx: Int
+      override def remoteDomainIdxO: Option[Int] = Some(remoteDomainIdx)
+
+      override def isTransfer: Boolean = true
+    }
+
+    case object Create extends ActivenessChangeDetail {
+      override val name = ActivenessChangeDetail.create
+      override def remoteDomainIdxO: Option[Int] = None
+
+      override def changeType: ChangeType = ChangeType.Activation
+
+      override def contractChange: ContractChange = ContractChange.Created
+
+      override def isTransfer: Boolean = false
+    }
+
+    case object Add extends ActivenessChangeDetail {
+      override val name = ActivenessChangeDetail.add
+      override def remoteDomainIdxO: Option[Int] = None
+
+      override def changeType: ChangeType = ChangeType.Activation
+
+      override def contractChange: ContractChange = ContractChange.Created
+
+      override def isTransfer: Boolean = false
+    }
+
+    case object Archive extends ActivenessChangeDetail {
+      override val name = ActivenessChangeDetail.archive
+      override def remoteDomainIdxO: Option[Int] = None
+      override def changeType: ChangeType = ChangeType.Deactivation
+
+      override def contractChange: ContractChange = ContractChange.Archived
+
+      override def isTransfer: Boolean = false
+    }
+
+    case object Purge extends ActivenessChangeDetail {
+      override val name = ActivenessChangeDetail.purge
+      override def remoteDomainIdxO: Option[Int] = None
+
+      override def changeType: ChangeType = ChangeType.Deactivation
+
+      override def contractChange: ContractChange = ContractChange.Created
+
+      override def isTransfer: Boolean = false
+    }
+
+    final case class TransferIn(remoteDomainIdx: Int) extends TransferChangeDetail {
+      override val name = ActivenessChangeDetail.transferIn
+
+      override def changeType: ChangeType = ChangeType.Activation
+      override def toTransferType: ActiveContractStore.TransferType =
+        ActiveContractStore.TransferType.TransferIn
+
+      override def contractChange: ContractChange = ContractChange.TransferOut
+    }
+
+    final case class TransferOut(remoteDomainIdx: Int) extends TransferChangeDetail {
+      override val name = ActivenessChangeDetail.transferOut
+
+      override def changeType: ChangeType = ChangeType.Deactivation
+      override def toTransferType: ActiveContractStore.TransferType =
+        ActiveContractStore.TransferType.TransferOut
+
+      override def contractChange: ContractChange = ContractChange.TransferIn
+    }
+
+    implicit val setParameterActivenessChangeDetail: SetParameter[ActivenessChangeDetail] =
+      (v, pp) => {
+        pp >> v.name
+        pp >> v.remoteDomainIdxO
+      }
+
+    implicit val getResultChangeType: GetResult[ActivenessChangeDetail] = GetResult { r =>
+      val operationName = r.nextString()
+      val remoteDomainO = r.nextIntOption()
+
+      if (operationName == ActivenessChangeDetail.create.str) {
+        ActivenessChangeDetail.Create
+      } else if (operationName == ActivenessChangeDetail.archive.str) {
+        ActivenessChangeDetail.Archive
+      } else if (operationName == ActivenessChangeDetail.add.str) {
+        ActivenessChangeDetail.Add
+      } else if (operationName == ActivenessChangeDetail.purge.str) {
+        ActivenessChangeDetail.Purge
+      } else if (operationName == "transfer-in" || operationName == "transfer-out") {
+        val remoteDomain = remoteDomainO.getOrElse(
+          throw new DbDeserializationException(
+            s"remote domain should be defined for a $operationName"
+          )
+        )
+
+        if (operationName == ActivenessChangeDetail.transferIn.str)
+          ActivenessChangeDetail.TransferIn(remoteDomain)
+        else
+          ActivenessChangeDetail.TransferOut(remoteDomain)
+      } else throw new DbDeserializationException(s"Unknown operation type [$operationName]")
+    }
   }
 
   sealed trait AcsBaseError extends Product with Serializable
 
   /** Warning cases returned by the operations on the [[ActiveContractStore!]] */
-  sealed trait AcsWarning extends AcsBaseError
+  sealed trait AcsWarning extends AcsBaseError {
+    // List of toc involved in the error
+    def timeOfChanges: List[TimeOfChange]
+  }
 
   /** Error cases returned by the operations on the [[ActiveContractStore!]] */
   trait AcsError extends AcsBaseError
+
+  final case class UnableToFindIndex(id: DomainId) extends AcsError
 
   final case class ActiveContractsDataInvariantViolation(
       errorMessage: String
@@ -285,7 +487,9 @@ object ActiveContractStore {
       toc: TimeOfChange,
       detail1: ActivenessChangeDetail,
       detail2: ActivenessChangeDetail,
-  ) extends AcsWarning
+  ) extends AcsWarning {
+    override def timeOfChanges: List[TimeOfChange] = List(toc)
+  }
 
   /** A contract is simultaneously archived and/or transferred out to possibly several source domains */
   final case class SimultaneousDeactivation(
@@ -293,35 +497,45 @@ object ActiveContractStore {
       toc: TimeOfChange,
       detail1: ActivenessChangeDetail,
       detail2: ActivenessChangeDetail,
-  ) extends AcsWarning
+  ) extends AcsWarning {
+    override def timeOfChanges: List[TimeOfChange] = List(toc)
+  }
 
   /** The given contract is archived a second time, but with a different time of change. */
   final case class DoubleContractArchival(
       contractId: LfContractId,
       oldTime: TimeOfChange,
       newTime: TimeOfChange,
-  ) extends AcsWarning
+  ) extends AcsWarning {
+    override def timeOfChanges: List[TimeOfChange] = List(oldTime, newTime)
+  }
 
   /** The given contract is created a second time, but with a different time of change. */
   final case class DoubleContractCreation(
       contractId: LfContractId,
       oldTime: TimeOfChange,
       newTime: TimeOfChange,
-  ) extends AcsWarning
+  ) extends AcsWarning {
+    override def timeOfChanges: List[TimeOfChange] = List(oldTime, newTime)
+  }
 
   /** The state of a contract is changed before its `creation`. */
   final case class ChangeBeforeCreation(
       contractId: LfContractId,
       creation: TimeOfChange,
       change: TimeOfChange,
-  ) extends AcsWarning
+  ) extends AcsWarning {
+    override def timeOfChanges: List[TimeOfChange] = List(creation, change)
+  }
 
   /** The state of a contract is changed after its `archival`. */
   final case class ChangeAfterArchival(
       contractId: LfContractId,
       archival: TimeOfChange,
       change: TimeOfChange,
-  ) extends AcsWarning
+  ) extends AcsWarning {
+    override def timeOfChanges: List[TimeOfChange] = List(archival, change)
+  }
 
   /** Status of a contract in the ACS */
   sealed trait Status extends Product with Serializable with PrettyPrinting with HasPrunable {
@@ -345,6 +559,11 @@ object ActiveContractStore {
   case object Archived extends Status {
     override def prunable: Boolean = true
     override def pretty: Pretty[Archived.type] = prettyOfObject[Archived.type]
+  }
+
+  case object Purged extends Status {
+    override def prunable: Boolean = true
+    override def pretty: Pretty[Purged.type] = prettyOfObject[Purged.type]
   }
 
   /** The contract has been transferred out to the given `targetDomain` after it had resided on this domain.
@@ -473,8 +692,9 @@ sealed trait ContractChange extends Product with Serializable with PrettyPrintin
 object ContractChange {
   case object Created extends ContractChange
   case object Archived extends ContractChange
-  case object Unassigned extends ContractChange
-  case object Assigned extends ContractChange
+  case object Purged extends ContractChange
+  case object TransferOut extends ContractChange
+  case object TransferIn extends ContractChange
 }
 
 /** Type of state change of a contract as returned by [[com.digitalasset.canton.participant.store.ActiveContractStore.changesBetween]]

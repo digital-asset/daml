@@ -166,6 +166,7 @@ class CantonLedgerApiServerFactory(
           futureSupervisor = futureSupervisor,
           multiDomainEnabled = multiDomainEnabled,
           packageNameMapResolver = packageNameMapResolver,
+          parameters = parameters,
         )(executionContext, actorSystem)
         .leftMap { err =>
           // The MigrateOnEmptySchema exception is private, thus match on the expected message
@@ -474,6 +475,7 @@ trait ParticipantNodeBootstrapCommon {
         loggerFactory,
         skipRecipientsCheck,
         multiDomainLedgerAPIEnabled = ledgerApiServerFactory.multiDomainEnabled,
+        arguments.testingConfig,
       )
 
       _ = {

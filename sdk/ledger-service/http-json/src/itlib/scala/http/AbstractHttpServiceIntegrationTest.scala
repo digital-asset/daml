@@ -251,13 +251,34 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
   override def useTls = UseTls.NoTls
 
   protected def genSearchDataSet(
-      party: domain.Party
+      party: domain.Party,
+      usePackageName: Boolean = false,
   ): List[domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg]] =
     List(
-      iouCreateCommand(amount = "111.11", currency = "EUR", party = party),
-      iouCreateCommand(amount = "222.22", currency = "EUR", party = party),
-      iouCreateCommand(amount = "333.33", currency = "GBP", party = party),
-      iouCreateCommand(amount = "444.44", currency = "BTC", party = party),
+      iouCreateCommand(
+        amount = "111.11",
+        currency = "EUR",
+        party = party,
+        usePackageName = usePackageName,
+      ),
+      iouCreateCommand(
+        amount = "222.22",
+        currency = "EUR",
+        party = party,
+        usePackageName = usePackageName,
+      ),
+      iouCreateCommand(
+        amount = "333.33",
+        currency = "GBP",
+        party = party,
+        usePackageName = usePackageName,
+      ),
+      iouCreateCommand(
+        amount = "444.44",
+        currency = "BTC",
+        party = party,
+        usePackageName = usePackageName,
+      ),
     )
 
   // Whether the underlying JSON query engine place unavoidable limits on the JSON queries that are supportable.
@@ -281,6 +302,20 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         searchExpectOk(
           searchDataSet,
           jsObject("""{"templateIds": ["Iou:Iou"]}"""),
+          fixture,
+          headers,
+        ).map { acl: List[domain.ActiveContract.ResolvedCtTyId[JsValue]] =>
+          acl.size shouldBe searchDataSet.size
+        }
+      }
+    }
+
+    "single party with package name" in withHttpService { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        val searchDataSet = genSearchDataSet(alice, usePackageName = true)
+        searchExpectOk(
+          searchDataSet,
+          jsObject(s"""{"templateIds": ["${TpId.Iou.PkgName}:Iou:Iou"]}"""),
           fixture,
           headers,
         ).map { acl: List[domain.ActiveContract.ResolvedCtTyId[JsValue]] =>
@@ -366,55 +401,6 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           ac.payload shouldBe JsObject("amount" -> JsString("42"))
         }
       }
-    }
-
-    "query for visible contract, which was created and archived by another party before your first query" in withHttpService {
-      fixture =>
-        for {
-          (alice, aliceHeaders) <- fixture.getUniquePartyAndAuthHeaders("Alice")
-          (bob, bobHeaders) <- fixture.getUniquePartyAndAuthHeaders("Bob")
-
-          // Create contract visible to both Alice and Bob
-          contractId <- postCreateCommand(
-            iouCreateCommand(
-              alice,
-              amount = "42.0",
-              currency = "HKD",
-              observers = Vector(bob),
-            ),
-            fixture,
-            aliceHeaders,
-          ) map resultContractId
-
-          // Query by Alice, to populate the contract into cache
-          _ <- searchExpectOk(
-            List.empty,
-            jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "HKD"}}"""),
-            fixture,
-            aliceHeaders,
-          ).map { acl => acl.size shouldBe 1 }
-
-          // Archive this contract on the ledger. The cache is not yet updated.
-          exercise = archiveCommand(domain.EnrichedContractId(Some(TpId.Iou.Iou), contractId))
-          exerciseJson: JsValue = encodeExercise(fixture.encoder)(exercise)
-
-          _ <- fixture
-            .postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, aliceHeaders)
-            .parseResponse[domain.ExerciseResponse[JsValue]]
-            .flatMap(inside(_) { case domain.OkResponse(exercisedResponse, _, StatusCodes.OK) =>
-              assertExerciseResponseArchivedContract(exercisedResponse, exercise)
-            })
-
-          // Now the *first* query by Bob.
-          // This should not get confused by the fact that the archival happened before this query.
-          _ <- searchExpectOk(
-            List.empty,
-            jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "HKD"}}"""),
-            fixture,
-            bobHeaders,
-          ).map { acl => acl.size shouldBe 0 }
-
-        } yield succeed
     }
 
     "multi-view" - {
@@ -1492,17 +1478,6 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         }
     } yield succeed
   }
-
-  protected def assertExerciseResponseArchivedContract(
-      exerciseResponse: domain.ExerciseResponse[JsValue],
-      exercise: domain.ExerciseCommand.OptionalPkg[v.Value, domain.EnrichedContractId],
-  ): Assertion =
-    inside(exerciseResponse) { case domain.ExerciseResponse(exerciseResult, List(contract1), _) =>
-      exerciseResult shouldBe JsObject()
-      inside(contract1) { case domain.Contract(-\/(archivedContract)) =>
-        (archivedContract.contractId.unwrap: String) shouldBe (exercise.reference.contractId.unwrap: String)
-      }
-    }
 
   "fetch by contractId" - {
     "succeeds normally" in withHttpService { fixture =>

@@ -154,16 +154,16 @@ object ContractDao {
     }
   }
 
-  def hasVisibleContracts(parties: domain.PartySet, templateId: domain.ContractTypeId.RequiredPkg)(
+  def oldestVisibleOffset(parties: domain.PartySet, templateId: domain.ContractTypeId.RequiredPkg)(
       implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
-  ): ConnectionIO[Boolean] = {
+  ): ConnectionIO[Option[domain.Offset]] = {
     for {
       tpId <- surrogateTemplateId(templateId)
-      hasVisible <- sjd.q.queries.hasVisibleContracts(queriesPartySet(parties), tpId)
-    } yield hasVisible
+      oldestVisible <- sjd.q.queries.oldestVisibleOffset(queriesPartySet(parties), tpId)
+    } yield oldestVisible.map(domain.Offset(_))
   }
 
   /** A "lagging offset" is a template-ID/party pair whose stored offset may not reflect

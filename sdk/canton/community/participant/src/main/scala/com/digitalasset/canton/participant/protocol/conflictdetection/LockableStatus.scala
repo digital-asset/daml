@@ -37,12 +37,12 @@ private[conflictdetection] object LockableStatus {
 
       override def isFree(status: Status): Boolean = status match {
         case TransferredAway(_) => true
-        case Active | Archived => false
+        case Active | Archived | Purged => false
       }
 
       override def isActive(status: Status): Boolean = status match {
         case Active => true
-        case Archived | TransferredAway(_) => false
+        case Archived | Purged | TransferredAway(_) => false
       }
 
       override def shouldEvict(status: Status): Boolean = true
