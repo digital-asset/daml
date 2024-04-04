@@ -19,6 +19,8 @@ import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
+import LV.Features
+
 private[archive] class DecodeCommon(languageVersion: LV) {
 
   import DecodeCommon._
@@ -44,10 +46,10 @@ private[archive] class DecodeCommon(languageVersion: LV) {
 
     val metadata: Option[PackageMetadata] =
       if (lfPackage.hasMetadata) {
-        assertSince(LV.Features.packageMetadata, "Package.metadata")
+        assertSince(Features.packageMetadata, "Package.metadata")
         Some(decodePackageMetadata(lfPackage.getMetadata, internedStrings))
       } else {
-        if (!versionIsOlderThan(LV.Features.packageMetadata)) {
+        if (!versionIsOlderThan(Features.packageMetadata)) {
           throw Error.Parsing(s"Package.metadata is required in Daml-LF 1.$minor")
         }
         None
@@ -62,6 +64,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
       None,
       onlySerializableDataDefs,
     )
+
     val internedTypes = Work.run(decodeInternedTypes(env0, lfPackage))
     val env = env0.copy(internedTypes = internedTypes)
 
@@ -88,7 +91,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
       toPackageName(getInternedStr(metadata.getNameInternedStr), "PackageMetadata.name"),
       toPackageVersion(getInternedStr(metadata.getVersionInternedStr), "PackageMetadata.version22"),
       if (metadata.hasUpgradedPackageId) {
-        assertSince(LV.Features.packageUpgrades, "Package.metadata.upgradedPackageId")
+        assertSince(Features.packageUpgrades, "Package.metadata.upgradedPackageId")
         Some(
           getInternedPackageId(metadata.getUpgradedPackageId.getUpgradedPackageIdInternedStr)
         )
@@ -137,7 +140,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
   ): ImmArraySeq[DottedName] = {
 
     if (internedList.nonEmpty)
-      assertSince(LV.Features.internedDottedNames, "interned dotted names table")
+      assertSince(Features.internedDottedNames, "interned dotted names table")
 
     internedList.view
       .map(idn =>
@@ -172,7 +175,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
   ): Work[IndexedSeq[Type]] = Ret {
     val lfTypes = lfPackage.getInternedTypesList
     if (!lfTypes.isEmpty)
-      assertSince(LV.Features.internedTypes, "interned types table")
+      assertSince(Features.internedTypes, "interned types table")
     lfTypes.iterator.asScala
       .foldLeft(new mutable.ArrayBuffer[Type](lfTypes.size)) { (buf, typ) =>
         buf += env.copy(internedTypes = buf).uncheckedDecodeTypeForTest(typ)
@@ -249,7 +252,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
       val exceptions = mutable.ArrayBuffer[(DottedName, DefException)]()
       val interfaces = mutable.ArrayBuffer[(DottedName, DefInterface)]()
 
-      if (versionIsOlderThan(LV.Features.typeSynonyms)) {
+      if (versionIsOlderThan(Features.typeSynonyms)) {
         assertEmpty(lfModule.getSynonymsList, "Module.synonyms")
       } else if (!onlySerializableDataDefs) {
         // collect type synonyms
@@ -317,7 +320,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
         templates += ((defName, Work.run(decodeTemplate(defName, defn))))
       }
 
-      if (versionIsOlderThan(LV.Features.exceptions)) {
+      if (versionIsOlderThan(Features.exceptions)) {
         assertEmpty(lfModule.getExceptionsList, "Module.exceptions")
       } else if (!onlySerializableDataDefs) {
         lfModule.getExceptionsList.asScala
@@ -327,7 +330,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
       }
 
-      if (versionIsOlderThan(LV.Features.basicInterfaces)) {
+      if (versionIsOlderThan(Features.basicInterfaces)) {
         assertEmpty(lfModule.getInterfacesList, "Module.interfaces")
       } else {
         lfModule.getInterfacesList.asScala.foreach { defn =>
@@ -355,7 +358,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
       eitherToParseError(PackageId.fromString(getInternedStr(id)))
 
     private[this] def getInternedName(id: Int, description: => String): Name = {
-      assertSince(LV.Features.internedStrings, description)
+      assertSince(Features.internedStrings, description)
       eitherToParseError(Name.fromString(getInternedStr(id)))
     }
 
@@ -369,7 +372,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
         interned_id: Int,
         description: => String,
     ): DottedName =
-      if (versionIsOlderThan(LV.Features.internedDottedNames)) {
+      if (versionIsOlderThan(Features.internedDottedNames)) {
         assertUndefined(interned_id, s"${description}_interned_id")
         decodeSegments(segments)
       } else {
@@ -385,7 +388,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
         internedDName: => Int,
         description: => String,
     ): DottedName =
-      if (versionIsOlderThan(LV.Features.internedDottedNames)) {
+      if (versionIsOlderThan(Features.internedDottedNames)) {
         if (actualCase != dNameCase)
           throw Error.Parsing(s"${description}_dname is required by Daml-LF 1.$minor")
         decodeSegments(dName.getSegmentsList.asScala)
@@ -442,11 +445,6 @@ private[archive] class DecodeCommon(languageVersion: LV) {
         }
       }
 
-    private[this] def handleInternedName(
-        internedString: => Int
-    ): Name =
-      toName(internedStrings(internedString))
-
     private[this] def handleInternedName[Case](
         actualCase: Case,
         stringCase: Case,
@@ -455,7 +453,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
         internedString: => Int,
         description: => String,
     ) = {
-      val str = if (versionIsOlderThan(LV.Features.internedStrings)) {
+      val str = if (versionIsOlderThan(Features.internedStrings)) {
         if (actualCase != stringCase)
           throw Error.Parsing(s"${description}_str is required by Daml-LF 1.$minor")
         string
@@ -472,7 +470,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
         stringIds: util.List[Integer],
         description: => String,
     ): ImmArray[Name] =
-      if (versionIsOlderThan(LV.Features.internedStrings)) {
+      if (versionIsOlderThan(Features.internedStrings)) {
         assertEmpty(stringIds, description + "_interned_string")
         strings.asScala.view.map(toName).to(ImmArray)
       } else {
@@ -501,23 +499,6 @@ private[archive] class DecodeCommon(languageVersion: LV) {
         Ret(xs.to(ImmArray))
       }
     }
-
-    private[this] def decodeFieldWithExpr(
-        lfFieldWithExpr: PLF.FieldWithExpr,
-        definition: String,
-    ): Work[(Name, Expr)] =
-      decodeExpr(lfFieldWithExpr.getExpr, definition) { expr =>
-        Ret(
-          handleInternedName(
-            lfFieldWithExpr.getFieldCase,
-            PLF.FieldWithExpr.FieldCase.FIELD_STR,
-            lfFieldWithExpr.getFieldStr,
-            PLF.FieldWithExpr.FieldCase.FIELD_INTERNED_STR,
-            lfFieldWithExpr.getFieldInternedStr,
-            "FieldWithType.name",
-          ) -> expr
-        )
-      }
 
     private[this] def decodeEnumCon(
         enumCon: PLF.DefDataType.EnumConstructors
@@ -554,42 +535,12 @@ private[archive] class DecodeCommon(languageVersion: LV) {
       }
     }
 
-    private def decodeLocation(lfExpr: PLF.Expr, definition: String): Option[Location] =
-      if (lfExpr.hasLocation && lfExpr.getLocation.hasRange) {
-        val loc = lfExpr.getLocation
-        val optModuleRef =
-          if (loc.hasModule)
-            Some(decodeModuleRef(loc.getModule))
-          else
-            optModuleName.map((packageId, _))
-        optModuleRef.map { case (pkgId, moduleName) =>
-          val range = loc.getRange
-          Location(
-            pkgId,
-            moduleName,
-            definition,
-            (range.getStartLine, range.getStartCol),
-            (range.getEndLine, range.getEndCol),
-          )
-        }
-      } else {
-        None
-      }
-
     private[this] def decodeTemplateKey(
         tpl: DottedName,
         key: PLF.DefTemplate.DefKey,
         tplVar: ExprVarName,
     ): Work[TemplateKey] = {
-      Work.bind(key.getKeyExprCase match {
-        case PLF.DefTemplate.DefKey.KeyExprCase.KEY =>
-          decodeKeyExpr(key.getKey, tplVar)
-        case PLF.DefTemplate.DefKey.KeyExprCase.COMPLEX_KEY => {
-          decodeExpr(key.getComplexKey, s"${tpl}:key") { Ret(_) }
-        }
-        case PLF.DefTemplate.DefKey.KeyExprCase.KEYEXPR_NOT_SET =>
-          throw Error.Parsing("DefKey.KEYEXPR_NOT_SET")
-      }) { keyExpr =>
+      Work.bind(decodeTemplateKeyExpr(tpl, key, tplVar)) { keyExpr =>
         decodeType(key.getType) { typ =>
           decodeExpr(key.getMaintainers, s"${tpl}:maintainer") { maintainers =>
             Ret(
@@ -604,59 +555,9 @@ private[archive] class DecodeCommon(languageVersion: LV) {
       }
     }
 
-    private[this] def decodeKeyExpr(expr: PLF.KeyExpr, tplVar: ExprVarName): Work[Expr] = {
-      Work.Delay { () =>
-        expr.getSumCase match {
-
-          case PLF.KeyExpr.SumCase.RECORD =>
-            val recCon = expr.getRecord
-            Work.bind(decodeTypeConApp(recCon.getTycon)) { tycon =>
-              Work.sequence(recCon.getFieldsList.asScala.view.map { field =>
-                val name =
-                  handleInternedName(
-                    field.getFieldCase,
-                    PLF.KeyExpr.RecordField.FieldCase.FIELD_STR,
-                    field.getFieldStr,
-                    PLF.KeyExpr.RecordField.FieldCase.FIELD_INTERNED_STR,
-                    field.getFieldInternedStr,
-                    "KeyExpr.field",
-                  )
-                Work.bind(decodeKeyExpr(field.getExpr, tplVar)) { expr =>
-                  Ret(name -> expr)
-                }
-              }) { fields => Ret(ERecCon(tycon, fields = fields.to(ImmArray))) }
-            }
-
-          case PLF.KeyExpr.SumCase.PROJECTIONS =>
-            val lfProjs = expr.getProjections.getProjectionsList.asScala
-            Work.sequence(lfProjs.view.map { lfProj =>
-              Work.bind(decodeTypeConApp(lfProj.getTycon)) { tycon =>
-                val name =
-                  handleInternedName(
-                    lfProj.getFieldCase,
-                    PLF.KeyExpr.Projection.FieldCase.FIELD_STR,
-                    lfProj.getFieldStr,
-                    PLF.KeyExpr.Projection.FieldCase.FIELD_INTERNED_STR,
-                    lfProj.getFieldInternedStr,
-                    "KeyExpr.Projection.field",
-                  )
-                Ret((tycon, name))
-              }
-            }) { projs =>
-              Ret(projs.foldLeft(EVar(tplVar): Expr) { case (acc, (tycon, name)) =>
-                ERecProj(tycon, name, acc)
-              })
-            }
-
-          case PLF.KeyExpr.SumCase.SUM_NOT_SET =>
-            throw Error.Parsing("KeyExpr.SUM_NOT_SET")
-        }
-      }
-    }
-
     private[this] def decodeTemplate(tpl: DottedName, lfTempl: PLF.DefTemplate): Work[Template] = {
       val lfImplements = lfTempl.getImplementsList.asScala
-      if (versionIsOlderThan(LV.Features.basicInterfaces))
+      if (versionIsOlderThan(Features.basicInterfaces))
         assertEmpty(lfImplements, "DefTemplate.implements")
       val paramName = handleInternedName(
         lfTempl.getParamCase,
@@ -686,11 +587,11 @@ private[archive] class DecodeCommon(languageVersion: LV) {
                       Ret(
                         Template.build(
                           param = paramName,
-                          precond,
-                          signatories,
-                          agreementText,
-                          choices,
-                          observers,
+                          precond = precond,
+                          signatories = signatories,
+                          agreementText = agreementText,
+                          choices = choices,
+                          observers = observers,
                           implements = implements,
                           key = key,
                         )
@@ -766,23 +667,23 @@ private[archive] class DecodeCommon(languageVersion: LV) {
         decodeExpr(lfChoice.getControllers, s"$tpl:$chName:controller") { controllers =>
           Work.bind(
             if (lfChoice.hasObservers) {
-              assertSince(LV.Features.choiceObservers, "TemplateChoice.observers")
+              assertSince(Features.choiceObservers, "TemplateChoice.observers")
               decodeExpr(lfChoice.getObservers, s"$tpl:$chName:observers") { observers =>
                 Ret(Some(observers))
               }
             } else {
-              assertUntil(LV.Features.choiceObservers, "missing TemplateChoice.observers")
+              assertUntil(Features.choiceObservers, "missing TemplateChoice.observers")
               Ret(None)
             }
           ) { choiceObservers =>
             Work.bind(
               if (lfChoice.hasAuthorizers) {
-                assertSince(LV.Features.choiceAuthority, "TemplateChoice.authorizers")
+                assertSince(Features.choiceAuthority, "TemplateChoice.authorizers")
                 decodeExpr(lfChoice.getAuthorizers, s"$tpl:$chName:authorizers") { authorizers =>
                   Ret(Some(authorizers))
                 }
               } else {
-                // authorizers are optional post LV.Features.choiceAuthority
+                // authorizers are optional post Features.choiceAuthority
                 Ret(None)
               }
             ) { choiceAuthorizers =>
@@ -833,16 +734,16 @@ private[archive] class DecodeCommon(languageVersion: LV) {
                     DefInterface.build(
                       requires =
                         if (lfInterface.getRequiresCount != 0) {
-                          assertSince(LV.Features.basicInterfaces, "DefInterface.requires")
+                          assertSince(Features.basicInterfaces, "DefInterface.requires")
                           lfInterface.getRequiresList.asScala.view.map(decodeTypeConName)
                         } else
                           List.empty,
                       param =
                         getInternedName(lfInterface.getParamInternedStr, "DefInterface.param"),
-                      choices,
-                      methods,
-                      coImplements,
-                      view,
+                      choices = choices,
+                      methods = methods,
+                      view = view,
+                      coImplements = coImplements,
                     )
                   )
                 }
@@ -882,7 +783,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
         lfKind.getSumCase match {
           case PLF.Kind.SumCase.STAR => Ret(KStar)
           case PLF.Kind.SumCase.NAT =>
-            assertSince(LV.Features.numeric, "Kind.NAT")
+            assertSince(Features.numeric, "Kind.NAT")
             Ret(KNat)
           case PLF.Kind.SumCase.ARROW =>
             val kArrow = lfKind.getArrow
@@ -902,7 +803,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
     private def decodeType[T](lfType: PLF.Type)(k: Type => Work[T]): Work[T] = {
       Work.Bind(
         Work.Delay { () =>
-          if (versionIsOlderThan(LV.Features.internedTypes)) {
+          if (versionIsOlderThan(Features.internedTypes)) {
             uncheckedDecodeType(lfType)
           } else {
             lfType.getSumCase match {
@@ -938,7 +839,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
             Ret(types.foldLeft[Type](TVar(varName))(TApp))
           }
         case PLF.Type.SumCase.NAT =>
-          assertSince(LV.Features.numeric, "Type.NAT")
+          assertSince(Features.numeric, "Type.NAT")
           Ret(
             Numeric.Scale
               .fromLong(lfType.getNat)
@@ -964,7 +865,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           val prim = lfType.getPrim
           val baseType =
             if (prim.getPrim == PLF.PrimType.DECIMAL) {
-              assertUntil(LV.Features.numeric, "PrimType.DECIMAL")
+              assertUntil(Features.numeric, "PrimType.DECIMAL")
               TDecimal
             } else {
               val info = builtinTypeInfoMap(prim.getPrim)
@@ -1037,13 +938,6 @@ private[archive] class DecodeCommon(languageVersion: LV) {
       (pkgId, modName)
     }
 
-    private[this] def decodeValName(lfVal: PLF.ValName): ValueRef = {
-      val (packageId, module) = decodeModuleRef(lfVal.getModule)
-      val name =
-        handleDottedName(lfVal.getNameDnameList.asScala, lfVal.getNameInternedDname, "ValName.name")
-      ValueRef(packageId, QualifiedName(module, name))
-    }
-
     private[this] def decodeTypeConName(lfTyConName: PLF.TypeConName): TypeConName = {
       val (packageId, module) = decodeModuleRef(lfTyConName.getModule)
       val name = handleDottedName(
@@ -1070,20 +964,53 @@ private[archive] class DecodeCommon(languageVersion: LV) {
       Identifier(packageId, QualifiedName(module, name))
     }
 
-    private[this] def decodeTypeConApp(lfTyConApp: PLF.Type.Con): Work[TypeConApp] = {
-      Work.sequence(lfTyConApp.getArgsList.asScala.view.map(decodeType(_)(Ret(_)))) { types =>
-        Ret(TypeConApp(decodeTypeConName(lfTyConApp.getTycon), types.to(ImmArray)))
-      }
-    }
-
     private def decodeExpr[T](lfExpr: PLF.Expr, definition: String)(k: Expr => Work[T]): Work[T] = {
       Work.Bind(Work.Delay(() => decodeExpr1(lfExpr, definition)), k)
     }
 
+    private[this] def decodeTypeVarWithKind(
+        lfTypeVarWithKind: PLF.TypeVarWithKind
+    ): Work[(TypeVarName, Kind)] = {
+      val name =
+        handleInternedName(
+          lfTypeVarWithKind.getVarCase,
+          PLF.TypeVarWithKind.VarCase.VAR_STR,
+          lfTypeVarWithKind.getVarStr,
+          PLF.TypeVarWithKind.VarCase.VAR_INTERNED_STR,
+          lfTypeVarWithKind.getVarInternedStr,
+          "TypeVarWithKind.var.var",
+        )
+      Work.bind(decodeKind(lfTypeVarWithKind.getKind)) { kind =>
+        Ret { name -> kind }
+      }
+    }
+
+    private[this] def decodeBinder(lfBinder: PLF.VarWithType): Work[(ExprVarName, Type)] = {
+      decodeType(lfBinder.getType) { typ =>
+        Ret(
+          handleInternedName(
+            lfBinder.getVarCase,
+            PLF.VarWithType.VarCase.VAR_STR,
+            lfBinder.getVarStr,
+            PLF.VarWithType.VarCase.VAR_INTERNED_STR,
+            lfBinder.getVarInternedStr,
+            "VarWithType.var.var",
+          ) -> typ
+        )
+      }
+    }
+
+    /* Begin Decoding Expression */
+
+    private[this] def handleInternedName(
+        internedString: => Int
+    ): Name =
+      toName(internedStrings(internedString))
+
     private def decodeExpr1(lfExpr: PLF.Expr, definition: String): Work[Expr] = {
       Work.bind(lfExpr.getSumCase match {
         case PLF.Expr.SumCase.VAR_STR =>
-          assertUntil(LV.Features.internedStrings, "Expr.var_str")
+          assertUntil(Features.internedStrings, "Expr.var_str")
           Ret(EVar(toName(lfExpr.getVarStr)))
 
         case PLF.Expr.SumCase.VAR_INTERNED_STR =>
@@ -1330,7 +1257,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Expr.SumCase.TO_ANY =>
-          assertSince(LV.Features.anyType, "Expr.ToAny")
+          assertSince(Features.anyType, "Expr.ToAny")
           decodeType(lfExpr.getToAny.getType) { typ =>
             decodeExpr(lfExpr.getToAny.getExpr, definition) { expr =>
               Ret(EToAny(typ, expr))
@@ -1338,7 +1265,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Expr.SumCase.FROM_ANY =>
-          assertSince(LV.Features.anyType, "Expr.FromAny")
+          assertSince(Features.anyType, "Expr.FromAny")
           decodeType(lfExpr.getFromAny.getType) { typ =>
             decodeExpr(lfExpr.getFromAny.getExpr, definition) { expr =>
               Ret(EFromAny(typ, expr))
@@ -1346,13 +1273,13 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Expr.SumCase.TYPE_REP =>
-          assertSince(LV.Features.typeRep, "Expr.type_rep")
+          assertSince(Features.typeRep, "Expr.type_rep")
           decodeType(lfExpr.getTypeRep) { typ =>
             Ret(ETypeRep(typ))
           }
 
         case PLF.Expr.SumCase.THROW =>
-          assertSince(LV.Features.exceptions, "Expr.from_any_exception")
+          assertSince(Features.exceptions, "Expr.from_any_exception")
           val eThrow = lfExpr.getThrow
           decodeType(eThrow.getReturnType) { returnType =>
             decodeType(eThrow.getExceptionType) { exceptionType =>
@@ -1363,7 +1290,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Expr.SumCase.TO_ANY_EXCEPTION =>
-          assertSince(LV.Features.exceptions, "Expr.to_any_exception")
+          assertSince(Features.exceptions, "Expr.to_any_exception")
           val toAnyException = lfExpr.getToAnyException
           decodeType(toAnyException.getType) { typ =>
             decodeExpr(toAnyException.getExpr, definition) { value =>
@@ -1372,7 +1299,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Expr.SumCase.FROM_ANY_EXCEPTION =>
-          assertSince(LV.Features.exceptions, "Expr.from_any_exception")
+          assertSince(Features.exceptions, "Expr.from_any_exception")
           val fromAnyException = lfExpr.getFromAnyException
           decodeType(fromAnyException.getType) { typ =>
             decodeExpr(fromAnyException.getExpr, definition) { value =>
@@ -1381,7 +1308,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Expr.SumCase.TO_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.to_interface")
+          assertSince(Features.basicInterfaces, "Expr.to_interface")
           val toInterface = lfExpr.getToInterface
           val interfaceId = decodeTypeConName(toInterface.getInterfaceType)
           val templateId = decodeTypeConName(toInterface.getTemplateType)
@@ -1390,7 +1317,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Expr.SumCase.FROM_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.from_interface")
+          assertSince(Features.basicInterfaces, "Expr.from_interface")
           val fromInterface = lfExpr.getFromInterface
           val interfaceId = decodeTypeConName(fromInterface.getInterfaceType)
           val templateId = decodeTypeConName(fromInterface.getTemplateType)
@@ -1399,7 +1326,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Expr.SumCase.CALL_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.call_interface")
+          assertSince(Features.basicInterfaces, "Expr.call_interface")
           val callInterface = lfExpr.getCallInterface
           val interfaceId = decodeTypeConName(callInterface.getInterfaceType)
           val methodName =
@@ -1409,7 +1336,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Expr.SumCase.SIGNATORY_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.signatory_interface")
+          assertSince(Features.basicInterfaces, "Expr.signatory_interface")
           val signatoryInterface = lfExpr.getSignatoryInterface
           val ifaceId = decodeTypeConName(signatoryInterface.getInterface)
           decodeExpr(signatoryInterface.getExpr, definition) { body =>
@@ -1417,7 +1344,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Expr.SumCase.OBSERVER_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.observer_interface")
+          assertSince(Features.basicInterfaces, "Expr.observer_interface")
           val observerInterface = lfExpr.getObserverInterface
           decodeExpr(observerInterface.getExpr, definition) { body =>
             Ret(
@@ -1426,7 +1353,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Expr.SumCase.UNSAFE_FROM_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.unsafe_from_interface")
+          assertSince(Features.basicInterfaces, "Expr.unsafe_from_interface")
           val unsafeFromInterface = lfExpr.getUnsafeFromInterface
           val interfaceId = decodeTypeConName(unsafeFromInterface.getInterfaceType)
           val templateId = decodeTypeConName(unsafeFromInterface.getTemplateType)
@@ -1437,7 +1364,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Expr.SumCase.TO_REQUIRED_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.to_required_interface")
+          assertSince(Features.basicInterfaces, "Expr.to_required_interface")
           val toRequiredInterface = lfExpr.getToRequiredInterface
           val requiredIfaceId = decodeTypeConName(toRequiredInterface.getRequiredInterface)
           val requiringIfaceId = decodeTypeConName(toRequiredInterface.getRequiringInterface)
@@ -1446,7 +1373,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Expr.SumCase.FROM_REQUIRED_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.from_required_interface")
+          assertSince(Features.basicInterfaces, "Expr.from_required_interface")
           val fromRequiredInterface = lfExpr.getFromRequiredInterface
           decodeExpr(fromRequiredInterface.getExpr, definition) { body =>
             Ret(
@@ -1459,7 +1386,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Expr.SumCase.UNSAFE_FROM_REQUIRED_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.from_required_interface")
+          assertSince(Features.basicInterfaces, "Expr.from_required_interface")
           val unsafeFromRequiredInterface = lfExpr.getUnsafeFromRequiredInterface
           val requiredIfaceId = decodeTypeConName(unsafeFromRequiredInterface.getRequiredInterface)
           val requiringIfaceId =
@@ -1478,7 +1405,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Expr.SumCase.INTERFACE_TEMPLATE_TYPE_REP =>
-          assertSince(LV.Features.basicInterfaces, "Expr.interface_template_type_rep")
+          assertSince(Features.basicInterfaces, "Expr.interface_template_type_rep")
           val interfaceTemplateTypeRep = lfExpr.getInterfaceTemplateTypeRep
           val ifaceId = decodeTypeConName(interfaceTemplateTypeRep.getInterface)
           decodeExpr(interfaceTemplateTypeRep.getExpr, definition) { body =>
@@ -1489,7 +1416,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           throw Error.Parsing("Expr.SUM_NOT_SET")
 
         case PLF.Expr.SumCase.VIEW_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.view_interface")
+          assertSince(Features.basicInterfaces, "Expr.view_interface")
           val viewInterface = lfExpr.getViewInterface
           val ifaceId = decodeTypeConName(viewInterface.getInterface)
           decodeExpr(viewInterface.getExpr, definition) { expr =>
@@ -1497,7 +1424,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Expr.SumCase.CHOICE_CONTROLLER =>
-          assertSince(LV.Features.choiceFuncs, "Expr.choice_controller")
+          assertSince(Features.choiceFuncs, "Expr.choice_controller")
           val choiceController = lfExpr.getChoiceController
           val tplCon = decodeTypeConName(choiceController.getTemplate)
           val choiceName = handleInternedName(choiceController.getChoiceInternedStr)
@@ -1508,7 +1435,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Expr.SumCase.CHOICE_OBSERVER =>
-          assertSince(LV.Features.choiceFuncs, "Expr.choice_observer")
+          assertSince(Features.choiceFuncs, "Expr.choice_observer")
           val choiceObserver = lfExpr.getChoiceObserver
           val tplCon = decodeTypeConName(choiceObserver.getTemplate)
           val choiceName = handleInternedName(choiceObserver.getChoiceInternedStr)
@@ -1519,7 +1446,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Expr.SumCase.EXPERIMENTAL =>
-          assertSince(LV.Features.unstable, "Expr.experimental")
+          assertSince(Features.unstable, "Expr.experimental")
           val experimental = lfExpr.getExperimental
           decodeType(experimental.getType) { typ =>
             Ret(EExperimental(experimental.getName, typ))
@@ -1680,7 +1607,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Update.SumCase.SOFT_EXERCISE =>
-          assertSince(LV.Features.packageUpgrades, "softExercise")
+          assertSince(Features.packageUpgrades, "softExercise")
           val exercise = lfUpdate.getSoftExercise
           val templateId = decodeTypeConName(exercise.getTemplate)
           val choice = handleInternedName(
@@ -1710,13 +1637,13 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Update.SumCase.EXERCISE_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "exerciseInterface")
+          assertSince(Features.basicInterfaces, "exerciseInterface")
           val exercise = lfUpdate.getExerciseInterface
           decodeExpr(exercise.getCid, definition) { cidE =>
             decodeExpr(exercise.getArg, definition) { argE =>
               Work.bind(
                 if (exercise.hasGuard) {
-                  assertSince(LV.Features.extendedInterfaces, "exerciseInterface.guard")
+                  assertSince(Features.extendedInterfaces, "exerciseInterface.guard")
                   decodeExpr(exercise.getGuard, definition) { e =>
                     Ret(Some(e))
                   }
@@ -1731,7 +1658,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Update.SumCase.EXERCISE_BY_KEY =>
-          assertSince(LV.Features.exerciseByKey, "exerciseByKey")
+          assertSince(Features.exerciseByKey, "exerciseByKey")
           val exerciseByKey = lfUpdate.getExerciseByKey
           val templateId = decodeTypeConName(exerciseByKey.getTemplate)
           val choice = getInternedName(
@@ -1754,7 +1681,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Update.SumCase.SOFT_FETCH =>
-          assertSince(LV.Features.packageUpgrades, "softFetch")
+          assertSince(Features.packageUpgrades, "softFetch")
           val softFetch = lfUpdate.getSoftFetch
           decodeExpr(softFetch.getCid, definition) { contractId =>
             Ret(
@@ -1766,7 +1693,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Update.SumCase.FETCH_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "fetchInterface")
+          assertSince(Features.basicInterfaces, "fetchInterface")
           val fetch = lfUpdate.getFetchInterface
           decodeExpr(fetch.getCid, definition) { contractId =>
             Ret(
@@ -1793,7 +1720,7 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           }
 
         case PLF.Update.SumCase.TRY_CATCH =>
-          assertSince(LV.Features.exceptions, "Update.try_catch")
+          assertSince(Features.exceptions, "Update.try_catch")
           val tryCatch = lfUpdate.getTryCatch
           decodeType(tryCatch.getReturnType) { typ =>
             decodeExpr(tryCatch.getTryExpr, definition) { body =>
@@ -1878,43 +1805,11 @@ private[archive] class DecodeCommon(languageVersion: LV) {
       }
     }
 
-    private[this] def decodeTypeVarWithKind(
-        lfTypeVarWithKind: PLF.TypeVarWithKind
-    ): Work[(TypeVarName, Kind)] = {
-      val name =
-        handleInternedName(
-          lfTypeVarWithKind.getVarCase,
-          PLF.TypeVarWithKind.VarCase.VAR_STR,
-          lfTypeVarWithKind.getVarStr,
-          PLF.TypeVarWithKind.VarCase.VAR_INTERNED_STR,
-          lfTypeVarWithKind.getVarInternedStr,
-          "TypeVarWithKind.var.var",
-        )
-      Work.bind(decodeKind(lfTypeVarWithKind.getKind)) { kind =>
-        Ret { name -> kind }
-      }
-    }
-
     private[this] def decodeBinding(lfBinding: PLF.Binding, definition: String): Work[Binding] = {
       Work.bind(decodeBinder(lfBinding.getBinder)) { case (binder, typ) =>
         decodeExpr(lfBinding.getBound, definition) { expr =>
           Ret(Binding(Some(binder), typ, expr))
         }
-      }
-    }
-
-    private[this] def decodeBinder(lfBinder: PLF.VarWithType): Work[(ExprVarName, Type)] = {
-      decodeType(lfBinder.getType) { typ =>
-        Ret(
-          handleInternedName(
-            lfBinder.getVarCase,
-            PLF.VarWithType.VarCase.VAR_STR,
-            lfBinder.getVarStr,
-            PLF.VarWithType.VarCase.VAR_INTERNED_STR,
-            lfBinder.getVarInternedStr,
-            "VarWithType.var.var",
-          ) -> typ
-        )
       }
     }
 
@@ -1934,11 +1829,11 @@ private[archive] class DecodeCommon(languageVersion: LV) {
         case PLF.PrimLit.SumCase.INT64 =>
           PLInt64(lfPrimLit.getInt64)
         case PLF.PrimLit.SumCase.DECIMAL_STR =>
-          assertUntil(LV.Features.numeric, "PrimLit.decimal")
-          assertUntil(LV.Features.internedStrings, "PrimLit.decimal_str")
+          assertUntil(Features.numeric, "PrimLit.decimal")
+          assertUntil(Features.internedStrings, "PrimLit.decimal_str")
           toPLDecimal(lfPrimLit.getDecimalStr)
         case PLF.PrimLit.SumCase.TEXT_STR =>
-          assertUntil(LV.Features.internedStrings, "PrimLit.text_str")
+          assertUntil(Features.internedStrings, "PrimLit.text_str")
           PLText(lfPrimLit.getTextStr)
         case PLF.PrimLit.SumCase.TIMESTAMP =>
           val t = Time.Timestamp.fromLong(lfPrimLit.getTimestamp)
@@ -1947,26 +1842,145 @@ private[archive] class DecodeCommon(languageVersion: LV) {
           val d = Time.Date.fromDaysSinceEpoch(lfPrimLit.getDate)
           d.fold(e => throw Error.Parsing("error decoding date: " + e), PLDate)
         case PLF.PrimLit.SumCase.TEXT_INTERNED_STR =>
-          assertSince(LV.Features.internedStrings, "PrimLit.text_interned_str")
+          assertSince(Features.internedStrings, "PrimLit.text_interned_str")
           PLText(getInternedStr(lfPrimLit.getTextInternedStr))
         case PLF.PrimLit.SumCase.NUMERIC_INTERNED_STR =>
-          assertSince(LV.Features.numeric, "PrimLit.numeric")
+          assertSince(Features.numeric, "PrimLit.numeric")
           toPLNumeric(getInternedStr(lfPrimLit.getNumericInternedStr))
         case PLF.PrimLit.SumCase.ROUNDING_MODE =>
-          assertSince(LV.Features.bigNumeric, "Expr.rounding_mode")
+          assertSince(Features.bigNumeric, "Expr.rounding_mode")
           PLRoundingMode(java.math.RoundingMode.valueOf(lfPrimLit.getRoundingModeValue))
         case PLF.PrimLit.SumCase.PARTY_STR | PLF.PrimLit.SumCase.PARTY_INTERNED_STR =>
           throw Error.Parsing("Party literals are not supported")
         case PLF.PrimLit.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("PrimLit.SUM_NOT_SET")
       }
+
+    private[this] def decodeFieldWithExpr(
+        lfFieldWithExpr: PLF.FieldWithExpr,
+        definition: String,
+    ): Work[(Name, Expr)] =
+      decodeExpr(lfFieldWithExpr.getExpr, definition) { expr =>
+        Ret(
+          handleInternedName(
+            lfFieldWithExpr.getFieldCase,
+            PLF.FieldWithExpr.FieldCase.FIELD_STR,
+            lfFieldWithExpr.getFieldStr,
+            PLF.FieldWithExpr.FieldCase.FIELD_INTERNED_STR,
+            lfFieldWithExpr.getFieldInternedStr,
+            "FieldWithType.name",
+          ) -> expr
+        )
+      }
+
+    private[this] def decodeValName(lfVal: PLF.ValName): ValueRef = {
+      val (packageId, module) = decodeModuleRef(lfVal.getModule)
+      val name =
+        handleDottedName(lfVal.getNameDnameList.asScala, lfVal.getNameInternedDname, "ValName.name")
+      ValueRef(packageId, QualifiedName(module, name))
+    }
+
+    private[this] def decodeTypeConApp(lfTyConApp: PLF.Type.Con): Work[TypeConApp] = {
+      Work.sequence(lfTyConApp.getArgsList.asScala.view.map(decodeType(_)(Ret(_)))) { types =>
+        Ret(TypeConApp(decodeTypeConName(lfTyConApp.getTycon), types.to(ImmArray)))
+      }
+    }
+
+    private def decodeLocation(lfExpr: PLF.Expr, definition: String): Option[Location] =
+      if (lfExpr.hasLocation && lfExpr.getLocation.hasRange) {
+        val loc = lfExpr.getLocation
+        val optModuleRef =
+          if (loc.hasModule)
+            Some(decodeModuleRef(loc.getModule))
+          else
+            optModuleName.map((packageId, _))
+        optModuleRef.map { case (pkgId, moduleName) =>
+          val range = loc.getRange
+          Location(
+            pkgId,
+            moduleName,
+            definition,
+            (range.getStartLine, range.getStartCol),
+            (range.getEndLine, range.getEndCol),
+          )
+        }
+      } else {
+        None
+      }
+
+    private[this] def decodeKeyExpr(expr: PLF.KeyExpr, tplVar: ExprVarName): Work[Expr] = {
+      Work.Delay { () =>
+        expr.getSumCase match {
+
+          case PLF.KeyExpr.SumCase.RECORD =>
+            val recCon = expr.getRecord
+            Work.bind(decodeTypeConApp(recCon.getTycon)) { tycon =>
+              Work.sequence(recCon.getFieldsList.asScala.view.map { field =>
+                val name =
+                  handleInternedName(
+                    field.getFieldCase,
+                    PLF.KeyExpr.RecordField.FieldCase.FIELD_STR,
+                    field.getFieldStr,
+                    PLF.KeyExpr.RecordField.FieldCase.FIELD_INTERNED_STR,
+                    field.getFieldInternedStr,
+                    "KeyExpr.field",
+                  )
+                Work.bind(decodeKeyExpr(field.getExpr, tplVar)) { expr =>
+                  Ret(name -> expr)
+                }
+              }) { fields => Ret(ERecCon(tycon, fields = fields.to(ImmArray))) }
+            }
+
+          case PLF.KeyExpr.SumCase.PROJECTIONS =>
+            val lfProjs = expr.getProjections.getProjectionsList.asScala
+            Work.sequence(lfProjs.view.map { lfProj =>
+              Work.bind(decodeTypeConApp(lfProj.getTycon)) { tycon =>
+                val name =
+                  handleInternedName(
+                    lfProj.getFieldCase,
+                    PLF.KeyExpr.Projection.FieldCase.FIELD_STR,
+                    lfProj.getFieldStr,
+                    PLF.KeyExpr.Projection.FieldCase.FIELD_INTERNED_STR,
+                    lfProj.getFieldInternedStr,
+                    "KeyExpr.Projection.field",
+                  )
+                Ret((tycon, name))
+              }
+            }) { projs =>
+              Ret(projs.foldLeft(EVar(tplVar): Expr) { case (acc, (tycon, name)) =>
+                ERecProj(tycon, name, acc)
+              })
+            }
+
+          case PLF.KeyExpr.SumCase.SUM_NOT_SET =>
+            throw Error.Parsing("KeyExpr.SUM_NOT_SET")
+        }
+      }
+    }
+
+    private[this] def decodeTemplateKeyExpr(
+        tpl: DottedName,
+        key: PLF.DefTemplate.DefKey,
+        tplVar: ExprVarName,
+    ): Work[Expr] = key.getKeyExprCase match {
+      case PLF.DefTemplate.DefKey.KeyExprCase.KEY =>
+        decodeKeyExpr(key.getKey, tplVar)
+      case PLF.DefTemplate.DefKey.KeyExprCase.COMPLEX_KEY => {
+        decodeExpr(key.getComplexKey, s"${tpl}:key") { Ret(_) }
+      }
+      case PLF.DefTemplate.DefKey.KeyExprCase.KEYEXPR_NOT_SET =>
+        throw Error.Parsing("DefKey.KEYEXPR_NOT_SET")
+    }
+
+    /* End Decoding Expression */
+
   }
 
   private def versionIsOlderThan(minVersion: LV): Boolean =
     languageVersion < minVersion
 
   private def toPackageId(s: String, description: => String): PackageId = {
-    assertUntil(LV.Features.internedStrings, description)
+    assertUntil(Features.internedStrings, description)
     eitherToParseError(PackageId.fromString(s))
   }
 
@@ -1974,20 +1988,14 @@ private[archive] class DecodeCommon(languageVersion: LV) {
     eitherToParseError(Name.fromString(s))
 
   private[this] def toPackageName(s: String, description: => String): PackageName = {
-    assertSince(LV.Features.packageMetadata, description)
+    assertSince(Features.packageMetadata, description)
     eitherToParseError(PackageName.fromString(s))
   }
 
   private[this] def toPackageVersion(s: String, description: => String): PackageVersion = {
-    assertSince(LV.Features.packageMetadata, description)
+    assertSince(Features.packageMetadata, description)
     eitherToParseError(PackageVersion.fromString(s))
   }
-
-  private[this] def toPLNumeric(s: String) =
-    PLNumeric(eitherToParseError(Numeric.fromString(s)))
-
-  private[this] def toPLDecimal(s: String) =
-    PLNumeric(eitherToParseError(Decimal.fromString(s)))
 
   // maxVersion excluded
   private[this] def assertUntil(maxVersion: LV, description: => String): Unit =
@@ -2026,13 +2034,12 @@ private[lf] object DecodeCommon {
   case class BuiltinTypeInfo(
       proto: PLF.PrimType,
       bTyp: BuiltinType,
-      minVersion: LV = LV.Features.default,
+      minVersion: LV = Features.default,
   ) {
     val typ = TBuiltin(bTyp)
   }
 
   val builtinTypeInfos: List[BuiltinTypeInfo] = {
-    import LV.Features._
     import PLF.PrimType._
     // DECIMAL is not there and should be handled in an ad-hoc way.
     List(
@@ -2049,14 +2056,14 @@ private[lf] object DecodeCommon {
       BuiltinTypeInfo(DATE, BTDate),
       BuiltinTypeInfo(OPTIONAL, BTOptional),
       BuiltinTypeInfo(TEXTMAP, BTTextMap),
-      BuiltinTypeInfo(GENMAP, BTGenMap, minVersion = genMap),
+      BuiltinTypeInfo(GENMAP, BTGenMap, minVersion = Features.genMap),
       BuiltinTypeInfo(ARROW, BTArrow),
-      BuiltinTypeInfo(NUMERIC, BTNumeric, minVersion = numeric),
-      BuiltinTypeInfo(ANY, BTAny, minVersion = anyType),
-      BuiltinTypeInfo(TYPE_REP, BTTypeRep, minVersion = typeRep),
-      BuiltinTypeInfo(BIGNUMERIC, BTBigNumeric, minVersion = bigNumeric),
-      BuiltinTypeInfo(ROUNDING_MODE, BTRoundingMode, minVersion = bigNumeric),
-      BuiltinTypeInfo(ANY_EXCEPTION, BTAnyException, minVersion = exceptions),
+      BuiltinTypeInfo(NUMERIC, BTNumeric, minVersion = Features.numeric),
+      BuiltinTypeInfo(ANY, BTAny, minVersion = Features.anyType),
+      BuiltinTypeInfo(TYPE_REP, BTTypeRep, minVersion = Features.typeRep),
+      BuiltinTypeInfo(BIGNUMERIC, BTBigNumeric, minVersion = Features.bigNumeric),
+      BuiltinTypeInfo(ROUNDING_MODE, BTRoundingMode, minVersion = Features.bigNumeric),
+      BuiltinTypeInfo(ANY_EXCEPTION, BTAnyException, minVersion = Features.exceptions),
     )
   }
 
@@ -2065,10 +2072,18 @@ private[lf] object DecodeCommon {
       .map(info => info.proto -> info)
       .toMap
 
+  /* Begin Decoding Expression */
+
+  private def toPLNumeric(s: String) =
+    PLNumeric(eitherToParseError(Numeric.fromString(s)))
+
+  private def toPLDecimal(s: String) =
+    PLNumeric(eitherToParseError(Decimal.fromString(s)))
+
   case class BuiltinFunctionInfo(
       proto: PLF.BuiltinFunction,
       builtin: BuiltinFunction,
-      minVersion: LV = LV.Features.default, // first version that does support the builtin
+      minVersion: LV = Features.default, // first version that does support the builtin
       maxVersion: Option[LV] = None, // first version that does not support the builtin
       implicitParameters: List[Type] = List.empty,
   ) {
@@ -2076,7 +2091,7 @@ private[lf] object DecodeCommon {
   }
 
   val builtinFunctionInfos: List[BuiltinFunctionInfo] = {
-    import LV.Features._
+    import Features._
     import PLF.BuiltinFunction._
     List(
       BuiltinFunctionInfo(
@@ -2456,5 +2471,7 @@ private[lf] object DecodeCommon {
       .map(info => info.proto -> info)
       .toMap
       .withDefault(_ => throw Error.Parsing("BuiltinFunction.UNRECOGNIZED"))
+
+  /* End Decoding Expresion */
 
 }
