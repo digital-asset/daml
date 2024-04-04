@@ -89,7 +89,7 @@ object LightTransactionViewTree
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v30,
+      ProtocolVersion.v31,
       supportedProtoVersion(v30.LightTransactionViewTree)(fromProtoV30),
       _.toProtoV30.toByteString,
     )

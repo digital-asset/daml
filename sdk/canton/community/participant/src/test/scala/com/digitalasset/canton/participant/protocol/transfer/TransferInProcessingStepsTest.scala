@@ -374,7 +374,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
     "fail when protocol version are incompatible" in {
       // source domain does not support transfer counters
       val submissionParam2 =
-        submissionParam.copy(sourceProtocolVersion = SourceProtocolVersion(ProtocolVersion.v30))
+        submissionParam.copy(sourceProtocolVersion = SourceProtocolVersion(ProtocolVersion.v31))
       for {
         transferData <- transferDataF
         deps <- statefulDependencies

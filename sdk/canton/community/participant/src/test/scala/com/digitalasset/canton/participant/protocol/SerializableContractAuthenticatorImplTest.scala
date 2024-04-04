@@ -38,7 +38,9 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
           val nonAuthenticatedContractId = ExampleTransactionFactory.suffixedId(1, 2)
           contractAuthenticator.authenticate(
             contract.copy(contractId = nonAuthenticatedContractId)
-          ) shouldBe Right(())
+          ) shouldBe Left(
+            "Unsupported contract authentication id scheme: Suffix 0002 does not start with one of the supported prefixes: Bytes(ca10)"
+          )
         }
       }
 
@@ -228,7 +230,8 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
 class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) extends BaseTest {
   protected lazy val unicumGenerator = new UnicumGenerator(new SymbolicPureCrypto())
   protected lazy val contractAuthenticator = new SerializableContractAuthenticatorImpl(
-    unicumGenerator
+    unicumGenerator,
+    false,
   )
 
   protected lazy val contractInstance = ExampleTransactionFactory.contractInstance()

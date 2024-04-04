@@ -10,6 +10,7 @@ object ReleaseVersionToProtocolVersions {
   private val v3 = ProtocolVersion(3)
   private val v4 = ProtocolVersion(4)
   private val v5 = ProtocolVersion(5)
+  private val v30 = ProtocolVersion(30)
 
   import ProtocolVersion.*
 
@@ -25,9 +26,9 @@ object ReleaseVersionToProtocolVersions {
     ReleaseVersions.v2_6_0 -> List(v3, v4),
     ReleaseVersions.v2_7_0 -> List(v3, v4, v5),
     ReleaseVersions.v2_8_0 -> List(v3, v4, v5),
-    ReleaseVersions.v2_9_0_snapshot -> List(v3, v4, v5),
+    ReleaseVersions.v2_9_0 -> List(v3, v4, v5),
     ReleaseVersions.v3_0_0 -> List(v30),
-    ReleaseVersions.v3_1_0_snapshot -> List(v30),
+    ReleaseVersions.v3_1_0_snapshot -> List(v31),
   ).map { case (release, pvs) => (release.majorMinor, NonEmptyUtil.fromUnsafe(pvs)) }
 
   def get(

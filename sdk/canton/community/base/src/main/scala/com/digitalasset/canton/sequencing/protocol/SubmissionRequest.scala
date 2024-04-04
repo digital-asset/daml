@@ -157,7 +157,7 @@ object SubmissionRequest
     ] {
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(
-      ProtocolVersion.v30
+      ProtocolVersion.v31
     )(v30.SubmissionRequest)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,

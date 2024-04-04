@@ -77,7 +77,7 @@ object SequencedEvent
   override def name: String = "SequencedEvent"
 
   override val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SequencedEvent)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.SequencedEvent)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )

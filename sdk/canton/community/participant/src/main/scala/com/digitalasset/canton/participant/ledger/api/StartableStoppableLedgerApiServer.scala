@@ -19,8 +19,8 @@ import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader
 import com.digitalasset.canton.ledger.api.domain.{Filters, TransactionFilter}
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
+import com.digitalasset.canton.ledger.localstore.*
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
-import com.digitalasset.canton.ledger.localstore.{CachedIdentityProviderConfigStore, *}
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.InternalStateService
 import com.digitalasset.canton.ledger.participant.state.v2.metrics.{
@@ -30,9 +30,10 @@ import com.digitalasset.canton.ledger.participant.state.v2.metrics.{
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{ApiRequestLogger, ClientChannelBuilder}
+import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.MutablePackageNameMapResolver
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
-import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticatorImpl
+import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.platform.LedgerApiServer
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
 import com.digitalasset.canton.platform.apiserver.ratelimiting.{
@@ -51,7 +52,6 @@ import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.digitalasset.canton.platform.store.dao.events.ContractLoader
 import com.digitalasset.canton.platform.store.packagemeta.InMemoryPackageMetadataStore
-import com.digitalasset.canton.protocol.UnicumGenerator
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.{DiscardOps, LfPartyId}
@@ -80,6 +80,7 @@ class StartableStoppableLedgerApiServer(
     telemetry: Telemetry,
     futureSupervisor: FutureSupervisor,
     packageNameMapResolver: MutablePackageNameMapResolver,
+    parameters: ParticipantNodeParameters,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     actorSystem: ActorSystem,
@@ -295,8 +296,9 @@ class StartableStoppableLedgerApiServer(
         executionContext = executionContext,
         loggerFactory = loggerFactory,
       )
-      serializableContractAuthenticator = new SerializableContractAuthenticatorImpl(
-        new UnicumGenerator(config.syncService.pureCryptoApi)
+      serializableContractAuthenticator = SerializableContractAuthenticator(
+        config.syncService.pureCryptoApi,
+        parameters,
       )
 
       authenticateContract: AuthenticateContract = c =>

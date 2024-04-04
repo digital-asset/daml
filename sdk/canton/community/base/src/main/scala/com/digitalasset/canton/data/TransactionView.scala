@@ -389,7 +389,7 @@ object TransactionView
   override def name: String = "TransactionView"
   override def supportedProtoVersions: SupportedProtoVersions =
     SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ViewNode)(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.ViewNode)(
         supportedProtoVersion(_)(fromProtoV30),
         _.toProtoV30.toByteString,
       )

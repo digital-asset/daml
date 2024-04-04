@@ -87,7 +87,7 @@ object TransferInViewTree
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v30,
+      ProtocolVersion.v31,
       supportedProtoVersion(v30.TransferViewTree)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -176,7 +176,7 @@ object TransferInCommonData
   override val name: String = "TransferInCommonData"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferInCommonData)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.TransferInCommonData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -333,7 +333,7 @@ object TransferInView
   }
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferInView)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.TransferInView)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
