@@ -3,6 +3,7 @@
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE CPP #-}
 
 module Daml.Script.Internal.Questions.Commands where
 
@@ -115,10 +116,12 @@ internalTypedExerciseCmd : forall t c r. Choice t c r => ContractId t -> c -> Bo
 internalTypedExerciseCmd cId arg explicitPackageId =
   fromLedgerValue @r <$> internalExerciseCmd (templateTypeRep @t) (coerceContractId cId) (toAnyChoice @t arg) explicitPackageId
 
+#ifdef DAML_CONTRACT_KEYS
 -- | HIDE
 internalTypedExerciseByKeyCmd : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> Bool -> Commands r
 internalTypedExerciseByKeyCmd key arg explicitPackageId =
   fromLedgerValue @r <$> internalExerciseByKeyCmd (templateTypeRep @t) (toAnyContractKey @t key) (toAnyChoice @t arg) explicitPackageId
+#endif
 
 -- | HIDE
 internalTypedCreateAndExerciseCmdWithCid : forall t c r. (Template t, Choice t c r, HasEnsure t) => t -> c -> Bool -> Commands (ContractId t, r)
@@ -136,9 +139,11 @@ createCmd arg = internalTypedCreateCmd arg False
 exerciseCmd : forall t c r. Choice t c r => ContractId t -> c -> Commands r
 exerciseCmd cId arg = internalTypedExerciseCmd cId arg False
 
+#ifdef DAML_CONTRACT_KEYS
 -- | Exercise a choice on the contract with the given key.
 exerciseByKeyCmd : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> Commands r
 exerciseByKeyCmd key arg = internalTypedExerciseByKeyCmd @t key arg False
+#endif
 
 -- | Create a contract and exercise a choice on it in the same transaction, returns the created ContractId, and the choice result.
 createAndExerciseWithCidCmd : forall t c r. (Template t, Choice t c r, HasEnsure t) => t -> c -> Commands (ContractId t, r)
@@ -160,9 +165,11 @@ createExactCmd arg = internalTypedCreateCmd arg True
 exerciseExactCmd : forall t c r. Choice t c r => ContractId t -> c -> Commands r
 exerciseExactCmd cId arg = internalTypedExerciseCmd cId arg True
 
+#ifdef DAML_CONTRACT_KEYS
 -- | Exercise a choice on the contract with the given key, using the exact package ID of the template given - upgrades are disabled.
 exerciseByKeyExactCmd : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> Commands r
 exerciseByKeyExactCmd key arg = internalTypedExerciseByKeyCmd @t key arg True
+#endif
 
 -- | Create a contract and exercise a choice on it in the same transaction, returns the created ContractId, and the choice result.
 -- Uses the exact package ID of the template given - upgrades are disabled.

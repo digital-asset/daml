@@ -21,7 +21,9 @@ module Daml.Script
   , queryContractId
   , queryDisclosure
   , queryInterfaceContractId
+#ifdef DAML_CONTRACT_KEYS
   , queryContractKey
+#endif
   , queryFilter
   , PartyIdHint (..)
   , ParticipantName (..)
@@ -36,12 +38,16 @@ module Daml.Script
   , Disclosure
   , createCmd
   , exerciseCmd
+#ifdef DAML_CONTRACT_KEYS
   , exerciseByKeyCmd
+#endif
   , createAndExerciseCmd
   , archiveCmd
   , internalCreateCmd
   , internalExerciseCmd
+#ifdef DAML_CONTRACT_KEYS
   , internalExerciseByKeyCmd
+#endif
   , internalCreateAndExerciseCmd
   , getTime
   , setTime
@@ -331,6 +337,7 @@ data QueryContractKeyPayload a = QueryContractKeyPayload
   , locations : [(Text, SrcLoc)]
   } deriving Functor
 
+#ifdef DAML_CONTRACT_KEYS
 -- | Returns `None` if there is no active contract with the given key that
 -- the party is a stakeholder on.
 --
@@ -347,6 +354,7 @@ queryContractKey p k = lift $ Free $ QueryContractKey QueryContractKeyPayload wi
   key = toAnyContractKey @t k
   continue = pure . fmap (\(cid, anyTpl) -> (coerceContractId cid, fromSome (fromAnyTemplate anyTpl)))
   locations = getCallStack callStack
+#endif -- DAML_CONTRACT_KEYS
 
 data SetTimePayload a = SetTimePayload
   with
@@ -727,9 +735,11 @@ createCmd arg = internalCreateCmd (toAnyTemplate arg)
 exerciseCmd : forall t c r. Choice t c r => ContractId t -> c -> Commands r
 exerciseCmd cId arg = internalExerciseCmd (templateTypeRep @t) (coerceContractId cId) (toAnyChoice @t arg)
 
+#ifdef DAML_CONTRACT_KEYS
 -- | Exercise a choice on the contract with the given key.
 exerciseByKeyCmd : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> Commands r
 exerciseByKeyCmd key arg = internalExerciseByKeyCmd (templateTypeRep @t) (toAnyContractKey @t key) (toAnyChoice @t arg)
+#endif
 
 -- | Create a contract and exercise a choice on it in the same transaction.
 createAndExerciseCmd : forall t c r. (Template t, Choice t c r, HasEnsure t) => t -> c -> Commands r

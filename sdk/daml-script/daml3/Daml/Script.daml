@@ -1,5 +1,8 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+
 module Daml.Script
   ( Script
 
@@ -33,7 +36,9 @@ module Daml.Script
   , queryInterface
   , queryContractId
   , queryInterfaceContractId
+#ifdef DAML_CONTRACT_KEYS
   , queryContractKey
+#endif
   , queryFilter
   , queryDisclosure
   , PartyIdHint (..)
@@ -49,14 +54,18 @@ module Daml.Script
   , Disclosure
   , createCmd
   , exerciseCmd
+#ifdef DAML_CONTRACT_KEYS
   , exerciseByKeyCmd
+#endif
   , createAndExerciseCmd
   , createAndExerciseWithCidCmd
   , archiveCmd
   -- Upgrades commands
   , createExactCmd
   , exerciseExactCmd
+#ifdef DAML_CONTRACT_KEYS
   , exerciseByKeyExactCmd
+#endif
   , createAndExerciseExactCmd
   , createAndExerciseWithCidExactCmd
 

@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP #-}
 
 module Daml.Script.Internal.Questions.Query where
 
@@ -119,6 +120,7 @@ data QueryContractKey = QueryContractKey with
   key : AnyContractKey -- TODO rename this, key goes blue
 instance IsQuestion QueryContractKey (Optional (ContractId (), AnyTemplate)) where command = "QueryContractKey"
 
+#ifdef DAML_CONTRACT_KEYS
 -- | Returns `None` if there is no active contract with the given key that
 -- the party is a stakeholder on.
 --
@@ -136,3 +138,4 @@ queryContractKey p k = fmap convert $ lift $ QueryContractKey with
   where
     convert : Optional (ContractId (), AnyTemplate) -> Optional (ContractId t, t)
     convert = fmap (\(cid, anyTpl) -> (coerceContractId cid, fromSome (fromAnyTemplate anyTpl)))
+#endif

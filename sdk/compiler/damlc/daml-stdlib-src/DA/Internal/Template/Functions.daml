@@ -172,6 +172,8 @@ class HasFromAnyChoice t c r | t c -> r where
   -- | HIDE
   _fromAnyChoice : proxy t -> Any -> Optional c
 
+#ifdef DAML_CONTRACT_KEYS
+
 -- | Constraint satisfied by template keys.
 type TemplateKey t k =
   ( Template t
@@ -254,6 +256,8 @@ class HasExerciseByKey t k c r | t -> k, t c -> r where
 exerciseByKey : forall t k c r. HasExerciseByKey t k c r => k -> c -> Update r
 exerciseByKey = _exerciseByKey ([] : [t])
 
+#endif -- DAML_CONTRACT_KEYS
+
 -- | Create a contract and exercise the choice on the newly created contract.
 createAndExercise : forall t c r. (HasCreate t, HasExercise t c r) => t -> c -> Update r
 createAndExercise t c = do
@@ -279,15 +283,21 @@ instance Eq AnyTemplate where
   (==) = primitive @"BEEqual"
 instance Eq AnyChoice where
   (==) = primitive @"BEEqual"
+
+#ifdef DAML_CONTRACT_KEYS
 instance Eq AnyContractKey where
   (==) = primitive @"BEEqual"
+#endif
 
 instance Ord AnyTemplate where
   (<=) = primitive @"BELessEq"
 instance Ord AnyChoice where
   (<=) = primitive @"BELessEq"
+
+#ifdef DAML_CONTRACT_KEYS
 instance Ord AnyContractKey where
   (<=) = primitive @"BELessEq"
+#endif
 
 -- | Generate a unique textual representation of the template id.
 templateTypeRep : forall t. HasTemplateTypeRep t => TemplateTypeRep
@@ -351,6 +361,8 @@ fromAnyChoice (AnyChoice any typeRep)
   , templateTypeRep @t == typeRep = Some c
   | otherwise = None
 
+#ifdef DAML_CONTRACT_KEYS
+
 -- | Wrap a contract key in `AnyContractKey`.
 --
 -- You must pass the template type `t` using an explicit type application.
@@ -376,9 +388,12 @@ fromAnyContractKey (AnyContractKey any rep)
   , templateTypeRep @t == rep = Some k
   | otherwise = None
 
+#endif -- DAML_CONTRACT_KEYS
+
 deriving instance Eq Archive
 deriving instance Show Archive
 
+#ifdef DAML_CONTRACT_KEYS
 -- | True if contract exists, submitter is a stakeholder, and all maintainers
 -- authorize. False if contract does not exist and all maintainers authorize.
 -- Fails otherwise.
@@ -388,3 +403,4 @@ visibleByKey k = do
   case m of
     Some _ -> pure True
     None -> pure False
+#endif -- DAML_CONTRACT_KEYS
