@@ -5,7 +5,7 @@ package com.daml.lf
 package value
 package test
 
-import com.daml.lf.data.Ref.{PackageName, _}
+import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.transaction.{
   GlobalKey,
