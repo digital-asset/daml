@@ -59,7 +59,9 @@ da_scala_binary(
     deps = [
         ":model-test-lib",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_ledger_ledger-common",
         "//canton:community_util-logging",
+        "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/interpreter",
@@ -68,5 +70,7 @@ da_scala_binary(
         "//daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/rs-grpc-pekko",
     ],
 )
