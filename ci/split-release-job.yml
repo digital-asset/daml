@@ -85,7 +85,7 @@ jobs:
     - bash: |
         set -eou pipefail
         # Note: this gets dev-env from the release commit, not the trigger commit
-        eval "$(sdk/dev-env/bin/dade-assist)"
+        eval "$(cd sdk; ./dev-env/bin/dade-assist)"
         mkdir -p $(Build.StagingDirectory)/split-release
         ./ci/assembly-split-release-artifacts.sh $(release_tag) $(Build.StagingDirectory)/release-artifacts $(Build.StagingDirectory)/split-release
         jq -n \
