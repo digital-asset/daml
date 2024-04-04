@@ -43,7 +43,7 @@ import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics
-import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
+import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateUpgradableContract
 import com.digitalasset.canton.platform.apiserver.execution.UpgradeVerificationResult.MissingDriverMetadata
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
@@ -70,7 +70,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
     packagesService: IndexPackagesService,
     contractStore: ContractStore,
     authorityResolver: AuthorityResolver,
-    authenticateContract: AuthenticateContract,
+    authenticateUpgradableContract: AuthenticateUpgradableContract,
     metrics: Metrics,
     val loggerFactory: NamedLoggerFactory,
     dynParamGetter: DynamicDomainParameterGetter,
@@ -468,7 +468,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           // The agreement text is unused on contract authentication
           unvalidatedAgreementText = AgreementText.empty,
         ).left.map(e => s"Failed to construct SerializableContract($e)")
-        _ <- authenticateContract(contract).leftMap { contractAuthenticationError =>
+        _ <- authenticateUpgradableContract(contract).leftMap { contractAuthenticationError =>
           val firstParticle =
             s"Upgrading contract with ${upgradeVerificationContractData.contractId} failed authentication check with error: $contractAuthenticationError."
           checkProvidedContractMetadataAgainstRecomputed(originalMetadata, recomputedMetadata)
@@ -611,7 +611,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
 }
 
 object StoreBackedCommandExecutor {
-  type AuthenticateContract = SerializableContract => Either[String, Unit]
+  type AuthenticateUpgradableContract = SerializableContract => Either[String, Unit]
 }
 
 private sealed trait UpgradeVerificationResult extends Product with Serializable

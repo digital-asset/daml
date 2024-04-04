@@ -441,6 +441,8 @@ trait CantonConfig {
         excludeInfrastructureTransactions = participantParameters.excludeInfrastructureTransactions,
         enableEngineStackTrace = participantParameters.enableEngineStackTraces,
         iterationsBetweenInterruptions = participantParameters.iterationsBetweenInterruptions,
+        allowForUnauthenticatedContractIds =
+          participantParameters.allowForUnauthenticatedContractIds,
       )
     }
 

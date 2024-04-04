@@ -163,6 +163,7 @@ class CantonLedgerApiServerFactory(
           startLedgerApiServer = sync.isActive(),
           futureSupervisor = futureSupervisor,
           multiDomainEnabled = multiDomainEnabled,
+          parameters = parameters,
         )(executionContext, actorSystem)
         .leftMap { err =>
           // The MigrateOnEmptySchema exception is private, thus match on the expected message
