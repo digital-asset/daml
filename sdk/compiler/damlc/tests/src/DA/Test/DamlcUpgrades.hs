@@ -111,7 +111,8 @@ tests damlc =
               (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A agreement:\n  The upgraded template A has changed the definition of agreement.")
               [ ( "daml/MyLib.daml"
                 , unlines
-                      [ "module MyLib where"
+                      [ "{-# OPTIONS -Wno-template-agreement #-}"
+                      , "module MyLib where"
                       , "template A with"
                       , "    p : Party"
                       , "    q : Party"
@@ -123,7 +124,8 @@ tests damlc =
               ]
               [ ("daml/MyLib.daml"
                 , unlines
-                      [ "module MyLib where"
+                      [ "{-# OPTIONS -Wno-template-agreement #-}"
+                      , "module MyLib where"
                       , "template A with"
                       , "    p : Party"
                       , "    q : Party"

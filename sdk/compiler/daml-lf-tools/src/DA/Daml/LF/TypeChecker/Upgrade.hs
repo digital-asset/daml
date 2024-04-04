@@ -209,6 +209,9 @@ checkTemplate module_ template = do
     withContextF present (ContextTemplate (_present module_) (_present template) TPObservers) $
         whenDifferent "observers" (extractFuncFromFuncThis . tplObservers) template $
             warnWithContextF present $ WTemplateChangedObservers $ NM.name $ _present template
+    withContextF present (ContextTemplate (_present module_) (_present template) TPAgreement) $
+        whenDifferent "agreement" (extractFuncFromFuncThis . tplAgreement) template $
+            warnWithContextF present $ WTemplateChangedAgreement $ NM.name $ _present template
 
     withContextF present (ContextTemplate (_present module_) (_present template) TPKey) $ do
         case fmap tplKey template of
