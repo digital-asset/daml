@@ -66,9 +66,6 @@ object CommonErrors extends CommonErrorGroup {
         )
   }
 
-  // TODO Once this issue (https://github.com/digital-asset/daml/issues/15453) is addressed,
-  //      move this error definition to //ledger/ledger-api-errors once its usage
-  //      does not concern client libraries (i.e. used in //libs-scala/rs-grpc-pekko)
   @Explanation("This rejection is given when the participant server is shutting down.")
   @Resolution("Contact the participant operator.")
   object ServerIsShuttingDown

@@ -98,6 +98,3 @@ See `com.daml.error.samples.SampleUserSide`.
 
 The error definitions defined in this target (see `com.digitalasset.canton.ledger.error.CommonErrors`)
 are generic errors that can be used across various Daml components (e.g. Ledger API test tool, Ledger API client, Ledger API server etc.).
-
-TODO(i12295): **TODO** (https://github.com/digital-asset/daml/issues/15453): The error definitions can be moved in the dedicated `//ledger/ledger-api-errors` target once
-that target does not depend anymore on the deep Daml-LF dependencies (such as the Daml engine).

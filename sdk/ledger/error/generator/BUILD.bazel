@@ -62,10 +62,6 @@ da_scala_library(
     srcs = glob(["lib/src/main/scala/**/*.scala"]),
     tags = ["maven_coordinates=com.daml:error-generator-lib:__VERSION__"],
     visibility = ["//visibility:public"],
-    runtime_deps = [
-        # Add error definition targets to the classpath so they can be picked up by the generator
-        "//ledger/ledger-api-errors",
-    ],
     deps = [
         "//ledger/error",
         "@maven//:io_grpc_grpc_api",
