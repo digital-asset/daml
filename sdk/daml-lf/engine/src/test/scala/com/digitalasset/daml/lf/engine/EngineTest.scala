@@ -2332,7 +2332,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val (_, _, allPackagesDev) = new EngineTestHelpers(majorLanguageVersion).loadAndAddPackage(
       s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
     )
-    val compatibleLanguageVersions = LanguageVersion.All
+    val compatibleLanguageVersions = LanguageVersion.AllV2
     val stablePackages = StablePackages(majorLanguageVersion).allPackages
 
     s"accept stable packages from ${devVersion} even if version is smaller than min version" in {

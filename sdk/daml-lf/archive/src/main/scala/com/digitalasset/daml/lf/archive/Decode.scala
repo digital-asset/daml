@@ -25,7 +25,17 @@ object Decode {
             onlySerializableDataDefs,
           )
           .map(payload.pkgId -> _)
-      case _ => Left(Error.Parsing(s"${payload.version} unsupported"))
+      case ArchivePayload.Lf1(pkgId, protoPkg, minor)
+        if LanguageMajorVersion.V1.supportedMinorVersions.contains(minor) =>
+        new DecodeV1(minor)
+          .decodePackage(
+            pkgId,
+            protoPkg,
+            onlySerializableDataDefs,
+          )
+          .map(payload.pkgId -> _)
+      case _ =>
+        Left(Error.Parsing(s"${payload.version} unsupported"))
     }
 
   @throws[Error]

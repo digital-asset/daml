@@ -93,6 +93,7 @@ object Util {
   val TScenario = new ParametricType1(BTScenario)
   val TContractId = new ParametricType1(BTContractId)
 
+  val TDecimal = TNumeric(TNat.values(10))
   val TParties = TList(TParty)
 
   val TAnyException = TBuiltin(BTAnyException)
@@ -301,4 +302,9 @@ object Util {
   def toSignatures(pkgs: Map[Ref.PackageId, Package]): Map[Ref.PackageId, PackageSignature] =
     pkgs.transform((_, v) => toSignature(v))
 
+  val NoPackageMetadata = PackageMetadata(
+    name = Ref.PackageName.assertFromString("-no-package-metadata"),
+    version = Ref.PackageVersion.assertFromString("0"),
+    upgradedPackageId = None
+  )
 }
