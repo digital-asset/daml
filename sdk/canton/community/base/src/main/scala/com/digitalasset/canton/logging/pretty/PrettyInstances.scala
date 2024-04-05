@@ -13,6 +13,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{DottedName, PackageId, QualifiedName}
 import com.daml.lf.transaction.ContractStateMachine.ActiveLedgerState
 import com.daml.lf.transaction.TransactionErrors.*
+import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.RequireTypes.{Port, RefinedNumeric}
@@ -24,7 +25,13 @@ import com.digitalasset.canton.topology.UniqueIdentifier
 import com.digitalasset.canton.tracing.{TraceContext, W3CTraceContext}
 import com.digitalasset.canton.util.ShowUtil.HashLength
 import com.digitalasset.canton.util.{ErrorUtil, HexString}
-import com.digitalasset.canton.{LedgerApplicationId, LfPartyId, LfTimestamp, Uninhabited}
+import com.digitalasset.canton.{
+  LedgerApplicationId,
+  LfPartyId,
+  LfTimestamp,
+  LfVersioned,
+  Uninhabited,
+}
 import com.google.protobuf.ByteString
 import io.grpc.Status
 import io.grpc.health.v1.HealthCheckResponse.ServingStatus
@@ -244,6 +251,9 @@ trait PrettyInstances {
   implicit def prettyLfTransactionVersion: Pretty[LfTransactionVersion] = prettyOfString(
     _.protoValue
   )
+
+  implicit def prettyLfVersioned[A: Pretty]: Pretty[LfVersioned[A]] =
+    prettyOfClass[Versioned[A]](unnamedParam(_.unversioned), param("version", _.version))
 
   implicit def prettyContractId: Pretty[ContractId[_]] = prettyOfString { coid =>
     val coidStr = coid.contractId

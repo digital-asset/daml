@@ -389,16 +389,17 @@ private[apiserver] final class StoreBackedCommandExecutor(
   ): Future[Option[String]] = {
 
     val stakeholders = signatories ++ observers
+    val maybeKeyWithMaintainers = keyWithMaintainers.map(Versioned(unusedTxVersion, _))
     ContractMetadata.create(
       signatories = signatories,
       stakeholders = stakeholders,
-      maybeKeyWithMaintainers = keyWithMaintainers,
+      maybeKeyWithMaintainersVersioned = maybeKeyWithMaintainers,
     ) match {
       case Right(recomputedContractMetadata) =>
         checkContractUpgradable(coid, recomputedContractMetadata, disclosedContracts)
       case Left(message) =>
         val enriched =
-          s"Failed to recompute contract metadata from ($signatories, $stakeholders, $keyWithMaintainers): $message"
+          s"Failed to recompute contract metadata from ($signatories, $stakeholders, $maybeKeyWithMaintainers): $message"
         logger.info(enriched)
         Future.successful(Some(enriched))
     }
@@ -540,11 +541,14 @@ private[apiserver] final class StoreBackedCommandExecutor(
         originalMetadata = ContractMetadata.tryCreate(
           signatories = disclosedContract.signatories,
           stakeholders = disclosedContract.stakeholders,
-          maybeKeyWithMaintainers =
+          maybeKeyWithMaintainersVersioned =
             (disclosedContract.keyValue zip disclosedContract.keyMaintainers).map {
               case (value, maintainers) =>
-                GlobalKeyWithMaintainers
-                  .assertBuild(disclosedContract.templateId, value, maintainers)
+                Versioned(
+                  unusedTxVersion,
+                  GlobalKeyWithMaintainers
+                    .assertBuild(disclosedContract.templateId, value, maintainers),
+                )
             },
         ),
         recomputedMetadata = recomputedMetadata,
@@ -566,9 +570,9 @@ private[apiserver] final class StoreBackedCommandExecutor(
             originalMetadata = ContractMetadata.tryCreate(
               signatories = active.signatories,
               stakeholders = active.stakeholders,
-              maybeKeyWithMaintainers =
+              maybeKeyWithMaintainersVersioned =
                 (active.globalKey zip active.maintainers).map { case (globalKey, maintainers) =>
-                  GlobalKeyWithMaintainers(globalKey, maintainers)
+                  Versioned(unusedTxVersion, GlobalKeyWithMaintainers(globalKey, maintainers))
                 },
             ),
             recomputedMetadata = recomputedMetadata,

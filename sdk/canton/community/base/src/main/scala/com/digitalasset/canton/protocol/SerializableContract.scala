@@ -150,7 +150,7 @@ object SerializableContract
       cantonContractMetadata <- ContractMetadata.create(
         signatories = create.signatories,
         stakeholders = create.stakeholders,
-        maybeKeyWithMaintainers = create.keyOpt,
+        maybeKeyWithMaintainersVersioned = create.versionedKeyOpt,
       )
       contract <- SerializableContract(
         contractId = disclosedContract.contractId,

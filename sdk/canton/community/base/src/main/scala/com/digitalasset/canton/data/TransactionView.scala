@@ -5,7 +5,6 @@ package com.digitalasset.canton.data
 
 import cats.syntax.either.*
 import cats.syntax.functor.*
-import com.daml.lf.transaction.ContractStateMachine.{ActiveLedgerState, KeyMapping}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.TransactionView.InvalidView
 import com.digitalasset.canton.logging.pretty.Pretty
@@ -14,7 +13,7 @@ import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.util.{ErrorUtil, MapsUtil, NamedLoggingLazyVal}
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{LfPartyId, ProtoDeserializationError}
+import com.digitalasset.canton.{LfVersioned, ProtoDeserializationError}
 import com.google.common.annotations.VisibleForTesting
 import monocle.Lens
 import monocle.macros.GenLens
@@ -166,23 +165,24 @@ final case class TransactionView private (
     */
   def globalKeyInputs(implicit
       loggingContext: NamedLoggingContext
-  ): Map[LfGlobalKey, KeyResolutionWithMaintainers] =
+  ): Map[LfGlobalKey, LfVersioned[KeyResolutionWithMaintainers]] =
     _globalKeyInputs.get
 
   private[this] val _globalKeyInputs
-      : NamedLoggingLazyVal[Map[LfGlobalKey, KeyResolutionWithMaintainers]] =
-    NamedLoggingLazyVal[Map[LfGlobalKey, KeyResolutionWithMaintainers]] { implicit loggingContext =>
-      val viewParticipantData = tryUnblindViewParticipantData("Global key inputs")
+      : NamedLoggingLazyVal[Map[LfGlobalKey, LfVersioned[KeyResolutionWithMaintainers]]] =
+    NamedLoggingLazyVal[Map[LfGlobalKey, LfVersioned[KeyResolutionWithMaintainers]]] {
+      implicit loggingContext =>
+        val viewParticipantData = tryUnblindViewParticipantData("Global key inputs")
 
-      subviews.assertAllUnblinded(hash =>
-        s"Global key inputs of view $viewHash can be computed only if all subviews are unblinded, but $hash is blinded"
-      )
+        subviews.assertAllUnblinded(hash =>
+          s"Global key inputs of view $viewHash can be computed only if all subviews are unblinded, but $hash is blinded"
+        )
 
-      subviews.unblindedElements.foldLeft(viewParticipantData.resolvedKeysWithMaintainers) {
-        (acc, subview) =>
-          val subviewGki = subview.globalKeyInputs
-          MapsUtil.mergeWith(acc, subviewGki) { (accRes, _subviewRes) => accRes }
-      }
+        subviews.unblindedElements.foldLeft(viewParticipantData.resolvedKeysWithMaintainers) {
+          (acc, subview) =>
+            val subviewGki = subview.globalKeyInputs
+            MapsUtil.mergeWith(acc, subviewGki) { (accRes, _subviewRes) => accRes }
+        }
     }
 
   /** The input contracts of the view (including subviews).
@@ -271,95 +271,6 @@ final case class TransactionView private (
         (nextInputs, nextCreated)
     }
   }
-
-  /** The [[com.daml.lf.transaction.ContractStateMachine.ActiveLedgerState]]
-    * the [[com.daml.lf.transaction.ContractStateMachine]] reaches after interpreting the root action of the view.
-    *
-    * Must only be used in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]]
-    *
-    * @throws java.lang.IllegalStateException if the [[ViewParticipantData]] of this view or any subview is blinded.
-    */
-  def activeLedgerState(implicit
-      loggingContext: NamedLoggingContext
-  ): ActiveLedgerState[Unit] =
-    _activeLedgerStateAndUpdatedKeys.get._1
-
-  /** The keys that this view updates (including reassigning the key), along with the maintainers of the key.
-    *
-    * Must only be used in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]]
-    *
-    * @throws java.lang.IllegalStateException if the [[ViewParticipantData]] of this view or any subview is blinded.
-    */
-  def updatedKeys(implicit loggingContext: NamedLoggingContext): Map[LfGlobalKey, Set[LfPartyId]] =
-    _activeLedgerStateAndUpdatedKeys.get._2
-
-  /** The keys that this view updates (including reassigning the key), along with the assignment of that key at the end of the transaction.
-    *
-    * Must only be used in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]]
-    *
-    * @throws java.lang.IllegalStateException if the [[ViewParticipantData]] of this view or any subview is blinded.
-    */
-  def updatedKeyValues(implicit
-      loggingContext: NamedLoggingContext
-  ): Map[LfGlobalKey, KeyMapping] = {
-    val localActiveKeys = activeLedgerState.localActiveKeys
-    def resolveKey(key: LfGlobalKey): KeyMapping =
-      localActiveKeys.get(key) match {
-        case None =>
-          globalKeyInputs.get(key).map(_.resolution).flatten.filterNot(consumed.contains(_))
-        case Some(mapping) => mapping
-      }
-    (localActiveKeys.keys ++ globalKeyInputs.keys).map(k => k -> resolveKey(k)).toMap
-  }
-
-  private[this] val _activeLedgerStateAndUpdatedKeys
-      : NamedLoggingLazyVal[(ActiveLedgerState[Unit], Map[LfGlobalKey, Set[LfPartyId]])] =
-    NamedLoggingLazyVal[(ActiveLedgerState[Unit], Map[LfGlobalKey, Set[LfPartyId]])] {
-      implicit loggingContext =>
-        val updatedKeysB = Map.newBuilder[LfGlobalKey, Set[LfPartyId]]
-        @SuppressWarnings(Array("org.wartremover.warts.Var"))
-        var localKeys: Map[LfGlobalKey, LfContractId] = Map.empty
-
-        inputContracts.foreach { case (cid, inputContract) =>
-          // Consuming exercises under a rollback node are rewritten to non-consuming exercises in the view inputs.
-          // So here we are looking only at key usages that are outside of rollback nodes (inside the view).
-          if (inputContract.consumed) {
-            inputContract.contract.metadata.maybeKeyWithMaintainers.foreach { kWithM =>
-              val key = kWithM.globalKey
-              updatedKeysB += (key -> kWithM.maintainers)
-            }
-          }
-        }
-        createdContracts.foreach { case (cid, createdContract) =>
-          if (!createdContract.rolledBack) {
-            createdContract.contract.metadata.maybeKeyWithMaintainers.foreach { kWithM =>
-              val key = kWithM.globalKey
-              updatedKeysB += (key -> kWithM.maintainers)
-              if (!createdContract.consumedInView) {
-                // If we have an active contract, we use that mapping.
-                localKeys += key -> cid
-              } else {
-                if (!localKeys.contains(key)) {
-                  // If all contracts are inactive, we arbitrarily use the first in createdContracts
-                  // (createdContracts is not ordered)
-                  localKeys += key -> cid
-                }
-              }
-            }
-          }
-        }
-
-        val locallyCreatedThisTimeline = createdContracts.collect {
-          case (contractId, createdContract) if !createdContract.rolledBack => contractId
-        }.toSet
-
-        ActiveLedgerState(
-          locallyCreatedThisTimeline = locallyCreatedThisTimeline,
-          consumedBy = consumed,
-          localKeys = localKeys,
-        ) ->
-          updatedKeysB.result()
-    }
 
   def consumed(implicit loggingContext: NamedLoggingContext): Map[LfContractId, Unit] = {
     // In strict mode, every node involving a key updates the active ledger state

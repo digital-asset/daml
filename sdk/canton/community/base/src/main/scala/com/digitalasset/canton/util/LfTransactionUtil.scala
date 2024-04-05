@@ -215,12 +215,12 @@ object LfTransactionUtil {
   }
 
   def metadataFromExercise(node: LfNodeExercises): ContractMetadata =
-    ContractMetadata.tryCreate(node.signatories, node.stakeholders, node.keyOpt)
+    ContractMetadata.tryCreate(node.signatories, node.stakeholders, node.versionedKeyOpt)
 
   def metadataFromCreate(node: LfNodeCreate): ContractMetadata =
-    ContractMetadata.tryCreate(node.signatories, node.stakeholders, node.keyOpt)
+    ContractMetadata.tryCreate(node.signatories, node.stakeholders, node.versionedKeyOpt)
 
   def metadataFromFetch(node: LfNodeFetch): ContractMetadata =
-    ContractMetadata.tryCreate(node.signatories, node.stakeholders, node.keyOpt)
+    ContractMetadata.tryCreate(node.signatories, node.stakeholders, node.versionedKeyOpt)
 
 }

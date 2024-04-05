@@ -1543,7 +1543,7 @@ object TransactionProcessingSteps {
   def keyResolverFor(
       rootView: TransactionView
   )(implicit loggingContext: NamedLoggingContext): LfKeyResolver =
-    rootView.globalKeyInputs.fmap(_.resolution)
+    rootView.globalKeyInputs.fmap(_.unversioned.resolution)
 
   /** @throws java.lang.IllegalArgumentException if `receivedViewTrees` contains views with different transaction root hashes
     */
