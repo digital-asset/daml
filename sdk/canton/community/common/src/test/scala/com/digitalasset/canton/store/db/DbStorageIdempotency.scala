@@ -11,6 +11,7 @@ import com.digitalasset.canton.metrics.DbStorageMetrics
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.resource.DbStorage.DbAction.{All, ReadTransactional}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.retry.DbRetries
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -31,17 +32,17 @@ class DbStorageIdempotency(
   override protected[canton] def runRead[A](
       action: ReadTransactional[A],
       operationName: String,
-      maxRetries: Int,
+      retries: DbRetries,
   )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A] =
-    underlying.runRead(action, operationName, maxRetries)
+    underlying.runRead(action, operationName, retries)
 
   override protected[canton] def runWrite[A](
       action: All[A],
       operationName: String,
-      maxRetries: Int,
+      retries: DbRetries,
   )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A] =
-    underlying.runWrite(action, operationName + "-1", maxRetries).flatMap { _ =>
-      underlying.runWrite(action, operationName + "-2", maxRetries)
+    underlying.runWrite(action, operationName + "-1", retries).flatMap { _ =>
+      underlying.runWrite(action, operationName + "-2", retries)
     }
 
   override def isActive: Boolean = underlying.isActive
