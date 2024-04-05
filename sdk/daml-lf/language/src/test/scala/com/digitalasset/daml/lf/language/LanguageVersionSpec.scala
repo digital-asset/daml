@@ -33,13 +33,13 @@ class LanguageVersionSpec extends AnyWordSpec with Matchers with TableDrivenProp
   "fromString" should {
 
     "recognize known versions" in {
-      val testCases = Table("version", LV.All: _*)
+      val testCases = Table("version", (LV.AllV1 ++ LV.AllV2): _*)
 
       forEvery(testCases)(v => LV.fromString(v.pretty) shouldBe Right(v))
     }
 
     "reject invalid versions" in {
-      val testCases = Table("invalid version", "1.14", "2", "14", "version", "2.1.11")
+      val testCases = Table("invalid version", "1.1", "2", "14", "version", "2.1.11")
 
       forEvery(testCases)(s => LV.fromString(s) shouldBe a[Left[_, _]])
     }

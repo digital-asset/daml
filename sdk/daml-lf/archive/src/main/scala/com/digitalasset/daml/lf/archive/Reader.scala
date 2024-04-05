@@ -5,11 +5,10 @@ package com.daml.lf
 package archive
 
 import com.daml.crypto.MessageDigestPrototype
-import com.daml.daml_lf_dev.{DamlLf, DamlLf2}
+import com.daml.daml_lf_dev.{DamlLf, DamlLf1, DamlLf2}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.LanguageMinorVersion
 import com.daml.lf.language.{LanguageVersion, LanguageMajorVersion}
-import com.google.protobuf.ByteString
 
 sealed abstract class ArchivePayload {
   def pkgId: PackageId
@@ -20,7 +19,7 @@ object ArchivePayload {
 
   final case class Lf1(
       pkgId: PackageId,
-      proto: ByteString,
+      proto: DamlLf1.Package,
       minor: language.LanguageMinorVersion,
   ) extends ArchivePayload {
     val version = LanguageVersion(LanguageMajorVersion.V1, minor)
@@ -73,7 +72,11 @@ object Reader {
   ): Either[Error, ArchivePayload] =
     lf.getSumCase match {
       case DamlLf.ArchivePayload.SumCase.DAML_LF_1 =>
-        Right(ArchivePayload.Lf1(hash, lf.getDamlLf1, LanguageMinorVersion(lf.getMinor)))
+        Lf1PackageParser
+          .fromByteString(lf.getDamlLf1)
+          .map(
+            ArchivePayload.Lf1(hash, _, LanguageMinorVersion(lf.getMinor))
+          )
       case DamlLf.ArchivePayload.SumCase.DAML_LF_2 =>
         Right(ArchivePayload.Lf2(hash, lf.getDamlLf2, LanguageMinorVersion(lf.getMinor)))
       case DamlLf.ArchivePayload.SumCase.SUM_NOT_SET =>

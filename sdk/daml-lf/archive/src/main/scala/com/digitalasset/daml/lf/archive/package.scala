@@ -3,7 +3,7 @@
 
 package com.daml.lf
 
-import com.daml.daml_lf_dev.{DamlLf, DamlLf2}
+import com.daml.daml_lf_dev.{DamlLf, DamlLf1, DamlLf2}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.daml.nameof.NameOf
@@ -65,6 +65,12 @@ package object archive {
     Base.andThen(cos =>
       attempt(getClass.getCanonicalName + ".ArchivePayloadParser")(
         DamlLf.ArchivePayload.parseFrom(cos)
+      )
+    )
+  val Lf1PackageParser: GenReader[DamlLf1.Package] =
+    Base.andThen(cos =>
+      attempt(getClass.getCanonicalName + ".ArchivePayloadParser")(
+        DamlLf1.Package.parseFrom(cos)
       )
     )
   def archivePayloadDecoder(

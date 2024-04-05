@@ -11,10 +11,10 @@ readonly config_file="${arch_dir}/buf.yaml"
 readonly stable_dir="${arch_dir}/src/stable/protobuf"
 readonly main_dir="${arch_dir}/src/main/protobuf"
 
-# We check the directories contains exactly 2 proto files
-for dir in "${stable_dir}" "${main_dir}"; do
-   find "${dir}/" -follow -name '*.proto' | wc -l | grep -x 2
-done
+# We check the stable directory contains exactly 2 proto files
+find "${stable_dir}/" -follow -name '*.proto' | wc -l | grep -x 2
+# We check the main directory contains exactly 2 proto files
+find "${main_dir}/" -follow -name '*.proto' | wc -l | grep -x 3
 
 # This is kind of broken, it only checks daml_lf_2.proto for wire compatibility between main and
 # stable. The daml_lf.proto files are ignored because main/.../daml_lf.proto and
