@@ -5,6 +5,7 @@ package com.digitalasset.canton.config
 
 import com.digitalasset.canton.metrics.MetricsFactoryType
 import com.digitalasset.canton.metrics.MetricsFactoryType.External
+import com.digitalasset.canton.topology.Identifier
 
 /** Used to set parameters for testing when these don't need to be exposed in a config file.
   *
@@ -17,6 +18,7 @@ final case class TestingConfigInternal(
     testSequencerClientFor: Set[TestSequencerClientFor] = Set.empty,
     metricsFactoryType: MetricsFactoryType = External,
     initializeGlobalOpenTelemetry: Boolean = true,
+    doNotUseCommitmentCachingFor: Set[Identifier] = Set.empty,
 )
 
 /** @param environmentId ID used to disambiguate tests running in parallel

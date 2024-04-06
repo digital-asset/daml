@@ -54,6 +54,7 @@ object LedgerApiUser {
 final case class UserRights(
     actAs: Set[PartyId],
     readAs: Set[PartyId],
+    readAsAnyParty: Boolean,
     participantAdmin: Boolean,
     identityProviderAdmin: Boolean,
 )
@@ -61,15 +62,16 @@ object UserRights {
   def fromProtoV0(
       values: Seq[ProtoUserRight]
   ): ParsingResult[UserRights] = {
-    Right(values.map(_.kind).foldLeft(UserRights(Set(), Set(), false, false)) {
+    Right(values.map(_.kind).foldLeft(UserRights(Set(), Set(), false, false, false)) {
       case (acc, Kind.Empty) => acc
-      case (acc, Kind.ParticipantAdmin(value)) => acc.copy(participantAdmin = true)
+      case (acc, Kind.ParticipantAdmin(_)) => acc.copy(participantAdmin = true)
       case (acc, Kind.CanActAs(value)) =>
         acc.copy(actAs = acc.actAs + PartyId.tryFromProtoPrimitive(value.party))
       case (acc, Kind.CanReadAs(value)) =>
         acc.copy(readAs = acc.readAs + PartyId.tryFromProtoPrimitive(value.party))
-      case (acc, Kind.IdentityProviderAdmin(value)) =>
+      case (acc, Kind.IdentityProviderAdmin(_)) =>
         acc.copy(identityProviderAdmin = true)
+      case (acc, Kind.CanReadAsAnyParty(_)) => acc.copy(readAsAnyParty = true)
     })
   }
 }

@@ -13,6 +13,7 @@ import com.daml.lf.value.Value.ValueRecord
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String255
+import com.digitalasset.canton.config.TestingConfigInternal
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.v2.ChangeId
@@ -167,6 +168,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
       () => true,
       FutureSupervisor.Noop,
       SuppressingLogger(getClass),
+      TestingConfigInternal(),
     )
   }
 

@@ -429,7 +429,7 @@ object WellFormedTransaction {
       case (nodeId, exercise: LfNodeExercises) =>
         Checked.fromEitherNonabort(())(
           ActionDescription
-            .serializeChosenValue(exercise.chosenValue)
+            .serializeChosenValue(exercise.versionedChosenValue)
             .leftMap(err => show"unable to serialize chosen value in node $nodeId: ${err.unquoted}")
             .void
         )

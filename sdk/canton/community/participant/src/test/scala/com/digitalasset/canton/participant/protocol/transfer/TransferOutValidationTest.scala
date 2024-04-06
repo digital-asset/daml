@@ -77,7 +77,7 @@ class TransferOutValidationTest
     metadata = ContractMetadata.tryCreate(
       signatories = Set(submitterParty1),
       stakeholders = Set(submitterParty1),
-      maybeKeyWithMaintainers = None,
+      maybeKeyWithMaintainersVersioned = None,
     ),
   )
 

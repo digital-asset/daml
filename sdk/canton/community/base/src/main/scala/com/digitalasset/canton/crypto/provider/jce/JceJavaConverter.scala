@@ -6,7 +6,6 @@ package com.digitalasset.canton.crypto.provider.jce
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.provider.tink.TinkJavaConverter
 import com.google.crypto.tink.subtle.EllipticCurves
 import com.google.crypto.tink.subtle.EllipticCurves.CurveType
 import com.google.protobuf.ByteString
@@ -14,6 +13,7 @@ import org.bouncycastle.asn1.edec.EdECObjectIdentifiers
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers
 import org.bouncycastle.asn1.sec.SECObjectIdentifiers
 import org.bouncycastle.asn1.x509.{AlgorithmIdentifier, SubjectPublicKeyInfo}
+import org.bouncycastle.asn1.x9.X9ObjectIdentifiers
 import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
 
 import java.io.IOException
@@ -32,6 +32,16 @@ class JceJavaConverter(
 
   import com.digitalasset.canton.util.ShowUtil.*
 
+  private def fromCurveType(curveType: CurveType): Either[String, AlgorithmIdentifier] =
+    for {
+      asnObjId <- curveType match {
+        // CCF prefers the X9 identifiers (ecdsa-shaX) and not the SEC OIDs (secp384r1)
+        case CurveType.NIST_P256 => Right(X9ObjectIdentifiers.ecdsa_with_SHA256)
+        case CurveType.NIST_P384 => Right(X9ObjectIdentifiers.ecdsa_with_SHA384)
+        case CurveType.NIST_P521 => Left("Elliptic curve NIST-P521 not supported right now")
+      }
+    } yield new AlgorithmIdentifier(asnObjId)
+
   private def toJavaEcDsa(
       publicKey: PublicKey,
       curveType: CurveType,
@@ -42,11 +52,7 @@ class JceJavaConverter(
         Set(CryptoKeyFormat.Der),
         _ => JavaKeyConversionError.UnsupportedKeyFormat(publicKey.format, CryptoKeyFormat.Der),
       )
-      // We are using the tink-subtle API here, thus using the TinkJavaConverter to have a consistent mapping of curve
-      // type to algo id.
-      algoId <- TinkJavaConverter
-        .fromCurveType(curveType)
-        .leftMap(JavaKeyConversionError.InvalidKey)
+      algoId <- fromCurveType(curveType).leftMap(JavaKeyConversionError.InvalidKey)
       ecPublicKey <- Either
         .catchOnly[GeneralSecurityException](
           EllipticCurves.getEcPublicKey(publicKey.key.toByteArray)
@@ -109,7 +115,6 @@ class JceJavaConverter(
   override def fromJavaSigningKey(
       javaPublicKey: JPublicKey,
       algorithmIdentifier: AlgorithmIdentifier,
-      fingerprint: Fingerprint,
   ): Either[JavaKeyConversionError, SigningPublicKey] = {
 
     def ensureJceSupportedScheme(scheme: SigningKeyScheme): Either[JavaKeyConversionError, Unit] = {
@@ -135,6 +140,7 @@ class JceJavaConverter(
           _ <- ensureJceSupportedScheme(scheme)
 
           publicKeyBytes = ByteString.copyFrom(javaPublicKey.getEncoded)
+          fingerprint = Fingerprint.create(publicKeyBytes)
           publicKey = new SigningPublicKey(
             id = fingerprint,
             format = CryptoKeyFormat.Der,
@@ -166,6 +172,7 @@ class JceJavaConverter(
             .catchOnly[IOException](new Ed25519PublicKeyParameters(publicKeyEncoded.newInput()))
             .leftMap(JavaKeyConversionError.GeneralError)
           publicKeyBytes = ByteString.copyFrom(publicKeyParams.getEncoded)
+          fingerprint = Fingerprint.create(publicKeyBytes)
           publicKey = new SigningPublicKey(
             id = fingerprint,
             format = CryptoKeyFormat.Raw,
@@ -186,7 +193,6 @@ class JceJavaConverter(
   override def fromJavaEncryptionKey(
       javaPublicKey: JPublicKey,
       algorithmIdentifier: AlgorithmIdentifier,
-      fingerprint: Fingerprint,
   ): Either[JavaKeyConversionError, EncryptionPublicKey] = {
 
     def ensureJceSupportedScheme(
@@ -206,6 +212,7 @@ class JceJavaConverter(
           _ <- ensureJceSupportedScheme(scheme)
 
           publicKeyBytes = ByteString.copyFrom(javaPublicKey.getEncoded)
+          fingerprint = Fingerprint.create(publicKeyBytes)
           publicKey = new EncryptionPublicKey(
             id = fingerprint,
             format = CryptoKeyFormat.Der,

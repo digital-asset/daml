@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.protocol
 
+import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
 import com.daml.lf.data.Ref.PackageId
@@ -119,8 +120,8 @@ object ExampleTransactionFactory {
   def globalKeyWithMaintainers(
       key: LfGlobalKey = defaultGlobalKey,
       maintainers: Set[LfPartyId] = Set.empty,
-  ): LfGlobalKeyWithMaintainers =
-    LfGlobalKeyWithMaintainers(key, maintainers)
+  ): Versioned[LfGlobalKeyWithMaintainers] =
+    LfVersioned(transactionVersion, LfGlobalKeyWithMaintainers(key, maintainers))
 
   def fetchNode(
       cid: LfContractId,
@@ -544,7 +545,7 @@ class ExampleTransactionFactory(
     val metadata = ContractMetadata.tryCreate(
       signatories,
       signatories ++ observers,
-      maybeKeyWithMaintainers,
+      maybeKeyWithMaintainers.map(LfVersioned(transactionVersion, _)),
     )
     val (salt, unicum) =
       saltAndUnicum(
@@ -626,7 +627,7 @@ class ExampleTransactionFactory(
       coreInputContracts,
       createWithSerialization,
       createdInSubviewArchivedInCore,
-      resolvedKeys,
+      resolvedKeys.fmap(LfVersioned(transactionVersion, _)),
       actionDescription,
       RollbackContext.empty,
       participantDataSalt(viewIndex),

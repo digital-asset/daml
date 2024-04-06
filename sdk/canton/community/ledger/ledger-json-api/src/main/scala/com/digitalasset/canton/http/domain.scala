@@ -193,6 +193,7 @@ package domain {
   final case object IdentityProviderAdmin extends UserRight
   final case class CanActAs(party: Party) extends UserRight
   final case class CanReadAs(party: Party) extends UserRight
+  final case object CanReadAsAnyParty extends UserRight
 
   object UserRights {
     import com.daml.lf.data.Ref
@@ -208,12 +209,14 @@ package domain {
           Ref.Party.fromString(party.unwrap).map(LedgerUserRight.CanActAs).disjunction
         case CanReadAs(party) =>
           Ref.Party.fromString(party.unwrap).map(LedgerUserRight.CanReadAs).disjunction
+        case CanReadAsAnyParty => \/.right(LedgerUserRight.CanReadAsAnyParty)
       }
 
     def fromLedgerUserRights(input: Seq[LedgerUserRight]): List[UserRight] = input
       .map[domain.UserRight] {
         case LedgerUserRight.ParticipantAdmin => ParticipantAdmin
         case LedgerUserRight.IdentityProviderAdmin => IdentityProviderAdmin
+        case LedgerUserRight.CanReadAsAnyParty => CanReadAsAnyParty
         case LedgerUserRight.CanActAs(party) =>
           CanActAs(Party(party: String))
         case LedgerUserRight.CanReadAs(party) =>

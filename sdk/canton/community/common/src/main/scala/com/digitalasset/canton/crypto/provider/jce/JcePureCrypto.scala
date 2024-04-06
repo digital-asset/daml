@@ -10,8 +10,6 @@ import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateErro
 import com.digitalasset.canton.crypto.HkdfError.HkdfInternalError
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.deterministic.encryption.DeterministicRandom
-import com.digitalasset.canton.crypto.provider.CryptoKeyConverter
-import com.digitalasset.canton.crypto.provider.tink.TinkJavaConverter
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.{
   DefaultDeserializationError,
@@ -92,9 +90,6 @@ class JcePureCrypto(
       : TrieMap[Fingerprint, Either[KeyParseAndValidateError, JPrivateKey]] =
     TrieMap.empty
 
-  private lazy val tinkJavaConverter = new TinkJavaConverter
-  private lazy val keyConverter = new CryptoKeyConverter(tinkJavaConverter, javaKeyConverter)
-
   /* security parameters for EciesP256HmacSha256Aes128Cbc encryption scheme,
     in particular for the HMAC and symmetric crypto algorithms.
    */
@@ -138,25 +133,9 @@ class JcePureCrypto(
 
     def convertToFormatAndGenerateJavaPublicKey: Either[KeyParseAndValidateError, JPublicKey] = {
       for {
-        formatToConvertTo <- publicKey match {
-          case _: EncryptionPublicKey => Right(CryptoKeyFormat.Der)
-          case SigningPublicKey(_, _, _, scheme) =>
-            scheme match {
-              case SigningKeyScheme.Ed25519 => Right(CryptoKeyFormat.Raw)
-              case SigningKeyScheme.EcDsaP256 | SigningKeyScheme.EcDsaP384 =>
-                Right(CryptoKeyFormat.Der)
-            }
-          case _ => Left(KeyParseAndValidateError(s"Unsupported key type"))
-        }
-        /* Convert key to the expected format that can be interpreted by this crypto provider (i.e. JCE): DER or RAW.
-         * Finally convert the key to a java key, which can be cached and used for future crypto operations.
-         */
-        pubKey <- keyConverter
-          .convert(publicKey, formatToConvertTo)
-          .leftMap(KeyParseAndValidateError)
         // convert key to java key
         jPublicKey <- javaKeyConverter
-          .toJava(pubKey)
+          .toJava(publicKey)
           .map(_._2)
           .leftMap(err =>
             KeyParseAndValidateError(s"Failed to convert public key to java key: $err")

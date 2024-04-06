@@ -7,7 +7,6 @@ package com.digitalasset.canton.admin.participant.v30;
 
 import "com/digitalasset/canton/admin/participant/v30/domain_connectivity.proto";
 import "google/protobuf/timestamp.proto";
-import "scalapb/scalapb.proto";
 
 // Perform participant repair operations, including exporting and importing ACS, purging
 // contracts, and migrating domains. These operations directly act on the internal state of the participant
@@ -100,24 +99,6 @@ message ExportAcsResponse {
   // This is meant to be streamed and every message should be a chunk of the snapshot
   // Required
   bytes chunk = 1;
-}
-
-// Schema definition for the exported ACS snapshot
-message ActiveContract {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
-
-  // The protocol version of the domain the contract is currently assigned to
-  // Required
-  int32 protocol_version = 1;
-  // The ID of the domain where the contract was assigned at the time of the export
-  // Required
-  string domain_id = 2;
-  // The raw binary containing the contract and its associated metadata
-  // Required
-  bytes contract = 3;
-  // The number of times the contract has been reassigned at the time of the export
-  // Required
-  int64 reassignment_counter = 4;
 }
 
 message ImportAcsRequest {

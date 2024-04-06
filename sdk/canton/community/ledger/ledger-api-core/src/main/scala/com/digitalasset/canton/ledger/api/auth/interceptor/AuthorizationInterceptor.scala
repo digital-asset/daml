@@ -242,5 +242,6 @@ object AuthorizationInterceptor {
     case UserRight.CanReadAs(p) => ClaimReadAsParty(Ref.Party.assertFromString(p))
     case UserRight.IdentityProviderAdmin => ClaimIdentityProviderAdmin
     case UserRight.ParticipantAdmin => ClaimAdmin
+    case UserRight.CanReadAsAnyParty => ClaimReadAsAnyParty
   }
 }
