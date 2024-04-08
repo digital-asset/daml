@@ -1674,7 +1674,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val cachedKey = CachedKey(
           pkgName,
           GlobalKeyWithMaintainers
-            .assertBuild(templateId, key.toUnnormalizedValue, Set(alice)),
+            .assertBuild(templateId, key.toUnnormalizedValue, Set(alice), pkg.name),
           key,
         )
         val contractInfo = ContractInfo(
@@ -1913,7 +1913,12 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     val globalKey =
       if (withKey) {
         Some(
-          GlobalKeyWithMaintainers.assertBuild(templateId, key.toUnnormalizedValue, Set(maintainer))
+          GlobalKeyWithMaintainers.assertBuild(
+            templateId,
+            key.toUnnormalizedValue,
+            Set(maintainer),
+            pkg.name,
+          )
         )
       } else {
         None

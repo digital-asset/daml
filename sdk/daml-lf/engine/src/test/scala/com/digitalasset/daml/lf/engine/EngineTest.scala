@@ -400,6 +400,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
                   (Some[Ref.Name]("k"), ValueInt64(43)),
                 ),
               ),
+              basicTestsHashPkgName,
             )
           )
         )
@@ -659,6 +660,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
                     (Some[Ref.Name]("k"), ValueInt64(43)),
                   ),
                 ),
+                basicTestsHashPkgName,
               )
             )
           )
@@ -706,6 +708,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
                     (Some[Ref.Name]("k"), ValueInt64(43)),
                   ),
                 ),
+                basicTestsHashPkgName,
               )
             )
           )
@@ -764,7 +767,12 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         stakeholders = Set(alice),
         keyOpt = Some(
           GlobalKeyWithMaintainers
-            .assertBuild(usedDisclosedContract.templateId, usedContractKey, Set(alice))
+            .assertBuild(
+              usedDisclosedContract.templateId,
+              usedContractKey,
+              Set(alice),
+              basicTestsHashPkgName,
+            )
         ),
         version = transactionVersion,
       )
@@ -1613,7 +1621,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         stakeholders = Set(alice),
         keyOpt = Some(
           GlobalKeyWithMaintainers
-            .assertBuild(templateId, usedContractKey, Set(alice))
+            .assertBuild(templateId, usedContractKey, Set(alice), basicTestsHashPkgName)
         ),
         version = transactionVersion,
       )
@@ -2508,6 +2516,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       GlobalKey.assertBuild(
         TypeConName(basicTestsPkgId, withKeyTemplate),
         ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
+        basicTestsHashPkgName,
       ),
       Set(alice),
     )

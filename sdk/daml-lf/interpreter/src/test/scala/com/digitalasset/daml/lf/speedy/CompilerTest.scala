@@ -586,7 +586,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       if (withKey) {
         Some(
           GlobalKeyWithMaintainers(
-            GlobalKey.assertBuild(templateId, key.toUnnormalizedValue),
+            GlobalKey.assertBuild(templateId, key.toUnnormalizedValue, pkg.name),
             Set(maintainer),
           )
         )

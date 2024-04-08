@@ -96,7 +96,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   val caveTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:Cave")
   val caveTemplateType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:Cave")
   val keyType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:Key")
-  val contractKey: GlobalKey = buildContractKey(maintainerParty)
+  val contractKey: GlobalKey = buildContractKey(maintainerParty, somePackageName)
   val contractSStructKey: SValue =
     SValue.SStruct(
       fieldNames =
@@ -106,7 +106,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
         SValue.SList(FrontStack.from(ImmArray(SValue.SParty(maintainerParty)))),
       ),
     )
-  val ledgerContractKey: GlobalKey = buildContractKey(ledgerParty)
   val ledgerHouseContract: Value.VersionedContractInstance =
     buildContract(ledgerParty, maintainerParty)
   val ledgerCaveContract: Value.VersionedContractInstance =
@@ -131,8 +130,10 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
         Some(
           Speedy.CachedKey(
             packageName,
-            globalKeyWithMaintainers =
-              GlobalKeyWithMaintainers(buildContractKey(maintainer, label), Set(maintainer)),
+            globalKeyWithMaintainers = GlobalKeyWithMaintainers(
+              buildContractKey(maintainer, packageName, label),
+              Set(maintainer),
+            ),
             key = buildContractSKey(maintainer),
           )
         )
@@ -182,8 +183,12 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       ),
     )
 
-  def buildContractKey(maintainer: Party, label: String = testKeyName): GlobalKey =
-    GlobalKey.assertBuild(houseTemplateType, buildContractKeyValue(maintainer, label))
+  def buildContractKey(
+      maintainer: Party,
+      packageName: Ref.PackageName,
+      label: String = testKeyName,
+  ): GlobalKey =
+    GlobalKey.assertBuild(houseTemplateType, buildContractKeyValue(maintainer, label), packageName)
 
   def buildContractSKey(maintainer: Party, label: String = testKeyName): SValue =
     SValue.SRecord(
@@ -251,7 +256,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
           CachedKey(
             packageName = packageName,
             GlobalKeyWithMaintainers
-              .assertBuild(templateId, contract.toUnnormalizedValue, Set(maintainer)),
+              .assertBuild(templateId, contract.toUnnormalizedValue, Set(maintainer), packageName),
             contract,
           )
         )

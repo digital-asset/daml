@@ -383,7 +383,7 @@ class TransactionSpec
         ).map(s => {
           val node = create(cid(s))
           GlobalKey
-            .assertBuild(node.templateId, V.ValueText(cid(s).coid))
+            .assertBuild(node.templateId, V.ValueText(cid(s).coid), node.packageName)
         }).toSet
 
       builder.build().contractKeys shouldBe expectedResults
@@ -394,8 +394,9 @@ class TransactionSpec
     import Transaction._
     val dummyBuilder = new TxBuilder()
     val parties = List("Alice")
+    val keyPkgName = Ref.PackageName.assertFromString("key-package-name")
     def keyValue(s: String) = V.ValueText(s)
-    def globalKey(k: String) = GlobalKey.assertBuild("Mod:T", keyValue(k))
+    def globalKey(k: String) = GlobalKey.assertBuild("Mod:T", keyValue(k), keyPkgName)
     def create(s: V.ContractId, k: String) = dummyBuilder
       .create(
         id = s,
@@ -404,6 +405,7 @@ class TransactionSpec
         signatories = parties,
         observers = parties,
         key = CreateKey.SignatoryMaintainerKey(keyValue(k)),
+        packageName = keyPkgName,
       )
 
     def exe(s: V.ContractId, k: String, consuming: Boolean, byKey: Boolean) =
@@ -724,7 +726,7 @@ class TransactionSpec
       builder.add(exercise(builder, create3, parties, true), rollback)
       builder.add(create4, rollback)
 
-      def key(s: String) = GlobalKey.assertBuild("Mod:T", V.ValueText(s))
+      def key(s: String) = GlobalKey.assertBuild("Mod:T", V.ValueText(s), create0.packageName)
       builder.build().updatedContractKeys shouldBe
         Map(key("key0") -> Some(cid0), key("key1") -> None, key("key2") -> Some(cid3))
     }

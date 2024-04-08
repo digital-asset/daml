@@ -4,7 +4,7 @@
 package com.daml.lf
 package engine
 
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.ledger.Authorize
 import com.daml.lf.ledger.FailedAuthorization._
@@ -33,6 +33,7 @@ class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside with TestI
   ): Node.Create = {
 
     val templateId = "M:T"
+    val pkgName = Ref.PackageName.assertFromString("auth-pkg-name")
     val init = builder
       .create(
         id = newCid,
@@ -41,11 +42,12 @@ class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside with TestI
         signatories = signatories,
         observers = Seq("Carl"),
         key = CreateKey.NoKey,
+        packageName = pkgName,
       )
     init.copy(
       // By default maintainers are added to signatories so do this to allow error case testing
       keyOpt = Some(
-        GlobalKeyWithMaintainers.assertBuild(templateId, Value.ValueUnit, maintainers)
+        GlobalKeyWithMaintainers.assertBuild(templateId, Value.ValueUnit, maintainers, pkgName)
       )
     )
   }
