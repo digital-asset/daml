@@ -30,6 +30,7 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyResponse,
   GetPartiesRequest,
   GetPartiesResponse,
+  ListKnownPartiesRequest,
   ListKnownPartiesResponse,
   PartyDetails,
   UpdatePartyDetailsRequest,
@@ -76,8 +77,8 @@ import com.daml.lf.data.Ref.HexString
 import com.google.protobuf.ByteString
 import io.grpc.health.v1.health.HealthCheckResponse
 import io.grpc.stub.StreamObserver
-
 import java.util.{List => JList}
+
 import scala.concurrent.{ExecutionContext, Future}
 
 trait ParticipantTestContext extends UserManagementTestContext {
@@ -159,8 +160,9 @@ trait ParticipantTestContext extends UserManagementTestContext {
   def allocateParties(n: Int): Future[Vector[Party]]
   def getParties(req: GetPartiesRequest): Future[GetPartiesResponse]
   def getParties(parties: Seq[Party]): Future[Seq[PartyDetails]]
-  def listKnownParties(): Future[Set[Party]]
-  def listKnownPartiesResp(): Future[ListKnownPartiesResponse]
+  def listKnownPartiesExpanded(): Future[Set[Party]]
+  def listKnownParties(req: ListKnownPartiesRequest): Future[ListKnownPartiesResponse]
+  def listKnownParties(): Future[ListKnownPartiesResponse]
 
   /** @return a future that completes when all the participants can list all the expected parties
     */

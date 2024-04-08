@@ -9,10 +9,15 @@ import com.daml.ledger.api.v1.experimental_features.{
   ExperimentalCommitterEventLog,
   ExperimentalContractIds,
 }
-import com.daml.ledger.api.v1.version_service.{GetLedgerApiVersionResponse, UserManagementFeature}
+import com.daml.ledger.api.v1.version_service.{
+  GetLedgerApiVersionResponse,
+  PartyManagementFeature,
+  UserManagementFeature,
+}
 
 final case class Features(
     userManagement: UserManagementFeature,
+    partyManagement: PartyManagementFeature,
     staticTime: Boolean,
     commandDeduplicationFeatures: CommandDeduplicationFeatures,
     optionalLedgerId: Boolean = false,
@@ -27,6 +32,7 @@ final case class Features(
 object Features {
   val defaultFeatures: Features = Features(
     userManagement = UserManagementFeature.defaultInstance,
+    partyManagement = PartyManagementFeature.defaultInstance,
     staticTime = false,
     commandDeduplicationFeatures = CommandDeduplicationFeatures.defaultInstance,
     contractIds = ExperimentalContractIds.defaultInstance,
@@ -39,6 +45,7 @@ object Features {
 
     Features(
       userManagement = features.getUserManagement,
+      partyManagement = features.getPartyManagement,
       staticTime = experimental.getStaticTime.supported,
       commandDeduplicationFeatures = experimental.getCommandDeduplication,
       optionalLedgerId = experimental.optionalLedgerId.isDefined,
