@@ -14,6 +14,7 @@ import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{LfTimestamp, crypto}
 import com.google.protobuf.ByteString
@@ -168,13 +169,10 @@ object SerializableContract
       disclosedContractIdVersion <- CantonContractIdVersion
         .ensureCantonContractId(disclosedContract.contractId)
         .leftMap(err => s"Invalid disclosed contract id: ${err.toString}")
-      _ <- disclosedContractIdVersion match {
-        case NonAuthenticatedContractIdVersion =>
-          Left(
-            s"Disclosed contract with non-authenticated contract id: ${disclosedContract.contractId.toString}"
-          )
-        case AuthenticatedContractIdVersion | AuthenticatedContractIdVersionV2 => Right(())
-      }
+      _ <- EitherUtil.condUnitE(
+        disclosedContractIdVersion.isAuthenticated,
+        s"Disclosed contract with non-authenticated contract id: ${disclosedContract.contractId.toString}",
+      )
       salt <- {
         if (driverContractMetadataBytes.isEmpty)
           Left[String, Option[Salt]](

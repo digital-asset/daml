@@ -121,11 +121,11 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
   }
 
   object dummyAuthenticator extends SerializableContractAuthenticator {
-    override def authenticate(contract: SerializableContract): Either[String, Unit] = Right(())
-    override def verifyMetadata(
-        contract: SerializableContract,
-        metadata: ContractMetadata,
-    ): Either[String, Unit] = Right(())
+    override private[protocol] def authenticate(
+        authenticationPurpose: SerializableContractAuthenticator.AuthenticationPurpose,
+        serializableContract: SerializableContract,
+    ): Either[String, Unit] =
+      Right(())
   }
 
   def check(
@@ -260,6 +260,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
             case None => count + 1
           }
         })
+
       val nbLeafViews = countLeaves(NonEmptyUtil.fromUnsafe(example.rootViews))
 
       "yield an error" in {

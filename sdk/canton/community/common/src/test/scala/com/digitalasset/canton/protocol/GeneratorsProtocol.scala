@@ -165,9 +165,10 @@ final class GeneratorsProtocol(
   {
     // If this pattern match is not exhaustive anymore, update the method below
     ((_: CantonContractIdVersion) match {
-      case NonAuthenticatedContractIdVersion => ()
-      case AuthenticatedContractIdVersion => ()
-      case AuthenticatedContractIdVersionV2 => ()
+      case NonAuthenticatedContractId => ()
+      case AuthenticatedContractIdV1 => ()
+      case AuthenticatedContractIdV2 => ()
+      case AuthenticatedContractIdV3 => ()
     }).discard
   }
   def serializableContractArb(
@@ -176,15 +177,17 @@ final class GeneratorsProtocol(
   ): Arbitrary[SerializableContract] = {
 
     val allContractIdVersions = List(
-      NonAuthenticatedContractIdVersion,
-      AuthenticatedContractIdVersion,
-      AuthenticatedContractIdVersionV2,
+      NonAuthenticatedContractId,
+      AuthenticatedContractIdV1,
+      AuthenticatedContractIdV2,
+      AuthenticatedContractIdV3,
     )
 
     val contractIdVersions = protocolVersion match {
-      case Some(ProtocolVersion.v3) => List(NonAuthenticatedContractIdVersion)
-      case Some(ProtocolVersion.v4) => List(AuthenticatedContractIdVersion)
-      case Some(pv) if pv >= ProtocolVersion.v5 => List(AuthenticatedContractIdVersionV2)
+      case Some(ProtocolVersion.v3) => List(NonAuthenticatedContractId)
+      case Some(ProtocolVersion.v4) => List(AuthenticatedContractIdV1)
+      case Some(ProtocolVersion.v5) => List(AuthenticatedContractIdV2)
+      case Some(pv) if pv >= ProtocolVersion.v6 => List(AuthenticatedContractIdV3)
       case _ => allContractIdVersions
     }
 
@@ -202,18 +205,20 @@ final class GeneratorsProtocol(
         saltIndex <- Gen.choose(Int.MinValue, Int.MaxValue)
         transactionUUID <- Gen.uuid
 
-        (computedSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
-          domainId = domainId,
-          mediator = MediatorRef(mediatorId),
-          transactionUuid = transactionUUID,
-          viewPosition = ViewPosition(List.empty),
-          viewParticipantDataSalt = TestSalt.generateSalt(saltIndex),
-          createIndex = 0,
-          ledgerCreateTime = ledgerCreateTime,
-          metadata = metadata,
-          suffixedContractInstance = rawContractInstance,
-          contractIdVersion = contractIdVersion,
-        )
+        (computedSalt, unicum) = unicumGenerator
+          .generateSaltAndUnicum(
+            domainId = domainId,
+            mediator = MediatorRef(mediatorId),
+            transactionUuid = transactionUUID,
+            viewPosition = ViewPosition(List.empty),
+            viewParticipantDataSalt = TestSalt.generateSalt(saltIndex),
+            createIndex = 0,
+            ledgerCreateTime = ledgerCreateTime,
+            metadata = metadata,
+            suffixedContractInstance = rawContractInstance,
+            contractIdVersion = contractIdVersion,
+          )
+          .value
 
         index <- Gen.posNum[Int]
         contractIdDiscriminator = ExampleTransactionFactory.lfHash(index)
@@ -318,7 +323,7 @@ final class GeneratorsProtocol(
         contract,
         consumedInCore,
         rolledBack,
-        checkContractIdVersion = _ => Right(NonAuthenticatedContractIdVersion),
+        checkContractIdVersion = _ => Right(NonAuthenticatedContractId),
       )
       .value
   )

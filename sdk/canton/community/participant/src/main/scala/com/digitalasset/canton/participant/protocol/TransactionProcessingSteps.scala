@@ -1232,7 +1232,7 @@ class TransactionProcessingSteps(
       inputContracts.toList
         .traverse_ { case (contractId, contract) =>
           serializableContractAuthenticator
-            .authenticate(contract)
+            .authenticateInputContract(contract)
             .leftMap(message => ContractAuthenticationFailed.Error(contractId, message).reported())
         }
     )

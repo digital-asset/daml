@@ -24,7 +24,7 @@ import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
-import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
+import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateUpgradableContract
 import com.digitalasset.canton.platform.apiserver.execution.{
   AuthorityResolver,
   DynamicDomainParameterGetter,
@@ -102,7 +102,7 @@ object ApiServiceOwner {
       userManagement: UserManagementServiceConfig = ApiServiceOwner.DefaultUserManagement,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
-      authenticateContract: AuthenticateContract,
+      authenticateUpgradableContract: AuthenticateUpgradableContract,
       dynParamGetter: DynamicDomainParameterGetter,
   )(implicit
       actorSystem: ActorSystem,
@@ -172,7 +172,7 @@ object ApiServiceOwner {
         telemetry = telemetry,
         loggerFactory = loggerFactory,
         multiDomainEnabled = multiDomainEnabled,
-        authenticateContract = authenticateContract,
+        authenticateUpgradableContract = authenticateUpgradableContract,
         dynParamGetter = dynParamGetter,
       )(materializer, executionSequencerFactory, tracer)
         .map(_.withServices(otherServices))

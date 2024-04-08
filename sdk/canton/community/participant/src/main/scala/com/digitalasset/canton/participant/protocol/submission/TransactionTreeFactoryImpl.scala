@@ -425,18 +425,22 @@ abstract class TransactionTreeFactoryImpl(
         )
     }
     val contractMetadata = LfTransactionUtil.metadataFromCreate(createNode)
-    val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
-      domainId,
-      state.mediator,
-      state.transactionUUID,
-      viewPosition,
-      viewParticipantDataSalt,
-      createIndex,
-      LedgerCreateTime(state.ledgerTime),
-      contractMetadata,
-      serializedCantonContractInst,
-      cantonContractIdVersion,
-    )
+    val (contractSalt, unicum) = unicumGenerator
+      .generateSaltAndUnicum(
+        domainId,
+        state.mediator,
+        state.transactionUUID,
+        viewPosition,
+        viewParticipantDataSalt,
+        createIndex,
+        LedgerCreateTime(state.ledgerTime),
+        contractMetadata,
+        serializedCantonContractInst,
+        cantonContractIdVersion,
+      )
+      .valueOr(err =>
+        throw new IllegalArgumentException(s"Error generating contract salt and unicum: $err")
+      )
 
     val contractId = cantonContractIdVersion.fromDiscriminator(discriminator, unicum)
 
