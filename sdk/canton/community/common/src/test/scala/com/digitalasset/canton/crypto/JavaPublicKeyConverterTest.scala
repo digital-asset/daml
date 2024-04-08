@@ -20,7 +20,6 @@ trait JavaPublicKeyConverterTest extends BaseTest with CryptoTestHelper { this: 
       fromPublicKey: Crypto => (
           JPublicKey,
           AlgorithmIdentifier,
-          Fingerprint,
       ) => Either[JavaKeyConversionError, SigningPublicKey],
       convertToName: String,
   ): Unit = {
@@ -36,7 +35,7 @@ trait JavaPublicKeyConverterTest extends BaseTest with CryptoTestHelper { this: 
         (algoId, javaPublicKey) = crypto.javaKeyConverter
           .toJava(publicKey)
           .valueOrFail("convert to java")
-        publicKey2 = fromPublicKey(crypto)(javaPublicKey, algoId, publicKey.fingerprint)
+        publicKey2 = fromPublicKey(crypto)(javaPublicKey, algoId)
           .valueOrFail("convert from java")
         _ = crypto.pureCrypto
           .verifySignature(hash, publicKey2, sig)
@@ -54,7 +53,6 @@ trait JavaPublicKeyConverterTest extends BaseTest with CryptoTestHelper { this: 
       fromPublicKey: Crypto => (
           JPublicKey,
           AlgorithmIdentifier,
-          Fingerprint,
       ) => Either[JavaKeyConversionError, EncryptionPublicKey],
       convertToName: String,
   ): Unit = {
@@ -66,7 +64,7 @@ trait JavaPublicKeyConverterTest extends BaseTest with CryptoTestHelper { this: 
         (algoId, javaPublicKey) = crypto.javaKeyConverter
           .toJava(publicKey)
           .valueOrFail("convert to java")
-        publicKey2 = fromPublicKey(crypto)(javaPublicKey, algoId, publicKey.fingerprint)
+        publicKey2 = fromPublicKey(crypto)(javaPublicKey, algoId)
           .valueOrFail("convert from java")
         message = CryptoTestHelper.TestMessage(ByteString.copyFromUtf8("test"))
         ciphertext = crypto.pureCrypto
@@ -113,34 +111,4 @@ trait JavaPublicKeyConverterTest extends BaseTest with CryptoTestHelper { this: 
     }
   }
 
-  def javaPublicKeyConverterProviderOther(
-      supportedSigningKeySchemes: Set[SigningKeyScheme],
-      supportedEncryptionKeySchemes: Set[EncryptionKeyScheme],
-      newCrypto: => Future[Crypto],
-      otherConvertName: String,
-      otherKeyConverter: JavaKeyConverter,
-  ): Unit = {
-
-    "convert public keys with another crypto provider" should {
-      forAll(supportedSigningKeySchemes) { signingKeyScheme =>
-        javaSigningKeyConvertTest(
-          signingKeyScheme.toString,
-          newCrypto,
-          crypto => getSigningPublicKey(crypto, signingKeyScheme),
-          _ => otherKeyConverter.fromJavaSigningKey,
-          otherConvertName,
-        )
-      }
-
-      forAll(supportedEncryptionKeySchemes) { encryptionKeyScheme =>
-        javaEncryptionKeyConvertTest(
-          encryptionKeyScheme.toString,
-          newCrypto,
-          crypto => getEncryptionPublicKey(crypto, encryptionKeyScheme),
-          _ => otherKeyConverter.fromJavaEncryptionKey,
-          otherConvertName,
-        )
-      }
-    }
-  }
 }

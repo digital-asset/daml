@@ -52,7 +52,7 @@ class StreamAuthorizationComponentSpec
 
   behavior of s"Stream authorization"
 
-  it should "be successfull in the happy path, and client cancellation tears down server side gRPC and pekko-streams too" in test {
+  it should "be successful in the happy path, and client cancellation tears down server side gRPC and pekko-streams too" in test {
     fixture =>
       // this stream takes 10 elements (takes 2 seconds to produce), then it is closed (user side cancellation).
       // after one second a scheduled user right check will commence, this check expected to be successful

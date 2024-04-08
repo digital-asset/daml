@@ -24,8 +24,8 @@ import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader.{
 }
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String256M
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiProvider}
 import com.digitalasset.canton.data.{
   CantonTimestamp,
@@ -161,6 +161,7 @@ class CantonSyncService(
     val isActive: () => Boolean,
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
+    testingConfig: TestingConfigInternal,
 )(implicit ec: ExecutionContextExecutor, mat: Materializer, val tracer: Tracer)
     extends state.v2.WriteService
     with WriteParticipantPruningService
@@ -1354,6 +1355,7 @@ class CantonSyncService(
           trafficStateController,
           futureSupervisor,
           domainLoggerFactory,
+          testingConfig,
         )
 
         _ = syncDomainHealth.set(syncDomain)
@@ -1842,6 +1844,7 @@ object CantonSyncService {
         sequencerInfoLoader: SequencerInfoLoader,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
+        testingConfig: TestingConfigInternal,
     )(implicit ec: ExecutionContextExecutor, mat: Materializer, tracer: Tracer): T
   }
 
@@ -1871,6 +1874,7 @@ object CantonSyncService {
         sequencerInfoLoader: SequencerInfoLoader,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
+        testingConfig: TestingConfigInternal,
     )(implicit
         ec: ExecutionContextExecutor,
         mat: Materializer,
@@ -1903,6 +1907,7 @@ object CantonSyncService {
         () => storage.isActive,
         futureSupervisor,
         loggerFactory,
+        testingConfig,
       )
   }
 }

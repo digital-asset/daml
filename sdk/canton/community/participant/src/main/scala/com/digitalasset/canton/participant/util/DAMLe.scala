@@ -11,7 +11,7 @@ import com.daml.lf.engine.*
 import com.daml.lf.interpretation.Error as LfInterpretationError
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
-import com.daml.lf.transaction.{ContractKeyUniquenessMode, Versioned}
+import com.daml.lf.transaction.{ContractKeyUniquenessMode, TransactionVersion, Versioned}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{LoggingContextUtil, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.PackageService
@@ -23,7 +23,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{LfCommand, LfCreateCommand, LfKeyResolver, LfPartyId}
+import com.digitalasset.canton.{LfCommand, LfCreateCommand, LfKeyResolver, LfPartyId, LfVersioned}
 
 import java.nio.file.Path
 import scala.annotation.tailrec
@@ -76,7 +76,7 @@ object DAMLe {
       ContractMetadata.tryCreate(
         signatories,
         stakeholders,
-        keyWithMaintainers,
+        keyWithMaintainers.map(LfVersioned(instance.version, _)),
       )
   }
 
@@ -323,10 +323,11 @@ class DAMLe(
           }
 
       case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
+        val unusedTxVersion = TransactionVersion.StableVersions.max
         val metadata = ContractMetadata.tryCreate(
           signatories = signatories,
           stakeholders = signatories ++ observers,
-          maybeKeyWithMaintainers = keyOpt,
+          maybeKeyWithMaintainersVersioned = keyOpt.map(k => Versioned(unusedTxVersion, k)),
         )
         contracts.verifyMetadata(coid, metadata).value.flatMap { verification =>
           handleResult(contracts, resume(verification))

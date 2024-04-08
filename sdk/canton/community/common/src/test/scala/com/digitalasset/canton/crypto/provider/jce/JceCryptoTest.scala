@@ -4,10 +4,9 @@
 package com.digitalasset.canton.crypto.provider.jce
 
 import com.digitalasset.canton.config.CommunityCryptoConfig
-import com.digitalasset.canton.config.CommunityCryptoProvider.{Jce, Tink}
+import com.digitalasset.canton.config.CommunityCryptoProvider.Jce
 import com.digitalasset.canton.crypto.CryptoTestHelper.TestMessage
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.provider.tink.TinkJavaConverter
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.tracing.NoReportingTracerProvider
@@ -95,15 +94,6 @@ class JceCryptoTest
       Jce.encryption.supported.filterNot(_ == EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc),
       jceCrypto(),
       "JCE",
-    )
-
-    // Also test the conversion from JCE to Tink, limited to Tink supported algorithms
-    behave like javaPublicKeyConverterProviderOther(
-      Tink.signing.supported,
-      Tink.encryption.supported,
-      jceCrypto(),
-      "Tink",
-      new TinkJavaConverter,
     )
 
     behave like pbeProvider(

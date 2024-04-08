@@ -1413,6 +1413,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           isActive: flag (default true) indicating if the user is active
           annotations: the set of key-value pairs linked to this user
           identityProviderId: identity provider id
+          readAsAnyParty: flag (default false) indicating if the user is allowed to read as any party
           """
       )
       def create(
@@ -1424,6 +1425,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           isActive: Boolean = true,
           annotations: Map[String, String] = Map.empty,
           identityProviderId: String = "",
+          readAsAnyParty: Boolean = false,
       ): User = {
         val lapiUser = check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
@@ -1436,6 +1438,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               isDeactivated = !isActive,
               annotations = annotations,
               identityProviderId = identityProviderId,
+              readAsAnyParty = readAsAnyParty,
             )
           )
         })
@@ -1597,6 +1600,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           readAs: the set of parties this user is allowed to read as
           participantAdmin: flag (default false) indicating if the user is allowed to use the admin commands of the Ledger Api
           identityProviderId: identity provider id
+          readAsAnyParty: flag (default false) indicating if the user is allowed to read as any party
           """)
         def grant(
             id: String,
@@ -1604,6 +1608,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             readAs: Set[PartyId] = Set(),
             participantAdmin: Boolean = false,
             identityProviderId: String = "",
+            readAsAnyParty: Boolean = false,
         ): UserRights =
           check(FeatureFlag.Testing)(consoleEnvironment.run {
             ledgerApiCommand(
@@ -1613,6 +1618,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
                 readAs = readAs.map(_.toLf),
                 participantAdmin = participantAdmin,
                 identityProviderId = identityProviderId,
+                readAsAnyParty = readAsAnyParty,
               )
             )
           })
@@ -1624,6 +1630,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           readAs: the set of parties this user should not be allowed to read as
           participantAdmin: if set to true, the participant admin rights will be removed
           identityProviderId: identity provider id
+          readAsAnyParty: flag (default false) indicating if the user is allowed to read as any party
           """)
         def revoke(
             id: String,
@@ -1631,6 +1638,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             readAs: Set[PartyId] = Set(),
             participantAdmin: Boolean = false,
             identityProviderId: String = "",
+            readAsAnyParty: Boolean = false,
         ): UserRights =
           check(FeatureFlag.Testing)(consoleEnvironment.run {
             ledgerApiCommand(
@@ -1640,6 +1648,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
                 readAs = readAs.map(_.toLf),
                 participantAdmin = participantAdmin,
                 identityProviderId = identityProviderId,
+                readAsAnyParty = readAsAnyParty,
               )
             )
           })

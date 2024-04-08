@@ -9,10 +9,6 @@ sealed trait CryptoKeyFormat extends Product with Serializable {
 }
 
 object CryptoKeyFormat {
-  case object Tink extends CryptoKeyFormat {
-    override val name: String = "Tink"
-  }
-
   case object Der extends CryptoKeyFormat {
     override val name: String = "DER"
   }

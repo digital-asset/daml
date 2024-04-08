@@ -100,7 +100,6 @@ object SymbolicCrypto {
       override def fromJavaSigningKey(
           publicKey: JPublicKey,
           algorithmIdentifier: AlgorithmIdentifier,
-          fingerprint: Fingerprint,
       ): Either[JavaKeyConversionError, SigningPublicKey] =
         throw new UnsupportedOperationException(
           "Symbolic crypto does not support conversion to java keys"
@@ -109,7 +108,6 @@ object SymbolicCrypto {
       override def fromJavaEncryptionKey(
           publicKey: JPublicKey,
           algorithmIdentifier: AlgorithmIdentifier,
-          fingerprint: Fingerprint,
       ): Either[JavaKeyConversionError, EncryptionPublicKey] =
         throw new UnsupportedOperationException(
           "Symbolic crypto does not support conversion to java keys"

@@ -127,6 +127,11 @@ message Right {
   // to the same identity provider.
   message IdentityProviderAdmin {}
 
+  // The rights of a participant's super reader. Its utility is predominantly for
+  // feeding external tools, such as PQS, continually without the need to change subscriptions
+  // as new parties pop in and out of existence.
+  message CanReadAsAnyParty {}
+
   // Required
   oneof kind {
     // The user can administer the participant node.
@@ -137,6 +142,8 @@ message Right {
     CanReadAs can_read_as = 3;
     // The user can administer users and parties assigned to the same identity provider as the one of the user.
     IdentityProviderAdmin identity_provider_admin = 4;
+    // The user can read as any party on a participant
+    CanReadAsAnyParty can_read_as_any_party = 5;
   }
 }
 

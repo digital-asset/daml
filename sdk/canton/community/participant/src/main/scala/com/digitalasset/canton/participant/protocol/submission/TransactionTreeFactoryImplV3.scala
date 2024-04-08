@@ -29,7 +29,14 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, MapsUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{LfKeyResolver, LfPackageId, LfPackageName, LfPartyId, checked}
+import com.digitalasset.canton.{
+  LfKeyResolver,
+  LfPackageId,
+  LfPackageName,
+  LfPartyId,
+  LfVersioned,
+  checked,
+}
 
 import java.util.UUID
 import scala.annotation.tailrec
@@ -100,13 +107,14 @@ class TransactionTreeFactoryImplV3(
       initialResolver: LfKeyResolver,
   ) extends TransactionTreeFactoryImpl.State {
 
-    /** An [[com.digitalasset.canton.protocol.LfGlobalKey]] does not store
-      * the maintainers, which we need to cache in case no contract is found.
+    /** An [[com.digitalasset.canton.protocol.LfGlobalKey]] stores neither the
+      * [[com.digitalasset.canton.protocol.LfTransactionVersion]] to be used during serialization
+      * nor the maintainers, which we need to cache in case no contract is found.
       *
       * Out parameter that stores version and maintainers for all keys
       * that have been referenced by an already-processed node.
       */
-    val keyMaintainers: mutable.Map[LfGlobalKey, Set[LfPartyId]] =
+    val keyVersionAndMaintainers: mutable.Map[LfGlobalKey, (LfTransactionVersion, Set[LfPartyId])] =
       mutable.Map.empty
 
     /** Out parameter for the [[com.daml.lf.transaction.ContractStateMachine.State]]
@@ -206,7 +214,8 @@ class TransactionTreeFactoryImplV3(
     val coreOtherBuilder = // contract IDs have not yet been suffixed
       List.newBuilder[((LfNodeId, LfActionNode), RollbackScope)]
     val childViewsBuilder = Seq.newBuilder[TransactionView]
-    val subViewKeyResolutions = mutable.Map.empty[LfGlobalKey, SerializableKeyResolution]
+    val subViewKeyResolutions =
+      mutable.Map.empty[LfGlobalKey, LfVersioned[SerializableKeyResolution]]
 
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     var createIndex = 0
@@ -235,7 +244,7 @@ class TransactionTreeFactoryImplV3(
               childViewsBuilder += v
               val createdInSubview = state.createdContractsInView
               createdInView ++= createdInSubview
-              val keyResolutionsInSubview = v.globalKeyInputs.fmap(_.asSerializable)
+              val keyResolutionsInSubview = v.globalKeyInputs.fmap(_.map(_.asSerializable))
               MapsUtil.extendMapWith(subViewKeyResolutions, keyResolutionsInSubview) {
                 (accRes, _) => accRes
               }
@@ -264,7 +273,7 @@ class TransactionTreeFactoryImplV3(
           }
 
           suffixedNode.keyOpt.foreach { case LfGlobalKeyWithMaintainers(gkey, maintainers) =>
-            state.keyMaintainers += (gkey -> maintainers)
+            state.keyVersionAndMaintainers += (gkey -> (suffixedNode.version -> maintainers))
           }
 
           state.signalRollbackScope(rbScope)
@@ -315,7 +324,7 @@ class TransactionTreeFactoryImplV3(
       resolvedK <- EitherT.fromEither[Future](
         resolvedKeys(
           viewKeyInputs,
-          state.keyMaintainers,
+          state.keyVersionAndMaintainers,
           subViewKeyResolutions,
         )
       )
@@ -372,7 +381,7 @@ class TransactionTreeFactoryImplV3(
       transactionView: TransactionView,
       viewPosition: ViewPosition,
   )(implicit traceContext: TraceContext): Unit = {
-    val viewGki = transactionView.globalKeyInputs.fmap(_.resolution)
+    val viewGki = transactionView.globalKeyInputs.fmap(_.unversioned.resolution)
     val stateGki = csmState.globalKeyInputs.fmap(_.toKeyMapping)
     ErrorUtil.requireState(
       viewGki == stateGki,
@@ -427,11 +436,13 @@ class TransactionTreeFactoryImplV3(
     */
   private def resolvedKeys(
       viewKeyInputs: Map[LfGlobalKey, KeyInput],
-      keyVersionAndMaintainers: collection.Map[LfGlobalKey, Set[LfPartyId]],
-      subviewKeyResolutions: collection.Map[LfGlobalKey, SerializableKeyResolution],
+      keyVersionAndMaintainers: collection.Map[LfGlobalKey, (LfTransactionVersion, Set[LfPartyId])],
+      subviewKeyResolutions: collection.Map[LfGlobalKey, LfVersioned[SerializableKeyResolution]],
   )(implicit
       traceContext: TraceContext
-  ): Either[TransactionTreeConversionError, Map[LfGlobalKey, SerializableKeyResolution]] = {
+  ): Either[TransactionTreeConversionError, Map[LfGlobalKey, LfVersioned[
+    SerializableKeyResolution
+  ]]] = {
     ErrorUtil.requireArgument(
       subviewKeyResolutions.keySet.subsetOf(viewKeyInputs.keySet),
       s"Global key inputs of subview not part of the global key inputs of the parent view. Missing keys: ${subviewKeyResolutions.keySet
@@ -441,14 +452,14 @@ class TransactionTreeFactoryImplV3(
     def resolutionFor(
         key: LfGlobalKey,
         keyInput: KeyInput,
-    ): Either[MissingContractKeyLookupError, SerializableKeyResolution] = {
+    ): Either[MissingContractKeyLookupError, LfVersioned[SerializableKeyResolution]] = {
       keyVersionAndMaintainers.get(key).toRight(MissingContractKeyLookupError(key)).map {
-        maintainers =>
+        case (lfVersion, maintainers) =>
           val resolution = keyInput match {
             case KeyActive(cid) => AssignedKey(cid)
             case KeyCreate | NegativeKeyLookup => FreeKey(maintainers)
           }
-          resolution
+          LfVersioned(lfVersion, resolution)
       }
     }
 

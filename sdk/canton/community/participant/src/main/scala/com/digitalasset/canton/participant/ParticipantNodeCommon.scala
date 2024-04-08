@@ -450,6 +450,7 @@ trait ParticipantNodeBootstrapCommon {
         sequencerInfoLoader,
         arguments.futureSupervisor,
         loggerFactory,
+        arguments.testingConfig,
       )
 
       _ = {

@@ -153,6 +153,8 @@ object UserManagementClient {
       proto.Right(proto.Right.Kind.CanActAs(proto.Right.CanActAs(party)))
     case domain.UserRight.CanReadAs(party) =>
       proto.Right(proto.Right.Kind.CanReadAs(proto.Right.CanReadAs(party)))
+    case domain.UserRight.CanReadAsAnyParty =>
+      proto.Right(proto.Right.Kind.CanReadAsAnyParty(proto.Right.CanReadAsAnyParty()))
   }
 
   private val fromProtoRight: proto.Right => Option[domain.UserRight] = {
@@ -165,6 +167,8 @@ object UserManagementClient {
       Some(domain.UserRight.CanActAs(Ref.Party.assertFromString(x.party)))
     case proto.Right(proto.Right.Kind.CanReadAs(x)) =>
       Some(domain.UserRight.CanReadAs(Ref.Party.assertFromString(x.party)))
+    case proto.Right(proto.Right.Kind.CanReadAsAnyParty(_)) =>
+      Some(domain.UserRight.CanReadAsAnyParty)
     case proto.Right(proto.Right.Kind.Empty) =>
       None // The server sent a right of a kind that this client doesn't know about.
   }

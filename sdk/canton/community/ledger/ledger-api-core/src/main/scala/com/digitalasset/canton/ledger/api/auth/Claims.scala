@@ -53,6 +53,12 @@ final case class ClaimActAsParty(name: Ref.Party) extends Claim
   */
 final case class ClaimReadAsParty(name: Ref.Party) extends Claim
 
+/** Authorized to read all data as any party on the participant.
+  *
+  * Does NOT authorize to issue commands.
+  */
+final case object ClaimReadAsAnyParty extends Claim
+
 sealed trait ClaimSet
 
 object ClaimSet {
@@ -150,6 +156,7 @@ object ClaimSet {
       Either.cond(
         claims.exists {
           case ClaimActAsAnyParty => true
+          case ClaimReadAsAnyParty => true
           case ClaimActAsParty(p) if p == party => true
           case ClaimReadAsParty(p) if p == party => true
           case _ => false

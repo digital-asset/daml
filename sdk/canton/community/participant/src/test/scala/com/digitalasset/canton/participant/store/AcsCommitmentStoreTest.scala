@@ -69,7 +69,11 @@ trait CommitmentStoreBaseTest extends AsyncWordSpec with BaseTest {
 
   def ts(time: Int): CantonTimestamp = CantonTimestamp.ofEpochSecond(time.toLong)
   def meta(stakeholders: LfPartyId*): ContractMetadata =
-    ContractMetadata.tryCreate(Set.empty, stakeholders.toSet, maybeKeyWithMaintainers = None)
+    ContractMetadata.tryCreate(
+      Set.empty,
+      stakeholders.toSet,
+      maybeKeyWithMaintainersVersioned = None,
+    )
   def period(fromExclusive: Int, toInclusive: Int): CommitmentPeriod =
     CommitmentPeriod.create(ts(fromExclusive), ts(toInclusive), interval).value
 

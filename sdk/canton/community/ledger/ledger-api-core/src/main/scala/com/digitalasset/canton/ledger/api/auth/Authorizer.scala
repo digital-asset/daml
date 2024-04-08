@@ -199,7 +199,10 @@ final class Authorizer(
         _ <- authorizationErrorAsGrpc(valid(claims))
         _ <- authorizationErrorAsGrpc(requireForAll(parties, party => claims.canReadAs(party)))
         defaultedApplicationId <- defaultApplicationId(reqApplicationId, claims)
-        _ <- authorizationErrorAsGrpc(claims.validForApplication(defaultedApplicationId))
+        _ <-
+          if (claims.claims.contains(ClaimReadAsAnyParty))
+            Right(())
+          else authorizationErrorAsGrpc(claims.validForApplication(defaultedApplicationId))
       } yield applicationIdL.set(defaultedApplicationId)(req)
     }
 

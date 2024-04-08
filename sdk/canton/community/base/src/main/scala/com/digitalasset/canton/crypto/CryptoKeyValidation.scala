@@ -6,9 +6,6 @@ package com.digitalasset.canton.crypto
 import cats.syntax.either.*
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.provider.jce.JceJavaConverter
-import com.digitalasset.canton.crypto.provider.tink.TinkKeyFormat
-import com.google.crypto.tink.KeysetHandle
-import com.google.crypto.tink.proto.OutputPrefixType
 
 import java.security.PublicKey as JPublicKey
 import scala.collection.concurrent.TrieMap
@@ -19,36 +16,6 @@ object CryptoKeyValidation {
   // keeps track of the public keys that have been validated
   private lazy val validatedPublicKeys: TrieMap[PublicKey, Either[KeyParseAndValidateError, Unit]] =
     TrieMap.empty
-
-  private[crypto] def parseAndValidateTinkKey(
-      publicKey: PublicKey
-  ): Either[KeyParseAndValidateError, KeysetHandle] =
-    for {
-      /* deserialize the public key using Tink and only then regenerate fingerprint. If the
-       * deserialization fails, the format is not correct and we fail validation.
-       */
-      handle <- TinkKeyFormat
-        .deserializeHandle(publicKey.key)
-        .leftMap(err => KeyParseAndValidateError(err.show))
-      fingerprint <- TinkKeyFormat
-        .fingerprint(handle, HashAlgorithm.Sha256)
-        .leftMap(KeyParseAndValidateError)
-      _ <- Either.cond(
-        fingerprint == publicKey.id,
-        (),
-        KeyParseAndValidateError(
-          s"The regenerated fingerprint $fingerprint does not match the fingerprint of the object: ${publicKey.id}"
-        ),
-      )
-      outputPrefixType = handle.getKeysetInfo.getKeyInfo(0).getOutputPrefixType
-      _ <- Either.cond(
-        outputPrefixType == OutputPrefixType.RAW,
-        (),
-        KeyParseAndValidateError(
-          s"Wrong output prefix type: expected RAW got $outputPrefixType"
-        ),
-      )
-    } yield handle
 
   private[crypto] def parseAndValidateDerOrRawKey(
       publicKey: PublicKey
@@ -85,11 +52,6 @@ object CryptoKeyValidation {
       errFn: String => E,
   ): Either[E, Unit] = {
     val parseRes = publicKey.format match {
-      case CryptoKeyFormat.Tink =>
-        /* We check the cache first and if it's not there we:
-         * 1. deserialize handle (and consequently check the key format); 2. check fingerprint
-         */
-        parseAndValidateTinkKey(publicKey).map(_ => ())
       case CryptoKeyFormat.Der | CryptoKeyFormat.Raw =>
         /* We check the cache first and if it's not there we:
          * 1. check fingerprint; 2. convert to Java Key (and consequently check the key format)

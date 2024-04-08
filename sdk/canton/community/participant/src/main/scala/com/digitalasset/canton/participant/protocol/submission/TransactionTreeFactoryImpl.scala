@@ -491,7 +491,7 @@ abstract class TransactionTreeFactoryImpl(
       coreOtherNodes: List[(LfActionNode, RollbackScope)],
       childViews: Seq[TransactionView],
       createdContractInfo: collection.Map[LfContractId, SerializableContract],
-      resolvedKeys: collection.Map[LfGlobalKey, SerializableKeyResolution],
+      resolvedKeys: collection.Map[LfGlobalKey, LfVersioned[SerializableKeyResolution]],
       actionDescription: ActionDescription,
       salt: Salt,
       contractOfId: SerializableContractOfId,

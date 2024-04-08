@@ -7,6 +7,7 @@ package com.digitalasset.canton.protocol.v30;
 
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/protocol/v30/common.proto";
+import "com/digitalasset/canton/protocol/v30/common_stable.proto";
 import "com/digitalasset/canton/protocol/v30/merkle.proto";
 import "google/protobuf/duration.proto";
 import "scalapb/scalapb.proto";

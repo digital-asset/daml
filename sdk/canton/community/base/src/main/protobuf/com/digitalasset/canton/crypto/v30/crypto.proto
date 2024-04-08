@@ -181,15 +181,11 @@ enum SymmetricKeyScheme {
 enum CryptoKeyFormat {
   CRYPTO_KEY_FORMAT_UNSPECIFIED = 0;
 
-  // Tink's KeySet proto serialization format
-  // https://github.com/google/tink/tree/1.5/proto
-  CRYPTO_KEY_FORMAT_TINK = 1;
-
   // ASN.1 + DER encoding
-  CRYPTO_KEY_FORMAT_DER = 2;
+  CRYPTO_KEY_FORMAT_DER = 1;
 
   // Raw encoding of a key, typically used for symmetric keys or Ed25519 keypairs.
-  CRYPTO_KEY_FORMAT_RAW = 3;
+  CRYPTO_KEY_FORMAT_RAW = 2;
 
   // Symbolic crypto, must only be used for testing
   CRYPTO_KEY_FORMAT_SYMBOLIC = 10000;

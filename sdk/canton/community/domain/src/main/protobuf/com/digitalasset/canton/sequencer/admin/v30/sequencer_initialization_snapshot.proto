@@ -6,7 +6,7 @@ syntax = "proto3";
 package com.digitalasset.canton.sequencer.admin.v30;
 
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
-import "com/digitalasset/canton/protocol/v30/sequencing.proto";
+import "com/digitalasset/canton/protocol/v30/common_stable.proto";
 import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
 

@@ -22,16 +22,10 @@ import com.digitalasset.canton.crypto.CryptoFactory.{
   selectAllowedSigningKeyScheme,
   selectSchemes,
 }
-import com.digitalasset.canton.crypto.provider.CryptoKeyConverter
 import com.digitalasset.canton.crypto.provider.jce.{
   JceJavaConverter,
   JcePrivateCrypto,
   JcePureCrypto,
-}
-import com.digitalasset.canton.crypto.provider.tink.{
-  TinkJavaConverter,
-  TinkPrivateCrypto,
-  TinkPureCrypto,
 }
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStore, CryptoPublicStore}
@@ -74,9 +68,6 @@ trait CryptoFactory {
         requiredEncryptionKeySchemes,
       )
       crypto <- config.provider match {
-        case _: CryptoProvider.TinkCryptoProvider =>
-          val cryptoKeyConverter = new CryptoKeyConverter(new TinkJavaConverter, jceJavaConverter)
-          TinkPureCrypto.create(cryptoKeyConverter, symmetricKeyScheme, hashAlgorithm)
         case _: CryptoProvider.JceCryptoProvider =>
           for {
             pbkdfSchemes <- config.provider.pbkdf.toRight(
@@ -216,69 +207,12 @@ class CommunityCryptoFactory extends CryptoFactory {
         tracerProvider,
       )
       crypto <- config.provider match {
-        case CommunityCryptoProvider.Tink =>
-          TinkCrypto.create(
-            config,
-            storesAndSchemes,
-            timeouts,
-            loggerFactory,
-          )
         case CommunityCryptoProvider.Jce =>
           JceCrypto.create(config, storesAndSchemes, timeouts, loggerFactory)
         case prov =>
           EitherT.leftT[Future, Crypto](s"Unsupported crypto provider: $prov")
       }
     } yield crypto
-}
-
-object TinkCrypto {
-
-  def create(
-      config: CryptoConfig,
-      storesAndSchemes: CryptoStoresAndSchemes,
-      timeouts: ProcessingTimeout,
-      loggerFactory: NamedLoggerFactory,
-  )(implicit
-      ec: ExecutionContext
-  ): EitherT[Future, String, Crypto] =
-    for {
-      cryptoPrivateStoreExtended <- storesAndSchemes.cryptoPrivateStore.toExtended
-        .toRight(
-          s"The crypto private store does not implement all the functions necessary " +
-            s"for the chosen provider ${config.provider}"
-        )
-        .toEitherT[Future]
-      requiredSigningKeySchemes <- selectAllowedSigningKeyScheme(config).toEitherT[Future]
-      requiredEncryptionKeySchemes <- selectAllowedEncryptionKeyScheme(config).toEitherT[Future]
-      jceKeyConverter = new JceJavaConverter(
-        requiredSigningKeySchemes,
-        requiredEncryptionKeySchemes,
-      )
-      cryptoKeyConverter = new CryptoKeyConverter(new TinkJavaConverter, jceKeyConverter)
-      pureCrypto <- TinkPureCrypto
-        .create(
-          cryptoKeyConverter,
-          storesAndSchemes.symmetricKeyScheme,
-          storesAndSchemes.hashAlgorithm,
-        )
-        .toEitherT
-      privateCrypto = TinkPrivateCrypto.create(
-        pureCrypto,
-        storesAndSchemes.signingKeyScheme,
-        storesAndSchemes.encryptionKeyScheme,
-        cryptoPrivateStoreExtended,
-      )
-      crypto = new Crypto(
-        pureCrypto,
-        privateCrypto,
-        storesAndSchemes.cryptoPrivateStore,
-        storesAndSchemes.cryptoPublicStore,
-        new TinkJavaConverter,
-        timeouts,
-        loggerFactory,
-      )
-    } yield crypto
-
 }
 
 object JceCrypto {

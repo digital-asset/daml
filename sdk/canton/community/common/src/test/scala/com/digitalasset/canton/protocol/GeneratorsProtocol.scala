@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.protocol
 
+import com.daml.lf.transaction.Versioned
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
@@ -183,7 +184,7 @@ final class GeneratorsProtocol(
     )
   }
 
-  implicit val globalKeyWithMaintainersArb: Arbitrary[LfGlobalKeyWithMaintainers] =
+  implicit val globalKeyWithMaintainersArb: Arbitrary[Versioned[LfGlobalKeyWithMaintainers]] =
     Arbitrary(
       for {
         maintainers <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
@@ -199,7 +200,7 @@ final class GeneratorsProtocol(
       maybeKeyWithMaintainers <-
         if (canHaveEmptyKey) Gen.option(globalKeyWithMaintainersArb.arbitrary)
         else Gen.some(globalKeyWithMaintainersArb.arbitrary)
-      maintainers = maybeKeyWithMaintainers.fold(Set.empty[LfPartyId])(_.maintainers)
+      maintainers = maybeKeyWithMaintainers.fold(Set.empty[LfPartyId])(_.unversioned.maintainers)
 
       signatories <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       observers <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
