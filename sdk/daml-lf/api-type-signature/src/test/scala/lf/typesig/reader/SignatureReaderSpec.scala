@@ -347,7 +347,6 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
         )
       }
 
-      // TODO: https://github.com/digital-asset/daml/issues/18821
       // Make SignatureReaderSpec handle LF 1.x and active the 3 fallowing test for LF 1.x
       "have interfaces with retroImplements" in {
         assume(v == LanguageVersion.Major.V1)
