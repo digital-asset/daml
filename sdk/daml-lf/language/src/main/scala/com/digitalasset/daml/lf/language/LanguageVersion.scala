@@ -29,7 +29,7 @@ object LanguageVersion {
 
   implicit val Ordering: scala.Ordering[LanguageVersion] = {
     case (LanguageVersion(Major.V1, leftMinor), LanguageVersion(Major.V1, rightMinor)) =>
-      Major.V2.minorVersionOrdering.compare(leftMinor, rightMinor)
+      Major.V1.minorVersionOrdering.compare(leftMinor, rightMinor)
     case (LanguageVersion(Major.V2, leftMinor), LanguageVersion(Major.V2, rightMinor)) =>
       Major.V2.minorVersionOrdering.compare(leftMinor, rightMinor)
     case (v1, v2) =>

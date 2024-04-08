@@ -5,11 +5,11 @@ package com.daml.lf
 package typesig
 package reader
 
-import com.daml.bazeltools.BazelRunfiles.requiredResource
+import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{DottedName, QualifiedName}
+import com.daml.lf.data.Ref.{QualifiedName, DottedName}
 import com.daml.lf.language.Ast
 import com.daml.lf.language.LanguageVersion
 import org.scalatest.Inside
@@ -18,6 +18,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import scalaz.\/-
 import scalaz.syntax.functor._
 
+import java.io.File
 import scala.language.implicitConversions
 
 class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
@@ -184,200 +185,222 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
       PackageMetadata(name, version)
   }
 
-  "a real dar" should {
-    import archive.DarReader.readArchiveFromFile
-    import QualifiedName.{assertFromString => qn}
-    import Ref.ChoiceName.{assertFromString => cn}
+  def testDar(v: LanguageVersion.Major) = s"a real LF $v dar" should {
+    val file =
+      new File(rlocation(s"daml-lf/api-type-signature/InterfaceTestPackage-v${v.pretty}.dar"))
 
-    lazy val itp = {
-      val file = requiredResource("daml-lf/api-type-signature/InterfaceTestPackage.dar")
-      inside(readArchiveFromFile(file)) { case Right(dar) =>
-        dar.map { payload =>
-          val (errors, ii) = typesig.PackageSignature.read(payload)
-          errors should ===(Errors.zeroErrors)
-          ii
+    if (v == LanguageVersion.Major.V2 || file.exists()) {
+
+      import archive.DarReader.readArchiveFromFile
+      import QualifiedName.{assertFromString => qn}
+      import Ref.ChoiceName.{assertFromString => cn}
+
+      lazy val itp = {
+
+        inside(readArchiveFromFile(file)) { case Right(dar) =>
+          dar.map { payload =>
+            val (errors, ii) = typesig.PackageSignature.read(payload)
+            errors should ===(Errors.zeroErrors)
+            ii
+          }
         }
       }
-    }
-    lazy val itpES = EnvironmentSignature.fromPackageSignatures(itp).resolveChoices
+      lazy val itpES = EnvironmentSignature.fromPackageSignatures(itp).resolveChoices
 
-    lazy val itpWithoutRetroImplements = itp.copy(
-      main = itp.main.copy(
-        interfaces = itp.main.interfaces - qn("RetroInterface:RetroIf")
+      lazy val itpWithoutRetroImplements = itp.copy(
+        main = itp.main.copy(
+          interfaces = itp.main.interfaces - qn("RetroInterface:RetroIf")
+        )
       )
-    )
-    lazy val itpESWithoutRetroImplements =
-      EnvironmentSignature.fromPackageSignatures(itpWithoutRetroImplements).resolveChoices
+      lazy val itpESWithoutRetroImplements =
+        EnvironmentSignature.fromPackageSignatures(itpWithoutRetroImplements).resolveChoices
 
-    "load without errors" in {
-      itp shouldBe itp
-    }
-
-    val Foo = qn("InterfaceTestPackage:Foo")
-    val Bar = cn("Bar")
-    val Archive = cn("Archive")
-    val TIf = qn("InterfaceTestPackage:TIf")
-    val LibTIf = qn("InterfaceTestLib:TIf")
-    val RetroIf = qn("RetroInterface:RetroIf")
-    val LibTIfView = qn("InterfaceTestLib:TIfView")
-    val Useless = cn("Useless")
-    val UselessTy = qn("InterfaceTestPackage:Useless")
-    import itp.main.{packageId => itpPid}
-
-    "exclude interface choices with template choices" in {
-      inside(itp.main.typeDecls get Foo) { case Some(TypeDecl.Template(_, tpl)) =>
-        tpl.tChoices.directChoices.keySet should ===(Set("Bar", "Archive"))
+      "load without errors" in {
+        itp shouldBe itp
       }
-    }
 
-    "include interface choices in separate inheritedChoices" in {
-      inside(itp.main.typeDecls get Foo) {
-        case Some(
-              TypeDecl.Template(_, DefTemplate(TemplateChoices.Unresolved(_, inherited), _, _))
-            ) =>
-          inherited.map(_.qualifiedName) should ===(Set(TIf, LibTIf))
-      }
-    }
+      val Foo = qn("InterfaceTestPackage:Foo")
+      val Bar = cn("Bar")
+      val Archive = cn("Archive")
+      val TIf = qn("InterfaceTestPackage:TIf")
+      val LibTIf = qn("InterfaceTestLib:TIf")
+      val RetroIf = qn("RetroInterface:RetroIf")
+      val LibTIfView = qn("InterfaceTestLib:TIfView")
+      val Useless = cn("Useless")
+      val UselessTy = qn("InterfaceTestPackage:Useless")
+      import itp.main.{packageId => itpPid}
 
-    object TheUselessChoice {
-      def unapply(ty: TemplateChoice.FWT): Option[(QualifiedName, QualifiedName)] = {
-        val ItpPid = itpPid
-        ty match {
-          case TemplateChoice(
-                TypeCon(TypeConName(Ref.Identifier(ItpPid, uselessTy)), Seq()),
-                true,
-                TypePrim(
-                  PrimType.ContractId,
-                  Seq(TypeCon(TypeConName(Ref.Identifier(ItpPid, tIf)), Seq())),
-                ),
-              ) =>
-            Some((uselessTy, tIf))
-          case _ => None
+      "exclude interface choices with template choices" in {
+        inside(itp.main.typeDecls get Foo) { case Some(TypeDecl.Template(_, tpl)) =>
+          tpl.tChoices.directChoices.keySet should ===(Set("Bar", "Archive"))
         }
       }
-    }
 
-    "have interfaces with choices" in {
-      itp.main.interfaces.keySet should ===(Set(LibTIf, TIf))
-      inside(itp.main.interfaces(TIf).choices get Useless) {
-        case Some(TheUselessChoice(UselessTy, TIf)) =>
+      "include interface choices in separate inheritedChoices" in {
+        inside(itp.main.typeDecls get Foo) {
+          case Some(
+                TypeDecl.Template(_, DefTemplate(TemplateChoices.Unresolved(_, inherited), _, _))
+              ) =>
+            inherited.map(_.qualifiedName) should ===(Set(TIf, LibTIf))
+        }
       }
-    }
 
-    "identify a record interface view" in {
-      inside(itp.main.interfaces(LibTIf).viewType) { case Some(Ref.TypeConName(_, LibTIfView)) =>
+      object TheUselessChoice {
+        def unapply(ty: TemplateChoice.FWT): Option[(QualifiedName, QualifiedName)] = {
+          val ItpPid = itpPid
+          ty match {
+            case TemplateChoice(
+                  TypeCon(TypeConName(Ref.Identifier(ItpPid, uselessTy)), Seq()),
+                  true,
+                  TypePrim(
+                    PrimType.ContractId,
+                    Seq(TypeCon(TypeConName(Ref.Identifier(ItpPid, tIf)), Seq())),
+                  ),
+                ) =>
+              Some((uselessTy, tIf))
+            case _ => None
+          }
+        }
       }
-    }
 
-    def viewNameExpectsRec =
-      inside(itp.main.interfaces(LibTIf).viewType) { case Some(viewName) =>
-        (
-          viewName,
-          inside(itp.main.typeDecls(viewName.qualifiedName)) {
-            case TypeDecl.Normal(DefDataType(_, rec)) =>
-              rec
-          },
+      "have interfaces with choices" in {
+        val expected =
+          if (v == LanguageVersion.Major.V1)
+            Set(LibTIf, TIf, RetroIf)
+          else
+            Set(LibTIf, TIf)
+
+        itp.main.interfaces.keySet should ===(expected)
+        inside(itp.main.interfaces(TIf).choices get Useless) {
+          case Some(TheUselessChoice(UselessTy, TIf)) =>
+        }
+      }
+
+      "identify a record interface view" in {
+        inside(itp.main.interfaces(LibTIf).viewType) { case Some(Ref.TypeConName(_, LibTIfView)) =>
+        }
+      }
+
+      def viewNameExpectsRec =
+        inside(itp.main.interfaces(LibTIf).viewType) { case Some(viewName) =>
+          (
+            viewName,
+            inside(itp.main.typeDecls(viewName.qualifiedName)) {
+              case TypeDecl.Normal(DefDataType(_, rec)) =>
+                rec
+            },
+          )
+        }
+
+      "finds an interface view from Interface sets" in {
+        val (viewName, expectedRec) = viewNameExpectsRec
+        PackageSignature.resolveInterfaceViewType {
+          case id if id == itp.main.packageId => itp.main
+        }(viewName) should ===(expectedRec)
+      }
+
+      "finds an interface view from EnvironmentInterface" in {
+        val (viewName, expectedRec) = viewNameExpectsRec
+        itpES.resolveInterfaceViewType(viewName) should ===(Some(expectedRec))
+      }
+
+      def foundResolvedChoices(foo: Option[TypeDecl]) = inside(foo) {
+        case Some(TypeDecl.Template(_, DefTemplate(TemplateChoices.Resolved(resolved), _, _))) =>
+          resolved
+      }
+
+      def foundUselessChoice(foo: Option[TypeDecl]) =
+        inside(foundResolvedChoices(foo).get(Useless).map(_.forgetNE.toSeq)) {
+          case Some(Seq((Some(origin1), choice1), (Some(origin2), choice2))) =>
+            Seq(origin1, origin2) should contain theSameElementsAs Seq(
+              Ref.Identifier(itpPid, TIf),
+              Ref.Identifier(itpPid, LibTIf),
+            )
+            inside(choice1) { case TheUselessChoice(_, tIf) =>
+              tIf should ===(origin1.qualifiedName)
+            }
+            inside(choice2) { case TheUselessChoice(_, tIf) =>
+              tIf should ===(origin2.qualifiedName)
+            }
+        }
+
+      "resolve inherited choices" in {
+        foundUselessChoice(itpES.typeDecls get Ref.Identifier(itpPid, Foo))
+      }
+
+      "resolve choices internally" in {
+        foundUselessChoice(
+          itp.main.resolveChoicesAndIgnoreUnresolvedChoices(PartialFunction.empty).typeDecls get Foo
         )
       }
 
-    "finds an interface view from Interface sets" in {
-      val (viewName, expectedRec) = viewNameExpectsRec
-      PackageSignature.resolveInterfaceViewType {
-        case id if id == itp.main.packageId => itp.main
-      }(viewName) should ===(expectedRec)
-    }
-
-    "finds an interface view from EnvironmentInterface" in {
-      val (viewName, expectedRec) = viewNameExpectsRec
-      itpES.resolveInterfaceViewType(viewName) should ===(Some(expectedRec))
-    }
-
-    def foundResolvedChoices(foo: Option[TypeDecl]) = inside(foo) {
-      case Some(TypeDecl.Template(_, DefTemplate(TemplateChoices.Resolved(resolved), _, _))) =>
-        resolved
-    }
-
-    def foundUselessChoice(foo: Option[TypeDecl]) =
-      inside(foundResolvedChoices(foo).get(Useless).map(_.forgetNE.toSeq)) {
-        case Some(Seq((Some(origin1), choice1), (Some(origin2), choice2))) =>
-          Seq(origin1, origin2) should contain theSameElementsAs Seq(
-            Ref.Identifier(itpPid, TIf),
-            Ref.Identifier(itpPid, LibTIf),
-          )
-          inside(choice1) { case TheUselessChoice(_, tIf) => tIf should ===(origin1.qualifiedName) }
-          inside(choice2) { case TheUselessChoice(_, tIf) => tIf should ===(origin2.qualifiedName) }
+      "collect direct and resolved choices in one map" in {
+        foundResolvedChoices(itpES.typeDecls get Ref.Identifier(itpPid, Foo))
+          .transform((_, cs) => cs.keySet) should contain theSameElementsAs Map(
+          Archive -> Set(
+            Some(Ref.Identifier(itpPid, TIf)),
+            Some(Ref.Identifier(itpPid, LibTIf)),
+            None,
+          ),
+          Useless -> Set(Some(Ref.Identifier(itpPid, TIf)), Some(Ref.Identifier(itpPid, LibTIf))),
+          Bar -> Set(None),
+        )
       }
 
-    "resolve inherited choices" in {
-      foundUselessChoice(itpES.typeDecls get Ref.Identifier(itpPid, Foo))
-    }
+      // Make SignatureReaderSpec handle LF 1.x and active the 3 fallowing test for LF 1.x
+      "have interfaces with retroImplements" in {
+        assume(v == LanguageVersion.Major.V1)
+        itp.main.interfaces.keySet should ===(Set(LibTIf, TIf, RetroIf))
+        itp.main.interfaces(RetroIf).retroImplements should ===(
+          Set(Ref.TypeConName(itp.main.packageId, Foo))
+        )
+      }
 
-    "resolve choices internally" in {
-      foundUselessChoice(
-        itp.main.resolveChoicesAndIgnoreUnresolvedChoices(PartialFunction.empty).typeDecls get Foo
-      )
-    }
+      "resolve retro implements harmlessly when there are none" in {
+        assume(v == LanguageVersion.Major.V1)
 
-    "collect direct and resolved choices in one map" in {
-      foundResolvedChoices(itpES.typeDecls get Ref.Identifier(itpPid, Foo))
-        .transform((_, cs) => cs.keySet) should contain theSameElementsAs Map(
-        Archive -> Set(
-          Some(Ref.Identifier(itpPid, TIf)),
-          Some(Ref.Identifier(itpPid, LibTIf)),
-          None,
-        ),
-        Useless -> Set(Some(Ref.Identifier(itpPid, TIf)), Some(Ref.Identifier(itpPid, LibTIf))),
-        Bar -> Set(None),
-      )
-    }
+        PackageSignature.resolveRetroImplements((), itpWithoutRetroImplements.all)((_, _) =>
+          None
+        ) should ===((), itpWithoutRetroImplements.all)
+        itpESWithoutRetroImplements.resolveRetroImplements should ===(itpESWithoutRetroImplements)
+      }
 
-    // TODO: https://github.com/digital-asset/daml/issues/18821
-    // Make SignatureReaderSpec handle LF 1.x and active the 3 fallowing test for LF 1.x
-    "have interfaces with retroImplements" ignore {
-      itp.main.interfaces.keySet should ===(Set(LibTIf, TIf, RetroIf))
-      itp.main.interfaces(RetroIf).retroImplements should ===(
-        Set(Ref.TypeConName(itp.main.packageId, Foo))
-      )
-    }
-
-    "resolve retro implements harmlessly when there are none" ignore {
-      PackageSignature.resolveRetroImplements((), itpWithoutRetroImplements.all)((_, _) =>
-        None
-      ) should ===((), itpWithoutRetroImplements.all)
-      itpESWithoutRetroImplements.resolveRetroImplements should ===(itpESWithoutRetroImplements)
-    }
-
-    "resolve retro implements" ignore {
-      val (_, itpResolvedRetro) =
-        PackageSignature.resolveRetroImplements((), itp.all)((_, _) => None)
-      itpResolvedRetro should !==(itp.all)
-      inside(
-        itpResolvedRetro.find(_.packageId == itp.main.packageId)
-      ) { case Some(packageSignature) =>
-        inside(packageSignature.interfaces.get(RetroIf)) {
-          case Some(DefInterface(_, retroImplements, _)) =>
-            retroImplements shouldBe empty
+      "resolve retro implements" in {
+        assume(v == LanguageVersion.Major.V1)
+        val (_, itpResolvedRetro) =
+          PackageSignature.resolveRetroImplements((), itp.all)((_, _) => None)
+        itpResolvedRetro should !==(itp.all)
+        inside(
+          itpResolvedRetro.find(_.packageId == itp.main.packageId)
+        ) { case Some(packageSignature) =>
+          inside(packageSignature.interfaces.get(RetroIf)) {
+            case Some(DefInterface(_, _, retroImplements)) =>
+              retroImplements shouldBe empty
+          }
+          inside(packageSignature.typeDecls.get(Foo)) {
+            case Some(TypeDecl.Template(_, DefTemplate(_, _, implementedInterfaces))) =>
+              implementedInterfaces should contain(Ref.TypeConName(itp.main.packageId, RetroIf))
+          }
         }
-        inside(packageSignature.typeDecls.get(Foo)) {
+
+        val itsESResolvedRetro = itpES.resolveRetroImplements
+        itsESResolvedRetro should !==(itpES)
+        inside(
+          itsESResolvedRetro.interfaces.get(Ref.TypeConName(itp.main.packageId, RetroIf))
+        ) { case Some(DefInterface(_, _, retroImplements)) =>
+          retroImplements shouldBe empty
+        }
+
+        inside(itsESResolvedRetro.typeDecls.get(Ref.TypeConName(itp.main.packageId, Foo))) {
           case Some(TypeDecl.Template(_, DefTemplate(_, _, implementedInterfaces))) =>
             implementedInterfaces should contain(Ref.TypeConName(itp.main.packageId, RetroIf))
         }
       }
-
-      val itsESResolvedRetro = itpES.resolveRetroImplements
-      itsESResolvedRetro should !==(itpES)
-      inside(
-        itsESResolvedRetro.interfaces.get(Ref.TypeConName(itp.main.packageId, RetroIf))
-      ) { case Some(DefInterface(_, retroImplements, _)) =>
-        retroImplements shouldBe empty
-      }
-
-      inside(itsESResolvedRetro.typeDecls.get(Ref.TypeConName(itp.main.packageId, Foo))) {
-        case Some(TypeDecl.Template(_, DefTemplate(_, _, implementedInterfaces))) =>
-          implementedInterfaces should contain(Ref.TypeConName(itp.main.packageId, RetroIf))
-      }
     }
   }
+
+  testDar(LanguageVersion.Major.V1)
+  testDar(LanguageVersion.Major.V2)
 
   private def wrappInModule(dataName: DottedName, dfn: Ast.DDataType) =
     Ast.Module(
