@@ -180,8 +180,8 @@ class TransactionViewDecompositionTest
         NewView(
           node,
           ViewConfirmationParameters.tryCreate(
-            Set.empty,
-            Seq(Quorum.create(Set.empty, nextThreshold)),
+            Map.empty,
+            Seq(Quorum(Map.empty, nextThreshold)),
           ),
           None,
           LfNodeId(0),
@@ -287,7 +287,7 @@ object RollbackDecomposition {
         case view: NewView =>
           RbNewTree(
             view.rbContext.enterRollback.rollbackScope.toList,
-            view.viewConfirmationParameters.informees,
+            view.viewConfirmationParameters.informeesIds,
             rollbackDecomposition(view.tailNodes),
           )
         case view: SameView =>

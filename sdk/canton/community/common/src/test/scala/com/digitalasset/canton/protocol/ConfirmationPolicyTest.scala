@@ -21,12 +21,22 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{Observation, Submission}
 import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, TrustLevel}
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPartyId}
-import org.scalatest.wordspec.AnyWordSpec
+import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{
+  BaseTest,
+  HasExecutionContext,
+  LfPartyId,
+  ProtocolVersionChecksAsyncWordSpec,
+}
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
-class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecutionContext {
+class ConfirmationPolicyTest
+    extends AsyncWordSpec
+    with ProtocolVersionChecksAsyncWordSpec
+    with BaseTest
+    with HasExecutionContext {
 
   private lazy val gen = new ExampleTransactionFactory()(confirmationPolicy = Vip)
 
@@ -34,6 +44,30 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
   private lazy val bob: LfPartyId = LfPartyId.assertFromString("bob")
   private lazy val charlie: LfPartyId = LfPartyId.assertFromString("charlie")
   private lazy val david: LfPartyId = LfPartyId.assertFromString("david")
+
+  private def withSubmittingAdminPartySignatory(
+      submittingAdminPartyO: Option[LfPartyId]
+  )(viewConfirmationParameters: ViewConfirmationParameters) =
+    if (testedProtocolVersion >= ProtocolVersion.v6)
+      ConfirmationPolicy.Signatory.withSubmittingAdminPartyQuorum(submittingAdminPartyO)(
+        viewConfirmationParameters
+      )
+    else
+      ConfirmationPolicy.Signatory.withSubmittingAdminParty(submittingAdminPartyO)(
+        viewConfirmationParameters
+      )
+
+  private def withSubmittingAdminPartyVip(
+      submittingAdminPartyO: Option[LfPartyId]
+  )(viewConfirmationParameters: ViewConfirmationParameters) =
+    if (testedProtocolVersion >= ProtocolVersion.v6)
+      ConfirmationPolicy.Vip.withSubmittingAdminPartyQuorum(submittingAdminPartyO)(
+        viewConfirmationParameters
+      )
+    else
+      ConfirmationPolicy.Vip.withSubmittingAdminParty(submittingAdminPartyO)(
+        viewConfirmationParameters
+      )
 
   "Choice of a confirmation policy" when {
     "nodes with a signatory without confirming participant" should {
@@ -86,7 +120,7 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
       }
     }
 
-    "all views have at least one Vip participant" should {
+    "all views have at least one VIP participant" should {
       "favor the VIP policy" in {
         val topologySnapshot = mock[TopologySnapshot]
         when(topologySnapshot.activeParticipantsOf(any[LfPartyId]))
@@ -231,52 +265,193 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
           ConfirmingParty(bob, PositiveInt.one, TrustLevel.Ordinary),
           ConfirmingParty(charlie, PositiveInt.one, TrustLevel.Vip),
         )
+        val oldInformeesId =
+          oldInformees.map(informee => informee.party -> informee.requiredTrustLevel).toMap
         val oldThreshold = NonNegativeInt.tryCreate(2)
+        val oldQuorum =
+          Seq(
+            Quorum(
+              Map(
+                bob -> PositiveInt.one,
+                charlie -> PositiveInt.one,
+              ),
+              oldThreshold,
+            )
+          )
         val oldViewConfirmationParameters =
-          ViewConfirmationParameters.create(oldInformees, oldThreshold)
+          ViewConfirmationParameters.tryCreate(oldInformeesId, oldQuorum)
 
-        ConfirmationPolicy.Signatory
-          .withSubmittingAdminParty(None)(oldViewConfirmationParameters) shouldBe
+        withSubmittingAdminPartySignatory(None)(
+          oldViewConfirmationParameters
+        ) shouldBe
           oldViewConfirmationParameters
 
-        ConfirmationPolicy.Signatory
-          .withSubmittingAdminParty(Some(alice))(oldViewConfirmationParameters) shouldBe
+        withSubmittingAdminPartySignatory(Some(alice))(
+          oldViewConfirmationParameters
+        ) shouldBe
           ViewConfirmationParameters.tryCreate(
-            Set(
-              alice,
-              bob,
-              charlie,
-            ),
-            Seq(
-              Quorum.create(
-                Set(
-                  ConfirmingParty(alice, PositiveInt.one, TrustLevel.Ordinary),
-                  ConfirmingParty(bob, PositiveInt.one, TrustLevel.Ordinary),
-                  ConfirmingParty(charlie, PositiveInt.one, TrustLevel.Vip),
-                ),
-                NonNegativeInt.tryCreate(3),
+            oldInformeesId,
+            if (testedProtocolVersion <= ProtocolVersion.v5)
+              Seq(
+                Quorum(
+                  Map(
+                    alice -> PositiveInt.one,
+                    bob -> PositiveInt.one,
+                    charlie -> PositiveInt.one,
+                  ),
+                  NonNegativeInt.tryCreate(3),
+                )
               )
-            ),
+            else
+              oldQuorum :+
+                Quorum(
+                  Map(alice -> PositiveInt.one),
+                  NonNegativeInt.one,
+                ),
           )
 
-        ConfirmationPolicy.Signatory
-          .withSubmittingAdminParty(Some(bob))(oldViewConfirmationParameters) shouldBe
+        withSubmittingAdminPartySignatory(Some(bob))(
           oldViewConfirmationParameters
+        ) shouldBe {
+          if (testedProtocolVersion <= ProtocolVersion.v5) oldViewConfirmationParameters
+          else
+            ViewConfirmationParameters.tryCreate(
+              oldInformeesId,
+              oldQuorum :+
+                Quorum(
+                  Map(bob -> PositiveInt.one),
+                  NonNegativeInt.one,
+                ),
+            )
+        }
 
-        ConfirmationPolicy.Signatory
-          .withSubmittingAdminParty(Some(charlie))(oldViewConfirmationParameters) shouldBe
+        withSubmittingAdminPartySignatory(Some(charlie))(
           oldViewConfirmationParameters
+        ) shouldBe {
+          if (testedProtocolVersion <= ProtocolVersion.v5) oldViewConfirmationParameters
+          else
+            ViewConfirmationParameters.tryCreate(
+              oldInformeesId,
+              oldQuorum :+
+                Quorum(
+                  Map(charlie -> PositiveInt.one),
+                  NonNegativeInt.one,
+                ),
+            )
+        }
 
-        ConfirmationPolicy.Signatory
-          .withSubmittingAdminParty(Some(david))(oldViewConfirmationParameters) shouldBe {
-          val newInformees =
-            oldInformees + ConfirmingParty(david, PositiveInt.one, TrustLevel.Ordinary)
-          ViewConfirmationParameters.create(
-            newInformees,
-            NonNegativeInt.tryCreate(3),
+        withSubmittingAdminPartySignatory(Some(david))(
+          oldViewConfirmationParameters
+        ) shouldBe {
+          if (testedProtocolVersion <= ProtocolVersion.v5)
+            ViewConfirmationParameters.create(
+              oldInformees + ConfirmingParty(david, PositiveInt.one, TrustLevel.Ordinary),
+              NonNegativeInt.tryCreate(3),
+            )
+          else
+            ViewConfirmationParameters.tryCreate(
+              oldInformeesId + (david -> TrustLevel.Ordinary),
+              oldQuorum :+
+                Quorum(
+                  Map(david -> PositiveInt.one),
+                  NonNegativeInt.one,
+                ),
+            )
+        }
+      }
+
+      "multiple quorums" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+        val informees =
+          Map(alice -> TrustLevel.Ordinary, bob -> TrustLevel.Ordinary, charlie -> TrustLevel.Vip)
+        val quorums = Seq(
+          Quorum(
+            Map(
+              alice -> PositiveInt.one
+            ),
+            NonNegativeInt.one,
+          ),
+          Quorum(
+            Map(
+              bob -> PositiveInt.one,
+              charlie -> PositiveInt.one,
+            ),
+            NonNegativeInt.tryCreate(2),
+          ),
+        )
+
+        val oldViewConfirmationParameters =
+          ViewConfirmationParameters.tryCreate(informees, quorums)
+
+        withSubmittingAdminPartySignatory(Some(david))(
+          oldViewConfirmationParameters
+        ) shouldBe {
+          ViewConfirmationParameters.tryCreate(
+            informees + (david -> TrustLevel.Ordinary),
+            quorums :+
+              Quorum(
+                Map(david -> PositiveInt.one),
+                NonNegativeInt.one,
+              ),
           )
         }
       }
+
+      "no unnecessary weight/threshold changes" onlyRunWithOrLowerThan ProtocolVersion.v5 in {
+        val informees =
+          Map(alice -> TrustLevel.Ordinary, bob -> TrustLevel.Ordinary, charlie -> TrustLevel.Vip)
+        val QuorumSingle =
+          Seq(
+            Quorum(
+              Map(
+                alice -> PositiveInt.one
+              ),
+              NonNegativeInt.one,
+            )
+          )
+        val viewConfirmationParametersSingle =
+          ViewConfirmationParameters.tryCreate(informees, QuorumSingle)
+
+        withSubmittingAdminPartySignatory(Some(alice))(
+          viewConfirmationParametersSingle
+        ) shouldBe viewConfirmationParametersSingle
+
+      }
+
+      "no superfluous quorum is added" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+        val informees =
+          Map(alice -> TrustLevel.Ordinary, bob -> TrustLevel.Ordinary, charlie -> TrustLevel.Vip)
+        val QuorumMultiple =
+          Seq(
+            Quorum(
+              Map(
+                alice -> PositiveInt.one
+              ),
+              NonNegativeInt.one,
+            ),
+            Quorum(
+              Map(
+                alice -> PositiveInt.one,
+                bob -> PositiveInt.one,
+                charlie -> PositiveInt.one,
+              ),
+              NonNegativeInt.tryCreate(3),
+            ),
+            Quorum(
+              Map(
+                bob -> PositiveInt.one
+              ),
+              NonNegativeInt.one,
+            ),
+          )
+        val viewConfirmationParametersMultiple =
+          ViewConfirmationParameters.tryCreate(informees, QuorumMultiple)
+
+        withSubmittingAdminPartySignatory(Some(alice))(
+          viewConfirmationParametersMultiple
+        ) shouldBe viewConfirmationParametersMultiple
+
+      }
+
     }
   }
 
@@ -288,63 +463,184 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
           ConfirmingParty(bob, PositiveInt.one, TrustLevel.Vip),
           ConfirmingParty(charlie, PositiveInt.one, TrustLevel.Vip),
         )
+        val oldInformeesId =
+          oldInformees.map(informee => informee.party -> informee.requiredTrustLevel).toMap
         val oldThreshold = NonNegativeInt.one
+        val oldQuorum =
+          Seq(
+            Quorum(
+              Map(
+                bob -> PositiveInt.one,
+                charlie -> PositiveInt.one,
+              ),
+              oldThreshold,
+            )
+          )
         val oldViewConfirmationParameters =
-          ViewConfirmationParameters.create(oldInformees, oldThreshold)
+          ViewConfirmationParameters.tryCreate(oldInformeesId, oldQuorum)
 
-        ConfirmationPolicy.Vip
-          .withSubmittingAdminParty(None)(oldViewConfirmationParameters) shouldBe
+        withSubmittingAdminPartyVip(None)(
+          oldViewConfirmationParameters
+        ) shouldBe
           oldViewConfirmationParameters
 
-        ConfirmationPolicy.Vip
-          .withSubmittingAdminParty(Some(alice))(oldViewConfirmationParameters) shouldBe
+        withSubmittingAdminPartyVip(Some(alice))(
+          oldViewConfirmationParameters
+        ) shouldBe
           ViewConfirmationParameters.tryCreate(
-            Set(
-              alice,
-              bob,
-              charlie,
-            ),
-            Seq(
-              Quorum.create(
-                Set(
-                  ConfirmingParty(alice, PositiveInt.tryCreate(3), TrustLevel.Ordinary),
-                  ConfirmingParty(bob, PositiveInt.one, TrustLevel.Vip),
-                  ConfirmingParty(charlie, PositiveInt.one, TrustLevel.Vip),
-                ),
-                NonNegativeInt.tryCreate(4),
+            oldInformeesId,
+            if (testedProtocolVersion <= ProtocolVersion.v5)
+              Seq(
+                Quorum(
+                  Map(
+                    alice -> PositiveInt.tryCreate(3),
+                    bob -> PositiveInt.one,
+                    charlie -> PositiveInt.one,
+                  ),
+                  NonNegativeInt.tryCreate(4),
+                )
               )
-            ),
+            else
+              oldQuorum :+
+                Quorum(
+                  Map(alice -> PositiveInt.one),
+                  NonNegativeInt.one,
+                ),
           )
 
-        ConfirmationPolicy.Vip
-          .withSubmittingAdminParty(Some(bob))(oldViewConfirmationParameters) shouldBe
+        withSubmittingAdminPartyVip(Some(bob))(
+          oldViewConfirmationParameters
+        ) shouldBe
           ViewConfirmationParameters.tryCreate(
-            Set(
-              alice,
-              bob,
-              charlie,
-            ),
-            Seq(
-              Quorum.create(
-                Set(
-                  ConfirmingParty(bob, PositiveInt.tryCreate(4), TrustLevel.Vip),
-                  ConfirmingParty(charlie, PositiveInt.one, TrustLevel.Vip),
-                ),
-                NonNegativeInt.tryCreate(4),
+            oldInformeesId,
+            if (testedProtocolVersion <= ProtocolVersion.v5)
+              Seq(
+                Quorum(
+                  Map(
+                    bob -> PositiveInt.tryCreate(4),
+                    charlie -> PositiveInt.one,
+                  ),
+                  NonNegativeInt.tryCreate(4),
+                )
               )
-            ),
+            else
+              oldQuorum :+
+                Quorum(
+                  Map(bob -> PositiveInt.one),
+                  NonNegativeInt.one,
+                ),
           )
 
-        ConfirmationPolicy.Vip
-          .withSubmittingAdminParty(Some(david))(oldViewConfirmationParameters) shouldBe {
-          val newInformees =
-            oldInformees + ConfirmingParty(david, PositiveInt.tryCreate(3), TrustLevel.Ordinary)
-          ViewConfirmationParameters.create(
-            newInformees,
-            NonNegativeInt.tryCreate(4),
+        withSubmittingAdminPartyVip(Some(david))(
+          oldViewConfirmationParameters
+        ) shouldBe {
+          if (testedProtocolVersion <= ProtocolVersion.v5)
+            ViewConfirmationParameters.create(
+              oldInformees + ConfirmingParty(david, PositiveInt.tryCreate(3), TrustLevel.Ordinary),
+              NonNegativeInt.tryCreate(4),
+            )
+          else
+            ViewConfirmationParameters.tryCreate(
+              oldInformeesId + (david -> TrustLevel.Ordinary),
+              oldQuorum :+
+                Quorum(
+                  Map(david -> PositiveInt.one),
+                  NonNegativeInt.one,
+                ),
+            )
+        }
+      }
+
+      "multiple quorums" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+        val informees =
+          Map(alice -> TrustLevel.Vip, bob -> TrustLevel.Vip, charlie -> TrustLevel.Vip)
+        val quorums = Seq(
+          Quorum(
+            Map(
+              alice -> PositiveInt.one
+            ),
+            NonNegativeInt.one,
+          ),
+          Quorum(
+            Map(
+              bob -> PositiveInt.one,
+              charlie -> PositiveInt.one,
+            ),
+            NonNegativeInt.tryCreate(2),
+          ),
+        )
+
+        val oldViewConfirmationParameters =
+          ViewConfirmationParameters.tryCreate(informees, quorums)
+
+        withSubmittingAdminPartyVip(Some(david))(
+          oldViewConfirmationParameters
+        ) shouldBe {
+          ViewConfirmationParameters.tryCreate(
+            informees + (david -> TrustLevel.Ordinary),
+            quorums :+
+              Quorum(
+                Map(david -> PositiveInt.one),
+                NonNegativeInt.one,
+              ),
           )
         }
       }
+
+      "no unnecessary weight/threshold changes" onlyRunWithOrLowerThan ProtocolVersion.v5 in {
+        val informees =
+          Map(alice -> TrustLevel.Vip, bob -> TrustLevel.Vip, charlie -> TrustLevel.Vip)
+        val QuorumSingle =
+          Seq(
+            Quorum(
+              Map(
+                alice -> PositiveInt.one
+              ),
+              NonNegativeInt.one,
+            )
+          )
+        val viewConfirmationParametersSingle =
+          ViewConfirmationParameters.tryCreate(informees, QuorumSingle)
+
+        withSubmittingAdminPartyVip(Some(alice))(
+          viewConfirmationParametersSingle
+        ) shouldBe viewConfirmationParametersSingle
+      }
+
+      "no superfluous quorum is added" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+        val informees =
+          Map(alice -> TrustLevel.Vip, bob -> TrustLevel.Vip, charlie -> TrustLevel.Vip)
+        val QuorumMultiple =
+          Seq(
+            Quorum(
+              Map(
+                alice -> PositiveInt.one
+              ),
+              NonNegativeInt.one,
+            ),
+            Quorum(
+              Map(
+                alice -> PositiveInt.one,
+                bob -> PositiveInt.one,
+                charlie -> PositiveInt.one,
+              ),
+              NonNegativeInt.tryCreate(3),
+            ),
+            Quorum(
+              Map(
+                bob -> PositiveInt.one
+              ),
+              NonNegativeInt.one,
+            ),
+          )
+        val viewConfirmationParametersMultiple =
+          ViewConfirmationParameters.tryCreate(informees, QuorumMultiple)
+
+        withSubmittingAdminPartyVip(Some(alice))(
+          viewConfirmationParametersMultiple
+        ) shouldBe viewConfirmationParametersMultiple
+      }
+
     }
   }
 }

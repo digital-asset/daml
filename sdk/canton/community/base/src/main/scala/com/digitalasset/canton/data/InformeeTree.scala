@@ -33,7 +33,7 @@ final case class InformeeTree private (tree: GenTransactionTree)(
   lazy val transactionId: TransactionId = TransactionId.fromRootHash(tree.rootHash)
 
   lazy val informeesByViewHash: Map[ViewHash, Set[LfPartyId]] =
-    InformeeTree.viewCommonDataByViewHash(tree).fmap(_.viewConfirmationParameters.informees)
+    InformeeTree.viewCommonDataByViewHash(tree).fmap(_.viewConfirmationParameters.informeesIds)
 
   private lazy val commonMetadata = checked(tree.commonMetadata.tryUnwrap)
 

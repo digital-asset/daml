@@ -27,9 +27,8 @@ trait MediatorRequest extends ProtocolMessage with UnsignedProtocolMessage {
   def informeesAndConfirmationParamsByViewPosition: Map[ViewPosition, ViewConfirmationParameters]
 
   def allInformees: Set[LfPartyId] =
-    informeesAndConfirmationParamsByViewPosition.flatMap {
-      case (_, ViewConfirmationParameters(informees, _)) =>
-        informees
+    informeesAndConfirmationParamsByViewPosition.flatMap { case (_, viewConfirmationParameters) =>
+      viewConfirmationParameters.informeesIds
     }.toSet
 
   def createMediatorResult(

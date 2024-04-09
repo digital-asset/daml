@@ -58,8 +58,10 @@ object TransactionViewDecomposition {
 
     def childViews: Seq[NewView] = tailNodes.collect { case v: NewView => v }
 
-    /** This view with the submittingAdminParty (if defined) added as extra confirming party.
+    /** This view with the submittingAdminParty (if defined) added as an extra confirming party.
       * This needs to be called on root views to guarantee proper authorization.
+      * Intended for use in [[com.digitalasset.canton.version.ProtocolVersion.v5]] and lower, it includes
+      * the submitting admin party in the original quorum and updates the threshold.
       */
     def withSubmittingAdminParty(
         submittingAdminPartyO: Option[LfPartyId],
@@ -74,16 +76,35 @@ object TransactionViewDecomposition {
       )
     }
 
+    /** This view with the submittingAdminParty (if defined) added as an extra confirming party.
+      * This needs to be called on root views to guarantee proper authorization.
+      * Intended for use in [[com.digitalasset.canton.version.ProtocolVersion.v6]] and higher, it adds
+      * an extra quorum with the submitting party.
+      */
+    def withSubmittingAdminPartyQuorum(
+        submittingAdminPartyO: Option[LfPartyId],
+        confirmationPolicy: ConfirmationPolicy,
+    ): NewView = {
+      val newViewConfirmationParameters =
+        confirmationPolicy.withSubmittingAdminPartyQuorum(submittingAdminPartyO)(
+          viewConfirmationParameters
+        )
+      copy(
+        viewConfirmationParameters = newViewConfirmationParameters
+      )
+    }
+
     override def pretty: Pretty[NewView] = prettyOfClass(
       param("root node template", _.rootNode.templateId),
-      param("viewConfirmationParameters", _.viewConfirmationParameters),
+      param("view confirmation parameters", _.viewConfirmationParameters),
       param("node ID", _.nodeId),
       param("rollback context", _.rbContext),
       param("tail nodes", _.tailNodes),
     )
   }
 
-  /** Encapsulates a node that belongs to core of some [[com.digitalasset.canton.data.TransactionViewDecomposition.NewView]]. */
+  /** Encapsulates a node that belongs to core of some [[com.digitalasset.canton.data.TransactionViewDecomposition.NewView]].
+    */
   final case class SameView(
       lfNode: LfActionNode,
       override val nodeId: LfNodeId,

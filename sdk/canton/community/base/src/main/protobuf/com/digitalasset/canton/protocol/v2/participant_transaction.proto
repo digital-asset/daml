@@ -21,9 +21,10 @@ message ViewCommonData {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
 
   com.digitalasset.canton.crypto.v0.Salt salt = 1;
-  // Replaced informees data type to only contain the PartyId of the informee since their weight and trust level
-  // are stored in the quorums.
-  repeated string informees = 2;
+  // Replaced informees data type to only contain the PartyId and TrustLevel of the informee since their weight
+  // is stored in the quorums. Plain informees will not be present in the quorums and their trust level
+  // is always set to Ordinary.
+  repeated v0.TrustParty informees = 2;
 
   // Replaced threshold with a list of quorums that need to be satisfied for the view to be confirmed
   repeated v0.Quorum quorums = 3;

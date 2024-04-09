@@ -3,21 +3,33 @@
 
 package com.digitalasset.canton.data
 
+import cats.syntax.alternative.*
 import cats.syntax.either.*
+import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.data.ViewConfirmationParameters.InvalidViewConfirmationParameters
+import com.digitalasset.canton.data.ViewConfirmationParameters.{
+  InvalidViewConfirmationParameters,
+  confirmersIdsFromQuorums,
+}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{ConfirmationPolicy, v0, v1, v2}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
+import com.digitalasset.canton.topology.ParticipantId
+import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.transaction.TrustLevel
+import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.NoCopy
 import com.digitalasset.canton.version.*
+import com.digitalasset.canton.{LfPartyId, ProtoDeserializationError}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
+
+import scala.collection.immutable.Seq
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Information concerning every '''member''' involved in processing the underlying view.
   */
@@ -56,10 +68,10 @@ final case class ViewCommonData private (
   validateInstance().valueOr(err => throw new IllegalArgumentException(err))
 
   private def extractInformeesFromQuorum(quorum: Quorum): Seq[Informee] =
-    viewConfirmationParameters.informees.toSeq.map { partyId =>
+    viewConfirmationParameters.informees.toSeq.map { case (partyId, requiredTrustLevel) =>
       quorum.confirmers.get(partyId) match {
-        case Some(w) =>
-          ConfirmingParty(partyId, PositiveInt.tryCreate(w.weight.unwrap), w.requiredTrustLevel)
+        case Some(weight) =>
+          ConfirmingParty(partyId, weight, requiredTrustLevel)
         case None => PlainInformee(partyId)
       }
     }
@@ -88,10 +100,13 @@ final case class ViewCommonData private (
 
   protected def toProtoV2: v2.ViewCommonData = {
     val informees = viewConfirmationParameters.informees.toSeq
+    val informeesIds = informees.map { case (party, _) => party }
     v2.ViewCommonData(
-      informees = informees,
+      informees = informees.map { case (party, trustLevel) =>
+        v0.TrustParty(party, trustLevel.toProtoEnum)
+      },
       quorums = viewConfirmationParameters.quorums.map(
-        _.tryToProtoV0(informees)
+        _.tryToProtoV0(informeesIds)
       ),
       salt = Some(salt.toProtoV0),
     )
@@ -127,7 +142,7 @@ object ViewCommonData
     ] {
   override val name: String = "ViewCommonData"
 
-  // up until [[ProtocolVersion.v6]] there is only one quorum
+  /** up until [[com.digitalasset.canton.version.ProtocolVersion.v5]] there is only one quorum */
   override lazy val invariants = Seq(
     OneElementSeqExactlyUntilExclusive(
       _.viewConfirmationParameters.quorums,
@@ -243,15 +258,22 @@ object ViewCommonData
   )(bytes: ByteString): ParsingResult[ViewCommonData] = {
     val (hashOps, _) = context
     for {
-      informees <- viewCommonDataP.informees.traverse(informee =>
-        ProtoConverter.parseLfPartyId(informee)
-      )
+      informees <- viewCommonDataP.informees.traverse { trustParty =>
+        val v0.TrustParty(partyP, requiredTrustLevelP) = trustParty
+        for {
+          party <- LfPartyId
+            .fromString(partyP)
+            .leftMap(ProtoDeserializationError.ValueDeserializationError("party", _))
+          requiredTrustLevel <- TrustLevel.fromProtoEnum(requiredTrustLevelP)
+        } yield (party, requiredTrustLevel)
+      }
+      (partyIds, _) = informees.separate
       salt <- ProtoConverter
         .parseRequired(Salt.fromProtoV0, "salt", viewCommonDataP.salt)
         .leftMap(_.inField("salt"))
-      quorums <- viewCommonDataP.quorums.traverse(Quorum.fromProtoV0(_, informees))
+      quorums <- viewCommonDataP.quorums.traverse(Quorum.fromProtoV0(_, partyIds))
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(2))
-      viewConfirmationParameters <- ViewConfirmationParameters.create(informees.toSet, quorums)
+      viewConfirmationParameters <- ViewConfirmationParameters.create(informees.toMap, quorums)
     } yield new ViewCommonData(
       viewConfirmationParameters,
       salt,
@@ -265,24 +287,44 @@ object ViewCommonData
 
 /** Stores the necessary information necessary to confirm a view.
   *
-  * @param informees list of all members ids that must be informed of this view.
+  * @param informees list of all members ids and the corresponding trust level that must be informed of this view.
   * @param quorums multiple lists of confirmers => threshold (i.e., a quorum) that needs
   *               to be met for the view to be approved. We make sure that the parties listed
   *               in the quorums are informees of the view during
   *               deserialization.
   */
 final case class ViewConfirmationParameters private (
-    informees: Set[LfPartyId],
+    informees: Map[LfPartyId, TrustLevel],
     quorums: Seq[Quorum],
 ) extends PrettyPrinting
     with NoCopy {
 
   override def pretty: Pretty[ViewConfirmationParameters] = prettyOfClass(
-    param("informees", _.informees.toSet),
+    param("informees", _.informees),
     param("quorums", _.quorums),
   )
 
-  def confirmers: Set[ConfirmingParty] = quorums.flatMap(_.getConfirmingParties).toSet
+  lazy val informeesIds: Set[LfPartyId] = informees.keySet
+
+  lazy val confirmers: Set[ConfirmingParty] =
+    quorums.flatMap { quorum =>
+      quorum.confirmers.map { case (pId, weight) =>
+        /* we throw the error because we already check that the confirming parties in the quorum are in informees when
+         * the object is created.
+         */
+        val trustLevel = informees
+          .getOrElse(
+            pId,
+            throw InvalidViewConfirmationParameters(
+              s"$pId is not part of the informees list $informees"
+            ),
+          )
+        ConfirmingParty(pId, weight, trustLevel)
+      }
+    }.toSet
+
+  lazy val confirmersIds: Set[LfPartyId] = confirmersIdsFromQuorums(quorums)
+
 }
 
 object ViewConfirmationParameters {
@@ -293,36 +335,49 @@ object ViewConfirmationParameters {
 
   /** Until protocol version [[com.digitalasset.canton.version.ProtocolVersion.v5]]
     * there is ONLY ONE QUORUM containing all confirming parties from the list of informees and a threshold.
+    * We need to make sure the same informee does not have different trust levels.
     */
   def create(
       informees: Set[Informee],
       threshold: NonNegativeInt,
-  ): ViewConfirmationParameters =
+  ): ViewConfirmationParameters = {
+    if (
+      !informees
+        .groupMap(_.requiredTrustLevel)(_.party)
+        .values
+        .toSeq
+        .combinations(2)
+        .forall {
+          case Seq(seq1, seq2) => seq1.intersect(seq2).isEmpty
+          case _ => true
+        }
+    ) {
+      throw InvalidViewConfirmationParameters(s"the same informee has different trust levels")
+    }
+
     ViewConfirmationParameters(
-      informees.map(_.party),
+      informees.map(informee => informee.party -> informee.requiredTrustLevel).toMap,
       Seq(
         Quorum(
           informees.collect { case c: ConfirmingParty =>
-            c.party -> WeightAndTrustLevel(
-              PositiveInt.tryCreate(c.weight.unwrap),
-              c.requiredTrustLevel,
-            )
+            c.party -> PositiveInt.tryCreate(c.weight.unwrap)
           }.toMap,
           threshold,
         )
       ),
     )
+  }
 
   /** Starting from protocol version [[com.digitalasset.canton.version.ProtocolVersion.v6]]
     * there can be multiple quorums/threshold. Therefore, we need to make sure those quorums confirmers
     * are present in the list of informees.
     */
   def create(
-      informees: Set[LfPartyId],
+      informees: Map[LfPartyId, TrustLevel],
       quorums: Seq[Quorum],
   ): Either[InvariantViolation, ViewConfirmationParameters] = {
-    val allConfirmers = quorums.flatMap(_.confirmers.keys).toSeq
-    val notAnInformee = allConfirmers.filterNot(informees.contains)
+    val allConfirmers = ViewConfirmationParameters.confirmersIdsFromQuorums(quorums)
+    val notAnInformee = allConfirmers.diff(informees.keySet)
     Either.cond(
       notAnInformee.isEmpty,
       ViewConfirmationParameters(informees, quorums),
@@ -331,9 +386,29 @@ object ViewConfirmationParameters {
   }
 
   def tryCreate(
-      informees: Set[LfPartyId],
+      informees: Map[LfPartyId, TrustLevel],
       quorums: Seq[Quorum],
   ): ViewConfirmationParameters =
     create(informees, quorums).valueOr(err => throw InvalidViewConfirmationParameters(err.toString))
+
+  /** Extracts all confirming parties' distinct IDs from the list of quorums */
+  def confirmersIdsFromQuorums(quorums: Seq[Quorum]): Set[LfPartyId] =
+    quorums.flatMap(_.confirmers.keySet).toSet
+
+  def confirmBySender(
+      canConfirm: Boolean,
+      topologySnapshot: TopologySnapshot,
+      sender: ParticipantId,
+      confirmers: Set[ConfirmingParty],
+  )(implicit ec: ExecutionContext): Future[Set[LfPartyId]] =
+    confirmers.toList
+      .parTraverseFilter { cp =>
+        topologySnapshot
+          .canConfirm(sender, cp.party, cp.requiredTrustLevel)
+          .map { res =>
+            Option.when(canConfirm == res)(cp.party)
+          }
+      }
+      .map(_.toSet)
 
 }
