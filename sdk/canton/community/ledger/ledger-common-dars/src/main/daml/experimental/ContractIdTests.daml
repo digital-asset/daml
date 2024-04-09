@@ -1,7 +1,11 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
+
 module ContractIdTests where
+
+#ifdef DAML_CONTRACT_KEYS
 
 template Contract
   with
@@ -21,3 +25,5 @@ template ContractRef
       with newId: ContractId Contract
       controller party
       do create (ContractRef party newId)
+
+#endif

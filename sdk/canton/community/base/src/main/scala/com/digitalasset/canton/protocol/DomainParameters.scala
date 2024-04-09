@@ -902,6 +902,13 @@ final case class AcsCommitmentsCatchUpConfig(
     s"Catch up parameters ($catchUpIntervalSkip, $nrIntervalsToTriggerCatchUp) are too large and cause overflow when computing the catch-up interval",
   )
 
+  require(
+    catchUpIntervalSkip.value != 1 || nrIntervalsToTriggerCatchUp.value != 1,
+    s"Catch up config ($catchUpIntervalSkip, $nrIntervalsToTriggerCatchUp) is ambiguous. " +
+      s"It is not possible to catch up with a single interval. Did you intend to disable catch-up " +
+      s"(please use AcsCommitmentsCatchUpConfig.disabledCatchUp()) or did you intend a different config?",
+  )
+
   override def pretty: Pretty[AcsCommitmentsCatchUpConfig] = prettyOfClass(
     param("catchUpIntervalSkip", _.catchUpIntervalSkip),
     param("nrIntervalsToTriggerCatchUp", _.nrIntervalsToTriggerCatchUp),

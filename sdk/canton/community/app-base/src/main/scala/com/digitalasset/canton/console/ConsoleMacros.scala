@@ -963,8 +963,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         sequencers: Seq[SequencerNodeReference],
         mediators: Seq[MediatorReference],
         domainOwners: Seq[InstanceReference] = Seq.empty,
-        staticDomainParameters: data.StaticDomainParameters =
-          data.StaticDomainParameters.defaultsWithoutKMS,
+        staticDomainParameters: data.StaticDomainParameters,
     ): DomainId = {
       val domainOwnersOrDefault = if (domainOwners.isEmpty) sequencers else domainOwners
       check_domain_bootstrap_status(

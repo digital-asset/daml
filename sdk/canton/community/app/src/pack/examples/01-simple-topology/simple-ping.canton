@@ -7,6 +7,7 @@ bootstrap.domain(
   sequencers = Seq(sequencer1),
   mediators = Seq(mediator1),
   domainOwners = Seq(sequencer1, mediator1),
+  staticDomainParameters = StaticDomainParameters.defaultsWithoutKMS(ProtocolVersion.latest),
 )
 
 // Connect participant1 to da using the connect macro.

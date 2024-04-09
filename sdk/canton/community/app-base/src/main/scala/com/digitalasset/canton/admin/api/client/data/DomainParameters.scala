@@ -73,9 +73,10 @@ object StaticDomainParameters {
   def fromConfig(
       config: DomainParametersConfig,
       cryptoConfig: CryptoConfig,
+      protocolVersion: ProtocolVersion,
   ): StaticDomainParameters = {
     val internal = config
-      .toStaticDomainParameters(cryptoConfig)
+      .toStaticDomainParameters(cryptoConfig, protocolVersion)
       .valueOr(err =>
         throw new IllegalArgumentException(s"Cannot instantiate static domain parameters: $err")
       )
@@ -83,15 +84,16 @@ object StaticDomainParameters {
     StaticDomainParameters(internal)
   }
 
-  lazy val defaultsWithoutKMS: StaticDomainParameters =
-    defaults(CommunityCryptoConfig())
+  def defaultsWithoutKMS(protocolVersion: ProtocolVersion): StaticDomainParameters =
+    defaults(CommunityCryptoConfig(), protocolVersion)
 
   // This method is unsafe. Not prefixing by `try` to have nicer docs snippets.
   def defaults(
-      cryptoConfig: CryptoConfig
+      cryptoConfig: CryptoConfig,
+      protocolVersion: ProtocolVersion,
   ): StaticDomainParameters = {
     val internal = DomainParametersConfig()
-      .toStaticDomainParameters(cryptoConfig)
+      .toStaticDomainParameters(cryptoConfig, protocolVersion)
       .valueOr(err =>
         throw new IllegalArgumentException(s"Cannot instantiate static domain parameters: $err")
       )

@@ -1,7 +1,11 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
+
 module Exceptions where
+
+#ifdef DAML_CONTRACT_KEYS
 
 import DA.Assert
 import DA.Exception
@@ -387,3 +391,5 @@ template ExceptionTester
         catch E  _ -> pure ()
         result <- lookupByKey @WithSimpleKey p
         result === Some cid
+
+#endif

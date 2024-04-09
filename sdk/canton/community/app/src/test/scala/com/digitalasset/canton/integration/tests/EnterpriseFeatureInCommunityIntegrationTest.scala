@@ -7,6 +7,7 @@ import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.config.CommunityStorageConfig
 import com.digitalasset.canton.console.{CommandFailure, InstanceReference}
 import com.digitalasset.canton.health.admin.data.NodeStatus
+import com.digitalasset.canton.integration.CommunityEnvironmentDefinition.defaultStaticDomainParametersX
 import com.digitalasset.canton.integration.CommunityTests.{
   CommunityIntegrationTest,
   SharedCommunityEnvironment,
@@ -44,6 +45,7 @@ sealed trait EnterpriseFeatureInCommunityXIntegrationTest
           Seq(sequencer1),
           Seq(mediator1),
           Seq[InstanceReference](sequencer1, mediator1),
+          staticDomainParameters = defaultStaticDomainParametersX,
         )
 
         sequencer1.health.wait_for_initialized()

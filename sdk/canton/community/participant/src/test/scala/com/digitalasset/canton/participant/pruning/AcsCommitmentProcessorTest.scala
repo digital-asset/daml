@@ -2177,6 +2177,15 @@ class AcsCommitmentProcessorTest
         })
       }
 
+      "catch up parameters (1,1) throws exception" in {
+        assertThrows[IllegalArgumentException]({
+          new AcsCommitmentsCatchUpConfig(
+            PositiveInt.tryCreate(1),
+            PositiveInt.tryCreate(1),
+          )
+        })
+      }
+
       "catch up with maximum reconciliation interval and catch-up parameters logs error" in {
         loggerFactory.assertLoggedWarningsAndErrorsSeq(
           {
