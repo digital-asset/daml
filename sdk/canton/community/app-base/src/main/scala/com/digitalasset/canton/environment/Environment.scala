@@ -59,6 +59,12 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
 
   val loggerFactory: NamedLoggerFactory
 
+  implicit val scheduler: ScheduledExecutorService =
+    Threading.singleThreadScheduledExecutor(
+      loggerFactory.threadName + "-env-sched",
+      noTracingLogger,
+    )
+
   lazy val configuredOpenTelemetry: ConfiguredOpenTelemetry = {
     OpenTelemetryFactory.initializeOpenTelemetry(
       testingConfig.initializeGlobalOpenTelemetry,
@@ -73,12 +79,6 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
 
   config.monitoring.metrics.jvmMetrics
     .foreach(JvmMetrics.setup(_, configuredOpenTelemetry.openTelemetry))
-
-  implicit val scheduler: ScheduledExecutorService =
-    Threading.singleThreadScheduledExecutor(
-      loggerFactory.threadName + "-env-sched",
-      noTracingLogger,
-    )
 
   // public for buildDocs task to be able to construct a fake participant and domain to document available metrics via reflection
 

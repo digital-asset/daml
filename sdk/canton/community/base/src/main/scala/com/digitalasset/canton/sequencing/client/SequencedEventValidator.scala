@@ -158,6 +158,8 @@ trait SequencedEventValidator extends AutoCloseable {
       priorEvent: Option[PossiblyIgnoredSerializedEvent],
       event: OrdinarySerializedEvent,
       sequencerId: SequencerId,
+  )(implicit
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit]
 
   /** Validates a sequenced event when we reconnect against the prior event supplied to [[SequencedEventValidatorFactory.create]] */
@@ -165,6 +167,8 @@ trait SequencedEventValidator extends AutoCloseable {
       priorEvent: Option[PossiblyIgnoredSerializedEvent],
       reconnectEvent: OrdinarySerializedEvent,
       sequencerId: SequencerId,
+  )(implicit
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit]
 
   /** Add event validation to the given [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionPekko]].
@@ -193,12 +197,16 @@ object SequencedEventValidator extends HasLoggerName {
         priorEvent: Option[PossiblyIgnoredSerializedEvent],
         event: OrdinarySerializedEvent,
         sequencerId: SequencerId,
+    )(implicit
+        traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit] =
       EitherT(FutureUnlessShutdown.pure(Either.right(())))
     override def validateOnReconnect(
         priorEvent: Option[PossiblyIgnoredSerializedEvent],
         reconnectEvent: OrdinarySerializedEvent,
         sequencerId: SequencerId,
+    )(implicit
+        traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit] =
       validate(priorEvent, reconnectEvent, sequencerId)
 
@@ -457,9 +465,12 @@ class SequencedEventValidatorImpl(
       priorEventO: Option[PossiblyIgnoredSerializedEvent],
       event: OrdinarySerializedEvent,
       sequencerId: SequencerId,
+  )(implicit
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit] = {
     val oldCounter = priorEventO.fold(SequencerCounter.Genesis - 1L)(_.counter)
     val newCounter = event.counter
+    val newTimestamp = event.timestamp
 
     def checkCounterIncreases: ValidationResult =
       Either.cond(
@@ -472,7 +483,6 @@ class SequencedEventValidatorImpl(
     def checkTimestampIncreases: ValidationResult =
       priorEventO.traverse_ { prior =>
         val oldTimestamp = prior.timestamp
-        val newTimestamp = event.timestamp
         Either.cond(
           newTimestamp > oldTimestamp,
           (),
@@ -482,6 +492,8 @@ class SequencedEventValidatorImpl(
 
     // TODO(M99): dishonest sequencer: Check that the node is listed as a recipient on all envelopes in the batch
 
+    logger.debug(s"Validating event $event")
+
     for {
       _ <- EitherT.fromEither[FutureUnlessShutdown](
         Seq(
@@ -490,11 +502,17 @@ class SequencedEventValidatorImpl(
           checkTimestampIncreases,
         ).sequence_
       )
+      _ = logger.debug(
+        s"Successfully checked domain ID (${event.signedEvent.content.domainId}), " +
+          s"increasing counter (old = $oldCounter, new = $newCounter) " +
+          s"and increasing timestamp (old = ${priorEventO.map(_.timestamp)}, new = $newTimestamp)"
+      )
       // Verify the signature only if we know of a prior event.
       // Otherwise, this is a fresh subscription and we will get the topology state with the first transaction
       // TODO(#4933) Upon a fresh subscription, retrieve the keys via the topology API and validate immediately or
       //  validate the signature after processing the initial event
       _ <- verifySignature(priorEventO, event, sequencerId, protocolVersion)
+      _ = logger.debug("Successfully verified signature")
     } yield ()
   }
 
@@ -502,6 +520,8 @@ class SequencedEventValidatorImpl(
       priorEvent0: Option[PossiblyIgnoredSerializedEvent],
       reconnectEvent: OrdinarySerializedEvent,
       sequencerId: SequencerId,
+  )(implicit
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit] = {
     implicit val traceContext: TraceContext = reconnectEvent.traceContext
     val priorEvent = priorEvent0.getOrElse(
@@ -583,6 +603,7 @@ class SequencedEventValidatorImpl(
       val signingTs = event.signedEvent.content.timestampOfSigningKey
       for {
         _ <- EitherT.fromEither[FutureUnlessShutdown](checkNoTimestampOfSigningKey(event))
+        _ = logger.debug("Successfully checked that there's no timestamp of signing key")
         snapshot <- SequencedEventValidator
           .validateTopologyTimestampUS(
             syncCryptoApi,
@@ -593,6 +614,7 @@ class SequencedEventValidatorImpl(
             warnIfApproximate = priorEventO.nonEmpty,
           )
           .leftMap(InvalidTopologyTimestamp(event.timestamp, signingTs, _))
+        _ = logger.debug(s"Successfully validated the event topology timestamp ${event.timestamp}")
         _ <- event.signedEvent
           .verifySignature(snapshot, sequencerId, HashPurpose.SequencedEventSignature)
           .leftMap[SequencedEventValidationError[Nothing]](

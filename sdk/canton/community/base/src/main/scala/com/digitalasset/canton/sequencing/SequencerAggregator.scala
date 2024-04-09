@@ -24,6 +24,7 @@ import com.digitalasset.canton.sequencing.SequencerAggregator.{
 import com.digitalasset.canton.sequencing.protocol.SignedContent
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
 import com.google.common.annotations.VisibleForTesting
 
@@ -129,29 +130,40 @@ class SequencerAggregator(
       sequencerId: SequencerId,
       message: OrdinarySerializedEvent,
   )(implicit
-      ec: ExecutionContext
+      ec: ExecutionContext,
+      traceContext: TraceContext,
   ): FutureUnlessShutdown[Either[SequencerAggregatorError, Boolean]] = {
     if (!expectedSequencers.contains(sequencerId)) {
-      throw new IllegalArgumentException(s"Unexpected sequencerId: $sequencerId")
-    }
-    blocking {
-      this.synchronized {
-        if (cursor.forall(message.timestamp > _)) {
-          val sequencerMessageData = updatedSequencerMessageData(sequencerId, message)
-          sequenceData.put(message.timestamp, sequencerMessageData): Unit
+      FutureUnlessShutdown(
+        ErrorUtil.internalErrorAsync(
+          new IllegalArgumentException(s"Unexpected sequencerId: $sequencerId")
+        )
+      )
+    } else
+      try {
+        blocking {
+          this.synchronized {
+            if (cursor.forall(message.timestamp > _)) {
+              val sequencerMessageData = updatedSequencerMessageData(sequencerId, message)
+              sequenceData.put(message.timestamp, sequencerMessageData): Unit
 
-          val (nextMinimumTimestamp, nextData) =
-            sequenceData.headOption.getOrElse(
-              (message.timestamp, sequencerMessageData)
-            ) // returns min message.timestamp
+              val (nextMinimumTimestamp, nextData) =
+                sequenceData.headOption.getOrElse(
+                  (message.timestamp, sequencerMessageData)
+                ) // returns min message.timestamp
 
-          pushDownstreamIfConsensusIsReached(nextMinimumTimestamp, nextData)
+              pushDownstreamIfConsensusIsReached(nextMinimumTimestamp, nextData)
 
-          sequencerMessageData.promise.futureUS.map(_.map(_ == sequencerId))
-        } else
-          FutureUnlessShutdown.pure(Right(false))
+              sequencerMessageData.promise.futureUS.map(_.map(_ == sequencerId))
+            } else
+              FutureUnlessShutdown.pure(Right(false))
+          }
+        }
+      } catch {
+        case t: Throwable =>
+          logger.error("Error while combining and merging event", t)
+          FutureUnlessShutdown.failed(t)
       }
-    }
   }
 
   private def pushDownstreamIfConsensusIsReached(

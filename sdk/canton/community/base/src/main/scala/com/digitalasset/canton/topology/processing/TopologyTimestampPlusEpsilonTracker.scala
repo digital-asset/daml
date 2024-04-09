@@ -186,7 +186,7 @@ class TopologyTimestampPlusEpsilonTracker(
 
   def effectiveTimeProcessed(effectiveTime: EffectiveTime): Unit = {
     val updated = lastEffectiveTimeProcessed.updateAndGet(_.max(effectiveTime))
-    notifyAwaitedFutures(updated.value)
+    notifyAwaitedFutures(updated.value)(TraceContext.empty)
   }
 
   def adjustTimestampForTick(sequencingTime: SequencedTime)(implicit
