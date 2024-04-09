@@ -3,7 +3,11 @@
 
 -- file that contains the declarations used in the sandbox tests
 
+{-# LANGUAGE CPP #-}
+
 module Test where
+
+#ifdef DAML_CONTRACT_KEYS
 
 template TextKey
   with
@@ -275,3 +279,5 @@ template WithKeyCreatorAlternative
     nonconsuming choice WithKeyCreatorAlternative_DiscloseCreate : ContractId WithKey
       controller p2
       do create (WithKey p1)
+
+#endif

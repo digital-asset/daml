@@ -154,16 +154,13 @@ object CantonRunner {
     // TODO(DACH-NY/canton#3149): Consolidate dars.upload and ledger_api.package.upload_dar
     // If the above is fixed, we can revert back to using ledgerClient.uploadDar here.
     val completionFile = files.completionFile.toString.replace("\\", "\\\\")
+    val protocolVersion = if (config.devMode) "ProtocolVersion.dev" else "ProtocolVersion.latest"
     val bootstrapContent =
       s"""import java.nio.file.{Files, Paths}
          |import java.nio.charset.StandardCharsets
          |import com.digitalasset.canton.version.ProtocolVersion
          |
-         |val staticDomainParameters =
-         |    StaticDomainParameters
-         |        .defaults(sequencer1.config.crypto)
-         |        .copy(${if (config.devMode) "protocolVersion = ProtocolVersion.dev"
-        else ""})
+         |val staticDomainParameters = StaticDomainParameters.defaults(sequencer1.config.crypto, $protocolVersion)
          |val domainOwners = Seq(sequencer1, mediator1)
          |bootstrap.domain("mydomain", Seq(sequencer1), Seq(mediator1), domainOwners, staticDomainParameters)
          |${bootstrapConnectParticipants}

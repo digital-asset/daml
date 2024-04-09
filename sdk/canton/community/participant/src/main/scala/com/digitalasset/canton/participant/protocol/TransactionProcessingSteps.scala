@@ -1086,11 +1086,7 @@ class TransactionProcessingSteps(
 
     val RejectionArgs(pendingTransaction, rejectionReason) = rejectionArgs
     val PendingTransaction(
-      _,
       freshOwnTimelyTx,
-      _,
-      _,
-      _,
       requestTime,
       requestCounter,
       requestSequencerCounter,
@@ -1166,36 +1162,11 @@ class TransactionProcessingSteps(
       mediator: MediatorsOfDomain,
       freshOwnTimelyTx: Boolean,
   ): PendingTransaction = {
-    val TransactionValidationResult(
-      transactionId,
-      confirmationPolicies,
-      submitterMetaO,
-      workflowIdO,
-      contractConsistencyE,
-      authenticationResult,
-      authorizationResult,
-      modelConformanceResultE,
-      internalConsistencyResultE,
-      consumedInputsOfHostedParties,
-      witnessedAndDivulged,
-      createdContracts,
-      transient,
-      successfulActivenessCheck,
-      viewValidationResults,
-      timeValidationE,
-      hostedInformeeStakeholders,
-      replayCheckResult,
-    ) = transactionValidationResult
-
     // We consider that we rejected if at least one of the responses is not "approve'
     val locallyRejected = responses.exists { response => !response.localVerdict.isApprove }
 
     validation.PendingTransaction(
-      transactionId,
       freshOwnTimelyTx,
-      modelConformanceResultE,
-      internalConsistencyResultE,
-      workflowIdO,
       id.unwrap,
       rc,
       sc,
@@ -1218,8 +1189,8 @@ class TransactionProcessingSteps(
     computeCommitAndContractsAndEvent(
       requestTime = pendingRequestData.requestTime,
       requestCounter = pendingRequestData.requestCounter,
-      txId = pendingRequestData.txId,
-      workflowIdO = pendingRequestData.workflowIdO,
+      txId = txValidationResult.transactionId,
+      workflowIdO = txValidationResult.workflowIdO,
       requestSequencerCounter = pendingRequestData.requestSequencerCounter,
       commitSet = commitSet,
       createdContracts = txValidationResult.createdContracts,
@@ -1340,8 +1311,8 @@ class TransactionProcessingSteps(
       commitAndContractsAndEvent <- computeCommitAndContractsAndEvent(
         requestTime = pendingRequestData.requestTime,
         requestCounter = pendingRequestData.requestCounter,
-        txId = pendingRequestData.txId,
-        workflowIdO = pendingRequestData.workflowIdO,
+        txId = pendingRequestData.transactionValidationResult.transactionId,
+        workflowIdO = pendingRequestData.transactionValidationResult.workflowIdO,
         requestSequencerCounter = pendingRequestData.requestSequencerCounter,
         commitSet = commitSet,
         createdContracts = createdContracts,
@@ -1373,7 +1344,7 @@ class TransactionProcessingSteps(
     ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
       (
         verdict,
-        pendingRequestData.modelConformanceResultE,
+        pendingRequestData.transactionValidationResult.modelConformanceResultE,
       ) match {
         case (_: Verdict.Approve, _) => handleApprovedVerdict(topologySnapshot)
         case (_, Left(error)) => rejectedWithModelConformanceError(error)
@@ -1387,7 +1358,7 @@ class TransactionProcessingSteps(
     def handleApprovedVerdict(topologySnapshot: TopologySnapshot)(implicit
         traceContext: TraceContext
     ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
-      pendingRequestData.modelConformanceResultE match {
+      pendingRequestData.transactionValidationResult.modelConformanceResultE match {
         case Right(modelConformanceResult) =>
           getCommitSetAndContractsToBeStoredAndEventApproveConform(
             pendingRequestData,

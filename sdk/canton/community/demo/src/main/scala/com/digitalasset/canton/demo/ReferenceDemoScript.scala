@@ -6,6 +6,7 @@ package com.digitalasset.canton.demo
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.javaapi.data.codegen.{Contract, ContractCompanion, ContractId}
 import com.daml.ledger.javaapi.data.{Template, TransactionTree}
+import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.console.commands.DomainChoice
 import com.digitalasset.canton.console.{
@@ -613,6 +614,7 @@ object ReferenceDemoScript {
       sequencers = bankingSequencers,
       mediators = bankingMediators,
       domainOwners = bankingSequencers ++ bankingMediators,
+      staticDomainParameters = StaticDomainParameters.defaultsWithoutKMS(ProtocolVersion.latest),
     )
     val medicalSequencers = consoleEnvironment.sequencers.all.filter(_.name == SequencerMedical)
     val medicalMediators = consoleEnvironment.mediators.all.filter(_.name == "mediatorMedical")
@@ -621,6 +623,7 @@ object ReferenceDemoScript {
       sequencers = medicalSequencers,
       mediators = medicalMediators,
       domainOwners = medicalSequencers ++ medicalMediators,
+      staticDomainParameters = StaticDomainParameters.defaultsWithoutKMS(ProtocolVersion.latest),
     )
 
     val banking = getSequencer(SequencerBanking)

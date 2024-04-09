@@ -6,6 +6,7 @@ package com.digitalasset.canton.integration.tests
 import com.digitalasset.canton.config.CommunityStorageConfig
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.health.admin.data.NodeStatus
+import com.digitalasset.canton.integration.CommunityEnvironmentDefinition.defaultStaticDomainParametersX
 import com.digitalasset.canton.integration.CommunityTests.{
   CommunityIntegrationTest,
   SharedCommunityEnvironment,
@@ -39,6 +40,7 @@ sealed trait SimplestPingXCommunityIntegrationTest
       Seq(sequencer1),
       Seq(mediator1),
       Seq[InstanceReference](sequencer1, mediator1),
+      staticDomainParameters = defaultStaticDomainParametersX,
     )
 
     sequencer1.health.status shouldBe a[NodeStatus.Success[?]]
