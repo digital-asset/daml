@@ -105,12 +105,21 @@ object Demo {
   ): Unit = {
     val (partyIds, result) = Await.result(interpreter.runLedger(l), Duration.Inf)
     result match {
-      case Right(value) =>
-        println("SUCCESS")
-        println(value)
+      case Right(contractIds) =>
+        // println(contractIds)
         for ((party, partyId) <- partyIds.toList) {
           println(s"Events for party $party")
-          println(fetchEvents(partyId))
+          // println(fetchEvents(partyId))
+          println(
+            Pretty.prettyLedger(
+              new ToProjection(
+                partyIds = partyIds.map(_.swap),
+                contractIds = contractIds.map(_.swap),
+              ).convertFromTransactionTrees(
+                fetchEvents(partyId)
+              )
+            )
+          )
         }
       case Left(error) =>
         println("ERROR")
@@ -149,17 +158,57 @@ object Demo {
     val cantonInterpreter = new Interpreter(universalTemplatePkgId, grpcLedgerClient)
     ledgerClientForProjections.connect()
 
+    val test: Ledgers.Ledger =
+      List(
+        Ledgers.Commands(
+          actAs = Set(1, 2),
+          actions = List(
+            Ledgers.Create(contractId = 1, signatories = Set(1), observers = Set()),
+            Ledgers.Create(contractId = 2, signatories = Set(2), observers = Set()),
+          ),
+        ),
+        Ledgers.Commands(
+          actAs = Set(2),
+          actions = List(
+            Ledgers.Create(contractId = 3, signatories = Set(2), observers = Set()),
+            Ledgers.Exercise(
+              contractId = 2,
+              kind = Ledgers.Consuming,
+              controllers = Set(2),
+              choiceObservers = Set(),
+              subTransaction = List(
+                Ledgers.Exercise(
+                  contractId = 1,
+                  kind = Ledgers.Consuming,
+                  controllers = Set(2),
+                  choiceObservers = Set(),
+                  subTransaction = List(),
+                )
+              ),
+            ),
+          ),
+        ),
+      )
+    execute(cantonInterpreter, test)
+
+    // while (true) {}
+
     while (true) {
       Gen
         .resize(5, new Generators(3).ledgerGen)
         .sample
         .foreach(ledger => {
-          println("==== ledger ====")
-          println(Pretty.prettyLedger(ledger))
-          // println("==== IDE result ====")
-          // execute(ideInterpreter, ledger)
-          println("==== Canton result ====")
-          execute(cantonInterpreter, ledger)
+          if (ledger.nonEmpty) {
+            Await.result(ideInterpreter.runLedger(ledger), Duration.Inf)._2 match {
+              case Left(_) =>
+                print(".")
+              case Right(_) =>
+                println("\n==== ledger ====")
+                println(Pretty.prettyLedger(ledger))
+                println("==== canton ====")
+                execute(cantonInterpreter, ledger)
+            }
+          }
         })
     }
 
