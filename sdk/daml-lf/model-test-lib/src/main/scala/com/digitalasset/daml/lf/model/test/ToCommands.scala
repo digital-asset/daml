@@ -5,15 +5,25 @@ package com.daml.lf
 package model
 package test
 
-import com.daml.lf.command.{ApiCommand}
+import cats.implicits.toTraverseOps
+import cats.instances.all._
+import com.daml.lf.command.ApiCommand
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.model.test.Ledgers._
 
-class ToCommands(universalTemplatePkgId: Ref.PackageId) {
-
+object ToCommands {
   type PartyIdMapping = Map[PartyId, Ref.Party]
   type ContractIdMapping = Map[ContractId, V.ContractId]
+
+  sealed trait TranslationError
+  final case class PartyIdNotFound(partyId: PartyId) extends TranslationError
+  final case class ContractIdNotFoundError(contractId: ContractId) extends TranslationError
+}
+
+class ToCommands(universalTemplatePkgId: Ref.PackageId) {
+
+  import ToCommands._
 
   private def mkIdentifier(name: String): Ref.Identifier =
     Ref.Identifier(universalTemplatePkgId, Ref.QualifiedName.assertFromString(name))
@@ -47,11 +57,22 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
   private def mkList(values: IterableOnce[V]): V =
     V.ValueList(values.iterator.to(FrontStack))
 
-  private def partyToValue(partyIds: PartyIdMapping, partyId: PartyId): V =
-    V.ValueParty(partyIds(partyId))
+  private def partyToValue(
+      partyIds: PartyIdMapping,
+      partyId: PartyId,
+  ): Either[PartyIdNotFound, V] = {
+    for {
+      concretePartyId <- partyIds
+        .get(partyId)
+        .toRight(PartyIdNotFound(partyId))
+    } yield V.ValueParty(concretePartyId)
+  }
 
-  private def partySetToValue(partyIds: PartyIdMapping, parties: PartySet): V =
-    mkList(parties.view.map(partyToValue(partyIds, _)))
+  private def partySetToValue(
+      partyIds: PartyIdMapping,
+      parties: PartySet,
+  ): Either[PartyIdNotFound, V] =
+    parties.toList.traverse(partyToValue(partyIds, _)).map(mkList)
 
   private def kindToValue(kind: ExerciseKind): V =
     kind match {
@@ -59,48 +80,59 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
       case NonConsuming => mkEnum("Universal:Kind", "NonConsuming")
     }
 
-  def actionToValue(partyIds: PartyIdMapping, action: Action): V =
+  def actionToValue(partyIds: PartyIdMapping, action: Action): Either[PartyIdNotFound, V] =
     action match {
       case Create(contractId, signatories, observers) =>
-        mkVariant(
+        for {
+          concreteSignatories <- partySetToValue(partyIds, signatories)
+          concreteObservers <- partySetToValue(partyIds, observers)
+        } yield mkVariant(
           "Universal:TxAction",
           "Create",
           mkRecord(
             "Universal:TxAction.Create",
             "contractId" -> V.ValueInt64(contractId.longValue),
-            "signatories" -> partySetToValue(partyIds, signatories),
-            "observers" -> partySetToValue(partyIds, observers),
+            "signatories" -> concreteSignatories,
+            "observers" -> concreteObservers,
           ),
         )
       case Exercise(kind, contractId, controllers, choiceObservers, subTransaction) =>
-        mkVariant(
+        for {
+          concreteControllers <- partySetToValue(partyIds, controllers)
+          concreteChoiceObservers <- partySetToValue(partyIds, choiceObservers)
+          translatedActions <- subTransaction.traverse(actionToValue(partyIds, _))
+        } yield mkVariant(
           "Universal:TxAction",
           "Exercise",
           mkRecord(
             "Universal:TxAction.Exercise",
             "kind" -> kindToValue(kind),
             "contractId" -> V.ValueInt64(contractId.longValue),
-            "controllers" -> partySetToValue(partyIds, controllers),
-            "choiceObservers" -> partySetToValue(partyIds, choiceObservers),
-            "subTransaction" -> mkList(subTransaction.view.map(actionToValue(partyIds, _))),
+            "controllers" -> concreteControllers,
+            "choiceObservers" -> concreteChoiceObservers,
+            "subTransaction" -> mkList(translatedActions),
           ),
         )
       case Fetch(contractId) =>
-        mkVariant(
-          "Universal:TxAction",
-          "Fetch",
-          mkRecord(
-            "Universal:TxAction.Fetch",
-            "contractId" -> V.ValueInt64(contractId.longValue),
-          ),
+        Right(
+          mkVariant(
+            "Universal:TxAction",
+            "Fetch",
+            mkRecord(
+              "Universal:TxAction.Fetch",
+              "contractId" -> V.ValueInt64(contractId.longValue),
+            ),
+          )
         )
       case Rollback(subTransaction) =>
-        mkVariant(
+        for {
+          translatedActions <- subTransaction.traverse(actionToValue(partyIds, _))
+        } yield mkVariant(
           "Universal:TxAction",
           "Rollback",
           mkRecord(
             "Universal:TxAction.Rollback",
-            "subTransaction" -> mkList(subTransaction.view.map(actionToValue(partyIds, _))),
+            "subTransaction" -> mkList(translatedActions),
           ),
         )
     }
@@ -118,15 +150,18 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
       partyIds: PartyIdMapping,
       contractIds: ContractIdMapping,
       action: Action,
-  ): ApiCommand =
+  ): Either[TranslationError, ApiCommand] =
     action match {
       case Create(_, signatories, observers) =>
-        ApiCommand.Create(
+        for {
+          concreteSignatories <- partySetToValue(partyIds, signatories)
+          concreteObservers <- partySetToValue(partyIds, observers)
+        } yield ApiCommand.Create(
           mkIdentifier("Universal:Universal"),
           mkRecord(
             "Universal:Universal",
-            "signatories" -> partySetToValue(partyIds, signatories),
-            "observers" -> partySetToValue(partyIds, observers),
+            "signatories" -> concreteSignatories,
+            "observers" -> concreteObservers,
           ),
         )
       case Exercise(kind, contractId, controllers, choiceObservers, subTransaction) =>
@@ -134,16 +169,23 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
           case Consuming => "ConsumingChoice"
           case NonConsuming => "NonConsumingChoice"
         }
-        ApiCommand.Exercise(
+        for {
+          concreteContractId <- contractIds
+            .get(contractId)
+            .toRight(ContractIdNotFoundError(contractId))
+          concreteControllers <- partySetToValue(partyIds, controllers)
+          concreteChoiceObservers <- partySetToValue(partyIds, choiceObservers)
+          translatedActions <- subTransaction.traverse(actionToValue(partyIds, _))
+        } yield ApiCommand.Exercise(
           typeId = mkIdentifier("Universal:Universal"),
-          contractId = contractIds(contractId),
+          contractId = concreteContractId,
           choiceId = mkName(choiceName),
           argument = mkRecord(
             s"Universal:$choiceName",
             "env" -> envToValue(contractIds),
-            "controllers" -> partySetToValue(partyIds, controllers),
-            "choiceObservers" -> partySetToValue(partyIds, choiceObservers),
-            "subTransaction" -> mkList(subTransaction.view.map(actionToValue(partyIds, _))),
+            "controllers" -> concreteControllers,
+            "choiceObservers" -> concreteChoiceObservers,
+            "subTransaction" -> mkList(translatedActions),
           ),
         )
       case Fetch(_) => throw new RuntimeException("Fetch not supported at command level")

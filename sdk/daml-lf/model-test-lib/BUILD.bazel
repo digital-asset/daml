@@ -29,6 +29,7 @@ da_scala_library(
         "@maven//:org_typelevel_cats_core",
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_typelevel_cats_kernel",
+        "@maven//:org_typelevel_paiges_core",
     ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-model-test-lib:__VERSION__"],
@@ -36,6 +37,7 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//daml-lf/language",
+        "//daml-lf/scenario-interpreter",
         "//daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
     ],
@@ -52,7 +54,6 @@ da_scala_binary(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
-        "@maven//:org_typelevel_paiges_core",
     ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -60,6 +61,7 @@ da_scala_binary(
     deps = [
         ":model-test-lib",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:bindings-java",  # TODO: move to the lib
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-logging",
         "//canton:ledger_api_proto_scala",
@@ -67,11 +69,14 @@ da_scala_binary(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//daml-lf/scenario-interpreter",
         "//daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
+        "//language-support/java/bindings-rxjava",
         "//libs-scala/contextualized-logging",
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/rs-grpc-pekko",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_reactivex_rxjava2_rxjava",
+        "@maven//:org_reactivestreams_reactive_streams",
     ],
 )
