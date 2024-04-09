@@ -15,11 +15,6 @@ abstract class AlarmErrorCode(id: String)(implicit parent: ErrorClass)
     extends ErrorCode(id, SecurityAlert) {
   implicit override val code: AlarmErrorCode = this
 
-  // Overriding this, because the implementation in ErrorCode truncates the cause after 512 characters.
-  // But we need to be able to provide very detailed information in some cases for a post mortem investigation,
-  // so it does not make sense to truncate the cause.
-  override def toMsg(cause: => String, correlationId: Option[String]): String =
-    s"${codeStr(correlationId)}: $cause"
 }
 
 trait BaseAlarm extends BaseError {
