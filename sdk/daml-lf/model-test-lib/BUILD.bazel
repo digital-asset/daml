@@ -46,6 +46,7 @@ da_scala_binary(
     srcs = ["src/main/scala/com/digitalasset/daml/lf/model/test/Demo.scala"],
     data = [":universal.dar"],
     main_class = "com.daml.lf.model.test.Demo",
+    resources = ["//daml-script/runner:src/main/resources/logback.xml"],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalaz_scalaz_core",
