@@ -6,29 +6,47 @@ package model
 package test
 
 import cats.data.EitherT
-import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
-import com.daml.lf.model.test.Ledgers._
-import com.daml.lf.value.{Value => V}
-import com.daml.lf.data.Ref
-import org.apache.pekko.stream.Materializer
+import cats.implicits.toTraverseOps
 import cats.instances.all._
+import com.daml.lf.data.Ref
+import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient.{
   CommandResult,
   CommandWithMeta,
   CreateResult,
   ExerciseResult,
 }
+import com.daml.lf.model.test.Ledgers._
+import com.daml.lf.value.{Value => V}
+import org.apache.pekko.stream.Materializer
 import scalaz.OneAnd
 
 import scala.concurrent.{ExecutionContext, Future}
+
+object Interpreter {
+  type PartyIdMapping = Map[PartyId, Ref.Party]
+  type ContractIdMapping = Map[ContractId, V.ContractId]
+
+  sealed trait InterpreterError {
+    def pretty: String = this match {
+      case TranslationError(error) => error.toString
+      case SubmitFailure(failure) =>
+        failure match {
+          case ScriptLedgerClient.SubmitFailure(statusError: com.daml.lf.scenario.Error, _) =>
+            com.daml.lf.scenario.Pretty.prettyError(statusError).render(80)
+          case _ => failure.toString
+        }
+    }
+  }
+  final case class TranslationError(error: ToCommands.TranslationError) extends InterpreterError
+  final case class SubmitFailure(failure: ScriptLedgerClient.SubmitFailure) extends InterpreterError
+}
 
 class Interpreter(
     universalTemplatePkgId: Ref.PackageId,
     ledgerClient: ScriptLedgerClient,
 ) {
-
-  type PartyIdMapping = Map[PartyId, Ref.Party]
-  type ContractIdMapping = Map[ContractId, V.ContractId]
+  import Interpreter._
 
   private val toCommands = new ToCommands(universalTemplatePkgId)
 
@@ -61,7 +79,7 @@ class Interpreter(
     Future.sequence(futures).map(_.toMap)
   }
 
-  private type Eval[A] = EitherT[Future, ScriptLedgerClient.SubmitFailure, A]
+  private type Eval[A] = EitherT[Future, InterpreterError, A]
 
   private def assertToOneAnd[A](set: Set[A]): OneAnd[Set, A] = {
     set.toSeq match {
@@ -110,24 +128,33 @@ class Interpreter(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Eval[ContractIdMapping] = for {
-    result <- EitherT(
-      ledgerClient.submit(
-        actAs = assertToOneAnd(commands.actAs.map(partyIds)),
-        readAs = partyIds.values.toSet,
-        disclosures = List.empty,
-        commands = commands.actions.map(action =>
-          CommandWithMeta(
-            toCommands.actionToApiCommand(partyIds, contractIds, action),
-            explicitPackageId = false,
-          )
-        ),
-        optLocation = None,
-        languageVersionLookup = _ => Left("language version lookup not supported"),
-        errorBehaviour = ScriptLedgerClient.SubmissionErrorBehaviour.MustSucceed,
-      )
-    )
-  } yield commandResultsToContractIdMapping(commands.actions, result._1)
+  ): Eval[ContractIdMapping] =
+    for {
+      apiCommands <- EitherT
+        .fromEither[Future](
+          commands.actions
+            .traverse(
+              toCommands.actionToApiCommand(partyIds, contractIds, _)
+            )
+        )
+        .leftMap(TranslationError)
+      resultAndTree <- EitherT(
+        ledgerClient.submit(
+          actAs = assertToOneAnd(commands.actAs.map(partyIds)),
+          readAs = partyIds.values.toSet,
+          disclosures = List.empty,
+          commands = apiCommands.map(cmd =>
+            CommandWithMeta(
+              cmd,
+              explicitPackageId = false,
+            )
+          ),
+          optLocation = None,
+          languageVersionLookup = _ => Left("language version lookup not supported"),
+          errorBehaviour = ScriptLedgerClient.SubmissionErrorBehaviour.MustSucceed,
+        )
+      ).leftMap[InterpreterError](SubmitFailure)
+    } yield commandResultsToContractIdMapping(commands.actions, resultAndTree._1)
 
   private def runCommandsList(
       partyIds: PartyIdMapping,
@@ -149,9 +176,9 @@ class Interpreter(
   def runLedger(ledger: Ledger)(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Either[ScriptLedgerClient.SubmitFailure, ContractIdMapping]] =
+  ): Future[(PartyIdMapping, Either[InterpreterError, ContractIdMapping])] =
     for {
       partyIds <- allocateParties(collectLedgerPartyIds(ledger))
       result <- runCommandsList(partyIds, Map.empty, ledger).value
-    } yield result
+    } yield (partyIds, result)
 }

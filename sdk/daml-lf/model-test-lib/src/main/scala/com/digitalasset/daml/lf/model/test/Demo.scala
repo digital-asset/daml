@@ -7,11 +7,13 @@ package test
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
+import com.daml.ledger.api.v2.{TransactionFilterOuterClass => proto}
+import com.daml.ledger.javaapi
+import com.daml.ledger.rxjava.DamlLedgerClient
 import com.daml.lf.archive.{Dar, UniversalArchiveDecoder}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.script.v2.ledgerinteraction.IdeLedgerClient
-import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient.SubmitFailure
 import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.{
   AdminLedgerClient,
   GrpcLedgerClient,
@@ -34,6 +36,7 @@ import org.scalacheck.Gen
 import java.io.{File, FileInputStream}
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 
 object Demo {
 
@@ -93,29 +96,43 @@ object Demo {
     )
   }
 
+  private val ledgerClientForProjections: DamlLedgerClient =
+    DamlLedgerClient.newBuilder("localhost", 5011).build()
+
   private def execute(interpreter: Interpreter, l: Ledger)(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Unit = {
-    try {
-      val result = Await.result(interpreter.runLedger(l), Duration.Inf)
-      result match {
-        case Right(value) =>
-          println("SUCCESS")
-          println(value)
-        case Left(SubmitFailure(statusError, _)) =>
-          println("ERROR")
-          statusError match {
-            case e: com.daml.lf.scenario.Error =>
-              println(com.daml.lf.scenario.Pretty.prettyError(e).render(80))
-            case _ => println(statusError)
-          }
-      }
-    } catch {
-      case e: Throwable =>
-        println("EXCEPTION")
-        e.printStackTrace(System.out)
+    val (partyIds, result) = Await.result(interpreter.runLedger(l), Duration.Inf)
+    result match {
+      case Right(value) =>
+        println("SUCCESS")
+        println(value)
+        for ((party, partyId) <- partyIds.toList) {
+          println(s"Events for party $party")
+          println(fetchEvents(partyId))
+        }
+      case Left(error) =>
+        println("ERROR")
+        println(error.pretty)
     }
+  }
+
+  def fetchEvents(party: Ref.Party): List[javaapi.data.TransactionTree] = {
+    ledgerClientForProjections.getTransactionsClient
+      .getTransactionsTrees(
+        javaapi.data.ParticipantOffset.ParticipantBegin.getInstance(),
+        javaapi.data.TransactionFilter.fromProto(
+          proto.TransactionFilter
+            .newBuilder()
+            .putFiltersByParty(party, proto.Filters.getDefaultInstance)
+            .build()
+        ),
+        true,
+      )
+      .blockingIterable
+      .asScala
+      .toList
   }
 
   def main(args: Array[String]): Unit = {
@@ -128,7 +145,9 @@ object Demo {
 
     val grpcLedgerClient = Await.result(makeGrpcLedgerClient(), Duration.Inf)
     val ideInterpreter = new Interpreter(universalTemplatePkgId, ideLedgerClient)
+    print(ideInterpreter)
     val cantonInterpreter = new Interpreter(universalTemplatePkgId, grpcLedgerClient)
+    ledgerClientForProjections.connect()
 
     while (true) {
       Gen
@@ -137,13 +156,14 @@ object Demo {
         .foreach(ledger => {
           println("==== ledger ====")
           println(Pretty.prettyLedger(ledger))
-          println("==== IDE result ====")
-          execute(ideInterpreter, ledger)
+          // println("==== IDE result ====")
+          // execute(ideInterpreter, ledger)
           println("==== Canton result ====")
           execute(cantonInterpreter, ledger)
         })
     }
 
+    ledgerClientForProjections.close()
     val _ = Await.ready(system.terminate(), Duration.Inf)
   }
 }
