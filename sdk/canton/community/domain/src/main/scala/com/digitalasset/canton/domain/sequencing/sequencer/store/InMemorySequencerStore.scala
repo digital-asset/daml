@@ -194,11 +194,19 @@ class InMemorySequencerStore(
 
   private def isMemberRecipient(member: SequencerMemberId)(event: StoreEvent[_]): Boolean =
     event match {
-      case DeliverStoreEvent(sender, messageId, recipients, payload, topologyTimestampO, _trace) =>
+      case DeliverStoreEvent(
+            sender,
+            messageId,
+            recipients,
+            payload,
+            topologyTimestampO,
+            _trace,
+            _trafficStateO,
+          ) =>
         recipients.contains(
           member
         ) // only if they're a recipient (sender should already be a recipient)
-      case DeliverErrorStoreEvent(sender, _messageId, _error, _trace) =>
+      case DeliverErrorStoreEvent(sender, _messageId, _error, _trace, _trafficStateO) =>
         sender == member // only if we're the sender
     }
 

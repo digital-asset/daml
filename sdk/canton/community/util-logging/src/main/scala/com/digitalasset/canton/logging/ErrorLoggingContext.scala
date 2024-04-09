@@ -48,7 +48,7 @@ abstract class ErrorLoggingContextBase(
       "error-code" -> err.code.codeStr(correlationId),
       "err-context" -> ("{" + ContextualizedErrorLogger.formatContextAsString(mergedContext) + "}"),
     ) ++ properties
-    val message = err.code.toMsg(err.cause, correlationId)
+    val message = err.code.toMsg(err.cause, correlationId, None)
     withContext(arguments) {
       (err.code.logLevel, err.throwableO) match {
         case (Level.INFO, None) => logger.info(message)

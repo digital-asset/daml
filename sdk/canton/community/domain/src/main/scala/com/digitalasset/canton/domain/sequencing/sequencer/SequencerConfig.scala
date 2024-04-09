@@ -38,6 +38,23 @@ object DatabaseSequencerConfig {
     */
   type TestingInterceptor =
     Clock => Sequencer => ExecutionContext => Sequencer
+
+  // TODO(#18407): Allow configuration of database sequencer as a part of unified sequencer
+  //  instead of hardcoding the values below
+  private[sequencer] final case class ForBlockSequencer(
+      writer: SequencerWriterConfig = SequencerWriterConfig.LowLatency(),
+      reader: SequencerReaderConfig = new SequencerReaderConfig {
+        override val readBatchSize: Int = SequencerReaderConfig.defaultReadBatchSize
+        override val checkpointInterval: NonNegativeFiniteDuration =
+          SequencerReaderConfig.defaultCheckpointInterval
+      },
+      testingInterceptor: Option[DatabaseSequencerConfig.TestingInterceptor] = None,
+  ) extends SequencerConfig
+      with DatabaseSequencerConfig {
+    override def supportsReplicas: Boolean = false
+
+    override def highAvailabilityEnabled: Boolean = false
+  }
 }
 
 sealed trait CommunitySequencerConfig extends SequencerConfig

@@ -24,7 +24,7 @@ object DomainSequencingTestUtils {
       recipients: NonEmpty[SortedSet[SequencerMemberId]] = NonEmpty(SortedSet, sender)
   ): DeliverStoreEvent[PayloadId] = {
     val messageId = MessageId.tryCreate("mock-deliver")
-    DeliverStoreEvent(sender, messageId, recipients, payloadId, signingTs, traceContext)
+    DeliverStoreEvent(sender, messageId, recipients, payloadId, signingTs, traceContext, None)
   }
 
   def payloadsForEvents(events: Seq[Sequenced[PayloadId]]): List[Payload] = {

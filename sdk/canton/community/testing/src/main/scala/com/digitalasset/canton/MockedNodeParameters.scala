@@ -17,6 +17,7 @@ object MockedNodeParameters {
       _loggingConfig: LoggingConfig = LoggingConfig(),
       _enableAdditionalConsistencyChecks: Boolean = true,
       _nonStandardConfig: Boolean = false,
+      _useUnifiedSequencer: Boolean = false,
   ): CantonNodeParameters = new CantonNodeParameters {
     override def delayLoggingThreshold: NonNegativeFiniteDuration = ???
 
@@ -50,6 +51,6 @@ object MockedNodeParameters {
 
     override def exitOnFatalFailures: Boolean = ???
 
-    override def useUnifiedSequencer: Boolean = false
+    override def useUnifiedSequencer: Boolean = _useUnifiedSequencer
   }
 }

@@ -154,6 +154,7 @@ class DatabaseSequencer(
     eventSignaller,
     protocolVersion,
     loggerFactory,
+    unifiedSequencer = unifiedSequencer,
   )
 
   override val pruningScheduler: Option[PruningScheduler] =
@@ -243,12 +244,21 @@ class DatabaseSequencer(
     // use a timestamp which is definitively lower than the subsequent sequencing timestamp
     // otherwise, if the timestamp we use to register the member is equal or higher than the
     // first message to the member, we'd ignore the first message by accident
-    val nowMs = clock.monotonicTime().toMicros
+    val nowMs =
+      clock
+        .monotonicTime()
+        .toMicros - 500000L // TODO(#18399): Get rid of the workaround, will not be needed once fully implicit member registration based on topology is implemented
     val uniqueMicros = nowMs - (nowMs % TotalNodeCountValues.MaxNodeCount) - 1
     EitherT.right(store.registerMember(member, CantonTimestamp.assertFromLong(uniqueMicros)).void)
   }
 
-  override def sendAsyncInternal(submission: SubmissionRequest)(implicit
+  // TODO(#18399): Change this method to not hide errors, or remove it entirely in favor of `registerMember`
+  //  once fully implicit member registration based on topology is implemented
+  protected def registerMemberInternal(member: Member, timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[Unit] = store.registerMember(member, timestamp).void
+
+  override protected def sendAsyncInternal(submission: SubmissionRequest)(implicit
       traceContext: TraceContext
   ): EitherT[Future, SendAsyncError, Unit] =
     for {
@@ -274,6 +284,13 @@ class DatabaseSequencer(
       _ <- writer.send(submission)
     } yield ()
 
+  protected def blockSequencerWriteInternal(
+      outcome: SubmissionRequestOutcome
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, SendAsyncError, Unit] =
+    writer.blockSequencerWrite(outcome)
+
   override protected def sendAsyncSignedInternal(
       signedSubmission: SignedContent[SubmissionRequest]
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] =
@@ -281,8 +298,42 @@ class DatabaseSequencer(
 
   override def readInternal(member: Member, offset: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CreateSubscriptionError, Sequencer.EventSource] =
-    reader.read(member, offset)
+  ): EitherT[Future, CreateSubscriptionError, Sequencer.EventSource] = {
+    if (!unifiedSequencer) {
+      reader.read(member, offset)
+    } else {
+      if (!member.isAuthenticated) {
+        // allowing unauthenticated members to read events is the same as automatically registering an unauthenticated member
+        // and then proceeding with the subscription.
+        // optimization: if the member is unauthenticated, we don't need to fetch all members from the snapshot
+        reader.read(member, offset)
+      } else {
+        for {
+          isKnown <- EitherT.right[CreateSubscriptionError](
+            cryptoApi.currentSnapshotApproximation.ipsSnapshot.isMemberKnown(member)
+          )
+          _ <- EitherT.cond[Future](
+            isKnown,
+            (),
+            CreateSubscriptionError.UnknownMember(member): CreateSubscriptionError,
+          )
+          // TODO(#18399): make the idempotent check for member handle all the cases and do not throw internal errors
+          storeMemberO <- EitherT.right(store.lookupMember(member))
+          _ <- {
+            if (storeMemberO.isEmpty) {
+              // TODO(#18399): Register at the actual topology tx timestamp; fold the error into the output error type
+              registerMember(member).leftMap(e =>
+                ErrorUtil.internalError(new RuntimeException(e.toString))
+              )
+            } else {
+              EitherT.pure[Future, CreateSubscriptionError](())
+            }
+          }
+          eventSource <- reader.read(member, offset)
+        } yield eventSource
+      }
+    }
+  }
 
   override protected def acknowledgeSignedInternal(
       signedAcknowledgeRequest: SignedContent[AcknowledgeRequest]
@@ -338,7 +389,9 @@ class DatabaseSequencer(
   override def pruningStatus(implicit traceContext: TraceContext): Future[SequencerPruningStatus] =
     store.status(clock.now)
 
-  override def healthInternal(implicit traceContext: TraceContext): Future[SequencerHealthStatus] =
+  override protected def healthInternal(implicit
+      traceContext: TraceContext
+  ): Future[SequencerHealthStatus] =
     writer.healthStatus
 
   override def prune(
