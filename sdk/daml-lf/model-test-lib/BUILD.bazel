@@ -35,6 +35,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-model-test-lib:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "//canton:bindings-java",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/scenario-interpreter",

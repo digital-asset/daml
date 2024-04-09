@@ -169,7 +169,7 @@ class Interpreter(
       case commands :: tail =>
         for {
           newContractIds <- runCommands(partyIds, contractIds, commands)
-          result <- runCommandsList(partyIds, newContractIds, tail)
+          result <- runCommandsList(partyIds, contractIds ++ newContractIds, tail)
         } yield result
     }
 
