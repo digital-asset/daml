@@ -60,31 +60,6 @@ object Demo {
     namedLoggerFactory = NamedLoggerFactory("model.test", "model-based testing profile"),
   )
 
-  def main(args: Array[String]): Unit = {
-
-    implicit val system: ActorSystem = ActorSystem("RunnerMain")
-    implicit val ec: ExecutionContext = system.dispatcher
-    implicit val materializer: Materializer = Materializer(system)
-    implicit val sequencer: ExecutionSequencerFactory =
-      new PekkoExecutionSequencerPool("ModelBasedTestingRunnerPool")(system)
-
-    val grpcLedgerClient = Await.result(makeGrpcLedgerClient(), Duration.Inf)
-    val ideInterpreter = new Interpreter(universalTemplatePkgId, ideLedgerClient)
-    val cantonInterpreter = new Interpreter(universalTemplatePkgId, grpcLedgerClient)
-
-    while (true) {
-      Gen
-        .resize(5, new Generators(3).ledgerGen)
-        .sample
-        .foreach(ledger => {
-          execute(ideInterpreter, ledger)
-          execute(cantonInterpreter, ledger)
-        })
-    }
-
-    val _ = Await.ready(system.terminate(), Duration.Inf)
-  }
-
   private def makeGrpcLedgerClient()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -122,15 +97,14 @@ object Demo {
       ec: ExecutionContext,
       mat: Materializer,
   ): Unit = {
-    println("==== ledger ====")
-    println(Pretty.prettyLedger(l))
-    println("==== result ====")
     try {
       val result = Await.result(interpreter.runLedger(l), Duration.Inf)
       result match {
-        case Right(value) => println(s"success=$value")
+        case Right(value) =>
+          println("SUCCESS")
+          println(value)
         case Left(SubmitFailure(statusError, _)) =>
-          println("ledger error")
+          println("ERROR")
           statusError match {
             case e: com.daml.lf.scenario.Error =>
               println(com.daml.lf.scenario.Pretty.prettyError(e).render(80))
@@ -139,7 +113,37 @@ object Demo {
       }
     } catch {
       case e: Throwable =>
+        println("EXCEPTION")
         e.printStackTrace(System.out)
     }
+  }
+
+  def main(args: Array[String]): Unit = {
+
+    implicit val system: ActorSystem = ActorSystem("RunnerMain")
+    implicit val ec: ExecutionContext = system.dispatcher
+    implicit val materializer: Materializer = Materializer(system)
+    implicit val sequencer: ExecutionSequencerFactory =
+      new PekkoExecutionSequencerPool("ModelBasedTestingRunnerPool")(system)
+
+    val grpcLedgerClient = Await.result(makeGrpcLedgerClient(), Duration.Inf)
+    val ideInterpreter = new Interpreter(universalTemplatePkgId, ideLedgerClient)
+    val cantonInterpreter = new Interpreter(universalTemplatePkgId, grpcLedgerClient)
+
+    while (true) {
+      Gen
+        .resize(5, new Generators(3).ledgerGen)
+        .sample
+        .foreach(ledger => {
+          println("==== ledger ====")
+          println(Pretty.prettyLedger(ledger))
+          println("==== IDE result ====")
+          execute(ideInterpreter, ledger)
+          println("==== Canton result ====")
+          execute(cantonInterpreter, ledger)
+        })
+    }
+
+    val _ = Await.ready(system.terminate(), Duration.Inf)
   }
 }
