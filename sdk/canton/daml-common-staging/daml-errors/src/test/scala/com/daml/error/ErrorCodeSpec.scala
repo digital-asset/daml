@@ -44,22 +44,28 @@ class ErrorCodeSpec
       FooErrorCode.category.grpcCode shouldBe Some(Code.INVALID_ARGUMENT)
     }
 
+    val maxLength = 512
+
     "create correct message" in {
       FooErrorCode.toMsg(
         cause = "cause123",
         correlationId = Some("123correlationId"),
+        limit = Some(maxLength),
       ) shouldBe "FOO_ERROR_CODE(8,123corre): cause123"
       FooErrorCode.toMsg(
         cause = "cause123",
         correlationId = None,
+        limit = Some(maxLength),
       ) shouldBe "FOO_ERROR_CODE(8,0): cause123"
       FooErrorCode.toMsg(
-        cause = "x" * ErrorCode.MaxCauseLogLength * 2,
+        cause = "x" * maxLength * 2,
         correlationId = Some("123correlationId"),
-      ) shouldBe s"FOO_ERROR_CODE(8,123corre): ${"x" * ErrorCode.MaxCauseLogLength}..."
+        limit = Some(maxLength),
+      ) shouldBe s"FOO_ERROR_CODE(8,123corre): ${"x" * maxLength}..."
       FooErrorCodeSecuritySensitive.toMsg(
         cause = "cause123",
         correlationId = Some("123correlationId"),
+        limit = Some(maxLength),
       ) shouldBe "FOO_ERROR_CODE_SECURITY_SENSITIVE(4,123corre): cause123"
     }
 

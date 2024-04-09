@@ -10,8 +10,11 @@ import com.digitalasset.canton.crypto.SyncCryptoApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.BlockUpdateGenerator.EventsForSubmissionRequest
 import com.digitalasset.canton.domain.block.data.{BlockInfo, BlockUpdateEphemeralState}
-import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregationUpdates
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer.LocalEvent
+import com.digitalasset.canton.domain.sequencing.sequencer.{
+  InFlightAggregationUpdates,
+  SubmissionRequestOutcome,
+}
 import com.digitalasset.canton.error.BaseAlarm
 import com.digitalasset.canton.sequencing.protocol.SequencedEventTrafficState
 import com.digitalasset.canton.topology.Member
@@ -55,7 +58,8 @@ final case class CompleteBlockUpdate(block: BlockInfo) extends OrderedBlockUpdat
   *                             Includes the clean-up of expired aggregations.
   * @param lastSequencerEventTimestamp The highest timestamp of an event in `events` addressed to the sequencer, if any.
   * @param state Updated ephemeral state to be used for processing subsequent chunks.
-  * @param signingSnapshot Snapshot to be used for signing the events.
+  * @param submissionsOutcomes  A list of internal block sequencer states after processing submissions for the chunk.
+  *                             This is used by the unified sequencer to generate and write events in the database sequencer.
   */
 final case class ChunkUpdate[+E <: ChunkEvents](
     newMembers: Map[Member, CantonTimestamp] = Map.empty,
@@ -65,6 +69,7 @@ final case class ChunkUpdate[+E <: ChunkEvents](
     inFlightAggregationUpdates: InFlightAggregationUpdates = Map.empty,
     lastSequencerEventTimestamp: Option[CantonTimestamp],
     state: BlockUpdateEphemeralState,
+    submissionsOutcomes: Seq[SubmissionRequestOutcome] = Seq.empty,
 ) extends OrderedBlockUpdate[E] {
   // ensure that all new members appear in the ephemeral state
   require(

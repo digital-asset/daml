@@ -21,7 +21,7 @@ import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.protocol.{SendAsyncError, SubmissionRequest}
-import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
+import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration, SimClock}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.util.FutureInstances.*
@@ -135,6 +135,7 @@ class SequencerWriter(
     protected val loggerFactory: NamedLoggerFactory,
     protocolVersion: ProtocolVersion,
     maxSqlInListSize: PositiveNumeric[Int],
+    unifiedSequencer: Boolean,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging
     with FlagCloseableAsync
@@ -314,12 +315,37 @@ class SequencerWriter(
     )
   }
 
+  def blockSequencerWrite(
+      outcome: SubmissionRequestOutcome
+  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = {
+    lazy val sendET = sequencerQueues
+      .fold(
+        EitherT
+          .leftT[Future, Unit](SendAsyncError.Unavailable("Unavailable: sequencer is not running"))
+          .leftWiden[SendAsyncError]
+      )(_.blockSequencerWrite(outcome))
+
+    val sendUnlessShutdown = performUnlessClosingF(functionFullName)(sendET.value)
+    EitherT(
+      // TODO(#18404): Propagate FUS upwards till the very source of the calls
+      sendUnlessShutdown.onShutdown(Left[SendAsyncError, Unit](SendAsyncError.ShuttingDown()))
+    )
+  }
+
+  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private def runRecovery(
       store: SequencerWriterStore
   )(implicit traceContext: TraceContext): Future[CantonTimestamp] =
     for {
       _ <- store.deleteEventsPastWatermark()
       onlineTimestamp <- store.goOnline(clock.now)
+      _ = if (clock.isSimClock && unifiedSequencer) {
+        logger.debug(s"The sequencer will not start unless sim clock moves to $onlineTimestamp")
+        logger.debug(
+          s"In order to prevent deadlocking in tests the clock's timestamp will now be advanced to $onlineTimestamp"
+        )
+        clock.asInstanceOf[SimClock].advanceTo(onlineTimestamp)
+      }
     } yield onlineTimestamp
 
   /** When we go online we're given the value of the new watermark that is inserted for this sequencer.
@@ -439,6 +465,7 @@ object SequencerWriter {
       eventSignaller: EventSignaller,
       protocolVersion: ProtocolVersion,
       loggerFactory: NamedLoggerFactory,
+      unifiedSequencer: Boolean,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): SequencerWriter = {
     val logger = TracedLogger(SequencerWriter.getClass, loggerFactory)
 
@@ -471,6 +498,7 @@ object SequencerWriter {
       loggerFactory,
       protocolVersion,
       writerConfig.maxSqlInListSize,
+      unifiedSequencer = unifiedSequencer,
     )
   }
 

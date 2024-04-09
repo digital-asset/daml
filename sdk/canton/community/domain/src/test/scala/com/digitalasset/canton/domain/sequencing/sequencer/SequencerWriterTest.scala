@@ -77,6 +77,7 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
         // Unused because the store is overridden below
         testedProtocolVersion,
         PositiveInt.tryCreate(5),
+        unifiedSequencer = testedUseUnifiedSequencer,
       ) {
         override val generalStore: SequencerStore = store
       }

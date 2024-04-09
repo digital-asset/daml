@@ -319,6 +319,7 @@ class BlockUpdateGeneratorImpl(
           Map.empty[AggregationId, InFlightAggregationUpdate],
           stateWithNewMembers.ephemeral,
           Option.empty[CantonTimestamp],
+          Seq.empty[SubmissionRequestOutcome],
         ),
         submissionRequestsWithSnapshots,
       )(validateSubmissionRequestAndAddEvents(height, state.latestSequencerEventTimestamp))
@@ -328,6 +329,7 @@ class BlockUpdateGeneratorImpl(
         inFlightAggregationUpdates,
         finalEphemeralState,
         lastSequencerEventTimestamp,
+        reversedOutcomes,
       ) = result
       val finalEphemeralStateWithAggregationExpiry =
         finalEphemeralState.evictExpiredInFlightAggregations(lastTsBeforeValidation)
@@ -339,6 +341,7 @@ class BlockUpdateGeneratorImpl(
         inFlightAggregationUpdates,
         lastSequencerEventTimestamp,
         finalEphemeralStateWithAggregationExpiry,
+        reversedOutcomes.reverse,
       )
 
       // we don't want to take into consideration events that have possibly been discarded, otherwise we could
@@ -534,6 +537,7 @@ class BlockUpdateGeneratorImpl(
           InFlightAggregationUpdates,
           BlockUpdateEphemeralState,
           Option[CantonTimestamp],
+          Seq[SubmissionRequestOutcome],
       ),
       sequencedSubmissionRequest: SequencedSubmission,
   )(implicit
@@ -544,9 +548,16 @@ class BlockUpdateGeneratorImpl(
         InFlightAggregationUpdates,
         BlockUpdateEphemeralState,
         Option[CantonTimestamp],
+        Seq[SubmissionRequestOutcome],
     )
   ] = {
-    val (reversedEvents, inFlightAggregationUpdates, stFromAcc, sequencerEventTimestampSoFarO) = acc
+    val (
+      reversedEvents,
+      inFlightAggregationUpdates,
+      stFromAcc,
+      sequencerEventTimestampSoFarO,
+      revOutcomes,
+    ) = acc
     val SequencedSubmission(
       sequencingTimestamp,
       signedSubmissionRequest,
@@ -570,9 +581,20 @@ class BlockUpdateGeneratorImpl(
           InFlightAggregationUpdates,
           BlockUpdateEphemeralState,
           Option[CantonTimestamp],
+          Seq[SubmissionRequestOutcome],
       )
     ] = outcome match {
-      case SubmissionRequestOutcome(deliverEvents, newAggregationO, signingSnapshotO) =>
+      case SubmissionRequestOutcome(
+            deliverEvents,
+            newAggregationO,
+            signingSnapshotO,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+          ) =>
         NonEmpty.from(deliverEvents) match {
           case None => // No state update if there is nothing to deliver
             FutureUnlessShutdown.pure(acc)
@@ -622,11 +644,14 @@ class BlockUpdateGeneratorImpl(
                 trafficUpdatedState.trafficState.view.mapValues(_.toSequencedEventTrafficState),
                 traceContext,
               )
+              val outcomeWithUpdateTrafficState =
+                outcome.copy(trafficStateO = Some(trafficUpdatedState.trafficState))
               (
                 unsignedEvents +: reversedEvents,
                 newInFlightAggregationUpdates,
                 trafficUpdatedState,
                 sequencerEventTimestampO,
+                outcomeWithUpdateTrafficState +: revOutcomes,
               )
             }
         }
@@ -895,6 +920,8 @@ class BlockUpdateGeneratorImpl(
             )
             member -> deliver
         }.toMap
+      val members =
+        groupToMembers.values.flatten.toSet ++ submissionRequest.batch.allMembers + submissionRequest.sender
       val aggregationUpdate = aggregationOutcome.map {
         case (aggregationId, inFlightAggregationUpdate, _) =>
           aggregationId -> inFlightAggregationUpdate
@@ -933,6 +960,11 @@ class BlockUpdateGeneratorImpl(
           events,
           aggregationUpdate,
           signingSnapshotO,
+          submissionRequest,
+          sequencingTimestamp,
+          members,
+          None,
+          Some(aggregatedBatch),
         ),
         sequencerEventTimestampO,
       )
@@ -1203,10 +1235,17 @@ class BlockUpdateGeneratorImpl(
           logger.debug(
             s"Aggregation ID $aggregationId has now ${newAggregation.aggregatedSenders.size} senders aggregated. Threshold is ${newAggregation.rule.threshold.value}."
           )
+          val deliverReceiptEvent =
+            deliverReceipt(submissionRequest, sequencingTimestamp, nextCounter)
           SubmissionRequestOutcome(
-            deliverReceipt(submissionRequest, sequencingTimestamp, nextCounter),
+            Map(submissionRequest.sender -> deliverReceiptEvent),
             Some(aggregationId -> fullInFlightAggregationUpdate),
             None,
+            submissionRequest,
+            sequencingTimestamp,
+            Set(submissionRequest.sender),
+            Some(deliverReceiptEvent),
+            Some(Batch.empty(protocolVersion)),
           )
         },
       )
@@ -1215,6 +1254,7 @@ class BlockUpdateGeneratorImpl(
 
   private val groupAddressResolver = new GroupAddressResolver(domainSyncCryptoApi)
 
+  // TODO(#18401): This method should be harmonized with the GroupAddressResolver
   private def computeGroupAddressesToMembers(
       submissionRequest: SubmissionRequest,
       sequencingTimestamp: CantonTimestamp,
@@ -1466,9 +1506,10 @@ class BlockUpdateGeneratorImpl(
     val SubmissionRequest(sender, messageId, _, _, _, _, _) = request
     logger.debug(
       show"Rejecting submission request $messageId from $sender with error ${sequencerError.code
-          .toMsg(sequencerError.cause, correlationId = None)}"
+          .toMsg(sequencerError.cause, correlationId = None, limit = None)}"
     )
     SubmissionRequestOutcome.reject(
+      request,
       sender,
       DeliverError.create(
         nextCounter,
@@ -1485,10 +1526,9 @@ class BlockUpdateGeneratorImpl(
       request: SubmissionRequest,
       sequencingTimestamp: CantonTimestamp,
       nextCounter: Member => SequencerCounter,
-  ): EventsForSubmissionRequest = {
-    val sender = request.sender
-    val receipt = Deliver.create(
-      nextCounter(sender),
+  ): SequencedEvent[ClosedEnvelope] = {
+    Deliver.create(
+      nextCounter(request.sender),
       sequencingTimestamp,
       domainId,
       Some(request.messageId),
@@ -1499,7 +1539,6 @@ class BlockUpdateGeneratorImpl(
       None,
       protocolVersion,
     )
-    Map(sender -> receipt)
   }
 
   private def updateTrafficStates(
@@ -1603,6 +1642,7 @@ class BlockUpdateGeneratorImpl(
               )
               Left(
                 SubmissionRequestOutcome.reject(
+                  request,
                   sender,
                   DeliverError.create(
                     ephemeralState.tryNextCounter(sender),
@@ -1646,34 +1686,9 @@ class BlockUpdateGeneratorImpl(
 
 object BlockUpdateGeneratorImpl {
 
-  import BlockUpdateGenerator.*
+  type SignedEvents = NonEmpty[Map[Member, OrdinarySerializedEvent]]
 
-  /** Describes the outcome of processing a submission request:
-    *
-    * @param eventsByMember      The [[com.digitalasset.canton.sequencing.protocol.SequencedEvent]]s
-    *                            that should be delivered as a result of the submission request.
-    *                            This can be [[com.digitalasset.canton.sequencing.protocol.DeliverError]]s,
-    *                            receipts for the sender, or plain [[com.digitalasset.canton.sequencing.protocol.Deliver]].
-    * @param inFlightAggregation If [[scala.Some$]], the [[com.digitalasset.canton.sequencing.protocol.AggregationId]]
-    *                            and the [[com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregationUpdate]]
-    *                            of the current in-flight aggregation state.
-    *                            If [[scala.None$]], then the submission request either is not aggregatable or was refused.
-    * @param signingSnapshotO    The snapshot to be used for signing the envelopes,
-    *                            if it should be different from the snapshot at the sequencing time.
-    */
-  final case class SubmissionRequestOutcome(
-      eventsByMember: EventsForSubmissionRequest,
-      inFlightAggregation: Option[(AggregationId, InFlightAggregationUpdate)],
-      signingSnapshotO: Option[SyncCryptoApi],
-  )
-
-  private object SubmissionRequestOutcome {
-    val discardSubmissionRequest: SubmissionRequestOutcome =
-      SubmissionRequestOutcome(Map.empty, None, None)
-
-    def reject(sender: Member, rejection: DeliverError): SubmissionRequestOutcome =
-      SubmissionRequestOutcome(Map(sender -> rejection), None, None)
-  }
+  type EventsForSubmissionRequest = Map[Member, SequencedEvent[ClosedEnvelope]]
 
   private final case class SequencedSubmission(
       sequencingTimestamp: CantonTimestamp,

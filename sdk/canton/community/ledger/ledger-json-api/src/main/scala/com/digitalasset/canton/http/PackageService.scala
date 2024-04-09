@@ -131,7 +131,10 @@ class PackageService(
               logger.info(
                 s"new package IDs loaded: ${loadsSinceReloading.keySet.mkString(", ")}, ${lc.makeString}"
               )
-              logger.debug(s"loaded diff: $loadsSinceReloading, ${lc.makeString}")
+              logger.debug(
+                s"loaded diff: $loadsSinceReloading, ${lc.makeString}"
+                  .take(1000) /* truncate output */
+              )
             }
           case None => logger.debug(s"new package IDs not found, ${lc.makeString}")
         }

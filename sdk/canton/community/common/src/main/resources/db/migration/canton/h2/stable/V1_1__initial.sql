@@ -658,7 +658,11 @@ create table sequencer_events (
     -- optional error message for deliver error
     error binary large object,
     -- trace context associated with the event
-    trace_context binary large object not null
+    trace_context binary large object not null,
+    -- extra traffic remainder at the time of the event
+    extra_traffic_remainder bigint,
+    -- total extra traffic consumed at the time of the event
+    extra_traffic_consumed bigint
 );
 
 -- Sequence of local offsets used by the participant event publisher

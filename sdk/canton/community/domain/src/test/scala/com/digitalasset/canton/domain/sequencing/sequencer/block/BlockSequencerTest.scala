@@ -28,6 +28,7 @@ import com.digitalasset.canton.domain.block.{
   SignedChunkEvents,
 }
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
+import com.digitalasset.canton.domain.sequencing.sequencer.SequencerIntegration
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   RegisterMemberError,
@@ -238,8 +239,9 @@ class BlockSequencerTest
     ): Flow[BlockEvents, Traced[OrderedBlockUpdate[SignedChunkEvents]], NotUsed] =
       Flow[BlockEvents].mapConcat(_ => Seq.empty)
 
-    override def applyBlockUpdate
-        : Flow[Traced[BlockUpdate[SignedChunkEvents]], Traced[CantonTimestamp], NotUsed] =
+    override def applyBlockUpdate(
+        dbSequencerIntegration: SequencerIntegration
+    ): Flow[Traced[BlockUpdate[SignedChunkEvents]], Traced[CantonTimestamp], NotUsed] =
       Flow[Traced[BlockUpdate[SignedChunkEvents]]].map(_.map(_ => CantonTimestamp.MinValue))
 
     override def getHeadState: BlockSequencerStateManager.HeadState =

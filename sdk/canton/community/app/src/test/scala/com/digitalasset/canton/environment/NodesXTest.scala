@@ -186,7 +186,10 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
         new CommunityDbMigrationsFactory(loggerFactory),
         timeouts,
         configs,
-        _ => MockedNodeParameters.cantonNodeParameters(),
+        _ =>
+          MockedNodeParameters.cantonNodeParameters(
+            _useUnifiedSequencer = testedUseUnifiedSequencer
+          ),
         startUpGroup = 0,
         NodesXTest.this.loggerFactory,
       ) {

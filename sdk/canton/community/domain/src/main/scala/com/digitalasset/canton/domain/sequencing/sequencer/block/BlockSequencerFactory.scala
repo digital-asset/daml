@@ -18,8 +18,8 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerTrafficConfig,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.{
+  DatabaseSequencerFactory,
   Sequencer,
-  SequencerFactory,
   SequencerHealthConfig,
   SequencerInitialState,
 }
@@ -58,14 +58,17 @@ abstract class BlockSequencerFactory(
     testingInterceptor: Option[TestingInterceptor],
     metrics: SequencerMetrics,
 )(implicit ec: ExecutionContext)
-    extends SequencerFactory
+    extends DatabaseSequencerFactory(storage, nodeParameters.processingTimeouts, protocolVersion)
     with NamedLogging {
 
   private val store = SequencerBlockStore(
     storage,
     protocolVersion,
     nodeParameters.processingTimeouts,
-    if (nodeParameters.enableAdditionalConsistencyChecks) Some(sequencerId) else None,
+    // Block sequencer invariant checks will fail in unified sequencer mode
+    checkedInvariant = Option.when(
+      nodeParameters.enableAdditionalConsistencyChecks && !nodeParameters.useUnifiedSequencer
+    )(sequencerId),
     loggerFactory,
   )
 
@@ -109,17 +112,26 @@ abstract class BlockSequencerFactory(
   )(implicit ec: ExecutionContext, traceContext: TraceContext): EitherT[Future, String, Unit] = {
     val initialBlockState = BlockEphemeralState.fromSequencerInitialState(snapshot)
     logger.debug(s"Storing sequencers initial state: $initialBlockState")
-    val result = for {
-      _ <- store.setInitialState(initialBlockState, snapshot.initialTopologyEffectiveTimestamp)
-      _ <- snapshot.snapshot.trafficBalances.parTraverse_(balanceStore.store)
+    for {
+      _ <- {
+        if (nodeParameters.useUnifiedSequencer) {
+          super.initialize(snapshot, sequencerId)
+        } else {
+          EitherT.pure[Future, String](())
+        }
+      }
+      _ <- EitherT.right(
+        store.setInitialState(initialBlockState, snapshot.initialTopologyEffectiveTimestamp)
+      )
+      _ <- EitherT.right(snapshot.snapshot.trafficBalances.parTraverse_(balanceStore.store))
       _ = logger.debug(
         s"from snapshot: ticking traffic balance manager with ${snapshot.latestSequencerEventTimestamp}"
       )
-      _ <- snapshot.latestSequencerEventTimestamp
-        .traverse(ts => balanceStore.setInitialTimestamp(ts))
+      _ <- EitherT.right(
+        snapshot.latestSequencerEventTimestamp
+          .traverse(ts => balanceStore.setInitialTimestamp(ts))
+      )
     } yield ()
-
-    EitherT.right(result)
   }
 
   @VisibleForTesting
@@ -214,6 +226,7 @@ abstract class BlockSequencerFactory(
       nodeParameters.processingTimeouts,
       domainLoggerFactory,
       rateLimitManager,
+      nodeParameters.useUnifiedSequencer,
     )
 
     for {
@@ -244,8 +257,9 @@ abstract class BlockSequencerFactory(
     }
   }
 
-  override final def close(): Unit =
+  override def onClosed(): Unit = {
     Lifecycle.close(store)(logger)
+  }
 }
 
 object BlockSequencerFactory {
