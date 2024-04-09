@@ -56,7 +56,7 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
         case _: ParticipantMetadata => BlindSubtree
         case _: TransactionView => RevealIfNeedBe
         case v: ViewCommonData =>
-          if (v.viewConfirmationParameters.informees.intersect(parties).nonEmpty)
+          if (v.viewConfirmationParameters.informeesIds.intersect(parties).nonEmpty)
             RevealSubtree
           else
             BlindSubtree
@@ -74,7 +74,7 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
 
   lazy val allInformees: Set[LfPartyId] = InformeeTree
     .viewCommonDataByViewPosition(tree)
-    .flatMap { case (_, viewCommonData) => viewCommonData.viewConfirmationParameters.informees }
+    .flatMap { case (_, viewCommonData) => viewCommonData.viewConfirmationParameters.informeesIds }
     .toSet
 
   lazy val transactionUuid: UUID = checked(tree.commonMetadata.tryUnwrap).uuid

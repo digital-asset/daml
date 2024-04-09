@@ -97,6 +97,7 @@ class ConfirmationRequestFactoryTest
     submitterParticipant -> Seq(submitter, signatory),
     observerParticipant1 -> Seq(observer),
     observerParticipant2 -> Seq(observer),
+    observerParticipant3 -> Seq(extra),
   )
 
   // Collaborators
