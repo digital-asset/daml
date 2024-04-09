@@ -303,7 +303,9 @@ withCantonSandbox options remainingArgs k = do
   where
     bootstrapScriptStr altPortFile portFile =
         unlines
-            [ "val staticDomainParameters = StaticDomainParameters.defaults(sequencer1.config.crypto)"
+            [ "import com.digitalasset.canton.version.ProtocolVersion"
+            , ""
+            , "val staticDomainParameters = StaticDomainParameters.defaults(sequencer1.config.crypto, ProtocolVersion.latest)"
             , "val domainOwners = Seq(sequencer1, mediator1)"
             , "bootstrap.domain(\"mydomain\", Seq(sequencer1), Seq(mediator1), domainOwners, staticDomainParameters)"
             , "sandbox.domains.connect_local(sequencer1, \"mydomain\")"
