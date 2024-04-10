@@ -36,12 +36,22 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//canton:bindings-java",
+        "//canton:community_ledger_ledger-common",
+        "//canton:community_util-logging",
+        "//canton:ledger_api_proto_scala",
+        "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/scenario-interpreter",
         "//daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
+        "//language-support/java/bindings-rxjava",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/rs-grpc-bridge",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_reactivex_rxjava2_rxjava",
+        "@maven//:org_reactivestreams_reactive_streams",
     ],
 )
 
@@ -53,7 +63,6 @@ da_scala_binary(
     resources = ["//daml-script/runner:src/main/resources/logback.xml"],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
     ],
@@ -63,22 +72,7 @@ da_scala_binary(
     deps = [
         ":model-test-lib",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton:bindings-java",  # TODO: move to the lib
-        "//canton:community_ledger_ledger-common",
-        "//canton:community_util-logging",
-        "//canton:ledger_api_proto_scala",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/data",
-        "//daml-lf/interpreter",
-        "//daml-lf/language",
-        "//daml-lf/transaction",
-        "//daml-script/runner:script-runner-lib",
-        "//language-support/java/bindings-rxjava",
-        "//libs-scala/contextualized-logging",
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/rs-grpc-pekko",
-        "@maven//:io_grpc_grpc_netty",
-        "@maven//:io_reactivex_rxjava2_rxjava",
-        "@maven//:org_reactivestreams_reactive_streams",
     ],
 )
