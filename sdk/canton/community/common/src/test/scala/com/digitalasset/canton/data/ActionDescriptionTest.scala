@@ -33,7 +33,7 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
       "the choice argument cannot be serialized" in {
         ExerciseActionDescription.create(
           suffixedId,
-          templateId = Some(defaultTemplateId),
+          templateId = defaultTemplateId,
           choiceName,
           None,
           Set.empty,
@@ -58,6 +58,7 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
               .build(
                 LfTransactionBuilder.defaultTemplateId,
                 ExampleTransactionFactory.veryDeepValue,
+                ExampleTransactionFactory.packageName,
               )
               .value,
           ),

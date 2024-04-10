@@ -272,6 +272,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
               Seq(
                 (ErrorResource.TemplateId, key.templateId.toString),
                 (ErrorResource.ContractKey, encodedKey),
+                (ErrorResource.PackageName, key.packageName),
               )
             }
         }
@@ -323,6 +324,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
               (ErrorResource.ContractId, err.coid.coid),
               (ErrorResource.ContractKey, encodedKey),
               (ErrorResource.ContractKeyHash, err.declaredHash.toString),
+              (ErrorResource.PackageName, err.key.packageName),
             )
           }
       }

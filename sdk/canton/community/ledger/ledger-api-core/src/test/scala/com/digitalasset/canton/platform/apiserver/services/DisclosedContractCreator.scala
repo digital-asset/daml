@@ -65,6 +65,7 @@ object DisclosedContractCreator {
         ),
       ),
       api.keyMaintainers,
+      Ref.PackageName.assertFromString(api.packageName),
     )
 
     val fatContractInstance: FatContractInstance = FatContractInstance.fromCreateNode(

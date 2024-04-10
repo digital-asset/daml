@@ -26,6 +26,7 @@ message SerializableContract {
 message GlobalKey {
   bytes template_id = 1;
   bytes key = 2;
+  string package_name = 3;
 }
 
 message AggregationRule {

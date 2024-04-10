@@ -342,7 +342,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       maintainers: Set[Party]
   ): GlobalKeyWithMaintainers = {
     val aTextValue = ValueText(scala.util.Random.nextString(10))
-    GlobalKeyWithMaintainers.assertBuild(someTemplateId, aTextValue, maintainers)
+    GlobalKeyWithMaintainers.assertBuild(someTemplateId, aTextValue, maintainers, somePackageName)
   }
 
   protected final def createAndStoreContract(

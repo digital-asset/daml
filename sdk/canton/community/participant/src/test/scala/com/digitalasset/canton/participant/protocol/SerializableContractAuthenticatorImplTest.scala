@@ -13,7 +13,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
-import com.digitalasset.canton.util.LfTransactionBuilder.defaultTemplateId
+import com.digitalasset.canton.util.LfTransactionBuilder.{defaultPackageName, defaultTemplateId}
 import com.digitalasset.canton.{BaseTest, LfPackageName, LfPartyId, protocol}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
@@ -172,6 +172,7 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
             key = LfGlobalKey.assertBuild(
               defaultTemplateId,
               Value.ValueInt64(0),
+              defaultPackageName,
             ),
             maintainers = maintainers,
           )
