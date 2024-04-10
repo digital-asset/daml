@@ -108,15 +108,14 @@ object Demo {
       case Right(contractIds) =>
         // println(contractIds)
         for ((party, partyId) <- partyIds.toList) {
-          println(s"Events for party $party")
+          println(s"Projection for party $party")
           // println(fetchEvents(partyId))
           println(
             Pretty.prettyProjection(
-              new ToProjection(
-                partyIds = partyIds.map(_.swap),
-                contractIds = contractIds.map(_.swap),
-              ).convertFromTransactionTrees(
-                fetchEvents(partyId)
+              ToProjection.convertFromCanton(
+                partyIds.map(_.swap),
+                contractIds.map(_.swap),
+                fetchEvents(partyId),
               )
             )
           )
@@ -171,6 +170,21 @@ object Demo {
           actAs = Set(2),
           actions = List(
             Ledgers.Create(contractId = 3, signatories = Set(2), observers = Set()),
+            Ledgers.Exercise(
+              contractId = 2,
+              kind = Ledgers.NonConsuming,
+              controllers = Set(2),
+              choiceObservers = Set(),
+              subTransaction = List(
+                Ledgers.Exercise(
+                  contractId = 1,
+                  kind = Ledgers.NonConsuming,
+                  controllers = Set(2),
+                  choiceObservers = Set(),
+                  subTransaction = List(),
+                )
+              ),
+            ),
             Ledgers.Exercise(
               contractId = 2,
               kind = Ledgers.Consuming,
