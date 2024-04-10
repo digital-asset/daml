@@ -250,18 +250,7 @@ class PackageService(
         .leftMap(p => new CannotRemoveOnlyDarForPackage(p, darDescriptor))
         .mapK(FutureUnlessShutdown.outcomeK)
 
-      packagesThatCanBeRemoved <- EitherT
-        .liftF(
-          packagesDarsStore
-            .determinePackagesExclusivelyInDar(packages, darDescriptor)
-        )
-        .mapK(FutureUnlessShutdown.outcomeK)
-
-      _unit <- revokeVettingForDar(
-        mainPkg,
-        packagesThatCanBeRemoved.toList,
-        darDescriptor,
-      )
+      _unit <- revokeVettingForDar(mainPkg, packages, darDescriptor)
 
       _unit <-
         EitherT.liftF(packagesDarsStore.removePackage(mainPkg))
@@ -348,7 +337,8 @@ class PackageService(
     val ret: EitherT[FutureUnlessShutdown, DamlError, Hash] = for {
       lengthValidatedName <- EitherT
         .fromEither[FutureUnlessShutdown](
-          String255.create(darName, Some("DAR file name"))
+          String255
+            .create(darName, Some("DAR file name"))
         )
         .leftMap(PackageServiceErrors.Reading.InvalidDarFileName.Error(_))
       dar <- catchUpstreamErrors(DarParser.readArchive(darName, stream))

@@ -85,13 +85,6 @@ trait DamlPackageStore extends AutoCloseable { this: NamedLogging =>
   def anyPackagePreventsDarRemoval(packages: Seq[PackageId], removeDar: DarDescriptor)(implicit
       tc: TraceContext
   ): OptionT[Future, PackageId]
-
-  /** Returns the package IDs from the set of `packages` that are only referenced by the
-    * provided `dar`.
-    */
-  def determinePackagesExclusivelyInDar(packages: Seq[PackageId], dar: DarDescriptor)(implicit
-      tc: TraceContext
-  ): Future[Seq[PackageId]]
 }
 
 object DamlPackageStore {
