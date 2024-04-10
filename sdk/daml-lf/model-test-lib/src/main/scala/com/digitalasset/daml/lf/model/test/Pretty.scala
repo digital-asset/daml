@@ -5,10 +5,12 @@ package com.daml.lf
 package model
 package test
 
-object Pretty {
-  import com.daml.lf.model.test.Ledgers._
+import com.daml.lf.model.test.Ledgers
+import com.daml.lf.model.test.Projections
 
-  private final case class Tree(label: String, children: List[Tree]) {
+object Pretty {
+
+  private[Pretty] final case class Tree(label: String, children: List[Tree]) {
     def pretty(level: Int): String = {
       val padding = "  " * level
       val prettyChildren = children.map(_.pretty(level + 1)).mkString("")
@@ -16,32 +18,67 @@ object Pretty {
     }
   }
 
-  private def prettyParties(partySet: PartySet): String =
-    partySet.mkString("{", ",", "}")
+  object PrettyLedgers {
+    import Ledgers._
 
-  private def ledgerToTree(ledger: Ledger): Tree =
-    Tree("Ledger", ledger.map(commandsToTree))
+    def ledgerToTree(ledger: Ledger): Tree = {
+      Tree("Ledger", ledger.map(commandsToTree))
+    }
 
-  private def commandsToTree(commands: Commands): Tree =
-    Tree(s"Commands actAs=${prettyParties(commands.actAs)}", commands.actions.map(actionToTree))
+    private def commandsToTree(commands: Commands): Tree =
+      Tree(s"Commands actAs=${prettyParties(commands.actAs)}", commands.actions.map(actionToTree))
 
-  private def actionToTree(action: Action): Tree = action match {
-    case Create(contractId, signatories, observers) =>
-      Tree(
-        s"Create ${contractId} sigs=${prettyParties(signatories)} obs=${prettyParties(observers)}",
-        Nil,
-      )
-    case Exercise(kind, contractId, controllers, choiceObservers, subTransaction) =>
-      Tree(
-        s"Exercise $kind $contractId ctl=${prettyParties(controllers)} cobs=${prettyParties(choiceObservers)}",
-        subTransaction.map(actionToTree),
-      )
-    case Fetch(contractId) =>
-      Tree(s"Fetch $contractId", Nil)
-    case Rollback(subTransaction) =>
-      Tree(s"Rollback", subTransaction.map(actionToTree))
+    private def actionToTree(action: Action): Tree = action match {
+      case Create(contractId, signatories, observers) =>
+        Tree(
+          s"Create ${contractId} sigs=${prettyParties(signatories)} obs=${prettyParties(observers)}",
+          Nil,
+        )
+      case Exercise(kind, contractId, controllers, choiceObservers, subTransaction) =>
+        Tree(
+          s"Exercise $kind $contractId ctl=${prettyParties(controllers)} cobs=${prettyParties(choiceObservers)}",
+          subTransaction.map(actionToTree),
+        )
+      case Fetch(contractId) =>
+        Tree(s"Fetch $contractId", Nil)
+      case Rollback(subTransaction) =>
+        Tree(s"Rollback", subTransaction.map(actionToTree))
+    }
+
+    private def prettyParties(partySet: PartySet): String =
+      partySet.mkString("{", ",", "}")
   }
 
-  def prettyLedger(ledger: Ledger): String =
-    ledgerToTree(ledger).pretty(0)
+  object PrettyProjections {
+    import Projections._
+
+    def projectionToTree(projection: Projection): Tree = {
+      Tree("Projection", projection.map(commandsToTree))
+    }
+
+    private def commandsToTree(commands: Commands): Tree =
+      Tree(s"Commands", commands.actions.map(actionToTree))
+
+    private def actionToTree(action: Action): Tree = action match {
+      case Create(contractId, signatories) =>
+        Tree(
+          s"Create ${contractId} sigs=${prettyParties(signatories)}",
+          Nil,
+        )
+      case Exercise(kind, contractId, controllers, subTransaction) =>
+        Tree(
+          s"Exercise $kind $contractId ctl=${prettyParties(controllers)}",
+          subTransaction.map(actionToTree),
+        )
+    }
+
+    private def prettyParties(partySet: PartySet): String =
+      partySet.mkString("{", ",", "}")
+  }
+
+  def prettyLedger(ledger: Ledgers.Ledger): String =
+    PrettyLedgers.ledgerToTree(ledger).pretty(0)
+
+  def prettyProjection(projection: Projections.Projection): String =
+    PrettyProjections.projectionToTree(projection).pretty(0)
 }
