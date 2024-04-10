@@ -55,6 +55,7 @@ da_scala_binary(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_typelevel_paiges_core",
     ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
