@@ -34,7 +34,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
   import CompanionImplicits._
 
   val namePicker: NamePicker = NamePicker(
-    "._:-#/ 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "-_ 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
   )
 
   test(
@@ -773,8 +773,8 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
   })
 
   test(
-    "PMListKnownPartiesVisibilityOfNewPartyOnFirstPage",
-    "Exercise ListKnownParties rpc: Creating a user makes it visible on a page",
+    "PMPagedListKnownPartiesNewPartyVisibleOnPage",
+    "Exercise ListKnownParties rpc: Creating a party makes it visible on a page",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
     def assertPartyPresentIn(party: String, list: ListKnownPartiesResponse, msg: String): Unit = {
@@ -814,7 +814,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
   })
 
   test(
-    "PMListKnownPartiesInvisibilityOfNewPartyOnNextPage",
+    "PMPagedListKnownPartiesNewPartyInvisibleOnNextPage",
     "Exercise ListKnownParties rpc: Adding a party to a previous page doesn't affect the subsequent page",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
@@ -837,23 +837,23 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
       // Verify that the second page stays the same even after we have created a new party that is lexicographically smaller than the last party on the first page
       newPartyId = (for {
         beforeLast <- page1.partyDetails.dropRight(1).lastOption
-        nameBeforeLast <- beforeLast.party.split(':').headOption
+        beforeLastName <- beforeLast.party.split(':').headOption
         last <- page1.partyDetails.lastOption
-        nameLast <- last.party.split(':').headOption
-        pick <- namePicker.lowerConstrained(nameLast, nameBeforeLast)
+        lastName <- last.party.split(':').headOption
+        pick <- namePicker.lowerConstrained(lastName, beforeLastName)
       } yield pick).getOrElse("@BAD-PARTY@")
       _ <- ledger.allocateParty(AllocatePartyRequest(newPartyId))
       page2B <- ledger.listKnownParties(
         ListKnownPartiesRequest(pageToken = page1.nextPageToken, pageSize = 2)
       )
-      _ = assertEquals("after creating new user before the second page", page2, page2B)
+      _ = assertEquals("after creating new party before the second page", page2, page2B)
     } yield {
       ()
     }
   })
 
   test(
-    "PMListKnownPartiesReachingTheLastPage",
+    "PMPagedListKnownPartiesReachingTheLastPage",
     "Exercise ListKnownParties rpc: Listing all parties page by page eventually terminates reaching the last page",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
@@ -879,7 +879,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
   })
 
   test(
-    "PMListKnownPartiesOnInvalidRequests",
+    "PMPagedListKnownPartiesWithInvalidRequest",
     "Exercise ListKnownParties rpc: Requesting invalid pageSize or pageToken results in an error",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
@@ -908,14 +908,14 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
   })
 
   test(
-    "PMListKnownPartiesRequestPageSizeZero",
+    "PMPagedListKnownPartiesZeroPageSize",
     "Exercise ListKnownParties rpc: Requesting page of size zero means requesting server's default page size, which is larger than zero",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
-    val partyId1 = ledger.nextUserId()
-    val partyId2 = ledger.nextUserId()
+    val partyId1 = ledger.nextPartyId()
+    val partyId2 = ledger.nextPartyId()
     for {
-      // Ensure we have at least two users
+      // Ensure we have at least two parties
       _ <- ledger.allocateParty(AllocatePartyRequest(partyId1, ""))
       _ <- ledger.allocateParty(AllocatePartyRequest(partyId2, ""))
       pageSizeZero <- ledger.listKnownParties(
@@ -934,7 +934,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
   })
 
   test(
-    "PMListKnownPartiesMaxPageSize",
+    "PMPagedListKnownPartiesMaxPageSize",
     "Exercise ListKnownParties rpc: Requesting more than maxPartiesPageSize results in at most maxPartiesPageSize returned parties",
     allocate(NoParties),
     enabled = _.partyManagement.maxPartiesPageSize > 0,
