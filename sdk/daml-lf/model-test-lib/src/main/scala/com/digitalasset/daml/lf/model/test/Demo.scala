@@ -20,6 +20,7 @@ import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.{
 }
 import com.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.daml.lf.model.test.Ledgers.Ledger
+import com.daml.lf.model.test.Projections.Projection
 import com.daml.lf.speedy.{Compiler, RingBufferTraceLog, WarningLog}
 import com.daml.logging.ContextualizedLogger
 import com.digitalasset.canton.ledger.client.configuration.{
@@ -99,24 +100,26 @@ object Demo {
   private val ledgerClientForProjections: DamlLedgerClient =
     DamlLedgerClient.newBuilder("localhost", 5011).build()
 
-  private def execute(interpreter: Interpreter, l: Ledger)(implicit
+  private def execute(
+      interpreter: Interpreter,
+      project: (
+          ToProjection.PartyIdReverseMapping,
+          ToProjection.ContractIdReverseMapping,
+          Ref.Party,
+      ) => Projection,
+      l: Ledger,
+  )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Unit = {
     val (partyIds, result) = Await.result(interpreter.runLedger(l), Duration.Inf)
     result match {
       case Right(contractIds) =>
-        // println(contractIds)
-        for ((party, partyId) <- partyIds.toList) {
-          println(s"Projection for party $party")
-          // println(fetchEvents(partyId))
+        for ((partyId, party) <- partyIds.toList) {
+          println(s"Projection for party $partyId")
           println(
             Pretty.prettyProjection(
-              ToProjection.convertFromCanton(
-                partyIds.map(_.swap),
-                contractIds.map(_.swap),
-                fetchEvents(partyId),
-              )
+              project(partyIds.map(_.swap), contractIds.map(_.swap), party)
             )
           )
         }
@@ -204,11 +207,11 @@ object Demo {
         ),
       )
 
+    println(test)
     while (true) {
       Gen
         .resize(5, new Generators(3).ledgerGen)
         .sample
-      Some(test)
         .foreach(ledger => {
           if (ledger.nonEmpty) {
             Await.result(ideInterpreter.runLedger(ledger), Duration.Inf)._2 match {
@@ -218,9 +221,28 @@ object Demo {
                 println("\n==== ledger ====")
                 println(Pretty.prettyLedger(ledger))
                 println("==== ide ledger ====")
-                println(speedy.Pretty.prettyTransactions(ideLedgerClient.ledger).render(80))
+                execute(
+                  ideInterpreter,
+                  (reversePartyIds, reverseContractIds, party) =>
+                    ToProjection.projectFromScenarioLedger(
+                      reversePartyIds,
+                      reverseContractIds,
+                      ideLedgerClient.ledger,
+                      party,
+                    ),
+                  ledger,
+                )
                 println("==== canton ====")
-                execute(cantonInterpreter, ledger)
+                execute(
+                  cantonInterpreter,
+                  (reversePartyIds, reverseContractIds, party) =>
+                    ToProjection.convertFromCantonProjection(
+                      reversePartyIds,
+                      reverseContractIds,
+                      fetchEvents(party),
+                    ),
+                  ledger,
+                )
             }
           }
         })
