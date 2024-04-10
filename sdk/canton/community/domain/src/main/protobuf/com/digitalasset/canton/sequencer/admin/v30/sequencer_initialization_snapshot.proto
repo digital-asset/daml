@@ -1,0 +1,82 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.sequencer.admin.v30;
+
+import "com/digitalasset/canton/crypto/v30/crypto.proto";
+import "com/digitalasset/canton/protocol/v30/common_stable.proto";
+import "google/protobuf/wrappers.proto";
+import "scalapb/scalapb.proto";
+
+message SequencerSnapshot {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  int64 latest_timestamp = 1; // in microseconds of UTC time since Unix epoch
+  repeated MemberCounter head_member_counters = 2;
+  SequencerPruningStatus status = 3;
+  ImplementationSpecificInfo additional = 4;
+  repeated InFlightAggregationWithId in_flight_aggregations = 5;
+  repeated MemberTrafficSnapshot traffic_snapshots = 6;
+  repeated TrafficBalance traffic_balances = 7;
+
+  message MemberCounter {
+    string member = 1;
+    int64 sequencer_counter = 2;
+  }
+
+  message InFlightAggregationWithId {
+    bytes aggregation_id = 1;
+    com.digitalasset.canton.protocol.v30.AggregationRule aggregation_rule = 2;
+    int64 max_sequencing_time = 3; // in microseconds of UTC time since Unix epoch
+    repeated AggregationBySender aggregated_senders = 4;
+  }
+
+  message AggregationBySender {
+    string sender = 1;
+    int64 sequencing_timestamp = 2; // in microseconds of UTC time since Unix epoch
+    repeated SignaturesForEnvelope signatures_by_envelope = 3;
+  }
+
+  message SignaturesForEnvelope {
+    repeated com.digitalasset.canton.crypto.v30.Signature signatures = 3;
+  }
+
+  message MemberTrafficSnapshot {
+    string member = 1;
+    uint64 extra_traffic_remainder = 2;
+    uint64 extra_traffic_consumed = 3;
+    uint64 base_traffic_remainder = 4;
+    int64 sequencing_timestamp = 5; // in microseconds of UTC time since Unix epoch
+  }
+
+  message TrafficBalance {
+    string member = 1;
+    uint32 serial = 2;
+    uint64 balance = 3;
+    int64 sequencing_timestamp = 4; // // in microseconds of UTC time since Unix epoch
+  }
+}
+
+message SequencerMemberStatus {
+  string member = 1;
+  int64 registered_at = 2; // in microseconds of UTC time since Unix epoch
+  google.protobuf.Int64Value last_acknowledged = 3; // in microseconds of UTC time since Unix epoch
+  bool enabled = 4;
+}
+
+message SequencerPruningStatus {
+  // current time according to the sequencer in microseconds of UTC time since Unix epoch
+  int64 now = 1;
+  // the earliest event we are currently storing in microseconds of UTC time since Unix epoch
+  int64 earliest_event_timestamp = 2;
+  // details of each member registered on the sequencer
+  repeated SequencerMemberStatus members = 3;
+}
+
+// additional sequencer implementation specific piece of data
+message ImplementationSpecificInfo {
+  string implementation_name = 1;
+  bytes info = 2;
+}

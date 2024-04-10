@@ -1,0 +1,20 @@
+diff --git a/lsp-types.cabal b/lsp-types.cabal
+index 1af6907..1443cc0 100644
+--- a/lsp-types.cabal
++++ b/lsp-types.cabal
+@@ -21,6 +21,7 @@ library
+                      , Language.LSP.Types.Capabilities
+                      , Language.LSP.Types.Lens
+                      , Language.LSP.Types.SMethodMap
++                     , Language.LSP.Types.Utils
+                      , Language.LSP.VFS
+                      , Data.IxMap
+   other-modules:       Language.LSP.Types.CallHierarchy
+@@ -63,7 +64,6 @@ library
+                      , Language.LSP.Types.TextDocument
+                      , Language.LSP.Types.TypeDefinition
+                      , Language.LSP.Types.Uri
+-                     , Language.LSP.Types.Utils
+                      , Language.LSP.Types.Window
+                      , Language.LSP.Types.WatchedFiles
+                      , Language.LSP.Types.WorkspaceEdit

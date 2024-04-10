@@ -1,0 +1,34 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Bar where
+
+data Result = Result
+    with
+        result : Int
+    deriving (Eq, Show)
+
+template Bar
+    with
+        owner : Party
+    where
+        signatory owner
+
+        choice AddOne : Result
+            with
+                value : Int
+            controller owner
+            do
+                return Result with result = value + 1
+
+data ParameterizedContractId a = ParameterizedContractId
+    with
+        parameterizedContractId: ContractId a
+  deriving (Eq, Show)
+
+template Haha
+    with
+        p : ParameterizedContractId Bar
+        owner : Party
+    where
+        signatory owner

@@ -1,0 +1,216 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library")
+load("//bazel_tools:javadoc_library.bzl", "javadoc_library")
+load("//bazel_tools:pom_file.bzl", "pom_file")
+load("//bazel_tools:proto.bzl", "proto_jars")
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test_suite",
+    "lf_scalacopts",
+    "lf_scalacopts_stricter",
+)
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "COMPILER_LF_MAJOR_VERSIONS",
+    "READABLE_LF_VERSIONS",
+    "SUPPORTED_PROTO_STABLE_LF_VERSIONS",
+    "mangle_for_damlc",
+    "mangle_for_java",
+)
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+    "daml_compile_with_dalf",
+)
+load("@os_info//:os_info.bzl", "is_intel", "is_windows")
+
+# The LF protos are stored in two directories:
+#   - src/stable: Snapshot of the LF protos at the time of various releases.
+#   - src/main  : The current development version of the LF protos: 1.dev and
+#                 2.dev. They will be frozen into a src/stable directory after
+#                 the next release of either a 1.x version or a 2.x version.
+#
+# We generate:
+#  - one file group for each stable version, e.g daml_lf_1.14_archive_proto_srcs
+#  - one single file group for both dev versions: daml_lf_dev_archive_proto_srcs
+[
+    [
+        filegroup(
+            name = "daml_lf_%s_archive_proto_srcs" % version,
+            srcs = glob([
+                "src/{directory}/protobuf/com/daml/daml_lf_{version}/*.proto".format(
+                    directory = directory,
+                    version = mangled_version,
+                ),
+            ]),
+            visibility = ["//visibility:public"],
+        ),
+        proto_jars(
+            name = "daml_lf_%s_archive_proto" % version,
+            srcs = [":daml_lf_%s_archive_proto_srcs" % version],
+            javadoc_root_packages = ["com.daml.daml_lf_%s" % mangled_version],
+            maven_artifact_prefix = "daml-lf-%s-archive" % version,
+            maven_group = "com.daml",
+            strip_import_prefix = "src/%s/protobuf" % directory,
+            visibility = ["//visibility:public"],
+        ),
+    ]
+    for version in SUPPORTED_PROTO_STABLE_LF_VERSIONS + ["dev"]
+    for mangled_version in [mangle_for_java(version)]
+    for directory in ["main" if version == "dev" else "stable"]
+]
+
+# FIXME(JM): Clean this up
+genrule(
+    name = "daml_lf_dev_archive_haskell_proto_src",
+    srcs = ["daml_lf_dev_archive_proto_srcs"],
+    outs = ["Com/Daml/DamlLfDev/DamlLf.hs"] +
+           ["Com/Daml/DamlLfDev/DamlLf%s.hs" % v.title() for v in ["2"]],
+    cmd =
+        "\n".join(
+            [
+                """
+                   $(location @proto3-suite//:compile-proto-file)  \
+                     --includeDir daml-lf/archive/src/main/protobuf/        \
+                     --proto com/daml/daml_lf_dev/daml_lf%s.proto   \
+                     --out $(@D)
+                 """ % vx
+                for vx in [""] + ["%s" % v for v in ["2"]]
+            ],
+        ),
+    tools = [
+        "@proto3-suite//:compile-proto-file",
+    ],
+)
+
+da_haskell_library(
+    name = "daml_lf_dev_archive_haskell_proto",
+    srcs = [":daml_lf_dev_archive_haskell_proto_src"],
+    compiler_flags = [
+        "-O0",
+    ],  # disable optimization as this is otherwise way too slow to compile.
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "deepseq",
+        "proto3-suite",
+        "proto3-wire",
+        "text",
+        "vector",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+da_scala_library(
+    name = "daml_lf_archive_reader",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    tags = ["maven_coordinates=com.daml:daml-lf-archive-reader:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":daml_lf_dev_archive_proto_java",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//libs-scala/crypto",
+        "//libs-scala/nameof",
+        "//libs-scala/scala-utils",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+da_scala_test_suite(
+    name = "daml_lf_archive_reader_tests",
+    size = "small",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    data = [
+        ":DarReaderTest.dalf",
+        ":DarReaderTest.dar",
+    ] + [
+        ":DarReaderTest-{}.dar".format(mangle_for_damlc(version))
+        for version in READABLE_LF_VERSIONS
+    ],
+    jvm_flags = ["-DhasLegacyDamlc=" + ("true" if is_intel else "false")],
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":daml_lf_archive_reader",
+        ":daml_lf_dev_archive_proto_java",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//libs-scala/scalatest-utils",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+daml_compile_with_dalf(
+    name = "DarReaderTest",
+    srcs = ["src/test/daml/DarReaderTest.daml"],
+)
+
+[
+    daml_compile(
+        name = "DarReaderTest-{}".format(mangle_for_damlc(version)),
+        srcs = ["src/test/daml/DarReaderTest.daml"],
+        target = version,
+    )
+    for version in READABLE_LF_VERSIONS
+]
+
+# An ad-hoc tool for testing, benchmarking and profiling package decoding performance in isolation.
+da_scala_binary(
+    name = "decode-tester",
+    srcs = ["src/test/scala/com/digitalasset/daml/lf/archive/DecodeMain.scala"],
+    main_class = "com.daml.lf.archive.DecodeMain",
+    deps = [
+        ":daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/language",
+    ],
+)
+
+[
+    sh_test(
+        name = "proto_breaking_changes_%s_test" % version,
+        srcs = ["proto_breaking_changes.sh"],
+        args = [
+            "$(location @buf//:bin/buf)",
+            "%s" % mangle_for_java(version),
+        ],
+        data = [
+            "buf.yaml",
+            "proto_breaking_changes.sh",
+            ":daml_lf_%s_archive_proto_srcs" % version,
+            ":daml_lf_dev_archive_proto_srcs",
+            "@buf//:bin/buf",
+        ],
+    )
+    for version in SUPPORTED_PROTO_STABLE_LF_VERSIONS
+] if not is_windows else []
+
+sh_test(
+    name = "proto_immutability_check",
+    srcs = ["proto_check_hash.sh"],
+    data = [
+        ":daml_lf_%s_archive_proto_srcs" % version
+        for version in SUPPORTED_PROTO_STABLE_LF_VERSIONS
+    ],
+) if not is_windows else []

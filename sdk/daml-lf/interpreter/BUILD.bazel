@@ -1,0 +1,181 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_benchmark_jmh",
+    "da_scala_library",
+    "da_scala_test",
+    "da_scala_test_suite",
+    "lf_scalacopts",
+    "lf_scalacopts_stricter",
+)
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_repl")
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "COMPILER_LF_MAJOR_VERSIONS",
+    "lf_version_default_or_latest",
+)
+
+da_scala_library(
+    name = "interpreter",
+    srcs = glob(["src/main/**/*.scala"]),
+    scala_deps = [
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_paiges_core",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    tags = ["maven_coordinates=com.daml:daml-lf-interpreter:__VERSION__"],
+    visibility = [
+        "//canton:__subpackages__",
+        "//canton-3x:__subpackages__",
+        "//compiler/scenario-service:__subpackages__",
+        "//daml-lf:__subpackages__",
+        "//daml-script:__subpackages__",
+        "//ledger:__subpackages__",
+    ],
+    deps = [
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//daml-lf/stable-packages",
+        "//daml-lf/transaction",
+        "//daml-lf/validation",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/nameof",
+        "//libs-scala/scala-utils",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_apache_commons_commons_text",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_library(
+    name = "interpreter-test-lib",
+    srcs = glob(["src/test/**/*Lib.scala"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    deps = [
+        ":interpreter",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//daml-lf/parser",
+        "//daml-lf/transaction",
+        "//daml-lf/validation",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/scala-utils",
+    ],
+)
+
+da_scala_test_suite(
+    name = "tests",
+    size = "small",
+    srcs = glob(
+        ["src/test/**/*.scala"],
+        exclude = [
+            "src/test/**/*Lib.scala",
+            "src/test/scala/com/digitalasset/daml/lf/speedy/SBuiltinBigNumericTest.scala",
+        ],
+    ),
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding",
+        "@maven//:org_typelevel_paiges_core",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":interpreter",
+        ":interpreter-test-lib",
+        "//daml-lf/api-type-signature",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//daml-lf/parser",
+        "//daml-lf/stable-packages",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction-test-lib",
+        "//libs-scala/contextualized-logging",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+da_scala_test(
+    name = "test-SBuiltinBigNumericTest",
+    size = "large",
+    srcs = glob(["src/test/**/SBuiltinBigNumericTest.scala"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":interpreter",
+        ":interpreter-test-lib",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//daml-lf/parser",
+        "//libs-scala/contextualized-logging",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+scala_repl(
+    name = "interpreter@repl",
+    deps = [
+        ":interpreter",
+    ],
+)
+
+[
+    da_scala_benchmark_jmh(
+        name = "speedy-compilation-benchmark-v{}".format(major),
+        srcs = glob(["src/bench/**/SpeedyCompilationBench.scala"]),
+        data = [
+            "//test-common:model-tests-{}.dar".format(lf_version_default_or_latest(major)),
+        ],
+        scala_deps = [
+            "@maven//:org_scalaz_scalaz_core",
+        ],
+        visibility = ["//visibility:public"],
+        deps = [
+            "//bazel_tools/runfiles:scala_runfiles",
+            "//daml-lf/archive:daml_lf_archive_reader",
+            "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+            "//daml-lf/data",
+            "//daml-lf/engine",
+            "//daml-lf/interpreter",
+            "//daml-lf/language",
+            "//daml-lf/scenario-interpreter",
+            "//daml-lf/transaction",
+            "//daml-lf/validation",
+            "//test-common:dar-files-{}-lib".format(lf_version_default_or_latest(major)),
+            "@maven//:com_google_protobuf_protobuf_java",
+        ],
+    )
+    for major in COMPILER_LF_MAJOR_VERSIONS
+]
+
+da_scala_benchmark_jmh(
+    name = "speedy-struct-proj-bench",
+    srcs = glob(["src/bench/**/StructProjBench.scala"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/parser",
+        "//daml-lf/validation",
+        "//libs-scala/contextualized-logging",
+    ],
+)

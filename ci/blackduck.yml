@@ -13,7 +13,7 @@ jobs:
     name: ubuntu_20_04
     demands: assignment -equals default
   variables:
-    blackduck_script_sha: 13991807acfd54738421d374a9b7ca67d7b5ca3e
+    blackduck_script_sha: f5ca3ea43aef0403c05d81cf4655f4b4e19c5c73
   steps:
   - checkout: self
     persistCredentials: true
@@ -21,6 +21,7 @@ jobs:
     displayName: 'Build/Install the Developer Environment'
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade assist)"
       export LC_ALL=en_US.UTF-8
 
@@ -30,6 +31,7 @@ jobs:
     displayName: 'Build'
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade-assist)"
 
       #needs to be specified since blackduck can not scan all bazel
@@ -51,6 +53,7 @@ jobs:
       BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade-assist)"
 
       #needs to be specified since blackduck can not scan all bazel
@@ -72,6 +75,7 @@ jobs:
       BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade-assist)"
 
       (cd language-support/ts && yarn install)
@@ -95,6 +99,7 @@ jobs:
       BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade-assist)"
 
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
@@ -114,6 +119,7 @@ jobs:
       BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade-assist)"
 
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
@@ -136,6 +142,7 @@ jobs:
       var_name: bash_lib
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(./dev-env/bin/dade-assist)"
       source $(bash_lib)
 
@@ -174,11 +181,12 @@ jobs:
       var_name: bash_lib
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade-assist)"
       source $(bash_lib)
 
       latest=$(git ls-remote https://github.com/DACH-NY/security-blackduck.git master | awk '{print $1}')
-      current=$(cat ci/blackduck.yml | grep blackduck_script_sha: | head -1 | cut -f2 -d: | cut -c2- )
+      current=$(cat ../ci/blackduck.yml | grep blackduck_script_sha: | head -1 | cut -f2 -d: | cut -c2- )
 
       branch="bump-blackduck-script-${latest:0:8}-$(Build.SourceBranchName)"
 
@@ -186,8 +194,8 @@ jobs:
         echo "$branch already exists, nothing to do."
       elif [ "$current" != "$latest" ]; then
         echo "s|blackduck_script_sha: $current|blackduck_script_sha: $latest|"
-        sed -i "s|blackduck_script_sha: $current|blackduck_script_sha: $latest|" ci/blackduck.yml
-        git add ci/blackduck.yml
+        sed -i "s|blackduck_script_sha: $current|blackduck_script_sha: $latest|" ../ci/blackduck.yml
+        git add ../ci/blackduck.yml
         open_pr "$branch" "bump blackduck script to ${latest:0:8}"
         az extension add --name azure-devops
         trap "az devops logout" EXIT

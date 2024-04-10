@@ -1,0 +1,70 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+
+module RaceTests where
+
+#ifdef DAML_CONTRACT_KEYS
+
+import DA.Optional (isSome)
+
+type RaceKey = Text
+
+template DummyContract with
+    owner : Party
+  where
+    signatory owner
+
+template ContractWithKey with
+    owner : Party
+  where
+    signatory owner
+    key owner: Party
+    maintainer key
+
+    choice ContractWithKey_Archive : ()
+      controller owner
+      do return ()
+
+    nonconsuming choice ContractWithKey_Exercise : ()
+      controller owner
+      do return ()
+
+template FetchWrapper with
+    fetcher : Party
+    contractId : ContractId ContractWithKey
+  where
+    signatory fetcher
+    nonconsuming choice FetchWrapper_Fetch: ContractWithKey
+      controller fetcher
+      do fetch contractId
+
+template LookupResult with
+    owner : Party
+    found : Bool
+  where
+    signatory owner
+
+template LookupWrapper with
+    owner : Party
+  where
+    signatory owner
+
+    nonconsuming choice LookupWrapper_Lookup : ()
+      controller owner
+      do optionalContractId <- lookupByKey @ContractWithKey owner
+         create LookupResult with owner = owner, found = isSome optionalContractId
+         pure ()
+
+template CreateWrapper with
+    owner : Party
+  where
+    signatory owner
+    nonconsuming choice CreateWrapper_CreateTransient : ()
+      controller owner
+      do contract <- create ContractWithKey with owner
+         _ <- exercise contract ContractWithKey_Archive
+         return ()
+
+#endif

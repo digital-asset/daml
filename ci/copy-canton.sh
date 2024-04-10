@@ -12,7 +12,7 @@ else
   canton_dir=$1
 fi
 
-code_drop_dir=$DIR/../canton
+code_drop_dir=$DIR/../sdk/canton
 for path in community daml-common-staging README.md; do
   rm -rf $code_drop_dir/$path
   for f in  $(git -C "$canton_dir" ls-files $path); do

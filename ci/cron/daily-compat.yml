@@ -83,6 +83,7 @@ jobs:
           var_name: bash_lib
       - bash: |
           set -euo pipefail
+          cd sdk
           eval "$(dev-env/bin/dade assist)"
           source $(bash_lib)
 
@@ -126,7 +127,7 @@ jobs:
           var_name: bash_lib
       - bash: |
           set -euo pipefail
-          eval "$(dev-env/bin/dade assist)"
+          eval "$(sdk/dev-env/bin/dade assist)"
           source $(bash_lib)
 
           export AUTH="$(get_gh_auth_header)"
@@ -151,6 +152,7 @@ jobs:
       need_to_build: $[ dependencies.blackduck_scan.outputs['out.need_to_build'] ]
     steps:
       - bash: |
+          cd sdk
           eval "$(./dev-env/bin/dade-assist)"
           if [ "$(need_to_build)" == "true" ]; then
               branch="notices-update-$(Build.BuildId)"
@@ -178,6 +180,7 @@ jobs:
       - bash: |
           set -euo pipefail
 
+          cd sdk
           eval "$(./dev-env/bin/dade-assist)"
           source $(bash_lib)
 
@@ -207,8 +210,6 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
-          AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
-          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
   - job: compat_versions_pr
     condition: or(eq(variables['Build.SourceBranchName'], 'main'),
@@ -225,6 +226,7 @@ jobs:
         var_name: bash_lib
     - bash: |
         set -euo pipefail
+        cd sdk
         eval "$(./dev-env/bin/dade-assist)"
 
         ## refresh tags, in case someone deleted one
@@ -281,6 +283,7 @@ jobs:
     - bash: |
         set -euo pipefail
 
+        cd sdk
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash_lib)
 
@@ -307,3 +310,26 @@ jobs:
         else
           tell_slack "Daily tests failed ($(Build.SourceBranchName)): $COMMIT_LINK." "$(Slack.ci-failures-daml)"
         fi
+
+  - job: snapshots
+    timeoutInMinutes: 60
+    condition: eq(variables['Build.SourceBranchName'], 'main')
+    pool:
+      name: 'ubuntu_20_04'
+      demands: assignment -equals default
+    steps:
+      - bash: |
+          cd sdk
+          eval "$(./dev-env/bin/dade-assist)"
+
+          for branch in main main-2.x; do
+            sha=$(git rev-parse origin/$branch)
+            az extension add --name azure-devops
+            trap "az devops logout" EXIT
+            echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
+            az pipelines run --org "https://dev.azure.com/digitalasset" \
+                             --project daml \
+                             --name "snapshot" \
+                             --commit-id main \
+                             --parameters "commit=$sha"
+          done

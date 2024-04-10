@@ -1,0 +1,283 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- file that contains the declarations used in the sandbox tests
+
+{-# LANGUAGE CPP #-}
+
+module Test where
+
+#ifdef DAML_CONTRACT_KEYS
+
+template TextKey
+  with
+    tkParty : Party
+    tkKey : Text
+    tkDisclosedTo : [Party]
+  where
+    signatory tkParty
+    observer tkDisclosedTo
+
+    key (tkParty, tkKey) : (Party, Text)
+    maintainer key._1
+
+    choice TextKeyChoice : ()
+      controller tkParty
+      do return ()
+
+    choice TextKeyDisclose : ContractId TextKey
+      with
+        tkNewDisclosedTo : [Party]
+      controller tkParty
+      do create this with tkDisclosedTo = tkNewDisclosedTo
+
+template TextKeyOperations
+  with
+    tkoParty: Party
+
+  where
+    signatory tkoParty
+
+    nonconsuming choice TKOLookup: ()
+      with
+        keyToLookup: (Party, Text)
+        expected: Optional (ContractId TextKey)
+      controller tkoParty
+      do actual <- lookupByKey @TextKey keyToLookup
+         assertMsg ("lookup matches (" <> show expected <> ", " <> show actual <> ")") (expected == actual)
+
+    nonconsuming choice TKOFetch: ()
+      with
+        keyToFetch: (Party, Text)
+        expectedCid: ContractId TextKey
+      controller tkoParty
+      do (actualCid, actualContract) <- fetchByKey @TextKey keyToFetch
+         assertMsg "fetch contract id matches" (expectedCid == actualCid)
+         assertMsg "fetch contract matches" (keyToFetch == key actualContract)
+
+    nonconsuming choice TKOConsumeAndLookup: ()
+      with
+        cidToConsume: ContractId TextKey
+        keyToLookup: (Party, Text)
+      controller tkoParty
+      do mbCid1 <- lookupByKey @TextKey keyToLookup
+         assertMsg "gets contract the first time" (mbCid1 == Some cidToConsume)
+         exercise cidToConsume TextKeyChoice
+         mbCid2 <- lookupByKey @TextKey keyToLookup
+         assertMsg "does not get contract after exercise" (mbCid2 == None)
+
+    nonconsuming choice TKOFetchAndRecreate : ()
+      with keyToFetch: (Party, Text)
+      controller tkoParty
+      do (cid, contract) <- fetchByKey @TextKey keyToFetch
+         exercise cid TextKeyChoice
+         cid2 <- create TextKey with tkParty = contract.tkParty, tkKey = contract.tkKey, tkDisclosedTo = contract.tkDisclosedTo
+         return ()
+
+template LocalKeyVisibilityOperations
+  with
+    sig : Party
+    obs : Party
+  where
+    signatory sig
+    observer obs
+
+    nonconsuming choice LocalLookup : ()
+      controller obs
+      do cid <- create (TextKey sig "" [])
+         Some _ <- lookupByKey @TextKey (sig, "")
+         archive cid
+
+    nonconsuming choice LocalFetch : ()
+      controller obs
+      do cid <- create (TextKey sig "" [])
+         _ <- fetchByKey @TextKey (sig, "")
+         archive cid
+
+template Delegated
+  with
+    owner : Party
+    k : Text
+  where
+    signatory owner
+    key (owner, k) : (Party, Text)
+    maintainer key._1
+
+    choice Recreate: ()
+      controller owner
+      do create this
+         return ()
+
+      -- Non-consuming choice to test that contract keys created and archived
+      -- by transient contracts are properly handled.
+    nonconsuming choice CreateAnotherAndArchive: ()
+      with
+        k2: Text
+      controller owner
+      do cid <- create Delegated with owner = owner, k = k2
+         exercise cid Archive
+
+template Delegation
+  with
+    owner : Party
+    delegate : Party
+  where
+    signatory owner
+    observer delegate
+
+    nonconsuming choice FetchDelegated: Delegated
+      with delegated: ContractId Delegated
+      controller delegate
+      do fetch delegated
+
+    nonconsuming choice FetchByKeyDelegated: ()
+      with
+        p: Party
+        k: Text
+      controller delegate
+      do _ <- fetchByKey @Delegated (p, k)
+         pure ()
+
+    nonconsuming choice LookupByKeyDelegated: ()
+      with
+        p: Party
+        k: Text
+      controller delegate
+      do _ <- lookupByKey @Delegated (p, k)
+         pure ()
+
+template ShowDelegated
+  with
+    owner: Party
+    delegate: Party
+  where
+    signatory owner
+    observer delegate
+    choice ShowIt : ()
+      with delegatedId: ContractId Delegated
+      controller owner
+      do fetch delegatedId
+         return ()
+
+template MaintainerNotSignatory
+  with
+    p: Party
+    q: Party
+  where
+    signatory p
+
+    key q: Party
+    maintainer key
+
+template Proposal
+  with
+    from: Party
+    to: Party
+  where
+    signatory from
+    observer to
+    choice ProposalAccept: ContractId Asset
+      with asset: ContractId Asset
+      controller to
+      do fetch asset
+         exercise asset AssetTransfer with newOwner = from
+
+template Asset
+  with
+    issuer: Party
+    owner: Party
+  where
+    signatory issuer
+    observer owner
+    key issuer: Party
+    maintainer key
+    choice AssetTransfer: ContractId Asset
+      with newOwner: Party
+      controller owner
+      do create this with owner = newOwner
+
+template MultiPartyContract
+  with
+    parties: [Party]
+    value: Text
+  where
+    signatory parties
+
+    key this: MultiPartyContract
+    maintainer key.parties
+
+    choice MPAddSignatories : ContractId MultiPartyContract
+      with
+        newParties: [Party]
+      controller parties ++ newParties
+      do
+        create this with
+          parties = parties ++ newParties
+
+    nonconsuming choice MPFetchOther : ()
+      with
+        cid: ContractId MultiPartyContract
+        actors: [Party]
+      controller actors
+      do
+        actualContract <- fetch cid
+        return ()
+
+    nonconsuming choice MPFetchOtherByKey : ()
+      with
+        keyToFetch: MultiPartyContract
+        actors: [Party]
+      controller actors
+      do
+        (actualCid, actualContract) <- fetchByKey @MultiPartyContract keyToFetch
+        return ()
+
+    nonconsuming choice MPLookupOtherByKey : ()
+      with
+        keyToFetch: MultiPartyContract
+        actors: [Party]
+        expectedCid: Optional (ContractId MultiPartyContract)
+      controller actors
+      do
+        actualCid <- lookupByKey @MultiPartyContract keyToFetch
+        assertMsg "LookupOtherByKey value matches" (expectedCid == actualCid)
+
+template WithKey
+  with
+    p : Party
+  where
+    signatory p
+    key p : Party
+    maintainer key
+
+    nonconsuming choice WithKey_NoOp: ()
+      with divulgee: Party
+      controller divulgee
+      do pure ()
+
+
+template WithKeyCreator
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    observer p2
+    choice WithKeyCreator_DiscloseCreate : ContractId WithKey
+      with
+        p : Party
+      controller p
+      do create (WithKey p1)
+
+template WithKeyCreatorAlternative
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    observer p2
+    nonconsuming choice WithKeyCreatorAlternative_DiscloseCreate : ContractId WithKey
+      controller p2
+      do create (WithKey p1)
+
+#endif

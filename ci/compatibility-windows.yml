@@ -23,8 +23,8 @@ steps:
   - task: DownloadPipelineArtifact@0
     inputs:
       artifactName: 'typescript-libs'
-      targetPath: $(Build.SourcesDirectory)/compatibility/head_sdk
-  - powershell: '.\compatibility\build-release-artifacts-windows.ps1'
+      targetPath: $(Build.SourcesDirectory)/sdk/compatibility/head_sdk
+  - powershell: 'cd sdk; .\compatibility\build-release-artifacts-windows.ps1'
     displayName: 'Build release artifacts'
-  - powershell: '.\compatibility\test-windows.ps1  ${{ parameters.test_flags }}'
+  - powershell: 'cd sdk; .\compatibility\test-windows.ps1  ${{ parameters.test_flags }}'
     displayName: 'Run tests'

@@ -1,0 +1,42 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- UPGRADE_MODULE_BEGIN
+module UpgradeFromCoinV1 where
+import CoinV2
+import CoinV1
+-- UPGRADE_MODULE_END
+
+-- UPGRADE_PROPOSAL_BEGIN
+template UpgradeCoinProposal
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory issuer
+    observer owner
+    choice Accept : ContractId UpgradeCoinAgreement
+      controller owner
+      do create UpgradeCoinAgreement with ..
+-- UPGRADE_PROPOSAL_END
+
+-- UPGRADE_AGREEMENT_BEGIN
+template UpgradeCoinAgreement
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory issuer, owner
+    nonconsuming choice Upgrade : ContractId CoinWithAmount
+      with
+        coinId : ContractId Coin
+      controller issuer
+      do coin <- fetch coinId
+         assert (coin.issuer == issuer)
+         assert (coin.owner == owner)
+         archive coinId
+         create CoinWithAmount with
+           issuer = coin.issuer
+           owner = coin.owner
+           amount = 1
+-- UPGRADE_AGREEMENT_END

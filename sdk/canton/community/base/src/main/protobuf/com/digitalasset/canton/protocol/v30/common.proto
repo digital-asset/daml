@@ -1,0 +1,21 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v30;
+
+import "com/digitalasset/canton/crypto/v30/crypto.proto";
+
+// Definitions shared by at least 2 out of mediator.proto, participant_transaction.proto and participant_transfer.proto
+
+enum ViewType {
+  VIEW_TYPE_UNSPECIFIED = 0;
+  VIEW_TYPE_TRANSACTION = 1;
+  VIEW_TYPE_TRANSFER_OUT = 2;
+  VIEW_TYPE_TRANSFER_IN = 3;
+}
+
+message DriverContractMetadata {
+  crypto.v30.Salt contract_salt = 1;
+}
