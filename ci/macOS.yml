@@ -20,6 +20,8 @@ jobs:
                     or(eq(variables['Build.SourceBranchName'], 'main'),
                        eq(variables['Build.SourceBranchName'], 'main-2.x'))))
   variables:
+    - name: System.Debug
+      value: true
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
     - name: release_tag

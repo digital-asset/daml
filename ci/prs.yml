@@ -42,6 +42,7 @@ jobs:
 - job: test_macos_hosted
   variables:
     dir: $(Build.StagingDirectory)/logs
+    System.Debug: true
   pool:
     vmImage: macOS-13
   steps:
