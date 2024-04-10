@@ -95,7 +95,7 @@ jobs:
   parameters:
     job_name: macOS
     name: macos
-    assignment: default
+    assignment: ventura
     test_mode: ${{parameters.test_mode}}
 
 - template: macOS.yml

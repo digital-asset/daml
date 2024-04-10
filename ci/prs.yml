@@ -53,6 +53,9 @@ jobs:
 
       openssl rand -out $(dir)/log1 -base64 $(( 2**30 * 3/4 ))
       openssl rand -out $(dir)/log2 -base64 $(( 2**30 * 3/4 ))
+
+      sw_vers
+      uname -a
   - task: PublishPipelineArtifact@1
     inputs:
       targetPath: $(dir)
