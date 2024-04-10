@@ -5,6 +5,7 @@ package com.daml.lf
 package model
 package test
 
+import cats.Applicative
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
 import org.apache.pekko.actor.ActorSystem
@@ -19,6 +20,20 @@ object Demo {
   private val universalDarPath: String = rlocation("daml-lf/model-test-lib/universal.dar")
 
   def main(args: Array[String]): Unit = {
+
+    import Spaces.Space
+    import Spaces.Space._
+    import Spaces.Space.Instances._
+
+    val S = implicitly[Applicative[Space]]
+
+    lazy val snats: Space[Int] = pay(singleton(0) + snats.map(_ + 1))
+    lazy val slists: Space[List[Int]] = pay(
+      singleton(List.empty[Int]) + S.map2(snats, slists)(_ :: _)
+    )
+
+    val biglists = slists(30)
+    println(biglists(biglists.cardinal / 4))
 
     implicit val system: ActorSystem = ActorSystem("RunnerMain")
     implicit val ec: ExecutionContext = system.dispatcher
