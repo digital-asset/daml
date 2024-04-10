@@ -26,7 +26,7 @@ import Data.Maybe (fromMaybe)
 import qualified Language.LSP.Types as LSP
 import qualified Language.LSP.Types.Capabilities as LSP
 import System.Directory (doesDirectoryExist, listDirectory, withCurrentDirectory, canonicalizePath)
-import System.FilePath (takeDirectory)
+import System.FilePath (takeDirectory, takeExtension)
 import System.IO.Extra
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -153,6 +153,17 @@ initializeResult = LSP.InitializeResult
     true = Just (LSP.InL True)
     false = Just (LSP.InL False)
 
+registerFileWatchersMessage :: LSP.RequestMessage 'LSP.ClientRegisterCapability
+registerFileWatchersMessage =
+  LSP.RequestMessage "2.0" (LSP.IdString "MultiIdeWatchedFiles") LSP.SClientRegisterCapability $ LSP.RegistrationParams $ LSP.List
+    [ LSP.SomeRegistration $ LSP.Registration "MultiIdeWatchedFiles" LSP.SWorkspaceDidChangeWatchedFiles $ LSP.DidChangeWatchedFilesRegistrationOptions $ LSP.List
+      [ LSP.FileSystemWatcher "**/multi-package.yaml" Nothing
+      , LSP.FileSystemWatcher "**/daml.yaml" Nothing
+      , LSP.FileSystemWatcher "**/*.dar" Nothing
+      , LSP.FileSystemWatcher "**/*.daml" Nothing
+      ]
+    ]
+
 castLspId :: LSP.LspId m -> LSP.LspId m'
 castLspId (LSP.IdString s) = LSP.IdString s
 castLspId (LSP.IdInt i) = LSP.IdInt i
@@ -178,8 +189,10 @@ unitIdAndDepsFromDamlYaml :: FilePath -> IO (Either ConfigError (String, [FilePa
 unitIdAndDepsFromDamlYaml path = do
   handle (\(e :: ConfigError) -> return $ Left e) $ runExceptT $ do
     project <- lift $ readProjectConfig $ ProjectPath path
-    deps <- except $ fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
-    canonDeps <- lift $ withCurrentDirectory path $ traverse canonicalizePath deps
+    dataDeps <- except $ fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
+    directDeps <- except $ fromMaybe [] <$> queryProjectConfig ["dependencies"] project
+    let directDarDeps = filter (\dep -> takeExtension dep == ".dar") directDeps
+    canonDeps <- lift $ withCurrentDirectory path $ traverse canonicalizePath $ dataDeps <> directDarDeps
     name <- except $ queryProjectConfigRequired ["name"] project
     version <- except $ queryProjectConfigRequired ["version"] project
     pure (name <> "-" <> version, canonDeps)

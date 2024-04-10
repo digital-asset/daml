@@ -206,7 +206,7 @@ stripLspPrefix (LSP.IdString (T.uncons -> Just ('t', rest))) = LSP.IdString $ T.
 stripLspPrefix t = t
 
 -- Prefixes applied to builtin and custom requests. Notifications do not have ids, responses do not need this logic.
-addLspPrefixToServerMessage :: SubIDE -> LSP.FromServerMessage -> LSP.FromServerMessage
+addLspPrefixToServerMessage :: SubIDEInstance -> LSP.FromServerMessage -> LSP.FromServerMessage
 addLspPrefixToServerMessage _ res@(LSP.FromServerRsp _ _) = res
 addLspPrefixToServerMessage ide res@(LSP.FromServerMess method params) =
   case LSP.splitServerMethod method of

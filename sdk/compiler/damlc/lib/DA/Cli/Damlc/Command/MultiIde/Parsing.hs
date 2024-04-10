@@ -17,6 +17,7 @@ module DA.Cli.Damlc.Command.MultiIde.Parsing (
   putReqMethodAll,
   putReqMethodSingleFromClient,
   putReqMethodSingleFromServer,
+  putReqMethodSingleFromServerCoordinator,
   putServerReq,
 ) where
 
@@ -68,7 +69,12 @@ putChunk handle payload = do
 putReqMethodSingleFromServer
   :: forall (m :: LSP.Method 'LSP.FromServer 'LSP.Request)
   .  MethodTrackerVar 'LSP.FromServer -> FilePath -> LSP.LspId m -> LSP.SMethod m -> IO ()
-putReqMethodSingleFromServer tracker home id method = putReqMethod tracker id $ TrackedSingleMethodFromServer method home
+putReqMethodSingleFromServer tracker home id method = putReqMethod tracker id $ TrackedSingleMethodFromServer method $ Just home
+
+putReqMethodSingleFromServerCoordinator
+  :: forall (m :: LSP.Method 'LSP.FromServer 'LSP.Request)
+  .  MethodTrackerVar 'LSP.FromServer -> LSP.LspId m -> LSP.SMethod m -> IO ()
+putReqMethodSingleFromServerCoordinator tracker id method = putReqMethod tracker id $ TrackedSingleMethodFromServer method Nothing
 
 putReqMethodSingleFromClient
   :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
@@ -149,12 +155,12 @@ parseServerMessageWithTracker tracker selfIde val = pickReqMethodTo tracker $ \e
 parseClientMessageWithTracker
   :: MethodTrackerVar 'LSP.FromServer
   -> Aeson.Value
-  -> IO (Either String (LSP.FromClientMessage' (Product LSP.SMethod (Const FilePath))))
+  -> IO (Either String (LSP.FromClientMessage' (Product LSP.SMethod (Const (Maybe FilePath)))))
 parseClientMessageWithTracker tracker val = pickReqMethodTo tracker $ \extract ->
   case Aeson.parseEither (LSP.parseClientMessage (wrapParseMessageLookup . extract)) val of
     Right (LSP.FromClientMess meth mess) -> (Right (LSP.FromClientMess meth mess), Nothing)
-    Right (LSP.FromClientRsp (Pair (TrackedSingleMethodFromServer method home) (Const newIxMap)) rsp) ->
-      (Right (LSP.FromClientRsp (Pair method (Const home)) rsp), Just newIxMap)
+    Right (LSP.FromClientRsp (Pair (TrackedSingleMethodFromServer method mHome) (Const newIxMap)) rsp) ->
+      (Right (LSP.FromClientRsp (Pair method (Const mHome)) rsp), Just newIxMap)
     Left msg -> (Left msg, Nothing)
 
 -- Takes a message from server and stores it if its a request, so that later messages from the client can deduce response context

@@ -20,8 +20,11 @@ import Control.Concurrent.STM.TMVar
 import Control.Concurrent.MVar
 import Control.Monad.STM
 import qualified Data.ByteString.Lazy as BSL
+import Data.Function (on)
 import qualified Data.IxMap as IM
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
+import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Language.LSP.Types as LSP
 import System.IO.Extra
@@ -35,7 +38,7 @@ data TrackedMethod (m :: LSP.Method from 'LSP.Request) where
   TrackedSingleMethodFromServer
     :: forall (m :: LSP.Method 'LSP.FromServer 'LSP.Request)
     .  LSP.SMethod m
-    -> FilePath -- Also store the IDE that sent the request
+    -> Maybe FilePath -- Also store the IDE that sent the request (or don't, for requests sent by the coordinator)
     -> TrackedMethod m
   TrackedAllMethod :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request).
     { tamMethod :: LSP.SMethod m
@@ -59,7 +62,7 @@ tmMethod (TrackedAllMethod {tamMethod}) = tamMethod
 type MethodTracker (from :: LSP.From) = IM.IxMap @(LSP.Method from 'LSP.Request) LSP.LspId TrackedMethod
 type MethodTrackerVar (from :: LSP.From) = TVar (MethodTracker from)
 
-data SubIDE = SubIDE
+data SubIDEInstance = SubIDEInstance
   { ideInhandleAsync :: Async ()
   , ideInHandle :: Handle
   , ideInHandleChannel :: TChan BSL.ByteString
@@ -70,11 +73,32 @@ data SubIDE = SubIDE
   , ideMessageIdPrefix :: T.Text
     -- ^ Some unique string used to prefix message ids created by the SubIDE, to avoid collisions with other SubIDEs
     -- We use the stringified process ID
-  , ideActive :: Bool
   , ideUnitId :: String
     -- ^ Unit ID of the package this SubIDE handles
     -- Of the form "daml-script-0.0.1"
   }
+
+instance Eq SubIDEInstance where
+  -- ideMessageIdPrefix is derived from process id, so this equality is of the process.
+  (==) = (==) `on` ideMessageIdPrefix
+
+instance Ord SubIDEInstance where
+  -- ideMessageIdPrefix is derived from process id, so this ordering is of the process.
+  compare = compare `on` ideMessageIdPrefix
+
+-- We store an optional main ide, the currently closing ides (kept only so they can reply to their shutdowns), and open files
+-- open files must outlive the main subide so we can re-send the TextDocumentDidOpen messages on new ide startup
+data SubIDEData = SubIDEData
+  { ideDataMain :: Maybe SubIDEInstance
+  , ideDataClosing :: Set.Set SubIDEInstance
+  , ideDataOpenFiles :: Set.Set FilePath
+  }
+
+defaultSubIDEData :: SubIDEData
+defaultSubIDEData = SubIDEData Nothing Set.empty Set.empty
+
+lookupSubIde :: FilePath -> SubIDEs -> SubIDEData
+lookupSubIde home ides = fromMaybe defaultSubIDEData $ Map.lookup home ides
 
 -- SubIDEs placed in a TMVar. The emptyness representents a modification lock.
 -- The lock unsures the following properties:
@@ -82,11 +106,8 @@ data SubIDE = SubIDE
 --   We never attempt to send messages on a stale IDE. If we ever read SubIDEsVar with the intent to send a message on a SubIDE, we must hold the so a shutdown
 --     cannot be sent on that IDE until we are done. This ensures that when a shutdown does occur, it is impossible for non-shutdown messages to be added to the
 --     queue after the shutdown.
-type SubIDEs = Map.Map FilePath SubIDE
+type SubIDEs = Map.Map FilePath SubIDEData
 type SubIDEsVar = TMVar SubIDEs
-
-onlyActiveSubIdes :: SubIDEs -> SubIDEs
-onlyActiveSubIdes = Map.filter ideActive
 
 -- Stores the initialize messages sent by the client to be forwarded to SubIDEs when they are created.
 type InitParams = LSP.InitializeParams
@@ -94,8 +115,18 @@ type InitParamsVar = MVar InitParams
 
 -- Maps a packages unit id to its source location, using PackageOnDisk for all packages in multi-package.yaml
 -- and PackageInDar for all known dars (currently extracted from data-dependencies)
-data PackageSourceLocation = PackageOnDisk FilePath | PackageInDar FilePath
+data PackageSourceLocation = PackageOnDisk FilePath | PackageInDar FilePath deriving Show
 type MultiPackageYamlMapping = Map.Map String PackageSourceLocation
+type MultiPackageYamlMappingVar = TMVar MultiPackageYamlMapping
+
+-- Maps a dar path to the list of packages that directly depend on it
+type DarDependentPackages = Map.Map FilePath [FilePath]
+type DarDependentPackagesVar = TMVar DarDependentPackages
+
+-- "Cache" for the home path of files
+-- Cleared on daml.yaml modification and file deletion
+type SourceFileHomes = Map.Map FilePath FilePath
+type SourceFileHomesVar = TMVar SourceFileHomes
 
 data MultiIdeState = MultiIdeState
   { fromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient
@@ -105,19 +136,24 @@ data MultiIdeState = MultiIdeState
   , subIDEsVar :: SubIDEsVar
   , initParamsVar :: InitParamsVar
   , toClientChan :: TChan BSL.ByteString
-  , multiPackageMapping :: MultiPackageYamlMapping
+  , multiPackageMappingVar :: MultiPackageYamlMappingVar
+  , darDependentPackagesVar :: DarDependentPackagesVar
   , debugPrint :: String -> IO ()
   , multiPackageHome :: FilePath
   , defaultPackagePath :: FilePath
+  , sourceFileHomesVar :: SourceFileHomesVar
   }
 
-newMultiIdeState :: MultiPackageYamlMapping -> FilePath -> FilePath -> (String -> IO ()) -> IO MultiIdeState
-newMultiIdeState multiPackageMapping multiPackageHome defaultPackagePath debugPrint = do
+newMultiIdeState :: FilePath -> FilePath -> (String -> IO ()) -> IO MultiIdeState
+newMultiIdeState multiPackageHome defaultPackagePath debugPrint = do
   (fromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient) <- newTVarIO IM.emptyIxMap
   (fromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer) <- newTVarIO IM.emptyIxMap
   subIDEsVar <- newTMVarIO @SubIDEs mempty
   initParamsVar <- newEmptyMVar @InitParams
   toClientChan <- atomically newTChan
+  multiPackageMappingVar <- newTMVarIO @MultiPackageYamlMapping mempty
+  darDependentPackagesVar <- newTMVarIO @DarDependentPackages mempty
+  sourceFileHomesVar <- newTMVarIO @SourceFileHomes mempty
   pure MultiIdeState {..}
 
 -- Forwarding

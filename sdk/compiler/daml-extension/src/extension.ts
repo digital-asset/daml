@@ -311,7 +311,7 @@ export function createLanguageClient(
     // The user has not made an explicit choice.
     args.push("--telemetry-ignored");
   }
-  if (multiIDEVerbose === true) {
+  if (multiIDEVerbose === true && multiIDESupport === true) {
     args.push("--verbose=yes");
   }
   const extraArgsString = config.get("extraArguments", "").trim();
