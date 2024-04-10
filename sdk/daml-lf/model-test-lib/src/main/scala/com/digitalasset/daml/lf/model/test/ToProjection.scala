@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
+package model
+package test
 
 import com.daml.lf.data.Ref
-import com.daml.lf.model.test.Ledgers._
 import com.daml.lf.value.{Value => V}
 import com.daml.ledger.javaapi
-import com.daml.lf.ToProjection.{ContractIdReverseMapping, PartyIdReverseMapping}
+import com.daml.lf.model.test.Projections._
+import com.daml.lf.model.test.ToProjection.{ContractIdReverseMapping, PartyIdReverseMapping}
 
 import scala.jdk.CollectionConverters._
 
@@ -20,16 +22,15 @@ class ToProjection(contractIds: ContractIdReverseMapping, partyIds: PartyIdRever
 
   def convertFromTransactionTrees(
       trees: List[javaapi.data.TransactionTree]
-  ): Ledger =
+  ): Projection =
     trees.map(convertFromTransactionTree)
 
   def convertFromTransactionTree(
       tree: javaapi.data.TransactionTree
   ): Commands = {
     Commands(
-      actAs = Set.empty,
       tree.getRootEventIds.asScala.toList
-        .map(convertFromEventId(tree.getEventsById.asScala.toMap, _)),
+        .map(convertFromEventId(tree.getEventsById.asScala.toMap, _))
     )
   }
 
@@ -42,14 +43,12 @@ class ToProjection(contractIds: ContractIdReverseMapping, partyIds: PartyIdRever
         Create(
           contractId = convertFromContractId(create.getContractId),
           signatories = convertFromPartyIds(create.getSignatories),
-          observers = convertFromPartyIds(create.getObservers),
         )
       case exercise: javaapi.data.ExercisedEvent =>
         Exercise(
           kind = if (exercise.isConsuming) Consuming else NonConsuming,
           contractId = convertFromContractId(exercise.getContractId),
-          controllers = Set.empty,
-          choiceObservers = Set.empty,
+          controllers = convertFromPartyIds(exercise.getActingParties),
           subTransaction = exercise.getChildEventIds.asScala.toList
             .map(convertFromEventId(eventsById, _)),
         )
@@ -64,6 +63,6 @@ class ToProjection(contractIds: ContractIdReverseMapping, partyIds: PartyIdRever
   def convertFromPartyId(partyId: String): PartyId =
     partyIds(Ref.Party.assertFromString(partyId))
 
-  def convertFromPartyIds(partyIds: java.util.Set[String]): PartySet =
+  def convertFromPartyIds(partyIds: java.lang.Iterable[String]): PartySet =
     partyIds.asScala.map(convertFromPartyId).toSet
 }

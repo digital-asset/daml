@@ -111,7 +111,7 @@ object Demo {
           println(s"Events for party $party")
           // println(fetchEvents(partyId))
           println(
-            Pretty.prettyLedger(
+            Pretty.prettyProjection(
               new ToProjection(
                 partyIds = partyIds.map(_.swap),
                 contractIds = contractIds.map(_.swap),
@@ -189,14 +189,12 @@ object Demo {
           ),
         ),
       )
-    execute(cantonInterpreter, test)
-
-    // while (true) {}
 
     while (true) {
       Gen
         .resize(5, new Generators(3).ledgerGen)
         .sample
+      Some(test)
         .foreach(ledger => {
           if (ledger.nonEmpty) {
             Await.result(ideInterpreter.runLedger(ledger), Duration.Inf)._2 match {
@@ -205,6 +203,8 @@ object Demo {
               case Right(_) =>
                 println("\n==== ledger ====")
                 println(Pretty.prettyLedger(ledger))
+                println("==== ide ledger ====")
+                println(speedy.Pretty.prettyTransactions(ideLedgerClient.ledger).render(80))
                 println("==== canton ====")
                 execute(cantonInterpreter, ledger)
             }
