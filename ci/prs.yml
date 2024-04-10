@@ -39,6 +39,31 @@ jobs:
 - job: release
   condition: false
 
+- job: test_macos_self
+  variables:
+    dir: $(Build.StagingDirectory)/logs
+    System.Debug: true
+  pool:
+    pool: macOS-pool
+    demands: assignment -equals ventura
+  steps:
+  - checkout: none
+  - bash: |
+      set -euo pipefail
+
+      mkdir -p $(dir)
+
+      openssl rand -out $(dir)/log1 -base64 $(( 2**30 * 3/4 ))
+      openssl rand -out $(dir)/log2 -base64 $(( 2**30 * 3/4 ))
+
+      sw_vers
+      uname -a
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: $(dir)
+      artifactName: 'test_macOS_13'
+      publishLocation: pipeline
+
 - job: test_macos_hosted
   variables:
     dir: $(Build.StagingDirectory)/logs
