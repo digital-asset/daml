@@ -185,6 +185,8 @@ class SequencerClientTest
                 priorEvent: Option[PossiblyIgnoredSerializedEvent],
                 event: OrdinarySerializedEvent,
                 sequencerId: SequencerId,
+            )(implicit
+                traceContext: TraceContext
             ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit] = {
               validated.set(true)
               eventAlwaysValid.validate(priorEvent, event, sequencerId)
@@ -194,6 +196,8 @@ class SequencerClientTest
                 priorEvent: Option[PossiblyIgnoredSerializedEvent],
                 reconnectEvent: OrdinarySerializedEvent,
                 sequencerId: SequencerId,
+            )(implicit
+                traceContext: TraceContext
             ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit] =
               validate(priorEvent, reconnectEvent, sequencerId)
 

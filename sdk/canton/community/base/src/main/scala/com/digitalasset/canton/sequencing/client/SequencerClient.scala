@@ -1010,9 +1010,11 @@ class RichSequencerClientImpl(
             _ <- EitherT.liftF(
               performUnlessClosingF("processing-delay")(processingDelay.delay(serializedEvent))
             )
+            _ = logger.debug(s"Processing delay $processingDelay completed successfully")
             _ <- eventValidator
               .validate(priorEvent.get(), serializedEvent, sequencerId)
               .leftMap[SequencerClientSubscriptionError](EventValidationError)
+            _ = logger.debug("Event validation completed successfully")
             _ = priorEvent.set(Some(serializedEvent))
 
             toSignalHandler <- EitherT(
@@ -1023,8 +1025,10 @@ class RichSequencerClientImpl(
                 )
             )
               .leftMap[SequencerClientSubscriptionError](EventAggregationError)
+            _ = logger.debug("Event combined and merged successfully by the sequencer aggregator")
           } yield
             if (toSignalHandler) {
+              logger.debug("Signalling the application handler")
               signalHandler(applicationHandler)
             }).value
         }

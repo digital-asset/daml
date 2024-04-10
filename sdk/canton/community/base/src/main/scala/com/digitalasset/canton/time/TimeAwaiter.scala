@@ -51,7 +51,9 @@ trait TimeAwaiter {
 
   protected def currentKnownTime: CantonTimestamp
 
-  protected def awaitKnownTimestamp(timestamp: CantonTimestamp): Option[Future[Unit]] = {
+  protected def awaitKnownTimestamp(
+      timestamp: CantonTimestamp
+  )(implicit traceContext: TraceContext): Option[Future[Unit]] = {
     awaitKnownTimestampGen(timestamp, new General()).map(_.promise.future)
   }
 
@@ -66,10 +68,13 @@ trait TimeAwaiter {
   private def awaitKnownTimestampGen[T](
       timestamp: CantonTimestamp,
       create: => Awaiting[T],
-  ): Option[Awaiting[T]] = {
+  )(implicit traceContext: TraceContext): Option[Awaiting[T]] = {
     val current = currentKnownTime
     if (current >= timestamp) None
     else {
+      logger.debug(
+        s"Starting time awaiter for timestamp $timestamp. Current known time is $current."
+      )
       val awaiter = create
       blocking(awaitTimestampFuturesLock.synchronized {
         awaitTimestampFutures.offer(timestamp -> awaiter).discard
@@ -85,26 +90,28 @@ trait TimeAwaiter {
   /** Queue of timestamps that are being awaited on, ordered by timestamp.
     * Access is synchronized via [[awaitTimestampFuturesLock]].
     */
-  private val awaitTimestampFutures: PriorityQueue[(CantonTimestamp, Awaiting[_])] =
-    new PriorityQueue[(CantonTimestamp, Awaiting[_])](
-      Ordering.by[(CantonTimestamp, Awaiting[_]), CantonTimestamp](_._1)
+  private val awaitTimestampFutures: PriorityQueue[(CantonTimestamp, Awaiting[?])] =
+    new PriorityQueue[(CantonTimestamp, Awaiting[?])](
+      Ordering.by[(CantonTimestamp, Awaiting[?]), CantonTimestamp](_._1)
     )
   private val awaitTimestampFuturesLock: AnyRef = new Object()
 
-  protected def notifyAwaitedFutures(upToInclusive: CantonTimestamp): Unit = {
+  protected def notifyAwaitedFutures(
+      upToInclusive: CantonTimestamp
+  )(implicit traceContext: TraceContext): Unit = {
     @tailrec def go(): Unit = Option(awaitTimestampFutures.peek()) match {
       case Some(peeked @ (timestamp, awaiter)) if timestamp <= upToInclusive =>
         val polled = awaitTimestampFutures.poll()
         // Thanks to the synchronization, the priority queue cannot be modified concurrently,
         // but let's be paranoid and check.
         if (peeked ne polled) {
-          import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.*
           ErrorUtil.internalError(
             new ConcurrentModificationException(
               s"Insufficient synchronization in time awaiter. Peek returned $peeked, polled returned $polled"
             )
           )
         }
+        logger.debug(s"Completing time awaiter for timestamp $timestamp")
         awaiter.success()
         go()
       case _ =>
