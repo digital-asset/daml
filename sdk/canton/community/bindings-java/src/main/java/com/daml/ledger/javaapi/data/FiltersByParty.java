@@ -5,12 +5,11 @@ package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v2.TransactionFilterOuterClass;
 import com.daml.ledger.api.v2.TransactionFilterOuterClass.Filters;
-import org.checkerframework.checker.nullness.qual.NonNull;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 public final class FiltersByParty extends TransactionFilter {
 

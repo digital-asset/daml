@@ -3,13 +3,12 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.daml.ledger.api.v2.TraceContextOuterClass;
 import com.daml.ledger.api.v2.ReassignmentOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
-
+import com.daml.ledger.api.v2.TraceContextOuterClass;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 public final class Reassignment implements WorkflowEvent {
 

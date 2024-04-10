@@ -6,7 +6,6 @@ package com.daml.ledger.javaapi.data;
 import com.daml.ledger.api.v2.TransactionFilterOuterClass;
 import com.daml.ledger.javaapi.data.codegen.ContractCompanion;
 import com.daml.ledger.javaapi.data.codegen.ContractTypeCompanion;
-
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
