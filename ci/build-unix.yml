@@ -120,25 +120,26 @@ steps:
         platform: ${{parameters.name_str}}
         is_release: ${{parameters.is_release}}
 
-  - task: PublishBuildArtifacts@1
+  - task: PublishPipelineArtifact@1
     condition: and(succeededOrFailed(),
                    eq(variables.skip, 'false'),
                    or(eq(${{parameters.is_release}}, 'false'),
                       ne(${{parameters.name_exp}}, 'm1')))
-    continueOnError: true
     inputs:
-      pathtoPublish: '$(Build.StagingDirectory)/logs'
+      targetPath: '$(Build.StagingDirectory)/logs'
       artifactName: 'Bazel Logs'
+      publishLocation: pipeline
 
-  - task: PublishBuildArtifacts@1
+  - task: PublishPipelineArtifact@1
     condition: and(failed(),
                    eq(variables.skip, 'false'),
                    or(eq(${{parameters.is_release}}, 'false'),
                       ne(${{parameters.name_exp}}, 'm1')))
     displayName: 'Publish the bazel test logs'
     inputs:
-      pathtoPublish: 'sdk/bazel-testlogs/'
+      targetPath: 'sdk/bazel-testlogs/'
       artifactName: 'Test logs ${{parameters.name_str}}'
+      publishLocation: pipeline
 
   - bash: |
       set -euo pipefail
@@ -180,10 +181,11 @@ steps:
                    ne(${{parameters.name_exp}}, 'm1'),
                    eq(${{parameters.is_release}}, 'true'),
                    in(variables['Build.SourceBranchName'], 'main', 'main-2.x'))
-  - task: PublishPipelineArtifact@0
+  - task: PublishPipelineArtifact@1
     inputs:
       targetPath: $(Build.StagingDirectory)/release
       artifactName: ${{parameters.name_str}}-release
+      publishLocation: pipeline
     condition: and(succeeded(),
                    eq(variables.skip, 'false'),
                    ne(${{parameters.name_exp}}, 'm1'),
