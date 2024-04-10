@@ -138,7 +138,7 @@ final class GeneratorsData(
     for {
       inputContractId <- Arbitrary.arbitrary[LfContractId]
 
-      templateId <- Gen.option(Arbitrary.arbitrary[LfTemplateId])
+      templateId <- Arbitrary.arbitrary[LfTemplateId]
 
       choice <- Arbitrary.arbitrary[LfChoiceName]
 

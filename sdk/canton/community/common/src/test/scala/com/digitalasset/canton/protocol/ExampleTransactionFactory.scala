@@ -111,10 +111,11 @@ object ExampleTransactionFactory {
   def globalKey(
       templateId: LfTemplateId,
       value: LfValue,
+      packageName: LfPackageName = packageName,
   ): Versioned[LfGlobalKey] =
     LfVersioned(
       transactionVersion,
-      LfGlobalKey.assertBuild(templateId, value),
+      LfGlobalKey.assertBuild(templateId, value, packageName),
     )
 
   def globalKeyWithMaintainers(

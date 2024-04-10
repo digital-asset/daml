@@ -138,7 +138,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
           seed <- seedO.toRight(InvalidActionDescription("No seed for an Exercise node given"))
           actionDescription <- ExerciseActionDescription.create(
             inputContract,
-            Some(templateId),
+            templateId,
             choice,
             interfaceId,
             packagePreference,
@@ -225,7 +225,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
     ) = e
     for {
       inputContractId <- ProtoConverter.parseLfContractId(inputContractIdP)
-      templateId <- templateIdP.traverse(RefIdentifierSyntax.fromProtoPrimitive)
+      templateId <- RefIdentifierSyntax.fromProtoPrimitive(templateIdP)
       packagePreference <- packagePreferenceP.traverse(ProtoConverter.parsePackageId).map(_.toSet)
       choice <- choiceFromProto(choiceP)
       interfaceId <- interfaceIdP.traverse(RefIdentifierSyntax.fromProtoPrimitive)
@@ -335,7 +335,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
   /** @throws InvalidActionDescription if the `chosen_value` cannot be serialized */
   final case class ExerciseActionDescription private (
       inputContractId: LfContractId,
-      templateId: Option[LfTemplateId],
+      templateId: LfTemplateId,
       choice: LfChoiceName,
       interfaceId: Option[LfInterfaceId],
       packagePreference: Set[LfPackageId],
@@ -359,7 +359,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       v30.ActionDescription.Description.Exercise(
         v30.ActionDescription.ExerciseActionDescription(
           inputContractId = inputContractId.toProtoPrimitive,
-          templateId = templateId.map(i => new RefIdentifierSyntax(i).toProtoPrimitive),
+          templateId = new RefIdentifierSyntax(templateId).toProtoPrimitive,
           packagePreference = packagePreference.toSeq,
           choice = choice,
           interfaceId = interfaceId.map(i => new RefIdentifierSyntax(i).toProtoPrimitive),
@@ -386,7 +386,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
   object ExerciseActionDescription {
     def tryCreate(
         inputContractId: LfContractId,
-        templateId: Option[LfTemplateId],
+        templateId: LfTemplateId,
         choice: LfChoiceName,
         interfaceId: Option[LfInterfaceId],
         packagePreference: Set[LfPackageId],
@@ -412,7 +412,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
 
     def create(
         inputContractId: LfContractId,
-        templateId: Option[LfTemplateId],
+        templateId: LfTemplateId,
         choice: LfChoiceName,
         interfaceId: Option[LfInterfaceId],
         packagePreference: Set[LfPackageId],

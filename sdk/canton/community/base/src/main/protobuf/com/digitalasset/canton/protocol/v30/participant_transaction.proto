@@ -187,7 +187,7 @@ message ActionDescription {
     bytes node_seed = 6;
     bool failed = 8;
     optional string interface_id = 9;
-    optional string template_id = 10;
+    string template_id = 10;
     repeated string package_preference = 11;
   }
 
