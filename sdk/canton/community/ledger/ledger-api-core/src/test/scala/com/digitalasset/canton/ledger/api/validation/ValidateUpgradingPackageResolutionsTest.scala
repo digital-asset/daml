@@ -6,10 +6,7 @@ package com.digitalasset.canton.ledger.api.validation
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.validation.ValidateUpgradingPackageResolutions.ValidatedCommandPackageResolutionsSnapshot
-import com.digitalasset.canton.platform.store.packagemeta.{
-  PackageMetadataSnapshot,
-  PackageMetadataStore,
-}
+import com.digitalasset.canton.platform.localstore.{PackageMetadataSnapshot, PackageMetadataStore}
 import io.grpc.Status.Code.INVALID_ARGUMENT
 import io.grpc.StatusRuntimeException
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}

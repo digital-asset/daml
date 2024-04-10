@@ -39,8 +39,6 @@ final case class ParticipantNodeParameters(
     excludeInfrastructureTransactions: Boolean,
     enableEngineStackTrace: Boolean,
     iterationsBetweenInterruptions: Long,
-    enableContractUpgrading: Boolean,
-    disableUpgradeValidation: Boolean,
     allowForUnauthenticatedContractIds: Boolean,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
@@ -92,8 +90,6 @@ object ParticipantNodeParameters {
     excludeInfrastructureTransactions = true,
     enableEngineStackTrace = false,
     iterationsBetweenInterruptions = 10000,
-    enableContractUpgrading = false,
-    disableUpgradeValidation = false,
     allowForUnauthenticatedContractIds = false,
   )
 }

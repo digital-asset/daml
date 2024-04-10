@@ -9,7 +9,7 @@ import com.daml.error.ErrorsAssertions
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.utils.ErrorDetails.RetryInfoDetail
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.daml.ledger.api.v2.admin.package_management_service.{
+import com.daml.ledger.api.v1.admin.package_management_service.{
   PackageManagementServiceGrpc,
   UploadDarFileRequest,
 }
@@ -23,8 +23,8 @@ import com.daml.lf.language.Ast.Expr
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.tracing.TelemetrySpecBase.*
 import com.daml.tracing.{DefaultOpenTelemetry, NoOpTelemetry}
+import com.digitalasset.canton.ledger.api.domain.LedgerOffset.Absolute
 import com.digitalasset.canton.ledger.api.domain.PackageEntry
-import com.digitalasset.canton.ledger.api.domain.ParticipantOffset.Absolute
 import com.digitalasset.canton.ledger.participant.state.index.v2.{
   IndexPackagesService,
   IndexTransactionsService,
@@ -32,11 +32,6 @@ import com.digitalasset.canton.ledger.participant.state.index.v2.{
 import com.digitalasset.canton.ledger.participant.state.v2.SubmissionResult
 import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, SuppressionRule}
-import com.digitalasset.canton.platform.store.packagemeta.{
-  PackageMetadata,
-  PackageMetadataSnapshot,
-  PackageMetadataStore,
-}
 import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
 import com.digitalasset.canton.{BaseTest, DiscardOps}
 import com.google.protobuf.ByteString
@@ -126,13 +121,7 @@ class ApiPackageManagementServiceSpec
         )
       ).thenReturn(CompletableFuture.completedFuture(SubmissionResult.Acknowledged))
 
-      val (
-        mockDarReader,
-        mockEngine,
-        mockIndexTransactionsService,
-        mockIndexPackagesService,
-        mockPackageMetadataStore,
-      ) =
+      val (mockDarReader, mockEngine, mockIndexTransactionsService, mockIndexPackagesService) =
         mockedServices()
       val promise = Promise[Unit]()
 
@@ -149,7 +138,6 @@ class ApiPackageManagementServiceSpec
       val apiPackageManagementService = ApiPackageManagementService.createApiService(
         mockIndexPackagesService,
         mockIndexTransactionsService,
-        mockPackageMetadataStore,
         writeService,
         Duration.Zero,
         mockEngine,
@@ -157,7 +145,6 @@ class ApiPackageManagementServiceSpec
         _ => Ref.SubmissionId.assertFromString("aSubmission"),
         telemetry = NoOpTelemetry,
         loggerFactory = loggerFactory,
-        disableUpgradeValidation = false,
       )
 
       promise.future.map(_ => apiPackageManagementService.close()).discard
@@ -196,13 +183,8 @@ class ApiPackageManagementServiceSpec
 
   }
 
-  private def mockedServices(): (
-      GenDarReader[Archive],
-      Engine,
-      IndexTransactionsService,
-      IndexPackagesService,
-      PackageMetadataStore,
-  ) = {
+  private def mockedServices()
+      : (GenDarReader[Archive], Engine, IndexTransactionsService, IndexPackagesService) = {
     val mockDarReader = mock[GenDarReader[Archive]]
     when(mockDarReader.readArchive(any[String], any[ZipInputStream], any[Int]))
       .thenReturn(Right(new Dar[Archive](anArchive, List.empty)))
@@ -225,35 +207,16 @@ class ApiPackageManagementServiceSpec
           PackageEntry.PackageUploadAccepted(aSubmissionId, Timestamp.Epoch)
         )
       )
-
-    val mockPackageMetadataStore = mock[PackageMetadataStore]
-    when(mockPackageMetadataStore.getSnapshot).thenReturn(
-      new PackageMetadataSnapshot(PackageMetadata())
-    )
-
-    (
-      mockDarReader,
-      mockEngine,
-      mockIndexTransactionsService,
-      mockIndexPackagesService,
-      mockPackageMetadataStore,
-    )
+    (mockDarReader, mockEngine, mockIndexTransactionsService, mockIndexPackagesService)
   }
 
   private def createApiService(): PackageManagementServiceGrpc.PackageManagementService = {
-    val (
-      mockDarReader,
-      mockEngine,
-      mockIndexTransactionsService,
-      mockIndexPackagesService,
-      mockPackageMetadataStore,
-    ) =
+    val (mockDarReader, mockEngine, mockIndexTransactionsService, mockIndexPackagesService) =
       mockedServices()
 
     ApiPackageManagementService.createApiService(
       mockIndexPackagesService,
       mockIndexTransactionsService,
-      mockPackageMetadataStore,
       TestWritePackagesService(testTelemetrySetup.tracer),
       Duration.Zero,
       mockEngine,
@@ -261,7 +224,6 @@ class ApiPackageManagementServiceSpec
       _ => Ref.SubmissionId.assertFromString("aSubmission"),
       telemetry = new DefaultOpenTelemetry(OpenTelemetrySdk.builder().build()),
       loggerFactory = loggerFactory,
-      disableUpgradeValidation = false,
     )
   }
 }
@@ -274,10 +236,12 @@ object ApiPackageManagementServiceSpec {
       Map.empty,
       Set.empty,
       LanguageVersion.default,
-      Ast.PackageMetadata(
-        Ref.PackageName.assertFromString("aPackage"),
-        Ref.PackageVersion.assertFromString("0.0.0"),
-        None,
+      Some(
+        Ast.PackageMetadata(
+          Ref.PackageName.assertFromString("aPackage"),
+          Ref.PackageVersion.assertFromString("0.0.0"),
+          None,
+        )
       ),
     )
     Encode.encodeArchive(

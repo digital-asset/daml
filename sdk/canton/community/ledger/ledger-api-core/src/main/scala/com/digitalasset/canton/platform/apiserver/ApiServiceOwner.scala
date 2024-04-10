@@ -40,8 +40,6 @@ import com.digitalasset.canton.platform.localstore.api.{
 }
 import com.digitalasset.canton.platform.localstore.{
   IdentityProviderManagementConfig,
-}
-import com.digitalasset.canton.platform.store.packagemeta.{
   PackageMetadataStore,
 }
 import com.digitalasset.canton.platform.services.time.TimeProviderType
@@ -106,7 +104,6 @@ object ApiServiceOwner {
       loggerFactory: NamedLoggerFactory,
       authenticateUpgradableContract: AuthenticateUpgradableContract,
       dynParamGetter: DynamicDomainParameterGetter,
-      disableUpgradeValidation: Boolean,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -177,7 +174,6 @@ object ApiServiceOwner {
         multiDomainEnabled = multiDomainEnabled,
         authenticateUpgradableContract = authenticateUpgradableContract,
         dynParamGetter = dynParamGetter,
-        disableUpgradeValidation = disableUpgradeValidation,
       )(materializer, executionSequencerFactory, tracer)
         .map(_.withServices(otherServices))
       apiService <- new LedgerApiService(

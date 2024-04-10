@@ -480,8 +480,6 @@ object TestingTimeServiceConfig {
   * @param excludeInfrastructureTransactions If set, infrastructure transactions (i.e. ping, bong and dar distribution) will be excluded from participant metering.
   * @param enableEngineStackTraces If true, DAMLe stack traces will be enabled
   * @param iterationsBetweenInterruptions Number of engine iterations between forced interruptions (outside needs of information).
-  * @param enableContractUpgrading If true contracts may be automatically upgraded or downgraded as needed.
-  * @param disableUpgradeValidation Disable the package upgrade verification on DAR upload
   * @param allowForUnauthenticatedContractIds Skip contract id authentication check, if the contract id scheme does not support authentication.
   *                                           You should enable this only if all participants on a domain mutually trust each other.
   *                                           Otherwise, an attacker may compromise integrity of the ledger.
@@ -510,8 +508,6 @@ final case class ParticipantNodeParameterConfig(
     excludeInfrastructureTransactions: Boolean = true,
     enableEngineStackTraces: Boolean = false,
     iterationsBetweenInterruptions: Long = 10000,
-    enableContractUpgrading: Boolean = false,
-    disableUpgradeValidation: Boolean = false,
     allowForUnauthenticatedContractIds: Boolean = false,
 ) extends LocalNodeParametersConfig
 

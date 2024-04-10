@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, PackageName, PackageVersion}
 import com.digitalasset.canton.ledger.api.validation.ValidateUpgradingPackageResolutions.ValidatedCommandPackageResolutionsSnapshot
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadataStore
+import com.digitalasset.canton.platform.localstore.PackageMetadataStore
 import io.grpc.StatusRuntimeException
 
 trait ValidateUpgradingPackageResolutions {

@@ -8,7 +8,6 @@ import com.daml.lf.archive.Error as LfArchiveError
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.Error
-import com.daml.lf.validation.UpgradeError
 import com.daml.lf.{VersionRange, language, validation}
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 
@@ -156,18 +155,12 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           cause = "Generic error (please check the reason string).",
           extraContext = Map("reason" -> reason),
         )
-    final case class Unhandled(throwable: Throwable, additionalReason: Option[String] = None)(
-        implicit val loggingContext: ContextualizedErrorLogger
+    final case class Unhandled(throwable: Throwable)(implicit
+        val loggingContext: ContextualizedErrorLogger
     ) extends DamlError(
           cause = "Failed with an unknown error cause",
           throwableO = Some(throwable),
-          extraContext = {
-            val context: Map[String, Any] = Map("throwable" -> throwable)
-            additionalReason match {
-              case Some(additionalReason) => context + ("additionalReason" -> additionalReason)
-              case None => context
-            }
-          },
+          extraContext = Map("throwable" -> throwable),
         )
   }
 
@@ -268,57 +261,6 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
             extraContext = Map(
               "packageIds" -> packageIds,
               "missingDependencies" -> missingDependencies,
-            ),
-          )
-    }
-
-    @Explanation(
-      """This error indicates that the uploaded Dar is invalid because it doesn't upgrade the packages it claims to upgrade."""
-    )
-    @Resolution("Contact the supplier of the Dar.")
-    object Upgradeability
-        extends ErrorCode(
-          id = "DAR_NOT_VALID_UPGRADE",
-          ErrorCategory.InvalidIndependentOfSystemState,
-        ) {
-      final case class Error(
-          upgradingPackage: Ref.PackageId,
-          upgradedPackage: Ref.PackageId,
-          upgradeError: UpgradeError,
-      )(implicit
-          val loggingContext: ContextualizedErrorLogger
-      ) extends DamlError(
-            cause =
-              "The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade",
-            extraContext = Map(
-              "upgradingPackage" -> upgradingPackage,
-              "upgradedPackage" -> upgradedPackage,
-              "additionalInfo" -> upgradeError.prettyInternal,
-            ),
-          )
-    }
-
-    @Explanation(
-      """This error indicates that the Dar upload failed upgrade checks because a package with the same version and package name has been previously uploaded."""
-    )
-    @Resolution("Inspect the error message and contact support.")
-    object UpgradeVersion
-        extends ErrorCode(
-          id = "KNOWN_DAR_VERSION",
-          ErrorCategory.InvalidIndependentOfSystemState,
-        ) {
-      final case class Error(
-          uploadedPackage: Ref.PackageId,
-          existingPackage: Ref.PackageId,
-          packageVersion: Option[Ref.PackageVersion],
-      )(implicit
-          val loggingContext: ContextualizedErrorLogger
-      ) extends DamlError(
-            cause = "A DAR with the same version number has previously been uploaded.",
-            extraContext = Map(
-              "uploadedPackage" -> uploadedPackage,
-              "existingPackage" -> existingPackage,
-              "packageVersion" -> packageVersion.toString,
             ),
           )
     }

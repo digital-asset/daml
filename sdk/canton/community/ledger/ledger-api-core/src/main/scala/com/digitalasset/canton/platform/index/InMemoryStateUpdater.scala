@@ -132,7 +132,7 @@ private[platform] object InMemoryStateUpdater {
   )
 
   private[index] def extractMetadataFromUploadedPackages(
-      archiveToMetadata: DamlLf.Archive => Option[PackageMetadata]
+      archiveToMetadata: DamlLf.Archive => PackageMetadata
   )(
       batch: Vector[(Offset, Traced[Update])]
   ): PackageMetadata =
@@ -140,12 +140,12 @@ private[platform] object InMemoryStateUpdater {
       .collect { case (_, Traced(packageUpload: Update.PublicPackageUpload)) => packageUpload }
       .foldLeft(PackageMetadata()) { case (pkgMeta, packageUpload) =>
         packageUpload.archives.view
-          .map(archiveToMetadata).flatten
+          .map(archiveToMetadata)
           .foldLeft(pkgMeta)(_ |+| _)
       }
 
   private[index] def prepare(
-      archiveToMetadata: DamlLf.Archive => Option[PackageMetadata],
+      archiveToMetadata: DamlLf.Archive => PackageMetadata,
       multiDomainEnabled: Boolean,
   )(
       batch: Vector[(Offset, Traced[Update])],

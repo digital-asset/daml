@@ -31,7 +31,6 @@ import com.digitalasset.canton.ledger.participant.state.v2.metrics.{
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{ApiRequestLogger, ClientChannelBuilder}
-import com.digitalasset.canton.participant.admin.MutablePackageNameMapResolver
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
@@ -51,7 +50,6 @@ import com.digitalasset.canton.platform.indexer.{
   IndexerStartupMode,
 }
 import com.digitalasset.canton.platform.localstore.*
-import com.digitalasset.canton.platform.store.packagemeta.{PackageMetadataStore, InMemoryPackageMetadataStore}
 import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.DbSupport.ParticipantDataSourceConfig
@@ -81,7 +79,6 @@ class StartableStoppableLedgerApiServer(
     telemetry: Telemetry,
     futureSupervisor: FutureSupervisor,
     multiDomainEnabled: Boolean,
-    packageNameMapResolver: MutablePackageNameMapResolver,
     parameters: ParticipantNodeParameters,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
@@ -213,14 +210,6 @@ class StartableStoppableLedgerApiServer(
             config.serverConfig.unsafeEnableEventsByContractKeyCache.enabled
           )(config.serverConfig.unsafeEnableEventsByContractKeyCache.cacheSize.unwrap),
         )
-      packageMetadataStore = new InMemoryPackageMetadataStore(
-        inMemoryState.packageMetadataView
-      )
-      _ <- ResourceOwner.forReleasable(() =>
-        packageNameMapResolver.setReference(() =>
-          packageMetadataStore.getSnapshot.getUpgradablePackageMap
-        )
-      )(_ => Future.successful(packageNameMapResolver.unset()))
       timedReadService = new TimedReadService(config.syncService, config.metrics)
       indexerHealth <- new IndexerServiceOwner(
         config.participantId,
@@ -357,7 +346,6 @@ class StartableStoppableLedgerApiServer(
         multiDomainEnabled = multiDomainEnabled,
         authenticateUpgradableContract = authenticateUpgradableContract,
         dynParamGetter = config.syncService.dynamicDomainParameterGetter,
-        disableUpgradeValidation = config.cantonParameterConfig.disableUpgradeValidation,
       )
       _ <- startHttpApiIfEnabled
       _ <- {

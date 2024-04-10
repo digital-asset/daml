@@ -162,7 +162,7 @@ public final class CreatedEvent implements Event, TreeEvent {
   @NonNull
   public Optional<String> getPackageName() {
     return packageName;
-  }
+}
 
   @NonNull
   @Override
@@ -345,8 +345,8 @@ public final class CreatedEvent implements Event, TreeEvent {
         createdEvent.getEventId(),
         Identifier.fromProto(createdEvent.getTemplateId()),
         createdEvent.hasPackageName()
-            ? Optional.of(createdEvent.getPackageName().getValue())
-            : Optional.empty(),
+                ? Optional.of(createdEvent.getPackageName().getValue())
+                : Optional.empty(),
         createdEvent.getContractId(),
         DamlRecord.fromProto(createdEvent.getCreateArguments()),
         createdEvent.getCreatedEventBlob(),

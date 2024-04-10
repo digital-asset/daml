@@ -5,6 +5,7 @@ package com.daml.ledger.javaapi.data.codegen;
 
 import com.daml.ledger.javaapi.data.Value;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfEncoder;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfWriter;
 
 /**
  * The codegen-decoded form of any of these:
