@@ -112,7 +112,8 @@ object ToProjection {
     ): Option[Action] = {
       val eventId = EventId(txId.id, nodeId)
       val nodeInfo = nodeInfos(eventId)
-      val included = nodeInfo.disclosures.contains(party)
+      // Canton doesn't seem to return divulged create events
+      val included = nodeInfo.disclosures.get(party).exists(_.explicit)
       val res = nodeInfo.node match {
         case create: Node.Create =>
           Option.when(included) {
