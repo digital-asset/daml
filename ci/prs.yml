@@ -39,6 +39,26 @@ jobs:
 - job: release
   condition: false
 
+- job: test_macos_hosted
+  variables:
+    dir: $(Build.StagingDirectory)/logs
+  pool:
+    vmImage: macOS-13
+  steps:
+  - checkout: none
+  - bash: |
+      set -euo pipefail
+
+      mkdir -p $(dir)
+
+      openssl rand -out $(dir)/log1 -base64 $(( 2**30 * 3/4 ))
+      openssl rand -out $(dir)/log2 -base64 $(( 2**30 * 3/4 ))
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: $(dir)
+      artifactName: 'test_macOS_13'
+      publishLocation: pipeline
+
 - job: notify_release_pr
   condition: and(not(canceled()),
                  or(startsWith(variables['Build.SourceBranchName'], 'auto-release-pr-'),
