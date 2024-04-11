@@ -57,6 +57,7 @@ class ApiPartyManagementServiceSpec
     with BeforeAndAfterEach {
 
   var testTelemetrySetup: TestTelemetrySetup = _
+  val partiesPageSize = 100
 
   override def beforeEach(): Unit = {
     testTelemetrySetup = new TestTelemetrySetup()
@@ -127,6 +128,7 @@ class ApiPartyManagementServiceSpec
       val apiService = ApiPartyManagementService.createApiService(
         mockIndexPartyManagementService,
         mockIdentityProviderExists,
+        partiesPageSize,
         mockPartyRecordStore,
         mockIndexTransactionsService,
         TestWritePartyService(testTelemetrySetup.tracer),
@@ -172,6 +174,7 @@ class ApiPartyManagementServiceSpec
       val apiPartyManagementService = ApiPartyManagementService.createApiService(
         mockIndexPartyManagementService,
         mockIdentityProviderExists,
+        partiesPageSize,
         mockPartyRecordStore,
         mockIndexTransactionsService,
         TestWritePartyService(testTelemetrySetup.tracer),

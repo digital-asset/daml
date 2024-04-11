@@ -110,9 +110,16 @@ class PartyStorageBackendTemplate(
 
   private def queryParties(
       parties: Option[Set[String]],
+      fromExcl: Option[Party],
+      maxResults: Int,
       connection: Connection,
   ): Vector[IndexerPartyDetails] = {
     import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
+    val partyBeginWhereClause = fromExcl match {
+      case Some(id: String) => cSQL"WHERE party_entries.party > $id"
+      case None => cSQL""
+    }
+    val limitClause = QueryStrategy.limitClause(Option.when(maxResults > 0)(maxResults))
     val partyFilter = parties match {
       case Some(requestedParties) => cSQL"party_entries.party in ($requestedParties) AND"
       case None => cSQL""
@@ -138,13 +145,18 @@ class PartyStorageBackendTemplate(
         FROM party_entries INNER JOIN relevant_offsets ON
           party_entries.party = relevant_offsets.party AND
           party_entries.ledger_offset = relevant_offsets.ledger_offset
+        $partyBeginWhereClause
+        ORDER BY party_entries.party ASC
+        $limitClause
        """.asVectorOf(partyDetailsParser)(connection)
   }
 
   override def parties(parties: Seq[Party])(connection: Connection): List[IndexerPartyDetails] =
-    queryParties(Some(parties.view.map(_.toString).toSet), connection).toList
+    queryParties(Some(parties.view.map(_.toString).toSet), None, 0, connection).toList
 
-  override def knownParties(connection: Connection): List[IndexerPartyDetails] =
-    queryParties(None, connection).toList
+  override def knownParties(fromExcl: Option[Party], maxResults: Int)(
+      connection: Connection
+  ): List[IndexerPartyDetails] =
+    queryParties(None, fromExcl, maxResults, connection).toList
 
 }
