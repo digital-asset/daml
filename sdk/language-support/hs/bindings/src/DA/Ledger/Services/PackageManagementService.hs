@@ -62,6 +62,7 @@ uploadDarFile bytes =
                 LL.UploadDarFileRequest
                     bytes
                     TL.empty -- let server allocate submission id
+                    False -- do not dry-run
         rpc (ClientNormalRequest request timeout mdm)
             >>= unwrapWithInvalidArgument
             <&> fmap (\LL.UploadDarFileResponse{} -> ())
