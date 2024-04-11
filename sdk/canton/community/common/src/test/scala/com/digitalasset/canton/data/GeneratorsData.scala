@@ -28,6 +28,7 @@ import com.digitalasset.canton.protocol.{
   LfTransactionVersion,
   RollbackContext,
 }
+import com.digitalasset.canton.topology.transaction.TrustLevel
 import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
 import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
 import com.digitalasset.canton.{LfInterfaceId, LfPackageId, LfPartyId}
@@ -133,16 +134,20 @@ final class GeneratorsData(
 
   implicit val viewConfirmationParametersArb: Arbitrary[ViewConfirmationParameters] = Arbitrary(
     for {
-      informees <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
+      informees <- Gen.containerOf[Set, (LfPartyId, TrustLevel)](
+        Arbitrary.arbitrary[(LfPartyId, TrustLevel)]
+      )
       viewConfirmationParameters <-
         if (protocolVersion <= ProtocolVersion.v5) {
           Arbitrary
-            .arbitrary[Quorum](quorumArb(informees.toSeq))
-            .map(quorum => ViewConfirmationParameters.tryCreate(informees, Seq(quorum)))
+            .arbitrary[Quorum](quorumArb(informees.map { case (pId, _) => pId }.toSeq))
+            .map(quorum => ViewConfirmationParameters.tryCreate(informees.toMap, Seq(quorum)))
         } else
           Gen
-            .containerOf[Seq, Quorum](Arbitrary.arbitrary[Quorum](quorumArb(informees.toSeq)))
-            .map(ViewConfirmationParameters.tryCreate(informees, _))
+            .containerOf[Seq, Quorum](Arbitrary.arbitrary[Quorum](quorumArb(informees.map {
+              case (pId, _) => pId
+            }.toSeq)))
+            .map(ViewConfirmationParameters.tryCreate(informees.toMap, _))
     } yield viewConfirmationParameters
   )
 

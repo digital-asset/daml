@@ -234,7 +234,7 @@ emitCommandsV2 cmds pending = do
 -- Note that this will send the create as a single-command transaction.
 -- If you need to send multiple commands in one transaction, use
 -- `emitCommands` with `createCmd` and handle filtering yourself.
-dedupCreate : (Eq t, Template t) => t -> TriggerA s ()
+dedupCreate : (Eq t, Template t, HasAgreement t) => t -> TriggerA s ()
 dedupCreate t = do
   aState <- liftTriggerRule get
   -- This is a very naive approach that is linear in the number of commands in flight.

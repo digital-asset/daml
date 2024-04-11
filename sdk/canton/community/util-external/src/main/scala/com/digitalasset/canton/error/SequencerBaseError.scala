@@ -27,7 +27,7 @@ object SequencerBaseError {
       error: BaseError
   )(implicit loggingContext: ErrorLoggingContext, traceContext: TraceContext): String = {
     val contextMap = error.context ++ loggingContext.properties
-    val errorCodeMsg = error.code.toMsg(error.cause, traceContext.traceId)
+    val errorCodeMsg = error.code.toMsg(error.cause, traceContext.traceId, None)
     if (contextMap.nonEmpty) {
       errorCodeMsg + "; " + ContextualizedErrorLogger.formatContextAsString(contextMap)
     } else {

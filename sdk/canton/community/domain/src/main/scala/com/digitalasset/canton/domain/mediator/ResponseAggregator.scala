@@ -85,14 +85,18 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
             Map("requestId" -> requestId.toString, "reportedBy" -> show"$sender")
           )
           val hostedConfirmingPartiesF =
-            declaredConfirmingParties.toList
-              .parFilterA(p => topologySnapshot.canConfirm(sender, p.party, p.requiredTrustLevel))
-              .map(_.toSet)
+            ViewConfirmationParameters
+              .confirmBySender(
+                canConfirm = true,
+                topologySnapshot,
+                sender,
+                declaredConfirmingParties,
+              )
           val res = hostedConfirmingPartiesF.map { hostedConfirmingParties =>
             loggingContext.debug(
               show"Malformed response $responseTimestamp for $viewKey considered as a rejection on behalf of $hostedConfirmingParties"
             )
-            Some(hostedConfirmingParties.map(_.party)): Option[Set[LfPartyId]]
+            Some(hostedConfirmingParties): Option[Set[LfPartyId]]
           }
           OptionT(res)
 
@@ -114,12 +118,12 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
             expectedConfirmingParties =
               declaredConfirmingParties.filter(p => confirmingParties.contains(p.party))
             unauthorizedConfirmingParties <- OptionT.liftF(
-              expectedConfirmingParties.toList
-                .parFilterA { p =>
-                  topologySnapshot.canConfirm(sender, p.party, p.requiredTrustLevel).map(x => !x)
-                }
-                .map(_.map(_.party))
-                .map(_.toSet)
+              ViewConfirmationParameters.confirmBySender(
+                canConfirm = false,
+                topologySnapshot,
+                sender,
+                expectedConfirmingParties,
+              )
             )
             _ <-
               if (unauthorizedConfirmingParties.isEmpty) OptionT.some[Future](())
@@ -163,20 +167,15 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
 
             val informeesByView = ViewKey[VKEY].informeesAndThresholdByKey(request)
             val ret = informeesByView.toList
-              .parTraverseFilter { case (viewKey, ViewConfirmationParameters(_, quorums)) =>
-                // TODO(#15294): support multiple quorums
-                val quorum = quorums(0)
-                quorum.getConfirmingParties.toList
-                  .parTraverseFilter { cp =>
-                    topologySnapshot
-                      .canConfirm(sender, cp.party, cp.requiredTrustLevel)
-                      .map(Option.when(_)(cp.party))
-                  }
-                  .map { hostedConfirmingParties =>
-                    if (hostedConfirmingParties.nonEmpty)
-                      Some(viewKey -> hostedConfirmingParties.toSet)
-                    else None
-                  }
+              .parTraverseFilter { case (viewKey, viewConfirmationParameters) =>
+                ViewConfirmationParameters
+                  .confirmBySender(
+                    canConfirm = true,
+                    topologySnapshot,
+                    sender,
+                    viewConfirmationParameters.confirmers,
+                  )
+                  .map(authorized => if (authorized.nonEmpty) Some(viewKey -> authorized) else None)
               }
               .map { viewsWithConfirmingPartiesForSender =>
                 loggingContext.debug(
@@ -197,8 +196,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
                   None
                 }
               )
-              // TODO(#15294): support multiple quorums
-              declaredConfirmingParties = informeesAndThreshold.quorums(0).getConfirmingParties
+              declaredConfirmingParties = informeesAndThreshold.confirmers
               authorizedConfirmingParties <- authorizedPartiesOfSender(
                 viewKey,
                 declaredConfirmingParties,

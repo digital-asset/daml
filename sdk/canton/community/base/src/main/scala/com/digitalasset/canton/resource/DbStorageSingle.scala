@@ -16,6 +16,7 @@ import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.{Clock, PeriodicAction}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ResourceUtil
+import com.digitalasset.canton.util.retry.DbRetries
 import slick.jdbc.JdbcBackend.Database
 
 import java.sql.SQLException
@@ -57,16 +58,16 @@ class DbStorageSingle private (
   override protected[canton] def runRead[A](
       action: DbAction.ReadTransactional[A],
       operationName: String,
-      maxRetries: Int,
+      retries: DbRetries,
   )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A] =
-    run("reading", operationName, maxRetries)(db.run(action))
+    run("reading", operationName, retries)(db.run(action))
 
   override protected[canton] def runWrite[A](
       action: DbAction.All[A],
       operationName: String,
-      maxRetries: Int,
+      retries: DbRetries,
   )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A] =
-    run("writing", operationName, maxRetries)(db.run(action))
+    run("writing", operationName, retries)(db.run(action))
 
   override def onClosed(): Unit = {
     periodicConnectionCheck.close()

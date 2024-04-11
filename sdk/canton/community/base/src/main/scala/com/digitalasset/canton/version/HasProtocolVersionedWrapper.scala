@@ -345,7 +345,7 @@ trait HasSupportedProtoVersions[ValueClass] {
       Either.cond(
         v.isEmpty == pv < untilExclusive.representative,
         (),
-        s"expecting None if and only if pv < ${untilExclusive.representative}; for $pv, found: $v",
+        s"expecting None for $attributeName if and only if pv < ${untilExclusive.representative}; for $pv, found: $v",
       )
   }
 

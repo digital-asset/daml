@@ -32,7 +32,11 @@ import com.digitalasset.canton.platform.apiserver.execution.{
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
-import com.digitalasset.canton.platform.config.{CommandServiceConfig, UserManagementServiceConfig}
+import com.digitalasset.canton.platform.config.{
+  CommandServiceConfig,
+  PartyManagementServiceConfig,
+  UserManagementServiceConfig,
+}
 import com.digitalasset.canton.platform.localstore.api.{
   IdentityProviderConfigStore,
   PartyRecordStore,
@@ -100,6 +104,8 @@ object ApiServiceOwner {
       authService: AuthService,
       jwtVerifierLoader: JwtVerifierLoader,
       userManagement: UserManagementServiceConfig = ApiServiceOwner.DefaultUserManagement,
+      partyManagementServiceConfig: PartyManagementServiceConfig =
+        ApiServiceOwner.DefaultPartyManagementServiceConfig,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
       authenticateUpgradableContract: AuthenticateUpgradableContract,
@@ -166,6 +172,7 @@ object ApiServiceOwner {
         partyRecordStore = partyRecordStore,
         ledgerFeatures = ledgerFeatures,
         userManagementServiceConfig = userManagement,
+        partyManagementServiceConfig = partyManagementServiceConfig,
         apiStreamShutdownTimeout = apiStreamShutdownTimeout.underlying,
         meteringReportKey = meteringReportKey,
         enableExplicitDisclosure = enableExplicitDisclosure,
@@ -219,6 +226,8 @@ object ApiServiceOwner {
     NonNegativeFiniteDuration.ofMinutes(2)
   val DefaultUserManagement: UserManagementServiceConfig =
     UserManagementServiceConfig.default(enabled = false)
+  val DefaultPartyManagementServiceConfig: PartyManagementServiceConfig =
+    PartyManagementServiceConfig.default
   val DefaultIdentityProviderManagementConfig: IdentityProviderManagementConfig =
     IdentityProviderManagementConfig()
   val DefaultCommandServiceConfig: CommandServiceConfig = CommandServiceConfig.Default

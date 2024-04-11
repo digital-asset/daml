@@ -364,10 +364,13 @@ private[index] class IndexServiceImpl(
   ): Future[List[IndexerPartyDetails]] =
     ledgerDao.getParties(parties)
 
-  override def listKnownParties()(implicit
+  override def listKnownParties(
+      fromExcl: Option[Party],
+      maxResults: Int,
+  )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[List[IndexerPartyDetails]] =
-    ledgerDao.listKnownParties()
+    ledgerDao.listKnownParties(fromExcl, maxResults)
 
   override def partyEntries(
       startExclusive: Option[LedgerOffset.Absolute]

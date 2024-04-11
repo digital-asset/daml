@@ -22,5 +22,9 @@ message PartyIndexAndWeight {
   // The index of the confirming party in the 'informees' field of the 'ViewCommonData' message.
   int32 index = 1;
   int32 weight = 2;
-  com.digitalasset.canton.protocol.v0.TrustLevel required_trust_level = 3;
+}
+
+message TrustParty {
+  string party = 1;
+  com.digitalasset.canton.protocol.v0.TrustLevel required_trust_level = 2;
 }

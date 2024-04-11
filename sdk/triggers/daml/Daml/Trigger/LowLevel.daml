@@ -245,7 +245,7 @@ data Command
       }
 
 -- | Create a contract of the given template.
-createCmd : Template t => t -> Command
+createCmd : (Template t, HasAgreement t) => t -> Command
 createCmd templateArg =
   CreateCommand (toAnyTemplate templateArg)
 

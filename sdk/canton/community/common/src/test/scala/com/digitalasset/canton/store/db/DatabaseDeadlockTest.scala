@@ -8,6 +8,7 @@ import com.digitalasset.canton.config.CommunityDbConfig.Postgres
 import com.digitalasset.canton.config.DbParametersConfig
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
+import com.digitalasset.canton.util.retry.DbRetries
 import com.digitalasset.canton.{BaseTestWordSpec, HasExecutionContext}
 import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatest.{Assertion, BeforeAndAfterAll}
@@ -69,7 +70,7 @@ trait DatabaseDeadlockTest
           storage.profile,
         )(setParams),
         s"$functionFullName-${sql.take(10)}",
-        maxRetries,
+        DbRetries(maxRetries = maxRetries),
       )
     }
   }
