@@ -35,9 +35,9 @@ jobs:
       date -u
 
       nslookup google.com
-      ping -c4 google.com
+      /sbin/ping -c4 google.com
       nslookup vsblobprodcus3.vsblob.visualstudio.com
-      ping -c4 vsblobprodcus3.vsblob.visualstudio.com
+      /sbin/ping -c4 vsblobprodcus3.vsblob.visualstudio.com
   - task: PublishPipelineArtifact@1
     inputs:
       targetPath: $(dir)
