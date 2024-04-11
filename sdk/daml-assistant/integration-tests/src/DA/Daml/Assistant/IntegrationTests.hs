@@ -98,7 +98,7 @@ data DamlStartResource = DamlStartResource
     }
 
 damlStart :: SdkVersioned => FilePath -> Bool -> IO DamlStartResource
-damlStart tmpDir disableUpgradeValidation = do
+damlStart tmpDir _disableUpgradeValidation = do
     let projDir = tmpDir </> "assistant-integration-tests"
     createDirectoryIfMissing True (projDir </> "daml")
     let scriptOutputFile = "script-output.json"
@@ -140,7 +140,7 @@ damlStart tmpDir disableUpgradeValidation = do
     jsonApiPort <- getFreePort
     env <- subprocessEnv []
     let startProc =
-            (shell $ unwords $
+            (shell $ unwords
                 [ "daml start"
                 , "--start-navigator=no"
                 , "--sandbox-port", show $ ledger ports
@@ -148,8 +148,7 @@ damlStart tmpDir disableUpgradeValidation = do
                 , "--sandbox-domain-public-port", show $ domainPublic ports
                 , "--sandbox-domain-admin-port", show $ domainAdmin ports
                 , "--json-api-port", show jsonApiPort
-                ] ++
-                if disableUpgradeValidation then [ "--sandbox-option", "-C", "--sandbox-option", "canton.participants.sandbox.parameters.disable-upgrade-validation=true" ] else []
+                ]
             ) {std_in = CreatePipe, std_out = CreatePipe, cwd = Just projDir, create_group = True, env = Just env}
     (Just startStdin, Just startStdout, _, startPh) <- createProcess startProc
     outChan <- newBroadcastTChanIO
