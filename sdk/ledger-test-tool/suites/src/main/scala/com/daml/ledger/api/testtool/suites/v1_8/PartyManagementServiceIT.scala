@@ -776,6 +776,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     "PMPagedListKnownPartiesNewPartyVisibleOnPage",
     "Exercise ListKnownParties rpc: Creating a party makes it visible on a page",
     allocate(NoParties),
+    enabled = _.partyManagement.maxPartiesPageSize > 0,
   )(implicit ec => { case Participants(Participant(ledger)) =>
     def assertPartyPresentIn(party: String, list: ListKnownPartiesResponse, msg: String): Unit = {
       assert(list.partyDetails.exists(_.party.startsWith(party)), msg)
@@ -817,6 +818,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     "PMPagedListKnownPartiesNewPartyInvisibleOnNextPage",
     "Exercise ListKnownParties rpc: Adding a party to a previous page doesn't affect the subsequent page",
     allocate(NoParties),
+    enabled = _.partyManagement.maxPartiesPageSize > 0,
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val partyId1 = ledger.nextPartyId()
     val partyId2 = ledger.nextPartyId()
@@ -856,8 +858,9 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     "PMPagedListKnownPartiesReachingTheLastPage",
     "Exercise ListKnownParties rpc: Listing all parties page by page eventually terminates reaching the last page",
     allocate(NoParties),
+    enabled = _.partyManagement.maxPartiesPageSize > 0,
   )(implicit ec => { case Participants(Participant(ledger)) =>
-    val pageSize = 10000
+    val pageSize = Math.min(10000, ledger.features.partyManagement.maxPartiesPageSize)
 
     def fetchNextPage(pageToken: String, pagesFetched: Int): Future[Unit] = {
       for {
@@ -882,6 +885,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     "PMPagedListKnownPartiesWithInvalidRequest",
     "Exercise ListKnownParties rpc: Requesting invalid pageSize or pageToken results in an error",
     allocate(NoParties),
+    enabled = _.partyManagement.maxPartiesPageSize > 0,
   )(implicit ec => { case Participants(Participant(ledger)) =>
     for {
       // Using not Base64 encoded string as the page token
@@ -911,6 +915,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     "PMPagedListKnownPartiesZeroPageSize",
     "Exercise ListKnownParties rpc: Requesting page of size zero means requesting server's default page size, which is larger than zero",
     allocate(NoParties),
+    enabled = _.partyManagement.maxPartiesPageSize > 0,
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val partyId1 = ledger.nextPartyId()
     val partyId2 = ledger.nextPartyId()
@@ -935,7 +940,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
 
   test(
     "PMPagedListKnownPartiesMaxPageSize",
-    "Exercise ListKnownParties rpc: Requesting more than maxPartiesPageSize results in at most maxPartiesPageSize returned parties",
+    "Exercise ListKnownParties rpc: Requesting more than maxPartiesPageSize results in an error",
     allocate(NoParties),
     enabled = _.partyManagement.maxPartiesPageSize > 0,
     disabledReason = "requires party management feature with parties page size limit",
@@ -947,13 +952,16 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
       // create lots of parties
       _ <- Future.sequence(parties.map(u => ledger.allocateParty(AllocatePartyRequest(u))))
       // request page size greater than the server's limit
-      page <- ledger.listKnownParties(
-        ListKnownPartiesRequest(pageSize = maxPartiesPageSize + 1, pageToken = "")
-      )
+      onTooLargePageSizeError <- ledger
+        .listKnownParties(
+          ListKnownPartiesRequest(pageSize = maxPartiesPageSize + 1, pageToken = "")
+        )
+        .mustFail("using too large a page size")
     } yield {
-      assert(
-        page.partyDetails.size <= maxPartiesPageSize,
-        s"page size must be within limit. actual size: ${page.partyDetails.size}, server's limit: $maxPartiesPageSize",
+      assertGrpcError(
+        t = onTooLargePageSizeError,
+        errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
+        exceptionMessageSubstring = Some("Page size must not exceed the server's maximum"),
       )
     }
   })
