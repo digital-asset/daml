@@ -5,7 +5,6 @@ package com.digitalasset.canton.domain.block
 
 import cats.data.{EitherT, Nested}
 import cats.syntax.parallel.*
-import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
