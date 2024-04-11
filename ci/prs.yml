@@ -44,7 +44,7 @@ jobs:
     dir: $(Build.StagingDirectory)/logs
     System.Debug: true
   pool:
-    pool: macOS-pool
+    name: macOS-pool
     demands: assignment -equals ventura
   steps:
   - checkout: none
@@ -76,6 +76,8 @@ jobs:
       set -euo pipefail
 
       mkdir -p $(dir)
+
+      (cd $(mktemp -d); touch a; touch A; ls)
 
       openssl rand -out $(dir)/log1 -base64 $(( 2**30 * 3/4 ))
       openssl rand -out $(dir)/log2 -base64 $(( 2**30 * 3/4 ))
