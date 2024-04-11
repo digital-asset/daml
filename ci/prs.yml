@@ -35,23 +35,22 @@ jobs:
   steps:
     - template: steps.yml
 
-- job: test_macos_self
-  strategy:
-    matrix:
-      self_11:
-        poolName: macOS-pool
-        demand: assignment -equals default
-        name: self_11
-      self_13:
-        poolName: macOS-pool
-        demand: assignment -equals ventura
-        name: self_13
+- job: test_macos_self_11
   variables:
     dir: $(Build.StagingDirectory)/logs
     System.Debug: true
   pool:
-    name: $(poolName)
-    vmImage: $(vmImage)
-    demands: ${{ variables.demand }}
+    name: macOS-pool
+    demands: assignment -equals default
+  steps:
+    - template: steps.yml
+
+- job: test_macos_self_13
+  variables:
+    dir: $(Build.StagingDirectory)/logs
+    System.Debug: true
+  pool:
+    name: macOS-pool
+    demands: assignment -equals ventura
   steps:
     - template: steps.yml
