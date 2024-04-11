@@ -13,7 +13,7 @@ import cats.data.Validated
 import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.jwt.JwtTimestampLeeway
-import com.daml.metrics.HistogramDefinition
+import com.daml.metrics.{HistogramDefinition, MetricsFilterConfig}
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.{
@@ -882,8 +882,8 @@ object CantonConfig {
       deriveReader[DeadlockDetectionConfig]
     lazy implicit val sequencerTrafficConfigReader: ConfigReader[SequencerTrafficConfig] =
       deriveReader[SequencerTrafficConfig]
-    lazy implicit val metricsFilterConfigReader: ConfigReader[MetricsConfig.MetricsFilterConfig] =
-      deriveReader[MetricsConfig.MetricsFilterConfig]
+    lazy implicit val metricsFilterConfigReader: ConfigReader[MetricsFilterConfig] =
+      deriveReader[MetricsFilterConfig]
     lazy implicit val metricsConfigPrometheusReader
         : ConfigReader[MetricsReporterConfig.Prometheus] =
       deriveReader[MetricsReporterConfig.Prometheus]
@@ -1272,8 +1272,8 @@ object CantonConfig {
     lazy implicit val deadlockDetectionConfigWriter: ConfigWriter[DeadlockDetectionConfig] =
       deriveWriter[DeadlockDetectionConfig]
 
-    lazy implicit val metricsFilterConfigWriter: ConfigWriter[MetricsConfig.MetricsFilterConfig] =
-      deriveWriter[MetricsConfig.MetricsFilterConfig]
+    lazy implicit val metricsFilterConfigWriter: ConfigWriter[MetricsFilterConfig] =
+      deriveWriter[MetricsFilterConfig]
     lazy implicit val metricsConfigPrometheusWriter
         : ConfigWriter[MetricsReporterConfig.Prometheus] =
       deriveWriter[MetricsReporterConfig.Prometheus]

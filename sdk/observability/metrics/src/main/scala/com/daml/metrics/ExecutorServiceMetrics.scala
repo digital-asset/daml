@@ -12,7 +12,6 @@ import java.util.concurrent.{
   ThreadPoolExecutor,
   TimeUnit,
 }
-
 import com.daml.metrics.ExecutorServiceMetrics.{
   CommonMetricsName,
   ExecutorServiceWithCleanup,
@@ -22,8 +21,9 @@ import com.daml.metrics.ExecutorServiceMetrics.{
   TypeLabelKey,
 }
 import com.daml.metrics.InstrumentedExecutorServiceMetrics.InstrumentedExecutorService
+import com.daml.metrics.api.MetricQualification
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
-import com.daml.metrics.api.{MetricName, MetricsContext}
+import com.daml.metrics.api.{MetricInfo, MetricName, MetricsContext}
 import org.slf4j.LoggerFactory
 
 class ExecutorServiceMetrics(factory: LabeledMetricsFactory) {
@@ -73,22 +73,33 @@ class ExecutorServiceMetrics(factory: LabeledMetricsFactory) {
     val poolSizeCloseableGauge = poolSizeGauge(() => executor.getPoolSize)
     val activeThreadsCloseableGauge = activeThreadsGauge(() => executor.getActiveThreadCount)
     val runningThreadsCloseableGauge = factory.gaugeWithSupplier(
-      ForkJoinMetricsName.RunningThreads,
+      MetricInfo(
+        ForkJoinMetricsName.RunningThreads,
+        summary =
+          "Estimate of the number of worker threads that are not blocked waiting to join tasks or for other managed synchronization.",
+        qualification = MetricQualification.Debug,
+      ),
       () => executor.getRunningThreadCount,
-      "Estimate of the number of worker threads that are not blocked waiting to join tasks or for other managed synchronization.",
     )
     val stolenTasksCloseableGauge = factory.gaugeWithSupplier(
-      ForkJoinMetricsName.StolenTasks,
+      MetricInfo(
+        ForkJoinMetricsName.StolenTasks,
+        summary =
+          "Estimate of the total number of completed tasks that were executed by a thread other than their submitter.",
+        qualification = MetricQualification.Debug,
+      ),
       () => executor.getStealCount,
-      "Estimate of the total number of completed tasks that were executed by a thread other than their submitter.",
     )
     // The following 2 gauges are very similar, but the `getQueuedTaskCount` returns only the queue sizes starting
     // from index 1, therefore skipping the first queue. This is done assuming that the first queue represents tasks not yet assigned
     // to a worker.
     val executingQueuedTasksCloseableGauge = factory.gaugeWithSupplier(
-      ForkJoinMetricsName.ExecutingQueuedTasks,
+      MetricInfo(
+        ForkJoinMetricsName.ExecutingQueuedTasks,
+        "Estimate of the total number of tasks currently held in queues by worker threads (but not including tasks submitted to the pool that have not begun executing).",
+        qualification = MetricQualification.Debug,
+      ),
       () => executor.getQueuedTaskCount,
-      "Estimate of the total number of tasks currently held in queues by worker threads (but not including tasks submitted to the pool that have not begun executing).",
     )
     val queuedSubmissionCountCloseableGauge =
       queuedTasksGauge(() => executor.getQueuedSubmissionCount)
@@ -109,36 +120,54 @@ class ExecutorServiceMetrics(factory: LabeledMetricsFactory) {
   )(implicit mc: MetricsContext): AutoCloseable = {
     val poolSizeCloseableGauge = poolSizeGauge(() => executor.getPoolSize)
     val corePoolSizeCloseableGauge = factory.gaugeWithSupplier(
-      ThreadPoolMetricsName.CorePoolSize,
+      MetricInfo(
+        ThreadPoolMetricsName.CorePoolSize,
+        "Core number of threads.",
+        MetricQualification.Debug,
+      ),
       () => executor.getCorePoolSize,
-      "Core number of threads.",
     )
     val maxPoolSizeCloseableGauge = factory.gaugeWithSupplier(
-      ThreadPoolMetricsName.MaxPoolSize,
+      MetricInfo(
+        ThreadPoolMetricsName.MaxPoolSize,
+        "Maximum allowed number of threads.",
+        MetricQualification.Debug,
+      ),
       () => executor.getMaximumPoolSize,
-      "Maximum allowed number of threads.",
     )
     val largestPoolSizeCloseableGauge = factory.gaugeWithSupplier(
-      ThreadPoolMetricsName.LargestPoolSize,
+      MetricInfo(
+        ThreadPoolMetricsName.LargestPoolSize,
+        "Largest number of threads that have ever simultaneously been in the pool.",
+        MetricQualification.Debug,
+      ),
       () => executor.getMaximumPoolSize,
-      "Largest number of threads that have ever simultaneously been in the pool.",
     )
     val activeThreadsCloseableGauge = activeThreadsGauge(() => executor.getActiveCount)
     val completedTasksCloseableGauge = factory.gaugeWithSupplier(
-      ThreadPoolMetricsName.CompletedTasks,
+      MetricInfo(
+        ThreadPoolMetricsName.CompletedTasks,
+        "Approximate total number of tasks that have completed execution.",
+        MetricQualification.Debug,
+      ),
       () => executor.getCompletedTaskCount,
-      "Approximate total number of tasks that have completed execution.",
     )
     val submittedTasksCloseableGauge = factory.gaugeWithSupplier(
-      ThreadPoolMetricsName.SubmittedTasks,
+      MetricInfo(
+        ThreadPoolMetricsName.SubmittedTasks,
+        "Approximate total number of tasks that have ever been scheduled for execution.",
+        MetricQualification.Debug,
+      ),
       () => executor.getTaskCount,
-      "Approximate total number of tasks that have ever been scheduled for execution.",
     )
     val queuedTasksCloseableGauge = queuedTasksGauge(() => executor.getQueue.size)
     val remainingQueueCapacityCloseableGauge = factory.gaugeWithSupplier(
-      ThreadPoolMetricsName.RemainingQueueCapacity,
+      MetricInfo(
+        ThreadPoolMetricsName.RemainingQueueCapacity,
+        "Additional elements that this queue can ideally accept without blocking.",
+        MetricQualification.Debug,
+      ),
       () => executor.getQueue.remainingCapacity,
-      "Additional elements that this queue can ideally accept without blocking.",
     )
     () =>
       Seq(
@@ -156,23 +185,32 @@ class ExecutorServiceMetrics(factory: LabeledMetricsFactory) {
 
   private def poolSizeGauge(size: () => Int)(implicit mc: MetricsContext) =
     factory.gaugeWithSupplier(
-      CommonMetricsName.PoolSize,
+      MetricInfo(
+        CommonMetricsName.PoolSize,
+        "Number of worker threads present in the pool.",
+        MetricQualification.Debug,
+      ),
       size,
-      "Number of worker threads present in the pool.",
     )
 
   private def activeThreadsGauge(activeThreads: () => Int)(implicit mc: MetricsContext) =
     factory.gaugeWithSupplier(
-      CommonMetricsName.ActiveThreads,
+      MetricInfo(
+        CommonMetricsName.ActiveThreads,
+        "Estimate of the number of threads that are executing tasks.",
+        MetricQualification.Debug,
+      ),
       activeThreads,
-      "Estimate of the number of threads that are executing tasks.",
     )
 
   private def queuedTasksGauge(queueSize: () => Int)(implicit mc: MetricsContext) =
     factory.gaugeWithSupplier(
-      CommonMetricsName.QueuedTasks,
+      MetricInfo(
+        CommonMetricsName.QueuedTasks,
+        "Approximate number of tasks that are queued for execution.",
+        MetricQualification.Debug,
+      ),
       queueSize,
-      "Approximate number of tasks that are queued for execution.",
     )
 
 }

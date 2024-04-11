@@ -3,8 +3,9 @@
 
 package com.daml.metrics.http
 
+import com.daml.metrics.api.MetricQualification
 import com.daml.metrics.api.MetricHandle.{Histogram, LabeledMetricsFactory, Meter, Timer}
-import com.daml.metrics.api.{MetricName, MetricsContext}
+import com.daml.metrics.api.{MetricInfo, MetricName, MetricsContext}
 
 class DamlHttpMetrics(metricsFactory: LabeledMetricsFactory, component: String)
     extends HttpMetrics {
@@ -16,18 +17,36 @@ class DamlHttpMetrics(metricsFactory: LabeledMetricsFactory, component: String)
   )
 
   override val requestsTotal: Meter =
-    metricsFactory.meter(httpMetricsPrefix :+ "requests", "Total number of HTTP requests received.")
+    metricsFactory.meter(
+      MetricInfo(
+        httpMetricsPrefix :+ "requests",
+        "Total number of HTTP requests received.",
+        MetricQualification.Debug,
+      )
+    )
   override val latency: Timer =
-    metricsFactory.timer(httpMetricsPrefix :+ "requests", "The duration of the HTTP requests.")
+    metricsFactory.timer(
+      MetricInfo(
+        httpMetricsPrefix :+ "requests",
+        "The duration of the HTTP requests.",
+        MetricQualification.Debug,
+      )
+    )
   override val requestsPayloadBytes: Histogram =
     metricsFactory.histogram(
-      httpMetricsPrefix :+ "requests" :+ "payload" :+ Histogram.Bytes,
-      "Distribution of the sizes of payloads received in HTTP requests.",
+      MetricInfo(
+        httpMetricsPrefix :+ "requests" :+ "payload" :+ Histogram.Bytes,
+        "Distribution of the sizes of payloads received in HTTP requests.",
+        MetricQualification.Debug,
+      )
     )
   override val responsesPayloadBytes: Histogram =
     metricsFactory.histogram(
-      httpMetricsPrefix :+ "responses" :+ "payload" :+ Histogram.Bytes,
-      "Distribution of the sizes of payloads sent in HTTP responses.",
+      MetricInfo(
+        httpMetricsPrefix :+ "responses" :+ "payload" :+ Histogram.Bytes,
+        "Distribution of the sizes of payloads sent in HTTP responses.",
+        MetricQualification.Debug,
+      )
     )
 
 }

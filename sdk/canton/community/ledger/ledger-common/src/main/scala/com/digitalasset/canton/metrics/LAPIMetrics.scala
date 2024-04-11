@@ -3,15 +3,13 @@
 
 package com.digitalasset.canton.metrics
 
-import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Traffic}
-import com.daml.metrics.api.MetricHandle.{Counter, MetricsFactory}
+import com.daml.metrics.api.MetricQualification.{Debug, Traffic}
+import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory}
 import com.daml.metrics.api.{MetricDoc, MetricHandle, MetricName, MetricsContext}
-
-import scala.annotation.nowarn
 
 class LAPIMetrics(
     val prefix: MetricName,
-    @nowarn("cat=deprecation") val metricsFactory: MetricsFactory,
+    val metricsFactory: LabeledMetricsFactory,
 ) {
 
   object threadpool {

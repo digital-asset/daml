@@ -7,10 +7,11 @@ import org.apache.pekko.http.scaladsl.model.ws.{BinaryMessage, Message, TextMess
 import org.apache.pekko.stream.scaladsl.{Flow, Sink, Source}
 import org.apache.pekko.util.ByteString
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import com.daml.metrics.api.MetricQualification
 import com.daml.metrics.pekkohttp.PekkoUtils._
 import com.daml.metrics.api.MetricHandle.{Histogram, Meter}
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
-import com.daml.metrics.api.{MetricName, MetricsContext}
+import com.daml.metrics.api.{MetricInfo, MetricName, MetricsContext}
 import com.daml.metrics.http.WebSocketMetrics
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
@@ -418,12 +419,14 @@ object WebSocketMetricsSpec extends MetricValues {
 
     // Creates a new set of metrics, for one test
     def apply(): TestMetrics = {
-      val baseName = MetricName("test")
+      val baseName = MetricInfo(MetricName("test"), "", MetricQualification.Debug)
+      import MetricsContext.Implicits.empty
 
-      val receivedTotal = metricsFactory.meter(baseName :+ "received")
-      val receivedBytes = metricsFactory.histogram(baseName :+ "received" :+ Histogram.Bytes)
-      val sentTotal = metricsFactory.meter(baseName :+ "sent")
-      val sentBytes = metricsFactory.histogram(baseName :+ "sent" :+ Histogram.Bytes)
+      val receivedTotal = metricsFactory.meter(baseName.extend("received"))
+      val receivedBytes =
+        metricsFactory.histogram(baseName.extend("received").extend(Histogram.Bytes))
+      val sentTotal = metricsFactory.meter(baseName.extend("sent"))
+      val sentBytes = metricsFactory.histogram(baseName.extend("sent").extend(Histogram.Bytes))
 
       TestMetrics(receivedTotal, receivedBytes, sentTotal, sentBytes)
     }

@@ -3,9 +3,10 @@
 
 package com.digitalasset.canton.domain.metrics
 
-import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Traffic}
+
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, LabeledMetricsFactory, Meter}
 import com.daml.metrics.api.noop.NoOpMetricsFactory
+import com.daml.metrics.api.MetricQualification.{Debug, Traffic}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 import com.daml.metrics.grpc.{DamlGrpcServerMetrics, GrpcServerMetrics}
 import com.daml.metrics.{CacheMetrics, HealthMetrics}
