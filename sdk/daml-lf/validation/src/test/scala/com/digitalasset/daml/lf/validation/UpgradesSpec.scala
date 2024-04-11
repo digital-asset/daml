@@ -100,9 +100,15 @@ class UpgradesSpecLedgerAPI(override val suffix: String = "Ledger API")
           case Failure(err) => Success(Some(err));
           case Success(_) => Success(None);
         })
-      uploadV2Result <- client.packageManagementClient
-        .uploadDarFile(testPackageV2BS, dryRun = uploadSecondPackageDryRun)
-        .transform({
+      uploadV2Result <-
+        (
+          if (uploadSecondPackageDryRun)
+            client.packageManagementClient
+              .uploadDarFileDryRun(testPackageV2BS)
+          else
+            client.packageManagementClient
+              .uploadDarFile(testPackageV2BS)
+        ).transform({
           case Failure(err) => Success(Some(err));
           case Success(_) => Success(None);
         })
