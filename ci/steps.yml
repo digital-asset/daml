@@ -10,10 +10,10 @@
       date
       date -u
 
-      sw_vers -ProductVersion
+      sw_vers -productVersion
 
-      openssl rand -out $(dir)/log1_$(sw_vers -ProductVersion) -base64 $(( 2**30 * 3/4 ))
-      openssl rand -out $(dir)/log2_$(sw_vers -ProductVersion) -base64 $(( 2**30 * 3/4 ))
+      openssl rand -out $(dir)/log1_$(sw_vers -productVersion) -base64 $(( 2**30 * 3/4 ))
+      openssl rand -out $(dir)/log2_$(sw_vers -productVersion) -base64 $(( 2**30 * 3/4 ))
 
       nslookup google.com
       /sbin/ping -c4 google.com
