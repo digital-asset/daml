@@ -18,32 +18,32 @@ jobs:
       microsoft_14:
         poolName: Azure Pipelines
         vmImage: macOS-14
-        demands:
+        demand:
         name: microsoft_14
       microsoft_13:
         poolName: Azure Pipelines
         vmImage: macOS-13
-        demands:
+        demand:
         name: microsoft_13
       microsoft_12:
         poolName: Azure Pipelines
         vmImage: macOS-12
-        demands:
+        demand:
         name: microsoft_12
       microsoft_11:
         poolName: Azure Pipelines
         vmImage: macOS-11
-        demands:
+        demand:
         name: microsoft_11
       self_11:
         poolName: macOS-pool
         vmImage:
-        demands: assignment -equals default
+        demand: assignment -equals default
         name: self_11
       self_13:
         poolName: macOS-pool
         vmImage:
-        demands: assignment -equals ventura
+        demand: assignment -equals ventura
         name: self_13
   variables:
     dir: $(Build.StagingDirectory)/logs
@@ -51,7 +51,7 @@ jobs:
   pool:
     name: $(poolName)
     vmImage: $(vmImage)
-    demands: $(demands)
+    demands: $(demand)
   steps:
   - checkout: none
   - bash: |
