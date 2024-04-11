@@ -238,6 +238,14 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
+    visibility = [
+        "//compiler/repl-service:__subpackages__",
+        "//daml-lf:__subpackages__",
+        "//daml-script:__subpackages__",
+        "//language-support/java:__subpackages__",
+        "//ledger-service/utils:__subpackages__",
+        "//test-common/canton:__subpackages__",
+    ],
     deps = [
         ":community_ledger_ledger-common_configuration_proto_java",
         ":daml-common-staging_daml-errors",
@@ -514,6 +522,11 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
+    visibility = [
+        "//daml-lf:__subpackages__",
+        "//daml-script:__subpackages__",
+        "//language-support/java:__subpackages__",
+    ],
     deps = [
         ":ledger_api_proto_internal_scala",
         ":ledger_api_proto_scala",
@@ -774,6 +787,7 @@ proto_library(
     name = "community_participant_admin_proto",
     srcs = glob(["community/participant/src/main/protobuf/com/digitalasset/canton/participant/admin/v0/package_service.proto"]),
     strip_import_prefix = "community/participant/src/main/protobuf",
+    visibility = ["//visibility:public"],
     deps = [
         "@com_google_protobuf//:empty_proto",
     ],
@@ -788,7 +802,7 @@ proto_gen(
         "grpc",
         "flat_package",
     ],
-    visibility = ["//daml-script:__subpackages__"],
+    visibility = ["//visibility:public"],
 )
 
 proto_library(
@@ -876,6 +890,7 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
+    visibility = ["//visibility:public"],
     exports = [
         "@maven//:io_netty_netty_handler",
     ],
@@ -902,6 +917,7 @@ scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
+        # "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
         "//libs-scala/executors",
         "//libs-scala/jwt",

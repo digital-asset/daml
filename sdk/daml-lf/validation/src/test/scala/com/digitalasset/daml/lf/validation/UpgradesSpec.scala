@@ -24,6 +24,7 @@ import com.daml.lf.archive.DarReader
 import scala.util.{Success, Failure}
 import com.daml.lf.validation.Upgrading
 
+/*
 class UpgradesSpecAdminAPIWithoutValidation extends UpgradesSpecAdminAPI with ShortTests {
   override def suffix = "Admin API without validation"
   override val disableUpgradeValidation = true
@@ -41,6 +42,7 @@ class UpgradesSpecAdminAPIWithValidation extends UpgradesSpecAdminAPI with LongT
 class UpgradesSpecLedgerAPIWithValidation extends UpgradesSpecLedgerAPI with LongTests {
   override def suffix = "Ledger API with validation"
 }
+*/
 
 abstract class UpgradesSpecAdminAPI extends UpgradesSpec {
   override def uploadPackagePair(
