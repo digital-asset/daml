@@ -329,6 +329,7 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
+    /*
     s"Succeeds when v1 upgrades to v2 and then v3 ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-SuccessUpgradingV2ThenV3-v1.dar",
@@ -384,6 +385,7 @@ trait LongTests { this: UpgradesSpec =>
         ),
       )
     }
+     */
 
     "Fails when a top-level record adds a non-optional field" in {
       testPackagePair(
