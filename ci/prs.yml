@@ -35,7 +35,7 @@ jobs:
   steps:
     - template: steps.yml
 
-- job: test_macos_self_11
+- job: test_macos_self_12
   variables:
     dir: $(Build.StagingDirectory)/logs
     System.Debug: true
