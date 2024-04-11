@@ -55,9 +55,9 @@ listKnownParties =
     withGRPCClient config $ \client -> do
         service <- LL.partyManagementServiceClient client
         let LL.PartyManagementService{partyManagementServiceListKnownParties=rpc} = service
+        let listKnownPartiesRequestIdentityProviderId = ""
         let listKnownPartiesRequestPageToken = ""
-            listKnownPartiesRequestPageSize = 0
-            listKnownPartiesRequestIdentityProviderId = ""
+        let listKnownPartiesRequestPageSize = 1000
         let request = LL.ListKnownPartiesRequest{..}
         rpc (ClientNormalRequest request timeout mdm)
             >>= unwrap
