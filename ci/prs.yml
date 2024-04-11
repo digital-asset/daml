@@ -60,6 +60,11 @@ jobs:
       uname -a
       date
       date -u
+
+      nslookup google.com
+      ping -c4 google.com
+      nslookup vsblobprodcus3.vsblob.visualstudio.com
+      ping -c4 vsblobprodcus3.vsblob.visualstudio.com
   - task: PublishPipelineArtifact@1
     inputs:
       targetPath: $(dir)
@@ -88,6 +93,11 @@ jobs:
       uname -a
       date
       date -u
+
+      nslookup google.com
+      ping -c4 google.com
+      nslookup vsblobprodcus3.vsblob.visualstudio.com
+      ping -c4 vsblobprodcus3.vsblob.visualstudio.com
   - task: PublishPipelineArtifact@1
     inputs:
       targetPath: $(dir)
