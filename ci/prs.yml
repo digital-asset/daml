@@ -12,13 +12,46 @@ pr:
       - release/*
 
 jobs:
-- job: test_macos_sanity
+- job: test_macos
+  strategy:
+    matrix:
+      microsoft_14:
+        poolName: Azure Pipelines
+        vmImage: macOS-14
+        demands:
+        name: microsoft_14
+      microsoft_13:
+        poolName: Azure Pipelines
+        vmImage: macOS-13
+        demands:
+        name: microsoft_13
+      microsoft_12:
+        poolName: Azure Pipelines
+        vmImage: macOS-12
+        demands:
+        name: microsoft_12
+      microsoft_11:
+        poolName: Azure Pipelines
+        vmImage: macOS-11
+        demands:
+        name: microsoft_11
+      self_11:
+        poolName: macOS-pool
+        vmImage:
+        demands: assignment -equals default
+        name: self_11
+      self_13:
+        poolName: macOS-pool
+        vmImage:
+        demands: assignment -equals ventura
+        name: self_13
   variables:
     dir: $(Build.StagingDirectory)/logs
     System.Debug: true
   pool:
-    name: macOS-pool
-    demands: assignment -equals default
+    name: $(poolName)
+    vmImage: $(vmImage)
+    demands: $(demands)
   steps:
   - checkout: none
   - bash: |
@@ -41,71 +74,5 @@ jobs:
   - task: PublishPipelineArtifact@1
     inputs:
       targetPath: $(dir)
-      artifactName: 'test_macOS_13_sanity'
+      artifactName: test_macOS_13_sanity_${name)
       publishLocation: pipeline
-
-- job: test_macos_self
-  variables:
-    dir: $(Build.StagingDirectory)/logs
-    System.Debug: true
-  pool:
-    name: macOS-pool
-    demands: assignment -equals ventura
-  steps:
-  - checkout: none
-  - bash: |
-      set -euo pipefail
-
-      mkdir -p $(dir)
-
-      openssl rand -out $(dir)/log1 -base64 $(( 2**30 * 3/4 ))
-      openssl rand -out $(dir)/log2 -base64 $(( 2**30 * 3/4 ))
-
-      sw_vers
-      uname -a
-      date
-      date -u
-
-      nslookup google.com
-      ping -c4 google.com
-      nslookup vsblobprodcus3.vsblob.visualstudio.com
-      ping -c4 vsblobprodcus3.vsblob.visualstudio.com
-  - task: PublishPipelineArtifact@1
-    inputs:
-      targetPath: $(dir)
-      artifactName: 'test_macOS_13_self'
-      publishLocation: pipeline
-
-- job: test_macos_hosted
-  variables:
-    dir: $(Build.StagingDirectory)/logs
-    System.Debug: true
-  pool:
-    vmImage: macOS-13
-  steps:
-  - checkout: none
-  - bash: |
-      set -euo pipefail
-
-      mkdir -p $(dir)
-
-      (cd $(mktemp -d); touch a; touch A; ls)
-
-      openssl rand -out $(dir)/log1 -base64 $(( 2**30 * 3/4 ))
-      openssl rand -out $(dir)/log2 -base64 $(( 2**30 * 3/4 ))
-
-      sw_vers
-      uname -a
-      date
-      date -u
-
-      nslookup google.com
-      ping -c4 google.com
-      nslookup vsblobprodcus3.vsblob.visualstudio.com
-      ping -c4 vsblobprodcus3.vsblob.visualstudio.com
-  - task: PublishPipelineArtifact@1
-    inputs:
-      targetPath: $(dir)
-      artifactName: 'test_macOS_13_hosted'
-      publishLocation: pipeline
-
