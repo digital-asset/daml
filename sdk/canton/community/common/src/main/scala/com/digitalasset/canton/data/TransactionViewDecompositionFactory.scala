@@ -4,13 +4,18 @@
 package com.digitalasset.canton.data
 
 import cats.data.Chain
+import cats.syntax.functor.*
+import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
+import com.daml.lf.transaction.NodeId
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.TransactionViewDecomposition.{NewView, SameView}
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.transaction.TrustLevel
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.LfTransactionUtil
 import com.digitalasset.canton.version.ProtocolVersion
@@ -33,10 +38,10 @@ trait TransactionViewDecompositionFactory {
 
 object TransactionViewDecompositionFactory {
 
-  private type ConformationPolicy = (Set[LfPartyId], NonNegativeInt)
-
   def apply(protocolVersion: ProtocolVersion): TransactionViewDecompositionFactory = {
-    if (protocolVersion >= ProtocolVersion.v5) V2 else V1
+    if (protocolVersion >= ProtocolVersion.v6) V3
+    else if (protocolVersion >= ProtocolVersion.v5) V2
+    else V1
   }
 
   private[data] object V1 extends TransactionViewDecompositionFactory {
@@ -151,84 +156,103 @@ object TransactionViewDecompositionFactory {
 
   }
 
-  private[data] object V2 extends TransactionViewDecompositionFactory {
+  private[data] abstract class NewTransactionViewDecompositionFactoryImpl
+      extends TransactionViewDecompositionFactory {
 
-    private final case class ActionNodeInfo(
-        viewConfirmationParameters: ViewConfirmationParameters,
-        children: Seq[LfNodeId],
-        seed: Option[LfHash],
-    ) {
-      def confirmationPolicy: (Set[LfPartyId], NonNegativeInt) = (
-        viewConfirmationParameters.informees,
-        // TODO(#15294): support multiple quorums
-        viewConfirmationParameters.quorums(0).threshold,
-      )
-    }
-
-    private final case class BuildState[V](
+    /** Keeps track of the state of the transaction view tree.
+      *
+      * @param views chains `NewView` and `SameView` as they get created to construct a transaction view tree
+      * @param informees is used to aggregate the informees' partyId and trust level until a NewView is created
+      * @param quorums is used to aggregate the different quorums (originated from the different ActionNodes) until a
+      *                NewView is created
+      */
+    case class BuildState[V](
         views: Chain[V] = Chain.empty,
+        informees: Map[LfPartyId, TrustLevel] = Map.empty,
+        quorums: Chain[Quorum] = Chain.empty,
         rollbackContext: RollbackContext = RollbackContext.empty,
     ) {
+
       def withViews(
           views: Chain[V],
+          informees: Map[LfPartyId, TrustLevel],
+          quorums: Chain[Quorum],
           rollbackContext: RollbackContext,
       ): BuildState[V] =
-        BuildState[V](this.views ++ views, rollbackContext)
+        BuildState[V](
+          this.views ++ views,
+          this.informees ++ informees,
+          this.quorums ++ quorums,
+          rollbackContext,
+        )
 
       def withNewView(view: V, rollbackContext: RollbackContext): BuildState[V] = {
-        BuildState[V](views :+ view, rollbackContext)
+        BuildState[V](views :+ view, Map.empty, Chain.empty, rollbackContext)
       }
 
       def childState: BuildState[TransactionViewDecomposition] =
-        BuildState(Chain.empty, rollbackContext)
+        BuildState(Chain.empty, Map.empty, Chain.empty, rollbackContext)
 
       def enterRollback(): BuildState[V] = copy(rollbackContext = rollbackContext.enterRollback)
 
       def exitRollback(): BuildState[V] = copy(rollbackContext = rollbackContext.exitRollback)
     }
 
-    private final case class Builder(
+    abstract protected class Builder[A](
         nodesM: Map[LfNodeId, LfNode],
-        actionNodeInfoM: Map[LfNodeId, ActionNodeInfo],
+        actionNodeInfoM: Map[LfNodeId, A],
     ) {
 
-      private def node(nodeId: LfNodeId): LfNode = nodesM.getOrElse(
+      protected def node(nodeId: LfNodeId): LfNode = nodesM.getOrElse(
         nodeId,
         throw new IllegalStateException(s"Did not find $nodeId in node map"),
       )
 
-      private def actionNodeInfo(nodeId: LfNodeId): ActionNodeInfo =
-        actionNodeInfoM.getOrElse(
-          nodeId,
-          throw new IllegalStateException(s"Did not find $nodeId in policy map"),
-        )
-
-      private def build(nodeId: LfNodeId, state: BuildState[NewView]): BuildState[NewView] = {
+      private def build(nodeId: LfNodeId, state: BuildState[NewView]): BuildState[NewView] =
         node(nodeId) match {
           case actionNode: LfActionNode =>
-            buildNewView[NewView](nodeId, actionNode, actionNodeInfo(nodeId), state)
+            val info = actionNodeInfoM(nodeId)
+            buildNewView[NewView](nodeId, actionNode, info, state)
           case rollbackNode: LfNodeRollback =>
-            rollbackNode.children
-              .foldLeft(state.enterRollback()) { (bs, nId) =>
-                build(nId, bs)
-              }
-              .exitRollback()
+            builds(rollbackNode.children.toSeq, state.enterRollback()).exitRollback()
         }
-      }
 
-      def builds(nodeIds: Seq[LfNodeId], state: BuildState[NewView]): BuildState[NewView] = {
+      def builds(nodeIds: Seq[LfNodeId], state: BuildState[NewView]): BuildState[NewView] =
         nodeIds.foldLeft(state)((s, nid) => build(nid, s))
-      }
 
-      private def buildNewView[V >: NewView](
+      protected def buildNewView[V >: NewView](
           nodeId: LfNodeId,
           actionNode: LfActionNode,
-          info: ActionNodeInfo,
+          info: A,
+          state: BuildState[V],
+      ): BuildState[V]
+
+    }
+
+  }
+
+  private[data] object V2 extends NewTransactionViewDecompositionFactoryImpl {
+
+    private final case class ActionNodeInfoV2(
+        viewConfirmationParameters: ViewConfirmationParameters,
+        children: Seq[LfNodeId],
+        seed: Option[LfHash],
+    )
+
+    private final case class BuilderV2(
+        nodesM: Map[LfNodeId, LfNode],
+        actionNodeInfoM: Map[LfNodeId, ActionNodeInfoV2],
+    ) extends Builder[ActionNodeInfoV2](nodesM, actionNodeInfoM) {
+
+      override protected def buildNewView[V >: NewView](
+          nodeId: LfNodeId,
+          actionNode: LfActionNode,
+          info: ActionNodeInfoV2,
           state: BuildState[V],
       ): BuildState[V] = {
 
         val childState = info.children.foldLeft(state.childState) { (bs, nId) =>
-          buildChildView(nId, info.confirmationPolicy, bs)
+          buildChildView(nId, info, bs)
         }
 
         val newView = NewView(
@@ -241,31 +265,45 @@ object TransactionViewDecompositionFactory {
         )
 
         state.withNewView(newView, childState.rollbackContext)
-
       }
 
       private def buildChildView(
           nodeId: LfNodeId,
-          parentConfirmationPolicy: ConformationPolicy,
+          parentActionNodeInfo: ActionNodeInfoV2,
           state: BuildState[TransactionViewDecomposition],
       ): BuildState[TransactionViewDecomposition] = {
+
+        def needNewView(
+            parent: ActionNodeInfoV2,
+            node: ActionNodeInfoV2,
+        ): Boolean =
+          parent.viewConfirmationParameters != node.viewConfirmationParameters
+
         node(nodeId) match {
           case actionNode: LfActionNode =>
             val info = actionNodeInfoM(nodeId)
-            if (parentConfirmationPolicy == info.confirmationPolicy) {
-              val sameView =
-                SameView(LfTransactionUtil.lightWeight(actionNode), nodeId, state.rollbackContext)
+            if (!needNewView(parentActionNodeInfo, info)) {
+              val sameView = SameView(
+                LfTransactionUtil.lightWeight(actionNode),
+                nodeId,
+                state.rollbackContext,
+              )
               val childState = info.children.foldLeft(state.childState) { (bs, nId) =>
-                buildChildView(nId, parentConfirmationPolicy, bs)
+                buildChildView(nId, parentActionNodeInfo, bs)
               }
-              state.withViews(sameView +: childState.views, childState.rollbackContext)
-            } else {
+              state.withViews(
+                sameView +: childState.views,
+                Map.empty,
+                Chain.empty,
+                childState.rollbackContext,
+              )
+            } else
               buildNewView(nodeId, actionNode, info, state)
-            }
           case rollbackNode: LfNodeRollback =>
+            // TODO(#18332): use builds instead of foldLeft
             rollbackNode.children
               .foldLeft(state.enterRollback()) { (bs, nId) =>
-                buildChildView(nId, parentConfirmationPolicy, bs)
+                buildChildView(nId, parentActionNodeInfo, bs)
               }
               .exitRollback()
         }
@@ -282,28 +320,238 @@ object TransactionViewDecompositionFactory {
 
       val tx: LfVersionedTransaction = transaction.unwrap
 
-      val policyMapF = tx.nodes.collect({ case (nodeId, node: LfActionNode) =>
+      def createActionNodeInfo(
+          node: LfActionNode,
+          nodeId: LfNodeId,
+          childNodeIds: Seq[LfNodeId],
+      )(implicit ec: ExecutionContext): Future[(LfNodeId, ActionNodeInfoV2)] = {
         val itF = confirmationPolicy.informeesAndThreshold(node, topologySnapshot)
-        val childNodeIds = node match {
-          case e: LfNodeExercises => e.children.toSeq
-          case _ => Seq.empty
-        }
         itF.map({ case (i, t) =>
-          nodeId -> ActionNodeInfo(
+          nodeId -> ActionNodeInfoV2(
             ViewConfirmationParameters.create(i, t),
             childNodeIds,
             transaction.seedFor(nodeId),
           )
         })
-      })
+      }
+
+      val policyMapF: Iterable[Future[(NodeId, ActionNodeInfoV2)]] =
+        tx.nodes.collect({ case (nodeId, node: LfActionNode) =>
+          val childNodeIds = node match {
+            case e: LfNodeExercises => e.children.toSeq
+            case _ => Seq.empty
+          }
+          createActionNodeInfo(
+            node,
+            nodeId,
+            childNodeIds,
+          )
+        })
 
       Future.sequence(policyMapF).map(_.toMap).map { policyMap =>
-        Builder(tx.nodes, policyMap)
+        BuilderV2(tx.nodes, policyMap)
           .builds(tx.roots.toSeq, BuildState[NewView](rollbackContext = viewRbContext))
           .views
-          .map(_.withSubmittingAdminParty(submittingAdminPartyO, confirmationPolicy))
+          .map(
+            _.withSubmittingAdminParty(submittingAdminPartyO, confirmationPolicy)
+          )
           .toList
       }
     }
+
   }
+
+  private[data] object V3 extends NewTransactionViewDecompositionFactoryImpl {
+
+    private final case class ActionNodeInfoV3(
+        informees: Map[LfPartyId, (Set[ParticipantId], TrustLevel)],
+        quorum: Quorum,
+        children: Seq[LfNodeId],
+        seed: Option[LfHash],
+    ) {
+      lazy val participants: Set[ParticipantId] = informees.values.flatMap {
+        case (participants, _) => participants
+      }.toSet
+    }
+
+    private final case class BuilderV3(
+        nodesM: Map[LfNodeId, LfNode],
+        actionNodeInfoM: Map[LfNodeId, ActionNodeInfoV3],
+    ) extends Builder[ActionNodeInfoV3](nodesM, actionNodeInfoM) {
+
+      // make sure that there are no duplicate informees with different trust levels
+      private def mergeParentAndChildrenInformees(
+          parentInfo: ActionNodeInfoV3,
+          childrenInformees: Map[LfPartyId, TrustLevel],
+      ): Map[LfPartyId, TrustLevel] = {
+        val parentInformees = parentInfo.informees.fmap { case (_, requiredTrustLevel) =>
+          requiredTrustLevel
+        }
+        if (
+          parentInformees.keys.exists(key => {
+            val parentTrustLevel = parentInformees.get(key)
+            val childrenTrustLevel = childrenInformees.get(key)
+            childrenTrustLevel.isDefined && parentTrustLevel != childrenTrustLevel
+          })
+        ) {
+          throw new IllegalStateException("Duplicate informees with different trust levels")
+        }
+        parentInformees ++ childrenInformees
+      }
+
+      override protected def buildNewView[V >: NewView](
+          nodeId: LfNodeId,
+          actionNode: LfActionNode,
+          info: ActionNodeInfoV3,
+          state: BuildState[V],
+      ): BuildState[V] = {
+
+        val childState = info.children.foldLeft(state.childState) { (bs, nId) =>
+          buildChildView(nId, info.participants, bs)
+        }
+
+        val newView = NewView(
+          LfTransactionUtil.lightWeight(actionNode),
+          /* We can use tryCreate here because at this point we only have one quorum
+           * that is generated directly from the informees of the action node.
+           * Only later in the process (after the tree is built) do we aggregate all the children
+           * unique quorums together into a list held by the `parent` view.
+           */
+          ViewConfirmationParameters
+            .tryCreate(
+              mergeParentAndChildrenInformees(info, childState.informees),
+              (info.quorum +: childState.quorums.toList).distinct,
+            ),
+          info.seed,
+          nodeId,
+          childState.views.toList,
+          state.rollbackContext,
+        )
+
+        state.withNewView(newView, childState.rollbackContext)
+      }
+
+      private def buildChildView(
+          nodeId: LfNodeId,
+          currentParticipants: Set[ParticipantId],
+          state: BuildState[TransactionViewDecomposition],
+      ): BuildState[TransactionViewDecomposition] = {
+
+        /* The recipients of a transaction node are all participants that
+         * host a witness of the node. So we should look at the participant recipients of
+         * a node to decide when a new view is needed. In particular, a change in the informees triggers a new view only if
+         * a new informee participant enters the game.
+         */
+        def needNewView(
+            node: ActionNodeInfoV3,
+            currentParticipants: Set[ParticipantId],
+        ): Boolean = !node.participants.subsetOf(currentParticipants)
+
+        node(nodeId) match {
+          case actionNode: LfActionNode =>
+            val info = actionNodeInfoM(nodeId)
+            if (!needNewView(info, currentParticipants)) {
+              val sameView = SameView(
+                LfTransactionUtil.lightWeight(actionNode),
+                nodeId,
+                state.rollbackContext,
+              )
+              val childState = info.children.foldLeft(state.childState) { (bs, nId) =>
+                buildChildView(nId, currentParticipants, bs)
+              }
+
+              state
+                .withViews(
+                  sameView +: childState.views,
+                  mergeParentAndChildrenInformees(info, childState.informees),
+                  info.quorum +: childState.quorums,
+                  childState.rollbackContext,
+                )
+            } else
+              buildNewView(nodeId, actionNode, info, state)
+          case rollbackNode: LfNodeRollback =>
+            // TODO(#18332): use builds instead of foldLeft
+            rollbackNode.children
+              .foldLeft(state.enterRollback()) { (bs, nId) =>
+                buildChildView(nId, currentParticipants, bs)
+              }
+              .exitRollback()
+        }
+      }
+    }
+
+    override def fromTransaction(
+        confirmationPolicy: ConfirmationPolicy,
+        topologySnapshot: TopologySnapshot,
+        transaction: WellFormedTransaction[WithoutSuffixes],
+        viewRbContext: RollbackContext,
+        submittingAdminPartyO: Option[LfPartyId],
+    )(implicit ec: ExecutionContext): Future[Seq[NewView]] = {
+
+      val tx: LfVersionedTransaction = transaction.unwrap
+
+      val policyMapF: Iterable[Future[(NodeId, ActionNodeInfoV3)]] =
+        tx.nodes.collect({ case (nodeId, node: LfActionNode) =>
+          val childNodeIds = node match {
+            case e: LfNodeExercises => e.children.toSeq
+            case _ => Seq.empty
+          }
+          createActionNodeInfo(
+            confirmationPolicy,
+            topologySnapshot,
+            node,
+            nodeId,
+            childNodeIds,
+            transaction,
+          )
+        })
+
+      Future.sequence(policyMapF).map(_.toMap).map { policyMap =>
+        BuilderV3(tx.nodes, policyMap)
+          .builds(tx.roots.toSeq, BuildState[NewView](rollbackContext = viewRbContext))
+          .views
+          .map(
+            _.withSubmittingAdminPartyQuorum(submittingAdminPartyO, confirmationPolicy)
+          )
+          .toList
+      }
+    }
+
+    private def createActionNodeInfo(
+        confirmationPolicy: ConfirmationPolicy,
+        topologySnapshot: TopologySnapshot,
+        node: LfActionNode,
+        nodeId: LfNodeId,
+        childNodeIds: Seq[LfNodeId],
+        transaction: WellFormedTransaction[WithoutSuffixes],
+    )(implicit ec: ExecutionContext): Future[(LfNodeId, ActionNodeInfoV3)] = {
+      def createQuorum(
+          informeesMap: Map[LfPartyId, (Set[ParticipantId], NonNegativeInt, TrustLevel)],
+          threshold: NonNegativeInt,
+      ): Quorum = {
+        Quorum(
+          informeesMap.mapFilter { case (_, weight, _) =>
+            Option.when(weight.unwrap > 0)(
+              PositiveInt.tryCreate(weight.unwrap)
+            )
+          },
+          threshold,
+        )
+      }
+
+      val itF = confirmationPolicy.informeesParticipantsAndThreshold(node, topologySnapshot)
+      itF.map({ case (i, t) =>
+        nodeId -> ActionNodeInfoV3(
+          i.fmap { case (participants, _, requiredTrustLevel) =>
+            (participants, requiredTrustLevel)
+          },
+          createQuorum(i, t),
+          childNodeIds,
+          transaction.seedFor(nodeId),
+        )
+      })
+    }
+
+  }
+
 }

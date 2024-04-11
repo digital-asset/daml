@@ -25,8 +25,8 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.retry.Pause
 import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
+import com.digitalasset.canton.util.retry.{DbRetries, Pause}
 import com.digitalasset.canton.util.{EitherTUtil, FutureUtil, PekkoUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
@@ -153,14 +153,14 @@ class SequencerWriter(
 
   private case class RunningWriter(flow: RunningSequencerWriterFlow, store: SequencerWriterStore) {
 
-    def healthStatus(implicit traceContext: TraceContext): Future[SequencerHealthStatus] = {
+    def healthStatus(implicit traceContext: TraceContext): Future[SequencerHealthStatus] =
       for {
         watermark <- EitherTUtil
           .fromFuture(
             // Small positive value for maxRetries, so that
             // - a short period of unavailability does not make the sequencer inactive
             // - the future terminates "timely"
-            store.fetchWatermark(maxRetries = 10),
+            store.fetchWatermark(DbRetries(maxRetries = 3, suspendRetriesOnInactive = false)),
             ex => logger.info(s"Unable to fetch watermark during health monitoring.", ex),
           )
           .value
@@ -178,7 +178,6 @@ class SequencerWriter(
           Some(s"writer: $watermarkStatus"),
         )
       }
-    }
 
     /** Ensures that all resources for the writer flow are halted and cleaned up.
       * The store should not be used after calling this operation (the HA implementation will close its exclusive storage instance).

@@ -1,4 +1,4 @@
-sdk-version: 2.9.0-snapshot.20240402.12718.0.vbb951d6b
+sdk-version: 2.9.0-snapshot.20240409.12732.0.v79c64703
 name: medical-records
 source: MedicalRecord.daml
 init-script: MedicalRecord:setup

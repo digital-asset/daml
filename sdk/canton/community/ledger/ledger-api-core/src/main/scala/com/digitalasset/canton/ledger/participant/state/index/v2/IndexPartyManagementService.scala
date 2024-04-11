@@ -21,7 +21,10 @@ trait IndexPartyManagementService {
       parties: Seq[Party]
   )(implicit loggingContext: LoggingContextWithTrace): Future[List[IndexerPartyDetails]]
 
-  def listKnownParties()(implicit
+  def listKnownParties(
+      fromExcl: Option[Party],
+      maxResults: Int,
+  )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[List[IndexerPartyDetails]]
 

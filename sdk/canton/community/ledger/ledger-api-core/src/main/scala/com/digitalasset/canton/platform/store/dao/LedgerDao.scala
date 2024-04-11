@@ -142,7 +142,10 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   ): Future[List[IndexerPartyDetails]]
 
   /** Returns a list of all known parties. */
-  def listKnownParties()(implicit
+  def listKnownParties(
+      fromExcl: Option[Party],
+      maxResults: Int,
+  )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[List[IndexerPartyDetails]]
 

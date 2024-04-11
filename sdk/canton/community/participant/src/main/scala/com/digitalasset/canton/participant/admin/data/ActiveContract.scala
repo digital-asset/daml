@@ -89,10 +89,7 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
   ): Either[InvalidActiveContract, ActiveContract] =
     Either
       .catchOnly[IllegalArgumentException](
-        ActiveContract(
-          domainId: DomainId,
-          contract: SerializableContract,
-        )(protocolVersion)
+        ActiveContract(domainId, contract)(protocolVersion)
       )
       .leftMap(iae => new InvalidActiveContract(iae.getMessage))
 

@@ -294,12 +294,15 @@ private class JdbcLedgerDao(
           readStorageBackend.partyStorageBackend.parties(parties)
         )
 
-  override def listKnownParties()(implicit
+  override def listKnownParties(
+      fromExcl: Option[Party],
+      maxResults: Int,
+  )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[List[IndexerPartyDetails]] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.loadAllParties)(
-        readStorageBackend.partyStorageBackend.knownParties
+        readStorageBackend.partyStorageBackend.knownParties(fromExcl, maxResults)
       )
 
   override def listLfPackages()(implicit

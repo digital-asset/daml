@@ -32,7 +32,8 @@ import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId}
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, retry}
+import com.digitalasset.canton.util.retry.DbRetries
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -653,7 +654,7 @@ class DbSequencerStore(
 
   override def fetchWatermark(
       instanceIndex: Int,
-      maxRetries: Int = retry.Forever,
+      retries: DbRetries = DbRetries(),
   )(implicit traceContext: TraceContext): Future[Option[Watermark]] =
     storage
       .querySingle(
@@ -677,7 +678,7 @@ class DbSequencerStore(
           }
         },
         functionFullName,
-        maxRetries,
+        retries,
       )
       .value
 
