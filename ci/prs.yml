@@ -33,7 +33,7 @@ jobs:
   pool:
     vmImage: $(vmImage)
   steps:
-    template: steps.yml
+    - template: steps.yml
 
 - job: test_macos_self
   strategy:
@@ -54,4 +54,4 @@ jobs:
     vmImage: $(vmImage)
     demands: ${{ variables.demand }}
   steps:
-    template: steps.yml
+    - template: steps.yml
