@@ -5,7 +5,6 @@ package com.daml.lf
 package model
 package test
 
-import cats.Applicative
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
 import org.apache.pekko.actor.ActorSystem
@@ -21,19 +20,10 @@ object Demo {
 
   def main(args: Array[String]): Unit = {
 
-    import Spaces.Space
-    import Spaces.Space._
-    import Spaces.Space.Instances._
-
-    val S = implicitly[Applicative[Space]]
-
-    lazy val snats: Space[Int] = pay(singleton(0) + snats.map(_ + 1))
-    lazy val slists: Space[List[Int]] = pay(
-      singleton(List.empty[Int]) + S.map2(snats, slists)(_ :: _)
-    )
-
-    val biglists = slists(30)
-    println(biglists(biglists.cardinal / 4))
+    val ledgers = Enumerations.ledgers(10)
+    for {
+      n <- LazyList.unfold(BigInt(0))(n => if (n < ledgers.cardinal) Some((n, n + 1)) else None)
+    } println(Pretty.prettyLedger(ledgers(n)))
 
     implicit val system: ActorSystem = ActorSystem("RunnerMain")
     implicit val ec: ExecutionContext = system.dispatcher
@@ -44,38 +34,6 @@ object Demo {
     val cantonLedgerRunner = LedgerRunner.forCantonLedger(universalDarPath, "localhost", 5011, 5012)
     val ideLedgerRunner = LedgerRunner.forIdeLedger(universalDarPath)
 
-    val test: Ledgers.Ledger =
-      List(
-        Ledgers.Commands(
-          actAs = Set(1, 2),
-          actions = List(
-            Ledgers.Create(contractId = 1, signatories = Set(1), observers = Set()),
-            Ledgers.Create(contractId = 2, signatories = Set(2), observers = Set()),
-          ),
-        ),
-        Ledgers.Commands(
-          actAs = Set(2),
-          actions = List(
-            Ledgers.Exercise(
-              contractId = 2,
-              kind = Ledgers.Consuming,
-              controllers = Set(2),
-              choiceObservers = Set(),
-              subTransaction = List(
-                Ledgers.Exercise(
-                  contractId = 1,
-                  kind = Ledgers.Consuming,
-                  controllers = Set(2),
-                  choiceObservers = Set(),
-                  subTransaction = List(),
-                )
-              ),
-            )
-          ),
-        ),
-      )
-
-    println(test)
     while (true) {
       Gen
         .resize(5, new Generators(3).ledgerGen)
