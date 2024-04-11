@@ -42,7 +42,7 @@ class UpgradesSpecAdminAPIWithValidation extends UpgradesSpecAdminAPI with LongT
 class UpgradesSpecLedgerAPIWithValidation extends UpgradesSpecLedgerAPI with LongTests {
   override def suffix = "Ledger API with validation"
 }
-*/
+ */
 
 abstract class UpgradesSpecAdminAPI extends UpgradesSpec {
   override def uploadPackagePair(
