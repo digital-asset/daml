@@ -58,6 +58,8 @@ jobs:
 
       sw_vers
       uname -a
+      date
+      date -u
   - task: PublishPipelineArtifact@1
     inputs:
       targetPath: $(dir)
@@ -84,6 +86,8 @@ jobs:
 
       sw_vers
       uname -a
+      date
+      date -u
   - task: PublishPipelineArtifact@1
     inputs:
       targetPath: $(dir)
