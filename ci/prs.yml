@@ -12,37 +12,38 @@ pr:
       - release/*
 
 jobs:
-- job: test_macos
+- job: test_macos_msft
   strategy:
     matrix:
       microsoft_14:
-        poolName: Azure Pipelines
         vmImage: macOS-14
-        demand:
         name: microsoft_14
       microsoft_13:
-        poolName: Azure Pipelines
         vmImage: macOS-13
-        demand:
         name: microsoft_13
       microsoft_12:
-        poolName: Azure Pipelines
         vmImage: macOS-12
-        demand:
         name: microsoft_12
       microsoft_11:
-        poolName: Azure Pipelines
         vmImage: macOS-11
-        demand:
         name: microsoft_11
+  variables:
+    dir: $(Build.StagingDirectory)/logs
+    System.Debug: true
+  pool:
+    vmImage: $(vmImage)
+  steps:
+    template: steps.yml
+
+- job: test_macos_self
+  strategy:
+    matrix:
       self_11:
         poolName: macOS-pool
-        vmImage:
         demand: assignment -equals default
         name: self_11
       self_13:
         poolName: macOS-pool
-        vmImage:
         demand: assignment -equals ventura
         name: self_13
   variables:
@@ -53,26 +54,4 @@ jobs:
     vmImage: $(vmImage)
     demands: ${{ variables.demand }}
   steps:
-  - checkout: none
-  - bash: |
-      set -euo pipefail
-
-      mkdir -p $(dir)
-
-      openssl rand -out $(dir)/log1 -base64 $(( 2**30 * 3/4 ))
-      openssl rand -out $(dir)/log2 -base64 $(( 2**30 * 3/4 ))
-
-      sw_vers
-      uname -a
-      date
-      date -u
-
-      nslookup google.com
-      /sbin/ping -c4 google.com
-      nslookup vsblobprodcus3.vsblob.visualstudio.com
-      /sbin/ping -c4 vsblobprodcus3.vsblob.visualstudio.com
-  - task: PublishPipelineArtifact@1
-    inputs:
-      targetPath: $(dir)
-      artifactName: test_macOS_13_sanity_${name)
-      publishLocation: pipeline
+    template: steps.yml
