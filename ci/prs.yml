@@ -54,3 +54,13 @@ jobs:
     demands: assignment -equals ventura
   steps:
     - template: steps.yml
+
+- job: test_macos_self_11
+  variables:
+    dir: $(Build.StagingDirectory)/logs
+    System.Debug: true
+  pool:
+    name: macOS-pool
+    demands: assignment -equals big_sur
+  steps:
+    - template: steps.yml
