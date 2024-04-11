@@ -30,7 +30,7 @@ object VersionClient {
     featuresDescriptor match {
       // Note that we do not expose experimental features here, as they are used for internal testing only
       // and do not have backwards compatibility guarantees. (They should probably be named 'internalFeatures' ;-)
-      case FeaturesDescriptor(userManagement, _) =>
+      case FeaturesDescriptor(userManagement, _, _) =>
         (userManagement.toList map (_ => Feature.UserManagement))
     }
 }
