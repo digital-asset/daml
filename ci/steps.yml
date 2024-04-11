@@ -22,4 +22,4 @@
   - task: PublishBuildArtifacts@1
     inputs:
       targetPath: $(dir)
-      artifactName: test_macOS_13_sanity_${name)
+      artifactName: test_macOS_upload
