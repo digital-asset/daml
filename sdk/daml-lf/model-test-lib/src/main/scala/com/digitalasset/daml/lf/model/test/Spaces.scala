@@ -56,11 +56,11 @@ object Spaces {
     }
 
     def index[A](fin: Finite[A], i: BigInt): TailRec[A] = fin match {
-      case FEmpty() =>
+      case _ if i >= fin.cardinal =>
         throw new IndexOutOfBoundsException(i.toString)
       case FSingleton(a) =>
-        if (i == 0) done(a)
-        else throw new IndexOutOfBoundsException(i.toString)
+        // i is necessarily 0 thanks to the guard above
+        done(a)
       case FTimes(s1, s2) =>
         val (q, r) = i /% s2.cardinal
         for {
@@ -72,6 +72,8 @@ object Spaces {
         else index(s2, i - s1.cardinal)
       case FMap(f, s) =>
         index(s, i).map(f)
+      case _ =>
+        throw new IllegalStateException(s"unexpected constructor $fin")
     }
 
     object Instances {
