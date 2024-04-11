@@ -88,6 +88,9 @@ object CantonRunner {
     def participantConfig(i: Int) = {
       val (adminPort, ledgerApiPort) = ports(i)
       val participantId = config.participantIds(i)
+      // TODO(https://github.com/DACH-NY/canton/issues/16458): once ProtocolVersion.latest
+      //    is stable, revert dev-version-support and non-standard-config to
+      //    devMode here and below.
       s"""${participantId} {
          |      admin-api.port = ${adminPort.port}
          |      init.ledger-api.max-deduplication-duration = 0s
@@ -99,7 +102,7 @@ object CantonRunner {
          |      storage.type = memory
          |      parameters = {
          |        enable-engine-stack-traces = true
-         |        dev-version-support = ${config.devMode}
+         |        dev-version-support = yes
          |        disable-upgrade-validation = ${config.disableUpgradeValidation}
          |      }
          |      ${timeType.fold("")(x => "testing-time.type = " + x)}
