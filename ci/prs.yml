@@ -51,7 +51,7 @@ jobs:
   pool:
     name: $(poolName)
     vmImage: $(vmImage)
-    demands: $[ variables.demand ]
+    demands: ${{ variables.demand }}
   steps:
   - checkout: none
   - bash: |
