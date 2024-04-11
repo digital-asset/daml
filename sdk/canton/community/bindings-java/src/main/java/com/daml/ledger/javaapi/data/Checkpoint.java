@@ -4,9 +4,10 @@
 package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v2.CheckpointOuterClass;
+import org.checkerframework.checker.nullness.qual.NonNull;
+
 import java.time.Instant;
 import java.util.Objects;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 public final class Checkpoint {
 

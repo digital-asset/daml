@@ -26,11 +26,15 @@ message SerializableContract {
 message GlobalKey {
   bytes template_id = 1;
   bytes key = 2;
+  string package_name = 3;
 }
 
 message AggregationRule {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
 
+  // Members who are allowed to send a request for the underlying aggregation.
+  // Must contain SubmissionRequest.sender, otherwise the request is rejected.
+  // Must have at least threshold many elements.
   repeated string eligible_members = 1;
   int32 threshold = 2;
 }

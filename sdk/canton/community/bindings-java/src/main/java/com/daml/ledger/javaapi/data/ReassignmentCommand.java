@@ -3,12 +3,13 @@
 
 package com.daml.ledger.javaapi.data;
 
-import static java.util.Optional.empty;
-
 import com.daml.ledger.api.v2.ReassignmentCommandOuterClass;
+import org.checkerframework.checker.nullness.qual.NonNull;
+
 import java.util.Objects;
 import java.util.Optional;
-import org.checkerframework.checker.nullness.qual.NonNull;
+
+import static java.util.Optional.empty;
 
 /**
  * This class can be used to build a valid submission. It provides {@link #create(String, String, String, UnassignCommand)}

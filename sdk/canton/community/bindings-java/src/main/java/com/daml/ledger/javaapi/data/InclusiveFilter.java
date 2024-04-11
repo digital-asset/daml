@@ -4,8 +4,14 @@
 package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v2.TransactionFilterOuterClass;
+import com.daml.ledger.api.v2.ValueOuterClass;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.NonNull;
 

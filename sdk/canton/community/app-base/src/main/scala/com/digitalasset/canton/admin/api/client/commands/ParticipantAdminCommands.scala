@@ -114,6 +114,7 @@ object ParticipantAdminCommands {
         vetAllPackages: Boolean,
         synchronizeVetting: Boolean,
         logger: TracedLogger,
+        dryRun: Boolean,
     ) extends PackageCommand[UploadDarRequest, UploadDarResponse, String] {
 
       override def createRequest(): Either[String, UploadDarRequest] =
@@ -131,6 +132,7 @@ object ParticipantAdminCommands {
           filename,
           vetAllPackages = vetAllPackages,
           synchronizeVetting = synchronizeVetting,
+          dryRun = dryRun,
         )
 
       override def submitRequest(

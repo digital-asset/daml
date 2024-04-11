@@ -4,8 +4,9 @@
 package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v2.ReassignmentOuterClass;
-import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.NonNull;
+
+import java.util.Objects;
 
 public final class AssignedEvent {
 

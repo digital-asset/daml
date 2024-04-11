@@ -19,7 +19,7 @@ import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.InformeeMessage
-import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
@@ -83,7 +83,7 @@ class MediatorStateTest
         .create(hashOps, testedProtocolVersion)(
           ConfirmationPolicy.Signatory,
           domainId,
-          MediatorsOfDomain(MediatorGroupIndex.zero),
+          MediatorGroupRecipient(MediatorGroupIndex.zero),
           s(5417),
           new UUID(0, 0),
         )

@@ -11,6 +11,7 @@ import com.daml.lf.archive.{Dar, DarParser, Decode, GenDarReader}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
+import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.domain.{PackageEntry, ParticipantOffset}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
@@ -44,7 +45,6 @@ import scalaz.syntax.traverse.*
 import java.util.zip.ZipInputStream
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.FutureConverters.CompletionStageOps
 import scala.util.{Try, Using}
 
 private[apiserver] final class ApiPackageManagementService private (
@@ -109,7 +109,7 @@ private[apiserver] final class ApiPackageManagementService private (
       darFile: ByteString
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Dar[Archive]] = Future.delegate {
+  ): Future[(Ref.PackageId, Dar[Archive])] = Future.delegate {
     // Triggering computation in `executionContext` as caller thread (from netty)
     // should not be busy with heavy computation
     for {
@@ -133,7 +133,7 @@ private[apiserver] final class ApiPackageManagementService private (
           Future { () }
         } else
           packageUpgradeValidator.validateUpgrade(decodedDar.main)
-    } yield dar
+    } yield (decodedDar.main._1, dar)
   }
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
@@ -144,7 +144,12 @@ private[apiserver] final class ApiPackageManagementService private (
       logger.info(s"Uploading DAR file, ${loggingContext.serializeFiltered("submissionId")}.")
 
       val response = for {
-        dar <- decodeAndValidate(request.darFile)
+        (packageId, dar) <- decodeAndValidate(request.darFile)
+        _ <-
+          if (request.dryRun)
+            Future.failed(Validation.DryRun.Error(packageId).asGrpcError)
+          else
+            Future { () }
         ledgerEndbeforeRequest <- transactionsService.currentLedgerEnd().map(Some(_))
         _ <- synchronousResponse.submitAndWait(
           submissionId,
@@ -216,7 +221,7 @@ private[apiserver] object ApiPackageManagementService {
     override def submit(submissionId: Ref.SubmissionId, dar: Dar[Archive])(implicit
         loggingContext: LoggingContextWithTrace
     ): Future[state.SubmissionResult] =
-      packagesWrite.uploadPackages(submissionId, dar.all, None).asScala
+      packagesWrite.uploadPackages(submissionId, dar.all, None).toScalaUnwrapped
 
     override def entries(offset: Option[ParticipantOffset.Absolute])(implicit
         loggingContext: LoggingContextWithTrace

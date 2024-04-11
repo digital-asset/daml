@@ -63,13 +63,13 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
   private val sourceDomain = SourceDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
   )
-  private val sourceMediator = MediatorsOfDomain(MediatorGroupIndex.tryCreate(100))
+  private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(100))
   private val targetDomain = TargetDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
   )
-  private val targetMediator = MediatorsOfDomain(MediatorGroupIndex.tryCreate(200))
+  private val targetMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(200))
   private val anotherDomain = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::another"))
-  private val anotherMediator = MediatorsOfDomain(MediatorGroupIndex.tryCreate(300))
+  private val anotherMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(300))
   private val party1: LfPartyId = PartyId(
     UniqueIdentifier.tryFromProtoPrimitive("party1::party")
   ).toLf
@@ -454,7 +454,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
             NonEmptyUtil.fromUnsafe(decrypted.views),
             Seq.empty,
             cryptoSnapshot,
-            MediatorsOfDomain(MediatorGroupIndex.one),
+            MediatorGroupRecipient(MediatorGroupIndex.one),
             None,
           )
         )("compute activeness set failed")
@@ -483,7 +483,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
             NonEmpty(Seq, (WithRecipients(inTree2, RecipientsTest.testInstance), None)),
             Seq.empty,
             cryptoSnapshot,
-            MediatorsOfDomain(MediatorGroupIndex.one),
+            MediatorGroupRecipient(MediatorGroupIndex.one),
             None,
           )
         )("compute activeness set did not return a left")
@@ -512,7 +512,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
             ),
             Seq.empty,
             cryptoSnapshot,
-            MediatorsOfDomain(MediatorGroupIndex.one),
+            MediatorGroupRecipient(MediatorGroupIndex.one),
             None,
           )
         )("compute activenss set did not return a left")
@@ -651,7 +651,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         isTransferringParticipant = false,
         transferId,
         contract.metadata.stakeholders,
-        MediatorsOfDomain(MediatorGroupIndex.one),
+        MediatorGroupRecipient(MediatorGroupIndex.one),
         locallyRejected = false,
       )
 
@@ -714,7 +714,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
       contract: SerializableContract,
       creatingTransactionId: TransactionId,
       targetDomain: TargetDomainId,
-      targetMediator: MediatorsOfDomain,
+      targetMediator: MediatorGroupRecipient,
       transferOutResult: DeliveredTransferOutResult,
       uuid: UUID = new UUID(4L, 5L),
   ): FullTransferInTree = {

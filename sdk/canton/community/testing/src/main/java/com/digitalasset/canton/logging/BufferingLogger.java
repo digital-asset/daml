@@ -3,13 +3,14 @@
 
 package com.digitalasset.canton.logging;
 
-import static org.slf4j.event.Level.*;
-
-import java.util.Queue;
 import org.slf4j.event.Level;
 import org.slf4j.helpers.MarkerIgnoringBase;
 import org.slf4j.helpers.MessageFormatter;
 import scala.Function1;
+
+import java.util.Queue;
+
+import static org.slf4j.event.Level.*;
 
 /**
  * Logger that formats log messages then saves in a buffer. Trace messages are currently ignored.

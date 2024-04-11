@@ -227,6 +227,7 @@ private object MutableCacheBackedContractStoreRaceTests {
       keyIdx -> GlobalKey.assertBuild(
         Identifier.assertFromString("pkgId:module:entity"),
         ValueInt64(keyIdx),
+        Ref.PackageName.assertFromString("pkg-name"),
       )
     }.toMap
 

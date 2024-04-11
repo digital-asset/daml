@@ -4,6 +4,7 @@
 package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v2.ParticipantOffsetOuterClass;
+
 import java.util.Objects;
 
 public abstract class ParticipantOffset {

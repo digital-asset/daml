@@ -36,6 +36,7 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
       .build(
         LfTransactionBuilder.defaultTemplateId,
         Value.ValueInt64(100L),
+        LfTransactionBuilder.defaultPackageName,
       )
       .value
 

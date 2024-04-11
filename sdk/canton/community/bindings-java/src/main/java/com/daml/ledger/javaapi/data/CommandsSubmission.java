@@ -3,19 +3,20 @@
 
 package com.daml.ledger.javaapi.data;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.unmodifiableList;
-import static java.util.Optional.empty;
-
 import com.daml.ledger.api.v2.CommandsOuterClass;
 import com.daml.ledger.javaapi.data.codegen.HasCommands;
+import org.checkerframework.checker.nullness.qual.NonNull;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import org.checkerframework.checker.nullness.qual.NonNull;
+
+import static java.util.Collections.emptyList;
+import static java.util.Collections.unmodifiableList;
+import static java.util.Optional.empty;
 
 /**
  * This class can be used to build a valid submission. It provides {@link #create(String, String, String, List)}

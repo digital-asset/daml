@@ -91,10 +91,11 @@ private[console] object ParticipantCommands {
         vetAllPackages: Boolean,
         synchronizeVetting: Boolean,
         logger: TracedLogger,
+        dryRun: Boolean,
     ): ConsoleCommandResult[String] =
       runner.adminCommand(
         ParticipantAdminCommands.Package
-          .UploadDar(Some(path), vetAllPackages, synchronizeVetting, logger)
+          .UploadDar(Some(path), vetAllPackages, synchronizeVetting, logger, dryRun)
       )
 
   }
@@ -850,6 +851,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |
         |If vetAllPackages is true (default), the packages will all be vetted on all domains the participant is registered.
         |If synchronizeVetting is true (default), then the command will block until the participant has observed the vetting transactions to be registered with the domain.
+        |If dryRun is true (false by default), the participant will not upload the DAR, even if all validation steps pass.
         |
         |Note that synchronize vetting might block on permissioned domains that do not just allow participants to update the topology state.
         |In such cases, synchronizeVetting should be turned off.
@@ -862,11 +864,12 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
+        dryRun: Boolean = false,
     ): String = {
       val res = consoleEnvironment.runE {
         for {
           hash <- ParticipantCommands.dars
-            .upload(runner, path, vetAllPackages, synchronizeVetting, logger)
+            .upload(runner, path, vetAllPackages, synchronizeVetting, logger, dryRun)
             .toEither
         } yield hash
       }

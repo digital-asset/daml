@@ -3,13 +3,14 @@
 
 package com.digitalasset.canton.logging;
 
-import static org.slf4j.event.Level.*;
-
-import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.Marker;
 import org.slf4j.event.Level;
 import org.slf4j.helpers.SubstituteLogger;
+
+import java.util.concurrent.atomic.AtomicReference;
+
+import static org.slf4j.event.Level.*;
 
 class SuppressingLoggerDispatcher extends SubstituteLogger {
 

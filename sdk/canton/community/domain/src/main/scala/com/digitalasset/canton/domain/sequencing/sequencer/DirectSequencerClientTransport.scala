@@ -80,11 +80,6 @@ class DirectSequencerClientTransport(
       SendAsyncClientError.RequestInvalid("Direct client does not support unauthenticated sends")
     )
 
-  override def acknowledge(request: AcknowledgeRequest)(implicit
-      traceContext: TraceContext
-  ): Future[Unit] =
-    sequencer.acknowledge(request.member, request.timestamp)
-
   override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, Unit] =

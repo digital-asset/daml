@@ -73,6 +73,9 @@ message UploadDarFileRequest {
   // Unique submission identifier.
   // Optional, defaults to a random identifier.
   string submission_id = 2;
+
+  // Only try to upload the file to see if there are any errors.
+  bool dry_run = 3;
 }
 
 // An empty message that is received when the upload operation succeeded.

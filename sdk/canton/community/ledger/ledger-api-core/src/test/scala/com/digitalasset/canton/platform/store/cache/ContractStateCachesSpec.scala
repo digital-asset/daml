@@ -171,6 +171,7 @@ class ContractStateCachesSpec
     GlobalKey.assertBuild(
       Identifier.assertFromString(s"some:template:name"),
       ValueInt64(id.toLong),
+      Ref.PackageName.assertFromString("pkg-name"),
     )
 
   private def contract(id: Int): Contract = {
