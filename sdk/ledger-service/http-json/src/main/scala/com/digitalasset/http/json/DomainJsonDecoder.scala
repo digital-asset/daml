@@ -245,7 +245,9 @@ class DomainJsonDecoder(
     eitherT(
       resolveContractTypeId(jwt, ledgerId)(id)
         .map(
-          _.toOption.flatten.map(_._1).toRightDisjunction(JsonError(cannotResolveTemplateId(id)))
+          _.toOption.flatten
+            .map(_._1.head)
+            .toRightDisjunction(JsonError(cannotResolveTemplateId(id)))
         )
     )
 
@@ -253,8 +255,9 @@ class DomainJsonDecoder(
 
   def templateRecordType(
       id: domain.ContractTypeId.Template.RequiredPkg
-  ): JsonError \/ domain.LfType =
+  ): JsonError \/ domain.LfType = {
     resolveTemplateRecordType(id).liftErr(JsonError)
+  }
 
   def keyType(id: domain.ContractTypeId.Template.OptionalPkg)(implicit
       ec: ExecutionContext,

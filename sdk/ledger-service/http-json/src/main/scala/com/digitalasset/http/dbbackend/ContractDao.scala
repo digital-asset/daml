@@ -14,7 +14,7 @@ import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.lf.crypto.Hash
 import com.daml.logging.LoggingContextOf
-import com.daml.nonempty.{+-:, NonEmpty, NonEmptyF}
+import com.daml.nonempty.{+-:, NonEmpty}
 import domain.Offset.`Offset ordering`
 import doobie.LogHandler
 import doobie.free.connection.ConnectionIO
@@ -194,22 +194,17 @@ object ContractDao {
       lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[Option[(domain.Offset, Set[CtId])]] = {
     type Unsynced[Party, Off] = Map[Queries.SurrogateTpId, Map[Party, Off]]
-    import scalaz.syntax.traverse._
     import sjd.q.queries.unsyncedOffsets
     for {
-      tpids <- {
-        import Queries.CompatImplicits.monadFromCatsMonad
-        templateIds.toVector.toNEF.traverse { trp => surrogateTemplateId(trp) map ((_, trp)) }
-      }: ConnectionIO[NonEmptyF[Vector, (SurrogateTpId, CtId)]]
-      surrogatesToDomains = tpids.toMap
+      tpIds <- surrogateTemplateIds(templateIds)
       unsyncedRaw <- unsyncedOffsets(
         domain.Offset unwrap expectedOffset,
-        surrogatesToDomains.keySet,
+        tpIds.keySet,
       )
       unsynced = domain.Party.subst[Unsynced[*, domain.Offset], String](
         domain.Offset.tag.subst[Unsynced[String, *], String](unsyncedRaw)
       ): Unsynced[domain.Party, domain.Offset]
-    } yield minimumViableOffsets(parties, surrogatesToDomains, expectedOffset, unsynced)
+    } yield minimumViableOffsets(parties, tpIds, expectedOffset, unsynced)
   }
 
   // postprocess the output of unsyncedOffsets
@@ -320,7 +315,7 @@ object ContractDao {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def selectContracts(
       parties: domain.PartySet,
-      templateId: domain.ContractTypeId.Resolved,
+      templateId: NonEmpty[Set[domain.ContractTypeId.Resolved]],
       predicate: doobie.Fragment,
   )(implicit
       log: LogHandler,
@@ -329,12 +324,12 @@ object ContractDao {
   ): ConnectionIO[Vector[domain.ActiveContract.ResolvedCtTyId[JsValue]]] = {
     import sjd.q.queries
     for {
-      tpId <- surrogateTemplateId(templateId)
+      tpIds <- surrogateTemplateIds(templateId)
 
       dbContracts <- queries
-        .selectContracts(queriesPartySet(parties), tpId, predicate)
+        .selectContracts(queriesPartySet(parties), tpIds.keySet, predicate)
         .to[Vector]
-      domainContracts = dbContracts.map(toDomain(templateId))
+      domainContracts = dbContracts.map(toDomain(tpIds))
     } yield domainContracts
   }
 
@@ -369,7 +364,8 @@ object ContractDao {
               tidLookup = stIdSeq.view.map { case (ix, _, tid, _) => ix -> tid }.toMap
             } yield dbContracts map { dbc =>
               val htid +-: ttid = dbc.templateId.unwrap
-              (toDomain(tidLookup(htid))(dbc), NonEmptyList(htid, ttid: _*))
+              val dbc2 = dbc.copy(templateId = htid)
+              (toDomain(tidLookup)(dbc2), NonEmptyList(htid, ttid: _*))
             }
 
           case MatchedQueryMarker.Unused =>
@@ -382,7 +378,7 @@ object ContractDao {
                 )
                 .to[Vector]
               tidLookup = stIdSeq.view.map { case (_, stid, tid, _) => (stid, tid) }.toMap
-            } yield dbContracts map { dbc => (toDomain(tidLookup(dbc.templateId))(dbc), ()) }
+            } yield dbContracts map { dbc => (toDomain(tidLookup)(dbc), ()) }
         }
       }
   }
@@ -393,9 +389,22 @@ object ContractDao {
     case object Unused extends MatchedQueryMarker[Unit]
   }
 
+  private def surrogateTemplateIds[CtId <: domain.ContractTypeId.RequiredPkg](
+      templateIds: NonEmpty[Set[CtId]]
+  )(implicit
+      log: LogHandler,
+      sjd: SupportedJdbcDriver.TC,
+      lc: LoggingContextOf[InstanceUUID],
+  ): ConnectionIO[NonEmpty[Map[SurrogateTpId, CtId]]] = {
+    import Queries.CompatImplicits.monadFromCatsMonad, scalaz.syntax.traverse._
+    templateIds.toVector.toNEF
+      .traverse { t => surrogateTemplateId(t).map(_ -> t) } // collection of (SurrogateTpId, CtId)
+      .map(_.toMap)
+  }
+
   private[http] def fetchById(
       parties: domain.PartySet,
-      templateId: domain.ContractTypeId.Resolved,
+      templateIds: NonEmpty[Set[domain.ContractTypeId.Resolved]],
       contractId: domain.ContractId,
   )(implicit
       log: LogHandler,
@@ -404,18 +413,18 @@ object ContractDao {
   ): ConnectionIO[Option[domain.ActiveContract.ResolvedCtTyId[JsValue]]] = {
     import sjd.q._
     for {
-      tpId <- surrogateTemplateId(templateId)
+      tpIds <- surrogateTemplateIds(templateIds)
       dbContracts <- queries.fetchById(
         queriesPartySet(parties),
-        tpId,
+        tpIds.keySet,
         domain.ContractId unwrap contractId,
       )
-    } yield dbContracts.map(toDomain(templateId))
+    } yield dbContracts.map(toDomain(tpIds))
   }
 
   private[http] def fetchByKey(
       parties: domain.PartySet,
-      templateId: domain.ContractTypeId.Resolved,
+      templateIds: NonEmpty[Set[domain.ContractTypeId.Template.Resolved]],
       key: Hash,
   )(implicit
       log: LogHandler,
@@ -424,9 +433,9 @@ object ContractDao {
   ): ConnectionIO[Option[domain.ActiveContract.ResolvedCtTyId[JsValue]]] = {
     import sjd.q._
     for {
-      tpId <- surrogateTemplateId(templateId)
-      dbContracts <- queries.fetchByKey(queriesPartySet(parties), tpId, key)
-    } yield dbContracts.map(toDomain(templateId))
+      tpIds <- surrogateTemplateIds(templateIds)
+      dbContracts <- queries.fetchByKey(queriesPartySet(parties), tpIds.keySet, key)
+    } yield dbContracts.map(toDomain(tpIds))
   }
 
   private[this] def surrogateTemplateId(templateId: domain.ContractTypeId.RequiredPkg)(implicit
@@ -440,12 +449,12 @@ object ContractDao {
       templateId.entityName,
     )
 
-  private def toDomain(templateId: domain.ContractTypeId.Resolved)(
-      a: Queries.DBContract[_, JsValue, JsValue, Vector[String]]
+  private def toDomain[TpId](templateId: TpId => domain.ContractTypeId.Resolved)(
+      a: Queries.DBContract[TpId, JsValue, JsValue, Vector[String]]
   ): domain.ActiveContract.ResolvedCtTyId[JsValue] =
     domain.ActiveContract(
       contractId = domain.ContractId(a.contractId),
-      templateId = templateId,
+      templateId = templateId(a.templateId),
       key = decodeOption(a.key),
       payload = LfValueDatabaseCodec.asLfValueCodec(a.payload),
       signatories = domain.Party.subst(a.signatories),

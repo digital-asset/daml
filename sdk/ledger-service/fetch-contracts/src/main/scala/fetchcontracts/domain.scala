@@ -126,7 +126,7 @@ package domain {
       val (getId, key, getPayload): IdKeyPayload = RQ match {
         case ForQuery.Resolved =>
           resolvedQuery match {
-            case ResolvedQuery.ByInterfaceId((interfaceId, _)) =>
+            case interfaceId: ContractTypeId.Interface.Resolved =>
               import util.IdentifierConverters.apiIdentifier
               val id = apiIdentifier(interfaceId)
               val view = in.interfaceViews.find(_.interfaceId.exists(_ == id))
@@ -139,8 +139,8 @@ package domain {
                     case None => v.viewValue required "interviewView"
                   }
               }
-              (\/-(interfaceId: CtTyId), None, payload)
-            case ResolvedQuery.ByTemplateId(_) | ResolvedQuery.ByTemplateIds(_) => templateFallback
+              (\/-(interfaceId), None, payload)
+            case _: ContractTypeId.Template.Resolved => templateFallback
           }
         case ForQuery.Tpl => templateFallback
       }
@@ -164,7 +164,8 @@ package domain {
       */
     sealed abstract class ForQuery[-RQ, CtTyId] extends Product with Serializable
     object ForQuery {
-      implicit case object Resolved extends ForQuery[ResolvedQuery, ContractTypeId.Resolved]
+      implicit case object Resolved
+          extends ForQuery[ContractTypeId.Resolved, ContractTypeId.Resolved]
       implicit case object Tpl
           extends ForQuery[IgnoreInterface.type, ContractTypeId.Template.Resolved]
     }

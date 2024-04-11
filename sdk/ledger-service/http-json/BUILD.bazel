@@ -230,20 +230,20 @@ daml_compile(
 # Upgraded by FooV2
 daml_compile(
     name = "FooV1",
-    project_name = "foo",
-    version = "0.0.1",
     srcs = ["src/it/daml/upgrades/v1/Foo.daml"],
+    project_name = "foo",
     target = "1.dev",
+    version = "0.0.1",
     visibility = ["//ledger-service:__subpackages__"],
 )
 
 # Upgrades FooV1
 daml_compile(
     name = "FooV2",
-    project_name = "foo",
-    version = "0.0.2",
     srcs = ["src/it/daml/upgrades/v2/Foo.daml"],
+    project_name = "foo",
     target = "1.dev",
+    version = "0.0.2",
     visibility = ["//ledger-service:__subpackages__"],
 )
 
@@ -481,10 +481,10 @@ alias(
         data = [
             ":Account.dar",
             ":CIou.dar",
-            ":RIou.dar",
-            ":User.dar",
             ":FooV1.dar",
             ":FooV2.dar",
+            ":RIou.dar",
+            ":User.dar",
             "//docs:quickstart-model.dar",
             "//test-common:dar-files",
             "//test-common/test-certificates",

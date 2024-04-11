@@ -480,7 +480,7 @@ package domain {
     ): Error \/ ArchivedContract = {
       val resolvedTemplateId = resolvedQuery match {
         case ResolvedQuery.ByInterfaceId((interfaceId, _)) =>
-          \/-(interfaceId)
+          \/-(interfaceId.head)
         case _ =>
           (in.templateId required "templateId").map(ContractTypeId.Template.fromLedgerApi)
       }

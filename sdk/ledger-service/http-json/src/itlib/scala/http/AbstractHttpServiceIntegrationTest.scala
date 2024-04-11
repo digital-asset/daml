@@ -253,33 +253,28 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
   override def useTls = UseTls.NoTls
 
   protected def genSearchDataSet(
-      party: domain.Party,
-      usePackageName: Boolean = false,
+      party: domain.Party
   ): List[domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg]] =
     List(
       iouCreateCommand(
         amount = "111.11",
         currency = "EUR",
         party = party,
-        usePackageName = usePackageName,
       ),
       iouCreateCommand(
         amount = "222.22",
         currency = "EUR",
         party = party,
-        usePackageName = usePackageName,
       ),
       iouCreateCommand(
         amount = "333.33",
         currency = "GBP",
         party = party,
-        usePackageName = usePackageName,
       ),
       iouCreateCommand(
         amount = "444.44",
         currency = "BTC",
         party = party,
-        usePackageName = usePackageName,
       ),
     )
 
@@ -312,12 +307,13 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       }
     }
 
-    "single party with package name" in withHttpService { fixture =>
+    "single party with package id" in withHttpService { fixture =>
+      val pkgId = packageIdOfDar(AbstractHttpServiceIntegrationTestFuns.dar1)
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        val searchDataSet = genSearchDataSet(alice, usePackageName = true)
+        val searchDataSet = genSearchDataSet(alice)
         searchExpectOk(
           searchDataSet,
-          jsObject(s"""{"templateIds": ["${TpId.Iou.PkgName}:Iou:Iou"]}"""),
+          jsObject(s"""{"templateIds": ["$pkgId:Iou:Iou"]}"""),
           fixture,
           headers,
         ).map { acl: List[domain.ActiveContract.ResolvedCtTyId[JsValue]] =>
@@ -540,6 +536,99 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         }
       }
     }
+  }
+
+  def packageIdOfDar(darFile: java.io.File): String = {
+    import com.daml.lf.{archive, typesig}
+    val dar = archive.UniversalArchiveReader.assertReadFile(darFile)
+    typesig.PackageSignature.read(dar.main)._2.packageId
+  }
+
+  private def postCreate(
+      fixture: HttpServiceTestFixtureData,
+      payload: JsValue,
+      headers: List[HttpHeader],
+  ): Future[domain.ContractId] = {
+    HttpServiceTestFixture
+      .postJsonRequest(fixture.uri withPath Uri.Path("/v1/create"), payload, headers)
+      .parseResponse[domain.ActiveContract.ResolvedCtTyId[JsValue]]
+      .map(resultContractId)
+  }
+
+  "should handle multiple package ids with the same name" in withHttpService { fixture =>
+    import AbstractHttpServiceIntegrationTestFuns.{fooV1Dar, fooV2Dar}
+
+    for {
+      _ <- uploadPackage(fixture)(fooV1Dar)
+      _ <- uploadPackage(fixture)(fooV2Dar)
+
+      pkgIdV1 = packageIdOfDar(fooV1Dar)
+      pkgIdV2 = packageIdOfDar(fooV2Dar)
+
+      (alice, hdrs) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+
+      // create v1 and v2 versions of contract, using the package name and package id.
+      cidV1PkgId <- postCreate(
+        fixture,
+        jsObject(s"""{"templateId": "$pkgIdV1:Foo:Bar", "payload": {"owner": "$alice"}}"""),
+        hdrs,
+      )
+      cidV1PkgNm <- postCreate(
+        fixture,
+        // Payload per V1 but interpreted as V2, as the current highest version with this name.
+        jsObject(s"""{"templateId": "#foo:Foo:Bar", "payload": {"owner": "$alice"}}"""),
+        hdrs,
+      )
+      cidV2PkgId <- postCreate(
+        fixture,
+        jsObject(
+          s"""{"templateId": "$pkgIdV2:Foo:Bar", "payload": {"owner": "$alice", "extra":42}}"""
+        ),
+        hdrs,
+      )
+      cidV2PkgNm <- postCreate(
+        fixture,
+        jsObject(s"""{"templateId": "#foo:Foo:Bar", "payload": {"owner": "$alice", "extra":42}}"""),
+        hdrs,
+      )
+
+      // query using both package ids and package name.
+      _ <- searchExpectOk(
+        Nil,
+        jsObject(s"""{"templateIds": ["${pkgIdV1}:Foo:Bar"]}"""),
+        fixture,
+        hdrs,
+      ) map { results =>
+        results.map(_.contractId) should contain theSameElementsAs List(cidV1PkgId)
+      }
+
+      _ <- searchExpectOk(
+        Nil,
+        jsObject(s"""{"templateIds": ["${pkgIdV2}:Foo:Bar"]}"""),
+        fixture,
+        hdrs,
+      ) map { results =>
+        results.map(_.contractId) should contain theSameElementsAs List(
+          cidV1PkgNm,
+          cidV2PkgId,
+          cidV2PkgNm,
+        )
+      }
+
+      _ <- searchExpectOk(
+        Nil,
+        jsObject(s"""{"templateIds": ["#foo:Foo:Bar"]}"""),
+        fixture,
+        hdrs,
+      ) map { results =>
+        results.map(_.contractId) should contain theSameElementsAs List(
+          cidV1PkgId,
+          cidV1PkgNm,
+          cidV2PkgId,
+          cidV2PkgNm,
+        )
+      }
+    } yield succeed
   }
 
   "query record contains handles small tokens with " - {
@@ -1087,12 +1176,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       import domain.{DisclosedContract => DC}
 
       // we assume Disclosed is in the main dalf
-      lazy val inferredPkgId = {
-        import com.daml.lf.{archive, typesig}
-        val dar =
-          archive.UniversalArchiveReader.assertReadFile(AbstractHttpServiceIntegrationTestFuns.dar2)
-        typesig.PackageSignature.read(dar.main)._2.packageId
-      }
+      lazy val inferredPkgId = packageIdOfDar(AbstractHttpServiceIntegrationTestFuns.dar2)
 
       def inDar2Main[CtId[P] <: domain.ContractTypeId.Ops[CtId, P]](
           tid: CtId[Option[String]]
@@ -1496,19 +1580,20 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     }
 
     "succeeds normally with an interface ID" in withHttpService { fixture =>
-      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        val command = iouCommand(alice, CIou.CIou)
-
-        postCreateCommand(command, fixture, headers).flatMap(inside(_) {
-          case domain.OkResponse(result, _, StatusCodes.OK) =>
-            val contractId: ContractId = result.contractId
-            val locator = domain.EnrichedContractId(Some(TpId.IIou.IIou), contractId)
-            postContractsLookup(locator, fixture.uri, headers).map(inside(_) {
-              case domain.OkResponse(Some(resultContract), _, StatusCodes.OK) =>
-                contractId shouldBe resultContract.contractId
-                assertJsPayload(resultContract)(JsObject("amount" -> JsString("42")))
-            })
-        }): Future[Assertion]
+      uploadPackage(fixture)(ciouDar).flatMap { case _ =>
+        fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+          val command = iouCommand(alice, CIou.CIou)
+          postCreateCommand(command, fixture, headers).flatMap(inside(_) {
+            case domain.OkResponse(result, _, StatusCodes.OK) =>
+              val contractId: ContractId = result.contractId
+              val locator = domain.EnrichedContractId(Some(TpId.IIou.IIou), contractId)
+              postContractsLookup(locator, fixture.uri, headers).map(inside(_) {
+                case domain.OkResponse(Some(resultContract), _, StatusCodes.OK) =>
+                  contractId shouldBe resultContract.contractId
+                  assertJsPayload(resultContract)(JsObject("amount" -> JsString("42")))
+              })
+          }): Future[Assertion]
+        }
       }
     }
 

@@ -7,7 +7,7 @@ import java.io.File
 import java.nio.file.Files
 
 import org.apache.pekko.http.scaladsl.Http
-import org.apache.pekko.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri, HttpHeader}
+import org.apache.pekko.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri}
 import AbstractHttpServiceIntegrationTestFuns.HttpServiceTestFixtureData
 import HttpServiceTestFixture.UseHttps
 import dbbackend.JdbcConfig
@@ -40,7 +40,7 @@ abstract class HttpServiceIntegrationTest
     with BeforeAndAfterAll {
   import HttpServiceIntegrationTest._
   import json.JsonProtocol._
-  import AbstractHttpServiceIntegrationTestFuns.{ciouDar, fooV1Dar, fooV2Dar}
+  import AbstractHttpServiceIntegrationTestFuns.ciouDar
 
   private val staticContent: String = "static"
 
@@ -76,29 +76,6 @@ abstract class HttpServiceIntegrationTest
     val _ = System.setProperty("javax.net.debug", "ssl:handshake")
   }
 
-  // This is a hacky way to determine the package id of a dar,
-  // but might suffice for tests for now.
-  def packageIdOfDar(dar: File): Future[String] = Future {
-    val zis = new java.util.zip.ZipInputStream(new java.io.FileInputStream(dar))
-    val entry = zis.getNextEntry()
-    // Paths are formatted as: {packageName}-{packageVersion}-{packageId}/{dalfFile}
-    val pkgId = entry.getName.split("/")(0).split("-")(2)
-    zis.closeEntry()
-    zis.close()
-    pkgId
-  }
-
-  private def postCreate(
-      fixture: HttpServiceTestFixtureData,
-      payload: JsValue,
-      headers: List[HttpHeader],
-  ): Future[domain.ContractId] = {
-    HttpServiceTestFixture
-      .postJsonRequest(fixture.uri withPath Uri.Path("/v1/create"), payload, headers)
-      .parseResponse[domain.ActiveContract.ResolvedCtTyId[JsValue]]
-      .map(resultContractId)
-  }
-
   private def httpsContextForSelfSignedCert = {
     import org.apache.pekko.http.scaladsl.ConnectionContext
     import java.security.SecureRandom
@@ -129,80 +106,6 @@ abstract class HttpServiceIntegrationTest
       .flatMap {
         _.status shouldBe StatusCodes.OK
       }: Future[Assertion]
-  }
-
-  "should handle multiple package ids with the same name" in withHttpService { fixture =>
-    for {
-      _ <- uploadPackage(fixture)(fooV1Dar)
-      _ <- uploadPackage(fixture)(fooV2Dar)
-
-      pkgIdV1 <- packageIdOfDar(fooV1Dar)
-      pkgIdV2 <- packageIdOfDar(fooV2Dar)
-
-      (alice, hdrs) <- fixture.getUniquePartyAndAuthHeaders("Alice")
-
-      // create v1 and v2 versions of contract, using the package name and package id.
-      cidV1PkgId <- postCreate(
-        fixture,
-        jsObject(s"""{"templateId": "$pkgIdV1:Foo:Bar", "payload": {"owner": "$alice"}}"""),
-        hdrs,
-      )
-      cidV1PkgNm <- postCreate(
-        fixture,
-        // Payload per V1 but interpreted as V2, as the current highest version with this name.
-        jsObject(s"""{"templateId": "#foo:Foo:Bar", "payload": {"owner": "$alice"}}"""),
-        hdrs,
-      )
-      cidV2PkgId <- postCreate(
-        fixture,
-        jsObject(
-          s"""{"templateId": "$pkgIdV2:Foo:Bar", "payload": {"owner": "$alice", "extra":42}}"""
-        ),
-        hdrs,
-      )
-      cidV2PkgNm <- postCreate(
-        fixture,
-        jsObject(s"""{"templateId": "#foo:Foo:Bar", "payload": {"owner": "$alice", "extra":42}}"""),
-        hdrs,
-      )
-
-      // query using both package ids and package name.
-      _ <- searchExpectOk(
-        Nil,
-        jsObject(s"""{"templateIds": ["${pkgIdV1}:Foo:Bar"]}"""),
-        fixture,
-        hdrs,
-      ) map { results =>
-        results.map(_.contractId) should contain theSameElementsAs List(cidV1PkgId)
-      }
-
-      _ <- searchExpectOk(
-        Nil,
-        jsObject(s"""{"templateIds": ["${pkgIdV2}:Foo:Bar"]}"""),
-        fixture,
-        hdrs,
-      ) map { results =>
-        results.map(_.contractId) should contain theSameElementsAs List(
-          cidV1PkgNm,
-          cidV2PkgId,
-          cidV2PkgNm,
-        )
-      }
-
-      _ <- searchExpectOk(
-        Nil,
-        jsObject(s"""{"templateIds": ["#foo:Foo:Bar"]}"""),
-        fixture,
-        hdrs,
-      ) map { results =>
-        results.map(_.contractId) should contain theSameElementsAs List(
-          cidV1PkgId,
-          cidV1PkgNm,
-          cidV2PkgId,
-          cidV2PkgNm,
-        )
-      }
-    } yield succeed
   }
 
   "query with invalid JSON query should return error" in withHttpService { fixture =>
@@ -322,26 +225,6 @@ abstract class HttpServiceIntegrationTest
           exerciseTid = TpId.IIou.IIou,
         ) map exerciseSucceeded
       } yield result should ===("Bob invoked IIou.Transfer")
-    }
-
-    "templateId can include package id" in withHttpService { fixture =>
-      for {
-        pkgId <- packageIdOfDar(ciouDar)
-        _ <- uploadPackage(fixture)(ciouDar)
-        (alice, aliceHeaders) <- fixture.getUniquePartyAndAuthHeaders("Alice")
-        _ <- postCreate(
-          fixture,
-          jsObject(s"""{
-                "templateId": "$pkgId:CIou:CIou",
-                "payload": {
-                  "issuer": "$alice",
-                  "owner": "$alice",
-                  "amount": "a lot"
-                }
-              }"""),
-          aliceHeaders,
-        )
-      } yield succeed
     }
 
     // ideally we would upload IIou.daml, then force a reload, then upload ciou;

@@ -125,9 +125,8 @@ class PackageServiceTest
       val idName = buildPackageNameMap(pkgNameForPkgId)(ids) // package_id:package_name is 1:1
       val map = PackageService.buildTemplateIdMap(idName, ids)
       ids.foreach { id =>
-        val unresolvedId: domain.ContractTypeId.Template.OptionalPkg =
-          id.copy(packageId = Some("#" + pkgNameForPkgId(id.packageId)))
-        map resolve unresolvedId shouldBe Some(id)
+        val pkgName = "#" + pkgNameForPkgId(id.packageId)
+        map resolve id.copy(packageId = Some(pkgName)) shouldBe Some(id.copy(packageId = pkgName))
       }
     }
 
@@ -172,10 +171,15 @@ class PackageServiceTest
     import com.daml.lf.language.LanguageVersion
     PackageService.PackageNameMap(
       ids
-        .map((id: domain.ContractTypeId.RequiredPkg) => {
-          val pkgName = Ref.PackageName.assertFromString(pkgNameForPkgId(id.packageId))
+        .flatMap((id: domain.ContractTypeId.RequiredPkg) => {
+          val pkgName = pkgNameForPkgId(id.packageId)
           val pkgVersion = packageVersionForId(id.packageId)
-          (id.packageId, (KeyPackageName(Some(pkgName), LanguageVersion.v1_dev), pkgVersion))
+          val kpn =
+            KeyPackageName(Some(Ref.PackageName.assertFromString(pkgName)), LanguageVersion.v1_dev)
+          Set(
+            (id.packageId, (kpn, pkgVersion)),
+            ("#" + pkgName, (kpn, pkgVersion)),
+          )
         })
         .toMap
         .view

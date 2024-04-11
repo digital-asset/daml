@@ -23,7 +23,7 @@ trait QueryPayloadBenchmark extends ContractDaoBenchmark {
   @Param(Array("1", "10"))
   var extraPayloadValues: Int = _
 
-  private val tpid = ContractTypeId.Template("-pkg-", "M", "T")
+  private val tpid: ContractTypeId.Resolved = ContractTypeId.Template("-pkg-", "M", "T")
   private var surrogateTpid: SurrogateTpId = _
   val party = "Alice"
 
@@ -77,7 +77,7 @@ trait QueryPayloadBenchmark extends ContractDaoBenchmark {
     val result = instanceUUIDLogCtx(implicit lc =>
       dao
         .transact(
-          ContractDao.selectContracts(NonEmpty(Set, Party(party)), tpid, whereClause)
+          ContractDao.selectContracts(NonEmpty(Set, Party(party)), NonEmpty(Set, tpid), whereClause)
         )
         .unsafeRunSync()
     )
