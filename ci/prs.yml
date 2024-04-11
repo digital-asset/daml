@@ -61,7 +61,7 @@ jobs:
   - task: PublishPipelineArtifact@1
     inputs:
       targetPath: $(dir)
-      artifactName: 'test_macOS_13'
+      artifactName: 'test_macOS_13_self'
       publishLocation: pipeline
 
 - job: test_macos_hosted
@@ -87,7 +87,7 @@ jobs:
   - task: PublishPipelineArtifact@1
     inputs:
       targetPath: $(dir)
-      artifactName: 'test_macOS_13'
+      artifactName: 'test_macOS_13_hosted'
       publishLocation: pipeline
 
 - job: notify_release_pr
