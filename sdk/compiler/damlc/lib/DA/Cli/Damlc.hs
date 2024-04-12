@@ -1196,7 +1196,7 @@ data BuildMultiPackageConfig = BuildMultiPackageConfig
   }
 
 -- Version of getDamlFiles from Dar.hs that assumes source is a folder, and runs in IO rather than action
--- Throws an error if its a path to a file
+-- Warns and gives an empty map when source is a file
 getDamlFilesBuildMulti :: (String -> IO ()) -> FilePath -> FilePath -> IO (Map.Map FilePath BSL.ByteString)
 getDamlFilesBuildMulti log packagePath srcDir = do
   let path = normalise $ packagePath </> srcDir
@@ -1674,7 +1674,7 @@ data MultiPackageManifestEntry = MultiPackageManifestEntry
   }
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
--- Map can't be a bifunctor because of this `Ord` constraint, but its a shame such a function is defined in Data.Map
+-- Map can't be a bifunctor because of this `Ord` constraint, but its a shame such a function isn't defined in Data.Map
 bimapMap :: Ord k' => (k -> k') -> (v -> v') -> Map.Map k v -> Map.Map k' v'
 bimapMap keyMap valueMap = fmap valueMap . Map.mapKeys keyMap
 
