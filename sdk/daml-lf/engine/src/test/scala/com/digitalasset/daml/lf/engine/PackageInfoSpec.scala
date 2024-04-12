@@ -217,8 +217,8 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
             val (pkgIds, rels) = cases.unzip
             val testPkgs = pkgIds.view.map(pkgId => pkgId -> pkgs(pkgId)).toMap
             val expectedResult = rels.fold(Relation.empty)(Relation.union)
-          val pkgInfo = new PackageInfo(pkgIds.head, pkg0.metadata, testPkgs)
-          pkgInfo.interfaceInstances shouldBe expectedResult
+            val pkgInfo = new PackageInfo(pkgIds.head, pkg0.metadata, testPkgs)
+            pkgInfo.interfaceInstances shouldBe expectedResult
           }
     }
   }
