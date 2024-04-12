@@ -7,6 +7,7 @@ package test
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
+import com.daml.lf.model.test.Ledgers.Ledger
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 import org.scalacheck.Gen
@@ -20,10 +21,20 @@ object Demo {
 
   def main(args: Array[String]): Unit = {
 
-    val ledgers = Enumerations.ledgers(10)
-    for {
-      n <- LazyList.unfold(BigInt(0))(n => if (n < ledgers.cardinal) Some((n, n + 1)) else None)
-    } println(Pretty.prettyLedger(ledgers(n)))
+    val ledgers = Enumerations.ledgersOfSize(5)(100)
+    val card = ledgers.cardinal
+
+    def validLedgers: LazyList[Ledger] = LazyList.continually {
+      val randomIndex = {
+        var res: BigInt = BigInt(0)
+        do {
+          res = BigInt(card.bitLength, new scala.util.Random())
+        } while (res > card)
+        res
+      }
+      val randomLedger = ledgers(randomIndex)
+      new LedgerFixer(5).fixLedger(randomLedger).sample
+    }.flatten
 
     implicit val system: ActorSystem = ActorSystem("RunnerMain")
     implicit val ec: ExecutionContext = system.dispatcher
@@ -38,11 +49,15 @@ object Demo {
       Gen
         .resize(5, new Generators(3).ledgerGen)
         .sample
+      validLedgers
         .foreach(ledger => {
           if (ledger.nonEmpty) {
             ideLedgerRunner.runAndProject(ledger) match {
-              case Left(_) =>
-                print(".")
+              case Left(error) =>
+                println("INVALID LEDGER!")
+                println(Pretty.prettyLedger(ledger))
+                println(error.pretty)
+                System.exit(1)
               case Right(ideProjections) =>
                 println("\n==== ledger ====")
                 println(Pretty.prettyLedger(ledger))
@@ -56,6 +71,7 @@ object Demo {
                   case Left(error) =>
                     println("ERROR")
                     println(error.pretty)
+                    System.exit(1)
                   case Right(cantonProjections) =>
                     if (cantonProjections == ideProjections) {
                       println("MATCH!")
@@ -65,6 +81,7 @@ object Demo {
                         println(s"Projection for party $partyId")
                         println(Pretty.prettyProjection(projection))
                       }
+                      System.exit(1)
                     }
                 }
             }
