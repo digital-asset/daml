@@ -32,7 +32,7 @@ jobs:
   steps:
     - template: steps.yml
 
-- job: test_macos_self_12
+- job: test_macos_old_12
   variables:
     dir: $(Build.StagingDirectory)/logs
     System.Debug: true
@@ -42,7 +42,7 @@ jobs:
   steps:
     - template: steps.yml
 
-- job: test_macos_self_13
+- job: test_macos_new_13
   variables:
     dir: $(Build.StagingDirectory)/logs
     System.Debug: true
@@ -52,7 +52,7 @@ jobs:
   steps:
     - template: steps.yml
 
-- job: test_macos_self_12
+- job: test_macos_new_12
   variables:
     dir: $(Build.StagingDirectory)/logs
     System.Debug: true
