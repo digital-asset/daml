@@ -8,8 +8,8 @@ package util
 import data.{Ref, Relation}
 
 final class PackageInfo private[daml] (
-    val packageId: Ref.PackageId,
-    val metadata: Ast.PackageMetadata,
+    val mainPackageId: Ref.PackageId,
+    val mainPackageMetadata: Ast.PackageMetadata,
     val pkgSignature: Map[Ref.PackageId, Ast.GenPackage[_]],
 ) {
 
