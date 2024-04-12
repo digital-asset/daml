@@ -70,7 +70,7 @@ private[apiserver] final class ApiVersionServiceV2(
       ),
       partyManagement = Some(
         PartyManagementFeature(
-          maxPartiesPageSize = partyManagementServiceConfig.maxPartiesPageSize
+          maxPartiesPageSize = partyManagementServiceConfig.maxPartiesPageSize.value
         )
       ),
       experimental = Some(

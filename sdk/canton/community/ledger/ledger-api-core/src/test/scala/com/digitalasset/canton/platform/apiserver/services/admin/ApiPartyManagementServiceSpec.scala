@@ -14,6 +14,7 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
 import com.daml.lf.data.Ref
 import com.daml.tracing.TelemetrySpecBase.*
 import com.daml.tracing.{DefaultOpenTelemetry, NoOpTelemetry}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.ledger.api.domain.LedgerOffset.Absolute
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, ObjectMeta}
 import com.digitalasset.canton.ledger.participant.state.index.v2.{
@@ -57,7 +58,7 @@ class ApiPartyManagementServiceSpec
     with BeforeAndAfterEach {
 
   var testTelemetrySetup: TestTelemetrySetup = _
-  val partiesPageSize = 100
+  val partiesPageSize = PositiveInt.tryCreate(100)
 
   override def beforeEach(): Unit = {
     testTelemetrySetup = new TestTelemetrySetup()
