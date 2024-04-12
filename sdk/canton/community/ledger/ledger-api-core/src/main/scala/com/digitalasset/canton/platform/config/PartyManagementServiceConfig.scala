@@ -3,17 +3,19 @@
 
 package com.digitalasset.canton.platform.config
 
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
+
 /** Ledger api party management service specific configurations
   *
-  * @param maxPartiesPageSize               maximum number of users returned
+  * @param maxPartiesPageSize               maximum number of parties returned
   */
 final case class PartyManagementServiceConfig(
-    maxPartiesPageSize: Int = PartyManagementServiceConfig.DefaultMaxPartiesPageSize
+    maxPartiesPageSize: PositiveInt = PartyManagementServiceConfig.DefaultMaxPartiesPageSize
 )
 
 object PartyManagementServiceConfig {
 
-  val DefaultMaxPartiesPageSize = 1000
+  val DefaultMaxPartiesPageSize: PositiveInt = PositiveInt.tryCreate(10000)
 
   def default: PartyManagementServiceConfig = PartyManagementServiceConfig(
     maxPartiesPageSize = DefaultMaxPartiesPageSize

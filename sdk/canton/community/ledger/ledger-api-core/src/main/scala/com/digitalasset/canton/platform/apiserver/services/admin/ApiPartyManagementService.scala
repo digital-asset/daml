@@ -27,6 +27,7 @@ import com.daml.lf.data.Ref.Party
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.page_tokens.ListPartiesPageTokenPayload
 import com.daml.tracing.Telemetry
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{
   IdentityProviderId,
@@ -86,7 +87,7 @@ import scala.util.Try
 private[apiserver] final class ApiPartyManagementService private (
     partyManagementService: IndexPartyManagementService,
     identityProviderExists: IdentityProviderExists,
-    maxPartiesPageSize: Int,
+    maxPartiesPageSize: PositiveInt,
     partyRecordStore: PartyRecordStore,
     transactionService: IndexTransactionsService,
     writeService: state.WritePartyService,
@@ -177,7 +178,7 @@ private[apiserver] final class ApiPartyManagementService private (
             .asGrpcError,
         )
         _ <- Either.cond(
-          request.pageSize <= maxPartiesPageSize,
+          request.pageSize <= maxPartiesPageSize.value,
           request.pageSize,
           RequestValidationErrors.InvalidArgument
             .Reject(s"Page size must not exceed the server's maximum of $maxPartiesPageSize")
@@ -188,7 +189,7 @@ private[apiserver] final class ApiPartyManagementService private (
           "identity_provider_id",
         )
         pageSize =
-          if (request.pageSize == 0) maxPartiesPageSize
+          if (request.pageSize == 0) maxPartiesPageSize.value
           else request.pageSize
       } yield {
         (fromExcl, pageSize, identityProviderId)
@@ -620,7 +621,7 @@ private[apiserver] object ApiPartyManagementService {
   def createApiService(
       partyManagementServiceBackend: IndexPartyManagementService,
       identityProviderExists: IdentityProviderExists,
-      maxPartiesPageSize: Int,
+      maxPartiesPageSize: PositiveInt,
       partyRecordStore: PartyRecordStore,
       transactionsService: IndexTransactionsService,
       writeBackend: state.WritePartyService,
