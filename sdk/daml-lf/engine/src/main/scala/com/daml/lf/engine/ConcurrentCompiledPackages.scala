@@ -10,6 +10,7 @@ import com.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
 import com.daml.lf.language.Ast.{Package, PackageSignature}
 import com.daml.lf.language.{Util => AstUtil}
 import com.daml.lf.speedy.Compiler
+import com.daml.lf.stablepackages.StablePackagesV2
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
@@ -28,6 +29,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
     new ConcurrentHashMap().asScala
   private[this] val packageDeps: ConcurrentMap[PackageId, Set[PackageId]] =
     new ConcurrentHashMap().asScala
+  clear()
 
   /** Might ask for a package if the package you're trying to add references it.
     *
@@ -152,10 +154,16 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
       ResultDone.Unit
     }
 
+  private lazy val stablePkgSig =
+    StablePackagesV2.packageSignatures(compilerConfig.allowedLanguageVersions.max)
+
   def clear(): Unit = this.synchronized[Unit] {
     signatures.clear()
+    discard(signatures ++= stablePkgSig)
     definitions.clear()
+    discard(definitions ++= Compiler.stablePackageDefs)
     packageDeps.clear()
+    discard(packageDeps ++= stablePkgSig.mapValues(_.directDeps))
   }
 
   def getPackageDependencies(pkgId: PackageId): Option[Set[PackageId]] =

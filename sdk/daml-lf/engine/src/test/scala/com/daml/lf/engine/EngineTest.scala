@@ -2337,9 +2337,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       )
 
     val devVersion = majorLanguageVersion.dev
-    val (_, _, allPackagesDev) = new EngineTestHelpers(majorLanguageVersion).loadAndAddPackage(
-      s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
-    )
     val compatibleLanguageVersions = LanguageVersion.AllV2
     val stablePackages = StablePackages(majorLanguageVersion).allPackages
 
@@ -2347,9 +2344,8 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       for {
         lv <- compatibleLanguageVersions.filter(_ <= devVersion)
         eng = engine(min = lv, max = devVersion)
-        pkg <- stablePackages
-        pkgId = pkg.packageId
-        pkg <- allPackagesDev.get(pkgId).toList
+        entry <- stablePackages
+        (pkgId, pkg) = entry
       } yield eng.preloadPackage(pkgId, pkg) shouldBe a[ResultDone[_]]
     }
 
@@ -2357,9 +2353,8 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       for {
         lv <- compatibleLanguageVersions
         eng = engine(min = compatibleLanguageVersions.min, max = lv)
-        pkg <- stablePackages
-        pkgId = pkg.packageId
-        pkg <- allPackagesDev.get(pkgId).toList
+        entry <- stablePackages
+        (pkgId, pkg) = entry
       } yield inside(eng.preloadPackage(pkgId, pkg)) {
         case ResultDone(_) => pkg.languageVersion shouldBe <=(lv)
         case ResultError(_) => pkg.languageVersion shouldBe >(lv)

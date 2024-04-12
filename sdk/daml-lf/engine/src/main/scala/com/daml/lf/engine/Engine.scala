@@ -25,7 +25,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, LookupError, PackageInterface}
 import com.daml.lf.speedy.Speedy.Machine.newTraceLog
-import com.daml.lf.stablepackages.StablePackages
+import com.daml.lf.stablepackages.StablePackagesV2
 import com.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
@@ -88,7 +88,8 @@ class Engine(val config: EngineConfig) {
 
   private[this] val compiledPackages = ConcurrentCompiledPackages(config.getCompilerConfig)
 
-  private[this] val stablePackageIds = StablePackages.ids(config.allowedLanguageVersions)
+  private[this] val stablePackageIds =
+    StablePackagesV2.packageSignatures(config.allowedLanguageVersions.max).keySet
 
   private[engine] val preprocessor =
     new preprocessing.Preprocessor(

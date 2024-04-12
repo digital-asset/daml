@@ -16,7 +16,7 @@ import com.daml.lf.speedy.SBuiltinFun._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{SExpr => t}
 import com.daml.lf.speedy.{SExpr0 => s}
-import com.daml.lf.stablepackages.StablePackages
+import com.daml.lf.stablepackages.StablePackagesV2
 import com.daml.lf.validation.{Validation, ValidationError}
 import com.daml.scalautil.Statement.discard
 import org.slf4j.LoggerFactory
@@ -89,6 +89,21 @@ private[lf] object Compiler {
     )
   }
 
+  val stablePackageDefs: List[(SExpr.SDefinitionRef, SDefinition)] =
+    compilePackages(
+      new PackageInterface(StablePackagesV2.allPackageSignatures),
+      StablePackagesV2.allPackages,
+      Compiler.Config(
+        allowedLanguageVersions = LanguageVersion.AllVersions(LanguageVersion.Major.V2),
+        packageValidation = FullPackageValidation,
+        profiling = NoProfile,
+        stacktracing = NoStackTrace,
+      ),
+    ) match {
+      case Left(err) => throw new Error(s"Cannot compile stable packages: $err")
+      case Right(defs) => defs.toList
+    }
+
   /** Validates and Compiles all the definitions in the packages provided. Returns them in a Map.
     *
     * The packages do not need to be in any specific order, as long as they and all the packages
@@ -97,15 +112,13 @@ private[lf] object Compiler {
 
   private[lf] def compilePackages(
       pkgInterface: PackageInterface,
-      packages: Map[PackageId, Package],
+      packages: Iterable[(PackageId, Package)],
       compilerConfig: Compiler.Config,
-  ): Either[String, Map[t.SDefinitionRef, SDefinition]] = {
+  ): Either[String, Iterable[(t.SDefinitionRef, SDefinition)]] = {
     val compiler = new Compiler(pkgInterface, compilerConfig)
     try {
       Right(
-        packages.foldLeft(Map.empty[t.SDefinitionRef, SDefinition]) { case (acc, (pkgId, pkg)) =>
-          acc ++ compiler.compilePackage(pkgId, pkg)
-        }
+        packages.view.flatMap { case (pkgId, pkg) => compiler.compilePackage(pkgId, pkg) }
       )
     } catch {
       case CompilationError(msg) => Left(s"Compilation Error: $msg")
@@ -171,8 +184,6 @@ private[lf] final class Compiler(
     )
     pipeline(e0)
   }
-
-  private[this] val stablePackageIds = StablePackages.ids(config.allowedLanguageVersions)
 
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -437,15 +448,8 @@ private[lf] final class Compiler(
 
     val t0 = Time.Timestamp.now()
 
-    pkgInterface.lookupPackage(pkgId) match {
-      case Right(pkg) =>
-        if (
-          !stablePackageIds.contains(pkgId) && !config.allowedLanguageVersions
-            .contains(pkg.languageVersion)
-        )
-          throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
-      case _ =>
-    }
+    if (!config.allowedLanguageVersions.contains(pkg.languageVersion))
+      throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
 
     config.packageValidation match {
       case Compiler.NoPackageValidation =>

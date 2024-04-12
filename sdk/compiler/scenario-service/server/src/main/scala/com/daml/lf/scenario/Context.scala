@@ -26,6 +26,7 @@ import com.daml.lf.validation.Validation
 import com.daml.script.converter
 import com.google.protobuf.ByteString
 import com.daml.lf.engine.script.{Runner, Script}
+import com.daml.lf.stablepackages.StablePackagesV2
 import com.daml.logging.LoggingContext
 import org.slf4j.LoggerFactory
 
@@ -33,7 +34,7 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.collection.immutable.HashMap
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
+import scala.util.{Success, Failure}
 
 /** Scenario interpretation context: maintains a set of modules and external packages, with which
   * scenarios can be interpreted.
@@ -76,8 +77,9 @@ class Context(
     */
   val homePackageId: PackageId = PackageId.assertFromString("-homePackageId-")
 
-  private var extSignatures: Map[PackageId, Ast.PackageSignature] = HashMap.empty
-  private var extDefns: Map[SDefinitionRef, SDefinition] = HashMap.empty
+  private var extSignatures: Map[PackageId, Ast.PackageSignature] =
+    StablePackagesV2.allPackageSignatures
+  private var extDefns: Map[SDefinitionRef, SDefinition] = Compiler.stablePackageDefs.toMap
   private var modules: Map[ModuleName, Ast.Module] = HashMap.empty
   private var modDefns: Map[ModuleName, Map[SDefinitionRef, SDefinition]] = HashMap.empty
   private var defns: Map[SDefinitionRef, SDefinition] = HashMap.empty

@@ -25,6 +25,7 @@ da_scala_library(
         "//compiler/damlc/stable-packages:gen-stable-packages-manifest-v2",
     ],
     scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-stable-packages:__VERSION__"],

@@ -8,6 +8,7 @@ import com.daml.lf.language.Ast.{Package, PackageSignature}
 import com.daml.lf.language.{PackageInterface, Util}
 import com.daml.lf.speedy.SExpr.SDefinitionRef
 import com.daml.lf.speedy.{Compiler, SDefinition}
+import com.daml.lf.stablepackages.StablePackagesV2
 
 /** Trait to abstract over a collection holding onto Daml-LF package definitions + the
   * compiled speedy expressions.
@@ -49,9 +50,13 @@ private[lf] object PureCompiledPackages {
       packages: Map[PackageId, Package],
       compilerConfig: Compiler.Config,
   ): Either[String, PureCompiledPackages] = {
+    val stablePkgSigs =
+      StablePackagesV2.packageSignatures(compilerConfig.allowedLanguageVersions.max)
+    val pkgsToCompile = packages.view.filterKeys(x => !stablePkgSigs.contains(x))
+    val pkgSignatures = Util.toSignatures(packages) ++ stablePkgSigs
     Compiler
-      .compilePackages(PackageInterface(packages), packages, compilerConfig)
-      .map(apply(Util.toSignatures(packages), _, compilerConfig))
+      .compilePackages(new PackageInterface(pkgSignatures), pkgsToCompile, compilerConfig)
+      .map(compiled => apply(pkgSignatures, stableDefs ++ compiled, compilerConfig))
   }
 
   def assertBuild(
@@ -60,7 +65,13 @@ private[lf] object PureCompiledPackages {
   ): PureCompiledPackages =
     data.assertRight(build(packages, compilerConfig))
 
-  def Empty(compilerConfig: Compiler.Config): PureCompiledPackages =
-    PureCompiledPackages(Map.empty, Map.empty, compilerConfig)
+  private[this] val stableDefs = Compiler.stablePackageDefs.to(collection.immutable.HashMap)
+
+  // Contains only stable packages
+  def Empty(compilerConfig: Compiler.Config): PureCompiledPackages = {
+    val stablePkgSigs =
+      StablePackagesV2.packageSignatures(compilerConfig.allowedLanguageVersions.max)
+    PureCompiledPackages.apply(stablePkgSigs.toMap, stableDefs, compilerConfig)
+  }
 
 }

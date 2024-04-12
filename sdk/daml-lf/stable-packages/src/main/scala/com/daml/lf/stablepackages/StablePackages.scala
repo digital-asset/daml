@@ -4,11 +4,13 @@
 package com.daml.lf
 package stablepackages
 
-import com.daml.lf.VersionRange
-import com.daml.lf.archive
 import com.daml.lf.archive.ArchiveDecoder
 import com.daml.lf.data.Ref
-import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.language.Ast.PackageSignature
+import com.daml.lf.language.{Ast, LanguageVersion, LanguageMajorVersion, Util => AstUtil}
+
+import scala.collection.MapView
 
 private[daml] sealed case class StablePackage(
     moduleName: Ref.ModuleName,
@@ -22,10 +24,25 @@ private[daml] sealed case class StablePackage(
   @throws[IllegalArgumentException]
   def assertIdentifier(idName: String): Ref.Identifier =
     identifier(Ref.DottedName.assertFromString(idName))
+
 }
 
 private[daml] sealed abstract class StablePackages {
-  val allPackages: Seq[StablePackage]
+
+  import Ordering.Implicits._
+
+  val allPackages: Map[Ref.PackageId, Ast.Package]
+
+  def packages(maxVersion: LanguageVersion): MapView[Ref.PackageId, Ast.Package] =
+    allPackages.view.filter { case (_, pkg) => pkg.languageVersion <= maxVersion }
+
+  final lazy val allPackageSignatures: Map[PackageId, PackageSignature] =
+    AstUtil.toSignatures(allPackages)
+
+  def packageSignatures(maxVersion: LanguageVersion): MapView[Ref.PackageId, Ast.PackageSignature] =
+    allPackageSignatures.view.filter { case (_, pkg) => pkg.languageVersion <= maxVersion }
+
+  val stablePackagesByName: Map[String, StablePackage]
 
   val ArithmeticError: Ref.TypeConName
   val AnyChoice: Ref.TypeConName
@@ -47,18 +64,6 @@ private[daml] object StablePackages {
       case LanguageMajorVersion.V1 => throw new IllegalArgumentException("LF1 is not supported")
       case LanguageMajorVersion.V2 => StablePackagesV2
     }
-
-  /** The IDs of stable packages compatible with the provided version range. */
-  def ids(allowedLanguageVersions: VersionRange[LanguageVersion]): Set[Ref.PackageId] = {
-    import com.daml.lf.language.LanguageVersionRangeOps.LanguageVersionRange
-
-    import scala.Ordering.Implicits.infixOrderingOps
-
-    StablePackages(allowedLanguageVersions.majorVersion).allPackages.view
-      .filter(_.languageVersion <= allowedLanguageVersions.max)
-      .map(_.packageId)
-      .toSet
-  }
 }
 
 /** @param manifestResourcePath the path of a resource that contains a newline-separated list of
@@ -68,7 +73,12 @@ private[daml] sealed class StablePackagesImpl(
     protected val manifestResourcePath: String
 ) extends StablePackages {
 
-  override lazy val allPackages: Seq[StablePackage] = allPackagesByName.values.toSeq
+  override lazy val allPackages: Map[Ref.PackageId, Ast.Package] =
+    scala.io.Source
+      .fromResource(manifestResourcePath)
+      .getLines()
+      .map(decodeDalfResource)
+      .toMap
 
   override lazy val ArithmeticError: Ref.TypeConName =
     DA_Exception_ArithmeticError.assertIdentifier("ArithmeticError")
@@ -83,18 +93,17 @@ private[daml] sealed class StablePackagesImpl(
   override lazy val Tuple3: Ref.TypeConName = DA_Types.assertIdentifier("Tuple3")
   override lazy val Either: Ref.TypeConName = GHC_Tuple.assertIdentifier("Either")
 
-  private lazy val DA_Exception_ArithmeticError = allPackagesByName("DA.Exception.ArithmeticError")
-  private lazy val DA_Internal_Any = allPackagesByName("DA.Internal.Any")
-  private lazy val DA_NonEmpty_Types = allPackagesByName("DA.NonEmpty.Types")
-  private lazy val DA_Types = allPackagesByName("DA.Types")
-  private lazy val GHC_Tuple = allPackagesByName("GHC.Tuple")
+  private lazy val DA_Exception_ArithmeticError = stablePackagesByName(
+    "DA.Exception.ArithmeticError"
+  )
+  private lazy val DA_Internal_Any = stablePackagesByName("DA.Internal.Any")
+  private lazy val DA_NonEmpty_Types = stablePackagesByName("DA.NonEmpty.Types")
+  private lazy val DA_Types = stablePackagesByName("DA.Types")
+  private lazy val GHC_Tuple = stablePackagesByName("GHC.Tuple")
 
   /** All stable packages, indexed by module name. */
-  private lazy val allPackagesByName: Map[String, StablePackage] =
-    scala.io.Source
-      .fromResource(manifestResourcePath)
-      .getLines()
-      .map(decodeDalfResource)
+  override lazy val stablePackagesByName: Map[String, StablePackage] =
+    allPackages
       .map((toStablePackage _).tupled)
       .map(pkg => pkg.moduleName.dottedName -> pkg)
       .toMap

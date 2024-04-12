@@ -361,7 +361,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
         state.scenarioRunner.compilerConfig,
       )
     )
-    defs.get(idToRef(state, args(0))) match {
+    defs.collectFirst { case (pkgId, pkg) if pkgId == idToRef(state, args(0)) => pkg } match {
       case None =>
         println("Error: definition '" + args(0) + "' not found. Try :list.")
         usage()
