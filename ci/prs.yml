@@ -15,9 +15,6 @@ jobs:
 - job: test_macos_msft
   strategy:
     matrix:
-      microsoft_14:
-        vmImage: macOS-14
-        name: microsoft_14
       microsoft_13:
         vmImage: macOS-13
         name: microsoft_13
@@ -55,7 +52,7 @@ jobs:
   steps:
     - template: steps.yml
 
-- job: test_macos_self_11
+- job: test_macos_self_12
   variables:
     dir: $(Build.StagingDirectory)/logs
     System.Debug: true
