@@ -154,9 +154,8 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
         testCases.combinations(n).filter(_.nonEmpty).foreach { cases =>
           val (pkgIds, ids) = cases.unzip
           val testPkgs = pkgIds.view.map(pkgId => pkgId -> pkgs(pkgId)).toMap
-          new PackageInfo(pkgIds.head, pkg0.metadata, testPkgs).definedTemplates shouldBe ids.fold(
-            Set.empty
-          )(_ | _)
+          val pkgInfo = new PackageInfo(pkgIds.head, pkg0.metadata, testPkgs)
+          pkgInfo.definedTemplates shouldBe ids.fold(Set.empty)(_ | _)
         }
     }
   }
@@ -176,9 +175,8 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
           val (pkgIds, ids) = cases.unzip
           println(pkgIds)
           val testPkgs = pkgIds.view.map(pkgId => pkgId -> pkgs(pkgId)).toMap
-          new PackageInfo(pkgIds.head, pkg0.metadata, testPkgs).definedInterfaces shouldBe ids.fold(
-            Set.empty
-          )(_ | _)
+          val pkgInfo = new PackageInfo(pkgIds.head, pkg0.metadata, testPkgs)
+          pkgInfo.definedTemplates shouldBe ids.fold(Set.empty)(_ | _)
         }
     }
   }
@@ -219,11 +217,8 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
             val (pkgIds, rels) = cases.unzip
             val testPkgs = pkgIds.view.map(pkgId => pkgId -> pkgs(pkgId)).toMap
             val expectedResult = rels.fold(Relation.empty)(Relation.union)
-            new PackageInfo(
-              pkgIds.head,
-              pkg0.metadata,
-              testPkgs,
-            ).interfaceInstances shouldBe expectedResult
+          val pkgInfo = new PackageInfo(pkgIds.head, pkg0.metadata, testPkgs)
+          pkgInfo.interfaceInstances shouldBe expectedResult
           }
     }
   }
