@@ -151,10 +151,11 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
       )
 
       for (n <- 0 to testCases.size)
-        testCases.combinations(n).foreach { cases =>
+        testCases.combinations(n).filter(_.nonEmpty).foreach { cases =>
           val (pkgIds, ids) = cases.unzip
           val testPkgs = pkgIds.view.map(pkgId => pkgId -> pkgs(pkgId)).toMap
-          new PackageInfo(testPkgs).definedTemplates shouldBe ids.fold(Set.empty)(_ | _)
+          val pkgInfo = new PackageInfo(pkgIds.head, pkg0.metadata, testPkgs)
+          pkgInfo.definedTemplates shouldBe ids.fold(Set.empty)(_ | _)
         }
     }
   }
@@ -170,11 +171,12 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
       )
 
       for (n <- 0 to testCases.size)
-        testCases.combinations(n).foreach { cases =>
+        testCases.combinations(n).filter(_.nonEmpty).foreach { cases =>
           val (pkgIds, ids) = cases.unzip
           println(pkgIds)
           val testPkgs = pkgIds.view.map(pkgId => pkgId -> pkgs(pkgId)).toMap
-          new PackageInfo(testPkgs).definedInterfaces shouldBe ids.fold(Set.empty)(_ | _)
+          val pkgInfo = new PackageInfo(pkgIds.head, pkg0.metadata, testPkgs)
+          pkgInfo.definedInterfaces shouldBe ids.fold(Set.empty)(_ | _)
         }
     }
   }
@@ -208,12 +210,16 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
       )
 
       for (n <- 0 to testCases.size)
-        testCases.combinations(n).foreach { cases =>
-          val (pkgIds, rels) = cases.unzip
-          val testPkgs = pkgIds.view.map(pkgId => pkgId -> pkgs(pkgId)).toMap
-          val expectedResult = rels.fold(Relation.empty)(Relation.union)
-          new PackageInfo(testPkgs).interfaceInstances shouldBe expectedResult
-        }
+        testCases
+          .combinations(n)
+          .filter(_.nonEmpty)
+          .foreach { cases =>
+            val (pkgIds, rels) = cases.unzip
+            val testPkgs = pkgIds.view.map(pkgId => pkgId -> pkgs(pkgId)).toMap
+            val expectedResult = rels.fold(Relation.empty)(Relation.union)
+            val pkgInfo = new PackageInfo(pkgIds.head, pkg0.metadata, testPkgs)
+            pkgInfo.interfaceInstances shouldBe expectedResult
+          }
     }
   }
 

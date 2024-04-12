@@ -7,7 +7,11 @@ package util
 
 import data.{Ref, Relation}
 
-private[daml] class PackageInfo(pkgSignature: Map[Ref.PackageId, Ast.GenPackage[_]]) {
+final class PackageInfo private[daml] (
+    val mainPackageId: Ref.PackageId,
+    val mainPackageMetadata: Ast.PackageMetadata,
+    val pkgSignature: Map[Ref.PackageId, Ast.GenPackage[_]],
+) {
 
   /** returns the set of templates defined in `pkgSignature` */
   def definedTemplates: Set[Ref.Identifier] = templates.map(_._1).toSet
