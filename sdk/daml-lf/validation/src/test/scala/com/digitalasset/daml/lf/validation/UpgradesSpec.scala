@@ -80,12 +80,14 @@ abstract class UpgradesSpecLedgerAPI extends UpgradesSpec {
       client <- defaultLedgerClient()
       (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(path.past)
       (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(path.present)
+      _ = logger.info(s"Uploading package $testPackageV1Id")
       uploadV1Result <- client.packageManagementClient
         .uploadDarFile(testPackageV1BS)
         .transform({
           case Failure(err) => Success(Some(err));
           case Success(_) => Success(None);
         })
+      _ = logger.info(s"Uploading package $testPackageV2Id")
       uploadV2Result <- client.packageManagementClient
         .uploadDarFile(testPackageV2BS)
         .transform({
@@ -329,7 +331,6 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
-    /*
     s"Succeeds when v1 upgrades to v2 and then v3 ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-SuccessUpgradingV2ThenV3-v1.dar",
@@ -385,7 +386,6 @@ trait LongTests { this: UpgradesSpec =>
         ),
       )
     }
-     */
 
     "Fails when a top-level record adds a non-optional field" in {
       testPackagePair(
@@ -523,7 +523,7 @@ trait LongTests { this: UpgradesSpec =>
 
 abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFixture {
   override lazy val devMode = true;
-  override val cantonFixtureDebugMode = CantonFixtureDebugRemoveTmpFiles;
+  override val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles
 
   protected def loadPackageIdAndBS(path: String): Future[(PackageId, ByteString)] = {
     val dar = DarReader.assertReadArchiveFromFile(new File(BazelRunfiles.rlocation(path)))
