@@ -3,12 +3,13 @@
 
 package com.daml.lf.validation
 
-import com.daml.lf.data.{ImmArray, Numeric, Struct}
+import com.daml.lf.data.{Numeric, ImmArray, Struct}
 import com.daml.lf.data.TemplateOrInterface
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.language.{LanguageVersion, PackageInterface, Reference}
+import com.daml.lf.stablepackages.StablePackagesV2
 import com.daml.lf.validation.Util._
 import com.daml.lf.validation.iterable.TypeIterable
 import com.daml.scalautil.Statement.discard
@@ -1673,5 +1674,7 @@ private[validation] object Typing {
   private[this] final case object AllRanks extends MatchedRanks
   private[this] final case class SomeRanks(ranks: Set[Int]) extends MatchedRanks
   private[this] val EmptyMatchedRanks = SomeRanks(Set.empty)
+
+  private[this] val TRoundingMode = TTyCon(StablePackagesV2.RoundingMode)
 
 }

@@ -251,7 +251,9 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ >= Features.bigNumeric) { version =>
         val decoder = moduleDecoder(version)
         decoder.uncheckedDecodeTypeForTest(buildPrimType(BIGNUMERIC)) shouldBe TBigNumeric
-        decoder.uncheckedDecodeTypeForTest(buildPrimType(ROUNDING_MODE)) shouldBe TRoundingMode
+        decoder.uncheckedDecodeTypeForTest(buildPrimType(ROUNDING_MODE)) shouldBe Ast.TBuiltin(
+          Ast.BTRoundingMode
+        )
       }
     }
 

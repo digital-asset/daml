@@ -28,7 +28,7 @@ import org.scalatest.Inside
 
 import java.util
 import scala.language.implicitConversions
-import scala.util.{Failure, Try}
+import scala.util.{Try, Failure}
 import scala.Ordering.Implicits._
 
 class SBuiltinTestV2 extends SBuiltinTest(LanguageMajorVersion.V2)
@@ -1489,7 +1489,13 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           SBDivBigNumeric,
           List[SValue](
             SInt64(0),
-            SInt64(0),
+            SEnum(
+              id = Ref.TypeConName.assertFromString(
+                "46102a82d38452c2c8ff0ce0ec68932a24d9987db316473249a065de870716d1:DA.Types.RoundingMode:RoundingMode"
+              ),
+              constructor = Ref.Name.assertFromString("RoundingUp"),
+              constructorRank = 0,
+            ),
             VeryBigBigNumericA,
             SBigNumeric.assertFromBigDecimal(BigDecimal.ZERO),
           ),
@@ -1509,7 +1515,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
       val valueArithmeticError = new ValueArithmeticError(stablePackages)
 
-      forAll(cases) { (builtin, args, name) =>
+      forEvery(cases) { (builtin, args, name) =>
         inside(eval(SEAppAtomicSaturatedBuiltin(builtin, args.map(SEValue(_)).toArray))) {
           case Left(
                 SError.SErrorDamlException(
@@ -1880,7 +1886,8 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       case SDate(date) => date.toString
       case SBigNumeric(x) => Numeric.toUnscaledString(x)
       case SNumeric(x) => Numeric.toUnscaledString(x)
-      case _ => sys.error(s"litToText: unexpected $x")
+      case SEnum(_, _, rank) => rank.toString
+      case _ => sys.error(s"lit2String: unexpected $x")
     }
 
   def buildDisclosedContract(

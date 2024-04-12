@@ -47,6 +47,7 @@ allV2StablePackages =
       , daActionStateType version2_1 (encodePackageHash (daTypes version2_1))
       , daRandomTypes version2_1
       , daStackTypes version2_1
+      , daTypesRoundingMode version2_1
       ]
 
 allStablePackages :: MS.Map PackageId Package
@@ -399,6 +400,34 @@ daStackTypes version = Package
     values = NM.fromList
       $ mkWorkerDef modName srcLocTyCon [] fields
       : fmap (uncurry (mkSelectorDef modName srcLocTyCon [])) fields
+
+daTypesRoundingMode :: Version -> Package
+daTypesRoundingMode  version = Package
+  { packageLfVersion = version
+  , packageModules = NM.singleton (emptyModule modName)
+    { moduleDataTypes = types
+    }
+  , packageMetadata = PackageMetadata
+      { packageName = PackageName "daml-stdlib-DA-Types-RoundingMode"
+      , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
+      }
+  }
+  where
+    modName = mkModName ["DA", "Types", "RoundingMode"]
+    types = NM.fromList
+      [ DefDataType Nothing (mkTypeCon ["RoundingMode"]) (IsSerializable True) [] $
+        DataEnum $ map mkVariantCon
+                [ "RoundingUp"
+                , "RoundingDown"
+                , "RoundingCeiling"
+                , "RoundingFloor"
+                , "RoundingHalfUp"
+                , "RoundingHalfDown"
+                , "RoundngHalfEven"
+                , "RoundingUnnecessary"
+                ]
+      ]
 
 daTimeTypes :: Version -> Package
 daTimeTypes version = Package
