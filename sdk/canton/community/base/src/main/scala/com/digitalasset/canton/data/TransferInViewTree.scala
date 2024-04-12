@@ -16,7 +16,7 @@ import com.digitalasset.canton.protocol.messages.{
 }
 import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.sequencing.protocol.{
-  MediatorsOfDomain,
+  MediatorGroupRecipient,
   NoOpeningErrors,
   SequencedEvent,
   SignedContent,
@@ -121,7 +121,7 @@ object TransferInViewTree
 final case class TransferInCommonData private (
     override val salt: Salt,
     targetDomain: TargetDomainId,
-    targetMediator: MediatorsOfDomain,
+    targetMediator: MediatorGroupRecipient,
     stakeholders: Set[LfPartyId],
     uuid: UUID,
     submitterMetadata: TransferSubmitterMetadata,
@@ -185,7 +185,7 @@ object TransferInCommonData
   def create(hashOps: HashOps)(
       salt: Salt,
       targetDomain: TargetDomainId,
-      targetMediator: MediatorsOfDomain,
+      targetMediator: MediatorGroupRecipient,
       stakeholders: Set[LfPartyId],
       uuid: UUID,
       submitterMetadata: TransferSubmitterMetadata,
@@ -218,7 +218,10 @@ object TransferInCommonData
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
       targetDomain <- TargetDomainId.fromProtoPrimitive(targetDomainP, "target_domain")
-      targetMediator <- MediatorsOfDomain.fromProtoPrimitive(targetMediatorP, "target_mediator")
+      targetMediator <- MediatorGroupRecipient.fromProtoPrimitive(
+        targetMediatorP,
+        "target_mediator",
+      )
       stakeholders <- stakeholdersP.traverse(ProtoConverter.parseLfPartyId)
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP)
       submitterMetadata <- ProtoConverter
@@ -433,7 +436,7 @@ final case class FullTransferInTree(tree: TransferInViewTree)
 
   def targetDomain: TargetDomainId = commonData.targetDomain
 
-  override def mediator: MediatorsOfDomain = commonData.targetMediator
+  override def mediator: MediatorGroupRecipient = commonData.targetMediator
 
   override def informees: Set[Informee] = commonData.confirmingParties
 

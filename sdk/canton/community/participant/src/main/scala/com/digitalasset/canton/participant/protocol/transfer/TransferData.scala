@@ -14,7 +14,7 @@ import com.digitalasset.canton.protocol.{
   TransactionId,
   TransferId,
 }
-import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.version.Transfer.SourceProtocolVersion
 import com.digitalasset.canton.{RequestCounter, TransferCounter}
@@ -46,7 +46,7 @@ final case class TransferData(
 
   def transferId: TransferId = TransferId(transferOutRequest.sourceDomain, transferOutTimestamp)
 
-  def sourceMediator: MediatorsOfDomain = transferOutRequest.mediator
+  def sourceMediator: MediatorGroupRecipient = transferOutRequest.mediator
 
   def transferCounter: TransferCounter = transferOutRequest.transferCounter
 

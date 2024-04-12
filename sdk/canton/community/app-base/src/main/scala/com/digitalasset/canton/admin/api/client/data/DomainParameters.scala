@@ -5,13 +5,19 @@ package com.digitalasset.canton.admin.api.client.data
 
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmptyUtil
-import com.digitalasset.canton.admin.api.client.data.crypto.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{
   CommunityCryptoConfig,
   CryptoConfig,
   NonNegativeFiniteDuration,
   PositiveDurationSeconds,
+}
+import com.digitalasset.canton.crypto.{
+  CryptoKeyFormat,
+  EncryptionKeyScheme,
+  HashAlgorithm,
+  SigningKeyScheme,
+  SymmetricKeyScheme,
 }
 import com.digitalasset.canton.domain.config.DomainParametersConfig
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize

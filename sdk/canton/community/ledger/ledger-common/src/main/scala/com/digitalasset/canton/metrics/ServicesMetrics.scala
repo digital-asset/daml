@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.metrics
 
-import com.daml.metrics.api.MetricQualification.{Debug, Saturation}
+import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation}
 import com.daml.metrics.api.MetricHandle.*
 import com.daml.metrics.api.{MetricDoc, MetricName}
 

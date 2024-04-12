@@ -384,7 +384,7 @@ private[mediator] class ConfirmationResponseProcessor(
       topologySnapshot: TopologySnapshot,
   )(implicit
       loggingContext: ErrorLoggingContext
-  ): EitherT[Future, Option[MediatorVerdict.MediatorReject], MediatorsOfDomain] = {
+  ): EitherT[Future, Option[MediatorVerdict.MediatorReject], MediatorGroupRecipient] = {
 
     def rejectWrongMediator(hint: => String): Option[MediatorVerdict.MediatorReject] = {
       Some(
@@ -418,7 +418,7 @@ private[mediator] class ConfirmationResponseProcessor(
   }
 
   private def checkRootHashMessages(
-      validMediator: MediatorsOfDomain,
+      validMediator: MediatorGroupRecipient,
       requestId: RequestId,
       request: MediatorConfirmationRequest,
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],

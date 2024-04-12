@@ -14,7 +14,7 @@ import com.digitalasset.canton.participant.store.TransferStoreTest.transactionId
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.submittingParticipant
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.time.TimeProofTestUtil
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
@@ -33,11 +33,11 @@ class TransferInValidationTest
   private val sourceDomain = SourceDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
   )
-  private val sourceMediator = MediatorsOfDomain(MediatorGroupIndex.tryCreate(100))
+  private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(100))
   private val targetDomain = TargetDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
   )
-  private val targetMediator = MediatorsOfDomain(MediatorGroupIndex.tryCreate(200))
+  private val targetMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(200))
 
   private val party1: LfPartyId = PartyId(
     UniqueIdentifier.tryFromProtoPrimitive("party1::party")
@@ -305,7 +305,7 @@ class TransferInValidationTest
       contract: SerializableContract,
       creatingTransactionId: TransactionId,
       targetDomain: TargetDomainId,
-      targetMediator: MediatorsOfDomain,
+      targetMediator: MediatorGroupRecipient,
       transferOutResult: DeliveredTransferOutResult,
       uuid: UUID = new UUID(4L, 5L),
       transferCounter: TransferCounter = initialTransferCounter,
