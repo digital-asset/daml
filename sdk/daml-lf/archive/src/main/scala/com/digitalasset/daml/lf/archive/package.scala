@@ -102,9 +102,4 @@ package object archive {
     new GenUniversalArchiveReader(ArchiveReader)
   val UniversalArchiveDecoder: GenUniversalArchiveReader[(PackageId, Ast.Package)] =
     new GenUniversalArchiveReader(ArchiveDecoder)
-
-  @throws[Error]
-  def packageInfo(archive: DamlLf.Archive): language.util.PackageInfo =
-    new language.util.PackageInfo(Map(Decode.assertDecodeArchive(archive)))
-
 }

@@ -36,10 +36,11 @@ object PackageMetadata {
   )
 
   def from(archive: DamlLf.Archive): PackageMetadata = {
-    val ((packageId, pkg), packageInfo) = Decode.assertDecodeInfoPackage(archive)
+    val packageInfo = Decode.assertDecodeInfoPackage(archive)
 
-    val packageName = pkg.metadata.name
-    val packageVersion = pkg.metadata.version
+    val packageName = packageInfo.metadata.name
+    val packageVersion = packageInfo.metadata.version
+    val packageId = packageInfo.packageId
     val packageNameMap = Map(
       packageName -> PackageResolution(
         preference = LocalPackagePreference(packageVersion, packageId),
