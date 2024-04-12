@@ -63,7 +63,7 @@ object Decode {
       archive: DamlLf.Archive
   ): Either[Error, PackageInfo] =
     decodeArchive(archive, onlySerializableDataDefs = true)
-      .map { case (pkgId, pkg) => new PackageInfo(pkgId, pkg.metadata, Map(entry)) }
+      .map { case (pkgId, pkg) => new PackageInfo(pkgId, pkg.metadata, Map(pkgId -> pkg)) }
 
   def assertDecodeInfoPackage(archive: DamlLf.Archive): PackageInfo =
     assertRight(decodeInfoPackage(archive: DamlLf.Archive))

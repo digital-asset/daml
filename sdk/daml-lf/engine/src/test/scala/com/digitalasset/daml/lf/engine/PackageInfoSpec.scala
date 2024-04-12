@@ -176,7 +176,7 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
           println(pkgIds)
           val testPkgs = pkgIds.view.map(pkgId => pkgId -> pkgs(pkgId)).toMap
           val pkgInfo = new PackageInfo(pkgIds.head, pkg0.metadata, testPkgs)
-          pkgInfo.definedTemplates shouldBe ids.fold(Set.empty)(_ | _)
+          pkgInfo.definedInterfaces shouldBe ids.fold(Set.empty)(_ | _)
         }
     }
   }
