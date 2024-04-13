@@ -21,9 +21,6 @@ object DefaultTestIdentities {
   val uid = UniqueIdentifier(Identifier.tryCreate("da"), namespace)
   val domainId = DomainId(uid)
 
-  // TODO(#15160) remove use of domainManager
-  val domainManager = DomainTopologyManagerId(uid)
-
   val sequencerId = SequencerId(uid)
   val mediator = MediatorId(uid)
 

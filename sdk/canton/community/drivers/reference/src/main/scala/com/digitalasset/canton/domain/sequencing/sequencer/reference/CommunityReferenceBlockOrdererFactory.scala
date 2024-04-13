@@ -104,7 +104,6 @@ class CommunityReferenceBlockOrdererFactory extends BlockOrdererFactory {
 
   override def create(
       config: ConfigType,
-      domainTopologyManagerId: String,
       timeProvider: TimeProvider,
       lFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext, materializer: Materializer): BlockOrderer = {

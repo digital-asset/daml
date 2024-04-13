@@ -13,7 +13,7 @@ import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
 import com.digitalasset.canton.protocol.messages.ConfirmationResponse
 import com.digitalasset.canton.protocol.{LocalRejectError, RequestId, RootHash}
 import com.digitalasset.canton.sequencing.client.SequencerClient
-import com.digitalasset.canton.sequencing.protocol.{MediatorsOfDomain, Recipients}
+import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, Recipients}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
@@ -46,7 +46,7 @@ class BadRootHashMessagesRequestProcessor(
       sequencerCounter: SequencerCounter,
       timestamp: CantonTimestamp,
       rootHash: RootHash,
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       reject: LocalRejectError,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     performUnlessClosingUSF(functionFullName) {

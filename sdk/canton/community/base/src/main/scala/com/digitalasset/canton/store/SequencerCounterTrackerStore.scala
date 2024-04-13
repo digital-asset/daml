@@ -9,10 +9,7 @@ import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
-import com.digitalasset.canton.store.db.{
-  DbSequencerCounterTrackerStore,
-  SequencerClientDiscriminator,
-}
+import com.digitalasset.canton.store.db.DbSequencerCounterTrackerStore
 import com.digitalasset.canton.store.memory.InMemorySequencerCounterTrackerStore
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -54,12 +51,12 @@ trait SequencerCounterTrackerStore extends FlagCloseable {
 object SequencerCounterTrackerStore {
   def apply(
       storage: Storage,
-      client: SequencerClientDiscriminator,
+      indexedDomain: IndexedDomain,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): SequencerCounterTrackerStore = storage match {
     case _: MemoryStorage => new InMemorySequencerCounterTrackerStore(loggerFactory, timeouts)
     case dbStorage: DbStorage =>
-      new DbSequencerCounterTrackerStore(client, dbStorage, timeouts, loggerFactory)
+      new DbSequencerCounterTrackerStore(indexedDomain, dbStorage, timeouts, loggerFactory)
   }
 }

@@ -108,7 +108,7 @@ private[transfer] class TransferInProcessingSteps(
 
   override def prepareSubmission(
       param: SubmissionParam,
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       ephemeralState: SyncDomainEphemeralStateLookup,
       recentSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit
@@ -286,7 +286,7 @@ private[transfer] class TransferInProcessingSteps(
       ],
       malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
       snapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       // not actually used here, because it's available in the only fully unblinded view
       submitterMetadataO: Option[ViewSubmitterMetadata],
   )(implicit
@@ -347,7 +347,7 @@ private[transfer] class TransferInProcessingSteps(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       freshOwnTimelyTx: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -681,7 +681,7 @@ object TransferInProcessingSteps {
       isTransferringParticipant: Boolean,
       transferId: TransferId,
       hostedStakeholders: Set[LfPartyId],
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       override val locallyRejected: Boolean,
   ) extends PendingTransfer
       with PendingRequestData {
@@ -698,7 +698,7 @@ object TransferInProcessingSteps {
       transferCounter: TransferCounter,
       creatingTransactionId: TransactionId,
       targetDomain: TargetDomainId,
-      targetMediator: MediatorsOfDomain,
+      targetMediator: MediatorGroupRecipient,
       transferOutResult: DeliveredTransferOutResult,
       transferInUuid: UUID,
       sourceProtocolVersion: SourceProtocolVersion,

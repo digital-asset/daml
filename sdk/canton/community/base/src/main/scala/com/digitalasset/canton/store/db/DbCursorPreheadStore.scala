@@ -8,7 +8,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.{CantonTimestamp, Counter}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, DbStore, TransactionalStoreUpdate}
-import com.digitalasset.canton.store.{CursorPrehead, CursorPreheadStore}
+import com.digitalasset.canton.store.{CursorPrehead, CursorPreheadStore, IndexedDomain}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
@@ -20,14 +20,14 @@ import scala.concurrent.{ExecutionContext, Future}
   * @param cursorTable The table name to store the cursor prehead.
   *                    The table must define the following columns:
   *                    <ul>
-  *                      <li>client varchar not null primary key</li>
+  *                      <li>domain_id integer not null primary key</li>
   *                      <li>prehead_counter bigint not null</li>
   *                      <li>ts bigint not null</li>
   *                    </ul>
   * @param processingTime The metric to be used for DB queries
   */
 class DbCursorPreheadStore[Discr](
-    client: SequencerClientDiscriminator,
+    indexedDomain: IndexedDomain,
     override protected val storage: DbStorage,
     cursorTable: String,
     override protected val timeouts: ProcessingTimeout,
@@ -42,7 +42,7 @@ class DbCursorPreheadStore[Discr](
       traceContext: TraceContext
   ): Future[Option[CursorPrehead[Discr]]] = {
     val preheadQuery =
-      sql"""select prehead_counter, ts from #$cursorTable where client = $client order by prehead_counter desc #${storage
+      sql"""select prehead_counter, ts from #$cursorTable where domain_id = $indexedDomain order by prehead_counter desc #${storage
           .limit(2)}"""
         .as[(Counter[Discr], CantonTimestamp)]
     storage.query(preheadQuery, functionFullName).map {
@@ -50,7 +50,7 @@ class DbCursorPreheadStore[Discr](
       case (preheadCounter, preheadTimestamp) +: rest =>
         if (rest.nonEmpty)
           logger.warn(
-            s"Found several preheads for $client in $cursorTable instead of at most one; using $preheadCounter as prehead"
+            s"Found several preheads for $indexedDomain in $cursorTable instead of at most one; using $preheadCounter as prehead"
           )
         Some(CursorPrehead(preheadCounter, preheadTimestamp))
     }
@@ -66,24 +66,24 @@ class DbCursorPreheadStore[Discr](
       case Some(CursorPrehead(counter, timestamp)) =>
         val query = storage.profile match {
           case _: DbStorage.Profile.H2 =>
-            sqlu"merge into #$cursorTable (client, prehead_counter, ts) values ($client, $counter, $timestamp)"
+            sqlu"merge into #$cursorTable (domain_id, prehead_counter, ts) values ($indexedDomain, $counter, $timestamp)"
           case _: DbStorage.Profile.Postgres =>
-            sqlu"""insert into #$cursorTable (client, prehead_counter, ts) values ($client, $counter, $timestamp)
-                     on conflict (client) do update set prehead_counter = $counter, ts = $timestamp"""
+            sqlu"""insert into #$cursorTable (domain_id, prehead_counter, ts) values ($indexedDomain, $counter, $timestamp)
+                     on conflict (domain_id) do update set prehead_counter = $counter, ts = $timestamp"""
           case _: DbStorage.Profile.Oracle =>
             sqlu"""merge into #$cursorTable ct
                    using (
                     select
-                      $client client,
+                      $indexedDomain domain_id,
                       $counter counter,
                       $timestamp ts
                     from dual
                    ) val
-                   on (val.client = ct.client)
+                   on (val.domain_id = ct.domain_id)
                    when matched then
                     update set ct.prehead_counter = val.counter, ct.ts = val.ts
                    when not matched then
-                    insert (client, prehead_counter, ts) values (val.client, val.counter, val.ts)"""
+                    insert (domain_id, prehead_counter, ts) values (val.domain_id, val.counter, val.ts)"""
         }
         storage.update_(query, functionFullName)
     }
@@ -99,16 +99,16 @@ class DbCursorPreheadStore[Discr](
         sqlu"""
           merge into #$cursorTable as cursor_table
           using dual
-          on cursor_table.client = $client
+          on cursor_table.domain_id = $indexedDomain
             when matched and cursor_table.prehead_counter < $counter
               then update set cursor_table.prehead_counter = $counter, cursor_table.ts = $timestamp
-            when not matched then insert (client, prehead_counter, ts) values ($client, $counter, $timestamp)
+            when not matched then insert (domain_id, prehead_counter, ts) values ($indexedDomain, $counter, $timestamp)
           """
       case _: DbStorage.Profile.Postgres =>
         sqlu"""
-          insert into #$cursorTable as cursor_table (client, prehead_counter, ts)
-          values ($client, $counter, $timestamp)
-          on conflict (client) do
+          insert into #$cursorTable as cursor_table (domain_id, prehead_counter, ts)
+          values ($indexedDomain, $counter, $timestamp)
+          on conflict (domain_id) do
             update set prehead_counter = $counter, ts = $timestamp
             where cursor_table.prehead_counter < $counter
           """
@@ -117,15 +117,15 @@ class DbCursorPreheadStore[Discr](
           merge into #$cursorTable cursor_table
           using (
             select
-              $client client
+              $indexedDomain domain_id
             from dual
            ) val
-            on (cursor_table.client = val.client)
+            on (cursor_table.domain_id = val.domain_id)
             when matched then
               update set cursor_table.prehead_counter = $counter, cursor_table.ts = $timestamp
               where cursor_table.prehead_counter < $counter
             when not matched then
-              insert (client, prehead_counter, ts) values (val.client, $counter, $timestamp)
+              insert (domain_id, prehead_counter, ts) values (val.domain_id, $counter, $timestamp)
           """
     }
     new TransactionalStoreUpdate.DbTransactionalStoreUpdate(
@@ -146,11 +146,14 @@ class DbCursorPreheadStore[Discr](
           sqlu"""
             update #$cursorTable
             set prehead_counter = $counter, ts = $timestamp
-            where client = $client and prehead_counter > $counter"""
+            where domain_id = $indexedDomain and prehead_counter > $counter"""
         storage.update_(query, "rewind prehead")
     }
   }
 
   private[this] def delete()(implicit traceContext: TraceContext): Future[Unit] =
-    storage.update_(sqlu"""delete from #$cursorTable where client = $client""", functionFullName)
+    storage.update_(
+      sqlu"""delete from #$cursorTable where domain_id = $indexedDomain""",
+      functionFullName,
+    )
 }
