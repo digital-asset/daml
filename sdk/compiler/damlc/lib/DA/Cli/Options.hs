@@ -184,7 +184,7 @@ multiPackageLocationOpt =
 
 newtype MultiPackageCleanAll = MultiPackageCleanAll {getMultiPackageCleanAll :: Bool}
 multiPackageCleanAllOpt :: Parser MultiPackageCleanAll
-multiPackageCleanAllOpt = MultiPackageCleanAll <$> switch (long "all" <> help "Clean all packages in multi-package.daml")
+multiPackageCleanAllOpt = MultiPackageCleanAll <$> switch (long "all" <> help "Clean all packages in multi-package.yaml")
 
 data Telemetry
     = TelemetryOptedIn -- ^ User has explicitly opted in
