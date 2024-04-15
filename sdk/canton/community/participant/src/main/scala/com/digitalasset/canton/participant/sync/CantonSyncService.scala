@@ -21,8 +21,8 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String256M
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiProvider}
 import com.digitalasset.canton.data.{
   CantonTimestamp,
@@ -164,6 +164,7 @@ class CantonSyncService(
     protected val loggerFactory: NamedLoggerFactory,
     skipRecipientsCheck: Boolean,
     multiDomainLedgerAPIEnabled: Boolean,
+    testingConfig: TestingConfigInternal,
 )(implicit ec: ExecutionContext, mat: Materializer, val tracer: Tracer)
     extends state.v2.WriteService
     with WriteParticipantPruningService
@@ -257,8 +258,7 @@ class CantonSyncService(
       aliasManager,
       syncCrypto.pureCrypto,
       participantId,
-      autoTransferTransaction = parameters.enablePreviewFeatures,
-      parameters.processingTimeouts,
+      parameters,
       loggerFactory,
     )(ec)
 
@@ -877,7 +877,8 @@ class CantonSyncService(
                 // if the error is retryable, we'll reschedule an automatic retry so this domain gets connected eventually
                 if (parent.retryable.nonEmpty) {
                   logger.warn(
-                    s"Skipping failing domain $con after ${parent.code.toMsg(parent.cause, traceContext.traceId)}. Will schedule subsequent retry."
+                    s"Skipping failing domain $con after ${parent.code
+                        .toMsg(parent.cause, traceContext.traceId, limit = None)}. Will schedule subsequent retry."
                   )
                   attemptReconnect
                     .put(
@@ -895,7 +896,8 @@ class CantonSyncService(
                   )
                 } else {
                   logger.warn(
-                    s"Skipping failing domain $con after ${parent.code.toMsg(parent.cause, traceContext.traceId)}. Will not schedule retry. Please connect it manually."
+                    s"Skipping failing domain $con after ${parent.code
+                        .toMsg(parent.cause, traceContext.traceId, limit = None)}. Will not schedule retry. Please connect it manually."
                   )
                 }
                 Right(false)
@@ -1032,7 +1034,7 @@ class CantonSyncService(
               if keepRetrying && err.retryable.nonEmpty =>
             if (initial)
               logger.warn(s"Initial connection attempt to ${domainAlias} failed with ${err.code
-                  .toMsg(err.cause, traceContext.traceId)}. Will keep on trying.")
+                  .toMsg(err.cause, traceContext.traceId, limit = None)}. Will keep on trying.")
             else
               logger.info(
                 s"Initial connection attempt to ${domainAlias} failed. Will keep on trying."
@@ -1225,6 +1227,7 @@ class CantonSyncService(
           futureSupervisor,
           domainLoggerFactory,
           skipRecipientsCheck = skipRecipientsCheck,
+          testingConfig,
         )
 
         // update list of connected domains
@@ -1663,6 +1666,7 @@ object CantonSyncService {
         loggerFactory: NamedLoggerFactory,
         skipRecipientsCheck: Boolean,
         multiDomainLedgerAPIEnabled: Boolean,
+        testingConfig: TestingConfigInternal,
     )(implicit ec: ExecutionContext, mat: Materializer, tracer: Tracer): T
   }
 
@@ -1694,6 +1698,7 @@ object CantonSyncService {
         loggerFactory: NamedLoggerFactory,
         skipRecipientsCheck: Boolean,
         multiDomainLedgerAPIEnabled: Boolean,
+        testingConfig: TestingConfigInternal,
     )(implicit
         ec: ExecutionContext,
         mat: Materializer,
@@ -1728,6 +1733,7 @@ object CantonSyncService {
         loggerFactory,
         skipRecipientsCheck = skipRecipientsCheck,
         multiDomainLedgerAPIEnabled: Boolean,
+        testingConfig,
       )
   }
 }

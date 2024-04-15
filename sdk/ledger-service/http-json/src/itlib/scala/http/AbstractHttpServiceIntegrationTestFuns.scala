@@ -38,7 +38,7 @@ import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.syntax.std.option._
-import scalaz.{\/, \/-}
+import scalaz.{\/, -\/, \/-}
 import shapeless.record.{Record => ShRecord}
 import spray.json._
 
@@ -447,6 +447,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     object Iou {
       val Iou: TId = CtId.Template(None, "Iou", "Iou")
       val IouTransfer: TId = CtId.Template(None, "Iou", "IouTransfer")
+      val PkgName = "#quickstart-model"
     }
     object Test {
       val MultiPartyContract: TId = CtId.Template(None, "Test", "MultiPartyContract")
@@ -491,6 +492,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       currency: String = "USD",
       observers: Vector[domain.Party] = Vector.empty,
       meta: Option[domain.CommandMeta.NoDisclosed] = None,
+      usePackageName: Boolean = false,
   ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
     val arg = argToApi(iouVA)(
       ShRecord(
@@ -502,7 +504,10 @@ trait AbstractHttpServiceIntegrationTestFuns
       )
     )
 
-    domain.CreateCommand(TpId.Iou.Iou, arg, meta)
+    val templateId =
+      if (usePackageName) TpId.Iou.Iou.copy(packageId = Some(TpId.Iou.PkgName)) else TpId.Iou.Iou
+
+    domain.CreateCommand(templateId, arg, meta)
   }
 
   private[this] val (_, ciouVA) = {
@@ -995,4 +1000,14 @@ trait AbstractHttpServiceIntegrationTestFuns
     } yield offsets
   }
 
+  protected def assertExerciseResponseArchivedContract(
+      exerciseResponse: domain.ExerciseResponse[JsValue],
+      exercise: domain.ExerciseCommand.OptionalPkg[v.Value, domain.EnrichedContractId],
+  ): Assertion =
+    inside(exerciseResponse) { case domain.ExerciseResponse(exerciseResult, List(contract1), _) =>
+      exerciseResult shouldBe JsObject()
+      inside(contract1) { case domain.Contract(-\/(archivedContract)) =>
+        (archivedContract.contractId.unwrap: String) shouldBe (exercise.reference.contractId.unwrap: String)
+      }
+    }
 }

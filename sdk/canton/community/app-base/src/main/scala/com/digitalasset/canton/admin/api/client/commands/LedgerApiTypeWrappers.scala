@@ -6,7 +6,7 @@ package com.digitalasset.canton.admin.api.client.commands
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.lf.data.Time
-import com.daml.lf.transaction.TransactionCoder
+import com.daml.lf.transaction.{TransactionCoder, TransactionVersion}
 import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.crypto.Salt
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
@@ -71,8 +71,10 @@ object LedgerApiTypeWrappers {
             throw new IllegalArgumentException(s"Illegal Contract Id: ${event.contractId}")
           )
 
+      val fatContractInstanceO =
+        TransactionCoder.decodeFatContractInstance(event.createdEventBlob).toOption
       val contractSaltO = for {
-        fatInstance <- TransactionCoder.decodeFatContractInstance(event.createdEventBlob).toOption
+        fatInstance <- fatContractInstanceO
         parsed = DriverContractMetadata.fromByteString(fatInstance.cantonData.toByteString)
       } yield parsed.fold[Salt](
         err =>
@@ -82,6 +84,7 @@ object LedgerApiTypeWrappers {
         _.salt,
       )
 
+      val transactionVersionO = fatContractInstanceO.map(_.version)
       val ledgerCreateTimeO =
         event.createdAt.map(TimestampConversion.toLf(_, TimestampConversion.ConversionMode.Exact))
 
@@ -94,6 +97,7 @@ object LedgerApiTypeWrappers {
         inheritedContractId = lfContractId,
         contractSalt = contractSaltO,
         ledgerCreateTime = ledgerCreateTimeO,
+        transactionVersion = transactionVersionO,
       )
     }
   }
@@ -109,6 +113,6 @@ object LedgerApiTypeWrappers {
       inheritedContractId: LfContractId,
       contractSalt: Option[Salt],
       ledgerCreateTime: Option[Time.Timestamp],
+      transactionVersion: Option[TransactionVersion],
   )
-
 }

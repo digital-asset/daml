@@ -174,10 +174,16 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
   ): Future[List[IndexerPartyDetails]] =
     Timed.future(metrics.daml.services.index.getParties, delegate.getParties(parties))
 
-  override def listKnownParties()(implicit
+  override def listKnownParties(
+      fromExcl: Option[Party],
+      maxResults: Int,
+  )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[List[IndexerPartyDetails]] =
-    Timed.future(metrics.daml.services.index.listKnownParties, delegate.listKnownParties())
+    Timed.future(
+      metrics.daml.services.index.listKnownParties,
+      delegate.listKnownParties(fromExcl, maxResults),
+    )
 
   override def partyEntries(
       startExclusive: Option[LedgerOffset.Absolute]

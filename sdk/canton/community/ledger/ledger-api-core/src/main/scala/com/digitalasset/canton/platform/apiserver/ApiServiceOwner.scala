@@ -24,7 +24,7 @@ import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
-import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
+import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateUpgradableContract
 import com.digitalasset.canton.platform.apiserver.execution.{
   AuthorityResolver,
   DynamicDomainParameterGetter,
@@ -32,7 +32,11 @@ import com.digitalasset.canton.platform.apiserver.execution.{
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
-import com.digitalasset.canton.platform.config.{CommandServiceConfig, UserManagementServiceConfig}
+import com.digitalasset.canton.platform.config.{
+  CommandServiceConfig,
+  PartyManagementServiceConfig,
+  UserManagementServiceConfig,
+}
 import com.digitalasset.canton.platform.localstore.api.{
   IdentityProviderConfigStore,
   PartyRecordStore,
@@ -100,9 +104,11 @@ object ApiServiceOwner {
       authService: AuthService,
       jwtVerifierLoader: JwtVerifierLoader,
       userManagement: UserManagementServiceConfig = ApiServiceOwner.DefaultUserManagement,
+      partyManagementServiceConfig: PartyManagementServiceConfig =
+        ApiServiceOwner.DefaultPartyManagementServiceConfig,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
-      authenticateContract: AuthenticateContract,
+      authenticateUpgradableContract: AuthenticateUpgradableContract,
       dynParamGetter: DynamicDomainParameterGetter,
   )(implicit
       actorSystem: ActorSystem,
@@ -166,13 +172,14 @@ object ApiServiceOwner {
         partyRecordStore = partyRecordStore,
         ledgerFeatures = ledgerFeatures,
         userManagementServiceConfig = userManagement,
+        partyManagementServiceConfig = partyManagementServiceConfig,
         apiStreamShutdownTimeout = apiStreamShutdownTimeout.underlying,
         meteringReportKey = meteringReportKey,
         enableExplicitDisclosure = enableExplicitDisclosure,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
         multiDomainEnabled = multiDomainEnabled,
-        authenticateContract = authenticateContract,
+        authenticateUpgradableContract = authenticateUpgradableContract,
         dynParamGetter = dynParamGetter,
       )(materializer, executionSequencerFactory, tracer)
         .map(_.withServices(otherServices))
@@ -219,6 +226,8 @@ object ApiServiceOwner {
     NonNegativeFiniteDuration.ofMinutes(2)
   val DefaultUserManagement: UserManagementServiceConfig =
     UserManagementServiceConfig.default(enabled = false)
+  val DefaultPartyManagementServiceConfig: PartyManagementServiceConfig =
+    PartyManagementServiceConfig.default
   val DefaultIdentityProviderManagementConfig: IdentityProviderManagementConfig =
     IdentityProviderManagementConfig()
   val DefaultCommandServiceConfig: CommandServiceConfig = CommandServiceConfig.Default

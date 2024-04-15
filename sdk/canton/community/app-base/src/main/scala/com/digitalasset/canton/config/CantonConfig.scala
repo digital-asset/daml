@@ -45,6 +45,7 @@ import com.digitalasset.canton.ledger.runner.common.PureConfigReaderWriter.Secur
   identityProviderManagementConfigConvert,
   indexServiceConfigConvert,
   indexerConfigConvert,
+  partyManagementServiceConfigConvert,
   userManagementServiceConfigConvert,
 }
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -441,6 +442,8 @@ trait CantonConfig {
         excludeInfrastructureTransactions = participantParameters.excludeInfrastructureTransactions,
         enableEngineStackTrace = participantParameters.enableEngineStackTraces,
         iterationsBetweenInterruptions = participantParameters.iterationsBetweenInterruptions,
+        allowForUnauthenticatedContractIds =
+          participantParameters.allowForUnauthenticatedContractIds,
       )
     }
 

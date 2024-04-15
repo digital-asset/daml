@@ -5,6 +5,7 @@ package com.digitalasset.canton.store.db
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.resource.DbStorage
+import com.digitalasset.canton.util.retry.DbRetries
 import com.digitalasset.canton.util.retry.RetryUtil.{DbExceptionRetryable, FatalErrorKind}
 import com.digitalasset.canton.{BaseTestWordSpec, HasExecutionContext}
 import org.scalatest.BeforeAndAfterAll
@@ -58,7 +59,7 @@ trait DatabaseLimitNbParamTest
         val query = insertCommand(nbKeys)
 
         rawStorage
-          .update(query.asUpdate, "parameter limit query", maxRetries = 1)
+          .update(query.asUpdate, "parameter limit query", DbRetries(maxRetries = 1))
           .transformWith { outcome =>
             val errorKind = DbExceptionRetryable.retryOK(outcome, logger, None)
             errorKind match {

@@ -43,9 +43,9 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.retry.RetryEither
+import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.retry.RetryUtil.DbExceptionRetryable
-import com.digitalasset.canton.util.{Thereafter, *}
+import com.digitalasset.canton.util.retry.{DbRetries, RetryEither}
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
 import com.google.protobuf.ByteString
 import com.typesafe.config.{Config, ConfigValueFactory}
@@ -301,9 +301,11 @@ trait DbStorage extends Storage { self: NamedLogging =>
   protected implicit def ec: ExecutionContext
   protected def timeouts: ProcessingTimeout
 
-  private val defaultMaxRetries = retry.Forever
-
-  protected def run[A](action: String, operationName: String, maxRetries: Int)(
+  protected def run[A](
+      action: String,
+      operationName: String,
+      retries: DbRetries,
+  )(
       body: => Future[A]
   )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A] = {
     if (logOperations) {
@@ -315,12 +317,12 @@ trait DbStorage extends Storage { self: NamedLogging =>
       .Backoff(
         logger,
         closeContext.context,
-        maxRetries = maxRetries,
+        maxRetries = retries.maxRetries,
         initialDelay = 50.milliseconds,
         maxDelay = timeouts.storageMaxRetryInterval.unwrap,
         operationName = operationName,
         suspendRetries = Eval.always(
-          if (isActive) Duration.Zero
+          if (!retries.suspendRetriesOnInactive || isActive) Duration.Zero
           else dbConfig.parameters.connectionTimeout.asFiniteApproximation
         ),
       )
@@ -336,22 +338,22 @@ trait DbStorage extends Storage { self: NamedLogging =>
   protected[canton] def runRead[A](
       action: DbAction.ReadTransactional[A],
       operationName: String,
-      maxRetries: Int,
+      retries: DbRetries,
   )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A]
 
   protected[canton] def runWrite[A](
       action: DbAction.All[A],
       operationName: String,
-      maxRetries: Int,
+      retries: DbRetries,
   )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A]
 
   /** Read-only query, possibly transactional */
   def query[A](
       action: DbAction.ReadTransactional[A],
       operationName: String,
-      maxRetries: Int = defaultMaxRetries,
+      retries: DbRetries = DbRetries(),
   )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A] =
-    runRead(action, operationName, maxRetries)
+    runRead(action, operationName, retries)
 
   def sequentialQueryAndCombine[A](
       actions: immutable.Iterable[DbAction.ReadOnly[immutable.Iterable[A]]],
@@ -369,9 +371,9 @@ trait DbStorage extends Storage { self: NamedLogging =>
   def querySingle[A](
       action: DBIOAction[Option[A], NoStream, Effect.Read with Effect.Transactional],
       operationName: String,
-      maxRetries: Int = defaultMaxRetries,
+      retries: DbRetries = DbRetries(),
   )(implicit traceContext: TraceContext, closeContext: CloseContext): OptionT[Future, A] =
-    OptionT(query(action, operationName, maxRetries))
+    OptionT(query(action, operationName, retries))
 
   /** Write-only action, possibly transactional
     *
@@ -384,9 +386,9 @@ trait DbStorage extends Storage { self: NamedLogging =>
   def update[A](
       action: DBIOAction[A, NoStream, Effect.Write with Effect.Transactional],
       operationName: String,
-      maxRetries: Int = defaultMaxRetries,
+      retries: DbRetries = DbRetries(),
   )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A] =
-    runWrite(action, operationName, maxRetries)
+    runWrite(action, operationName, retries)
 
   /** Write-only action, possibly transactional
     * The action must be idempotent because it may be retried multiple times.
@@ -394,9 +396,9 @@ trait DbStorage extends Storage { self: NamedLogging =>
   def update_(
       action: DBIOAction[_, NoStream, Effect.Write with Effect.Transactional],
       operationName: String,
-      maxRetries: Int = defaultMaxRetries,
+      retries: DbRetries = DbRetries(),
   )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[Unit] =
-    runWrite(action, operationName, maxRetries).map(_ => ())
+    runWrite(action, operationName, retries).map(_ => ())
 
   /** Query and update in a single action.
     *
@@ -412,9 +414,9 @@ trait DbStorage extends Storage { self: NamedLogging =>
   def queryAndUpdate[A](
       action: DBIOAction[A, NoStream, Effect.All],
       operationName: String,
-      maxRetries: Int = defaultMaxRetries,
+      retries: DbRetries = DbRetries(),
   )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A] =
-    runWrite(action, operationName, maxRetries)
+    runWrite(action, operationName, retries)
 
 }
 

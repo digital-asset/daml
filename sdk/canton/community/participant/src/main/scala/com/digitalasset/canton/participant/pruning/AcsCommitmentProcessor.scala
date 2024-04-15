@@ -13,8 +13,8 @@ import cats.syntax.validated.*
 import com.daml.error.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric}
+import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.AcsCommitmentErrorGroup
@@ -161,6 +161,7 @@ class AcsCommitmentProcessor(
     contractStore: ContractStore,
     enableAdditionalConsistencyChecks: Boolean,
     protected val loggerFactory: NamedLoggerFactory,
+    testingConfig: TestingConfigInternal,
 )(implicit ec: ExecutionContext)
     extends AcsChangeListener
     with FlagCloseable
@@ -230,7 +231,11 @@ class AcsCommitmentProcessor(
   /* An in-memory, mutable running ACS snapshot, updated on every call to [[publish]]  */
   val runningCommitments: Future[RunningCommitments] = initRunningCommitments(store)
 
-  private val cachedCommitments: CachedCommitments = new CachedCommitments()
+  private val cachedCommitments: Option[CachedCommitments] =
+    if (testingConfig.doNotUseCommitmentCachingFor.contains(participantId.uid.id))
+      None
+    else Some(new CachedCommitments())
+
   private val cachedCommitmentsForRetroactiveSends: CachedCommitments = new CachedCommitments()
 
   private val timestampsWithPotentialTopologyChanges =
@@ -1223,7 +1228,7 @@ class AcsCommitmentProcessor(
         period.toInclusive,
         Some(metrics),
         threadCount,
-        cachedCommitments,
+        cachedCommitments.getOrElse(new CachedCommitments()),
       )
 
       msgs <- cmts
@@ -1573,7 +1578,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
             val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
             h.remove(concatenate(hash, cid))
             loggingContext.debug(
-              s"Removing from commitment deactivation cid $cid}"
+              s"Removing from commitment deactivation cid $cid"
             )
             deltaB += sortedStakeholders -> h
           }
@@ -1717,13 +1722,13 @@ object AcsCommitmentProcessor extends HasLoggerName {
         },
         cachedCommitments,
       )
-      commitmentTimer.foreach(_.stop())
       // update cached commitments
       cachedCommitments.setCachedCommitments(
         res,
         runningCommitments,
         byParticipant.fmap { m => m.map { case (stkhd, _cmt) => stkhd }.toSet },
       )
+      commitmentTimer.foreach(_.stop())
       res
     }
   }

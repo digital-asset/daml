@@ -339,7 +339,7 @@ class DAMLe(
           stakeholders = signatories ++ observers,
           maybeKeyWithMaintainers = keyOpt.map(k => Versioned(unusedTxVersion, k)),
         )
-        contracts.verifyMetadata(coid, metadata).value.flatMap { verification =>
+        contracts.authenticateForUpgradeValidation(coid, metadata).value.flatMap { verification =>
           handleResult(contracts, resume(verification))
         }
     }

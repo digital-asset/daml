@@ -159,7 +159,7 @@ abstract class TransactionTreeFactoryImpl(
         val numRootViews = rootViewDecompositions.length
         val numViews = TransactionViewDecomposition.countNestedViews(rootViewDecompositions)
         logger.debug(
-          s"Computed transaction tree with total=${numViews} for #root-nodes=${numRootViews}"
+          s"Computed transaction tree with total=$numViews for #root-nodes=$numRootViews"
         )
       }
 
@@ -302,8 +302,8 @@ abstract class TransactionTreeFactoryImpl(
         rootViewDecomposition: TransactionViewDecomposition.NewView,
         parentInformee: Set[LfPartyId],
     ): Map[LfPartyId, Set[PackageId]] = {
-      val rootInformees = rootViewDecomposition.viewConfirmationParameters.informees
-      val allInformees = parentInformee ++ rootInformees
+      val allInformees =
+        parentInformee ++ rootViewDecomposition.viewConfirmationParameters.informeesIds
       val childRequirements =
         rootViewDecomposition.tailNodes.foldLeft(Map.empty[LfPartyId, Set[PackageId]]) {
           case (acc, newView: TransactionViewDecomposition.NewView) =>
@@ -425,18 +425,22 @@ abstract class TransactionTreeFactoryImpl(
         )
     }
     val contractMetadata = LfTransactionUtil.metadataFromCreate(createNode)
-    val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
-      domainId,
-      state.mediator,
-      state.transactionUUID,
-      viewPosition,
-      viewParticipantDataSalt,
-      createIndex,
-      LedgerCreateTime(state.ledgerTime),
-      contractMetadata,
-      serializedCantonContractInst,
-      cantonContractIdVersion,
-    )
+    val (contractSalt, unicum) = unicumGenerator
+      .generateSaltAndUnicum(
+        domainId,
+        state.mediator,
+        state.transactionUUID,
+        viewPosition,
+        viewParticipantDataSalt,
+        createIndex,
+        LedgerCreateTime(state.ledgerTime),
+        contractMetadata,
+        serializedCantonContractInst,
+        cantonContractIdVersion,
+      )
+      .valueOr(err =>
+        throw new IllegalArgumentException(s"Error generating contract salt and unicum: $err")
+      )
 
     val contractId = cantonContractIdVersion.fromDiscriminator(discriminator, unicum)
 

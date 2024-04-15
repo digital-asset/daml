@@ -82,11 +82,11 @@ private[backend] trait StorageBackendTestsIngestion
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
-    val partiesBeforeLedgerEndUpdate = executeSql(backend.party.knownParties)
+    val partiesBeforeLedgerEndUpdate = executeSql(backend.party.knownParties(None, 10))
     executeSql(
       updateLedgerEnd(someOffset, ledgerEndSequentialId = 0)
     )
-    val partiesAfterLedgerEndUpdate = executeSql(backend.party.knownParties)
+    val partiesAfterLedgerEndUpdate = executeSql(backend.party.knownParties(None, 10))
 
     // The first query is executed before the ledger end is updated.
     // It should not see the already ingested party allocation.
@@ -113,7 +113,7 @@ private[backend] trait StorageBackendTestsIngestion
     )
 
     {
-      val knownParties = executeSql(backend.party.knownParties)
+      val knownParties = executeSql(backend.party.knownParties(None, 10))
       val party1 = knownParties.find(_.party == "party1").value
       val party2 = knownParties.find(_.party == "party2").value
       val party3 = knownParties.find(_.party == "party3").value

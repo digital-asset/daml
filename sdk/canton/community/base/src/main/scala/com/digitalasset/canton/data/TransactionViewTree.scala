@@ -57,7 +57,7 @@ trait TransactionViewTree extends ViewTree {
   override lazy val viewHash: ViewHash = ViewHash.fromRootHash(view.rootHash)
 
   override lazy val informees: Set[LfPartyId] =
-    view.viewCommonData.tryUnwrap.viewConfirmationParameters.informees
+    view.viewCommonData.tryUnwrap.viewConfirmationParameters.informeesIds
 
   lazy val viewParticipantData: ViewParticipantData = view.viewParticipantData.tryUnwrap
 

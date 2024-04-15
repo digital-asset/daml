@@ -3,16 +3,19 @@
 
 package com.digitalasset.canton.participant.protocol
 
+import com.daml.lf.data.Ref
 import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{Salt, TestSalt}
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
+import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator.AuthenticationPurpose
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.{DomainId, MediatorId, MediatorRef, UniqueIdentifier}
 import com.digitalasset.canton.util.LfTransactionBuilder.{defaultKeyPackageName, defaultTemplateId}
 import com.digitalasset.canton.{BaseTest, LfPartyId, protocol}
+import monocle.macros.syntax.lens.*
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -20,237 +23,257 @@ import java.time.Duration
 import java.util.UUID
 
 class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
-
-  classOf[SerializableContractAuthenticatorImpl].getSimpleName when {
+  "authenticate" when {
     for (
       contractIdVersion <- Seq(
-        NonAuthenticatedContractIdVersion,
-        AuthenticatedContractIdVersion,
-        AuthenticatedContractIdVersionV2,
+        NonAuthenticatedContractId,
+        AuthenticatedContractIdV1,
+        AuthenticatedContractIdV2,
+        AuthenticatedContractIdV3,
       )
     ) {
-      s"provided with a $contractIdVersion authenticator" should {
-        s"using a $contractIdVersion contract id" should {
-          "correctly authenticate the contract" in new WithContractAuthenticator(
-            contractIdVersion
-          ) {
-            contractAuthenticator.authenticate(contract) shouldBe Right(())
-          }
-        }
+      s"provided with a contract-id with version $contractIdVersion" should {
+        `tests for all contract id versions`(contractIdVersion)
 
-        "using a generic contract id" should {
-          "correctly authenticate the contract" in new WithContractAuthenticator(
-            contractIdVersion
-          ) {
-            val nonAuthenticatedContractId = ExampleTransactionFactory.suffixedId(1, 2)
-            contractAuthenticator.authenticate(
-              contract.copy(contractId = nonAuthenticatedContractId)
-            ) shouldBe Right(())
-          }
-        }
-      }
-    }
+        `tests only for authenticated contract ids`(contractIdVersion)
 
-    for (
-      contractIdVersion <- Seq(AuthenticatedContractIdVersion, AuthenticatedContractIdVersionV2)
-    ) {
-      s"provided with a $contractIdVersion authenticator" should {
-        "using a contract with a mismatching salt" should {
-          "fail authentication" in new WithContractAuthenticator(contractIdVersion) {
-            val changedSalt = TestSalt.generateSalt(1337)
-            testFailedAuthentication(
-              _.copy(contractSalt = Some(changedSalt)),
-              testedSalt = changedSalt,
-            )
-          }
-        }
+        `tests only for contract id versions gteq V2`(contractIdVersion)
 
-        s"using a $contractIdVersion with a missing salt" should {
-          "fail authentication" in new WithContractAuthenticator(contractIdVersion) {
-            contractAuthenticator.authenticate(contract.copy(contractSalt = None)) shouldBe Left(
-              s"Contract salt missing in serializable contract with authenticating contract id ($contractId)"
-            )
-          }
-        }
-
-        "using a contract with changed ledger time" should {
-          "fail authentication" in new WithContractAuthenticator(contractIdVersion) {
-            val changedLedgerTime = ledgerTime.add(Duration.ofDays(1L))
-            testFailedAuthentication(
-              _.copy(ledgerCreateTime = LedgerCreateTime(changedLedgerTime)),
-              testedLedgerTime = changedLedgerTime,
-            )
-          }
-        }
-
-        "using a contract with changed contents" should {
-          "fail authentication" in new WithContractAuthenticator(contractIdVersion) {
-            val changedContractInstance = ExampleTransactionFactory.contractInstance(
-              Seq(ExampleTransactionFactory.suffixedId(1, 2))
-            )
-            testFailedAuthentication(
-              _.copy(rawContractInstance =
-                ExampleTransactionFactory.asSerializableRaw(changedContractInstance, "")
-              ),
-              testedContractInstance =
-                ExampleTransactionFactory.asSerializableRaw(changedContractInstance, ""),
-            )
-          }
-        }
-      }
-    }
-
-    for (contractIdVersion <- Seq(AuthenticatedContractIdVersion)) {
-      s"provided with a $contractIdVersion authenticator" should {
-        for (olderContractIdVersion <- Seq(NonAuthenticatedContractIdVersion)) {
-          s"using an older $olderContractIdVersion contract id" should {
-            "correctly authenticate the older contract" in new WithContractAuthenticator(
-              contractIdVersion
-            ) {
-              val oldVersionedContract =
-                new WithContractAuthenticator(olderContractIdVersion).contract
-              contractAuthenticator.authenticate(oldVersionedContract) shouldBe Right(())
-            }
-          }
-        }
-      }
-    }
-
-    for (contractIdVersion <- Seq(AuthenticatedContractIdVersionV2)) {
-      s"provided with a $contractIdVersion authenticator" should {
-        for (
-          olderContractIdVersion <- Seq(
-            NonAuthenticatedContractIdVersion,
-            AuthenticatedContractIdVersion,
-          )
-        ) {
-          s"using an older $olderContractIdVersion contract id" should {
-            "correctly authenticate the older contract" in new WithContractAuthenticator(
-              contractIdVersion
-            ) {
-              val oldVersionedContract =
-                new WithContractAuthenticator(olderContractIdVersion).contract
-              contractAuthenticator.authenticate(oldVersionedContract) shouldBe Right(())
-            }
-          }
-        }
-
-        "using a contract that has mismatching signatories" should {
-          "fail authentication" in new WithContractAuthenticator(contractIdVersion) {
-            val changedSignatories = signatories - alice
-            // As observers == stakeholders -- signatories, we also need to ensure that alice is not a stakeholder - or unicum's will be calculated incorrectly
-            testFailedAuthentication(
-              contract =>
-                contract.copy(metadata =
-                  ContractMetadata.tryCreate(
-                    changedSignatories,
-                    contract.metadata.stakeholders - alice,
-                    contract.metadata.maybeKeyWithMaintainersVersioned,
-                  )
-                ),
-              testedSignatories = changedSignatories,
-            )
-          }
-        }
-
-        "using a contract that has mismatching observers" should {
-          "fail authentication" in new WithContractAuthenticator(contractIdVersion) {
-            val changedObservers = observers ++ Set(LfPartyId.assertFromString("observer::changed"))
-            testFailedAuthentication(
-              contract =>
-                contract.copy(metadata =
-                  ContractMetadata.tryCreate(
-                    contract.metadata.signatories,
-                    contract.metadata.stakeholders ++ changedObservers,
-                    contract.metadata.maybeKeyWithMaintainersVersioned,
-                  )
-                ),
-              testedObservers = changedObservers,
-            )
-          }
-        }
-
-        "using a contract with a missing contract key" should {
-          "fail authentication" in new WithContractAuthenticator(contractIdVersion) {
-            testFailedAuthentication(
-              contract =>
-                contract.copy(metadata =
-                  ContractMetadata
-                    .tryCreate(contract.metadata.signatories, contract.metadata.stakeholders, None)
-                ),
-              testedContractKey = None,
-            )
-          }
-        }
-
-        "using a contract that has a mismatching contract key hash" should {
-          "fail authentication" in new WithContractAuthenticator(contractIdVersion) {
-            val changedContractKey = ExampleTransactionFactory.globalKeyWithMaintainers(
-              key = LfGlobalKey
-                .assertBuild(defaultTemplateId, Value.ValueInt64(7), defaultKeyPackageName),
-              maintainers = maintainers,
-            )
-            testFailedAuthentication(
-              contract =>
-                contract.copy(metadata =
-                  ContractMetadata.tryCreate(
-                    contract.metadata.signatories,
-                    contract.metadata.stakeholders,
-                    Some(changedContractKey),
-                  )
-                ),
-              testedContractKey = Some(changedContractKey),
-            )
-          }
-        }
-
-        "using a contract that has mismatching contract key maintainers" should {
-          "fail authentication" in new WithContractAuthenticator(contractIdVersion) {
-            val changedContractKey =
-              ExampleTransactionFactory.globalKeyWithMaintainers(maintainers = Set(alice))
-            testFailedAuthentication(
-              contract =>
-                contract.copy(metadata =
-                  ContractMetadata.tryCreate(
-                    contract.metadata.signatories,
-                    contract.metadata.stakeholders,
-                    Some(changedContractKey),
-                  )
-                ),
-              testedContractKey = Some(changedContractKey),
-            )
-          }
-        }
-
-        "using a contract that has missing contract key maintainers" should {
-          "fail authentication" in new WithContractAuthenticator(contractIdVersion) {
-            val changedContractKey =
-              ExampleTransactionFactory.globalKeyWithMaintainers(maintainers = Set.empty)
-            testFailedAuthentication(
-              contract =>
-                contract.copy(metadata =
-                  ContractMetadata.tryCreate(
-                    contract.metadata.signatories,
-                    contract.metadata.stakeholders,
-                    Some(changedContractKey),
-                  )
-                ),
-              testedContractKey = Some(changedContractKey),
-            )
-          }
-        }
+        `tests only for contract id versions gteq V3`(contractIdVersion)
       }
     }
   }
+
+  private def `tests for all contract id versions`(
+      contractIdVersion: CantonContractIdVersion
+  ): Unit = {
+    "correctly authenticate the contract" in new WithContractAuthenticator(contractIdVersion) {
+      contractAuthenticator.authenticateInputContract(contract) shouldBe (
+        if (contractIdVersion.isAuthenticated) Right(())
+        else Left("Contract id scheme does not support authentication: NonAuthenticatedContractId")
+      )
+    }
+
+    "crash with an exception on unknown contract-id" in new WithContractAuthenticator(
+      contractIdVersion
+    ) {
+      private val unknownContractId = ExampleTransactionFactory.suffixedId(1, 2)
+
+      intercept[IllegalArgumentException] {
+        contractAuthenticator.authenticateInputContract(
+          contract.copy(contractId = unknownContractId)
+        )
+      }.getMessage should include(
+        "Unsupported contract id scheme detected. Please contact support"
+      )
+    }
+  }
+
+  private def `tests only for authenticated contract ids`(
+      contractIdVersion: CantonContractIdVersion
+  ): Unit =
+    if (contractIdVersion.isAuthenticated) {
+      "fail authentication on missing salt" in new WithContractAuthenticator(contractIdVersion) {
+        contractAuthenticator.authenticateInputContract(
+          contract.copy(contractSalt = None)
+        ) shouldBe Left(
+          s"Contract salt missing in serializable contract with authenticating contract id ($contractId)"
+        )
+      }
+
+      "fail authentication when using a contract with changed ledger time" in new WithContractAuthenticator(
+        contractIdVersion
+      ) {
+        val changedLedgerTime = ledgerTime.add(Duration.ofDays(1L))
+        testFailedAuthentication(
+          _.copy(ledgerCreateTime = LedgerCreateTime(changedLedgerTime)),
+          testedLedgerTime = changedLedgerTime,
+        )
+      }
+
+      "fail authentication when using a contract with changed contents" in new WithContractAuthenticator(
+        contractIdVersion
+      ) {
+        val changedContractInstance = ExampleTransactionFactory.contractInstance(
+          Seq(ExampleTransactionFactory.suffixedId(1, 2))
+        )
+        testFailedAuthentication(
+          _.copy(rawContractInstance =
+            ExampleTransactionFactory.asSerializableRaw(changedContractInstance, "")
+          ),
+          testedContractInstance =
+            ExampleTransactionFactory.asSerializableRaw(changedContractInstance, ""),
+        )
+      }
+
+      Seq(
+        AuthenticationPurpose.BasicContractAuthentication,
+        AuthenticationPurpose.ContractUpgradeValidation,
+      ) foreach { authenticationPurpose =>
+        if (contractIdVersion >= authenticationPurpose.minimumContractIdVersion) {
+          s"correctly authenticate the contract for contract id version $contractIdVersion and purpose $authenticationPurpose" in new WithContractAuthenticator(
+            contractIdVersion
+          ) {
+            contractAuthenticator.authenticate(authenticationPurpose, contract) shouldBe Right(())
+          }
+        } else {
+          s"reject authentication for contract id version $contractIdVersion and purpose $authenticationPurpose" in new WithContractAuthenticator(
+            contractIdVersion
+          ) {
+            contractAuthenticator.authenticate(authenticationPurpose, contract) shouldBe Left(
+              s"Authentication for ${authenticationPurpose.purposeDescription} requires at least contract id version ${authenticationPurpose.minimumContractIdVersion} instead of the provided $contractIdVersion"
+            )
+          }
+        }
+      }
+    }
+
+  private def `tests only for contract id versions gteq V2`(
+      contractIdVersion: CantonContractIdVersion
+  ): Unit =
+    if (contractIdVersion >= AuthenticatedContractIdV2) {
+      "fail authentication when using a contract that has mismatching signatories" in new WithContractAuthenticator(
+        contractIdVersion
+      ) {
+        private val changedSignatories = signatories - alice
+        // As observers == stakeholders -- signatories, we also need to ensure that alice is not a stakeholder - or unicum's will be calculated incorrectly
+        testFailedAuthentication(
+          contract =>
+            contract.copy(metadata =
+              ContractMetadata.tryCreate(
+                changedSignatories,
+                contract.metadata.stakeholders - alice,
+                contract.metadata.maybeKeyWithMaintainersVersioned,
+              )
+            ),
+          testedSignatories = changedSignatories,
+        )
+      }
+
+      "fail authentication when using a contract that has mismatching observers" in new WithContractAuthenticator(
+        contractIdVersion
+      ) {
+        val changedObservers = observers ++ Set(LfPartyId.assertFromString("observer::changed"))
+        testFailedAuthentication(
+          contract =>
+            contract.copy(metadata =
+              ContractMetadata.tryCreate(
+                contract.metadata.signatories,
+                contract.metadata.stakeholders ++ changedObservers,
+                contract.metadata.maybeKeyWithMaintainersVersioned,
+              )
+            ),
+          testedObservers = changedObservers,
+        )
+      }
+
+      "fail authentication when using a contract with a missing contract key" in new WithContractAuthenticator(
+        contractIdVersion
+      ) {
+        testFailedAuthentication(
+          contract =>
+            contract.copy(metadata =
+              ContractMetadata
+                .tryCreate(contract.metadata.signatories, contract.metadata.stakeholders, None)
+            ),
+          testedContractKey = None,
+        )
+      }
+
+      "fail authentication when using a contract that has a mismatching contract key hash" in new WithContractAuthenticator(
+        contractIdVersion
+      ) {
+        val changedContractKey = ExampleTransactionFactory.globalKeyWithMaintainers(
+          key = LfGlobalKey
+            .assertBuild(defaultTemplateId, Value.ValueInt64(7), defaultKeyPackageName),
+          maintainers = maintainers,
+        )
+        testFailedAuthentication(
+          contract =>
+            contract.copy(metadata =
+              ContractMetadata.tryCreate(
+                contract.metadata.signatories,
+                contract.metadata.stakeholders,
+                Some(changedContractKey),
+              )
+            ),
+          testedContractKey = Some(changedContractKey),
+        )
+      }
+
+      "fail authentication when using a contract that has mismatching contract key maintainers" in new WithContractAuthenticator(
+        contractIdVersion
+      ) {
+        val changedContractKey =
+          ExampleTransactionFactory.globalKeyWithMaintainers(maintainers = Set(alice))
+        testFailedAuthentication(
+          contract =>
+            contract.copy(metadata =
+              ContractMetadata.tryCreate(
+                contract.metadata.signatories,
+                contract.metadata.stakeholders,
+                Some(changedContractKey),
+              )
+            ),
+          testedContractKey = Some(changedContractKey),
+        )
+      }
+
+      "fail authentication when using a contract that has missing contract key maintainers" in new WithContractAuthenticator(
+        contractIdVersion
+      ) {
+        val changedContractKey =
+          ExampleTransactionFactory.globalKeyWithMaintainers(maintainers = Set.empty)
+        testFailedAuthentication(
+          contract =>
+            contract.copy(metadata =
+              ContractMetadata.tryCreate(
+                contract.metadata.signatories,
+                contract.metadata.stakeholders,
+                Some(changedContractKey),
+              )
+            ),
+          testedContractKey = Some(changedContractKey),
+        )
+      }
+    }
+
+  private def `tests only for contract id versions gteq V3`(
+      contractIdVersion: CantonContractIdVersion
+  ): Unit =
+    if (contractIdVersion >= AuthenticatedContractIdV3) {
+      "fail authentication when the contract package-name changes" in new WithContractAuthenticator(
+        contractIdVersion
+      ) {
+        override protected def contractInstance: LfContractInst = ExampleTransactionFactory
+          .contractInstance()
+          .copy(version = LfTransactionVersion.VDev)
+          .focus(_.unversioned.packageName)
+          .replace(Some(Ref.PackageName.assertFromString("originalPkgName")))
+
+        private val testedContractInstance = contractInstance
+          .focus(_.unversioned.packageName)
+          .replace(Some(Ref.PackageName.assertFromString("changedPkgName")))
+
+        private val serializableRawContractInstance =
+          ExampleTransactionFactory.asSerializableRaw(testedContractInstance, "")
+        testFailedAuthentication(
+          _.copy(rawContractInstance = serializableRawContractInstance),
+          testedContractInstance = serializableRawContractInstance,
+        )
+      }
+    }
 }
 
 class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) extends BaseTest {
   protected lazy val unicumGenerator = new UnicumGenerator(new SymbolicPureCrypto())
   protected lazy val contractAuthenticator = new SerializableContractAuthenticatorImpl(
-    unicumGenerator
+    unicumGenerator,
+    false,
   )
 
-  protected lazy val contractInstance = ExampleTransactionFactory.contractInstance()
+  protected def contractInstance = ExampleTransactionFactory.contractInstance()
+
   protected lazy val ledgerTime = CantonTimestamp.MinValue
   protected lazy val alice = LfPartyId.assertFromString("alice")
   protected lazy val signatories = Set(ExampleTransactionFactory.signatory, alice)
@@ -260,19 +283,21 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
     ExampleTransactionFactory.globalKeyWithMaintainers(maintainers = maintainers)
   protected lazy val contractMetadata =
     ContractMetadata.tryCreate(signatories, signatories ++ observers, Some(contractKey))
-  protected lazy val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
-    domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::da")),
-    mediator = MediatorRef(MediatorId(UniqueIdentifier.tryCreate("mediator", "other"))),
-    transactionUuid = new UUID(1L, 1L),
-    viewPosition = ViewPosition(List.empty),
-    viewParticipantDataSalt = TestSalt.generateSalt(1),
-    createIndex = 0,
-    ledgerCreateTime = LedgerCreateTime(ledgerTime),
-    metadata = contractMetadata,
-    suffixedContractInstance =
-      ExampleTransactionFactory.asSerializableRaw(contractInstance, agreementText = ""),
-    contractIdVersion = contractIdVersion,
-  )
+  protected lazy val (contractSalt, unicum) = unicumGenerator
+    .generateSaltAndUnicum(
+      domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::da")),
+      mediator = MediatorRef(MediatorId(UniqueIdentifier.tryCreate("mediator", "other"))),
+      transactionUuid = new UUID(1L, 1L),
+      viewPosition = ViewPosition(List.empty),
+      viewParticipantDataSalt = TestSalt.generateSalt(1),
+      createIndex = 0,
+      ledgerCreateTime = LedgerCreateTime(ledgerTime),
+      metadata = contractMetadata,
+      suffixedContractInstance =
+        ExampleTransactionFactory.asSerializableRaw(contractInstance, agreementText = ""),
+      contractIdVersion = contractIdVersion,
+    )
+    .value
 
   protected lazy val contractId = contractIdVersion.fromDiscriminator(
     ExampleTransactionFactory.lfHash(1337),
@@ -300,7 +325,7 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
       testedContractKey: Option[Versioned[protocol.LfGlobalKeyWithMaintainers]] = Some(contractKey),
   ): Assertion = {
     val recomputedUnicum = unicumGenerator
-      .recomputeUnicum(
+      .computeUnicum(
         contractSalt = testedSalt,
         ledgerCreateTime = LedgerCreateTime(testedLedgerTime),
         metadata = ContractMetadata
@@ -311,7 +336,7 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
       .valueOrFail("Failed unicum computation")
     val actualSuffix = unicum.toContractIdSuffix(contractIdVersion)
     val expectedSuffix = recomputedUnicum.toContractIdSuffix(contractIdVersion)
-    contractAuthenticator.authenticate(changeContract(contract)) shouldBe Left(
+    contractAuthenticator.authenticateInputContract(changeContract(contract)) shouldBe Left(
       s"Mismatching contract id suffixes. expected: $expectedSuffix vs actual: $actualSuffix"
     )
   }

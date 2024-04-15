@@ -330,10 +330,13 @@ object ExampleTransactionFactory {
 
   // Parties and participants
 
-  val submitterParticipant: ParticipantId = ParticipantId("submitterParticipant")
+  val extraParticipant: ParticipantId = ParticipantId("extraParticipant")
   val signatoryParticipant: ParticipantId = ParticipantId("signatoryParticipant")
+  val observerParticipant: ParticipantId = ParticipantId("observerParticipant")
+  val submitterParticipant: ParticipantId = ParticipantId("submitterParticipant")
   val signatory: LfPartyId = LfPartyId.assertFromString("signatory::default")
   val observer: LfPartyId = LfPartyId.assertFromString("observer::default")
+  val extra: LfPartyId = LfPartyId.assertFromString("extra::default")
   val submitter: LfPartyId = submitterParticipant.adminParty.toLf
   val submitters: List[LfPartyId] = List(submitter)
 
@@ -351,13 +354,17 @@ object ExampleTransactionFactory {
           signatoryParticipant -> Confirmation
         ),
         observer -> Map(
-          signatoryParticipant -> Observation
+          observerParticipant -> Observation
+        ),
+        extra -> Map(
+          extraParticipant -> Observation
         ),
       ),
       participants = Map(submitterParticipant -> ParticipantAttributes(Submission, TrustLevel.Vip)),
-      packages = Seq(submitterParticipant, signatoryParticipant).map(
-        VettedPackages(_, Seq(ExampleTransactionFactory.packageId))
-      ),
+      packages =
+        Seq(submitterParticipant, signatoryParticipant, observerParticipant, extraParticipant).map(
+          VettedPackages(_, Seq(ExampleTransactionFactory.packageId))
+        ),
     )
 
   def defaultTestingIdentityFactory: TestingIdentityFactory =
@@ -432,7 +439,10 @@ class ExampleTransactionFactory(
           rootRbContext,
         )
 
-        result.withSubmittingAdminParty(submittingAdminPartyO, confirmationPolicy)
+        if (protocolVersion >= ProtocolVersion.v6)
+          result.withSubmittingAdminPartyQuorum(submittingAdminPartyO, confirmationPolicy)
+        else
+          result.withSubmittingAdminParty(submittingAdminPartyO, confirmationPolicy)
       }
   }
 
@@ -534,6 +544,7 @@ class ExampleTransactionFactory(
         asSerializableRaw(suffixedContractInstance, agreementText),
         cantonContractIdVersion,
       )
+      .value
 
     contractSalt.unwrap -> unicum
   }
@@ -593,9 +604,14 @@ class ExampleTransactionFactory(
         10.seconds,
       )
     val viewConfirmationParameters =
-      confirmationPolicy.withSubmittingAdminParty(submittingAdminPartyO)(
-        ViewConfirmationParameters.create(rawInformees, rawThreshold)
-      )
+      if (protocolVersion >= ProtocolVersion.v6)
+        confirmationPolicy.withSubmittingAdminPartyQuorum(submittingAdminPartyO)(
+          ViewConfirmationParameters.create(rawInformees, rawThreshold)
+        )
+      else
+        confirmationPolicy.withSubmittingAdminParty(submittingAdminPartyO)(
+          ViewConfirmationParameters.create(rawInformees, rawThreshold)
+        )
 
     val viewCommonData =
       ViewCommonData.tryCreate(cryptoOps)(
@@ -936,7 +952,7 @@ class ExampleTransactionFactory(
           Witnesses(
             NonEmpty(
               List,
-              view0.viewCommonData.tryUnwrap.viewConfirmationParameters.informees,
+              view0.viewCommonData.tryUnwrap.viewConfirmationParameters.informeesIds,
             )
           ),
         )
@@ -1297,7 +1313,7 @@ class ExampleTransactionFactory(
           Witnesses(
             NonEmpty(
               List,
-              example.view0.viewCommonData.tryUnwrap.viewConfirmationParameters.informees,
+              example.view0.viewCommonData.tryUnwrap.viewConfirmationParameters.informeesIds,
             )
           ),
         )
@@ -1412,9 +1428,10 @@ class ExampleTransactionFactory(
         cid,
         contractInstance = create130Inst,
         signatories = Set(signatory),
+        observers = Set(extra),
         agreementText = create130Agreement,
       )
-    val create130disc: LfHash = discriminator(create130seed, Set(signatory))
+    val create130disc: LfHash = discriminator(create130seed, Set(signatory, extra))
     val lfCreate130: LfNodeCreate = genCreate130(LfContractId.V1(create130disc))
 
     def genExercise131(cid: LfContractId): LfNodeExercises =
@@ -1437,9 +1454,10 @@ class ExampleTransactionFactory(
         cid,
         contractInstance = create1310Inst,
         signatories = Set(submitter),
+        observers = Set(extra),
         agreementText = create1310Agreement,
       )
-    val create1310disc: LfHash = discriminator(create1310seed, Set(submitter))
+    val create1310disc: LfHash = discriminator(create1310seed, Set(submitter, extra))
     val lfCreate1310: LfNodeCreate = genCreate1310(LfContractId.V1(create1310disc))
 
     override lazy val versionedUnsuffixedTransaction: LfVersionedTransaction =
@@ -1600,6 +1618,7 @@ class ExampleTransactionFactory(
         create130Agreement,
         create130disc,
         signatories = Set(signatory),
+        observers = Set(extra),
       )
     val create130: LfNodeCreate = genCreate130(create130Id)
 
@@ -1619,6 +1638,7 @@ class ExampleTransactionFactory(
         create1310Agreement,
         create1310disc,
         signatories = Set(submitter),
+        observers = Set(extra),
       )
     val create1310: LfNodeCreate = genCreate1310(create1310Id)
 
@@ -1918,7 +1938,7 @@ class ExampleTransactionFactory(
         cid,
         children = List(nodeId(childIndex)),
         signatories = Set(signatory),
-        observers = Set.empty,
+        observers = Set(extra),
         actingParties = Set(signatory),
       )
 
@@ -2585,14 +2605,14 @@ class ExampleTransactionFactory(
         cid,
         consuming = false,
         actingParties = Set(submitter),
-        signatories = Set(submitter),
+        signatories = Set(submitter, signatory),
         observers = Set(observer),
         children = List(nodeId(childIndex)),
       )
     val lfExercise11: LfNodeExercises = genExerciseN(lfCreate10Id, 4)
 
     val create110seed: LfHash = deriveNodeSeed(1, 1, 0)
-    val create110disc: LfHash = discriminator(create110seed, Set(submitter))
+    val create110disc: LfHash = discriminator(create110seed, Set(submitter, signatory))
     def genCreate110(
         cid: LfContractId,
         contractInst: LfContractInst,
@@ -2601,7 +2621,7 @@ class ExampleTransactionFactory(
       createNode(
         cid,
         contractInstance = contractInst,
-        signatories = Set(submitter),
+        signatories = Set(submitter, signatory),
         observers = Set.empty,
         agreementText = agreementText,
       )
@@ -2729,7 +2749,7 @@ class ExampleTransactionFactory(
         create110Inst,
         create110Agreement,
         create110disc,
-        signatories = Set(submitter),
+        signatories = Set(submitter, signatory),
       )
     val create110: LfNodeCreate = genCreate110(create110Id, create110Inst, create110Agreement)
 

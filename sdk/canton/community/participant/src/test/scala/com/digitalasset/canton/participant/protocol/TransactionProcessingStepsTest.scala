@@ -13,7 +13,7 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.Transac
 import com.digitalasset.canton.participant.protocol.submission.ConfirmationRequestFactory
 import com.digitalasset.canton.participant.protocol.validation.*
 import com.digitalasset.canton.participant.store.ContractStore
-import com.digitalasset.canton.protocol.{ContractMetadata, LfContractId, SerializableContract}
+import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
@@ -37,13 +37,12 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
     serializableContractAuthenticator = new SerializableContractAuthenticator {
       val behaviors: Map[SerializableContract, Either[String, Unit]] =
         contractAuthenticatorBehaviors.toMap
-      override def authenticate(contract: SerializableContract): Either[String, Unit] = behaviors(
-        contract
-      )
-      override def verifyMetadata(
+
+      override private[protocol] def authenticate(
+          purpose: SerializableContractAuthenticator.AuthenticationPurpose,
           contract: SerializableContract,
-          metadata: ContractMetadata,
-      ): Either[String, Unit] = Right(())
+      ): Either[String, Unit] =
+        behaviors(contract)
     },
     new AuthenticationValidator(),
     new AuthorizationValidator(participantId),

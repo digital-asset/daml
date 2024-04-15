@@ -30,7 +30,7 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.existentials
 
-class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
+class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
 
   private implicit val ec: ExecutionContext = directExecutionContext
   private lazy val localVerdictProtocolVersion =
@@ -76,7 +76,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
     val viewCommonData2 =
       ViewCommonData.tryCreate(hashOps)(
         ViewConfirmationParameters.tryCreate(
-          Set(bob.party, charlie.party),
+          Map(bob.party -> bob.requiredTrustLevel, charlie.party -> charlie.requiredTrustLevel),
           Seq(Quorum.create(Set(bob), NonNegativeInt.tryCreate(2))),
         ),
         salt(54170),
@@ -85,7 +85,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
     val viewCommonData1 =
       ViewCommonData.tryCreate(hashOps)(
         ViewConfirmationParameters.tryCreate(
-          Set(alice.party, bob.party),
+          Map(alice.party -> alice.requiredTrustLevel, bob.party -> bob.requiredTrustLevel),
           Seq(Quorum.create(Set(alice, bob), NonNegativeInt.tryCreate(3))),
         ),
         salt(54171),
@@ -111,7 +111,11 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
       TransactionView.tryCreate(hashOps)(
         ViewCommonData.tryCreate(hashOps)(
           ViewConfirmationParameters.tryCreate(
-            Set(aliceVip.party, bobVip.party, charlie.party),
+            Map(
+              aliceVip.party -> aliceVip.requiredTrustLevel,
+              bobVip.party -> bobVip.requiredTrustLevel,
+              charlie.party -> charlie.requiredTrustLevel,
+            ),
             Seq(Quorum.create(Set(aliceVip, bobVip), NonNegativeInt.tryCreate(4))),
           ),
           salt(54171),
@@ -480,7 +484,11 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
 
       val viewCommonData1 = ViewCommonData.tryCreate(hashOps)(
         ViewConfirmationParameters.tryCreate(
-          Set(alice.party, bob.party, charlie.party),
+          Map(
+            alice.party -> alice.requiredTrustLevel,
+            bob.party -> bob.requiredTrustLevel,
+            dave.party -> dave.requiredTrustLevel,
+          ),
           Seq(Quorum.create(Set(alice, bob), NonNegativeInt.tryCreate(3))),
         ),
         salt(54170),
@@ -488,7 +496,11 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
       )
       val viewCommonData2 = ViewCommonData.tryCreate(hashOps)(
         ViewConfirmationParameters.tryCreate(
-          Set(alice.party, bob.party, dave.party),
+          Map(
+            alice.party -> alice.requiredTrustLevel,
+            bob.party -> bob.requiredTrustLevel,
+            dave.party -> dave.requiredTrustLevel,
+          ),
           Seq(Quorum.create(Set(alice, bob, dave), NonNegativeInt.tryCreate(3))),
         ),
         salt(54171),

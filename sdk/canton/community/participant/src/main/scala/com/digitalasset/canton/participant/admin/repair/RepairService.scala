@@ -12,6 +12,7 @@ import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.ledger.api.v1.value.{Identifier, Record}
 import com.daml.lf.data.{Bytes, ImmArray}
+import com.daml.lf.transaction.TransactionVersion
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -1375,6 +1376,7 @@ object RepairService {
         lfContractId: LfContractId,
         ledgerTime: Instant,
         contractSalt: Option[Salt],
+        transactionVersion: Option[TransactionVersion],
     )(implicit namedLoggingContext: NamedLoggingContext): Either[String, SerializableContract] = {
       for {
         template <- LedgerApiFieldValidations.validateIdentifier(templateId).leftMap(_.getMessage)
@@ -1384,7 +1386,11 @@ object RepairService {
           .leftMap(e => s"Failed to validate arguments: ${e}")
 
         argsVersionedValue = LfVersioned(
-          protocol.DummyTransactionVersion, // Version is ignored by daml engine upon RepairService.addContract
+          // Version is ignored by daml engine upon RepairService.addContract
+          // However, it's needed for passing the contract_id recomputation checks
+          // for LF versions at least 1.16 (see recompute_contract_ids),
+          // for which we can extract it from the created_event_blob.
+          transactionVersion.getOrElse(protocol.DummyTransactionVersion),
           argsValue,
         )
 
@@ -1434,6 +1440,7 @@ object RepairService {
           LfContractId,
           Option[Salt],
           LedgerCreateTime,
+          TransactionVersion,
       ),
     ] = {
       val contractInstance = contract.rawContractInstance.contractInstance
@@ -1454,6 +1461,7 @@ object RepairService {
               contract.contractId,
               contract.contractSalt,
               contract.ledgerCreateTime,
+              contractInstance.version,
             )
           },
         )

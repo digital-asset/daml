@@ -31,10 +31,11 @@ import com.digitalasset.canton.ledger.participant.state.v2.metrics.{
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{ApiRequestLogger, ClientChannelBuilder}
+import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
-import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticatorImpl
+import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.platform.LedgerApiServer
-import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
+import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateUpgradableContract
 import com.digitalasset.canton.platform.apiserver.ratelimiting.{
   RateLimitingInterceptor,
   ThreadpoolCheck,
@@ -53,7 +54,6 @@ import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.digitalasset.canton.platform.store.dao.events.ContractLoader
-import com.digitalasset.canton.protocol.UnicumGenerator
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
 import io.grpc.ServerInterceptor
@@ -67,10 +67,10 @@ import scala.concurrent.Future
 /** The StartableStoppableLedgerApi enables a canton participant node to start and stop the ledger API server
   * depending on whether the participant node is a High Availability active or passive replica.
   *
-  * @param config ledger api server configuration
+  * @param config                      ledger api server configuration
   * @param participantDataSourceConfig configuration for the data source (e.g., jdbc url)
-  * @param dbConfig the Index DB config
-  * @param executionContext the execution context
+  * @param dbConfig                    the Index DB config
+  * @param executionContext            the execution context
   */
 class StartableStoppableLedgerApiServer(
     config: CantonLedgerApiServerWrapper.Config,
@@ -79,6 +79,7 @@ class StartableStoppableLedgerApiServer(
     telemetry: Telemetry,
     futureSupervisor: FutureSupervisor,
     multiDomainEnabled: Boolean,
+    parameters: ParticipantNodeParameters,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     actorSystem: ActorSystem,
@@ -97,6 +98,7 @@ class StartableStoppableLedgerApiServer(
   private val ledgerApiResource = new AtomicReference[Option[Resource[Unit]]](None)
 
   override protected def loggerFactory: NamedLoggerFactory = config.loggerFactory
+
   override protected def timeouts: ProcessingTimeout =
     config.cantonParameterConfig.processingTimeouts
 
@@ -282,12 +284,13 @@ class StartableStoppableLedgerApiServer(
       packageMetadataStore = new InMemoryPackageMetadataStore(
         inMemoryState.packageMetadataView
       )
-      serializableContractAuthenticator = new SerializableContractAuthenticatorImpl(
-        new UnicumGenerator(config.syncService.pureCryptoApi)
+      serializableContractAuthenticator = SerializableContractAuthenticator(
+        config.syncService.pureCryptoApi,
+        parameters,
       )
 
-      authenticateContract: AuthenticateContract = c =>
-        serializableContractAuthenticator.authenticate(c)
+      authenticateUpgradableContract: AuthenticateUpgradableContract =
+        serializableContractAuthenticator.authenticateUpgradableContract _
 
       timedWriteService = new TimedWriteService(config.syncService, config.metrics)
       _ <- ApiServiceOwner(
@@ -308,6 +311,7 @@ class StartableStoppableLedgerApiServer(
         configurationLoadTimeout = config.serverConfig.configurationLoadTimeout,
         managementServiceTimeout = config.serverConfig.managementServiceTimeout,
         userManagement = config.serverConfig.userManagementService,
+        partyManagementServiceConfig = config.serverConfig.partyManagementService,
         tls = config.serverConfig.tls
           .map(LedgerApiServerConfig.ledgerApiServerTlsConfigFromCantonServerConfig),
         address = Some(config.serverConfig.address),
@@ -341,7 +345,7 @@ class StartableStoppableLedgerApiServer(
         telemetry = telemetry,
         loggerFactory = loggerFactory,
         multiDomainEnabled = multiDomainEnabled,
-        authenticateContract = authenticateContract,
+        authenticateUpgradableContract = authenticateUpgradableContract,
         dynParamGetter = config.syncService.dynamicDomainParameterGetter,
       )
       _ <- startHttpApiIfEnabled
