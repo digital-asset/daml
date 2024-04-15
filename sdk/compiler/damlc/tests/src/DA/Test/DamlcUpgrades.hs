@@ -111,7 +111,8 @@ tests damlc =
               (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A agreement:\n  The upgraded template A has changed the definition of agreement.")
               [ ( "daml/MyLib.daml"
                 , unlines
-                      [ "module MyLib where"
+                      [ "{-# OPTIONS -Wno-template-agreement #-}"
+                      , "module MyLib where"
                       , "template A with"
                       , "    p : Party"
                       , "    q : Party"
@@ -123,7 +124,8 @@ tests damlc =
               ]
               [ ("daml/MyLib.daml"
                 , unlines
-                      [ "module MyLib where"
+                      [ "{-# OPTIONS -Wno-template-agreement #-}"
+                      , "module MyLib where"
                       , "template A with"
                       , "    p : Party"
                       , "    q : Party"
@@ -249,7 +251,7 @@ tests damlc =
               ]
         , test
               "Fails when template adds key type"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A key:\n  The upgraded template A has added a key where it didn't have one previously.")
+              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A key:\n  The upgraded template A cannot add a key where it didn't have one previously.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -605,7 +607,7 @@ tests damlc =
                       , "    signatory p"
                       , "    choice C : A"
                       , "      controller p"
-                      , "      do pure (A p (Just p))"
+                      , "      do pure (A p (Some p))"
                       ]
                 )
               ]
@@ -676,6 +678,254 @@ tests damlc =
                       , "        new : Optional Int"
                       , "      controller p"
                       , "      do pure ()"
+                      ]
+                )
+              ]
+        , test
+              "Fails when a top-level record adds a non-optional field"
+              (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded data type A has added new fields, but those fields are not Optional.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = A { x : Int }"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = A { x : Int, y : Text }"
+                      ]
+                )
+              ]
+        , test
+              "Succeeds when a top-level record adds an optional field at the end"
+              Succeed
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = A { x : Int }"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = A { x : Int, y : Optional Text }"
+                      ]
+                )
+              ]
+        , test
+              "Fails when a top-level record adds an optional field before the end"
+              (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded data type A has changed the order of its fields - any new fields must be added at the end of the record.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = A { x : Int }"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = A { y : Optional Text, x : Int }"
+                      ]
+                )
+              ]
+        , test
+              "Succeeds when a top-level variant adds a variant"
+              Succeed
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X { x : Int } | Y { y : Int }"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X { x : Int } | Y { y : Int } | Z { z : Int }"
+                      ]
+                )
+              ]
+        , test
+              "Fails when a top-level variant removes a variant"
+              (FailWithError "\ESC\\[0;91merror type checking <none>:\n  Data type A.Z appears in package that is being upgraded, but does not appear in this package.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X { x : Int } | Y { y : Int } | Z { z : Int }"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X { x : Int } | Y { y : Int }"
+                      ]
+                )
+              ]
+        , test
+              "Fail when a top-level variant changes changes the order of its variants"
+              (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the variant.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X { x : Int } | Z { z : Int } | Y { y : Int }"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X { x : Int } | Y { y : Int } | Z { z : Int }"
+                      ]
+                )
+              ]
+        , test
+              "Fails when a top-level variant adds a field to a variant's type"
+              (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded variant constructor Y from variant A has added a field.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X { x : Int } | Y { y : Int }"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X { x : Int } | Y { y : Int, y2 : Int }"
+                      ]
+                )
+              ]
+        , test
+              "Succeeds when a top-level variant adds an optional field to a variant's type"
+              Succeed
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X { x : Int } | Y { y : Int }"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X { x : Int } | Y { y : Int, y2 : Optional Int }"
+                      ]
+                )
+              ]
+        , test
+              "Succeed when a top-level enum adds a field"
+              Succeed
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X | Y"
+                      ]
+                )
+              ]
+        , test
+              "Fail when a top-level enum changes changes the order of its variants"
+              (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the enum.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X | Y | Z"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X | Z | Y"
+                      ]
+                )
+              ]
+        , test
+              "Succeeds when a top-level type synonym changes"
+              Succeed
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data X = X"
+                      , "data Y = Y"
+                      , "type A = X"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data X = X"
+                      , "data Y = Y"
+                      , "type A = Y"
+                      ]
+                )
+              ]
+        , test
+              "Succeeds when two deeply nested type synonyms resolve to the same datatypes"
+              Succeed
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "type Synonym1 a = (a, Synonym3)"
+                      , "type Synonym2 = Int"
+                      , "type Synonym3 = Text"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Synonym1 Synonym2"
+                      , "  where signatory [p]"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "type Synonym1 a = (Synonym2, a)"
+                      , "type Synonym2 = Int"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Synonym1 Text"
+                      , "  where signatory [p]"
+                      ]
+                )
+              ]
+        , test
+              "Fails when two deeply nested type synonyms resolve to different datatypes"
+              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A has changed the types of some of its original fields.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "type Synonym1 a = (a, Synonym3)"
+                      , "type Synonym2 = Int"
+                      , "type Synonym3 = Text"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Synonym1 Synonym2"
+                      , "  where signatory [p]"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "type Synonym1 a = (a, Synonym3)"
+                      , "type Synonym2 = Text"
+                      , "type Synonym3 = Int"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Synonym1 Synonym2"
+                      , "  where signatory [p]"
                       ]
                 )
               ]

@@ -97,8 +97,8 @@ data DamlStartResource = DamlStartResource
     , jsonApiPort :: PortNumber
     }
 
-damlStart :: SdkVersioned => FilePath -> IO DamlStartResource
-damlStart tmpDir = do
+damlStart :: SdkVersioned => FilePath -> Bool -> IO DamlStartResource
+damlStart tmpDir _disableUpgradeValidation = do
     let projDir = tmpDir </> "assistant-integration-tests"
     createDirectoryIfMissing True (projDir </> "daml")
     let scriptOutputFile = "script-output.json"
@@ -189,7 +189,8 @@ tests tmpDir =
                 callCommandSilentIn tmpDir "daml new --list"
             , packagingTests tmpDir
             , damlToolTests
-            , withResource (damlStart (tmpDir </> "sandbox-canton")) stop damlStartTests
+            , withResource (damlStart (tmpDir </> "sandbox-canton") False) stop damlStartTests
+            , withResource (damlStart (tmpDir </> "sandbox-canton-novalidate") True) stop damlStartTestsWithoutValidation
             , damlStartNotSharedTest
             , cleanTests cleanDir
             , templateTests
@@ -437,60 +438,6 @@ damlStartTests getDamlStart =
                         ("http://localhost:" <> show navigatorPort)
                         []
 
-        subtest "hot reload" $ do
-            DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan, alice, aliceHeaders} <- getDamlStart
-            stdoutReadChan <- atomically $ dupTChan stdoutChan
-            writeFileUTF8 (projDir </> "daml/Main.daml") $
-                unlines
-                    [ "module Main where"
-                    , "import Daml.Script"
-                    , "template S with newFieldName : Party where signatory newFieldName"
-                    , "init : Script Party"
-                    , "init = do"
-                    , "  let isAlice x = displayName x == Some \"Alice\""
-                    , "  Some aliceDetails <- find isAlice <$> listKnownParties"
-                    , "  let alice = party aliceDetails"
-                    , "  alice `submit` createCmd (S alice)"
-                    , "  pure alice"
-                    ]
-            hPutChar startStdin 'r'
-            hFlush startStdin
-            untilM_ (pure ()) $ do
-                line <- atomically $ readTChan stdoutReadChan
-                pure ("Rebuild complete" `isInfixOf` line)
-            initialRequest <-
-                parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
-            manager <- newManager defaultManagerSettings
-            let queryRequestT =
-                    initialRequest
-                        { method = "POST"
-                        , requestHeaders = aliceHeaders
-                        , requestBody =
-                            RequestBodyLBS $
-                            Aeson.encode $
-                            Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:T"]]
-                        }
-            let queryRequestS =
-                    initialRequest
-                        { method = "POST"
-                        , requestHeaders = aliceHeaders
-                        , requestBody =
-                            RequestBodyLBS $
-                            Aeson.encode $
-                            Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:S"]]
-                        }
-            queryResponseT <- httpLbs queryRequestT manager
-            queryResponseS <- httpLbs queryRequestS manager
-            -- check that there are no more active contracts of template T
-            statusCode (responseStatus queryResponseT) @?= 200
-            preview (key "result" . _Array) (responseBody queryResponseT) @?= Just Vector.empty
-            -- check that a new contract of template S was created
-            statusCode (responseStatus queryResponseS) @?= 200
-            preview
-                (key "result" . nth 0 . key "payload" . key "newFieldName")
-                (responseBody queryResponseS) @?=
-                Just (fromString alice)
-
         subtest "run a daml deploy without project parties" $ do
             DamlStartResource {projDir, sandboxPort} <- getDamlStart
             copyFile (projDir </> "daml.yaml") (projDir </> "daml.yaml.back")
@@ -506,6 +453,64 @@ damlStartTests getDamlStart =
                 ]
             callCommandSilentIn projDir $ unwords ["daml", "deploy", "--host localhost", "--port", show sandboxPort]
             copyFile (projDir </> "daml.yaml.back") (projDir </> "daml.yaml")
+
+damlStartTestsWithoutValidation :: SdkVersioned => IO DamlStartResource -> TestTree
+damlStartTestsWithoutValidation getDamlStart =
+    -- We use testCaseSteps to make sure each of these tests runs in sequence, not in parallel.
+    testCase "daml start without upgrade validation - hot reload" $ do
+        DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan, alice, aliceHeaders} <- getDamlStart
+        stdoutReadChan <- atomically $ dupTChan stdoutChan
+        writeFileUTF8 (projDir </> "daml/Main.daml") $
+            unlines
+                [ "module Main where"
+                , "import Daml.Script"
+                , "template S with newFieldName : Party where signatory newFieldName"
+                , "init : Script Party"
+                , "init = do"
+                , "  let isAlice x = displayName x == Some \"Alice\""
+                , "  Some aliceDetails <- find isAlice <$> listKnownParties"
+                , "  let alice = party aliceDetails"
+                , "  alice `submit` createCmd (S alice)"
+                , "  pure alice"
+                ]
+        hPutChar startStdin 'r'
+        hFlush startStdin
+        untilM_ (pure ()) $ do
+            line <- atomically $ readTChan stdoutReadChan
+            pure ("Rebuild complete" `isInfixOf` line)
+        initialRequest <-
+            parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
+        manager <- newManager defaultManagerSettings
+        let queryRequestT =
+                initialRequest
+                    { method = "POST"
+                    , requestHeaders = aliceHeaders
+                    , requestBody =
+                        RequestBodyLBS $
+                        Aeson.encode $
+                        Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:T"]]
+                    }
+        let queryRequestS =
+                initialRequest
+                    { method = "POST"
+                    , requestHeaders = aliceHeaders
+                    , requestBody =
+                        RequestBodyLBS $
+                        Aeson.encode $
+                        Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:S"]]
+                    }
+        queryResponseT <- httpLbs queryRequestT manager
+        queryResponseS <- httpLbs queryRequestS manager
+        -- check that there are no more active contracts of template T
+        statusCode (responseStatus queryResponseT) @?= 200
+        preview (key "result" . _Array) (responseBody queryResponseT) @?= Just Vector.empty
+        -- check that a new contract of template S was created
+        statusCode (responseStatus queryResponseS) @?= 200
+        preview
+            (key "result" . nth 0 . key "payload" . key "newFieldName")
+            (responseBody queryResponseS) @?=
+            Just (fromString alice)
+
 
 -- | daml start tests that don't use the shared server
 damlStartNotSharedTest :: SdkVersioned => TestTree

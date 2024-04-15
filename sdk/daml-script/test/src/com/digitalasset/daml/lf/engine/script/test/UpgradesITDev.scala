@@ -17,6 +17,7 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
 
   final override protected lazy val nParticipants = 2
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
+  override val disableUpgradeValidation = true
 
   final override protected lazy val devMode = true
 
