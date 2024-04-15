@@ -448,7 +448,7 @@ tests damlAssistant =
         , assertManifest "Output dar correctly scraped"
             [ MultiPackage ["./package-a", "./package-b"] []
             , Dir "package-a"
-              [ DamlYaml "package-a" "0.0.1" Nothing "daml" (Just "./my-dar.dar") [] [] []
+              [ (damlYaml "package-a" "0.0.1" []) {dyOutPath = Just "./my-dar.dar"}
               , Dir "daml"
                   [ GenericFile "MyModule.daml" "module MyModule where"
                   ]

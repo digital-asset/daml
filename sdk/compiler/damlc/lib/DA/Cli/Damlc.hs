@@ -1711,7 +1711,7 @@ execGenerateMultiPackageManifest multiPackageLocation outputLocation =
               relativeDamlFileHashes = manifestFileHash <$> relativeDamlFilesMap
               fullHash = manifestFileHash $ BSUTF8.fromString $ Map.foldMapWithKey (<>) relativeDamlFileHashes
 
-          (packageDeps, darDeps) <- fmap partitionEithers $ withCurrentDirectory packagePath $ forM bmDataDeps $ \depPath -> do
+          (packageDeps, darDeps) <- fmap partitionEithers $ withCurrentDirectory packagePath $ forM bmDarDeps $ \depPath -> do
             canonDepPath <- canonicalizePath depPath
             case Map.lookup canonDepPath configMap of
               Just BuildMultiPackageConfig {..} -> pure $ Left $ unitIdString $ pkgNameVersion bmName $ Just bmVersion
