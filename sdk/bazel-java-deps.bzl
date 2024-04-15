@@ -69,7 +69,7 @@ def install_java_deps():
             "ch.qos.logback:logback-core:1.4.14",
             "com.auth0:java-jwt:4.2.1",
             "com.auth0:jwks-rsa:0.21.2",
-            "com.chuusai:shapeless_{}:2.3.6".format(scala_major_version),
+            "com.chuusai:shapeless_{}:2.3.7".format(scala_major_version),
             "com.fasterxml.jackson.core:jackson-core:2.14.3",
             "com.fasterxml.jackson.core:jackson-databind:2.14.3",
             "com.github.ben-manes.caffeine:caffeine:3.1.2",

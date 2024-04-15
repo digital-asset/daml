@@ -94,6 +94,7 @@ common_scalacopts = version_specific.get(scala_major_version, []) + [
     "-Ywarn-unused:imports",
     "-Ywarn-unused:nowarn",
     "-Ywarn-unused",
+    "-Ymacro-annotations",
 ]
 
 plugin_deps = [
