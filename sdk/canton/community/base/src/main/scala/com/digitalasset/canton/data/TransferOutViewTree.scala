@@ -85,7 +85,7 @@ object TransferOutViewTree
   override val name: String = "TransferOutViewTree"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferViewTree)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.TransferViewTree)(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
       _.toProtoV30.toByteString,
     )
@@ -106,11 +106,14 @@ object TransferOutViewTree
       transferOutViewTreeP: v30.TransferViewTree
   ): ParsingResult[TransferOutViewTree] = {
     val (hashOps, expectedProtocolVersion) = context
+    val sourceProtocolVersion = SourceProtocolVersion(expectedProtocolVersion)
 
     for {
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       res <- GenTransferViewTree.fromProtoV30(
-        TransferOutCommonData.fromByteString(expectedProtocolVersion)(hashOps),
+        TransferOutCommonData.fromByteString(expectedProtocolVersion)(
+          (hashOps, sourceProtocolVersion)
+        ),
         TransferOutView.fromByteString(expectedProtocolVersion)(hashOps),
       )((commonData, view) =>
         TransferOutViewTree(commonData, view)(
@@ -165,7 +168,6 @@ final case class TransferOutCommonData private (
       adminParties = adminParties.toSeq,
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
       submitterMetadata = Some(submitterMetadata.toProtoV30),
-      sourceProtocolVersion = protocolVersion.v.toProtoPrimitive,
     )
 
   override protected[this] def toByteStringUnmemoized: ByteString =
@@ -190,12 +192,12 @@ final case class TransferOutCommonData private (
 object TransferOutCommonData
     extends HasMemoizedProtocolVersionedWithContextCompanion[
       TransferOutCommonData,
-      HashOps,
+      (HashOps, SourceProtocolVersion),
     ] {
   override val name: String = "TransferOutCommonData"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferOutCommonData)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.TransferOutCommonData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -221,11 +223,12 @@ object TransferOutCommonData
   )(hashOps, protocolVersion, None)
 
   private[this] def fromProtoV30(
-      hashOps: HashOps,
+      context: (HashOps, SourceProtocolVersion),
       transferOutCommonDataP: v30.TransferOutCommonData,
   )(
       bytes: ByteString
   ): ParsingResult[TransferOutCommonData] = {
+    val (hashOps, sourceProtocolVersion) = context
     val v30.TransferOutCommonData(
       saltP,
       sourceDomainP,
@@ -233,7 +236,6 @@ object TransferOutCommonData
       adminPartiesP,
       uuidP,
       sourceMediatorP,
-      protocolVersionP,
       submitterMetadataPO,
     ) = transferOutCommonDataP
 
@@ -244,7 +246,6 @@ object TransferOutCommonData
       stakeholders <- stakeholdersP.traverse(ProtoConverter.parseLfPartyId)
       adminParties <- adminPartiesP.traverse(ProtoConverter.parseLfPartyId)
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP)
-      protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
       submitterMetadata <- ProtoConverter
         .required("submitter_metadata", submitterMetadataPO)
         .flatMap(TransferSubmitterMetadata.fromProtoV30)
@@ -257,7 +258,7 @@ object TransferOutCommonData
       adminParties.toSet,
       uuid,
       submitterMetadata,
-    )(hashOps, SourceProtocolVersion(protocolVersion), Some(bytes))
+    )(hashOps, sourceProtocolVersion, Some(bytes))
   }
 }
 
@@ -325,7 +326,7 @@ object TransferOutView
   override val name: String = "TransferOutView"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferOutView)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.TransferOutView)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )

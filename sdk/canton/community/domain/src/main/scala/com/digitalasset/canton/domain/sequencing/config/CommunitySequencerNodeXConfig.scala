@@ -47,7 +47,7 @@ final case class CommunitySequencerNodeXConfig(
     )
     with ConfigDefaults[DefaultPorts, CommunitySequencerNodeXConfig] {
 
-  override val nodeTypeName: String = "sequencerx"
+  override val nodeTypeName: String = "sequencer"
 
   override def withDefaults(ports: DefaultPorts): CommunitySequencerNodeXConfig = {
     this

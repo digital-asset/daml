@@ -570,19 +570,17 @@ object SpeedyTest {
     val alice: IdString.Party = Ref.Party.assertFromString("alice")
     val localContractId: ContractId =
       ContractId.V1(crypto.Hash.hashPrivateKey("test-local-contract-id"))
-    val localContractKey: GlobalKey = buildContractKey(alice, "local-label")
+    val localContractKey: GlobalKey = buildContractKey(alice, somePackageName, "local-label")
     val localContractInfo: ContractInfo =
       buildHouseContractInfo(alice, alice, label = "local-label")
     val globalContractId: ContractId =
       ContractId.V1(crypto.Hash.hashPrivateKey("test-global-contract-id"))
-    val globalContractKey: GlobalKey = buildContractKey(alice, "global-label")
     val globalContractInfo: ContractInfo =
       buildHouseContractInfo(alice, alice, label = "global-label")
     val disclosedContractId: ContractId =
       ContractId.V1(crypto.Hash.hashPrivateKey("test-disclosed-contract-id"))
     val disclosedContract: ContractInfo =
       buildDisclosedHouseContract(alice, alice, label = "disclosed-label")
-    val disclosedContractKey: GlobalKey = buildContractKey(alice, "disclosed-label")
     val disclosedContractInfo: ContractInfo =
       buildHouseContractInfo(alice, alice, label = "disclosed-label")
     val testLogger: WarningLog = new WarningLog(ContextualizedLogger.createFor("daml.warnings"))

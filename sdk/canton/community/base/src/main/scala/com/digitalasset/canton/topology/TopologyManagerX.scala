@@ -26,7 +26,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{MonadUtil, SimpleExecutionQueue}
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
@@ -44,6 +44,7 @@ class DomainTopologyManagerX(
     override val store: TopologyStoreX[DomainStore],
     val outboxQueue: DomainOutboxQueue,
     enableTopologyTransactionValidation: Boolean,
+    protocolVersion: ProtocolVersion,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
@@ -52,6 +53,7 @@ class DomainTopologyManagerX(
       clock,
       crypto,
       store,
+      TopologyManagerX.PV(protocolVersion),
       timeouts,
       futureSupervisor,
       loggerFactory,
@@ -85,6 +87,7 @@ class AuthorizedTopologyManagerX(
       clock,
       crypto,
       store,
+      TopologyManagerX.NoPV,
       timeouts,
       futureSupervisor,
       loggerFactory,
@@ -108,6 +111,7 @@ abstract class TopologyManagerX[+StoreID <: TopologyStoreId](
     val clock: Clock,
     val crypto: Crypto,
     val store: TopologyStoreX[StoreID],
+    val managerVersion: TopologyManagerX.Version,
     val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
@@ -513,4 +517,20 @@ abstract class TopologyManagerX[+StoreID <: TopologyStoreId](
   override protected def onClosed(): Unit = Lifecycle.close(store, sequentialQueue)(logger)
 
   override def toString: String = s"TopologyManagerX[${store.storeId}]"
+}
+
+object TopologyManagerX {
+  sealed trait Version {
+    def validation: ProtocolVersionValidation
+    def serialization: ProtocolVersion
+  }
+  final case class PV(pv: ProtocolVersion) extends Version {
+    override def validation: ProtocolVersionValidation = ProtocolVersionValidation.PV(pv)
+    override def serialization: ProtocolVersion = pv
+  }
+
+  final case object NoPV extends Version {
+    override def validation: ProtocolVersionValidation = ProtocolVersionValidation.NoValidation
+    override def serialization: ProtocolVersion = ProtocolVersion.latest
+  }
 }

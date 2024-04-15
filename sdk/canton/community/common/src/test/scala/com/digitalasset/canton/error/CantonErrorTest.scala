@@ -62,7 +62,9 @@ class CantonErrorTest extends BaseTestWordSpec {
     "allow to recover the recoverability from the string" in {
       implicit val klass = new ErrorClass(Nil)
       val code = new ErrorCode(id = "TEST_ERROR", ErrorCategory.ContentionOnSharedResources) {}
-      ErrorCodeUtils.errorCategoryFromString(code.toMsg("bla bla", None)) should contain(
+      ErrorCodeUtils.errorCategoryFromString(
+        code.toMsg("bla bla", None, limit = None)
+      ) should contain(
         ErrorCategory.ContentionOnSharedResources
       )
     }

@@ -46,7 +46,7 @@ version_specific = {
 # need to be updated with careful consideration.
 
 netty_tcnative_version = "2.0.61.Final"
-netty_version = "4.1.100.Final"
+netty_version = "4.1.108.Final"
 grpc_version = "1.60.0"
 protobuf_version = "3.24.0"
 pekko_version = "1.0.1"
@@ -83,7 +83,7 @@ def install_java_deps():
             "com.github.tototoshi:scala-csv_{}:1.3.10".format(scala_major_version),
             "com.google.code.findbugs:jsr305:3.0.2",
             "com.google.code.gson:gson:2.10",
-            "com.google.crypto.tink:tink:1.3.0",
+            "com.google.crypto.tink:tink:1.12.0",
             "com.google.guava:guava:{}".format(guava_version),
             "com.google.protobuf:protobuf-java-util:{}".format(protobuf_version),
             "com.google.protobuf:protobuf-java:{}".format(protobuf_version),

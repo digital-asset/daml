@@ -165,7 +165,7 @@ object Signature
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v30,
+      ProtocolVersion.v31,
       supportedProtoVersion(v30.Signature)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -364,7 +364,7 @@ object SigningPublicKey
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v30,
+      ProtocolVersion.v31,
       supportedProtoVersion(v30.SigningPublicKey)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -448,7 +448,7 @@ final case class SigningPrivateKey private[crypto] (
 object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey] {
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v30,
+      ProtocolVersion.v31,
       supportedProtoVersion(v30.SigningPrivateKey)(fromProtoV30),
       _.toProtoV30.toByteString,
     )

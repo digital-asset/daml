@@ -7,6 +7,7 @@ package com.digitalasset.canton.protocol.v30;
 
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/domain/api/v30/sequencer_service.proto";
+import "com/digitalasset/canton/protocol/v30/common_stable.proto";
 import "com/digitalasset/canton/protocol/v30/signed_content.proto";
 import "com/digitalasset/canton/v30/trace_context.proto";
 import "google/protobuf/wrappers.proto";
@@ -65,13 +66,6 @@ message Handshake {
 }
 
 // Messages used for synchronization between sequencer nodes
-
-message AggregationRule {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
-
-  repeated string eligible_members = 1;
-  int32 threshold = 2;
-}
 
 message StaticDomainParameters {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";

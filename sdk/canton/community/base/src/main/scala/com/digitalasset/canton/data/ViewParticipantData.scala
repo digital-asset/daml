@@ -34,6 +34,7 @@ import com.digitalasset.canton.{
   LfLookupByKeyCommand,
   LfPackageId,
   LfPartyId,
+  LfVersioned,
   ProtoDeserializationError,
   checked,
 }
@@ -82,7 +83,7 @@ final case class ViewParticipantData private (
     coreInputs: Map[LfContractId, InputContract],
     createdCore: Seq[CreatedContract],
     createdInSubviewArchivedInCore: Set[LfContractId],
-    resolvedKeys: Map[LfGlobalKey, SerializableKeyResolution],
+    resolvedKeys: Map[LfGlobalKey, LfVersioned[SerializableKeyResolution]],
     actionDescription: ActionDescription,
     rollbackContext: RollbackContext,
     salt: Salt,
@@ -131,9 +132,9 @@ final case class ViewParticipantData private (
       )
 
     def isAssignedKeyInconsistent(
-        keyWithResolution: (LfGlobalKey, SerializableKeyResolution)
+        keyWithResolution: (LfGlobalKey, LfVersioned[SerializableKeyResolution])
     ): Boolean = {
-      val (key, resolution) = keyWithResolution
+      val (key, LfVersioned(_, resolution)) = keyWithResolution
       resolution.resolution.fold(false) { cid =>
         val inconsistent = for {
           inputContract <- coreInputs.get(cid)
@@ -151,7 +152,7 @@ final case class ViewParticipantData private (
 
   def rootAction: RootAction =
     actionDescription match {
-      case CreateActionDescription(contractId, _seed, _version) =>
+      case CreateActionDescription(contractId, _seed) =>
         val createdContract = createdCore.headOption.getOrElse(
           throw InvalidViewParticipantData(
             show"No created core contracts declared for a view that creates contract $contractId at the root"
@@ -184,7 +185,6 @@ final case class ViewParticipantData private (
             actors,
             byKey,
             _seed,
-            _version,
             failed,
           ) =>
         val inputContract = coreInputs.getOrElse(
@@ -212,7 +212,7 @@ final case class ViewParticipantData private (
             templateId = templateId,
             contractKey = key,
             choiceId = choice,
-            argument = chosenValue,
+            argument = chosenValue.unversioned,
           )
         } else {
           LfExerciseCommand(
@@ -220,12 +220,12 @@ final case class ViewParticipantData private (
             interfaceId = interfaceId,
             contractId = inputContractId,
             choiceId = choice,
-            argument = chosenValue,
+            argument = chosenValue.unversioned,
           )
         }
         RootAction(cmd, actors, failed, packagePreference)
 
-      case FetchActionDescription(inputContractId, actors, byKey, _version) =>
+      case FetchActionDescription(inputContractId, actors, byKey) =>
         val inputContract = coreInputs.getOrElse(
           inputContractId,
           throw InvalidViewParticipantData(
@@ -247,8 +247,8 @@ final case class ViewParticipantData private (
         }
         RootAction(cmd, actors, failed = false, packageIdPreference = Set.empty)
 
-      case LookupByKeyActionDescription(key, _version) =>
-        val keyResolution = resolvedKeys.getOrElse(
+      case LookupByKeyActionDescription(LfVersioned(_version, key)) =>
+        val LfVersioned(_, keyResolution) = resolvedKeys.getOrElse(
           key,
           throw InvalidViewParticipantData(
             show"Key $key of LookupByKey root action is not resolved."
@@ -274,7 +274,7 @@ final case class ViewParticipantData private (
     coreInputs = coreInputs.values.map(_.toProtoV30).toSeq,
     createdCore = createdCore.map(_.toProtoV30),
     createdInSubviewArchivedInCore = createdInSubviewArchivedInCore.toSeq.map(_.toProtoPrimitive),
-    resolvedKeys = resolvedKeys.toList.map { case (k, res) => ResolvedKey(k, res).toProtoV30 },
+    resolvedKeys = resolvedKeys.toList.map(ResolvedKey.fromPair(_).toProtoV30),
     actionDescription = Some(actionDescription.toProtoV30),
     rollbackContext = if (rollbackContext.isEmpty) None else Some(rollbackContext.toProtoV30),
     salt = Some(salt.toProtoV30),
@@ -296,9 +296,9 @@ final case class ViewParticipantData private (
   )
 
   /** Extends [[resolvedKeys]] with the maintainers of assigned keys */
-  val resolvedKeysWithMaintainers: Map[LfGlobalKey, KeyResolutionWithMaintainers] =
-    resolvedKeys.fmap {
-      case assigned @ AssignedKey(contractId) =>
+  val resolvedKeysWithMaintainers: Map[LfGlobalKey, LfVersioned[KeyResolutionWithMaintainers]] =
+    resolvedKeys.fmap(_.map {
+      case AssignedKey(contractId) =>
         val maintainers =
           // checked by `inconsistentAssignedKey` above
           checked(
@@ -309,16 +309,16 @@ final case class ViewParticipantData private (
               ),
             )
           ).maintainers
-        AssignedKeyWithMaintainers(contractId, maintainers)(assigned.version)
+        AssignedKeyWithMaintainers(contractId, maintainers)
       case free @ FreeKey(_) => free
-    }
+    })
 
   @VisibleForTesting
   def copy(
       coreInputs: Map[LfContractId, InputContract] = this.coreInputs,
       createdCore: Seq[CreatedContract] = this.createdCore,
       createdInSubviewArchivedInCore: Set[LfContractId] = this.createdInSubviewArchivedInCore,
-      resolvedKeys: Map[LfGlobalKey, SerializableKeyResolution] = this.resolvedKeys,
+      resolvedKeys: Map[LfGlobalKey, LfVersioned[SerializableKeyResolution]] = this.resolvedKeys,
       actionDescription: ActionDescription = this.actionDescription,
       rollbackContext: RollbackContext = this.rollbackContext,
       salt: Salt = this.salt,
@@ -339,7 +339,7 @@ object ViewParticipantData
   override val name: String = "ViewParticipantData"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ViewParticipantData)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.ViewParticipantData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -366,7 +366,7 @@ object ViewParticipantData
       coreInputs: Map[LfContractId, InputContract],
       createdCore: Seq[CreatedContract],
       createdInSubviewArchivedInCore: Set[LfContractId],
-      resolvedKeys: Map[LfGlobalKey, SerializableKeyResolution],
+      resolvedKeys: Map[LfGlobalKey, LfVersioned[SerializableKeyResolution]],
       actionDescription: ActionDescription,
       rollbackContext: RollbackContext,
       salt: Salt,
@@ -402,7 +402,7 @@ object ViewParticipantData
       coreInputs: Map[LfContractId, InputContract],
       createdCore: Seq[CreatedContract],
       createdInSubviewArchivedInCore: Set[LfContractId],
-      resolvedKeys: Map[LfGlobalKey, SerializableKeyResolution],
+      resolvedKeys: Map[LfGlobalKey, LfVersioned[SerializableKeyResolution]],
       actionDescription: ActionDescription,
       rollbackContext: RollbackContext,
       salt: Salt,
@@ -451,7 +451,7 @@ object ViewParticipantData
       createdInSubviewArchivedInCore <- createdInSubviewArchivedInCoreP
         .traverse(ProtoConverter.parseLfContractId)
       resolvedKeys <- resolvedKeysP.traverse(
-        ResolvedKey.fromProtoV30(_).map(rk => rk.key -> rk.resolution)
+        ResolvedKey.fromProtoV30(_).map(_.toPair)
       )
       resolvedKeysMap = resolvedKeys.toMap
       actionDescription <- ProtoConverter

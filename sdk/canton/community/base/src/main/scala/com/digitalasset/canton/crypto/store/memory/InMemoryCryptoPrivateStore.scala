@@ -111,8 +111,8 @@ class InMemoryCryptoPrivateStore(
         .toEitherT
 
     val storedKey = key.purpose match {
-      case Signing => SigningPrivateKey.fromByteString(key.data)
-      case Encryption => EncryptionPrivateKey.fromByteString(key.data)
+      case Signing => SigningPrivateKey.fromTrustedByteString(key.data)
+      case Encryption => EncryptionPrivateKey.fromTrustedByteString(key.data)
     }
 
     for {

@@ -14,7 +14,7 @@ import com.digitalasset.canton.crypto.CryptoFactory.{
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.StaticDomainParameters
-import com.digitalasset.canton.version.{DomainProtocolVersion, ProtocolVersion}
+import com.digitalasset.canton.version.ProtocolVersion
 
 /** Configuration of domain parameters that all members connecting to a domain must adhere to.
   *
@@ -27,7 +27,6 @@ import com.digitalasset.canton.version.{DomainProtocolVersion, ProtocolVersion}
   * @param requiredSymmetricKeySchemes  The optional required symmetric key schemes that a member has to support. If none is specified, all the allowed schemes are required.
   * @param requiredHashAlgorithms       The optional required hash algorithms that a member has to support. If none is specified, all the allowed algorithms are required.
   * @param requiredCryptoKeyFormats     The optional required crypto key formats that a member has to support. If none is specified, all the supported algorithms are required.
-  * @param protocolVersion              The protocol version spoken on the domain. All participants and domain nodes attempting to connect to the sequencer need to support this protocol version to connect.
   * @param dontWarnOnDeprecatedPV       If true, then this domain will not emit a warning when configured to use a deprecated protocol version (such as 2.0.0).
   */
 final case class DomainParametersConfig(
@@ -36,9 +35,6 @@ final case class DomainParametersConfig(
     requiredSymmetricKeySchemes: Option[NonEmpty[Set[SymmetricKeyScheme]]] = None,
     requiredHashAlgorithms: Option[NonEmpty[Set[HashAlgorithm]]] = None,
     requiredCryptoKeyFormats: Option[NonEmpty[Set[CryptoKeyFormat]]] = None,
-    protocolVersion: DomainProtocolVersion = DomainProtocolVersion(
-      ProtocolVersion.latest
-    ),
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
     override val devVersionSupport: Boolean = true,
     override val dontWarnOnDeprecatedPV: Boolean = false,
@@ -51,19 +47,17 @@ final case class DomainParametersConfig(
     param("requiredSymmetricKeySchemes", _.requiredSymmetricKeySchemes),
     param("requiredHashAlgorithms", _.requiredHashAlgorithms),
     param("requiredCryptoKeyFormats", _.requiredCryptoKeyFormats),
-    param("protocolVersion", _.protocolVersion.version),
     param("devVersionSupport", _.devVersionSupport),
     param("dontWarnOnDeprecatedPV", _.dontWarnOnDeprecatedPV),
   )
-
-  override def initialProtocolVersion: ProtocolVersion = protocolVersion.version
 
   /** Converts the domain parameters config into a domain parameters protocol message.
     *
     * Sets the required crypto schemes based on the provided crypto config if they are unset in the config.
     */
   def toStaticDomainParameters(
-      cryptoConfig: CryptoConfig = CommunityCryptoConfig()
+      cryptoConfig: CryptoConfig = CommunityCryptoConfig(),
+      protocolVersion: ProtocolVersion,
   ): Either[String, StaticDomainParameters] = {
 
     def selectSchemes[S](
@@ -100,7 +94,7 @@ final case class DomainParametersConfig(
         selectAllowedHashAlgorithms,
       )
       newCryptoKeyFormats = requiredCryptoKeyFormats.getOrElse(
-        cryptoConfig.provider.supportedCryptoKeyFormatsForProtocol(protocolVersion.unwrap)
+        cryptoConfig.provider.supportedCryptoKeyFormatsForProtocol(protocolVersion)
       )
     } yield {
       StaticDomainParameters.create(
@@ -109,7 +103,7 @@ final case class DomainParametersConfig(
         requiredSymmetricKeySchemes = newRequiredSymmetricKeySchemes,
         requiredHashAlgorithms = newRequiredHashAlgorithms,
         requiredCryptoKeyFormats = newCryptoKeyFormats,
-        protocolVersion = protocolVersion.unwrap,
+        protocolVersion = protocolVersion,
       )
     }
   }

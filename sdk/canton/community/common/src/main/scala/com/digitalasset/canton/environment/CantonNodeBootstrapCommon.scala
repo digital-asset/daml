@@ -6,6 +6,7 @@ package com.digitalasset.canton.environment
 import better.files.File
 import cats.data.EitherT
 import com.daml.metrics.HealthMetrics
+import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.DiscardOps
@@ -38,7 +39,7 @@ import com.digitalasset.canton.health.{
 }
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.{CantonLabeledMetricsFactory, DbStorageMetrics}
+import com.digitalasset.canton.metrics.DbStorageMetrics
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.resource.{Storage, StorageFactory}
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
@@ -82,7 +83,7 @@ object CantonNodeBootstrap {
 trait BaseMetrics {
   def prefix: MetricName
 
-  def openTelemetryMetricsFactory: CantonLabeledMetricsFactory
+  def openTelemetryMetricsFactory: LabeledMetricsFactory
 
   def grpcMetrics: GrpcServerMetrics
   def healthMetrics: HealthMetrics

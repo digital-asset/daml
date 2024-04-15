@@ -122,7 +122,7 @@ object SignedProtocolMessage
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(
-      ProtocolVersion.v30
+      ProtocolVersion.v31
     )(v30.SignedProtocolMessage)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30.toByteString,

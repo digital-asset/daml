@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.protocol
 
+import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
 import com.daml.lf.data.Ref.PackageId
@@ -626,7 +627,7 @@ class ExampleTransactionFactory(
       coreInputContracts,
       createWithSerialization,
       createdInSubviewArchivedInCore,
-      resolvedKeys,
+      resolvedKeys.fmap(LfVersioned(transactionVersion, _)),
       actionDescription,
       RollbackContext.empty,
       participantDataSalt(viewIndex),

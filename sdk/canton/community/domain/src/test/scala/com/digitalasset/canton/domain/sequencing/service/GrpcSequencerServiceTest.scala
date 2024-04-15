@@ -722,7 +722,7 @@ class GrpcSequencerServiceTest
         .replace(unauthenticatedMember)
 
       val errorMsg =
-        if (testedProtocolVersion >= ProtocolVersion.v30)
+        if (testedProtocolVersion >= ProtocolVersion.v31)
           "Unauthenticated member is trying to send message to members other than the topology broadcast address All"
         else
           "Unauthenticated member is trying to send message to members other than the domain manager"

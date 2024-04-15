@@ -47,11 +47,11 @@ trait TestNodeBuilder {
         None
       case CreateKey.SignatoryMaintainerKey(value) =>
         Some(
-          GlobalKeyWithMaintainers.assertBuild(templateId, value, signatories)
+          GlobalKeyWithMaintainers.assertBuild(templateId, value, signatories, packageName)
         )
       case CreateKey.KeyWithMaintainers(value, maintainers) =>
         Some(
-          GlobalKeyWithMaintainers.assertBuild(templateId, value, maintainers)
+          GlobalKeyWithMaintainers.assertBuild(templateId, value, maintainers, packageName)
         )
     }
 

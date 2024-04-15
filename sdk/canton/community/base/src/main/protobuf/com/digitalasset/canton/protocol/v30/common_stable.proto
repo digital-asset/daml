@@ -1,0 +1,36 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v30;
+
+import "com/digitalasset/canton/crypto/v30/crypto.proto";
+import "scalapb/scalapb.proto";
+
+message SerializableContract {
+  message Metadata {
+    repeated string non_maintainer_signatories = 1;
+    repeated string non_signatory_stakeholders = 2;
+    v30.GlobalKey key = 3; // optional: only set if contract has a key
+    repeated string maintainers = 4; // optional; only set if contract has a key
+  }
+
+  string contract_id = 1;
+  bytes raw_contract_instance = 2;
+  Metadata metadata = 3;
+  int64 ledger_create_time = 4; // in microseconds of UTC time since Unix epoch
+  com.digitalasset.canton.crypto.v30.Salt contract_salt = 5; // optional
+}
+
+message GlobalKey {
+  bytes template_id = 1;
+  bytes key = 2;
+}
+
+message AggregationRule {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  repeated string eligible_members = 1;
+  int32 threshold = 2;
+}

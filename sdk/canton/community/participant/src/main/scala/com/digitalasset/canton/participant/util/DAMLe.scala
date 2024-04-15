@@ -327,7 +327,7 @@ class DAMLe(
         val metadata = ContractMetadata.tryCreate(
           signatories = signatories,
           stakeholders = signatories ++ observers,
-          maybeKeyWithMaintainers = keyOpt.map(k => Versioned(unusedTxVersion, k)),
+          maybeKeyWithMaintainersVersioned = keyOpt.map(k => Versioned(unusedTxVersion, k)),
         )
         contracts.verifyMetadata(coid, metadata).value.flatMap { verification =>
           handleResult(contracts, resume(verification))

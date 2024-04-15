@@ -13,7 +13,6 @@ import com.digitalasset.canton.config.{
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.tracing.TracingConfig
-import com.digitalasset.canton.version.ProtocolVersion
 
 trait CantonNodeParameters extends CantonNodeParameters.General with CantonNodeParameters.Protocol
 
@@ -57,16 +56,12 @@ object CantonNodeParameters {
   trait Protocol {
     def devVersionSupport: Boolean
     def dontWarnOnDeprecatedPV: Boolean
-
-    /** The initial protocol version before connected to any domain, e.g., when creating the initial topology transactions. */
-    def initialProtocolVersion: ProtocolVersion
-
   }
+
   object Protocol {
     final case class Impl(
         devVersionSupport: Boolean,
         dontWarnOnDeprecatedPV: Boolean,
-        initialProtocolVersion: ProtocolVersion,
     ) extends CantonNodeParameters.Protocol
   }
 }
@@ -100,6 +95,4 @@ trait HasProtocolCantonNodeParameters extends CantonNodeParameters.Protocol {
 
   def devVersionSupport: Boolean = protocol.devVersionSupport
   def dontWarnOnDeprecatedPV: Boolean = protocol.dontWarnOnDeprecatedPV
-  def initialProtocolVersion: ProtocolVersion = protocol.initialProtocolVersion
-
 }

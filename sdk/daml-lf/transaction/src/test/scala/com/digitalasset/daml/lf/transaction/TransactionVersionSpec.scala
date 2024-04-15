@@ -26,11 +26,11 @@ class TransactionVersionSpec extends AnyWordSpec with Matchers with TableDrivenP
     }
 
     "be total" in {
-      LanguageVersion.All.foreach(TransactionVersion.assignNodeVersion(_))
+      LanguageVersion.AllV2.foreach(TransactionVersion.assignNodeVersion(_))
     }
 
     "surjective" in {
-      LanguageVersion.All
+      LanguageVersion.AllV2
         .map(TransactionVersion.assignNodeVersion(_))
         .toSet shouldBe TransactionVersion.All.toSet
     }

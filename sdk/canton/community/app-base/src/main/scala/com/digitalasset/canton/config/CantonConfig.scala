@@ -286,6 +286,9 @@ trait CantonConfig {
   type MediatorNodeXConfigType <: MediatorNodeConfigCommon
   type SequencerNodeXConfigType <: SequencerNodeConfigCommon
 
+  def allNodes: Map[InstanceName, LocalNodeConfig] =
+    (participants: Map[InstanceName, LocalNodeConfig]) ++ sequencers ++ mediators
+
   /** all participants that this Canton process can operate or connect to
     *
     * participants are grouped by their local name
@@ -372,7 +375,6 @@ trait CantonConfig {
           minimumProtocolVersion = participantParameters.minimumProtocolVersion.map(_.unwrap),
           devVersionSupport = participantParameters.devVersionSupport,
           dontWarnOnDeprecatedPV = participantParameters.dontWarnOnDeprecatedPV,
-          initialProtocolVersion = participantParameters.initialProtocolVersion.unwrap,
         ),
         ledgerApiServerParameters = participantParameters.ledgerApiServer,
         excludeInfrastructureTransactions = participantParameters.excludeInfrastructureTransactions,
@@ -381,6 +383,8 @@ trait CantonConfig {
         journalGarbageCollectionDelay =
           participantParameters.journalGarbageCollectionDelay.toInternal,
         disableUpgradeValidation = participantParameters.disableUpgradeValidation,
+        allowForUnauthenticatedContractIds =
+          participantParameters.allowForUnauthenticatedContractIds,
       )
     }
 
@@ -512,7 +516,6 @@ private[canton] object CantonNodeParameterConverter {
     CantonNodeParameters.Protocol.Impl(
       devVersionSupport = parent.parameters.devVersionSupport || config.devVersionSupport,
       dontWarnOnDeprecatedPV = config.dontWarnOnDeprecatedPV,
-      initialProtocolVersion = config.initialProtocolVersion,
     )
 
 }

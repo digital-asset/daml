@@ -162,11 +162,14 @@ getCantonBootstrap :: SandboxConfig -> FilePath -> String
 getCantonBootstrap conf portFile = unlines $ domainBootstrap <> (upload <$> dars conf) <> [cpPortFile]
   where
     domainBootstrap =
-        [ "val staticDomainParameters = StaticDomainParameters.defaults(sequencer1.config.crypto)"
+        [ "import com.digitalasset.canton.version.ProtocolVersion"
+        , ""
+        , "val staticDomainParameters = StaticDomainParameters.defaults(sequencer1.config.crypto, " <> protocolVersion <> ")"
         , "val domainOwners = Seq(sequencer1, mediator1)"
         , "bootstrap.domain(\"mydomain\", Seq(sequencer1), Seq(mediator1), domainOwners, staticDomainParameters)"
         , "`" <> getParticipantName conf <> "`.domains.connect_local(sequencer1, \"mydomain\")"
         ]
+    protocolVersion = if devVersionSupport conf then "ProtocolVersion.dev" else "ProtocolVersion.latest"
     upload dar = "participants.all.dars.upload(" <> show dar <> ")"
     -- We copy out the port file after bootstrap is finished to get a true setup marker
     -- As the normal portfile is created before the bootstrap command is run
@@ -181,6 +184,8 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, s
                 , [ "clock" Aeson..= Aeson.object
                         [ "type" Aeson..= ("sim-clock" :: T.Text) ]
                   | Static <- [timeMode] ]
+                , [ "dev-version-support" Aeson..= devVersionSupport]
+                , [ "non-standard-config" Aeson..= devVersionSupport]
                 ] )
             , "participants" Aeson..= Aeson.object
                 [ (AesonKey.fromString $ getParticipantName conf) Aeson..= Aeson.object
@@ -199,7 +204,7 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, s
                                 ] ]
                           | Just secret <- [mbSharedSecret] ]
                           )
-                     , "crypto" Aeson..= Aeson.object [ "provider" Aeson..= ("tink" :: T.Text) ]
+                     , "parameters" Aeson..= Aeson.object [ "dev-version-support" Aeson..= devVersionSupport ]
                      ] <>
                      [ "testing-time" Aeson..= Aeson.object [ "type" Aeson..= ("monotonic-time" :: T.Text) ]
                      | Static <- [timeMode]
@@ -215,13 +220,13 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, s
                     , storage
                     , "public-api" Aeson..= port sequencerPublicPort
                     , "admin-api" Aeson..= port sequencerAdminPort
-                    , "crypto" Aeson..= Aeson.object [ "provider" Aeson..= ("tink" :: T.Text) ]
+                    , "parameters" Aeson..= Aeson.object [ "dev-version-support" Aeson..= devVersionSupport ]
                     ]
                 ]
             , "mediators" Aeson..= Aeson.object
                 [ "mediator1" Aeson..= Aeson.object
                      [ "admin-api" Aeson..= port mediatorAdminPort
-                     , "crypto" Aeson..= Aeson.object [ "provider" Aeson..= ("tink" :: T.Text) ]
+                     , "parameters" Aeson..= Aeson.object [ "dev-version-support" Aeson..= devVersionSupport ]
                      ]
                 ]
             ]

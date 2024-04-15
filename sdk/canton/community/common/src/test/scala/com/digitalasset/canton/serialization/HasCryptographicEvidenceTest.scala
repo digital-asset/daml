@@ -115,7 +115,7 @@ object MemoizedEvidenceSUT
   val name: String = "MemoizedEvidenceSUT"
 
   val supportedProtoVersions: MemoizedEvidenceSUT.SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> UnsupportedProtoCodec(ProtocolVersion.v30)
+    ProtoVersion(30) -> UnsupportedProtoCodec(ProtocolVersion.v31)
   )
 
   private val defaultProtocolVersionRepresentative = protocolVersionRepresentativeFor(

@@ -106,7 +106,7 @@ class DbSequencerDomainConfigurationStore(
       row: SerializedRow
   ): ParsingResult[SequencerDomainConfiguration] = for {
     domainId <- DomainId.fromProtoPrimitive(row._1.unwrap, "domainId")
-    domainParameters <- StaticDomainParameters.fromByteStringUnsafe(
+    domainParameters <- StaticDomainParameters.fromTrustedByteString(
       row._2
     )
   } yield SequencerDomainConfiguration(domainId, domainParameters)

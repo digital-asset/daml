@@ -118,7 +118,7 @@ object CryptoKeyPair extends HasVersionedMessageCompanion[CryptoKeyPair[PublicKe
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v30,
+      ProtocolVersion.v31,
       supportedProtoVersion(v30.CryptoKeyPair)(fromProtoCryptoKeyPairV30),
       _.toProtoCryptoKeyPairV30.toByteString,
     )
@@ -218,7 +218,7 @@ object PublicKeyWithName extends HasVersionedMessageCompanion[PublicKeyWithName]
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v30,
+      ProtocolVersion.v31,
       supportedProtoVersion(v30.PublicKeyWithName)(fromProto30),
       _.toProtoV30.toByteString,
     )
@@ -278,11 +278,6 @@ object CryptoKeyFormat {
   implicit val cryptoKeyFormatOrder: Order[CryptoKeyFormat] =
     Order.by[CryptoKeyFormat, String](_.name)
 
-  case object Tink extends CryptoKeyFormat {
-    override val name: String = "Tink"
-    override def toProtoEnum: v30.CryptoKeyFormat = v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_TINK
-  }
-
   case object Der extends CryptoKeyFormat {
     override val name: String = "DER"
     override def toProtoEnum: v30.CryptoKeyFormat = v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER
@@ -307,7 +302,6 @@ object CryptoKeyFormat {
         Left(ProtoDeserializationError.FieldNotSet(field))
       case v30.CryptoKeyFormat.Unrecognized(value) =>
         Left(ProtoDeserializationError.UnrecognizedEnum(field, value))
-      case v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_TINK => Right(CryptoKeyFormat.Tink)
       case v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER => Right(CryptoKeyFormat.Der)
       case v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_RAW => Right(CryptoKeyFormat.Raw)
       case v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_SYMBOLIC => Right(CryptoKeyFormat.Symbolic)

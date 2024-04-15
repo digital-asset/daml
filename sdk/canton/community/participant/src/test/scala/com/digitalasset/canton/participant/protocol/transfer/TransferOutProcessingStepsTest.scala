@@ -259,7 +259,7 @@ final class TransferOutProcessingStepsTest
     metadata = ContractMetadata.tryCreate(
       signatories = Set(submitter),
       stakeholders = Set(submitter),
-      maybeKeyWithMaintainers = None,
+      maybeKeyWithMaintainersVersioned = None,
     ),
   )
   private lazy val creatingTransactionId = ExampleTransactionFactory.transactionId(0)
@@ -563,7 +563,7 @@ final class TransferOutProcessingStepsTest
         metadata = ContractMetadata.tryCreate(
           signatories = Set(party1),
           stakeholders = Set(party1),
-          maybeKeyWithMaintainers = None,
+          maybeKeyWithMaintainersVersioned = None,
         ),
       )
       val transactionId = ExampleTransactionFactory.transactionId(1)

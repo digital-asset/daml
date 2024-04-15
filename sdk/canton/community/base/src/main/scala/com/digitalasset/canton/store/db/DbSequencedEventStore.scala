@@ -94,7 +94,7 @@ class DbSequencedEventStore(
           )
         case _ =>
           val signedEvent = SignedContent
-            .fromByteArrayUnsafe(eventBytes)
+            .fromTrustedByteArray(eventBytes)
             .flatMap(
               _.deserializeContent(SequencedEvent.fromByteString(protocolVersion))
             )

@@ -15,8 +15,8 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "LF_DEV_VERSIONS",
-    "LF_MAJOR_VERSIONS",
+    "COMPILER_LF_MAJOR_VERSIONS",
+    "READABLE_LF_VERSIONS",
     "SUPPORTED_PROTO_STABLE_LF_VERSIONS",
     "mangle_for_damlc",
     "mangle_for_java",
@@ -26,7 +26,7 @@ load(
     "daml_compile",
     "daml_compile_with_dalf",
 )
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl", "is_intel", "is_windows")
 
 # The LF protos are stored in two directories:
 #   - src/stable: Snapshot of the LF protos at the time of various releases.
@@ -135,8 +135,9 @@ da_scala_test_suite(
         ":DarReaderTest.dar",
     ] + [
         ":DarReaderTest-{}.dar".format(mangle_for_damlc(version))
-        for version in LF_DEV_VERSIONS
+        for version in READABLE_LF_VERSIONS
     ],
+    jvm_flags = ["-DhasLegacyDamlc=" + ("true" if is_intel else "false")],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatest_scalatest_core",
@@ -171,7 +172,7 @@ daml_compile_with_dalf(
         srcs = ["src/test/daml/DarReaderTest.daml"],
         target = version,
     )
-    for version in LF_DEV_VERSIONS
+    for version in READABLE_LF_VERSIONS
 ]
 
 # An ad-hoc tool for testing, benchmarking and profiling package decoding performance in isolation.

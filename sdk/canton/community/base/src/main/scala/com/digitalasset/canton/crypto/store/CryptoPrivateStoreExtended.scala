@@ -151,7 +151,7 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
       keyFingerprint =>
         readAndParsePrivateKey[SigningPrivateKey, SigningPrivateKeyWithName](
           Signing,
-          key => SigningPrivateKey.fromByteString(key.data),
+          key => SigningPrivateKey.fromTrustedByteString(key.data),
           (privateKey, name) => SigningPrivateKeyWithName(privateKey, name),
         )(keyFingerprint),
     )(signingKeyId)
@@ -190,7 +190,7 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
       keyFingerprint =>
         readAndParsePrivateKey[EncryptionPrivateKey, EncryptionPrivateKeyWithName](
           Encryption,
-          key => EncryptionPrivateKey.fromByteString(key.data),
+          key => EncryptionPrivateKey.fromTrustedByteString(key.data),
           (privateKey, name) => EncryptionPrivateKeyWithName(privateKey, name),
         )(keyFingerprint),
     )(encryptionKeyId)

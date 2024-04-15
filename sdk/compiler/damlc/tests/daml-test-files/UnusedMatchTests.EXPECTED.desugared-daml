@@ -103,33 +103,6 @@ _choice$_T$Revoke
      \ self this@T {..} arg@Revoke
        -> let _ = self in
           let _ = this in let _ = arg in do pure (revokeRetVal this))
-instance DA.Internal.Desugar.HasExerciseByKey T (Party,
-                                                 Text) DA.Internal.Desugar.Archive (()) where
-  _exerciseByKey = GHC.Types.primitive @"UExerciseByKey"
-instance DA.Internal.Desugar.HasExerciseByKey T (Party,
-                                                 Text) Revoke (()) where
-  _exerciseByKey = GHC.Types.primitive @"UExerciseByKey"
-instance DA.Internal.Desugar.HasKey T (Party, Text) where
-  key this@T {..}
-    = userWrittenTuple (sig this, ident this)
-    where
-        _ = this
-instance DA.Internal.Desugar.HasMaintainer T (Party, Text) where
-  _maintainer _ key
-    = DA.Internal.Desugar.toParties
-        ((DA.Internal.Record.getField @"_1" key))
-    where
-        _ = key
-instance DA.Internal.Desugar.HasFetchByKey T (Party, Text) where
-  fetchByKey = GHC.Types.primitive @"UFetchByKey"
-instance DA.Internal.Desugar.HasLookupByKey T (Party, Text) where
-  lookupByKey = GHC.Types.primitive @"ULookupByKey"
-instance DA.Internal.Desugar.HasToAnyContractKey T (Party,
-                                                    Text) where
-  _toAnyContractKey = GHC.Types.primitive @"EToAnyContractKey"
-instance DA.Internal.Desugar.HasFromAnyContractKey T (Party,
-                                                      Text) where
-  _fromAnyContractKey = GHC.Types.primitive @"EFromAnyContractKey"
 revokeRetVal : T -> ()
 revokeRetVal _ = ()
 assertion : T -> Bool

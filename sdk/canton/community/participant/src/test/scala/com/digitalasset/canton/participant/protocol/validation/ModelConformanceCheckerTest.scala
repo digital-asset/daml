@@ -378,7 +378,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           Set.empty,
           Seq.empty,
           Seq.empty,
-          Map(key -> FreeKey(maintainers)(LfTransactionVersion.minVersion)),
+          Map(key -> FreeKey(maintainers)),
           None,
           isRoot = true,
         )

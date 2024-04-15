@@ -181,38 +181,36 @@ trait HasVersionedMessageCompanion[ValueClass]
       data => supportedProtoVersions.deserializerFor(ProtoVersion(proto.version))(data)
     }
 
-  def fromByteString(bytes: ByteString): ParsingResult[ValueClass] = for {
-    proto <- ProtoConverter.protoParser(v1.UntypedVersionedMessage.parseFrom)(bytes)
-    valueClass <- fromProtoVersioned(VersionedMessage(proto))
-  } yield valueClass
+  /** The embedded version is not validated */
+  def fromTrustedByteString(bytes: ByteString): ParsingResult[ValueClass] =
+    for { // no input validation for proto version
+      proto <- ProtoConverter.protoParser(v1.UntypedVersionedMessage.parseFrom)(bytes)
+      valueClass <- fromProtoVersioned(VersionedMessage(proto))
+    } yield valueClass
 
-  def tryFromByteString(bytes: ByteString): ValueClass =
-    fromByteString(bytes).valueOr(err =>
-      throw new IllegalArgumentException(s"Deserializing $name bytestring failed: $err")
-    )
-
-  def fromByteArray(bytes: Array[Byte]): ParsingResult[ValueClass] = for {
+  def fromTrustedByteArray(bytes: Array[Byte]): ParsingResult[ValueClass] = for {
     proto <- ProtoConverter.protoParserArray(v1.UntypedVersionedMessage.parseFrom)(bytes)
     valueClass <- fromProtoVersioned(VersionedMessage(proto))
   } yield valueClass
 
-  def readFromFile(
+  def readFromTrustedFile(
       inputFile: String
   ): Either[String, ValueClass] = {
     for {
       bs <- BinaryFileUtil.readByteStringFromFile(inputFile)
-      value <- fromByteString(bs).leftMap(_.toString)
+      value <- fromTrustedByteString(bs).leftMap(_.toString)
     } yield value
   }
 
-  def tryReadFromFile(inputFile: String): ValueClass = readFromFile(inputFile).valueOr(err =>
-    throw new IllegalArgumentException(s"Reading $name from file $inputFile failed: $err")
-  )
+  def tryReadFromTrustedFile(inputFile: String): ValueClass =
+    readFromTrustedFile(inputFile).valueOr(err =>
+      throw new IllegalArgumentException(s"Reading $name from file $inputFile failed: $err")
+    )
 
   implicit def hasVersionedWrapperGetResult(implicit
       getResultByteArray: GetResult[Array[Byte]]
   ): GetResult[ValueClass] = GetResult { r =>
-    fromByteArray(r.<<[Array[Byte]]).valueOr(err =>
+    fromTrustedByteArray(r.<<[Array[Byte]]).valueOr(err =>
       throw new DbDeserializationException(s"Failed to deserialize $name: $err")
     )
   }
@@ -222,7 +220,7 @@ trait HasVersionedMessageCompanion[ValueClass]
   ): GetResult[Option[ValueClass]] = GetResult { r =>
     r.<<[Option[Array[Byte]]]
       .map(
-        fromByteArray(_).valueOr(err =>
+        fromTrustedByteArray(_).valueOr(err =>
           throw new DbDeserializationException(s"Failed to deserialize $name: $err")
         )
       )
@@ -267,8 +265,10 @@ trait HasVersionedMessageWithContextCompanion[ValueClass, Ctx]
       data => supportedProtoVersions.deserializerFor(ProtoVersion(proto.version))(ctx, data)
     }
 
-  def fromByteString(ctx: Ctx)(bytes: ByteString): ParsingResult[ValueClass] = for {
-    proto <- ProtoConverter.protoParser(v1.UntypedVersionedMessage.parseFrom)(bytes)
-    valueClass <- fromProtoVersioned(ctx)(VersionedMessage(proto))
-  } yield valueClass
+  /** The embedded version is not validated */
+  def fromTrustedByteString(ctx: Ctx)(bytes: ByteString): ParsingResult[ValueClass] =
+    for { // no input validation for proto version
+      proto <- ProtoConverter.protoParser(v1.UntypedVersionedMessage.parseFrom)(bytes)
+      valueClass <- fromProtoVersioned(ctx)(VersionedMessage(proto))
+    } yield valueClass
 }

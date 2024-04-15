@@ -110,6 +110,7 @@ object ValidatedTopologyTransactionX {
   type GenericValidatedTopologyTransactionX =
     ValidatedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]
 }
+
 abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
     protected val ec: ExecutionContext
 ) extends FlagCloseable {

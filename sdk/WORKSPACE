@@ -93,11 +93,11 @@ load("//bazel_tools:damlc_legacy.bzl", "damlc_legacy")
 damlc_legacy(
     name = "damlc_legacy",
     sha256 = {
-        "linux": "dd1c7f2d34f3eac631c7edc1637c9b3e93c341561d41828b4f0d8e897effa90f",
-        "windows": "f458b8d2612887915372aad61766120e34c0fdc6a65eb37cdb1a8efc58e14de3",
-        "macos": "63141d7168e883c0b8c212dca6198f5463f82aa82bbbc51d8805ce7e474300e4",
+        "linux": "2399dc62d93e58a7d1b4cc3e1bf704fa5412ab7642a908d449dbcad209771417",
+        "windows": "03387df2e726d0940bff12a3db9dff36801861ac22b3ad89ee8b02b8674a4099",
+        "macos": "82600dfd709c06575374293a3779686da42f359ae37c3235066e50f10fbf40e2",
     },
-    version = "1.18.0-snapshot.20211117.8399.0.a05a40ae",
+    version = "2.8.3",
 )
 
 # Use Nix provisioned cc toolchain

@@ -91,6 +91,7 @@ class QueueBasedDomainOutboxXTest
       queue,
       // we don't need the validation logic to run, because we control the outcome of transactions manually
       enableTopologyTransactionValidation = false,
+      testedProtocolVersion,
       timeouts,
       futureSupervisor,
       loggerFactory,

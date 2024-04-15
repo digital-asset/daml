@@ -244,8 +244,16 @@ class IdeLedgerClient(
             SError.SErrorDamlException(ContractIdInContractKey(keyValue))
         }
       )
+
+    val pkg = compiledPackages.pkgInterface
+      .lookupPackage(templateId.packageId)
+      .fold(
+        e => throw new IllegalArgumentException(s"Unknown package ${templateId.packageId}, $e"),
+        s => s,
+      )
+
     GlobalKey
-      .build(templateId, keyValue)
+      .build(templateId, keyValue, pkg.name)
       .fold(keyBuilderError(_), Future.successful(_))
       .flatMap { gkey =>
         ledger.ledgerData.activeKeys.get(gkey) match {

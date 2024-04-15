@@ -10,7 +10,11 @@ import com.daml.lf.data.Ref
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric}
-import com.digitalasset.canton.config.{DefaultProcessingTimeouts, NonNegativeDuration}
+import com.digitalasset.canton.config.{
+  DefaultProcessingTimeouts,
+  NonNegativeDuration,
+  TestingConfigInternal,
+}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.logging.LogEntry
@@ -334,6 +338,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       // correctly, otherwise the test will fail
       false,
       loggerFactory,
+      TestingConfigInternal(),
     )
     (acsCommitmentProcessor, store, sequencerClient, changes)
   }
@@ -2168,6 +2173,15 @@ class AcsCommitmentProcessorTest
           new AcsCommitmentsCatchUpConfig(
             PositiveInt.tryCreate(Int.MaxValue / 2),
             PositiveInt.tryCreate(Int.MaxValue / 2),
+          )
+        })
+      }
+
+      "catch up parameters (1,1) throws exception" in {
+        assertThrows[IllegalArgumentException]({
+          new AcsCommitmentsCatchUpConfig(
+            PositiveInt.tryCreate(1),
+            PositiveInt.tryCreate(1),
           )
         })
       }

@@ -389,7 +389,7 @@ class TransactionCoderSpec
         minSuccessful(2),
       ) { (create, time, salt) =>
         forAll(
-          keyWithMaintainersGen(create.templateId),
+          keyWithMaintainersGen(create.templateId, create.packageName),
           minSuccessful(2),
         ) { key =>
           val normalizedCreate = adjustStakeholders(normalizeCreate(create))
@@ -456,7 +456,7 @@ class TransactionCoderSpec
         minSuccessful(2),
       ) { (party, create, time, salt) =>
         forAll(
-          keyWithMaintainersGen(create.templateId),
+          keyWithMaintainersGen(create.templateId, create.packageName),
           minSuccessful(2),
         ) { key =>
           val normalizedCreate = adjustStakeholders(normalizeCreate(create))
@@ -503,7 +503,7 @@ class TransactionCoderSpec
         minSuccessful(2),
       ) { (party, create, time, salt) =>
         forAll(
-          keyWithMaintainersGen(create.templateId),
+          keyWithMaintainersGen(create.templateId, create.packageName),
           minSuccessful(2),
         ) { key =>
           val normalizedCreate = adjustStakeholders(normalizeCreate(create))
@@ -796,7 +796,11 @@ class TransactionCoderSpec
       version: TransactionVersion,
   ) =
     key.copy(globalKey =
-      GlobalKey.assertBuild(key.globalKey.templateId, normalize(key.value, version))
+      GlobalKey.assertBuild(
+        key.globalKey.templateId,
+        normalize(key.value, version),
+        key.globalKey.packageName,
+      )
     )
 
   private[this] def normalize(

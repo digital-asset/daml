@@ -3,7 +3,8 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.reference
 
-import com.daml.metrics.api.{MetricName, MetricsContext}
+import com.daml.metrics.api.MetricName
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.digitalasset.canton.config.{
   BatchAggregatorConfig,
   BatchingConfig,
@@ -20,7 +21,6 @@ import com.digitalasset.canton.domain.block.{BlockOrderer, BlockOrdererFactory}
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory.NoOpMetricsFactory
 import com.digitalasset.canton.metrics.DbStorageMetrics
 import com.digitalasset.canton.resource.{CommunityDbMigrations, CommunityStorageFactory, Storage}
 import com.digitalasset.canton.time.{Clock, TimeProvider}
@@ -114,7 +114,7 @@ class CommunityReferenceBlockOrdererFactory extends BlockOrdererFactory {
     val store = ReferenceBlockOrderingStore(storage, processingTimeout, lFactory)
     new ReferenceBlockOrderer(
       store,
-      config.pollInterval,
+      config,
       timeProvider,
       storage,
       closeable,
@@ -168,9 +168,7 @@ object CommunityReferenceBlockOrdererFactory {
             logQueryCost = config.logQueryCost,
             clock = clock,
             scheduler = None,
-            metrics = new DbStorageMetrics(MetricName("none"), NoOpMetricsFactory)(
-              MetricsContext("component" -> "block-orderer")
-            ),
+            metrics = new DbStorageMetrics(MetricName("none"), NoOpMetricsFactory),
             timeouts = processingTimeout,
             loggerFactory = lFactory,
           )

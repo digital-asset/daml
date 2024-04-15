@@ -32,6 +32,7 @@ data UserRight
   = ParticipantAdmin
   | CanActAs Party
   | CanReadAs Party
+  | CanReadAsAnyParty
   deriving (Show, Eq)
 
 -- | Thrown if text for a user identifier does not conform to the format restriction.

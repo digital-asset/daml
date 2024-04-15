@@ -7,10 +7,10 @@ import cats.Monad
 import cats.data.OptionT
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
+import com.daml.metrics.api.testing.InMemoryMetricsFactory
 import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.metrics.InMemoryMetricsFactory
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.*
 import com.digitalasset.canton.participant.protocol.RequestJournal.{

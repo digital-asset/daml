@@ -9,15 +9,26 @@ import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX
 import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX.Broadcast
+import com.digitalasset.canton.sequencing.SubscriptionStart.FreshSubscription
+import com.digitalasset.canton.sequencing.protocol.{AllMembersOfDomain, OpenEnvelope, Recipients}
 import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
+import com.digitalasset.canton.time.{DomainTimeTracker, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
 import com.digitalasset.canton.topology.store.db.DbTopologyStoreXHelper
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
-import com.digitalasset.canton.topology.store.{TopologyStoreId, TopologyStoreX}
+import com.digitalasset.canton.topology.store.{
+  StoredTopologyTransactionX,
+  StoredTopologyTransactionsX,
+  TopologyStoreId,
+  TopologyStoreX,
+}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -54,6 +65,14 @@ abstract class TopologyTransactionProcessorXTest
       timestamp: CantonTimestamp,
       isProposal: Boolean = false,
   ): List[TopologyMappingX] = {
+    fetchTx(store, timestamp, isProposal).toTopologyState
+  }
+
+  private def fetchTx(
+      store: TopologyStoreX[TopologyStoreId],
+      timestamp: CantonTimestamp,
+      isProposal: Boolean = false,
+  ): GenericStoredTopologyTransactionsX = {
     store
       .findPositiveTransactions(
         asOf = timestamp,
@@ -63,7 +82,6 @@ abstract class TopologyTransactionProcessorXTest
         None,
         None,
       )
-      .map(_.toTopologyState)
       .futureValue
   }
 
@@ -508,6 +526,159 @@ abstract class TopologyTransactionProcessorXTest
         .value shouldBe ts(3)
     }
 
+    /**  this test checks that only fully authorized domain parameter changes are used
+      * to update the topology change delay for adjusting the effective time
+      *
+      * 0. initialize the topology store with a decentralized namespace with 2 owners
+      *    and default domain parameters (topologyChangeDelay=250ms)
+      * 1. process a proposal to update the topology change delay
+      * 2. process the fully authorized update to the topology change delay
+      * 3. process some other topology change delay
+      *
+      * only in step 3. should the updated topology change delay be used to compute the effective time
+      */
+    "only track fully authorized domain parameter state changes" in {
+      import SigningKeys.{ec as _, *}
+      val dnsNamespace =
+        DecentralizedNamespaceDefinitionX.computeNamespace(Set(ns1, ns2))
+      val domainId = DomainId(UniqueIdentifier(Identifier.tryCreate("test-domain"), dnsNamespace))
+
+      val dns = mkAddMultiKey(
+        DecentralizedNamespaceDefinitionX
+          .create(
+            dnsNamespace,
+            PositiveInt.two,
+            NonEmpty(Set, ns1, ns2),
+          )
+          .value,
+        signingKeys = NonEmpty(Set, key1, key2),
+      )
+      val initialDomainParameters = mkAddMultiKey(
+        DomainParametersStateX(
+          domainId,
+          DynamicDomainParameters.defaultXValues(testedProtocolVersion),
+        ),
+        signingKeys = NonEmpty(Set, key1, key2),
+      )
+
+      val initialTopologyChangeDelay =
+        initialDomainParameters.mapping.parameters.topologyChangeDelay.duration
+      val updatedTopologyChangeDelay = initialTopologyChangeDelay.plusMillis(50)
+
+      val updatedDomainParams = DomainParametersStateX(
+        domainId,
+        DynamicDomainParameters.initialValues(
+          topologyChangeDelay = NonNegativeFiniteDuration.tryCreate(updatedTopologyChangeDelay),
+          testedProtocolVersion,
+        ),
+      )
+      val domainParameters_k1 = mkAdd(
+        updatedDomainParams,
+        signingKey = key1,
+        serial = PositiveInt.two,
+        isProposal = true,
+      )
+      val domainParameters_k2 = mkAdd(
+        updatedDomainParams,
+        signingKey = key2,
+        serial = PositiveInt.two,
+        isProposal = true,
+      )
+
+      val initialTopologyState = StoredTopologyTransactionsX(
+        List(ns1k1_k1, ns2k2_k2, dns, initialDomainParameters).map(transaction =>
+          StoredTopologyTransactionX(
+            sequenced = SequencedTime(CantonTimestamp.MinValue.immediateSuccessor),
+            validFrom = EffectiveTime(CantonTimestamp.MinValue.immediateSuccessor),
+            validUntil = None,
+            transaction = transaction,
+          )
+        )
+      )
+
+      def mkEnvelope(transactions: GenericSignedTopologyTransactionX) =
+        Traced(
+          List(
+            OpenEnvelope(
+              TopologyTransactionsBroadcastX.create(
+                domainId,
+                Seq(Broadcast(String255("topology request id")(), List(transactions))),
+                testedProtocolVersion,
+              ),
+              recipients = Recipients.cc(AllMembersOfDomain),
+            )(testedProtocolVersion)
+          )
+        )
+
+      // in block1 we propose a new topology change delay. the transaction itself will be
+      // stored with the default topology change delay of 250ms and should NOT trigger a change
+      // in topology change delay, because it's only a proposal
+      val block1 = mkEnvelope(domainParameters_k1)
+      // in block2 we fully authorize the update to domain parameters
+      val block2 = mkEnvelope(domainParameters_k2)
+      // in block3 we should see the new topology change delay being used to compute the effective time
+      val block3 = mkEnvelope(ns3k3_k3)
+
+      val store = mkStore
+      store.bootstrap(initialTopologyState).futureValue
+
+      val (proc, _) = mk(store)
+
+      val domainTimeTrackerMock = mock[DomainTimeTracker]
+      when(domainTimeTrackerMock.awaitTick(any[CantonTimestamp])(anyTraceContext)).thenAnswer(None)
+
+      proc.subscriptionStartsAt(FreshSubscription, domainTimeTrackerMock).futureValueUS
+
+      // ==================
+      // process the blocks
+
+      // block1: first proposal to update topology change delay
+      // use proc.processEnvelopes directly so that the effective time is properly computed from topology change delays
+      proc
+        .processEnvelopes(SequencerCounter(0), SequencedTime(ts(0)), block1)
+        .flatMap(_.unwrap)
+        .futureValueUS
+
+      // block2: second proposal to update the topology change delay, making it fully authorized
+      proc
+        .processEnvelopes(SequencerCounter(1), SequencedTime(ts(1)), block2)
+        .flatMap(_.unwrap)
+        .futureValueUS
+
+      // block3: any topology transaction is now processed with the updated topology change delay
+      proc
+        .processEnvelopes(SequencerCounter(2), SequencedTime(ts(2)), block3)
+        .flatMap(_.unwrap)
+        .futureValueUS
+
+      // ========================================
+      // check the applied topology change delays
+
+      // 1. fetch the proposal from block1 at a time when it has become effective
+      val storedDomainParametersProposal = fetchTx(store, ts(0).plusSeconds(1), isProposal = true)
+        .collectOfMapping[DomainParametersStateX]
+        .result
+        .loneElement
+      // the proposal itself should be processed with the default topology change delay
+      storedDomainParametersProposal.validFrom.value - storedDomainParametersProposal.sequenced.value shouldBe initialTopologyChangeDelay
+
+      // 2. fetch the latest fully authorized domain parameters transaction from block2 at a time when it has become effective
+      val storedDomainParametersUpdate = fetchTx(store, ts(1).plusSeconds(1))
+        .collectOfMapping[DomainParametersStateX]
+        .result
+        .loneElement
+      // the transaction to change the topology change delay itself should still be processed with the default topology change delay
+      storedDomainParametersUpdate.validFrom.value - storedDomainParametersUpdate.sequenced.value shouldBe initialTopologyChangeDelay
+
+      // 3. fetch the topology transaction from block3 at a time when it has become effective
+      val storedNSD3 = fetchTx(store, ts(2).plusSeconds(1))
+        .collectOfMapping[NamespaceDelegationX]
+        .filter(_.mapping.namespace == ns3)
+        .result
+        .loneElement
+      // the transaction should be processed with the updated topology change delay
+      storedNSD3.validFrom.value - storedNSD3.sequenced.value shouldBe updatedTopologyChangeDelay
+    }
   }
 
 }

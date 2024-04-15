@@ -28,8 +28,6 @@ template T
     signatory sig this
     observer obs this
     ensure assertion this
-    key (sig this, ident this): (Party, Text)
-    maintainer key._1
     choice Revoke: () with
       controller p
       do

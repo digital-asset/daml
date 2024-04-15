@@ -150,20 +150,21 @@ abstract class BaseSequencer(
 
   private def checkMemberRegistration(
       submission: SubmissionRequest
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = (for {
-    _ <- autoRegisterNewMembersMentionedByIdentityManager(submission)
-    _ <- submission.sender match {
-      case member: UnauthenticatedMemberId =>
-        ensureMemberRegistered(member)
-      case _ => EitherT.pure[Future, WriteRequestRefused](())
+  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] =
+    (for {
+      _ <- autoRegisterNewMembersMentionedByIdentityManager(submission)
+      _ <- submission.sender match {
+        case member: UnauthenticatedMemberId =>
+          ensureMemberRegistered(member)
+        case _ => EitherT.pure[Future, WriteRequestRefused](())
+      }
+    } yield ()).leftSemiflatMap { registrationError =>
+      logger.error(s"Failed to auto-register members: $registrationError")
+      // this error won't exist once sendAsync is fully implemented, so temporarily we'll just return a failed future
+      Future.failed(
+        new RuntimeException(s"Failed to auto-register members: $registrationError")
+      )
     }
-  } yield ()).leftSemiflatMap { registrationError =>
-    logger.error(s"Failed to auto-register members: $registrationError")
-    // this error won't exist once sendAsync is fully implemented, so temporarily we'll just return a failed future
-    Future.failed(
-      new RuntimeException(s"Failed to auto-register members: $registrationError")
-    )
-  }
 
   protected def localSequencerMember: DomainMember
   protected def disableMemberInternal(member: Member)(implicit

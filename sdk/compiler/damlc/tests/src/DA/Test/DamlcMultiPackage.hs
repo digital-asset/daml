@@ -40,6 +40,7 @@ data ProjectStructure
       , dyModulePrefixes :: [(PackageIdentifier, T.Text)]
       , dyGhcOptions :: [T.Text]
       , dyDeps :: [T.Text]
+      , dyDirectDeps :: [T.Text]
       }
   | MultiPackage
       { mpPackages :: [T.Text]
@@ -108,6 +109,8 @@ tests damlAssistant =
         , test "Build all from A with explicit path" ["--all", "--multi-package-path=.."] "./package-a" simpleTwoPackageProject
             $ Right [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
         , test "Build B from nested directory with search" [] "./package-b/daml" simpleTwoPackageProject
+            $ Right [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
+        , test "Build B with search (non-data-dependency)" [] "./package-b" simpleTwoPackageProjectNonData
             $ Right [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
         ]
     , testGroup
@@ -666,8 +669,9 @@ tests damlAssistant =
           , "dependencies:"
           , "  - daml-prim"
           , "  - daml-stdlib"
-          , "data-dependencies:"
           ]
+          ++ fmap ("  - " <>) (dyDirectDeps damlYaml)
+          ++ ["data-dependencies:"]
           ++ fmap ("  - " <>) (dyDeps damlYaml)
           ++ ["module-prefixes:"]
           ++ fmap (\(pkg, pref) -> "  " <> T.pack (show pkg) <> ": " <> pref) (dyModulePrefixes damlYaml)
@@ -704,7 +708,7 @@ tests damlAssistant =
 
 -- daml.yaml with current sdk version, default ouput path and source set to `daml`
 damlYaml :: T.Text -> T.Text -> [T.Text] -> ProjectStructure
-damlYaml name version deps = DamlYaml name version Nothing "daml" Nothing [] [] deps
+damlYaml name version deps = DamlYaml name version Nothing "daml" Nothing [] [] deps []
 
 -- B depends on A
 simpleTwoPackageProject :: [ProjectStructure]
@@ -716,6 +720,20 @@ simpleTwoPackageProject =
     ]
   , Dir "package-b"
     [ damlYaml "package-b" "0.0.1" ["../package-a/.daml/dist/package-a-0.0.1.dar"]
+    , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
+    ]
+  ]
+
+-- B depends on A as a regular dependency
+simpleTwoPackageProjectNonData :: [ProjectStructure]
+simpleTwoPackageProjectNonData =
+  [ MultiPackage ["./package-a", "./package-b"] []
+  , Dir "package-a"
+    [ damlYaml "package-a" "0.0.1" []
+    , Dir "daml" [DamlSource "PackageAMain" []]
+    ]
+  , Dir "package-b"
+    [ (damlYaml "package-b" "0.0.1" []) {dyDirectDeps = ["../package-a/.daml/dist/package-a-0.0.1.dar"]}
     , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
     ]
   ]

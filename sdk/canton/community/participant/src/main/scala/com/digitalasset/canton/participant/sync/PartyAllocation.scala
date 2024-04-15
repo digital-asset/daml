@@ -24,6 +24,7 @@ import com.digitalasset.canton.topology.TopologyManagerError.MappingAlreadyExist
 import com.digitalasset.canton.topology.{Identifier, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.*
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LedgerSubmissionId, LfPartyId, LfTimestamp}
 import io.opentelemetry.api.trace.Tracer
 
@@ -68,7 +69,7 @@ private[sync] class PartyAllocation(
     }
 
     val partyName = hint.getOrElse(s"party-${UUID.randomUUID().toString}")
-    val protocolVersion = parameters.protocolConfig.initialProtocolVersion
+    val protocolVersion = ProtocolVersion.latest
 
     val result =
       for {

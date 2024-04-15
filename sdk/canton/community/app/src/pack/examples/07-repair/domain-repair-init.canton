@@ -7,6 +7,7 @@ bootstrap.domain(
   sequencers = Seq(sequencer1),
   mediators = Seq(mediator1),
   domainOwners = Seq(sequencer1, mediator1),
+  staticDomainParameters = StaticDomainParameters.defaultsWithoutKMS(ProtocolVersion.latest),
 )
 
 // upload the Daml model to all participants

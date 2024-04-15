@@ -134,7 +134,13 @@ package domain {
       isDeactivated: Boolean = false,
       metadata: ObjectMeta = ObjectMeta.empty,
       identityProviderId: IdentityProviderId = IdentityProviderId.Default,
-  )
+  ) {
+    // Note: this should be replaced by pretty printing once the ledger-api server packages move
+    //  into their proper place
+    override def toString: String =
+      s"User(id=${id}, primaryParty=${primaryParty}, isDeactivated=$isDeactivated, metadata=${metadata.toString
+          .take(512)}, identityProviderId=${identityProviderId.toRequestString})"
+  }
 
   final case class PartyDetails(
       party: Ref.Party,
@@ -154,6 +160,8 @@ package domain {
     final case class CanActAs(party: Ref.Party) extends UserRight
 
     final case class CanReadAs(party: Ref.Party) extends UserRight
+
+    final case object CanReadAsAnyParty extends UserRight
   }
 
   sealed abstract class Feature extends Product with Serializable

@@ -24,23 +24,15 @@ trait JavaKeyConverter {
       publicKey: PublicKey
   ): Either[JavaKeyConversionError, (AlgorithmIdentifier, JPublicKey)]
 
-  /** Convert a Java public key into a Canton signing public key.
-    *
-    * We take the fingerprint as an argument instead of computing it again, because if we convert between public keys of
-    * different crypto providers their fingerprint computation is different and can result in the converted key not
-    * having the same fingerprint as the original key.
-    */
-  // TODO(i4612): Remove fingerprint once Tink provider is removed and we have a consistent fingerprint computation.
+  /** Convert a Java public key into a Canton signing public key. */
   def fromJavaSigningKey(
       publicKey: JPublicKey,
       algorithmIdentifier: AlgorithmIdentifier,
-      fingerprint: Fingerprint,
   ): Either[JavaKeyConversionError, SigningPublicKey]
 
   def fromJavaEncryptionKey(
       publicKey: JPublicKey,
       algorithmIdentifier: AlgorithmIdentifier,
-      fingerprint: Fingerprint,
   ): Either[JavaKeyConversionError, EncryptionPublicKey]
 }
 

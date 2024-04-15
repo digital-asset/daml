@@ -21,10 +21,10 @@ import com.digitalasset.canton.crypto.{
 }
 import com.digitalasset.canton.domain.Domain
 import com.digitalasset.canton.domain.mediator.admin.gprc.{
-  InitializeMediatorRequestX,
+  InitializeMediatorRequest,
   InitializeMediatorResponseX,
 }
-import com.digitalasset.canton.domain.mediator.service.GrpcMediatorInitializationServiceX
+import com.digitalasset.canton.domain.mediator.service.GrpcMediatorInitializationService
 import com.digitalasset.canton.domain.mediator.store.{
   MediatorDomainConfiguration,
   MediatorDomainConfigurationStore,
@@ -52,7 +52,6 @@ import com.digitalasset.canton.sequencing.client.{
 }
 import com.digitalasset.canton.store.db.SequencerClientDiscriminator
 import com.digitalasset.canton.store.{
-  IndexedStringStore,
   SendTrackerStore,
   SequencedEventStore,
   SequencerCounterTrackerStore,
@@ -99,7 +98,6 @@ final case class MediatorNodeParameterConfig(
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
     override val devVersionSupport: Boolean = true,
     override val dontWarnOnDeprecatedPV: Boolean = false,
-    override val initialProtocolVersion: ProtocolVersion = ProtocolVersion.latest,
     override val batching: BatchingConfig = BatchingConfig(),
     override val caching: CachingConfigs = CachingConfigs(),
     override val useNewTrafficControl: Boolean = false,
@@ -197,6 +195,7 @@ class MediatorNodeBootstrapX(
       Seq(storage),
       softDependencies = Seq(deferredSequencerClientHealth),
     )
+
   private class WaitForMediatorToDomainInit(
       storage: Storage,
       crypto: Crypto,
@@ -209,16 +208,15 @@ class MediatorNodeBootstrapX(
         storage,
         config.init.autoInit,
       )
-      with GrpcMediatorInitializationServiceX.Callback {
+      with GrpcMediatorInitializationService.Callback {
 
     adminServerRegistry
       .addServiceU(
         MediatorInitializationServiceGrpc
           .bindService(
-            new GrpcMediatorInitializationServiceX(this, loggerFactory),
+            new GrpcMediatorInitializationService(this, loggerFactory),
             executionContext,
-          ),
-        true,
+          )
       )
 
     protected val domainConfigurationStore =
@@ -229,7 +227,7 @@ class MediatorNodeBootstrapX(
     override protected def stageCompleted(implicit
         traceContext: TraceContext
     ): Future[Option[DomainId]] = domainConfigurationStore.fetchConfiguration.toOption.mapFilter {
-      case Some(res) => Some(res.domainId)
+      case Some(mediatorDomainConfiguration) => Some(mediatorDomainConfiguration.domainId)
       case None => None
     }.value
 
@@ -238,29 +236,11 @@ class MediatorNodeBootstrapX(
         TopologyStoreX(DomainStore(domainId), storage, timeouts, loggerFactory)
       addCloseable(domainTopologyStore)
 
-      val outboxQueue = new DomainOutboxQueue(loggerFactory)
-      val topologyManager = new DomainTopologyManagerX(
-        clock = clock,
-        crypto = crypto,
-        store = domainTopologyStore,
-        outboxQueue = outboxQueue,
-        enableTopologyTransactionValidation = config.topology.enableTopologyTransactionValidation,
-        timeouts = timeouts,
-        futureSupervisor = futureSupervisor,
-        loggerFactory = loggerFactory,
-      )
-
-      if (domainTopologyManager.putIfAbsent(topologyManager).nonEmpty) {
-        // TODO(#14048) how to handle this error properly?
-        throw new IllegalStateException("domainTopologyManager shouldn't have been set before")
-      }
-
       new StartupNode(
         storage,
         crypto,
         mediatorId,
         authorizedTopologyManager,
-        topologyManager,
         domainId,
         domainConfigurationStore,
         domainTopologyStore,
@@ -272,7 +252,7 @@ class MediatorNodeBootstrapX(
         : EitherT[FutureUnlessShutdown, String, Option[DomainId]] =
       EitherT.rightT(None) // this stage doesn't have auto-init
 
-    override def initialize(request: InitializeMediatorRequestX)(implicit
+    override def initialize(request: InitializeMediatorRequest)(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, InitializeMediatorResponseX] = {
       if (isInitialized) {
@@ -320,7 +300,6 @@ class MediatorNodeBootstrapX(
       crypto: Crypto,
       mediatorId: MediatorId,
       authorizedTopologyManager: AuthorizedTopologyManagerX,
-      domainTopologyManager: DomainTopologyManagerX,
       domainId: DomainId,
       domainConfigurationStore: MediatorDomainConfigurationStore,
       domainTopologyStore: TopologyStoreX[DomainStore],
@@ -337,38 +316,88 @@ class MediatorNodeBootstrapX(
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, Option[RunningNode[MediatorNode]]] = {
 
-      val domainOutboxFactory = new DomainOutboxXFactory(
-        domainId = domainId,
-        memberId = mediatorId,
-        authorizedTopologyManager = authorizedTopologyManager,
-        domainTopologyManager = domainTopologyManager,
-        crypto = crypto,
-        topologyXConfig = config.topology,
-        timeouts = timeouts,
-        loggerFactory = domainLoggerFactory,
-        futureSupervisor = arguments.futureSupervisor,
-      )
-      performUnlessClosingEitherU("starting up mediator node") {
-        val indexedStringStore = IndexedStringStore.create(
-          storage,
-          parameterConfig.cachingConfigs.indexedStrings,
-          timeouts,
-          domainLoggerFactory,
+      def createDomainOutboxFactory(domainTopologyManager: DomainTopologyManagerX) =
+        new DomainOutboxFactory(
+          domainId = domainId,
+          memberId = mediatorId,
+          authorizedTopologyManager = authorizedTopologyManager,
+          domainTopologyManager = domainTopologyManager,
+          crypto = crypto,
+          topologyXConfig = config.topology,
+          timeouts = timeouts,
+          loggerFactory = domainLoggerFactory,
+          futureSupervisor = arguments.futureSupervisor,
         )
-        addCloseable(indexedStringStore)
+
+      def createDomainTopologyManager(
+          protocolVersion: ProtocolVersion
+      ): Either[String, DomainTopologyManagerX] = {
+        val outboxQueue = new DomainOutboxQueue(loggerFactory)
+
+        val topologyManager = new DomainTopologyManagerX(
+          clock = clock,
+          crypto = crypto,
+          store = domainTopologyStore,
+          outboxQueue = outboxQueue,
+          enableTopologyTransactionValidation = config.topology.enableTopologyTransactionValidation,
+          protocolVersion = protocolVersion,
+          timeouts = timeouts,
+          futureSupervisor = futureSupervisor,
+          loggerFactory = loggerFactory,
+        )
+
+        if (domainTopologyManager.putIfAbsent(topologyManager).nonEmpty)
+          Left("domainTopologyManager shouldn't have been set before")
+        else
+          topologyManager.asRight
+
+      }
+
+      val fetchConfig: () => EitherT[Future, String, Option[MediatorDomainConfiguration]] = () =>
+        domainConfigurationStore.fetchConfiguration.leftMap(_.toString)
+
+      val saveConfig: MediatorDomainConfiguration => EitherT[Future, String, Unit] =
+        domainConfigurationStore.saveConfiguration(_).leftMap(_.toString)
+
+      performUnlessClosingEitherU("starting up mediator node") {
         for {
-          domainId <- initializeNodePrerequisites(
-            storage,
-            crypto,
-            mediatorId,
-            () => domainConfigurationStore.fetchConfiguration.leftMap(_.toString),
-            domainConfigurationStore.saveConfiguration(_).leftMap(_.toString),
-            indexedStringStore,
-            domainTopologyStore,
-            TopologyManagerStatus.combined(authorizedTopologyManager, domainTopologyManager),
-            domainTopologyStateInit =
-              new StoreBasedDomainTopologyInitializationCallback(mediatorId, domainTopologyStore),
-            domainOutboxFactory = domainOutboxFactory,
+          domainConfig <- fetchConfig()
+            .leftMap(err => s"Failed to fetch domain configuration: $err")
+            .flatMap { mediatorDomainConfigurationO =>
+              EitherT.fromEither(
+                mediatorDomainConfigurationO.toRight(
+                  s"Mediator domain config has not been set. Must first be initialized by the domain in order to start."
+                )
+              )
+            }
+
+          domainTopologyManager <- EitherT.fromEither(
+            createDomainTopologyManager(domainConfig.domainParameters.protocolVersion)
+          )
+          domainOutboxFactory = createDomainOutboxFactory(domainTopologyManager)
+
+          _ <- EitherT.right[String](
+            replicaManager.setup(
+              adminServerRegistry,
+              () =>
+                mkMediatorRuntime(
+                  mediatorId,
+                  domainConfig,
+                  fetchConfig,
+                  saveConfig,
+                  storage,
+                  crypto,
+                  domainTopologyStore,
+                  topologyManagerStatus = TopologyManagerStatus
+                    .combined(authorizedTopologyManager, domainTopologyManager),
+                  domainTopologyStateInit = new StoreBasedDomainTopologyInitializationCallback(
+                    mediatorId,
+                    domainTopologyStore,
+                  ),
+                  domainOutboxFactory,
+                ),
+              storage.isActive,
+            )
           )
         } yield {
           val node = new MediatorNode(
@@ -398,55 +427,9 @@ class MediatorNodeBootstrapX(
       loggerFactory = loggerFactory,
     )
 
-  protected def initializeNodePrerequisites(
-      storage: Storage,
-      crypto: Crypto,
-      mediatorId: MediatorId,
-      fetchConfig: () => EitherT[Future, String, Option[MediatorDomainConfiguration]],
-      saveConfig: MediatorDomainConfiguration => EitherT[Future, String, Unit],
-      indexedStringStore: IndexedStringStore,
-      domainTopologyStore: TopologyStoreX[DomainStore],
-      topologyManagerStatus: TopologyManagerStatus,
-      domainTopologyStateInit: DomainTopologyInitializationCallback,
-      domainOutboxFactory: DomainOutboxXFactory,
-  ): EitherT[Future, String, DomainId] =
-    for {
-      domainConfig <- fetchConfig()
-        .leftMap(err => s"Failed to fetch domain configuration: $err")
-        .flatMap { x =>
-          EitherT.fromEither(
-            x.toRight(
-              s"Mediator domain config has not been set. Must first be initialized by the domain in order to start."
-            )
-          )
-        }
-
-      _ <- EitherT.right[String](
-        replicaManager.setup(
-          adminServerRegistry,
-          () =>
-            mkMediatorRuntime(
-              mediatorId,
-              domainConfig,
-              indexedStringStore,
-              fetchConfig,
-              saveConfig,
-              storage,
-              crypto,
-              domainTopologyStore,
-              topologyManagerStatus,
-              domainTopologyStateInit,
-              domainOutboxFactory,
-            ),
-          storage.isActive,
-        )
-      )
-    } yield domainConfig.domainId
-
   private def mkMediatorRuntime(
       mediatorId: MediatorId,
       domainConfig: MediatorDomainConfiguration,
-      indexedStringStore: IndexedStringStore,
       fetchConfig: () => EitherT[Future, String, Option[MediatorDomainConfiguration]],
       saveConfig: MediatorDomainConfiguration => EitherT[Future, String, Unit],
       storage: Storage,
@@ -454,7 +437,7 @@ class MediatorNodeBootstrapX(
       domainTopologyStore: TopologyStoreX[DomainStore],
       topologyManagerStatus: TopologyManagerStatus,
       domainTopologyStateInit: DomainTopologyInitializationCallback,
-      domainOutboxFactory: DomainOutboxXFactory,
+      domainOutboxFactory: DomainOutboxFactory,
   ): EitherT[Future, String, MediatorRuntime] = {
     val domainId = domainConfig.domainId
     val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)

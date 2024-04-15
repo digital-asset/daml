@@ -94,7 +94,6 @@ final case class ParticipantProtocolConfig(
     minimumProtocolVersion: Option[ProtocolVersion],
     override val devVersionSupport: Boolean,
     override val dontWarnOnDeprecatedPV: Boolean,
-    override val initialProtocolVersion: ProtocolVersion,
 ) extends ProtocolConfig
 
 /** Configuration parameters for a single participant
@@ -337,6 +336,9 @@ object TestingTimeServiceConfig {
   * @param iterationsBetweenInterruptions Number of engine iterations between forced interruptions (outside needs of information).
   * @param journalGarbageCollectionDelay How much time to delay the canton journal garbage collection
   * @param disableUpgradeValidation Disable the package upgrade verification on DAR upload
+  * @param allowForUnauthenticatedContractIds Skip contract id authentication check, if the contract id scheme does not support authentication.
+  *                                           You should enable this only if all participants on a domain mutually trust each other.
+  *                                           Otherwise, an attacker may compromise integrity of the ledger.
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -347,7 +349,7 @@ final case class ParticipantNodeParameterConfig(
     stores: ParticipantStoreConfig = ParticipantStoreConfig(),
     transferTimeProofFreshnessProportion: NonNegativeInt = NonNegativeInt.tryCreate(3),
     minimumProtocolVersion: Option[ParticipantProtocolVersion] = Some(
-      ParticipantProtocolVersion(ProtocolVersion.v30)
+      ParticipantProtocolVersion(ProtocolVersion.v31)
     ),
     initialProtocolVersion: ParticipantProtocolVersion = ParticipantProtocolVersion(
       ProtocolVersion.latest
@@ -368,6 +370,7 @@ final case class ParticipantNodeParameterConfig(
     override val useNewTrafficControl: Boolean = false,
     disableUpgradeValidation: Boolean = false,
     override val useUnifiedSequencer: Boolean = false,
+    allowForUnauthenticatedContractIds: Boolean = false,
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

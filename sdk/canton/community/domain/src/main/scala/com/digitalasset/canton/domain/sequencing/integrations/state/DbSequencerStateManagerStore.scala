@@ -236,7 +236,7 @@ class DbSequencerStateManagerStore(
       bytes: Array[Byte]
   ): SignedContent[SequencedEvent[ClosedEnvelope]] =
     SignedContent
-      .fromByteArrayUnsafe(bytes)
+      .fromTrustedByteArray(bytes)
       .flatMap(_.deserializeContent(SequencedEvent.fromByteString(protocolVersion)))
       .valueOr(err =>
         throw new DbDeserializationException(s"Failed to deserialize signed deliver event: $err")
@@ -612,18 +612,38 @@ class DbSequencerStateManagerStore(
 
   private def minCounters(implicit
       traceContext: TraceContext
-  ): Future[Map[Member, SequencerCounter]] = storage
-    .query(
-      sql"""
-                  select member, min(counter)
-                  from seq_state_manager_events
-                  group by member
-           """.as[(Member, SequencerCounter)],
-      functionFullName,
-    )
-    .map(_.toMap.filter { case (_, sequencerCounter) =>
+  ): Future[Map[Member, SequencerCounter]] = {
+    (storage.profile match {
+      case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Oracle =>
+        storage.query(
+          sql"""
+                    select member, min(counter)
+                    from seq_state_manager_events
+                    group by member
+             """.as[(Member, SequencerCounter)],
+          functionFullName,
+        )
+      case _: DbStorage.Profile.Postgres =>
+        // Query planner of postgres doesn't like to use indexes on group by queries, pessimistically doing a Seq Scan
+        // It is faster to use a "lateral" join, which is applying the inner query to results of the outer query,
+        // which will use the index and will be faster than the Seq Scan on a large (~10^7 records) table
+        // Solution is based on: https://www.timescale.com/blog/select-the-most-recent-record-of-many-items-with-postgresql/
+        storage.query(
+          sql"""
+            select m.member, l.counter from seq_state_manager_members m
+            inner join lateral (
+                select counter from seq_state_manager_events
+                where member = m.member
+                order BY member, counter
+                limit 1
+                ) l on true
+     """.as[(Member, SequencerCounter)],
+          functionFullName,
+        )
+    }).map(_.toMap.filter { case (_, sequencerCounter) =>
       sequencerCounter > SequencerCounter.Genesis
     }) // filter out cases that did not get affected by pruning
+  }
 
   override def getInitialTopologySnapshotTimestamp(implicit
       traceContext: TraceContext
@@ -662,7 +682,7 @@ object DbSequencerStateManagerStore {
 
     override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
       ProtoVersion(30) -> VersionedProtoConverter.storage(
-        ReleaseProtocolVersion(ProtocolVersion.v30),
+        ReleaseProtocolVersion(ProtocolVersion.v31),
         v30.AggregatedSignaturesOfSender,
       )(
         supportedProtoVersion(_)(fromProtoV30),

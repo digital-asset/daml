@@ -9,8 +9,6 @@ import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
-import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.domain.config.DomainParametersConfig
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.HandshakeErrors.DeprecatedProtocolVersion
@@ -60,12 +58,13 @@ object CommunityConfigValidations
 
   /** Validations applied to all community and enterprise Canton configurations. */
   private[config] def genericValidations[C <: CantonConfig]
-      : List[C => Validated[NonEmpty[Seq[String]], Unit]] =
+      : List[C => Validated[NonEmpty[Seq[String]], Unit]] = {
     List(
-      developmentProtocolSafetyCheckParticipants,
+      developmentProtocolSafetyCheck,
       warnIfUnsafeMinProtocolVersion,
       adminTokenSafetyCheckParticipants,
     )
+  }
 
   /** Group node configs by db access to find matching db storage configs.
     * Overcomplicated types used are to work around that at this point nodes could have conflicting names so we can't just
@@ -180,11 +179,12 @@ object CommunityConfigValidations
 
   }
 
-  private def developmentProtocolSafetyCheckParticipants(
+  private def developmentProtocolSafetyCheck(
       config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
     def toNe(
         name: String,
+        nodeTypeName: String,
         nonStandardConfig: Boolean,
         devVersionSupport: Boolean,
     ): Validated[NonEmpty[Seq[String]], Unit] = {
@@ -193,16 +193,17 @@ object CommunityConfigValidations
         (),
         NonEmpty(
           Seq,
-          s"Enabling dev-version-support for participant $name requires you to explicitly set canton.parameters.non-standard-config = yes",
+          s"Enabling dev-version-support for $nodeTypeName $name requires you to explicitly set canton.parameters.non-standard-config = yes",
         ),
       )
     }
 
-    config.participants.toList.traverse_ { case (name, participantConfig) =>
+    config.allNodes.toList.traverse_ { case (name, nodeConfig) =>
       toNe(
-        name.unwrap,
-        config.parameters.nonStandardConfig,
-        participantConfig.parameters.devVersionSupport,
+        name = name.unwrap,
+        nodeTypeName = nodeConfig.nodeTypeName,
+        nonStandardConfig = config.parameters.nonStandardConfig,
+        devVersionSupport = nodeConfig.parameters.devVersionSupport,
       )
     }
   }
@@ -218,35 +219,6 @@ object CommunityConfigValidations
         DeprecatedProtocolVersion.WarnParticipant(name, minimum).discard
     }
     Validated.valid(())
-  }
-
-  private[config] def developmentProtocolSafetyCheck(
-      allowUnstableProtocolVersion: Boolean,
-      namesAndConfig: Seq[(InstanceName, DomainParametersConfig)],
-  ): Validated[NonEmpty[Seq[String]], Unit] = {
-    def toNe(
-        name: String,
-        protocolVersion: ProtocolVersion,
-        allowUnstableProtocolVersion: Boolean,
-    ): Validated[NonEmpty[Seq[String]], Unit] = {
-      Validated.cond(
-        protocolVersion.isStable || allowUnstableProtocolVersion,
-        (),
-        NonEmpty(
-          Seq,
-          s"Using non-stable protocol $protocolVersion for node $name requires you to explicitly set canton.parameters.non-standard-config = yes",
-        ),
-      )
-    }
-
-    namesAndConfig.toList.traverse_ { case (name, parameters) =>
-      toNe(
-        name.unwrap,
-        parameters.protocolVersion.version,
-        allowUnstableProtocolVersion,
-      )
-    }
-
   }
 
   private def adminTokenSafetyCheckParticipants(

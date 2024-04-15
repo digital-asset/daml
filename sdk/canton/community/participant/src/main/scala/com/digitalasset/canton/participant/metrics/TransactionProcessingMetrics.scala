@@ -4,13 +4,12 @@
 package com.digitalasset.canton.participant.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{Histogram, Timer}
+import com.daml.metrics.api.MetricHandle.{Histogram, LabeledMetricsFactory, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
-import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory
 
 class TransactionProcessingMetrics(
     val prefix: MetricName,
-    factory: CantonLabeledMetricsFactory,
+    factory: LabeledMetricsFactory,
 )(implicit context: MetricsContext) {
 
   object protocolMessages {

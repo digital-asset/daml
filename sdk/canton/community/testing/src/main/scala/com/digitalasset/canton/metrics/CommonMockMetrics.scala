@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.metrics
 
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.{MetricName, MetricsContext}
-import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory.NoOpMetricsFactory
 
 object CommonMockMetrics {
 
@@ -12,6 +12,6 @@ object CommonMockMetrics {
 
   object sequencerClient
       extends SequencerClientMetrics(prefix, NoOpMetricsFactory)(MetricsContext.Empty)
-  object dbStorage extends DbStorageMetrics(prefix, NoOpMetricsFactory)(MetricsContext.Empty)
+  object dbStorage extends DbStorageMetrics(prefix, NoOpMetricsFactory)
 
 }

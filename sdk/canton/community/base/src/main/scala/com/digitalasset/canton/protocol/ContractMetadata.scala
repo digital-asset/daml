@@ -57,10 +57,8 @@ final case class ContractMetadata private (
     v30.SerializableContract.Metadata(
       nonMaintainerSignatories = (signatories -- maintainers).toList,
       nonSignatoryStakeholders = (stakeholders -- signatories).toList,
-      key = maybeKeyWithMaintainersVersioned.map(x =>
-        GlobalKeySerialization.assertToProto(
-          x.map(keyWithMaintainers => keyWithMaintainers.globalKey)
-        )
+      key = maybeKeyWithMaintainersVersioned.map(keyWithMaintainersVersioned =>
+        GlobalKeySerialization.assertToProto(keyWithMaintainersVersioned.map(_.globalKey))
       ),
       maintainers = maintainers.toSeq,
     )
@@ -79,7 +77,7 @@ object ContractMetadata
     with HasVersionedMessageCompanionDbHelpers[ContractMetadata] {
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v30,
+      ProtocolVersion.v31,
       supportedProtoVersion(v30.SerializableContract.Metadata)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -92,18 +90,18 @@ object ContractMetadata
   def tryCreate(
       signatories: Set[LfPartyId],
       stakeholders: Set[LfPartyId],
-      maybeKeyWithMaintainers: Option[LfVersioned[LfGlobalKeyWithMaintainers]],
+      maybeKeyWithMaintainersVersioned: Option[LfVersioned[LfGlobalKeyWithMaintainers]],
   ): ContractMetadata =
-    new ContractMetadata(signatories, stakeholders, maybeKeyWithMaintainers)
+    new ContractMetadata(signatories, stakeholders, maybeKeyWithMaintainersVersioned)
 
   def create(
       signatories: Set[LfPartyId],
       stakeholders: Set[LfPartyId],
-      maybeKeyWithMaintainers: Option[LfVersioned[LfGlobalKeyWithMaintainers]],
+      maybeKeyWithMaintainersVersioned: Option[LfVersioned[LfGlobalKeyWithMaintainers]],
   ): Either[String, ContractMetadata] =
     Either
       .catchOnly[InvalidContractMetadata](
-        tryCreate(signatories, stakeholders, maybeKeyWithMaintainers)
+        tryCreate(signatories, stakeholders, maybeKeyWithMaintainersVersioned)
       )
       .leftMap(_.message)
 
@@ -122,12 +120,16 @@ object ContractMetadata
     for {
       nonMaintainerSignatories <- nonMaintainerSignatoriesP.traverse(ProtoConverter.parseLfPartyId)
       nonSignatoryStakeholders <- nonSignatoryStakeholdersP.traverse(ProtoConverter.parseLfPartyId)
-      keyO <- keyP.traverse(GlobalKeySerialization.fromProtoV30)
+      keyVersionedO <- keyP.traverse(GlobalKeySerialization.fromProtoV30)
       maintainersList <- maintainersP.traverse(ProtoConverter.parseLfPartyId)
-      _ <- Either.cond(maintainersList.isEmpty || keyO.isDefined, (), FieldNotSet("Metadata.key"))
+      _ <- Either.cond(
+        maintainersList.isEmpty || keyVersionedO.isDefined,
+        (),
+        FieldNotSet("Metadata.key"),
+      )
     } yield {
       val maintainers = maintainersList.toSet
-      val keyWithMaintainersO = keyO.map(_.map(LfGlobalKeyWithMaintainers(_, maintainers)))
+      val keyWithMaintainersO = keyVersionedO.map(_.map(LfGlobalKeyWithMaintainers(_, maintainers)))
       val signatories = maintainers ++ nonMaintainerSignatories.toSet
       val stakeholders = signatories ++ nonSignatoryStakeholders.toSet
       checked(ContractMetadata.tryCreate(signatories, stakeholders, keyWithMaintainersO))

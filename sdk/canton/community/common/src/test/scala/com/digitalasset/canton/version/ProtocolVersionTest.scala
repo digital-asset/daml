@@ -4,6 +4,7 @@
 package com.digitalasset.canton.version
 
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.ProtocolVersion.unsupportedErrorMessage
 import org.scalatest.wordspec.AnyWordSpec
@@ -19,37 +20,30 @@ class ProtocolVersionTest extends AnyWordSpec with BaseTest {
     }
 
     "parse version string if valid" in {
-      // Old semver format
-      ProtocolVersion.create("30.0.0").value shouldBe ProtocolVersion.v30
-
       // New format
-      ProtocolVersion.create("30").value shouldBe ProtocolVersion.v30
+      ProtocolVersion.create("30").value shouldBe ProtocolVersion.v31
 
       ProtocolVersion
         .create(Int.MaxValue.toString)
-        .value shouldBe ProtocolVersion.dev
-
-      ProtocolVersion
-        .create(s"${Int.MaxValue.toString}.0.0")
         .value shouldBe ProtocolVersion.dev
 
       ProtocolVersion.create("DeV").value shouldBe ProtocolVersion.dev
     }
 
     "be comparable" in {
-      ProtocolVersion.v30 < ProtocolVersion.dev shouldBe true
-      ProtocolVersion.v30 <= ProtocolVersion.dev shouldBe true
+      ProtocolVersion.v31 < ProtocolVersion.dev shouldBe true
+      ProtocolVersion.v31 <= ProtocolVersion.dev shouldBe true
       ProtocolVersion.dev <= ProtocolVersion.dev shouldBe true
 
-      ProtocolVersion.dev < ProtocolVersion.v30 shouldBe false
-      ProtocolVersion.dev <= ProtocolVersion.v30 shouldBe false
+      ProtocolVersion.dev < ProtocolVersion.v31 shouldBe false
+      ProtocolVersion.dev <= ProtocolVersion.v31 shouldBe false
 
       ProtocolVersion.dev <= ProtocolVersion.dev shouldBe true
-      ProtocolVersion.v30 < ProtocolVersion.dev shouldBe true
-      ProtocolVersion.dev <= ProtocolVersion.v30 shouldBe false
+      ProtocolVersion.v31 < ProtocolVersion.dev shouldBe true
+      ProtocolVersion.dev <= ProtocolVersion.v31 shouldBe false
 
       ProtocolVersion.dev == ProtocolVersion.dev shouldBe true
-      ProtocolVersion.dev == ProtocolVersion.v30 shouldBe false
+      ProtocolVersion.dev == ProtocolVersion.v31 shouldBe false
     }
 
     val invalidProtocolVersionNumber = Int.MinValue
@@ -88,18 +82,21 @@ class ProtocolVersionTest extends AnyWordSpec with BaseTest {
       } should have message unsupportedErrorMessage(invalidProtocolVersion)
     }
 
-    "parse version string with fromProtoPrimitiveS" in {
+    "parse version string with fromProtoPrimitiveHandshake" in {
       ProtocolVersion.supported.foreach { supported =>
-        val result = ProtocolVersion.fromProtoPrimitiveS(supported.toString)
+        val result = ProtocolVersion.fromProtoPrimitiveHandshake(supported.toString)
         result shouldBe a[ParsingResult[?]]
         result.value shouldBe supported
       }
     }
 
-    "fail parsing version string with fromProtoPrimitiveS" in {
-      val result = ProtocolVersion.fromProtoPrimitiveS(invalidProtocolVersionNumber.toString)
+    "fail parsing version string with fromProtoPrimitiveHandshake" in {
+      val result =
+        ProtocolVersion.fromProtoPrimitiveHandshake(invalidProtocolVersionNumber.toString)
       result shouldBe a[ParsingResult[?]]
       result.left.value should have message unsupportedErrorMessage(invalidProtocolVersion)
+
+      ProtocolVersion.fromProtoPrimitiveHandshake("chop").left.value shouldBe a[OtherError]
     }
 
     "parse version string with fromProtoPrimitive" in {

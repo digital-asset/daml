@@ -6,7 +6,7 @@ syntax = "proto3";
 package com.digitalasset.canton.protocol.v30;
 
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
-import "com/digitalasset/canton/protocol/v30/common.proto";
+import "com/digitalasset/canton/protocol/v30/common_stable.proto";
 import "com/digitalasset/canton/protocol/v30/merkle.proto";
 import "com/digitalasset/canton/protocol/v30/signed_content.proto";
 import "com/digitalasset/canton/time/v30/time_proof.proto";
@@ -30,8 +30,7 @@ message TransferOutCommonData {
   repeated string admin_parties = 4;
   string uuid = 5;
   string source_mediator = 6;
-  int32 source_protocol_version = 7;
-  TransferSubmitterMetadata submitter_metadata = 8;
+  TransferSubmitterMetadata submitter_metadata = 7;
 }
 
 message TransferViewTree {
@@ -63,8 +62,7 @@ message TransferInCommonData {
   repeated string stakeholders = 3;
   string uuid = 4;
   string target_mediator = 6;
-  int32 target_protocol_version = 7;
-  TransferSubmitterMetadata submitter_metadata = 8;
+  TransferSubmitterMetadata submitter_metadata = 7;
 }
 
 message TransferSubmitterMetadata {

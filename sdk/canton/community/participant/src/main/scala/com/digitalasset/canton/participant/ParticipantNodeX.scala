@@ -196,7 +196,7 @@ class ParticipantNodeBootstrapX(
           manager = manager,
           topologyManager = topologyManager,
           nodeId = nodeId,
-          initialProtocolVersion = parameters.initialProtocolVersion,
+          initialProtocolVersion = ProtocolVersion.latest,
           loggerFactory = StartupNode.this.loggerFactory,
           timeouts = timeouts,
         )

@@ -88,6 +88,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
     */
   def initialize(
       config: Config,
+      parameters: ParticipantNodeParameters,
       startLedgerApiServer: Boolean,
       futureSupervisor: FutureSupervisor,
       packageNameMapResolver: MutablePackageNameMapResolver,
@@ -128,6 +129,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
             telemetry = new DefaultOpenTelemetry(config.tracerProvider.openTelemetry),
             futureSupervisor = futureSupervisor,
             packageNameMapResolver = packageNameMapResolver,
+            parameters = parameters,
           )
         val startFUS = for {
           _ <-

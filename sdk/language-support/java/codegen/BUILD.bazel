@@ -23,7 +23,7 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "LF_VERSIONS",
+    "COMPILER_LF_VERSIONS",
     "lf_version_configuration",
     "lf_version_default_or_latest",
     "lf_version_is_dev",
@@ -220,7 +220,7 @@ scala_source_jar(
             ],
         ),
     ]
-    for target in LF_VERSIONS
+    for target in COMPILER_LF_VERSIONS
     # we skip 1.13 as their serializable types are the same as 1.12.
     # We include 1.14 since while it has no new serializable types
     # it is the earliest version supported by HEAD damlc.
@@ -244,7 +244,7 @@ scala_source_jar(
         project_name = "integration-tests-model",
         target = ver,
     )
-    for ver in LF_VERSIONS
+    for ver in COMPILER_LF_VERSIONS
 ]
 
 daml_compile(
@@ -366,7 +366,7 @@ java_test(
             ],
         ),
     ]
-    for target in LF_VERSIONS
+    for target in COMPILER_LF_VERSIONS
     # we skip 1.13 as their serializable types are the same as 1.12.
     # We include 1.14 since while it has no new serializable types
     # it is the earliest version supported by HEAD damlc.

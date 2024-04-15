@@ -7,6 +7,7 @@ package com.digitalasset.canton.protocol.v30;
 
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/protocol/v30/common.proto";
+import "com/digitalasset/canton/protocol/v30/common_stable.proto";
 import "com/digitalasset/canton/protocol/v30/merkle.proto";
 import "google/protobuf/duration.proto";
 import "scalapb/scalapb.proto";
@@ -86,8 +87,7 @@ message InformeeMessage {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
 
   FullInformeeTree full_informee_tree = 1;
-  int32 protocol_version = 2;
-  com.digitalasset.canton.crypto.v30.Signature submitting_participant_signature = 3;
+  com.digitalasset.canton.crypto.v30.Signature submitting_participant_signature = 2;
 }
 
 message LightTransactionViewTree {
@@ -176,7 +176,6 @@ message ActionDescription {
   message CreateActionDescription {
     string contract_id = 1;
     bytes node_seed = 2;
-    string version = 3;
   }
 
   message ExerciseActionDescription {
@@ -186,7 +185,6 @@ message ActionDescription {
     repeated string actors = 4;
     bool by_key = 5;
     bytes node_seed = 6;
-    string version = 7;
     bool failed = 8;
     optional string interface_id = 9;
     optional string template_id = 10;
@@ -197,7 +195,6 @@ message ActionDescription {
     string input_contract_id = 1;
     repeated string actors = 2;
     bool by_key = 3;
-    string version = 4;
   }
 
   message LookupByKeyActionDescription {

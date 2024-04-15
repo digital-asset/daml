@@ -91,7 +91,7 @@ object ViewCommonData
   override val name: String = "ViewCommonData"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ViewCommonData)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.ViewCommonData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )

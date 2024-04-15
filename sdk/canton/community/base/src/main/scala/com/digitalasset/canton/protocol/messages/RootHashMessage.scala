@@ -90,7 +90,7 @@ object RootHashMessage
     ], ByteString => ParsingResult[RootHashMessagePayload]] {
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.RootHashMessage)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.RootHashMessage)(
       supportedProtoVersion(_)((deserializer, proto) => fromProtoV30(deserializer)(proto)),
       _.toProtoV30.toByteString,
     )

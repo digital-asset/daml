@@ -290,8 +290,13 @@ class IdeLedgerClient(
             )
         }
       )
+
+    val pkg = compiledPackages.pkgInterface
+      .lookupPackage(templateId.packageId)
+      .getOrElse(throw new IllegalArgumentException(s"Unknown package ${templateId.packageId}"))
+
     GlobalKey
-      .build(templateId, keyValue)
+      .build(templateId, keyValue, pkg.name)
       .fold(keyBuilderError(_), Future.successful(_))
       .flatMap { gkey =>
         ledger.ledgerData.activeKeys.get(gkey) match {
@@ -336,9 +341,9 @@ class IdeLedgerClient(
       case _: TemplatePreconditionViolated => SubmitError.TemplatePreconditionViolated()
       case CreateEmptyContractKeyMaintainers(tid, arg, _) =>
         SubmitError.CreateEmptyContractKeyMaintainers(tid, arg)
-      case FetchEmptyContractKeyMaintainers(tid, keyValue) =>
+      case FetchEmptyContractKeyMaintainers(tid, keyValue, packageName) =>
         SubmitError.FetchEmptyContractKeyMaintainers(
-          GlobalKey.assertBuild(tid, keyValue)
+          GlobalKey.assertBuild(tid, keyValue, packageName)
         )
       case WronglyTypedContract(cid, exp, act) => SubmitError.WronglyTypedContract(cid, exp, act)
       case ContractDoesNotImplementInterface(iid, cid, tid) =>

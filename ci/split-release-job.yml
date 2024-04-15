@@ -85,7 +85,7 @@ jobs:
     - bash: |
         set -eou pipefail
         # Note: this gets dev-env from the release commit, not the trigger commit
-        eval "$(sdk/dev-env/bin/dade-assist)"
+        eval "$(cd sdk; ./dev-env/bin/dade-assist)"
         mkdir -p $(Build.StagingDirectory)/split-release
         ./ci/assembly-split-release-artifacts.sh $(release_tag) $(Build.StagingDirectory)/release-artifacts $(Build.StagingDirectory)/split-release
         jq -n \
@@ -122,7 +122,7 @@ jobs:
         sha=$(release_sha)
         short_sha=${sha:0:8}
         tell_slack "SDK release \`$(release_tag)\` (\`$short_sha\`) just pushed to Artifactory." \
-                   "$(Slack.team-canton)"
+                   "$(Slack.team-releases)"
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'

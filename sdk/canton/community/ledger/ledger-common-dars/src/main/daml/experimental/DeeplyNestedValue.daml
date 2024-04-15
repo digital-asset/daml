@@ -3,7 +3,11 @@
 
 -- file that contains the declarations used in the sandbox tests
 
+{-# LANGUAGE CPP #-}
+
 module DeeplyNestedValue where
+
+#ifdef DAML_CONTRACT_KEYS
 
 data Nat = Z | S Nat
   deriving (Eq, Show)
@@ -45,3 +49,5 @@ template Handler
       with i: Int
       controller party
       do lookupByKey @ContractWithKey (party, toNat i)
+
+#endif

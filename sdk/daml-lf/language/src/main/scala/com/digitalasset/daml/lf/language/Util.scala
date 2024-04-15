@@ -93,6 +93,7 @@ object Util {
   val TScenario = new ParametricType1(BTScenario)
   val TContractId = new ParametricType1(BTContractId)
 
+  val TDecimal = TNumeric(TNat.values(10))
   val TParties = TList(TParty)
 
   val TAnyException = TBuiltin(BTAnyException)
@@ -254,15 +255,27 @@ object Util {
         )
     }
 
+  private[this] def toSignature(
+      coImplements: InterfaceCoImplements
+  ): InterfaceCoImplementsSignature =
+    coImplements match {
+      case InterfaceCoImplements(name, body) =>
+        InterfaceCoImplementsSignature(
+          name,
+          toSignature(body),
+        )
+    }
+
   private def toSignature(interface: DefInterface): DefInterfaceSignature =
     interface match {
-      case DefInterface(requires, param, choices, methods, view) =>
+      case DefInterface(requires, param, choices, methods, view, coImplements) =>
         DefInterfaceSignature(
           requires,
           param,
           choices.transform((_, choice) => toSignature(choice)),
           methods,
           view,
+          coImplements.transform((_, v) => toSignature(v)),
         )
     }
 
@@ -289,4 +302,9 @@ object Util {
   def toSignatures(pkgs: Map[Ref.PackageId, Package]): Map[Ref.PackageId, PackageSignature] =
     pkgs.transform((_, v) => toSignature(v))
 
+  val NoPackageMetadata = PackageMetadata(
+    name = Ref.PackageName.assertFromString("-no-package-metadata"),
+    version = Ref.PackageVersion.assertFromString("0"),
+    upgradedPackageId = None,
+  )
 }

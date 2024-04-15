@@ -4,14 +4,15 @@
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.api.MetricsContext
+import com.daml.metrics.api.testing.InMemoryMetricsFactory
 
 import scala.collection.concurrent.TrieMap
 
-class ScopedInMemoryMetricsFactory {
+class ScopedInMemoryMetricsFactory extends MetricsFactoryProvider {
 
   private val factories = TrieMap[MetricsContext, InMemoryMetricsFactory]()
 
-  def forContext(metricsContext: MetricsContext): InMemoryMetricsFactory = {
+  override def generateMetricsFactory(metricsContext: MetricsContext): InMemoryMetricsFactory = {
     factories.getOrElseUpdate(metricsContext, new InMemoryMetricsFactory)
   }
 

@@ -393,7 +393,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
     ContractMetadata.create(
       signatories = signatories,
       stakeholders = stakeholders,
-      maybeKeyWithMaintainers = maybeKeyWithMaintainers,
+      maybeKeyWithMaintainersVersioned = maybeKeyWithMaintainers,
     ) match {
       case Right(recomputedContractMetadata) =>
         checkContractUpgradable(coid, recomputedContractMetadata, disclosedContracts)
@@ -442,7 +442,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
 
       val result: Either[String, SerializableContract] = for {
         salt <- DriverContractMetadata
-          .fromByteArray(driverMetadataBytes)
+          .fromTrustedByteArray(driverMetadataBytes)
           .bimap(
             e => s"Failed to build DriverContractMetadata ($e)",
             m => m.salt,
@@ -541,7 +541,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         originalMetadata = ContractMetadata.tryCreate(
           signatories = disclosedContract.signatories,
           stakeholders = disclosedContract.stakeholders,
-          maybeKeyWithMaintainers =
+          maybeKeyWithMaintainersVersioned =
             (disclosedContract.keyValue zip disclosedContract.keyMaintainers).map {
               case (value, maintainers) =>
                 Versioned(
@@ -570,7 +570,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
             originalMetadata = ContractMetadata.tryCreate(
               signatories = active.signatories,
               stakeholders = active.stakeholders,
-              maybeKeyWithMaintainers =
+              maybeKeyWithMaintainersVersioned =
                 (active.globalKey zip active.maintainers).map { case (globalKey, maintainers) =>
                   Versioned(unusedTxVersion, GlobalKeyWithMaintainers(globalKey, maintainers))
                 },

@@ -412,7 +412,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
   private[this] val getHelper = Map(helperCId -> helper)
 
   private[this] val getKey = Map(
-    GlobalKeyWithMaintainers.assertBuild(T, keyValue, Set(alice)) -> cId
+    GlobalKeyWithMaintainers.assertBuild(T, keyValue, Set(alice), pkg.name) -> cId
   )
 
   private[this] val dummyContract = Versioned(
@@ -1706,7 +1706,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         )
         inside(res) {
           case Success(
-                Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _)))
+                Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _, _)))
               ) =>
             msgs shouldBe Seq("starts test", "maintainers")
         }
@@ -2683,7 +2683,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         )
         inside(res) {
           case Success(
-                Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _)))
+                Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _, _)))
               ) =>
             msgs shouldBe Seq("starts test", "maintainers")
         }
@@ -3248,7 +3248,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         )
         inside(res) {
           case Success(
-                Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _)))
+                Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _, _)))
               ) =>
             msgs shouldBe Seq("starts test", "maintainers")
         }

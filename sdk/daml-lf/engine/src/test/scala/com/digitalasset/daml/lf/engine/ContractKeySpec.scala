@@ -128,6 +128,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
     GlobalKey.assertBuild(
       TypeConName(basicTestsPkgId, withKeyTemplate),
       ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
+      basicTestsPkg.name,
     )
       ->
         toContractId("BasicTests:WithKey:1")

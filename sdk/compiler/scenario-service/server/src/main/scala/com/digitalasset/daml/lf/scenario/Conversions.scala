@@ -182,7 +182,7 @@ final class Conversions(
                     .setTemplateId(convertIdentifier(tid))
                     .setKey(convertValue(key))
                 )
-              case FetchEmptyContractKeyMaintainers(tid, key) =>
+              case FetchEmptyContractKeyMaintainers(tid, key, _) =>
                 builder.setFetchEmptyContractKeyMaintainers(
                   proto.ScenarioError.FetchEmptyContractKeyMaintainers.newBuilder
                     .setTemplateId(convertIdentifier(tid))

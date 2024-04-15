@@ -85,17 +85,35 @@ class BlockSequencer(
     loggerFactory: NamedLoggerFactory,
     unifiedSequencer: Boolean,
 )(implicit executionContext: ExecutionContext, materializer: Materializer, tracer: Tracer)
-    extends BaseSequencer(
-      DomainTopologyManagerId(domainId),
-      loggerFactory,
+    extends DatabaseSequencer(
+      SequencerWriterStoreFactory.singleInstance,
+      // TODO(#18407): Allow partial configuration of DBS as a part of unified sequencer
+      DatabaseSequencerConfig.ForBlockSequencer(),
+      None,
+      TotalNodeCountValues.SingleSequencerTotalNodeCount,
+      new LocalSequencerStateEventSignaller(
+        processingTimeouts,
+        loggerFactory,
+      ),
+      None,
+      // TODO(#18407): Dummy config which will be ignored anyway as `config.highAvailabilityEnabled` is false
+      OnlineSequencerCheckConfig(),
+      processingTimeouts,
+      storage,
+      None,
       health,
       clock,
-      SignatureVerifier(cryptoApi),
+      domainId,
+      sequencerId,
+      protocolVersion,
+      cryptoApi,
+      SequencerMetrics.noop("TODO"), // TODO(#18406)
+      loggerFactory,
+      unifiedSequencer,
     )
+    with DatabaseSequencerIntegration
     with NamedLogging
     with FlagCloseableAsync {
-
-  override def timeouts: ProcessingTimeout = processingTimeouts
 
   private[sequencer] val pruningQueue = new SimpleExecutionQueue(
     "block-sequencer-pruning-queue",
@@ -140,8 +158,13 @@ class BlockSequencer(
       .queue[Traced[BlockSequencer.LocalEvent]](bufferSize = 1000, OverflowStrategy.backpressure)
       .map(_.map(event => LocalBlockUpdate(event)))
     val combinedSource = Source.combineMat(driverSource, localSource)(Merge(_))(Keep.both)
+    val sequencerIntegration = if (unifiedSequencer) {
+      this
+    } else {
+      SequencerIntegration.Noop
+    }
     val combinedSourceWithBlockHandling = combinedSource.async
-      .via(stateManager.applyBlockUpdate)
+      .via(stateManager.applyBlockUpdate(sequencerIntegration))
       .map { case Traced(lastTs) =>
         metrics.sequencerClient.handler.delay.updateValue((clock.now - lastTs).toMillis)
       }
@@ -168,7 +191,7 @@ class BlockSequencer(
           _ <- EitherTUtil.condUnitET[Future](
             submission.maxSequencingTime > estimatedSequencingTimestamp,
             SendAsyncError.RequestInvalid(
-              s"Max sequencing time ${submission.maxSequencingTime} for submission with id ${submission.messageId} is already past the sequencer clock timestamp $estimatedSequencingTimestamp"
+              s"The sequencer clock timestamp $estimatedSequencingTimestamp is already past the max sequencing time ${submission.maxSequencingTime} for submission with id ${submission.messageId}"
             ),
           )
           // We can't easily use snapshot(topologyTimestamp), because the effective last snapshot transaction
@@ -260,64 +283,82 @@ class BlockSequencer(
     } yield ()
   }
 
-  override protected def readInternal(member: Member, offset: SequencerCounter)(implicit
+  override def readInternal(member: Member, offset: SequencerCounter)(implicit
       traceContext: TraceContext
   ): EitherT[Future, CreateSubscriptionError, EventSource] = {
     logger.debug(s"Answering readInternal(member = $member, offset = $offset)")
-    if (!member.isAuthenticated) {
-      // allowing unauthenticated members to read events is the same as automatically registering an unauthenticated member
-      // and then proceeding with the subscription.
-      // optimization: if the member is unauthenticated, we don't need to fetch all members from the snapshot
-      EitherT.fromEither[Future](stateManager.readEventsForMember(member, offset))
+    if (unifiedSequencer) {
+      super.readInternal(member, offset)
     } else {
-      EitherT
-        .right(cryptoApi.currentSnapshotApproximation.ipsSnapshot.isMemberKnown(member))
-        .flatMap { isKnown =>
-          if (isKnown) {
-            EitherT.fromEither[Future](stateManager.readEventsForMember(member, offset))
-          } else {
-            EitherT.leftT(CreateSubscriptionError.UnknownMember(member))
+      if (!member.isAuthenticated) {
+        // allowing unauthenticated members to read events is the same as automatically registering an unauthenticated member
+        // and then proceeding with the subscription.
+        // optimization: if the member is unauthenticated, we don't need to fetch all members from the snapshot
+        EitherT.fromEither[Future](stateManager.readEventsForMember(member, offset))
+      } else {
+        EitherT
+          .right(cryptoApi.currentSnapshotApproximation.ipsSnapshot.isMemberKnown(member))
+          .flatMap { isKnown =>
+            if (isKnown) {
+              EitherT.fromEither[Future](stateManager.readEventsForMember(member, offset))
+            } else {
+              EitherT.leftT(CreateSubscriptionError.UnknownMember(member))
+            }
           }
-        }
+      }
     }
   }
 
   override def isRegistered(
       member: Member
   )(implicit traceContext: TraceContext): Future[Boolean] = {
-    if (!member.isAuthenticated) Future.successful(true)
-    else cryptoApi.headSnapshot.ipsSnapshot.isMemberKnown(member)
+    if (unifiedSequencer) {
+      super.isRegistered(member)
+    } else {
+      if (!member.isAuthenticated) Future.successful(true)
+      else cryptoApi.headSnapshot.ipsSnapshot.isMemberKnown(member)
+    }
   }
 
   override def registerMember(member: Member)(implicit
       traceContext: TraceContext
   ): EitherT[Future, SequencerWriteError[RegisterMemberError], Unit] = {
-    // there is nothing extra to be done for member registration in Canton 3.x
-    EitherT.rightT[Future, SequencerWriteError[RegisterMemberError]](())
+    if (unifiedSequencer) {
+      super.registerMember(member)
+    } else {
+      // there is nothing extra to be done for member registration in Canton 3.x
+      EitherT.rightT[Future, SequencerWriteError[RegisterMemberError]](())
+    }
   }
 
   /** Important: currently both the disable member and the prune functionality on the block sequencer are
     * purely local operations that do not affect other block sequencers that share the same source of
     * events.
     */
-  protected def disableMemberInternal(
+  override protected def disableMemberInternal(
       member: Member
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    if (!stateManager.isMemberRegistered(member)) {
-      logger.warn(s"disableMember attempted to use member [$member] but they are not registered")
-      Future.unit
-    } else if (!stateManager.isMemberEnabled(member)) {
-      logger.debug(s"disableMember attempted to use member [$member] but they are already disabled")
-      Future.unit
+    if (unifiedSequencer) {
+      super.disableMemberInternal(member)
     } else {
-      val disabledF =
-        futureSupervisor.supervised(s"Waiting for member $member to be disabled")(
-          stateManager.waitForMemberToBeDisabled(member)
+      if (!stateManager.isMemberRegistered(member)) {
+        logger.warn(s"disableMember attempted to use member [$member] but they are not registered")
+        Future.unit
+      } else if (!stateManager.isMemberEnabled(member)) {
+        logger.debug(
+          s"disableMember attempted to use member [$member] but they are already disabled"
         )
-      for {
-        _ <- placeLocalEvent(BlockSequencer.DisableMember(member))
-        _ <- disabledF
-      } yield ()
+        Future.unit
+      } else {
+        val disabledF =
+          futureSupervisor.supervised(s"Waiting for member $member to be disabled")(
+            stateManager.waitForMemberToBeDisabled(member)
+          )
+        for {
+          _ <- placeLocalEvent(BlockSequencer.DisableMember(member))
+          _ <- disabledF
+        } yield ()
+      }
     }
   }
 
@@ -345,22 +386,41 @@ class BlockSequencer(
 
   override def snapshot(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): EitherT[Future, String, SequencerSnapshot] =
+  )(implicit traceContext: TraceContext): EitherT[Future, String, SequencerSnapshot] = {
     // TODO(#12676) Make sure that we don't request a snapshot for a state that was already pruned
+
     for {
-      blockEphemeralState <- store
-        .readStateForBlockContainingTimestamp(timestamp)
-        .leftMap(_ => s"Provided timestamp $timestamp is not linked to a block")
       trafficBalances <- EitherT.right(balanceStore.lookupLatestBeforeInclusive(timestamp))
-    } yield blockEphemeralState
-      .toSequencerSnapshot(protocolVersion, trafficBalances)
-      .tap(snapshot =>
-        if (logger.underlying.isDebugEnabled()) {
-          logger.debug(
-            s"Snapshot for timestamp $timestamp: $snapshot with ephemeral state: $blockEphemeralState"
-          )
+      bsSnapshot <- store
+        .readStateForBlockContainingTimestamp(timestamp)
+        .bimap(
+          _ => s"Provided timestamp $timestamp is not linked to a block",
+          blockEphemeralState =>
+            blockEphemeralState
+              .toSequencerSnapshot(protocolVersion, trafficBalances)
+              .tap(snapshot =>
+                if (logger.underlying.isDebugEnabled()) {
+                  logger.debug(
+                    s"Snapshot for timestamp $timestamp: $snapshot with ephemeral state: $blockEphemeralState"
+                  )
+                }
+              ),
+        )
+      finalSnapshot <- {
+        if (unifiedSequencer) {
+          super.snapshot(timestamp).map { dbsSnapshot =>
+            dbsSnapshot.copy(
+              inFlightAggregations = bsSnapshot.inFlightAggregations,
+              additional = bsSnapshot.additional,
+              trafficSnapshots = bsSnapshot.trafficSnapshots,
+            )(dbsSnapshot.representativeProtocolVersion)
+          }
+        } else {
+          EitherT.pure[Future, String](bsSnapshot)
         }
-      )
+      }
+    } yield finalSnapshot
+  }
 
   override def pruningStatus(implicit traceContext: TraceContext): Future[SequencerPruningStatus] =
     store.pruningStatus().map(_.toSequencerPruningStatus(clock.now))
@@ -427,9 +487,8 @@ class BlockSequencer(
       oldestEventTimestamp: Option[CantonTimestamp]
   ): Either[PruningSupportError, Unit] = Either.left(PruningError.NotSupported)
 
-  override def pruningSchedulerBuilder: Option[Storage => PruningScheduler] = None
-
-  override def pruningScheduler: Option[PruningScheduler] = None
+  override def pruningSchedulerBuilder: Option[Storage => PruningScheduler] =
+    if (unifiedSequencer) super.pruningSchedulerBuilder else None
 
   override protected def healthInternal(implicit
       traceContext: TraceContext
@@ -461,6 +520,10 @@ class BlockSequencer(
       ),
       // The kill switch ensures that we don't process the remaining contents of the queue buffer
       SyncCloseable("killSwitch.shutdown()", killSwitch.shutdown()),
+      SyncCloseable(
+        "DatabaseSequencer.onClose()",
+        super[DatabaseSequencer].onClosed(),
+      ),
       AsyncCloseable("done", done, timeouts.shutdownProcessing),
       SyncCloseable("blockSequencerOps.close()", blockSequencerOps.close()),
     )

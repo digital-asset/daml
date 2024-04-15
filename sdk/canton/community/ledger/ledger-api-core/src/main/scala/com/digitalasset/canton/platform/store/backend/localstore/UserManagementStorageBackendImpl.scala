@@ -10,6 +10,7 @@ import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.UserRight.{
   CanActAs,
   CanReadAs,
+  CanReadAsAnyParty,
   IdentityProviderAdmin,
   ParticipantAdmin,
 }
@@ -293,6 +294,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       case (Right.CAN_ACT_AS_FIELD_NUMBER, Some(party)) => CanActAs(party)
       case (Right.CAN_READ_AS_FIELD_NUMBER, Some(party)) => CanReadAs(party)
       case (Right.IDENTITY_PROVIDER_ADMIN_FIELD_NUMBER, None) => IdentityProviderAdmin
+      case (Right.CAN_READ_AS_ANY_PARTY_FIELD_NUMBER, None) => CanReadAsAnyParty
       case _ =>
         throw new RuntimeException(s"Could not convert ${(value, partyO)} to a user right.")
     }
@@ -304,6 +306,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       case IdentityProviderAdmin => (Right.IDENTITY_PROVIDER_ADMIN_FIELD_NUMBER, None)
       case CanActAs(party) => (Right.CAN_ACT_AS_FIELD_NUMBER, Some(party))
       case CanReadAs(party) => (Right.CAN_READ_AS_FIELD_NUMBER, Some(party))
+      case CanReadAsAnyParty => (Right.CAN_READ_AS_ANY_PARTY_FIELD_NUMBER, None)
       case _ =>
         throw new RuntimeException(s"Could not recognize user right: $right.")
     }

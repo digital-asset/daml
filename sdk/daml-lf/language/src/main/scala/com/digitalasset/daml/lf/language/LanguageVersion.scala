@@ -20,7 +20,7 @@ object LanguageVersion {
   type Minor = LanguageMinorVersion
   val Minor = LanguageMinorVersion
 
-  private[this] lazy val stringToVersions = All.iterator.map(v => v.pretty -> v).toMap
+  private[this] lazy val stringToVersions = (AllV1 ++ AllV2).iterator.map(v => v.pretty -> v).toMap
 
   def fromString(s: String): Either[String, LanguageVersion] =
     stringToVersions.get(s).toRight(s + " is not supported")
@@ -29,7 +29,7 @@ object LanguageVersion {
 
   implicit val Ordering: scala.Ordering[LanguageVersion] = {
     case (LanguageVersion(Major.V1, leftMinor), LanguageVersion(Major.V1, rightMinor)) =>
-      Major.V2.minorVersionOrdering.compare(leftMinor, rightMinor)
+      Major.V1.minorVersionOrdering.compare(leftMinor, rightMinor)
     case (LanguageVersion(Major.V2, leftMinor), LanguageVersion(Major.V2, rightMinor)) =>
       Major.V2.minorVersionOrdering.compare(leftMinor, rightMinor)
     case (v1, v2) =>
@@ -38,10 +38,16 @@ object LanguageVersion {
       )
   }
 
-  val All = Major.V2.supportedMinorVersions.map(LanguageVersion(Major.V2, _))
+  val AllV1 = Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
+  val AllV2 = Major.V2.supportedMinorVersions.map(LanguageVersion(Major.V2, _))
 
-  val List(v2_1, v2_dev) =
-    All: @nowarn("msg=match may not be exhaustive")
+  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_dev) = AllV1: @nowarn(
+    "msg=match may not be exhaustive"
+  )
+  val List(v2_1, v2_dev) = AllV2: @nowarn("msg=match may not be exhaustive")
+
+  @deprecated("use AllV2", since = "3.1.0")
+  val All = AllV2
 
   object Features {
     val default = v2_1

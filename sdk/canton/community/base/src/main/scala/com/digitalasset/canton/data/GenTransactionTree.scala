@@ -309,10 +309,13 @@ object GenTransactionTree {
         .required("GenTransactionTree.rootViews", protoTransactionTree.rootViews)
       rootViews <- MerkleSeq.fromProtoV30(
         (
-          hashOps,
-          TransactionView.fromByteString(expectedProtocolVersion)(
-            (hashOps, commonMetadataUnblinded.confirmationPolicy, expectedProtocolVersion)
+          (
+            hashOps,
+            TransactionView.fromByteString(expectedProtocolVersion)(
+              (hashOps, commonMetadataUnblinded.confirmationPolicy, expectedProtocolVersion)
+            ),
           ),
+          expectedProtocolVersion,
         ),
         rootViewsP,
       )

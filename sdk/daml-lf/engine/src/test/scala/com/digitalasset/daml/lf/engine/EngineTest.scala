@@ -400,6 +400,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
                   (Some[Ref.Name]("k"), ValueInt64(43)),
                 ),
               ),
+              basicTestsHashPkgName,
             )
           )
         )
@@ -659,6 +660,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
                     (Some[Ref.Name]("k"), ValueInt64(43)),
                   ),
                 ),
+                basicTestsHashPkgName,
               )
             )
           )
@@ -706,6 +708,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
                     (Some[Ref.Name]("k"), ValueInt64(43)),
                   ),
                 ),
+                basicTestsHashPkgName,
               )
             )
           )
@@ -735,7 +738,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey)),
+        Some(crypto.Hash.assertHashContractKey(templateId, basicTestsHashPkgName, usedContractKey)),
       )
       val unusedDisclosedContract = DisclosedContract(
         templateId,
@@ -745,7 +748,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey)),
+        Some(
+          crypto.Hash.assertHashContractKey(templateId, basicTestsHashPkgName, unusedContractKey)
+        ),
       )
       val fetchByKeyCommand = speedy.Command.FetchByKey(
         templateId = templateId,
@@ -762,7 +767,12 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         stakeholders = Set(alice),
         keyOpt = Some(
           GlobalKeyWithMaintainers
-            .assertBuild(usedDisclosedContract.templateId, usedContractKey, Set(alice))
+            .assertBuild(
+              usedDisclosedContract.templateId,
+              usedContractKey,
+              Set(alice),
+              basicTestsHashPkgName,
+            )
         ),
         version = transactionVersion,
       )
@@ -1582,7 +1592,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey)),
+        Some(crypto.Hash.assertHashContractKey(templateId, basicTestsHashPkgName, usedContractKey)),
       )
       val unusedDisclosedContract = DisclosedContract(
         templateId,
@@ -1592,7 +1602,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey)),
+        Some(
+          crypto.Hash.assertHashContractKey(templateId, basicTestsHashPkgName, unusedContractKey)
+        ),
       )
       val lookupByKeyCommand = speedy.Command.LookupByKey(
         templateId = templateId,
@@ -1609,7 +1621,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         stakeholders = Set(alice),
         keyOpt = Some(
           GlobalKeyWithMaintainers
-            .assertBuild(templateId, usedContractKey, Set(alice))
+            .assertBuild(templateId, usedContractKey, Set(alice), basicTestsHashPkgName)
         ),
         version = transactionVersion,
       )
@@ -2328,7 +2340,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val (_, _, allPackagesDev) = new EngineTestHelpers(majorLanguageVersion).loadAndAddPackage(
       s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
     )
-    val compatibleLanguageVersions = LanguageVersion.All
+    val compatibleLanguageVersions = LanguageVersion.AllV2
     val stablePackages = StablePackages(majorLanguageVersion).allPackages
 
     s"accept stable packages from ${devVersion} even if version is smaller than min version" in {
@@ -2436,6 +2448,8 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     //  non-dev dar
     s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
   )
+  val basicTestsHashPkgName =
+    if (GlobalKey.useDummyHashPackageName) GlobalKey.dummyHashPackageName else basicTestsPkg.name
 
   val basicTestsSignatures: PackageInterface =
     language.PackageInterface(Map(basicTestsPkgId -> basicTestsPkg))
@@ -2502,6 +2516,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       GlobalKey.assertBuild(
         TypeConName(basicTestsPkgId, withKeyTemplate),
         ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
+        basicTestsHashPkgName,
       ),
       Set(alice),
     )

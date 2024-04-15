@@ -10,7 +10,6 @@ import com.digitalasset.canton.config.{
   LocalNodeParametersConfig,
   ProtocolConfig,
 }
-import com.digitalasset.canton.version.ProtocolVersion
 
 /** Various parameters for non-standard sequencer settings
   *
@@ -22,7 +21,6 @@ final case class SequencerNodeParameterConfig(
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
     override val devVersionSupport: Boolean = true,
     override val dontWarnOnDeprecatedPV: Boolean = false,
-    override val initialProtocolVersion: ProtocolVersion = ProtocolVersion.latest,
     maxBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.5),
     override val batching: BatchingConfig = BatchingConfig(),
     override val caching: CachingConfigs = CachingConfigs(),

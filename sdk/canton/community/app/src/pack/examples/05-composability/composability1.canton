@@ -11,7 +11,8 @@ val iouId = bootstrap.domain(
   iouAlias,
   sequencers = Seq(iou_sequencer),
   mediators = Seq(iou_mediator),
-  domainOwners = Seq(iouDomainOwner)
+  domainOwners = Seq(iouDomainOwner),
+  staticDomainParameters = StaticDomainParameters.defaultsWithoutKMS(ProtocolVersion.latest),
 )
 
 val paintDomainOwner = paint_sequencer
@@ -19,7 +20,8 @@ val paintId = bootstrap.domain(
   "paint",
   sequencers = Seq(paint_sequencer),
   mediators = Seq(paint_mediator),
-  domainOwners = Seq(paintDomainOwner)
+  domainOwners = Seq(paintDomainOwner),
+  staticDomainParameters = StaticDomainParameters.defaultsWithoutKMS(ProtocolVersion.latest),
 )
 
 // update parameters

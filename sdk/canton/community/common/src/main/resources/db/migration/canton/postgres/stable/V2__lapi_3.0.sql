@@ -43,8 +43,8 @@ CREATE INDEX lapi_transaction_metering_ledger_offset_idx ON lapi_transaction_met
 ---------------------------------------------------------------------------------------------------
 -- Package entries
 --
--- A table for tracking DAML-LF package submissions
--- It includes id to track the package submission and status
+-- A table for tracking DAML-LF package submissions.
+-- It includes id to track the package submission and status.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_package_entries (
     ledger_offset varchar(4000) collate "C" primary key not null,

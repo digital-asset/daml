@@ -29,14 +29,21 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, MapsUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{LfKeyResolver, LfPackageId, LfPackageName, LfPartyId, checked}
+import com.digitalasset.canton.{
+  LfKeyResolver,
+  LfPackageId,
+  LfPackageName,
+  LfPartyId,
+  LfVersioned,
+  checked,
+}
 
 import java.util.UUID
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Generate transaction trees as used from protocol version [[com.digitalasset.canton.version.ProtocolVersion.v30]] on
+/** Generate transaction trees as used from protocol version [[com.digitalasset.canton.version.ProtocolVersion.v31]] on
   */
 class TransactionTreeFactoryImplV3(
     submittingParticipant: ParticipantId,
@@ -207,7 +214,8 @@ class TransactionTreeFactoryImplV3(
     val coreOtherBuilder = // contract IDs have not yet been suffixed
       List.newBuilder[((LfNodeId, LfActionNode), RollbackScope)]
     val childViewsBuilder = Seq.newBuilder[TransactionView]
-    val subViewKeyResolutions = mutable.Map.empty[LfGlobalKey, SerializableKeyResolution]
+    val subViewKeyResolutions =
+      mutable.Map.empty[LfGlobalKey, LfVersioned[SerializableKeyResolution]]
 
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     var createIndex = 0
@@ -236,7 +244,7 @@ class TransactionTreeFactoryImplV3(
               childViewsBuilder += v
               val createdInSubview = state.createdContractsInView
               createdInView ++= createdInSubview
-              val keyResolutionsInSubview = v.globalKeyInputs.fmap(_.asSerializable)
+              val keyResolutionsInSubview = v.globalKeyInputs.fmap(_.map(_.asSerializable))
               MapsUtil.extendMapWith(subViewKeyResolutions, keyResolutionsInSubview) {
                 (accRes, _) => accRes
               }
@@ -373,7 +381,7 @@ class TransactionTreeFactoryImplV3(
       transactionView: TransactionView,
       viewPosition: ViewPosition,
   )(implicit traceContext: TraceContext): Unit = {
-    val viewGki = transactionView.globalKeyInputs.fmap(_.resolution)
+    val viewGki = transactionView.globalKeyInputs.fmap(_.unversioned.resolution)
     val stateGki = csmState.globalKeyInputs.fmap(_.toKeyMapping)
     ErrorUtil.requireState(
       viewGki == stateGki,
@@ -429,10 +437,12 @@ class TransactionTreeFactoryImplV3(
   private def resolvedKeys(
       viewKeyInputs: Map[LfGlobalKey, KeyInput],
       keyVersionAndMaintainers: collection.Map[LfGlobalKey, (LfTransactionVersion, Set[LfPartyId])],
-      subviewKeyResolutions: collection.Map[LfGlobalKey, SerializableKeyResolution],
+      subviewKeyResolutions: collection.Map[LfGlobalKey, LfVersioned[SerializableKeyResolution]],
   )(implicit
       traceContext: TraceContext
-  ): Either[TransactionTreeConversionError, Map[LfGlobalKey, SerializableKeyResolution]] = {
+  ): Either[TransactionTreeConversionError, Map[LfGlobalKey, LfVersioned[
+    SerializableKeyResolution
+  ]]] = {
     ErrorUtil.requireArgument(
       subviewKeyResolutions.keySet.subsetOf(viewKeyInputs.keySet),
       s"Global key inputs of subview not part of the global key inputs of the parent view. Missing keys: ${subviewKeyResolutions.keySet
@@ -442,14 +452,14 @@ class TransactionTreeFactoryImplV3(
     def resolutionFor(
         key: LfGlobalKey,
         keyInput: KeyInput,
-    ): Either[MissingContractKeyLookupError, SerializableKeyResolution] = {
+    ): Either[MissingContractKeyLookupError, LfVersioned[SerializableKeyResolution]] = {
       keyVersionAndMaintainers.get(key).toRight(MissingContractKeyLookupError(key)).map {
         case (lfVersion, maintainers) =>
           val resolution = keyInput match {
-            case KeyActive(cid) => AssignedKey(cid)(lfVersion)
-            case KeyCreate | NegativeKeyLookup => FreeKey(maintainers)(lfVersion)
+            case KeyActive(cid) => AssignedKey(cid)
+            case KeyCreate | NegativeKeyLookup => FreeKey(maintainers)
           }
-          resolution
+          LfVersioned(lfVersion, resolution)
       }
     }
 

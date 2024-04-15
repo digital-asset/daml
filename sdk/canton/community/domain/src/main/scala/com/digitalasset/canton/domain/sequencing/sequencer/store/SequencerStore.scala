@@ -29,7 +29,7 @@ import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.sequencing.protocol.{
   MessageId,
   SequencedEvent,
-  SequencerDeliverError,
+  SequencedEventTrafficState,
 }
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -130,6 +130,8 @@ sealed trait StoreEvent[+PayloadReference] extends HasTraceContext {
   def map[P](f: PayloadReference => P): StoreEvent[P]
 
   def payloadO: Option[PayloadReference]
+
+  val trafficStateO: Option[SequencedEventTrafficState]
 }
 
 /** Structure for storing a deliver events.
@@ -144,6 +146,7 @@ final case class DeliverStoreEvent[P](
     payload: P,
     topologyTimestampO: Option[CantonTimestamp],
     override val traceContext: TraceContext,
+    override val trafficStateO: Option[SequencedEventTrafficState],
 ) extends StoreEvent[P] {
   def mapPayload[Q](map: P => Q): DeliverStoreEvent[Q] = copy(payload = map(payload))
   override lazy val notifies: WriteNotification = WriteNotification.Members(members)
@@ -169,6 +172,7 @@ object DeliverStoreEvent {
       members: Set[SequencerMemberId],
       payload: Payload,
       topologyTimestampO: Option[CantonTimestamp],
+      trafficStateO: Option[SequencedEventTrafficState],
   )(implicit traceContext: TraceContext): DeliverStoreEvent[Payload] = {
     // ensure that sender is a recipient
     val recipientsWithSender = NonEmpty(SortedSet, sender, members.toSeq*)
@@ -179,6 +183,7 @@ object DeliverStoreEvent {
       payload,
       topologyTimestampO,
       traceContext,
+      trafficStateO,
     )
   }
 }
@@ -188,6 +193,7 @@ final case class DeliverErrorStoreEvent(
     messageId: MessageId,
     error: Option[ByteString],
     override val traceContext: TraceContext,
+    override val trafficStateO: Option[SequencedEventTrafficState],
 ) extends StoreEvent[Nothing] {
   override val notifies: WriteNotification = WriteNotification.Members(SortedSet(sender))
   override val description: String = show"deliver-error[message-id:$messageId]"
@@ -198,28 +204,30 @@ final case class DeliverErrorStoreEvent(
 
 object DeliverErrorStoreEvent {
   def serializeError(
-      error: SequencerDeliverError,
+      status: Status,
       protocolVersion: ProtocolVersion,
   ): ByteString =
     VersionedStatus
-      .create(error.rpcStatusWithoutLoggingContext(), protocolVersion)
+      .create(status, protocolVersion)
       .toByteString
 
   def apply(
       sender: SequencerMemberId,
       messageId: MessageId,
-      error: SequencerDeliverError,
+      status: Status,
       protocolVersion: ProtocolVersion,
       traceContext: TraceContext,
+      trafficStateO: Option[SequencedEventTrafficState],
   ): DeliverErrorStoreEvent = {
     val serializedError =
-      DeliverErrorStoreEvent.serializeError(error, protocolVersion)
+      DeliverErrorStoreEvent.serializeError(status, protocolVersion)
 
     DeliverErrorStoreEvent(
       sender,
       messageId,
       Some(serializedError),
       traceContext,
+      trafficStateO,
     )
   }
 
@@ -239,11 +247,12 @@ object DeliverErrorStoreEvent {
 final case class Presequenced[+E <: StoreEvent[_]](
     event: E,
     maxSequencingTimeO: Option[CantonTimestamp],
+    blockSequencerTimestampO: Option[CantonTimestamp] = None,
 ) extends HasTraceContext {
   import cats.implicits.*
 
   def map[F <: StoreEvent[_]](fn: E => F): Presequenced[F] =
-    Presequenced(fn(event), maxSequencingTimeO)
+    this.copy(event = fn(event))
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def traverse[F[_], E2 <: StoreEvent[_]](fn: E => F[E2])(implicit
@@ -271,8 +280,9 @@ object Presequenced {
   def withMaxSequencingTime[E <: StoreEvent[_]](
       event: E,
       maxSequencingTime: CantonTimestamp,
+      blockSequencerTimestampO: Option[CantonTimestamp],
   ): Presequenced[E] =
-    Presequenced(event, Some(maxSequencingTime))
+    Presequenced(event, Some(maxSequencingTime), blockSequencerTimestampO)
   def alwaysValid[E <: StoreEvent[_]](event: E): Presequenced[E] = Presequenced(event, None)
 }
 

@@ -55,7 +55,7 @@ class GrpcSequencerInitializationServiceX(
     val res: EitherT[Future, CantonError, InitializeSequencerFromGenesisStateResponse] = for {
       topologyState <- EitherT.fromEither[Future](
         StoredTopologyTransactionsX
-          .fromByteString(request.topologySnapshot)
+          .fromTrustedByteString(request.topologySnapshot)
           .leftMap(ProtoDeserializationFailure.Wrap(_))
       )
 
@@ -108,7 +108,7 @@ class GrpcSequencerInitializationServiceX(
           // the caller of this endpoint could get the onboarding state from various sequencers
           // and compare them for byte-for-byte equality, to increase the confidence that this
           // is safe to deserialize
-          .fromByteStringUnsafe(request.onboardingState)
+          .fromTrustedByteString(request.onboardingState)
           .leftMap(ProtoDeserializationFailure.Wrap(_))
       )
       initializeRequest = InitializeSequencerRequest(

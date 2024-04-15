@@ -3,13 +3,6 @@
 
 pr: none
 trigger: none
-schedules:
-- cron: "0 1 * * *"
-  displayName: Daily split snapshot
-  branches:
-    include:
-    - main
-    - main-2.x
 
 parameters:
 - name: version
@@ -34,9 +27,9 @@ jobs:
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
 
-        prefix=$(cat NIGHTLY_PREFIX)
+        prefix=$(git show ${{ parameters.commit }}:sdk/NIGHTLY_PREFIX)
         if [ "${{ parameters.version }}" = "snapshot" ]; then
-            release=$(./release.sh snapshot HEAD $prefix | awk '{print $2}')
+            release=$(./release.sh snapshot ${{ parameters.commit }} $prefix | awk '{print $2}')
         else
             release=${{ parameters.version }}
         fi

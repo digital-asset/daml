@@ -159,7 +159,7 @@ object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCom
   override val name: String = "AcsCommitment"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.AcsCommitment)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.AcsCommitment)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )

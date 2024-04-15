@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.metrics
 
+import com.daml.metrics.api.testing.InMemoryMetricsFactory
 import com.digitalasset.canton.BaseTest
 import io.opentelemetry.api.OpenTelemetry
 import org.scalatest.wordspec.AnyWordSpec
@@ -10,7 +11,8 @@ import org.scalatest.wordspec.AnyWordSpec
 class LabeledMetricsFactoryTest extends AnyWordSpec with BaseTest {
 
   "metrics factory" should {
-    "generate valid documentation" in {
+    // TODO(#17917) renable this test once the metrics docs have been re-enabled
+    "generate valid documentation" ignore {
       val mf = MetricsRegistry(
         OpenTelemetry.noop().getMeter("test"),
         MetricsFactoryType.InMemory(_ => new InMemoryMetricsFactory),

@@ -1558,7 +1558,11 @@ private[lf] object SBuiltinFun {
         extractKey(NameOf.qualifiedNameOfCurrentFunc, version, pkgName, templateId, keyValue)
       if (cachedKey.maintainers.isEmpty) {
         Control.Error(
-          IE.FetchEmptyContractKeyMaintainers(cachedKey.templateId, cachedKey.lfValue)
+          IE.FetchEmptyContractKeyMaintainers(
+            cachedKey.templateId,
+            cachedKey.lfValue,
+            cachedKey.packageName,
+          )
         )
       } else {
         val keyOpt = SOptional(Some(keyValue))
@@ -2068,7 +2072,7 @@ private[lf] object SBuiltinFun {
         val keyValue = vals.get(keyIdx)
         val lfValue = keyValue.toNormalizedValue(packageTxVersion)
         val gkey = GlobalKey
-          .build(templateId, lfValue)
+          .build(templateId, lfValue, pkgName)
           .getOrElse(
             throw SErrorDamlException(IE.ContractIdInContractKey(keyValue.toUnnormalizedValue))
           )

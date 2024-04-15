@@ -22,10 +22,28 @@ private[daml] class PackageInfo(pkgSignature: Map[Ref.PackageId, Ast.GenPackage[
     * Note that while interfaces may not be defined in `pkgSignature`, all template
     * are.
     */
-  def interfaceInstances: Relation[Ref.Identifier, Ref.Identifier] =
+  def interfacesDirectImplementations: Relation[Ref.Identifier, Ref.Identifier] =
     Relation.from(
       templates.flatMap { case (tmplId, tmpl) => tmpl.implements.keysIterator.map(_ -> tmplId) }
     )
+
+  /** return the relation between interfaces and all their retroactive implementations
+    * as defined in `pkgSignature`.
+    * The domain of the relation is the set of interface names, while the codomain
+    * is the set of template names.
+    * Note that while all interfaces are defined in `pkgSignature`, templates may not
+    * be.
+    */
+  def interfacesRetroactiveInstances: Relation[Ref.Identifier, Ref.Identifier] =
+    Relation.from(
+      interfaces.flatMap { case (ifaceId, iface) =>
+        iface.coImplements.keysIterator.map(tmplId => ifaceId -> tmplId)
+      }
+    )
+
+  /* Union of interfacesDirectImplementations and interfacesRetroactiveInstances */
+  def interfaceInstances: Relation[Ref.Identifier, Ref.Identifier] =
+    Relation.union(interfacesDirectImplementations, interfacesRetroactiveInstances)
 
   private[this] def withFullId[X](
       pkgId: Ref.PackageId,

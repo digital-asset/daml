@@ -1,7 +1,11 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
+
 module RaceTests where
+
+#ifdef DAML_CONTRACT_KEYS
 
 import DA.Optional (isSome)
 
@@ -30,7 +34,7 @@ template ContractWithKey with
 template FetchWrapper with
     fetcher : Party
     contractId : ContractId ContractWithKey
-  where 
+  where
     signatory fetcher
     nonconsuming choice FetchWrapper_Fetch: ContractWithKey
       controller fetcher
@@ -62,3 +66,5 @@ template CreateWrapper with
       do contract <- create ContractWithKey with owner
          _ <- exercise contract ContractWithKey_Archive
          return ()
+
+#endif

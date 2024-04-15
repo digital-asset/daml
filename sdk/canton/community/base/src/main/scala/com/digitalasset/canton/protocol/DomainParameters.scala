@@ -106,7 +106,7 @@ object StaticDomainParameters
 
   val supportedProtoVersions: protocol.StaticDomainParameters.SupportedProtoVersions =
     SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(
         v30.StaticDomainParameters
       )(
         supportedProtoVersion(_)(fromProtoV30),
@@ -430,7 +430,7 @@ final case class DynamicDomainParameters private (
   override def pretty: Pretty[DynamicDomainParameters] = {
     if (
       representativeProtocolVersion >= companionObj.protocolVersionRepresentativeFor(
-        ProtocolVersion.v30
+        ProtocolVersion.v31
       )
     ) {
       prettyOfClass(
@@ -467,7 +467,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
 
   val supportedProtoVersions: canton.protocol.DynamicDomainParameters.SupportedProtoVersions =
     SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(
         v30.DynamicDomainParameters
       )(
         supportedProtoVersion(_)(fromProtoV30),
@@ -900,6 +900,13 @@ final case class AcsCommitmentsCatchUpConfig(
       )
       .isRight,
     s"Catch up parameters ($catchUpIntervalSkip, $nrIntervalsToTriggerCatchUp) are too large and cause overflow when computing the catch-up interval",
+  )
+
+  require(
+    catchUpIntervalSkip.value != 1 || nrIntervalsToTriggerCatchUp.value != 1,
+    s"Catch up config ($catchUpIntervalSkip, $nrIntervalsToTriggerCatchUp) is ambiguous. " +
+      s"It is not possible to catch up with a single interval. Did you intend to disable catch-up " +
+      s"(please use AcsCommitmentsCatchUpConfig.disabledCatchUp()) or did you intend a different config?",
   )
 
   override def pretty: Pretty[AcsCommitmentsCatchUpConfig] = prettyOfClass(

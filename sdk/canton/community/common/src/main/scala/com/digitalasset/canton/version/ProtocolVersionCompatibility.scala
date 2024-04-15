@@ -137,17 +137,6 @@ object ProtocolVersionCompatibility {
       Left(VersionNotSupportedError(server, clientSupportedVersions))
     else Right(())
   }
-
-  /** Check used by domain nodes (mediator / sequencer) to verify whether they are able to join a domain using a specific protocol */
-  def isSupportedByDomainNode(
-      cantonNodeParameters: CantonNodeParameters,
-      protocolVersion: ProtocolVersion,
-  ): Either[String, Unit] = {
-    val supported = trySupportedProtocolsDomain(cantonNodeParameters)
-    ProtocolVersionCompatibility
-      .canClientConnectToServer(supported, protocolVersion, None)
-      .leftMap(_.description)
-  }
 }
 
 /** Trait for errors that are returned to clients when handshake fails. */

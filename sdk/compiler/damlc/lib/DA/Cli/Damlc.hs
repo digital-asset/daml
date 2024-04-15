@@ -1061,7 +1061,9 @@ multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opt
     IDE.shutdown
     $ \ideState -> runActionSync ideState
       $ case mRootPkgData of
-          Nothing -> void $ uses_ BuildMulti $ toNormalizedFilePath' <$> mpPackagePaths multiPackageConfig
+          -- `uses_` tries to run in "parallel", but ends up just running backwards for multi-build.
+          -- We use `reverse` here to keep the build order consistent with the multi-package.yaml
+          Nothing -> void $ uses_ BuildMulti $ reverse $ toNormalizedFilePath' <$> mpPackagePaths multiPackageConfig
           Just (rootPkgPath, _) -> void $ use_ BuildMulti rootPkgPath
 
 data AssistantRunner = AssistantRunner { runAssistant :: FilePath -> [String] -> IO ()}
@@ -1083,7 +1085,7 @@ data BuildMultiPackageConfig = BuildMultiPackageConfig
   { bmSdkVersion :: UnresolvedReleaseVersion
   , bmName :: LF.PackageName
   , bmVersion :: LF.PackageVersion
-  , bmDataDeps :: [FilePath]
+  , bmDarDeps :: [FilePath]
       -- ^ not canonicalized
   , bmSourceDaml :: FilePath
       -- ^ not canonicalized
@@ -1206,7 +1208,7 @@ buildMultiRule assistantRunner buildableDataDeps (MultiPackageNoCache noCache) m
           , ([], Just (bmName, bmVersion, pid))
           )
 
-    toBuild <- liftIO $ withCurrentDirectory filePath $ flip mapMaybeM bmDataDeps $ \darPath -> do
+    toBuild <- liftIO $ withCurrentDirectory filePath $ flip mapMaybeM bmDarDeps $ \darPath -> do
       canonDarPath <- canonicalizePath darPath
       pure $ getDataDepSource buildableDataDeps canonDarPath
 
@@ -1675,7 +1677,9 @@ buildMultiPackageConfigFromDamlYaml path =
       bmName <- queryProjectConfigRequired ["name"] project
       bmVersion <- queryProjectConfigRequired ["version"] project
       bmSourceDaml <- queryProjectConfigRequired ["source"] project
-      bmDataDeps <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
+      dataDeps <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
+      deps <- fromMaybe [] <$> queryProjectConfig ["dependencies"] project
+      let bmDarDeps = dataDeps <> filter (\dep -> takeExtension dep == ".dar") deps
       bmOutput <- queryProjectConfigBuildOutput project
       pure $ BuildMultiPackageConfig {..}
     )

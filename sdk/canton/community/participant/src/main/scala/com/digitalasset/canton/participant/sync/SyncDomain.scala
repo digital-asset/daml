@@ -11,8 +11,8 @@ import com.daml.lf.engine.Engine
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
 import com.digitalasset.canton.health.{
@@ -129,6 +129,7 @@ class SyncDomain(
     trafficStateController: TrafficStateController,
     futureSupervisor: FutureSupervisor,
     override protected val loggerFactory: NamedLoggerFactory,
+    testingConfig: TestingConfigInternal,
 )(implicit ec: ExecutionContext, tracer: Tracer)
     extends NamedLogging
     with StartAndCloseable[Either[SyncDomainInitializationError, Unit]]
@@ -183,6 +184,7 @@ class SyncDomain(
     domainId,
     damle,
     staticDomainParameters,
+    parameters,
     domainCrypto,
     sequencerClient,
     inFlightSubmissionTracker,
@@ -263,6 +265,7 @@ class SyncDomain(
       persistent.contractStore,
       persistent.enableAdditionalConsistencyChecks,
       loggerFactory,
+      testingConfig,
     )
     ephemeral.recordOrderPublisher.setAcsChangeListener(listener)
     listener
@@ -989,6 +992,7 @@ object SyncDomain {
         trafficStateController: TrafficStateController,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
+        testingConfig: TestingConfigInternal,
     )(implicit ec: ExecutionContext, mat: Materializer, tracer: Tracer): T
   }
 
@@ -1016,6 +1020,7 @@ object SyncDomain {
         trafficStateController: TrafficStateController,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
+        testingConfig: TestingConfigInternal,
     )(implicit ec: ExecutionContext, mat: Materializer, tracer: Tracer): SyncDomain =
       new SyncDomain(
         domainId,
@@ -1041,6 +1046,7 @@ object SyncDomain {
         trafficStateController,
         futureSupervisor,
         loggerFactory,
+        testingConfig,
       )
   }
 }

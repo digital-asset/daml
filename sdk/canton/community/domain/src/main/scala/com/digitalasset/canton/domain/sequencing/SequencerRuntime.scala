@@ -119,7 +119,7 @@ class SequencerRuntime(
       }
 
     def registerInitialMembers = {
-      logger.debug("Registering initial sequencer members")
+      logger.debug(s"Registering initial sequencer members: $staticMembersToRegister")
       // only register the sequencer itself if we have remote sequencers that will necessitate topology transactions
       // being sent to them
       staticMembersToRegister

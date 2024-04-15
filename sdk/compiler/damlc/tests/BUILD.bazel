@@ -6,7 +6,7 @@ load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 load(":util.bzl", "damlc_compile_test")
 load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf", "generate_and_track_dar_hash_file")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF2_VERSIONS", "LF_MAJOR_VERSIONS", "lf_version_default_or_latest", "mangle_for_damlc")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_version_default_or_latest", "mangle_for_damlc")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
 
 # Tests for the lax CLI parser + damlc CLI parser
@@ -208,7 +208,7 @@ da_haskell_library(
             ":integration-lib",
         ],
     )
-    for version in COMPILER_LF2_VERSIONS
+    for version in COMPILER_LF_VERSIONS
 ]
 
 da_haskell_test(
@@ -459,6 +459,7 @@ da_haskell_test(
         "filepath",
         "process",
         "regex-tdfa",
+        "safe",
         "tasty",
         "tasty-hunit",
         "text",

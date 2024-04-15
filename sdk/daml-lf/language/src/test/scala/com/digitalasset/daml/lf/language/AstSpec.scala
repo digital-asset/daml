@@ -73,6 +73,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       choices = Map.empty,
       methods = Map.empty,
       requires = Set.empty,
+      coImplements = Map.empty,
       view = TUnit,
     )
 
@@ -422,8 +423,19 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         choices = List.empty,
         methods = List(ifaceMethod1, ifaceMethod2),
         view = TUnit,
+        coImplements = List(ifaceCoImpl1, ifaceCoImpl2),
       )
 
+      a[PackageError] shouldBe thrownBy(
+        DefInterface.build(
+          requires = List.empty,
+          param = Name.assertFromString("x"),
+          choices = List.empty,
+          methods = List(ifaceMethod1, ifaceMethod2),
+          view = TUnit,
+          coImplements = List(ifaceCoImpl1, ifaceCoImpl1),
+        )
+      )
     }
   }
 
@@ -445,6 +457,28 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
   )
   private val ifaceImpl2 = TemplateImplements(
     interfaceId = TypeConName.assertFromString("pkgId:Mod:I2"),
+    InterfaceInstanceBody(
+      methods = Map.empty,
+      view = EAbs(
+        (Name.assertFromString("this"), TUnit),
+        EBuiltinCon(BCUnit),
+        None,
+      ),
+    ),
+  )
+  private val ifaceCoImpl1 = InterfaceCoImplements(
+    templateId = TypeConName.assertFromString("pkgId:Mod:T1"),
+    InterfaceInstanceBody(
+      methods = Map.empty,
+      view = EAbs(
+        (Name.assertFromString("this"), TUnit),
+        EBuiltinCon(BCUnit),
+        None,
+      ),
+    ),
+  )
+  private val ifaceCoImpl2 = InterfaceCoImplements(
+    templateId = TypeConName.assertFromString("pkgId:Mod:T2"),
     InterfaceInstanceBody(
       methods = Map.empty,
       view = EAbs(

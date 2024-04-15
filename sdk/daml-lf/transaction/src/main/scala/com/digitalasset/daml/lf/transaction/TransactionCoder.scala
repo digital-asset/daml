@@ -4,14 +4,13 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.data.{Ref, BackStack}
+import com.daml.lf.data.{BackStack, ImmArray, Ref}
 import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.{Party, Name}
+import com.daml.lf.data.Ref.{Name, Party}
 import com.daml.lf.value.ValueCoder.decodeCoid
 import com.daml.lf.value.ValueCoder.ensureNoUnknownFields
-import com.daml.lf.value.{ValueOuterClass, Value, ValueCoder}
-import com.daml.lf.value.ValueCoder.{EncodeError, DecodeError}
+import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
+import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.daml.scalautil.Statement.discard
 import com.google.protobuf.{ByteString, ProtocolStringList}
 
@@ -290,6 +289,7 @@ object TransactionCoder {
   private[this] def decodeKeyWithMaintainers(
       version: TransactionVersion,
       templateId: Ref.TypeConName,
+      packageName: Ref.PackageName,
       msg: TransactionOuterClass.KeyWithMaintainers,
   ): Either[DecodeError, GlobalKeyWithMaintainers] = {
     for {
@@ -300,7 +300,7 @@ object TransactionCoder {
         unversionedProto = msg.getKey,
       )
       gkey <- GlobalKey
-        .build(templateId, value)
+        .build(templateId, value, packageName)
         .left
         .map(hashErr => DecodeError(hashErr.msg))
     } yield GlobalKeyWithMaintainers(gkey, maintainers)
@@ -309,21 +309,13 @@ object TransactionCoder {
   private[transaction] def strictDecodeKeyWithMaintainers(
       version: TransactionVersion,
       templateId: Ref.TypeConName,
+      packageName: Ref.PackageName,
       msg: TransactionOuterClass.KeyWithMaintainers,
   ): Either[DecodeError, GlobalKeyWithMaintainers] =
     for {
-      _ <- ensureNoUnknownFields(msg)
-      maintainers <- toPartyTreeSet(msg.getMaintainersList)
-      _ <- Either.cond(maintainers.nonEmpty, (), DecodeError("key without maintainers"))
-      value <- decodeValue(
-        version = version,
-        unversionedProto = msg.getKey,
-      )
-      gkey <- GlobalKey
-        .build(templateId, value)
-        .left
-        .map(hashErr => DecodeError(hashErr.msg))
-    } yield GlobalKeyWithMaintainers(gkey, maintainers)
+      kwm <- decodeKeyWithMaintainers(version, templateId, packageName, msg)
+      _ <- Either.cond(kwm.maintainers.nonEmpty, (), DecodeError("key without maintainers"))
+    } yield kwm
 
   private val RightNone = Right(None)
 
@@ -430,6 +422,7 @@ object TransactionCoder {
           decodeKeyWithMaintainers(
             nodeVersion,
             templateId,
+            pkgName,
             msg.getKeyWithMaintainers,
           ).map(Some(_))
         else
@@ -526,6 +519,7 @@ object TransactionCoder {
         decodeKeyWithMaintainers(
           nodeVersion,
           templateId,
+          pkgName,
           msg.getKeyWithMaintainers,
         )
       cid <- ValueCoder.decodeOptionalCoid(msg.getContractId)
@@ -770,7 +764,12 @@ object TransactionCoder {
       createArg <- ValueCoder.decodeValue(version = version, bytes = msg.getCreateArg)
       keyWithMaintainers <-
         if (msg.hasContractKeyWithMaintainers)
-          strictDecodeKeyWithMaintainers(version, templateId, msg.getContractKeyWithMaintainers)
+          strictDecodeKeyWithMaintainers(
+            version,
+            templateId,
+            pkgName,
+            msg.getContractKeyWithMaintainers,
+          )
             .map(Some(_))
         else
           RightNone

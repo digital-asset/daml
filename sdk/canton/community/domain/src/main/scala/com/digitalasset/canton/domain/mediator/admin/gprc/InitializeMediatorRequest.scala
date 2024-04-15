@@ -10,7 +10,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.DomainId
 
-final case class InitializeMediatorRequestX(
+final case class InitializeMediatorRequest(
     domainId: DomainId,
     domainParameters: StaticDomainParameters,
     sequencerConnections: SequencerConnections,
@@ -25,10 +25,10 @@ final case class InitializeMediatorRequestX(
     )
 }
 
-object InitializeMediatorRequestX {
+object InitializeMediatorRequest {
   def fromProtoV30(
       requestP: v30.InitializeMediatorRequest
-  ): ParsingResult[InitializeMediatorRequestX] = {
+  ): ParsingResult[InitializeMediatorRequest] = {
     val v30.InitializeMediatorRequest(
       domainIdP,
       domainParametersP,
@@ -47,7 +47,7 @@ object InitializeMediatorRequestX {
         sequencerConnectionValidationPO
       )
 
-    } yield InitializeMediatorRequestX(
+    } yield InitializeMediatorRequest(
       domainId,
       domainParameters,
       sequencerConnections,

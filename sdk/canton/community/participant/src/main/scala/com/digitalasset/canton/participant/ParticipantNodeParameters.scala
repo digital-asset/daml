@@ -39,12 +39,11 @@ final case class ParticipantNodeParameters(
     iterationsBetweenInterruptions: Long,
     journalGarbageCollectionDelay: NonNegativeFiniteDuration,
     disableUpgradeValidation: Boolean,
+    allowForUnauthenticatedContractIds: Boolean,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
   override def devVersionSupport: Boolean = protocolConfig.devVersionSupport
-  override def initialProtocolVersion: ProtocolVersion = protocolConfig.initialProtocolVersion
-
 }
 
 object ParticipantNodeParameters {
@@ -82,7 +81,6 @@ object ParticipantNodeParameters {
       // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
       devVersionSupport = true,
       dontWarnOnDeprecatedPV = false,
-      initialProtocolVersion = testedProtocolVersion,
     ),
     ledgerApiServerParameters = LedgerApiServerParametersConfig(),
     excludeInfrastructureTransactions = true,
@@ -91,5 +89,6 @@ object ParticipantNodeParameters {
       10000, // 10000 is the default value in the engine configuration
     journalGarbageCollectionDelay = NonNegativeFiniteDuration.Zero,
     disableUpgradeValidation = true,
+    allowForUnauthenticatedContractIds = false,
   )
 }

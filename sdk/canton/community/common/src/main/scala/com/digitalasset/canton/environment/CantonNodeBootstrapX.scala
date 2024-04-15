@@ -243,7 +243,6 @@ abstract class CantonNodeBootstrapX[
               authorizedStore,
               getId,
               crypto,
-              parameterConfig.initialProtocolVersion,
               clock,
               loggerFactory,
             ),
@@ -407,7 +406,6 @@ abstract class CantonNodeBootstrapX[
 
     override protected def autoCompleteStage()
         : EitherT[FutureUnlessShutdown, String, Option[Unit]] = {
-      val protocolVersion = parameterConfig.initialProtocolVersion
       for {
         namespaceKeyO <- crypto.cryptoPublicStore
           .signingKey(nodeId.namespace.fingerprint)
@@ -426,7 +424,7 @@ abstract class CantonNodeBootstrapX[
             isRootDelegation = true,
           )
         )
-        _ <- authorizeStateUpdate(namespaceKey, nsd, protocolVersion)
+        _ <- authorizeStateUpdate(namespaceKey, nsd, ProtocolVersion.latest)
         // all nodes need a signing key
         signingKey <- CantonNodeBootstrapCommon
           .getOrCreateSigningKey(crypto)(s"$name-signing")
@@ -450,7 +448,7 @@ abstract class CantonNodeBootstrapX[
         _ <- authorizeStateUpdate(
           namespaceKey,
           OwnerToKeyMappingX(ownerId, None, keys),
-          protocolVersion,
+          ProtocolVersion.latest,
         )
       } yield Some(())
     }

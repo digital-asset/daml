@@ -31,10 +31,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTra
 import com.digitalasset.canton.participant.protocol.conflictdetection.{CommitSet, RequestTracker}
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.DeduplicationFailed
 import com.digitalasset.canton.participant.protocol.submission.*
-import com.digitalasset.canton.participant.protocol.validation.{
-  PendingTransaction,
-  RecipientsValidator,
-}
+import com.digitalasset.canton.participant.protocol.validation.RecipientsValidator
 import com.digitalasset.canton.participant.store
 import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
@@ -1352,23 +1349,19 @@ abstract class ProtocolProcessor[
           steps.requestType.PendingRequestData
         ]
     ): Future[Boolean] = Future.successful {
-      val invalidO = for {
-        case WrappedPendingRequestData(pendingRequestData) <- Some(pendingRequestDataOrReplayData)
-        case PendingTransaction(txId, _, _, _, _, requestTime, _, _, _, _, _) <- Some(
-          pendingRequestData
-        )
+      pendingRequestDataOrReplayData.rootHashO.forall { txRootHash =>
+        val resultRootHash = unsignedResult.rootHash
+        val rootHashMatches = resultRootHash == txRootHash
 
-        txRootHash = txId.toRootHash
-        resultRootHash = unsignedResult.rootHash
-        if resultRootHash != txRootHash
-      } yield {
-        val cause =
-          s"Received a confirmation result message at $resultTs from ${pendingRequestData.mediator} " +
-            s"for $requestId with an invalid root hash $resultRootHash instead of $txRootHash. Discarding message..."
-        SyncServiceAlarm.Warn(cause).report()
+        if (!rootHashMatches) {
+          val cause =
+            s"Received a confirmation result message at $resultTs from ${pendingRequestDataOrReplayData.mediator} " +
+              s"for $requestId with an invalid root hash $resultRootHash instead of $txRootHash. Discarding message..."
+          SyncServiceAlarm.Warn(cause).report()
+        }
+
+        rootHashMatches
       }
-
-      invalidO.isEmpty
     }
 
     val combinedFilter =
