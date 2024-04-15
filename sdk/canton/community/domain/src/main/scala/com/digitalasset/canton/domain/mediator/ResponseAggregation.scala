@@ -12,7 +12,6 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.{
   CantonTimestamp,
-  ConfirmingParty,
   Quorum,
   ViewConfirmationParameters,
   ViewPosition,
@@ -67,14 +66,14 @@ final case class ResponseAggregation[VKEY](
   private def quorumsSatisfied(
       quorums: Seq[Quorum]
   ): Boolean =
-    // TODO(#15294): support multiple quorums
-    quorums(0).threshold.unwrap == 0
+    quorums.forall(_.threshold.unwrap == 0)
 
   private def quorumsCanBeSatisfied(
       quorums: Seq[Quorum]
   ): Boolean =
-    // TODO(#15294): support multiple quorums
-    quorums(0).threshold.unwrap <= quorums(0).confirmers.map { case (_, w) => w.weight.unwrap }.sum
+    quorums.forall(quorum =>
+      quorum.threshold.unwrap <= quorum.confirmers.map { case (_, weight) => weight.unwrap }.sum
+    )
 
   def asFinalized(protocolVersion: ProtocolVersion): Option[FinalizedResponse] =
     state.swap.toOption.map { verdict =>
@@ -157,15 +156,14 @@ final case class ResponseAggregation[VKEY](
       quorumsState,
       rejections,
     ) = stateOfView
-    // TODO(#15294): support multiple quorums
-    val pendingConfirmingParties = quorumsState(0).getConfirmingParties
+    val pendingConfirmingParties = ViewConfirmationParameters.confirmersIdsFromQuorums(quorumsState)
     val (newlyResponded, _) =
-      pendingConfirmingParties.partition(cp => authorizedParties.contains(cp.party))
+      pendingConfirmingParties.partition(pId => authorizedParties.contains(pId))
 
     loggingContext.debug(
       show"$requestId($keyName $viewKey): Received verdict $localVerdict for pending parties $newlyResponded by participant $sender. "
     )
-    val alreadyResponded = authorizedParties -- newlyResponded.map(_.party)
+    val alreadyResponded = authorizedParties -- newlyResponded
     // Because some of the responders might have had some other participant already confirmed on their behalf
     // we ignore those responders
     if (alreadyResponded.nonEmpty)
@@ -181,11 +179,9 @@ final case class ResponseAggregation[VKEY](
         case LocalApprove() =>
           val consortiumVotingUpdated =
             newlyResponded.foldLeft(consortiumVoting)((votes, confirmingParty) => {
-              votes + (confirmingParty.party -> votes(confirmingParty.party).approveBy(sender))
+              votes + (confirmingParty -> votes(confirmingParty).approveBy(sender))
             })
-          val newlyRespondedFullVotes = newlyResponded.filter { case ConfirmingParty(party, _, _) =>
-            consortiumVotingUpdated(party).isApproved
-          }
+          val newlyRespondedFullVotes = newlyResponded.filter(consortiumVotingUpdated(_).isApproved)
           loggingContext.debug(
             show"$requestId($keyName $viewKey): Received an approval (or reached consortium thresholds) for parties: $newlyRespondedFullVotes"
           )
@@ -196,19 +192,20 @@ final case class ResponseAggregation[VKEY](
             )
           }
 
-          def updateQuorumsStateWithThresholdUpdate(): Seq[Quorum] = {
-            // TODO(#15294): support multiple quorums
-            val quorum = quorumsState(0)
-            val threshold = quorum.threshold
-            val confirmers = quorum.confirmers
-            val contribution = newlyRespondedFullVotes.foldLeft(0)(_ + _.weight.unwrap)
-            // if all thresholds in the list are 0 then all quorums have been met.
-            val updatedThreshold = NonNegativeInt
-              .create(threshold.unwrap - contribution)
-              .getOrElse(NonNegativeInt.zero)
-            val updatedConfirmers = confirmers -- newlyRespondedFullVotes.map(_.party)
-            Seq(quorum.copy(confirmers = updatedConfirmers, threshold = updatedThreshold))
-          }
+          def updateQuorumsStateWithThresholdUpdate(): Seq[Quorum] =
+            quorumsState.map { quorum =>
+              val contribution = quorum.confirmers
+                .filter { case (pId, _) => newlyRespondedFullVotes.contains(pId) }
+                .foldLeft(0) { case (acc, (_, weight)) =>
+                  acc + weight.unwrap
+                }
+              // if all thresholds in the list are 0 then all quorums have been met.
+              val updatedThreshold = NonNegativeInt
+                .create(quorum.threshold.unwrap - contribution)
+                .getOrElse(NonNegativeInt.zero)
+              val updatedConfirmers = quorum.confirmers -- newlyRespondedFullVotes
+              Quorum(updatedConfirmers, updatedThreshold)
+            }
 
           val nextViewState = ViewState(
             consortiumVotingUpdated,
@@ -237,13 +234,15 @@ final case class ResponseAggregation[VKEY](
             val nextRejections =
               NonEmpty(List, newRejectionsFullVotes -> rejection, rejections *)
 
+            def updateQuorumsStateWithoutThresholdUpdate(): Seq[Quorum] =
+              quorumsState.map { quorum =>
+                val updatedConfirmers = quorum.confirmers -- newRejectionsFullVotes
+                Quorum(updatedConfirmers, quorum.threshold)
+              }
+
             val nextViewState = ViewState(
               consortiumVotingUpdated,
-              // TODO(#15294): support multiple quorums
-              Seq(
-                quorumsState(0)
-                  .copy(confirmers = quorumsState(0).confirmers -- newRejectionsFullVotes)
-              ),
+              updateQuorumsStateWithoutThresholdUpdate(),
               nextRejections,
             )
 
@@ -288,8 +287,8 @@ final case class ResponseAggregation[VKEY](
       val unresponsiveParties = statesOfView
         .flatMap { case (_, viewState) =>
           if (!quorumsSatisfied(viewState.quorumsState))
-            viewState.quorumsState(0).confirmers.keySet
-          else Seq.empty
+            viewState.quorumsState.flatMap(_.confirmers.keys).toSet
+          else Set.empty
         }
         // Sort and deduplicate the parties so that multiple mediator replicas generate the same rejection reason
         .to(SortedSet)
@@ -393,23 +392,22 @@ object ResponseAggregation {
       topologySnapshot: TopologySnapshot,
   )(implicit ec: ExecutionContext): Future[Map[K, ViewState]] = {
     informeesAndThresholdByView.toSeq
-      .parTraverse { case (viewKey, ViewConfirmationParameters(_, quorumsState)) =>
-        // TODO(#15294): support multiple quorums
-        val confirmingParties = quorumsState(0).getConfirmingParties
-        for {
-          votingThresholds <- topologySnapshot.consortiumThresholds(
-            confirmingParties.map(_.party)
-          )
-        } yield {
-          val consortiumVotingState = votingThresholds.map { case (party, threshold) =>
-            party -> ConsortiumVotingState(threshold)
+      .parTraverse {
+        case (viewKey, viewConfirmationParameters @ ViewConfirmationParameters(_, quorumsState)) =>
+          for {
+            votingThresholds <- topologySnapshot.consortiumThresholds(
+              viewConfirmationParameters.confirmersIds
+            )
+          } yield {
+            val consortiumVotingState = votingThresholds.map { case (party, threshold) =>
+              party -> ConsortiumVotingState(threshold)
+            }
+            viewKey -> ViewState(
+              consortiumVotingState,
+              quorumsState,
+              rejections = Nil,
+            )
           }
-          viewKey -> ViewState(
-            consortiumVotingState,
-            quorumsState,
-            rejections = Nil,
-          )
-        }
       }
       .map(_.toMap)
   }

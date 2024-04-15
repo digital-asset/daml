@@ -168,7 +168,7 @@ jobs:
                  https://digitalasset.jfrog.io/artifactory/api/storage/assembly/canton \
             | jq -r '.children[].uri' \
             | sed -e 's/^\///' \
-            | grep -P "^${major}\.\d+\.\d+" \
+            | grep -P "^${major}\.\d+\.\d+(-snapshot.*)?$" \
             | sort -V \
             | tail -1
           }

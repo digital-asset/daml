@@ -107,6 +107,21 @@ message GetPartiesResponse {
 // Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message ListKnownPartiesRequest {
 
+  // Pagination token to determine the specific page to fetch. Using the token guarantees that parties on a subsequent
+  // page are all lexically greater than the last party on a previous page. Server does not store intermediate results
+  // between calls chained by a series of page tokens. As a consequence, if new parties are being added and a page is
+  // requested twice using the same token, more parties can be returned on the second call.
+  // Leave empty to fetch the first page.
+  // Optional
+  string page_token = 2;
+
+  // Maximum number of results to be returned by the server. The server will return no more than that many results,
+  // but it might return fewer. If the page_size is 0, the server will decide the number of results to be returned.
+  // If the page_size exceeds the maximum supported by the server, an error will be returned. To obtain the server's
+  // maximum consult the PartyManagementFeature descriptor available in the VersionService.
+  // Optional
+  int32 page_size = 3;
+
   // The id of the ``Identity Provider`` whose parties should be retrieved.
   // Optional, if not set, assume the party is managed by the default identity provider or party is not hosted by the participant.
   string identity_provider_id = 1;
@@ -117,6 +132,10 @@ message ListKnownPartiesResponse {
   // The details of all Daml parties known by the participant.
   // Required
   repeated PartyDetails party_details = 1;
+
+  // Pagination token to retrieve the next page.
+  // Empty, if there are no further results.
+  string next_page_token = 2;
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``

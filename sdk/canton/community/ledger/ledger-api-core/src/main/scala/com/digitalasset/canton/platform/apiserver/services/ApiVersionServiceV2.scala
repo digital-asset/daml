@@ -7,6 +7,7 @@ import com.daml.ledger.api.v1.experimental_features.*
 import com.daml.ledger.api.v1.version_service.{
   FeaturesDescriptor,
   GetLedgerApiVersionResponse,
+  PartyManagementFeature,
   UserManagementFeature,
 }
 import com.daml.ledger.api.v2.version_service.VersionServiceGrpc.VersionService
@@ -23,7 +24,10 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.platform.apiserver.LedgerFeatures
-import com.digitalasset.canton.platform.config.UserManagementServiceConfig
+import com.digitalasset.canton.platform.config.{
+  PartyManagementServiceConfig,
+  UserManagementServiceConfig,
+}
 import io.grpc.ServerServiceDefinition
 
 import scala.annotation.nowarn
@@ -35,6 +39,7 @@ import scala.util.control.NonFatal
 private[apiserver] final class ApiVersionServiceV2(
     ledgerFeatures: LedgerFeatures,
     userManagementServiceConfig: UserManagementServiceConfig,
+    partyManagementServiceConfig: PartyManagementServiceConfig,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
@@ -62,6 +67,11 @@ private[apiserver] final class ApiVersionServiceV2(
             maxUsersPageSize = 0,
           )
         }
+      ),
+      partyManagement = Some(
+        PartyManagementFeature(
+          maxPartiesPageSize = partyManagementServiceConfig.maxPartiesPageSize.value
+        )
       ),
       experimental = Some(
         ExperimentalFeatures.of(

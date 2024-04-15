@@ -1,4 +1,4 @@
-sdk-version: 2.9.0-snapshot.20240402.12718.0.vbb951d6b
+sdk-version: 2.9.0-snapshot.20240410.12734.0.v7ca3419a
 name: doctor
 source: Doctor.daml
 init-script: Doctor:setup

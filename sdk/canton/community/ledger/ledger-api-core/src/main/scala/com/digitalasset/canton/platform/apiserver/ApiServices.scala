@@ -40,7 +40,11 @@ import com.digitalasset.canton.platform.apiserver.services.transaction.{
   EventQueryServiceImpl,
   TransactionServiceImpl,
 }
-import com.digitalasset.canton.platform.config.{CommandServiceConfig, UserManagementServiceConfig}
+import com.digitalasset.canton.platform.config.{
+  CommandServiceConfig,
+  PartyManagementServiceConfig,
+  UserManagementServiceConfig,
+}
 import com.digitalasset.canton.platform.localstore.PackageMetadataStore
 import com.digitalasset.canton.platform.localstore.api.{
   IdentityProviderConfigStore,
@@ -101,6 +105,7 @@ object ApiServices {
       checkOverloaded: TraceContext => Option[state.SubmissionResult],
       ledgerFeatures: LedgerFeatures,
       userManagementServiceConfig: UserManagementServiceConfig,
+      partyManagementServiceConfig: PartyManagementServiceConfig,
       apiStreamShutdownTimeout: FiniteDuration,
       meteringReportKey: MeteringReportKey,
       enableExplicitDisclosure: Boolean,
@@ -192,6 +197,7 @@ object ApiServices {
         ApiVersionService.create(
           ledgerFeatures,
           userManagementServiceConfig = userManagementServiceConfig,
+          partyManagementServiceConfig = partyManagementServiceConfig,
           telemetry = telemetry,
           loggerFactory = loggerFactory,
         )
@@ -272,6 +278,7 @@ object ApiServices {
           new ApiVersionServiceV2(
             ledgerFeatures,
             userManagementServiceConfig,
+            partyManagementServiceConfig,
             telemetry,
             loggerFactory,
           )
@@ -436,6 +443,7 @@ object ApiServices {
         val apiPartyManagementService = ApiPartyManagementService.createApiService(
           partyManagementService,
           new IdentityProviderExists(identityProviderConfigStore),
+          partyManagementServiceConfig.maxPartiesPageSize,
           partyRecordStore,
           transactionsService,
           writeService,

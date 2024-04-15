@@ -201,7 +201,8 @@ object CantonError {
 
       case error =>
         val contextMap = error.context ++ loggingContext.properties
-        val errorCodeMsg = error.code.toMsg(error.cause, loggingContext.traceContext.traceId)
+        val errorCodeMsg =
+          error.code.toMsg(error.cause, loggingContext.traceContext.traceId, limit = None)
         if (contextMap.nonEmpty) {
           errorCodeMsg + "; " + ContextualizedErrorLogger.formatContextAsString(contextMap)
         } else {

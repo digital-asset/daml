@@ -18,7 +18,10 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.platform.apiserver.LedgerFeatures
-import com.digitalasset.canton.platform.config.UserManagementServiceConfig
+import com.digitalasset.canton.platform.config.{
+  PartyManagementServiceConfig,
+  UserManagementServiceConfig,
+}
 import io.grpc.ServerServiceDefinition
 
 import scala.annotation.nowarn
@@ -30,6 +33,7 @@ import scala.util.control.NonFatal
 private[apiserver] final class ApiVersionService private (
     ledgerFeatures: LedgerFeatures,
     userManagementServiceConfig: UserManagementServiceConfig,
+    partyManagementServiceConfig: PartyManagementServiceConfig,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
@@ -57,6 +61,11 @@ private[apiserver] final class ApiVersionService private (
             maxUsersPageSize = 0,
           )
         }
+      ),
+      partyManagement = Some(
+        PartyManagementFeature(
+          maxPartiesPageSize = partyManagementServiceConfig.maxPartiesPageSize.value
+        )
       ),
       experimental = Some(
         ExperimentalFeatures.of(
@@ -119,12 +128,14 @@ private[apiserver] object ApiVersionService {
   def create(
       ledgerFeatures: LedgerFeatures,
       userManagementServiceConfig: UserManagementServiceConfig,
+      partyManagementServiceConfig: PartyManagementServiceConfig,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): ApiVersionService =
     new ApiVersionService(
       ledgerFeatures,
       userManagementServiceConfig = userManagementServiceConfig,
+      partyManagementServiceConfig = partyManagementServiceConfig,
       telemetry = telemetry,
       loggerFactory = loggerFactory,
     )

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.validation
 
 import cats.syntax.parallel.*
+import com.digitalasset.canton.data.ViewConfirmationParameters
 import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.MalformedPayload
@@ -39,15 +40,14 @@ class ConfirmationResponseFactory(
 
     def hostedConfirmingPartiesOfView(
         viewValidationResult: ViewValidationResult
-    ): Future[Set[LfPartyId]] = {
-      viewValidationResult.view.viewCommonData.viewConfirmationParameters.confirmers.toList
-        .parTraverseFilter { cp =>
-          topologySnapshot
-            .canConfirm(participantId, cp.party, cp.requiredTrustLevel)
-            .map(if (_) Some(cp.party) else None)
-        }
-        .map(_.toSet)
-    }
+    ): Future[Set[LfPartyId]] =
+      ViewConfirmationParameters
+        .confirmBySender(
+          canConfirm = true,
+          topologySnapshot,
+          participantId,
+          viewValidationResult.view.viewCommonData.viewConfirmationParameters.confirmers,
+        )
 
     def verdictsForView(
         viewValidationResult: ViewValidationResult,

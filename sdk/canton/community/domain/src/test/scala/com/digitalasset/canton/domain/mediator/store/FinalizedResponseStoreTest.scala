@@ -54,7 +54,7 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
     val viewCommonData =
       ViewCommonData.tryCreate(hashOps)(
         ViewConfirmationParameters.tryCreate(
-          Set(alice.party, bob.party),
+          Map(alice.party -> alice.requiredTrustLevel, bob.party -> bob.requiredTrustLevel),
           Seq(Quorum.create(Set(bob), NonNegativeInt.tryCreate(2))),
         ),
         s(999),

@@ -470,31 +470,33 @@ private[mediator] class ConfirmationResponseProcessor(
     }
   }
 
+  /** With a VIP confirmation policy we need to enforce that at least one VIP party
+    * confirms the view in one of the quorums.
+    */
   private def validateMinimumThreshold(
       requestId: RequestId,
       request: MediatorRequest,
-  )(implicit loggingContext: ErrorLoggingContext): Either[MediatorVerdict.MediatorReject, Unit] = {
-
+  )(implicit loggingContext: ErrorLoggingContext): Either[MediatorVerdict.MediatorReject, Unit] =
     request.informeesAndConfirmationParamsByViewPosition.toSeq
       .traverse_ { case (viewPosition, ViewConfirmationParameters(informees, quorums)) =>
-        // TODO(#15294): support multiple quorums
-        val quorum = quorums(0)
-        val minimumThreshold =
-          request.minimumThreshold(quorum.getConfirmingParties)
-        val viewMinimumThreshold = quorum.threshold
+        /* we use tryGetConfirmingParties because the object ViewConfirmationParameters already makes sure that
+         * all confirming parties in the quorums are in the informees' list when it's created.
+         */
         EitherUtil.condUnitE(
-          viewMinimumThreshold >= minimumThreshold,
+          quorums.exists(quorum =>
+            quorum.threshold >=
+              request.minimumThreshold(quorum.tryGetConfirmingParties(informees))
+          ),
           MediatorVerdict.MediatorReject(
             MediatorError.MalformedMessage
               .Reject(
-                s"Received a mediator request with id $requestId having threshold $viewMinimumThreshold for transaction view at $viewPosition, which is below the confirmation policy's minimum threshold of $minimumThreshold. Rejecting request...",
+                s"Received a mediator request with id $requestId for transaction view at $viewPosition, where no quorum of the list satisfies the minimum threshold. Rejecting request...",
                 v0.MediatorRejection.Code.ViewThresholdBelowMinimumThreshold,
               )
               .reported()
           ),
         )
       }
-  }
 
   private def validateAuthorizedConfirmingParties(
       requestId: RequestId,
@@ -504,15 +506,13 @@ private[mediator] class ConfirmationResponseProcessor(
       loggingContext: ErrorLoggingContext
   ): EitherT[Future, MediatorVerdict.MediatorReject, Unit] = {
     request.informeesAndConfirmationParamsByViewPosition.toList
-      .parTraverse_ { case (viewPosition, ViewConfirmationParameters(_, quorums)) =>
+      .parTraverse_ { case (viewPosition, viewConfirmationParameters) =>
         // sorting parties to get deterministic error messages
-        // TODO(#15294): support multiple quorums
-        val quorum = quorums(0)
-        val declaredConfirmingParties = quorum.getConfirmingParties.toSeq.sortBy(_.party)
+        val declaredConfirmingParties = viewConfirmationParameters.confirmers.toSeq.sortBy(_.party)
 
         for {
           partitionedConfirmingParties <- EitherT.right[MediatorVerdict.MediatorReject](
-            declaredConfirmingParties.parTraverse { p =>
+            MonadUtil.sequentialTraverse(declaredConfirmingParties) { p =>
               for {
                 canConfirm <- snapshot.isHostedByAtLeastOneParticipantF(
                   p.party,
@@ -524,8 +524,18 @@ private[mediator] class ConfirmationResponseProcessor(
           )
 
           (unauthorized, authorized) = partitionedConfirmingParties.separate
-          // TODO(#15294): support multiple quorums
-          confirmed = authorized.map(_.weight.unwrap).sum >= quorum.threshold.unwrap
+          authorizedIds = authorized.map(_.party)
+
+          confirmed = viewConfirmationParameters.quorums.forall { quorum =>
+            // For the authorized informees that belong to each quorum, verify if their combined weight is enough
+            // to meet the quorum's threshold.
+            quorum.confirmers
+              .filter { case (partyId, _) => authorizedIds.contains(partyId) }
+              .values
+              .map(_.unwrap)
+              .sum >= quorum.threshold.unwrap
+          }
+
           _ <- EitherTUtil.condUnitET[Future](
             confirmed, {
               // This partitioning is correct, because a VIP hosted party can always confirm.

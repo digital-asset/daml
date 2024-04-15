@@ -6,7 +6,6 @@ package com.digitalasset.canton.data
 import cats.syntax.option.*
 import cats.syntax.semigroup.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.NonNegativeNumeric
 import com.digitalasset.canton.crypto.{HashPurpose, Salt, TestSalt}
 import com.digitalasset.canton.data.LightTransactionViewTree.InvalidLightTransactionViewTree
 import com.digitalasset.canton.data.MerkleTree.RevealIfNeedBe
@@ -99,8 +98,8 @@ class GenTransactionTreeTest
         )
 
         val expectedInformeesByView = expectedInformeesAndThresholdByView
-          .map { case (viewHash, ViewConfirmationParameters(informees, _)) =>
-            viewHash -> informees
+          .map { case (viewHash, viewConfirmationParameters) =>
+            viewHash -> viewConfirmationParameters.informeesIds
           }
           .filter { case (_, informees) =>
             informees.exists(parties.contains)
@@ -732,8 +731,8 @@ class GenTransactionTreeTest
     def mkViewCommonData(protocolVersion: ProtocolVersion)(index: Int) =
       ViewCommonData.tryCreate(factory.cryptoOps)(
         ViewConfirmationParameters.tryCreate(
-          Set.empty,
-          Seq(Quorum.create(Set.empty, NonNegativeNumeric.tryCreate(0))),
+          Map.empty,
+          Seq(Quorum.empty),
         ),
         mkTestSalt(index),
         protocolVersion,

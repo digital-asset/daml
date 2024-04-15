@@ -20,6 +20,7 @@ import com.digitalasset.canton.serialization.{
   DeserializationError,
   DeterministicEncoding,
 }
+import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, TrustLevel}
 import com.digitalasset.canton.util.FutureInstances.*
@@ -33,6 +34,16 @@ sealed trait ConfirmationPolicy extends Product with Serializable with PrettyPri
   protected val index: Int
 
   def toProtoPrimitive: ByteString = DeterministicEncoding.encodeString(name)
+
+  /** Returns informees, participants hosting those informees,
+    * their trust level and corresponding threshold for a given action node.
+    */
+  def informeesParticipantsAndThreshold(
+      actionNode: LfActionNode,
+      topologySnapshot: TopologySnapshot,
+  )(implicit
+      ec: ExecutionContext
+  ): Future[(Map[LfPartyId, (Set[ParticipantId], NonNegativeInt, TrustLevel)], NonNegativeInt)]
 
   def informeesAndThreshold(actionNode: LfActionNode, topologySnapshot: TopologySnapshot)(implicit
       ec: ExecutionContext
@@ -54,17 +65,51 @@ sealed trait ConfirmationPolicy extends Product with Serializable with PrettyPri
       .collectFirst { case ConfirmingParty(`adminParty`, _, _) => NonNegativeInt.zero }
       .getOrElse(NonNegativeInt.one)
 
+  /** Intended to be used for [[com.digitalasset.canton.version.ProtocolVersion.v6]] and higher.
+    * This method adds an additional quorum with the submitting admin party with threshold 1, thus making sure
+    * that the submitting admin party has to confirm the view for it to be accepted.
+    */
+  def withSubmittingAdminPartyQuorum(
+      submittingAdminPartyO: Option[LfPartyId]
+  )(viewConfirmationParameters: ViewConfirmationParameters): ViewConfirmationParameters =
+    submittingAdminPartyO match {
+      case Some(submittingAdminParty) =>
+        val newQuorum = Quorum(
+          Map(submittingAdminParty -> PositiveInt.one),
+          NonNegativeInt.one,
+        )
+
+        val newQuorumList =
+          if (viewConfirmationParameters.quorums.contains(newQuorum))
+            viewConfirmationParameters.quorums
+          else viewConfirmationParameters.quorums :+ newQuorum
+
+        /* We are using tryCreate() because we are sure that the new confirmer is in the list of informees, since
+         * it is added at the same time.
+         */
+        ViewConfirmationParameters.tryCreate(
+          viewConfirmationParameters.informees
+            + (submittingAdminParty -> viewConfirmationParameters.informees
+              .getOrElse(submittingAdminParty, TrustLevel.Ordinary)),
+          newQuorumList,
+        )
+      case None => viewConfirmationParameters
+    }
+
+  /** Intended to be used for [[com.digitalasset.canton.version.ProtocolVersion.v5]] and lower.
+    * This method adds the submitting admin party to the quorum (if it is not already there) and updates the
+    * threshold in a way that the view requires the acceptance of that party to be accepted.
+    */
   def withSubmittingAdminParty(
       submittingAdminPartyO: Option[LfPartyId]
   )(viewConfirmationParameters: ViewConfirmationParameters): ViewConfirmationParameters =
     submittingAdminPartyO match {
       case Some(submittingAdminParty) =>
-        // TODO(#15294): support submitting admin party for with multiple quorums
-        val quorum = viewConfirmationParameters.quorums(0)
-        val confirmers = quorum.getConfirmingParties
-        val oldSubmittingInformee = quorum.confirmers
-          .get(submittingAdminParty)
-          .map(w => ConfirmingParty(submittingAdminParty, w.weight, w.requiredTrustLevel))
+        // up until ProtocolVersion.v5 there is only one quorum
+        val threshold = viewConfirmationParameters.quorums(0).threshold
+        val confirmers = viewConfirmationParameters.confirmers
+        val oldSubmittingInformee = confirmers
+          .find(_.party == submittingAdminParty)
           .getOrElse(PlainInformee(submittingAdminParty))
         val additionalWeight =
           additionalWeightOfSubmittingAdminParty(
@@ -80,24 +125,25 @@ sealed trait ConfirmationPolicy extends Product with Serializable with PrettyPri
               case oldSubmittingConfirmingParty: ConfirmingParty =>
                 (
                   confirmers - oldSubmittingConfirmingParty + newSubmittingConfirmingParty,
-                  quorum.threshold + additionalWeight,
+                  threshold + additionalWeight,
                 )
               case _: PlainInformee =>
                 (
                   confirmers + newSubmittingConfirmingParty,
-                  quorum.threshold + additionalWeight,
+                  threshold + additionalWeight,
                 )
             }
-          case _: PlainInformee => (confirmers, quorum.threshold)
+          case _: PlainInformee => (confirmers, threshold)
         }
         /* we are using tryCreate() because we are sure that the new confirmer is in the list of informees, since
          * it is added at the same time
          */
         ViewConfirmationParameters.tryCreate(
-          viewConfirmationParameters.informees + newSubmittingInformee.party,
+          viewConfirmationParameters.informees +
+            (newSubmittingInformee.party -> newSubmittingInformee.requiredTrustLevel),
           Seq(Quorum.create(newConfirmers, newThreshold)),
         )
-      case None => viewConfirmationParameters
+      case _ => viewConfirmationParameters
     }
 
   override def pretty: Pretty[ConfirmationPolicy] = prettyOfObject[ConfirmationPolicy]
@@ -124,6 +170,32 @@ object ConfirmationPolicy {
   case object Vip extends ConfirmationPolicy {
     override val name = "Vip"
     protected override val index: Int = 0
+
+    override def informeesParticipantsAndThreshold(
+        node: LfActionNode,
+        topologySnapshot: TopologySnapshot,
+    )(implicit
+        ec: ExecutionContext
+    ): Future[
+      (Map[LfPartyId, (Set[ParticipantId], NonNegativeInt, TrustLevel)], NonNegativeInt)
+    ] = {
+      val stateVerifiers = LfTransactionUtil.stateKnownTo(node)
+      topologySnapshot
+        .activeParticipantsOfPartiesWithAttributes(node.informeesOfNode.toSeq)
+        .map(informeesMap =>
+          informeesMap.map { case (partyId, attributes) =>
+            attributes.values.find(havingVip) match {
+              // confirming party
+              case Some(_) if stateVerifiers.contains(partyId) =>
+                partyId -> (attributes.keySet, NonNegativeInt.one, TrustLevel.Vip)
+              // plain informee
+              case _ => partyId -> (attributes.keySet, NonNegativeInt.zero, TrustLevel.Ordinary)
+            }
+          }
+        )
+        // threshold is 1 because we only need one VIP party that confirms
+        .map(informeesMap => (informeesMap, NonNegativeInt.one))
+    }
 
     override def informeesAndThreshold(node: LfActionNode, topologySnapshot: TopologySnapshot)(
         implicit ec: ExecutionContext
@@ -157,19 +229,21 @@ object ConfirmationPolicy {
     }
 
     override protected def additionalWeightOfSubmittingAdminParty(
-        informees: Set[ConfirmingParty],
+        confirmingParties: Set[ConfirmingParty],
         adminParty: LfPartyId,
-    ): NonNegativeInt =
-      NonNegativeInt.tryCreate(informees.toSeq.map(_.weight.unwrap).sum + 1)
+    ): NonNegativeInt = {
+      // if the quorum only contains the admin submitting party then the additional weight is 0
+      if (confirmingParties.size == 1 && confirmingParties.map(_.party).contains(adminParty))
+        NonNegativeInt.zero
+      else NonNegativeInt.tryCreate(confirmingParties.toSeq.map(_.weight.unwrap).sum + 1)
+    }
   }
 
   case object Signatory extends ConfirmationPolicy {
     override val name = "Signatory"
     protected override val index: Int = 1
 
-    override def informeesAndThreshold(node: LfActionNode, topologySnapshot: TopologySnapshot)(
-        implicit ec: ExecutionContext
-    ): Future[(Set[Informee], NonNegativeInt)] = {
+    private def getInformeesAndThreshold(node: LfActionNode): (Set[Informee], NonNegativeInt) = {
       val confirmingParties =
         LfTransactionUtil.signatoriesOrMaintainers(node) | LfTransactionUtil.actingParties(node)
       require(
@@ -177,10 +251,39 @@ object ConfirmationPolicy {
         "There must be at least one confirming party, as every node must have at least one signatory.",
       )
       val plainInformees = node.informeesOfNode -- confirmingParties
-      Future.successful(
-        toInformeesAndThreshold(confirmingParties, plainInformees, TrustLevel.Ordinary)
-      )
+      toInformeesAndThreshold(confirmingParties, plainInformees, TrustLevel.Ordinary)
     }
+
+    override def informeesParticipantsAndThreshold(
+        node: LfActionNode,
+        topologySnapshot: TopologySnapshot,
+    )(implicit
+        ec: ExecutionContext
+    ): Future[
+      (Map[LfPartyId, (Set[ParticipantId], NonNegativeInt, TrustLevel)], NonNegativeInt)
+    ] = {
+      val (informees, threshold) = getInformeesAndThreshold(node)
+      val confirmersIds = informees.collect { case cp: ConfirmingParty => cp.party }
+      topologySnapshot
+        .activeParticipantsOfPartiesWithAttributes(informees.map(_.party).toSeq)
+        .map(informeesMap =>
+          informeesMap.map { case (partyId, attributes) =>
+            // confirming party
+            if (confirmersIds.contains(partyId))
+              partyId -> (attributes.keySet, NonNegativeInt.one, TrustLevel.Ordinary)
+            // plain informee
+            else partyId -> (attributes.keySet, NonNegativeInt.zero, TrustLevel.Ordinary)
+          }
+        )
+        .map(informeesMap => (informeesMap, threshold))
+    }
+
+    override def informeesAndThreshold(node: LfActionNode, topologySnapshot: TopologySnapshot)(
+        implicit ec: ExecutionContext
+    ): Future[(Set[Informee], NonNegativeInt)] =
+      Future.successful(
+        getInformeesAndThreshold(node)
+      )
 
     override def requiredTrustLevel: TrustLevel = TrustLevel.Ordinary
   }
