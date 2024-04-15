@@ -182,7 +182,7 @@ object Time {
         s: String,
         rounding: RoundingMode = DefaultRounding,
     ): Either[String, Timestamp] =
-      safely(assertFromString(s, rounding), s"cannot convert sting $s into Timestamp")
+      safely(assertFromString(s, rounding), s"cannot convert string $s into Timestamp")
 
     def now(): Timestamp = assertFromInstant(Instant.now(), DefaultRounding)
 
