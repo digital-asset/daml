@@ -376,10 +376,12 @@ trait LongTests { this: UpgradesSpec =>
         val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
         try {
           val rawCantonLog = cantonLog.mkString
-          forEvery(List(
-            assertPackageUpgradeCheck(None)(v1Upload, v2Upload)(rawCantonLog),
-            assertPackageUpgradeCheck(None)(v2Upload, v3Upload)(rawCantonLog),
-          )) { a => a }
+          forEvery(
+            List(
+              assertPackageUpgradeCheck(None)(v1Upload, v2Upload)(rawCantonLog),
+              assertPackageUpgradeCheck(None)(v2Upload, v3Upload)(rawCantonLog),
+            )
+          ) { a => a }
         } finally {
           cantonLog.close()
         }
@@ -395,10 +397,12 @@ trait LongTests { this: UpgradesSpec =>
         val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
         try {
           val rawCantonLog = cantonLog.mkString
-          forEvery(List(
-            assertPackageUpgradeCheck(None)(v1Upload, v3Upload)(rawCantonLog),
-            assertPackageUpgradeCheck(None)(v1Upload, v2Upload)(rawCantonLog),
-          )) { a => a }
+          forEvery(
+            List(
+              assertPackageUpgradeCheck(None)(v1Upload, v3Upload)(rawCantonLog),
+              assertPackageUpgradeCheck(None)(v1Upload, v2Upload)(rawCantonLog),
+            )
+          ) { a => a }
         } finally {
           cantonLog.close()
         }
@@ -414,12 +418,14 @@ trait LongTests { this: UpgradesSpec =>
         val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
         try {
           val rawCantonLog = cantonLog.mkString
-          forEvery(List(
-            assertPackageUpgradeCheck(None)(v1Upload, v2Upload)(rawCantonLog),
-            assertPackageUpgradeCheck(
-              Some("The upgraded template T is missing some of its original fields.")
-            )(v2Upload, v3Upload)(rawCantonLog),
-          )) { a => a }
+          forEvery(
+            List(
+              assertPackageUpgradeCheck(None)(v1Upload, v2Upload)(rawCantonLog),
+              assertPackageUpgradeCheck(
+                Some("The upgraded template T is missing some of its original fields.")
+              )(v2Upload, v3Upload)(rawCantonLog),
+            )
+          ) { a => a }
         } finally {
           cantonLog.close()
         }
@@ -435,12 +441,14 @@ trait LongTests { this: UpgradesSpec =>
         val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
         try {
           val rawCantonLog = cantonLog.mkString
-          forEvery(List(
-            assertPackageUpgradeCheck(None)(v1Upload, v3Upload)(rawCantonLog),
-            assertPackageUpgradeCheck(
-              Some("The upgraded template T is missing some of its original fields.")
-            )(v1Upload, v2Upload)(rawCantonLog),
-          )) { a => a }
+          forEvery(
+            List(
+              assertPackageUpgradeCheck(None)(v1Upload, v3Upload)(rawCantonLog),
+              assertPackageUpgradeCheck(
+                Some("The upgraded template T is missing some of its original fields.")
+              )(v1Upload, v2Upload)(rawCantonLog),
+            )
+          ) { a => a }
         } finally {
           cantonLog.close()
         }
@@ -773,11 +781,13 @@ abstract class UpgradesSpec(val suffix: String)
       val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
       try {
         val rawCantonLog = cantonLog.mkString
-        forEvery(List(
-          assertFirstToSecond(firstUpload, secondUpload)(rawCantonLog),
-          assertSecondToThird(secondUpload, thirdUpload)(rawCantonLog),
-          assertFirstToThird(firstUpload, thirdUpload)(rawCantonLog),
-        )) { a => a }
+        forEvery(
+          List(
+            assertFirstToSecond(firstUpload, secondUpload)(rawCantonLog),
+            assertSecondToThird(secondUpload, thirdUpload)(rawCantonLog),
+            assertFirstToThird(firstUpload, thirdUpload)(rawCantonLog),
+          )
+        ) { a => a }
       } finally {
         cantonLog.close()
       }
