@@ -60,12 +60,16 @@ object Decode {
     assertRight(decodeArchive(archive, onlySerializableDataDefs))
 
   def decodeInfoPackage(
-      archive: DamlLf.Archive
+      archive: DamlLf.Archive,
+      onlySerializableDataDefs: Boolean = false,
   ): Either[Error, PackageInfo] =
-    decodeArchive(archive, onlySerializableDataDefs = true)
-      .map { case (pkgId, pkg) => new PackageInfo(pkgId, pkg.metadata, Map(pkgId -> pkg)) }
+    decodeArchive(archive, onlySerializableDataDefs)
+      .map { case (pkgId, pkg) => new PackageInfo(pkgId, pkg, Map(pkgId -> pkg)) }
 
-  def assertDecodeInfoPackage(archive: DamlLf.Archive): PackageInfo =
-    assertRight(decodeInfoPackage(archive: DamlLf.Archive))
+  def assertDecodeInfoPackage(
+      archive: DamlLf.Archive,
+      onlySerializableDataDefs: Boolean = false,
+  ): PackageInfo =
+    assertRight(decodeInfoPackage(archive, onlySerializableDataDefs))
 
 }

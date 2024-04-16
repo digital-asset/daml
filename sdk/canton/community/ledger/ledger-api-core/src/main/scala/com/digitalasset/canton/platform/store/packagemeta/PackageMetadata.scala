@@ -38,8 +38,8 @@ object PackageMetadata {
   def from(archive: DamlLf.Archive): PackageMetadata = {
     val packageInfo = Decode.assertDecodeInfoPackage(archive)
 
-    val packageName = packageInfo.mainPackageMetadata.name
-    val packageVersion = packageInfo.mainPackageMetadata.version
+    val packageName = packageInfo.mainPackage.metadata.name
+    val packageVersion = packageInfo.mainPackage.metadata.version
     val packageId = packageInfo.mainPackageId
     val packageNameMap = Map(
       packageName -> PackageResolution(

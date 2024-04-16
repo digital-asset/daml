@@ -9,8 +9,8 @@ import data.{Ref, Relation}
 
 final class PackageInfo private[daml] (
     val mainPackageId: Ref.PackageId,
-    val mainPackageMetadata: Ast.PackageMetadata,
-    val pkgSignature: Map[Ref.PackageId, Ast.GenPackage[_]],
+    val mainPackage: Ast.Package,
+    val pkgSignature: Map[Ref.PackageId, Ast.Package],
 ) {
 
   /** returns the set of templates defined in `pkgSignature` */
