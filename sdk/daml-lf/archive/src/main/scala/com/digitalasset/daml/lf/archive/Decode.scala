@@ -5,7 +5,6 @@ package com.daml.lf.archive
 
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.util.PackageInfo
 import com.daml.lf.language.{Ast, LanguageMajorVersion}
 
 object Decode {
@@ -58,18 +57,5 @@ object Decode {
       onlySerializableDataDefs: Boolean = false,
   ): (PackageId, Ast.Package) =
     assertRight(decodeArchive(archive, onlySerializableDataDefs))
-
-  def decodeInfoPackage(
-      archive: DamlLf.Archive,
-      onlySerializableDataDefs: Boolean = false,
-  ): Either[Error, PackageInfo] =
-    decodeArchive(archive, onlySerializableDataDefs)
-      .map { case (pkgId, pkg) => new PackageInfo(pkgId, pkg, Map(pkgId -> pkg)) }
-
-  def assertDecodeInfoPackage(
-      archive: DamlLf.Archive,
-      onlySerializableDataDefs: Boolean = false,
-  ): PackageInfo =
-    assertRight(decodeInfoPackage(archive, onlySerializableDataDefs))
 
 }
