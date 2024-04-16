@@ -21,7 +21,7 @@ object Demo {
 
   def main(args: Array[String]): Unit = {
 
-    val ledgers = Enumerations.ledgersOfSize(5)(100)
+    val ledgers = Enumerations.ledgers(50)
     val card = ledgers.cardinal
 
     def validLedgers: LazyList[Ledger] = LazyList.continually {
@@ -57,6 +57,7 @@ object Demo {
                 println("INVALID LEDGER!")
                 println(Pretty.prettyLedger(ledger))
                 println(error.pretty)
+                println(ledger)
                 System.exit(1)
               case Right(ideProjections) =>
                 println("\n==== ledger ====")
@@ -71,6 +72,7 @@ object Demo {
                   case Left(error) =>
                     println("ERROR")
                     println(error.pretty)
+                    println(ledger)
                     System.exit(1)
                   case Right(cantonProjections) =>
                     if (cantonProjections == ideProjections) {
@@ -81,6 +83,7 @@ object Demo {
                         println(s"Projection for party $partyId")
                         println(Pretty.prettyProjection(projection))
                       }
+                      println(ledger)
                       System.exit(1)
                     }
                 }
