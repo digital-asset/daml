@@ -2,13 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
+package model
+package test
 
 import cats.Applicative
 import com.daml.lf.Spaces.Space
 import com.daml.lf.Spaces.{Space => S}
 import com.daml.lf.Spaces.Space.Instances._
 import cats.syntax.all._
-import com.daml.lf.model.test.Ledgers._
+import com.daml.lf.model.test.Skeletons._
 
 object Enumerations {
 
@@ -32,22 +34,16 @@ object Enumerations {
   lazy val exerciceKinds: Space[ExerciseKind] =
     S.singleton[ExerciseKind](Consuming) + S.singleton[ExerciseKind](NonConsuming)
 
-  lazy val creates: Space[Action] =
-    AS.map3(S.singleton(0), S.singleton(Set.empty[PartyId]), S.singleton(Set.empty[PartyId]))(
-      Create
-    )
+  lazy val creates: Space[Action] = S.singleton(Create())
 
   lazy val exercises: Space[Action] =
-    AS.map5(
+    AS.map2(
       exerciceKinds,
-      S.singleton(0),
-      S.singleton(Set.empty[PartyId]),
-      S.singleton(Set.empty[PartyId]),
       listsOf(actions),
     )(Exercise)
 
   lazy val fetches: Space[Action] =
-    AS.map(S.singleton(0))(Fetch)
+    S.singleton(Fetch())
 
   lazy val rollbacks: Space[Action] =
     AS.map(nonEmptyListOf(actionsWithoutRollback))(Rollback)
@@ -62,7 +58,7 @@ object Enumerations {
     S.pay(creates + exercises)
 
   lazy val commands: Space[Commands] =
-    AS.map2(S.singleton(Set.empty[PartyId]), nonEmptyListOf(topLevelActions))(Commands)
+    AS.map(nonEmptyListOf(topLevelActions))(Commands)
 
   lazy val ledgers: Space[Ledger] =
     listsOf(commands)
