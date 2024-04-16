@@ -21,7 +21,7 @@ object Demo {
 
   def main(args: Array[String]): Unit = {
 
-    val ledgers = Enumerations.ledgers(20)
+    val ledgers = Enumerations.ledgers(100)
     val card = ledgers.cardinal
 
     def validLedgersSym: LazyList[Ledgers.Ledger] = LazyList.continually {
@@ -29,7 +29,7 @@ object Demo {
         var res: BigInt = BigInt(0)
         do {
           res = BigInt(card.bitLength, new scala.util.Random())
-        } while (res > card)
+        } while (res >= card)
         res
       }
       val skeleton = ledgers(randomIndex)
