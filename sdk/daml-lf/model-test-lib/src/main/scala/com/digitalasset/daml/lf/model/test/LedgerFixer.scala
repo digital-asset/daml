@@ -8,7 +8,8 @@ package test
 import cats.data.{StateT, WriterT}
 import cats.implicits.toTraverseOps
 import cats.{Monad, TraverseFilter}
-import com.daml.lf.model.test.Ledgers._
+import com.daml.lf.model.test.{Ledgers=>L}
+import com.daml.lf.model.test.{Skeletons=>S}
 import org.scalacheck.Gen
 
 object LedgerFixer {
@@ -28,7 +29,7 @@ object LedgerFixer {
     }
   }
 
-  case class Contract(signatories: PartySet, observers: PartySet)
+  case class Contract(signatories: L.PartySet, observers: L.PartySet)
   case class GenState(maxContractId: Int, activeContracts: Map[Int, Contract])
 }
 
@@ -36,12 +37,12 @@ class LedgerFixer(numParties: Int) {
   import LedgerFixer.Instances._
   import LedgerFixer._
 
-  val globalParties: Set[PartyId] = Set.from(1 to numParties)
+  val globalParties: Set[L.PartyId] = Set.from(1 to numParties)
 
   // isomorphic to: GenState -> Gen (Maybe (a, GenState))
   type LGen[A] = StateT[Gen, GenState, A]
 
-  def addContract(signatories: PartySet, observers: PartySet): LGen[Int] = for {
+  def addContract(signatories: L.PartySet, observers: L.PartySet): LGen[Int] = for {
     genState <- StateT.get[Gen, GenState]
     newContractId = genState.maxContractId + 1
     _ <- StateT.set[Gen, GenState](
@@ -53,7 +54,7 @@ class LedgerFixer(numParties: Int) {
     )
   } yield newContractId
 
-  def archiveContract(contractId: ContractId): LGen[Unit] =
+  def archiveContract(contractId: L.ContractId): LGen[Unit] =
     StateT.modify[Gen, GenState](genState =>
       genState.copy(activeContracts = genState.activeContracts - contractId)
     )
@@ -72,35 +73,40 @@ class LedgerFixer(numParties: Int) {
     genSubsetOf(s).retryUntil(_.nonEmpty)
 
   def fetchable(
-      hidden: PartySet,
-      authorizers: PartySet,
-      contract: (ContractId, Contract),
+      hidden: L.PartySet,
+      authorizers: L.PartySet,
+      contract: (L.ContractId, Contract),
   ): Boolean = {
     val (cid, Contract(signatories, observers)) = contract
     authorizers.intersect(signatories.union(observers)).nonEmpty && !hidden.contains(cid)
   }
 
-  def genAction(
-      hidden: PartySet,
-      authorizers: PartySet,
-      actionSkel: Action,
-  ): WriterT[LGen, PartySet, Action] = {
+  def genKind(kind: S.ExerciseKind): L.ExerciseKind = kind match {
+    case S.Consuming => L.Consuming
+    case S.NonConsuming => L.NonConsuming
+  }
 
-    def liftLGen[A](a: LGen[A]): WriterT[LGen, PartySet, A] = WriterT.liftF[LGen, PartySet, A](a)
-    def liftGen[A](a: Gen[A]): WriterT[LGen, PartySet, A] =
-      WriterT.liftF[LGen, PartySet, A](StateT.liftF(a))
-    def tell(s: PartySet): WriterT[LGen, PartySet, Unit] = WriterT.tell[LGen, PartySet](s)
-    def pure[A](x: A): WriterT[LGen, PartySet, A] = WriterT.value[LGen, PartySet, A](x)
+  def genAction(
+      hidden: L.PartySet,
+      authorizers: L.PartySet,
+      actionSkel: S.Action,
+  ): WriterT[LGen, L.PartySet, L.Action] = {
+
+    def liftLGen[A](a: LGen[A]): WriterT[LGen, L.PartySet, A] = WriterT.liftF[LGen, L.PartySet, A](a)
+    def liftGen[A](a: Gen[A]): WriterT[LGen, L.PartySet, A] =
+      WriterT.liftF[LGen, L.PartySet, A](StateT.liftF(a))
+    def tell(s: L.PartySet): WriterT[LGen, L.PartySet, Unit] = WriterT.tell[LGen, L.PartySet](s)
+    def pure[A](x: A): WriterT[LGen, L.PartySet, A] = WriterT.value[LGen, L.PartySet, A](x)
 
     actionSkel match {
-      case Create(_, _, _) =>
+      case S.Create() =>
         for {
           signatories <- liftGen(genNonEmptySubsetOf(authorizers))
           observers <- liftGen(genSubsetOf(globalParties))
           contractId <- liftLGen(addContract(signatories, observers))
           _ <- tell(Set(contractId))
-        } yield Create(contractId, signatories, observers)
-      case Exercise(kind, _, _, _, subTransaction) =>
+        } yield L.Create(contractId, signatories, observers)
+      case S.Exercise(kind, subTransaction) =>
         for {
           activeContracts <- liftLGen(StateT.inspect(_.activeContracts))
           visibleContracts <- liftGen(
@@ -110,10 +116,10 @@ class LedgerFixer(numParties: Int) {
           (cid, Contract(signatories, _)) = toConsume
           controllers <- liftGen(genNonEmptySubsetOf(authorizers))
           choiceObservers <- liftGen(genSubsetOf(globalParties))
-          _ <- if (kind == Consuming) liftLGen(archiveContract(cid)) else pure(())
+          _ <- if (kind == S.Consuming) liftLGen(archiveContract(cid)) else pure(())
           fixedSubTransaction <- genTransaction(hidden, controllers ++ signatories, subTransaction)
-        } yield Exercise(kind, cid, controllers, choiceObservers, fixedSubTransaction)
-      case Fetch(_) =>
+        } yield L.Exercise(genKind(kind), cid, controllers, choiceObservers, fixedSubTransaction)
+      case S.Fetch() =>
         for {
           activeContracts <- liftLGen(StateT.inspect(_.activeContracts))
           fetchableContracts <- liftGen(
@@ -122,30 +128,30 @@ class LedgerFixer(numParties: Int) {
               .suchThat(_.nonEmpty)
           )
           cid <- liftGen(Gen.oneOf(fetchableContracts.keys))
-        } yield Fetch(cid)
-      case Rollback(subTransaction) =>
+        } yield L.Fetch(cid)
+      case S.Rollback(subTransaction) =>
         for {
           activeContracts <- liftLGen(StateT.inspect(_.activeContracts))
           fixedSubTransaction <- genTransaction(hidden, authorizers, subTransaction)
           maxContractId <- liftLGen(StateT.inspect(_.maxContractId))
           _ <- liftLGen(StateT.set(GenState(maxContractId, activeContracts)))
-        } yield Rollback(fixedSubTransaction)
+        } yield L.Rollback(fixedSubTransaction)
     }
   }
 
   def genTransaction(
-      hidden: PartySet,
-      authorizers: PartySet,
-      transaction: Transaction,
-  ): WriterT[LGen, PartySet, Transaction] = {
+      hidden: L.PartySet,
+      authorizers: L.PartySet,
+      transaction: S.Transaction,
+  ): WriterT[LGen, L.PartySet, L.Transaction] = {
     transaction.traverse(genAction(hidden, authorizers, _))
   }
 
   def genActions(
-      hidden: PartySet,
-      authorizers: PartySet,
-      actions: List[Action],
-  ): LGen[List[Action]] = {
+      hidden: L.PartySet,
+      authorizers: L.PartySet,
+      actions: List[S.Action],
+  ): LGen[List[L.Action]] = {
     actions match {
       case Nil => StateT.pure(List.empty)
       case action :: actions =>
@@ -157,13 +163,13 @@ class LedgerFixer(numParties: Int) {
     }
   }
 
-  def genCommands(commands: Commands): LGen[Commands] = for {
+  def genCommands(commands: S.Commands): LGen[L.Commands] = for {
     actAs <- StateT.liftF(genNonEmptySubsetOf(globalParties))
     fixedActions <- genActions(Set.empty, actAs, commands.actions)
-  } yield Commands(actAs, fixedActions)
+  } yield L.Commands(actAs, fixedActions)
 
-  def genLedger(ledger: Ledger): LGen[Ledger] = ledger.traverse(genCommands)
+  def genLedger(ledger: S.Ledger): LGen[L.Ledger] = ledger.traverse(genCommands)
 
-  def fixLedger(ledger: Ledger): Gen[Ledger] =
+  def fixLedger(ledger: S.Ledger): Gen[L.Ledger] =
     genLedger(ledger).run(GenState(-1, Map.empty)).map(_._2)
 }
