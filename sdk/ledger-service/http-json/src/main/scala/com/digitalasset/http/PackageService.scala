@@ -6,7 +6,7 @@ package com.daml.http
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.typesig
-import domain.{Choice, ContractTypeId}
+import domain.{Choice, ContractTypeId, PackageResolvedContractTypeId}
 import ContractTypeId.ResolvedOf
 import com.daml.http.util.IdentifierConverters
 import com.daml.http.util.Logging.InstanceUUID
@@ -181,20 +181,20 @@ private class PackageService(
       latestMaps: () => (TemplateIdMap, InterfaceIdMap, PackageNameMap)
   )(implicit ec: ExecutionContext): ResolveContractTypeId = new ResolveContractTypeId {
     import ResolveContractTypeId.{Overload => O}, domain.{ContractTypeId => C}
-    override def apply[U, R](jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
+    override def apply[U, R <: ContractTypeId.Resolved](jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
         x: U with ContractTypeId.OptionalPkg
     )(implicit
         lc: LoggingContextOf[InstanceUUID],
         overload: O[U, R],
-    ): Future[Error \/ Option[(NonEmpty[Seq[R]], KeyPackageName)]] = {
-      type ResultType = Option[(NonEmpty[Seq[R]], KeyPackageName)]
+    ): Future[Error \/ Option[PackageResolvedContractTypeId[R]]] = {
+      type ResultType = Option[PackageResolvedContractTypeId[R]]
       def withKeyPackageName[CtId[T] <: ContractTypeId[T]](
           idMap: ContractTypeIdMap[CtId],
           pkgNames: PackageNameMap,
-      )(r: ResolvedOf[CtId]): Option[(NonEmpty[Seq[ResolvedOf[CtId]]], KeyPackageName)] = {
+      )(r: R): ResultType = {
         pkgNames.get(r.packageId).map { case (name: KeyPackageName, _) =>
-          val ids: NonEmpty[Seq[ResolvedOf[CtId]]] = idMap.resolveToAllPackages(r)
-          (ids, name)
+          val pkgIds: NonEmpty[Seq[String]] = idMap.packageRefToPackageIds(r.packageId)
+          PackageResolvedContractTypeId(r, pkgIds, name)
         }
       }
       // we use a different resolution strategy depending on the static type
@@ -293,7 +293,7 @@ private class PackageService(
           )
           reload(jwt, ledgerId)
         } else Future.successful(())
-      f.map(_ => state.templateIdMap.all.keySet.map(k => (k, state.packageNameMap(k.packageId)._1)))
+      f.map(_ => state.templateIdMap.allofthem(state.packageNameMap))//.keySet.map(k => (k, state.packageNameMap(k.packageId)._1)))
   }
 
   val resolvePackageName: ResolvePackageName = templateId => state.packageNameMap(templateId)._1
@@ -324,10 +324,10 @@ object PackageService {
 
   sealed abstract class ResolveContractTypeId {
     import ResolveContractTypeId.Overload
-    def apply[U, R](jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
+    def apply[U, R <: ContractTypeId.Resolved](jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
         x: U with ContractTypeId.OptionalPkg
     )(implicit lc: LoggingContextOf[InstanceUUID], overload: Overload[U, R]): Future[
-      PackageService.Error \/ Option[(NonEmpty[Seq[R]], KeyPackageName)]
+      PackageService.Error \/ Option[PackageResolvedContractTypeId[R]]
     ]
   }
 
@@ -362,7 +362,7 @@ object PackageService {
     ] => (
         Jwt,
         LedgerApiDomain.LedgerId,
-    ) => Future[Set[(domain.ContractTypeId.Template.Resolved, KeyPackageName)]]
+    ) => Future[Seq[PackageResolvedContractTypeId[ContractTypeId.Template.Resolved]]]
 
   type ResolveChoiceArgType =
     (
@@ -378,9 +378,24 @@ object PackageService {
       unique: Map[NoPkg[CtId], ResolvedOf[CtId]],
       nameIds: Map[Ref.PackageName, NonEmpty[Seq[String]]],
   ) {
-    private def packageRefToPackageIds(pkgRef: String): NonEmpty[Seq[String]] = pkgRef match {
+    def packageRefToPackageIds(pkgRef: String): NonEmpty[Seq[String]] = pkgRef match {
       case s"#${name}" => nameIds(asPackageName(name))
       case pkgId => NonEmpty(Seq, pkgId)
+    }
+
+    def allofthem(idNames: PackageNameMap) : Seq[PackageResolvedContractTypeId[ResolvedOf[CtId]]] = {
+      val (named, unnamed) = all.values.filter(!_.packageId.startsWith("#")).toSeq.partition { case id => 
+        // The pkg id has a pkg name, which maps back to this pkg id.
+        idNames.get(id.packageId).exists { case (kpn, _) => 
+          kpn.toOption.exists(nameIds(_).contains(id.packageId))
+        }
+      }
+      val fromUnnamed = unnamed.map(id => PackageResolvedContractTypeId.unnamed(id))
+      val fromNamed = named.flatMap { case id => 
+        val (kpn, _) = idNames(id.packageId)
+        kpn.toOption.map(nameIds).map(PackageResolvedContractTypeId(id, _, kpn))
+      }
+      fromUnnamed ++ fromNamed
     }
 
     def resolveToAllPackages(a: ResolvedOf[CtId]): NonEmpty[Seq[ResolvedOf[CtId]]] = {

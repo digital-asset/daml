@@ -32,7 +32,9 @@ package object domain extends com.daml.fetchcontracts.domain.Aliases {
     (ContractTypeId.Template.OptionalPkg, LfV) \/ (Option[ContractTypeId.OptionalPkg], ContractId)
 
   type ResolvedContractRef[LfV] =
+//    (PackageResolvedContractTypeId[ContractTypeId.Template.Resolved], LfV) \/ (PackageResolvedContractTypeId[ContractTypeId.Resolved], ContractId)
     (ContractTypeId.Template.RequiredPkg, LfV) \/ (ContractTypeId.RequiredPkg, ContractId)
+
 
   type LedgerIdTag = lar.LedgerIdTag
   type LedgerId = lar.LedgerId
@@ -479,8 +481,8 @@ package domain {
         in: lav1.event.ArchivedEvent,
     ): Error \/ ArchivedContract = {
       val resolvedTemplateId = resolvedQuery match {
-        case ResolvedQuery.ByInterfaceId((interfaceId, _)) =>
-          \/-(interfaceId.head)
+        case ResolvedQuery.ByInterfaceId(interfaceId) =>
+          \/-(interfaceId.original)
         case _ =>
           (in.templateId required "templateId").map(ContractTypeId.Template.fromLedgerApi)
       }

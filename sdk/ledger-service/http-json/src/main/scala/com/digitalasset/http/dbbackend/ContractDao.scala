@@ -390,7 +390,7 @@ object ContractDao {
   }
 
   private def surrogateTemplateIds[CtId <: domain.ContractTypeId.RequiredPkg](
-      templateIds: NonEmpty[Set[CtId]]
+      templateIds: NonEmpty[Set[_ <: CtId]]
   )(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
@@ -404,7 +404,7 @@ object ContractDao {
 
   private[http] def fetchById(
       parties: domain.PartySet,
-      templateIds: NonEmpty[Set[domain.ContractTypeId.Resolved]],
+      templateIds: NonEmpty[Set[_ <: domain.ContractTypeId.Resolved]],
       contractId: domain.ContractId,
   )(implicit
       log: LogHandler,

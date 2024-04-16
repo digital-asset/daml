@@ -214,7 +214,7 @@ class DomainJsonDecoder(
   private[this] def jsValueToApiRecord(t: domain.LfType, v: JsValue) =
     jsValueToApiValue(t, v) flatMap mustBeApiRecord
 
-  private[this] def resolveMetaTemplateIds[U, R, LfV](
+  private[this] def resolveMetaTemplateIds[U, R <: ContractTypeId.Resolved, LfV](
       meta: domain.CommandMeta[U with ContractTypeId.OptionalPkg],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
@@ -233,7 +233,7 @@ class DomainJsonDecoder(
     }
   } yield meta map tpidToResolved
 
-  private def templateId_[U, R](
+  private def templateId_[U, R <: ContractTypeId.Resolved](
       id: U with domain.ContractTypeId.OptionalPkg,
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
@@ -246,7 +246,7 @@ class DomainJsonDecoder(
       resolveContractTypeId(jwt, ledgerId)(id)
         .map(
           _.toOption.flatten
-            .map(_._1.head)
+            .map(_.original)
             .toRightDisjunction(JsonError(cannotResolveTemplateId(id)))
         )
     )

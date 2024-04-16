@@ -405,10 +405,11 @@ object Hash {
   private final case class UsePackageName(name: PackageName) extends KeyPackageName {
     override val toOption: Option[PackageName] = Some(name)
   }
-  private case object NoPackageName extends KeyPackageName {
+  case object NoPackageName extends KeyPackageName {
     override val toOption: Option[PackageName] = None
   }
   object KeyPackageName {
+    val Empty = NoPackageName
 
     def build(
         packageName: Option[PackageName],
