@@ -373,7 +373,9 @@ trait LongTests { this: UpgradesSpec =>
         v1Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV2ThenV3-v1.dar")
         v2Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV2ThenV3-v2.dar")
         v3Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV2ThenV3-v3.dar")
-        rawCantonLog <- Future.fromTry(Using(Source.fromFile(s"$cantonTmpDir/canton.log"))(_.mkString))
+        rawCantonLog <- Future.fromTry(
+          Using(Source.fromFile(s"$cantonTmpDir/canton.log"))(_.mkString)
+        )
       } yield {
         forEvery(
           List(
@@ -389,7 +391,9 @@ trait LongTests { this: UpgradesSpec =>
         v1Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV3ThenV2-v1.dar")
         v3Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV3ThenV2-v3.dar")
         v2Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV3ThenV2-v2.dar")
-        rawCantonLog <- Future.fromTry(Using(Source.fromFile(s"$cantonTmpDir/canton.log"))(_.mkString))
+        rawCantonLog <- Future.fromTry(
+          Using(Source.fromFile(s"$cantonTmpDir/canton.log"))(_.mkString)
+        )
       } yield {
         forEvery(
           List(
@@ -405,7 +409,9 @@ trait LongTests { this: UpgradesSpec =>
         v1Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV2ThenV3-v1.dar")
         v2Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV2ThenV3-v2.dar")
         v3Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV2ThenV3-v3.dar")
-        rawCantonLog <- Future.fromTry(Using(Source.fromFile(s"$cantonTmpDir/canton.log"))(_.mkString))
+        rawCantonLog <- Future.fromTry(
+          Using(Source.fromFile(s"$cantonTmpDir/canton.log"))(_.mkString)
+        )
       } yield {
         forEvery(
           List(
@@ -423,16 +429,17 @@ trait LongTests { this: UpgradesSpec =>
         v1Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV3ThenV2-v1.dar")
         v3Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV3ThenV2-v3.dar")
         v2Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV3ThenV2-v2.dar")
-        rawCantonLog <- Future.fromTry(Using(Source.fromFile(s"$cantonTmpDir/canton.log"))(_.mkString))
-      } yield
-        forEvery(
-          List(
-            assertPackageUpgradeCheck(None)(v1Upload, v3Upload)(rawCantonLog),
-            assertPackageUpgradeCheck(
-              Some("The upgraded template T is missing some of its original fields.")
-            )(v1Upload, v2Upload)(rawCantonLog),
-          )
-        )(Predef.identity)
+        rawCantonLog <- Future.fromTry(
+          Using(Source.fromFile(s"$cantonTmpDir/canton.log"))(_.mkString)
+        )
+      } yield forEvery(
+        List(
+          assertPackageUpgradeCheck(None)(v1Upload, v3Upload)(rawCantonLog),
+          assertPackageUpgradeCheck(
+            Some("The upgraded template T is missing some of its original fields.")
+          )(v1Upload, v2Upload)(rawCantonLog),
+        )
+      )(Predef.identity)
     }
 
     "Fails when a top-level record adds a non-optional field" in {
