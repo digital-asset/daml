@@ -49,6 +49,35 @@ object Pretty {
       partySet.mkString("{", ",", "}")
   }
 
+  object PrettySkeletons {
+
+    import Skeletons._
+
+    def ledgerToTree(ledger: Ledger): Tree = {
+      Tree("Ledger", ledger.map(commandsToTree))
+    }
+
+    private def commandsToTree(commands: Commands): Tree =
+      Tree("Commands", commands.actions.map(actionToTree))
+
+    private def actionToTree(action: Action): Tree = action match {
+      case Create() =>
+        Tree(
+          "Create",
+          Nil,
+        )
+      case Exercise(kind, subTransaction) =>
+        Tree(
+          s"Exercise $kind",
+          subTransaction.map(actionToTree),
+        )
+      case Fetch() =>
+        Tree("Fetch", Nil)
+      case Rollback(subTransaction) =>
+        Tree(s"Rollback", subTransaction.map(actionToTree))
+    }
+  }
+
   object PrettyProjections {
     import Projections._
 
@@ -78,6 +107,9 @@ object Pretty {
 
   def prettyLedger(ledger: Ledgers.Ledger): String =
     PrettyLedgers.ledgerToTree(ledger).pretty(0)
+
+  def prettySkeleton(ledger: Skeletons.Ledger): String =
+    PrettySkeletons.ledgerToTree(ledger).pretty(0)
 
   def prettyProjection(projection: Projections.Projection): String =
     PrettyProjections.projectionToTree(projection).pretty(0)
