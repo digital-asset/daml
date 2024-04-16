@@ -24,13 +24,13 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
   private val partySort = ctx.mkIntSort()
   private val partySetSort = ctx.mkSetSort(ctx.mkIntSort())
 
-  def and(bools: Seq[BoolExpr]): BoolExpr =
+  private def and(bools: Seq[BoolExpr]): BoolExpr =
     ctx.mkAnd(bools: _*)
 
-  def or(bools: Seq[BoolExpr]): BoolExpr =
+  private def or(bools: Seq[BoolExpr]): BoolExpr =
     ctx.mkOr(bools: _*)
 
-  def isEmptyPartySet(partySet: PartySet): BoolExpr =
+  private def isEmptyPartySet(partySet: PartySet): BoolExpr =
     ctx.mkEq(partySet, ctx.mkEmptySet(partySort))
 
   private def collectCreates(action: Action): Set[ContractId] = action match {
@@ -55,7 +55,7 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
       subTransaction.view.flatMap(collectReferences).toSet
   }
 
-  object PartySetCollector {
+  private object PartySetCollector {
     def collectPartySets(ledger: Ledger): List[PartySet] =
       ledger.flatMap(collectPartySets)
 
@@ -74,7 +74,7 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     }
   }
 
-  object NonEmptyPartySetCollector {
+  private object NonEmptyPartySetCollector {
     def collectNonEmptyPartySets(ledger: Ledger): List[PartySet] =
       ledger.flatMap(collectNonEmptyPartySets)
 
@@ -93,7 +93,7 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     }
   }
 
-  def numberLedger(ledger: Ledger): BoolExpr = {
+  private def numberLedger(ledger: Ledger): BoolExpr = {
     var lastContractId = -1
 
     def numberCommands(commands: Commands): BoolExpr =
@@ -114,7 +114,7 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     and(ledger.map(numberCommands))
   }
 
-  def consistentLedger(ledger: Ledger): BoolExpr = {
+  private def consistentLedger(ledger: Ledger): BoolExpr = {
     case class State(created: Set[ContractId], consumed: Set[ContractId])
     var state = State(Set.empty, Set.empty)
 
@@ -155,7 +155,7 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     and(ledger.map(consistentCommands))
   }
 
-  def hideCreatedContractsInSiblings(ledger: Ledger): BoolExpr = {
+  private def hideCreatedContractsInSiblings(ledger: Ledger): BoolExpr = {
     def hideInCommands(commands: Commands): BoolExpr =
       hideInActions(commands.actions)
 
@@ -172,7 +172,7 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     and(ledger.map(hideInCommands))
   }
 
-  def authorized(
+  private def authorized(
       signatoriesOf: FuncDecl[PartySetSort],
       observersOf: FuncDecl[PartySetSort],
       ledger: Ledger,
@@ -222,22 +222,22 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     and(ledger.map(authorizedCommands))
   }
 
-  val allPartiesSetLiteral =
+  private val allPartiesSetLiteral =
     (1 to numParties).foldLeft(ctx.mkEmptySet(ctx.mkIntSort()))((acc, i) =>
       ctx.mkSetAdd(acc, ctx.mkInt(i))
     )
 
-  def partySetsWellFormed(ledger: Ledger, allParties: PartySet): BoolExpr =
+  private def partySetsWellFormed(ledger: Ledger, allParties: PartySet): BoolExpr =
     and(PartySetCollector.collectPartySets(ledger).map(s => ctx.mkSetSubset(s, allParties)))
 
-  def nonEmptyPartySetsWellFormed(ledger: Ledger): BoolExpr =
+  private def nonEmptyPartySetsWellFormed(ledger: Ledger): BoolExpr =
     and(
       NonEmptyPartySetCollector
         .collectNonEmptyPartySets(ledger)
         .map(s => ctx.mkNot(isEmptyPartySet(s)))
     )
 
-  def solve(ledger: Skeletons.Ledger): Option[Ledgers.Ledger] = {
+  private def solve(ledger: Skeletons.Ledger): Option[Ledgers.Ledger] = {
     val solver = ctx.mkSolver()
 
     val sLedger = new ToSymbolic(ctx).toSymbolic(ledger)
