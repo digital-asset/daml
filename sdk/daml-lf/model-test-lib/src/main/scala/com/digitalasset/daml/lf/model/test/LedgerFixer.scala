@@ -8,8 +8,8 @@ package test
 import cats.data.{StateT, WriterT}
 import cats.implicits.toTraverseOps
 import cats.{Monad, TraverseFilter}
-import com.daml.lf.model.test.{Ledgers=>L}
-import com.daml.lf.model.test.{Skeletons=>S}
+import com.daml.lf.model.test.{Ledgers => L}
+import com.daml.lf.model.test.{Skeletons => S}
 import org.scalacheck.Gen
 
 object LedgerFixer {
@@ -92,7 +92,8 @@ class LedgerFixer(numParties: Int) {
       actionSkel: S.Action,
   ): WriterT[LGen, L.PartySet, L.Action] = {
 
-    def liftLGen[A](a: LGen[A]): WriterT[LGen, L.PartySet, A] = WriterT.liftF[LGen, L.PartySet, A](a)
+    def liftLGen[A](a: LGen[A]): WriterT[LGen, L.PartySet, A] =
+      WriterT.liftF[LGen, L.PartySet, A](a)
     def liftGen[A](a: Gen[A]): WriterT[LGen, L.PartySet, A] =
       WriterT.liftF[LGen, L.PartySet, A](StateT.liftF(a))
     def tell(s: L.PartySet): WriterT[LGen, L.PartySet, Unit] = WriterT.tell[LGen, L.PartySet](s)

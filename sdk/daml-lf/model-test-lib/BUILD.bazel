@@ -52,6 +52,7 @@ da_scala_library(
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_reactivex_rxjava2_rxjava",
         "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:tools_aqua_z3_turnkey",
     ],
 )
 

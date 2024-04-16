@@ -105,11 +105,44 @@ object Pretty {
       partySet.mkString("{", ",", "}")
   }
 
+  object PrettySymbolic {
+    import Symbolic._
+
+    def ledgerToTree(ledger: Ledger): Tree = {
+      Tree("Ledger", ledger.map(commandsToTree))
+    }
+
+    private def commandsToTree(commands: Commands): Tree =
+      Tree(s"Commands actAs=${prettyParties(commands.actAs)}", commands.actions.map(actionToTree))
+
+    private def actionToTree(action: Action): Tree = action match {
+      case Create(contractId, signatories, observers) =>
+        Tree(
+          s"Create ${contractId} sigs=${prettyParties(signatories)} obs=${prettyParties(observers)}",
+          Nil,
+        )
+      case Exercise(kind, contractId, controllers, choiceObservers, subTransaction) =>
+        Tree(
+          s"Exercise $kind $contractId ctl=${prettyParties(controllers)} cobs=${prettyParties(choiceObservers)}",
+          subTransaction.map(actionToTree),
+        )
+      case Fetch(contractId) =>
+        Tree(s"Fetch $contractId", Nil)
+      case Rollback(subTransaction) =>
+        Tree(s"Rollback", subTransaction.map(actionToTree))
+    }
+
+    private def prettyParties(partySet: PartySet): String = partySet.toString
+  }
+
   def prettyLedger(ledger: Ledgers.Ledger): String =
     PrettyLedgers.ledgerToTree(ledger).pretty(0)
 
   def prettySkeleton(ledger: Skeletons.Ledger): String =
     PrettySkeletons.ledgerToTree(ledger).pretty(0)
+
+  def prettySymbolic(ledger: Symbolic.Ledger): String =
+    PrettySymbolic.ledgerToTree(ledger).pretty(0)
 
   def prettyProjection(projection: Projections.Projection): String =
     PrettyProjections.projectionToTree(projection).pretty(0)

@@ -21,8 +21,20 @@ object Demo {
 
   def main(args: Array[String]): Unit = {
 
-    val ledgers = Enumerations.ledgers(50)
+    val ledgers = Enumerations.ledgers(20)
     val card = ledgers.cardinal
+
+    def validLedgersSym: LazyList[Ledgers.Ledger] = LazyList.continually {
+      val randomIndex = {
+        var res: BigInt = BigInt(0)
+        do {
+          res = BigInt(card.bitLength, new scala.util.Random())
+        } while (res > card)
+        res
+      }
+      val skeleton = ledgers(randomIndex)
+      SymbolicSolver.solve(skeleton, 4)
+    }.flatten
 
     def validLedgers: LazyList[Ledger] = LazyList.continually {
       val randomIndex = {
@@ -35,6 +47,7 @@ object Demo {
       val randomLedger = ledgers(randomIndex)
       new LedgerFixer(5).fixLedger(randomLedger).sample
     }.flatten
+    print(validLedgers.isEmpty)
 
     implicit val system: ActorSystem = ActorSystem("RunnerMain")
     implicit val ec: ExecutionContext = system.dispatcher
@@ -49,7 +62,7 @@ object Demo {
       Gen
         .resize(5, new Generators(3).ledgerGen)
         .sample
-      validLedgers
+      validLedgersSym
         .foreach(ledger => {
           if (ledger.nonEmpty) {
             ideLedgerRunner.runAndProject(ledger) match {
