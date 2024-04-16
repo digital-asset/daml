@@ -82,8 +82,8 @@ final class GeneratorsProtocol(
     recipients <- recipientsArb.arbitrary
   } yield ClosedEnvelope.create(bytes, recipients, signatures, protocolVersion))
 
-  implicit val mediatorsOfDomainArb: Arbitrary[MediatorsOfDomain] = Arbitrary(
-    Arbitrary.arbitrary[NonNegativeInt].map(MediatorsOfDomain(_))
+  implicit val mediatorGroupRecipientArb: Arbitrary[MediatorGroupRecipient] = Arbitrary(
+    Arbitrary.arbitrary[NonNegativeInt].map(MediatorGroupRecipient(_))
   )
 
   implicit val messageIdArb: Arbitrary[MessageId] = Arbitrary(

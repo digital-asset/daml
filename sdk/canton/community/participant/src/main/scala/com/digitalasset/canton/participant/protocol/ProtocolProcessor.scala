@@ -156,7 +156,9 @@ abstract class ProtocolProcessor[
 
   private def chooseMediator(
       recentSnapshot: TopologySnapshot
-  )(implicit traceContext: TraceContext): EitherT[Future, NoMediatorError, MediatorsOfDomain] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, NoMediatorError, MediatorGroupRecipient] = {
     val fut = for {
       allMediatorGroups <- recentSnapshot.mediatorGroups()
       allActiveMediatorGroups = allMediatorGroups.filter(_.isActive)
@@ -181,7 +183,7 @@ abstract class ProtocolProcessor[
         }
         val chosen = checked(allActiveMediatorGroups(chosenIndex)).index
         logger.debug(s"Chose the mediator group $chosen")
-        Right(MediatorsOfDomain(chosen))
+        Right(MediatorGroupRecipient(chosen))
       }
     }
     EitherT(fut)
@@ -924,7 +926,7 @@ abstract class ProtocolProcessor[
       ],
       decisionTime: CantonTimestamp,
       snapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       fullViewsWithSignatures: NonEmpty[
         Seq[(WithRecipients[steps.FullView], Option[Signature])]
       ],
@@ -1005,7 +1007,7 @@ abstract class ProtocolProcessor[
       handleRequestData: Phase37Synchronizer.PendingRequestDataHandle[
         steps.requestType.PendingRequestData
       ],
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       snapshot: DomainSnapshotSyncCryptoApi,
       decisionTime: CantonTimestamp,
       contractsAndContinue: steps.CheckActivenessAndWritePendingContracts,
@@ -1144,7 +1146,7 @@ abstract class ProtocolProcessor[
       handleRequestData: Phase37Synchronizer.PendingRequestDataHandle[
         steps.requestType.PendingRequestData
       ],
-      mediatorGroup: MediatorsOfDomain,
+      mediatorGroup: MediatorGroupRecipient,
       snapshot: DomainSnapshotSyncCryptoApi,
       malformedPayloads: Seq[MalformedPayload],
   )(implicit traceContext: TraceContext): EitherT[Future, steps.RequestError, Unit] = {
@@ -1818,7 +1820,7 @@ object ProtocolProcessor {
     override def requestCounter: RequestCounter = unwrap.requestCounter
     override def requestSequencerCounter: SequencerCounter = unwrap.requestSequencerCounter
     override def isCleanReplay: Boolean = false
-    override def mediator: MediatorsOfDomain = unwrap.mediator
+    override def mediator: MediatorGroupRecipient = unwrap.mediator
 
     override def locallyRejected: Boolean = unwrap.locallyRejected
 
@@ -1828,7 +1830,7 @@ object ProtocolProcessor {
   final case class CleanReplayData(
       override val requestCounter: RequestCounter,
       override val requestSequencerCounter: SequencerCounter,
-      override val mediator: MediatorsOfDomain,
+      override val mediator: MediatorGroupRecipient,
       override val locallyRejected: Boolean,
   ) extends PendingRequestDataOrReplayData[Nothing] {
     override def isCleanReplay: Boolean = true

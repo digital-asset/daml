@@ -43,7 +43,7 @@ import com.digitalasset.canton.protocol.WellFormedTransaction.{
   WithoutSuffixes,
 }
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
@@ -261,7 +261,7 @@ class ModelConformanceChecker(
   private def checkView(
       view: TransactionView,
       viewPosition: ViewPosition,
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       transactionUuid: UUID,
       resolverFromView: LfKeyResolver,
       requestCounter: RequestCounter,

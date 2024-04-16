@@ -3,10 +3,9 @@
 
 package com.digitalasset.canton.metrics
 
+import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
 import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName}
-import com.daml.metrics.api.MetricQualification.Debug
-import scala.concurrent.duration.*
 
 @MetricDoc.GroupTag(
   representative = "canton.db-storage.<service>.executor",

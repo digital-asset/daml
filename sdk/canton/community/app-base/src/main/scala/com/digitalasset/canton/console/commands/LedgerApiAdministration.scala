@@ -100,7 +100,6 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success, Try}
-import com.daml.metrics.api.MetricsContext.Implicits.empty
 
 trait BaseLedgerApiAdministration extends NoTracing {
   thisAdministration: LedgerApiCommandRunner & NamedLogging & FeatureFlagFilter =>

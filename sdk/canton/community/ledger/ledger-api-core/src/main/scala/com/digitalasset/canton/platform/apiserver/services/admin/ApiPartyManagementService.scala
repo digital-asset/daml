@@ -25,6 +25,7 @@ import com.daml.ledger.api.v2.admin.party_management_service.{
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.logging.LoggingContext
+import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{
@@ -71,7 +72,6 @@ import scalaz.syntax.traverse.*
 import java.util.UUID
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.FutureConverters.CompletionStageOps
 
 private[apiserver] final class ApiPartyManagementService private (
     partyManagementService: IndexPartyManagementService,
@@ -638,7 +638,7 @@ private[apiserver] object ApiPartyManagementService {
         loggingContext: LoggingContextWithTrace
     ): Future[state.SubmissionResult] = {
       val (party, displayName) = input
-      writeService.allocateParty(party, displayName, submissionId).asScala
+      writeService.allocateParty(party, displayName, submissionId).toScalaUnwrapped
     }
 
     override def entries(offset: Option[ParticipantOffset.Absolute])(implicit

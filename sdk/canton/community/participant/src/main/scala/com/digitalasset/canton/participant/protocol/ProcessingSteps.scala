@@ -139,7 +139,7 @@ trait ProcessingSteps[
     */
   def prepareSubmission(
       param: SubmissionParam,
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       ephemeralState: SyncDomainEphemeralStateLookup,
       recentSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SubmissionError, Submission]
@@ -377,7 +377,7 @@ trait ProcessingSteps[
       ],
       malformedPayloads: Seq[MalformedPayload],
       snapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       submitterMetadataO: Option[ViewSubmitterMetadata],
   )(implicit
       traceContext: TraceContext
@@ -455,7 +455,7 @@ trait ProcessingSteps[
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       freshOwnTimelyTx: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -609,7 +609,7 @@ object ProcessingSteps {
   trait PendingRequestData {
     def requestCounter: RequestCounter
     def requestSequencerCounter: SequencerCounter
-    def mediator: MediatorsOfDomain
+    def mediator: MediatorGroupRecipient
     def locallyRejected: Boolean
 
     def rootHashO: Option[RootHash]
@@ -618,7 +618,7 @@ object ProcessingSteps {
   object PendingRequestData {
     def unapply(
         arg: PendingRequestData
-    ): Some[(RequestCounter, SequencerCounter, MediatorsOfDomain, Boolean)] = {
+    ): Some[(RequestCounter, SequencerCounter, MediatorGroupRecipient, Boolean)] = {
       Some((arg.requestCounter, arg.requestSequencerCounter, arg.mediator, arg.locallyRejected))
     }
   }

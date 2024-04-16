@@ -165,7 +165,7 @@ class TransactionProcessingSteps(
 
   override def prepareSubmission(
       param: SubmissionParam,
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       ephemeralState: SyncDomainEphemeralStateLookup,
       recentSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit
@@ -226,7 +226,7 @@ class TransactionProcessingSteps(
       transactionMeta: TransactionMeta,
       keyResolver: LfKeyResolver,
       wfTransaction: WellFormedTransaction[WithoutSuffixes],
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       recentSnapshot: DomainSnapshotSyncCryptoApi,
       contractLookup: ContractLookup,
       disclosedContracts: Map[LfContractId, SerializableContract],
@@ -724,7 +724,7 @@ class TransactionProcessingSteps(
       ],
       malformedPayloads: Seq[MalformedPayload],
       snapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       submitterMetadataO: Option[SubmitterMetadata],
   )(implicit
       traceContext: TraceContext
@@ -802,7 +802,7 @@ class TransactionProcessingSteps(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       freshOwnTimelyTx: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -1159,7 +1159,7 @@ class TransactionProcessingSteps(
       transactionValidationResult: TransactionValidationResult,
       rc: RequestCounter,
       sc: SequencerCounter,
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       freshOwnTimelyTx: Boolean,
   ): PendingTransaction = {
     // We consider that we rejected if at least one of the responses is not "approve'
