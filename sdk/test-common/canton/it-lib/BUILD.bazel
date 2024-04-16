@@ -14,6 +14,7 @@ da_scala_library(
         "//canton:community_app_deploy.jar",
         "//test-common/test-certificates",
     ],
+    resources = ["src/main/resources/logback.xml"],
     scala_deps = [
         "@maven//:io_spray_spray_json",
         "@maven//:org_apache_pekko_pekko_actor",
