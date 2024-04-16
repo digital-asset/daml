@@ -52,6 +52,7 @@ final case class CantonConfig(
     bootstrapScript: Option[String] = None,
     targetScope: Option[String] = None,
     disableUpgradeValidation: Boolean = false,
+    maxPartiesPageSize: Option[Int] = None,
 ) {
 
   lazy val tlsConfig =

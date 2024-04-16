@@ -82,13 +82,25 @@ final class PartyManagementClient(service: PartyManagementServiceStub)(implicit
       .map(r => ParticipantId(Ref.ParticipantId.assertFromString(r.participantId)))
 
   def listKnownParties(
-      token: Option[String] = None,
-      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
+      token: Option[String] = None
   ): Future[List[PartyDetails]] =
+    listKnownPartiesPaged(List.empty, token, "").map(_._1)
+
+  private def listKnownPartiesPaged(
+      acc: List[PartyDetails],
+      token: Option[String],
+      pageToken: String,
+  ): Future[(List[PartyDetails], String)] =
     LedgerClient
       .stub(service, token)
-      .listKnownParties(ListKnownPartiesRequest(identityProviderId.toRequestString))
-      .map(_.partyDetails.view.map(PartyManagementClient.details).toList)
+      .listKnownParties(ListKnownPartiesRequest(pageToken))
+      .flatMap(resp => {
+        val sum = acc ++ resp.partyDetails.view.map(PartyManagementClient.details).toList
+        resp.nextPageToken match {
+          case "" => Future.successful(sum, resp.nextPageToken)
+          case more => listKnownPartiesPaged(sum, token, more)
+        }
+      })
 
   def getParties(
       parties: OneAnd[Set, Ref.Party],

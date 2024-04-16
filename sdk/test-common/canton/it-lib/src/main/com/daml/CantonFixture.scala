@@ -62,6 +62,7 @@ trait CantonFixtureWithResource[A]
     Some(Ref.ApplicationId.assertFromString(getClass.getName))
   protected lazy val cantonJar: Path = CantonRunner.cantonPath
   protected lazy val targetScope: Option[String] = Option.empty
+  protected lazy val maxPartiesPageSize: Option[Int] = None
 
   // This flag setup some behavior to ease debugging tests.
   //  If `CantonFixtureDebugKeepTmpFiles` or `CantonFixtureDebugRemoveTmpFiles`
@@ -127,6 +128,7 @@ trait CantonFixtureWithResource[A]
     bootstrapScript = bootstrapScript,
     targetScope = targetScope,
     disableUpgradeValidation = disableUpgradeValidation,
+    maxPartiesPageSize = maxPartiesPageSize,
   )
 
   protected def info(msg: String): Unit =
