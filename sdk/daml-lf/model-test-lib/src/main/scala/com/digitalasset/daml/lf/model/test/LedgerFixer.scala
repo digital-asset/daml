@@ -1,3 +1,6 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.lf
 package model
 package test
@@ -65,7 +68,7 @@ class LedgerFixer(numParties: Int) {
   def genSubsetOf[A](s: Set[A]): Gen[Set[A]] =
     genSublistOf(s.toList).map(_.toSet)
 
-  def genNonEmptySubset[A](s: Set[A]): Gen[Set[A]] =
+  def genNonEmptySubsetOf[A](s: Set[A]): Gen[Set[A]] =
     genSubsetOf(s).retryUntil(_.nonEmpty)
 
   def fetchable(
@@ -92,7 +95,7 @@ class LedgerFixer(numParties: Int) {
     actionSkel match {
       case Create(_, _, _) =>
         for {
-          signatories <- liftGen(genNonEmptySubset(authorizers))
+          signatories <- liftGen(genNonEmptySubsetOf(authorizers))
           observers <- liftGen(genSubsetOf(globalParties))
           contractId <- liftLGen(addContract(signatories, observers))
           _ <- tell(Set(contractId))
@@ -105,7 +108,7 @@ class LedgerFixer(numParties: Int) {
           )
           toConsume <- liftGen(Gen.oneOf(visibleContracts))
           (cid, Contract(signatories, _)) = toConsume
-          controllers <- liftGen(genNonEmptySubset(authorizers))
+          controllers <- liftGen(genNonEmptySubsetOf(authorizers))
           choiceObservers <- liftGen(genSubsetOf(globalParties))
           _ <- if (kind == Consuming) liftLGen(archiveContract(cid)) else pure(())
           fixedSubTransaction <- genTransaction(hidden, controllers ++ signatories, subTransaction)
@@ -155,7 +158,7 @@ class LedgerFixer(numParties: Int) {
   }
 
   def genCommands(commands: Commands): LGen[Commands] = for {
-    actAs <- StateT.liftF(genNonEmptySubset(globalParties))
+    actAs <- StateT.liftF(genNonEmptySubsetOf(globalParties))
     fixedActions <- genActions(Set.empty, actAs, commands.actions)
   } yield Commands(actAs, fixedActions)
 
