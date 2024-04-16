@@ -17,7 +17,7 @@ import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{DomainId, DomainTopologyManagerId, SequencerId}
+import com.digitalasset.canton.topology.{DomainId, SequencerId}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.typesafe.scalalogging.LazyLogging
 import io.opentelemetry.api.trace.Tracer
@@ -85,7 +85,6 @@ class DriverBlockSequencerFactory[C](
           nodeParameters.nonStandardConfig,
           driverClock,
           initialBlockHeight,
-          DomainTopologyManagerId(domainId).toProtoPrimitive,
           domainLoggerFactory,
         ),
         protocolVersion,

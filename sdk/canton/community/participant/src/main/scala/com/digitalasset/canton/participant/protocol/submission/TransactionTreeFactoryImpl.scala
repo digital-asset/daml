@@ -20,7 +20,7 @@ import com.digitalasset.canton.protocol.RollbackContext.RollbackScope
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.WellFormedTransaction.{WithSuffixes, WithoutSuffixes}
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -64,7 +64,7 @@ abstract class TransactionTreeFactoryImpl(
 
   protected def stateForSubmission(
       transactionSeed: SaltSeed,
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       transactionUUID: UUID,
       ledgerTime: CantonTimestamp,
       keyResolver: LfKeyResolver,
@@ -72,7 +72,7 @@ abstract class TransactionTreeFactoryImpl(
   ): State
 
   protected def stateForValidation(
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       transactionUUID: UUID,
       ledgerTime: CantonTimestamp,
       salts: Iterable[Salt],
@@ -84,7 +84,7 @@ abstract class TransactionTreeFactoryImpl(
       submitterInfo: SubmitterInfo,
       confirmationPolicy: ConfirmationPolicy,
       workflowId: Option[WorkflowId],
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       transactionSeed: SaltSeed,
       transactionUuid: UUID,
       topologySnapshot: TopologySnapshot,
@@ -191,7 +191,7 @@ abstract class TransactionTreeFactoryImpl(
       subaction: WellFormedTransaction[WithoutSuffixes],
       rootPosition: ViewPosition,
       confirmationPolicy: ConfirmationPolicy,
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       submittingParticipantO: Option[ParticipantId],
       viewSalts: Iterable[Salt],
       transactionUuid: UUID,
@@ -605,7 +605,7 @@ object TransactionTreeFactoryImpl {
       .merge
 
   trait State {
-    def mediator: MediatorsOfDomain
+    def mediator: MediatorGroupRecipient
     def transactionUUID: UUID
     def ledgerTime: CantonTimestamp
 

@@ -428,60 +428,6 @@ class GrpcSequencerServiceTest
         )
     }
 
-    "succeed authenticated domain manager sending message to unauthenticated member" in { _ =>
-      val request = defaultRequest
-        .focus(_.sender)
-        .replace(DefaultTestIdentities.domainManager)
-        .focus(_.batch)
-        .replace(
-          Batch(
-            List(
-              ClosedEnvelope.create(
-                content,
-                Recipients.cc(unauthenticatedMember),
-                Seq.empty,
-                testedProtocolVersion,
-              )
-            ),
-            testedProtocolVersion,
-          )
-        )
-      val domEnvironment = new Environment(DefaultTestIdentities.domainManager)
-      sendAndCheckSucceed(request)(domEnvironment)
-    }
-
-    "succeed unauthenticated member sending message to domain manager" in { _ =>
-      val request = defaultRequest
-        .focus(_.sender)
-        .replace(unauthenticatedMember)
-        .focus(_.batch)
-        .replace(
-          Batch(
-            List(
-              ClosedEnvelope.create(
-                content,
-                Recipients.cc(DefaultTestIdentities.domainManager),
-                Seq.empty,
-                testedProtocolVersion,
-              )
-            ),
-            testedProtocolVersion,
-          )
-        )
-      val newEnv = new Environment(unauthenticatedMember).service
-      val responseF =
-        newEnv.sendAsyncUnauthenticatedVersioned(
-          v30.SendAsyncUnauthenticatedVersionedRequest(request.toByteString)
-        )
-
-      responseF
-        .map { responseP =>
-          val response = SendAsyncUnauthenticatedVersionedResponse
-            .fromSendAsyncUnauthenticatedVersionedResponseProto(responseP)
-          response.value.error shouldBe None
-        }
-    }
-
     "reject on rate excess" in { implicit env =>
       def expectSuccess(): Future[Assertion] = {
         sendAndCheckSucceed(defaultRequest)
@@ -600,14 +546,14 @@ class GrpcSequencerServiceTest
       RecipientsTree(
         NonEmpty.mk(
           Set,
-          MediatorsOfDomain(MediatorGroupIndex.one),
+          MediatorGroupRecipient(MediatorGroupIndex.one),
         ),
         Seq.empty,
       ),
       RecipientsTree(
         NonEmpty.mk(
           Set,
-          MediatorsOfDomain(MediatorGroupIndex.tryCreate(2)),
+          MediatorGroupRecipient(MediatorGroupIndex.tryCreate(2)),
         ),
         Seq.empty,
       ),
@@ -716,16 +662,13 @@ class GrpcSequencerServiceTest
       )
     }
 
-    "reject unauthenticated member sending message to non domain manager member" in { _ =>
+    "reject unauthenticated member sending message to anything other than broadcast" in { _ =>
       val request = defaultRequest
         .focus(_.sender)
         .replace(unauthenticatedMember)
 
       val errorMsg =
-        if (testedProtocolVersion >= ProtocolVersion.v31)
-          "Unauthenticated member is trying to send message to members other than the topology broadcast address All"
-        else
-          "Unauthenticated member is trying to send message to members other than the domain manager"
+        "Unauthenticated member is trying to send message to members other than the topology broadcast address All"
 
       loggerFactory.assertLogs(
         sendAndCheckError(request, authenticated = false) {
@@ -762,7 +705,7 @@ class GrpcSequencerServiceTest
             List(
               ClosedEnvelope.create(
                 content,
-                Recipients.cc(DefaultTestIdentities.domainManager),
+                Recipients.cc(DefaultTestIdentities.sequencerIdX),
                 Seq.empty,
                 testedProtocolVersion,
               )
@@ -890,104 +833,36 @@ class GrpcSequencerServiceTest
     }
   }
 
-  "subscribe" should {
+  def performAcknowledgeRequest(env: Environment)(request: AcknowledgeRequest) =
+    env.service.acknowledgeSigned(signedAcknowledgeReq(request.toProtoV30))
 
-    "return protocol version error if protocol version >= v5 is used for subscribe" in { env =>
-      val observer = new MockServerStreamObserver[v30.SubscriptionResponse]()
-      val requestP =
-        SubscriptionRequest(
-          participant,
-          SequencerCounter.Genesis,
+  def signedAcknowledgeReq(requestP: v30.AcknowledgeRequest): v30.AcknowledgeSignedRequest =
+    v30.AcknowledgeSignedRequest(
+      signedContent(VersionedMessage(requestP.toByteString, 0).toByteString).toByteString
+    )
+
+  "acknowledgeSigned" should {
+    "reject unauthorized authenticated participant" in { implicit env =>
+      val unauthorizedParticipant = DefaultTestIdentities.participant2
+      val req =
+        AcknowledgeRequest(
+          unauthorizedParticipant,
+          CantonTimestamp.Epoch,
           testedProtocolVersion,
-        ).toProtoV30
+        )
 
-      loggerFactory.suppressWarningsAndErrors {
-        env.service.subscribe(requestP, observer)
-      }
-
-      val expectedMessage =
-        "The versioned subscribe endpoints must be used with protocol version"
-
-      observer.items.toSeq should matchPattern {
-        case Seq(StreamError(err: StatusException))
-            if err.getStatus.getCode == UNIMPLEMENTED && err.getMessage.contains(
-              expectedMessage
-            ) =>
-      }
-    }
-
-    "return protocol version error if protocol version >= v5 is used for subscribeUnauthenticated" in {
-      env =>
-        val observer = new MockServerStreamObserver[v30.SubscriptionResponse]()
-        val requestP =
-          SubscriptionRequest(
-            unauthenticatedMember,
-            SequencerCounter.Genesis,
-            testedProtocolVersion,
-          ).toProtoV30
-
-        loggerFactory.suppressWarningsAndErrors {
-          env.service.subscribeUnauthenticated(requestP, observer)
-        }
-
-        val expectedMessage =
-          "The versioned subscribe endpoints must be used with protocol version"
-
-        observer.items.toSeq should matchPattern {
-          case Seq(StreamError(err: StatusException))
-              if err.getStatus.getCode == UNIMPLEMENTED && err.getMessage.contains(
-                expectedMessage
-              ) =>
-        }
-    }
-  }
-
-  Seq(("acknowledge", false), ("acknowledgeSigned", true)).foreach { case (name, useSignedAck) =>
-    def performAcknowledgeRequest(env: Environment)(request: AcknowledgeRequest) =
-      if (useSignedAck) {
-        env.service.acknowledgeSigned(signedAcknowledgeReq(request.toProtoV30))
-      } else
-        env.service.acknowledge(request.toProtoV30)
-
-    def signedAcknowledgeReq(requestP: v30.AcknowledgeRequest): v30.AcknowledgeSignedRequest =
-      v30.AcknowledgeSignedRequest(
-        Some(signedContent(VersionedMessage(requestP.toByteString, 0).toByteString).toProtoV30)
+      loggerFactory.assertLogs(
+        performAcknowledgeRequest(env)(req).failed.map(error =>
+          error.getMessage should include("PERMISSION_DENIED")
+        ),
+        _.warningMessage should (include("Authentication check failed:")
+          and include("just tried to use sequencer on behalf of")),
       )
+    }
 
-    name should {
-      if (useSignedAck) {
-        "reject unauthorized authenticated participant" in { implicit env =>
-          val unauthorizedParticipant = DefaultTestIdentities.participant2
-          val req =
-            AcknowledgeRequest(
-              unauthorizedParticipant,
-              CantonTimestamp.Epoch,
-              testedProtocolVersion,
-            )
-
-          loggerFactory.assertLogs(
-            performAcknowledgeRequest(env)(req).failed.map(error =>
-              error.getMessage should include("PERMISSION_DENIED")
-            ),
-            _.warningMessage should (include("Authentication check failed:")
-              and include("just tried to use sequencer on behalf of")),
-          )
-        }
-
-        "succeed with correct participant" in { implicit env =>
-          val req = AcknowledgeRequest(participant, CantonTimestamp.Epoch, testedProtocolVersion)
-          performAcknowledgeRequest(env)(req).map(_ => succeed)
-        }
-      } else {
-        "reject the acknowledgement" in { implicit env =>
-          val req = AcknowledgeRequest(participant, CantonTimestamp.Epoch, testedProtocolVersion)
-          performAcknowledgeRequest(env)(req).failed.map { error =>
-            error.getMessage should (include("UNIMPLEMENTED") and include(
-              s"acknowledgement endpoints must be used with protocol version $testedProtocolVersion"
-            ))
-          }
-        }
-      }
+    "succeed with correct participant" in { implicit env =>
+      val req = AcknowledgeRequest(participant, CantonTimestamp.Epoch, testedProtocolVersion)
+      performAcknowledgeRequest(env)(req).map(_ => succeed)
     }
   }
 

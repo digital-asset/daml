@@ -429,11 +429,11 @@ trait MessageDispatcher { this: NamedLogging =>
     String,
     (
         List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
-        Option[MediatorsOfDomain],
+        Option[MediatorGroupRecipient],
     ),
   ] = {
     def hasMediatorGroupRecipient(recipient: Recipient): Boolean = recipient match {
-      case _: MediatorsOfDomain => true
+      case _: MediatorGroupRecipient => true
       case _ => false
     }
 
@@ -446,8 +446,9 @@ trait MessageDispatcher { this: NamedLogging =>
     // We only look at mediator groups because individual mediators should never be addressed directly
     // as part of the protocol
     val allMediators = rootHashMessagesSentToAMediator
-      .flatMap(_.recipients.allRecipients.collect { case mediatorsOfDomain: MediatorsOfDomain =>
-        mediatorsOfDomain
+      .flatMap(_.recipients.allRecipients.collect {
+        case mediatorGroupRecipient: MediatorGroupRecipient =>
+          mediatorGroupRecipient
       })
       .toSet
 
@@ -517,7 +518,7 @@ trait MessageDispatcher { this: NamedLogging =>
   private def checkEncryptedViewsForRootHashMessage(
       encryptedViews: List[OpenEnvelope[EncryptedViewMessage[ViewType]]],
       rootHashMessage: RootHashMessage[SerializedRootHashMessagePayload],
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
   ): Checked[SendMalformedAndExpectMediatorResult, String, GoodRequest] = {
     val viewType: rootHashMessage.viewType.type = rootHashMessage.viewType
     val (badEncryptedViewTypes, goodEncryptedViews) = encryptedViews
@@ -705,7 +706,7 @@ private[participant] object MessageDispatcher {
   /** Sigma type to tie the envelope's view type to the root hash message's. */
   private sealed trait GoodRequest {
     val rootHashMessage: RootHashMessage[SerializedRootHashMessagePayload]
-    val mediator: MediatorsOfDomain
+    val mediator: MediatorGroupRecipient
     val requestEnvelopes: NonEmpty[Seq[
       OpenEnvelope[EncryptedViewMessage[rootHashMessage.viewType.type]]
     ]]
@@ -713,12 +714,12 @@ private[participant] object MessageDispatcher {
   private object GoodRequest {
     def apply(
         rhm: RootHashMessage[SerializedRootHashMessagePayload],
-        mediatorGroup: MediatorsOfDomain,
+        mediatorGroup: MediatorGroupRecipient,
     )(
         envelopes: NonEmpty[Seq[OpenEnvelope[EncryptedViewMessage[rhm.viewType.type]]]]
     ): GoodRequest = new GoodRequest {
       override val rootHashMessage: rhm.type = rhm
-      override val mediator: MediatorsOfDomain = mediatorGroup
+      override val mediator: MediatorGroupRecipient = mediatorGroup
       override val requestEnvelopes
           : NonEmpty[Seq[OpenEnvelope[EncryptedViewMessage[rootHashMessage.viewType.type]]]] =
         envelopes
@@ -753,7 +754,7 @@ private[participant] object MessageDispatcher {
   @VisibleForTesting
   private[protocol] final case class SendMalformedAndExpectMediatorResult(
       rootHash: RootHash,
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       rejectionReason: String,
   ) extends FailedRootHashMessageCheck
   @VisibleForTesting

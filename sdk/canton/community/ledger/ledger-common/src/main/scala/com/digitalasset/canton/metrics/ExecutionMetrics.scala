@@ -4,9 +4,8 @@
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.CacheMetrics
+import com.daml.metrics.api.MetricHandle.{Counter, Histogram, LabeledMetricsFactory, Meter, Timer}
 import com.daml.metrics.api.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{Timer, Counter, Histogram, Meter}
-import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class ExecutionMetrics(

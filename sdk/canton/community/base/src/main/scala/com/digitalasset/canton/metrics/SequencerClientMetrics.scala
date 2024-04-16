@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.metrics
 
-
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, LabeledMetricsFactory, Timer}
 import com.daml.metrics.api.MetricQualification.{Debug, Saturation}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}

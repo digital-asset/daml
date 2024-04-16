@@ -251,7 +251,7 @@ private[mediator] class DefaultVerdictSender(
     }
 
   private def shouldSendVerdict(
-      mediatorGroup: MediatorsOfDomain,
+      mediatorGroup: MediatorGroupRecipient,
       topologySnapshot: TopologySnapshot,
   )(implicit traceContext: TraceContext): Future[Boolean] = {
     val mediatorGroupIndex = mediatorGroup.group
@@ -270,7 +270,7 @@ private[mediator] class DefaultVerdictSender(
 
   private def groupAggregationRule(
       topologySnapshot: TopologySnapshot,
-      mediatorGroup: MediatorsOfDomain,
+      mediatorGroup: MediatorGroupRecipient,
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
@@ -352,8 +352,8 @@ private[mediator] class DefaultVerdictSender(
           rootHashMessages.headOption // one RHM is enough because sequencer checks that all RHMs specify the same mediator recipient
             .map { rhm =>
               rhm.recipients.allRecipients
-                .collectFirst { case mediatorsOfDomain: MediatorsOfDomain =>
-                  mediatorsOfDomain
+                .collectFirst { case mediatorGroupRecipient: MediatorGroupRecipient =>
+                  mediatorGroupRecipient
                 }
                 .getOrElse {
                   ErrorUtil.invalidState(

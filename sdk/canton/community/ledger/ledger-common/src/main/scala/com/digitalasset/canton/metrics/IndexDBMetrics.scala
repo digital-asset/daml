@@ -4,8 +4,8 @@
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.DatabaseMetrics
-import com.daml.metrics.api.MetricQualification.Debug
 import com.daml.metrics.api.MetricHandle.{Counter, Histogram, LabeledMetricsFactory, Timer}
+import com.daml.metrics.api.MetricQualification.Debug
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class IndexDBMetrics(

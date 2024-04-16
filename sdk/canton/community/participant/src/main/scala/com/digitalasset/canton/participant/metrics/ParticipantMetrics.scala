@@ -4,9 +4,9 @@
 package com.digitalasset.canton.participant.metrics
 
 import com.daml.metrics.HealthMetrics
-import com.daml.metrics.api.MetricQualification.{Debug, Traffic}
 import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, LabeledMetricsFactory, Meter}
+import com.daml.metrics.api.MetricQualification.{Debug, Traffic}
 import com.daml.metrics.api.noop.NoOpGauge
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 import com.daml.metrics.grpc.GrpcServerMetrics

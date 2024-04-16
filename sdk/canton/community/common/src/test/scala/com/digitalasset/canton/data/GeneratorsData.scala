@@ -15,7 +15,7 @@ import com.digitalasset.canton.data.ActionDescription.{
 import com.digitalasset.canton.data.ViewPosition.{MerklePathElement, MerkleSeqIndex}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
 import com.digitalasset.canton.{LfInterfaceId, LfPackageId, LfPartyId, LfVersioned}
@@ -59,7 +59,7 @@ final class GeneratorsData(
       confirmationPolicy <- Arbitrary.arbitrary[ConfirmationPolicy]
       domainId <- Arbitrary.arbitrary[DomainId]
 
-      mediator <- Arbitrary.arbitrary[MediatorsOfDomain]
+      mediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
       salt <- Arbitrary.arbitrary[Salt]
       uuid <- Gen.uuid

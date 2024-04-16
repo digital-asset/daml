@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.metrics
 
-import com.daml.metrics.api.MetricQualification.{Debug, Traffic}
 import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory}
+import com.daml.metrics.api.MetricQualification.{Debug, Traffic}
 import com.daml.metrics.api.{MetricDoc, MetricHandle, MetricName, MetricsContext}
 
 class LAPIMetrics(

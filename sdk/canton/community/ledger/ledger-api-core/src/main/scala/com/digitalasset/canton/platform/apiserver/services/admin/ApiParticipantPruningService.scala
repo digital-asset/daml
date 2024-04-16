@@ -12,6 +12,7 @@ import com.daml.ledger.api.v2.admin.participant_pruning_service.{
 import com.daml.lf.data.Ref
 import com.daml.metrics.Tracked
 import com.daml.metrics.api.MetricsContext
+import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
@@ -46,7 +47,6 @@ import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.FutureConverters.CompletionStageOps
 
 final class ApiParticipantPruningService private (
     readBackend: IndexParticipantPruningService with LedgerEndService,
@@ -155,7 +155,7 @@ final class ApiParticipantPruningService private (
     )
     writeBackend
       .prune(pruneUpTo, submissionId, pruneAllDivulgedContracts)
-      .asScala
+      .toScalaUnwrapped
       .flatMap {
         case NotPruned(status) =>
           Future.failed(new ApiException(StatusProto.toStatusRuntimeException(status)))

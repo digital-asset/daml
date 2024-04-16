@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol.validation
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.PendingRequestData
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
-import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 
 /** Storing metadata of pending transactions required for emitting transactions on the sync API. */
@@ -16,7 +16,7 @@ final case class PendingTransaction(
     override val requestCounter: RequestCounter,
     override val requestSequencerCounter: SequencerCounter,
     transactionValidationResult: TransactionValidationResult,
-    override val mediator: MediatorsOfDomain,
+    override val mediator: MediatorGroupRecipient,
     override val locallyRejected: Boolean,
 ) extends PendingRequestData {
 
