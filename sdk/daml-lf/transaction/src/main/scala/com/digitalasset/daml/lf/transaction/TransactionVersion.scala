@@ -18,6 +18,7 @@ object TransactionVersion {
 
   case object V14 extends TransactionVersion("14", 14)
   case object V15 extends TransactionVersion("15", 15)
+  case object V16 extends TransactionVersion("16", 16)
   case object VDev extends TransactionVersion("dev", Int.MaxValue)
 
   val All = List(V14, V15, VDev)
@@ -45,10 +46,10 @@ object TransactionVersion {
   def maxVersion: TransactionVersion = VDev
 
   private[lf] val minInterfaces = V15
-  private[lf] val minExplicitDisclosure = VDev
+  private[lf] val minExplicitDisclosure = V16
   private[lf] val minChoiceAuthorizers = VDev
-  private[lf] val minUpgrade = VDev
-  private[lf] val minSharedKeys = VDev
+  private[lf] val minUpgrade = V16
+  private[lf] val minSharedKeys = V16
 
   private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {
     import LanguageVersion._

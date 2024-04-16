@@ -63,7 +63,7 @@ object LanguageMajorVersion {
   case object V1
       extends LanguageMajorVersion(
         pretty = "1",
-        minorAscending = List("6", "7", "8", "11", "12", "13", "14", "15"),
+        minorAscending = List("6", "7", "8", "11", "12", "13", "14", "15", "16"),
       )
 
   case object V2
