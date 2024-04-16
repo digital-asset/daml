@@ -22,7 +22,8 @@ import com.daml.lf.archive.DarReader
 
 import scala.util.{Success, Failure}
 import com.daml.lf.validation.Upgrading
-import org.scalatest.Inspectors.{forEvery}
+import org.scalatest.Inspectors.forEvery
+import scala.util.Using
 
 class UpgradesSpecAdminAPIWithoutValidation
     extends UpgradesSpecAdminAPI("Admin API without validation")
@@ -372,19 +373,14 @@ trait LongTests { this: UpgradesSpec =>
         v1Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV2ThenV3-v1.dar")
         v2Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV2ThenV3-v2.dar")
         v3Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV2ThenV3-v3.dar")
+        rawCantonLog <- Future.fromTry(Using(Source.fromFile(s"$cantonTmpDir/canton.log"))(_.mkString))
       } yield {
-        val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
-        try {
-          val rawCantonLog = cantonLog.mkString
-          forEvery(
-            List(
-              assertPackageUpgradeCheck(None)(v1Upload, v2Upload)(rawCantonLog),
-              assertPackageUpgradeCheck(None)(v2Upload, v3Upload)(rawCantonLog),
-            )
-          ) { a => a }
-        } finally {
-          cantonLog.close()
-        }
+        forEvery(
+          List(
+            assertPackageUpgradeCheck(None)(v1Upload, v2Upload)(rawCantonLog),
+            assertPackageUpgradeCheck(None)(v2Upload, v3Upload)(rawCantonLog),
+          )
+        )(Predef.identity)
       }
     }
 
@@ -393,19 +389,14 @@ trait LongTests { this: UpgradesSpec =>
         v1Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV3ThenV2-v1.dar")
         v3Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV3ThenV2-v3.dar")
         v2Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV3ThenV2-v2.dar")
+        rawCantonLog <- Future.fromTry(Using(Source.fromFile(s"$cantonTmpDir/canton.log"))(_.mkString))
       } yield {
-        val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
-        try {
-          val rawCantonLog = cantonLog.mkString
-          forEvery(
-            List(
-              assertPackageUpgradeCheck(None)(v1Upload, v3Upload)(rawCantonLog),
-              assertPackageUpgradeCheck(None)(v1Upload, v2Upload)(rawCantonLog),
-            )
-          ) { a => a }
-        } finally {
-          cantonLog.close()
-        }
+        forEvery(
+          List(
+            assertPackageUpgradeCheck(None)(v1Upload, v3Upload)(rawCantonLog),
+            assertPackageUpgradeCheck(None)(v1Upload, v2Upload)(rawCantonLog),
+          )
+        )(Predef.identity)
       }
     }
 
@@ -414,21 +405,16 @@ trait LongTests { this: UpgradesSpec =>
         v1Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV2ThenV3-v1.dar")
         v2Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV2ThenV3-v2.dar")
         v3Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV2ThenV3-v3.dar")
+        rawCantonLog <- Future.fromTry(Using(Source.fromFile(s"$cantonTmpDir/canton.log"))(_.mkString))
       } yield {
-        val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
-        try {
-          val rawCantonLog = cantonLog.mkString
-          forEvery(
-            List(
-              assertPackageUpgradeCheck(None)(v1Upload, v2Upload)(rawCantonLog),
-              assertPackageUpgradeCheck(
-                Some("The upgraded template T is missing some of its original fields.")
-              )(v2Upload, v3Upload)(rawCantonLog),
-            )
-          ) { a => a }
-        } finally {
-          cantonLog.close()
-        }
+        forEvery(
+          List(
+            assertPackageUpgradeCheck(None)(v1Upload, v2Upload)(rawCantonLog),
+            assertPackageUpgradeCheck(
+              Some("The upgraded template T is missing some of its original fields.")
+            )(v2Upload, v3Upload)(rawCantonLog),
+          )
+        )(Predef.identity)
       }
     }
 
@@ -437,22 +423,16 @@ trait LongTests { this: UpgradesSpec =>
         v1Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV3ThenV2-v1.dar")
         v3Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV3ThenV2-v3.dar")
         v2Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV3ThenV2-v2.dar")
-      } yield {
-        val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
-        try {
-          val rawCantonLog = cantonLog.mkString
-          forEvery(
-            List(
-              assertPackageUpgradeCheck(None)(v1Upload, v3Upload)(rawCantonLog),
-              assertPackageUpgradeCheck(
-                Some("The upgraded template T is missing some of its original fields.")
-              )(v1Upload, v2Upload)(rawCantonLog),
-            )
-          ) { a => a }
-        } finally {
-          cantonLog.close()
-        }
-      }
+        rawCantonLog <- Future.fromTry(Using(Source.fromFile(s"$cantonTmpDir/canton.log"))(_.mkString))
+      } yield
+        forEvery(
+          List(
+            assertPackageUpgradeCheck(None)(v1Upload, v3Upload)(rawCantonLog),
+            assertPackageUpgradeCheck(
+              Some("The upgraded template T is missing some of its original fields.")
+            )(v1Upload, v2Upload)(rawCantonLog),
+          )
+        )(Predef.identity)
     }
 
     "Fails when a top-level record adds a non-optional field" in {
