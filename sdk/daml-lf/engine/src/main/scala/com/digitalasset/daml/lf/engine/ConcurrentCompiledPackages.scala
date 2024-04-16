@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
 import com.daml.lf.language.Ast.{Package, PackageSignature}
-import com.daml.lf.language.{PackageInterface, Util => AstUtil}
+import com.daml.lf.language.{Util => AstUtil}
 import com.daml.lf.speedy.Compiler
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
@@ -22,18 +22,12 @@ import scala.util.control.NonFatal
   */
 private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Config)
     extends MutableCompiledPackages(compilerConfig) {
-  private[this] val signatures: ConcurrentMap[PackageId, PackageSignature] =
+  val signatures: ConcurrentMap[PackageId, PackageSignature] =
     new ConcurrentHashMap().asScala
-  private[this] val definitionsByReference
-      : ConcurrentHashMap[speedy.SExpr.SDefinitionRef, speedy.SDefinition] =
-    new ConcurrentHashMap()
-  private[this] val packageDeps: ConcurrentHashMap[PackageId, Set[PackageId]] =
-    new ConcurrentHashMap()
-
-  override def packageIds: scala.collection.Set[PackageId] = signatures.keySet
-  override def pkgInterface: PackageInterface = new PackageInterface(signatures)
-  override def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SDefinition] =
-    Option(definitionsByReference.get(dref))
+  val definitions: ConcurrentMap[speedy.SExpr.SDefinitionRef, speedy.SDefinition] =
+    new ConcurrentHashMap().asScala
+  private[this] val packageDeps: ConcurrentMap[PackageId, Set[PackageId]] =
+    new ConcurrentHashMap().asScala
 
   /** Might ask for a package if the package you're trying to add references it.
     *
@@ -141,13 +135,13 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
                   )
               }
             defns.foreach { case (defnId, defn) =>
-              definitionsByReference.put(defnId, defn)
+              definitions.put(defnId, defn)
             }
             // Compute the transitive dependencies of the new package. Since we are adding
             // packages in dependency order we can just union the dependencies of the
             // direct dependencies to get the complete transitive dependencies.
             val deps = pkg.directDeps.foldLeft(pkg.directDeps) { case (deps, dependency) =>
-              deps union packageDeps.get(dependency)
+              deps union packageDeps(dependency)
             }
             discard(packageDeps.put(pkgId, deps))
             signatures.put(pkgId, pkgSignature)
@@ -160,12 +154,12 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
 
   def clear(): Unit = this.synchronized[Unit] {
     signatures.clear()
+    definitions.clear()
     packageDeps.clear()
-    definitionsByReference.clear()
   }
 
   def getPackageDependencies(pkgId: PackageId): Option[Set[PackageId]] =
-    Option(packageDeps.get(pkgId))
+    packageDeps.get(pkgId)
 }
 
 object ConcurrentCompiledPackages {

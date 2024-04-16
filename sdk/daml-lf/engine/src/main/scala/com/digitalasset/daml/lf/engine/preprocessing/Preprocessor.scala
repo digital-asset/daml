@@ -62,7 +62,7 @@ private[engine] final class Preprocessor(
           case Ast.TTyCon(tycon) =>
             val pkgId = tycon.packageId
             val newAcc =
-              if (compiledPackages.packageIds(pkgId) || acc.contains(pkgId))
+              if (compiledPackages.contains(pkgId) || acc.contains(pkgId))
                 acc
               else
                 acc.updated(pkgId, language.Reference.DataType(tycon))
@@ -99,7 +99,7 @@ private[engine] final class Preprocessor(
             Some(id)
         }
         pkgId match {
-          case Some(id) if !compiledPackages.packageIds(id) && !acc.contains(id) =>
+          case Some(id) if !compiledPackages.contains(id) && !acc.contains(id) =>
             acc.updated(
               id,
               language.Reference.TemplateOrInterface(Ref.TypeConName(id, tycon.qName)),
@@ -116,7 +116,7 @@ private[engine] final class Preprocessor(
     tycons
       .foldLeft(Map.empty[Ref.PackageId, language.Reference]) { (acc, tycon) =>
         val pkgId = tycon.packageId
-        if (compiledPackages.packageIds(pkgId) || acc.contains(pkgId))
+        if (compiledPackages.contains(pkgId) || acc.contains(pkgId))
           acc
         else
           acc.updated(pkgId, language.Reference.TemplateOrInterface(tycon))
