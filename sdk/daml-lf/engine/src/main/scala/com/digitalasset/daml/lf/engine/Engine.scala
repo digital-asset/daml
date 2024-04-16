@@ -551,7 +551,7 @@ class Engine(val config: EngineConfig) {
         pkgs.iterator
           // we trust already loaded packages
           .collect {
-            case (pkgId, pkg) if !compiledPackages.packageIds.contains(pkgId) =>
+            case (pkgId, pkg) if !compiledPackages.contains(pkgId) =>
               Validation.checkPackage(pkgInterface, pkgId, pkg)
           }
           .collectFirst { case Left(err) => Error.Package.Validation(err) }

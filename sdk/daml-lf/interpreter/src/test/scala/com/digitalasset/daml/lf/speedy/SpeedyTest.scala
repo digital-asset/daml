@@ -335,7 +335,7 @@ module M {
 
   "record update" - {
     "use SBRecUpd for single update" in {
-      val p_1_0 = recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_1_0")))
+      val p_1_0 = recUpdPkgs.definitions.get(LfDefRef(qualify("M:p_1_0")))
       p_1_0 shouldEqual
         Some(
           SDefinition(
@@ -363,7 +363,7 @@ module M {
     }
 
     "use SBRecUpdMulti for multi update" in {
-      val p_1_2 = recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_1_2")))
+      val p_1_2 = recUpdPkgs.definitions.get(LfDefRef(qualify("M:p_1_2")))
       p_1_2 shouldEqual
         Some(
           SDefinition(
@@ -406,7 +406,7 @@ module M {
           (n, n),
         )
 
-      val p_3_4 = recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_3_4_loc")))
+      val p_3_4 = recUpdPkgs.definitions.get(LfDefRef(qualify("M:p_3_4_loc")))
       p_3_4 shouldEqual
         Some(
           SDefinition(
@@ -472,8 +472,7 @@ module M {
           )
         )
       )
-      recUpdPkgs
-        .getDefinition(LfDefRef(qualify("M:p_6_8"))) shouldEqual anfExpectation
+      recUpdPkgs.definitions.get(LfDefRef(qualify("M:p_6_8"))) shouldEqual anfExpectation
     }
 
     "produce expected output for non-atomic multi update" in {
@@ -488,7 +487,7 @@ module M {
     }
 
     "use SBRecUpdMulti for overwriting multi update" in {
-      recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_3_2"))) shouldEqual
+      recUpdPkgs.definitions.get(LfDefRef(qualify("M:p_3_2"))) shouldEqual
         Some(
           SDefinition(
             SELet1General(

@@ -332,8 +332,9 @@ private[lf] object Free {
 
     // Maps GHC unit ids to LF package ids. Used for location conversion.
     val knownPackages: Map[String, Ref.PackageId] = (for {
-      pkgId <- compiledPackages.packageIds
-      md <- compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.map(_.metadata).toList
+      entry <- compiledPackages.signatures.view
+      (pkgId, pkg) = entry
+      md = pkg.metadata
     } yield (s"${md.name}-${md.version}" -> pkgId)).toMap
 
   }

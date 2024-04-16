@@ -20,7 +20,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.interpretation.Error.ContractIdInContractKey
-import com.daml.lf.language.{Ast, LanguageVersion, LookupError, PackageInterface, Reference}
+import com.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
 import com.daml.lf.language.Ast.PackageMetadata
 import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
@@ -81,32 +81,21 @@ class IdeLedgerClient(
       requireV1ContractIdSuffix = false,
     )
 
-  private[this] def partialFunctionFilterNot[A](f: A => Boolean): PartialFunction[A, A] = {
-    case x if !f(x) => x
-  }
-
   // Given a set of disabled packages, filter out all definitions from those packages from the original compiled packages
   // Similar logic to Scenario-services' Context.scala, however here we make no changes on the module level, and never directly add new packages
   // We only maintain a subset of an original known package set.
   private[this] def updateCompiledPackages() = {
     compiledPackages =
-      if (!unvettedPackages.isEmpty)(
-        originalCompiledPackages.copy(
-          // Remove packages from the set
-          packageIds = originalCompiledPackages.packageIds -- unvettedPackages,
-          // Filter out pkgId "key" to the partial function
-          pkgInterface = new PackageInterface(
-            partialFunctionFilterNot(
-              unvettedPackages
-            ) andThen originalCompiledPackages.pkgInterface.signatures
-          ),
-          // Filter out any defs in a disabled package
-          defns = originalCompiledPackages.defns.view
-            .filterKeys(sDefRef => !unvettedPackages(sDefRef.packageId))
-            .toMap,
-        ),
-      )
-      else originalCompiledPackages
+      if (!unvettedPackages.isEmpty)
+        new PureCompiledPackages(
+          signatures = originalCompiledPackages.signatures -- unvettedPackages,
+          definitions = originalCompiledPackages.definitions.filterNot { case (ref, _) =>
+            unvettedPackages(ref.packageId)
+          },
+          compilerConfig = originalCompiledPackages.compilerConfig,
+        )
+      else
+        originalCompiledPackages
     preprocessor = makePreprocessor
   }
 
@@ -807,33 +796,27 @@ class IdeLedgerClient(
       .listUserRights(id, IdentityProviderId.Default)(LoggingContextWithTrace.empty, implicitly)
       .map(_.toOption.map(_.toList))
 
-  def getPackageIdMap(): Map[ScriptLedgerClient.ReadablePackageId, PackageId] =
-    getPackageIdPairs().toMap
+  def getPackageIdMap: Map[ScriptLedgerClient.ReadablePackageId, PackageId] =
+    getPackageIdPairs.toMap
   def getPackageIdReverseMap(): Map[PackageId, ScriptLedgerClient.ReadablePackageId] =
-    getPackageIdPairs().map(_.swap).toMap
+    getPackageIdPairs.map(_.swap).toMap
 
-  def getPackageIdPairs(): Set[(ScriptLedgerClient.ReadablePackageId, PackageId)] = {
-    originalCompiledPackages.packageIds
-      .collect(
-        Function.unlift(pkgId =>
-          for {
-            pkgSig <- originalCompiledPackages.pkgInterface.lookupPackage(pkgId).toOption
-            meta = pkgSig.metadata
-            readablePackageId = meta match {
-              case PackageMetadata(name, version, _) =>
-                ScriptLedgerClient.ReadablePackageId(name, version)
-            }
-          } yield (readablePackageId, pkgId)
-        )
+  def getPackageIdPairs: collection.View[(ScriptLedgerClient.ReadablePackageId, PackageId)] =
+    (for {
+      entry <- originalCompiledPackages.signatures.view
+      (pkgId, pkg) = entry
+      readablePackageId = ScriptLedgerClient.ReadablePackageId(
+        pkg.metadata.name,
+        pkg.metadata.version,
       )
-  }
+    } yield (readablePackageId, pkgId))
 
   override def vetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = Future {
-    val packageMap = getPackageIdMap()
+    val packageMap = getPackageIdMap
     val pkgIdsToVet = packages.map(pkg =>
       packageMap.getOrElse(pkg, throw new IllegalArgumentException(s"Unknown package $pkg"))
     )
@@ -847,7 +830,7 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = Future {
-    val packageMap = getPackageIdMap()
+    val packageMap = getPackageIdMap
     val pkgIdsToUnvet = packages.map(pkg =>
       packageMap.getOrElse(pkg, throw new IllegalArgumentException(s"Unknown package $pkg"))
     )
@@ -861,14 +844,14 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
-    Future.successful(getPackageIdMap().filter(kv => !unvettedPackages(kv._2)).keys.toList)
+    Future.successful(getPackageIdMap.filter(kv => !unvettedPackages(kv._2)).keys.toList)
 
   override def listAllPackages()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
-    Future.successful(getPackageIdMap().keys.toList)
+    Future.successful(getPackageIdMap.keys.toList)
 
   // TODO(#17708): Support vetting/unvetting DARs in IDELedgerClient
   override def vetDar(name: String)(implicit
