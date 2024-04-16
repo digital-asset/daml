@@ -486,6 +486,7 @@ def daml_test(
         srcs = [],
         deps = [],
         data_deps = [],
+        module_prefixes = {},
         damlc = "//compiler/damlc:damlc",
         additional_compiler_flags = [],
         target = None,
@@ -511,6 +512,8 @@ version: 0.0.1
 source: .
 dependencies: [daml-stdlib, daml-prim $$([ $${{#DEPS[@]}} -gt 0 ] && printf ',"%s"' $${{DEPS[@]}})]
 data-dependencies: [$$([ $${{#DATA_DEPS[@]}} -gt 0 ] && printf '%s' $${{JOINED_DATA_DEPS:1}})]
+module-prefixes:
+{module_prefixes}
 EOF
 cat $$tmpdir/daml.yaml
 {cp_srcs}
@@ -522,6 +525,7 @@ $$DAMLC test {damlc_opts} --files {files}
             sdk_version = sdk_version,
             deps = " ".join(["$(rootpaths %s)" % dep for dep in deps]),
             data_deps = " ".join(["$(rootpaths %s)" % dep for dep in data_deps]),
+            module_prefixes = "\n".join(["  {}: {}".format(k, v) for k, v in module_prefixes.items()]),
             damlc_opts = " ".join(default_damlc_opts + additional_compiler_flags),
             cp_srcs = "\n".join([
                 "mkdir -p $$(dirname {dest}); cp -f {src} {dest}".format(
