@@ -44,6 +44,9 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
       subTransaction.view.flatMap(collectCreates).toSet
   }
 
+  private def collectReferences(ledger: Ledger): Set[ContractId] =
+    ledger.flatMap(_.actions.flatMap(collectReferences)).toSet
+
   private def collectReferences(action: Action): Set[ContractId] = action match {
     case Create(_, _, _) =>
       Set.empty
@@ -55,42 +58,40 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
       subTransaction.view.flatMap(collectReferences).toSet
   }
 
-  private object PartySetCollector {
-    def collectPartySets(ledger: Ledger): List[PartySet] =
-      ledger.flatMap(collectPartySets)
+  private def collectPartySets(ledger: Ledger): List[PartySet] = {
+    def collectCommandsPartySets(commands: Commands): List[PartySet] =
+      commands.actAs +: commands.actions.flatMap(collectActionPartySets)
 
-    private def collectPartySets(commands: Commands): List[PartySet] =
-      commands.actAs +: commands.actions.flatMap(collectPartySets)
-
-    private def collectPartySets(action: Action): List[PartySet] = action match {
+    def collectActionPartySets(action: Action): List[PartySet] = action match {
       case Create(_, signatories, observers) =>
         List(signatories, observers)
       case Exercise(_, _, controllers, choiceObservers, subTransaction) =>
-        controllers +: choiceObservers +: subTransaction.flatMap(collectPartySets)
+        controllers +: choiceObservers +: subTransaction.flatMap(collectActionPartySets)
       case Fetch(_) =>
         List.empty
       case Rollback(subTransaction) =>
-        subTransaction.flatMap(collectPartySets)
+        subTransaction.flatMap(collectActionPartySets)
     }
+
+    ledger.flatMap(collectCommandsPartySets)
   }
 
-  private object NonEmptyPartySetCollector {
-    def collectNonEmptyPartySets(ledger: Ledger): List[PartySet] =
-      ledger.flatMap(collectNonEmptyPartySets)
+  private def collectNonEmptyPartySets(ledger: Ledger): List[PartySet] = {
+    def collectCommandsNonEmptyPartySets(commands: Commands): List[PartySet] =
+      commands.actAs +: commands.actions.flatMap(collectActionNonEmptyPartySets)
 
-    private def collectNonEmptyPartySets(commands: Commands): List[PartySet] =
-      commands.actAs +: commands.actions.flatMap(collectNonEmptyPartySets)
-
-    private def collectNonEmptyPartySets(action: Action): List[PartySet] = action match {
+    def collectActionNonEmptyPartySets(action: Action): List[PartySet] = action match {
       case Create(_, signatories, _) =>
         List(signatories)
       case Exercise(_, _, controllers, _, subTransaction) =>
-        controllers +: subTransaction.flatMap(collectNonEmptyPartySets)
+        controllers +: subTransaction.flatMap(collectActionNonEmptyPartySets)
       case Fetch(_) =>
         List.empty
       case Rollback(subTransaction) =>
-        subTransaction.flatMap(collectNonEmptyPartySets)
+        subTransaction.flatMap(collectActionNonEmptyPartySets)
     }
+
+    ledger.flatMap(collectCommandsNonEmptyPartySets)
   }
 
   private def numberLedger(ledger: Ledger): BoolExpr = {
@@ -228,14 +229,39 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     )
 
   private def partySetsWellFormed(ledger: Ledger, allParties: PartySet): BoolExpr =
-    and(PartySetCollector.collectPartySets(ledger).map(s => ctx.mkSetSubset(s, allParties)))
+    and(collectPartySets(ledger).map(s => ctx.mkSetSubset(s, allParties)))
 
   private def nonEmptyPartySetsWellFormed(ledger: Ledger): BoolExpr =
     and(
-      NonEmptyPartySetCollector
-        .collectNonEmptyPartySets(ledger)
+      collectNonEmptyPartySets(ledger)
         .map(s => ctx.mkNot(isEmptyPartySet(s)))
     )
+
+  // HERE
+
+  private def hashConstraint(chunkSize: Int, ledger: Ledger): BoolExpr = {
+    def contractIdToBits(contractId: ContractId): Seq[BoolExpr] = {
+      val bitVector = ctx.mkInt2BV(10, contractId)
+      (0 until 10).map(i => ctx.mkEq(ctx.mkExtract(i, i, bitVector), ctx.mkBV(1, 1)))
+    }
+
+    def partySetToBits(partySet: PartySet): Seq[BoolExpr] = {
+      (1 to numParties).map(i => ctx.mkSelect(partySet, ctx.mkInt(i)).asInstanceOf[BoolExpr])
+    }
+
+    def ledgerToBits(ledger: Ledger): Seq[BoolExpr] =
+      Seq.concat(
+        collectReferences(ledger).toSeq.flatMap(contractIdToBits),
+        collectPartySets(ledger).flatMap(partySetToBits),
+      )
+
+    def xor(bits: Iterable[BoolExpr]): BoolExpr = bits.reduce((b1, b2) => ctx.mkXor(b1, b2))
+
+    def mkRandomHash(chunkSize: Int, ledger: Ledger): Seq[BoolExpr] =
+      ledgerToBits(ledger).grouped(chunkSize).map(xor).toSeq
+
+    and(mkRandomHash(chunkSize, ledger))
+  }
 
   private def solve(ledger: Skeletons.Ledger): Option[Ledgers.Ledger] = {
     val solver = ctx.mkSolver()
@@ -259,11 +285,14 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     solver.add(hideCreatedContractsInSiblings(sLedger))
     // Transactions adhere to the authorization rules
     solver.add(authorized(signatoriesOf, observersOf, sLedger))
+    // Equate a random hash of all the symbols to resolve to 0
+    solver.add(hashConstraint(30, sLedger))
 
     solver.check() match {
       case SATISFIABLE =>
         Some(new FromSymbolic(numParties, ctx, solver.getModel).toConcrete(sLedger))
       case UNSATISFIABLE =>
+        print(".")
         None
       case other =>
         throw new IllegalStateException(s"Unexpected solver result: $other")
