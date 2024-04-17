@@ -12,6 +12,8 @@
 
       sw_vers -productVersion
 
+      echo "PATH: $PATH"
+
       openssl rand -out $(dir)/log1_$(sw_vers -productVersion) -base64 $(( 2**30 * 3/4 ))
       openssl rand -out $(dir)/log2_$(sw_vers -productVersion) -base64 $(( 2**30 * 3/4 ))
 
