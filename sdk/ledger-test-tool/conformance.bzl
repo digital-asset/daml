@@ -74,4 +74,4 @@ EOF
     )
 
 # versions for which we build a test-tool
-testtool_lf_versions = (["1.8", "1.14"] if is_intel else []) + ["1.15", "1.dev"]
+testtool_lf_versions = (["1.8", "1.14"] if is_intel else []) + ["1.15", "1.16", "1.dev"]

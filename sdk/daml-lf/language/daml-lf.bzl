@@ -117,7 +117,7 @@ LF_VERSIONS = ([
     "1.13",
     "1.14",
     "1.15",
-    "1.16"
+    "1.16",
 ] if is_intel else ["1.14", "1.15", "1.16"]) + LF_DEV_VERSIONS
 
 def lf_version_is_dev(versionStr):

@@ -1,15 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.api.testtool.suites
+package com.daml.ledger.api.testtool
 
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.tls.TlsConfiguration
 
-package object v1_dev {
+object Tests {
   def default(timeoutScaleFactor: Double): Vector[LedgerTestSuite] =
-    v1_16.default(timeoutScaleFactor)
+    suites.v1_16.default(timeoutScaleFactor)
 
   def optional(tlsConfig: Option[TlsConfiguration]): Vector[LedgerTestSuite] =
-    v1_16.optional(tlsConfig)
+    suites.v1_16.optional(tlsConfig)
 }

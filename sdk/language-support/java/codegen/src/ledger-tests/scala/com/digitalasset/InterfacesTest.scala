@@ -19,6 +19,9 @@ trait InterfacesTest
 
   import TestUtil._
 
+  protected override val cantonFixtureDebugMode: CantonFixtureDebugMode =
+    CantonFixtureDebugKeepTmpFiles
+
   behavior of "Generated Java code"
 
   it should "contain all choices of an interface in templates implementing it" in withClient {

@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.api.testtool.suites.v1_dev
+package com.daml.ledger.api.testtool.suites.v1_16
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   Participant,
@@ -13,7 +13,7 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers.createdEvents
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.infrastructure.{Dars, LedgerTestSuite}
-import com.daml.ledger.api.testtool.suites.v1_dev.UpgradingIT.EnrichedCommands
+import com.daml.ledger.api.testtool.suites.v1_16.UpgradingIT.EnrichedCommands
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsRequest
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction_filter.{

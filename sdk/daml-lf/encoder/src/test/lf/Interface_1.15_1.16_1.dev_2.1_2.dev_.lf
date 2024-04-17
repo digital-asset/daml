@@ -23,6 +23,7 @@ module InterfaceMod {
 
   interface (this: Boxy) = {
     viewtype RecordMod:MyUnit;
+    requires InterfaceMod:Root;
     method getParty: Party;
     choice @nonConsuming ReturnInt (self) (i: Int64): Int64
       , controllers Cons @Party [call_method @InterfaceMod:Boxy getParty this] (Nil @Party)
@@ -70,5 +71,17 @@ module InterfaceMod {
   val exercise: ContractId InterfaceMod:Boxy -> Update Int64 =
       \(cid: ContractId InterfaceMod:Boxy) ->
           exercise_interface @InterfaceMod:Boxy ReturnInt cid 0;
+
+  val boxyToRoot: InterfaceMod:Boxy -> InterfaceMod:Root =
+    \(box: InterfaceMod:Boxy) ->
+      to_required_interface @InterfaceMod:Root @InterfaceMod:Boxy box;
+
+  val rootToBoxy: InterfaceMod:Root -> Option InterfaceMod:Boxy =
+    \(root: InterfaceMod:Root) ->
+      from_required_interface @InterfaceMod:Root @InterfaceMod:Boxy root;
+
+  val unsafeRootToBoxy: ContractId InterfaceMod:Root -> InterfaceMod:Root -> InterfaceMod:Boxy =
+    \(cid: ContractId InterfaceMod:Root) (root: InterfaceMod:Root) ->
+      unsafe_from_required_interface @InterfaceMod:Root @InterfaceMod:Boxy cid root;
 
 }
