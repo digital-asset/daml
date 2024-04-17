@@ -1,12 +1,6 @@
 # Ledger error definitions
 
-Home to error definitions commonly reported via the Ledger API server.
-These errors are generic wrt to the ledger backend used by the participant server.
+Error codes in the ledger-api-errors package were duplicates of those in the Canton repository and are no longer
+used or needed.
 
-## Daml-LF dependencies
-
-Multiple error definitions depend on Daml LF types whose Bazel targets
-pull in unrelated dependencies, such as the Daml engine.
-
-**TODO (https://github.com/digital-asset/daml/issues/15453):** Extract Daml-LF interface types to separate package
-in order to decouple the error definitions from the Daml engine.
+This entire module is set for removal as part of https://github.com/DACH-NY/canton/issues/18444

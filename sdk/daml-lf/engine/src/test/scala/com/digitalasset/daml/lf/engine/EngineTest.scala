@@ -2448,13 +2448,10 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     //  non-dev dar
     s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
   )
-  val basicTestsHashPkgName =
-    if (GlobalKey.useDummyHashPackageName) GlobalKey.dummyHashPackageName else basicTestsPkg.name
+  val basicTestsHashPkgName: PackageName = basicTestsPkg.name
 
   val basicTestsSignatures: PackageInterface =
     language.PackageInterface(Map(basicTestsPkgId -> basicTestsPkg))
-
-  val basicUseSharedKeys: Boolean = true
 
   val party: Ref.IdString.Party = Party.assertFromString("Party")
   val alice: Ref.IdString.Party = Party.assertFromString("Alice")
