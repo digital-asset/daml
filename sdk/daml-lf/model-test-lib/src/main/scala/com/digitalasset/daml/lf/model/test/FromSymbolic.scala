@@ -22,7 +22,7 @@ class FromSymbolic(numParties: Int, ctx: Context, model: Model) {
     }
 
   private def toConcrete(commands: S.Commands): L.Commands =
-    L.Commands(evalPartySet(commands.actAs), commands.actions.map(toConcrete))
+    L.Commands(0, evalPartySet(commands.actAs), commands.actions.map(toConcrete))
 
   private def toConcrete(kind: S.ExerciseKind): L.ExerciseKind = {
     kind match {
