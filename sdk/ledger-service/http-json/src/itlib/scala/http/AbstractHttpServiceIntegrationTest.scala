@@ -67,6 +67,8 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
 
   import json.JsonProtocol._
 
+  override protected lazy val maxPartiesPageSize = Some(100)
+
   protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
     jwtForParties(uri)(domain.Party subst List("Alice"), List(), config.ledgerIds.headOption.value)
 
@@ -2122,6 +2124,7 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
               actualIds should contain allElementsOf allocatedIds
               result.toSet should contain allElementsOf
                 allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
+              result.size should be > maxPartiesPageSize.value
             })
         }: Future[Assertion]
     }

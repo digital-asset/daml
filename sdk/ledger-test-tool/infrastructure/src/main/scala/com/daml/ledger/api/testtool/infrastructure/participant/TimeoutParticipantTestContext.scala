@@ -28,6 +28,7 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyResponse,
   GetPartiesRequest,
   GetPartiesResponse,
+  ListKnownPartiesRequest,
   ListKnownPartiesResponse,
   PartyDetails,
   UpdatePartyDetailsRequest,
@@ -179,13 +180,18 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     s"Get parties $parties",
     delegate.getParties(parties),
   )
-  override def listKnownParties(): Future[Set[Party]] = withTimeout(
+  override def listKnownPartiesExpanded(): Future[Set[Party]] = withTimeout(
+    "List known parties",
+    delegate.listKnownPartiesExpanded(),
+  )
+  override def listKnownParties(req: ListKnownPartiesRequest): Future[ListKnownPartiesResponse] =
+    withTimeout(
+      "List known parties",
+      delegate.listKnownParties(req),
+    )
+  override def listKnownParties(): Future[ListKnownPartiesResponse] = withTimeout(
     "List known parties",
     delegate.listKnownParties(),
-  )
-  override def listKnownPartiesResp(): Future[ListKnownPartiesResponse] = withTimeout(
-    "List known parties",
-    delegate.listKnownPartiesResp(),
   )
 
   override def waitForParties(

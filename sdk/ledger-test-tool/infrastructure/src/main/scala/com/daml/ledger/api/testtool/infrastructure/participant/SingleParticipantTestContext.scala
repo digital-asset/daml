@@ -297,12 +297,16 @@ final class SingleParticipantTestContext private[participant] (
       .getParties(GetPartiesRequest(parties.map(_.getValue)))
       .map(_.partyDetails)
 
-  override def listKnownParties(): Future[Set[Party]] =
+  override def listKnownPartiesExpanded(): Future[Set[Party]] =
     services.partyManagement
       .listKnownParties(new ListKnownPartiesRequest())
       .map(_.partyDetails.map(partyDetails => new Party(partyDetails.party)).toSet)
 
-  override def listKnownPartiesResp(): Future[ListKnownPartiesResponse] =
+  override def listKnownParties(req: ListKnownPartiesRequest): Future[ListKnownPartiesResponse] =
+    services.partyManagement
+      .listKnownParties(req)
+
+  override def listKnownParties(): Future[ListKnownPartiesResponse] =
     services.partyManagement
       .listKnownParties(new ListKnownPartiesRequest())
 
@@ -316,7 +320,7 @@ final class SingleParticipantTestContext private[participant] (
         Future
           .sequence(participants.map(participant => {
             participant
-              .listKnownParties()
+              .listKnownPartiesExpanded()
               .map { actualParties =>
                 assert(
                   expectedParties.subsetOf(actualParties),

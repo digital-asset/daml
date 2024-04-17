@@ -729,6 +729,18 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    # Party management paging
+    {
+        "start": "2.9.0-snapshot.20240409",
+        "platform_ranges": [
+            {
+                "end": "2.9.0-snapshot.20240408",
+                "exclusions": [
+                    "PartyManagementServiceIT:PMPaged",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):

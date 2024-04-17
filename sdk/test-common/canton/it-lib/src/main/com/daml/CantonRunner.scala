@@ -79,6 +79,11 @@ object CantonRunner {
         |          private-key-file = ${toJson(config.serverPem)}
         |          trust-collection-file = ${toJson(config.caCrt)}
         |        }""".stripMargin)
+    val partiesPageSize =
+      config.maxPartiesPageSize.fold("")(pageSize => s"""party-management-service{
+         |          max-parties-page-size = $pageSize
+         |        }
+         |""".stripMargin)
 
     def participantConfig(i: Int) = {
       val (adminPort, ledgerApiPort) = ports(i)
@@ -90,6 +95,7 @@ object CantonRunner {
          |        port = ${ledgerApiPort.port}
          |        ${authConfig}
          |        ${tls}
+         |        ${partiesPageSize}
          |      }
          |      storage.type = memory
          |      parameters = {

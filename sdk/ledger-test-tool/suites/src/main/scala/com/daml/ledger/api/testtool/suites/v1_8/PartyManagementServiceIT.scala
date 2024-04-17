@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.testtool.suites.v1_8
 
+import java.util.UUID
+
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
@@ -11,21 +13,29 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyResponse,
   GetPartiesRequest,
   GetPartiesResponse,
+  ListKnownPartiesRequest,
+  ListKnownPartiesResponse,
   PartyDetails,
   UpdatePartyIdentityProviderRequest,
 }
 import com.daml.ledger.test.java.model.test.Dummy
 import com.daml.lf.data.Ref
-
 import java.util.regex.Pattern
+
+import com.daml.ledger.api.testtool.infrastructure.NamePicker
 import com.daml.ledger.api.v1.admin.identity_provider_config_service.DeleteIdentityProviderConfigRequest
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.javaapi.data.Party
 
+import scala.concurrent.Future
 import scala.util.Random
 
 final class PartyManagementServiceIT extends PartyManagementITBase {
   import CompanionImplicits._
+
+  val namePicker: NamePicker = NamePicker(
+    "-_ 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  )
 
   test(
     "PMUpdatingPartyIdentityProviderNonDefaultIdps",
@@ -679,7 +689,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
         partyIdHint = Some("PMListKnownParties_" + Random.alphanumeric.take(10).mkString),
         displayName = None,
       )
-      knownPartyResp <- ledger.listKnownPartiesResp()
+      knownPartyResp <- ledger.listKnownParties()
       knownPartyIds = knownPartyResp.partyDetails.map(_.party).map(new Party(_)).toSet
     } yield {
       val allocatedPartyIds = Set(party1, party2, party3)
@@ -762,4 +772,197 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     }
   })
 
+  test(
+    "PMPagedListKnownPartiesNewPartyVisibleOnPage",
+    "Exercise ListKnownParties rpc: Creating a party makes it visible on a page",
+    allocate(NoParties),
+    enabled = _.partyManagement.maxPartiesPageSize > 0,
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    def assertPartyPresentIn(party: String, list: ListKnownPartiesResponse, msg: String): Unit = {
+      assert(list.partyDetails.exists(_.party.startsWith(party)), msg)
+    }
+
+    def assertPartyAbsentIn(party: String, list: ListKnownPartiesResponse, msg: String): Unit = {
+      assert(!list.partyDetails.exists(_.party.startsWith(party)), msg)
+    }
+
+    for {
+      pageBeforeCreate <- ledger.listKnownParties(
+        ListKnownPartiesRequest(pageToken = "", pageSize = 10)
+      )
+      // Construct an party-id that with high probability will be the first on the first page
+      newPartyId = pageBeforeCreate.partyDetails.headOption
+        .flatMap(_.party.split(':').headOption)
+        .flatMap(namePicker.lower)
+        .getOrElse("@BAD-PARTY@")
+      _ = assertPartyAbsentIn(
+        newPartyId,
+        pageBeforeCreate,
+        "new party should be absent before it's creation",
+      )
+      _ <- ledger.allocateParty(AllocatePartyRequest(newPartyId))
+      pageAfterCreate <- ledger.listKnownParties(
+        ListKnownPartiesRequest(pageToken = "", pageSize = 10)
+      )
+      _ = assertPartyPresentIn(
+        newPartyId,
+        pageAfterCreate,
+        "new party should be present after it's creation",
+      )
+    } yield {
+      ()
+    }
+  })
+
+  test(
+    "PMPagedListKnownPartiesNewPartyInvisibleOnNextPage",
+    "Exercise ListKnownParties rpc: Adding a party to a previous page doesn't affect the subsequent page",
+    allocate(NoParties),
+    enabled = _.partyManagement.maxPartiesPageSize > 0,
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val partyId1 = ledger.nextPartyId()
+    val partyId2 = ledger.nextPartyId()
+    val partyId3 = ledger.nextPartyId()
+    val partyId4 = ledger.nextPartyId()
+
+    for {
+      // Create 4 parties to ensure we have at least two pages of two parties each
+      _ <- ledger.allocateParty(AllocatePartyRequest(partyId1, ""))
+      _ <- ledger.allocateParty(AllocatePartyRequest(partyId2, ""))
+      _ <- ledger.allocateParty(AllocatePartyRequest(partyId3, ""))
+      _ <- ledger.allocateParty(AllocatePartyRequest(partyId4, ""))
+      // Fetch the first two full pages
+      page1 <- ledger.listKnownParties(ListKnownPartiesRequest(pageToken = "", pageSize = 2))
+      page2 <- ledger.listKnownParties(
+        ListKnownPartiesRequest(pageToken = page1.nextPageToken, pageSize = 2)
+      )
+      // Verify that the second page stays the same even after we have created a new party that is lexicographically smaller than the last party on the first page
+      newPartyId = (for {
+        beforeLast <- page1.partyDetails.dropRight(1).lastOption
+        beforeLastName <- beforeLast.party.split(':').headOption
+        last <- page1.partyDetails.lastOption
+        lastName <- last.party.split(':').headOption
+        pick <- namePicker.lowerConstrained(lastName, beforeLastName)
+      } yield pick).getOrElse("@BAD-PARTY@")
+      _ <- ledger.allocateParty(AllocatePartyRequest(newPartyId))
+      page2B <- ledger.listKnownParties(
+        ListKnownPartiesRequest(pageToken = page1.nextPageToken, pageSize = 2)
+      )
+      _ = assertEquals("after creating new party before the second page", page2, page2B)
+    } yield {
+      ()
+    }
+  })
+
+  test(
+    "PMPagedListKnownPartiesReachingTheLastPage",
+    "Exercise ListKnownParties rpc: Listing all parties page by page eventually terminates reaching the last page",
+    allocate(NoParties),
+    enabled = _.partyManagement.maxPartiesPageSize > 0,
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val pageSize = Math.min(10000, ledger.features.partyManagement.maxPartiesPageSize)
+
+    def fetchNextPage(pageToken: String, pagesFetched: Int): Future[Unit] = {
+      for {
+        page <- ledger.listKnownParties(
+          ListKnownPartiesRequest(pageSize = pageSize, pageToken = pageToken)
+        )
+        _ = if (page.nextPageToken != "") {
+          if (pagesFetched > 10) {
+            fail(
+              s"Could not reach the last page even after fetching ${pagesFetched + 1} pages of size $pageSize each"
+            )
+          }
+          fetchNextPage(pageToken = page.nextPageToken, pagesFetched = pagesFetched + 1)
+        }
+      } yield ()
+    }
+
+    fetchNextPage(pageToken = "", pagesFetched = 0)
+  })
+
+  test(
+    "PMPagedListKnownPartiesWithInvalidRequest",
+    "Exercise ListKnownParties rpc: Requesting invalid pageSize or pageToken results in an error",
+    allocate(NoParties),
+    enabled = _.partyManagement.maxPartiesPageSize > 0,
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    for {
+      // Using not Base64 encoded string as the page token
+      onBadTokenError <- ledger
+        .listKnownParties(ListKnownPartiesRequest(pageToken = UUID.randomUUID().toString))
+        .mustFail("using invalid page token string")
+      // Using negative pageSize
+      onNegativePageSizeError <- ledger
+        .listKnownParties(ListKnownPartiesRequest(pageSize = -100))
+        .mustFail("using negative page size")
+    } yield {
+      assertGrpcError(
+        t = onBadTokenError,
+        errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
+        exceptionMessageSubstring = None,
+      )
+      assertGrpcError(
+        t = onNegativePageSizeError,
+        errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
+        exceptionMessageSubstring = None,
+      )
+    }
+
+  })
+
+  test(
+    "PMPagedListKnownPartiesZeroPageSize",
+    "Exercise ListKnownParties rpc: Requesting page of size zero means requesting server's default page size, which is larger than zero",
+    allocate(NoParties),
+    enabled = _.partyManagement.maxPartiesPageSize > 0,
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val partyId1 = ledger.nextPartyId()
+    val partyId2 = ledger.nextPartyId()
+    for {
+      // Ensure we have at least two parties
+      _ <- ledger.allocateParty(AllocatePartyRequest(partyId1, ""))
+      _ <- ledger.allocateParty(AllocatePartyRequest(partyId2, ""))
+      pageSizeZero <- ledger.listKnownParties(
+        ListKnownPartiesRequest(pageSize = 0)
+      )
+      pageSizeOne <- ledger.listKnownParties(
+        ListKnownPartiesRequest(pageSize = 1)
+      )
+    } yield {
+      assert(
+        pageSizeOne.partyDetails.nonEmpty,
+        "First page with requested pageSize zero should return some parties",
+      )
+      assertEquals(pageSizeZero.partyDetails.head, pageSizeOne.partyDetails.head)
+    }
+  })
+
+  test(
+    "PMPagedListKnownPartiesMaxPageSize",
+    "Exercise ListKnownParties rpc: Requesting more than maxPartiesPageSize results in an error",
+    allocate(NoParties),
+    enabled = _.partyManagement.maxPartiesPageSize > 0,
+    disabledReason = "requires party management feature with parties page size limit",
+    runConcurrently = false,
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val maxPartiesPageSize = ledger.features.partyManagement.maxPartiesPageSize
+    val parties = 1.to(maxPartiesPageSize + 1).map(_ => ledger.nextPartyId())
+    for {
+      // create lots of parties
+      _ <- Future.sequence(parties.map(u => ledger.allocateParty(AllocatePartyRequest(u))))
+      // request page size greater than the server's limit
+      onTooLargePageSizeError <- ledger
+        .listKnownParties(
+          ListKnownPartiesRequest(pageSize = maxPartiesPageSize + 1, pageToken = "")
+        )
+        .mustFail("using too large a page size")
+    } yield {
+      assertGrpcError(
+        t = onTooLargePageSizeError,
+        errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
+        exceptionMessageSubstring = Some("Page size must not exceed the server's maximum"),
+      )
+    }
+  })
 }
