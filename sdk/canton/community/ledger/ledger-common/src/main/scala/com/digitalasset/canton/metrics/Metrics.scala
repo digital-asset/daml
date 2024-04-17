@@ -17,12 +17,19 @@ object Metrics extends LazyLogging {
   lazy val KNOWN_METRICS = Set("booh")
 
   def apply(prefix: MetricName, otelMeter: Meter) =
-    new Metrics(prefix, new OpenTelemetryMetricsFactory(otelMeter, KNOWN_METRICS, Some(logger.underlying)))
+    new Metrics(
+      prefix,
+      new OpenTelemetryMetricsFactory(otelMeter, KNOWN_METRICS, Some(logger.underlying)),
+    )
 
   lazy val ForTesting: Metrics = {
     new Metrics(
       MetricName("est"),
-      new OpenTelemetryMetricsFactory(SdkMeterProvider.builder().build().get("for_testing"), KNOWN_METRICS, Some(logger.underlying)),
+      new OpenTelemetryMetricsFactory(
+        SdkMeterProvider.builder().build().get("for_testing"),
+        KNOWN_METRICS,
+        Some(logger.underlying),
+      ),
     )
   }
 }

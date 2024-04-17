@@ -503,7 +503,6 @@ class TestingOwnerWithKeysX(
     )
     val id1k1 = mkAdd(IdentifierDelegationX(uid, key1))
     val id2k2 = mkAdd(IdentifierDelegationX(uid2, key2))
-    val okm1 = mkAdd(OwnerToKeyMappingX(domainManager, None, NonEmpty(Seq, namespaceKey)))
     val seq_okm_k2 = mkAdd(OwnerToKeyMappingX(sequencerIdX, None, NonEmpty(Seq, key2)))
     val med_okm_k3 = mkAdd(OwnerToKeyMappingX(mediatorIdX, None, NonEmpty(Seq, key3)))
     val dtc1m =

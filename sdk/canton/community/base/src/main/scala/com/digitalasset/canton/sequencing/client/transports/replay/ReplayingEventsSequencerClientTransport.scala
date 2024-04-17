@@ -8,6 +8,7 @@ import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.SequencerClient.ReplayStatistics
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.client.transports.replay.ReplayingEventsSequencerClientTransport.ReplayingSequencerSubscription
@@ -34,7 +35,7 @@ import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 
 import java.nio.file.Path
-import java.time.{Duration as JDuration}
+import java.time.Duration as JDuration
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -56,13 +57,13 @@ class ReplayingEventsSequencerClientTransport(
   override def sendAsyncSigned(
       request: SignedContent[SubmissionRequest],
       timeout: Duration,
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientResponseError, Unit] =
     EitherT.rightT(())
 
   /** Does nothing */
   override def sendAsyncUnauthenticatedVersioned(request: SubmissionRequest, timeout: Duration)(
       implicit traceContext: TraceContext
-  ): EitherT[Future, SendAsyncClientError, Unit] = EitherT.rightT(())
+  ): EitherT[Future, SendAsyncClientResponseError, Unit] = EitherT.rightT(())
 
   /** Does nothing */
   override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit

@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.metrics
 
-import com.daml.metrics.api.MetricQualification.Debug
 import com.daml.metrics.api.MetricHandle.{Gauge, LabeledMetricsFactory}
+import com.daml.metrics.api.MetricQualification.Debug
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
 import java.time.Instant

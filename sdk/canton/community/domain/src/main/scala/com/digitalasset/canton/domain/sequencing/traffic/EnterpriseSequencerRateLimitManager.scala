@@ -45,7 +45,7 @@ class EnterpriseSequencerRateLimitManager(
     metrics: SequencerMetrics,
     sequencerMemberRateLimiterFactory: SequencerMemberRateLimiterFactory =
       DefaultSequencerMemberRateLimiterFactory,
-    eventCostCalculator: EventCostCalculator = new EventCostCalculator(),
+    eventCostCalculator: EventCostCalculator,
 ) extends SequencerRateLimitManager
     with NamedLogging
     with FlagCloseable {

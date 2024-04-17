@@ -50,8 +50,9 @@ import com.digitalasset.canton.sequencing.client.{
   SequencerClientConfig,
   SequencerClientFactory,
 }
-import com.digitalasset.canton.store.db.SequencerClientDiscriminator
 import com.digitalasset.canton.store.{
+  IndexedDomain,
+  IndexedStringStore,
   SendTrackerStore,
   SequencedEventStore,
   SequencerCounterTrackerStore,
@@ -376,6 +377,14 @@ class MediatorNodeBootstrapX(
           )
           domainOutboxFactory = createDomainOutboxFactory(domainTopologyManager)
 
+          indexedStringStore = IndexedStringStore.create(
+            storage,
+            parameterConfig.cachingConfigs.indexedStrings,
+            timeouts,
+            domainLoggerFactory,
+          )
+          _ = addCloseable(indexedStringStore)
+
           _ <- EitherT.right[String](
             replicaManager.setup(
               adminServerRegistry,
@@ -383,6 +392,7 @@ class MediatorNodeBootstrapX(
                 mkMediatorRuntime(
                   mediatorId,
                   domainConfig,
+                  indexedStringStore,
                   fetchConfig,
                   saveConfig,
                   storage,
@@ -430,6 +440,7 @@ class MediatorNodeBootstrapX(
   private def mkMediatorRuntime(
       mediatorId: MediatorId,
       domainConfig: MediatorDomainConfiguration,
+      indexedStringStore: IndexedStringStore,
       fetchConfig: () => EitherT[Future, String, Option[MediatorDomainConfiguration]],
       saveConfig: MediatorDomainConfiguration => EitherT[Future, String, Unit],
       storage: Storage,
@@ -450,9 +461,10 @@ class MediatorNodeBootstrapX(
       _ <- CryptoHandshakeValidator
         .validate(domainConfig.domainParameters, config.crypto)
         .toEitherT
+      indexedDomainId <- EitherT.right(IndexedDomain.indexed(indexedStringStore)(domainId))
       sequencedEventStore = SequencedEventStore(
         storage,
-        SequencerClientDiscriminator.UniqueDiscriminator,
+        indexedDomainId,
         domainConfig.domainParameters.protocolVersion,
         timeouts,
         domainLoggerFactory,
@@ -460,7 +472,7 @@ class MediatorNodeBootstrapX(
       sendTrackerStore = SendTrackerStore(storage)
       sequencerCounterTrackerStore = SequencerCounterTrackerStore(
         storage,
-        SequencerClientDiscriminator.UniqueDiscriminator,
+        indexedDomainId,
         timeouts,
         domainLoggerFactory,
       )

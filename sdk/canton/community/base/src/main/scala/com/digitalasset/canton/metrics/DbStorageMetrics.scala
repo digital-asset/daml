@@ -4,8 +4,9 @@
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory, Timer}
-import com.daml.metrics.api.{MetricDoc, MetricName}
 import com.daml.metrics.api.MetricQualification.Debug
+import com.daml.metrics.api.{MetricDoc, MetricName}
+
 import scala.concurrent.duration.*
 
 @MetricDoc.GroupTag(

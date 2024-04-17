@@ -26,8 +26,8 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent.dbTypeOfEvent
 import com.digitalasset.canton.store.SequencedEventStore.*
+import com.digitalasset.canton.store.db.DbSequencedEventStore
 import com.digitalasset.canton.store.db.DbSequencedEventStore.SequencedEventDbType
-import com.digitalasset.canton.store.db.{DbSequencedEventStore, SequencerClientDiscriminator}
 import com.digitalasset.canton.store.memory.InMemorySequencedEventStore
 import com.digitalasset.canton.tracing.{HasTraceContext, SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -103,7 +103,7 @@ object SequencedEventStore {
 
   def apply[Env <: Envelope[_]](
       storage: Storage,
-      member: SequencerClientDiscriminator,
+      indexedDomain: IndexedDomain,
       protocolVersion: ProtocolVersion,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
@@ -111,7 +111,13 @@ object SequencedEventStore {
     storage match {
       case _: MemoryStorage => new InMemorySequencedEventStore(loggerFactory)
       case dbStorage: DbStorage =>
-        new DbSequencedEventStore(dbStorage, member, protocolVersion, timeouts, loggerFactory)
+        new DbSequencedEventStore(
+          dbStorage,
+          indexedDomain,
+          protocolVersion,
+          timeouts,
+          loggerFactory,
+        )
     }
 
   sealed trait SearchCriterion extends Product with Serializable
@@ -177,7 +183,7 @@ object SequencedEventStore {
         timestamp = timestamp.toProtoPrimitive,
         traceContext = Some(SerializableTraceContext(traceContext).toProtoV30),
         isIgnored = isIgnored,
-        underlying = underlying.map(_.toProtoV30),
+        underlying = underlying.map(_.toByteString),
         trafficState = trafficState.map(_.toProtoV30),
       )
   }
@@ -312,7 +318,7 @@ object SequencedEventStore {
       for {
         underlyingO <- underlyingPO.traverse(
           SignedContent
-            .fromProtoV30(_)
+            .fromByteString(protocolVersion)(_)
             .flatMap(
               _.deserializeContent(SequencedEvent.fromByteStringOpen(hashOps, protocolVersion))
             )

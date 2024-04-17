@@ -4,7 +4,7 @@
 package com.digitalasset.canton.admin.api.client.data
 
 import cats.syntax.either.*
-import com.daml.nonempty.NonEmptyUtil
+import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{
   CommunityCryptoConfig,
@@ -27,7 +27,10 @@ import com.digitalasset.canton.protocol.{
   DynamicDomainParameters as DynamicDomainParametersInternal,
   OnboardingRestriction,
   StaticDomainParameters as StaticDomainParametersInternal,
+  v30,
 }
+import com.digitalasset.canton.serialization.ProtoConverter
+import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.{
   Clock,
   NonNegativeFiniteDuration as InternalNonNegativeFiniteDuration,
@@ -134,6 +137,63 @@ object StaticDomainParameters {
       )
 
     StaticDomainParameters(staticDomainParametersInternal)
+  }
+
+  private def requiredKeySchemes[P, A](
+      field: String,
+      content: Seq[P],
+      parse: (String, P) => ParsingResult[A],
+  ): ParsingResult[NonEmpty[Set[A]]] =
+    ProtoConverter.parseRequiredNonEmpty(parse(field, _), field, content).map(_.toSet)
+
+  def fromProtoV30(
+      domainParametersP: v30.StaticDomainParameters
+  ): ParsingResult[StaticDomainParameters] = {
+    val v30.StaticDomainParameters(
+      requiredSigningKeySchemesP,
+      requiredEncryptionKeySchemesP,
+      requiredSymmetricKeySchemesP,
+      requiredHashAlgorithmsP,
+      requiredCryptoKeyFormatsP,
+      protocolVersionP,
+    ) = domainParametersP
+
+    for {
+      requiredSigningKeySchemes <- requiredKeySchemes(
+        "requiredSigningKeySchemes",
+        requiredSigningKeySchemesP,
+        SigningKeyScheme.fromProtoEnum,
+      )
+      requiredEncryptionKeySchemes <- requiredKeySchemes(
+        "requiredEncryptionKeySchemes",
+        requiredEncryptionKeySchemesP,
+        EncryptionKeyScheme.fromProtoEnum,
+      )
+      requiredSymmetricKeySchemes <- requiredKeySchemes(
+        "requiredSymmetricKeySchemes",
+        requiredSymmetricKeySchemesP,
+        SymmetricKeyScheme.fromProtoEnum,
+      )
+      requiredHashAlgorithms <- requiredKeySchemes(
+        "requiredHashAlgorithms",
+        requiredHashAlgorithmsP,
+        HashAlgorithm.fromProtoEnum,
+      )
+      requiredCryptoKeyFormats <- requiredKeySchemes(
+        "requiredCryptoKeyFormats",
+        requiredCryptoKeyFormatsP,
+        CryptoKeyFormat.fromProtoEnum,
+      )
+      // Data in the console is not really validated, so we allow for deleted
+      protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP, allowDeleted = true)
+    } yield StaticDomainParameters(
+      requiredSigningKeySchemes,
+      requiredEncryptionKeySchemes,
+      requiredSymmetricKeySchemes,
+      requiredHashAlgorithms,
+      requiredCryptoKeyFormats,
+      protocolVersion,
+    )
   }
 }
 

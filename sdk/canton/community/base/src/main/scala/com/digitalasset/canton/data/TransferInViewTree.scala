@@ -275,7 +275,7 @@ final case class TransferInView private (
       salt = Some(salt.toProtoV30),
       contract = Some(contract.toProtoV30),
       creatingTransactionId = creatingTransactionId.toProtoPrimitive,
-      transferOutResultEvent = Some(transferOutResultEvent.result.toProtoV30),
+      transferOutResultEvent = transferOutResultEvent.result.toByteString,
       sourceProtocolVersion = sourceProtocolVersion.v.toProtoPrimitive,
       transferCounter = transferCounter.toProtoPrimitive,
     )
@@ -307,18 +307,15 @@ object TransferInView
     def fromProto(
         hashOps: HashOps,
         saltP: Option[com.digitalasset.canton.crypto.v30.Salt],
-        transferOutResultEventPO: Option[v30.SignedContent],
+        transferOutResultEventP: ByteString,
         creatingTransactionIdP: ByteString,
         sourceProtocolVersion: ProtocolVersion,
     ): ParsingResult[CommonData] = {
       for {
         salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
         // TransferOutResultEvent deserialization
-        transferOutResultEventP <- ProtoConverter
-          .required("TransferInView.transferOutResultEvent", transferOutResultEventPO)
-
         transferOutResultEventMC <- SignedContent
-          .fromProtoV30(transferOutResultEventP)
+          .fromByteString(sourceProtocolVersion)(transferOutResultEventP)
           .flatMap(
             _.deserializeContent(SequencedEvent.fromByteStringOpen(hashOps, sourceProtocolVersion))
           )
@@ -369,7 +366,7 @@ object TransferInView
     val v30.TransferInView(
       saltP,
       contractP,
-      transferOutResultEventPO,
+      transferOutResultEventP,
       creatingTransactionIdP,
       sourceProtocolVersionP,
       transferCounterP,
@@ -380,7 +377,7 @@ object TransferInView
       commonData <- CommonData.fromProto(
         hashOps,
         saltP,
-        transferOutResultEventPO,
+        transferOutResultEventP,
         creatingTransactionIdP,
         protocolVersion,
       )

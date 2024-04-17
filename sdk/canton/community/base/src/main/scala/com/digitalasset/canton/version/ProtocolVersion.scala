@@ -179,9 +179,14 @@ object ProtocolVersion {
 
   /** Like [[create]] ensures a supported protocol version; tailored to (de-)serialization purposes.
     */
-  def fromProtoPrimitive(rawVersion: Int): ParsingResult[ProtocolVersion] = {
+  def fromProtoPrimitive(
+      rawVersion: Int,
+      allowDeleted: Boolean = false,
+  ): ParsingResult[ProtocolVersion] = {
     val pv = ProtocolVersion(rawVersion)
-    Either.cond(pv.isSupported, pv, OtherError(unsupportedErrorMessage(pv)))
+    val isSupported = pv.isSupported || (allowDeleted && pv.isDeleted)
+
+    Either.cond(isSupported, pv, OtherError(unsupportedErrorMessage(pv)))
   }
 
   /** Like [[create]] ensures a supported protocol version; tailored to (de-)serialization purposes.

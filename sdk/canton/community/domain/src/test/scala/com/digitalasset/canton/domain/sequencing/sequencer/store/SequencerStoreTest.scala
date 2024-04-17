@@ -7,7 +7,7 @@ import cats.data.EitherT
 import cats.syntax.option.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong}
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.{CantonTimestamp, Counter}
 import com.digitalasset.canton.domain.sequencing.sequencer.DomainSequencingTestUtils.mockDeliverStoreEvent
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SaveLowerBoundError.BoundLowerThanExisting
@@ -19,11 +19,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerSnapshot,
 }
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext}
-import com.digitalasset.canton.sequencing.protocol.{
-  MessageId,
-  SequencedEventTrafficState,
-  SequencerErrors,
-}
+import com.digitalasset.canton.sequencing.protocol.{MessageId, SequencerErrors}
 import com.digitalasset.canton.store.db.DbTest
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{
@@ -113,7 +109,6 @@ trait SequencerStoreTest
             payloadId,
             None,
             traceContext,
-            None,
           ),
         )
 
@@ -141,7 +136,6 @@ trait SequencerStoreTest
           expectedRecipients: Set[Member],
           expectedPayload: Payload,
           expectedTopologyTimestamp: Option[CantonTimestamp] = None,
-          expectedTrafficState: Option[SequencedEventTrafficState] = None,
       ): Future[Assertion] = {
         for {
           senderId <- lookupRegisteredMember(expectedSender)
@@ -156,14 +150,12 @@ trait SequencerStoreTest
                   payload,
                   topologyTimestampO,
                   traceContext,
-                  trafficStateO,
                 ) =>
               sender shouldBe senderId
               messageId shouldBe expectedMessageId
               recipients.forgetNE should contain.only(recipientIds.toSeq*)
               payload shouldBe expectedPayload
               topologyTimestampO shouldBe expectedTopologyTimestamp
-              trafficStateO shouldBe expectedTrafficState
             case other =>
               fail(s"Expected deliver event but got $other")
           }
@@ -333,7 +325,6 @@ trait SequencerStoreTest
             messageId1,
             None,
             traceContext,
-            Some(SequencedEventTrafficState(NonNegativeLong.one, NonNegativeLong.zero)),
           )
           timestampedError: Sequenced[Nothing] = Sequenced(ts1, error)
           _ <- env.store.saveEvents(instanceIndex, NonEmpty(Seq, timestampedError))
@@ -679,7 +670,6 @@ trait SequencerStoreTest
                   payload1.id,
                   None,
                   traceContext,
-                  None,
                 ),
               ),
               deliverEventWithDefaults(ts(5))(recipients = NonEmpty(SortedSet, aliceId, bobId)),
@@ -768,7 +758,6 @@ trait SequencerStoreTest
                   payload1.id,
                   None,
                   traceContext,
-                  None,
                 ),
               ),
               deliverEventWithDefaults(ts(5))(recipients = NonEmpty(SortedSet, aliceId, bobId)),
@@ -1012,7 +1001,6 @@ trait SequencerStoreTest
                     payload1.id,
                     None,
                     traceContext,
-                    None,
                   ),
                 ),
               ),

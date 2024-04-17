@@ -5,12 +5,13 @@ package com.digitalasset.canton.sequencing.client
 
 import cats.data.EitherT
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.sequencing.client.TestSequencerClientSend.Request
 import com.digitalasset.canton.sequencing.protocol.{AggregationRule, Batch, MessageId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.EitherTUtil
 
-import scala.concurrent.Future
 import scala.jdk.CollectionConverters.*
 
 /** Test implementation that stores all requests in a queue.
@@ -31,11 +32,13 @@ class TestSequencerClientSend extends SequencerClientSend {
       aggregationRule: Option[AggregationRule],
       callback: SendCallback,
       amplify: Boolean,
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
     requestsQueue.add(
       Request(batch, sendType, topologyTimestamp, maxSequencingTime, messageId, aggregationRule)
     )
-    EitherT[Future, SendAsyncClientError, Unit](Future.successful(Right(())))
+    EitherTUtil.unitUS[SendAsyncClientError]
   }
 
   override def generateMaxSequencingTime: CantonTimestamp =

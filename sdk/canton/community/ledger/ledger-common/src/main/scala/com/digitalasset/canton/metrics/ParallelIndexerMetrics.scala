@@ -4,8 +4,8 @@
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.DatabaseMetrics
-import com.daml.metrics.api.MetricQualification.{Debug, Saturation, Traffic}
 import com.daml.metrics.api.MetricHandle.*
+import com.daml.metrics.api.MetricQualification.{Debug, Saturation, Traffic}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class ParallelIndexerMetrics(

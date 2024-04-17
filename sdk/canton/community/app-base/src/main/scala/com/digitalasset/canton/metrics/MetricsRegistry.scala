@@ -12,7 +12,7 @@ import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.domain.metrics.{MediatorMetrics, SequencerMetrics}
-import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.MetricsConfig.JvmMetrics
 import com.digitalasset.canton.metrics.MetricsReporterConfig.{Csv, Logging, Prometheus}
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
@@ -23,7 +23,6 @@ import io.opentelemetry.exporter.prometheus.PrometheusHttpServer
 import io.opentelemetry.instrumentation.runtimemetrics.java8.*
 import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
 import io.opentelemetry.sdk.metrics.`export`.{MetricExporter, MetricReader, PeriodicMetricReader}
-import com.digitalasset.canton.logging.{NamedLogging, NamedLoggerFactory}
 
 import java.io.File
 import java.util.concurrent.ScheduledExecutorService
@@ -108,9 +107,10 @@ object MetricsReporterConfig {
 final case class MetricsRegistry(
     meter: Meter,
     factoryType: MetricsFactoryType,
-    loggerFactory: NamedLoggerFactory
+    loggerFactory: NamedLoggerFactory,
 ) extends AutoCloseable
-    with MetricsFactoryProvider with NamedLogging {
+    with MetricsFactoryProvider
+    with NamedLogging {
 
   private val participants = TrieMap[String, ParticipantMetrics]()
   private val sequencers = TrieMap[String, SequencerMetrics]()
