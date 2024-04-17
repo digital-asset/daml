@@ -5,36 +5,20 @@ package com.daml.lf
 package model
 package test
 
+import cats.TraverseFilter
 import cats.data.{StateT, WriterT}
 import cats.implicits.toTraverseOps
-import cats.{Monad, TraverseFilter}
-import com.daml.lf.model.test.{Ledgers => L}
-import com.daml.lf.model.test.{Skeletons => S}
+import com.daml.lf.model.test.Ledgers.PartyId
+import com.daml.lf.model.test.{Ledgers => L, Skeletons => S}
 import org.scalacheck.Gen
 
 object LedgerFixer {
-  object Instances {
-    implicit val genMonad: Monad[Gen] = new Monad[Gen] {
-
-      override def flatMap[A, B](fa: Gen[A])(f: A => Gen[B]): Gen[B] = fa.flatMap(f)
-
-      // not tail recursive ¯\_(ツ)_/¯
-      override def tailRecM[A, B](a: A)(f: A => Gen[Either[A, B]]): Gen[B] =
-        f(a).flatMap {
-          case Left(k) => tailRecM(k)(f)
-          case Right(x) => Gen.const(x)
-        }
-
-      override def pure[A](x: A): Gen[A] = Gen.const(x)
-    }
-  }
-
   case class Contract(signatories: L.PartySet, observers: L.PartySet)
   case class GenState(maxContractId: Int, activeContracts: Map[Int, Contract])
 }
 
-class LedgerFixer(numParties: Int) {
-  import LedgerFixer.Instances._
+class LedgerFixer(numParticipants: Int, numParties: Int) {
+  import GenInstances._
   import LedgerFixer._
 
   val globalParties: Set[L.PartyId] = Set.from(1 to numParties)
@@ -72,13 +56,35 @@ class LedgerFixer(numParties: Int) {
   def genNonEmptySubsetOf[A](s: Set[A]): Gen[Set[A]] =
     genSubsetOf(s).retryUntil(_.nonEmpty)
 
+  // The set of parties whose participant hosts the contract
+  def canSee(partiesOnParticipant: L.PartySet, contract: Contract): Set[PartyId] =
+    (contract.signatories ++ contract.observers)
+      .intersect(partiesOnParticipant)
+
   def fetchable(
+      partiesOnParticipant: L.PartySet,
       hidden: L.PartySet,
       authorizers: L.PartySet,
-      contract: (L.ContractId, Contract),
+      contractWithId: (L.ContractId, Contract),
   ): Boolean = {
-    val (cid, Contract(signatories, observers)) = contract
-    authorizers.intersect(signatories.union(observers)).nonEmpty && !hidden.contains(cid)
+    val (cid, contract) = contractWithId
+    !hidden.contains(cid) && authorizers
+      .intersect(contract.signatories ++ contract.observers)
+      .intersect(canSee(partiesOnParticipant, contract))
+      .nonEmpty
+  }
+
+  def exerciseable(
+      partiesOnParticipant: L.PartySet,
+      hidden: L.PartySet,
+      authorizers: L.PartySet,
+      contractWithId: (L.ContractId, Contract),
+  ): Option[(L.ContractId, Contract, Set[PartyId])] = {
+    val (cid, contract) = contractWithId
+    val possibleControllers = authorizers.intersect(canSee(partiesOnParticipant, contract))
+    Option.when(!hidden.contains(cid) && possibleControllers.nonEmpty)(
+      (cid, contract, possibleControllers)
+    )
   }
 
   def genKind(kind: S.ExerciseKind): L.ExerciseKind = kind match {
@@ -87,6 +93,7 @@ class LedgerFixer(numParties: Int) {
   }
 
   def genAction(
+      partiesOnParticipant: L.PartySet,
       hidden: L.PartySet,
       authorizers: L.PartySet,
       actionSkel: S.Action,
@@ -110,22 +117,34 @@ class LedgerFixer(numParties: Int) {
       case S.Exercise(kind, subTransaction) =>
         for {
           activeContracts <- liftLGen(StateT.inspect(_.activeContracts))
-          visibleContracts <- liftGen(
-            Gen.const(activeContracts.view.filterKeys(!hidden.contains(_))).suchThat(_.nonEmpty)
+          exerciseableContracts = activeContracts.flatMap(
+            exerciseable(partiesOnParticipant, hidden, authorizers, _)
           )
-          toConsume <- liftGen(Gen.oneOf(visibleContracts))
-          (cid, Contract(signatories, _)) = toConsume
-          controllers <- liftGen(genNonEmptySubsetOf(authorizers))
+          toConsume <- liftGen(
+            Gen
+              .const(exerciseableContracts)
+              // Give up the entire generation if no contract is exerciseable
+              .suchThat(_.nonEmpty)
+              .flatMap(Gen.oneOf(_))
+          )
+          (cid, contract, controllers) = toConsume
           choiceObservers <- liftGen(genSubsetOf(globalParties))
           _ <- if (kind == S.Consuming) liftLGen(archiveContract(cid)) else pure(())
-          fixedSubTransaction <- genTransaction(hidden, controllers ++ signatories, subTransaction)
+          fixedSubTransaction <- genTransaction(
+            partiesOnParticipant,
+            hidden,
+            controllers ++ contract.signatories,
+            subTransaction,
+          )
         } yield L.Exercise(genKind(kind), cid, controllers, choiceObservers, fixedSubTransaction)
       case S.Fetch() =>
         for {
           activeContracts <- liftLGen(StateT.inspect(_.activeContracts))
           fetchableContracts <- liftGen(
             Gen
-              .const(activeContracts.filter(fetchable(hidden, authorizers, _)))
+              .const(
+                activeContracts.filter(fetchable(partiesOnParticipant, hidden, authorizers, _))
+              )
               .suchThat(_.nonEmpty)
           )
           cid <- liftGen(Gen.oneOf(fetchableContracts.keys))
@@ -133,7 +152,12 @@ class LedgerFixer(numParties: Int) {
       case S.Rollback(subTransaction) =>
         for {
           activeContracts <- liftLGen(StateT.inspect(_.activeContracts))
-          fixedSubTransaction <- genTransaction(hidden, authorizers, subTransaction)
+          fixedSubTransaction <- genTransaction(
+            partiesOnParticipant,
+            hidden,
+            authorizers,
+            subTransaction,
+          )
           maxContractId <- liftLGen(StateT.inspect(_.maxContractId))
           _ <- liftLGen(StateT.set(GenState(maxContractId, activeContracts)))
         } yield L.Rollback(fixedSubTransaction)
@@ -141,14 +165,16 @@ class LedgerFixer(numParties: Int) {
   }
 
   def genTransaction(
+      partiesOnParticipant: L.PartySet,
       hidden: L.PartySet,
       authorizers: L.PartySet,
       transaction: S.Transaction,
   ): WriterT[LGen, L.PartySet, L.Transaction] = {
-    transaction.traverse(genAction(hidden, authorizers, _))
+    transaction.traverse(genAction(partiesOnParticipant, hidden, authorizers, _))
   }
 
   def genActions(
+      partiesOnParticipant: L.PartySet,
       hidden: L.PartySet,
       authorizers: L.PartySet,
       actions: List[S.Action],
@@ -157,20 +183,29 @@ class LedgerFixer(numParties: Int) {
       case Nil => StateT.pure(List.empty)
       case action :: actions =>
         for {
-          genActionResult <- genAction(hidden, authorizers, action).run
+          genActionResult <- genAction(partiesOnParticipant, hidden, authorizers, action).run
           (created, fixedAction) = genActionResult
-          fixedActions <- genActions(created ++ hidden, authorizers, actions)
+          fixedActions <- genActions(
+            partiesOnParticipant,
+            created ++ hidden,
+            authorizers,
+            actions,
+          )
         } yield fixedAction :: fixedActions
     }
   }
 
-  def genCommands(commands: S.Commands): LGen[L.Commands] = for {
-    actAs <- StateT.liftF(genNonEmptySubsetOf(globalParties))
-    fixedActions <- genActions(Set.empty, actAs, commands.actions)
-  } yield L.Commands(actAs, fixedActions)
+  def genCommands(topology: L.Topology, commands: S.Commands): LGen[L.Commands] = for {
+    participantId <- StateT.liftF(Gen.choose(0, numParticipants - 1))
+    actAs <- StateT.liftF(genNonEmptySubsetOf(topology(participantId).parties))
+    fixedActions <- genActions(topology(participantId).parties, Set.empty, actAs, commands.actions)
+  } yield L.Commands(participantId, actAs, fixedActions)
 
-  def genLedger(ledger: S.Ledger): LGen[L.Ledger] = ledger.traverse(genCommands)
+  def genLedger(topology: L.Topology, ledger: S.Ledger): LGen[L.Ledger] =
+    ledger.traverse(genCommands(topology, _))
 
-  def fixLedger(ledger: S.Ledger): Gen[L.Ledger] =
-    genLedger(ledger).run(GenState(-1, Map.empty)).map(_._2)
+  def fixLedger(ledger: S.Ledger): Gen[L.Scenario] = for {
+    topology <- new Generators(numParticipants, numParties).topologyGen
+    ledger <- genLedger(topology, ledger).run(GenState(-1, Map.empty)).map(_._2)
+  } yield L.Scenario(topology, ledger)
 }

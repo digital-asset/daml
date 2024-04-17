@@ -10,6 +10,8 @@ object Ledgers {
   type PartyId = Int
   type ContractId = Int
 
+  type ParticipantId = Int
+
   sealed trait ExerciseKind
   case object Consuming extends ExerciseKind
   case object NonConsuming extends ExerciseKind
@@ -32,7 +34,22 @@ object Ledgers {
 
   type Transaction = List[Action]
 
-  final case class Commands(actAs: PartySet, actions: Transaction)
+  final case class Commands(
+      participantId: ParticipantId,
+      actAs: PartySet,
+      actions: Transaction,
+  )
 
   type Ledger = List[Commands]
+
+  // topologies
+
+  final case class Participant(
+      participantId: ParticipantId,
+      parties: PartySet,
+  )
+
+  type Topology = Seq[Participant]
+
+  final case class Scenario(topology: Topology, ledger: Ledger)
 }
