@@ -55,7 +55,7 @@ build-options: [{opts}]
             data_dependencies = ", ".join(data_dependencies),
             module_prefixes = "\n".join(["  {}: {}".format(k, v) for k, v in module_prefixes.items()]),
             upgrades = "upgrades: " + upgrades if upgrades else "",
-            typecheck_upgrades = "typecheck-upgrades: true" if typecheck_upgrades else "",
+            typecheck_upgrades = "typecheck-upgrades: false" if not typecheck_upgrades else "",
         ),
     )
 
