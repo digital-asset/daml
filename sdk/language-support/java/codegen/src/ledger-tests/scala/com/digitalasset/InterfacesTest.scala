@@ -19,7 +19,6 @@ trait InterfacesTest
 
   import TestUtil._
 
-
   behavior of "Generated Java code"
 
   it should "contain all choices of an interface in templates implementing it" in withClient {
