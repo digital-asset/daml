@@ -2124,7 +2124,7 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
               actualIds should contain allElementsOf allocatedIds
               result.toSet should contain allElementsOf
                 allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
-              result.size should be > maxPartiesPageSize.value
+              maxPartiesPageSize.fold(succeed)(pageSize => result.size should be > pageSize)
             })
         }: Future[Assertion]
     }
