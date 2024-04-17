@@ -21,7 +21,7 @@ import com.daml.lf.value.{Value => V}
 import org.apache.pekko.stream.Materializer
 import scalaz.OneAnd
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, blocking}
 
 object Interpreter {
   type PartyIdMapping = Map[PartyId, Ref.Party]
@@ -44,30 +44,14 @@ object Interpreter {
 
 class Interpreter(
     universalTemplatePkgId: Ref.PackageId,
-    ledgerClient: ScriptLedgerClient,
+    ledgerClients: PartialFunction[ParticipantId, ScriptLedgerClient],
 ) {
   import Interpreter._
 
   private val toCommands = new ToCommands(universalTemplatePkgId)
 
-  private def collectLedgerPartyIds(ledger: Ledger): Set[PartyId] =
-    ledger.view.flatMap(collectCommandsPartyIds).toSet
-
-  private def collectCommandsPartyIds(commands: Commands): Set[PartyId] =
-    commands.actAs ++ collectTransactionPartyIds(commands.actions)
-
-  private def collectTransactionPartyIds(transaction: Transaction): Set[PartyId] =
-    transaction.view.flatMap(collectActionPartyIds).toSet
-
-  private def collectActionPartyIds(action: Action): Set[PartyId] = action match {
-    case Create(_, signatories, observers) => signatories ++ observers
-    case Exercise(_, _, controllers, choiceObservers, subTransaction) =>
-      controllers ++ choiceObservers ++ collectTransactionPartyIds(subTransaction)
-    case Fetch(_) => Set.empty
-    case Rollback(subTransaction) => collectTransactionPartyIds(subTransaction)
-  }
-
-  private def allocateParties(partyIds: Iterable[PartyId])(implicit
+  private def allocateParties(ledgerClient: ScriptLedgerClient, partyIds: Iterable[PartyId])(
+      implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[PartyIdMapping] = {
@@ -139,7 +123,7 @@ class Interpreter(
         )
         .leftMap(TranslationError)
       resultAndTree <- EitherT(
-        ledgerClient.submit(
+        ledgerClients(commands.participantId).submit(
           actAs = assertToOneAnd(commands.actAs.map(partyIds)),
           readAs = partyIds.values.toSet,
           disclosures = List.empty,
@@ -169,16 +153,24 @@ class Interpreter(
       case commands :: tail =>
         for {
           newContractIds <- runCommands(partyIds, contractIds, commands)
+          // TODO: find a better way
+          _ <- EitherT.liftF(Future { blocking { Thread.sleep(500) } })
           result <- runCommandsList(partyIds, contractIds ++ newContractIds, tail)
         } yield result
     }
 
-  def runLedger(ledger: Ledger)(implicit
+  def runLedger(scenario: Scenario)(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[(PartyIdMapping, Either[InterpreterError, ContractIdMapping])] =
+  ): Future[(PartyIdMapping, Either[InterpreterError, ContractIdMapping])] = {
     for {
-      partyIds <- allocateParties(collectLedgerPartyIds(ledger))
-      result <- runCommandsList(partyIds, Map.empty, ledger).value
+      partyIdsSeq <- scenario.topology.traverse(participant =>
+        allocateParties(ledgerClients(participant.participantId), participant.parties)
+      )
+      // TODO: find a better way
+      _ <- Future { blocking { Thread.sleep(1000) } }
+      partyIds = partyIdsSeq.foldLeft(Map.empty[PartyId, Ref.Party])(_ ++ _)
+      result <- runCommandsList(partyIds, Map.empty, scenario.ledger).value
     } yield (partyIds, result)
+  }
 }
