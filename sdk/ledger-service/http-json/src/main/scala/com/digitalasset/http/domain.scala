@@ -32,9 +32,7 @@ package object domain extends com.daml.fetchcontracts.domain.Aliases {
     (ContractTypeId.Template.OptionalPkg, LfV) \/ (Option[ContractTypeId.OptionalPkg], ContractId)
 
   type ResolvedContractRef[LfV] =
-//    (PackageResolvedContractTypeId[ContractTypeId.Template.Resolved], LfV) \/ (PackageResolvedContractTypeId[ContractTypeId.Resolved], ContractId)
     (ContractTypeId.Template.RequiredPkg, LfV) \/ (ContractTypeId.RequiredPkg, ContractId)
-
 
   type LedgerIdTag = lar.LedgerIdTag
   type LedgerId = lar.LedgerId
@@ -408,7 +406,7 @@ package domain {
             case lav1.transaction.TreeEvent.Kind.Created(created) =>
               val a =
                 ActiveContract
-                  .fromLedgerApi(domain.ActiveContract.IgnoreInterface, created)
+                  .fromLedgerApi(domain.ActiveContract.ExtractAs.Template, created)
                   .map(a => Contract[lav1.value.Value](\/-(a)))
               val newAcc = ^(acc, a)(_ :+ _)
               loop(tail, newAcc)

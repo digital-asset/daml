@@ -364,8 +364,7 @@ object ContractDao {
               tidLookup = stIdSeq.view.map { case (ix, _, tid, _) => ix -> tid }.toMap
             } yield dbContracts map { dbc =>
               val htid +-: ttid = dbc.templateId.unwrap
-              val dbc2 = dbc.copy(templateId = htid)
-              (toDomain(tidLookup)(dbc2), NonEmptyList(htid, ttid: _*))
+              (toDomain(tidLookup)(dbc.copy(templateId = htid)), NonEmptyList(htid, ttid: _*))
             }
 
           case MatchedQueryMarker.Unused =>

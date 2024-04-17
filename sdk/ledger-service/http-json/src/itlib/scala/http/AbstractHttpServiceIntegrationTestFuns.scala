@@ -677,7 +677,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       uri: Uri,
       headers: List[HttpHeader],
       readAs: Option[List[domain.Party]],
-  ): Future[domain.SyncResponse[Option[domain.ActiveContract.ResolvedCtTyId[JsValue]]]] = {
+  ): Future[domain.SyncResponse[Option[domain.ActiveContract.ResolvedCtTyId[JsValue]]]] =
     for {
       locjson <- toFuture(SprayJson.encode(cmd)): Future[JsValue]
       json <- toFuture(
@@ -692,7 +692,6 @@ trait AbstractHttpServiceIntegrationTestFuns
       result <- postJsonRequest(uri.withPath(Uri.Path("/v1/fetch")), json, headers)
         .parseResponse[Option[domain.ActiveContract.ResolvedCtTyId[JsValue]]]
     } yield result
-  }
 
   protected def postContractsLookup(
       cmd: domain.ContractLocator[JsValue],

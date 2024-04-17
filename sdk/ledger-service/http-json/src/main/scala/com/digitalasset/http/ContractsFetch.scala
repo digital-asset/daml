@@ -355,7 +355,7 @@ private class ContractsFetch(
     import com.daml.lf.crypto.Hash
     for {
       ac <-
-        domain.ActiveContract fromLedgerApi (d, ce) leftMap (de =>
+        domain.ActiveContract fromLedgerApi (domain.ActiveContract.ExtractAs(d), ce) leftMap (de =>
           new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"): Exception
         )
       lfKey <- ac.key.traverse(apiValueToLfValue).leftMap(_.cause: Exception)

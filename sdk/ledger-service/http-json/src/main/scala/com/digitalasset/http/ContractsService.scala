@@ -212,20 +212,14 @@ class ContractsService(
       for {
         resolvedTemplateIds <- OptionT(
           templateId.cata(
-            x => {
-              val y : Future[Option[Seq[PackageResolvedContractTypeId[ContractTypeId.Resolved]]]] = resolveContractTypeId(jwt, ledgerId)(x)
-                .map(_.toOption.flatten.map({ r => Seq(r) }))
-              y
-            },
+            x => resolveContractTypeId(jwt, ledgerId)(x).map(_.toOption.flatten.map(Seq(_))),
             // ignoring interface IDs for all-templates query
-            {
-              val y : Future[Option[Seq[PackageResolvedContractTypeId[ContractTypeId.Resolved]]]] = allTemplateIds(lc)(jwt, ledgerId).map(_.toSeq.some)
-              y
-            },
+            allTemplateIds(lc)(jwt, ledgerId).map(_.toSeq.some),
           )
         )
-//        x : Seq[PackageResolvedContractTypeId[ContractTypeId.Resolved]] = resolvedTemplateIds
-        resolvedQuery <- OptionT(Future(domain.ResolvedQuery.apply(resolvedTemplateIds.toSet).toOption))
+        resolvedQuery <- OptionT(
+          Future(domain.ResolvedQuery.apply(resolvedTemplateIds.toSet).toOption)
+        )
         result <- OptionT(
           searchInMemory(
             jwt,
@@ -279,9 +273,7 @@ class ContractsService(
         .future(allTemplateIds(lc)(jwt, ledgerId))
         .flatMapConcat(x =>
           Source(x)
-            .flatMapConcat(x =>
-              searchInMemoryOneTpId(jwt, ledgerId, parties, x, _ => true)
-            )
+            .flatMapConcat(x => searchInMemoryOneTpId(jwt, ledgerId, parties, x, _ => true))
         )
     )
   }
@@ -392,7 +384,7 @@ class ContractsService(
           // TODO query store support for interface query/fetch #14819
           // we need a template ID to update the database
           def doSearchInMemory = OptionT(SearchInMemory.toFinal.findByContractId(ctx, contractId))
-          def doSearchInDb(resolved: PackageResolvedContractTypeId[_ <: ContractTypeId.Resolved]) =
+          def doSearchInDb(resolved: PackageResolvedContractTypeId[ContractTypeId.Resolved]) =
             OptionT(unsafeRunAsync {
               import doobie.implicits._, cats.syntax.apply._
               // a single contractId is either present or not; we would only need
@@ -450,9 +442,7 @@ class ContractsService(
                     parties,
                     resolved.allIds.toSet,
                     Hash.assertHashContractKey(
-                      templateId = toLedgerApiValue(
-                        resolved.original
-                      ), // If there is more than one package id involved, then the package name will be present and which pkg id we use is immaterial.
+                      templateId = toLedgerApiValue(resolved.original),
                       key = contractKey,
                       packageName = resolved.name,
                     ),
@@ -507,8 +497,7 @@ class ContractsService(
               jwt,
               ledgerId,
               parties,
-              templateIds.resolved.toList.flatMap { case x: PackageResolvedContractTypeId[ContractTypeId.Resolved] => x.expand
-              },
+              templateIds.resolved.flatMap(_.expand).toList,
               Lambda[ConnectionIO ~> ConnectionIO](
                 timed(metrics.Db.searchFetch, _)
               ),
@@ -556,13 +545,16 @@ class ContractsService(
     import InsertDeleteStep.appendForgettingDeletes
 
     val funPredicates: Map[domain.ContractTypeId.Resolved, Ac => Boolean] =
-      resolvedQuery.resolved.flatMap(tids => tids.allIds.map(tid => (tid, queryParams.toPredicate(tid)))).toMap.forgetNE
+      resolvedQuery.resolved
+        .flatMap(tids => tids.allIds.map(tid => (tid, queryParams.toPredicate(tid))))
+        .toMap
+        .forgetNE
 
     insertDeleteStepSource(jwt, ledgerId, parties, resolvedQuery.resolved.map(_.original).toList)
       .map { step =>
         val (errors, converted) = step.toInsertDelete.partitionMapPreservingIds { apiEvent =>
           domain.ActiveContract
-            .fromLedgerApi(resolvedQuery.resolved.head.original, apiEvent)
+            .fromLedgerApi(domain.ActiveContract.ExtractAs(resolvedQuery), apiEvent)
             .leftMap(e => InternalError(Symbol("searchInMemory"), e.shows))
             .flatMap(apiAcToLfAc): Error \/ Ac
         }
