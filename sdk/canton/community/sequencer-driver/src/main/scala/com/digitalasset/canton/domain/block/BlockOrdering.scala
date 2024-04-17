@@ -28,7 +28,6 @@ trait BlockOrdererFactory {
 
   def create(
       config: ConfigType,
-      domainTopologyManagerId: String,
       timeProvider: TimeProvider,
       loggerFactory: NamedLoggerFactory,
   )(implicit

@@ -19,9 +19,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
-import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader.{
-  LoadSequencerEndpointInformationResult
-}
+import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader.LoadSequencerEndpointInformationResult
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String256M
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
@@ -976,7 +974,7 @@ class CantonSyncService(
           case None => Right(())
           case Some(lst) =>
             domains.foreach(performDomainDisconnect(_).discard[Either[SyncServiceError, Unit]])
-            Left(SyncServiceError.SyncServiceStartupError(lst))
+            Left(SyncServiceError.SyncServiceStartupError.CombinedStartError(lst))
         }
       })
     }
@@ -1032,7 +1030,7 @@ class CantonSyncService(
         t => SyncServiceError.SyncServiceInternalError.Failure(alias, t),
       )
       .subflatMap[SyncServiceError, Unit](
-        _.leftMap(error => SyncServiceError.SyncServiceInternalError.InitError(alias, error))
+        _.leftMap(error => SyncServiceError.SyncServiceStartupError.InitError(alias, error))
       )
 
   /** Connect the sync service to the given domain.
@@ -2169,11 +2167,6 @@ object SyncServiceError extends SyncServiceErrorGroup {
         )
         with SyncServiceError
 
-    final case class InitError(domain: DomainAlias, error: SyncDomainInitializationError)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(cause = "The domain failed to initialize due to an internal error")
-        with SyncServiceError
-
     final case class DomainIsMissingInternally(domain: DomainAlias, where: String)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
@@ -2194,10 +2187,29 @@ object SyncServiceError extends SyncServiceErrorGroup {
     final case class Warn(override val cause: String) extends Alarm(cause)
   }
 
-  final case class SyncServiceStartupError(override val errors: NonEmpty[Seq[SyncServiceError]])(
-      implicit val loggingContext: ErrorLoggingContext
-  ) extends SyncServiceError
-      with CombinedError[SyncServiceError]
+  @Explanation("This error indicates a sync domain failed to start or initialize properly.")
+  @Resolution(
+    "Please check the underlying error(s) and retry if possible. If not, contact support and provide the failure reason."
+  )
+  object SyncServiceStartupError
+      extends ErrorCode(
+        "SYNC_SERVICE_STARTUP_ERROR",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+
+    final case class CombinedStartError(override val errors: NonEmpty[Seq[SyncServiceError]])(
+        implicit val loggingContext: ErrorLoggingContext
+    ) extends CombinedError[SyncServiceError]
+        with SyncServiceError
+
+    final case class InitError(
+        domain: DomainAlias,
+        error: SyncDomainInitializationError,
+    )(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(cause = "The domain failed to initialize due to an error")
+        with SyncServiceError
+  }
 
   @Explanation(
     """The participant is not connected to a domain and can therefore not allocate a party

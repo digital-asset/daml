@@ -8,7 +8,6 @@ import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters as C
 import com.digitalasset.canton.domain.api.v30.SequencerConnect.GetDomainParametersResponse.Parameters
 import com.digitalasset.canton.domain.api.v30.SequencerConnectServiceGrpc.SequencerConnectServiceStub
 import com.digitalasset.canton.domain.api.v30 as proto
-import com.digitalasset.canton.protocol.StaticDomainParameters as InternalStaticDomainParameters
 import com.digitalasset.canton.topology.DomainId
 import com.google.protobuf.empty.Empty
 import io.grpc.ManagedChannel
@@ -68,10 +67,7 @@ object SequencerPublicCommands {
       response.parameters match {
         case Parameters.Empty => Left("Domain parameters should not be empty")
         case Parameters.ParametersV1(value) =>
-          InternalStaticDomainParameters
-            .fromProtoV30(value)
-            .leftMap(_.message)
-            .map(ConsoleStaticDomainParameters(_))
+          ConsoleStaticDomainParameters.fromProtoV30(value).leftMap(_.message)
       }
     }
   }

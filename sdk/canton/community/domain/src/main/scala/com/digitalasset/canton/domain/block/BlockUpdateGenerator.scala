@@ -29,6 +29,7 @@ import com.digitalasset.canton.domain.block.data.{
   BlockUpdateEphemeralState,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregation.AggregationBySender
+import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequestOps
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
@@ -166,8 +167,9 @@ class BlockUpdateGeneratorImpl(
     // We must start a new chunk whenever the chunk processing advances lastSequencerEventTimestamp
     // Otherwise the logic for retrieving a topology snapshot or traffic state could deadlock
     def possibleEventToThisSequencer(event: LedgerBlockEvent): Boolean = event match {
-      case Send(_, signedSubmissionRequest) =>
-        val allRecipients = signedSubmissionRequest.content.batch.allRecipients
+      case Send(_, signedOrderingRequest) =>
+        val allRecipients =
+          signedOrderingRequest.signedSubmissionRequest.content.batch.allRecipients
         allRecipients.contains(AllMembersOfDomain) ||
         allRecipients.contains(SequencersOfDomain)
       case _ => false
@@ -230,6 +232,7 @@ class BlockUpdateGeneratorImpl(
       }
     val fixedTsChanges: Seq[(CantonTimestamp, Traced[LedgerBlockEvent])] = revFixedTsChanges.reverse
 
+    // TODO(i18438): verify the signature of the sequencer on the SendEvent
     val submissionRequests = fixedTsChanges.collect { case (ts, ev @ Traced(sendEvent: Send)) =>
       // Discard the timestamp of the `Send` event as this one is obsolete
       (ts, ev.map(_ => sendEvent.signedSubmissionRequest))
@@ -1485,7 +1488,7 @@ class BlockUpdateGeneratorImpl(
                   val trafficStateO = Option.when(!unifiedSequencer || member == sender) {
                     trafficStates.getOrElse(
                       member,
-                      ErrorUtil.invalidState(s"Sender $sender unknown by rate limiter."),
+                      ErrorUtil.invalidState(s"Sender $member unknown by rate limiter."),
                     )
                   }
                   member ->
@@ -1615,6 +1618,10 @@ class BlockUpdateGeneratorImpl(
           )
           OptionT.none[FutureUnlessShutdown, Unit]
         } else OptionT.some[FutureUnlessShutdown](())
+      _ = logger.trace(
+        s"Consuming traffic cost for event with messageId ${request.messageId}" +
+          s" from sender $sender at $sequencingTimestamp"
+      )
       // Consume traffic for the sender
       newSenderTrafficState <- OptionT.liftF(
         rateLimitManager

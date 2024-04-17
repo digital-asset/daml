@@ -428,60 +428,6 @@ class GrpcSequencerServiceTest
         )
     }
 
-    "succeed authenticated domain manager sending message to unauthenticated member" in { _ =>
-      val request = defaultRequest
-        .focus(_.sender)
-        .replace(DefaultTestIdentities.domainManager)
-        .focus(_.batch)
-        .replace(
-          Batch(
-            List(
-              ClosedEnvelope.create(
-                content,
-                Recipients.cc(unauthenticatedMember),
-                Seq.empty,
-                testedProtocolVersion,
-              )
-            ),
-            testedProtocolVersion,
-          )
-        )
-      val domEnvironment = new Environment(DefaultTestIdentities.domainManager)
-      sendAndCheckSucceed(request)(domEnvironment)
-    }
-
-    "succeed unauthenticated member sending message to domain manager" in { _ =>
-      val request = defaultRequest
-        .focus(_.sender)
-        .replace(unauthenticatedMember)
-        .focus(_.batch)
-        .replace(
-          Batch(
-            List(
-              ClosedEnvelope.create(
-                content,
-                Recipients.cc(DefaultTestIdentities.domainManager),
-                Seq.empty,
-                testedProtocolVersion,
-              )
-            ),
-            testedProtocolVersion,
-          )
-        )
-      val newEnv = new Environment(unauthenticatedMember).service
-      val responseF =
-        newEnv.sendAsyncUnauthenticatedVersioned(
-          v30.SendAsyncUnauthenticatedVersionedRequest(request.toByteString)
-        )
-
-      responseF
-        .map { responseP =>
-          val response = SendAsyncUnauthenticatedVersionedResponse
-            .fromSendAsyncUnauthenticatedVersionedResponseProto(responseP)
-          response.value.error shouldBe None
-        }
-    }
-
     "reject on rate excess" in { implicit env =>
       def expectSuccess(): Future[Assertion] = {
         sendAndCheckSucceed(defaultRequest)
@@ -716,16 +662,13 @@ class GrpcSequencerServiceTest
       )
     }
 
-    "reject unauthenticated member sending message to non domain manager member" in { _ =>
+    "reject unauthenticated member sending message to anything other than broadcast" in { _ =>
       val request = defaultRequest
         .focus(_.sender)
         .replace(unauthenticatedMember)
 
       val errorMsg =
-        if (testedProtocolVersion >= ProtocolVersion.v31)
-          "Unauthenticated member is trying to send message to members other than the topology broadcast address All"
-        else
-          "Unauthenticated member is trying to send message to members other than the domain manager"
+        "Unauthenticated member is trying to send message to members other than the topology broadcast address All"
 
       loggerFactory.assertLogs(
         sendAndCheckError(request, authenticated = false) {
@@ -762,7 +705,7 @@ class GrpcSequencerServiceTest
             List(
               ClosedEnvelope.create(
                 content,
-                Recipients.cc(DefaultTestIdentities.domainManager),
+                Recipients.cc(DefaultTestIdentities.sequencerIdX),
                 Seq.empty,
                 testedProtocolVersion,
               )
@@ -895,7 +838,7 @@ class GrpcSequencerServiceTest
 
   def signedAcknowledgeReq(requestP: v30.AcknowledgeRequest): v30.AcknowledgeSignedRequest =
     v30.AcknowledgeSignedRequest(
-      Some(signedContent(VersionedMessage(requestP.toByteString, 0).toByteString).toProtoV30)
+      signedContent(VersionedMessage(requestP.toByteString, 0).toByteString).toByteString
     )
 
   "acknowledgeSigned" should {

@@ -745,6 +745,14 @@ trait HasMemoizedProtocolVersionedWrapperCompanion2[
     (original: OriginalByteString, data: DataByteString) =>
       ProtoConverter.protoParser(p.parseFrom)(data).flatMap(fromProto(_)(original))
 
+  def fromTrustedByteArray(bytes: Array[Byte]): ParsingResult[DeserializedValueClass] =
+    for {
+      proto <- ProtoConverter.protoParserArray(v1.UntypedVersionedMessage.parseFrom)(bytes)
+      data <- proto.wrapper.data.toRight(ProtoDeserializationError.FieldNotSet(s"$name: data"))
+      valueClass <- supportedProtoVersions
+        .deserializerFor(ProtoVersion(proto.version))(ByteString.copyFrom(bytes), data)
+    } yield valueClass
+
   override def fromByteString(
       expectedProtocolVersion: ProtocolVersion
   )(

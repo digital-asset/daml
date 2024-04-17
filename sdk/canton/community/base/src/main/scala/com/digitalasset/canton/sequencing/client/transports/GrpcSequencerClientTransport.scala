@@ -244,11 +244,10 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
   ): EitherT[Future, String, Unit] = {
     val request = signedRequest.content
     val timestamp = request.timestamp
-    val requestP = signedRequest.toProtoV30
     logger.debug(s"Acknowledging timestamp: $timestamp")
     CantonGrpcUtil
       .sendGrpcRequest(sequencerServiceClient, "sequencer")(
-        _.acknowledgeSigned(v30.AcknowledgeSignedRequest(Some(requestP))),
+        _.acknowledgeSigned(v30.AcknowledgeSignedRequest(signedRequest.toByteString)),
         requestDescription = s"acknowledge-signed/$timestamp",
         timeout = timeouts.network.duration,
         logger = logger,
