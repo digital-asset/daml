@@ -9,7 +9,7 @@ import com.digitalasset.canton.crypto.{HashOps, Signature}
 import com.digitalasset.canton.data.{Informee, TransferInViewTree, ViewPosition, ViewType}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
@@ -50,7 +50,7 @@ final case class TransferInMediatorMessage(
 
   override def domainId: DomainId = commonData.targetDomain.unwrap
 
-  override def mediator: MediatorsOfDomain = commonData.targetMediator
+  override def mediator: MediatorGroupRecipient = commonData.targetMediator
 
   override def requestUuid: UUID = commonData.uuid
 

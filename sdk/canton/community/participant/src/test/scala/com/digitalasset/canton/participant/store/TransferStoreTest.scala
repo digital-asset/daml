@@ -1292,12 +1292,12 @@ object TransferStoreTest extends EitherValues with NoTracing {
   val domain1 = DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1"))
   val sourceDomain1 = SourceDomainId(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
   val targetDomain1 = TargetDomainId(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
-  val mediator1 = MediatorsOfDomain(MediatorGroupIndex.zero)
+  val mediator1 = MediatorGroupRecipient(MediatorGroupIndex.zero)
 
   val domain2 = DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2"))
   val sourceDomain2 = SourceDomainId(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
   val targetDomain2 = TargetDomainId(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
-  val mediator2 = MediatorsOfDomain(MediatorGroupIndex.one)
+  val mediator2 = MediatorGroupRecipient(MediatorGroupIndex.one)
 
   val targetDomain = TargetDomainId(DomainId(UniqueIdentifier.tryCreate("target", "DOMAIN")))
 
@@ -1360,7 +1360,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
 
   def mkTransferDataForDomain(
       transferId: TransferId,
-      sourceMediator: MediatorsOfDomain,
+      sourceMediator: MediatorGroupRecipient,
       submittingParty: LfPartyId = LfPartyId.assertFromString("submitter"),
       targetDomainId: TargetDomainId,
       creatingTransactionId: TransactionId = ExampleTransactionFactory.transactionId(0),
@@ -1411,7 +1411,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
 
   private def mkTransferData(
       transferId: TransferId,
-      sourceMediator: MediatorsOfDomain,
+      sourceMediator: MediatorGroupRecipient,
       submitter: LfPartyId = LfPartyId.assertFromString("submitter"),
       creatingTransactionId: TransactionId = transactionId1,
       contract: SerializableContract = contract,

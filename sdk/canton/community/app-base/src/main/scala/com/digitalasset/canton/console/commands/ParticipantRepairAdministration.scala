@@ -4,6 +4,8 @@
 package com.digitalasset.canton.console.commands
 
 import better.files.File
+import cats.syntax.either.*
+import cats.syntax.foldable.*
 import com.digitalasset.canton.admin.api.client.commands.{
   GrpcAdminCommand,
   ParticipantAdminCommands,
@@ -26,6 +28,7 @@ import com.digitalasset.canton.data.RepairContract
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.participant.ParticipantNodeCommon
+import com.digitalasset.canton.participant.admin.data.ActiveContract
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{DomainId, PartyId}
@@ -243,6 +246,63 @@ class ParticipantRepairAdministration(
     }
   }
 
+  @Help.Summary("Add specified contracts to specific domain on local participant.")
+  @Help.Description(
+    """This is a last resort command to recover from data corruption, e.g. in scenarios in which participant
+        |contracts have somehow gotten out of sync and need to be manually created. The participant needs to be
+        |disconnected from the specified "domain" at the time of the call, and as of now the domain cannot have had
+        |any inflight requests.
+        |As repair commands are powerful tools to recover from unforeseen data corruption, but dangerous under normal
+        |operation, use of this command requires (temporarily) enabling the "features.enable-repair-commands"
+        |configuration. In addition repair commands can run for an unbounded time depending on the number of
+        |contracts passed in. Be sure to not connect the participant to the domain until the call returns.
+        |
+        The arguments are:
+        - domainId: the id of the domain to which to add the contract
+        - protocolVersion: to protocol version used by the domain
+        - contracts: list of contracts to add with witness information
+        """
+  )
+  def add(
+      domainId: DomainId,
+      protocolVersion: ProtocolVersion,
+      contracts: Seq[RepairContract],
+      allowContractIdSuffixRecomputation: Boolean = false,
+  ): Map[LfContractId, LfContractId] = {
+
+    val temporaryFile = File.newTemporaryFile(suffix = ".gz")
+    val outputStream = temporaryFile.newGzipOutputStream()
+
+    ResourceUtil.withResource(outputStream) { outputStream =>
+      contracts
+        .traverse_ { repairContract =>
+          val activeContractE = ActiveContract
+            .create(domainId, repairContract.contract, repairContract.transferCounter)(
+              protocolVersion
+            )
+            .leftMap(_.toString)
+
+          activeContractE.flatMap(_.writeDelimitedTo(outputStream).map(_ => outputStream.flush()))
+        }
+        .valueOr(err => throw new RuntimeException(s"Unable to add contract data to stream: $err"))
+    }
+
+    val bytes = ByteString.copyFrom(temporaryFile.loadBytes)
+    temporaryFile.delete(swallowIOExceptions = true)
+
+    check(FeatureFlag.Repair) {
+      consoleEnvironment.run {
+        runner.adminCommand(
+          ParticipantAdminCommands.ParticipantRepairManagement.ImportAcs(
+            bytes,
+            workflowIdPrefix = s"import-${UUID.randomUUID}",
+            allowContractIdSuffixRecomputation = allowContractIdSuffixRecomputation,
+          )
+        )
+      }
+    }
+  }
+
 }
 
 abstract class LocalParticipantRepairAdministration(
@@ -256,46 +316,6 @@ abstract class LocalParticipantRepairAdministration(
     ) {
 
   protected def access[T](handler: ParticipantNodeCommon => T): T
-
-  @Help.Summary("Add specified contracts to specific domain on local participant.")
-  @Help.Description(
-    """This is a last resort command to recover from data corruption, e.g. in scenarios in which participant
-        |contracts have somehow gotten out of sync and need to be manually created. The participant needs to be
-        |disconnected from the specified "domain" at the time of the call, and as of now the domain cannot have had
-        |any inflight requests.
-        |For each "contractsToAdd", specify "witnesses", local parties, in case no local party is a stakeholder.
-        |The "ignoreAlreadyAdded" flag makes it possible to invoke the command multiple times with the same
-        |parameters in case an earlier command invocation has failed.
-        |
-        |As repair commands are powerful tools to recover from unforeseen data corruption, but dangerous under normal
-        |operation, use of this command requires (temporarily) enabling the "features.enable-repair-commands"
-        |configuration. In addition repair commands can run for an unbounded time depending on the number of
-        |contracts passed in. Be sure to not connect the participant to the domain until the call returns.
-        |
-        The arguments are:
-        - domain: the alias of the domain to which to add the contract
-        - contractsToAdd: list of contracts to add with witness information
-        - ignoreAlreadyAdded: (default true) if set to true, it will ignore contracts that already exist on the target domain.
-        - ignoreStakeholderCheck: (default false) if set to true, add will work for contracts that don't have a local party (useful for party migration).
-        """
-  )
-  def add(
-      domain: DomainAlias,
-      contractsToAdd: Seq[RepairContract],
-      ignoreAlreadyAdded: Boolean = true,
-      ignoreStakeholderCheck: Boolean = false,
-  ): Unit =
-    runRepairCommand(tc =>
-      access(
-        _.sync.repairService
-          .addContracts(
-            domain,
-            contractsToAdd,
-            ignoreAlreadyAdded,
-            ignoreStakeholderCheck,
-          )(tc)
-      )
-    )
 
   private def runRepairCommand[T](command: TraceContext => Either[String, T]): T =
     check(FeatureFlag.Repair) {

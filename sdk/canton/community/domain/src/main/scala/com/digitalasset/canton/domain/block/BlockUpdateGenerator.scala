@@ -1316,8 +1316,8 @@ class BlockUpdateGeneratorImpl(
               ) -> participants.toSet[Member]
             }
         }.mapK(FutureUnlessShutdown.outcomeK)
-        mediatorsOfDomain <- {
-          val mediatorGroups = groupRecipients.collect { case MediatorsOfDomain(group) =>
+        mediatorGroupByMember <- {
+          val mediatorGroups = groupRecipients.collect { case MediatorGroupRecipient(group) =>
             group
           }.toSeq
           if (mediatorGroups.isEmpty)
@@ -1343,7 +1343,7 @@ class BlockUpdateGeneratorImpl(
               }
             } yield groups
               .map(group =>
-                MediatorsOfDomain(group.index) -> (group.active.forgetNE ++ group.passive)
+                MediatorGroupRecipient(group.index) -> (group.active.forgetNE ++ group.passive)
                   .toSet[Member]
               )
               .toMap[GroupRecipient, Set[Member]]
@@ -1401,7 +1401,7 @@ class BlockUpdateGeneratorImpl(
           } else
             EitherT.rightT[Future, SubmissionRequestOutcome](Map.empty[GroupRecipient, Set[Member]])
         }.mapK(FutureUnlessShutdown.outcomeK)
-      } yield participantsOfParty ++ mediatorsOfDomain ++ sequencersOfDomain ++ allRecipients
+      } yield participantsOfParty ++ mediatorGroupByMember ++ sequencersOfDomain ++ allRecipients
   }
 
   override def signChunkEvents(unsignedEvents: UnsignedChunkEvents)(implicit

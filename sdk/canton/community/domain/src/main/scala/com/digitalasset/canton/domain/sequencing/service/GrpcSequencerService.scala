@@ -463,14 +463,6 @@ class GrpcSequencerService(
       .wellformedAggregationRule(sender, aggregationRule)
       .leftMap(message => invalid(messageId.toProtoPrimitive, sender)(message))
 
-  private def invalid(messageIdP: String, senderPO: String)(
-      message: String
-  )(implicit traceContext: TraceContext): SendAsyncError = {
-    val senderText = if (senderPO.isEmpty) "[sender-not-set]" else senderPO
-    logger.warn(s"Request '$messageIdP' from '$senderText' is invalid: $message")
-    SendAsyncError.RequestInvalid(message)
-  }
-
   private def invalid(messageIdP: String, sender: Member)(
       message: String
   )(implicit traceContext: TraceContext): SendAsyncError = {
@@ -602,25 +594,6 @@ class GrpcSequencerService(
       event.trafficState.map(_.toProtoV30),
     )
 
-  override def subscribe(
-      request: v30.SubscriptionRequest,
-      responseObserver: StreamObserver[v30.SubscriptionResponse],
-  ): Unit =
-    responseObserver.onError(
-      wrongProtocolVersion(
-        s"The versioned subscribe endpoints must be used with protocol version $protocolVersion"
-      ).asException
-    )
-
-  override def subscribeUnauthenticated(
-      request: v30.SubscriptionRequest,
-      responseObserver: StreamObserver[v30.SubscriptionResponse],
-  ): Unit = responseObserver.onError(
-    wrongProtocolVersion(
-      s"The versioned subscribe endpoints must be used with protocol version $protocolVersion"
-    ).asException
-  )
-
   override def subscribeVersioned(
       request: v30.SubscriptionRequest,
       responseObserver: StreamObserver[v30.VersionedSubscriptionResponse],
@@ -706,13 +679,6 @@ class GrpcSequencerService(
           )
         )
     }
-
-  override def acknowledge(requestP: v30.AcknowledgeRequest): Future[v30.AcknowledgeResponse] =
-    Future.failed(
-      wrongProtocolVersion(
-        s"The signed acknowledgement endpoints must be used with protocol version $protocolVersion"
-      ).asException
-    )
 
   override def acknowledgeSigned(
       request: v30.AcknowledgeSignedRequest

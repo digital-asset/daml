@@ -5,7 +5,7 @@ package com.digitalasset.canton.data
 
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{RootHash, ViewHash}
-import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.DomainId
 
 /** Common supertype of all view trees that are sent as [[com.digitalasset.canton.protocol.messages.EncryptedViewMessage]]s */
@@ -33,7 +33,7 @@ trait ViewTree extends PrettyPrinting {
   def domainId: DomainId
 
   /** The mediator group that is responsible for coordinating this request */
-  def mediator: MediatorsOfDomain
+  def mediator: MediatorGroupRecipient
 
   override def pretty: Pretty[this.type]
 }
