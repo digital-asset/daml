@@ -171,10 +171,6 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
   /** Acknowledge that we have successfully processed all events up to and including the given timestamp.
     * The client should then never subscribe for events from before this point.
     */
-  private[client] def acknowledge(timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): Future[Unit]
-
   def acknowledgeSigned(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, Unit]
@@ -638,13 +634,6 @@ abstract class SequencerClientImpl(
   /** Acknowledge that we have successfully processed all events up to and including the given timestamp.
     * The client should then never subscribe for events from before this point.
     */
-  private[client] def acknowledge(timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): Future[Unit] = {
-    val request = AcknowledgeRequest(member, timestamp, protocolVersion)
-    sequencersTransportState.transport.acknowledge(request)
-  }
-
   def acknowledgeSigned(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, Unit] = {

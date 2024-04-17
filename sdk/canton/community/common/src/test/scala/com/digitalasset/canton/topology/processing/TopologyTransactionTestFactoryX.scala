@@ -9,14 +9,14 @@ import com.digitalasset.canton.crypto.{Fingerprint, SigningPublicKey}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.TestDomainParameters
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.DefaultTestIdentities.domainManager
+import com.digitalasset.canton.topology.DefaultTestIdentities.sequencerIdX
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.*
 
 import scala.concurrent.ExecutionContext
 
 class TopologyTransactionTestFactoryX(loggerFactory: NamedLoggerFactory, initEc: ExecutionContext)
-    extends TestingOwnerWithKeysX(domainManager, loggerFactory, initEc) {
+    extends TestingOwnerWithKeysX(sequencerIdX, loggerFactory, initEc) {
 
   import SigningKeys.*
 

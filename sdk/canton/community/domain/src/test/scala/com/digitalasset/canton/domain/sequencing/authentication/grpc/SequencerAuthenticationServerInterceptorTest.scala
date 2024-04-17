@@ -70,6 +70,7 @@ class SequencerAuthenticationServerInterceptorTest
       new SimClock(loggerFactory = loggerFactory),
       JDuration.ofMinutes(1),
       JDuration.ofHours(1),
+      useExponentialRandomTokenExpiration = false,
       _ => (),
       Future.unit,
       DefaultProcessingTimeouts.testing,

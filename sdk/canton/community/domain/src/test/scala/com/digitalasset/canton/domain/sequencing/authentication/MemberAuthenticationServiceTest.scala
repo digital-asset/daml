@@ -12,6 +12,7 @@ import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.{
   NonMatchingDomainId,
   ParticipantAccessDisabled,
 }
+import com.digitalasset.canton.sequencing.authentication.grpc.AuthenticationTokenWithExpiry
 import com.digitalasset.canton.sequencing.authentication.{AuthenticationToken, MemberAuthentication}
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.*
@@ -35,6 +36,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest {
 
   def service(
       participantIsActive: Boolean,
+      useExponentialRandomTokenExpiration: Boolean = false,
       nonceDuration: JDuration = JDuration.ofMinutes(1),
       tokenDuration: JDuration = JDuration.ofHours(1),
       invalidateMemberCallback: Member => Unit = _ => (),
@@ -47,6 +49,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest {
       clock,
       nonceDuration,
       tokenDuration,
+      useExponentialRandomTokenExpiration = useExponentialRandomTokenExpiration,
       memberT => invalidateMemberCallback(memberT.value),
       Future.unit,
       DefaultProcessingTimeouts.testing,
@@ -70,17 +73,48 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest {
         signature <- getMemberAuthentication(p1)
           .signDomainNonce(p1, nonce, domainId, fingerprints, syncCrypto.crypto)
         tokenAndExpiry <- sut.validateSignature(p1, signature, nonce)
-      } yield tokenAndExpiry.token
+      } yield tokenAndExpiry
 
-    "generate nonce, verify signature, generate token, and verify token" in {
-      val sut = service(true)
+    "generate nonce, verify signature, generate token, verify token, and verify expiry" in {
+      val sut = service(participantIsActive = true)
       (for {
-        token <- generateToken(sut)
+        tokenAndExpiry <- generateToken(sut)
+        AuthenticationTokenWithExpiry(token, expiry) = tokenAndExpiry
         _ <- sut.validateToken(domainId, p1, token)
-      } yield ()).value.map { result =>
-        result should matchPattern { case Right(()) =>
-        }
+      } yield expiry).value.map {
+        case Right(expiry) =>
+          expiry should be(clock.now.plus(JDuration.ofHours(1)))
+        case Left(error) => fail(s"Failed with error: $error")
       }
+    }
+
+    "generate nonce, verify signature, generate token, verify token, and verify exponential expiry" in {
+      val sut = service(participantIsActive = true, useExponentialRandomTokenExpiration = true)
+      (for {
+        tokenAndExpiry <- generateToken(sut)
+        AuthenticationTokenWithExpiry(token, expiry) = tokenAndExpiry
+        _ <- sut.validateToken(domainId, p1, token)
+      } yield expiry).value.map {
+        case Right(expiry) =>
+          expiry should be >= clock.now.plus(JDuration.ofMinutes(30))
+          expiry should be <= clock.now.plus(JDuration.ofHours(1))
+        case Left(error) => fail(s"Failed with error: $error")
+      }
+    }
+
+    "use random expiry" in {
+      val sut = service(participantIsActive = true, useExponentialRandomTokenExpiration = true)
+      Seq
+        .fill(10) {
+          generateToken(sut).map(_.expiresAt)
+        }
+        .sequence
+        .value
+        .map {
+          case Right(expireTimes) =>
+            expireTimes.distinct.size should be > 1
+          case Left(error) => fail(s"Failed with error: $error")
+        }
     }
 
     "should fail every method if participant is not active" in {

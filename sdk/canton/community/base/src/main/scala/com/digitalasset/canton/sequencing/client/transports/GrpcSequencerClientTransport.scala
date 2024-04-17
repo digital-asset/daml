@@ -239,39 +239,15 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         }
   }
 
-  override def acknowledge(request: AcknowledgeRequest)(implicit
-      traceContext: TraceContext
-  ): Future[Unit] = {
-    val timestamp = request.timestamp
-    val requestP = request.toProtoV30
-    val responseP = CantonGrpcUtil.sendGrpcRequest(sequencerServiceClient, "sequencer")(
-      _.acknowledge(requestP),
-      requestDescription = s"acknowledge/$timestamp",
-      timeout = timeouts.network.duration,
-      logger = logger,
-      logPolicy = noLoggingShutdownErrorsLogPolicy,
-      retryPolicy = retryPolicy(retryOnUnavailable = false),
-    )
-
-    logger.debug(s"Acknowledging timestamp: $timestamp")
-    responseP.value map {
-      case Left(error) =>
-        logger.warn(s"Failed to send acknowledgement for $timestamp: $error")
-      case Right(_) =>
-        logger.debug(s"Acknowledged timestamp: $timestamp")
-    }
-  }
-
   override def acknowledgeSigned(signedRequest: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, Unit] = {
     val request = signedRequest.content
     val timestamp = request.timestamp
-    val requestP = signedRequest.toProtoV30
     logger.debug(s"Acknowledging timestamp: $timestamp")
     CantonGrpcUtil
       .sendGrpcRequest(sequencerServiceClient, "sequencer")(
-        _.acknowledgeSigned(v30.AcknowledgeSignedRequest(Some(requestP))),
+        _.acknowledgeSigned(v30.AcknowledgeSignedRequest(signedRequest.toByteString)),
         requestDescription = s"acknowledge-signed/$timestamp",
         timeout = timeouts.network.duration,
         logger = logger,

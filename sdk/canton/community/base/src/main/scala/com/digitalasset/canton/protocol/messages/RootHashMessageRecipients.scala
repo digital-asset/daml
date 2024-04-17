@@ -110,7 +110,7 @@ object RootHashMessageRecipients extends HasLoggerName {
 
   def wrongAndCorrectRecipients(
       recipientsList: Seq[Recipients],
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
   ): (Seq[RecipientsTree], Seq[NonEmpty[Set[Recipient]]]) = {
     val (wrongRecipients, correctRecipients) = recipientsList.flatMap { recipients =>
       recipients.trees.toList.map {

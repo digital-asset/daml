@@ -491,8 +491,7 @@ class PublicKeyAdministration(
       filterDomain: String = "",
       asOf: Option[Instant] = None,
       limit: PositiveInt = defaultLimit,
-  ): Seq[ListKeyOwnersResult] = {
-    println(s"keyOwner.uid.toProtoPrimitive = ${keyOwner.uid.toProtoPrimitive}")
+  ): Seq[ListKeyOwnersResult] =
     consoleEnvironment.run {
       adminCommand(
         TopologyAdminCommands.Aggregation.ListKeyOwners(
@@ -504,7 +503,6 @@ class PublicKeyAdministration(
         )
       )
     }
-  }
 }
 
 class KeyAdministrationGroup(

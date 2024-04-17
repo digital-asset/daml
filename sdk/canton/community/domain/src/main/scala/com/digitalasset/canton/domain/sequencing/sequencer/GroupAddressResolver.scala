@@ -7,7 +7,7 @@ import com.digitalasset.canton.crypto.{SyncCryptoApi, SyncCryptoClient}
 import com.digitalasset.canton.sequencing.protocol.{
   AllMembersOfDomain,
   GroupRecipient,
-  MediatorsOfDomain,
+  MediatorGroupRecipient,
   ParticipantsOfParty,
   SequencersOfDomain,
 }
@@ -45,8 +45,8 @@ final class GroupAddressResolver(cryptoApi: SyncCryptoClient[SyncCryptoApi]) {
               ) -> participants.toSet[Member]
             }
         }
-        mediatorsOfDomain <- {
-          val mediatorGroups = groupRecipients.collect { case MediatorsOfDomain(group) =>
+        mediatorGroupByMember <- {
+          val mediatorGroups = groupRecipients.collect { case MediatorGroupRecipient(group) =>
             group
           }.toSeq
           if (mediatorGroups.isEmpty)
@@ -59,7 +59,7 @@ final class GroupAddressResolver(cryptoApi: SyncCryptoClient[SyncCryptoApi]) {
                 .merge
             } yield groups
               .map(group =>
-                MediatorsOfDomain(group.index) -> (group.active.forgetNE ++ group.passive)
+                MediatorGroupRecipient(group.index) -> (group.active.forgetNE ++ group.passive)
                   .toSet[Member]
               )
               .toMap[GroupRecipient, Set[Member]]
@@ -89,6 +89,6 @@ final class GroupAddressResolver(cryptoApi: SyncCryptoClient[SyncCryptoApi]) {
           } else
             Future.successful(Map.empty[GroupRecipient, Set[Member]])
         }
-      } yield participantsOfParty ++ mediatorsOfDomain ++ sequencersOfDomain ++ allRecipients
+      } yield participantsOfParty ++ mediatorGroupByMember ++ sequencersOfDomain ++ allRecipients
   }
 }

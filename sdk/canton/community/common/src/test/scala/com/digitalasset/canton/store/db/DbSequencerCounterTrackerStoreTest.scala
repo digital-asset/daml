@@ -31,7 +31,7 @@ trait DbSequencerCounterTrackerStoreTest
   "DbSequencerCounterTrackerStore" should {
     behave like sequencerCounterTrackerStore(() =>
       new DbSequencerCounterTrackerStore(
-        SequencerClientDiscriminator.fromIndexedDomainId(IndexedDomain.tryCreate(domainId, 1)),
+        IndexedDomain.tryCreate(domainId, 1),
         storage,
         timeouts,
         loggerFactory,
