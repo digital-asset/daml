@@ -4,6 +4,7 @@
 package com.digitalasset.canton.sequencing
 
 import com.daml.metrics.api.noop.NoOpGauge
+import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.LogEntry
@@ -16,7 +17,7 @@ class DelayLoggerTest extends AnyWordSpec with BaseTest {
 
   "checkForDelay" should {
     val clock = new SimClock(start = CantonTimestamp.now(), loggerFactory = loggerFactory)
-    val gauge = NoOpGauge[Long]("test", 0L)
+    val gauge = NoOpGauge[Long](MetricInfo(MetricName("test"), "", MetricQualification.Debug), 0L)
     val delayLogger =
       new DelayLogger(clock, logger, NonNegativeFiniteDuration.tryOfSeconds(1), gauge)
 

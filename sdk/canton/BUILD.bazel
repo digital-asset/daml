@@ -1086,6 +1086,7 @@ scala_library(
     runtime_deps = [":community_reference-driver"],
     deps = [
         ":bindings-java",
+        ":community_admin-api",
         ":community_base",
         ":community_common",
         ":community_domain",

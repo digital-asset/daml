@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.metrics
 
-import com.daml.metrics.api.MetricQualification.{Debug, Latency}
 import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory, Meter, Timer}
+import com.daml.metrics.api.MetricQualification.{Debug, Latency}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class CommandMetrics(

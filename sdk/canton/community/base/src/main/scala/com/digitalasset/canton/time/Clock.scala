@@ -59,16 +59,16 @@ abstract class Clock() extends TimeProvider with AutoCloseable with NamedLogging
   }
   protected def warnIfClockRunsBackwards: Boolean = false
 
-  protected case class Queued(action: CantonTimestamp => Unit, timestamp: CantonTimestamp) {
+  protected case class Queued[A](action: CantonTimestamp => A, timestamp: CantonTimestamp) {
 
-    val promise: Promise[UnlessShutdown[Unit]] = Promise()
+    val promise: Promise[UnlessShutdown[A]] = Promise[UnlessShutdown[A]]()
 
     def run(now: CantonTimestamp): Unit =
       promise.complete(Try(UnlessShutdown.Outcome(action(now))))
 
   }
 
-  protected def addToQueue(queue: Queued): Unit
+  protected def addToQueue(queue: Queued[?]): Unit
 
   /** thread safe weakly monotonic time: each timestamp will be either equal or increasing
     * May go backwards across restarts.
@@ -106,9 +106,9 @@ abstract class Clock() extends TimeProvider with AutoCloseable with NamedLogging
   }
 
   protected val tasks =
-    new PriorityBlockingQueue[Queued](
+    new PriorityBlockingQueue[Queued[?]](
       PriorityBlockingQueueUtil.DefaultInitialCapacity,
-      (o1: Queued, o2: Queued) => o1.timestamp.compareTo(o2.timestamp),
+      (o1: Queued[?], o2: Queued[?]) => o1.timestamp.compareTo(o2.timestamp),
     )
 
   /** Thread-safely schedule an action to be executed in the future
@@ -117,10 +117,10 @@ abstract class Clock() extends TimeProvider with AutoCloseable with NamedLogging
     *
     * Same as other schedule method, except it expects a differential time amount
     */
-  def scheduleAfter(
-      action: CantonTimestamp => Unit,
+  def scheduleAfter[A](
+      action: CantonTimestamp => A,
       delta: Duration,
-  ): FutureUnlessShutdown[Unit] =
+  ): FutureUnlessShutdown[A] =
     scheduleAt(action, now.add(delta))
 
   /** Thread-safely schedule an action to be executed in the future
@@ -132,10 +132,10 @@ abstract class Clock() extends TimeProvider with AutoCloseable with NamedLogging
     * @param timestamp timestamp when to run the task
     * @return a future for the given task
     */
-  def scheduleAt(
-      action: CantonTimestamp => Unit,
+  def scheduleAt[A](
+      action: CantonTimestamp => A,
       timestamp: CantonTimestamp,
-  ): FutureUnlessShutdown[Unit] = {
+  ): FutureUnlessShutdown[A] = {
     val queued = Queued(action, timestamp)
     if (!now.isBefore(timestamp)) {
       queued.run(now)
@@ -148,7 +148,7 @@ abstract class Clock() extends TimeProvider with AutoCloseable with NamedLogging
   // flush the task queue, stopping once we hit a task in the future
   @tailrec
   private def doFlush(): Option[CantonTimestamp] = {
-    val queued = Option(tasks.poll())
+    val queued = Option(tasks.poll()): Option[Queued[?]]
     queued match {
       // if no task present, do nothing
       case None => None
@@ -280,8 +280,8 @@ class WallClock(
     }
   }
 
-  override protected def addToQueue(queued: Queued): Unit = {
-    val head = Option(tasks.peek())
+  override protected def addToQueue(queued: Queued[?]): Unit = {
+    val head = Option(tasks.peek()): Option[Queued[?]]
     val scheduleNew = head match {
       case Some(item) => item.timestamp.isAfter(queued.timestamp)
       case None => true
@@ -364,7 +364,7 @@ class SimClock(
 
   override def close(): Unit = {}
 
-  override protected def addToQueue(queue: Queued): Unit = {
+  override protected def addToQueue(queue: Queued[?]): Unit = {
     val _ = tasks.add(queue)
   }
 
@@ -471,7 +471,7 @@ class RemoteClock(
     }
   }
 
-  override protected def addToQueue(queue: Queued): Unit = {
+  override protected def addToQueue(queue: Queued[?]): Unit = {
     val _ = tasks.add(queue)
   }
 
@@ -522,4 +522,17 @@ class DelegatingSimClock(
     super.reset()
     currentClocks().foreach(_.reset())
   }
+}
+
+/** A clock based on a time provider. Does not support scheduling of tasks! */
+class TimeProviderClock(
+    timeProvider: TimeProvider,
+    override protected val loggerFactory: NamedLoggerFactory,
+) extends Clock {
+  override def now: CantonTimestamp =
+    CantonTimestamp.assertFromLong(timeProvider.nowInMicrosecondsSinceEpoch)
+
+  override protected def addToQueue(queue: Queued[?]): Unit = ()
+
+  override def close(): Unit = ()
 }

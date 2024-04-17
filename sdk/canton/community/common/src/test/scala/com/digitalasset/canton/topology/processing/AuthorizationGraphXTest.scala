@@ -19,7 +19,7 @@ class AuthorizationGraphXTest
 
   private class Fixture {
 
-    val factory = new TestingOwnerWithKeysX(domainManager, loggerFactory, directExecutionContext)
+    val factory = new TestingOwnerWithKeysX(sequencerIdX, loggerFactory, directExecutionContext)
     import factory.SigningKeys.*
     val namespace = Namespace(key1.fingerprint)
 

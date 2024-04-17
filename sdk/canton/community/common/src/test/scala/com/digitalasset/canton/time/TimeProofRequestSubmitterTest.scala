@@ -9,6 +9,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.String73
 import com.digitalasset.canton.config.TimeProofRequestConfig
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError
 import com.digitalasset.canton.sequencing.protocol.{
   Batch,
@@ -44,11 +45,11 @@ class TimeProofRequestSubmitterTest extends FixtureAsyncWordSpec with BaseTest {
 
     private def handleRequest(
         traceContext: TraceContext
-    ): EitherT[Future, SendAsyncClientError, Unit] = {
+    ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
       callCount.incrementAndGet()
       nextRequestP.get.foreach(_.trySuccess(()))
       nextRequestP.set(None)
-      nextResult.get()
+      nextResult.get().mapK(FutureUnlessShutdown.outcomeK)
     }
 
     def triggerTime(): EitherT[Future, SendAsyncClientError, Unit] = {

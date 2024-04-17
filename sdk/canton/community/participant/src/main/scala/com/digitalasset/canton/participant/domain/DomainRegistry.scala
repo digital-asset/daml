@@ -317,6 +317,21 @@ object DomainRegistryError extends DomainRegistryErrorGroup {
         with DomainRegistryError
   }
 
+  @Explanation("This error indicates that there has been an initial onboarding problem.")
+  @Resolution(
+    "Check the underlying cause and retry if possible. If not, contact support and provide the failure reason."
+  )
+  object InitialOnboardingError
+      extends ErrorCode(
+        id = "INITIAL_ONBOARDING_ERROR",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Error(override val cause: String)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(cause)
+        with DomainRegistryError
+  }
+
   @Explanation(
     """This error indicates that there has been an internal error noticed by Canton."""
   )
@@ -326,11 +341,6 @@ object DomainRegistryError extends DomainRegistryErrorGroup {
         id = "DOMAIN_REGISTRY_INTERNAL_ERROR",
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
-    final case class InitialOnboardingError(override val cause: String)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(cause)
-        with DomainRegistryError
-
     final case class TopologyHandshakeError(throwable: Throwable)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
@@ -352,7 +362,6 @@ object DomainRegistryError extends DomainRegistryErrorGroup {
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(cause)
         with DomainRegistryError
-
   }
 
 }

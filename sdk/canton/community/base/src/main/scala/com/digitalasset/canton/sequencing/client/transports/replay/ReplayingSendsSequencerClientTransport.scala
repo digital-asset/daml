@@ -13,6 +13,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.{MetricValue, SequencerClientMetrics}
+import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.client.transports.{
   SequencerClientTransport,
@@ -368,7 +369,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
   override def sendAsyncSigned(
       request: SignedContent[SubmissionRequest],
       timeout: Duration,
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientResponseError, Unit] =
     EitherT.rightT(())
 
   /** We're replaying sends so shouldn't allow the app to send any new ones */
@@ -377,7 +378,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SendAsyncClientError, Unit] = EitherT.rightT(())
+  ): EitherT[Future, SendAsyncClientResponseError, Unit] = EitherT.rightT(())
 
   override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext

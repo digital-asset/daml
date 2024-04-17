@@ -486,7 +486,7 @@ class BlockSequencerStateManager(
     if (unifiedSequencer) {
       (for {
         _ <- EitherT.right(dbSequencerIntegration.blockSequencerRegisterMembers(update.newMembers))
-        _ <- dbSequencerIntegration.blockSequencerWrites(update.submissionsOutcomes)
+        _ <- dbSequencerIntegration.blockSequencerWrites(update.submissionsOutcomes.map(_.outcome))
         // TODO(#18415): Write acknowledgements to the database sequencer
         // TODO(#18415): Disable members in the database sequencer
 

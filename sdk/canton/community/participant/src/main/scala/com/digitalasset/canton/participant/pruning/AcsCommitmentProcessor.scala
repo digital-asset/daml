@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.pruning
 
-import cats.data.{EitherT, NonEmptyList, ValidatedNec}
+import cats.data.{NonEmptyList, ValidatedNec}
 import cats.syntax.contravariantSemigroupal.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
@@ -1343,29 +1343,27 @@ class AcsCommitmentProcessor(
     val batchForm = msgs.toList.map { case (pid, msg) => (msg, Recipients.cc(pid)) }
     val batch = Batch.of[ProtocolMessage](protocolVersion, batchForm*)
     if (batch.envelopes.nonEmpty) {
-      performUnlessClosingEitherT(functionFullName, ()) {
+      performUnlessClosingUSF(functionFullName) {
         def message = s"Failed to send commitment message batch for period $period"
-        EitherT(
-          FutureUtil.logOnFailure(
-            sequencerClient
-              .sendAsync(
-                batch,
-                SendType.Other,
-                None,
-                // ACS commitments are best effort, so no need to amplify them
-                amplify = false,
-              )
-              .leftMap {
-                case RequestRefused(SendAsyncError.ShuttingDown(msg)) =>
-                  logger.info(
-                    s"${message} as the sequencer is shutting down. Once the sequencer is back, we'll recover."
-                  )
-                case other =>
-                  logger.warn(s"${message}: ${other}")
-              }
-              .value,
-            message,
-          )
+        FutureUtil.logOnFailureUnlessShutdown(
+          sequencerClient
+            .sendAsync(
+              batch,
+              SendType.Other,
+              None,
+              // ACS commitments are best effort, so no need to amplify them
+              amplify = false,
+            )
+            .leftMap {
+              case RequestRefused(SendAsyncError.ShuttingDown(msg)) =>
+                logger.info(
+                  s"${message} as the sequencer is shutting down. Once the sequencer is back, we'll recover."
+                )
+              case other =>
+                logger.warn(s"${message}: ${other}")
+            }
+            .value,
+          message,
         )
       }.discard
     }

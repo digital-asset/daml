@@ -481,7 +481,6 @@ class GrpcSequencerService(
       request: SubmissionRequest,
       sender: AuthenticatedMember,
   )(implicit traceContext: TraceContext): Either[SendAsyncError, Unit] = sender match {
-    case _: DomainTopologyManagerId => Right(())
     case _ =>
       val unauthRecipients = request.batch.envelopes
         .toSet[ClosedEnvelope]
@@ -506,7 +505,6 @@ class GrpcSequencerService(
     val nonIdmRecipients = request.batch.envelopes
       .flatMap(_.recipients.allRecipients)
       .filter {
-        case MemberRecipient(_: DomainTopologyManagerId) => false
         case TopologyBroadcastAddress.recipient if enableBroadcastOfUnauthenticatedMessages =>
           false
         case _ => true
@@ -684,7 +682,7 @@ class GrpcSequencerService(
       request: v30.AcknowledgeSignedRequest
   ): Future[v30.AcknowledgeSignedResponse] = {
     val acknowledgeRequestE = SignedContent
-      .fromProtoV30(request.getSignedContent)
+      .fromByteString(protocolVersion)(request.signedAcknowledgeRequest)
       .flatMap(_.deserializeContent(AcknowledgeRequest.fromByteString(protocolVersion)))
     performAcknowledge(acknowledgeRequestE.map(SignedAcknowledgeRequest))
   }

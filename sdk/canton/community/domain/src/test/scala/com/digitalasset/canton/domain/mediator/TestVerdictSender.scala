@@ -6,6 +6,7 @@ package com.digitalasset.canton.domain.mediator
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.mediator.TestVerdictSender.Result
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.*
@@ -43,7 +44,7 @@ class TestVerdictSender(
       request: MediatorConfirmationRequest,
       verdict: Verdict,
       decisionTime: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     sentResultsQueue.add(Result(requestId, decisionTime, Some(request), Some(verdict)))
     super.sendResult(requestId, request, verdict, decisionTime)
   }

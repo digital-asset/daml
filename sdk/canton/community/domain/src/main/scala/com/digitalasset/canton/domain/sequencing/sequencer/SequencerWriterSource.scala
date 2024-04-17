@@ -26,8 +26,8 @@ import com.digitalasset.canton.logging.{
   TracedLogger,
 }
 import com.digitalasset.canton.sequencing.protocol.{
-  Deliver,
-  DeliverError,
+  Batch,
+  ClosedEnvelope,
   SendAsyncError,
   SequencerErrors,
   SubmissionRequest,
@@ -138,14 +138,14 @@ class SequencerWriterQueues private[sequencer] (
     writeInternal(Left(submission))
 
   def blockSequencerWrite(
-      outcome: SubmissionRequestOutcome
+      outcome: DeliverableSubmissionOutcome
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] =
     writeInternal(Right(outcome))
 
   /** Accepts both submission requests (DBS flow) as `Left` and submission outcomes (BS flow) as `Right`.
     */
   private def writeInternal(
-      submissionOrOutcome: Either[SubmissionRequest, SubmissionRequestOutcome]
+      submissionOrOutcome: Either[SubmissionRequest, DeliverableSubmissionOutcome]
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = {
     for {
       event <- eventGenerator.generate(submissionOrOutcome)
@@ -282,15 +282,11 @@ class SendEventGenerator(
     executionContext: ExecutionContext
 ) {
   def generate(
-      submissionOrOutcome: Either[SubmissionRequest, SubmissionRequestOutcome]
+      submissionOrOutcome: Either[SubmissionRequest, DeliverableSubmissionOutcome]
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, SendAsyncError, Presequenced[StoreEvent[Payload]]] = {
     val submission = submissionOrOutcome.map(_.submission).merge
-    val trafficStateO = submissionOrOutcome.fold(
-      _ => None,
-      _.memberTrafficState(submission.sender),
-    )
     def lookupSender: EitherT[Future, SendAsyncError, SequencerMemberId] = EitherT(
       store
         .lookupMember(submission.sender)
@@ -314,13 +310,15 @@ class SendEventGenerator(
     ): Future[Validated[NonEmpty[Seq[Member]], Set[SequencerMemberId]]] =
       for {
         // TODO(#12363) Support group addresses in the DB Sequencer
+        // TODO(#18394) Implement batch db check for member registration and id retrieval
         validatedSeq <- recipients.toSeq
           .parTraverse(validateRecipient)
         validated = validatedSeq.traverse(_.leftMap(NonEmpty(Seq, _)))
       } yield validated.map(_.toSet)
 
     def validateAndGenerateEvent(
-        senderId: SequencerMemberId
+        senderId: SequencerMemberId,
+        batch: Batch[ClosedEnvelope],
     ): Future[StoreEvent[Payload]] = {
       def unknownRecipientsDeliverError(
           unknownRecipients: NonEmpty[Seq[Member]]
@@ -333,20 +331,18 @@ class SendEventGenerator(
           error.rpcStatusWithoutLoggingContext(),
           protocolVersion,
           traceContext,
-          trafficStateO,
         )
       }
 
       def deliver(recipientIds: Set[SequencerMemberId]): StoreEvent[Payload] = {
         val payload =
           Payload(
-            payloadIdGenerator(),
-            submissionOrOutcome
-              .fold(
-                _.batch,
-                _.aggregatedBatchO.getOrElse(submission.batch),
-              )
-              .toByteString,
+            submissionOrOutcome.fold(
+              _ => payloadIdGenerator(),
+              // in case of unified sequencer, we use the sequencing time as the payload id
+              outcome => PayloadId(outcome.sequencingTime),
+            ),
+            batch.toByteString,
           )
         DeliverStoreEvent.ensureSenderReceivesEvent(
           senderId,
@@ -354,7 +350,6 @@ class SendEventGenerator(
           recipientIds,
           payload,
           submission.topologyTimestamp,
-          trafficStateO,
         )
       }
 
@@ -367,51 +362,35 @@ class SendEventGenerator(
       } yield validatedRecipients.fold(unknownRecipientsDeliverError, deliver)
     }
 
-    val extDeliverErrorO = submissionOrOutcome.fold(
-      _ => None,
-      _.receiptOrErrorO, // TODO(#18395): Refactor this into the separate receipt and error outcomes
-    )
-
     for {
-      senderId <- lookupSender
-      event <- {
-        EitherT.right[SendAsyncError](
-          extDeliverErrorO match {
-            case Some(extDeliverError) =>
-              Future.successful(
-                extDeliverError match {
-                  // This only happens for deliver receipts with an empty batch
-                  case event: Deliver[_] =>
-                    require(event.batch.envelopes.isEmpty, s"Expected an empty batch for: $event")
-                    val payload =
-                      Payload(
-                        // TODO(#18405): Consider using the event timestamp also for payloads for the BS/US flow
-                        payloadIdGenerator(),
-                        event.batch.toByteString,
-                      )
-                    DeliverStoreEvent.ensureSenderReceivesEvent(
-                      senderId,
-                      submission.messageId,
-                      Set(senderId),
-                      payload,
-                      submission.topologyTimestamp,
-                      trafficStateO,
-                    ): StoreEvent[Payload]
-                  case err: DeliverError =>
-                    DeliverErrorStoreEvent(
-                      senderId,
-                      submission.messageId,
-                      err.reason,
-                      protocolVersion,
-                      traceContext,
-                      trafficStateO,
-                    ): StoreEvent[Payload]
-                }
+      senderId <- lookupSender // could return a sync error on the api in the DBS, not for US
+      event <- EitherT.right(
+        submissionOrOutcome match {
+          case Left(submission) =>
+            validateAndGenerateEvent(senderId, submission.batch)
+          case Right(outcome: SubmissionOutcome.Deliver) =>
+            validateAndGenerateEvent(senderId, outcome.batch) // possibly an aggregated batch
+          case Right(_: SubmissionOutcome.DeliverReceipt) =>
+            Future.successful(
+              ReceiptStoreEvent(
+                senderId,
+                submission.messageId,
+                submission.topologyTimestamp,
+                traceContext,
               )
-            case None => validateAndGenerateEvent(senderId)
-          }
-        )
-      }
+            )
+          case Right(reject: SubmissionOutcome.Reject) =>
+            Future.successful(
+              DeliverErrorStoreEvent(
+                senderId,
+                submission.messageId,
+                reject.error,
+                protocolVersion,
+                traceContext,
+              )
+            )
+        }
+      )
     } yield Presequenced.withMaxSequencingTime(
       event,
       submission.maxSequencingTime,
@@ -545,7 +524,6 @@ object SequenceWritesFlow {
                 _,
                 Some(topologyTimestamp),
                 _,
-                trafficStateO,
               ) =>
             // We only check that the signing timestamp is at most the assigned timestamp.
             // The lower bound will be checked only when reading the event
@@ -568,7 +546,6 @@ object SequenceWritesFlow {
                 reason.rpcStatusWithoutLoggingContext(),
                 protocolVersion,
                 event.traceContext,
-                trafficStateO,
               )
             }
           case other => other
@@ -673,13 +650,14 @@ object WritePayloadsFlow {
     }
 
     def extractPayload(event: StoreEvent[Payload]): Option[Payload] = event match {
-      case DeliverStoreEvent(_, _, _, payload, _, _, _) => payload.some
+      case DeliverStoreEvent(_, _, _, payload, _, _) => payload.some
       case _other => None
     }
 
     def dropPayloadContent(event: StoreEvent[Payload]): StoreEvent[PayloadId] = event match {
-      case deliver: DeliverStoreEvent[Payload] => deliver.mapPayload(_.id)
+      case deliver: DeliverStoreEvent[Payload] => deliver.map(_.id)
       case error: DeliverErrorStoreEvent => error
+      case receipt: ReceiptStoreEvent => receipt
     }
 
     Flow[Presequenced[StoreEvent[Payload]]]

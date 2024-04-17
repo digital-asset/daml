@@ -45,7 +45,7 @@ trait RefinedNonNegativeDuration[D <: RefinedNonNegativeDuration[D]] extends Pre
 
   def asFiniteApproximation: FiniteDuration
 
-  def asJavaApproximation: JDuration = JDuration.ofMillis(asFiniteApproximation.toMillis)
+  def asJavaApproximation: JDuration = JDuration.ofNanos(asFiniteApproximation.toNanos)
   def minusSeconds(s: Int): D = update(duration.minus(s.seconds))
 
   def +(other: D): D = update(duration.plus(other.duration))

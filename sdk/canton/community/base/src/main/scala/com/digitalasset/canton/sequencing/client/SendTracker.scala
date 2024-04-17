@@ -14,6 +14,7 @@ import com.digitalasset.canton.lifecycle.{
   AsyncCloseable,
   AsyncOrSyncCloseable,
   FlagCloseableAsync,
+  FutureUnlessShutdown,
   SyncCloseable,
   UnlessShutdown,
 }
@@ -86,12 +87,14 @@ class SendTracker(
       messageId: MessageId,
       maxSequencingTime: CantonTimestamp,
       callback: SendCallback = SendCallback.empty,
-  )(implicit traceContext: TraceContext): EitherT[Future, SavePendingSendError, Unit] = {
-    performUnlessClosing(s"track $messageId") {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SavePendingSendError, Unit] = {
+    performUnlessClosingEitherU(s"track $messageId") {
       for {
-        _ <- store
-          .savePendingSend(messageId, maxSequencingTime)
-        _ = pendingSends.put(
+        _ <- store.savePendingSend(messageId, maxSequencingTime)
+      } yield {
+        pendingSends.put(
           messageId,
           PendingSend(maxSequencingTime, callback, startedAt = Some(Instant.now()), traceContext),
         ) match {
@@ -106,11 +109,10 @@ class SendTracker(
             )
           case _none => // we're good
         }
-        _ = metrics.submissions.inFlight.inc()
-      } yield ()
-    }.onShutdown {
+        metrics.submissions.inFlight.inc()
+      }
+    }.tapOnShutdown {
       callback(UnlessShutdown.AbortedDueToShutdown)
-      EitherT.pure(())
     }
   }
 

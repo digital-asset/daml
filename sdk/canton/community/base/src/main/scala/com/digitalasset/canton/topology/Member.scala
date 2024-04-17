@@ -50,7 +50,6 @@ object MemberCode {
   def fromProtoPrimitive_(code: String): Either[String, MemberCode] =
     String3.create(code).flatMap {
       case MediatorId.Code.threeLetterId => Right(MediatorId.Code)
-      case DomainTopologyManagerId.Code.threeLetterId => Right(DomainTopologyManagerId.Code)
       case ParticipantId.Code.threeLetterId => Right(ParticipantId.Code)
       case SequencerId.Code.threeLetterId => Right(SequencerId.Code)
       case UnauthenticatedMemberId.Code.threeLetterId => Right(UnauthenticatedMemberId.Code)
@@ -100,7 +99,6 @@ object Member {
     def mapToType(code: MemberCode, uid: UniqueIdentifier): Either[String, Member] = {
       code match {
         case MediatorId.Code => Right(MediatorId(uid))
-        case DomainTopologyManagerId.Code => Right(DomainTopologyManagerId(uid))
         case ParticipantId.Code => Right(ParticipantId(uid))
         case SequencerId.Code => Right(SequencerId(uid))
         case UnauthenticatedMemberId.Code => Right(UnauthenticatedMemberId(uid))
@@ -181,12 +179,10 @@ object UnauthenticatedMemberId {
     )
 }
 
-final case class DomainId(uid: UniqueIdentifier) extends NodeIdentity {
+final case class DomainId(uid: UniqueIdentifier) extends Identity {
   def unwrap: UniqueIdentifier = uid
   def toLengthLimitedString: String255 = uid.toLengthLimitedString
 
-  // The member and member of a domain identity is the domain topology manager
-  override def member: Member = DomainTopologyManagerId(uid)
 }
 
 object DomainId {
@@ -330,21 +326,6 @@ object PartyId {
 
 sealed trait DomainMember extends AuthenticatedMember
 
-object DomainMember {
-
-  /** List domain members for the given id, optionally including the sequencer. * */
-  def list(id: DomainId, includeSequencer: Boolean): Set[DomainMember] = {
-    // TODO(i7992) remove static mediator id
-    val baseMembers = Set[DomainMember](DomainTopologyManagerId(id), MediatorId(id))
-    if (includeSequencer) baseMembers + SequencerId(id)
-    else baseMembers
-  }
-
-  /** List all domain members always including the sequencer. */
-  def listAll(id: DomainId): Set[DomainMember] = list(id, includeSequencer = true)
-
-}
-
 /** @param index uniquely identifies the group, just like [[MediatorId]] for single mediators.
   * @param active the active mediators belonging to the group
   * @param passive the passive mediators belonging to the group
@@ -394,29 +375,6 @@ object MediatorId {
       )
   }
 
-}
-
-/** The domain topology manager id
-  *
-  * The domain manager is the topology manager of the domain. The read side
-  * of the domain manager is the IdentityProvidingService.
-  */
-final case class DomainTopologyManagerId(uid: UniqueIdentifier) extends DomainMember {
-  override def code: AuthenticatedMemberCode = DomainTopologyManagerId.Code
-  override val description: String = "domain topology manager"
-  lazy val domainId: DomainId = DomainId(uid)
-}
-
-object DomainTopologyManagerId {
-
-  object Code extends AuthenticatedMemberCode {
-    val threeLetterId = String3.tryCreate("DOM")
-  }
-
-  def apply(identifier: Identifier, namespace: Namespace): DomainTopologyManagerId =
-    DomainTopologyManagerId(UniqueIdentifier(identifier, namespace))
-
-  def apply(domainId: DomainId): DomainTopologyManagerId = DomainTopologyManagerId(domainId.unwrap)
 }
 
 final case class SequencerGroup(

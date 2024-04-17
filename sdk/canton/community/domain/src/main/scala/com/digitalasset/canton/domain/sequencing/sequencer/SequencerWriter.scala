@@ -316,7 +316,7 @@ class SequencerWriter(
   }
 
   def blockSequencerWrite(
-      outcome: SubmissionRequestOutcome
+      outcome: DeliverableSubmissionOutcome
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = {
     lazy val sendET = sequencerQueues
       .fold(

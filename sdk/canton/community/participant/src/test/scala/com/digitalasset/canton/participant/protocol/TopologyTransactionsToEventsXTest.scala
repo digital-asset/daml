@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.protocol
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.topology.DefaultTestIdentities.domainManager
+import com.digitalasset.canton.topology.DefaultTestIdentities.sequencerIdX
 import com.digitalasset.canton.topology.store.SignedTopologyTransactionsX
 import com.digitalasset.canton.topology.transaction.TopologyChangeOpX.Replace
 import com.digitalasset.canton.topology.transaction.*
@@ -23,7 +23,7 @@ class TopologyTransactionsToEventsXTest
     with HasExecutionContext
     with ProtocolVersionChecksAsyncWordSpec {
   private lazy val topologyFactoryX =
-    new TestingOwnerWithKeysX(domainManager, loggerFactory, executorService)
+    new TestingOwnerWithKeysX(sequencerIdX, loggerFactory, executorService)
 
   private def ptp(
       partyId: PartyId,

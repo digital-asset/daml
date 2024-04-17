@@ -32,18 +32,16 @@ import scala.concurrent.{ExecutionContext, Future, blocking}
 
 class DbSequencedEventStore(
     override protected val storage: DbStorage,
-    client: SequencerClientDiscriminator,
+    indexedDomain: IndexedDomain,
     protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends SequencedEventStore
     with DbStore
-    with DbPrunableByTime[SequencerClientDiscriminator] {
+    with DbPrunableByTime {
 
-  override protected[this] val partitionKey: SequencerClientDiscriminator = client
-
-  override protected[this] def partitionColumn: String = "client"
+  override protected[this] val partitionKey: IndexedDomain = indexedDomain
 
   override protected[this] def pruning_status_table: String = "common_sequenced_event_store_pruning"
 
@@ -66,10 +64,6 @@ class DbSequencedEventStore(
     }
     body.thereafter(_ => semaphore.release())
   }
-
-  override protected[this] implicit def setParameterDiscriminator
-      : SetParameter[SequencerClientDiscriminator] =
-    SequencerClientDiscriminator.setClientDiscriminatorParameter
 
   import com.digitalasset.canton.store.SequencedEventStore.*
   import storage.api.*
@@ -146,16 +140,16 @@ class DbSequencedEventStore(
   )(implicit traceContext: TraceContext): DBIOAction[Unit, NoStream, Effect.All] = {
     val insertSql = storage.profile match {
       case _: DbStorage.Profile.Oracle =>
-        """merge /*+ INDEX ( common_sequenced_events ( ts, client ) ) */
+        """merge /*+ INDEX ( common_sequenced_events ( ts, domain_id ) ) */
             |into common_sequenced_events
-            |using (select ? client, ? ts from dual) input
-            |on (sequenced_events.ts = input.ts and common_sequenced_events.client = input.client)
+            |using (select ? domain_id, ? ts from dual) input
+            |on (sequenced_events.ts = input.ts and common_sequenced_events.domain_id = input.domain_id)
             |when not matched then
-            |  insert (client, ts, sequenced_event, type, sequencer_counter, trace_context, ignore, extra_traffic_remainder, extra_traffic_consumed)
-            |  values (input.client, input.ts, ?, ?, ?, ?, ?, ?, ?)""".stripMargin
+            |  insert (domain_id, ts, sequenced_event, type, sequencer_counter, trace_context, ignore, extra_traffic_remainder, extra_traffic_consumed)
+            |  values (input.domain_id, input.ts, ?, ?, ?, ?, ?, ?, ?)""".stripMargin
 
       case _ =>
-        "insert into common_sequenced_events (client, ts, sequenced_event, type, sequencer_counter, trace_context, ignore, extra_traffic_remainder, extra_traffic_consumed) " +
+        "insert into common_sequenced_events (domain_id, ts, sequenced_event, type, sequencer_counter, trace_context, ignore, extra_traffic_remainder, extra_traffic_consumed) " +
           "values (?, ?, ?, ?, ?, ?, ?, ?, ?) " +
           "on conflict do nothing"
     }
@@ -180,10 +174,10 @@ class DbSequencedEventStore(
         // The implementation assumes that we timestamps on sequenced events increases monotonically with the sequencer counter
         // It therefore is fine to take the first event that we find.
         sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore, extra_traffic_remainder, extra_traffic_consumed from common_sequenced_events
-                where client = $partitionKey and ts = $timestamp"""
+                where domain_id = $partitionKey and ts = $timestamp"""
       case LatestUpto(inclusive) =>
         sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore, extra_traffic_remainder, extra_traffic_consumed from common_sequenced_events
-                where client = $partitionKey and ts <= $inclusive
+                where domain_id = $partitionKey and ts <= $inclusive
                 order by ts desc #${storage.limit(1)}"""
     }
 
@@ -201,7 +195,7 @@ class DbSequencedEventStore(
           for {
             events <- storage.query(
               sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore, extra_traffic_remainder, extra_traffic_consumed from common_sequenced_events
-                    where client = $partitionKey and $lowerInclusive <= ts  and ts <= $upperInclusive
+                    where domain_id = $partitionKey and $lowerInclusive <= ts  and ts <= $upperInclusive
                     order by ts #${limit.fold("")(storage.limit(_))}"""
                 .as[PossiblyIgnoredSerializedEvent],
               functionFullName,
@@ -223,7 +217,7 @@ class DbSequencedEventStore(
   )(implicit traceContext: TraceContext): Future[Seq[PossiblyIgnoredSerializedEvent]] = {
     storage.query(
       sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore, extra_traffic_remainder, extra_traffic_consumed from common_sequenced_events
-              where client = $partitionKey
+              where domain_id = $partitionKey
               order by ts #${limit.fold("")(storage.limit(_))}"""
         .as[PossiblyIgnoredSerializedEvent],
       functionFullName,
@@ -235,12 +229,12 @@ class DbSequencedEventStore(
       lastPruning: Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): Future[Int] = {
     val query =
-      sqlu"delete from common_sequenced_events where client = $partitionKey and ts <= $untilInclusive"
+      sqlu"delete from common_sequenced_events where domain_id = $partitionKey and ts <= $untilInclusive"
     storage
       .queryAndUpdate(query, functionFullName)
       .map { nrPruned =>
         logger.info(
-          s"Pruned at least $nrPruned entries from the sequenced event store of client $partitionKey older or equal to $untilInclusive"
+          s"Pruned at least $nrPruned entries from the sequenced event store of domain_id $partitionKey older or equal to $untilInclusive"
         )
         nrPruned
       }
@@ -265,7 +259,7 @@ class DbSequencedEventStore(
     for {
       lastSequencerCounterAndTimestampO <- EitherT.right(
         storage.query(
-          sql"""select sequencer_counter, ts from common_sequenced_events where client = $partitionKey
+          sql"""select sequencer_counter, ts from common_sequenced_events where domain_id = $partitionKey
                order by sequencer_counter desc #${storage.limit(1)}"""
             .as[(SequencerCounter, CantonTimestamp)]
             .headOption,
@@ -302,7 +296,7 @@ class DbSequencedEventStore(
       traceContext: TraceContext
   ): Future[Unit] = {
     storage.update_(
-      sqlu"update common_sequenced_events set ignore = $ignore where client = $partitionKey and $fromInclusive <= sequencer_counter and sequencer_counter <= $toInclusive",
+      sqlu"update common_sequenced_events set ignore = $ignore where domain_id = $partitionKey and $fromInclusive <= sequencer_counter and sequencer_counter <= $toInclusive",
       functionFullName,
     )
   }
@@ -324,7 +318,7 @@ class DbSequencedEventStore(
       lastNonEmptyEventSequencerCounter <- EitherT.right(
         storage.query(
           sql"""select sequencer_counter from common_sequenced_events
-              where client = $partitionKey and type != ${SequencedEventDbType.IgnoredEvent}
+              where domain_id = $partitionKey and type != ${SequencedEventDbType.IgnoredEvent}
               order by sequencer_counter desc #${storage.limit(1)}"""
             .as[SequencerCounter]
             .headOption,
@@ -337,7 +331,7 @@ class DbSequencedEventStore(
       lastSequencerCounter <- EitherT.right(
         storage.query(
           sql"""select sequencer_counter from common_sequenced_events
-              where client = $partitionKey
+              where domain_id = $partitionKey
               order by sequencer_counter desc #${storage.limit(1)}"""
             .as[SequencerCounter]
             .headOption,
@@ -353,7 +347,7 @@ class DbSequencedEventStore(
       _ <- EitherT.right(
         storage.update(
           sqlu"""delete from common_sequenced_events
-               where client = $partitionKey and type = ${SequencedEventDbType.IgnoredEvent}
+               where domain_id = $partitionKey and type = ${SequencedEventDbType.IgnoredEvent}
                  and $fromEffective <= sequencer_counter and sequencer_counter <= $to""",
           functionFullName,
         )
@@ -365,7 +359,7 @@ class DbSequencedEventStore(
       from: SequencerCounter
   )(implicit traceContext: TraceContext): Future[Unit] = {
     storage.update_(
-      sqlu"delete from common_sequenced_events where client = $partitionKey and sequencer_counter >= $from",
+      sqlu"delete from common_sequenced_events where domain_id = $partitionKey and sequencer_counter >= $from",
       functionFullName,
     )
   }

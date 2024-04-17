@@ -124,7 +124,6 @@ object IndexedStringType {
   }
 
   val domainId: IndexedStringType = IndexedStringType(1, "domainId")
-  val memberId: IndexedStringType = IndexedStringType(2, "memberId")
 
 }
 

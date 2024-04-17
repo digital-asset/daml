@@ -63,6 +63,7 @@ import com.digitalasset.canton.sequencing.{
   SequencerConnection,
   SequencerConnectionValidation,
   SequencerConnections,
+  SubmissionRequestAmplification,
 }
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -108,7 +109,8 @@ private[console] object ParticipantCommands {
         maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
         priority: Int = 0,
         sequencerTrustThreshold: PositiveInt = PositiveInt.one,
-        submissionRequestAmplification: PositiveInt = PositiveInt.one,
+        submissionRequestAmplification: SubmissionRequestAmplification =
+          SubmissionRequestAmplification.NoAmplification,
     ): DomainConnectionConfig = {
       DomainConnectionConfig(
         domainAlias,
@@ -1148,7 +1150,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           consoleEnvironment.commandTimeouts.bounded
         ),
         sequencerTrustThreshold: PositiveInt = PositiveInt.one,
-        submissionRequestAmplification: PositiveInt = PositiveInt.one,
+        submissionRequestAmplification: SubmissionRequestAmplification =
+          SubmissionRequestAmplification.NoAmplification,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): Unit = {
       val config = ParticipantCommands.domains.reference_to_config(

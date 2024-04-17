@@ -13,11 +13,7 @@ import com.daml.nonempty.catsinstances.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.{
-  NonNegativeInt,
-  NonNegativeLong,
-  PositiveNumeric,
-}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveNumeric}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   CommitMode,
@@ -32,7 +28,7 @@ import com.digitalasset.canton.resource.DbStorage.DbAction.ReadOnly
 import com.digitalasset.canton.resource.DbStorage.Implicits.BuilderChain.*
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Oracle, Postgres}
 import com.digitalasset.canton.resource.DbStorage.*
-import com.digitalasset.canton.sequencing.protocol.{MessageId, SequencedEventTrafficState}
+import com.digitalasset.canton.sequencing.protocol.MessageId
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId}
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
@@ -164,6 +160,7 @@ class DbSequencerStore(
 
   object EventTypeDiscriminator {
 
+    case object Receipt extends EventTypeDiscriminator('R')
     case object Deliver extends EventTypeDiscriminator('D')
 
     case object Error extends EventTypeDiscriminator('E')
@@ -203,14 +200,13 @@ class DbSequencerStore(
       traceContext: TraceContext,
       // TODO(#15628) We should represent this differently, so that DeliverErrorStoreEvent.fromByteString parameter is always defined as well
       errorO: Option[ByteString],
-      extraTrafficRemainderO: Option[Long] = None,
-      extraTrafficConsumedO: Option[Long] = None,
   ) {
     lazy val asStoreEvent: Either[String, Sequenced[P]] =
       for {
         event <- eventType match {
           case EventTypeDiscriminator.Deliver => asDeliverStoreEvent: Either[String, StoreEvent[P]]
           case EventTypeDiscriminator.Error => asErrorStoreEvent: Either[String, StoreEvent[P]]
+          case EventTypeDiscriminator.Receipt => asReceiptStoreEvent: Either[String, StoreEvent[P]]
         }
       } yield Sequenced(timestamp, event)
 
@@ -220,57 +216,36 @@ class DbSequencerStore(
         sender <- senderO.toRight("sender not set for deliver event")
         recipients <- recipientsO.toRight("recipients not set for deliver event")
         payload <- payloadO.toRight("payload not set for deliver event")
-        extraTrafficRemainderNN <- extraTrafficRemainderO match {
-          case Some(value) => NonNegativeLong.create(value).map(Some(_)).left.map(_.toString)
-          case None => Right(None)
-        }
-        extraTrafficConsumedNN <- extraTrafficConsumedO match {
-          case Some(value) => NonNegativeLong.create(value).map(Some(_)).left.map(_.toString)
-          case None => Right(None)
-        }
-      } yield {
-        val trafficState = for {
-          extraTrafficRemainder <- extraTrafficRemainderNN
-          extraTrafficConsumed <- extraTrafficConsumedNN
-        } yield SequencedEventTrafficState(extraTrafficRemainder, extraTrafficConsumed)
-
-        DeliverStoreEvent(
-          sender,
-          messageId,
-          recipients,
-          payload,
-          topologyTimestampO,
-          traceContext,
-          trafficState,
-        )
-      }
+      } yield DeliverStoreEvent(
+        sender,
+        messageId,
+        recipients,
+        payload,
+        topologyTimestampO,
+        traceContext,
+      )
 
     private lazy val asErrorStoreEvent: Either[String, DeliverErrorStoreEvent] =
       for {
         messageId <- messageIdO.toRight("message-id not set for deliver error")
         sender <- senderO.toRight("sender not set for deliver error")
-        extraTrafficRemainderNN <- extraTrafficRemainderO match {
-          case Some(value) => NonNegativeLong.create(value).map(Some(_)).left.map(_.toString)
-          case None => Right(None)
-        }
-        extraTrafficConsumedNN <- extraTrafficConsumedO match {
-          case Some(value) => NonNegativeLong.create(value).map(Some(_)).left.map(_.toString)
-          case None => Right(None)
-        }
-      } yield {
-        val trafficState = for {
-          extraTrafficRemainder <- extraTrafficRemainderNN
-          extraTrafficConsumed <- extraTrafficConsumedNN
-        } yield SequencedEventTrafficState(extraTrafficRemainder, extraTrafficConsumed)
+      } yield DeliverErrorStoreEvent(
+        sender,
+        messageId,
+        errorO,
+        traceContext,
+      )
 
-        DeliverErrorStoreEvent(
-          sender,
-          messageId,
-          errorO,
-          traceContext,
-          trafficState,
-        )
-      }
+    private lazy val asReceiptStoreEvent: Either[String, ReceiptStoreEvent] =
+      for {
+        messageId <- messageIdO.toRight("message-id not set for receipt event")
+        sender <- senderO.toRight("sender not set for receipt event")
+      } yield ReceiptStoreEvent(
+        sender,
+        messageId,
+        topologyTimestampO,
+        traceContext,
+      )
 
   }
 
@@ -287,7 +262,6 @@ class DbSequencerStore(
               payloadId,
               topologyTimestampO,
               traceContext,
-              trafficStateO,
             ) =>
           DeliverStoreEventRow(
             storeEvent.timestamp,
@@ -300,10 +274,8 @@ class DbSequencerStore(
             topologyTimestampO = topologyTimestampO,
             traceContext = traceContext,
             errorO = None,
-            extraTrafficRemainderO = trafficStateO.map(_.extraTrafficRemainder.value),
-            extraTrafficConsumedO = trafficStateO.map(_.extraTrafficConsumed.value),
           )
-        case DeliverErrorStoreEvent(sender, messageId, errorO, traceContext, trafficStateO) =>
+        case DeliverErrorStoreEvent(sender, messageId, errorO, traceContext) =>
           DeliverStoreEventRow(
             timestamp = storeEvent.timestamp,
             instanceIndex = instanceIndex,
@@ -314,8 +286,19 @@ class DbSequencerStore(
               Some(NonEmpty(SortedSet, sender)), // must be set for sender to receive value
             traceContext = traceContext,
             errorO = errorO,
-            extraTrafficRemainderO = trafficStateO.map(_.extraTrafficRemainder.value),
-            extraTrafficConsumedO = trafficStateO.map(_.extraTrafficConsumed.value),
+          )
+        case ReceiptStoreEvent(sender, messageId, topologyTimestampO, traceContext) =>
+          DeliverStoreEventRow(
+            timestamp = storeEvent.timestamp,
+            instanceIndex = instanceIndex,
+            eventType = EventTypeDiscriminator.Receipt,
+            messageIdO = Some(messageId),
+            senderO = Some(sender),
+            recipientsO =
+              Some(NonEmpty(SortedSet, sender)), // must be set for sender to receive value
+            traceContext = traceContext,
+            errorO = None,
+            topologyTimestampO = topologyTimestampO,
           )
       }
   }
@@ -357,8 +340,6 @@ class DbSequencerStore(
         timestampOGetter(r),
         traceContextGetter(r).unwrap,
         errorOGetter(r),
-        r.nextLongOption(),
-        r.nextLongOption(),
       )
 
       row.asStoreEvent
@@ -588,10 +569,9 @@ class DbSequencerStore(
       case _: H2 | _: Postgres =>
         """insert into sequencer_events (
                                     |  ts, node_index, event_type, message_id, sender, recipients,
-                                    |  payload_id, topology_timestamp, trace_context, error,
-                                    |  extra_traffic_remainder, extra_traffic_consumed
+                                    |  payload_id, topology_timestamp, trace_context, error
                                     |)
-                                    |  values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    |  values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                                     |  on conflict do nothing""".stripMargin
       case _: Oracle =>
         """merge /*+ INDEX ( sequencer_events ( ts ) ) */
@@ -600,9 +580,8 @@ class DbSequencerStore(
           |on (sequencer_events.ts = input.ts)
           |when not matched then
           |  insert (ts, node_index, event_type, message_id, sender, recipients, payload_id,
-          |  topology_timestamp, trace_context, error,
-          |  extra_traffic_remainder, extra_traffic_consumed)
-          |  values (input.ts, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""".stripMargin
+          |  topology_timestamp, trace_context, error)
+          |  values (input.ts, ?, ?, ?, ?, ?, ?, ?, ?, ?)""".stripMargin
     }
 
     storage.queryAndUpdate(
@@ -618,8 +597,6 @@ class DbSequencerStore(
           topologyTimestampO,
           traceContext,
           errorO,
-          extraTrafficRemainderO,
-          extraTrafficConsumedO,
         ) = DeliverStoreEventRow(instanceIndex, event)
 
         pp >> timestamp
@@ -632,8 +609,6 @@ class DbSequencerStore(
         pp >> topologyTimestampO
         pp >> SerializableTraceContext(traceContext)
         pp >> errorO
-        pp >> extraTrafficRemainderO
-        pp >> extraTrafficConsumedO
       },
       functionFullName,
     )
@@ -803,7 +778,7 @@ class DbSequencerStore(
     ) = sql"""
         select events.ts, events.node_index, events.event_type, events.message_id, events.sender,
           events.recipients, payloads.id, payloads.content, events.topology_timestamp,
-          events.trace_context, events.error, events.extra_traffic_remainder, events.extra_traffic_consumed
+          events.trace_context, events.error
         from sequencer_events events
         left join sequencer_payloads payloads
           on events.payload_id = payloads.id
@@ -836,7 +811,7 @@ class DbSequencerStore(
           sql"""
           select events.ts, events.node_index, events.event_type, events.message_id, events.sender,
             events.recipients, payloads.id, payloads.content, events.topology_timestamp,
-            events.trace_context, events.error, events.extra_traffic_remainder, events.extra_traffic_consumed
+            events.trace_context, events.error
           from sequencer_events events
           left join sequencer_payloads payloads
             on events.payload_id = payloads.id

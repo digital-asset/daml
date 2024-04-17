@@ -39,8 +39,8 @@ import com.digitalasset.canton.topology.{
   AuthenticatedMember,
   DomainId,
   DomainMember,
-  DomainTopologyManagerId,
   Member,
+  SequencerId,
   UnauthenticatedMemberId,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -135,7 +135,6 @@ class DatabaseSequencer(
     unifiedSequencer: Boolean,
 )(implicit ec: ExecutionContext, tracer: Tracer, materializer: Materializer)
     extends BaseSequencer(
-      DomainTopologyManagerId(domainId),
       loggerFactory,
       health,
       clock,
@@ -285,7 +284,7 @@ class DatabaseSequencer(
     } yield ()
 
   protected def blockSequencerWriteInternal(
-      outcome: SubmissionRequestOutcome
+      outcome: DeliverableSubmissionOutcome
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, SendAsyncError, Unit] =
@@ -367,9 +366,9 @@ class DatabaseSequencer(
     }
   }
 
-  // For the database sequencer, the DomainTopologyManagerId serves as the local sequencer identity/member
+  // For the database sequencer, the SequencerId serves as the local sequencer identity/member
   // until the database and block sequencers are unified.
-  override protected def localSequencerMember: DomainMember = DomainTopologyManagerId(domainId)
+  override protected def localSequencerMember: DomainMember = SequencerId(domainId)
 
   /** helper for performing operations that are expected to be called with a registered member so will just throw if we
     * find the member is unregistered.
