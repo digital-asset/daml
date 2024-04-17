@@ -71,6 +71,10 @@ version1_14 = Version V1 (PointStable 14)
 version1_15 :: Version
 version1_15 = Version V1 (PointStable 15)
 
+-- | Daml-LF version 1.16
+version1_16 :: Version
+version1_16 = Version V1 (PointStable 16)
+
 -- | The Daml-LF version used by default.
 versionDefault :: Version
 versionDefault = version1_15
@@ -92,6 +96,7 @@ supportedOutputVersions :: [Version]
 supportedOutputVersions = 
   [ version1_14 
   , version1_15 
+  , version1_16
   , version1_dev
 --  , version2_1, 
 --  , version2_dev

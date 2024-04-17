@@ -10,6 +10,8 @@ declare -a checkSums=(
  "22e549209116e91d8073a255e6d868be60515824c321015cc424f0b83634f199  daml-lf/archive/src/stable/protobuf/com/daml/daml_lf_1_14/daml_lf.proto"
  "99d2469b0294b18322492e6d7e7d4482f478c07e3cd0b0d3159f7b2923d23815  daml-lf/archive/src/stable/protobuf/com/daml/daml_lf_1_15/daml_lf_1.proto"
  "5e6e33e885e80384fcfde6ac5072b7d6a2e2582430a6a449f96cb06d48a0edbf  daml-lf/archive/src/stable/protobuf/com/daml/daml_lf_1_15/daml_lf.proto"
+ "45c96052415d8bf8268077d8319f63885b9d6fe862001af4b27bf48482b63dff  daml-lf/archive/src/stable/protobuf/com/daml/daml_lf_1_16/daml_lf_1.proto"
+ "7aa577d0138effdb53d4a9afbfa800dd8f3fd86c177f1476ce875b2b4a587731  daml-lf/archive/src/stable/protobuf/com/daml/daml_lf_1_16/daml_lf.proto"
 )
 
 for checkSum in "${checkSums[@]}"; do

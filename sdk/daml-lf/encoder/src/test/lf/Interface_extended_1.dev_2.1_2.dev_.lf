@@ -42,18 +42,6 @@ module InterfaceExtMod {
     \(boxy: InterfaceMod:Boxy) ->
       interface_template_type_rep @InterfaceMod:Boxy boxy;
 
-  val boxyToRoot: InterfaceExtMod:Boxy -> InterfaceExtMod:Root =
-    \(box: InterfaceExtMod:Boxy) ->
-      to_required_interface @InterfaceExtMod:Root @InterfaceExtMod:Boxy box;
-
-  val rootToBoxy: InterfaceExtMod:Root -> Option InterfaceExtMod:Boxy =
-    \(root: InterfaceExtMod:Root) ->
-      from_required_interface @InterfaceExtMod:Root @InterfaceExtMod:Boxy root;
-
-  val unsafeRootToBoxy: ContractId InterfaceExtMod:Root -> InterfaceExtMod:Root -> InterfaceExtMod:Boxy =
-    \(cid: ContractId InterfaceExtMod:Root) (root: InterfaceExtMod:Root) ->
-      unsafe_from_required_interface @InterfaceExtMod:Root @InterfaceExtMod:Boxy cid root;
-
   val exercise_with_guard: ContractId InterfaceExtMod:Boxy -> (InterfaceExtMod:Boxy -> Bool) -> Update Int64 =
         \(cid: ContractId InterfaceExtMod:Boxy) (guard: InterfaceExtMod:Boxy -> Bool) ->
           exercise_interface_with_guard @InterfaceExtMod:Boxy ReturnInt cid  0 guard;
