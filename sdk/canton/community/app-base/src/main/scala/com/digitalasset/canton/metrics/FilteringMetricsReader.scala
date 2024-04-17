@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.metrics
 
-import com.daml.metrics.{MetricsFilter, MetricsFilterConfig}
+import com.digitalasset.canton.metrics.MetricsConfig.MetricsFilterConfig
 import io.opentelemetry.sdk.common.CompletableResultCode
 import io.opentelemetry.sdk.metrics.InstrumentType
 import io.opentelemetry.sdk.metrics.data.{AggregationTemporality, MetricData}
@@ -11,11 +11,19 @@ import io.opentelemetry.sdk.metrics.`export`.{CollectionRegistration, MetricRead
 
 import java.util
 import java.util.stream.Collectors
+import scala.collection.concurrent.TrieMap
 
 class FilteringMetricsReader private (filters: Seq[MetricsFilterConfig], parent: MetricReader)
     extends MetricReader {
 
-  private val filter = new MetricsFilter(filters)
+  // cache the result of the filter for each metric name so we don't have to traverse lists all the time
+  private val computedFilters = TrieMap[String, Boolean]()
+
+  private def includeMetric(data: MetricData): Boolean = {
+    if (data.getName.isEmpty) false
+    else if (filters.isEmpty) true
+    else computedFilters.getOrElseUpdate(data.getName, filters.exists(_.matches(data.getName)))
+  }
 
   override def register(registration: CollectionRegistration): Unit =
     parent.register(new CollectionRegistration {
@@ -23,7 +31,7 @@ class FilteringMetricsReader private (filters: Seq[MetricsFilterConfig], parent:
         registration
           .collectAllMetrics()
           .stream()
-          .filter(x => filter.includeMetric(x.getName))
+          .filter(includeMetric(_))
           .collect(Collectors.toList())
       }
     })
