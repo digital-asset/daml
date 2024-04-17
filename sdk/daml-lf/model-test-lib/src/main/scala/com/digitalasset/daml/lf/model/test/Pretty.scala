@@ -5,12 +5,9 @@ package com.daml.lf
 package model
 package test
 
-import com.daml.lf.model.test.Ledgers
-import com.daml.lf.model.test.Projections
-
 object Pretty {
 
-  private[Pretty] final case class Tree(label: String, children: List[Tree]) {
+  private[Pretty] final case class Tree(label: String, children: Seq[Tree]) {
     def pretty(level: Int): String = {
       val padding = "  " * level
       val prettyChildren = children.map(_.pretty(level + 1)).mkString("")
@@ -21,12 +18,30 @@ object Pretty {
   object PrettyLedgers {
     import Ledgers._
 
+    def scenarioToTree(scenario: Scenario): Tree = {
+      Tree("Scenario", Seq(topologyToTree(scenario.topology), ledgerToTree(scenario.ledger)))
+    }
+
+    def topologyToTree(topology: Topology): Tree = {
+      Tree("Topology", topology.map(participantToTree))
+    }
+
+    def participantToTree(participant: Participant): Tree = {
+      Tree(
+        s"Participant ${participant.participantId} parties=${prettyParties(participant.parties)}",
+        Seq.empty,
+      )
+    }
+
     def ledgerToTree(ledger: Ledger): Tree = {
       Tree("Ledger", ledger.map(commandsToTree))
     }
 
     private def commandsToTree(commands: Commands): Tree =
-      Tree(s"Commands actAs=${prettyParties(commands.actAs)}", commands.actions.map(actionToTree))
+      Tree(
+        s"Commands participant=${commands.participantId} actAs=${prettyParties(commands.actAs)}",
+        commands.actions.map(actionToTree),
+      )
 
     private def actionToTree(action: Action): Tree = action match {
       case Create(contractId, signatories, observers) =>
@@ -134,6 +149,9 @@ object Pretty {
 
     private def prettyParties(partySet: PartySet): String = partySet.toString
   }
+
+  def prettyScenario(scenarion: Ledgers.Scenario): String =
+    PrettyLedgers.scenarioToTree(scenarion).pretty(0)
 
   def prettyLedger(ledger: Ledgers.Ledger): String =
     PrettyLedgers.ledgerToTree(ledger).pretty(0)
