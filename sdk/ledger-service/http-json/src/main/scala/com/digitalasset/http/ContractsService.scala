@@ -183,7 +183,7 @@ class ContractsService(
     ): Future[Option[domain.ActiveContract.ResolvedCtTyId[LfValue]]] = {
       import ctx.{jwt, parties, templateIds => templateId, ledgerId}
       for {
-        resolvedTemplateIds <- OptionT(
+        resolvedTemplateId <- OptionT(
           resolveContractTypeId(jwt, ledgerId)(templateId)
             .map(
               _.toOption.flatten
@@ -193,7 +193,7 @@ class ContractsService(
         predicate = domain.ActiveContract.matchesKey(contractKey) _
 
         result <- OptionT(
-          searchInMemoryOneTpId(jwt, ledgerId, parties, resolvedTemplateIds, predicate)
+          searchInMemoryOneTpId(jwt, ledgerId, parties, resolvedTemplateId, predicate)
             .runWith(Sink.headOption)
             .flatMap(lookupResult)
         )
@@ -210,9 +210,12 @@ class ContractsService(
     ): Future[Option[domain.ActiveContract.ResolvedCtTyId[LfValue]]] = {
       import ctx.{jwt, parties, templateIds => templateId, ledgerId}
       for {
+
         resolvedTemplateIds <- OptionT(
           templateId.cata(
-            x => resolveContractTypeId(jwt, ledgerId)(x).map(_.toOption.flatten.map(Seq(_))),
+            x =>
+              resolveContractTypeId(jwt, ledgerId)(x)
+                .map(_.toOption.flatten.map({ x => Seq(x) })),
             // ignoring interface IDs for all-templates query
             allTemplateIds(lc)(jwt, ledgerId).map(_.toSeq.some),
           )
@@ -396,7 +399,7 @@ class ContractsService(
               ) *>
                 timed(
                   metrics.Db.fetchByIdQuery,
-                  ContractDao.fetchById(parties, resolved.allIds.toSet, contractId),
+                  ContractDao.fetchById(parties, resolved.allIds, contractId),
                 )
             })
 
@@ -440,7 +443,7 @@ class ContractsService(
                   metrics.Db.fetchByKeyQuery,
                   ContractDao.fetchByKey(
                     parties,
-                    resolved.allIds.toSet,
+                    resolved.allIds,
                     Hash.assertHashContractKey(
                       templateId = toLedgerApiValue(resolved.original),
                       key = contractKey,
@@ -522,7 +525,7 @@ class ContractsService(
             lc: LoggingContextOf[InstanceUUID]
         ): doobie.ConnectionIO[Vector[domain.ActiveContract.ResolvedCtTyId[JsValue]]] = {
           val predicate = valuePredicate(templateId.latestId, queryParams)
-          ContractDao.selectContracts(parties, templateId.allIds.toSet, predicate.toSqlWhereClause)
+          ContractDao.selectContracts(parties, templateId.allIds, predicate.toSqlWhereClause)
         }
       }
   }
@@ -547,8 +550,8 @@ class ContractsService(
     val funPredicates: Map[domain.ContractTypeId.Resolved, Ac => Boolean] =
       resolvedQuery.resolved
         .flatMap(tids => tids.allIds.map(tid => (tid, queryParams.toPredicate(tid))))
-        .toMap
         .forgetNE
+        .toMap
 
     insertDeleteStepSource(jwt, ledgerId, parties, resolvedQuery.resolved.map(_.original).toList)
       .map { step =>

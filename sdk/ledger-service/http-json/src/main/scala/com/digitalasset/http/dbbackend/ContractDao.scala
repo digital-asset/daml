@@ -315,7 +315,7 @@ object ContractDao {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def selectContracts(
       parties: domain.PartySet,
-      templateId: NonEmpty[Set[domain.ContractTypeId.Resolved]],
+      templateIds: NonEmpty[Set[_ <: domain.ContractTypeId.Resolved]],
       predicate: doobie.Fragment,
   )(implicit
       log: LogHandler,
@@ -324,7 +324,7 @@ object ContractDao {
   ): ConnectionIO[Vector[domain.ActiveContract.ResolvedCtTyId[JsValue]]] = {
     import sjd.q.queries
     for {
-      tpIds <- surrogateTemplateIds(templateId)
+      tpIds <- surrogateTemplateIds(templateIds)
 
       dbContracts <- queries
         .selectContracts(queriesPartySet(parties), tpIds.keySet, predicate)
@@ -423,7 +423,7 @@ object ContractDao {
 
   private[http] def fetchByKey(
       parties: domain.PartySet,
-      templateIds: NonEmpty[Set[domain.ContractTypeId.Template.Resolved]],
+      templateIds: NonEmpty[Set[_ <: domain.ContractTypeId.Template.Resolved]],
       key: Hash,
   )(implicit
       log: LogHandler,

@@ -274,7 +274,7 @@ sealed abstract class PackageResolvedContractTypeId[+CtTyId](
     ids: NonEmpty[Seq[CtTyId]],
     kpn: KeyPackageName,
 ) {
-  def allIds: NonEmpty[Seq[CtTyId]] = ids
+  def allIds: NonEmpty[Set[_ <: CtTyId]] = ids.toSet
   def latestId: CtTyId = ids.head
   def original: CtTyId = orig
   def expand: NonEmpty[Seq[(CtTyId, KeyPackageName)]] = ids.map(_ -> name)

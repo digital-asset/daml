@@ -677,27 +677,29 @@ object WebSocketService {
         q.toSeq flatMap { case (tid, lfvKeys) =>
           val keys = lfvKeys.toVector
           import dbbackend.Queries.joinFragment, com.daml.lf.crypto.Hash
-          tid.allIds.map(t =>
-            (
-              t,
-              joinFragment(
-                keys map (k =>
-                  keyEquality(
-                    Hash
-                      .assertHashContractKey(toLedgerApiValue(t), k, tid.name)
-                  )
+          tid.allIds.toSeq
+            .sortBy(_.toString)
+            .map(t =>
+              (
+                t,
+                joinFragment(
+                  keys map (k =>
+                    keyEquality(
+                      Hash
+                        .assertHashContractKey(toLedgerApiValue(t), k, tid.name)
+                    )
+                  ),
+                  sql" OR ",
                 ),
-                sql" OR ",
-              ),
+              )
             )
-          )
         }
 
       Future.successful(
         StreamPredicate[Positive](
           resolvedRequest.resolvedQuery,
           resolvedRequest.unresolved,
-          fn(resolvedRequest.q.flatMap({ case (tid, v) => tid.allIds.map(_ -> v) }).toMap.forgetNE),
+          fn(resolvedRequest.q.flatMap({ case (tid, v) => tid.allIds.map(_ -> v) }).forgetNE.toMap),
           { (parties, dao) =>
             import dao.{logHandler, jdbcDriver}
             import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
