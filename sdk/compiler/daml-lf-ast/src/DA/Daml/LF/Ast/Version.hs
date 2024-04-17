@@ -71,7 +71,7 @@ version1_14 = Version V1 (PointStable 14)
 version1_15 :: Version
 version1_15 = Version V1 (PointStable 15)
 
--- | Daml-LF version 1.15
+-- | Daml-LF version 1.16
 version1_16 :: Version
 version1_16 = Version V1 (PointStable 16)
 

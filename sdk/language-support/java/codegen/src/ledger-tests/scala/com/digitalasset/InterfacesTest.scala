@@ -19,8 +19,6 @@ trait InterfacesTest
 
   import TestUtil._
 
-  protected override val cantonFixtureDebugMode: CantonFixtureDebugMode =
-    CantonFixtureDebugKeepTmpFiles
 
   behavior of "Generated Java code"
 

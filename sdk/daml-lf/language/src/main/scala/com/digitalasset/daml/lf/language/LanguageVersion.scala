@@ -72,7 +72,7 @@ object LanguageVersion {
     val exceptions = v1_14
     val basicInterfaces = v1_15
     val packageUpgrades = v1_16
-    val sharedKeys = v1_15
+    val sharedKeys = v1_16
     val choiceFuncs = v1_dev
     val choiceAuthority = v1_dev
     val natTypeErasure = v1_dev
