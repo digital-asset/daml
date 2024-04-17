@@ -18,6 +18,7 @@ class TransactionVersionSpec extends AnyWordSpec with Matchers with TableDrivenP
         "language version" -> "transaction version",
         LanguageVersion.v1_14 -> TransactionVersion.V14,
         LanguageVersion.v1_15 -> TransactionVersion.V15,
+        LanguageVersion.v1_16 -> TransactionVersion.V16,
         LanguageVersion.v1_dev -> TransactionVersion.VDev,
         // TODO(#17366): Map to TransactionVersion 2.1 once it exists.
         LanguageVersion.v2_1 -> TransactionVersion.VDev,
