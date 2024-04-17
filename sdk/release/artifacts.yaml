@@ -13,6 +13,10 @@
   type: jar-lib
 - target: //daml-lf/archive:daml_lf_1.15_archive_proto_java
   type: jar-proto
+- target: //daml-lf/archive:daml_lf_1.16_archive_proto_jar
+  type: jar-lib
+- target: //daml-lf/archive:daml_lf_1.16_archive_proto_java
+  type: jar-proto
 - target: //daml-lf/archive:daml_lf_dev_archive_proto_jar
   type: jar-lib
 - target: //daml-lf/archive:daml_lf_dev_archive_proto_java
