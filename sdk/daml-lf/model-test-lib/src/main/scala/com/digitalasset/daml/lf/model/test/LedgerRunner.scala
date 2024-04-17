@@ -5,6 +5,8 @@ package com.daml.lf
 package model
 package test
 
+import cats.implicits.toTraverseOps
+import cats.instances.all._
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2.{TransactionFilterOuterClass => proto}
 import com.daml.ledger.javaapi
@@ -18,7 +20,9 @@ import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.{
 }
 import com.daml.lf.engine.script.v2.ledgerinteraction.{IdeLedgerClient, ScriptLedgerClient}
 import com.daml.lf.language.{Ast, LanguageMajorVersion}
-import com.daml.lf.model.test.Ledgers.Ledger
+import com.daml.lf.model.test.LedgerImplicits._
+import com.daml.lf.model.test.LedgerRunner.ApiPorts
+import com.daml.lf.model.test.Ledgers.{ParticipantId, Scenario}
 import com.daml.lf.model.test.Projections.{PartyId, Projection}
 import com.daml.lf.model.test.ToProjection.{ContractIdReverseMapping, PartyIdReverseMapping}
 import com.daml.lf.speedy.{Compiler, RingBufferTraceLog, WarningLog}
@@ -39,24 +43,26 @@ import scala.jdk.CollectionConverters._
 
 trait LedgerRunner {
   def runAndProject(
-      ledger: Ledgers.Ledger
+      scenario: Scenario
   ): Either[Interpreter.InterpreterError, Map[Projections.PartyId, Projections.Projection]]
 
   def close(): Unit
 }
 
 object LedgerRunner {
+
+  case class ApiPorts(ledgerApiPort: Int, adminApiPort: Int)
+
   def forCantonLedger(
       universalDarPath: String,
       host: String,
-      ledgerApiPort: Int,
-      adminApiPort: Int,
+      apiPorts: Iterable[ApiPorts],
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       materializer: Materializer,
   ): LedgerRunner =
-    new CantonLedgerRunner(universalDarPath, host, ledgerApiPort, adminApiPort)
+    new CantonLedgerRunner(universalDarPath, host, apiPorts)
 
   def forIdeLedger(
       universalDarPath: String
@@ -71,10 +77,11 @@ private abstract class AbstractLedgerRunner(universalDarPath: String)(implicit
 
   // abstract members
 
-  def ledgerClient: ScriptLedgerClient
+  def ledgerClients: PartialFunction[ParticipantId, ScriptLedgerClient]
   def project(
       reversePartyIds: ToProjection.PartyIdReverseMapping,
       reverseContractIds: ToProjection.ContractIdReverseMapping,
+      participantId: ParticipantId,
       party: Ref.Party,
   ): Projection
 
@@ -93,21 +100,24 @@ private abstract class AbstractLedgerRunner(universalDarPath: String)(implicit
       Compiler.Config.Default(LanguageMajorVersion.V2),
     )
 
-  private lazy val interpreter = new Interpreter(universalTemplatePkgId, ledgerClient)
+  private lazy val interpreter = new Interpreter(universalTemplatePkgId, ledgerClients)
 
   // partial implementation of the parent trait
 
   override def runAndProject(
-      ledger: Ledger
+      scenario: Scenario
   ): Either[Interpreter.InterpreterError, Map[PartyId, Projection]] = {
-    val (partyIds, result) = Await.result(interpreter.runLedger(ledger), Duration.Inf)
+    val (partyIds, result) = Await.result(interpreter.runLedger(scenario), Duration.Inf)
     result.map(contractIds => {
       val reversePartyIds = partyIds.map(_.swap)
       val reverseContractIds = contractIds.map(_.swap)
+      // we for now assume there is exactly one participant per party
+      val reverseParticipantIds =
+        scenario.topology.groupedByPartyId.view.mapValues(_.head.participantId)
       for {
         (partyId, party) <- partyIds
       } yield partyId ->
-        project(reversePartyIds, reverseContractIds, party)
+        project(reversePartyIds, reverseContractIds, reverseParticipantIds(partyId), party)
     })
   }
 }
@@ -115,21 +125,24 @@ private abstract class AbstractLedgerRunner(universalDarPath: String)(implicit
 private class CantonLedgerRunner(
     universalDarPath: String,
     host: String,
-    ledgerApiPort: Int,
-    adminApiPort: Int,
+    apiPorts: Iterable[LedgerRunner.ApiPorts],
 )(implicit
     ec: ExecutionContext,
     esf: ExecutionSequencerFactory,
     materializer: Materializer,
 ) extends AbstractLedgerRunner(universalDarPath) {
 
-  override val ledgerClient: ScriptLedgerClient = Await.result(makeGprcLedgerClient(), Duration.Inf)
-  private val ledgerClientForProjections: DamlLedgerClient =
-    DamlLedgerClient.newBuilder("localhost", 5011).build()
+  override def ledgerClients: Seq[ScriptLedgerClient] =
+    Await.result(apiPorts.toSeq.traverse(makeGprcLedgerClient), Duration.Inf)
 
-  ledgerClientForProjections.connect()
+  private val ledgerClientsForProjections: Seq[DamlLedgerClient] =
+    apiPorts
+      .map(ports => DamlLedgerClient.newBuilder("localhost", ports.ledgerApiPort).build())
+      .toSeq
 
-  private def makeGprcLedgerClient(): Future[GrpcLedgerClient] = {
+  ledgerClientsForProjections.foreach(_.connect())
+
+  private def makeGprcLedgerClient(apiPorts: ApiPorts): Future[GrpcLedgerClient] = {
     val clientChannelConfig = LedgerClientChannelConfiguration(
       sslContext = None
     )
@@ -137,7 +150,7 @@ private class CantonLedgerRunner(
       grpcClient <- com.digitalasset.canton.ledger.client.LedgerClient
         .singleHost(
           host,
-          ledgerApiPort,
+          apiPorts.ledgerApiPort,
           LedgerClientConfiguration(
             applicationId = "model-based-testing",
             commandClient = CommandClientConfiguration.default,
@@ -153,16 +166,20 @@ private class CantonLedgerRunner(
       new GrpcLedgerClient(
         grpcClient = grpcClient,
         applicationId = Some(Ref.ApplicationId.assertFromString("model-based-testing")),
-        oAdminClient =
-          Some(AdminLedgerClient.singleHost(host, adminApiPort, None, clientChannelConfig)),
+        oAdminClient = Some(
+          AdminLedgerClient.singleHost(host, apiPorts.adminApiPort, None, clientChannelConfig)
+        ),
         enableContractUpgrading = false,
         compiledPackages = compiledPkgs,
       )
     }
   }
 
-  private def fetchEvents(party: Ref.Party): List[javaapi.data.TransactionTree] = {
-    ledgerClientForProjections.getTransactionsClient
+  private def fetchEvents(
+      participantId: ParticipantId,
+      party: Ref.Party,
+  ): List[javaapi.data.TransactionTree] = {
+    ledgerClientsForProjections(participantId).getTransactionsClient
       .getTransactionsTrees(
         javaapi.data.ParticipantOffset.ParticipantBegin.getInstance(),
         javaapi.data.TransactionFilter.fromProto(
@@ -181,17 +198,18 @@ private class CantonLedgerRunner(
   override def project(
       reversePartyIds: ToProjection.PartyIdReverseMapping,
       reverseContractIds: ToProjection.ContractIdReverseMapping,
+      participantId: ParticipantId,
       party: Party,
   ): Projection = {
     ToProjection.convertFromCantonProjection(
       reversePartyIds,
       reverseContractIds,
-      fetchEvents(party),
+      fetchEvents(participantId, party),
     )
   }
 
   override def close(): Unit =
-    ledgerClientForProjections.close()
+    ledgerClientsForProjections.foreach(_.close())
 }
 
 private class IdeLedgerRunner(universalDarPath: String)(implicit
@@ -199,7 +217,7 @@ private class IdeLedgerRunner(universalDarPath: String)(implicit
     materializer: Materializer,
 ) extends AbstractLedgerRunner(universalDarPath) {
 
-  override val ledgerClient: IdeLedgerClient = {
+  private val ledgerClient: IdeLedgerClient = {
     new IdeLedgerClient(
       originalCompiledPackages = compiledPkgs,
       traceLog = new RingBufferTraceLog(ContextualizedLogger.createFor("model.test.trace"), 1000),
@@ -209,9 +227,14 @@ private class IdeLedgerRunner(universalDarPath: String)(implicit
     )
   }
 
+  override def ledgerClients: PartialFunction[ParticipantId, ScriptLedgerClient] = { case _ =>
+    ledgerClient
+  }
+
   override def project(
       reversePartyIds: PartyIdReverseMapping,
       reverseContractIds: ContractIdReverseMapping,
+      participantId: ParticipantId,
       party: Party,
   ): Projection =
     ToProjection.projectFromScenarioLedger(
@@ -222,4 +245,5 @@ private class IdeLedgerRunner(universalDarPath: String)(implicit
     )
 
   override def close(): Unit = ()
+
 }

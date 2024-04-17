@@ -7,8 +7,10 @@ package test
 
 import org.scalacheck.Gen
 import com.daml.lf.model.test.Ledgers._
+import GenInstances._
+import cats.implicits.toTraverseOps
 
-class Generators(numParties: Int) {
+class Generators(numParticipants: Int, numParties: Int) {
 
   private def numberCreates(ledger: Ledger): Ledger = {
     var lastContractId: ContractId = 0
@@ -34,6 +36,26 @@ class Generators(numParties: Int) {
     ledger.map(numberCommandsCreates)
   }
 
+  lazy val scenarioGen: Gen[Scenario] =
+    for {
+      topology <- topologyGen
+      ledger <- ledgerGen(topology)
+    } yield Scenario(topology, ledger)
+
+  // Randomly assigns a participant ID to each party. Retry until each
+  // participant hosts at least one party.
+  lazy val topologyGen: Gen[Topology] = {
+    def pickAssignment(partyId: PartyId): Gen[(ParticipantId, PartyId)] =
+      Gen.choose(0, numParticipants - 1).map(_ -> partyId)
+
+    for {
+      assignments <- (1 to numParties).toList.traverse(pickAssignment)
+    } yield assignments
+      .groupMapReduce(_._1)(p => Set(p._2))(_ ++ _)
+      .map(Participant.tupled)
+      .toSeq
+  }.retryUntil(_.size == numParticipants)
+
   lazy val partySetGen: Gen[PartySet] =
     Gen.someOf(1 to numParties).map(_.toSet)
 
@@ -43,18 +65,19 @@ class Generators(numParties: Int) {
   lazy val contractIdGen: Gen[ContractId] =
     Gen.posNum[ContractId]
 
-  lazy val ledgerGen: Gen[Ledger] = Gen.sized(size =>
+  def ledgerGen(topology: Topology): Gen[Ledger] = Gen.sized(size =>
     for {
       listLen <- Gen.choose(0, size)
-      res <- Gen.listOfN(listLen, commandsGen)
+      res <- Gen.listOfN(listLen, commandsGen(topology))
     } yield numberCreates(res)
   )
 
-  lazy val commandsGen: Gen[Commands] =
+  def commandsGen(topology: Topology): Gen[Commands] =
     for {
-      actAs <- nonEmptyPartySetGen
+      participantId <- Gen.choose(0, numParticipants - 1)
+      actAs <- Gen.atLeastOne(topology(participantId).parties).map(_.toSet)
       actions <- transactionGen(1, NoRollbacksAllowed, NoFetchesAllowed)
-    } yield Commands(actAs, actions)
+    } yield Commands(participantId, actAs, actions)
 
   trait RollbacksAllowed
   case object NoRollbacksAllowed extends RollbacksAllowed
