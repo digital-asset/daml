@@ -29,7 +29,7 @@ final class GlobalKey private (
 
   override def hashCode(): Int = hash.hashCode()
 
-  override def toString: String = s"GlobalKey($templateId, $key)"
+  override def toString: String = s"GlobalKey($templateId, $packageName, $key)"
 }
 
 object GlobalKey {
