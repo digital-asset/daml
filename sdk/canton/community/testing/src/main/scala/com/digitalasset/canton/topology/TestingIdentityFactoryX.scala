@@ -289,7 +289,7 @@ class TestingIdentityFactoryX(
       1.seconds,
     ) // The in-memory topology store should complete the state update immediately
 
-    new StoreBasedTopologySnapshotX(
+    new StoreBasedTopologySnapshot(
       CantonTimestamp.Epoch,
       store,
       packageDependencies,

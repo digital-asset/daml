@@ -48,10 +48,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 }
 import com.digitalasset.canton.time.{Clock, SimClock}
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.topology.client.{
-  StoreBasedDomainTopologyClient,
-  StoreBasedDomainTopologyClientX,
-}
+import com.digitalasset.canton.topology.client.StoreBasedDomainTopologyClient
 import com.digitalasset.canton.topology.processing.{
   ApproximateTime,
   EffectiveTime,
@@ -120,7 +117,7 @@ class BlockSequencerTest
       )
       .futureValue
 
-    private val topologyClient = new StoreBasedDomainTopologyClientX(
+    private val topologyClient = new StoreBasedDomainTopologyClient(
       mock[Clock],
       domainId,
       testedProtocolVersion,

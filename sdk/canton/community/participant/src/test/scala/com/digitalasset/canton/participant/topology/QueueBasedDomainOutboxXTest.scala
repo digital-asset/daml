@@ -17,7 +17,6 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{
   DomainTopologyClientWithInit,
   StoreBasedDomainTopologyClient,
-  StoreBasedDomainTopologyClientX,
 }
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.*
@@ -96,7 +95,7 @@ class QueueBasedDomainOutboxXTest
       futureSupervisor,
       loggerFactory,
     )
-    val client = new StoreBasedDomainTopologyClientX(
+    val client = new StoreBasedDomainTopologyClient(
       clock,
       domainId,
       protocolVersion = testedProtocolVersion,
@@ -122,7 +121,7 @@ class QueueBasedDomainOutboxXTest
       expectI: Int,
       responses: Iterator[State],
       store: TopologyStoreX[TopologyStoreId],
-      targetClient: StoreBasedDomainTopologyClientX,
+      targetClient: StoreBasedDomainTopologyClient,
       rejections: Iterator[Option[TopologyTransactionRejection]] = Iterator.continually(None),
   ) extends RegisterTopologyTransactionHandle {
     val buffer: mutable.ListBuffer[GenericSignedTopologyTransactionX] = ListBuffer()

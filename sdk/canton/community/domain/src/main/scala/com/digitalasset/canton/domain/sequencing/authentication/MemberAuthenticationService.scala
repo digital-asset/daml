@@ -300,7 +300,7 @@ class MemberAuthenticationServiceImpl(
       timeouts,
       loggerFactory,
     )
-    with TopologyTransactionProcessingSubscriberX {
+    with TopologyTransactionProcessingSubscriber {
 
   /** domain topology client subscriber used to remove member tokens if they get disabled */
   override def observed(

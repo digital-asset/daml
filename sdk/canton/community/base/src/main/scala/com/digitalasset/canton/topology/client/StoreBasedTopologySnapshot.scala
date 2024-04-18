@@ -7,13 +7,10 @@ import cats.data.EitherT
 import cats.syntax.functorFilter.*
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.KeyPurpose
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DynamicDomainParametersWithValidity
-import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.{
   AuthorityOfDelegation,
@@ -24,46 +21,9 @@ import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.transaction.TopologyChangeOpX.Replace
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
-
-/** The domain topology client that reads data from a topology store
-  *
-  * @param domainId The domain-id corresponding to this store
-  * @param store The store
-  */
-class StoreBasedDomainTopologyClientX(
-    val clock: Clock,
-    val domainId: DomainId,
-    val protocolVersion: ProtocolVersion,
-    store: TopologyStoreX[TopologyStoreId],
-    packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
-    override val timeouts: ProcessingTimeout,
-    override protected val futureSupervisor: FutureSupervisor,
-    val loggerFactory: NamedLoggerFactory,
-)(implicit val executionContext: ExecutionContext)
-    extends BaseDomainTopologyClientX
-    with NamedLogging {
-
-  override def trySnapshot(
-      timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): StoreBasedTopologySnapshotX = {
-    ErrorUtil.requireArgument(
-      timestamp <= topologyKnownUntilTimestamp,
-      s"requested snapshot=$timestamp, topology known until=$topologyKnownUntilTimestamp",
-    )
-    new StoreBasedTopologySnapshotX(
-      timestamp,
-      store,
-      packageDependencies,
-      loggerFactory,
-    )
-  }
-
-}
 
 /** Topology snapshot loader
   *
@@ -71,7 +31,7 @@ class StoreBasedDomainTopologyClientX(
   * @param store the db store to use
   * @param packageDependencies lookup function to determine the direct and indirect package dependencies
   */
-class StoreBasedTopologySnapshotX(
+class StoreBasedTopologySnapshot(
     val timestamp: CantonTimestamp,
     store: TopologyStoreX[TopologyStoreId],
     packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
