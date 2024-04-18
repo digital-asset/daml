@@ -475,6 +475,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
             Seq(
               (ErrorResource.TemplateId, err.templateId.toString),
               (ErrorResource.ContractKey, encodedKey),
+              (ErrorResource.PackageName, err.packageName),
             )
           }
       }

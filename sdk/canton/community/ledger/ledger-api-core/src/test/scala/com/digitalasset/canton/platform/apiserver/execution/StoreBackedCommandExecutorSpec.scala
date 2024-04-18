@@ -257,7 +257,12 @@ class StoreBackedCommandExecutorSpec
             observers = Set(Ref.Party.assertFromString("observer")),
             keyOpt = Some(
               GlobalKeyWithMaintainers
-                .assertBuild(identifier, someContractKey(signatory, "some key"), Set(signatory))
+                .assertBuild(
+                  identifier,
+                  someContractKey(signatory, "some key"),
+                  Set(signatory),
+                  packageName,
+                )
             ),
             resume = verdict => {
               ref.set(Some(verdict))
