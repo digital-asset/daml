@@ -22,8 +22,7 @@ object Demo {
 
   def main(args: Array[String]): Unit = {
 
-    val ledgers = Enumerations.ledgers(50)
-    val card = ledgers.cardinal
+    val scenarios = Enumerations.scenarios(numParticipants = 3)(50)
 
     def randomBigIntLessThan(n: BigInt): BigInt = {
       var res: BigInt = BigInt(0)
@@ -41,14 +40,14 @@ object Demo {
     val _ = randomScenarios
 
     def validLedgersSym: LazyList[Ledgers.Ledger] = LazyList.continually {
-      val skeleton = ledgers(randomBigIntLessThan(card))
-      SymbolicSolver.solve(skeleton, 4)
+      val skeleton = scenarios(randomBigIntLessThan(scenarios.cardinal))
+      SymbolicSolver.solve(skeleton.ledger, 4)
     }.flatten
     val _ = validLedgersSym
 
     def validScenarios: LazyList[Scenario] = LazyList.continually {
-      val randomSkeleton = ledgers(randomBigIntLessThan(card))
-      new LedgerFixer(3, 10).fixLedger(randomSkeleton).sample
+      val randomSkeleton = scenarios(randomBigIntLessThan(scenarios.cardinal))
+      new LedgerFixer(numParties = 6).fixScenario(randomSkeleton).sample
     }.flatten
     val _ = validScenarios
 
