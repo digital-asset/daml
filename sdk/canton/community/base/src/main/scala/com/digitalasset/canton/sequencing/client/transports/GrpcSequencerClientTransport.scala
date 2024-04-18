@@ -242,7 +242,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
 
   override def acknowledgeSigned(signedRequest: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit] = {
+  ): EitherT[Future, String, Boolean] = {
     val request = signedRequest.content
     val timestamp = request.timestamp
     logger.debug(s"Acknowledging timestamp: $timestamp")
@@ -255,8 +255,15 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         logPolicy = noLoggingShutdownErrorsLogPolicy,
         retryPolicy = retryPolicy(retryOnUnavailable = false),
       )
+      .map { _ =>
+        logger.debug(s"Acknowledged timestamp: $timestamp")
+        true
+      }
+      .recover {
+        // if sequencer is not available, we'll return false
+        case x if x.status == io.grpc.Status.UNAVAILABLE => false
+      }
       .leftMap(_.toString)
-      .map(_ => logger.debug(s"Acknowledged timestamp: $timestamp"))
   }
 
   override def downloadTopologyStateForInit(request: TopologyStateForInitRequest)(implicit

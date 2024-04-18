@@ -382,8 +382,8 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
 
   override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit] =
-    EitherT.rightT(())
+  ): EitherT[Future, String, Boolean] =
+    EitherT.rightT(true)
 
   override def handshake(request: HandshakeRequest)(implicit
       traceContext: TraceContext

@@ -41,10 +41,12 @@ trait SequencerClientTransportCommon extends FlagCloseable with SupportsHandshak
 
   /** Acknowledge that we have successfully processed all events up to and including the given timestamp.
     * The client should then never subscribe for events from before this point.
+    *
+    * @return True if acknowledgement succeeded, false if sequencer was unavailable
     */
   def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit]
+  ): EitherT[Future, String, Boolean]
 
   def downloadTopologyStateForInit(request: TopologyStateForInitRequest)(implicit
       traceContext: TraceContext

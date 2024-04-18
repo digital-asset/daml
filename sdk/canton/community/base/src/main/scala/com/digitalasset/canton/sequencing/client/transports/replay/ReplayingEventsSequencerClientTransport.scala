@@ -68,8 +68,8 @@ class ReplayingEventsSequencerClientTransport(
   /** Does nothing */
   override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit] =
-    EitherT.rightT(())
+  ): EitherT[Future, String, Boolean] =
+    EitherT.rightT(true)
 
   /** Replays all events in `replayPath` to the handler. */
   override def subscribe[E](request: SubscriptionRequest, handler: SerializedEventHandler[E])(
