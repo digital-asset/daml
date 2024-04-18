@@ -17,7 +17,7 @@ object LedgerFixer {
   case class GenState(maxContractId: Int, activeContracts: Map[Int, Contract])
 }
 
-class LedgerFixer(numParticipants: Int, numParties: Int) {
+class LedgerFixer(numParties: Int) {
   import GenInstances._
   import LedgerFixer._
 
@@ -196,7 +196,7 @@ class LedgerFixer(numParticipants: Int, numParties: Int) {
   }
 
   def genCommands(topology: L.Topology, commands: S.Commands): LGen[L.Commands] = for {
-    participantId <- StateT.liftF(Gen.choose(0, numParticipants - 1))
+    participantId <- StateT.liftF(Gen.choose(0, topology.size - 1))
     actAs <- StateT.liftF(genNonEmptySubsetOf(topology(participantId).parties))
     fixedActions <- genActions(topology(participantId).parties, Set.empty, actAs, commands.actions)
   } yield L.Commands(participantId, actAs, fixedActions)
@@ -204,8 +204,8 @@ class LedgerFixer(numParticipants: Int, numParties: Int) {
   def genLedger(topology: L.Topology, ledger: S.Ledger): LGen[L.Ledger] =
     ledger.traverse(genCommands(topology, _))
 
-  def fixLedger(ledger: S.Ledger): Gen[L.Scenario] = for {
-    topology <- new Generators(numParticipants, numParties).topologyGen
-    ledger <- genLedger(topology, ledger).run(GenState(-1, Map.empty)).map(_._2)
+  def fixScenario(scenario: S.Scenario): Gen[L.Scenario] = for {
+    topology <- new Generators(scenario.topology.size, numParties).topologyGen
+    ledger <- genLedger(topology, scenario.ledger).run(GenState(-1, Map.empty)).map(_._2)
   } yield L.Scenario(topology, ledger)
 }

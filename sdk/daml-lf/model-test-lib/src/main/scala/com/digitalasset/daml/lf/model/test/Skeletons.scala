@@ -6,6 +6,9 @@ package model
 package test
 
 object Skeletons {
+
+  // ledgers
+
   sealed trait ExerciseKind
   case object Consuming extends ExerciseKind
   case object NonConsuming extends ExerciseKind
@@ -25,4 +28,14 @@ object Skeletons {
   final case class Commands(actions: Transaction)
 
   type Ledger = List[Commands]
+
+  // topologies
+
+  final case class Participant()
+
+  type Topology = Seq[Participant]
+
+  // tying all together
+
+  final case class Scenario(topology: Topology, ledger: Ledger)
 }
