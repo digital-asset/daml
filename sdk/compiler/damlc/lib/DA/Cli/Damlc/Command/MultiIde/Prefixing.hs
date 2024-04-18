@@ -17,8 +17,8 @@ module DA.Cli.Damlc.Command.MultiIde.Prefixing (
   addProgressTokenPrefixToClientMessage,
   addProgressTokenPrefixToServerMessage,
   addLspPrefixToServerMessage,
-  removeLspPrefix,
-  removeWorkDoneProgressCancelTokenPrefix,
+  stripLspPrefix,
+  stripWorkDoneProgressCancelTokenPrefix,
 ) where
 
 import Control.Lens
@@ -55,12 +55,10 @@ import DA.Cli.Damlc.Command.MultiIde.Types
 data ProgressTokenPrefix
   = SubIDEPrefix T.Text
   | ClientPrefix
-  | NoPrefix
 
 progressTokenPrefixToText :: ProgressTokenPrefix -> T.Text
 progressTokenPrefixToText (SubIDEPrefix t) = t
 progressTokenPrefixToText ClientPrefix = "client"
-progressTokenPrefixToText NoPrefix = error "Tried to stringify a NoPrefix ProgressTokenPrefix"
 
 progressTokenPrefixFromMaybe :: Maybe T.Text -> ProgressTokenPrefix
 progressTokenPrefixFromMaybe = maybe ClientPrefix SubIDEPrefix
@@ -70,7 +68,6 @@ progressTokenPrefixFromMaybe = maybe ClientPrefix SubIDEPrefix
 -- Such that ProgressNumericToken 10   -> ProgressTextToken "iPREFIX-10"
 --       and ProgressTextToken "hello" -> ProgressTextToken "tPREFIX-hello"
 addProgressTokenPrefix :: ProgressTokenPrefix -> LSP.ProgressToken -> LSP.ProgressToken
-addProgressTokenPrefix NoPrefix t = t
 addProgressTokenPrefix prefix (LSP.ProgressNumericToken t) = LSP.ProgressTextToken $ "i" <> progressTokenPrefixToText prefix <> "-" <> T.pack (show t)
 addProgressTokenPrefix prefix (LSP.ProgressTextToken t) = LSP.ProgressTextToken $ "t" <> progressTokenPrefixToText prefix <> "-" <> t
 
@@ -78,27 +75,26 @@ progressTokenSplitPrefix :: T.Text -> (T.Text, Maybe T.Text)
 progressTokenSplitPrefix = bimap T.tail (mfilter (/="client") . Just) . swap . T.breakOn "-"
 
 -- Removes prefix, returns the subIDE prefix if the token was created by a subIDE
-removeProgressTokenPrefix :: LSP.ProgressToken -> (LSP.ProgressToken, ProgressTokenPrefix)
-removeProgressTokenPrefix (LSP.ProgressTextToken (T.uncons -> Just ('i', rest))) =
-  bimap (LSP.ProgressNumericToken . read . T.unpack) progressTokenPrefixFromMaybe $ progressTokenSplitPrefix rest
-removeProgressTokenPrefix (LSP.ProgressTextToken (T.uncons -> Just ('t', rest))) =
-  bimap LSP.ProgressTextToken progressTokenPrefixFromMaybe $ progressTokenSplitPrefix rest
-removeProgressTokenPrefix t = (t, NoPrefix)
+stripProgressTokenPrefix :: LSP.ProgressToken -> (LSP.ProgressToken, Maybe ProgressTokenPrefix)
+stripProgressTokenPrefix (LSP.ProgressTextToken (T.uncons -> Just ('i', rest))) =
+  bimap (LSP.ProgressNumericToken . read . T.unpack) (Just . progressTokenPrefixFromMaybe) $ progressTokenSplitPrefix rest
+stripProgressTokenPrefix (LSP.ProgressTextToken (T.uncons -> Just ('t', rest))) =
+  bimap LSP.ProgressTextToken (Just . progressTokenPrefixFromMaybe) $ progressTokenSplitPrefix rest
+stripProgressTokenPrefix t = (t, Nothing)
 
 -- Prefixes the SWindowWorkDoneProgressCreate and SProgress messages from subIDE. Rest are unchanged.
 addProgressTokenPrefixToServerMessage :: T.Text -> LSP.FromServerMessage -> LSP.FromServerMessage
 addProgressTokenPrefixToServerMessage prefix (LSP.FromServerMess LSP.SWindowWorkDoneProgressCreate req) =
-  let prefixedToken = addProgressTokenPrefix (SubIDEPrefix prefix) $ req ^. LSP.params . LSP.token
-   in LSP.FromServerMess LSP.SWindowWorkDoneProgressCreate $ req & LSP.params . LSP.token .~ prefixedToken
+  LSP.FromServerMess LSP.SWindowWorkDoneProgressCreate $ req & LSP.params . LSP.token %~ addProgressTokenPrefix (SubIDEPrefix prefix)
 addProgressTokenPrefixToServerMessage prefix (LSP.FromServerMess LSP.SProgress notif) =
-  case removeProgressTokenPrefix $ notif ^. LSP.params . LSP.token of
+  case stripProgressTokenPrefix $ notif ^. LSP.params . LSP.token of
     -- ProgressToken was created by this subIDE, add its usual prefix
-    (unprefixedToken, NoPrefix) ->
+    (unprefixedToken, Nothing) ->
       let prefixedToken = addProgressTokenPrefix (SubIDEPrefix prefix) unprefixedToken
        in LSP.FromServerMess LSP.SProgress $ notif & LSP.params . LSP.token .~ prefixedToken
     -- ProgressToken was created by client, send back the unprefixed token
-    (unprefixedToken, ClientPrefix) -> LSP.FromServerMess LSP.SProgress $ notif & LSP.params . LSP.token .~ unprefixedToken
-    (_, SubIDEPrefix t) -> error $ "SubIDE with prefix " <> T.unpack t <> " is somehow aware of its own prefixing. Something is very wrong."
+    (unprefixedToken, Just ClientPrefix) -> LSP.FromServerMess LSP.SProgress $ notif & LSP.params . LSP.token .~ unprefixedToken
+    (_, Just (SubIDEPrefix t)) -> error $ "SubIDE with prefix " <> T.unpack t <> " is somehow aware of its own prefixing. Something is very wrong."
 addProgressTokenPrefixToServerMessage _ msg = msg
 
 -- Prefixes client created progress tokens for all requests that can create them.
@@ -108,7 +104,12 @@ addProgressTokenPrefixToClientMessage = \case
     case LSP.splitClientMethod method of
       LSP.IsClientReq -> do
         let progressLenses = getProgressLenses method
-            doAddProgressTokenPrefix = maybe id $ \lens -> runLens lens %~ fmap (addProgressTokenPrefix ClientPrefix)
+            doAddProgressTokenPrefix
+              :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
+              .  Maybe (ReifiedLens' (LSP.RequestMessage m) (Maybe LSP.ProgressToken))
+              -> LSP.RequestMessage m
+              -> LSP.RequestMessage m
+            doAddProgressTokenPrefix = maybe id $ \lens -> runLens lens . mapped %~ addProgressTokenPrefix ClientPrefix
             params' = doAddProgressTokenPrefix (workDoneLens progressLenses) $ doAddProgressTokenPrefix (partialResultLens progressLenses) params
          in LSP.FromClientMess method params'
       _ -> mess
@@ -167,19 +168,19 @@ getProgressLenses = \case
       => ProgressLenses m
     both = ProgressLenses (Just $ Lens $ LSP.params . LSP.workDoneToken) (Just $ Lens $ LSP.params . LSP.partialResultToken)
 
--- Removes and returns the subIDE prefix from cancel messages. Gives Nothing for client created tokens
-removeWorkDoneProgressCancelTokenPrefix
+-- strips and returns the subIDE prefix from cancel messages. Gives Nothing for client created tokens
+stripWorkDoneProgressCancelTokenPrefix
   :: LSP.NotificationMessage 'LSP.WindowWorkDoneProgressCancel
   -> (LSP.NotificationMessage 'LSP.WindowWorkDoneProgressCancel, Maybe T.Text)
-removeWorkDoneProgressCancelTokenPrefix notif =
-  case removeProgressTokenPrefix $ notif ^. LSP.params . LSP.token of
+stripWorkDoneProgressCancelTokenPrefix notif =
+  case stripProgressTokenPrefix $ notif ^. LSP.params . LSP.token of
     -- Token was created by the client, add the client prefix and broadcast to all subIDEs
-    (unprefixedToken, NoPrefix) ->
+    (unprefixedToken, Nothing) ->
       let prefixedToken = addProgressTokenPrefix ClientPrefix unprefixedToken
        in (notif & LSP.params . LSP.token .~ prefixedToken, Nothing)
     -- Created by subIDE, strip the prefix and send to the specific subIDE that created it.
-    (unprefixedToken, SubIDEPrefix prefix) -> (notif & LSP.params . LSP.token .~ unprefixedToken, Just prefix)
-    (_, ClientPrefix) -> error "Client attempted to cancel a ProgressToken with the client prefix, which it should not be aware of. Something went wrong."
+    (unprefixedToken, Just (SubIDEPrefix prefix)) -> (notif & LSP.params . LSP.token .~ unprefixedToken, Just prefix)
+    (_, Just ClientPrefix) -> error "Client attempted to cancel a ProgressToken with the client prefix, which it should not be aware of. Something went wrong."
 
 -- LspId Prefixing
 
@@ -195,14 +196,14 @@ addLspPrefix
 addLspPrefix prefix (LSP.IdInt t) = LSP.IdString $ "i" <> prefix <> "-" <> T.pack (show t)
 addLspPrefix prefix (LSP.IdString t) = LSP.IdString $ "t" <> prefix <> "-" <> t
 
-removeLspPrefix
+stripLspPrefix
   :: forall (f :: LSP.From) (m :: LSP.Method f 'LSP.Request)
   .  LSP.LspId m
   -> LSP.LspId m
-removeLspPrefix (LSP.IdString (T.unpack -> ('i':rest))) = LSP.IdInt $ read $ tail $ dropWhile (/='-') rest
-removeLspPrefix (LSP.IdString (T.uncons -> Just ('t', rest))) = LSP.IdString $ T.tail $ T.dropWhile (/='-') rest
+stripLspPrefix (LSP.IdString (T.unpack -> ('i':rest))) = LSP.IdInt $ read $ tail $ dropWhile (/='-') rest
+stripLspPrefix (LSP.IdString (T.uncons -> Just ('t', rest))) = LSP.IdString $ T.tail $ T.dropWhile (/='-') rest
 -- Maybe this should error? This method should only be called on LspIds that we know have been prefixed
-removeLspPrefix t = t
+stripLspPrefix t = t
 
 -- Prefixes applied to builtin and custom requests. Notifications do not have ids, responses do not need this logic.
 addLspPrefixToServerMessage :: SubIDE -> LSP.FromServerMessage -> LSP.FromServerMessage

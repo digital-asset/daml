@@ -196,7 +196,10 @@ handleExit miState ide = do
 
 -- Dangerous as does not hold the subIDEsVar lock. If a shutdown is called whiled this is running, the message may not be sent.
 unsafeSendSubIDE :: SubIDE -> LSP.FromClientMessage -> IO ()
-unsafeSendSubIDE ide = atomically . writeTChan (ideInHandleChannel ide) . Aeson.encode
+unsafeSendSubIDE ide = atomically . unsafeSendSubIDESTM ide
+
+unsafeSendSubIDESTM :: SubIDE -> LSP.FromClientMessage -> STM ()
+unsafeSendSubIDESTM ide = writeTChan (ideInHandleChannel ide) . Aeson.encode
 
 sendClient :: MultiIdeState -> LSP.FromServerMessage -> IO ()
 sendClient miState = atomically . writeTChan (toClientChan miState) . Aeson.encode
@@ -280,9 +283,11 @@ subIDEMessageHandler miState unblock ide bs = do
   mMsg <- either error id <$> parseServerMessageWithTracker (fromClientMethodTrackerVar miState) (ideHomeDirectory ide) val
 
   -- Adds the various prefixes needed for from server messages to not clash with those from other IDEs
-  let prefixer = 
+  let prefixer :: LSP.FromServerMessage -> LSP.FromServerMessage
+      prefixer = 
         addProgressTokenPrefixToServerMessage (ideMessageIdPrefix ide)
           . addLspPrefixToServerMessage ide
+      mPrefixedMsg :: Maybe LSP.FromServerMessage
       mPrefixedMsg = prefixer <$> mMsg
 
   forM_ mPrefixedMsg $ \msg -> do
@@ -377,16 +382,16 @@ clientMessageHandler miState bs = do
       putMVar (initParamsVar miState) _params
       sendClient miState $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) (Right initializeResult)
     LSP.FromClientMess LSP.SWindowWorkDoneProgressCancel notif -> do
-      let (newNotif, mPrefix) = removeWorkDoneProgressCancelTokenPrefix notif
+      let (newNotif, mPrefix) = stripWorkDoneProgressCancelTokenPrefix notif
           newMsg = LSP.FromClientMess LSP.SWindowWorkDoneProgressCancel newNotif
       -- Find IDE with the correct prefix, send to it if it exists. If it doesn't, the message can be thrown away.
-      ides <- atomically $ takeTMVar $ subIDEsVar miState
       case mPrefix of
         Nothing -> void $ sendAllSubIDEs miState newMsg
-        Just prefix ->
+        Just prefix -> atomically $ do
+          ides <- takeTMVar $ subIDEsVar miState
           let mIde = find (\ide -> ideMessageIdPrefix ide == prefix) $ onlyActiveSubIdes ides
-           in traverse_ (`unsafeSendSubIDE` newMsg) mIde
-      atomically $ putTMVar (subIDEsVar miState) ides
+          traverse_ (`unsafeSendSubIDESTM` newMsg) mIde
+          putTMVar (subIDEsVar miState) ides
 
     -- Special handing for STextDocumentDefinition to ask multiple IDEs (the W approach)
     -- When a getDefinition is requested, we cast this request into a tryGetDefinition
@@ -433,7 +438,7 @@ clientMessageHandler miState bs = do
           handler (sendClient miState) (sendSubIDEByPath miState)
     LSP.FromClientRsp (Pair method (Const home)) rMsg -> 
       sendSubIDEByPath miState home $ LSP.FromClientRsp method $ 
-        rMsg & LSP.id %~ fmap removeLspPrefix
+        rMsg & LSP.id %~ fmap stripLspPrefix
 
 getMultiPackageYamlMapping :: (String -> IO ()) -> IO MultiPackageYamlMapping
 getMultiPackageYamlMapping debugPrint = do
