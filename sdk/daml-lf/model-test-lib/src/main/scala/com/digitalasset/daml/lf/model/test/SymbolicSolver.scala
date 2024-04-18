@@ -10,7 +10,7 @@ import com.microsoft.z3.Status.{SATISFIABLE, UNSATISFIABLE}
 import com.microsoft.z3.{BoolExpr, Context, FuncDecl, Sort}
 
 object SymbolicSolver {
-  def solve(skeleton: Skeletons.Ledger, numParties: Int): Option[Ledgers.Ledger] = {
+  def solve(skeleton: Skeletons.Scenario, numParties: Int): Option[Ledgers.Scenario] = {
     val ctx = new Context()
     val res = new SymbolicSolver(ctx, numParties).solve(skeleton)
     ctx.close()
@@ -20,6 +20,7 @@ object SymbolicSolver {
 
 private class SymbolicSolver(ctx: Context, numParties: Int) {
 
+  private val participantIdSort = ctx.mkIntSort()
   private val contractIdSort = ctx.mkIntSort()
   private val partySort = ctx.mkIntSort()
   private val partySetSort = ctx.mkSetSort(ctx.mkIntSort())
@@ -115,6 +116,43 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     and(ledger.map(numberCommands))
   }
 
+  private def numberParticipants(topology: Symbolic.Topology): BoolExpr = {
+    def numberParticipant(participant: Participant, i: Int): BoolExpr = {
+      ctx.mkEq(participant.participantId, ctx.mkInt(i))
+    }
+
+    and(topology.zipWithIndex.map((numberParticipant _).tupled))
+  }
+
+  private def tiePartiesToParticipants(
+      topology: Topology,
+      partiesOf: FuncDecl[PartySetSort],
+  ): BoolExpr = {
+    def tie(participant: Participant): BoolExpr = {
+      ctx.mkEq(ctx.mkApp(partiesOf, participant.participantId), participant.parties)
+    }
+
+    and(topology.map(tie))
+  }
+
+  private def partition(
+      allParties: Symbolic.PartySet,
+      partySets: Seq[Symbolic.PartySet],
+  ): BoolExpr = {
+    def pairwiseNonIntersecting(sets: List[Symbolic.PartySet]): BoolExpr = sets match {
+      case Nil => ctx.mkBool(true)
+      case set1 :: tail =>
+        ctx.mkAnd(
+          and(tail.map(set2 => isEmptyPartySet(ctx.mkSetIntersection(set1, set2)))),
+          pairwiseNonIntersecting(tail),
+        )
+    }
+    def union(sets: Seq[Symbolic.PartySet]): Symbolic.PartySet =
+      sets.foldLeft(ctx.mkEmptySet(partySort))(ctx.mkSetUnion(_, _))
+
+    ctx.mkAnd(ctx.mkEq(union(partySets), allParties), pairwiseNonIntersecting(partySets.toList))
+  }
+
   private def consistentLedger(ledger: Ledger): BoolExpr = {
     case class State(created: Set[ContractId], consumed: Set[ContractId])
     var state = State(Set.empty, Set.empty)
@@ -154,6 +192,46 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     }
 
     and(ledger.map(consistentCommands))
+  }
+
+  private def visibleContracts(
+      partiesOf: FuncDecl[PartySetSort],
+      signatoriesOf: FuncDecl[PartySetSort],
+      observersOf: FuncDecl[PartySetSort],
+      ledger: Symbolic.Ledger,
+  ): BoolExpr = {
+
+    def visibleContractId(participantId: ParticipantId, contractId: ContractId): BoolExpr =
+      ctx.mkNot(
+        isEmptyPartySet(
+          ctx.mkSetIntersection(
+            ctx.mkApp(partiesOf, participantId).asInstanceOf[PartySet],
+            ctx.mkSetUnion(
+              ctx.mkApp(signatoriesOf, contractId).asInstanceOf[PartySet],
+              ctx.mkApp(observersOf, contractId).asInstanceOf[PartySet],
+            ),
+          )
+        )
+      )
+
+    def visibleAction(participantId: ParticipantId, action: Action): BoolExpr = action match {
+      case Create(_, _, _) =>
+        ctx.mkTrue()
+      case Exercise(_, contractId, _, _, subTransaction) =>
+        ctx.mkAnd(
+          visibleContractId(participantId, contractId),
+          and(subTransaction.map(visibleAction(participantId, _))),
+        )
+      case Fetch(contractId) =>
+        visibleContractId(participantId, contractId)
+      case Rollback(subTransaction) =>
+        and(subTransaction.map(visibleAction(participantId, _)))
+    }
+
+    def visibleCommands(commands: Commands): BoolExpr =
+      and(commands.actions.map(visibleAction(commands.participantId, _)))
+
+    and(ledger.map(visibleCommands))
   }
 
   private def hideCreatedContractsInSiblings(ledger: Ledger): BoolExpr = {
@@ -223,6 +301,54 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     and(ledger.map(authorizedCommands))
   }
 
+  private def validParticipantIdsInCommands(scenario: Scenario): BoolExpr = {
+    def allParticipantIds = scenario.topology.map(_.participantId)
+
+    def isValidParticipantId(participantId: ParticipantId): BoolExpr =
+      or(allParticipantIds.map(ctx.mkEq(participantId, _)))
+
+    and(scenario.ledger.map(commands => isValidParticipantId(commands.participantId)))
+  }
+
+  private def actorsAreHostedOnParticipant(
+      partiesOf: FuncDecl[PartySetSort],
+      ledger: Symbolic.Ledger,
+  ): BoolExpr = {
+    def actorsAreHostedOnParticipant(commands: Commands): BoolExpr =
+      ctx.mkSetSubset(
+        commands.actAs,
+        ctx.mkApp(partiesOf, commands.participantId).asInstanceOf[PartySet],
+      )
+
+    and(ledger.map(actorsAreHostedOnParticipant))
+  }
+
+  private def controllersAreHostedOnParticipant(
+      partiesOf: FuncDecl[PartySetSort],
+      ledger: Symbolic.Ledger,
+  ): BoolExpr = {
+    def validActionControllers(participantId: ParticipantId, action: Action): BoolExpr =
+      action match {
+        case Create(_, _, _) =>
+          ctx.mkBool(true)
+        case Exercise(_, _, controllers, _, subTransaction) =>
+          ctx.mkAnd(
+            ctx
+              .mkSetSubset(controllers, ctx.mkApp(partiesOf, participantId).asInstanceOf[PartySet]),
+            and(subTransaction.map(validActionControllers(participantId, _))),
+          )
+        case Fetch(_) =>
+          ctx.mkBool(true)
+        case Rollback(subTransaction) =>
+          and(subTransaction.map(validActionControllers(participantId, _)))
+      }
+
+    def validCommandsControllers(commands: Commands): BoolExpr =
+      and(commands.actions.map(validActionControllers(commands.participantId, _)))
+
+    and(ledger.map(validCommandsControllers))
+  }
+
   private val allPartiesSetLiteral =
     (1 to numParties).foldLeft(ctx.mkEmptySet(ctx.mkIntSort()))((acc, i) =>
       ctx.mkSetAdd(acc, ctx.mkInt(i))
@@ -237,12 +363,10 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
         .map(s => ctx.mkNot(isEmptyPartySet(s)))
     )
 
-  // HERE
-
-  private def hashConstraint(chunkSize: Int, ledger: Ledger): BoolExpr = {
+  private def hashConstraint(chunkSize: Int, scenario: Scenario): BoolExpr = {
     def contractIdToBits(contractId: ContractId): Seq[BoolExpr] = {
-      val bitVector = ctx.mkInt2BV(10, contractId)
-      (0 until 10).map(i => ctx.mkEq(ctx.mkExtract(i, i, bitVector), ctx.mkBV(1, 1)))
+      val bitVector = ctx.mkInt2BV(5, contractId)
+      (0 until 5).map(i => ctx.mkEq(ctx.mkExtract(i, i, bitVector), ctx.mkBV(1, 1)))
     }
 
     def partySetToBits(partySet: PartySet): Seq[BoolExpr] = {
@@ -255,42 +379,71 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
         collectPartySets(ledger).flatMap(partySetToBits),
       )
 
+    def participantToBits(participant: Participant): Seq[BoolExpr] =
+      partySetToBits(participant.parties)
+
+    def topologyToBits(topology: Topology): Seq[BoolExpr] =
+      topology.flatMap(participantToBits)
+
+    def scenarioToBits(scenario: Scenario): Seq[BoolExpr] = {
+      Seq.concat(topologyToBits(scenario.topology), ledgerToBits(scenario.ledger))
+    }
+
     def xor(bits: Iterable[BoolExpr]): BoolExpr = bits.reduce((b1, b2) => ctx.mkXor(b1, b2))
 
-    def mkRandomHash(chunkSize: Int, ledger: Ledger): Seq[BoolExpr] =
-      ledgerToBits(ledger).grouped(chunkSize).map(xor).toSeq
+    def mkRandomHash(chunkSize: Int, scenario: Scenario): Seq[BoolExpr] =
+      scenarioToBits(scenario).grouped(chunkSize).map(xor).toSeq
 
-    and(mkRandomHash(chunkSize, ledger))
+    and(mkRandomHash(chunkSize, scenario))
   }
 
-  private def solve(ledger: Skeletons.Ledger): Option[Ledgers.Ledger] = {
+  private def solve(scenario: Skeletons.Scenario): Option[Ledgers.Scenario] = {
     val solver = ctx.mkSolver()
 
-    val sLedger = new ToSymbolic(ctx).toSymbolic(ledger)
+    val symScenario = new ToSymbolic(ctx).toSymbolic(scenario)
+    val Scenario(symTopology, symLedger) = symScenario
+
     val allParties = ctx.mkConst(ctx.mkSymbol("all_parties"), partySetSort).asInstanceOf[PartySet]
     val signatoriesOf = ctx.mkFuncDecl("signatories", Array[Sort](contractIdSort), partySetSort)
     val observersOf = ctx.mkFuncDecl("observers", Array[Sort](contractIdSort), partySetSort)
+    val partiesOf = ctx.mkFuncDecl("parties", Array[Sort](participantIdSort), partySetSort)
 
     // Declare allParties = {1 .. numParties}
     solver.add(ctx.mkEq(allParties, allPartiesSetLiteral))
     // Assign distinct contract IDs to create events
-    solver.add(numberLedger(sLedger))
+    solver.add(numberLedger(symLedger))
+    // Assign distinct participant IDs to participants in the topology
+    solver.add(numberParticipants(symTopology))
+    // Tie parties to participants via partiesOf
+    solver.add(tiePartiesToParticipants(symTopology, partiesOf))
+    // Participants form a partition of allParties
+    solver.add(partition(allParties, symTopology.map(_.parties)))
+    // Participants have at least one party
+    solver.add(and(symTopology.map(p => ctx.mkNot(isEmptyPartySet(p.parties)))))
     // Every party set in ledger is a subset of allParties
-    solver.add(partySetsWellFormed(sLedger, allParties))
+    solver.add(partySetsWellFormed(symLedger, allParties))
     // Every non-empty party set in ledger is non-empty
-    solver.add(nonEmptyPartySetsWellFormed(sLedger))
-    // Only active contracts can be exercised
-    solver.add(consistentLedger(sLedger))
+    solver.add(nonEmptyPartySetsWellFormed(symLedger))
+    // Only active contracts can be exercised or fetched
+    solver.add(consistentLedger(symLedger))
+    // Only contracts visible to the participant can be exercised of fetched on a participant
+    solver.add(visibleContracts(partiesOf, signatoriesOf, observersOf, symLedger))
     // Contracts created in a command cannot be referenced by other actions in the same command
-    solver.add(hideCreatedContractsInSiblings(sLedger))
+    solver.add(hideCreatedContractsInSiblings(symLedger))
     // Transactions adhere to the authorization rules
-    solver.add(authorized(signatoriesOf, observersOf, sLedger))
+    solver.add(authorized(signatoriesOf, observersOf, symLedger))
+    // Participants IDs in a command refer to existing participants
+    solver.add(validParticipantIdsInCommands(symScenario))
+    // Actors of a command should be hosted by the participant executing the command
+    solver.add(actorsAreHostedOnParticipant(partiesOf, symLedger))
+    // Controllers of an exercise should be hosted by the participant executing the command
+    solver.add(controllersAreHostedOnParticipant(partiesOf, symLedger))
     // Equate a random hash of all the symbols to resolve to 0
-    solver.add(hashConstraint(30, sLedger))
+    solver.add(hashConstraint(20, symScenario))
 
     solver.check() match {
       case SATISFIABLE =>
-        Some(new FromSymbolic(numParties, ctx, solver.getModel).toConcrete(sLedger))
+        Some(new FromSymbolic(numParties, ctx, solver.getModel).toConcrete(symScenario))
       case UNSATISFIABLE =>
         print(".")
         None

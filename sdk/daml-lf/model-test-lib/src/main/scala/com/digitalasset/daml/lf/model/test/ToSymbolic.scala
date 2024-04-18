@@ -5,16 +5,17 @@ package com.daml.lf
 package model
 package test
 
-import com.microsoft.z3.{Context, IntSort, StringSymbol}
-import com.daml.lf.model.test.{Symbolic => Sym}
-import com.daml.lf.model.test.{Skeletons => Skel}
+import com.daml.lf.model.test.{Skeletons => Skel, Symbolic => Sym}
+import com.microsoft.z3.{Context, StringSymbol}
 
+import scala.annotation.nowarn
 import scala.collection.mutable
 
 class ToSymbolic(ctx: Context) {
 
-  private val partySetSort = ctx.mkSetSort(ctx.mkIntSort())
-  private val contractIdSort: IntSort = ctx.mkIntSort()
+  private val partySetSort: Sym.PartySetSort = ctx.mkSetSort(ctx.mkIntSort())
+  private val contractIdSort: Sym.ContractIdSort = ctx.mkIntSort()
+  private val participantIdSort: Sym.ParticipantIdSort = ctx.mkIntSort()
 
   private val counters: mutable.Map[String, Int] = mutable.HashMap.empty
 
@@ -30,6 +31,9 @@ class ToSymbolic(ctx: Context) {
       }
     })
 
+  private def mkFreshParticipantId(): Sym.ParticipantId =
+    ctx.mkConst(mkFreshSymbol("p"), participantIdSort).asInstanceOf[Sym.ContractId]
+
   private def mkFreshContractId(): Sym.ContractId =
     ctx.mkConst(mkFreshSymbol("c"), contractIdSort).asInstanceOf[Sym.ContractId]
 
@@ -37,7 +41,7 @@ class ToSymbolic(ctx: Context) {
     ctx.mkConst(mkFreshSymbol(name), partySetSort).asInstanceOf[Sym.PartySet]
 
   private def toSymbolic(commands: Skel.Commands): Sym.Commands =
-    Sym.Commands(mkFreshPartySet("a"), commands.actions.map(toSymbolic))
+    Sym.Commands(mkFreshParticipantId(), mkFreshPartySet("a"), commands.actions.map(toSymbolic))
 
   private def toSymbolic(kind: Skel.ExerciseKind): Sym.ExerciseKind = {
     kind match {
@@ -69,4 +73,14 @@ class ToSymbolic(ctx: Context) {
 
   def toSymbolic(ledger: Skel.Ledger): Sym.Ledger =
     ledger.map(toSymbolic)
+
+  @nowarn("cat=unused")
+  def toSymbolic(participant: Skel.Participant): Sym.Participant =
+    Sym.Participant(mkFreshParticipantId(), mkFreshPartySet("ps"))
+
+  def toSymbolic(topology: Skel.Topology): Sym.Topology =
+    topology.map(toSymbolic)
+
+  def toSymbolic(scenario: Skel.Scenario): Sym.Scenario =
+    Sym.Scenario(toSymbolic(scenario.topology), toSymbolic(scenario.ledger))
 }

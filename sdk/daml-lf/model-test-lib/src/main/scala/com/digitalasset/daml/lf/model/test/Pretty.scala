@@ -138,6 +138,21 @@ object Pretty {
   object PrettySymbolic {
     import Symbolic._
 
+    def scenarioToTree(scenario: Scenario): Tree = {
+      Tree("Scenario", Seq(topologyToTree(scenario.topology), ledgerToTree(scenario.ledger)))
+    }
+
+    def topologyToTree(topology: Topology): Tree = {
+      Tree("Topology", topology.map(participantToTree))
+    }
+
+    def participantToTree(participant: Participant): Tree = {
+      Tree(
+        s"Participant ${participant.participantId} parties=${prettyParties(participant.parties)}",
+        Seq.empty,
+      )
+    }
+
     def ledgerToTree(ledger: Ledger): Tree = {
       Tree("Ledger", ledger.map(commandsToTree))
     }
@@ -177,7 +192,10 @@ object Pretty {
   def prettySkeletonLedger(ledger: Skeletons.Ledger): String =
     PrettySkeletons.ledgerToTree(ledger).pretty(0)
 
-  def prettySymbolic(ledger: Symbolic.Ledger): String =
+  def prettySymScenario(scenario: Symbolic.Scenario): String =
+    PrettySymbolic.scenarioToTree(scenario).pretty(0)
+
+  def prettySymLedger(ledger: Symbolic.Ledger): String =
     PrettySymbolic.ledgerToTree(ledger).pretty(0)
 
   def prettyProjection(projection: Projections.Projection): String =
