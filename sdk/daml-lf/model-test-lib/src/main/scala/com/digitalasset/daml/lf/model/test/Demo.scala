@@ -22,7 +22,7 @@ object Demo {
 
   def main(args: Array[String]): Unit = {
 
-    val scenarios = Enumerations.scenarios(numParticipants = 3)(50)
+    val scenarios = Enumerations.scenarios(numParticipants = 3)(100)
 
     def randomBigIntLessThan(n: BigInt): BigInt = {
       var res: BigInt = BigInt(0)
@@ -39,11 +39,11 @@ object Demo {
     }.flatten
     val _ = randomScenarios
 
-    def validLedgersSym: LazyList[Ledgers.Ledger] = LazyList.continually {
+    def validSymScenarios: LazyList[Ledgers.Scenario] = LazyList.continually {
       val skeleton = scenarios(randomBigIntLessThan(scenarios.cardinal))
-      SymbolicSolver.solve(skeleton.ledger, 4)
+      SymbolicSolver.solve(skeleton, 6)
     }.flatten
-    val _ = validLedgersSym
+    val _ = validSymScenarios
 
     def validScenarios: LazyList[Scenario] = LazyList.continually {
       val randomSkeleton = scenarios(randomBigIntLessThan(scenarios.cardinal))
@@ -65,7 +65,7 @@ object Demo {
     val ideLedgerRunner = LedgerRunner.forIdeLedger(universalDarPath)
 
     while (true) {
-      validScenarios
+      validSymScenarios
         .foreach(scenario => {
           if (scenario.ledger.nonEmpty) {
             println("\n==== ledger ====")
