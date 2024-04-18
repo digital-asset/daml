@@ -49,6 +49,19 @@ export async function activate(context: vscode.ExtensionContext) {
   // Get telemetry consent
   const consent = getTelemetryConsent(config, context);
 
+  // Add entry for multi-ide readonly directory
+  let filesConfig = vscode.workspace.getConfiguration("files");
+  let multiIdeReadOnlyPattern = "**/.daml/unpacked-dars/**";
+  // Explicit any type as typescript gets angry, its a map from pattern (string) to boolean
+  let readOnlyInclude: any =
+    filesConfig.inspect("readonlyInclude")?.workspaceValue || {};
+  if (!readOnlyInclude[multiIdeReadOnlyPattern])
+    filesConfig.update(
+      "readonlyInclude",
+      { ...readOnlyInclude, [multiIdeReadOnlyPattern]: true },
+      vscode.ConfigurationTarget.Workspace,
+    );
+
   // Display release notes on updates
   showReleaseNotesIfNewVersion(context);
 

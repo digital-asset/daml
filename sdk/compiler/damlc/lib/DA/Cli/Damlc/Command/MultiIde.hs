@@ -84,7 +84,7 @@ addNewSubIDEAndSend miState home msg = do
     Nothing -> do
       debugPrint miState "Making a SubIDE"
 
-      unitId <- either (\cErr -> error $ "Failed to get unit ID from daml.yaml: " <> show cErr) id <$> unitIdFromDamlYaml home
+      unitId <- either (\cErr -> error $ "Failed to get unit ID from daml.yaml: " <> show cErr) fst <$> unitIdAndDepsFromDamlYaml home
 
       subIdeProcess <- runSubProc home
       let inHandle = getStdin subIdeProcess
@@ -232,7 +232,10 @@ sendSubIDEByPath miState path msg = do
       let ides = onlyActiveSubIdes idesUnfiltered
           -- Map.keys gives keys in ascending order, so first match will be the shortest.
           -- No possibility to accidentally pick a nested package.
-          mHome = find (`isPrefixOf` path) $ Map.keys ides
+          -- Note that the `.daml/unpacked-dars` acts as a "break" in containership of files to an IDE.
+          --   This forces the coordinator to spin up a new subIDE for the unpacked dar, even if the `.daml` sits within another package
+          homeContainsPath home = fromMaybe False $ not . isInfixOf ".daml/unpacked-dars" <$> (home `stripPrefix` path)
+          mHome = find homeContainsPath $ Map.keys ides
           mIde = mHome >>= flip Map.lookup ides
 
       case mIde of
@@ -325,14 +328,15 @@ subIDEMessageHandler miState unblock ide bs = do
           -- Send a new request to a new SubIDE to find the source of this name
           Right (Just (TryGetDefinitionResult loc (Just name))) -> do
             debugPrint miState $ "Got name in result! Backup location is " <> show loc
-            let mHome = Map.lookup (tgdnPackageUnitId name) $ multiPackageMapping miState
-            case mHome of
+            let mSourceLocation = Map.lookup (tgdnPackageUnitId name) $ multiPackageMapping miState
+            case mSourceLocation of
               -- Didn't find a home for this name, we do not know where this is defined, so give back the (known to be wrong)
               -- .daml data-dependency path
               -- This is the worst case, we'll later add logic here to unpack and spinup an SubIDE for the read-only dependency
               Nothing -> replyLocations [loc]
               -- We found a daml.yaml for this definition, send the getDefinitionByName request to its SubIDE
-              Just home -> do
+              Just sourceLocation -> do
+                home <- resolveSourceLocation miState sourceLocation
                 debugPrint miState $ "Found unit ID in multi-package mapping, forwarding to " <> home
                 let method = LSP.SCustomMethod "daml/gotoDefinitionByName"
                     lspId = maybe (error "No LspId provided back from tryGetDefinition") castLspId _id
@@ -440,20 +444,40 @@ clientMessageHandler miState bs = do
       sendSubIDEByPath miState home $ LSP.FromClientRsp method $ 
         rMsg & LSP.id %~ fmap stripLspPrefix
 
-getMultiPackageYamlMapping :: (String -> IO ()) -> IO MultiPackageYamlMapping
-getMultiPackageYamlMapping debugPrint = do
+getMultiPackageYamlMapping :: (String -> IO ()) -> FilePath -> IO MultiPackageYamlMapping
+getMultiPackageYamlMapping debugPrint ideRoot = do
   -- TODO: this will find the "closest" multi-package.yaml, but in a case where we have multiple referring to each other, we'll not see the outer one
   -- in that case, code jump won't work. Its unclear which the user would want, so we may want to prompt them with either closest or furthest (that links up)
-  mPkgConfig <- findMultiPackageConfig $ ProjectPath "."
+  mPkgConfig <- findMultiPackageConfig $ ProjectPath ideRoot
   case mPkgConfig of
-    Nothing ->
-      Map.empty <$ debugPrint "No multi-package.yaml found"
+    Nothing -> do
+      debugPrint "No multi-package.yaml found"
+      damlYamlExists <- doesFileExist $ ideRoot </> projectConfigName
+      if damlYamlExists
+        then do
+          debugPrint "Found daml.yaml"
+          (unitId, deps) <- either throwIO pure =<< unitIdAndDepsFromDamlYaml ideRoot
+          darMapping <- darsToDarMapping deps
+          pure $ Map.insert unitId (PackageOnDisk ideRoot) darMapping
+        else do
+          debugPrint "No daml.yaml found either"
+          pure Map.empty
     Just path -> do
       debugPrint "Found multi-package.yaml"
       withMultiPackageConfig path $ \multiPackage -> do
-        eUnitIds <- traverse unitIdFromDamlYaml (mpPackagePaths multiPackage)
-        let eMapping = Map.fromList . flip zip (mpPackagePaths multiPackage) <$> sequence eUnitIds
-        either throwIO pure eMapping
+        eUnitIds <- sequence <$> traverse unitIdAndDepsFromDamlYaml (mpPackagePaths multiPackage)
+        (unitIds, deps) <- either throwIO (pure . second (nubOrd . concat) . unzip) eUnitIds
+        let allDars = nubOrd $ deps <> mpDars multiPackage
+        darMapping <- darsToDarMapping allDars
+
+        let packagesOnDisk = Map.fromList $ zip unitIds (PackageOnDisk <$> mpPackagePaths multiPackage)
+        pure $ packagesOnDisk <> darMapping
+  where
+    darsToDarMapping :: [FilePath] -> IO MultiPackageYamlMapping
+    darsToDarMapping deps = fmap Map.fromList $ forM deps $ \dep -> do
+      archive <- Zip.toArchive <$> BSL.readFile dep
+      manifest <- either fail pure $ readDalfManifest archive
+      pure (fromMaybe (error $ "data-dependency " <> dep <> " missing a package name") $ packageName manifest, PackageInDar dep)
 
 {-
 Expect a multi-package.yaml at the workspace root
@@ -469,8 +493,9 @@ If we do not get one, we continue as normal (no popups) until the user attempts 
 runMultiIde :: MultiIdeVerbose -> IO ()
 runMultiIde multiIdeVerbose = do
   let debugPrinter = makeDebugPrint $ getMultiIdeVerbose multiIdeVerbose
-  multiPackageMapping <- getMultiPackageYamlMapping debugPrinter
-  miState <- newMultiIdeState multiPackageMapping debugPrinter
+  homePath <- getCurrentDirectory
+  multiPackageMapping <- getMultiPackageYamlMapping debugPrinter homePath
+  miState <- newMultiIdeState multiPackageMapping homePath debugPrinter
 
   infoPrint $ "Running " <> (if getMultiIdeVerbose multiIdeVerbose then "with" else "without") <> " verbose flag."
   debugPrint miState "Listening for bytes"

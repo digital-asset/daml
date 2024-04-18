@@ -92,8 +92,10 @@ onlyActiveSubIdes = Map.filter ideActive
 type InitParams = LSP.InitializeParams
 type InitParamsVar = MVar InitParams
 
--- Maps a packages unit id to its source file path, for all packages listed in a multi-package.yaml
-type MultiPackageYamlMapping = Map.Map String FilePath
+-- Maps a packages unit id to its source location, using PackageOnDisk for all packages in multi-package.yaml
+-- and PackageInDar for all known dars (currently extracted from data-dependencies)
+data PackageSourceLocation = PackageOnDisk FilePath | PackageInDar FilePath
+type MultiPackageYamlMapping = Map.Map String PackageSourceLocation
 
 data MultiIdeState = MultiIdeState
   { fromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient
@@ -105,10 +107,11 @@ data MultiIdeState = MultiIdeState
   , toClientChan :: TChan BSL.ByteString
   , multiPackageMapping :: MultiPackageYamlMapping
   , debugPrint :: String -> IO ()
+  , multiPackageHome :: FilePath
   }
 
-newMultiIdeState :: MultiPackageYamlMapping -> (String -> IO ()) -> IO MultiIdeState
-newMultiIdeState multiPackageMapping debugPrint = do
+newMultiIdeState :: MultiPackageYamlMapping -> FilePath -> (String -> IO ()) -> IO MultiIdeState
+newMultiIdeState multiPackageMapping multiPackageHome debugPrint = do
   (fromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient) <- newTVarIO IM.emptyIxMap
   (fromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer) <- newTVarIO IM.emptyIxMap
   subIDEsVar <- newTMVarIO @SubIDEs mempty

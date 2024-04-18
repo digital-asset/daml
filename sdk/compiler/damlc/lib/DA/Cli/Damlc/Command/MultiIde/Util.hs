@@ -17,11 +17,15 @@ import Control.Concurrent.MVar
 import Control.Concurrent.STM.TMVar
 import Control.Exception (handle)
 import Control.Monad.STM
-import DA.Daml.Project.Config (readProjectConfig, queryProjectConfigRequired)
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Except
+import DA.Daml.Project.Config (readProjectConfig, queryProjectConfig, queryProjectConfigRequired)
+import DA.Daml.Project.Consts (projectConfigName)
 import DA.Daml.Project.Types (ConfigError, ProjectPath (..))
+import Data.Maybe (fromMaybe)
 import qualified Language.LSP.Types as LSP
 import qualified Language.LSP.Types.Capabilities as LSP
-import System.Directory (doesDirectoryExist, listDirectory)
+import System.Directory (doesDirectoryExist, listDirectory, withCurrentDirectory, canonicalizePath)
 import System.FilePath (takeDirectory)
 import System.IO.Extra
 import System.IO.Unsafe (unsafePerformIO)
@@ -161,7 +165,7 @@ findHome path = do
   where
     aux :: FilePath -> IO (Maybe FilePath)
     aux path = do
-      hasDamlYaml <- elem "daml.yaml" <$> listDirectory path
+      hasDamlYaml <- elem projectConfigName <$> listDirectory path
       if hasDamlYaml
         then pure $ Just path
         else do
@@ -170,11 +174,12 @@ findHome path = do
             then pure Nothing
             else aux newPath
 
-unitIdFromDamlYaml :: FilePath -> IO (Either ConfigError String)
-unitIdFromDamlYaml path = do
-  handle (\(e :: ConfigError) -> return $ Left e) $ do
-    project <- readProjectConfig $ ProjectPath path
-    pure $ do
-      name <- queryProjectConfigRequired ["name"] project
-      version <- queryProjectConfigRequired ["version"] project
-      pure $ name <> "-" <> version
+unitIdAndDepsFromDamlYaml :: FilePath -> IO (Either ConfigError (String, [FilePath]))
+unitIdAndDepsFromDamlYaml path = do
+  handle (\(e :: ConfigError) -> return $ Left e) $ runExceptT $ do
+    project <- lift $ readProjectConfig $ ProjectPath path
+    deps <- except $ fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
+    canonDeps <- lift $ withCurrentDirectory path $ traverse canonicalizePath deps
+    name <- except $ queryProjectConfigRequired ["name"] project
+    version <- except $ queryProjectConfigRequired ["version"] project
+    pure (name <> "-" <> version, canonDeps)
