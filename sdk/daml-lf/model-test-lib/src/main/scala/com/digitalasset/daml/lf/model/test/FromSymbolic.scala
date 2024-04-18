@@ -11,6 +11,9 @@ import com.microsoft.z3.{Context, IntNum, Model}
 
 class FromSymbolic(numParties: Int, ctx: Context, model: Model) {
 
+  private def evalParticipantId(pid: S.ParticipantId): L.ParticipantId =
+    model.evaluate(pid, false).asInstanceOf[IntNum].getInt
+
   private def evalContractId(cid: S.ContractId): L.ContractId =
     model.evaluate(cid, false).asInstanceOf[IntNum].getInt
 
@@ -22,7 +25,11 @@ class FromSymbolic(numParties: Int, ctx: Context, model: Model) {
     }
 
   private def toConcrete(commands: S.Commands): L.Commands =
-    L.Commands(0, evalPartySet(commands.actAs), commands.actions.map(toConcrete))
+    L.Commands(
+      evalParticipantId(commands.participantId),
+      evalPartySet(commands.actAs),
+      commands.actions.map(toConcrete),
+    )
 
   private def toConcrete(kind: S.ExerciseKind): L.ExerciseKind = {
     kind match {
@@ -52,6 +59,17 @@ class FromSymbolic(numParties: Int, ctx: Context, model: Model) {
       L.Rollback(subTransaction.map(toConcrete))
   }
 
-  def toConcrete(ledger: S.Ledger): L.Ledger =
+  private def toConcrete(ledger: S.Ledger): L.Ledger =
     ledger.map(toConcrete)
+
+  private def toConcrete(participant: S.Participant): L.Participant = {
+    L.Participant(
+      evalParticipantId(participant.participantId),
+      evalPartySet(participant.parties),
+    )
+  }
+
+  def toConcrete(scenario: S.Scenario): L.Scenario = {
+    L.Scenario(scenario.topology.map(toConcrete), toConcrete(scenario.ledger))
+  }
 }
