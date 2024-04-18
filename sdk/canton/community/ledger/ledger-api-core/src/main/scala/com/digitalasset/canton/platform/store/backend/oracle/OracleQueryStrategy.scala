@@ -24,6 +24,12 @@ object OracleQueryStrategy extends QueryStrategy {
 
   override def booleanOrAggregationFunction: String = "max"
 
+  override def lastByProxyAggregateFuction(
+      singletonColumn: String,
+      orderingColumn: String,
+  ): String =
+    s"max($singletonColumn) KEEP (DENSE_RANK FIRST ORDER BY $orderingColumn DESC)"
+
   override def arrayContains(arrayColumnName: String, elementColumnName: String): String =
     s"EXISTS (SELECT 1 FROM JSON_TABLE($arrayColumnName, '$$[*]' columns (value NUMBER PATH '$$')) WHERE value = $elementColumnName)"
 

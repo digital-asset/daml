@@ -426,7 +426,7 @@ object BaseTest {
     */
   protected def tryGetProtocolVersionFromEnv: Option[ProtocolVersion] = sys.env
     .get("CANTON_PROTOCOL_VERSION")
-    .map(ProtocolVersion.tryCreate)
+    .map(ProtocolVersion.tryCreate(_))
 
 }
 

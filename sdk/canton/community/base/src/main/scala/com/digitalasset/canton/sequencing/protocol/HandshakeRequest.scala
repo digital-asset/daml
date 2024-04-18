@@ -21,10 +21,6 @@ final case class HandshakeRequest(
       minimumProtocolVersion.map(_.toProtoPrimitiveS),
     )
 
-  // IMPORTANT: changing the version handshakes can lead to issues with upgrading domains - be very careful
-  // when changing the handshake message format
-  def toByteArrayV0: Array[Byte] = toProtoV0.toByteArray
-
 }
 
 object HandshakeRequest {

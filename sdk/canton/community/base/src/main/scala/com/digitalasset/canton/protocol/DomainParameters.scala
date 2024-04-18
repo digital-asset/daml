@@ -262,7 +262,7 @@ object StaticDomainParameters
         CryptoKeyFormat.fromProtoEnum,
       )
       protocolVersion <- ProtocolVersion
-        .create(protocolVersionP)
+        .create(protocolVersionP, allowDeleted = true)
         .leftMap(err => ProtoDeserializationError.OtherError(err))
     } yield StaticDomainParameters(
       reconciliationInterval = reconciliationInterval,
@@ -317,7 +317,7 @@ object StaticDomainParameters
         requiredCryptoKeyFormatsP,
         CryptoKeyFormat.fromProtoEnum,
       )
-      protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
+      protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP, allowDeleted = true)
     } yield StaticDomainParameters(
       StaticDomainParameters.defaultReconciliationInterval,
       StaticDomainParameters.defaultMaxRatePerParticipant,
@@ -769,17 +769,6 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       case _ => defaultTopologyChangeDelay
     }
     initialValues(topologyChangeDelay, protocolVersion)
-  }
-
-  def initialXValues(clock: Clock, protocolVersion: ProtocolVersion): DynamicDomainParameters = {
-    val topologyChangeDelay = clock match {
-      case _: RemoteClock | _: SimClock => defaultTopologyChangeDelayNonStandardClock
-      case _ => defaultTopologyChangeDelay
-    }
-    initialValues(
-      topologyChangeDelay,
-      protocolVersion,
-    )
   }
 
   // if there is no topology change delay defined (or not yet propagated), we'll use this one

@@ -116,26 +116,20 @@ class PartyStorageBackendTemplate(
     import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
     val ledgerEndOffset = ledgerEndCache()._1
     SQL"""
-        WITH relevant_offsets AS (
-          SELECT
-            party,
-            max(ledger_offset) ledger_offset,
-            #${queryStrategy.booleanOrAggregationFunction}(is_local) is_local
-          FROM party_entries
-          WHERE
-            ledger_offset <= $ledgerEndOffset AND
-            $partyFilter
-            typ = 'accept'
-          GROUP BY party
-        )
         SELECT
-          party_entries.party,
-          party_entries.display_name,
-          relevant_offsets.is_local
-        FROM party_entries INNER JOIN relevant_offsets ON
-          party_entries.party = relevant_offsets.party AND
-          party_entries.ledger_offset = relevant_offsets.ledger_offset
-        ORDER BY party_entries.party ASC
+          party,
+          #${queryStrategy.lastByProxyAggregateFuction(
+        "display_name",
+        "ledger_offset",
+      )} display_name,
+          #${queryStrategy.booleanOrAggregationFunction}(is_local) is_local
+        FROM party_entries
+        WHERE
+          ledger_offset <= $ledgerEndOffset AND
+          $partyFilter
+          typ = 'accept'
+        GROUP BY party
+        ORDER BY party
         $limitClause
        """.asVectorOf(partyDetailsParser)(connection)
   }

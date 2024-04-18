@@ -237,7 +237,8 @@ object ProtocolVersion {
 
   /** Like [[create]] ensures a supported protocol version; but throws a runtime exception for errors.
     */
-  def tryCreate(rawVersion: String): ProtocolVersion = create(rawVersion).valueOr(sys.error)
+  def tryCreate(rawVersion: String, allowDeleted: Boolean = false): ProtocolVersion =
+    create(rawVersion, allowDeleted).valueOr(sys.error)
 
   /** Like [[create]] ensures a supported protocol version; tailored to (de-)serialization purposes.
     */
@@ -252,8 +253,11 @@ object ProtocolVersion {
 
   /** Like [[create]] ensures a supported protocol version; tailored to (de-)serialization purposes.
     */
-  def fromProtoPrimitiveS(rawVersion: String): ParsingResult[ProtocolVersion] = {
-    ProtocolVersion.create(rawVersion).leftMap(OtherError)
+  def fromProtoPrimitiveS(
+      rawVersion: String,
+      allowDeleted: Boolean = false,
+  ): ParsingResult[ProtocolVersion] = {
+    ProtocolVersion.create(rawVersion, allowDeleted).leftMap(OtherError)
   }
 
   final case class InvalidProtocolVersion(override val description: String) extends FailureReason
