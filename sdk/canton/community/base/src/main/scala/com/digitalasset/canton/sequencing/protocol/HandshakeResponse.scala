@@ -42,7 +42,7 @@ object HandshakeResponse {
         ProtocolVersion.fromProtoPrimitiveS(responseP.serverProtocolVersion).map(Success)
       case v0.Handshake.Response.Value.Failure(failure) =>
         ProtocolVersion
-          .fromProtoPrimitiveS(responseP.serverProtocolVersion)
+          .fromProtoPrimitiveS(responseP.serverProtocolVersion, allowDeleted = true)
           .map(Failure(_, failure.reason))
     }
 }

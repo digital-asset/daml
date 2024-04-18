@@ -10,22 +10,42 @@ import org.scalatest.wordspec.AnyWordSpec
 class ProtocolVersionCompatibilityTest extends AnyWordSpec with BaseTest {
   "ProtocolVersionCompatibility" should {
     "version check" should {
-      "be successful for matching versions" in {
+      "be successful for matching unstable versions" in {
         canClientConnectToServer(
-          clientSupportedVersions = Seq(ProtocolVersion.v5, ProtocolVersion.v6),
-          server = ProtocolVersion.v6,
+          clientSupportedVersions = Seq(ProtocolVersion.latest, ProtocolVersion.dev),
+          server = ProtocolVersion.dev,
           None,
         ) shouldBe Right(())
       }
 
-      "fail with a nice message if incompatible" in {
+      "be successful for matching stable versions" in {
+        canClientConnectToServer(
+          clientSupportedVersions = Seq(ProtocolVersion.latest),
+          server = ProtocolVersion.latest,
+          None,
+        ) shouldBe Right(())
+      }
+
+      "fail for incompatible versions" in {
         canClientConnectToServer(
           clientSupportedVersions = Seq(ProtocolVersion.v5),
           server = ProtocolVersion.v6,
           None,
         ).left.value shouldBe (VersionNotSupportedError(
-          ProtocolVersion.v6,
-          Seq(ProtocolVersion.v5),
+          server = ProtocolVersion.v6,
+          clientSupportedVersions = Seq(ProtocolVersion.v5),
+        ))
+      }
+
+      "fail if the domain requires a lower version than the participant's minimum version" in {
+        canClientConnectToServer(
+          clientSupportedVersions = Seq(ProtocolVersion.v5),
+          server = ProtocolVersion.v4,
+          Some(ProtocolVersion.v5),
+        ).left.value shouldBe (MinProtocolError(
+          server = ProtocolVersion(4),
+          clientMinimumProtocolVersion = Some(ProtocolVersion.v5),
+          clientSupportsRequiredVersion = false,
         ))
       }
     }

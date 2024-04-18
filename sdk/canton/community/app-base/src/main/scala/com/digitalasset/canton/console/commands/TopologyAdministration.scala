@@ -284,7 +284,7 @@ class TopologyAdministrationGroup(
               timeQuery,
               operation,
               filterSigningKey,
-              protocolVersion.map(ProtocolVersion.tryCreate),
+              protocolVersion.map(ProtocolVersion.tryCreate(_)),
             ),
             filterNamespace,
           )
@@ -364,7 +364,7 @@ class TopologyAdministrationGroup(
               timeQuery,
               operation,
               filterSigningKey,
-              protocolVersion.map(ProtocolVersion.tryCreate),
+              protocolVersion.map(ProtocolVersion.tryCreate(_)),
             ),
             filterUid,
           )
@@ -456,7 +456,7 @@ class TopologyAdministrationGroup(
               timeQuery,
               operation,
               filterSigningKey,
-              protocolVersion.map(ProtocolVersion.tryCreate),
+              protocolVersion.map(ProtocolVersion.tryCreate(_)),
             ),
             filterKeyOwnerType,
             filterKeyOwnerUid,
@@ -614,7 +614,7 @@ class TopologyAdministrationGroup(
               timeQuery,
               operation,
               filterSigningKey,
-              protocolVersion.map(ProtocolVersion.tryCreate),
+              protocolVersion.map(ProtocolVersion.tryCreate(_)),
             ),
             filterParty,
             filterParticipant,
@@ -661,7 +661,7 @@ class TopologyAdministrationGroup(
                 timeQuery,
                 operation,
                 filterSigningKey = "",
-                protocolVersion.map(ProtocolVersion.tryCreate),
+                protocolVersion.map(ProtocolVersion.tryCreate(_)),
               )
             )
           )
@@ -916,7 +916,7 @@ class TopologyAdministrationGroup(
               timeQuery,
               operation,
               filterSigningKey,
-              protocolVersion.map(ProtocolVersion.tryCreate),
+              protocolVersion.map(ProtocolVersion.tryCreate(_)),
             ),
             filterDomain,
             filterParticipant,
@@ -1038,7 +1038,7 @@ class TopologyAdministrationGroup(
               timeQuery,
               operation,
               filterSigningKey,
-              protocolVersion.map(ProtocolVersion.tryCreate),
+              protocolVersion.map(ProtocolVersion.tryCreate(_)),
             ),
             filterDomain,
             filterMediator,
@@ -1164,7 +1164,7 @@ class TopologyAdministrationGroup(
               timeQuery,
               operation,
               filterSigningKey,
-              protocolVersion.map(ProtocolVersion.tryCreate),
+              protocolVersion.map(ProtocolVersion.tryCreate(_)),
             ),
             filterParticipant,
           )
@@ -1275,7 +1275,7 @@ class TopologyAdministrationGroup(
         timeQuery = timeQuery,
         ops = None,
         filterSigningKey = filterSigningKey,
-        protocolVersion = protocolVersion.map(ProtocolVersion.tryCreate),
+        protocolVersion = protocolVersion.map(ProtocolVersion.tryCreate(_)),
       )
 
       consoleEnvironment.run {
