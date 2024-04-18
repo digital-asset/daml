@@ -7,7 +7,6 @@ package transaction
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Party, TypeConName}
-import com.daml.lf.transaction.GlobalKey.dummyHashPackageName
 import com.daml.lf.value.Value
 
 /** Useful in various circumstances -- basically this is what a ledger implementation must use as
@@ -30,21 +29,15 @@ final class GlobalKey private (
 
   override def hashCode(): Int = hash.hashCode()
 
-  override def toString: String = s"GlobalKey($templateId, $key)"
+  override def toString: String = s"GlobalKey($templateId, $packageName, $key)"
 }
 
 object GlobalKey {
 
-  // #TODO(18828) Use dummy package name until all call sites are updated
-  private[lf] val useDummyHashPackageName = true
-  private[lf] val dummyHashPackageName =
-    Ref.PackageName.assertFromString("dummy-package-name")
-
   def assertWithRenormalizedValue(key: GlobalKey, value: Value): GlobalKey = {
-    val hashPackageName = if (useDummyHashPackageName) dummyHashPackageName else key.packageName
     if (
       key.key != value &&
-      Hash.assertHashContractKey(key.templateId, hashPackageName, value) != key.hash
+      Hash.assertHashContractKey(key.templateId, key.packageName, value) != key.hash
     ) {
       throw new IllegalArgumentException(
         s"Hash must not change as a result of value renormalization key=$key, value=$value"
@@ -59,18 +52,17 @@ object GlobalKey {
   def build(
       templateId: TypeConName,
       key: Value,
-      packageName: Ref.PackageName = dummyHashPackageName,
+      packageName: Ref.PackageName,
   ): Either[crypto.Hash.HashingError, GlobalKey] = {
-    val hashPackageName = if (useDummyHashPackageName) dummyHashPackageName else packageName
     crypto.Hash
-      .hashContractKey(templateId, hashPackageName, key)
+      .hashContractKey(templateId, packageName, key)
       .map(new GlobalKey(templateId, packageName, key, _))
   }
 
   def assertBuild(
       templateId: TypeConName,
       key: Value,
-      packageName: Ref.PackageName = dummyHashPackageName,
+      packageName: Ref.PackageName,
   ): GlobalKey = {
     data.assertRight(build(templateId, key, packageName).left.map(_.msg))
   }
@@ -93,7 +85,7 @@ object GlobalKeyWithMaintainers {
       templateId: TypeConName,
       value: Value,
       maintainers: Set[Party],
-      packageName: Ref.PackageName = dummyHashPackageName,
+      packageName: Ref.PackageName,
   ): GlobalKeyWithMaintainers =
     data.assertRight(build(templateId, value, maintainers, packageName).left.map(_.msg))
 
@@ -101,7 +93,7 @@ object GlobalKeyWithMaintainers {
       templateId: TypeConName,
       value: Value,
       maintainers: Set[Party],
-      packageName: Ref.PackageName = dummyHashPackageName,
+      packageName: Ref.PackageName,
   ): Either[Hash.HashingError, GlobalKeyWithMaintainers] =
     GlobalKey.build(templateId, value, packageName).map(GlobalKeyWithMaintainers(_, maintainers))
 }

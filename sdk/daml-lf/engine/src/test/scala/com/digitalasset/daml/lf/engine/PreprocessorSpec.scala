@@ -5,7 +5,7 @@ package com.daml.lf
 package engine
 
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref.{PackageRef, Party}
 import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref}
 import com.daml.lf.command.ApiCommand
 import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
@@ -20,7 +20,6 @@ import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
 import com.daml.lf.value.Value
 import com.daml.lf.speedy.Compiler
-import com.daml.lf.transaction.GlobalKey
 
 class PreprocessorSpecV2 extends PreprocessorSpec(LanguageMajorVersion.V2)
 
@@ -335,7 +334,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
       crypto.Hash.hashPrivateKey("test-contract-id"),
       Bytes.assertFromString("deadbeef"),
     )
-  val pkgRef = Ref.PackageRef.Name(pkgName)
+  val pkgRef: PackageRef.Name = Ref.PackageRef.Name(pkgName)
   val withoutKeyTmplId: Ref.TypeConName = Ref.Identifier.assertFromString("-pkgId-:Mod:WithoutKey")
   val withoutKeyTmplRef: Ref.TypeConRef = Ref.TypeConRef(pkgRef, withoutKeyTmplId.qualifiedName)
   val withKeyTmplId: Ref.TypeConName = Ref.Identifier.assertFromString("-pkgId-:Mod:WithKey")
@@ -347,14 +346,9 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
       None -> Value.ValueList(FrontStack.from(ImmArray(ValueParty(alice)))),
     ),
   )
+  val keyHash: Hash = crypto.Hash.assertHashContractKey(withKeyTmplId, pkgName, key)
 
-  val basicTestsHashPkgName =
-    if (GlobalKey.useDummyHashPackageName) GlobalKey.dummyHashPackageName else pkgName
-
-  val keyHash: Hash =
-    crypto.Hash.assertHashContractKey(withKeyTmplId, basicTestsHashPkgName, key)
-
-  val choiceId = Ref.Name.assertFromString("Noop")
+  val choiceId: Ref.Name = Ref.Name.assertFromString("Noop")
 
   def buildDisclosedContract(
       contractId: ContractId = contractId,
