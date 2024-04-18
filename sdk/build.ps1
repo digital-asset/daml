@@ -68,18 +68,16 @@ bazel build //... `
 
 bazel shutdown
 
-if ($env:SKIP_TESTS -ceq "False") {
-    # Generate mapping from shortened scala-test names on Windows to long names on Linux and MacOS.
-    ./ci/remap-scala-test-short-names.ps1 `
-      | Out-File -Encoding UTF8 -NoNewline scala-test-suite-name-map.json
+# Generate mapping from shortened scala-test names on Windows to long names on Linux and MacOS.
+./ci/remap-scala-test-short-names.ps1 `
+  | Out-File -Encoding UTF8 -NoNewline scala-test-suite-name-map.json
 
-    $tag_filter = "-dev-canton-test"
+$tag_filter = "-dev-canton-test"
 
-    bazel test //... `
-      `-`-build_tag_filters "$tag_filter,-canton-ee" `
-      `-`-test_tag_filters "$tag_filter,-canton-ee" `
-      `-`-profile test-profile.json `
-      `-`-experimental_profile_include_target_label `
-      `-`-build_event_json_file test-events.json `
-      `-`-build_event_publish_all_actions `
-}
+bazel test //... `
+  `-`-build_tag_filters "$tag_filter,-canton-ee" `
+  `-`-test_tag_filters "$tag_filter,-canton-ee" `
+  `-`-profile test-profile.json `
+  `-`-experimental_profile_include_target_label `
+  `-`-build_event_json_file test-events.json `
+  `-`-build_event_publish_all_actions `
