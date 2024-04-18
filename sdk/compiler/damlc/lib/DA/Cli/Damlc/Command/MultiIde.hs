@@ -27,10 +27,12 @@ import DA.Cli.Damlc.Command.MultiIde.Prefixing
 import DA.Cli.Damlc.Command.MultiIde.Util
 import DA.Cli.Damlc.Command.MultiIde.Parsing
 import DA.Cli.Damlc.Command.MultiIde.Types
+import DA.Cli.Options (MultiIdeVerbose (..))
 import DA.Daml.LanguageServer.SplitGotoDefinition
 import DA.Daml.Package.Config (MultiPackageConfigFields(..), findMultiPackageConfig, withMultiPackageConfig)
 import DA.Daml.Project.Types (ProjectPath (..))
 import Data.Either (lefts)
+import Data.Foldable (traverse_)
 import Data.Functor.Product
 import Data.List (find, isPrefixOf)
 import qualified Data.Map as Map
@@ -69,18 +71,18 @@ addNewSubIDEAndSend
   -> LSP.FromClientMessage
   -> IO SubIDE
 addNewSubIDEAndSend miState home msg = do
-  debugPrint "Trying to make a SubIDE"
+  debugPrint miState "Trying to make a SubIDE"
   ides <- atomically $ takeTMVar $ subIDEsVar miState
 
   let mExistingIde = Map.lookup home $ onlyActiveSubIdes ides
   case mExistingIde of
     Just ide -> do
-      debugPrint "SubIDE already exists"
+      debugPrint miState "SubIDE already exists"
       unsafeSendSubIDE ide msg
       atomically $ putTMVar (subIDEsVar miState) ides
       pure ide
     Nothing -> do
-      debugPrint "Making a SubIDE"
+      debugPrint miState "Making a SubIDE"
 
       unitId <- either (\cErr -> error $ "Failed to get unit ID from daml.yaml: " <> show cErr) id <$> unitIdFromDamlYaml home
 
@@ -97,15 +99,14 @@ addNewSubIDEAndSend miState home msg = do
       toSubIDEChan <- atomically newTChan
       toSubIDE <- async $ onceUnblocked $ forever $ do
         msg <- atomically $ readTChan toSubIDEChan
-        debugPrint "Pushing message to subIDE"
+        debugPrint miState "Pushing message to subIDE"
         putChunk inHandle msg
 
       --           Coord <- SubIDE
       subIDEToCoord <- async $ do
         -- Wait until our own IDE exists then pass it forward
         ide <- atomically $ fromMaybe (error "Failed to get own IDE") . Map.lookup home . onlyActiveSubIdes <$> readTMVar (subIDEsVar miState)
-        chunks <- getChunks outHandle
-        mapM_ (subIDEMessageHandler miState unblock ide) chunks
+        onChunks outHandle $ subIDEMessageHandler miState unblock ide
 
       pid <- fromMaybe (error "SubIDE has no PID") <$> getPid (unsafeProcessHandle subIdeProcess)
 
@@ -195,7 +196,10 @@ handleExit miState ide = do
 
 -- Dangerous as does not hold the subIDEsVar lock. If a shutdown is called whiled this is running, the message may not be sent.
 unsafeSendSubIDE :: SubIDE -> LSP.FromClientMessage -> IO ()
-unsafeSendSubIDE ide = atomically . writeTChan (ideInHandleChannel ide) . Aeson.encode
+unsafeSendSubIDE ide = atomically . unsafeSendSubIDESTM ide
+
+unsafeSendSubIDESTM :: SubIDE -> LSP.FromClientMessage -> STM ()
+unsafeSendSubIDESTM ide = writeTChan (ideInHandleChannel ide) . Aeson.encode
 
 sendClient :: MultiIdeState -> LSP.FromServerMessage -> IO ()
 sendClient miState = atomically . writeTChan (toClientChan miState) . Aeson.encode
@@ -234,7 +238,7 @@ sendSubIDEByPath miState path msg = do
       case mIde of
         Just ide -> do
           writeTChan (ideInHandleChannel ide) (Aeson.encode msg)
-          unsafeIOToSTM $ debugPrint $ "Found relevant SubIDE: " <> ideHomeDirectory ide
+          unsafeIOToSTM $ debugPrint miState $ "Found relevant SubIDE: " <> ideHomeDirectory ide
           putTMVar (subIDEsVar miState) idesUnfiltered
           pure Nothing
         Nothing -> do
@@ -271,7 +275,7 @@ parseCustomResult name =
 
 subIDEMessageHandler :: MultiIdeState -> IO () -> SubIDE -> B.ByteString -> IO ()
 subIDEMessageHandler miState unblock ide bs = do
-  debugPrint "Called subIDEMessageHandler"
+  debugPrint miState "Called subIDEMessageHandler"
 
   -- Decode a value, parse
   let val :: Aeson.Value
@@ -279,21 +283,21 @@ subIDEMessageHandler miState unblock ide bs = do
   mMsg <- either error id <$> parseServerMessageWithTracker (fromClientMethodTrackerVar miState) (ideHomeDirectory ide) val
 
   -- Adds the various prefixes needed for from server messages to not clash with those from other IDEs
-  mPrefixedMsg <-
-    mapM 
-      ( addProgressTokenPrefixToServerMessage (progessTokenPrefixesVar miState) (ideHomeDirectory ide) (ideMessageIdPrefix ide)
-      . addLspPrefixToServerMessage ide
-      )
-      mMsg
+  let prefixer :: LSP.FromServerMessage -> LSP.FromServerMessage
+      prefixer = 
+        addProgressTokenPrefixToServerMessage (ideMessageIdPrefix ide)
+          . addLspPrefixToServerMessage ide
+      mPrefixedMsg :: Maybe LSP.FromServerMessage
+      mPrefixedMsg = prefixer <$> mMsg
 
   forM_ mPrefixedMsg $ \msg -> do
     -- If its a request (builtin or custom), save it for response handling.
     putServerReq (fromServerMethodTrackerVar miState) (ideHomeDirectory ide) msg
 
-    debugPrint "Message successfully parsed and prefixed."
+    debugPrint miState "Message successfully parsed and prefixed."
     case msg of
       LSP.FromServerRsp LSP.SInitialize LSP.ResponseMessage {_result} -> do
-        debugPrint "Got initialization reply, sending initialized and unblocking"
+        debugPrint miState "Got initialization reply, sending initialized and unblocking"
         -- Dangerous call here is acceptable as this only happens while the ide is booting, before unblocking
         unsafeSendSubIDE ide $ LSP.FromClientMess LSP.SInitialized $ LSP.NotificationMessage "2.0" LSP.SInitialized (Just LSP.InitializedParams)
         unblock
@@ -301,11 +305,11 @@ subIDEMessageHandler miState unblock ide bs = do
 
       -- See STextDocumentDefinition in client handle for description of this path
       LSP.FromServerRsp (LSP.SCustomMethod "daml/tryGetDefinition") LSP.ResponseMessage {_id, _result} -> do
-        debugPrint "Got tryGetDefinition response, handling..."
+        debugPrint miState "Got tryGetDefinition response, handling..."
         let parsedResult = parseCustomResult @(Maybe TryGetDefinitionResult) "daml/tryGetDefinition" _result
             reply :: Either LSP.ResponseError (LSP.ResponseResult 'LSP.TextDocumentDefinition) -> IO ()
             reply rsp = do
-              debugPrint $ "Replying directly to client with " <> show rsp
+              debugPrint miState $ "Replying directly to client with " <> show rsp
               sendClient miState $ LSP.FromServerRsp LSP.STextDocumentDefinition $ LSP.ResponseMessage "2.0" (castLspId <$> _id) rsp
             replyLocations :: [LSP.Location] -> IO ()
             replyLocations = reply . Right . LSP.InR . LSP.InL . LSP.List
@@ -320,7 +324,7 @@ subIDEMessageHandler miState unblock ide bs = do
           -- SubIDE containing the reference did not contain the definition, it returns a fake location in .daml and the name
           -- Send a new request to a new SubIDE to find the source of this name
           Right (Just (TryGetDefinitionResult loc (Just name))) -> do
-            debugPrint $ "Got name in result! Backup location is " <> show loc
+            debugPrint miState $ "Got name in result! Backup location is " <> show loc
             let mHome = Map.lookup (tgdnPackageUnitId name) $ multiPackageMapping miState
             case mHome of
               -- Didn't find a home for this name, we do not know where this is defined, so give back the (known to be wrong)
@@ -329,7 +333,7 @@ subIDEMessageHandler miState unblock ide bs = do
               Nothing -> replyLocations [loc]
               -- We found a daml.yaml for this definition, send the getDefinitionByName request to its SubIDE
               Just home -> do
-                debugPrint $ "Found unit ID in multi-package mapping, forwarding to " <> home
+                debugPrint miState $ "Found unit ID in multi-package mapping, forwarding to " <> home
                 let method = LSP.SCustomMethod "daml/gotoDefinitionByName"
                     lspId = maybe (error "No LspId provided back from tryGetDefinition") castLspId _id
                 putReqMethodSingleFromClient (fromClientMethodTrackerVar miState) lspId method
@@ -339,26 +343,26 @@ subIDEMessageHandler miState unblock ide bs = do
       
       -- See STextDocumentDefinition in client handle for description of this path
       LSP.FromServerRsp (LSP.SCustomMethod "daml/gotoDefinitionByName") LSP.ResponseMessage {_id, _result} -> do
-        debugPrint "Got gotoDefinitionByName response, handling..."
+        debugPrint miState "Got gotoDefinitionByName response, handling..."
         let parsedResult = parseCustomResult @GotoDefinitionByNameResult "daml/gotoDefinitionByName" _result
             reply :: Either LSP.ResponseError (LSP.ResponseResult 'LSP.TextDocumentDefinition) -> IO ()
             reply rsp = do
-              debugPrint $ "Replying directly to client with " <> show rsp
+              debugPrint miState $ "Replying directly to client with " <> show rsp
               sendClient miState $ LSP.FromServerRsp LSP.STextDocumentDefinition $ LSP.ResponseMessage "2.0" (castLspId <$> _id) rsp
         case parsedResult of
           Left err -> reply $ Left err
           Right loc -> reply $ Right $ LSP.InR $ LSP.InL $ LSP.List [loc]
 
       LSP.FromServerMess method _ -> do
-        debugPrint $ "Backwarding request " <> show method
+        debugPrint miState $ "Backwarding request " <> show method
         sendClient miState msg
       LSP.FromServerRsp method _ -> do
-        debugPrint $ "Backwarding response to " <> show method
+        debugPrint miState $ "Backwarding response to " <> show method
         sendClient miState msg
 
 clientMessageHandler :: MultiIdeState -> B.ByteString -> IO ()
 clientMessageHandler miState bs = do
-  debugPrint "Called clientMessageHandler"
+  debugPrint miState "Called clientMessageHandler"
 
   -- Decode a value, parse
   let castFromClientMessage :: LSP.FromClientMessage' (Product LSP.SMethod (Const FilePath)) -> LSP.FromClientMessage
@@ -370,7 +374,7 @@ clientMessageHandler miState bs = do
       val = er "eitherDecode" $ Aeson.eitherDecodeStrict bs
 
   unPrefixedMsg <- either error id <$> parseClientMessageWithTracker (fromServerMethodTrackerVar miState) val
-  msg <- addProgressTokenPrefixToClientMessage (progessTokenPrefixesVar miState) unPrefixedMsg
+  let msg = addProgressTokenPrefixToClientMessage unPrefixedMsg
 
   case msg of
     -- Store the initialize params for starting subIDEs, respond statically with what ghc-ide usually sends.
@@ -378,11 +382,16 @@ clientMessageHandler miState bs = do
       putMVar (initParamsVar miState) _params
       sendClient miState $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) (Right initializeResult)
     LSP.FromClientMess LSP.SWindowWorkDoneProgressCancel notif -> do
-      (newNotif, mHome) <- removeWorkDoneProgressCancelTokenPrefix (progessTokenPrefixesVar miState) notif
-      let newMsg = LSP.FromClientMess LSP.SWindowWorkDoneProgressCancel newNotif
-      case mHome of
+      let (newNotif, mPrefix) = stripWorkDoneProgressCancelTokenPrefix notif
+          newMsg = LSP.FromClientMess LSP.SWindowWorkDoneProgressCancel newNotif
+      -- Find IDE with the correct prefix, send to it if it exists. If it doesn't, the message can be thrown away.
+      case mPrefix of
         Nothing -> void $ sendAllSubIDEs miState newMsg
-        Just home -> void $ sendSubIDEByPath miState home newMsg
+        Just prefix -> atomically $ do
+          ides <- takeTMVar $ subIDEsVar miState
+          let mIde = find (\ide -> ideMessageIdPrefix ide == prefix) $ onlyActiveSubIdes ides
+          traverse_ (`unsafeSendSubIDESTM` newMsg) mIde
+          putTMVar (subIDEsVar miState) ides
 
     -- Special handing for STextDocumentDefinition to ask multiple IDEs (the W approach)
     -- When a getDefinition is requested, we cast this request into a tryGetDefinition
@@ -406,33 +415,33 @@ clientMessageHandler miState bs = do
     LSP.FromClientMess meth params ->
       case getMessageForwardingBehaviour meth params of
         ForwardRequest mess (Single path) -> do
-          debugPrint $ "single req on method " <> show meth <> " over path " <> path
+          debugPrint miState $ "single req on method " <> show meth <> " over path " <> path
           let LSP.RequestMessage {_id, _method} = mess
           putReqMethodSingleFromClient (fromClientMethodTrackerVar miState) _id _method
           sendSubIDEByPath miState path (castFromClientMessage msg)
 
         ForwardRequest mess (AllRequest combine) -> do
-          debugPrint $ "all req on method " <> show meth
+          debugPrint miState $ "all req on method " <> show meth
           let LSP.RequestMessage {_id, _method} = mess
           ides <- sendAllSubIDEs miState (castFromClientMessage msg)
           putReqMethodAll (fromClientMethodTrackerVar miState) _id _method ides combine
 
         ForwardNotification _ (Single path) -> do
-          debugPrint $ "single not on method " <> show meth <> " over path " <> path
+          debugPrint miState $ "single not on method " <> show meth <> " over path " <> path
           sendSubIDEByPath miState path (castFromClientMessage msg)
 
         ForwardNotification _ AllNotification -> do
-          debugPrint $ "all not on method " <> show meth
+          debugPrint miState $ "all not on method " <> show meth
           sendAllSubIDEs_ miState (castFromClientMessage msg)
 
         ExplicitHandler handler -> do
           handler (sendClient miState) (sendSubIDEByPath miState)
     LSP.FromClientRsp (Pair method (Const home)) rMsg -> 
       sendSubIDEByPath miState home $ LSP.FromClientRsp method $ 
-        rMsg & LSP.id %~ fmap removeLspPrefix
+        rMsg & LSP.id %~ fmap stripLspPrefix
 
-getMultiPackageYamlMapping :: IO MultiPackageYamlMapping
-getMultiPackageYamlMapping = do
+getMultiPackageYamlMapping :: (String -> IO ()) -> IO MultiPackageYamlMapping
+getMultiPackageYamlMapping debugPrint = do
   -- TODO: this will find the "closest" multi-package.yaml, but in a case where we have multiple referring to each other, we'll not see the outer one
   -- in that case, code jump won't work. Its unclear which the user would want, so we may want to prompt them with either closest or furthest (that links up)
   mPkgConfig <- findMultiPackageConfig $ ProjectPath "."
@@ -457,43 +466,45 @@ If we do not get one, we continue as normal (no popups) until the user attempts 
 
 -- Main loop logic
 
-runMultiIde :: IO ()
-runMultiIde = do
-  multiPackageMapping <- getMultiPackageYamlMapping
-  miState <- newMultiIdeState multiPackageMapping
+runMultiIde :: MultiIdeVerbose -> IO ()
+runMultiIde multiIdeVerbose = do
+  let debugPrinter = makeDebugPrint $ getMultiIdeVerbose multiIdeVerbose
+  multiPackageMapping <- getMultiPackageYamlMapping debugPrinter
+  miState <- newMultiIdeState multiPackageMapping debugPrinter
 
-  debugPrint "Listening for bytes"
+  infoPrint $ "Running " <> (if getMultiIdeVerbose multiIdeVerbose then "with" else "without") <> " verbose flag."
+  debugPrint miState "Listening for bytes"
   -- Client <- *****
   toClientThread <- async $ forever $ do
     msg <- atomically $ readTChan $ toClientChan miState
-    debugPrint "Pushing message to client"
+    debugPrint miState "Pushing message to client"
     -- BSLC.hPutStrLn stderr msg
     putChunk stdout msg
 
   -- Client -> Coord
-  clientToCoordThread <- async $ do
-    chunks <- getChunks stdin
-    mapM_ (clientMessageHandler miState) chunks
+  clientToCoordThread <- async $
+    onChunks stdin $ clientMessageHandler miState
 
   let killAll :: IO ()
       killAll = do
-        debugPrint "Killing subIDEs"
+        debugPrint miState "Killing subIDEs"
         subIDEs <- atomically $ onlyActiveSubIdes <$> readTMVar (subIDEsVar miState)
         forM_ subIDEs (shutdownIde miState)
+        infoPrint "MultiIde shutdown"
 
   handle (\(_ :: AsyncException) -> killAll) $ do
     atomically $ do
-      unsafeIOToSTM $ debugPrint "Running main loop"
+      unsafeIOToSTM $ debugPrint miState "Running main loop"
       subIDEs <- readTMVar $ subIDEsVar miState
       let asyncs = concatMap (\subIDE -> [ideInhandleAsync subIDE, ideOutHandleAsync subIDE]) subIDEs
       errs <- lefts . catMaybes <$> traverse pollSTM (asyncs ++ [toClientThread, clientToCoordThread])
       when (not $ null errs) $
-        unsafeIOToSTM $ debugPrint $ "A thread handler errored with: " <> show (head errs)
+        unsafeIOToSTM $ warnPrint $ "A thread handler errored with: " <> show (head errs)
 
       let procs = ideProcess <$> subIDEs
       exits <- catMaybes <$> traverse getExitCodeSTM (Map.elems procs)
       when (not $ null exits) $
-        unsafeIOToSTM $ debugPrint $ "A subIDE finished with code: " <> show (head exits)
+        unsafeIOToSTM $ warnPrint $ "A subIDE finished with code: " <> show (head exits)
 
       when (null exits && null errs) retry
 

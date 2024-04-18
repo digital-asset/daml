@@ -45,6 +45,7 @@ import DA.Cli.Options (Debug(..),
                        inputDarOpt,
                        inputFileOpt,
                        inputFileOptWithExt,
+                       multiIdeVerboseOpt,
                        multiPackageBuildAllOpt,
                        multiPackageCleanAllOpt,
                        multiPackageLocationOpt,
@@ -310,10 +311,11 @@ cmdMultiIde :: Int -> Mod CommandFields Command
 cmdMultiIde _numProcessors =
     command "multi-ide" $ info (helper <*> cmd) $
        progDesc
-        "Start the Daml language server on standard input/output."
+        "Start the Daml Multi-IDE language server on standard input/output."
     <> fullDesc
   where
-    cmd = pure $ Command MultiIde Nothing runMultiIde
+    cmd = fmap (Command MultiIde Nothing) $ runMultiIde
+        <$> multiIdeVerboseOpt
 
 cmdIde :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdIde numProcessors =

@@ -104,6 +104,14 @@ export async function activate(context: vscode.ExtensionContext) {
               if (option == "Reload now")
                 vscode.commands.executeCommand("workbench.action.reloadWindow");
             });
+        } else if (event.affectsConfiguration("daml.multiPackageIdeVerbose")) {
+          let msg = "VSCode must be reloaded for this change to take effect.";
+          window
+            .showInformationMessage(msg, { modal: true }, "Reload now")
+            .then((option: string | undefined) => {
+              if (option == "Reload now")
+                vscode.commands.executeCommand("workbench.action.reloadWindow");
+            });
         }
       },
     );
@@ -263,6 +271,7 @@ export function createLanguageClient(
   };
 
   const multiIDESupport = config.get("multiPackageIdeSupport");
+  const multiIDEVerbose = config.get("multiPackageIdeVerbose");
 
   let command: string;
   let args: string[] = [multiIDESupport ? "multi-ide" : "ide", "--"];
@@ -288,6 +297,9 @@ export function createLanguageClient(
   } else if (telemetryConsent == undefined) {
     // The user has not made an explicit choice.
     args.push("--telemetry-ignored");
+  }
+  if (multiIDEVerbose === true) {
+    args.push("--verbose=yes");
   }
   const extraArgsString = config.get("extraArguments", "").trim();
   // split on an empty string returns an array with a single empty string
