@@ -5,6 +5,8 @@ package com.daml.lf
 package model
 package test
 
+import scala.annotation.nowarn
+
 object Pretty {
 
   private[Pretty] final case class Tree(label: String, children: Seq[Tree]) {
@@ -67,6 +69,19 @@ object Pretty {
   object PrettySkeletons {
 
     import Skeletons._
+
+    def scenarioToTree(scenario: Scenario): Tree = {
+      Tree("Scenario", Seq(topologyToTree(scenario.topology), ledgerToTree(scenario.ledger)))
+    }
+
+    def topologyToTree(topology: Topology): Tree = {
+      Tree("Topology", topology.map(participantToTree))
+    }
+
+    @nowarn("cat=unused")
+    def participantToTree(participant: Participant): Tree = {
+      Tree("Participant", Seq.empty)
+    }
 
     def ledgerToTree(ledger: Ledger): Tree = {
       Tree("Ledger", ledger.map(commandsToTree))
@@ -156,7 +171,10 @@ object Pretty {
   def prettyLedger(ledger: Ledgers.Ledger): String =
     PrettyLedgers.ledgerToTree(ledger).pretty(0)
 
-  def prettySkeleton(ledger: Skeletons.Ledger): String =
+  def prettyScenarioSkeleton(scenario: Skeletons.Scenario): String =
+    PrettySkeletons.scenarioToTree(scenario).pretty(0)
+
+  def prettySkeletonLedger(ledger: Skeletons.Ledger): String =
     PrettySkeletons.ledgerToTree(ledger).pretty(0)
 
   def prettySymbolic(ledger: Symbolic.Ledger): String =
