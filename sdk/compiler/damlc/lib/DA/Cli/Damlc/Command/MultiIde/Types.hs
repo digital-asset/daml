@@ -26,6 +26,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import qualified Data.Text as T
+import Data.Time.Clock (UTCTime, diffUTCTime)
 import qualified Language.LSP.Types as LSP
 import System.IO.Extra
 import System.Process.Typed (Process)
@@ -34,16 +35,20 @@ data TrackedMethod (m :: LSP.Method from 'LSP.Request) where
   TrackedSingleMethodFromClient
     :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
     .  LSP.SMethod m
+    -> LSP.FromClientMessage -- | Store the whole message for re-transmission on subIDE restart
+    -> FilePath -- | Store the subIDE that was sent this request
     -> TrackedMethod m
   TrackedSingleMethodFromServer
     :: forall (m :: LSP.Method 'LSP.FromServer 'LSP.Request)
     .  LSP.SMethod m
-    -> Maybe FilePath -- Also store the IDE that sent the request (or don't, for requests sent by the coordinator)
+    -> Maybe FilePath -- | Store the IDE that sent the request (or don't, for requests sent by the coordinator)
     -> TrackedMethod m
   TrackedAllMethod :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request).
     { tamMethod :: LSP.SMethod m
         -- ^ The method of the initial request
     , tamLspId :: LSP.LspId m
+    , tamClientMessage :: LSP.FromClientMessage
+        -- ^ Store the whole message for re-transmission on subIDE restart
     , tamCombiner :: ResponseCombiner m
         -- ^ How to combine the results from each IDE
     , tamRemainingResponseIDERoots :: [FilePath]
@@ -55,9 +60,16 @@ tmMethod
   :: forall (from :: LSP.From) (m :: LSP.Method from 'LSP.Request)
   .  TrackedMethod m
   -> LSP.SMethod m
-tmMethod (TrackedSingleMethodFromClient m) = m
+tmMethod (TrackedSingleMethodFromClient m _ _) = m
 tmMethod (TrackedSingleMethodFromServer m _) = m
 tmMethod (TrackedAllMethod {tamMethod}) = tamMethod
+
+tmClientMessage
+  :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
+  .  TrackedMethod m
+  -> LSP.FromClientMessage
+tmClientMessage (TrackedSingleMethodFromClient _ msg _) = msg
+tmClientMessage (TrackedAllMethod {tamClientMessage}) = tamClientMessage
 
 type MethodTracker (from :: LSP.From) = IM.IxMap @(LSP.Method from 'LSP.Request) LSP.LspId TrackedMethod
 type MethodTrackerVar (from :: LSP.From) = TVar (MethodTracker from)
@@ -68,11 +80,13 @@ data SubIDEInstance = SubIDEInstance
   , ideInHandleChannel :: TChan BSL.ByteString
   , ideOutHandleAsync :: Async ()
     -- ^ For sending messages to that SubIDE
-  , ideProcess :: Process Handle Handle ()
-  , ideHomeDirectory :: FilePath
+  , ideErrHandle :: Handle
+  , ideProcess :: Process Handle Handle Handle
+  , ideHome :: FilePath
   , ideMessageIdPrefix :: T.Text
     -- ^ Some unique string used to prefix message ids created by the SubIDE, to avoid collisions with other SubIDEs
     -- We use the stringified process ID
+    -- TODO[SW]: This isn't strictly safe since this data exists for a short time after subIDE shutdown, duplicates could be created.
   , ideUnitId :: String
     -- ^ Unit ID of the package this SubIDE handles
     -- Of the form "daml-script-0.0.1"
@@ -89,16 +103,24 @@ instance Ord SubIDEInstance where
 -- We store an optional main ide, the currently closing ides (kept only so they can reply to their shutdowns), and open files
 -- open files must outlive the main subide so we can re-send the TextDocumentDidOpen messages on new ide startup
 data SubIDEData = SubIDEData
-  { ideDataMain :: Maybe SubIDEInstance
+  { ideDataHome :: FilePath
+  , ideDataMain :: Maybe SubIDEInstance
   , ideDataClosing :: Set.Set SubIDEInstance
   , ideDataOpenFiles :: Set.Set FilePath
+  , ideDataFailTimes :: [UTCTime]
+  , ideDataDisabled :: Bool
+  , ideDataLastError :: Maybe String
   }
 
-defaultSubIDEData :: SubIDEData
-defaultSubIDEData = SubIDEData Nothing Set.empty Set.empty
+defaultSubIDEData :: FilePath -> SubIDEData
+defaultSubIDEData home = SubIDEData home Nothing Set.empty Set.empty [] False Nothing
 
 lookupSubIde :: FilePath -> SubIDEs -> SubIDEData
-lookupSubIde home ides = fromMaybe defaultSubIDEData $ Map.lookup home ides
+lookupSubIde home ides = fromMaybe (defaultSubIDEData home) $ Map.lookup home ides
+
+ideShouldDisable :: SubIDEData -> Bool
+ideShouldDisable (ideDataFailTimes -> [t1, t2]) = t1 `diffUTCTime` t2 < 5
+ideShouldDisable _ = False
 
 -- SubIDEs placed in a TMVar. The emptyness representents a modification lock.
 -- The lock unsures the following properties:
@@ -120,7 +142,7 @@ type MultiPackageYamlMapping = Map.Map String PackageSourceLocation
 type MultiPackageYamlMappingVar = TMVar MultiPackageYamlMapping
 
 -- Maps a dar path to the list of packages that directly depend on it
-type DarDependentPackages = Map.Map FilePath [FilePath]
+type DarDependentPackages = Map.Map FilePath (Set.Set FilePath)
 type DarDependentPackagesVar = TMVar DarDependentPackages
 
 -- "Cache" for the home path of files

@@ -16,14 +16,18 @@ module DA.Cli.Damlc.Command.MultiIde.Util (
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TMVar
 import Control.Exception (handle)
+import Control.Lens ((^.))
 import Control.Monad.STM
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except
 import DA.Daml.Project.Config (readProjectConfig, queryProjectConfig, queryProjectConfigRequired)
 import DA.Daml.Project.Consts (projectConfigName)
 import DA.Daml.Project.Types (ConfigError, ProjectPath (..))
+import Data.Aeson (Value (Null))
 import Data.Maybe (fromMaybe)
+import qualified Data.Text as T
 import qualified Language.LSP.Types as LSP
+import qualified Language.LSP.Types.Lens as LSP
 import qualified Language.LSP.Types.Capabilities as LSP
 import System.Directory (doesDirectoryExist, listDirectory, withCurrentDirectory, canonicalizePath)
 import System.FilePath (takeDirectory, takeExtension)
@@ -52,10 +56,21 @@ er :: Show x => String -> Either x a -> a
 er _msg (Right a) = a
 er msg (Left e) = error $ msg <> ": " <> show e
 
+makeIOBlocker :: IO (IO a -> IO a, IO ())
+makeIOBlocker = do
+  sendBlocker <- newEmptyMVar @()
+  let unblock = putMVar sendBlocker ()
+      onceUnblocked = (readMVar sendBlocker >>)
+  pure (onceUnblocked, unblock)
+
 modifyTMVar :: TMVar a -> (a -> a) -> STM ()
-modifyTMVar var f = do
+modifyTMVar var f = modifyTMVarM var (pure . f)
+
+modifyTMVarM :: TMVar a -> (a -> STM a) -> STM ()
+modifyTMVarM var f = do
   x <- takeTMVar var
-  putTMVar var (f x)
+  x' <- f x
+  putTMVar var x'
 
 -- Taken directly from the Initialize response
 initializeResult :: LSP.InitializeResult
@@ -196,3 +211,62 @@ unitIdAndDepsFromDamlYaml path = do
     name <- except $ queryProjectConfigRequired ["name"] project
     version <- except $ queryProjectConfigRequired ["version"] project
     pure (name <> "-" <> version, canonDeps)
+
+-- LSP requires all requests are replied to. When we don't have a working IDE (say the daml.yaml is malformed), we need to reply
+-- We don't want to reply with LSP errors, as there will be too many. Instead, we show our error in diagnostics, and send empty replies
+noIDEReply :: LSP.FromClientMessage -> Maybe LSP.FromServerMessage
+noIDEReply (LSP.FromClientMess method params) =
+  case (method, params) of
+    (LSP.STextDocumentWillSaveWaitUntil, _) -> makeRes params $ LSP.List []
+    (LSP.STextDocumentCompletion, _) -> makeRes params $ LSP.InL $ LSP.List []
+    (LSP.STextDocumentHover, _) -> makeRes params Nothing
+    (LSP.STextDocumentSignatureHelp, _) -> makeRes params $ LSP.SignatureHelp (LSP.List []) Nothing Nothing
+    (LSP.STextDocumentDeclaration, _) -> makeRes params $ LSP.InR $ LSP.InL $ LSP.List []
+    (LSP.STextDocumentDefinition, _) -> makeRes params $ LSP.InR $ LSP.InL $ LSP.List []
+    (LSP.STextDocumentDocumentSymbol, _) -> makeRes params $ LSP.InL $ LSP.List []
+    (LSP.STextDocumentCodeAction, _) -> makeRes params $ LSP.List []
+    (LSP.STextDocumentCodeLens, _) -> makeRes params $ LSP.List []
+    (LSP.STextDocumentDocumentLink, _) -> makeRes params $ LSP.List []
+    (LSP.STextDocumentColorPresentation, _) -> makeRes params $ LSP.List []
+    (LSP.STextDocumentOnTypeFormatting, _) -> makeRes params $ LSP.List []
+    (LSP.SWorkspaceExecuteCommand, _) -> makeRes params Null
+    (LSP.SCustomMethod "daml/tryGetDefinition", LSP.ReqMess params) -> noDefinitionRes params
+    (LSP.SCustomMethod "daml/gotoDefinitionByName", LSP.ReqMess params) -> noDefinitionRes params
+    _ -> Nothing
+  where
+    makeRes :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request). LSP.RequestMessage m -> LSP.ResponseResult m -> Maybe LSP.FromServerMessage
+    makeRes params result = Just $ LSP.FromServerRsp (params ^. LSP.method) $ LSP.ResponseMessage "2.0" (Just $ params ^. LSP.id) (Right result)
+    noDefinitionRes :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request). LSP.RequestMessage m -> Maybe LSP.FromServerMessage
+    noDefinitionRes params = Just $ LSP.FromServerRsp LSP.STextDocumentDefinition $ LSP.ResponseMessage "2.0" (Just $ castLspId $ params ^. LSP.id) $
+      Right $ LSP.InR $ LSP.InL $ LSP.List []
+noIDEReply _ = Nothing
+
+-- | Publishes an error diagnostic for a file containing the given message
+fullFileDiagnostic :: String -> FilePath -> LSP.FromServerMessage
+fullFileDiagnostic message path = LSP.FromServerMess LSP.STextDocumentPublishDiagnostics $ LSP.NotificationMessage "2.0" LSP.STextDocumentPublishDiagnostics 
+  $ LSP.PublishDiagnosticsParams (LSP.filePathToUri path) Nothing $ LSP.List [LSP.Diagnostic 
+    { _range = LSP.Range (LSP.Position 0 0) (LSP.Position 0 1000)
+    , _severity = Just LSP.DsError
+    , _code = Nothing
+    , _source = Just "Daml Multi-IDE"
+    , _message = T.pack message
+    , _tags = Nothing
+    , _relatedInformation = Nothing
+    }]
+
+-- | Clears diagnostics for a given file
+clearDiagnostics :: FilePath -> LSP.FromServerMessage
+clearDiagnostics path = LSP.FromServerMess LSP.STextDocumentPublishDiagnostics $ LSP.NotificationMessage "2.0" LSP.STextDocumentPublishDiagnostics 
+  $ LSP.PublishDiagnosticsParams (LSP.filePathToUri path) Nothing $ LSP.List []
+
+fromClientRequestLspId :: LSP.FromClientMessage -> Maybe LSP.SomeLspId
+fromClientRequestLspId (LSP.FromClientMess method params) =
+  case (LSP.splitClientMethod method, params) of
+    (LSP.IsClientReq, _) -> Just $ LSP.SomeLspId $ params ^. LSP.id
+    (LSP.IsClientEither, LSP.ReqMess params) -> Just $ LSP.SomeLspId $ params ^. LSP.id
+    _ -> Nothing
+fromClientRequestLspId _ = Nothing
+
+fromClientRequestMethod :: LSP.FromClientMessage -> LSP.SomeMethod
+fromClientRequestMethod (LSP.FromClientMess method _) = LSP.SomeMethod method
+fromClientRequestMethod (LSP.FromClientRsp method _) = LSP.SomeMethod method
