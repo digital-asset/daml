@@ -307,7 +307,7 @@ data CommandName =
   deriving (Ord, Show, Eq)
 data Command = Command CommandName (Maybe ProjectOpts) (IO ())
 
-cmdMultiIde :: Int -> Mod CommandFields Command
+cmdMultiIde :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdMultiIde _numProcessors =
     command "multi-ide" $ info (helper <*> cmd) $
        progDesc

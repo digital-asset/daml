@@ -15,7 +15,8 @@
         "onLanguage:daml",
         "onCommand:daml.openDamlDocs",
         "onCommand:daml.resetTelemetryConsent",
-        "onCommand:daml.showResource"
+        "onCommand:daml.showResource",
+        "workspaceContains:daml.yaml"
     ],
     "main": "./out/src/extension",
     "contributes": {

@@ -1,16 +1,17 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE PolyKinds           #-}
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE ApplicativeDo       #-}
-{-# LANGUAGE RankNTypes       #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE GADTs #-}
 
 module DA.Cli.Damlc.Command.MultiIde (runMultiIde) where
 
+import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Control.Concurrent.Async (async, cancel, pollSTM)
 import Control.Concurrent.STM.TChan
 import Control.Concurrent.STM.TMVar
@@ -22,26 +23,35 @@ import Control.Monad.STM
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as BSL
 import DA.Cli.Damlc.Command.MultiIde.Forwarding
 import DA.Cli.Damlc.Command.MultiIde.Prefixing
 import DA.Cli.Damlc.Command.MultiIde.Util
 import DA.Cli.Damlc.Command.MultiIde.Parsing
 import DA.Cli.Damlc.Command.MultiIde.Types
+import DA.Cli.Damlc.Command.MultiIde.DarDependencies (resolveSourceLocation)
 import DA.Cli.Options (MultiIdeVerbose (..))
 import DA.Daml.LanguageServer.SplitGotoDefinition
+import DA.Daml.LF.Reader (DalfManifest(..), readDalfManifest)
 import DA.Daml.Package.Config (MultiPackageConfigFields(..), findMultiPackageConfig, withMultiPackageConfig)
+import DA.Daml.Project.Consts (projectConfigName)
 import DA.Daml.Project.Types (ProjectPath (..))
+import Data.Bifunctor (second)
 import Data.Either (lefts)
 import Data.Foldable (traverse_)
 import Data.Functor.Product
-import Data.List (find, isPrefixOf)
+import Data.List (find, isInfixOf, stripPrefix)
+import Data.List.Extra (nubOrd)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes, fromMaybe)
 import qualified Data.Text as T
 import GHC.Conc (unsafeIOToSTM)
 import qualified Language.LSP.Types as LSP
 import qualified Language.LSP.Types.Lens as LSP
+import qualified SdkVersion.Class
+import System.Directory (doesFileExist, getCurrentDirectory)
 import System.Environment (getEnv)
+import System.FilePath ((</>))
 import System.IO.Extra
 import System.Process (getPid)
 import System.Process.Typed (
@@ -408,16 +418,17 @@ clientMessageHandler miState bs = do
     -- can't find the definition, it'll fall back to the known incorrect location.
     -- Once we have this, we return it as a response to the original STextDocumentDefinition request.
     LSP.FromClientMess LSP.STextDocumentDefinition req@LSP.RequestMessage {_id, _method, _params} -> do
-      let path = filePathFromParamsWithTextDocument req
+      let path = filePathFromParamsWithTextDocument miState req
           lspId = castLspId _id
           method = LSP.SCustomMethod "daml/tryGetDefinition"
+      debugPrint miState "forwarding STextDocumentDefinition as daml/tryGetDefinition"
       putReqMethodSingleFromClient (fromClientMethodTrackerVar miState) lspId method
       sendSubIDEByPath miState path $ LSP.FromClientMess method $ LSP.ReqMess $
         LSP.RequestMessage "2.0" lspId method $ Aeson.toJSON $
           TryGetDefinitionParams (_params ^. LSP.textDocument) (_params ^. LSP.position)
 
     LSP.FromClientMess meth params ->
-      case getMessageForwardingBehaviour meth params of
+      case getMessageForwardingBehaviour miState meth params of
         ForwardRequest mess (Single path) -> do
           debugPrint miState $ "single req on method " <> show meth <> " over path " <> path
           let LSP.RequestMessage {_id, _method} = mess
@@ -439,6 +450,7 @@ clientMessageHandler miState bs = do
           sendAllSubIDEs_ miState (castFromClientMessage msg)
 
         ExplicitHandler handler -> do
+          debugPrint miState "calling explicit handler"
           handler (sendClient miState) (sendSubIDEByPath miState)
     LSP.FromClientRsp (Pair method (Const home)) rMsg -> 
       sendSubIDEByPath miState home $ LSP.FromClientRsp method $ 
@@ -490,12 +502,27 @@ If we do not get one, we continue as normal (no popups) until the user attempts 
 
 -- Main loop logic
 
-runMultiIde :: MultiIdeVerbose -> IO ()
+createDefaultPackage :: SdkVersion.Class.SdkVersioned => IO (FilePath, IO ())
+createDefaultPackage = do
+  (defaultPackagePath, cleanup) <- newTempDir
+  writeFile (defaultPackagePath </> "daml.yaml") $ unlines
+    [ "sdk-version: " <> SdkVersion.Class.sdkVersion
+    , "name: daml-ide-default-environment"
+    , "version: 1.0.0"
+    , "source: ."
+    , "dependencies:"
+    , "  - daml-prim"
+    , "  - daml-stdlib"
+    ]
+  pure (defaultPackagePath, cleanup)
+
+runMultiIde :: SdkVersion.Class.SdkVersioned => MultiIdeVerbose -> IO ()
 runMultiIde multiIdeVerbose = do
   let debugPrinter = makeDebugPrint $ getMultiIdeVerbose multiIdeVerbose
   homePath <- getCurrentDirectory
+  (defaultPackagePath, cleanupDefaultPackage) <- createDefaultPackage
   multiPackageMapping <- getMultiPackageYamlMapping debugPrinter homePath
-  miState <- newMultiIdeState multiPackageMapping homePath debugPrinter
+  miState <- newMultiIdeState multiPackageMapping homePath defaultPackagePath debugPrinter
 
   infoPrint $ "Running " <> (if getMultiIdeVerbose multiIdeVerbose then "with" else "without") <> " verbose flag."
   debugPrint miState "Listening for bytes"
@@ -534,4 +561,5 @@ runMultiIde multiIdeVerbose = do
       when (null exits && null errs) retry
 
     -- If we get here, something failed/stopped, so stop everything
+    cleanupDefaultPackage
     killAll

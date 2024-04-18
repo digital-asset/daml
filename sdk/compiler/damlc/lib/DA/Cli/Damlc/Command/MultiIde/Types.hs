@@ -108,10 +108,11 @@ data MultiIdeState = MultiIdeState
   , multiPackageMapping :: MultiPackageYamlMapping
   , debugPrint :: String -> IO ()
   , multiPackageHome :: FilePath
+  , defaultPackagePath :: FilePath
   }
 
-newMultiIdeState :: MultiPackageYamlMapping -> FilePath -> (String -> IO ()) -> IO MultiIdeState
-newMultiIdeState multiPackageMapping multiPackageHome debugPrint = do
+newMultiIdeState :: MultiPackageYamlMapping -> FilePath -> FilePath -> (String -> IO ()) -> IO MultiIdeState
+newMultiIdeState multiPackageMapping multiPackageHome defaultPackagePath debugPrint = do
   (fromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient) <- newTVarIO IM.emptyIxMap
   (fromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer) <- newTVarIO IM.emptyIxMap
   subIDEsVar <- newTMVarIO @SubIDEs mempty
