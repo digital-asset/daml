@@ -63,6 +63,11 @@ object Enumerations {
   lazy val ledgers: Space[Ledger] =
     listsOf(commands)
 
+  def scenarios(numParticipants: Int): Space[Scenario] = {
+    val topology = Seq.fill(numParticipants)(Participant())
+    ledgers.map(Scenario(topology, _))
+  }
+
   def ledgersOfSize(n: Int): Space[Ledger] =
     List.fill(n)(commands).sequence
 }

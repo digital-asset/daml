@@ -6,6 +6,9 @@ package model
 package test
 
 object Ledgers {
+
+  // ledgers
+
   type PartySet = Set[PartyId]
   type PartyId = Int
   type ContractId = Int
@@ -50,6 +53,8 @@ object Ledgers {
   )
 
   type Topology = Seq[Participant]
+
+  // tying all together
 
   final case class Scenario(topology: Topology, ledger: Ledger)
 }
