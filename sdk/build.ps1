@@ -79,40 +79,38 @@ function Has-Run-All-Tests-Trailer {
   $run_all_tests -eq "true"
 }
 
-if ($env:SKIP_TESTS -ceq "False") {
-    # Generate mapping from shortened scala-test names on Windows to long names on Linux and MacOS.
-    ./ci/remap-scala-test-short-names.ps1 `
-      | Out-File -Encoding UTF8 -NoNewline scala-test-suite-name-map.json
+# Generate mapping from shortened scala-test names on Windows to long names on Linux and MacOS.
+./ci/remap-scala-test-short-names.ps1 `
+  | Out-File -Encoding UTF8 -NoNewline scala-test-suite-name-map.json
 
-    $ALL_TESTS_FILTER = "-pr-only"
-    $FEWER_TESTS_FILTER = "-main-only"
+$ALL_TESTS_FILTER = "-pr-only"
+$FEWER_TESTS_FILTER = "-main-only"
 
-    $tag_filter = "-dev-canton-test,-canton-ee"
-    switch ($env:TEST_MODE) {
-      'main' {
-        $tag_filter = "$tag_filter,$ALL_TESTS_FILTER"
-      }
-      'pr' {
-        if (Has-Run-All-Tests-Trailer) {
-          Write-Output "ignoring 'pr' test mode because the commit message features 'run-all-tests: true'"
-          $tag_filter = "$tag_filter,$ALL_TESTS_FILTER"
-        } else {
-          $tag_filter = "$tag_filter,$FEWER_TESTS_FILTER"
-        }
-      }
-      Default {
-        Write-Output "<< unknown test mode: $env:TEST_MODE)"
-        throw ("Was given an unknown test mode: $env:TEST_MODE")
-      }
+$tag_filter = "-dev-canton-test,-canton-ee"
+switch ($env:TEST_MODE) {
+  'main' {
+    $tag_filter = "$tag_filter,$ALL_TESTS_FILTER"
+  }
+  'pr' {
+    if (Has-Run-All-Tests-Trailer) {
+      Write-Output "ignoring 'pr' test mode because the commit message features 'run-all-tests: true'"
+      $tag_filter = "$tag_filter,$ALL_TESTS_FILTER"
+    } else {
+      $tag_filter = "$tag_filter,$FEWER_TESTS_FILTER"
     }
-
-    Write-Output "Running bazel test with the following tag filters: $tag_filter"
-
-    bazel test //... `
-      `-`-build_tag_filters "$tag_filter" `
-      `-`-test_tag_filters "$tag_filter" `
-      `-`-profile test-profile.json `
-      `-`-experimental_profile_include_target_label `
-      `-`-build_event_json_file test-events.json `
-      `-`-build_event_publish_all_actions `
+  }
+  Default {
+    Write-Output "<< unknown test mode: $env:TEST_MODE)"
+    throw ("Was given an unknown test mode: $env:TEST_MODE")
+  }
 }
+
+Write-Output "Running bazel test with the following tag filters: $tag_filter"
+
+bazel test //... `
+  `-`-build_tag_filters "$tag_filter" `
+  `-`-test_tag_filters "$tag_filter" `
+  `-`-profile test-profile.json `
+  `-`-experimental_profile_include_target_label `
+  `-`-build_event_json_file test-events.json `
+  `-`-build_event_publish_all_actions `
