@@ -125,8 +125,9 @@ steps:
                    eq(variables.skip, 'false'),
                    or(eq(${{parameters.is_release}}, 'false'),
                       ne(${{parameters.name_exp}}, 'm1')))
+    continueOnError: true
     inputs:
-      targetPath: '$(Build.StagingDirectory)/logs'
+      pathtoPublish: '$(Build.StagingDirectory)/logs'
       artifactName: 'Bazel Logs'
 
   - task: PublishBuildArtifacts@1
@@ -136,7 +137,7 @@ steps:
                       ne(${{parameters.name_exp}}, 'm1')))
     displayName: 'Publish the bazel test logs'
     inputs:
-      targetPath: 'sdk/bazel-testlogs/'
+      pathtoPublish: 'sdk/bazel-testlogs/'
       artifactName: 'Test logs ${{parameters.name_str}}'
 
   - bash: |

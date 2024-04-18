@@ -12,52 +12,142 @@ pr:
       - release/*
 
 jobs:
-- job: test_macos_msft
-  strategy:
-    matrix:
-      microsoft_13:
-        vmImage: macOS-13
-        name: microsoft_13
-      microsoft_12:
-        vmImage: macOS-12
-        name: microsoft_12
-      microsoft_11:
-        vmImage: macOS-11
-        name: microsoft_11
-  variables:
-    dir: $(Build.StagingDirectory)/logs
-    System.Debug: true
-  pool:
-    vmImage: $(vmImage)
-  steps:
-    - template: steps.yml
+- template: build.yml
+  parameters:
+    test_mode: pr
+- template: check-for-release-job.yml
 
-- job: test_macos_old_12
-  variables:
-    dir: $(Build.StagingDirectory)/logs
-    System.Debug: true
+
+- job: check_standard_change_label
+  dependsOn:
+    - check_for_release
+  condition: and(eq(variables['Build.Reason'], 'PullRequest'),
+                 eq(dependencies.check_for_release.outputs['out.is_release'], 'true'))
   pool:
-    name: macOS-pool
+    name: 'ubuntu_20_04'
     demands: assignment -equals default
   steps:
-    - template: steps.yml
+    - checkout: self
+    - bash: |
+        set -euo pipefail
 
-- job: test_macos_new_13
-  variables:
-    dir: $(Build.StagingDirectory)/logs
-    System.Debug: true
-  pool:
-    name: macOS-pool
-    demands: assignment -equals ventura
-  steps:
-    - template: steps.yml
+        curl https://api.github.com/repos/digital-asset/daml/pulls/$PR -s | jq -r '.labels[].name' | grep -q '^Standard-Change$'
+      env:
+        PR: $(System.PullRequest.PullRequestNumber)
 
-- job: test_macos_new_12
-  variables:
-    dir: $(Build.StagingDirectory)/logs
-    System.Debug: true
+# required for collect_build_data
+- job: release
+  condition: false
+
+- job: notify_release_pr
+  condition: and(not(canceled()),
+                 or(startsWith(variables['Build.SourceBranchName'], 'auto-release-pr-'),
+                    startsWith(variables['System.PullRequest.SourceBranch'], 'auto-release-pr-')),
+                 eq(dependencies.check_for_release.outputs['out.is_release'], 'true'))
+  dependsOn:
+    - git_sha
+    - collect_build_data
+    - check_for_release
+    - platform_independence_test
   pool:
-    name: macOS-pool
-    demands: assignment -equals big_sur
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
+  variables:
+    branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
+    status: $[ dependencies.collect_build_data.result ]
+    is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
   steps:
-    - template: steps.yml
+    - checkout: self
+      persistCredentials: true
+    - template: bash-lib.yml
+      parameters:
+        var_name: bash-lib
+    - bash: |
+        set -euo pipefail
+
+        source $(bash-lib)
+
+        AUTH="$(get_gh_auth_header)"
+        PR=$(curl -H "$AUTH" \
+                  -H "Accept: application/vnd.github.groot-preview+json" \
+                  -s -f \
+                  "https://api.github.com/repos/digital-asset/daml/commits/$(git rev-parse HEAD)/pulls" \
+             | jq '.[0].number' \
+             || echo "")
+        # Note: if we somehow fail to resolve the PR number from the GitHub
+        # API, there is still value in getting the notification on Slack, as
+        # we do have the build number and from there we can click through to
+        # the PR. Hence the `|| echo ""`.
+        PR_HANDLER=$(next_in_rotation_slack)
+
+        case "$(status)" in
+          Succeeded*)
+            msg="has succeeded! Next step is to approve & merge. This is probably a good time to start your Windows testing machine."
+            ;;
+          Failed*)
+            msg="has failed. Please investigate."
+            ;;
+          *)
+            # Should not be reached, but who knows?
+            msg="has completed with status $(status). See <https://github.com/digital-asset/daml/blob/main/release/RELEASE.md|RELEASE.md> for what to do next."
+            ;;
+          esac
+        tell_slack "<@${PR_HANDLER}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for release PR <https://github.com/digital-asset/daml/pull/${PR}|#${PR}> $msg"
+
+- job: notify_user
+  # No Slack tokens on forks
+  condition: and(not(canceled()),
+                 eq(variables['System.PullRequest.IsFork'], 'False'))
+  dependsOn:
+    - git_sha
+    - collect_build_data
+    - check_for_release
+  pool:
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
+  variables:
+    pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
+    branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
+    build_status: $[ dependencies.collect_build_data.result ]
+  steps:
+    - template: bash-lib.yml
+      parameters:
+        var_name: bash-lib
+    - bash: |
+        set -euo pipefail
+        source $(bash-lib)
+
+        user=$(user_slack_handle $(branch_sha))
+        if [ "$user" != "" ]; then
+            tell_slack "<@${user}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has completed with status $(build_status)." \
+                       "$(Slack.team-daml-ci)"
+        fi
+        if [ "$(git log -n1 --format="%(trailers:key=tell-slack,valueonly)" HEAD)" = "canton" ]; then
+          if [ "$(build_status)" = "Failed" ]; then
+            tell_slack "<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|canton update PR $(pr.num)> has completed with status $(build_status)." \
+                       "$(Slack.team-canton-notifications)"
+          fi
+        fi
+
+- job: self_service_compat_test
+  pool:
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
+  condition: eq(variables['Build.Reason'], 'PullRequest')
+  steps:
+  - checkout: self
+  - template: bash-lib.yml
+    parameters:
+      var_name: bash-lib
+  - bash: |
+      set -euo pipefail
+      eval "$(./dev-env/bin/dade-assist)"
+      source $(bash-lib)
+      COMMIT=$(git rev-parse HEAD^2)
+      REQUEST=$(git log -n1 --format="%(trailers:key=run-full-compat,valueonly)" $COMMIT)
+      if [ $REQUEST == true ]; then
+        # Unfortunately recovering the actual branch name is tricky
+        trigger_azure $AZURE_TOKEN digital-asset.daml-daily-compat --commit-id $COMMIT --branch not-main
+      fi
+    env:
+      AZURE_TOKEN: $(System.AccessToken)
