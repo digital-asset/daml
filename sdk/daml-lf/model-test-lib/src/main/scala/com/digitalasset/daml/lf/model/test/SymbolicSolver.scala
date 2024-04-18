@@ -16,6 +16,13 @@ object SymbolicSolver {
     ctx.close()
     res
   }
+
+  def valid(scenario: Ledgers.Scenario, numParties: Int): Boolean = {
+    val ctx = new Context()
+    val res = new SymbolicSolver(ctx, numParties).validate(scenario)
+    ctx.close()
+    res
+  }
 }
 
 private class SymbolicSolver(ctx: Context, numParties: Int) {
@@ -323,32 +330,6 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     and(ledger.map(actorsAreHostedOnParticipant))
   }
 
-  private def controllersAreHostedOnParticipant(
-      partiesOf: FuncDecl[PartySetSort],
-      ledger: Symbolic.Ledger,
-  ): BoolExpr = {
-    def validActionControllers(participantId: ParticipantId, action: Action): BoolExpr =
-      action match {
-        case Create(_, _, _) =>
-          ctx.mkBool(true)
-        case Exercise(_, _, controllers, _, subTransaction) =>
-          ctx.mkAnd(
-            ctx
-              .mkSetSubset(controllers, ctx.mkApp(partiesOf, participantId).asInstanceOf[PartySet]),
-            and(subTransaction.map(validActionControllers(participantId, _))),
-          )
-        case Fetch(_) =>
-          ctx.mkBool(true)
-        case Rollback(subTransaction) =>
-          and(subTransaction.map(validActionControllers(participantId, _)))
-      }
-
-    def validCommandsControllers(commands: Commands): BoolExpr =
-      and(commands.actions.map(validActionControllers(commands.participantId, _)))
-
-    and(ledger.map(validCommandsControllers))
-  }
-
   private val allPartiesSetLiteral =
     (1 to numParties).foldLeft(ctx.mkEmptySet(ctx.mkIntSort()))((acc, i) =>
       ctx.mkSetAdd(acc, ctx.mkInt(i))
@@ -397,48 +378,69 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     and(mkRandomHash(chunkSize, scenario))
   }
 
-  private def solve(scenario: Skeletons.Scenario): Option[Ledgers.Scenario] = {
-    val solver = ctx.mkSolver()
-
-    val symScenario = new ToSymbolic(ctx).toSymbolic(scenario)
+  private def validScenario(
+      symScenario: Scenario,
+      allParties: PartySet,
+      signatoriesOf: FuncDecl[PartySetSort],
+      observersOf: FuncDecl[PartySetSort],
+      partiesOf: FuncDecl[PartySetSort],
+  ): BoolExpr = {
     val Scenario(symTopology, symLedger) = symScenario
+    ctx.mkAnd(
+      // Declare allParties = {1 .. numParties}
+      ctx.mkEq(allParties, allPartiesSetLiteral),
+      // Assign distinct contract IDs to create events
+      numberLedger(symLedger),
+      // Assign distinct participant IDs to participants in the topology
+      numberParticipants(symTopology),
+      // Tie parties to participants via partiesOf
+      tiePartiesToParticipants(symTopology, partiesOf),
+      // Participants form a partition of allParties - theoretically not required but we don't support party replication yet
+      partition(allParties, symTopology.map(_.parties)),
+      // Participants have at least one party - not required but empty participants are kind of useless
+      and(symTopology.map(p => ctx.mkNot(isEmptyPartySet(p.parties)))),
+      // Every party set in ledger is a subset of allParties
+      partySetsWellFormed(symLedger, allParties),
+      // Signatories and controllers in ledger are non-empty
+      nonEmptyPartySetsWellFormed(symLedger),
+      // Only active contracts can be exercised or fetched
+      consistentLedger(symLedger),
+      // Only contracts visible to the participant can be exercised of fetched on that participant
+      visibleContracts(partiesOf, signatoriesOf, observersOf, symLedger),
+      // Contracts created in a command cannot be referenced by other actions in the same command
+      hideCreatedContractsInSiblings(symLedger),
+      // Transactions adhere to the authorization rules
+      authorized(signatoriesOf, observersOf, symLedger),
+      // Participants IDs in a command refer to existing participants
+      validParticipantIdsInCommands(symScenario),
+      // Actors of a command should be hosted by the participant executing the command
+      actorsAreHostedOnParticipant(partiesOf, symLedger),
+    )
+  }
 
-    val allParties = ctx.mkConst(ctx.mkSymbol("all_parties"), partySetSort).asInstanceOf[PartySet]
-    val signatoriesOf = ctx.mkFuncDecl("signatories", Array[Sort](contractIdSort), partySetSort)
-    val observersOf = ctx.mkFuncDecl("observers", Array[Sort](contractIdSort), partySetSort)
-    val partiesOf = ctx.mkFuncDecl("parties", Array[Sort](participantIdSort), partySetSort)
+  private case class Constants(
+      allParties: PartySet,
+      signatoriesOf: FuncDecl[PartySetSort],
+      observersOf: FuncDecl[PartySetSort],
+      partiesOf: FuncDecl[PartySetSort],
+  )
 
-    // Declare allParties = {1 .. numParties}
-    solver.add(ctx.mkEq(allParties, allPartiesSetLiteral))
-    // Assign distinct contract IDs to create events
-    solver.add(numberLedger(symLedger))
-    // Assign distinct participant IDs to participants in the topology
-    solver.add(numberParticipants(symTopology))
-    // Tie parties to participants via partiesOf
-    solver.add(tiePartiesToParticipants(symTopology, partiesOf))
-    // Participants form a partition of allParties
-    solver.add(partition(allParties, symTopology.map(_.parties)))
-    // Participants have at least one party
-    solver.add(and(symTopology.map(p => ctx.mkNot(isEmptyPartySet(p.parties)))))
-    // Every party set in ledger is a subset of allParties
-    solver.add(partySetsWellFormed(symLedger, allParties))
-    // Every non-empty party set in ledger is non-empty
-    solver.add(nonEmptyPartySetsWellFormed(symLedger))
-    // Only active contracts can be exercised or fetched
-    solver.add(consistentLedger(symLedger))
-    // Only contracts visible to the participant can be exercised of fetched on a participant
-    solver.add(visibleContracts(partiesOf, signatoriesOf, observersOf, symLedger))
-    // Contracts created in a command cannot be referenced by other actions in the same command
-    solver.add(hideCreatedContractsInSiblings(symLedger))
-    // Transactions adhere to the authorization rules
-    solver.add(authorized(signatoriesOf, observersOf, symLedger))
-    // Participants IDs in a command refer to existing participants
-    solver.add(validParticipantIdsInCommands(symScenario))
-    // Actors of a command should be hosted by the participant executing the command
-    solver.add(actorsAreHostedOnParticipant(partiesOf, symLedger))
-    // Controllers of an exercise should be hosted by the participant executing the command
-    solver.add(controllersAreHostedOnParticipant(partiesOf, symLedger))
-    // Equate a random hash of all the symbols to resolve to 0
+  private def mkFreshConstants(): Constants =
+    Constants(
+      allParties = ctx.mkFreshConst("all_parties", partySetSort).asInstanceOf[PartySet],
+      signatoriesOf = ctx.mkFreshFuncDecl("signatories", Array[Sort](contractIdSort), partySetSort),
+      observersOf = ctx.mkFreshFuncDecl("observers", Array[Sort](contractIdSort), partySetSort),
+      partiesOf = ctx.mkFreshFuncDecl("parties", Array[Sort](participantIdSort), partySetSort),
+    )
+
+  private def solve(scenario: Skeletons.Scenario): Option[Ledgers.Scenario] = {
+    val symScenario = SkeletonToSymbolic.toSymbolic(ctx, scenario)
+    val Constants(allParties, signatoriesOf, observersOf, partiesOf) = mkFreshConstants()
+
+    val solver = ctx.mkSolver()
+    // The scenario is valid
+    solver.add(validScenario(symScenario, allParties, signatoriesOf, observersOf, partiesOf))
+    // Equate a random hash of all the symbols to 0
     solver.add(hashConstraint(20, symScenario))
 
     solver.check() match {
@@ -447,6 +449,24 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
       case UNSATISFIABLE =>
         print(".")
         None
+      case other =>
+        throw new IllegalStateException(s"Unexpected solver result: $other")
+    }
+  }
+
+  private def validate(scenario: Ledgers.Scenario): Boolean = {
+    val (symScenario, constraints) = ConcreteToSymbolic.toSymbolic(ctx, scenario)
+    val Constants(allParties, signatoriesOf, observersOf, partiesOf) = mkFreshConstants()
+
+    val solver = ctx.mkSolver()
+    // Translation constraints
+    solver.add(constraints)
+    // The scenario is valid
+    solver.add(validScenario(symScenario, allParties, signatoriesOf, observersOf, partiesOf))
+
+    solver.check() match {
+      case SATISFIABLE => true
+      case UNSATISFIABLE => false
       case other =>
         throw new IllegalStateException(s"Unexpected solver result: $other")
     }
