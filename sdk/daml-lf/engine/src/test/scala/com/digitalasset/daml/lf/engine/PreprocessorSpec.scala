@@ -5,7 +5,7 @@ package com.daml.lf
 package engine
 
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref.{IdString, PackageRef, Party}
+import com.daml.lf.data.Ref.{PackageRef, Party}
 import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref}
 import com.daml.lf.command.ApiCommand
 import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
@@ -348,7 +348,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
   )
   val keyHash: Hash = crypto.Hash.assertHashContractKey(withKeyTmplId, pkgName, key)
 
-  val choiceId: IdString.Name = Ref.Name.assertFromString("Noop")
+  val choiceId: Ref.Name = Ref.Name.assertFromString("Noop")
 
   def buildDisclosedContract(
       contractId: ContractId = contractId,
