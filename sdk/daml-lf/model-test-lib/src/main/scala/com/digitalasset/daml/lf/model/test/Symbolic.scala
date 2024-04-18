@@ -8,6 +8,10 @@ package test
 import com.microsoft.z3._
 
 object Symbolic {
+
+  // ledgers
+
+  type ParticipantIdSort = IntSort
   type ContractIdSort = IntSort
   type PartySort = IntSort
   type PartySetSort = SetSort[IntSort]
@@ -15,6 +19,8 @@ object Symbolic {
   type PartySet = ArrayExpr[PartySort, BoolSort]
   type PartyId = IntExpr
   type ContractId = IntExpr
+
+  type ParticipantId = IntExpr
 
   sealed trait ExerciseKind
   case object Consuming extends ExerciseKind
@@ -38,7 +44,24 @@ object Symbolic {
 
   type Transaction = List[Action]
 
-  final case class Commands(actAs: PartySet, actions: Transaction)
+  final case class Commands(
+      participantId: ParticipantId,
+      actAs: PartySet,
+      actions: Transaction,
+  )
 
   type Ledger = List[Commands]
+
+  // topologies
+
+  final case class Participant(
+      participantId: ParticipantId,
+      parties: PartySet,
+  )
+
+  type Topology = Seq[Participant]
+
+  // tying all together
+
+  final case class Scenario(topology: Topology, ledger: Ledger)
 }
