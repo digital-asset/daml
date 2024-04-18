@@ -83,8 +83,8 @@ class DirectSequencerClientTransport(
 
   override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit] =
-    sequencer.acknowledgeSigned(request)
+  ): EitherT[Future, String, Boolean] =
+    sequencer.acknowledgeSigned(request).map { _ => true }
 
   override def subscribe[E](request: SubscriptionRequest, handler: SerializedEventHandler[E])(
       implicit traceContext: TraceContext

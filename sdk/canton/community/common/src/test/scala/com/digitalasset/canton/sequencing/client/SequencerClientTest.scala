@@ -1005,8 +1005,8 @@ class SequencerClientTest
 
     override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
         traceContext: TraceContext
-    ): EitherT[Future, String, Unit] =
-      EitherT.rightT(())
+    ): EitherT[Future, String, Boolean] =
+      EitherT.rightT(true)
 
     private def sendAsync(
         request: SubmissionRequest

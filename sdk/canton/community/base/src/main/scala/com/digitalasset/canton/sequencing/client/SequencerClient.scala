@@ -178,7 +178,7 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
     */
   def acknowledgeSigned(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit]
+  ): EitherT[Future, String, Boolean]
 
   /** The sequencer counter at which the first subscription starts */
   protected def initialCounterLowerBound: SequencerCounter
@@ -803,12 +803,12 @@ abstract class SequencerClientImpl(
     */
   def acknowledgeSigned(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit] = {
+  ): EitherT[Future, String, Boolean] = {
     val request = AcknowledgeRequest(member, timestamp, protocolVersion)
     for {
       signedRequest <- requestSigner.signRequest(request, HashPurpose.AcknowledgementSignature)
-      _ <- sequencersTransportState.transport.acknowledgeSigned(signedRequest)
-    } yield ()
+      result <- sequencersTransportState.transport.acknowledgeSigned(signedRequest)
+    } yield result
   }
 
   protected val periodicAcknowledgementsRef =
