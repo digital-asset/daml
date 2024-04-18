@@ -22,7 +22,7 @@ object Demo {
 
   def main(args: Array[String]): Unit = {
 
-    val scenarios = Enumerations.scenarios(numParticipants = 3)(100)
+    val scenarios = Enumerations.scenarios(numParticipants = 3)(45)
 
     def randomBigIntLessThan(n: BigInt): BigInt = {
       var res: BigInt = BigInt(0)
@@ -41,7 +41,7 @@ object Demo {
 
     def validSymScenarios: LazyList[Ledgers.Scenario] = LazyList.continually {
       val skeleton = scenarios(randomBigIntLessThan(scenarios.cardinal))
-      SymbolicSolver.solve(skeleton, 6)
+      SymbolicSolver.solve(skeleton, numParties = 6)
     }.flatten
     val _ = validSymScenarios
 
@@ -60,7 +60,11 @@ object Demo {
     val cantonLedgerRunner = LedgerRunner.forCantonLedger(
       universalDarPath,
       "localhost",
-      List(ApiPorts(5011, 5012), ApiPorts(5013, 5014), ApiPorts(5015, 5016)),
+      List(
+        ApiPorts(5011, 5012),
+        ApiPorts(5013, 5014),
+        ApiPorts(5015, 5016),
+      ),
     )
     val ideLedgerRunner = LedgerRunner.forIdeLedger(universalDarPath)
 
@@ -70,6 +74,7 @@ object Demo {
           if (scenario.ledger.nonEmpty) {
             println("\n==== ledger ====")
             println(Pretty.prettyScenario(scenario))
+            println("VALID: " + SymbolicSolver.valid(scenario, numParties = 6))
             ideLedgerRunner.runAndProject(scenario) match {
               case Left(error) =>
                 println("INVALID LEDGER!")
@@ -79,10 +84,11 @@ object Demo {
                 System.exit(1)
               case Right(ideProjections) =>
                 println("==== ide ledger ====")
-                ideProjections.foreach { case (partyId, projection) =>
-                  println(s"Projection for party $partyId")
-                  println(Pretty.prettyProjection(projection))
-                }
+                println("VALID!")
+                // ideProjections.foreach { case (partyId, projection) =>
+                // println(s"Projection for party $partyId")
+                // println(Pretty.prettyProjection(projection))
+                // }
                 println("==== canton ====")
                 cantonLedgerRunner.runAndProject(scenario) match {
                   case Left(error) =>
