@@ -32,10 +32,17 @@ import System.IO.Unsafe (unsafePerformIO)
 printLock :: MVar ()
 printLock = unsafePerformIO $ newMVar ()
 
-debugPrint :: String -> IO ()
-debugPrint msg = withMVar printLock $ \_ -> do
+makeDebugPrint :: Bool -> String -> IO ()
+makeDebugPrint True msg = withMVar printLock $ \_ -> do
   hPutStrLn stderr msg
   hFlush stderr
+makeDebugPrint False _ = pure ()
+
+infoPrint :: String -> IO ()
+infoPrint = makeDebugPrint True
+
+warnPrint :: String -> IO ()
+warnPrint msg = infoPrint $ "Warning: " <> msg
 
 er :: Show x => String -> Either x a -> a
 er _msg (Right a) = a
