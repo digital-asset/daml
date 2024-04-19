@@ -947,10 +947,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val maxPartiesPageSize = ledger.features.partyManagement.maxPartiesPageSize
-    val parties = 1.to(maxPartiesPageSize + 1).map(_ => ledger.nextPartyId())
     for {
-      // create lots of parties
-      _ <- Future.sequence(parties.map(u => ledger.allocateParty(AllocatePartyRequest(u))))
       // request page size greater than the server's limit
       onTooLargePageSizeError <- ledger
         .listKnownParties(
