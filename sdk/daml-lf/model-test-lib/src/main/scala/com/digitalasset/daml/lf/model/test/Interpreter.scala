@@ -16,6 +16,7 @@ import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient.{
   CreateResult,
   ExerciseResult,
 }
+import com.daml.lf.model.test.LedgerImplicits._
 import com.daml.lf.model.test.Ledgers._
 import com.daml.lf.value.{Value => V}
 import org.apache.pekko.stream.Materializer
@@ -46,14 +47,56 @@ object Interpreter {
 class Interpreter(
     universalTemplatePkgId: Ref.PackageId,
     ledgerClients: PartialFunction[ParticipantId, ScriptLedgerClient],
+    replicateParties: Function[Map[Ref.Party, (ParticipantId, Set[ParticipantId])], Future[Unit]],
 ) {
   import Interpreter._
 
   private val toCommands = new ToCommands(universalTemplatePkgId)
 
+  type SymbSimplifiedTopology = Map[ParticipantId, Set[PartyId]]
+  type SymbReplications = Map[PartyId, (ParticipantId, Set[ParticipantId])]
+
+  type SimplifiedTopology = Map[ParticipantId, Set[Ref.Party]]
+  type Replications = Map[Ref.Party, (ParticipantId, Set[ParticipantId])]
+
+  def substituteInTopology(
+      symbSimplifiedTopology: SymbSimplifiedTopology,
+      partyIds: PartyIdMapping,
+  ): SimplifiedTopology =
+    symbSimplifiedTopology.view.mapValues(_.map(partyIds)).toMap
+
+  def substituteInReplications(
+      symbReplications: SymbReplications,
+      partyIds: PartyIdMapping,
+  ): Replications =
+    symbReplications.map { case (partyId, replications) => partyIds(partyId) -> replications }
+
+  // For each party, arbitrarily picks a participant that will host it and a
+  // set of participants it will need to be replicated to.
+  private def splitTopology(
+      topology: Topology
+  ): (SymbSimplifiedTopology, SymbReplications) = {
+    val partyToReplications =
+      topology.groupedByPartyId.map { case (partyId, participants) =>
+        val participantIds = participants.map(_.participantId)
+        (partyId, (participantIds.head, participantIds.tail))
+      }
+    val participantToDisjointPartySets =
+      partyToReplications.groupMapReduce(_._2._1)(entry => Set(entry._1))(_ ++ _)
+    (participantToDisjointPartySets, partyToReplications)
+  }
+
+  private def allocateParties(initialTopology: SymbSimplifiedTopology)(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[PartyIdMapping] = initialTopology.toList
+    .traverse { case (participantId, parties) =>
+      allocateParties(ledgerClients(participantId), parties)
+    }
+    .map(_.foldLeft(Map.empty[PartyId, Ref.Party])(_ ++ _))
+
   // Party allocation doesn't seem thread-safe on the IDE ledger
   val partyAllocationLock = new ReentrantLock()
-
   private def allocateParties(ledgerClient: ScriptLedgerClient, partyIds: Iterable[PartyId])(
       implicit
       ec: ExecutionContext,
@@ -71,8 +114,7 @@ class Interpreter(
   }
 
   private def waitForPartyPropagation(
-      topology: Topology,
-      partyIds: PartyIdMapping,
+      topology: SimplifiedTopology
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -81,8 +123,8 @@ class Interpreter(
       .sequence(
         for {
           participant <- topology
-          ledgerClient = ledgerClients(participant.participantId)
-        } yield waitForPartyPropagation(ledgerClient, participant.parties.map(partyIds))
+          ledgerClient = ledgerClients(participant._1)
+        } yield waitForPartyPropagation(ledgerClient, participant._2)
       )
       .map(_ => ())
 
@@ -205,13 +247,14 @@ class Interpreter(
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[(PartyIdMapping, Either[InterpreterError, ContractIdMapping])] = {
+    val Scenario(topology, ledger) = scenario
+    val (disjointTopology, replications) = splitTopology(topology)
     for {
-      partyIdsSeq <- scenario.topology.traverse(participant =>
-        allocateParties(ledgerClients(participant.participantId), participant.parties)
-      )
-      partyIds = partyIdsSeq.foldLeft(Map.empty[PartyId, Ref.Party])(_ ++ _)
-      _ <- waitForPartyPropagation(scenario.topology, partyIds)
-      result <- runCommandsList(partyIds, Map.empty, scenario.ledger).value
+      partyIds <- allocateParties(disjointTopology)
+      _ <- waitForPartyPropagation(substituteInTopology(disjointTopology, partyIds))
+      _ <- replicateParties(substituteInReplications(replications, partyIds))
+      _ <- waitForPartyPropagation(substituteInTopology(topology.simplify, partyIds))
+      result <- runCommandsList(partyIds, Map.empty, ledger).value
     } yield (partyIds, result)
   }
 }
