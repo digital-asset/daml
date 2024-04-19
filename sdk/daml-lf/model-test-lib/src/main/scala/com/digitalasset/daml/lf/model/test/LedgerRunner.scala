@@ -214,10 +214,78 @@ private class CantonLedgerRunner(
     )
   }
 
+  private lazy val cantonConfig = {
+    def participant(ports: ApiPorts, n: Int): String =
+      s"""
+         |participant$n {
+         |    ledger-api {
+         |        port = ${ports.ledgerApiPort}
+         |    }
+         |    admin-api {
+         |        port = ${ports.adminApiPort}
+         |    }
+         |}
+         |""".stripMargin
+
+    s"""
+      |canton {
+      |    remote-participants {
+      |        ${apiPorts.zipWithIndex.map((participant _).tupled).mkString("\n")}
+      |    }
+      |}
+      |""".stripMargin
+  }
+
   override def replicateParties(
-    replications: Map[Party, (ParticipantId, Set[ParticipantId])]
-  ): Future[Unit] =
-    Future.successful(())
+      replications: Map[Party, (ParticipantId, Set[ParticipantId])]
+  ): Future[Unit] = {
+
+    def partyLiteral(party: Party): String =
+      s"""PartyId.tryFromProtoPrimitive("${party}")"""
+
+    def participantLiteral(participantId: ParticipantId): String =
+      s"participant${participantId}"
+
+    def participantSetLiteral(participantIds: Set[ParticipantId]): String =
+      participantIds.map(participantLiteral).mkString("Set(", ", ", ")")
+
+    def entryLiteral(entry: (Party, (ParticipantId, Set[ParticipantId]))): String = {
+      val (party, (participantFrom, participantTo)) = entry
+      s"${partyLiteral(party)} -> (${participantLiteral(participantFrom)}, ${participantSetLiteral(participantTo)})"
+    }
+
+    val replicationsLiteral = replications.map(entryLiteral).mkString("Map(", ", ", ")")
+
+    val script =
+      s"""
+         |import com.digitalasset.canton.console.ParticipantReference
+         |
+         |val domainId = participant1.domains.list_connected.head.domainId
+         |val replications = $replicationsLiteral
+         |
+         |def replicate(party: PartyId, participantFrom: ParticipantReference, participantTo: ParticipantReference) = {
+         |  println("replicating " + party + " from " + participantFrom + " to " + participantTo)
+         |  Seq(participantFrom, participantTo).foreach(p =>
+         |    p.topology.party_to_participant_mappings
+         |      .propose_delta(
+         |        party,
+         |        adds = List((participantTo.id, ParticipantPermission.Submission)),
+         |        store = domainId.filterString,
+         |      )
+         |  )
+         |}
+         |
+         |replications.foreach { case (party, (participantFrom, participantsTo)) =>
+         |  participantsTo.foreach { participantTo =>
+         |    replicate(party, participantFrom, participantTo)
+         |  }
+         |}
+         |""".stripMargin
+
+    Future.successful(
+      CantonConsole.run(cantonConfig, script, debug = true)
+    )
+  }
 
   override def close(): Unit =
     ledgerClientsForProjections.foreach(_.close())
