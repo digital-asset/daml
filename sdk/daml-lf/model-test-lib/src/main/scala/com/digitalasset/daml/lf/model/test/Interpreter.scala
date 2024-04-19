@@ -10,17 +10,13 @@ import cats.implicits.toTraverseOps
 import cats.instances.all._
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
-import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient.{
-  CommandResult,
-  CommandWithMeta,
-  CreateResult,
-  ExerciseResult,
-}
+import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient.{CommandResult, CommandWithMeta, CreateResult, ExerciseResult}
 import com.daml.lf.model.test.Ledgers._
 import com.daml.lf.value.{Value => V}
 import org.apache.pekko.stream.Materializer
 import scalaz.OneAnd
 
+import java.util.concurrent.locks.ReentrantLock
 import scala.concurrent.{ExecutionContext, Future, blocking}
 
 object Interpreter {
@@ -50,6 +46,9 @@ class Interpreter(
 
   private val toCommands = new ToCommands(universalTemplatePkgId)
 
+  // Party allocation doesn't seem thread-safe on the IDE ledger
+  val partyAllocationLock = new ReentrantLock()
+
   private def allocateParties(ledgerClient: ScriptLedgerClient, partyIds: Iterable[PartyId])(
       implicit
       ec: ExecutionContext,
@@ -58,7 +57,10 @@ class Interpreter(
     val futures = partyIds
       .map(partyId => {
         val name = s"p$partyId"
-        ledgerClient.allocateParty("", name).map(partyId -> _)
+        partyAllocationLock.lockInterruptibly()
+        val res = ledgerClient.allocateParty("", name).map(partyId -> _)
+        partyAllocationLock.unlock()
+        res
       })
     Future.sequence(futures).map(_.toMap)
   }
