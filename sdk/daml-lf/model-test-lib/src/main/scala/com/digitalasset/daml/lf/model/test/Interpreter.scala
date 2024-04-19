@@ -10,7 +10,12 @@ import cats.implicits.toTraverseOps
 import cats.instances.all._
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
-import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient.{CommandResult, CommandWithMeta, CreateResult, ExerciseResult}
+import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient.{
+  CommandResult,
+  CommandWithMeta,
+  CreateResult,
+  ExerciseResult,
+}
 import com.daml.lf.model.test.Ledgers._
 import com.daml.lf.value.{Value => V}
 import org.apache.pekko.stream.Materializer
@@ -63,6 +68,41 @@ class Interpreter(
         res
       })
     Future.sequence(futures).map(_.toMap)
+  }
+
+  private def waitForPartyPropagation(
+      topology: Topology,
+      partyIds: PartyIdMapping,
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Unit] =
+    Future
+      .sequence(
+        for {
+          participant <- topology
+          ledgerClient = ledgerClients(participant.participantId)
+        } yield waitForPartyPropagation(ledgerClient, participant.parties.map(partyIds))
+      )
+      .map(_ => ())
+
+  private def waitForPartyPropagation(
+      ledgerClient: ScriptLedgerClient,
+      parties: Set[Ref.Party],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Unit] = {
+    ledgerClient
+      .listKnownParties()
+      .flatMap(knownPartyDetails => {
+        val knownParties = knownPartyDetails.map(_.party).toSet
+        if (parties.subsetOf(knownParties)) {
+          Future.successful(())
+        } else {
+          waitForPartyPropagation(ledgerClient, parties)
+        }
+      })
   }
 
   private type Eval[A] = EitherT[Future, InterpreterError, A]
@@ -169,9 +209,8 @@ class Interpreter(
       partyIdsSeq <- scenario.topology.traverse(participant =>
         allocateParties(ledgerClients(participant.participantId), participant.parties)
       )
-      // TODO: find a better way
-      _ <- Future { blocking { Thread.sleep(1000) } }
       partyIds = partyIdsSeq.foldLeft(Map.empty[PartyId, Ref.Party])(_ ++ _)
+      _ <- waitForPartyPropagation(scenario.topology, partyIds)
       result <- runCommandsList(partyIds, Map.empty, scenario.ledger).value
     } yield (partyIds, result)
   }
