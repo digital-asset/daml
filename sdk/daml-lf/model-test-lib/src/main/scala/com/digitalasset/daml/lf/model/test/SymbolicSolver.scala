@@ -7,10 +7,11 @@ package test
 
 import com.daml.lf.model.test.Symbolic._
 import com.microsoft.z3.Status.{SATISFIABLE, UNSATISFIABLE}
-import com.microsoft.z3.{BoolExpr, Context, FuncDecl, Sort}
+import com.microsoft.z3._
 
 object SymbolicSolver {
   def solve(skeleton: Skeletons.Scenario, numParties: Int): Option[Ledgers.Scenario] = {
+    //Global.setParameter("verbose", "1")
     val ctx = new Context()
     val res = new SymbolicSolver(ctx, numParties).solve(skeleton)
     ctx.close()
@@ -429,6 +430,10 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     val Constants(allParties, signatoriesOf, observersOf, partiesOf) = mkFreshConstants()
 
     val solver = ctx.mkSolver()
+    //val params = ctx.mkParams()
+    //params.add("threads", 20)
+    //solver.setParameters(params)
+
     // The scenario is valid
     solver.add(validScenario(symScenario, allParties, signatoriesOf, observersOf, partiesOf))
     // Equate a random hash of all the symbols to 0
