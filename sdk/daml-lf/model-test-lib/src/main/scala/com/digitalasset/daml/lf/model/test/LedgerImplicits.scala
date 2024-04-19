@@ -5,7 +5,7 @@ package com.daml.lf
 package model
 package test
 
-import com.daml.lf.model.test.Ledgers.{Participant, PartyId}
+import com.daml.lf.model.test.Ledgers.{Participant, ParticipantId, PartyId}
 
 object LedgerImplicits {
 
@@ -14,6 +14,12 @@ object LedgerImplicits {
       topology
         .flatMap(participant => participant.parties.map(party => party -> Set(participant)))
         .groupMapReduce(_._1)(_._2)(_ ++ _)
+    }
+
+    def simplify: Map[ParticipantId, Set[PartyId]] = {
+      topology
+        .map(participant => participant.participantId -> participant.parties)
+        .toMap
     }
   }
 }

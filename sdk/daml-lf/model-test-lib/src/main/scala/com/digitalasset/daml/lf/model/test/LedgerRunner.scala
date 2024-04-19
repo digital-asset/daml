@@ -78,6 +78,11 @@ private abstract class AbstractLedgerRunner(universalDarPath: String)(implicit
   // abstract members
 
   def ledgerClients: PartialFunction[ParticipantId, ScriptLedgerClient]
+
+  def replicateParties(
+      replications: Map[Ref.Party, (ParticipantId, Set[ParticipantId])]
+  ): Future[Unit]
+
   def project(
       reversePartyIds: ToProjection.PartyIdReverseMapping,
       reverseContractIds: ToProjection.ContractIdReverseMapping,
@@ -100,7 +105,8 @@ private abstract class AbstractLedgerRunner(universalDarPath: String)(implicit
       Compiler.Config.Default(LanguageMajorVersion.V2),
     )
 
-  private lazy val interpreter = new Interpreter(universalTemplatePkgId, ledgerClients)
+  private lazy val interpreter =
+    new Interpreter(universalTemplatePkgId, ledgerClients, replicateParties)
 
   // partial implementation of the parent trait
 
@@ -208,6 +214,11 @@ private class CantonLedgerRunner(
     )
   }
 
+  override def replicateParties(
+    replications: Map[Party, (ParticipantId, Set[ParticipantId])]
+  ): Future[Unit] =
+    Future.successful(())
+
   override def close(): Unit =
     ledgerClientsForProjections.foreach(_.close())
 }
@@ -244,6 +255,10 @@ private class IdeLedgerRunner(universalDarPath: String)(implicit
       party,
     )
 
-  override def close(): Unit = ()
+  override def replicateParties(
+      replications: Map[Party, (ParticipantId, Set[ParticipantId])]
+  ): Future[Unit] =
+    Future.successful(())
 
+  override def close(): Unit = ()
 }
