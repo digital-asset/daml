@@ -154,10 +154,6 @@ newtype InitPkgDb = InitPkgDb Bool
 initPkgDbOpt :: Parser InitPkgDb
 initPkgDbOpt = InitPkgDb <$> flagYesNoAuto "init-package-db" True "Initialize package database" idm
 
-newtype MultiIdeVerbose = MultiIdeVerbose {getMultiIdeVerbose :: Bool}
-multiIdeVerboseOpt :: Parser MultiIdeVerbose
-multiIdeVerboseOpt = MultiIdeVerbose <$> flagYesNoAuto "verbose" False "Enable verbose logging for the Multi-IDE" idm
-
 newtype EnableMultiPackage = EnableMultiPackage {getEnableMultiPackage :: Bool}
 enableMultiPackageOpt :: Parser EnableMultiPackage
 enableMultiPackageOpt = EnableMultiPackage <$> flagYesNoAuto "enable-multi-package" True "Enable/disable multi-package.yaml support (enabled by default)" idm

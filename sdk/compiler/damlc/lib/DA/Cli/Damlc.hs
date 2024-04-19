@@ -34,6 +34,7 @@ import DA.Cli.Options (Debug(..),
                        Style(..),
                        Telemetry(..),
                        cliOptDetailLevel,
+                       cliOptLogLevel,
                        debugOpt,
                        disabledDlintUsageParser,
                        enabledDlintUsageParser,
@@ -45,7 +46,6 @@ import DA.Cli.Options (Debug(..),
                        inputDarOpt,
                        inputFileOpt,
                        inputFileOptWithExt,
-                       multiIdeVerboseOpt,
                        multiPackageBuildAllOpt,
                        multiPackageCleanAllOpt,
                        multiPackageLocationOpt,
@@ -315,7 +315,7 @@ cmdMultiIde _numProcessors =
     <> fullDesc
   where
     cmd = fmap (Command MultiIde Nothing) $ runMultiIde
-        <$> multiIdeVerboseOpt
+        <$> cliOptLogLevel
 
 cmdIde :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdIde numProcessors =

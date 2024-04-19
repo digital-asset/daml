@@ -13,6 +13,7 @@ import {
   LanguageClientOptions,
   RequestType,
   NotificationType,
+  Executable,
   ExecuteCommandRequest,
 } from "vscode-languageclient/node";
 import {
@@ -39,6 +40,7 @@ type WebviewFiles = {
 };
 
 var damlLanguageClient: LanguageClient;
+var serverExecutable: Executable;
 // Extension activation
 // Note: You can log debug information by using `console.log()`
 // and then `Toggle Developer Tools` in VSCode. This will show
@@ -47,7 +49,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // Start the language clients
   let config = vscode.workspace.getConfiguration("daml");
   // Get telemetry consent
-  const consent = getTelemetryConsent(config, context);
+  const consent = await getTelemetryConsent(config, context);
 
   // Add entry for multi-ide readonly directory
   let filesConfig = vscode.workspace.getConfiguration("files");
@@ -65,7 +67,10 @@ export async function activate(context: vscode.ExtensionContext) {
   // Display release notes on updates
   showReleaseNotesIfNewVersion(context);
 
-  damlLanguageClient = createLanguageClient(config, await consent);
+  [damlLanguageClient, serverExecutable] = createLanguageClient(
+    config,
+    consent,
+  );
   damlLanguageClient.registerProposedFeatures();
 
   const webviewFiles: WebviewFiles = {
@@ -101,30 +106,24 @@ export async function activate(context: vscode.ExtensionContext) {
         ),
     );
     vscode.workspace.onDidChangeConfiguration(
-      (event: vscode.ConfigurationChangeEvent) => {
-        if (event.affectsConfiguration("daml.multiPackageIdeSupport")) {
-          const enabled = vscode.workspace
-            .getConfiguration("daml")
-            .get("multiPackageIdeSupport");
-          let msg = "VSCode must be reloaded for this change to take effect.";
-          if (enabled)
-            msg =
-              msg +
-              "\nWARNING - The Multi-IDE support is experimental, has bugs, and will likely change without warning. Use at your own risk.";
-          window
-            .showInformationMessage(msg, { modal: true }, "Reload now")
-            .then((option: string | undefined) => {
-              if (option == "Reload now")
-                vscode.commands.executeCommand("workbench.action.reloadWindow");
-            });
-        } else if (event.affectsConfiguration("daml.multiPackageIdeVerbose")) {
-          let msg = "VSCode must be reloaded for this change to take effect.";
-          window
-            .showInformationMessage(msg, { modal: true }, "Reload now")
-            .then((option: string | undefined) => {
-              if (option == "Reload now")
-                vscode.commands.executeCommand("workbench.action.reloadWindow");
-            });
+      async (event: vscode.ConfigurationChangeEvent) => {
+        if (event.affectsConfiguration("daml")) {
+          // Reload configuration from VSCode
+          const config = vscode.workspace.getConfiguration("daml");
+          const consent = await getTelemetryConsent(config, context);
+          // Recalculate server args
+          const serverArgs = getLanguageServerArgs(config, consent);
+          console.log(serverArgs);
+          // Assign them to the LanguageServer (in a way that VSCode likely doesn't like)
+          serverExecutable.args = serverArgs;
+          // Stop the Language server
+          stopKeepAliveWatchdog();
+          await damlLanguageClient.stop();
+          // Give it a moment
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          // Start it back up again using the new args
+          damlLanguageClient.start();
+          startKeepAliveWatchdog();
         }
       },
     );
@@ -273,21 +272,59 @@ function addIfInConfig(
   return [].concat.apply([], <any>addedArgs);
 }
 
+function getLanguageServerArgs(
+  config: vscode.WorkspaceConfiguration,
+  telemetryConsent: boolean | undefined,
+): string[] {
+  const multiIDESupport = config.get("multiPackageIdeSupport");
+  const logLevel = config.get("logLevel");
+  const isDebug = logLevel == "Debug" || logLevel == "Telemetry";
+
+  let args: string[] = [multiIDESupport ? "multi-ide" : "ide", "--"];
+
+  if (telemetryConsent === true) {
+    args.push("--telemetry");
+  } else if (telemetryConsent === false) {
+    args.push("--optOutTelemetry");
+  } else if (telemetryConsent == undefined) {
+    // The user has not made an explicit choice.
+    args.push("--telemetry-ignored");
+  }
+  if (multiIDESupport === true) {
+    if (isDebug) args.push("--debug");
+  } else {
+    args.push("--log-level=" + logLevel);
+  }
+  const extraArgsString = config.get("extraArguments", "").trim();
+  // split on an empty string returns an array with a single empty string
+  const extraArgs = extraArgsString === "" ? [] : extraArgsString.split(" ");
+  args = args.concat(extraArgs);
+  const serverArgs: string[] = addIfInConfig(config, args, [
+    ["experimental", ["--experimental"]],
+    ["profile", ["+RTS", "-h", "-RTS"]],
+    ["autorunAllTests", ["--studio-auto-run-all-scenarios=yes"]],
+  ]);
+
+  if (config.get("experimental")) {
+    vscode.window.showWarningMessage(
+      "Daml's Experimental feature flag is enabled, this may cause instability",
+    );
+  }
+
+  return serverArgs;
+}
+
 export function createLanguageClient(
   config: vscode.WorkspaceConfiguration,
   telemetryConsent: boolean | undefined,
-): LanguageClient {
+): [LanguageClient, Executable] {
   // Options to control the language client
   let clientOptions: LanguageClientOptions = {
     // Register the server for Daml
     documentSelector: ["daml"],
   };
 
-  const multiIDESupport = config.get("multiPackageIdeSupport");
-  const multiIDEVerbose = config.get("multiPackageIdeVerbose");
-
   let command: string;
-  let args: string[] = [multiIDESupport ? "multi-ide" : "ide", "--"];
 
   try {
     command = which.sync("daml");
@@ -303,45 +340,21 @@ export function createLanguageClient(
     }
   }
 
-  if (telemetryConsent === true) {
-    args.push("--telemetry");
-  } else if (telemetryConsent === false) {
-    args.push("--optOutTelemetry");
-  } else if (telemetryConsent == undefined) {
-    // The user has not made an explicit choice.
-    args.push("--telemetry-ignored");
-  }
-  if (multiIDEVerbose === true && multiIDESupport === true) {
-    args.push("--verbose=yes");
-  }
-  const extraArgsString = config.get("extraArguments", "").trim();
-  // split on an empty string returns an array with a single empty string
-  const extraArgs = extraArgsString === "" ? [] : extraArgsString.split(" ");
-  args = args.concat(extraArgs);
-  const serverArgs: string[] = addIfInConfig(config, args, [
-    ["debug", ["--debug"]],
-    ["experimental", ["--experimental"]],
-    ["profile", ["+RTS", "-h", "-RTS"]],
-    ["autorunAllTests", ["--studio-auto-run-all-scenarios=yes"]],
-  ]);
+  const serverArgs = getLanguageServerArgs(config, telemetryConsent);
 
-  if (config.get("experimental")) {
-    vscode.window.showWarningMessage(
-      "Daml's Experimental feature flag is enabled, this may cause instability",
-    );
-  }
-
-  return new LanguageClient(
+  const executable: Executable = {
+    args: serverArgs,
+    command: command,
+    options: { cwd: vscode.workspace.rootPath },
+  };
+  const languageClient = new LanguageClient(
     "daml-language-server",
     "Daml Language Server",
-    {
-      args: serverArgs,
-      command: command,
-      options: { cwd: vscode.workspace.rootPath },
-    },
+    executable,
     clientOptions,
     true,
   );
+  return [languageClient, executable];
 }
 
 // this method is called when your extension is deactivated

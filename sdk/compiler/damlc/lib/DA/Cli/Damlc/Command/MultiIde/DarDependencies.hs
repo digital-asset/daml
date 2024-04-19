@@ -5,7 +5,7 @@ module DA.Cli.Damlc.Command.MultiIde.DarDependencies (resolveSourceLocation) whe
 
 import "zip-archive" Codec.Archive.Zip (Archive (..), Entry(..), toArchive, toEntry, fromArchive, fromEntry, findEntryByPath, deleteEntryFromArchive)
 import Control.Monad (forM_, unless, void)
-import DA.Cli.Damlc.Command.MultiIde.Types (MultiIdeState (..), PackageSourceLocation (..))
+import DA.Cli.Damlc.Command.MultiIde.Types (MultiIdeState (..), PackageSourceLocation (..), logDebug, logInfo)
 import DA.Daml.Compiler.Dar (breakAt72Bytes, mkConfFile)
 import qualified DA.Daml.LF.Ast.Base as LF
 import qualified DA.Daml.LF.Ast.Version as LF
@@ -33,7 +33,7 @@ import qualified Module as Ghc
 -- Given a dar, attempts to recreate the package structure for the IDE, with all files set to read-only.
 unpackDar :: MultiIdeState -> FilePath -> IO ()
 unpackDar miState darPath = do
-  debugPrint miState $ "Unpacking dar: " <> darPath
+  logInfo miState $ "Unpacking dar: " <> darPath
   archiveWithSource <- toArchive <$> BSL.readFile darPath
   manifest <- either fail pure $ readDalfManifest archiveWithSource
   rawManifest <- either fail pure $ readManifest archiveWithSource
@@ -162,7 +162,7 @@ rebuildDarFromDalfEntry archive rawManifest dalfPaths topDalfPath mainEntry = ar
 resolveSourceLocation :: MultiIdeState -> PackageSourceLocation -> IO FilePath
 resolveSourceLocation _ (PackageOnDisk path) = pure path
 resolveSourceLocation miState (PackageInDar darPath) = do
-  debugPrint miState "Looking for unpacked dar"
+  logDebug miState "Looking for unpacked dar"
   archive <- toArchive <$> BSL.readFile darPath
   manifest <- either fail pure $ readDalfManifest archive
   -- Extracting package id from the dalf name, as it is cheap.

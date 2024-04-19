@@ -62,12 +62,13 @@ contentChunkParser = do
 
 -- Runs a handler on chunks as they come through the handle
 -- Returns an error string on failure
-onChunks :: Handle -> (B.ByteString -> IO ()) -> IO String
+onChunks :: Handle -> (B.ByteString -> IO ()) -> IO ()
 onChunks handle act =
   let handleResult bytes =
         case Attoparsec.parse contentChunkParser bytes of
           Attoparsec.Done leftovers result -> act result >> handleResult leftovers
-          Attoparsec.Fail _ _ err -> pure $ "Chunk parse failed: " <> err
+          Attoparsec.Fail _ _ "not enough input" -> pure ()
+          Attoparsec.Fail _ _ err -> error $ "Chunk parse failed: " <> err
    in BSL.hGetContents handle >>= handleResult
 
 putChunk :: Handle -> BSL.ByteString -> IO ()

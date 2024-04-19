@@ -30,6 +30,8 @@ import Data.Time.Clock (UTCTime, diffUTCTime)
 import qualified Language.LSP.Types as LSP
 import System.IO.Extra
 import System.Process.Typed (Process)
+import qualified DA.Service.Logger as Logger
+import qualified DA.Service.Logger.Impl.IO as Logger
 
 data TrackedMethod (m :: LSP.Method from 'LSP.Request) where
   TrackedSingleMethodFromClient
@@ -160,14 +162,26 @@ data MultiIdeState = MultiIdeState
   , toClientChan :: TChan BSL.ByteString
   , multiPackageMappingVar :: MultiPackageYamlMappingVar
   , darDependentPackagesVar :: DarDependentPackagesVar
-  , debugPrint :: String -> IO ()
+  , logger :: Logger.Handle IO
   , multiPackageHome :: FilePath
   , defaultPackagePath :: FilePath
   , sourceFileHomesVar :: SourceFileHomesVar
   }
 
-newMultiIdeState :: FilePath -> FilePath -> (String -> IO ()) -> IO MultiIdeState
-newMultiIdeState multiPackageHome defaultPackagePath debugPrint = do
+logError :: MultiIdeState -> String -> IO ()
+logError miState msg = Logger.logError (logger miState) (T.pack msg)
+
+logWarning :: MultiIdeState -> String -> IO ()
+logWarning miState msg = Logger.logWarning (logger miState) (T.pack msg)
+
+logInfo :: MultiIdeState -> String -> IO ()
+logInfo miState msg = Logger.logInfo (logger miState) (T.pack msg)
+
+logDebug :: MultiIdeState -> String -> IO ()
+logDebug miState msg = Logger.logDebug (logger miState) (T.pack msg)
+
+newMultiIdeState :: FilePath -> FilePath -> Logger.Priority -> IO MultiIdeState
+newMultiIdeState multiPackageHome defaultPackagePath logThreshold = do
   (fromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient) <- newTVarIO IM.emptyIxMap
   (fromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer) <- newTVarIO IM.emptyIxMap
   subIDEsVar <- newTMVarIO @SubIDEs mempty
@@ -176,6 +190,7 @@ newMultiIdeState multiPackageHome defaultPackagePath debugPrint = do
   multiPackageMappingVar <- newTMVarIO @MultiPackageYamlMapping mempty
   darDependentPackagesVar <- newTMVarIO @DarDependentPackages mempty
   sourceFileHomesVar <- newTMVarIO @SourceFileHomes mempty
+  logger <- Logger.newStderrLogger logThreshold "Multi-IDE"
   pure MultiIdeState {..}
 
 -- Forwarding

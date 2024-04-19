@@ -31,26 +31,6 @@ import qualified Language.LSP.Types.Lens as LSP
 import qualified Language.LSP.Types.Capabilities as LSP
 import System.Directory (doesDirectoryExist, listDirectory, withCurrentDirectory, canonicalizePath)
 import System.FilePath (takeDirectory, takeExtension)
-import System.IO.Extra
-import System.IO.Unsafe (unsafePerformIO)
-
--- Stop mangling my prints! >:(
-{-# ANN printLock ("HLint: ignore Avoid restricted function" :: String) #-}
-{-# NOINLINE printLock #-}
-printLock :: MVar ()
-printLock = unsafePerformIO $ newMVar ()
-
-makeDebugPrint :: Bool -> String -> IO ()
-makeDebugPrint True msg = withMVar printLock $ \_ -> do
-  hPutStrLn stderr msg
-  hFlush stderr
-makeDebugPrint False _ = pure ()
-
-infoPrint :: String -> IO ()
-infoPrint = makeDebugPrint True
-
-warnPrint :: String -> IO ()
-warnPrint msg = infoPrint $ "Warning: " <> msg
 
 er :: Show x => String -> Either x a -> a
 er _msg (Right a) = a

@@ -79,10 +79,16 @@
             "type": "object",
             "title": "Daml Studio configuration",
             "properties": {
-                "daml.debug": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable debug logging in the Daml Language Server."
+                "daml.logLevel": {
+                    "enum": [
+                        "Telemetry",
+                        "Debug",
+                        "Info",
+                        "Warning",
+                        "Error"
+                    ],
+                    "default": "Warning",
+                    "description": "Sets the logging threshold of the daml-ide and multi-ide"
                 },
                 "daml.experimental": {
                     "type": "boolean",
@@ -116,12 +122,7 @@
                 "daml.multiPackageIdeSupport": {
                   "type": "boolean",
                   "default": false,
-                  "description": "VERY EXPERIMENTAL: Enables the incomplete and experimental multi-ide feature."
-                },
-                "daml.multiPackageIdeVerbose": {
-                  "type": "boolean",
-                  "default": false,
-                  "description": "VERY EXPERIMENTAL: Enables verbose logging from the experimental multi-ide feature."
+                  "description": "EXPERIMENTAL: Enables the incomplete and experimental multi-ide feature."
                 }
             }
         },
