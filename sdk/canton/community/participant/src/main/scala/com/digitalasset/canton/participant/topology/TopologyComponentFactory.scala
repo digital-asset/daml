@@ -130,14 +130,7 @@ class TopologyComponentFactoryX(
       // subscribe party notifier to topology processor
       processor.subscribe(partyNotifier.attachToTopologyProcessorX())
       processor.subscribe(missingKeysAlerter.attachToTopologyProcessorX())
-      // TODO(#14048) this is an ugly hack, but I don't know where we could create the individual components
-      //              and have the types align :(
-      topologyClient match {
-        case x: DomainTopologyClientWithInitX =>
-          processor.subscribe(x)
-        case _ =>
-          throw new IllegalStateException("passed wrong type. coding bug")
-      }
+      processor.subscribe(topologyClient)
       if (!useNewTrafficControl)
         processor.subscribe(
           new TrafficStateTopUpSubscription(trafficStateController, loggerFactory)
@@ -150,7 +143,7 @@ class TopologyComponentFactoryX(
       protocolVersion: ProtocolVersion,
       packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
   )(implicit executionContext: ExecutionContext): DomainTopologyClientWithInit =
-    new StoreBasedDomainTopologyClientX(
+    new StoreBasedDomainTopologyClient(
       clock,
       domainId,
       protocolVersion,
@@ -185,7 +178,7 @@ class TopologyComponentFactoryX(
       packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
       preferCaching: Boolean,
   )(implicit executionContext: ExecutionContext): TopologySnapshot = {
-    val snapshot = new StoreBasedTopologySnapshotX(
+    val snapshot = new StoreBasedTopologySnapshot(
       asOf,
       topologyStore,
       packageDependencies,

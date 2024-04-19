@@ -65,7 +65,7 @@ abstract class HealthAdministrationCommon[S <: data.NodeStatus.Status](
   )
   def dump(
       outputFile: File = CantonHealthAdministration.defaultHealthDumpName,
-      timeout: NonNegativeDuration = timeouts.ledgerCommand,
+      timeout: NonNegativeDuration = timeouts.unbounded,
       chunkSize: Option[Int] = None,
   ): String = consoleEnvironment.run {
     val requestComplete = Promise[String]()

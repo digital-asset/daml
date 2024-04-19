@@ -8,7 +8,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.tracing.TraceContext
 
-trait TopologyTransactionProcessingSubscriberCommon {
+trait TopologyTransactionProcessingSubscriber {
 
   /** Move the most known timestamp ahead in future based of newly discovered information
     *
@@ -27,11 +27,6 @@ trait TopologyTransactionProcessingSubscriberCommon {
       approximateTimestamp: ApproximateTime,
       potentialTopologyChange: Boolean,
   )(implicit traceContext: TraceContext): Unit = ()
-}
-
-// TODO(#15161) callapse with base trait
-trait TopologyTransactionProcessingSubscriberX
-    extends TopologyTransactionProcessingSubscriberCommon {
 
   def observed(
       sequencedTimestamp: SequencedTime,

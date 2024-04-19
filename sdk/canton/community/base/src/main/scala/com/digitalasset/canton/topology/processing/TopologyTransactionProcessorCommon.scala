@@ -69,9 +69,7 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
 
   private val initialised = new AtomicBoolean(false)
 
-  type SubscriberType <: TopologyTransactionProcessingSubscriberCommon
-
-  protected val listeners = ListBuffer[SubscriberType]()
+  protected val listeners = ListBuffer[TopologyTransactionProcessingSubscriber]()
 
   protected val timeAdjuster =
     new TopologyTimestampPlusEpsilonTracker(timeouts, loggerFactory, futureSupervisor)
@@ -84,7 +82,7 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
   )
 
   /** assumption: subscribers don't do heavy lifting */
-  final def subscribe(listener: SubscriberType): Unit = {
+  final def subscribe(listener: TopologyTransactionProcessingSubscriber): Unit = {
     listeners += listener
   }
 
