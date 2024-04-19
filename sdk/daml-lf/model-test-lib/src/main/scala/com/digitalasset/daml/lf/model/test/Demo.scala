@@ -102,9 +102,11 @@ object Demo {
                     println("MATCH!")
                   } else {
                     println("MISMATCH!")
-                    cantonProjections.foreach { case (partyId, projection) =>
-                      println(s"Projection for party $partyId")
-                      println(Pretty.prettyProjection(projection))
+                    cantonProjections.foreach { case (partyId, projections) =>
+                      projections.foreach { case (participantId, projection) =>
+                        println(s"Projection for party $partyId on participant $participantId")
+                        println(Pretty.prettyProjection(projection))
+                      }
                     }
                     println(scenario)
                     System.exit(1)
