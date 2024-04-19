@@ -8,7 +8,7 @@ import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, Pretty, Question, SError, SResult, SValue}
+import com.daml.lf.speedy.{InitialSeeding, Pretty, Question, SError, SResult, SValue, TraceLog}
 import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
 import com.daml.lf.speedy.SResult._
@@ -23,6 +23,7 @@ import com.daml.lf.transaction.{
 import java.nio.file.Files
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
+
 import com.daml.lf.language.{
   LanguageMajorVersion,
   LanguageVersion,
@@ -30,10 +31,31 @@ import com.daml.lf.language.{
   PackageInterface,
   StablePackages,
 }
+import com.daml.lf.speedy.Speedy.Machine.newTraceLog
 import com.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
+
+// TODO once the ContextualizedLogger is replaced with the NamedLogger and Speedy doesn't use its
+//   own logger, we can remove this import
+trait EngineLogger {
+  def add(message: String)(implicit loggingContext: LoggingContext): Unit
+}
+
+object EngineLogger {
+  def toTraceLog(logger: Option[EngineLogger]): TraceLog = logger match {
+    case Some(value) =>
+      new TraceLog {
+        override def add(message: String, optLocation: Option[com.daml.lf.data.Ref.Location])(
+            implicit loggingContext: LoggingContext
+        ): Unit = value.add(message)
+        override def iterator: Iterator[(String, Option[com.daml.lf.data.Ref.Location])] =
+          Iterator.empty
+      }
+    case None => newTraceLog
+  }
+}
 
 /** Allows for evaluating [[Commands]] and validating [[Transaction]]s.
   * <p>
@@ -122,6 +144,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
       disclosures: ImmArray[DisclosedContract] = ImmArray.empty,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
+      engineLogger: Option[EngineLogger] = None,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
 
     val submissionTime = cmds.ledgerEffectiveTime
@@ -141,6 +164,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
           submissionTime = submissionTime,
           seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
           packageResolution = pkgResolution,
+          engineLogger = engineLogger,
         )
       (tx, meta) = result
     } yield tx -> meta.copy(submissionSeed = Some(submissionSeed))
@@ -169,6 +193,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
+      engineLogger: Option[EngineLogger] = None,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       speedyCommand <- preprocessor.preprocessReplayCommand(command)
@@ -186,6 +211,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
         submissionTime = submissionTime,
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
         packageResolution = packageResolution,
+        engineLogger = engineLogger,
       )
     } yield result
 
@@ -198,6 +224,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
       submissionSeed: crypto.Hash,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] =
         Map.empty, // Default until Canton updated
+      engineLogger: Option[EngineLogger] = None,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       commands <- preprocessor.translateTransactionRoots(tx)
@@ -211,6 +238,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
         submissionTime = submissionTime,
         seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
         packageResolution = packageResolution,
+        engineLogger = engineLogger,
       )
     } yield result
 
@@ -298,6 +326,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
+      engineLogger: Option[EngineLogger] = None,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       sexpr <- runCompilerSafely(
@@ -313,6 +342,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
         submissionTime,
         seeding,
         packageResolution,
+        engineLogger,
       )
     } yield result
 
@@ -333,6 +363,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
       packageResolution: Map[Ref.PackageName, Ref.PackageId],
+      engineLogger: Option[EngineLogger] = None,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
 
     val machine = UpdateMachine(
@@ -344,6 +375,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
       readAs = readAs,
       authorizationChecker = config.authorizationChecker,
       validating = validating,
+      traceLog = EngineLogger.toTraceLog(engineLogger),
       contractKeyUniqueness = config.contractKeyUniqueness,
       packageResolution = packageResolution,
       limits = config.limits,
