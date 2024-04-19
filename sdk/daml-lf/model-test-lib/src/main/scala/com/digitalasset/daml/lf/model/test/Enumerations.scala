@@ -68,6 +68,8 @@ object Enumerations {
     ledgers.map(Scenario(topology, _))
   }
 
-  def ledgersOfSize(n: Int): Space[Ledger] =
-    List.fill(n)(commands).sequence
+  def scenarios(numParticipants: Int, numCommands: Int): Space[Scenario] = {
+    val topology = Seq.fill(numParticipants)(Participant())
+    List.fill(numCommands)(commands).sequence.map(Scenario(topology, _))
+  }
 }
