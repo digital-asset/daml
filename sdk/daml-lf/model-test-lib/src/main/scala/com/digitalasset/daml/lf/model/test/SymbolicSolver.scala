@@ -142,22 +142,13 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     and(topology.map(tie))
   }
 
-  private def partition(
+  private def allPartiesCoveredBy(
       allParties: Symbolic.PartySet,
       partySets: Seq[Symbolic.PartySet],
   ): BoolExpr = {
-    def pairwiseNonIntersecting(sets: List[Symbolic.PartySet]): BoolExpr = sets match {
-      case Nil => ctx.mkBool(true)
-      case set1 :: tail =>
-        ctx.mkAnd(
-          and(tail.map(set2 => isEmptyPartySet(ctx.mkSetIntersection(set1, set2)))),
-          pairwiseNonIntersecting(tail),
-        )
-    }
     def union(sets: Seq[Symbolic.PartySet]): Symbolic.PartySet =
       sets.foldLeft(ctx.mkEmptySet(partySort))(ctx.mkSetUnion(_, _))
-
-    ctx.mkAnd(ctx.mkEq(union(partySets), allParties), pairwiseNonIntersecting(partySets.toList))
+    ctx.mkAnd(ctx.mkEq(union(partySets), allParties))
   }
 
   private def consistentLedger(ledger: Ledger): BoolExpr = {
@@ -395,8 +386,8 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
       numberParticipants(symTopology),
       // Tie parties to participants via partiesOf
       tiePartiesToParticipants(symTopology, partiesOf),
-      // Participants form a partition of allParties - theoretically not required but we don't support party replication yet
-      partition(allParties, symTopology.map(_.parties)),
+      // Participants cover all parties
+      allPartiesCoveredBy(allParties, symTopology.map(_.parties)),
       // Participants have at least one party - not required but empty participants are kind of useless
       and(symTopology.map(p => ctx.mkNot(isEmptyPartySet(p.parties)))),
       // Every party set in ledger is a subset of allParties
