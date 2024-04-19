@@ -12,6 +12,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.participant.admin.{
   PackageDependencyResolver,
+  PackageNameMapResolverForTesting,
   PackageOpsForTesting,
   PackageService,
 }
@@ -48,6 +49,8 @@ object DAMLeTestInstance {
         pureCrypto,
         new PackageOpsForTesting(participant, loggerFactory),
         ParticipantTestMetrics,
+        true,
+        PackageNameMapResolverForTesting,
         timeouts,
         loggerFactory,
       )

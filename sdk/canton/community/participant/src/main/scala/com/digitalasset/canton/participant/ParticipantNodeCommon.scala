@@ -29,6 +29,7 @@ import com.digitalasset.canton.participant.admin.grpc.*
 import com.digitalasset.canton.participant.admin.v0.*
 import com.digitalasset.canton.participant.admin.{
   DomainConnectivityService,
+  MutablePackageNameMapResolver,
   PackageDependencyResolver,
   PackageOps,
   PackageService,
@@ -98,6 +99,7 @@ class CantonLedgerApiServerFactory(
       httpApiMetrics: HttpApiMetrics,
       tracerProvider: TracerProvider,
       adminToken: CantonAdminToken,
+      packageNameMapResolver: MutablePackageNameMapResolver,
   )(implicit
       executionContext: ExecutionContextIdlenessExecutorService,
       traceContext: TraceContext,
@@ -164,6 +166,7 @@ class CantonLedgerApiServerFactory(
           futureSupervisor = futureSupervisor,
           multiDomainEnabled = multiDomainEnabled,
           parameters = parameters,
+          packageNameMapResolver = packageNameMapResolver,
         )(executionContext, actorSystem)
         .leftMap { err =>
           // The MigrateOnEmptySchema exception is private, thus match on the expected message
@@ -354,6 +357,11 @@ trait ParticipantNodeBootstrapCommon {
       )
 
       // Package Store and Management
+      // TODO(#17635): Remove this inverse dependency between the PackageService and the LedgerAPI IndexService
+      //               with the unification of the Ledger API and Admin API package services.
+      //               This is a temporary solution for allowing exposure of the package-map contained in the [[InMemoryState]]
+      //               to the Admin API PackageService for package upload validation.
+      packageNameMapResolver = new MutablePackageNameMapResolver()
       packageService =
         new PackageService(
           engine,
@@ -362,6 +370,8 @@ trait ParticipantNodeBootstrapCommon {
           syncCrypto.pureCrypto,
           componentFactory.createPackageOps(syncDomainPersistentStateManager, syncCrypto),
           arguments.metrics,
+          parameterConfig.disableUpgradeValidation,
+          packageNameMapResolver,
           parameterConfig.processingTimeouts,
           loggerFactory,
         )
@@ -490,6 +500,7 @@ trait ParticipantNodeBootstrapCommon {
           arguments.metrics.httpApiServer,
           tracerProvider,
           adminToken,
+          packageNameMapResolver,
         )
 
     } yield {

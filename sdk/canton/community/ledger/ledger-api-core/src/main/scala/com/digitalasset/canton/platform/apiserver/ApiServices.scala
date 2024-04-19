@@ -114,6 +114,7 @@ object ApiServices {
       val loggerFactory: NamedLoggerFactory,
       multiDomainEnabled: Boolean,
       dynParamGetter: DynamicDomainParameterGetter,
+      disableUpgradeValidation: Boolean,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -455,11 +456,13 @@ object ApiServices {
         val apiPackageManagementService = ApiPackageManagementService.createApiService(
           indexService,
           transactionsService,
+          packageMetadataStore,
           writeService,
           managementServiceTimeout,
           engine,
           telemetry = telemetry,
           loggerFactory = loggerFactory,
+          disableUpgradeValidation = disableUpgradeValidation,
         )
 
         val apiConfigManagementService = ApiConfigManagementService.createApiService(

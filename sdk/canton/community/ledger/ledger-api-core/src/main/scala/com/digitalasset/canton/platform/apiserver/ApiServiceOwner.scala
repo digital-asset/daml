@@ -77,6 +77,7 @@ object ApiServiceOwner {
       tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration],
       enableExplicitDisclosure: Boolean = false,
       multiDomainEnabled: Boolean,
+      disableUpgradeValidation: Boolean,
       // immutable configuration parameters
       ledgerId: LedgerId,
       participantId: Ref.ParticipantId,
@@ -181,6 +182,7 @@ object ApiServiceOwner {
         multiDomainEnabled = multiDomainEnabled,
         authenticateUpgradableContract = authenticateUpgradableContract,
         dynParamGetter = dynParamGetter,
+        disableUpgradeValidation = disableUpgradeValidation,
       )(materializer, executionSequencerFactory, tracer)
         .map(_.withServices(otherServices))
       apiService <- new LedgerApiService(

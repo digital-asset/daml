@@ -15,9 +15,11 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{ApplicationId, Identifier, PackageRef, TypeConRef}
+import com.daml.lf.data.Ref.{ApplicationId, Identifier, PackageRef, ParticipantId, TypeConRef}
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.metrics.InstrumentedGraph.*
@@ -55,7 +57,6 @@ import com.digitalasset.canton.platform.index.IndexServiceImpl.*
 import com.digitalasset.canton.platform.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.pekkostreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import com.digitalasset.canton.platform.pekkostreams.dispatcher.SubSource.RangeSource
-import com.digitalasset.canton.platform.store.cache.KeyPackageNameCache
 import com.digitalasset.canton.platform.store.dao.*
 import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.PackageResolution
@@ -72,7 +73,7 @@ import scala.util.Success
 
 private[index] class IndexServiceImpl(
     val ledgerId: LedgerId,
-    participantId: Ref.ParticipantId,
+    participantId: ParticipantId,
     ledgerDao: LedgerReadDao,
     transactionsReader: LedgerDaoTransactionsReader,
     commandCompletionsReader: LedgerDaoCommandCompletionsReader,
@@ -81,7 +82,6 @@ private[index] class IndexServiceImpl(
     pruneBuffers: PruneBuffers,
     dispatcher: () => Dispatcher[Offset],
     packageMetadataView: PackageMetadataView,
-    keyPackageNameCache: KeyPackageNameCache,
     metrics: Metrics,
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends IndexService
@@ -342,21 +342,30 @@ private[index] class IndexServiceImpl(
       keyContinuationToken: KeyContinuationToken,
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse] = {
 
-    keyPackageNameCache
-      .get(templateId.packageId)
-      .flatMap({
-        case None =>
-          Future.successful(GetEventsByContractKeyResponse())
-        case Some(keyPackageName) =>
-          val globalKey =
-            GlobalKey.assertBuild(templateId, contractKey, keyPackageName)
-          eventsReader.getEventsByContractKey(
-            contractKey = globalKey,
-            requestingParties = requestingParties,
-            keyContinuationToken = keyContinuationToken,
-            maxIterations = 1000,
-          )
-      })(directEc)
+    // The PackageMetadataView only stores package name >= LanguageVersion.Features.packageUpgrades
+    val keyPackageNameE: Either[String, KeyPackageName] =
+      packageMetadataView.current().packageIdVersionMap.get(templateId.packageId) match {
+        case Some((name, _)) =>
+          KeyPackageName.build(Some(name), LanguageVersion.Features.packageUpgrades)
+        case None => KeyPackageName.build(None, LanguageVersion.StableVersions.min)
+      }
+
+    val keyO = for {
+      keyPackageName <- keyPackageNameE.toOption
+      key <- GlobalKey.build(templateId, contractKey, keyPackageName).toOption
+    } yield key
+
+    keyO match {
+      case Some(key) =>
+        eventsReader.getEventsByContractKey(
+          contractKey = key,
+          requestingParties = requestingParties,
+          keyContinuationToken = keyContinuationToken,
+          maxIterations = 1000,
+        )
+      case None =>
+        Future.successful(GetEventsByContractKeyResponse())
+    }
   }
 
   override def getParties(parties: Seq[Ref.Party])(implicit

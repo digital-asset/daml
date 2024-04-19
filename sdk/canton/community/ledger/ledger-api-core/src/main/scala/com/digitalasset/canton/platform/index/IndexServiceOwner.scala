@@ -68,9 +68,6 @@ final class IndexServiceOwner(
       contractLoader = contractLoader,
     )
 
-    val keyPackageNameCache =
-      new KeyPackageNameCache(ledgerDao, metrics, loggerFactory)(servicesExecutionContext)
-
     for {
       _ <- Resource.fromFuture(verifyParticipantId(ledgerDao))
       _ <- Resource.fromFuture(waitForInMemoryStateInitialization())
@@ -138,7 +135,6 @@ final class IndexServiceOwner(
         },
         dispatcher = () => inMemoryState.dispatcherState.getDispatcher,
         packageMetadataView = inMemoryState.packageMetadataView,
-        keyPackageNameCache = keyPackageNameCache,
         metrics = metrics,
         loggerFactory = loggerFactory,
       )
