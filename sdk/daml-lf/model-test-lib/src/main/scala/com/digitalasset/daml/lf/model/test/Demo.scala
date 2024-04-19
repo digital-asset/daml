@@ -13,6 +13,7 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 import org.scalacheck.Gen
 
+import java.util.concurrent.Executors
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
 
@@ -22,7 +23,7 @@ object Demo {
 
   def main(args: Array[String]): Unit = {
 
-    val scenarios = Enumerations.scenarios(numParticipants = 3)(45)
+    val scenarios = Enumerations.scenarios(numParticipants = 3)(100)
 
     def randomBigIntLessThan(n: BigInt): BigInt = {
       var res: BigInt = BigInt(0)
@@ -68,13 +69,14 @@ object Demo {
     )
     val ideLedgerRunner = LedgerRunner.forIdeLedger(universalDarPath)
 
-    while (true) {
-      validSymScenarios
-        .foreach(scenario => {
+    val workers = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(1))
+
+    validScenarios
+      .foreach(scenario => {
+        workers.execute(() =>
           if (scenario.ledger.nonEmpty) {
             println("\n==== ledger ====")
             println(Pretty.prettyScenario(scenario))
-            println("VALID: " + SymbolicSolver.valid(scenario, numParties = 6))
             ideLedgerRunner.runAndProject(scenario) match {
               case Left(error) =>
                 println("INVALID LEDGER!")
@@ -111,8 +113,8 @@ object Demo {
                 }
             }
           }
-        })
-    }
+        )
+      })
     val _ = Await.ready(system.terminate(), Duration.Inf)
   }
 }
