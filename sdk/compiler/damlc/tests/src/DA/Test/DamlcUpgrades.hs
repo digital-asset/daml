@@ -934,6 +934,71 @@ tests damlc =
                       ]
                 )
               ]
+        , test
+              "Succeeds when an interface is only defined in the initial package."
+              Succeed
+              LF.versionDefault
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data IView = IView { i : Text }"
+                      , "interface I where"
+                      , "  viewtype IView"
+                      , "  method1 : Int"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data IView = IView { i : Text }" -- TODO: Do we also want to ignore dropped viewtypes?
+                      ]
+                )
+              ]
+        , test
+              "Fails when an interface is defined in an upgrading package when it was already in the prior package."
+              (FailWithError "\ESC\\[0;91merror type checking interface MyLib.I :\n  Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed in any upgrading package.")
+              LF.versionDefault
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data IView = IView { i : Text }"
+                      , "interface I where"
+                      , "  viewtype IView"
+                      , "  method1 : Int"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data IView = IView { i : Text }"
+                      , "interface I where"
+                      , "  viewtype IView"
+                      , "  method1 : Int"
+                      ]
+                )
+              ]
+        , test
+              "Warns when an interface is defined in a package that uses it." -- TODO: Update this test when interface usage checks are complete
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking interface MyLib.I :\n  The interface I was defined and used in this module. However, to most easiy use interfaces with the upgrades feature, you are recommended to define interfaces in their own module.")
+              LF.versionDefault
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data IView = IView { i : Text }"
+                      , "interface I where"
+                      , "  viewtype IView"
+                      , "  method1 : Int"
+                      ]
+                )
+              ]
         ]
   where
     contractKeysMinVersion :: LF.Version
@@ -989,6 +1054,7 @@ tests damlc =
           , "typecheck-upgrades: true"
           , "build-options:"
           , "  - --target=" <> LF.renderVersion lfVersion
+          , "  - --enable-interfaces=yes"
           ] ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
         )
 

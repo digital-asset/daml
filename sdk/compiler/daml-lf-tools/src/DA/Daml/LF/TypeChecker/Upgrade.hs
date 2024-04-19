@@ -18,6 +18,7 @@ import           DA.Daml.LF.TypeChecker.Check (expandTypeSynonyms)
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
 import           Data.Data
+import           Data.Either (partitionEithers)
 import           Data.Hashable
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.NameMap as NM
@@ -114,9 +115,6 @@ checkModule module_ = do
             (ContextTemplate (_present module_) (_present template) TPWhole)
             (checkTemplate module_ template)
 
-    -- checkDeleted should only trigger on datatypes not belonging to templates or choices, which we checked above
-    (dtExisting, _dtNew) <- checkDeleted (EUpgradeError . MissingDataCon . NM.name) $ NM.toHashMap . moduleDataTypes <$> module_
-
     -- For a datatype, derive its context
     let deriveChoiceInfo :: LF.Module -> HMS.HashMap LF.TypeConName (LF.Template, LF.TemplateChoice)
         deriveChoiceInfo module_ = HMS.fromList $ do
@@ -151,6 +149,46 @@ checkModule module_ = do
                 , ContextDefDataType module_ dt
                 )
 
+    let ifaceDts :: Upgrading (HMS.HashMap LF.TypeConName (DefDataType, DefInterface))
+        unownedDts :: Upgrading (HMS.HashMap LF.TypeConName DefDataType)
+        (ifaceDts, unownedDts) =
+            let Upgrading
+                    { _past = (pastIfaceDts, pastUnownedDts)
+                    , _present = (presentIfaceDts, presentUnownedDts)
+                    } = fmap splitModuleDts module_
+            in
+            ( Upgrading pastIfaceDts presentIfaceDts
+            , Upgrading pastUnownedDts presentUnownedDts
+            )
+
+        splitModuleDts
+            :: Module
+            -> ( HMS.HashMap LF.TypeConName (DefDataType, DefInterface)
+               , HMS.HashMap LF.TypeConName DefDataType)
+        splitModuleDts module_ =
+            let (ifaceDtsList, unownedDtsList) =
+                    partitionEithers
+                        $ map (\(tcon, def) -> lookupInterface module_ tcon def)
+                        $ HMS.toList $ NM.toHashMap $ moduleDataTypes module_
+            in
+            (HMS.fromList ifaceDtsList, HMS.fromList unownedDtsList)
+
+        lookupInterface
+            :: Module -> LF.TypeConName -> DefDataType
+            -> Either (LF.TypeConName, (DefDataType, DefInterface)) (LF.TypeConName, DefDataType)
+        lookupInterface module_ tcon datatype =
+            case NM.name datatype `NM.lookup` moduleInterfaces module_ of
+              Nothing -> Right (tcon, datatype)
+              Just iface -> Left (tcon, (datatype, iface))
+
+    let (ifaceDel, ifaceExisting, ifaceNew) = extractDelExistNew ifaceDts
+    checkDeletedIfaces ifaceDel
+    checkContinuedIfaces module_ ifaceExisting
+    checkNewIfaces module_ ifaceNew
+
+    -- checkDeleted should only trigger on datatypes not belonging to templates or choices or interfaces, which we checked above
+    (dtExisting, _dtNew) <- checkDeleted (EUpgradeError . MissingDataCon . NM.name) unownedDts
+
     forM_ dtExisting $ \dt ->
         -- Get origin/context for each datatype in both _past and _present
         let origin = dataTypeOrigin <$> dt <*> module_
@@ -162,6 +200,34 @@ checkModule module_ = do
         else do
             let (presentOrigin, context) = _present origin
             withContextF present context $ checkDefDataType presentOrigin dt
+
+-- Noop - it is the correct thing to delete an interface
+checkDeletedIfaces :: HMS.HashMap LF.TypeConName (DefDataType, DefInterface) -> TcUpgradeM ()
+checkDeletedIfaces _ = pure ()
+
+-- It is always invalid to keep an interface in an upgrade
+checkContinuedIfaces
+    :: Upgrading Module
+    -> HMS.HashMap LF.TypeConName (Upgrading (DefDataType, DefInterface))
+    -> TcUpgradeM ()
+checkContinuedIfaces module_ ifaces =
+    forM_ ifaces $ \upgradedDtIface ->
+        let (_dt, iface) = _present upgradedDtIface
+        in
+        withContextF present (ContextDefInterface (_present module_) iface IPWhole) $
+            throwWithContextF present $ EUpgradeError $ TriedToUpgradeIface (NM.name iface)
+
+-- TODO: Move this logic into general typechecking, so that it applies to
+-- modules that aren't upgrading anything (e.g. v1)
+checkNewIfaces :: Upgrading Module -> HMS.HashMap LF.TypeConName (DefDataType, DefInterface) -> TcUpgradeM ()
+checkNewIfaces module_ ifaces =
+    forM_ ifaces $ \(_dt, iface) ->
+        when (foldU (||) (hasInstance iface <$> module_)) $
+            withContextF present (ContextDefInterface (_present module_) iface IPWhole) $
+                warnWithContextF present $ WShouldDefineIfaceInOwnModule (NM.name iface)
+
+hasInstance :: DefInterface -> Module -> Bool
+hasInstance _ _ = True
 
 checkTemplate :: Upgrading Module -> Upgrading LF.Template -> TcUpgradeM ()
 checkTemplate module_ template = do

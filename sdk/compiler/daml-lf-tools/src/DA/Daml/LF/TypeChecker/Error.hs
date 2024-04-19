@@ -188,12 +188,14 @@ data UpgradeError
   | ChoiceChangedReturnType !ChoiceName
   | TemplateRemovedKey !TypeConName !TemplateKey
   | TemplateAddedKey !TypeConName !TemplateKey
+  | TriedToUpgradeIface !TypeConName
   deriving (Eq, Ord, Show)
 
 data UpgradedRecordOrigin
   = TemplateBody TypeConName
   | TemplateChoiceInput TypeConName ChoiceName
   | VariantConstructor TypeConName VariantConName
+  | InterfaceBody TypeConName
   | TopLevel TypeConName
   deriving (Eq, Ord, Show)
 
@@ -586,12 +588,14 @@ instance Pretty UpgradeError where
     TemplateChangedKeyType templateName -> "The upgraded template " <> pPrint templateName <> " cannot change its key type."
     TemplateRemovedKey templateName _key -> "The upgraded template " <> pPrint templateName <> " cannot remove its key."
     TemplateAddedKey template _key -> "The upgraded template " <> pPrint template <> " cannot add a key where it didn't have one previously."
+    TriedToUpgradeIface iface -> "Tried to upgrade interface " <> pPrint iface <> ", but interfaces cannot be upgraded. They should be removed in any upgrading package."
 
 instance Pretty UpgradedRecordOrigin where
   pPrint = \case
     TemplateBody tpl -> "template " <> pPrint tpl
     TemplateChoiceInput tpl chcName -> "input type of choice " <> pPrint chcName <> " on template " <> pPrint tpl
     VariantConstructor variantName variantConName -> "variant constructor " <> pPrint variantConName <> " from variant " <> pPrint variantName
+    InterfaceBody iface -> "interface " <> pPrint iface
     TopLevel datatype -> "data type " <> pPrint datatype
 
 instance Pretty Context where
@@ -639,6 +643,7 @@ data Warning
     -- ^ When upgrading, we extract relevant expressions for things like
     -- signatories. If the expression changes shape so that we can't get the
     -- underlying expression that has changed, this warning is emitted.
+  | WShouldDefineIfaceInOwnModule !TypeConName
   deriving (Show)
 
 warningLocation :: Warning -> Maybe SourceLoc
@@ -662,6 +667,7 @@ instance Pretty Warning where
     WTemplateChangedKeyExpression template -> "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
     WTemplateChangedKeyMaintainers template -> "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
     WCouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
+    WShouldDefineIfaceInOwnModule iface -> "The interface " <> pPrint iface <> " was defined and used in this module. However, to most easiy use interfaces with the upgrades feature, you are recommended to define interfaces in their own module."
 
 instance ToDiagnostic Warning where
   toDiagnostic warning = Diagnostic
