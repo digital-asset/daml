@@ -22,7 +22,7 @@ object Demo {
 
   def main(args: Array[String]): Unit = {
 
-    val scenarios = Enumerations.scenarios(numParticipants = 3)(20)
+    val scenarios = Enumerations.scenarios(numParticipants = 3, numCommands = 5)(50)
 
     def randomBigIntLessThan(n: BigInt): BigInt = {
       var res: BigInt = BigInt(0)
@@ -34,7 +34,7 @@ object Demo {
 
     def randomScenarios: LazyList[Ledgers.Scenario] = LazyList.continually {
       Gen
-        .resize(5, new Generators(3, 5).scenarioGen)
+        .resize(5, new Generators(numParticipants = 3, numParties = 6).scenarioGen)
         .sample
     }.flatten
     val _ = randomScenarios
