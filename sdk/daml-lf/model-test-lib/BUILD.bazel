@@ -23,6 +23,7 @@ da_scala_library(
         ["src/main/**/*.scala"],
         exclude = ["src/main/scala/com/digitalasset/daml/lf/model/test/Demo.scala"],
     ),
+    data = ["//canton:community_app_deploy.jar"],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalaz_scalaz_core",
@@ -35,6 +36,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-model-test-lib:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
         "//canton:bindings-java",
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-logging",
