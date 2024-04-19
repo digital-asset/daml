@@ -44,7 +44,10 @@ import scala.jdk.CollectionConverters._
 trait LedgerRunner {
   def runAndProject(
       scenario: Scenario
-  ): Either[Interpreter.InterpreterError, Map[Projections.PartyId, Projections.Projection]]
+  ): Either[Interpreter.InterpreterError, Map[
+    Projections.PartyId,
+    Map[ParticipantId, Projections.Projection],
+  ]]
 
   def close(): Unit
 }
@@ -112,18 +115,22 @@ private abstract class AbstractLedgerRunner(universalDarPath: String)(implicit
 
   override def runAndProject(
       scenario: Scenario
-  ): Either[Interpreter.InterpreterError, Map[PartyId, Projection]] = {
+  ): Either[Interpreter.InterpreterError, Map[PartyId, Map[ParticipantId, Projection]]] = {
     val (partyIds, result) = Await.result(interpreter.runLedger(scenario), Duration.Inf)
     result.map(contractIds => {
       val reversePartyIds = partyIds.map(_.swap)
       val reverseContractIds = contractIds.map(_.swap)
       // we for now assume there is exactly one participant per party
-      val reverseParticipantIds =
-        scenario.topology.groupedByPartyId.view.mapValues(_.head.participantId)
+      val reverseParticipantIds = scenario.topology.groupedByPartyId
       for {
         (partyId, party) <- partyIds
       } yield partyId ->
-        project(reversePartyIds, reverseContractIds, reverseParticipantIds(partyId), party)
+        reverseParticipantIds(partyId)
+          .map(participant => {
+            val participantId = participant.participantId
+            participantId -> project(reversePartyIds, reverseContractIds, participantId, party)
+          })
+          .toMap
     })
   }
 }
