@@ -485,6 +485,7 @@ object TestingTimeServiceConfig {
   * @param allowForUnauthenticatedContractIds Skip contract id authentication check, if the contract id scheme does not support authentication.
   *                                           You should enable this only if all participants on a domain mutually trust each other.
   *                                           Otherwise, an attacker may compromise integrity of the ledger.
+  * @param disableUpgradeValidation Disable the package upgrade verification on DAR upload
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -511,6 +512,7 @@ final case class ParticipantNodeParameterConfig(
     enableEngineStackTraces: Boolean = false,
     iterationsBetweenInterruptions: Long = 10000,
     allowForUnauthenticatedContractIds: Boolean = false,
+    disableUpgradeValidation: Boolean = false,
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

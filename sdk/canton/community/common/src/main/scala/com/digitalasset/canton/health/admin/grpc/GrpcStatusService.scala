@@ -8,8 +8,11 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.health.admin.grpc.GrpcStatusService.DefaultHealthDumpChunkSize
 import com.digitalasset.canton.health.admin.v0.{HealthDumpChunk, HealthDumpRequest}
 import com.digitalasset.canton.health.admin.{data, v0}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NodeLoggingUtil}
+import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.google.protobuf.ByteString
 import com.google.protobuf.empty.Empty
+import io.grpc.Status
 import io.grpc.stub.StreamObserver
 
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -24,9 +27,11 @@ class GrpcStatusService(
     status: => Future[data.NodeStatus[_]],
     healthDump: () => Future[File],
     processingTimeout: ProcessingTimeout,
+    val loggerFactory: NamedLoggerFactory,
 )(implicit
     ec: ExecutionContext
-) extends v0.StatusServiceGrpc.StatusService {
+) extends v0.StatusServiceGrpc.StatusService
+    with NamedLogging {
 
   override def status(request: Empty): Future[v0.NodeStatus] =
     status.map {
@@ -77,4 +82,42 @@ class GrpcStatusService(
       }
     }
   }
+
+  override def setLogLevel(request: v0.SetLogLevelRequest): Future[v0.SetLogLevelResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    logger.info(s"Changing log level to ${request.level}")
+    NodeLoggingUtil.setLevel(level = request.level)
+    Future.successful(v0.SetLogLevelResponse())
+  }
+
+  override def getLastErrors(request: v0.GetLastErrorsRequest): Future[v0.GetLastErrorsResponse] = {
+    NodeLoggingUtil.lastErrors() match {
+      case Some(errors) =>
+        Future.successful(v0.GetLastErrorsResponse(errors = errors.map { case (traceId, message) =>
+          v0.GetLastErrorsResponse.Error(traceId = traceId, message = message)
+        }.toSeq))
+      case None =>
+        Future.failed(
+          Status.FAILED_PRECONDITION
+            .withDescription("No last errors available")
+            .asRuntimeException()
+        )
+    }
+  }
+
+  override def getErrorTrace(
+      request: v0.GetLastErrorTraceRequest
+  ): Future[v0.GetLastErrorTraceResponse] = {
+    NodeLoggingUtil.lastErrorTrace(request.traceId) match {
+      case Some(trace) =>
+        Future.successful(v0.GetLastErrorTraceResponse(trace))
+      case None =>
+        Future.failed(
+          Status.FAILED_PRECONDITION
+            .withDescription("No trace available for the given traceId")
+            .asRuntimeException()
+        )
+    }
+  }
+
 }

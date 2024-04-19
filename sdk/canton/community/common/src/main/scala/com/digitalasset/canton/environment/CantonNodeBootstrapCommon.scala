@@ -190,6 +190,7 @@ abstract class CantonNodeBootstrapCommon[
             status,
             arguments.writeHealthDumpToFile,
             parameterConfig.processingTimeouts,
+            loggerFactory,
           ),
           executionContext,
         )

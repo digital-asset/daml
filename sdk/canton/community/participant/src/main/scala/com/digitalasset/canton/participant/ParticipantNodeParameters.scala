@@ -40,6 +40,7 @@ final case class ParticipantNodeParameters(
     enableEngineStackTrace: Boolean,
     iterationsBetweenInterruptions: Long,
     allowForUnauthenticatedContractIds: Boolean,
+    disableUpgradeValidation: Boolean,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
@@ -91,5 +92,6 @@ object ParticipantNodeParameters {
     enableEngineStackTrace = false,
     iterationsBetweenInterruptions = 10000,
     allowForUnauthenticatedContractIds = false,
+    disableUpgradeValidation = true,
   )
 }

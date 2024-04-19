@@ -444,6 +444,7 @@ trait CantonConfig {
         iterationsBetweenInterruptions = participantParameters.iterationsBetweenInterruptions,
         allowForUnauthenticatedContractIds =
           participantParameters.allowForUnauthenticatedContractIds,
+        disableUpgradeValidation = participantParameters.disableUpgradeValidation,
       )
     }
 
