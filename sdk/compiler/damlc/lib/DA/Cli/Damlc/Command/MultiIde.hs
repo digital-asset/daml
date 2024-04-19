@@ -124,7 +124,7 @@ addNewSubIDEAndSend miState home mMsg = do
 
       unitId <- either (\cErr -> error $ "Failed to get unit ID from daml.yaml: " <> show cErr) fst <$> unitIdAndDepsFromDamlYaml home
 
-      subIdeProcess <- runSubProc home
+      subIdeProcess <- runSubProc miState home
       let inHandle = getStdin subIdeProcess
           outHandle = getStdout subIdeProcess
           errHandle = getStderr subIdeProcess
@@ -226,14 +226,14 @@ disableIdeDiagnosticMessages ideData home =
     )
     <$> ((home </> "daml.yaml") : Set.toList (ideDataOpenFiles ideData))
 
-runSubProc :: FilePath -> IO (Process Handle Handle Handle)
-runSubProc home = do
+runSubProc :: MultiIdeState -> FilePath -> IO (Process Handle Handle Handle)
+runSubProc miState home = do
   assistantPath <- getEnv "DAML_ASSISTANT"
   -- Need to remove some variables so the sub-assistant will pick them up from the working dir/daml.yaml
   assistantEnv <- filter (flip notElem ["DAML_PROJECT", "DAML_SDK_VERSION", "DAML_SDK"] . fst) <$> getEnvironment
 
   startProcess $
-    proc assistantPath ["ide"] &
+    proc assistantPath ("ide" : subIdeArgs miState) &
       setStdin createPipe &
       setStdout createPipe &
       -- Create a handle that isn't automatically closed when the process ends, so we can read it later.
@@ -791,11 +791,12 @@ createDefaultPackage = do
     ]
   pure (defaultPackagePath, cleanup)
 
-runMultiIde :: SdkVersion.Class.SdkVersioned => Logger.Priority -> IO ()
-runMultiIde loggingThreshold = do
+runMultiIde :: SdkVersion.Class.SdkVersioned => Logger.Priority -> [String] -> IO ()
+runMultiIde loggingThreshold args = do
   homePath <- getCurrentDirectory
   (defaultPackagePath, cleanupDefaultPackage) <- createDefaultPackage
-  miState <- newMultiIdeState homePath defaultPackagePath loggingThreshold
+  let subIdeArgs = if loggingThreshold <= Logger.Debug then "--debug" : args else args
+  miState <- newMultiIdeState homePath defaultPackagePath loggingThreshold subIdeArgs
   invalidPackageHomes <- updatePackageData miState
 
   -- Ensure we don't send messages to the client until it finishes initializing

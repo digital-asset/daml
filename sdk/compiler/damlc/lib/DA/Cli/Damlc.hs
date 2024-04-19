@@ -228,6 +228,7 @@ import Options.Applicative ((<|>),
                             execParserPure,
                             flag,
                             flag',
+                            forwardOptions,
                             fullDesc,
                             handleParseResult,
                             headerDoc,
@@ -242,6 +243,7 @@ import Options.Applicative ((<|>),
                             prefs,
                             progDesc,
                             renderFailure,
+                            strArgument,
                             subparser,
                             switch,
                             value)
@@ -313,9 +315,11 @@ cmdMultiIde _numProcessors =
        progDesc
         "Start the Daml Multi-IDE language server on standard input/output."
     <> fullDesc
+    <> forwardOptions
   where
     cmd = fmap (Command MultiIde Nothing) $ runMultiIde
         <$> cliOptLogLevel
+        <*> many (strArgument mempty)
 
 cmdIde :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdIde numProcessors =

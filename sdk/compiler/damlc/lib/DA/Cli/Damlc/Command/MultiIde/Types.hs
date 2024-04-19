@@ -166,6 +166,7 @@ data MultiIdeState = MultiIdeState
   , multiPackageHome :: FilePath
   , defaultPackagePath :: FilePath
   , sourceFileHomesVar :: SourceFileHomesVar
+  , subIdeArgs :: [String]
   }
 
 logError :: MultiIdeState -> String -> IO ()
@@ -180,8 +181,8 @@ logInfo miState msg = Logger.logInfo (logger miState) (T.pack msg)
 logDebug :: MultiIdeState -> String -> IO ()
 logDebug miState msg = Logger.logDebug (logger miState) (T.pack msg)
 
-newMultiIdeState :: FilePath -> FilePath -> Logger.Priority -> IO MultiIdeState
-newMultiIdeState multiPackageHome defaultPackagePath logThreshold = do
+newMultiIdeState :: FilePath -> FilePath -> Logger.Priority -> [String] -> IO MultiIdeState
+newMultiIdeState multiPackageHome defaultPackagePath logThreshold subIdeArgs = do
   (fromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient) <- newTVarIO IM.emptyIxMap
   (fromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer) <- newTVarIO IM.emptyIxMap
   subIDEsVar <- newTMVarIO @SubIDEs mempty
