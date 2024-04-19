@@ -32,16 +32,13 @@ import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
 import monocle.macros.syntax.lens.*
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
-import java.util.ConcurrentModificationException
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContext, Future, blocking}
-import scala.jdk.CollectionConverters.*
+import scala.collection.concurrent.TrieMap
+import scala.concurrent.{ExecutionContext, Future}
 
 /** @param checkedInvariant Defines whether all methods should check the block invariant when they modify the state.
   *                          Invariant checking is slow.
@@ -62,7 +59,7 @@ class InMemorySequencerBlockStore(
     * up to and including this block
     */
   private val blockToTimestampMap =
-    new ConcurrentHashMap[Long, (CantonTimestamp, Option[CantonTimestamp])].asScala
+    new TrieMap[Long, (CantonTimestamp, Option[CantonTimestamp])]
   private val initialState = new AtomicReference[BlockEphemeralState](BlockEphemeralState.empty)
 
   override def setInitialState(
@@ -150,34 +147,20 @@ class InMemorySequencerBlockStore(
   )(implicit traceContext: TraceContext): Source[OrdinarySerializedEvent, NotUsed] =
     sequencerStore.readRange(member, startInclusive, endExclusive)
 
-  // TODO(#17726) Andreas: Figure out whether we can pull the readAtBlockTimestamp out
-  @SuppressWarnings(Array("com.digitalasset.canton.SynchronizedFuture"))
   override def readHead(implicit traceContext: TraceContext): Future[BlockEphemeralState] =
-    blocking(blockToTimestampMap.synchronized {
-      blockToTimestampMap.keys.maxOption match {
-        case Some(height) =>
-          val (latestTs, latestSequencerEventTimestamp) =
-            blockToTimestampMap
-              .get(height)
-              .getOrElse(
-                ErrorUtil.internalError(
-                  new ConcurrentModificationException(
-                    s"The block height $height has disappeared from blockToTimestampMap"
-                  )
-                )
-              )
-          for {
-            state <- sequencerStore.readAtBlockTimestamp(latestTs)
-          } yield mergeWithInitialState(
-            BlockEphemeralState(
-              BlockInfo(height, latestTs, latestSequencerEventTimestamp),
-              state,
-            )
+    blockToTimestampMap.snapshot().maxByOption { case (height, _) => height } match {
+      case Some((height, (latestTs, latestSequencerEventTimestamp))) =>
+        for {
+          state <- sequencerStore.readAtBlockTimestamp(latestTs)
+        } yield mergeWithInitialState(
+          BlockEphemeralState(
+            BlockInfo(height, latestTs, latestSequencerEventTimestamp),
+            state,
           )
-        case None =>
-          Future.successful(initialState.get())
-      }
-    })
+        )
+      case None =>
+        Future.successful(initialState.get())
+    }
 
   override def readStateForBlockContainingTimestamp(
       timestamp: CantonTimestamp
@@ -218,11 +201,11 @@ class InMemorySequencerBlockStore(
 
   override def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[String] = Future.successful(blocking(blockToTimestampMap.synchronized {
+  ): Future[String] = {
     val result = sequencerStore.pruneSync(requestedTimestamp)
     val newInFlightAggregations =
       sequencerStore.pruneExpiredInFlightAggregationsInternal(requestedTimestamp)
-    val blocksToBeRemoved = blockToTimestampMap.takeWhile(_._2._1 < requestedTimestamp)
+    val blocksToBeRemoved = blockToTimestampMap.filter(_._2._1 < requestedTimestamp)
     blocksToBeRemoved.keys.foreach(
       blockToTimestampMap.remove(_).discard[Option[(CantonTimestamp, Option[CantonTimestamp])]]
     )
@@ -243,8 +226,10 @@ class InMemorySequencerBlockStore(
       }
       checkBlockInvariantIfEnabled(height)
     }
-    s"Removed ${result.eventsPruned} events and ${blocksToBeRemoved.size} blocks"
-  }))
+    Future.successful(
+      s"Removed ${result.eventsPruned} events and ${blocksToBeRemoved.size} blocks"
+    )
+  }
 
   override def updateMemberCounterSupportedAfter(
       member: Member,
@@ -273,14 +258,15 @@ class InMemorySequencerBlockStore(
       topologyClientMember: Member,
       blockHeight: Long,
   )(implicit traceContext: TraceContext): Unit = {
-    blockToTimestampMap.get(blockHeight).foreach { case (lastTs, latestSequencerEventTimestamp) =>
+    val snapshot = blockToTimestampMap.snapshot()
+    snapshot.get(blockHeight).foreach { case (lastTs, latestSequencerEventTimestamp) =>
       val currentBlock = BlockInfo(blockHeight, lastTs, latestSequencerEventTimestamp)
-      val prevBlockHeightO = blockToTimestampMap.keys.filter(_ < blockHeight).maxOption
-      val prevBlockO = prevBlockHeightO.map { height =>
-        val (prevLastTs, prevLatestSequencerEventTimestamp) = blockToTimestampMap(height)
-        BlockInfo(height, prevLastTs, prevLatestSequencerEventTimestamp)
-      }
-
+      val prevBlockO = snapshot.view
+        .filter { case (height, _) => height < blockHeight }
+        .maxByOption { case (height, _) => height }
+        .map { case (height, (prevLastTs, prevLatestSequencerEventTimestamp)) =>
+          BlockInfo(height, prevLastTs, prevLatestSequencerEventTimestamp)
+        }
       val prevLastTs = prevBlockO.fold(CantonTimestamp.MinValue)(_.lastTs)
       val allEventsInBlock = sequencerStore.allEventsInTimeRange(prevLastTs, lastTs)
       val newMembers = sequencerStore.allRegistrations().filter { case (member, ts) =>

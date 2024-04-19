@@ -15,8 +15,8 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeN
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
-import com.digitalasset.canton.domain.sequencing.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.authentication.grpc.IdentityContextHelper
+import com.digitalasset.canton.domain.sequencing.config.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
 import com.digitalasset.canton.domain.sequencing.sequencer.{Sequencer, SequencerValidations}
 import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerService.*
@@ -573,14 +573,15 @@ class GrpcSequencerService(
         )
           rateLimiter
         else {
-          val newRateLimiter = new RateLimiter(rateAsNumeric, parameters.maxBurstFactor)
+          val newRateLimiter =
+            new RateLimiter(rateAsNumeric, parameters.maxConfirmationRequestsBurstFactor)
           rates.update(participantId, newRateLimiter)
           newRateLimiter
         }
       case None =>
         rates.getOrElseUpdate(
           participantId,
-          new RateLimiter(rateAsNumeric, parameters.maxBurstFactor),
+          new RateLimiter(rateAsNumeric, parameters.maxConfirmationRequestsBurstFactor),
         )
     }
   }

@@ -260,7 +260,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     migrationsFactory,
     timeouts,
     config.sequencersByString,
-    config.sequencerNodeParametersByStringX,
+    config.sequencerNodeParametersByString,
     loggerFactory,
   )
 
@@ -270,7 +270,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
       migrationsFactory,
       timeouts,
       config.mediatorsByString,
-      config.mediatorNodeParametersByStringX,
+      config.mediatorNodeParametersByString,
       loggerFactory,
     )
 
@@ -486,7 +486,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   ] = NodeFactoryArguments(
     name,
     mediatorConfig,
-    config.mediatorNodeParametersByStringX(name),
+    config.mediatorNodeParametersByString(name),
     createClock(Some(MediatorNodeBootstrapX.LoggerFactoryKeyName -> name)),
     metricsRegistry.forMediator(name),
     testingConfig,

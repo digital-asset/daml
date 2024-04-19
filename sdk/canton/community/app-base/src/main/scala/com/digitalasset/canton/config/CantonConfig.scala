@@ -399,22 +399,23 @@ trait CantonConfig {
     InstanceName.tryCreate(name)
   )
 
-  private lazy val sequencerNodeParametersX_ : Map[InstanceName, SequencerNodeParameters] =
-    sequencers.fmap { sequencerNodeXConfig =>
+  private lazy val sequencerNodeParameters_ : Map[InstanceName, SequencerNodeParameters] =
+    sequencers.fmap { sequencerNodeConfig =>
       SequencerNodeParameters(
-        general = CantonNodeParameterConverter.general(this, sequencerNodeXConfig),
-        protocol = CantonNodeParameterConverter.protocol(this, sequencerNodeXConfig.parameters),
-        maxBurstFactor = sequencerNodeXConfig.parameters.maxBurstFactor,
+        general = CantonNodeParameterConverter.general(this, sequencerNodeConfig),
+        protocol = CantonNodeParameterConverter.protocol(this, sequencerNodeConfig.parameters),
+        maxConfirmationRequestsBurstFactor =
+          sequencerNodeConfig.parameters.maxConfirmationRequestsBurstFactor,
       )
     }
 
-  private[canton] def sequencerNodeParametersX(name: InstanceName): SequencerNodeParameters =
-    nodeParametersFor(sequencerNodeParametersX_, "sequencer-x", name)
+  private[canton] def sequencerNodeParameters(name: InstanceName): SequencerNodeParameters =
+    nodeParametersFor(sequencerNodeParameters_, "sequencer", name)
 
-  private[canton] def sequencerNodeParametersByStringX(name: String): SequencerNodeParameters =
-    sequencerNodeParametersX(InstanceName.tryCreate(name))
+  private[canton] def sequencerNodeParametersByString(name: String): SequencerNodeParameters =
+    sequencerNodeParameters(InstanceName.tryCreate(name))
 
-  private lazy val mediatorNodeParametersX_ : Map[InstanceName, MediatorNodeParameters] =
+  private lazy val mediatorNodeParameters_ : Map[InstanceName, MediatorNodeParameters] =
     mediators.fmap { mediatorNodeConfig =>
       MediatorNodeParameters(
         general = CantonNodeParameterConverter.general(this, mediatorNodeConfig),
@@ -422,11 +423,11 @@ trait CantonConfig {
       )
     }
 
-  private[canton] def mediatorNodeParametersX(name: InstanceName): MediatorNodeParameters =
-    nodeParametersFor(mediatorNodeParametersX_, "mediator-x", name)
+  private[canton] def mediatorNodeParameters(name: InstanceName): MediatorNodeParameters =
+    nodeParametersFor(mediatorNodeParameters_, "mediator", name)
 
-  private[canton] def mediatorNodeParametersByStringX(name: String): MediatorNodeParameters =
-    mediatorNodeParametersX(InstanceName.tryCreate(name))
+  private[canton] def mediatorNodeParametersByString(name: String): MediatorNodeParameters =
+    mediatorNodeParameters(InstanceName.tryCreate(name))
 
   protected def nodeParametersFor[A](
       cachedNodeParameters: Map[InstanceName, A],

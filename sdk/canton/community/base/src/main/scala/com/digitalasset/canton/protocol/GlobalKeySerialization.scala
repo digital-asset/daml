@@ -29,10 +29,7 @@ object GlobalKeySerialization {
 
   def assertToProto(key: LfVersioned[LfGlobalKey]): v30.GlobalKey =
     toProto(key)
-      .fold(
-        err => throw new IllegalArgumentException(s"Can't encode contract key: $err"),
-        identity,
-      )
+      .valueOr(err => throw new IllegalArgumentException(s"Can't encode contract key: $err"))
 
   def fromProtoV30(globalKeyP: v30.GlobalKey): ParsingResult[LfVersioned[LfGlobalKey]] = {
     val v30.GlobalKey(templateIdBytes, keyBytes, packageNameP) = globalKeyP
