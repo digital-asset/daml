@@ -13,7 +13,6 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 import org.scalacheck.Gen
 
-import java.util.concurrent.Executors
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
 
@@ -23,7 +22,7 @@ object Demo {
 
   def main(args: Array[String]): Unit = {
 
-    val scenarios = Enumerations.scenarios(numParticipants = 3)(100)
+    val scenarios = Enumerations.scenarios(numParticipants = 3)(20)
 
     def randomBigIntLessThan(n: BigInt): BigInt = {
       var res: BigInt = BigInt(0)
@@ -69,51 +68,51 @@ object Demo {
     )
     val ideLedgerRunner = LedgerRunner.forIdeLedger(universalDarPath)
 
-    val workers = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(1))
+    // val workers = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(1))
 
-    validScenarios
+    validSymScenarios
       .foreach(scenario => {
-        workers.execute(() =>
-          if (scenario.ledger.nonEmpty) {
-            println("\n==== ledger ====")
-            println(Pretty.prettyScenario(scenario))
-            ideLedgerRunner.runAndProject(scenario) match {
-              case Left(error) =>
-                println("INVALID LEDGER!")
-                println(Pretty.prettyScenario(scenario))
-                println(error.pretty)
-                println(scenario)
-                System.exit(1)
-              case Right(ideProjections) =>
-                println("==== ide ledger ====")
-                println("VALID!")
-                // ideProjections.foreach { case (partyId, projection) =>
-                // println(s"Projection for party $partyId")
-                // println(Pretty.prettyProjection(projection))
-                // }
-                println("==== canton ====")
-                cantonLedgerRunner.runAndProject(scenario) match {
-                  case Left(error) =>
-                    println("ERROR")
-                    println(error.pretty)
+        // workers.execute(() =>
+        if (scenario.ledger.nonEmpty) {
+          println("\n==== ledger ====")
+          println(Pretty.prettyScenario(scenario))
+          ideLedgerRunner.runAndProject(scenario) match {
+            case Left(error) =>
+              println("INVALID LEDGER!")
+              println(Pretty.prettyScenario(scenario))
+              println(error.pretty)
+              println(scenario)
+              System.exit(1)
+            case Right(ideProjections) =>
+              println("==== ide ledger ====")
+              println("VALID!")
+              // ideProjections.foreach { case (partyId, projection) =>
+              // println(s"Projection for party $partyId")
+              // println(Pretty.prettyProjection(projection))
+              // }
+              println("==== canton ====")
+              cantonLedgerRunner.runAndProject(scenario) match {
+                case Left(error) =>
+                  println("ERROR")
+                  println(error.pretty)
+                  println(scenario)
+                  System.exit(1)
+                case Right(cantonProjections) =>
+                  if (cantonProjections == ideProjections) {
+                    println("MATCH!")
+                  } else {
+                    println("MISMATCH!")
+                    cantonProjections.foreach { case (partyId, projection) =>
+                      println(s"Projection for party $partyId")
+                      println(Pretty.prettyProjection(projection))
+                    }
                     println(scenario)
                     System.exit(1)
-                  case Right(cantonProjections) =>
-                    if (cantonProjections == ideProjections) {
-                      println("MATCH!")
-                    } else {
-                      println("MISMATCH!")
-                      cantonProjections.foreach { case (partyId, projection) =>
-                        println(s"Projection for party $partyId")
-                        println(Pretty.prettyProjection(projection))
-                      }
-                      println(scenario)
-                      System.exit(1)
-                    }
-                }
-            }
+                  }
+              }
           }
-        )
+        }
+        // )
       })
     val _ = Await.ready(system.terminate(), Duration.Inf)
   }
