@@ -44,17 +44,12 @@ class Generators(numParticipants: Int, numParties: Int) {
 
   // Randomly assigns a participant ID to each party. Retry until each
   // participant hosts at least one party.
-  lazy val topologyGen: Gen[Topology] = {
-    def pickAssignment(partyId: PartyId): Gen[(ParticipantId, PartyId)] =
-      Gen.choose(0, numParticipants - 1).map(_ -> partyId)
-
-    for {
-      assignments <- (1 to numParties).toList.traverse(pickAssignment)
-    } yield assignments
-      .groupMapReduce(_._1)(p => Set(p._2))(_ ++ _)
-      .map(Participant.tupled)
-      .toSeq
-  }.retryUntil(_.size == numParticipants)
+  lazy val topologyGen: Gen[Topology] =
+    (0 until numParticipants).toList
+      .traverse(participantId =>
+        nonEmptyPartySetGen.map(parties => Participant(participantId, parties))
+      )
+      .retryUntil(_.flatMap(_.parties).toSet.size == numParties)
 
   lazy val partySetGen: Gen[PartySet] =
     Gen.someOf(1 to numParties).map(_.toSet)

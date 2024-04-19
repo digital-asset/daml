@@ -46,7 +46,7 @@ class LedgerFixer(numParties: Int) {
   def genSublistOf[A](l: List[A]): Gen[List[A]] =
     TraverseFilter[List].filterA(l)(_ =>
       for {
-        n <- Gen.choose(0, 5)
+        n <- Gen.choose(0, 3)
       } yield (n == 0)
     )
 
