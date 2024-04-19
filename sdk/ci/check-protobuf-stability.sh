@@ -53,16 +53,9 @@ function check_non_lf_protos() {
     git fetch origin
   fi
 
-  if [ "$commitish" = "v2.8.3" ]; then # TODO remove when 2.8.4 gets published
-    against_prefix=.
-  else
-    against_prefix=sdk
-  fi
-
-
   against_config=$(mktemp -d)
   for buf_module in "${BUF_MODULES_AGAINST_STABLE[@]}"; do
-    git show $commitish:$against_prefix/$buf_module > $against_config/$buf_module
+    git show $commitish:sdk/$buf_module > $against_config/$buf_module
     buf breaking --config "sdk/${buf_module}" --against "./.git#$commitish_type=$commitish" --against-config "$against_config/$buf_module"
   done
 
