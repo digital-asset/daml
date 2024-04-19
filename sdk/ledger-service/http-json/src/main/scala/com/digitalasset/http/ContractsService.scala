@@ -15,7 +15,7 @@ import com.daml.http.domain.{
   GetActiveContractsRequest,
   JwtPayload,
   RefreshCacheRequest,
-  PackageResolvedContractTypeId,
+  ContractTypeRef,
 }
 import ContractTypeId.toLedgerApiValue
 import com.daml.http.json.JsonProtocol.LfValueCodec
@@ -36,6 +36,7 @@ import com.daml.http.util.FutureUtil.toFuture
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.{v1 => api}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Timed
@@ -387,7 +388,7 @@ class ContractsService(
           // TODO query store support for interface query/fetch #14819
           // we need a template ID to update the database
           def doSearchInMemory = OptionT(SearchInMemory.toFinal.findByContractId(ctx, contractId))
-          def doSearchInDb(resolved: PackageResolvedContractTypeId[ContractTypeId.Resolved]) =
+          def doSearchInDb(resolved: ContractTypeRef.Resolved) =
             OptionT(unsafeRunAsync {
               import doobie.implicits._, cats.syntax.apply._
               // a single contractId is either present or not; we would only need
@@ -519,7 +520,7 @@ class ContractsService(
 
         private[this] def searchDbOneTpId_(
             parties: domain.PartySet,
-            templateId: PackageResolvedContractTypeId[ContractTypeId.Resolved],
+            templateId: ContractTypeRef.Resolved,
             queryParams: Map[String, JsValue],
         )(implicit
             lc: LoggingContextOf[InstanceUUID]
@@ -528,6 +529,13 @@ class ContractsService(
           ContractDao.selectContracts(parties, templateId.allIds, predicate.toSqlWhereClause)
         }
       }
+  }
+
+  def buildTransactionFilter(
+      parties: domain.PartySet,
+      resolvedQuery: domain.ResolvedQuery,
+  ): TransactionFilter = {
+    transactionFilter(parties, resolvedQuery.resolved.map(_.original).toList)
   }
 
   private[this] def searchInMemory(
@@ -549,11 +557,16 @@ class ContractsService(
 
     val funPredicates: Map[domain.ContractTypeId.Resolved, Ac => Boolean] =
       resolvedQuery.resolved
-        .flatMap(tids => tids.allIds.map(tid => (tid, queryParams.toPredicate(tid))))
+        .flatMap { case tid =>
+          // Use the latest version of the template to convert JSON into a predicate
+          val predicate = queryParams.toPredicate(tid.latestId)
+          // This predicate is applicable to all version of the template returned.
+          tid.allIds.map(_ -> predicate)
+        }
         .forgetNE
         .toMap
 
-    insertDeleteStepSource(jwt, ledgerId, parties, resolvedQuery.resolved.map(_.original).toList)
+    insertDeleteStepSource(jwt, ledgerId, buildTransactionFilter(parties, resolvedQuery))
       .map { step =>
         val (errors, converted) = step.toInsertDelete.partitionMapPreservingIds { apiEvent =>
           domain.ActiveContract
@@ -578,7 +591,7 @@ class ContractsService(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateId: PackageResolvedContractTypeId[ContractTypeId.Resolved],
+      templateId: ContractTypeRef.Resolved,
       queryParams: InMemoryQuery.P,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
@@ -607,10 +620,8 @@ class ContractsService(
   private[http] def liveAcsAsInsertDeleteStepSource(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: domain.PartySet,
-      templateIds: List[domain.ContractTypeId.Resolved],
+      txnFilter: TransactionFilter,
   )(implicit lc: LoggingContextOf[InstanceUUID]): Source[ContractStreamStep.LAV1, NotUsed] = {
-    val txnFilter = transactionFilter(parties, templateIds)
     getActiveContracts(jwt, ledgerId, txnFilter, true)(lc)
       .map { case GetActiveContractsResponse(offset, _, activeContracts) =>
         if (activeContracts.nonEmpty) Acs(activeContracts.toVector)
@@ -624,15 +635,12 @@ class ContractsService(
   private[http] def insertDeleteStepSource(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: domain.PartySet,
-      templateIds: List[domain.ContractTypeId.Resolved],
+      txnFilter: TransactionFilter,
       startOffset: Option[domain.StartingOffset] = None,
       terminates: Terminates = Terminates.AtLedgerEnd,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
   ): Source[ContractStreamStep.LAV1, NotUsed] = {
-
-    val txnFilter = transactionFilter(parties, templateIds)
     def source =
       (getActiveContracts(jwt, ledgerId, txnFilter, true)(lc)
         via logTermination("ACS upstream"))
@@ -690,7 +698,7 @@ class ContractsService(
       xs: NonEmpty[Set[Tid]]
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[(Set[PackageResolvedContractTypeId[ContractTypeId.Resolved]], Set[Tid])] = {
+  ): Future[(Set[ContractTypeRef.Resolved], Set[Tid])] = {
     import scalaz.syntax.traverse._
     import scalaz.std.list._, scalaz.std.scalaFuture._
 

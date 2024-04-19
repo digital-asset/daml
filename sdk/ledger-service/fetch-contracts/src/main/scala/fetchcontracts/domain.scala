@@ -220,7 +220,7 @@ package domain {
     final val ActiveContract = here.ActiveContract
     final val ResolvedQuery = here.ResolvedQuery
     type ResolvedQuery = here.ResolvedQuery
-    final val PackageResolvedContractTypeId = here.PackageResolvedContractTypeId
-    type PackageResolvedContractTypeId[+CtTyId] = here.PackageResolvedContractTypeId[CtTyId]
+    final val ContractTypeRef = here.ContractTypeRef
+    type ContractTypeRef[+CtTyId] = here.ContractTypeRef[CtTyId]
   }
 }
