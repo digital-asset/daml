@@ -4,6 +4,7 @@
 package com.digitalasset.canton.console.commands
 
 import better.files.File
+import ch.qos.logback.classic.Level
 import com.digitalasset.canton.admin.api.client.commands.{
   StatusAdminCommands,
   TopologyAdminCommandsX,
@@ -146,6 +147,37 @@ abstract class HealthAdministrationCommon[S <: data.NodeStatus.Status](
     // timeout
     utils.retry_until_true(timeout = consoleEnvironment.commandTimeouts.unbounded)(condition)
   }
+
+  @Help.Summary("Change the log level of the process")
+  @Help.Description(
+    "If the default logback configuration is used, this will change the log level of the process."
+  )
+  def set_log_level(level: Level): Unit = consoleEnvironment.run {
+    adminCommand(
+      new StatusAdminCommands.SetLogLevel(level)
+    )
+  }
+
+  @Help.Summary("Show the last errors logged")
+  @Help.Description(
+    """Returns a map with the trace-id as key and the most recent error messages as value. Requires that --log-last-errors is enabled (and not turned off)."""
+  )
+  def last_errors(): Map[String, String] = consoleEnvironment.run {
+    adminCommand(
+      new StatusAdminCommands.GetLastErrors()
+    )
+  }
+
+  @Help.Summary("Show all messages logged with the given traceId in a recent interval")
+  @Help.Description(
+    "Returns a list of buffered log messages associated to a given trace-id. Usually, the trace-id is taken from last_errors()"
+  )
+  def last_error_trace(traceId: String): Seq[String] = consoleEnvironment.run {
+    adminCommand(
+      new StatusAdminCommands.GetLastErrorTrace(traceId)
+    )
+  }
+
 }
 
 class HealthAdministrationX[S <: data.NodeStatus.Status](

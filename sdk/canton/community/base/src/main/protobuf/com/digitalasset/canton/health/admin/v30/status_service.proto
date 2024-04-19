@@ -12,6 +12,13 @@ service StatusService {
   rpc Status(StatusRequest) returns (StatusResponse);
   // Streams back a zip file as byte chunks, containing a health dump of the full canton process (including other nodes)
   rpc HealthDump(HealthDumpRequest) returns (stream HealthDumpResponse);
+  // Toggle log levels
+  rpc SetLogLevel(SetLogLevelRequest) returns (SetLogLevelResponse);
+  // Get the last errors observed on this node
+  // This is a built in functionality where we keep track of the last errors and all messages that were logged with the same trace id within a certain time frame
+  rpc GetLastErrors(GetLastErrorsRequest) returns (GetLastErrorsResponse);
+  // Get the trace of the last errors observed
+  rpc GetLastErrorTrace(GetLastErrorTraceRequest) returns (GetLastErrorTraceResponse);
 }
 
 message TopologyQueueStatus {
@@ -104,4 +111,30 @@ message SequencerHealthStatus {
 
 message MediatorNodeStatus {
   string domain_id = 1;
+}
+
+message SetLogLevelRequest {
+  // TODO(#18445) use an enum for the log level as right now, it also accepts OFF and null
+  // The log level to set (DEBUG, INFO, WARN, ERROR, OFF)
+  string level = 1;
+  // TODO(#18445) provide the ability to set it per logger
+}
+
+message SetLogLevelResponse {}
+
+message GetLastErrorsRequest {}
+message GetLastErrorsResponse {
+  message Error {
+    string trace_id = 1;
+    string message = 2;
+  }
+  repeated Error errors = 1;
+}
+
+message GetLastErrorTraceRequest {
+  // The trace id of the error
+  string trace_id = 1;
+}
+message GetLastErrorTraceResponse {
+  repeated string messages = 1;
 }

@@ -718,10 +718,10 @@ create index idx_par_in_flight_submission_message_id on par_in_flight_submission
 
 create table par_settings(
   client integer primary key, -- dummy field to enforce at most one row
-  max_dirty_requests integer,
-  max_rate integer,
+  max_infight_validation_requests integer,
+  max_submission_rate integer,
   max_deduplication_duration binary large object, -- non-negative finite duration
-  max_burst_factor double precision not null default 0.5
+  max_submission_burst_factor double precision not null default 0.5
 );
 
 create table par_command_deduplication (
