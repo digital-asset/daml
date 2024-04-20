@@ -300,7 +300,6 @@ object TransactionViewDecompositionFactory {
             } else
               buildNewView(nodeId, actionNode, info, state)
           case rollbackNode: LfNodeRollback =>
-            // TODO(#18332): use builds instead of foldLeft
             rollbackNode.children
               .foldLeft(state.enterRollback()) { (bs, nId) =>
                 buildChildView(nId, parentActionNodeInfo, bs)
@@ -470,7 +469,6 @@ object TransactionViewDecompositionFactory {
             } else
               buildNewView(nodeId, actionNode, info, state)
           case rollbackNode: LfNodeRollback =>
-            // TODO(#18332): use builds instead of foldLeft
             rollbackNode.children
               .foldLeft(state.enterRollback()) { (bs, nId) =>
                 buildChildView(nId, currentParticipants, bs)

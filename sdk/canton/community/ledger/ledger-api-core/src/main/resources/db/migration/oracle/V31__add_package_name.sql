@@ -1,0 +1,2 @@
+ALTER TABLE participant_events_consuming_exercise ADD package_name NUMBER;
+ALTER TABLE participant_events_non_consuming_exercise ADD package_name NUMBER;

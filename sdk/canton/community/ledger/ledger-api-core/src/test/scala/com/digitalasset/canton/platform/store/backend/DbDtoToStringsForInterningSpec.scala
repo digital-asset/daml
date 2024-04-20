@@ -21,6 +21,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
     iterators.packageNames.toList.sorted shouldBe List(
       "PN1",
       "PN2",
+      "PN3",
     ).sorted
     iterators.parties.toList.sorted shouldBe List(
       "2",
@@ -158,6 +159,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       event_id = Some("48"),
       contract_id = "49",
       template_id = Some("50"),
+      package_name = Some("PN3"),
       flat_event_witnesses = Set("51", "52", "53"),
       tree_event_witnesses = Set("54", "55", "56"),
       exercise_argument = None,

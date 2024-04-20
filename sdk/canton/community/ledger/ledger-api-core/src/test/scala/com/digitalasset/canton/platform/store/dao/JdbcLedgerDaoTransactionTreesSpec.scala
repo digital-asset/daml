@@ -106,6 +106,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             exercised.witnessParties should contain only (exercise.actAs: _*)
             exercised.contractId shouldBe exerciseNode.targetCoid.coid
             exercised.templateId shouldNot be(None)
+            exercised.packageName shouldNot be(None)
             exercised.actingParties should contain theSameElementsAs exerciseNode.actingParties
             exercised.childEventIds shouldBe Seq.empty
             exercised.choice shouldBe exerciseNode.choiceId
@@ -174,6 +175,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         exercised.witnessParties should contain only (tx.actAs: _*)
         exercised.contractId shouldBe exerciseNode.targetCoid.coid
         exercised.templateId shouldNot be(None)
+        exercised.packageName shouldNot be(None)
         exercised.actingParties should contain theSameElementsAs exerciseNode.actingParties
         exercised.childEventIds shouldBe Seq.empty
         exercised.choice shouldBe exerciseNode.choiceId

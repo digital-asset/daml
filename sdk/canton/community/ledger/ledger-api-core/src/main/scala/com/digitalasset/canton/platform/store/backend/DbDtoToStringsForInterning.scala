@@ -41,6 +41,8 @@ object DbDtoToStringsForInterning {
         dbDto.package_name.iterator
       case dbDto: DbDto.EventDivulgence =>
         dbDto.package_name.iterator
+      case dbDto: DbDto.EventExercise =>
+        dbDto.package_name.iterator
       case _ => Iterator.empty
     }
 
