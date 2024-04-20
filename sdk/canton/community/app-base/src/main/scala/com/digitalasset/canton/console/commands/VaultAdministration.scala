@@ -135,7 +135,7 @@ class SecretKeyAdministration(
 
   private def findPublicKey(
       fingerprint: String,
-      topologyAdmin: TopologyAdministrationGroupCommon,
+      topologyAdmin: TopologyAdministrationGroup,
       owner: Member,
   ): PublicKey =
     findPublicKeys(topologyAdmin, owner).find(_.fingerprint.unwrap == fingerprint) match {
@@ -241,24 +241,17 @@ class SecretKeyAdministration(
   /** Helper to find public keys for topology/x shared between community and enterprise
     */
   protected def findPublicKeys(
-      topologyAdmin: TopologyAdministrationGroupCommon,
+      topologyAdmin: TopologyAdministrationGroup,
       owner: Member,
-  ): Seq[PublicKey] =
-    topologyAdmin match {
-      case tx: TopologyAdministrationGroup =>
-        tx.owner_to_key_mappings
-          .list(
-            filterStore = AuthorizedStore.filterName,
-            filterKeyOwnerUid = owner.filterString,
-            filterKeyOwnerType = Some(owner.code),
-          )
-          .flatMap(_.item.keys)
-      case _ =>
-        // TODO(#15161): Remove the match when flattening TopologyAdministrationGroup and Common
-        throw new IllegalStateException(
-          "Impossible to encounter topology admin group besides X"
-        )
-    }
+  ): Seq[PublicKey] = {
+    topologyAdmin.owner_to_key_mappings
+      .list(
+        filterStore = AuthorizedStore.filterName,
+        filterKeyOwnerUid = owner.filterString,
+        filterKeyOwnerType = Some(owner.code),
+      )
+      .flatMap(_.item.keys)
+  }
 
   /** Helper to name new keys generated during a rotation with a ...-rotated-<timestamp> tag to better identify
     * the new keys after a rotation
