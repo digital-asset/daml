@@ -1,12 +1,13 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package engine
-package script
-package v2
-package ledgerinteraction
+package com.daml.lf.engine.script.v2.ledgerinteraction
 
+import com.daml.lf.engine.Error
+import com.daml.lf._
+import com.daml.lf.engine.script
+import com.daml.lf.engine.preprocessing
+import com.daml.lf.{PureCompiledPackages, crypto}
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.ledger.api.domain.{
@@ -19,6 +20,7 @@ import com.digitalasset.canton.ledger.api.domain.{
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
+import com.daml.lf.engine.script.{Disclosure, Script}
 import com.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
 import com.daml.lf.language.Ast.PackageMetadata
@@ -38,7 +40,6 @@ import com.daml.lf.transaction.{
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.nonempty.NonEmpty
-
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
 import scalaz.OneAnd

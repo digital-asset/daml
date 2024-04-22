@@ -1,14 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package engine
-package preprocessing
+package com.daml.lf.engine.preprocessing
 
-import com.daml.lf.data.{Ref, ImmArray}
+import com.daml.lf.{language, command, data, speedy}
+import com.daml.lf.engine._
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.engine.{MutableCompiledPackages, ResultError}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.speedy.SValue
-import com.daml.lf.transaction.{SubmittedTransaction, Node}
+import com.daml.lf.transaction.{Node, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
 

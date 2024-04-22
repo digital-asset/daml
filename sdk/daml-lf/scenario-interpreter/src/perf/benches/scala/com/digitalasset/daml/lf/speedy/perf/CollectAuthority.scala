@@ -1,11 +1,11 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package speedy
-package perf
+package com.daml.lf.speedy.perf
 
+import com.daml.lf.{crypto, scenario, speedy}
 import com.daml.bazeltools.BazelRunfiles._
+import com.daml.lf.PureCompiledPackages
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref.{Identifier, Location, Party, QualifiedName}
 import com.daml.lf.data.Time
@@ -20,7 +20,7 @@ import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.Speedy.{Control, Machine, ScenarioMachine}
 import com.daml.lf.speedy.Question.Scenario
 import com.daml.logging.LoggingContext
-
+import speedy._
 import java.io.File
 import java.util.concurrent.TimeUnit
 import org.openjdk.jmh.annotations._

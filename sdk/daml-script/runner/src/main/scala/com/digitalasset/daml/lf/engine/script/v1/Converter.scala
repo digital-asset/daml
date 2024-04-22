@@ -1,16 +1,18 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package engine
-package script
-package v1
+package com.daml.lf.engine.script.v1
 
+import com.daml.lf.{command, data}
+import com.daml.lf.engine.script
+import com.daml.lf.engine.preprocessing
 import com.daml.ledger.api.v2.transaction.TreeEvent
 import com.daml.ledger.api.v2.transaction.TransactionTree
+import com.daml.lf.CompiledPackages
 import com.digitalasset.canton.ledger.api.validation.NoLoggingValueValidator
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
+import com.daml.lf.engine.script.{Script, ScriptIds}
 import com.daml.lf.engine.script.v1.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SExpr._

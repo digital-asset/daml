@@ -1,8 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package validation
+package com.daml.lf.validation
 
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, QualifiedName}
@@ -12,6 +11,7 @@ import com.daml.lf.language.{Ast, LanguageVersion => LV}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import com.daml.lf.language
 
 class DependencyVersionSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 

@@ -1,10 +1,20 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package engine
-package script
-package v2
+package com.daml.lf.engine.script.v2
+
+import com.daml.lf.{speedy, interpretation}
+import com.daml.lf.engine.script.{
+  AnyContractKey,
+  Disclosure,
+  Participant,
+  Participants,
+  Script,
+  ScriptIds,
+  ScriptTimeMode,
+  v2,
+}
+import com.daml.lf.engine.{free, preprocessing}
 
 import java.time.Clock
 import org.apache.pekko.stream.Materializer

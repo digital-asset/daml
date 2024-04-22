@@ -1,8 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package ledger
+package com.daml.lf.ledger
 
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation
@@ -11,6 +10,7 @@ import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.{NodeId, VersionedTransaction}
 import com.daml.lf.value.Value.ContractId
 import com.daml.nameof.NameOf
+import com.daml.lf.InternalError
 
 object BlindingTransaction {
 

@@ -1,8 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package interpretation
+package com.daml.lf.interpretation
 
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
@@ -11,6 +10,8 @@ import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
+import com.daml.lf.crypto
+import com.daml.lf.ledger
 
 /** Daml exceptions that should be reported to the user
   */

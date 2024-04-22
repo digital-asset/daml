@@ -1,9 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package value.json
+package com.daml.lf.value.json
 
+import com.daml.lf.{data, value, typesig}
 import data.{Ref => DamlLfRef}
 import value.{Value => V}
 

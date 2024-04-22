@@ -1,14 +1,14 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml
-package lf
-package value
+package com.daml.lf.value
 
+import com.daml.lf.transaction
+import com.daml.lf.EitherAssertions
 import com.daml.lf.data._
-import com.daml.lf.transaction.{Versioned, TransactionVersion}
+import com.daml.lf.transaction.{TransactionVersion, Versioned}
 import com.daml.lf.value.{ValueOuterClass => proto}
-import org.scalacheck.{Shrink, Arbitrary}
+import org.scalacheck.{Arbitrary, Shrink}
 import org.scalatest.{Assertion, Inside}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

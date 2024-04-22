@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package archive
+package com.daml.lf.archive
 
 import java.io.File
+import com.daml.lf.InternalError
 
 sealed abstract class Error(val msg: String)
     extends RuntimeException(msg)

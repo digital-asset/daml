@@ -1,8 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.testing
-package parser
+package com.daml.lf.testing.parser
 
 import com.daml.lf.data.{Numeric, Ref}
 import com.daml.lf.language.Ast.{Expr, Kind, Module, Package, Type}

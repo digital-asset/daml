@@ -1,8 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script
-package v1.ledgerinteraction
+package com.daml.lf.engine.script.v1.ledgerinteraction
 
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -16,7 +15,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import io.grpc.StatusRuntimeException
 import scalaz.OneAnd
-import com.daml.lf.engine.script.{ledgerinteraction => abstractLedgers}
+import com.daml.lf.engine.script.{Disclosure, ledgerinteraction => abstractLedgers}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}

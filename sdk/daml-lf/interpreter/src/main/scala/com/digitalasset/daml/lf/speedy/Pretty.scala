@@ -1,8 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package speedy
+package com.daml.lf.speedy
 
 import org.typelevel.paiges._
 import org.typelevel.paiges.Doc._
@@ -22,6 +21,7 @@ import com.daml.lf.transaction.{
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SBuiltinFun._
+import com.daml.lf.{data, interpretation}
 
 //
 // Pretty-printer for the interpreter errors and the scenario ledger

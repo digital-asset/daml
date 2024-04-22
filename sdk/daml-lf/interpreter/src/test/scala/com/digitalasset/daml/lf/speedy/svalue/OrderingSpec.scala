@@ -1,8 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
-package svalue
+package com.daml.lf.speedy.svalue
 
 import com.daml.lf.crypto
 import com.daml.lf.data.{Bytes, FrontStack, Ref}
@@ -16,6 +15,7 @@ import com.daml.lf.PureCompiledPackages
 import com.daml.lf.typesig
 import com.daml.lf.interpretation.Error.ContractIdComparability
 import com.daml.lf.language.{Ast, LanguageMajorVersion, Util => AstUtil}
+import com.daml.lf.speedy._
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.Inside
 import org.scalatest.prop.TableFor2
@@ -43,7 +43,7 @@ class OrderingSpec(majorLanguageVersion: LanguageMajorVersion)
     with ScalaCheckDrivenPropertyChecks
     with ScalaCheckPropertyChecks {
 
-  import SpeedyTestLib.loggingContext
+  import com.daml.lf.speedy.SpeedyTestLib.loggingContext
 
   private[lf] def toAstType(typ: typesig.Type): Ast.Type = typ match {
     case typesig.TypeCon(name, typArgs) =>

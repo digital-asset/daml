@@ -1,9 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.nonempty
-package catsinstances
+package com.daml.nonempty.catsinstances
 
+import com.daml.nonempty._
 import com.daml.scalatest.WordSpecCheckLaws
 import NonEmptyReturningOps._
 

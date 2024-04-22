@@ -1,8 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package speedy
+package com.daml.lf.speedy
 
 import com.daml.lf.data.Ref.{ChoiceName, Location, PackageName, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Time}
@@ -26,6 +25,7 @@ import com.daml.scalautil.Statement.discard
 import scala.collection.immutable.HashMap
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
+import com.daml.lf.{crypto, transaction, interpretation, InternalError}
 
 private[lf] object PartialTransaction {
 

@@ -3,8 +3,7 @@
 
 // Temporary stand-in for the real admin api clients defined in canton. Needed only for upgrades testing
 // We should intend to replace this as soon as possible
-package com.daml.lf.engine.script.v2.ledgerinteraction
-package grpcLedgerClient
+package com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient
 
 import com.digitalasset.canton.ledger.client.LedgerCallCredentials.authenticatingStub
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration

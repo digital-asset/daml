@@ -1,14 +1,13 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package engine
-package script
-package v1
-package ledgerinteraction
+package com.daml.lf.engine.script.v1.ledgerinteraction
 
+import com.daml.lf.{command, crypto, engine, scenario, speedy}
+import engine.preprocessing
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.lf.CompiledPackages
 import com.digitalasset.canton.ledger.api.domain.{
   IdentityProviderId,
   ObjectMeta,
@@ -19,6 +18,7 @@ import com.digitalasset.canton.ledger.api.domain.{
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
+import com.daml.lf.engine.script.{Disclosure, Runner, Script}
 import com.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast.TTyCon

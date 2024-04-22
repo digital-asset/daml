@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package speedy
-package testing
+package com.daml.lf.speedy.testing
 
+import com.daml.lf.{crypto, transaction}
+import com.daml.lf.PureCompiledPackages
 import com.daml.lf.data._
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
@@ -19,6 +19,7 @@ import com.daml.lf.validation.Validation
 import com.daml.lf.testing.parser
 import com.daml.lf.language.{LanguageMajorVersion, PackageInterface, LanguageVersion => LV}
 import com.daml.logging.LoggingContext
+import com.daml.lf.speedy.{Compiler, Pretty, Speedy}
 
 import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}

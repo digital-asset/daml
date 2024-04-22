@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package engine
-package script
+package com.daml.lf.engine.script
 
+import com.daml.lf.{CompiledPackages, typesig}
+import com.daml.lf.engine.{StackTrace, preprocessing}
 import com.daml.ledger.api.v2.value
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._

@@ -1,9 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package speedy
-package explore
+package com.daml.lf.speedy.explore
 
 import com.daml.bazeltools.BazelRunfiles.{rlocation}
 

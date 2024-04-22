@@ -1,13 +1,13 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package engine
-package preprocessing
+package com.daml.lf.engine.preprocessing
 
+import com.daml.lf.crypto
 import com.daml.lf.command.ApiCommand
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data._
+import com.daml.lf.engine.{ConcurrentCompiledPackages, ResultDone}
 import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.test.TransactionBuilder.newCid
@@ -20,6 +20,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import com.daml.lf.speedy.Compiler
 
 import scala.util.{Failure, Success, Try}
+import com.daml.lf.engine.Error
 
 class ApiCommandPreprocessorSpecV2 extends ApiCommandPreprocessorSpec(LanguageMajorVersion.V2)
 

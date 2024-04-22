@@ -1,17 +1,17 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml
-package lf
-package language
-package util
+package com.daml.lf.language.util
 
+import com.daml.lf.data._
+import com.daml.lf.testing.parser
 import com.daml.lf.data.Ref.{PackageId, TypeConName}
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.testing.parser.ParserParameters
-import data.{Ref, Relation}
-import testing.parser
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
+import com.daml.lf.data.Ref
+import com.daml.lf.language.Ast
 
 import scala.language.implicitConversions
 

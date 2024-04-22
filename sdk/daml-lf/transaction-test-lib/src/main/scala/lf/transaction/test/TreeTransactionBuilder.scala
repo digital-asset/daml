@@ -1,12 +1,17 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package transaction
-package test
+package com.daml.lf.transaction.test
 
 import com.daml.lf.data.ImmArray
-import com.daml.lf.transaction.{Node, NodeId, Transaction}
+import com.daml.lf.transaction.{
+  CommittedTransaction,
+  Node,
+  NodeId,
+  Transaction,
+  TransactionVersion,
+  VersionedTransaction,
+}
 
 import scala.language.implicitConversions
 import TreeTransactionBuilder._

@@ -1,8 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package transaction
+package com.daml.lf.transaction
 
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.PackageName
@@ -11,7 +10,7 @@ import com.daml.lf.value.{Value => V}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
-
+import com.daml.lf.crypto
 import scala.collection.immutable.HashMap
 
 class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {

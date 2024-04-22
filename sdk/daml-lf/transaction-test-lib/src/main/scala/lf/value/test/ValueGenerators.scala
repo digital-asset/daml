@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package value
-package test
+package com.daml.lf.value.test
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
+import com.daml.lf.value._
+import com.daml.lf.crypto
 import com.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,

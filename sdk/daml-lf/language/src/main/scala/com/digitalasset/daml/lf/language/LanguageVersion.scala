@@ -1,10 +1,11 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package language
+package com.daml.lf.language
 
+import com.daml.lf.data
 import scala.annotation.nowarn
+import com.daml.lf.VersionRange
 
 final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMinorVersion) {
   def pretty: String = s"${major.pretty}.${minor.toProtoIdentifier}"

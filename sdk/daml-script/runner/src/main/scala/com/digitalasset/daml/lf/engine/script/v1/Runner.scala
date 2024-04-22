@@ -1,14 +1,18 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package engine
-package script
-package v1
+package com.daml.lf.engine.script.v1
 
+import com.daml.lf.engine.script
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.lf.engine.script.Runner.IdeLedgerContext
+import com.daml.lf.engine.script.Runner.{
+  CanceledByRequest,
+  IdeLedgerContext,
+  InterpretationError,
+  TimedOut,
+}
+import com.daml.lf.engine.script.{Participants, Script}
 import com.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient => UnversionedScriptLedgerClient
 }
@@ -63,7 +67,7 @@ private[lf] class Runner(
             case SResultFinal(v) =>
               Right(v)
             case SResultError(err) =>
-              Left(Runner.InterpretationError(err))
+              Left(InterpretationError(err))
             case res =>
               Left(new IllegalStateException(s"Internal error: Unexpected speedy result $res"))
           }
@@ -109,7 +113,7 @@ private[lf] class Runner(
                     run(SEAppAtomic(SEValue(act), Array(SEValue(SUnit)))).transformWith {
                       case Success(v) => Future.successful(SEApp(SEValue(continue), Array(v)))
                       case Failure(
-                            exce @ Runner.InterpretationError(
+                            exce @ InterpretationError(
                               SError.SErrorDamlException(IE.UnhandledException(typ, value))
                             )
                           ) =>
@@ -138,15 +142,15 @@ private[lf] class Runner(
                     }
                   case ScriptF.Throw(SAny(ty, value)) =>
                     Future.failed(
-                      Runner.InterpretationError(
+                      InterpretationError(
                         SError
                           .SErrorDamlException(IE.UnhandledException(ty, value.toUnnormalizedValue))
                       )
                     )
                   case cmd: ScriptF.Cmd =>
                     cmd.execute(env).transform {
-                      case f @ Failure(Runner.CanceledByRequest) => f
-                      case f @ Failure(Runner.TimedOut) => f
+                      case f @ Failure(CanceledByRequest) => f
+                      case f @ Failure(TimedOut) => f
                       case Failure(exception) =>
                         Failure(Script.FailedCmd(cmd.description, cmd.stackTrace, exception))
                       case Success(value) =>

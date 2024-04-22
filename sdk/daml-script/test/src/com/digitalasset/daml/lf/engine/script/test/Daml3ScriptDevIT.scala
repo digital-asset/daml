@@ -1,12 +1,11 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script
-package test
+package com.daml.lf.engine.script.test
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.data.Ref._
-import com.daml.lf.engine.script.ScriptTimeMode
+import com.daml.lf.engine.script.{Runner, ScriptTimeMode}
 import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.language.LanguageMajorVersion.V2
 import com.daml.lf.speedy.SValue._

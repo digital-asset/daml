@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
-package svalue
+package com.daml.lf.speedy.svalue
 
 import com.daml.lf.crypto
 import com.daml.lf.data.Bytes
 import com.daml.lf.interpretation.Error.ContractIdComparability
+import com.daml.lf.speedy.SError
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value
 import org.scalatest.Inside

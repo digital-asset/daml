@@ -1,9 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package scenario
+package com.daml.lf.scenario
 
+import com.daml.lf.speedy
 import com.daml.lf.language.Ast.PackageMetadata
 import org.typelevel.paiges.Doc
 import org.typelevel.paiges.Doc._

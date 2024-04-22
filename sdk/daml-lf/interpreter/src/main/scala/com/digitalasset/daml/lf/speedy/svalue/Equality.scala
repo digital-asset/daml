@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package speedy
-package svalue
+package com.daml.lf.speedy.svalue
 
 import com.daml.lf.value.Value.ContractId
 import com.daml.nameof.NameOf
+import com.daml.lf.speedy._
+import com.daml.lf.interpretation
 
 import scala.jdk.CollectionConverters._
 

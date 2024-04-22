@@ -1,15 +1,14 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package engine
-package script
-package test
+package com.daml.lf.engine.script.test
 
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
+import com.daml.lf.engine.StackTrace
 import com.daml.lf.engine.script.Runner.InterpretationError
+import com.daml.lf.engine.script.Script
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value

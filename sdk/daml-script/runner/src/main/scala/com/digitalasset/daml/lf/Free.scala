@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package engine
-package free
+package com.daml.lf.engine.free
 
+import com.daml.lf.{CompiledPackages, data, speedy, engine}
 import data.Ref
 import speedy._
+import engine._
 import com.daml.logging.LoggingContext
 import scalaz.std.either._
 import scalaz.std.vector._

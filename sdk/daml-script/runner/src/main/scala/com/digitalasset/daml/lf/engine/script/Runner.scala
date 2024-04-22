@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package engine
-package script
+package com.daml.lf.engine.script
 
+import com.daml.lf.{CompiledPackages, PureCompiledPackages, VersionRange, data}
+import com.daml.lf.engine.StackTrace
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.tls.TlsConfiguration

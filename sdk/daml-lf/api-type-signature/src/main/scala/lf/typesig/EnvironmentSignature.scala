@@ -1,9 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package typesig
+package com.daml.lf.typesig
 
+import com.daml.lf.data
 import com.daml.lf.archive.Dar
 import data.Ref, Ref.{Identifier, PackageId}
 

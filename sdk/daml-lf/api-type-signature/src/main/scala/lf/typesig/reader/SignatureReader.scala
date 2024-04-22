@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package typesig
-package reader
+package com.daml.lf.typesig.reader
 
+import com.daml.lf.typesig
+import com.daml.lf.typesig._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.ArchivePayload
 import scalaz.{Enum => _, _}

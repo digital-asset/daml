@@ -1,8 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.archive
-package testing
+package com.daml.lf.archive.testing
 
 import com.daml.daml_lf_dev.{DamlLf2 => PLF}
 import com.daml.lf.archive.testing.Encode.{EncodeError, expect}
@@ -15,6 +14,7 @@ import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.language.implicitConversions
+import com.daml.lf.archive.DecodeV2
 
 // Important: do not use this in production code. It is designed for testing only.
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))

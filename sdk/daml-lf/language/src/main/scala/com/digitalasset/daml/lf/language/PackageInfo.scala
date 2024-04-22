@@ -1,11 +1,11 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package language
-package util
+package com.daml.lf.language.util
 
+import com.daml.lf.data
 import data.{Ref, Relation}
+import com.daml.lf.language.Ast
 
 class PackageInfo(pkgSignature: Map[Ref.PackageId, Ast.GenPackage[_]]) {
 

@@ -1,9 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml
-package lf
-package transaction
+package com.daml.lf.transaction
 
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.ContractStateMachine.{
@@ -40,6 +38,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
+import com.daml.lf.crypto
 
 class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 

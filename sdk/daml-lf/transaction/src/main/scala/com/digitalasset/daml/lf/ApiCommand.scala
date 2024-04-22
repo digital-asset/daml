@@ -1,9 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package command
+package com.daml.lf.command
 
+import com.daml.lf.crypto
 import com.daml.lf.data.Ref._
 import com.daml.lf.value.Value
 import com.daml.lf.data.{ImmArray, Time}

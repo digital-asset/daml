@@ -1,9 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package engine.script.ledgerinteraction
+package com.daml.lf.engine.script.ledgerinteraction
 
+import com.daml.lf.PureCompiledPackages
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient

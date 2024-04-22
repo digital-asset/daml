@@ -1,9 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package archive
+package com.daml.lf.archive
 
+import com.daml.lf.Work
 import java.util
 import com.daml.daml_lf_dev.{DamlLf1 => PLF}
 import com.daml.lf.data.ImmArray.ImmArraySeq

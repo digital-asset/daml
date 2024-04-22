@@ -1,8 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package archive.testing
+package com.daml.lf.archive.testing
 
 import com.daml.SafeProto
 import com.daml.crypto.MessageDigestPrototype
@@ -10,6 +9,7 @@ import com.daml.daml_lf_dev.{DamlLf => PLF}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.data
 
 /** The Daml-LF Encoder library can be used to build dar files directly from LF
   * definitions without passing through Damlc.

@@ -1,11 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package crypto
+package com.daml.lf.crypto
 
 import com.daml.crypto.{MacPrototype, MessageDigestPrototype}
-
+import com.daml.lf.data
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicLong
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time, Utf8}

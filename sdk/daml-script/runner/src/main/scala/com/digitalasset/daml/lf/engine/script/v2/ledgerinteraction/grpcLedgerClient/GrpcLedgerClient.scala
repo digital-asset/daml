@@ -1,9 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script
-package v2.ledgerinteraction
-package grpcLedgerClient
+package com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient
+
+import com.daml.lf.engine.script.v2.ledgerinteraction._
 
 import java.time.Instant
 import java.util.UUID
@@ -15,12 +15,12 @@ import com.daml.ledger.api.v2.commands._
 import com.daml.ledger.api.v2.event.InterfaceView
 import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeServiceStub
 import com.daml.ledger.api.v2.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
-import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v2.transaction_filter.{
   Filters,
   InclusiveFilters,
   InterfaceFilter,
   TemplateFilter,
+  TransactionFilter,
 }
 import com.daml.ledger.api.v2.{value => api}
 import com.daml.lf.CompiledPackages
@@ -29,6 +29,7 @@ import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, Ref, Time}
+import com.daml.lf.engine.script.{Disclosure, Runner}
 import com.daml.lf.engine.script.v2.Converter
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.speedy.{SValue, svalue}

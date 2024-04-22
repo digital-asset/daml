@@ -1,8 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package speedy
+package com.daml.lf.speedy
 
 /** SExpr1 -- AST for the speedy compiler pipeline. (after closure conversion phase)
   *

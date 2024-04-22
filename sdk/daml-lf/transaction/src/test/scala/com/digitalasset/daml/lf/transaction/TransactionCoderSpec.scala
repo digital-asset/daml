@@ -1,25 +1,24 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml
-package lf
-package transaction
+package com.daml.lf.transaction
 
+import com.daml.lf.EitherAssertions
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.{Party, Identifier, PackageName}
+import com.daml.lf.data.Ref.{Identifier, PackageName, Party}
 import com.daml.lf.transaction.{TransactionOuterClass => proto}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.lf.value.ValueCoder.{EncodeError, DecodeError}
+import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.google.protobuf
-import com.google.protobuf.{Message, ByteString}
-import org.scalacheck.{Gen, Arbitrary}
+import com.google.protobuf.{ByteString, Message}
+import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-
+import com.daml.lf.data
 import collection.immutable.TreeSet
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.jdk.CollectionConverters._

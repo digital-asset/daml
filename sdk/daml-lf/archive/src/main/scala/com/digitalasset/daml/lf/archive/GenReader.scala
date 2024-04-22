@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package archive
+package com.daml.lf.archive
 
 import com.google.protobuf.{ByteString, CodedInputStream}
+import com.daml.lf.data
 
 import scala.util.Using
 

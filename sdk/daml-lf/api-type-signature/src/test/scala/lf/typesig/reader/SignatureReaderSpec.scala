@@ -1,9 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package typesig
-package reader
+package com.daml.lf.typesig.reader
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.lf.data.ImmArray
@@ -17,9 +15,11 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import scalaz.\/-
 import scalaz.syntax.functor._
-
+import com.daml.lf.typesig
+import com.daml.lf.typesig._
 import java.io.File
 import scala.language.implicitConversions
+import com.daml.lf.archive
 
 class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
   import PackageSignature.TypeDecl

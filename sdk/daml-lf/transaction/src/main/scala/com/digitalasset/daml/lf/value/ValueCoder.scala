@@ -1,10 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml
-package lf
-package value
+package com.daml.lf.value
 
+import com.daml.SafeProto
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.transaction.{Versioned, TransactionVersion}
