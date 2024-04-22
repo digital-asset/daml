@@ -980,7 +980,7 @@ tests damlc =
                 )
               ]
         , test
-              "Warns when an interface is defined in a package that uses it." -- TODO: Update this test when interface usage checks are complete
+              "Warns when an interface is defined in a package that uses it."
               (SucceedWithWarning "\ESC\\[0;93mwarning while type checking interface MyLib.I :\n  The interface I was defined in this package and implemented in this package by the following templates:\n  \n  'T'\n  \n  However, it is recommended that you define interfaces in their own package.")
               LF.versionDefault
               [ ( "daml/MyLib.daml"
