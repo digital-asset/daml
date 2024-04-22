@@ -203,6 +203,14 @@ da_scala_test_suite(
             "//test-common:upgrades-SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage-v2.dar",
             "//test-common:upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
             "//test-common:upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
+
+            "//test-common:upgrades-FailsWhenAnInstanceIsDropped-dep.dar",
+            "//test-common:upgrades-FailsWhenAnInstanceIsDropped-v1.dar",
+            "//test-common:upgrades-FailsWhenAnInstanceIsDropped-v2.dar",
+
+            "//test-common:upgrades-SucceedsWhenAnInstanceIsAdded-dep.dar",
+            "//test-common:upgrades-SucceedsWhenAnInstanceIsAdded-v1.dar",
+            "//test-common:upgrades-SucceedsWhenAnInstanceIsAdded-v2.dar",
         ],
         flaky = True,
         scala_deps = [

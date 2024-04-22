@@ -1,0 +1,9 @@
+module Main where
+import Dep
+template T with
+    p: Party
+  where
+    signatory p
+    interface instance I for T where
+      view = IView "hi"
+      method1 = 2

@@ -1,0 +1,5 @@
+module Main where
+template T with
+    p: Party
+  where
+    signatory p

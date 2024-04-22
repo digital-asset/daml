@@ -594,6 +594,32 @@ trait LongTests { this: UpgradesSpec =>
         )
       )
     }
+
+    "Fails when an instance is dropped." in {
+      for {
+        _ <- uploadPackage("test-common/upgrades-FailsWhenAnInstanceIsDropped-dep.dar")
+        result <- testPackagePair(
+          "test-common/upgrades-FailsWhenAnInstanceIsDropped-v1.dar",
+          "test-common/upgrades-FailsWhenAnInstanceIsDropped-v2.dar",
+          assertPackageUpgradeCheck(
+            Some("Implementation of interface I by template T appears in package that is being upgraded, but does not appear in this package.")
+          )
+        )
+      } yield result
+    }
+
+    "Succeeds when an instance is added." in {
+      for {
+        _ <- uploadPackage("test-common/upgrades-SucceedsWhenAnInstanceIsAdded-dep.dar")
+        result <- testPackagePair(
+          "test-common/upgrades-SucceedsWhenAnInstanceIsAdded-v1.dar",
+          "test-common/upgrades-SucceedsWhenAnInstanceIsAdded-v2.dar",
+          assertPackageUpgradeCheck(
+            None
+          )
+        )
+      } yield result
+    }
   }
 }
 
