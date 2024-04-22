@@ -164,7 +164,8 @@ object UpgradeError {
       s"Tried to upgrade interface $iface, but interfaces cannot be upgraded. They should be removed in any upgrading package."
   }
 
-  final case class MissingImplementation(tpl: Ref.DottedName, iface: Ref.TypeConName) extends Error {
+  final case class MissingImplementation(tpl: Ref.DottedName, iface: Ref.TypeConName)
+      extends Error {
     override def message: String =
       s"Implementation of interface $iface by template $tpl appears in package that is being upgraded, but does not appear in this package."
   }
@@ -325,20 +326,27 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
   }
 
   private def splitModuleDts(
-    module: Ast.Module
-  ): (Map[Ref.DottedName, (Ast.DDataType, Ast.DefInterface)], Map[Ref.DottedName, Ast.DDataType]) = {
-    val datatypes: Map[Ref.DottedName, Ast.DDataType] = module.definitions.collect({ case (name, dt: Ast.DDataType) => (name, dt) })
-    val (ifaces, other) = datatypes.partitionMap({ case (tcon, dt) => lookupInterface(module, tcon, dt) })
+      module: Ast.Module
+  ): (
+      Map[Ref.DottedName, (Ast.DDataType, Ast.DefInterface)],
+      Map[Ref.DottedName, Ast.DDataType],
+  ) = {
+    val datatypes: Map[Ref.DottedName, Ast.DDataType] = module.definitions.collect({
+      case (name, dt: Ast.DDataType) => (name, dt)
+    })
+    val (ifaces, other) = datatypes.partitionMap({ case (tcon, dt) =>
+      lookupInterface(module, tcon, dt)
+    })
     (ifaces.toMap, other.toMap)
   }
 
   private def lookupInterface(
-    module: Ast.Module,
-    tcon: Ref.DottedName,
-    dt: Ast.DDataType
+      module: Ast.Module,
+      tcon: Ref.DottedName,
+      dt: Ast.DDataType,
   ): Either[
     (Ref.DottedName, (Ast.DDataType, Ast.DefInterface)),
-    (Ref.DottedName, Ast.DDataType)
+    (Ref.DottedName, Ast.DDataType),
   ] = {
     module.interfaces.get(tcon) match {
       case None => Right((tcon, dt))
@@ -346,7 +354,9 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     }
   }
 
-  def flattenInstances(module: Ast.Module): Map[(Ref.DottedName, Ref.TypeConName), (Ast.Template, Ast.TemplateImplements)] = {
+  def flattenInstances(
+      module: Ast.Module
+  ): Map[(Ref.DottedName, Ref.TypeConName), (Ast.Template, Ast.TemplateImplements)] = {
     for {
       (templateName, template) <- module.templates
       (implName, impl) <- template.implements.toMap
@@ -371,13 +381,14 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
       _ <- checkContinuedIfaces(ifaceExisting)
 
       (_instanceExisting, _instanceNew) <-
-          checkDeleted(
-            module.map(flattenInstances(_)),
-            (tplImpl: (Ref.DottedName, Ref.TypeConName), _: (Ast.Template, Ast.TemplateImplements)) => {
+        checkDeleted(
+          module.map(flattenInstances(_)),
+          (tplImpl: (Ref.DottedName, Ref.TypeConName), _: (Ast.Template, Ast.TemplateImplements)) =>
+            {
               val (tpl, impl) = tplImpl
               UpgradeError.MissingImplementation(tpl, impl)
-            }
-          )
+            },
+        )
 
       (existingDatatypes, _new) <- checkDeleted(
         unownedDts,
@@ -387,11 +398,16 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     } yield ()
   }
 
-  private def checkContinuedIfaces(ifaces: Map[Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefInterface)]]): Try[Unit] = {
-    tryAll(ifaces, (arg: (Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefInterface)])) => {
-      val (name, _) = arg
-      fail(UpgradeError.TriedToUpgradeIface(name))
-    }).map(_ => ())
+  private def checkContinuedIfaces(
+      ifaces: Map[Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefInterface)]]
+  ): Try[Unit] = {
+    tryAll(
+      ifaces,
+      (arg: (Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefInterface)])) => {
+        val (name, _) = arg
+        fail(UpgradeError.TriedToUpgradeIface(name))
+      },
+    ).map(_ => ())
   }
 
   private def checkTemplate(

@@ -581,7 +581,7 @@ trait LongTests { this: UpgradesSpec =>
         "test-common/upgrades-SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage-v2.dar",
         assertPackageUpgradeCheck(
           None
-        )
+        ),
       )
     }
 
@@ -590,8 +590,10 @@ trait LongTests { this: UpgradesSpec =>
         "test-common/upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
         "test-common/upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
         assertPackageUpgradeCheck(
-          Some("Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed in any upgrading package.")
-        )
+          Some(
+            "Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed in any upgrading package."
+          )
+        ),
       )
     }
 
@@ -602,9 +604,11 @@ trait LongTests { this: UpgradesSpec =>
           "test-common/upgrades-FailsWhenAnInstanceIsDropped-v1.dar",
           "test-common/upgrades-FailsWhenAnInstanceIsDropped-v2.dar",
           assertPackageUpgradeCheck(
-            Some("Implementation of interface .+:Dep:I by template T appears in package that is being upgraded, but does not appear in this package."),
-            true
-          )
+            Some(
+              "Implementation of interface .+:Dep:I by template T appears in package that is being upgraded, but does not appear in this package."
+            ),
+            true,
+          ),
         )
       } yield result
     }
@@ -617,7 +621,7 @@ trait LongTests { this: UpgradesSpec =>
           "test-common/upgrades-SucceedsWhenAnInstanceIsAdded-v2.dar",
           assertPackageUpgradeCheck(
             None
-          )
+          ),
         )
       } yield result
     }
@@ -654,7 +658,10 @@ abstract class UpgradesSpec(val suffix: String)
       path: String
   ): Future[(PackageId, Option[Throwable])]
 
-  def assertPackageUpgradeCheckSecondOnly(failureMessage: Option[String], failureIsRegex: Boolean = false)(
+  def assertPackageUpgradeCheckSecondOnly(
+      failureMessage: Option[String],
+      failureIsRegex: Boolean = false,
+  )(
       v1: (PackageId, Option[Throwable]),
       v2: (PackageId, Option[Throwable]),
   )(cantonLogSrc: String): Assertion =
@@ -666,7 +673,10 @@ abstract class UpgradesSpec(val suffix: String)
   )(cantonLogSrc: String): Assertion =
     assertPackageUpgradeCheckGeneral(failureMessage, failureIsRegex)(v1, v2, true)(cantonLogSrc)
 
-  def assertPackageUpgradeCheckGeneral(failureMessage: Option[String], failureIsRegex: Boolean = false)(
+  def assertPackageUpgradeCheckGeneral(
+      failureMessage: Option[String],
+      failureIsRegex: Boolean = false,
+  )(
       v1: (PackageId, Option[Throwable]),
       v2: (PackageId, Option[Throwable]),
       validateV1Checked: Boolean = true,
@@ -695,7 +705,9 @@ abstract class UpgradesSpec(val suffix: String)
           if (failureIsRegex) {
             cantonLogSrc should include regex s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade err-context:\\{additionalInfo=$additionalInfo"
           } else {
-            cantonLogSrc should include(s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade err-context:{additionalInfo=$additionalInfo")
+            cantonLogSrc should include(
+              s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade err-context:{additionalInfo=$additionalInfo"
+            )
           }
           uploadV2Result match {
             case None =>

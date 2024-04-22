@@ -241,7 +241,7 @@ checkModule module_ = do
     (_instanceExisting, _instanceNew) <-
         checkDeletedWithContext
             (\(tpl, impl) ->
-                ((ContextTemplate (_present module_) tpl TPWhole)
+                ( ContextTemplate (_present module_) tpl TPWhole
                 , EUpgradeError (MissingImplementation (NM.name tpl) (LF.qualObject (NM.name impl)))
                 ))
             (flattenInstances <$> module_)

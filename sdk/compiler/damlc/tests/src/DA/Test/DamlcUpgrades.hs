@@ -1155,10 +1155,10 @@ tests damlc =
               Nothing ->
                 pure ()
 
-            writeFiles oldDir (projectFile lfVersion "mylib-v1" Nothing (const sharedDar <$> mbSharedDep) : oldVersion)
+            writeFiles oldDir (projectFile lfVersion "mylib-v1" Nothing (sharedDar <$ mbSharedDep) : oldVersion)
             callProcessSilent damlc ["build", "--project-root", oldDir, "-o", oldDar]
 
-            writeFiles newDir (projectFile lfVersion "mylib-v2" (Just oldDar) (const sharedDar <$> mbSharedDep) : newVersion)
+            writeFiles newDir (projectFile lfVersion "mylib-v2" (Just oldDar) (sharedDar <$ mbSharedDep) : newVersion)
             case expectation of
               Succeed ->
                   callProcessSilent damlc ["build", "--project-root", newDir, "-o", newDar]
