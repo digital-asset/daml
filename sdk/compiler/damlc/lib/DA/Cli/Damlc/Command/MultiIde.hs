@@ -33,7 +33,7 @@ import DA.Cli.Damlc.Command.MultiIde.Prefixing
 import DA.Cli.Damlc.Command.MultiIde.Util
 import DA.Cli.Damlc.Command.MultiIde.Parsing
 import DA.Cli.Damlc.Command.MultiIde.Types
-import DA.Cli.Damlc.Command.MultiIde.DarDependencies (resolveSourceLocation)
+import DA.Cli.Damlc.Command.MultiIde.DarDependencies (resolveSourceLocation, unpackDar, unpackedDarsLocation)
 import DA.Daml.LanguageServer.SplitGotoDefinition
 import DA.Daml.LF.Reader (DalfManifest(..), readDalfManifest)
 import DA.Daml.Package.Config (MultiPackageConfigFields(..), findMultiPackageConfig, withMultiPackageConfig)
@@ -44,7 +44,7 @@ import Data.Either (lefts)
 import Data.Either.Extra (eitherToMaybe)
 import Data.Foldable (traverse_)
 import Data.Functor.Product
-import Data.List (find)
+import Data.List (find, isInfixOf)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes, fromMaybe, isJust, mapMaybe, maybeToList)
 import qualified Data.Set as Set
@@ -243,11 +243,15 @@ runSubProc miState home = do
 
 -- Spin-down logic
 
-rebootIdeByPath :: MultiIdeState -> FilePath -> IO ()
-rebootIdeByPath miState home = do
+shutdownIdeByPath :: MultiIdeState -> FilePath -> IO ()
+shutdownIdeByPath miState home = do
   ides <- atomically $ takeTMVar (subIDEsVar miState)
   ides' <- shutdownIdeWithLock miState ides (lookupSubIde home ides)
   atomically $ putTMVar (subIDEsVar miState) ides'
+
+rebootIdeByPath :: MultiIdeState -> FilePath -> IO ()
+rebootIdeByPath miState home = do
+  shutdownIdeByPath miState home
   addNewSubIDEAndSend miState home Nothing
 
 -- Version of rebootIdeByPath that only spins up IDEs that were either active, or disabled.
@@ -436,6 +440,17 @@ removeOpenFile miState home file = do
   unsafeIOToSTM $ logInfo miState $ "Removed open file " <> file <> " from " <> home
   onOpenFiles miState home $ Set.delete file
 
+resolveAndUnpackSourceLocation :: MultiIdeState -> PackageSourceLocation -> IO FilePath
+resolveAndUnpackSourceLocation miState pkgSource = do
+  (pkgPath, mDarPath) <- resolveSourceLocation miState pkgSource
+  forM_ mDarPath $ \darPath -> do
+    -- Must shutdown existing IDE first, since folder could be deleted
+    -- If no IDE exists, shutdown is a no-op
+    logDebug miState $ "Shutting down existing unpacked dar at " <> pkgPath
+    shutdownIdeByPath miState pkgPath
+    unpackDar miState darPath
+  pure pkgPath
+
 -- Handlers
 
 subIDEMessageHandler :: MultiIdeState -> IO () -> SubIDEInstance -> B.ByteString -> IO ()
@@ -498,7 +513,7 @@ subIDEMessageHandler miState unblock ide bs = do
               Nothing -> replyLocations [loc]
               -- We found a daml.yaml for this definition, send the getDefinitionByName request to its SubIDE
               Just sourceLocation -> do
-                home <- resolveSourceLocation miState sourceLocation
+                home <- resolveAndUnpackSourceLocation miState sourceLocation
                 logDebug miState $ "Found unit ID in multi-package mapping, forwarding to " <> home
                 let method = LSP.SCustomMethod "daml/gotoDefinitionByName"
                     lspId = maybe (error "No LspId provided back from tryGetDefinition") castLspId _id
@@ -601,7 +616,13 @@ clientMessageHandler miState unblock bs = do
 
     -- Watched file changes, used for restarting subIDEs and changing coordinator state
     LSP.FromClientMess LSP.SWorkspaceDidChangeWatchedFiles msg@LSP.NotificationMessage {_params = LSP.DidChangeWatchedFilesParams (LSP.List changes)} -> do
-      let changedPaths = mapMaybe (\event -> fmap (,event ^. LSP.xtype) $ LSP.uriToFilePath $ event ^. LSP.uri) changes
+      let changedPaths =
+            mapMaybe (\event -> do
+              path <- LSP.uriToFilePath $ event ^. LSP.uri
+              -- Filter out any changes to unpacked dars, no reloading logic should happen there
+              guard $ not $ unpackedDarsLocation miState `isInfixOf` path
+              pure (path ,event ^. LSP.xtype)
+            ) changes
       forM_ changedPaths $ \(changedPath, changeType) ->
         case takeFileName changedPath of
           "daml.yaml" -> do
