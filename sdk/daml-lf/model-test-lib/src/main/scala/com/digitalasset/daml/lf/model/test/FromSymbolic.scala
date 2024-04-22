@@ -84,6 +84,12 @@ class FromSymbolic(numParties: Int, ctx: Context, model: Model) {
       )
     case Symbolic.Fetch(contractId) =>
       L.Fetch(evalContractId(contractId))
+    case Symbolic.LookupByKey(contractId, keyId, maintainers) =>
+      L.LookupByKey(
+        contractId.map(evalContractId),
+        evalkeyId(keyId),
+        evalPartySet(maintainers),
+      )
     case Symbolic.Rollback(subTransaction) =>
       L.Rollback(subTransaction.map(toConcrete))
   }

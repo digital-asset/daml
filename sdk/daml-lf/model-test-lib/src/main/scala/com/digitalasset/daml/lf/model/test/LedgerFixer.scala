@@ -163,6 +163,7 @@ class LedgerFixer(numParties: Int) {
         } yield L.Rollback(fixedSubTransaction)
       case S.CreateWithKey() => ???
       case S.ExerciseByKey(_, _) => ???
+      case S.LookupByKey(_) => ???
     }
   }
 

@@ -54,6 +54,8 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
       subTransaction.view.flatMap(collectCreates).toSet
     case Fetch(_) =>
       Set.empty
+    case LookupByKey(_, _, _) =>
+      Set.empty
     case Rollback(subTransaction) =>
       subTransaction.view.flatMap(collectCreates).toSet
   }
@@ -71,6 +73,8 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     case ExerciseByKey(_, _, keyId, _, _, _, subTransaction) =>
       subTransaction.view.flatMap(collectkeyIds).toSet + keyId
     case Fetch(_) =>
+      Set.empty
+    case LookupByKey(_, _, _) =>
       Set.empty
     case Rollback(subTransaction) =>
       subTransaction.view.flatMap(collectkeyIds).toSet
@@ -90,6 +94,8 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
       subTransaction.view.flatMap(collectReferences).toSet + contractId
     case Fetch(contractId) =>
       Set(contractId)
+    case LookupByKey(contractId, _, _) =>
+      contractId.fold(Set.empty[ContractId])(Set(_))
     case Rollback(subTransaction) =>
       subTransaction.view.flatMap(collectReferences).toSet
   }
@@ -111,6 +117,8 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
         )
       case Fetch(_) =>
         List.empty
+      case LookupByKey(_, _, maintainers) =>
+        List(maintainers)
       case Rollback(subTransaction) =>
         subTransaction.flatMap(collectActionPartySets)
     }
@@ -133,6 +141,8 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
         maintainers +: controllers +: subTransaction.flatMap(collectActionNonEmptyPartySets)
       case Fetch(_) =>
         List.empty
+      case LookupByKey(_, _, maintainers) =>
+        List(maintainers)
       case Rollback(subTransaction) =>
         subTransaction.flatMap(collectActionNonEmptyPartySets)
     }
@@ -158,7 +168,9 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
       case ExerciseByKey(_, _, _, _, _, _, subTransaction) =>
         and(subTransaction.map(numberAction))
       case Fetch(_) =>
-        ctx.mkBool(true)
+        ctx.mkTrue()
+      case LookupByKey(_, _, _) =>
+        ctx.mkTrue()
       case Rollback(subTransaction) =>
         and(subTransaction.map(numberAction))
     }
@@ -265,7 +277,7 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
           ctx.mkAnd(
             elem(contractId, oldState.created),
             ctx.mkNot(elem(contractId, oldState.consumed)),
-            ctx.mkEq(ctx.mkApp(hasKey, contractId), ctx.mkTrue()),
+            ctx.mkApp(hasKey, contractId),
             ctx.mkEq(ctx.mkApp(keyIdsOf, contractId), keyId),
             ctx.mkEq(ctx.mkApp(maintainersOf, contractId), maintainers),
             and(subTransaction.map(consistentAction)),
@@ -275,6 +287,30 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
             elem(contractId, state.created),
             ctx.mkNot(elem(contractId, state.consumed)),
           )
+        case LookupByKey(contractId, keyId, maintainers) =>
+          contractId match {
+            case Some(cid) =>
+              ctx.mkAnd(
+                elem(cid, state.created),
+                ctx.mkNot(elem(cid, state.consumed)),
+                ctx.mkApp(hasKey, cid),
+                ctx.mkEq(ctx.mkApp(keyIdsOf, cid), keyId),
+                ctx.mkEq(ctx.mkApp(maintainersOf, cid), maintainers),
+              )
+            case None =>
+              and(
+                for {
+                  cid <- state.created.toSeq
+                } yield ctx.mkImplies(
+                  ctx.mkAnd(
+                    ctx.mkApp(hasKey, cid),
+                    ctx.mkEq(ctx.mkApp(keyIdsOf, cid), keyId),
+                    ctx.mkEq(ctx.mkApp(maintainersOf, cid), maintainers),
+                  ),
+                  elem(cid, state.consumed),
+                )
+              )
+          }
         case Rollback(subTransaction) =>
           val oldState = state
           val subConstraint = and(subTransaction.map(consistentAction))
@@ -323,6 +359,13 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
         )
       case Fetch(contractId) =>
         visibleContractId(participantId, contractId)
+      case LookupByKey(contractId, _, _) =>
+        contractId match {
+          case Some(cid) =>
+            visibleContractId(participantId, cid)
+          case None =>
+            ctx.mkTrue()
+        }
       case Rollback(subTransaction) =>
         and(subTransaction.map(visibleAction(participantId, _)))
     }
@@ -414,6 +457,8 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
             )
           )
         )
+      case LookupByKey(_, _, maintainers) =>
+        ctx.mkSetSubset(maintainers, actAs)
       case Rollback(subTransaction) =>
         and(subTransaction.map(authorizedAction(actAs, _)))
     }
@@ -472,6 +517,8 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
       case ExerciseByKey(_, _, _, _, _, _, subTransaction) =>
         and(subTransaction.map(validAction))
       case Fetch(_) =>
+        ctx.mkTrue()
+      case LookupByKey(_, _, _) =>
         ctx.mkTrue()
       case Rollback(subTransaction) =>
         and(subTransaction.map(validAction))
