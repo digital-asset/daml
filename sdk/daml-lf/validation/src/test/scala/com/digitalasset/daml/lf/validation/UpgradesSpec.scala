@@ -602,7 +602,8 @@ trait LongTests { this: UpgradesSpec =>
           "test-common/upgrades-FailsWhenAnInstanceIsDropped-v1.dar",
           "test-common/upgrades-FailsWhenAnInstanceIsDropped-v2.dar",
           assertPackageUpgradeCheck(
-            Some("Implementation of interface I by template T appears in package that is being upgraded, but does not appear in this package.")
+            Some("Implementation of interface .+:Dep:I by template T appears in package that is being upgraded, but does not appear in this package."),
+            true
           )
         )
       } yield result
@@ -653,19 +654,19 @@ abstract class UpgradesSpec(val suffix: String)
       path: String
   ): Future[(PackageId, Option[Throwable])]
 
-  def assertPackageUpgradeCheckSecondOnly(failureMessage: Option[String])(
+  def assertPackageUpgradeCheckSecondOnly(failureMessage: Option[String], failureIsRegex: Boolean = false)(
       v1: (PackageId, Option[Throwable]),
       v2: (PackageId, Option[Throwable]),
   )(cantonLogSrc: String): Assertion =
-    assertPackageUpgradeCheckGeneral(failureMessage)(v1, v2, false)(cantonLogSrc)
+    assertPackageUpgradeCheckGeneral(failureMessage, failureIsRegex)(v1, v2, false)(cantonLogSrc)
 
-  def assertPackageUpgradeCheck(failureMessage: Option[String])(
+  def assertPackageUpgradeCheck(failureMessage: Option[String], failureIsRegex: Boolean = false)(
       v1: (PackageId, Option[Throwable]),
       v2: (PackageId, Option[Throwable]),
   )(cantonLogSrc: String): Assertion =
-    assertPackageUpgradeCheckGeneral(failureMessage)(v1, v2, true)(cantonLogSrc)
+    assertPackageUpgradeCheckGeneral(failureMessage, failureIsRegex)(v1, v2, true)(cantonLogSrc)
 
-  def assertPackageUpgradeCheckGeneral(failureMessage: Option[String])(
+  def assertPackageUpgradeCheckGeneral(failureMessage: Option[String], failureIsRegex: Boolean = false)(
       v1: (PackageId, Option[Throwable]),
       v2: (PackageId, Option[Throwable]),
       validateV1Checked: Boolean = true,
@@ -691,9 +692,11 @@ abstract class UpgradesSpec(val suffix: String)
       failureMessage match {
         // If a failure message is expected, look for it in the canton logs
         case Some(additionalInfo) => {
-          cantonLogSrc should include(
-            s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade err-context:{additionalInfo=$additionalInfo"
-          )
+          if (failureIsRegex) {
+            cantonLogSrc should include regex s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade err-context:\\{additionalInfo=$additionalInfo"
+          } else {
+            cantonLogSrc should include(s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade err-context:{additionalInfo=$additionalInfo")
+          }
           uploadV2Result match {
             case None =>
               fail(s"Uploading second package $testPackageV2Id should fail but didn't.");

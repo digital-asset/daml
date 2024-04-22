@@ -212,7 +212,7 @@ da_scala_test_suite(
             "//test-common:upgrades-SucceedsWhenAnInstanceIsAdded-v1.dar",
             "//test-common:upgrades-SucceedsWhenAnInstanceIsAdded-v2.dar",
         ],
-        flaky = True,
+        flaky = False,
         scala_deps = [
             "@maven//:org_apache_pekko_pekko_actor",
             "@maven//:org_apache_pekko_pekko_stream",
