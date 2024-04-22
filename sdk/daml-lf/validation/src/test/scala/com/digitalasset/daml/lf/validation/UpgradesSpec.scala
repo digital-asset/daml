@@ -592,18 +592,18 @@ abstract class UpgradesSpec(val suffix: String)
   override lazy val devMode = true;
   override val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles
 
-  protected def loadPackageIdAndBS(path: String): Future[(PackageId, ByteString)] = {
+  protected def loadPackageIdAndBS(path: String): (PackageId, ByteString) = {
     val dar = DarReader.assertReadArchiveFromFile(new File(BazelRunfiles.rlocation(path)))
     assert(dar != null, s"Unable to load test package resource '$path'")
 
-    val testPackage = Future {
+    val testPackage = {
       val in = new FileInputStream(new File(BazelRunfiles.rlocation(path)))
       assert(in != null, s"Unable to load test package resource '$path'")
       in
     }
-    val bytes = testPackage.map(ByteString.readFrom)
-    bytes.onComplete(_ => testPackage.map(_.close()))
-    bytes.map((dar.main.pkgId, _))
+    val bytes = ByteString.readFrom(testPackage)
+    testPackage.close()
+    dar.main.pkgId -> bytes
   }
 
 
@@ -618,20 +618,16 @@ abstract class UpgradesSpec(val suffix: String)
 
   def uploadPackage(
                      path: String
-                   ): Future[(PackageId, Option[Throwable])] =
-    for {
-      entry <- loadPackageIdAndBS(path)
-      (pkgId, archive) = entry
-      r <- uploadPackageImpl(pkgId, archive)
-    } yield pkgId -> r
+                   ): Future[(PackageId, Option[Throwable])] = {
+    val (pkgId, archive) = loadPackageIdAndBS(path)
+    uploadPackageImpl(pkgId, archive).map(pkgId -> _)
+  }
 
-
-  final def uploadPackagePair(pkgds: Upgrading[String]): Future[Upgrading[(PackageId, Option[Throwable])]] =
-    for {
-      past <- loadPackageIdAndBS(pkgds.past)
-      present <- loadPackageIdAndBS(pkgds.present)
-      r <- uploadPackagePairImpl(Upgrading(past, present))
-    } yield r
+  final def uploadPackagePair(pkgds: Upgrading[String]): Future[Upgrading[(PackageId, Option[Throwable])]] = {
+      val past = loadPackageIdAndBS(pkgds.past)
+      val present = loadPackageIdAndBS(pkgds.present)
+    uploadPackagePairImpl(Upgrading(past, present))
+    }
 
   def assertPackageUpgradeCheckSecondOnly(failureMessage: Option[String])(
       v1: (PackageId, Option[Throwable]),
