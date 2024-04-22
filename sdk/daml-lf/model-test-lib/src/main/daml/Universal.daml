@@ -40,6 +40,10 @@ data TxAction
         , choiceObservers : [Party]
         , subTransaction : Transaction
         }
+    | LookupByKey
+        { keyId: Int
+        , maintainers: [Party]
+        }
 #endif
     | CreateAndExercise
         { kind : Kind
@@ -198,6 +202,11 @@ interpretTxAction env action =
         UniversalWithKeyContractId cid -> do
           fetch cid
           return env
+#endif
+#ifdef DAML_CONTRACT_KEYS
+    (LookupByKey keyId maintainers) -> do
+      lookupByKey @UniversalWithKey (keyId, maintainers)
+      return env
 #endif
     (Rollback subTransaction) -> do
       try do

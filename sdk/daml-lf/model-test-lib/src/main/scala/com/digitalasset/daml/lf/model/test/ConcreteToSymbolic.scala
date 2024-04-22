@@ -128,6 +128,19 @@ object ConcreteToSymbolic {
         val contractId = mkFreshContractId()
         val _ = constraints += ctx.mkEq(contractId, ctx.mkInt(fetch.contractId))
         Sym.Fetch(contractId)
+      case lookup: Conc.LookupByKey =>
+        val keyId = mkFreshKeyId()
+        val maintainers = mkFreshPartySet("m")
+        val _ = constraints += ctx.mkEq(keyId, ctx.mkInt(lookup.keyId))
+        val _ = constraints += ctx.mkEq(maintainers, toSymbolic(lookup.maintainers))
+        lookup.contractId match {
+          case Some(cid) =>
+            val conctractId = mkFreshContractId()
+            val _ = constraints += ctx.mkEq(conctractId, ctx.mkInt(cid))
+            Sym.LookupByKey(Some(ctx.mkInt(cid)), keyId, maintainers)
+          case None =>
+            Sym.LookupByKey(None, keyId, maintainers)
+        }
       case rollback: Conc.Rollback =>
         Sym.Rollback(rollback.subTransaction.map(toSymbolic))
     }

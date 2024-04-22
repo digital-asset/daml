@@ -186,6 +186,18 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
             ),
           )
         )
+      case LookupByKey(_, keyId, maintainers) =>
+        for {
+          concreteMaintainers <- partySetToValue(partyIds, maintainers)
+        } yield mkVariant(
+          "Universal:TxAction",
+          "LookupByKey",
+          mkRecord(
+            "Universal:TxAction.LookupByKey",
+            "keyId" -> V.ValueInt64(keyId.longValue),
+            "maintainers" -> concreteMaintainers,
+          ),
+        )
       case Rollback(subTransaction) =>
         for {
           translatedActions <- subTransaction.traverse(actionToValue(partyIds, _))
@@ -322,6 +334,8 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
           ),
         )
       case Fetch(_) => throw new RuntimeException("Fetch not supported at command level")
+      case LookupByKey(_, _, _) =>
+        throw new RuntimeException("LookupByKey not supported at command level")
       case Rollback(_) => throw new RuntimeException("Rollback not supported at command level")
     }
 }
