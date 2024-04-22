@@ -300,16 +300,9 @@ function getLanguageServerArgs(
   const extraArgs = extraArgsString === "" ? [] : extraArgsString.split(" ");
   args = args.concat(extraArgs);
   const serverArgs: string[] = addIfInConfig(config, args, [
-    ["experimental", ["--experimental"]],
     ["profile", ["+RTS", "-h", "-RTS"]],
     ["autorunAllTests", ["--studio-auto-run-all-scenarios=yes"]],
   ]);
-
-  if (config.get("experimental")) {
-    vscode.window.showWarningMessage(
-      "Daml's Experimental feature flag is enabled, this may cause instability",
-    );
-  }
 
   return serverArgs;
 }

@@ -90,11 +90,6 @@
                     "default": "Warning",
                     "description": "Sets the logging threshold of the daml-ide and multi-ide"
                 },
-                "daml.experimental": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable experimental features in the IDE, this may break things"
-                },
                 "daml.profile": {
                     "type": "boolean",
                     "default": false,
