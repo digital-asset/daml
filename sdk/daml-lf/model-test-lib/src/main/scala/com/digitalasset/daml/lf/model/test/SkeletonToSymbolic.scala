@@ -77,6 +77,12 @@ object SkeletonToSymbolic {
         )
       case Skel.Fetch() =>
         Sym.Fetch(mkFreshContractId())
+      case Skel.LookupByKey(successful) =>
+        Sym.LookupByKey(
+          if (successful) Some(mkFreshContractId()) else None,
+          mkFreshkeyId(),
+          mkFreshPartySet("m"),
+        )
       case Skel.Rollback(subTransaction) =>
         Sym.Rollback(subTransaction.map(toSymbolic))
     }
