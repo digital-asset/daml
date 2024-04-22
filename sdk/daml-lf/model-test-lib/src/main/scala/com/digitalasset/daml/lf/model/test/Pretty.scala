@@ -78,6 +78,13 @@ object Pretty {
         )
       case Fetch(contractId) =>
         Tree(s"Fetch $contractId", Nil)
+      case LookupByKey(contractId, keyId, maintainers) =>
+        contractId match {
+          case Some(cid) =>
+            Tree(s"LookupByKey success $cid", Nil)
+          case None =>
+            Tree(s"LookupByKey failure key=($keyId, ${prettyParties(maintainers)})", Nil)
+        }
       case Rollback(subTransaction) =>
         Tree(s"Rollback", subTransaction.map(actionToTree))
     }
@@ -133,6 +140,8 @@ object Pretty {
         )
       case Fetch() =>
         Tree("Fetch", Nil)
+      case LookupByKey(successful) =>
+        Tree(s"LookupByKey ${if (successful) "success" else "failure"}", Nil)
       case Rollback(subTransaction) =>
         Tree(s"Rollback", subTransaction.map(actionToTree))
     }
@@ -225,6 +234,13 @@ object Pretty {
         )
       case Fetch(contractId) =>
         Tree(s"Fetch $contractId", Nil)
+      case LookupByKey(contractId, keyId, maintainers) =>
+        contractId match {
+          case Some(cid) =>
+            Tree(s"LookupByKey success $cid", Nil)
+          case None =>
+            Tree(s"LookupByKey failure key=($keyId, ${prettyParties(maintainers)})", Nil)
+        }
       case Rollback(subTransaction) =>
         Tree(s"Rollback", subTransaction.map(actionToTree))
     }
