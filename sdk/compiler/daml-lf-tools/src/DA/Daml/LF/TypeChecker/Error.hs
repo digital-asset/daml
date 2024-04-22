@@ -189,7 +189,7 @@ data UpgradeError
   | TemplateRemovedKey !TypeConName !TemplateKey
   | TemplateAddedKey !TypeConName !TemplateKey
   | TriedToUpgradeIface !TypeConName
-  | MissingImplementation !TypeConName !(Qualified TypeConName)
+  | MissingImplementation !TypeConName !TypeConName
   deriving (Eq, Ord, Show)
 
 data UpgradedRecordOrigin

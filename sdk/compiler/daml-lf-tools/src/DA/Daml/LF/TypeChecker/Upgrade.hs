@@ -17,6 +17,7 @@ import           DA.Daml.LF.Ast.Alpha (alphaExpr, alphaType)
 import           DA.Daml.LF.TypeChecker.Check (expandTypeSynonyms)
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
+import           Data.Bifunctor (first)
 import           Data.Data
 import           Data.Either (partitionEithers)
 import           Data.Hashable
@@ -109,19 +110,42 @@ checkDeleted
     => (a -> Error)
     -> Upgrading (HMS.HashMap k a)
     -> TcUpgradeM (HMS.HashMap k (Upgrading a), HMS.HashMap k a)
-checkDeleted handleError upgrade = do
+checkDeleted handleError upgrade =
+    checkDeletedG ((Nothing,) . handleError) upgrade
+
+checkDeletedWithContext
+    :: (Eq k, Hashable k)
+    => (a -> (Context, Error))
+    -> Upgrading (HMS.HashMap k a)
+    -> TcUpgradeM (HMS.HashMap k (Upgrading a), HMS.HashMap k a)
+checkDeletedWithContext handleError upgrade =
+    checkDeletedG (first Just . handleError) upgrade
+
+checkDeletedG
+    :: (Eq k, Hashable k)
+    => (a -> (Maybe Context, Error))
+    -> Upgrading (HMS.HashMap k a)
+    -> TcUpgradeM (HMS.HashMap k (Upgrading a), HMS.HashMap k a)
+checkDeletedG handleError upgrade = do
     let (deleted, existing, new) = extractDelExistNew upgrade
     throwIfNonEmpty handleError deleted
     pure (existing, new)
 
 throwIfNonEmpty
     :: (Eq k, Hashable k)
-    => (a -> Error)
+    => (a -> (Maybe Context, Error))
     -> HMS.HashMap k a
     -> TcUpgradeM ()
 throwIfNonEmpty handleError hm =
     case HMS.toList hm of
-      ((_, first):_) -> throwWithContextF present $ handleError first
+      ((_, first):_) ->
+          let (ctx, err) = handleError first
+              ctxHandler =
+                  case ctx of
+                    Nothing -> id
+                    Just ctx -> withContextF present ctx
+          in
+          ctxHandler $ throwWithContextF present err
       _ -> pure ()
 
 checkModule :: Upgrading LF.Module -> TcUpgradeM ()
@@ -215,8 +239,11 @@ checkModule module_ = do
             , implementation <- NM.elems (tplImplements template)
             ]
     (_instanceExisting, _instanceNew) <-
-        checkDeleted
-            (\(tpl, impl) -> EUpgradeError (MissingImplementation (NM.name tpl) (NM.name impl)))
+        checkDeletedWithContext
+            (\(tpl, impl) ->
+                ((ContextTemplate (_present module_) tpl TPWhole)
+                , EUpgradeError (MissingImplementation (NM.name tpl) (LF.qualObject (NM.name impl)))
+                ))
             (flattenInstances <$> module_)
 
     -- checkDeleted should only trigger on datatypes not belonging to templates or choices or interfaces, which we checked above
