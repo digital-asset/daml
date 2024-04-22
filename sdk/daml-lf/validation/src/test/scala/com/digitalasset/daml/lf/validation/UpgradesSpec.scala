@@ -45,42 +45,39 @@ class UpgradesSpecLedgerAPIWithValidation
     with LongTests
 
 abstract class UpgradesSpecAdminAPI(override val suffix: String) extends UpgradesSpec(suffix) {
-  override def uploadPackage(
-      path: String
-  ): Future[(PackageId, Option[Throwable])] = {
+  override def uploadPackageImpl(
+      pkgId: PackageId, archive: ByteString,
+  ): Future[Option[Throwable]] = {
     val client = AdminLedgerClient.singleHost(
       ledgerPorts(0).adminPort,
       config,
     )
-    for {
-      (testPackageId, testPackageBS) <- loadPackageIdAndBS(path)
-      uploadResult <- client
-        .uploadDar(testPackageBS, path)
-        .transform({
-          case Failure(err) => Success(Some(err));
-          case Success(_) => Success(None);
-        })
-    } yield (testPackageId, uploadResult)
+    client
+      .uploadDar(archive, "-archive-")
+      .transform {
+        case Failure(err) => Success(Some(err));
+        case Success(_) => Success(None);
+      }
   }
 
-  override def uploadPackagePair(
-      path: Upgrading[String]
+  override def uploadPackagePairImpl(
+      path: Upgrading[(PackageId, ByteString)]
   ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
     val client = AdminLedgerClient.singleHost(
       ledgerPorts(0).adminPort,
       config,
     )
+    val (testPackageV1Id, testPackageV1BS) = path.past
+    val (testPackageV2Id, testPackageV2BS) = path.present
     for {
-      (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(path.past)
-      (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(path.present)
       uploadV1Result <- client
-        .uploadDar(testPackageV1BS, path.past)
+        .uploadDar(testPackageV1BS, "past.dar")
         .transform({
           case Failure(err) => Success(Some(err));
           case Success(_) => Success(None);
         })
       uploadV2Result <- client
-        .uploadDar(testPackageV2BS, path.present)
+        .uploadDar(testPackageV2BS, "present.dar")
         .transform({
           case Failure(err) => Success(Some(err));
           case Success(_) => Success(None);
@@ -94,42 +91,40 @@ abstract class UpgradesSpecAdminAPI(override val suffix: String) extends Upgrade
 
 class UpgradesSpecLedgerAPI(override val suffix: String = "Ledger API")
     extends UpgradesSpec(suffix) {
-  override def uploadPackage(
-      path: String
-  ): Future[(PackageId, Option[Throwable])] = {
+
+  override def uploadPackageImpl(pkgId: PackageId, archive: ByteString): Future[Option[Throwable]] = {
     for {
       client <- defaultLedgerClient()
-      (testPackageId, testPackageBS) <- loadPackageIdAndBS(path)
       uploadResult <- client.packageManagementClient
-        .uploadDarFile(testPackageBS)
-        .transform({
+        .uploadDarFile(archive)
+        .transform{
           case Failure(err) => Success(Some(err));
           case Success(_) => Success(None);
-        })
-    } yield (testPackageId, uploadResult)
+        }
+    } yield uploadResult
   }
 
-  override def uploadPackagePair(
-      path: Upgrading[String]
+  override def uploadPackagePairImpl(
+      path: Upgrading[(PackageId, ByteString)]
   ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
+    val  (testPackageV1Id, testPackageV1BS) = path.past
+    val (testPackageV2Id, testPackageV2BS) = path.present
     for {
       client <- defaultLedgerClient()
-      (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(path.past)
-      (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(path.present)
       _ = logger.info(s"Uploading package ${path.past} $testPackageV1Id")
       uploadV1Result <- client.packageManagementClient
         .uploadDarFile(testPackageV1BS)
-        .transform({
+        .transform{
           case Failure(err) => Success(Some(err));
           case Success(_) => Success(None);
-        })
+        }
       _ = logger.info(s"Uploading package ${path.present} $testPackageV2Id")
       uploadV2Result <- client.packageManagementClient
         .uploadDarFile(testPackageV2BS)
-        .transform({
+        .transform{
           case Failure(err) => Success(Some(err));
           case Success(_) => Success(None);
-        })
+        }
     } yield Upgrading(
       (testPackageV1Id, uploadV1Result),
       (testPackageV2Id, uploadV2Result),
@@ -611,13 +606,32 @@ abstract class UpgradesSpec(val suffix: String)
     bytes.map((dar.main.pkgId, _))
   }
 
-  def uploadPackagePair(
-      path: Upgrading[String]
-  ): Future[Upgrading[(PackageId, Option[Throwable])]]
+
+
+  def uploadPackageImpl(pkgId: PackageId, archive: ByteString): Future[Option[Throwable]]
+
+
+  def uploadPackagePairImpl(
+                             pkgs: Upgrading[(PackageId, ByteString)]
+                           ): Future[Upgrading[(PackageId, Option[Throwable])]]
+
 
   def uploadPackage(
-      path: String
-  ): Future[(PackageId, Option[Throwable])]
+                     path: String
+                   ): Future[(PackageId, Option[Throwable])] =
+    for {
+      entry <- loadPackageIdAndBS(path)
+      (pkgId, archive) = entry
+      r <- uploadPackageImpl(pkgId, archive)
+    } yield pkgId -> r
+
+
+  final def uploadPackagePair(pkgds: Upgrading[String]): Future[Upgrading[(PackageId, Option[Throwable])]] =
+    for {
+      past <- loadPackageIdAndBS(pkgds.past)
+      present <- loadPackageIdAndBS(pkgds.present)
+      r <- uploadPackagePairImpl(Upgrading(past, present))
+    } yield r
 
   def assertPackageUpgradeCheckSecondOnly(failureMessage: Option[String])(
       v1: (PackageId, Option[Throwable]),
