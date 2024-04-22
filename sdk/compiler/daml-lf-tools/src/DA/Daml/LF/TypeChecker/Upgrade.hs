@@ -202,8 +202,8 @@ checkModule module_ = do
     -- Check that no interfaces have been deleted, nor propagated
     -- New interface checks are handled by `checkNewInterfacesAreUnused`,
     -- invoked in `singlePkgDiagnostics` above
-    let (ifaceDel, ifaceExisting, _ifaceNew) = extractDelExistNew ifaceDts
-    checkDeletedIfaces ifaceDel
+    -- Interface deletion is the correct behaviour so we ignore that
+    let (_ifaceDel, ifaceExisting, _ifaceNew) = extractDelExistNew ifaceDts
     checkContinuedIfaces module_ ifaceExisting
 
     -- checkDeleted should only trigger on datatypes not belonging to templates or choices or interfaces, which we checked above
@@ -220,10 +220,6 @@ checkModule module_ = do
         else do
             let (presentOrigin, context) = _present origin
             withContextF present context $ checkDefDataType presentOrigin dt
-
--- Noop - it is the correct thing to delete an interface
-checkDeletedIfaces :: HMS.HashMap LF.TypeConName (DefDataType, DefInterface) -> TcUpgradeM ()
-checkDeletedIfaces _ = pure ()
 
 -- It is always invalid to keep an interface in an upgrade
 checkContinuedIfaces
