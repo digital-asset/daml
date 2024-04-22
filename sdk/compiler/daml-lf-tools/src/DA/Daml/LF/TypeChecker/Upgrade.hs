@@ -206,6 +206,19 @@ checkModule module_ = do
     let (_ifaceDel, ifaceExisting, _ifaceNew) = extractDelExistNew ifaceDts
     checkContinuedIfaces module_ ifaceExisting
 
+    let flattenInstances
+            :: Module
+            -> HMS.HashMap (TypeConName, Qualified TypeConName) (Template, TemplateImplements)
+        flattenInstances module_ = HMS.fromList
+            [ ((NM.name template, NM.name implementation), (template, implementation))
+            | template <- NM.elems (moduleTemplates module_)
+            , implementation <- NM.elems (tplImplements template)
+            ]
+    (_instanceExisting, _instanceNew) <-
+        checkDeleted
+            (\(tpl, impl) -> EUpgradeError (MissingImplementation (NM.name tpl) (NM.name impl)))
+            (flattenInstances <$> module_)
+
     -- checkDeleted should only trigger on datatypes not belonging to templates or choices or interfaces, which we checked above
     (dtExisting, _dtNew) <- checkDeleted (EUpgradeError . MissingDataCon . NM.name) unownedDts
 
