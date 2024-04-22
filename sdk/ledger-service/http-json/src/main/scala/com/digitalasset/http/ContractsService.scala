@@ -216,13 +216,13 @@ class ContractsService(
           templateId.cata(
             x =>
               resolveContractTypeId(jwt, ledgerId)(x)
-                .map(_.toOption.flatten.map({ x => Seq(x) })),
+                .map(_.toOption.flatten.map({ r => Set(r) })),
             // ignoring interface IDs for all-templates query
-            allTemplateIds(lc)(jwt, ledgerId).map(_.toSeq.some),
+            allTemplateIds(lc)(jwt, ledgerId).map(_.toSet[ContractTypeRef.Resolved].some),
           )
         )
         resolvedQuery <- OptionT(
-          Future(domain.ResolvedQuery.apply(resolvedTemplateIds.toSet).toOption)
+          Future(domain.ResolvedQuery.apply(resolvedTemplateIds).toOption)
         )
         result <- OptionT(
           searchInMemory(
