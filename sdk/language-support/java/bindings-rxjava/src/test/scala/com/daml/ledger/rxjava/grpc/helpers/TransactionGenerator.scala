@@ -279,17 +279,18 @@ object TransactionGenerator {
   } yield (
     Exercised(
       ExercisedEvent(
-        eventId,
-        contractId,
-        Some(scalaTemplateId),
-        scalaInterfaceId,
-        choice,
-        Some(scalaChoiceArgument),
-        actingParties,
-        consuming,
-        witnessParties,
-        Nil,
-        Some(scalaExerciseResult),
+        eventId = eventId,
+        contractId = contractId,
+        templateId = Some(scalaTemplateId),
+        packageName = None,
+        interfaceId = scalaInterfaceId,
+        choice = choice,
+        choiceArgument = Some(scalaChoiceArgument),
+        actingParties = actingParties,
+        consuming = consuming,
+        witnessParties = witnessParties,
+        childEventIds = Nil,
+        exerciseResult = Some(scalaExerciseResult),
       )
     ),
     new data.ExercisedEvent(
