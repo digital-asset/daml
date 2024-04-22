@@ -21,6 +21,7 @@ import           Data.Data
 import           Data.Either (partitionEithers)
 import           Data.Hashable
 import qualified Data.HashMap.Strict as HMS
+import           Data.List (foldl')
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import           Development.IDE.Types.Diagnostics
@@ -59,17 +60,34 @@ runGammaUnderUpgrades Upgrading{ _past = pastAction, _present = presentAction } 
     presentResult <- withReaderT _present presentAction
     pure Upgrading { _past = pastResult, _present = presentResult }
 
-checkUpgrade :: Version -> Upgrading LF.Package -> [Diagnostic]
-checkUpgrade version package =
-    let upgradingWorld = fmap (\package -> emptyGamma (initWorldSelf [] package) version) package
-        result =
-            runGammaF
-                upgradingWorld
-                (checkUpgradeM package)
+checkUpgrade :: Version -> Bool -> LF.Package -> Maybe (LF.PackageId, LF.Package) -> [Diagnostic]
+checkUpgrade version shouldTypecheckUpgrades presentPkg mbUpgradedPackage =
+    let bothPkgDiagnostics :: Either Error ((), [Warning])
+        bothPkgDiagnostics =
+            case mbUpgradedPackage of
+                Nothing ->
+                    Right ((), [])
+                Just (_, pastPkg) ->
+                    let package = Upgrading { _past = pastPkg, _present = presentPkg }
+                        upgradingWorld = fmap (\package -> emptyGamma (initWorldSelf [] package) version) package
+                    in
+                    runGammaF upgradingWorld $ do
+                        when shouldTypecheckUpgrades (checkUpgradeM package)
+
+        singlePkgDiagnostics :: Either Error ((), [Warning])
+        singlePkgDiagnostics =
+            let world = initWorldSelf [] presentPkg
+            in
+            runGamma world version $ do
+                 checkNewInterfacesAreUnused presentPkg
+
+        extractDiagnostics :: Either Error ((), [Warning]) -> [Diagnostic]
+        extractDiagnostics result =
+            case result of
+              Left err -> [toDiagnostic err]
+              Right ((), warnings) -> map toDiagnostic warnings
     in
-    case result of
-      Left err -> [toDiagnostic err]
-      Right ((), warnings) -> map toDiagnostic warnings
+    extractDiagnostics bothPkgDiagnostics ++ extractDiagnostics singlePkgDiagnostics
 
 checkUpgradeM :: Upgrading LF.Package -> TcUpgradeM ()
 checkUpgradeM package = do
@@ -181,10 +199,12 @@ checkModule module_ = do
               Nothing -> Right (tcon, datatype)
               Just iface -> Left (tcon, (datatype, iface))
 
-    let (ifaceDel, ifaceExisting, ifaceNew) = extractDelExistNew ifaceDts
+    -- Check that no interfaces have been deleted, nor propagated
+    -- New interface checks are handled by `checkNewInterfacesAreUnused`,
+    -- invoked in `singlePkgDiagnostics` above
+    let (ifaceDel, ifaceExisting, _ifaceNew) = extractDelExistNew ifaceDts
     checkDeletedIfaces ifaceDel
     checkContinuedIfaces module_ ifaceExisting
-    checkNewIfaces module_ ifaceNew
 
     -- checkDeleted should only trigger on datatypes not belonging to templates or choices or interfaces, which we checked above
     (dtExisting, _dtNew) <- checkDeleted (EUpgradeError . MissingDataCon . NM.name) unownedDts
@@ -217,17 +237,33 @@ checkContinuedIfaces module_ ifaces =
         withContextF present (ContextDefInterface (_present module_) iface IPWhole) $
             throwWithContextF present $ EUpgradeError $ TriedToUpgradeIface (NM.name iface)
 
--- TODO: Move this logic into general typechecking, so that it applies to
--- modules that aren't upgrading anything (e.g. v1)
-checkNewIfaces :: Upgrading Module -> HMS.HashMap LF.TypeConName (DefDataType, DefInterface) -> TcUpgradeM ()
-checkNewIfaces module_ ifaces =
-    forM_ ifaces $ \(_dt, iface) ->
-        when (foldU (||) (hasInstance iface <$> module_)) $
-            withContextF present (ContextDefInterface (_present module_) iface IPWhole) $
-                warnWithContextF present $ WShouldDefineIfaceInOwnModule (NM.name iface)
+-- This warning should run even when
+checkNewInterfacesAreUnused :: LF.Package -> TcM ()
+checkNewInterfacesAreUnused presentPkg =
+    forM_ definedAndInstantiated $ \((module_, iface), implementations) ->
+        withContext (ContextDefInterface module_ iface IPWhole) $
+            warnWithContext $ WShouldDefineIfaceInOwnModule (NM.name iface)
+    where
+    definedIfaces :: HMS.HashMap (LF.Qualified LF.TypeConName) (Module, DefInterface)
+    definedIfaces = HMS.unions
+        [ HMS.mapKeys qualify $ HMS.map (module_,) $ NM.toHashMap (moduleInterfaces module_)
+        | module_ <- NM.elems (packageModules presentPkg)
+        , let qualify :: LF.TypeConName -> LF.Qualified LF.TypeConName
+              qualify tcn = Qualified PRSelf (NM.name module_) tcn
+        ]
 
-hasInstance :: DefInterface -> Module -> Bool
-hasInstance _ _ = True
+    instantiatedIfaces :: HMS.HashMap (LF.Qualified LF.TypeConName) [TemplateImplements]
+    instantiatedIfaces = foldl' (HMS.unionWith (<>)) HMS.empty $ (map . fmap) pure
+        [ NM.toHashMap $ tplImplements template
+        | module_ <- NM.elems (packageModules presentPkg)
+        , template <- NM.elems (moduleTemplates module_)
+        ]
+
+    definedAndInstantiated
+        :: HMS.HashMap
+            (LF.Qualified LF.TypeConName)
+            ((Module, DefInterface), [TemplateImplements])
+    definedAndInstantiated = HMS.intersectionWith (,) definedIfaces instantiatedIfaces
 
 checkTemplate :: Upgrading Module -> Upgrading LF.Template -> TcUpgradeM ()
 checkTemplate module_ template = do
