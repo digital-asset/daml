@@ -51,9 +51,29 @@ object Pretty {
           s"Create ${contractId} sigs=${prettyParties(signatories)} obs=${prettyParties(observers)}",
           Nil,
         )
+      case CreateWithKey(contractId, keyId, maintainers, signatories, observers) =>
+        Tree(
+          s"CreateWithKey ${contractId} key=(${keyId}, ${prettyParties(
+              maintainers
+            )}) sigs=${prettyParties(signatories)} obs=${prettyParties(observers)}",
+          Nil,
+        )
       case Exercise(kind, contractId, controllers, choiceObservers, subTransaction) =>
         Tree(
           s"Exercise $kind $contractId ctl=${prettyParties(controllers)} cobs=${prettyParties(choiceObservers)}",
+          subTransaction.map(actionToTree),
+        )
+      case ExerciseByKey(
+            kind,
+            contractId,
+            _,
+            _,
+            controllers,
+            choiceObservers,
+            subTransaction,
+          ) =>
+        Tree(
+          s"ExerciseByKey $kind $contractId ctl=${prettyParties(controllers)} cobs=${prettyParties(choiceObservers)}",
           subTransaction.map(actionToTree),
         )
       case Fetch(contractId) =>
@@ -63,7 +83,7 @@ object Pretty {
     }
 
     private def prettyParties(partySet: PartySet): String =
-      partySet.mkString("{", ",", "}")
+      partySet.toSeq.sorted.mkString("{", ",", "}")
   }
 
   object PrettySkeletons {
@@ -96,9 +116,19 @@ object Pretty {
           "Create",
           Nil,
         )
+      case CreateWithKey() =>
+        Tree(
+          "CreateWithKey",
+          Nil,
+        )
       case Exercise(kind, subTransaction) =>
         Tree(
           s"Exercise $kind",
+          subTransaction.map(actionToTree),
+        )
+      case ExerciseByKey(kind, subTransaction) =>
+        Tree(
+          s"ExerciseByKey $kind",
           subTransaction.map(actionToTree),
         )
       case Fetch() =>
@@ -132,7 +162,7 @@ object Pretty {
     }
 
     private def prettyParties(partySet: PartySet): String =
-      partySet.mkString("{", ",", "}")
+      partySet.toSeq.sorted.mkString("{", ",", "}")
   }
 
   object PrettySymbolic {
@@ -166,9 +196,31 @@ object Pretty {
           s"Create ${contractId} sigs=${prettyParties(signatories)} obs=${prettyParties(observers)}",
           Nil,
         )
+      case CreateWithKey(contractId, keyId, maintainers, signatories, observers) =>
+        Tree(
+          s"CreateWithKey ${contractId} key=(${keyId}, ${prettyParties(
+              maintainers
+            )}) sigs=${prettyParties(signatories)} obs=${prettyParties(observers)}",
+          Nil,
+        )
       case Exercise(kind, contractId, controllers, choiceObservers, subTransaction) =>
         Tree(
           s"Exercise $kind $contractId ctl=${prettyParties(controllers)} cobs=${prettyParties(choiceObservers)}",
+          subTransaction.map(actionToTree),
+        )
+      case ExerciseByKey(
+            kind,
+            contractId,
+            keyId,
+            maintainers,
+            controllers,
+            choiceObservers,
+            subTransaction,
+          ) =>
+        Tree(
+          s"ExerciseByKey $kind $contractId key=(${keyId}, ${prettyParties(
+              maintainers
+            )}) ctl=${prettyParties(controllers)} cobs=${prettyParties(choiceObservers)}",
           subTransaction.map(actionToTree),
         )
       case Fetch(contractId) =>
