@@ -93,10 +93,12 @@ object Demo {
             case Right(ideProjections) =>
               println("==== ide ledger ====")
               println("VALID!")
-              // ideProjections.foreach { case (partyId, projection) =>
-              // println(s"Projection for party $partyId")
-              // println(Pretty.prettyProjection(projection))
-              // }
+//              ideProjections.foreach { case (partyId, projections) =>
+//                projections.foreach { case (participantId, projection) =>
+//                  println(s"Projection for party $partyId, participant $participantId")
+//                  println(Pretty.prettyProjection(projection))
+//                }
+//              }
               println("==== canton ====")
               cantonLedgerRunner.runAndProject(scenario) match {
                 case Left(error) =>
