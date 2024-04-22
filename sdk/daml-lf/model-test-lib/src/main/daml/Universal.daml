@@ -1,6 +1,8 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
+
 module Universal where
 
 import qualified DA.Map as M
@@ -22,6 +24,23 @@ data TxAction
         , choiceObservers : [Party]
         , subTransaction : Transaction
         }
+#ifdef DAML_CONTRACT_KEYS
+    | CreateWithKey
+        { contractId : Int
+        , keyId : Int
+        , maintainers: [Party]
+        , signatories : [Party]
+        , observers : [Party]
+        }
+    | ExerciseByKey
+        { kind : Kind
+        , keyId: Int
+        , maintainers: [Party]
+        , controllers : [Party]
+        , choiceObservers : [Party]
+        , subTransaction : Transaction
+        }
+#endif
     | CreateAndExercise
         { kind : Kind
         , contractId : Int
@@ -48,7 +67,14 @@ data LCommands = LCommands
 
 type Ledger = [LCommands]
 
-type Env = M.Map Int (ContractId Universal)
+data SomeContractId
+  = UniversalContractId (ContractId Universal)
+#ifdef DAML_CONTRACT_KEYS
+  | UniversalWithKeyContractId (ContractId UniversalWithKey)
+#endif
+  deriving (Show, Eq)
+
+type Env = M.Map Int SomeContractId
 
 template Universal
   with
@@ -80,6 +106,44 @@ template Universal
       do
         interpretTransaction env subTransaction
 
+#ifdef DAML_CONTRACT_KEYS
+
+template UniversalWithKey
+  with
+    signatories : [Party]
+    observers : [Party]
+    keyId: Int
+    maintainers: [Party]
+  where
+    signatory signatories
+    observer observers
+    key (keyId, maintainers) : (Int, [Party])
+    maintainer key._2
+
+    nonconsuming choice KNonConsumingChoice: Env
+      with
+        env: Env
+        controllers: [Party]
+        choiceObservers: [Party]
+        subTransaction: Transaction
+      observer choiceObservers
+      controller controllers
+      do
+        interpretTransaction env subTransaction
+
+    choice KConsumingChoice: Env
+      with
+        env: Env
+        controllers: [Party]
+        choiceObservers: [Party]
+        subTransaction: Transaction
+      observer choiceObservers
+      controller controllers
+      do
+        interpretTransaction env subTransaction
+
+#endif
+
 exception RollbackException
   with
   where
@@ -97,16 +161,44 @@ interpretTxAction env action =
   case action of
     (Create contractId signatories observers) -> do
        actualContractId <- create Universal {..}
-       return (M.insert contractId actualContractId env)
-    (Exercise kind contractId controllers choiceObservers subTransaction) -> 
+       return (M.insert contractId (UniversalContractId actualContractId) env)
+#ifdef DAML_CONTRACT_KEYS
+    (CreateWithKey contractId keyId maintainers signatories observers) -> do
+       actualContractId <- create UniversalWithKey {..}
+       return (M.insert contractId (UniversalWithKeyContractId actualContractId) env)
+#endif
+    (Exercise kind contractId controllers choiceObservers subTransaction) ->
       case kind of
-        Consuming -> exercise (env ! contractId) ConsumingChoice {..}
-        NonConsuming -> exercise (env ! contractId) NonConsumingChoice {..}
+        Consuming ->
+          case env ! contractId of
+            UniversalContractId cid -> exercise cid ConsumingChoice {..}
+#ifdef DAML_CONTRACT_KEYS
+            UniversalWithKeyContractId cid -> exercise cid KConsumingChoice {..}
+#endif
+        NonConsuming ->
+          case env ! contractId of
+            UniversalContractId cid -> exercise cid NonConsumingChoice {..}
+#ifdef DAML_CONTRACT_KEYS
+            UniversalWithKeyContractId cid -> exercise cid KNonConsumingChoice {..}
+#endif
+#ifdef DAML_CONTRACT_KEYS
+    (ExerciseByKey kind keyId maintainers controllers choiceObservers subTransaction) ->
+      case kind of
+        Consuming -> exerciseByKey @UniversalWithKey (keyId, maintainers) KConsumingChoice {..}
+        NonConsuming -> exerciseByKey @UniversalWithKey (keyId, maintainers) KNonConsumingChoice {..}
+#endif
     (CreateAndExercise kind contractId signatories observers controllers choiceObservers subTransaction) -> do
       error "unexpected non-toplevel CreateAndExercise node"
     (Fetch contractId) -> do
-      fetch (env ! contractId)
-      return env
+      case env ! contractId of
+        UniversalContractId cid -> do
+          fetch cid
+          return env
+#ifdef DAML_CONTRACT_KEYS
+        UniversalWithKeyContractId cid -> do
+          fetch cid
+          return env
+#endif
     (Rollback subTransaction) -> do
       try do
         interpretTransaction env subTransaction

@@ -17,6 +17,9 @@ class FromSymbolic(numParties: Int, ctx: Context, model: Model) {
   private def evalContractId(cid: S.ContractId): L.ContractId =
     model.evaluate(cid, false).asInstanceOf[IntNum].getInt
 
+  private def evalkeyId(cid: S.keyId): L.keyId =
+    model.evaluate(cid, true).asInstanceOf[IntNum].getInt
+
   private def evalPartySet(set: S.PartySet): L.PartySet =
     (1 to numParties).toSet.filter { i =>
       model
@@ -45,10 +48,36 @@ class FromSymbolic(numParties: Int, ctx: Context, model: Model) {
         evalPartySet(signatories),
         evalPartySet(observers),
       )
+    case Symbolic.CreateWithKey(contractId, keyId, maintainers, signatories, observers) =>
+      L.CreateWithKey(
+        evalContractId(contractId),
+        evalkeyId(keyId),
+        evalPartySet(maintainers),
+        evalPartySet(signatories),
+        evalPartySet(observers),
+      )
     case Symbolic.Exercise(kind, contractId, controllers, choiceObservers, subTransaction) =>
       L.Exercise(
         toConcrete(kind),
         evalContractId(contractId),
+        evalPartySet(controllers),
+        evalPartySet(choiceObservers),
+        subTransaction.map(toConcrete),
+      )
+    case Symbolic.ExerciseByKey(
+          kind,
+          contractId,
+          keyId,
+          maintainers,
+          controllers,
+          choiceObservers,
+          subTransaction,
+        ) =>
+      L.ExerciseByKey(
+        toConcrete(kind),
+        evalContractId(contractId),
+        evalkeyId(keyId),
+        evalPartySet(maintainers),
         evalPartySet(controllers),
         evalPartySet(choiceObservers),
         subTransaction.map(toConcrete),

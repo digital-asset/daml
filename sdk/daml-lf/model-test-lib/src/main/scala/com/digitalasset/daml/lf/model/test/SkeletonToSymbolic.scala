@@ -26,6 +26,9 @@ object SkeletonToSymbolic {
     private def mkFreshContractId(): Sym.ContractId =
       ctx.mkFreshConst("c", contractIdSort).asInstanceOf[Sym.ContractId]
 
+    private def mkFreshkeyId(): Sym.keyId =
+      ctx.mkFreshConst("ki", contractIdSort).asInstanceOf[Sym.keyId]
+
     private def mkFreshPartySet(name: String): Sym.PartySet =
       ctx.mkFreshConst(name, partySetSort).asInstanceOf[Sym.PartySet]
 
@@ -46,10 +49,28 @@ object SkeletonToSymbolic {
           mkFreshPartySet("s"),
           mkFreshPartySet("o"),
         )
+      case Skel.CreateWithKey() =>
+        Sym.CreateWithKey(
+          mkFreshContractId(),
+          mkFreshkeyId(),
+          mkFreshPartySet("m"),
+          mkFreshPartySet("s"),
+          mkFreshPartySet("o"),
+        )
       case Skel.Exercise(kind, subTransaction) =>
         Sym.Exercise(
           toSymbolic(kind),
           mkFreshContractId(),
+          mkFreshPartySet("k"),
+          mkFreshPartySet("q"),
+          subTransaction.map(toSymbolic),
+        )
+      case Skel.ExerciseByKey(kind, subTransaction) =>
+        Sym.ExerciseByKey(
+          toSymbolic(kind),
+          mkFreshContractId(),
+          mkFreshkeyId(),
+          mkFreshPartySet("m"),
           mkFreshPartySet("k"),
           mkFreshPartySet("q"),
           subTransaction.map(toSymbolic),

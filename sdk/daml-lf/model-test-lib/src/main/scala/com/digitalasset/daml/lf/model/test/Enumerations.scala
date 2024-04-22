@@ -10,9 +10,13 @@ import com.daml.lf.Spaces.Space
 import com.daml.lf.Spaces.{Space => S}
 import com.daml.lf.Spaces.Space.Instances._
 import cats.syntax.all._
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.LanguageVersion.Features
 import com.daml.lf.model.test.Skeletons._
 
-object Enumerations {
+import Ordering.Implicits.infixOrderingOps
+
+class Enumerations(languageVersion: LanguageVersion) {
 
 //  Commands := Commands Parties [TopLevelAction]
 //
@@ -21,6 +25,10 @@ object Enumerations {
 //  ActionWithoutRollback := Create | Exercise Action* | Fetch
 
   val AS: Applicative[Space] = implicitly
+
+  def withFeature[A](feature: LanguageVersion)(s: Space[A]): Space[A] =
+    if (languageVersion >= feature) s
+    else Space.empty[A]
 
   def listsOf[A](s: Space[A]): Space[List[A]] = {
     lazy val res: Space[List[A]] = S.pay(S.singleton(List.empty[A]) + AS.map2(s, res)(_ :: _))
@@ -36,11 +44,22 @@ object Enumerations {
 
   lazy val creates: Space[Action] = S.singleton(Create())
 
+  lazy val createsWithKey: Space[Action] = withFeature(Features.contractKeys) {
+    S.singleton(CreateWithKey())
+  }
+
   lazy val exercises: Space[Action] =
     AS.map2(
       exerciceKinds,
       listsOf(actions),
     )(Exercise)
+
+  lazy val exercisesByKey: Space[Action] = withFeature(Features.contractKeys) {
+    AS.map2(
+      exerciceKinds,
+      listsOf(actions),
+    )(ExerciseByKey)
+  }
 
   lazy val fetches: Space[Action] =
     S.singleton(Fetch())
@@ -49,13 +68,13 @@ object Enumerations {
     AS.map(nonEmptyListOf(actionsWithoutRollback))(Rollback)
 
   lazy val actions: Space[Action] =
-    S.pay(creates + exercises + fetches + rollbacks)
+    S.pay(creates + createsWithKey + exercises + exercisesByKey + fetches + rollbacks)
 
   lazy val actionsWithoutRollback: Space[Action] =
-    S.pay(creates + exercises + fetches)
+    S.pay(creates + createsWithKey + exercises + exercisesByKey + fetches)
 
   lazy val topLevelActions: Space[Action] =
-    S.pay(creates + exercises)
+    S.pay(creates + createsWithKey + exercises + exercisesByKey)
 
   lazy val commands: Space[Commands] =
     AS.map(nonEmptyListOf(topLevelActions))(Commands)
