@@ -7,6 +7,7 @@ package test
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.model.test.LedgerRunner.ApiPorts
 import com.daml.lf.model.test.Ledgers.Scenario
 import org.apache.pekko.actor.ActorSystem
@@ -18,11 +19,16 @@ import scala.concurrent.{Await, ExecutionContext}
 
 object Demo {
 
-  private val universalDarPath: String = rlocation("daml-lf/model-test-lib/universal.dar")
+  private val languageVersion = LanguageVersion.v2_dev
+
+  private val universalDarPath: String = rlocation(
+    s"daml-lf/model-test-lib/universal-v${languageVersion.pretty.replaceAll("\\.", "")}.dar"
+  )
 
   def main(args: Array[String]): Unit = {
 
-    val scenarios = Enumerations.scenarios(numParticipants = 3, numCommands = 5)(50)
+    val scenarios =
+      new Enumerations(languageVersion).scenarios(numParticipants = 3, numCommands = 4)(50)
 
     def randomBigIntLessThan(n: BigInt): BigInt = {
       var res: BigInt = BigInt(0)
@@ -41,13 +47,13 @@ object Demo {
 
     def validSymScenarios: LazyList[Ledgers.Scenario] = LazyList.continually {
       val skeleton = scenarios(randomBigIntLessThan(scenarios.cardinal))
-      SymbolicSolver.solve(skeleton, numParties = 6)
+      SymbolicSolver.solve(skeleton, numParties = 5)
     }.flatten
     val _ = validSymScenarios
 
     def validScenarios: LazyList[Scenario] = LazyList.continually {
       val randomSkeleton = scenarios(randomBigIntLessThan(scenarios.cardinal))
-      new LedgerFixer(numParties = 6).fixScenario(randomSkeleton).sample
+      new LedgerFixer(numParties = 5).fixScenario(randomSkeleton).sample
     }.flatten
     val _ = validScenarios
 
@@ -58,6 +64,7 @@ object Demo {
       new PekkoExecutionSequencerPool("ModelBasedTestingRunnerPool")(system)
 
     val cantonLedgerRunner = LedgerRunner.forCantonLedger(
+      languageVersion,
       universalDarPath,
       "localhost",
       List(
@@ -66,7 +73,7 @@ object Demo {
         ApiPorts(5015, 5016),
       ),
     )
-    val ideLedgerRunner = LedgerRunner.forIdeLedger(universalDarPath)
+    val ideLedgerRunner = LedgerRunner.forIdeLedger(languageVersion, universalDarPath)
 
     // val workers = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(1))
 

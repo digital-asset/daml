@@ -11,11 +11,20 @@ load(
     "//rules_daml:daml.bzl",
     "daml_compile",
 )
-
-daml_compile(
-    name = "universal",
-    srcs = ["src/main/daml/Universal.daml"],
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "ENGINE_LF_VERSIONS",
+    "mangle_for_damlc",
 )
+
+[
+    daml_compile(
+        name = "universal-{}".format(mangle_for_damlc(lf_version)),
+        srcs = ["src/main/daml/Universal.daml"],
+        target = lf_version,
+    )
+    for lf_version in ENGINE_LF_VERSIONS
+]
 
 da_scala_library(
     name = "model-test-lib",
@@ -61,7 +70,7 @@ da_scala_library(
 da_scala_binary(
     name = "demo",
     srcs = ["src/main/scala/com/digitalasset/daml/lf/model/test/Demo.scala"],
-    data = [":universal.dar"],
+    data = [":universal-{}.dar".format(mangle_for_damlc(lf_version)) for lf_version in ENGINE_LF_VERSIONS],
     main_class = "com.daml.lf.model.test.Demo",
     resources = ["//daml-script/runner:src/main/resources/logback.xml"],
     scala_deps = [
@@ -76,6 +85,7 @@ da_scala_binary(
     deps = [
         ":model-test-lib",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/language",
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/rs-grpc-pekko",
     ],
