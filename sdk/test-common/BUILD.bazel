@@ -77,6 +77,7 @@ da_scala_dar_resources_library(
             target = "2.dev",
             version = "1.0.0",
             visibility = ["//visibility:public"],
+            enable_interfaces = True,
         ),
         daml_compile(
             name = "upgrades-{}-v2".format(identifier),
@@ -90,6 +91,7 @@ da_scala_dar_resources_library(
             upgrades = "//test-common:upgrades-{}-v1.dar".format(identifier),
             version = "2.0.0",
             visibility = ["//visibility:public"],
+            enable_interfaces = True,
         ),
     ]
     for identifier in [
@@ -133,6 +135,10 @@ da_scala_dar_resources_library(
         # More more tests ported from DamlcUpgrades.hs
         "FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants",
         "FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants",
+
+        # More more more tests ported from DamlcUpgrades.hs
+        "SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage",
+        "FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage",
     ]
 ]
 

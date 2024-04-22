@@ -573,6 +573,27 @@ trait LongTests { this: UpgradesSpec =>
         ),
       )
     }
+
+    // Copied interface tests
+    "Succeeds when an interface is only defined in the initial package." in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage-v1.dar",
+        "test-common/upgrades-SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        )
+      )
+    }
+
+    "Fails when an interface is defined in an upgrading package when it was already in the prior package." in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
+        "test-common/upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
+        assertPackageUpgradeCheck(
+          Some("Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed in any upgrading package.")
+        )
+      )
+    }
   }
 }
 

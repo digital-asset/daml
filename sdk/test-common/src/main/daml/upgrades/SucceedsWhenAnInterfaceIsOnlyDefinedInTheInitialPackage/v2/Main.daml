@@ -1,0 +1,2 @@
+module Main where
+data IView = IView { i : Text }
