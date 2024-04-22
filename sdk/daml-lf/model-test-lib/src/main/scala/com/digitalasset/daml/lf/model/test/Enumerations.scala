@@ -21,14 +21,16 @@ class Enumerations(languageVersion: LanguageVersion) {
 //  Commands := Commands Parties [TopLevelAction]
 //
 //  TopLevelAction := Create | Exercise Action* | CreateAndExercise Action*
-//  Action := Create | Exercise Action* | Fetch | Rollback ActionWithoutRollback+
-//  ActionWithoutRollback := Create | Exercise Action* | Fetch
+//  Action := Create | Exercise Action* | Fetch | Lookup | Rollback ActionWithoutRollback+
+//  ActionWithoutRollback := Create | Exercise Action* | Fetch | Lookup
 
   val AS: Applicative[Space] = implicitly
 
   def withFeature[A](feature: LanguageVersion)(s: Space[A]): Space[A] =
     if (languageVersion >= feature) s
     else Space.empty[A]
+
+  lazy val bools: Space[Boolean] = S.singleton(true) + S.singleton(false)
 
   def listsOf[A](s: Space[A]): Space[List[A]] = {
     lazy val res: Space[List[A]] = S.pay(S.singleton(List.empty[A]) + AS.map2(s, res)(_ :: _))
@@ -64,14 +66,20 @@ class Enumerations(languageVersion: LanguageVersion) {
   lazy val fetches: Space[Action] =
     S.singleton(Fetch())
 
+  lazy val lookupsByKey: Space[Action] = withFeature(Features.contractKeys) {
+    bools.map(LookupByKey)
+  }
+
   lazy val rollbacks: Space[Action] =
     AS.map(nonEmptyListOf(actionsWithoutRollback))(Rollback)
 
   lazy val actions: Space[Action] =
-    S.pay(creates + createsWithKey + exercises + exercisesByKey + fetches + rollbacks)
+    S.pay(
+      creates + createsWithKey + exercises + exercisesByKey + fetches + lookupsByKey + rollbacks
+    )
 
   lazy val actionsWithoutRollback: Space[Action] =
-    S.pay(creates + createsWithKey + exercises + exercisesByKey + fetches)
+    S.pay(creates + createsWithKey + exercises + exercisesByKey + fetches + lookupsByKey)
 
   lazy val topLevelActions: Space[Action] =
     S.pay(creates + createsWithKey + exercises + exercisesByKey)

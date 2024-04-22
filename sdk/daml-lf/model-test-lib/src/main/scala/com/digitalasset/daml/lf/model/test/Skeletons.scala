@@ -25,6 +25,9 @@ object Skeletons {
       subTransaction: Transaction,
   ) extends Action
   final case class Fetch() extends Action
+  final case class LookupByKey(
+      successful: Boolean
+  ) extends Action
   final case class Rollback(subTransaction: Transaction) extends Action
 
   type Transaction = List[Action]

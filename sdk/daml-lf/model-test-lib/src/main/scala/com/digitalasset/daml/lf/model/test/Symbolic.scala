@@ -58,6 +58,11 @@ object Symbolic {
       subTransaction: Transaction,
   ) extends Action
   final case class Fetch(contractId: ContractId) extends Action
+  final case class LookupByKey(
+      contractId: Option[ContractId],
+      keyId: keyId,
+      maintainers: PartySet,
+  ) extends Action
   final case class Rollback(subTransaction: Transaction) extends Action
 
   type Transaction = List[Action]
