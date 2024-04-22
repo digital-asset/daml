@@ -981,7 +981,7 @@ tests damlc =
               ]
         , test
               "Warns when an interface is defined in a package that uses it." -- TODO: Update this test when interface usage checks are complete
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking interface MyLib.I :\n  The interface I was defined and used in this module. However, to most easiy use interfaces with the upgrades feature, you are recommended to define interfaces in their own module.")
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking interface MyLib.I :\n  The interface I was defined in this package and implemented in this package by the following templates:\n  \n  'T'\n  \n  However, it is recommended that you define interfaces in their own package.")
               LF.versionDefault
               [ ( "daml/MyLib.daml"
                 , unlines
@@ -996,6 +996,13 @@ tests damlc =
                       , "interface I where"
                       , "  viewtype IView"
                       , "  method1 : Int"
+                      , "template T with"
+                      , "    p: Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    interface instance I for T where"
+                      , "      view = IView \"hi\""
+                      , "      method1 = 2"
                       ]
                 )
               ]

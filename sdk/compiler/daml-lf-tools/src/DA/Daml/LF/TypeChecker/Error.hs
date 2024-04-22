@@ -643,7 +643,7 @@ data Warning
     -- ^ When upgrading, we extract relevant expressions for things like
     -- signatories. If the expression changes shape so that we can't get the
     -- underlying expression that has changed, this warning is emitted.
-  | WShouldDefineIfaceInOwnModule !TypeConName
+  | WShouldDefineIfaceInOwnModule !TypeConName ![TypeConName]
   deriving (Show)
 
 warningLocation :: Warning -> Maybe SourceLoc
@@ -667,7 +667,12 @@ instance Pretty Warning where
     WTemplateChangedKeyExpression template -> "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
     WTemplateChangedKeyMaintainers template -> "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
     WCouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
-    WShouldDefineIfaceInOwnModule iface -> "The interface " <> pPrint iface <> " was defined and used in this module. However, to most easiy use interfaces with the upgrades feature, you are recommended to define interfaces in their own module."
+    WShouldDefineIfaceInOwnModule iface implementingTemplates ->
+      vsep $ concat
+        [ [ "The interface " <> pPrint iface <> " was defined in this package and implemented in this package by the following templates:" ]
+        , map (quotes . pPrint) implementingTemplates
+        , [ "However, it is recommended that you define interfaces in their own package." ]
+        ]
 
 instance ToDiagnostic Warning where
   toDiagnostic warning = Diagnostic

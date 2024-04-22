@@ -242,7 +242,7 @@ checkNewInterfacesAreUnused :: LF.Package -> TcM ()
 checkNewInterfacesAreUnused presentPkg =
     forM_ definedAndInstantiated $ \((module_, iface), implementations) ->
         withContext (ContextDefInterface module_ iface IPWhole) $
-            warnWithContext $ WShouldDefineIfaceInOwnModule (NM.name iface)
+            warnWithContext $ WShouldDefineIfaceInOwnModule (NM.name iface) (NM.name . fst <$> implementations)
     where
     definedIfaces :: HMS.HashMap (LF.Qualified LF.TypeConName) (Module, DefInterface)
     definedIfaces = HMS.unions
@@ -252,9 +252,9 @@ checkNewInterfacesAreUnused presentPkg =
               qualify tcn = Qualified PRSelf (NM.name module_) tcn
         ]
 
-    instantiatedIfaces :: HMS.HashMap (LF.Qualified LF.TypeConName) [TemplateImplements]
+    instantiatedIfaces :: HMS.HashMap (LF.Qualified LF.TypeConName) [(Template, TemplateImplements)]
     instantiatedIfaces = foldl' (HMS.unionWith (<>)) HMS.empty $ (map . fmap) pure
-        [ NM.toHashMap $ tplImplements template
+        [ HMS.map (template,) $ NM.toHashMap $ tplImplements template
         | module_ <- NM.elems (packageModules presentPkg)
         , template <- NM.elems (moduleTemplates module_)
         ]
@@ -262,7 +262,7 @@ checkNewInterfacesAreUnused presentPkg =
     definedAndInstantiated
         :: HMS.HashMap
             (LF.Qualified LF.TypeConName)
-            ((Module, DefInterface), [TemplateImplements])
+            ((Module, DefInterface), [(Template, TemplateImplements)])
     definedAndInstantiated = HMS.intersectionWith (,) definedIfaces instantiatedIfaces
 
 checkTemplate :: Upgrading Module -> Upgrading LF.Template -> TcUpgradeM ()
