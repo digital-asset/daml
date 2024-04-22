@@ -19,6 +19,7 @@ object ConcreteToSymbolic {
 
     private val partySetSort: Sym.PartySetSort = ctx.mkSetSort(ctx.mkIntSort())
     private val contractIdSort: Sym.ContractIdSort = ctx.mkIntSort()
+    private val keyIdSort: Sym.keyIdSort = ctx.mkIntSort()
     private val participantIdSort: Sym.ParticipantIdSort = ctx.mkIntSort()
 
     // constraints accumulated during the translation
@@ -29,6 +30,9 @@ object ConcreteToSymbolic {
 
     private def mkFreshContractId(): Sym.ContractId =
       ctx.mkFreshConst("c", contractIdSort).asInstanceOf[Sym.ContractId]
+
+    private def mkFreshKeyId(): Sym.ContractId =
+      ctx.mkFreshConst("ki", keyIdSort).asInstanceOf[Sym.keyId]
 
     private def mkFreshPartySet(name: String): Sym.PartySet =
       ctx.mkFreshConst(name, partySetSort).asInstanceOf[Sym.PartySet]
@@ -68,6 +72,24 @@ object ConcreteToSymbolic {
           mkFreshPartySet("s"),
           mkFreshPartySet("o"),
         )
+      case create: Conc.CreateWithKey =>
+        val contractId = mkFreshContractId()
+        val keyId = mkFreshKeyId()
+        val maintainers = mkFreshPartySet("m")
+        val signatories = mkFreshPartySet("s")
+        val observers = mkFreshPartySet("o")
+        val _ = constraints += ctx.mkEq(contractId, ctx.mkInt(create.contractId))
+        val _ = constraints += ctx.mkEq(keyId, ctx.mkInt(create.keyId))
+        val _ = constraints += ctx.mkEq(signatories, toSymbolic(create.signatories))
+        val _ = constraints += ctx.mkEq(observers, toSymbolic(create.observers))
+        val _ = constraints += ctx.mkEq(maintainers, toSymbolic(create.maintainers))
+        Sym.CreateWithKey(
+          contractId,
+          keyId,
+          maintainers,
+          signatories,
+          observers,
+        )
       case exe: Conc.Exercise =>
         val contractId = mkFreshContractId()
         val controllers = mkFreshPartySet("k")
@@ -78,6 +100,26 @@ object ConcreteToSymbolic {
         Sym.Exercise(
           toSymbolic(exe.kind),
           contractId,
+          controllers,
+          choiceObservers,
+          exe.subTransaction.map(toSymbolic),
+        )
+      case exe: Conc.ExerciseByKey =>
+        val contractId = mkFreshContractId()
+        val keyId = mkFreshKeyId()
+        val maintainers = mkFreshPartySet("m")
+        val controllers = mkFreshPartySet("k")
+        val choiceObservers = mkFreshPartySet("q")
+        val _ = constraints += ctx.mkEq(contractId, ctx.mkInt(exe.contractId))
+        val _ = constraints += ctx.mkEq(keyId, ctx.mkInt(exe.keyId))
+        val _ = constraints += ctx.mkEq(controllers, toSymbolic(exe.controllers))
+        val _ = constraints += ctx.mkEq(choiceObservers, toSymbolic(exe.choiceObservers))
+        val _ = constraints += ctx.mkEq(maintainers, toSymbolic(exe.maintainers))
+        Sym.ExerciseByKey(
+          toSymbolic(exe.kind),
+          contractId,
+          keyId,
+          maintainers,
           controllers,
           choiceObservers,
           exe.subTransaction.map(toSymbolic),

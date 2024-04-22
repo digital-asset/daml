@@ -19,7 +19,7 @@ import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.{
   GrpcLedgerClient,
 }
 import com.daml.lf.engine.script.v2.ledgerinteraction.{IdeLedgerClient, ScriptLedgerClient}
-import com.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.model.test.LedgerImplicits._
 import com.daml.lf.model.test.LedgerRunner.ApiPorts
 import com.daml.lf.model.test.Ledgers.{ParticipantId, Scenario}
@@ -57,6 +57,7 @@ object LedgerRunner {
   case class ApiPorts(ledgerApiPort: Int, adminApiPort: Int)
 
   def forCantonLedger(
+      languageVersion: LanguageVersion,
       universalDarPath: String,
       host: String,
       apiPorts: Iterable[ApiPorts],
@@ -65,15 +66,19 @@ object LedgerRunner {
       esf: ExecutionSequencerFactory,
       materializer: Materializer,
   ): LedgerRunner =
-    new CantonLedgerRunner(universalDarPath, host, apiPorts)
+    new CantonLedgerRunner(languageVersion, universalDarPath, host, apiPorts)
 
   def forIdeLedger(
-      universalDarPath: String
+      languageVersion: LanguageVersion,
+      universalDarPath: String,
   )(implicit ec: ExecutionContext, materializer: Materializer): LedgerRunner =
-    new IdeLedgerRunner(universalDarPath)
+    new IdeLedgerRunner(languageVersion, universalDarPath)
 }
 
-private abstract class AbstractLedgerRunner(universalDarPath: String)(implicit
+private abstract class AbstractLedgerRunner(
+    languageVersion: LanguageVersion,
+    universalDarPath: String,
+)(implicit
     ec: ExecutionContext,
     materializer: Materializer,
 ) extends LedgerRunner {
@@ -105,7 +110,10 @@ private abstract class AbstractLedgerRunner(universalDarPath: String)(implicit
   protected val compiledPkgs: PureCompiledPackages =
     PureCompiledPackages.assertBuild(
       universalTemplateDar.all.toMap,
-      Compiler.Config.Default(LanguageMajorVersion.V2),
+      if (languageVersion.isDevVersion)
+        Compiler.Config.Dev(LanguageMajorVersion.V2)
+      else
+        Compiler.Config.Default(LanguageMajorVersion.V2),
     )
 
   private lazy val interpreter =
@@ -119,7 +127,7 @@ private abstract class AbstractLedgerRunner(universalDarPath: String)(implicit
     val (partyIds, result) = Await.result(interpreter.runLedger(scenario), Duration.Inf)
     result.map(contractIds => {
       val reversePartyIds = partyIds.map(_.swap)
-      val reverseContractIds = contractIds.map(_.swap)
+      val reverseContractIds = contractIds.map { case (k, v) => (v.contractId, k) }
       // we for now assume there is exactly one participant per party
       val reverseParticipantIds = scenario.topology.groupedByPartyId
       for {
@@ -136,6 +144,7 @@ private abstract class AbstractLedgerRunner(universalDarPath: String)(implicit
 }
 
 private class CantonLedgerRunner(
+    languageVersion: LanguageVersion,
     universalDarPath: String,
     host: String,
     apiPorts: Iterable[LedgerRunner.ApiPorts],
@@ -143,7 +152,7 @@ private class CantonLedgerRunner(
     ec: ExecutionContext,
     esf: ExecutionSequencerFactory,
     materializer: Materializer,
-) extends AbstractLedgerRunner(universalDarPath) {
+) extends AbstractLedgerRunner(languageVersion, universalDarPath) {
 
   override def ledgerClients: Seq[ScriptLedgerClient] =
     Await.result(apiPorts.toSeq.traverse(makeGprcLedgerClient), Duration.Inf)
@@ -298,10 +307,10 @@ private class CantonLedgerRunner(
     ledgerClientsForProjections.foreach(_.close())
 }
 
-private class IdeLedgerRunner(universalDarPath: String)(implicit
+private class IdeLedgerRunner(languageVersion: LanguageVersion, universalDarPath: String)(implicit
     ec: ExecutionContext,
     materializer: Materializer,
-) extends AbstractLedgerRunner(universalDarPath) {
+) extends AbstractLedgerRunner(languageVersion, universalDarPath) {
 
   private val ledgerClient: IdeLedgerClient = {
     new IdeLedgerClient(

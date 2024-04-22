@@ -14,9 +14,13 @@ object Skeletons {
   case object NonConsuming extends ExerciseKind
 
   sealed trait Action
-  final case class Create(
-  ) extends Action
+  final case class Create() extends Action
+  final case class CreateWithKey() extends Action
   final case class Exercise(
+      kind: ExerciseKind,
+      subTransaction: Transaction,
+  ) extends Action
+  final case class ExerciseByKey(
       kind: ExerciseKind,
       subTransaction: Transaction,
   ) extends Action

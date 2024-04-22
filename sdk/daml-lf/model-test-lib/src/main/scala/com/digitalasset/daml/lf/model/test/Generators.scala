@@ -25,7 +25,12 @@ class Generators(numParticipants: Int, numParties: Int) {
       case c: Create =>
         lastContractId += 1
         c.copy(contractId = lastContractId)
+      case c: CreateWithKey =>
+        lastContractId += 1
+        c.copy(contractId = lastContractId)
       case e: Exercise =>
+        e.copy(subTransaction = numberTransactionCreates(e.subTransaction))
+      case e: ExerciseByKey =>
         e.copy(subTransaction = numberTransactionCreates(e.subTransaction))
       case f: Fetch =>
         f
