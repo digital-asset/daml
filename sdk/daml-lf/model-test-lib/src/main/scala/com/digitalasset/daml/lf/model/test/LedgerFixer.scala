@@ -161,6 +161,8 @@ class LedgerFixer(numParties: Int) {
           maxContractId <- liftLGen(StateT.inspect(_.maxContractId))
           _ <- liftLGen(StateT.set(GenState(maxContractId, activeContracts)))
         } yield L.Rollback(fixedSubTransaction)
+      case S.CreateWithKey() => ???
+      case S.ExerciseByKey(_, _) => ???
     }
   }
 

@@ -18,6 +18,12 @@ import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient.{
 }
 import com.daml.lf.model.test.LedgerImplicits._
 import com.daml.lf.model.test.Ledgers._
+import com.daml.lf.model.test.ToCommands.{
+  ContractIdMapping,
+  PartyIdMapping,
+  UniversalContractId,
+  UniversalWithKeyContractId,
+}
 import com.daml.lf.value.{Value => V}
 import org.apache.pekko.stream.Materializer
 import scalaz.OneAnd
@@ -26,9 +32,6 @@ import java.util.concurrent.locks.ReentrantLock
 import scala.concurrent.{ExecutionContext, Future, blocking}
 
 object Interpreter {
-  type PartyIdMapping = Map[PartyId, Ref.Party]
-  type ContractIdMapping = Map[ContractId, V.ContractId]
-
   sealed trait InterpreterError {
     def pretty: String = this match {
       case TranslationError(error) => error.toString
@@ -160,8 +163,16 @@ class Interpreter(
     value match {
       case V.ValueGenMap(entries) =>
         entries.iterator.map {
-          case (V.ValueInt64(contractId), V.ValueContractId(cid)) =>
-            contractId.toInt -> cid
+          case (
+                V.ValueInt64(contractId),
+                V.ValueVariant(_, "UniversalContractId", V.ValueContractId(cid)),
+              ) =>
+            contractId.toInt -> UniversalContractId(cid)
+          case (
+                V.ValueInt64(contractId),
+                V.ValueVariant(_, "UniversalWithKeyContractId", V.ValueContractId(cid)),
+              ) =>
+            contractId.toInt -> UniversalWithKeyContractId(cid)
           case entry =>
             throw new IllegalArgumentException(s"assertContractIdMapping: invalid map entry $entry")
         }.toMap
@@ -180,8 +191,12 @@ class Interpreter(
       .map { case (action, result) =>
         (action, result) match {
           case (c: Create, r: CreateResult) =>
-            Map(c.contractId -> r.contractId)
+            Map(c.contractId -> UniversalContractId(r.contractId))
+          case (c: CreateWithKey, r: CreateResult) =>
+            Map(c.contractId -> UniversalWithKeyContractId(r.contractId))
           case (_: Exercise, r: ExerciseResult) =>
+            assertContractIdMapping(r.result)
+          case (_: ExerciseByKey, r: ExerciseResult) =>
             assertContractIdMapping(r.result)
           case (_, _) =>
             throw new IllegalArgumentException("unexpected action or result")

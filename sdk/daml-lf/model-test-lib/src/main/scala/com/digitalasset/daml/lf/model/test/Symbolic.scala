@@ -13,12 +13,14 @@ object Symbolic {
 
   type ParticipantIdSort = IntSort
   type ContractIdSort = IntSort
+  type keyIdSort = IntSort
   type PartySort = IntSort
   type PartySetSort = SetSort[IntSort]
 
   type PartySet = ArrayExpr[PartySort, BoolSort]
   type PartyId = IntExpr
   type ContractId = IntExpr
+  type keyId = IntExpr
 
   type ParticipantId = IntExpr
 
@@ -32,9 +34,25 @@ object Symbolic {
       signatories: PartySet,
       observers: PartySet,
   ) extends Action
+  final case class CreateWithKey(
+      contractId: ContractId,
+      keyId: keyId,
+      maintainers: PartySet,
+      signatories: PartySet,
+      observers: PartySet,
+  ) extends Action
   final case class Exercise(
       kind: ExerciseKind,
       contractId: ContractId,
+      controllers: PartySet,
+      choiceObservers: PartySet,
+      subTransaction: Transaction,
+  ) extends Action
+  final case class ExerciseByKey(
+      kind: ExerciseKind,
+      contractId: ContractId,
+      keyId: keyId,
+      maintainers: PartySet,
       controllers: PartySet,
       choiceObservers: PartySet,
       subTransaction: Transaction,

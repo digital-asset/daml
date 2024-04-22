@@ -12,6 +12,7 @@ object Ledgers {
   type PartySet = Set[PartyId]
   type PartyId = Int
   type ContractId = Int
+  type keyId = Int
 
   type ParticipantId = Int
 
@@ -25,9 +26,25 @@ object Ledgers {
       signatories: PartySet,
       observers: PartySet,
   ) extends Action
+  final case class CreateWithKey(
+      contractId: ContractId,
+      keyId: keyId,
+      maintainers: PartySet,
+      signatories: PartySet,
+      observers: PartySet,
+  ) extends Action
   final case class Exercise(
       kind: ExerciseKind,
       contractId: ContractId,
+      controllers: PartySet,
+      choiceObservers: PartySet,
+      subTransaction: Transaction,
+  ) extends Action
+  final case class ExerciseByKey(
+      kind: ExerciseKind,
+      contractId: ContractId,
+      keyId: keyId,
+      maintainers: PartySet,
       controllers: PartySet,
       choiceObservers: PartySet,
       subTransaction: Transaction,

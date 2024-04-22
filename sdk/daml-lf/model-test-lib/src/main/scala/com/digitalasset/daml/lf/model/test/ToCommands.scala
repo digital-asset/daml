@@ -13,8 +13,14 @@ import com.daml.lf.value.{Value => V}
 import com.daml.lf.model.test.Ledgers._
 
 object ToCommands {
+  sealed trait SomeContractId {
+    def contractId: V.ContractId
+  }
+  final case class UniversalContractId(contractId: V.ContractId) extends SomeContractId
+  final case class UniversalWithKeyContractId(contractId: V.ContractId) extends SomeContractId
+
   type PartyIdMapping = Map[PartyId, Ref.Party]
-  type ContractIdMapping = Map[ContractId, V.ContractId]
+  type ContractIdMapping = Map[ContractId, SomeContractId]
 
   sealed trait TranslationError
   final case class PartyIdNotFound(partyId: PartyId) extends TranslationError
@@ -74,6 +80,18 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
   ): Either[PartyIdNotFound, V] =
     parties.toList.traverse(partyToValue(partyIds, _)).map(mkList)
 
+  private def keyToValue(
+      partyIds: PartyIdMapping,
+      keyId: keyId,
+      maintainers: PartySet,
+  ): Either[PartyIdNotFound, V] = for {
+    concreteMaintainers <- partySetToValue(partyIds, maintainers)
+  } yield mkRecord(
+    "DA.Types:Tuple2",
+    "_1" -> V.ValueInt64(keyId.longValue),
+    "_2" -> concreteMaintainers,
+  )
+
   private def kindToValue(kind: ExerciseKind): V =
     kind match {
       case Consuming => mkEnum("Universal:Kind", "Consuming")
@@ -96,6 +114,23 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
             "observers" -> concreteObservers,
           ),
         )
+      case CreateWithKey(contractId, keyId, maintainers, signatories, observers) =>
+        for {
+          concreteMaintainers <- partySetToValue(partyIds, maintainers)
+          concreteSignatories <- partySetToValue(partyIds, signatories)
+          concreteObservers <- partySetToValue(partyIds, observers)
+        } yield mkVariant(
+          "Universal:TxAction",
+          "CreateWithKey",
+          mkRecord(
+            "Universal:TxAction.CreateWithKey",
+            "contractId" -> V.ValueInt64(contractId.longValue),
+            "keyId" -> V.ValueInt64(keyId.longValue),
+            "maintainers" -> concreteMaintainers,
+            "signatories" -> concreteSignatories,
+            "observers" -> concreteObservers,
+          ),
+        )
       case Exercise(kind, contractId, controllers, choiceObservers, subTransaction) =>
         for {
           concreteControllers <- partySetToValue(partyIds, controllers)
@@ -108,6 +143,33 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
             "Universal:TxAction.Exercise",
             "kind" -> kindToValue(kind),
             "contractId" -> V.ValueInt64(contractId.longValue),
+            "controllers" -> concreteControllers,
+            "choiceObservers" -> concreteChoiceObservers,
+            "subTransaction" -> mkList(translatedActions),
+          ),
+        )
+      case ExerciseByKey(
+            kind,
+            _,
+            keyId,
+            maintainers,
+            controllers,
+            choiceObservers,
+            subTransaction,
+          ) =>
+        for {
+          concreteMaintainers <- partySetToValue(partyIds, maintainers)
+          concreteControllers <- partySetToValue(partyIds, controllers)
+          concreteChoiceObservers <- partySetToValue(partyIds, choiceObservers)
+          translatedActions <- subTransaction.traverse(actionToValue(partyIds, _))
+        } yield mkVariant(
+          "Universal:TxAction",
+          "ExerciseByKey",
+          mkRecord(
+            "Universal:TxAction.ExerciseByKey",
+            "kind" -> kindToValue(kind),
+            "keyId" -> V.ValueInt64(keyId.longValue),
+            "maintainers" -> concreteMaintainers,
             "controllers" -> concreteControllers,
             "choiceObservers" -> concreteChoiceObservers,
             "subTransaction" -> mkList(translatedActions),
@@ -141,7 +203,17 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
     V.ValueGenMap(
       contractIds.view
         .map { case (k, v) =>
-          V.ValueInt64(k.longValue) -> V.ValueContractId(v)
+          V.ValueInt64(k.longValue) ->
+            (v match {
+              case UniversalContractId(v) =>
+                mkVariant("Universal:SomeContractId", "UniversalContractId", V.ValueContractId(v))
+              case UniversalWithKeyContractId(v) =>
+                mkVariant(
+                  "Universal:SomeContractId",
+                  "UniversalWithKeyContractId",
+                  V.ValueContractId(v),
+                )
+            })
         }
         .to(ImmArray)
     )
@@ -164,24 +236,85 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
             "observers" -> concreteObservers,
           ),
         )
+      case CreateWithKey(_, keyId, maintainers, signatories, observers) =>
+        for {
+          concreteMaintainers <- partySetToValue(partyIds, maintainers)
+          concreteSignatories <- partySetToValue(partyIds, signatories)
+          concreteObservers <- partySetToValue(partyIds, observers)
+        } yield ApiCommand.Create(
+          mkIdentifier("Universal:UniversalWithKey"),
+          mkRecord(
+            "Universal:UniversalWithKey",
+            "keyId" -> V.ValueInt64(keyId.longValue),
+            "maintainers" -> concreteMaintainers,
+            "signatories" -> concreteSignatories,
+            "observers" -> concreteObservers,
+          ),
+        )
       case Exercise(kind, contractId, controllers, choiceObservers, subTransaction) =>
         val choiceName = kind match {
           case Consuming => "ConsumingChoice"
           case NonConsuming => "NonConsumingChoice"
         }
         for {
-          concreteContractId <- contractIds
+          someConcreteContractId <- contractIds
             .get(contractId)
             .toRight(ContractIdNotFoundError(contractId))
           concreteControllers <- partySetToValue(partyIds, controllers)
           concreteChoiceObservers <- partySetToValue(partyIds, choiceObservers)
           translatedActions <- subTransaction.traverse(actionToValue(partyIds, _))
-        } yield ApiCommand.Exercise(
-          typeId = mkIdentifier("Universal:Universal"),
-          contractId = concreteContractId,
-          choiceId = mkName(choiceName),
+        } yield someConcreteContractId match {
+          case UniversalContractId(concreteContractId) =>
+            ApiCommand.Exercise(
+              typeId = mkIdentifier("Universal:Universal"),
+              contractId = concreteContractId,
+              choiceId = mkName(choiceName),
+              argument = mkRecord(
+                s"Universal:$choiceName",
+                "env" -> envToValue(contractIds),
+                "controllers" -> concreteControllers,
+                "choiceObservers" -> concreteChoiceObservers,
+                "subTransaction" -> mkList(translatedActions),
+              ),
+            )
+          case UniversalWithKeyContractId(concreteContractId) =>
+            ApiCommand.Exercise(
+              typeId = mkIdentifier("Universal:UniversalWithKey"),
+              contractId = concreteContractId,
+              choiceId = mkName(s"K$choiceName"),
+              argument = mkRecord(
+                s"Universal:K$choiceName",
+                "env" -> envToValue(contractIds),
+                "controllers" -> concreteControllers,
+                "choiceObservers" -> concreteChoiceObservers,
+                "subTransaction" -> mkList(translatedActions),
+              ),
+            )
+        }
+      case ExerciseByKey(
+            kind,
+            _,
+            keyId,
+            maintainers,
+            controllers,
+            choiceObservers,
+            subTransaction,
+          ) =>
+        val choiceName = kind match {
+          case Consuming => "ConsumingChoice"
+          case NonConsuming => "NonConsumingChoice"
+        }
+        for {
+          concreteKey <- keyToValue(partyIds, keyId, maintainers)
+          concreteControllers <- partySetToValue(partyIds, controllers)
+          concreteChoiceObservers <- partySetToValue(partyIds, choiceObservers)
+          translatedActions <- subTransaction.traverse(actionToValue(partyIds, _))
+        } yield ApiCommand.ExerciseByKey(
+          templateId = mkIdentifier("Universal:UniversalWithKey"),
+          contractKey = concreteKey,
+          choiceId = mkName(s"K$choiceName"),
           argument = mkRecord(
-            s"Universal:$choiceName",
+            s"Universal:K$choiceName",
             "env" -> envToValue(contractIds),
             "controllers" -> concreteControllers,
             "choiceObservers" -> concreteChoiceObservers,
