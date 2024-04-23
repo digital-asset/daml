@@ -26,8 +26,8 @@ object SkeletonToSymbolic {
     private def mkFreshContractId(): Sym.ContractId =
       ctx.mkFreshConst("c", contractIdSort).asInstanceOf[Sym.ContractId]
 
-    private def mkFreshkeyId(): Sym.keyId =
-      ctx.mkFreshConst("ki", contractIdSort).asInstanceOf[Sym.keyId]
+    private def mkFreshkeyId(): Sym.KeyId =
+      ctx.mkFreshConst("ki", contractIdSort).asInstanceOf[Sym.KeyId]
 
     private def mkFreshPartySet(name: String): Sym.PartySet =
       ctx.mkFreshConst(name, partySetSort).asInstanceOf[Sym.PartySet]
@@ -77,6 +77,12 @@ object SkeletonToSymbolic {
         )
       case Skel.Fetch() =>
         Sym.Fetch(mkFreshContractId())
+      case Skel.FetchByKey() =>
+        Sym.FetchByKey(
+          mkFreshContractId(),
+          mkFreshkeyId(),
+          mkFreshPartySet("m"),
+        )
       case Skel.LookupByKey(successful) =>
         Sym.LookupByKey(
           if (successful) Some(mkFreshContractId()) else None,
