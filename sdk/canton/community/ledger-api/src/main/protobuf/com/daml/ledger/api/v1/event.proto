@@ -191,6 +191,10 @@ message ExercisedEvent {
   // Required
   Identifier template_id = 3;
 
+  // The package name of the created contract.
+  // Optional
+  google.protobuf.StringValue package_name = 14;
+
   // The interface where the choice is defined, if inherited.
   // Optional
   Identifier interface_id = 13;

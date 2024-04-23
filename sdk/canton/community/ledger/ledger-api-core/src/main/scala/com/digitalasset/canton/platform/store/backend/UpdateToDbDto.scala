@@ -305,6 +305,7 @@ object UpdateToDbDto {
                     event_id = Some(EventId(u.transactionId, nodeId).toLedgerString),
                     contract_id = exercise.targetCoid.coid,
                     template_id = Some(templateId),
+                    package_name = exercise.packageName,
                     flat_event_witnesses = flatWitnesses,
                     tree_event_witnesses = informees,
                     create_key_value = createKeyValue

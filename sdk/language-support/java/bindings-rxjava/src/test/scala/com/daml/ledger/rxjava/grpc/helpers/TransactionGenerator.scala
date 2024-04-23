@@ -266,6 +266,7 @@ object TransactionGenerator {
     eventId <- nonEmptyId
     contractId <- nonEmptyId
     (scalaTemplateId, javaTemplateId) <- identifierGen
+    packageName <- Gen.option(nonEmptyId)
     mbInterfaceId <- Gen.option(identifierGen)
     scalaInterfaceId = mbInterfaceId.map(_._1)
     javaInterfaceId = mbInterfaceId.map(_._2)
@@ -279,17 +280,18 @@ object TransactionGenerator {
   } yield (
     Exercised(
       ExercisedEvent(
-        eventId,
-        contractId,
-        Some(scalaTemplateId),
-        scalaInterfaceId,
-        choice,
-        Some(scalaChoiceArgument),
-        actingParties,
-        consuming,
-        witnessParties,
-        Nil,
-        Some(scalaExerciseResult),
+        eventId = eventId,
+        contractId = contractId,
+        templateId = Some(scalaTemplateId),
+        packageName,
+        interfaceId = scalaInterfaceId,
+        choice = choice,
+        choiceArgument = Some(scalaChoiceArgument),
+        actingParties = actingParties,
+        consuming = consuming,
+        witnessParties = witnessParties,
+        childEventIds = Nil,
+        exerciseResult = Some(scalaExerciseResult),
       )
     ),
     new data.ExercisedEvent(

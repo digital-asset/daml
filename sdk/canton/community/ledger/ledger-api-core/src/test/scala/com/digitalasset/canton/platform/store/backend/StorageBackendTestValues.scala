@@ -210,6 +210,7 @@ private[store] object StorageBackendTestValues {
       event_id = Some(EventId(transactionId, NodeId(0)).toLedgerString),
       contract_id = contractId.coid,
       template_id = Some(someTemplateId.toString),
+      package_name = None,
       flat_event_witnesses = if (consuming) Set(signatory) else Set.empty,
       tree_event_witnesses = Set(signatory, actor),
       create_key_value = None,
