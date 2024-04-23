@@ -5,14 +5,13 @@ package com.digitalasset.canton.participant.topology
 
 import cats.implicits.*
 import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandle
-import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX.State
+import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast
+import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.State
 import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{
@@ -23,7 +22,6 @@ import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime
 import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
-import com.digitalasset.canton.topology.transaction.TopologyChangeOpX.{Remove, Replace}
 import com.digitalasset.canton.topology.transaction.TopologyTransactionX.GenericTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
@@ -39,12 +37,13 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.annotation.nowarn
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.*
 import scala.concurrent.{Future, Promise}
 import scala.util.chaining.scalaUtilChainingOps
 
-class StoreBasedDomainOutboxXTest
+class QueueBasedDomainOutboxTest
     extends AsyncWordSpec
     with BaseTest
     with ProtocolVersionChecksAsyncWordSpec {
@@ -74,26 +73,24 @@ class StoreBasedDomainOutboxXTest
 
   private def mk(
       expect: Int,
-      responses: Iterator[TopologyTransactionsBroadcastX.State] =
-        Iterator.continually(TopologyTransactionsBroadcastX.State.Accepted),
+      responses: Iterator[TopologyTransactionsBroadcast.State] =
+        Iterator.continually(TopologyTransactionsBroadcast.State.Accepted),
       rejections: Iterator[Option[TopologyTransactionRejection]] = Iterator.continually(None),
   ) = {
-    val source = new InMemoryTopologyStoreX(
-      TopologyStoreId.AuthorizedStore,
-      loggerFactory,
-      timeouts,
-    )
     val target = new InMemoryTopologyStoreX(
       TopologyStoreId.DomainStore(DefaultTestIdentities.domainId),
       loggerFactory,
       timeouts,
     )
-    val manager = new AuthorizedTopologyManagerX(
+    val queue = new DomainOutboxQueue(loggerFactory)
+    val manager = new DomainTopologyManagerX(
       clock,
       crypto,
-      source,
+      target,
+      queue,
       // we don't need the validation logic to run, because we control the outcome of transactions manually
       enableTopologyTransactionValidation = false,
+      testedProtocolVersion,
       timeouts,
       futureSupervisor,
       loggerFactory,
@@ -117,7 +114,7 @@ class StoreBasedDomainOutboxXTest
         rejections = rejections,
       )
 
-    (source, target, manager, handle, client)
+    (target, manager, handle, client)
   }
 
   private class MockHandle(
@@ -127,8 +124,7 @@ class StoreBasedDomainOutboxXTest
       targetClient: StoreBasedDomainTopologyClient,
       rejections: Iterator[Option[TopologyTransactionRejection]] = Iterator.continually(None),
   ) extends RegisterTopologyTransactionHandle {
-
-    val buffer: ListBuffer[GenericSignedTopologyTransactionX] = ListBuffer()
+    val buffer: mutable.ListBuffer[GenericSignedTopologyTransactionX] = ListBuffer()
     private val promise = new AtomicReference[Promise[Unit]](Promise[Unit]())
     private val expect = new AtomicInteger(expectI)
 
@@ -136,7 +132,7 @@ class StoreBasedDomainOutboxXTest
         transactions: Seq[GenericSignedTopologyTransactionX]
     )(implicit
         traceContext: TraceContext
-    ): FutureUnlessShutdown[Seq[TopologyTransactionsBroadcastX.State]] =
+    ): FutureUnlessShutdown[Seq[TopologyTransactionsBroadcast.State]] =
       FutureUnlessShutdown.outcomeF {
         logger.debug(s"Observed ${transactions.length} transactions")
         buffer ++= transactions
@@ -192,11 +188,11 @@ class StoreBasedDomainOutboxXTest
     def allObserved(): Future[Unit] = promise.get().future
 
     override protected def timeouts: ProcessingTimeout = ProcessingTimeout()
-    override protected def logger: TracedLogger = StoreBasedDomainOutboxXTest.this.logger
+    override protected def logger: TracedLogger = QueueBasedDomainOutboxTest.this.logger
   }
 
   private def push(
-      manager: AuthorizedTopologyManagerX,
+      manager: DomainTopologyManagerX,
       transactions: Seq[GenericTopologyTransactionX],
   ): Future[
     Either[TopologyManagerError, Seq[GenericSignedTopologyTransactionX]]
@@ -216,29 +212,27 @@ class StoreBasedDomainOutboxXTest
       .failOnShutdown
 
   private def outboxConnected(
-      manager: AuthorizedTopologyManagerX,
+      manager: DomainTopologyManagerX,
       handle: RegisterTopologyTransactionHandle,
       client: DomainTopologyClientWithInit,
-      source: TopologyStoreX[TopologyStoreId.AuthorizedStore],
       target: TopologyStoreX[TopologyStoreId.DomainStore],
-  ): Future[StoreBasedDomainOutboxX] = {
-    val domainOutbox = new StoreBasedDomainOutboxX(
+  ): Future[QueueBasedDomainOutbox] = {
+    val domainOutbox = new QueueBasedDomainOutbox(
       domain,
       domainId,
       participant1,
       testedProtocolVersion,
       handle,
       client,
-      source,
+      manager.outboxQueue,
       target,
       timeouts,
       loggerFactory,
       crypto,
-      futureSupervisor = FutureSupervisor.Noop,
     )
     domainOutbox
       .startup()
-      .fold[StoreBasedDomainOutboxX](
+      .fold[QueueBasedDomainOutbox](
         s => fail(s"Failed to start domain outbox $s"),
         _ =>
           domainOutbox.tap(outbox =>
@@ -257,7 +251,7 @@ class StoreBasedDomainOutboxXTest
       .onShutdown(domainOutbox)
   }
 
-  private def outboxDisconnected(manager: AuthorizedTopologyManagerX): Unit =
+  private def outboxDisconnected(manager: DomainTopologyManagerX): Unit =
     manager.clearObservers()
 
   private def txAddFromMapping(mapping: TopologyMappingX) =
@@ -280,12 +274,13 @@ class StoreBasedDomainOutboxXTest
     .map(x => StoredTopologyTransactionsX(x.result.filter(_.validUntil.isEmpty)))
 
   "dispatcher" should {
+
     "dispatch transaction on new connect" in {
-      val (source, target, manager, handle, client) =
+      val (target, manager, handle, client) =
         mk(transactions.length)
       for {
         res <- push(manager, transactions)
-        _ <- outboxConnected(manager, handle, client, source, target)
+        _ <- outboxConnected(manager, handle, client, target)
         _ <- handle.allObserved()
       } yield {
         res.value shouldBe a[Seq[?]]
@@ -294,10 +289,10 @@ class StoreBasedDomainOutboxXTest
     }
 
     "dispatch transaction on existing connections" in {
-      val (source, target, manager, handle, client) =
+      val (target, manager, handle, client) =
         mk(transactions.length)
       for {
-        _ <- outboxConnected(manager, handle, client, source, target)
+        _ <- outboxConnected(manager, handle, client, target)
         res <- push(manager, transactions)
         _ <- handle.allObserved()
       } yield {
@@ -307,10 +302,10 @@ class StoreBasedDomainOutboxXTest
     }
 
     "dispatch transactions continuously" in {
-      val (source, target, manager, handle, client) = mk(slice1.length)
+      val (target, manager, handle, client) = mk(slice1.length)
       for {
         _res <- push(manager, slice1)
-        _ <- outboxConnected(manager, handle, client, source, target)
+        _ <- outboxConnected(manager, handle, client, target)
         _ <- handle.allObserved()
         observed1 = handle.clear(slice2.length)
         _ <- push(manager, slice2)
@@ -322,15 +317,15 @@ class StoreBasedDomainOutboxXTest
     }
 
     "not dispatch old data when reconnected" in {
-      val (source, target, manager, handle, client) = mk(slice1.length)
+      val (target, manager, handle, client) = mk(slice1.length)
       for {
-        _ <- outboxConnected(manager, handle, client, source, target)
+        _ <- outboxConnected(manager, handle, client, target)
         _ <- push(manager, slice1)
         _ <- handle.allObserved()
         _ = handle.clear(slice2.length)
         _ = outboxDisconnected(manager)
         res2 <- push(manager, slice2)
-        _ <- outboxConnected(manager, handle, client, source, target)
+        _ <- outboxConnected(manager, handle, client, target)
         _ <- handle.allObserved()
       } yield {
         res2.value shouldBe a[Seq[?]]
@@ -340,7 +335,7 @@ class StoreBasedDomainOutboxXTest
 
     "correctly find a remove in source store" in {
 
-      val (source, target, manager, handle, client) =
+      val (target, manager, handle, client) =
         mk(transactions.length)
 
       val midRevert = transactions(2).reverse
@@ -353,23 +348,19 @@ class StoreBasedDomainOutboxXTest
         )
 
       for {
-        _ <- outboxConnected(manager, handle, client, source, target)
+        _ <- outboxConnected(manager, handle, client, target)
         _ <- push(manager, transactions)
         _ <- handle.allObserved()
         _ = outboxDisconnected(manager)
         // add a remove and another add
         _ <- push(manager, Seq(midRevert, another))
-        // ensure that topology manager properly processed this state
-        ais <- headTransactions(source).map(_.toTopologyState)
-        _ = ais should not contain midRevert.mapping
-        _ = ais should contain(another.mapping)
         // and ensure both are not in the new store
         tis <- headTransactions(target).map(_.toTopologyState)
         _ = tis should contain(midRevert.mapping)
         _ = tis should not contain another.mapping
         // re-connect
         _ = handle.clear(2)
-        _ <- outboxConnected(manager, handle, client, source, target)
+        _ <- outboxConnected(manager, handle, client, target)
         _ <- handle.allObserved()
         tis <- headTransactions(target).map(_.toTopologyState)
       } yield {
@@ -378,41 +369,14 @@ class StoreBasedDomainOutboxXTest
       }
     }
 
-    "also push deprecated transactions" in {
-      val (source, target, manager, handle, client) =
-        mk(transactions.length - 1)
-      val midRevertSerialBumped = transactions(2).reverse
-      for {
-        res <- push(manager, transactions :+ midRevertSerialBumped)
-        _ <- outboxConnected(manager, handle, client, source, target)
-        _ <- handle.allObserved()
-      } yield {
-        res.value shouldBe a[Seq[?]]
-        handle.buffer.map(x =>
-          (
-            x.operation,
-            x.mapping.maybeUid.map(_.id),
-          )
-        ) shouldBe Seq(
-          (Replace, None),
-          (Replace, Some("alpha")),
-          (Replace, Some("beta")),
-          (Replace, Some("gamma")),
-          (Replace, Some("delta")),
-          (Remove, Some("beta")),
-        )
-        handle.buffer should have length 6
-      }
-    }
-
     "handle rejected transactions" in {
-      val (source, target, manager, handle, client) =
+      val (target, manager, handle, client) =
         mk(
           transactions.size,
           rejections = Iterator.continually(Some(TopologyTransactionRejection.NotAuthorized)),
         )
       for {
-        _ <- outboxConnected(manager, handle, client, source, target)
+        _ <- outboxConnected(manager, handle, client, target)
         res <- push(manager, transactions)
         _ <- handle.allObserved()
       } yield {
@@ -422,7 +386,8 @@ class StoreBasedDomainOutboxXTest
     }
 
     "handle failed transactions" in {
-      val (source, target, manager, handle, client) =
+      logger.info("handle failed transactions")
+      val (target, manager, handle, client) =
         mk(
           2,
           responses = Iterator(
@@ -438,7 +403,7 @@ class StoreBasedDomainOutboxXTest
       @nowarn val Seq(tx2) = transactions.slice(1, 2)
 
       lazy val action = for {
-        _ <- outboxConnected(manager, handle, client, source, target)
+        _ <- outboxConnected(manager, handle, client, target)
         res1 <- push(manager, Seq(tx1))
         res2 <- push(manager, Seq(tx2))
         _ <- handle.allObserved()
@@ -453,6 +418,5 @@ class StoreBasedDomainOutboxXTest
         _.errorMessage should include("failed the following topology transactions"),
       )
     }
-
   }
 }

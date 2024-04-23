@@ -324,7 +324,7 @@ class MediatorNodeBootstrapX(
           authorizedTopologyManager = authorizedTopologyManager,
           domainTopologyManager = domainTopologyManager,
           crypto = crypto,
-          topologyXConfig = config.topology,
+          topologyConfig = config.topology,
           timeouts = timeouts,
           loggerFactory = domainLoggerFactory,
           futureSupervisor = arguments.futureSupervisor,

@@ -17,7 +17,7 @@ import com.digitalasset.canton.lifecycle.{
 }
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.logging.pretty.PrettyPrinting
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX
+import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast
 import com.digitalasset.canton.topology.store.{TopologyStoreId, TopologyStoreX}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
@@ -30,35 +30,61 @@ import com.digitalasset.canton.version.ProtocolVersion
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
-trait DomainOutboxDispatchStoreSpecific extends NamedLogging {
+trait DomainOutboxDispatchHelper extends NamedLogging {
   protected def domainId: DomainId
+
   protected def memberId: Member
+
   protected def protocolVersion: ProtocolVersion
+
   protected def crypto: Crypto
-
-  protected def topologyTransaction(tx: GenericSignedTopologyTransactionX): PrettyPrinting
-
-  protected def filterTransactions(
-      transactions: Seq[GenericSignedTopologyTransactionX],
-      predicate: GenericSignedTopologyTransactionX => Future[Boolean],
-  )(implicit executionContext: ExecutionContext): Future[Seq[GenericSignedTopologyTransactionX]]
-
-  protected def onlyApplicable(
-      transactions: Seq[GenericSignedTopologyTransactionX]
-  ): Future[Seq[GenericSignedTopologyTransactionX]]
 
   protected def convertTransactions(transactions: Seq[GenericSignedTopologyTransactionX])(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[Future, String, Seq[GenericSignedTopologyTransactionX]]
 
-  protected def isFailedState(response: TopologyTransactionsBroadcastX.State): Boolean
+  protected def filterTransactions(
+      transactions: Seq[GenericSignedTopologyTransactionX],
+      predicate: GenericSignedTopologyTransactionX => Future[Boolean],
+  )(implicit
+      executionContext: ExecutionContext
+  ): Future[Seq[GenericSignedTopologyTransactionX]] =
+    transactions.parFilterA(tx => predicate(tx))
 
-  protected def isExpectedState(state: TopologyTransactionsBroadcastX.State): Boolean
+  protected def topologyTransaction(
+      tx: GenericSignedTopologyTransactionX
+  ): PrettyPrinting = tx.transaction
 
+  protected def onlyApplicable(
+      transactions: Seq[GenericSignedTopologyTransactionX]
+  ): Future[Seq[GenericSignedTopologyTransactionX]] = {
+    def notAlien(tx: GenericSignedTopologyTransactionX): Boolean = {
+      val mapping = tx.mapping
+      mapping match {
+        // TODO(#14048) add filter criteria here
+        case _ => true
+      }
+    }
+
+    def domainRestriction(tx: GenericSignedTopologyTransactionX): Boolean =
+      tx.mapping.restrictedToDomain.forall(_ == domainId)
+
+    Future.successful(
+      transactions.filter(x => notAlien(x) && domainRestriction(x))
+    )
+  }
+
+  protected def isFailedState(response: TopologyTransactionsBroadcast.State): Boolean =
+    response == TopologyTransactionsBroadcast.State.Failed
+
+  def isExpectedState(state: TopologyTransactionsBroadcast.State): Boolean = state match {
+    case TopologyTransactionsBroadcast.State.Failed => false
+    case TopologyTransactionsBroadcast.State.Accepted => true
+  }
 }
 
-trait StoreBasedDomainOutboxDispatchHelperX extends DomainOutboxDispatchHelperX {
+trait StoreBasedDomainOutboxDispatchHelper extends DomainOutboxDispatchHelper {
 
   def authorizedStore: TopologyStoreX[TopologyStoreId.AuthorizedStore]
   override protected def convertTransactions(
@@ -93,7 +119,7 @@ trait StoreBasedDomainOutboxDispatchHelperX extends DomainOutboxDispatchHelperX 
 
 }
 
-trait QueueBasedDomainOutboxDispatchHelperX extends DomainOutboxDispatchHelperX {
+trait QueueBasedDomainOutboxDispatchHelper extends DomainOutboxDispatchHelper {
   override protected def convertTransactions(
       transactions: Seq[GenericSignedTopologyTransactionX]
   )(implicit
@@ -112,52 +138,8 @@ trait QueueBasedDomainOutboxDispatchHelperX extends DomainOutboxDispatchHelperX 
   }
 }
 
-// TODO(#15161) collapse with base trait
-trait DomainOutboxDispatchHelperX extends DomainOutboxDispatchStoreSpecific {
-
-  override protected def filterTransactions(
-      transactions: Seq[GenericSignedTopologyTransactionX],
-      predicate: GenericSignedTopologyTransactionX => Future[Boolean],
-  )(implicit
-      executionContext: ExecutionContext
-  ): Future[Seq[GenericSignedTopologyTransactionX]] =
-    transactions.parFilterA(tx => predicate(tx))
-
-  override protected def topologyTransaction(
-      tx: GenericSignedTopologyTransactionX
-  ): PrettyPrinting = tx.transaction
-
-  override protected def onlyApplicable(
-      transactions: Seq[GenericSignedTopologyTransactionX]
-  ): Future[Seq[GenericSignedTopologyTransactionX]] = {
-    def notAlien(tx: GenericSignedTopologyTransactionX): Boolean = {
-      val mapping = tx.mapping
-      mapping match {
-        // TODO(#14048) add filter criteria here
-        case _ => true
-      }
-    }
-
-    def domainRestriction(tx: GenericSignedTopologyTransactionX): Boolean =
-      tx.mapping.restrictedToDomain.forall(_ == domainId)
-
-    Future.successful(
-      transactions.filter(x => notAlien(x) && domainRestriction(x))
-    )
-  }
-
-  override protected def isFailedState(response: TopologyTransactionsBroadcastX.State): Boolean =
-    response == TopologyTransactionsBroadcastX.State.Failed
-
-  override def isExpectedState(state: TopologyTransactionsBroadcastX.State): Boolean = state match {
-    case TopologyTransactionsBroadcastX.State.Failed => false
-    case TopologyTransactionsBroadcastX.State.Accepted => true
-  }
-
-}
-
 trait DomainOutboxDispatch extends NamedLogging with FlagCloseable {
-  this: DomainOutboxDispatchStoreSpecific =>
+  this: DomainOutboxDispatchHelper =>
 
   protected def targetStore: TopologyStoreX[TopologyStoreId.DomainStore]
   protected def handle: RegisterTopologyTransactionHandle
@@ -187,7 +169,7 @@ trait DomainOutboxDispatch extends NamedLogging with FlagCloseable {
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, String, Seq[TopologyTransactionsBroadcastX.State]] =
+  ): EitherT[FutureUnlessShutdown, String, Seq[TopologyTransactionsBroadcast.State]] =
     if (transactions.isEmpty) EitherT.rightT(Seq.empty)
     else {
       implicit val success = retry.Success.always

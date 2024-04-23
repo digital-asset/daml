@@ -7,7 +7,7 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.TopologyRequestId
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX.Broadcast
+import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.Broadcast
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
@@ -20,17 +20,17 @@ import com.digitalasset.canton.version.{
   RepresentativeProtocolVersion,
 }
 
-final case class TopologyTransactionsBroadcastX private (
+final case class TopologyTransactionsBroadcast private (
     override val domainId: DomainId,
     broadcasts: Seq[Broadcast],
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      TopologyTransactionsBroadcastX.type
+      TopologyTransactionsBroadcast.type
     ]
 ) extends UnsignedProtocolMessage {
 
-  @transient override protected lazy val companionObj: TopologyTransactionsBroadcastX.type =
-    TopologyTransactionsBroadcastX
+  @transient override protected lazy val companionObj: TopologyTransactionsBroadcast.type =
+    TopologyTransactionsBroadcast
 
   override protected[messages] def toProtoSomeEnvelopeContentV30
       : v30.EnvelopeContent.SomeEnvelopeContent =
@@ -43,9 +43,9 @@ final case class TopologyTransactionsBroadcastX private (
 
 }
 
-object TopologyTransactionsBroadcastX
+object TopologyTransactionsBroadcast
     extends HasProtocolVersionedWithContextCompanion[
-      TopologyTransactionsBroadcastX,
+      TopologyTransactionsBroadcast,
       ProtocolVersion,
     ] {
 
@@ -53,19 +53,19 @@ object TopologyTransactionsBroadcastX
       domainId: DomainId,
       broadcasts: Seq[Broadcast],
       protocolVersion: ProtocolVersion,
-  ): TopologyTransactionsBroadcastX =
-    TopologyTransactionsBroadcastX(domainId = domainId, broadcasts = broadcasts)(
+  ): TopologyTransactionsBroadcast =
+    TopologyTransactionsBroadcast(domainId = domainId, broadcasts = broadcasts)(
       supportedProtoVersions.protocolVersionRepresentativeFor(protocolVersion)
     )
 
-  override def name: String = "TopologyTransactionsBroadcastX"
+  override def name: String = "TopologyTransactionsBroadcast"
 
-  implicit val acceptedTopologyTransactionXMessageCast
-      : ProtocolMessageContentCast[TopologyTransactionsBroadcastX] =
-    ProtocolMessageContentCast.create[TopologyTransactionsBroadcastX](
+  implicit val acceptedTopologyTransactionMessageCast
+      : ProtocolMessageContentCast[TopologyTransactionsBroadcast] =
+    ProtocolMessageContentCast.create[TopologyTransactionsBroadcast](
       name
     ) {
-      case att: TopologyTransactionsBroadcastX => Some(att)
+      case att: TopologyTransactionsBroadcast => Some(att)
       case _ => None
     }
 
@@ -81,13 +81,13 @@ object TopologyTransactionsBroadcastX
   private[messages] def fromProtoV30(
       expectedProtocolVersion: ProtocolVersion,
       message: v30.TopologyTransactionsBroadcast,
-  ): ParsingResult[TopologyTransactionsBroadcastX] = {
+  ): ParsingResult[TopologyTransactionsBroadcast] = {
     val v30.TopologyTransactionsBroadcast(domain, broadcasts) = message
     for {
       domainId <- DomainId.fromProtoPrimitive(domain, "domain")
       broadcasts <- broadcasts.traverse(broadcastFromProtoV30(expectedProtocolVersion))
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield TopologyTransactionsBroadcastX(domainId, broadcasts.toList)(rpv)
+    } yield TopologyTransactionsBroadcast(domainId, broadcasts.toList)(rpv)
   }
 
   private def broadcastFromProtoV30(expectedProtocolVersion: ProtocolVersion)(
@@ -118,7 +118,7 @@ object TopologyTransactionsBroadcastX
 
   /** The state of the submission of a topology transaction broadcast. In combination with the sequencer client
     * send tracker capability, State reflects that either the sequencer Accepted the submission or that the submission
-    * was Rejected due to an error or a timeout. See DomainTopologyServiceX.
+    * was Rejected due to an error or a timeout. See DomainTopologyService.
     */
   sealed trait State extends Product with Serializable
 

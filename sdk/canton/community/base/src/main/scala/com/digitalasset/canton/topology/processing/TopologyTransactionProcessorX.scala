@@ -17,7 +17,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
   ProtocolMessage,
-  TopologyTransactionsBroadcastX,
+  TopologyTransactionsBroadcast,
 }
 import com.digitalasset.canton.sequencing.{ResubscriptionStart, SubscriptionStart}
 import com.digitalasset.canton.time.Clock
@@ -52,7 +52,7 @@ class TopologyTransactionProcessorX(
     timeouts: ProcessingTimeout,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends TopologyTransactionProcessorCommonImpl[TopologyTransactionsBroadcastX](
+    extends TopologyTransactionProcessorCommonImpl[TopologyTransactionsBroadcast](
       domainId,
       futureSupervisor,
       store,
@@ -95,10 +95,10 @@ class TopologyTransactionProcessorX(
       envelopes: List[DefaultOpenEnvelope],
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[List[TopologyTransactionsBroadcastX]] = {
+  ): FutureUnlessShutdown[List[TopologyTransactionsBroadcast]] = {
     FutureUnlessShutdown.pure(
       envelopes
-        .mapFilter(ProtocolMessage.select[TopologyTransactionsBroadcastX])
+        .mapFilter(ProtocolMessage.select[TopologyTransactionsBroadcast])
         .map(_.protocolMessage)
     )
   }
@@ -107,7 +107,7 @@ class TopologyTransactionProcessorX(
       sequencingTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,
       sc: SequencerCounter,
-      messages: List[TopologyTransactionsBroadcastX],
+      messages: List[TopologyTransactionsBroadcast],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val tx = messages.flatMap(_.broadcasts).flatMap(_.transactions)
 
@@ -238,7 +238,7 @@ object TopologyTransactionProcessorX {
       loggerFactory,
     )
 
-    val cachingClientF = CachingDomainTopologyClient.createX(
+    val cachingClientF = CachingDomainTopologyClient.create(
       clock,
       domainId,
       protocolVersion,

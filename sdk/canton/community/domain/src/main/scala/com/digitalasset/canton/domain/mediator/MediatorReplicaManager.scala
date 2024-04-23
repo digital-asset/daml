@@ -49,7 +49,7 @@ trait MediatorReplicaManager extends NamedLogging with FlagCloseableAsync {
 
   def getTopologyQueueStatus: TopologyQueueStatus = TopologyQueueStatus(
     manager = mediatorRuntime.map(_.mediator.topologyManagerStatus.queueSize).getOrElse(0),
-    dispatcher = mediatorRuntime.map(_.mediator.domainOutboxStatus.queueSize).getOrElse(0),
+    dispatcher = mediatorRuntime.map(_.mediator.domainOutboxHandle.queueSize).getOrElse(0),
     clients = mediatorRuntime.map(x => x.mediator.topologyClient.numPendingChanges).getOrElse(0),
   )
 

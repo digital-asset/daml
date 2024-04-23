@@ -12,6 +12,8 @@ import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.admin.package_management_service.{
   PackageManagementServiceGrpc,
   UploadDarFileRequest,
+  ValidateDarFileRequest,
+  ValidateDarFileResponse,
 }
 import com.daml.lf.archive.testing.Encode
 import com.daml.lf.archive.{Dar, GenDarReader}
@@ -116,6 +118,15 @@ class ApiPackageManagementServiceSpec
           forEvery(mdcs) { _.getOrElse("trace-id", "") should not be empty }
         },
       )
+    }
+
+    "validate a dar" in {
+      val apiService = createApiService()
+      apiService
+        .validateDarFile(ValidateDarFileRequest(ByteString.EMPTY, aSubmissionId))
+        .map { case ValidateDarFileResponse() =>
+          succeed
+        }
     }
 
     "close while uploading dar" in {

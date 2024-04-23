@@ -11,11 +11,13 @@ import com.digitalasset.canton.http.EndpointsCompanion.{Error, InvalidUserInput,
 import com.digitalasset.canton.http.LedgerClientJwt.Grpc
 import com.digitalasset.canton.http.util.FutureUtil.*
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import scalaz.std.option.*
 import scalaz.std.scalaFuture.*
 import scalaz.std.string.*
 import scalaz.syntax.traverse.*
-import scalaz.{EitherT, OneAnd, \/}
+import scalaz.{-\/, EitherT, OneAnd, \/, \/-}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -49,12 +51,31 @@ class PartiesService(
     et.run
   }
 
+  private type AllPartiesRet = Error \/ List[domain.PartyDetails]
+
   def allParties(jwt: Jwt)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Error \/ List[domain.PartyDetails]] =
-    listAllParties(jwt)(lc).map(
-      _.bimap (handleGrpcError, _ map domain.PartyDetails.fromLedgerApi)
-    )
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      mat: Materializer,
+  ): Future[AllPartiesRet] = {
+    import scalaz.std.option.*
+    Source.unfoldAsync(some("")) {
+      _ traverse { pageToken =>
+        listAllParties(jwt, pageToken, 0)(lc)
+          .map {
+            case -\/(e) => (None, -\/(handleGrpcError(e)))
+            case \/-((parties, "")) => (None, \/-(parties))
+            case \/-((parties, pageToken)) => (Some(pageToken), \/-(parties))
+          }
+          // if the listAllParties call fails, stop the stream and emit the error as a "warning"
+          .recover(Error.fromThrowable andThen (e => (None, -\/(e))))
+      }
+    }.toMat(Sink.fold(\/-(List.empty):AllPartiesRet){
+        case (-\/(e),_) => -\/(e)
+        case (_,-\/(e)) => -\/(e)
+        case (\/-(acc),\/-(more)) => \/-(acc ++ more.map(domain.PartyDetails.fromLedgerApi))
+      })(Keep.right)
+      .run()
+  }
 
   def parties(
       jwt: Jwt,

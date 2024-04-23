@@ -151,7 +151,7 @@ class ParticipantNodeBootstrapX(
       override def createSyncDomainAndTopologyDispatcher(
           aliasResolution: DomainAliasResolution,
           indexedStringStore: IndexedStringStore,
-      ): (SyncDomainPersistentStateManager, ParticipantTopologyDispatcherCommon) = {
+      ): (SyncDomainPersistentStateManager, ParticipantTopologyDispatcher) = {
         val manager = new SyncDomainPersistentStateManagerX(
           aliasResolution,
           storage,
@@ -165,7 +165,7 @@ class ParticipantNodeBootstrapX(
         )
 
         val topologyDispatcher =
-          new ParticipantTopologyDispatcherX(
+          new ParticipantTopologyDispatcher(
             topologyManager,
             participantId,
             manager,
@@ -410,7 +410,7 @@ class ParticipantNodeX(
     storage: Storage,
     override protected val clock: Clock,
     override val cryptoPureApi: CryptoPureApi,
-    identityPusher: ParticipantTopologyDispatcherCommon,
+    identityPusher: ParticipantTopologyDispatcher,
     private[canton] val ips: IdentityProvidingServiceClient,
     override private[canton] val sync: CantonSyncService,
     val adminToken: CantonAdminToken,

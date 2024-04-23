@@ -98,6 +98,16 @@ private[console] object ParticipantCommands {
           .UploadDar(Some(path), vetAllPackages, synchronizeVetting, logger)
       )
 
+    def validate(
+        runner: AdminCommandRunner,
+        path: String,
+        logger: TracedLogger,
+    ): ConsoleCommandResult[String] =
+      runner.adminCommand(
+        ParticipantAdminCommands.Package
+          .ValidateDar(Some(path), logger)
+      )
+
   }
 
   object domains {

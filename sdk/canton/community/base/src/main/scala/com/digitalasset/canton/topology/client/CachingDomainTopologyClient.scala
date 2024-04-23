@@ -172,7 +172,7 @@ final class CachingDomainTopologyClient(
 
 object CachingDomainTopologyClient {
 
-  def createX(
+  def create(
       clock: Clock,
       domainId: DomainId,
       protocolVersion: ProtocolVersion,

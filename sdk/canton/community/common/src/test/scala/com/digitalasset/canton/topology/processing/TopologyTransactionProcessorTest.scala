@@ -10,8 +10,8 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.DynamicDomainParameters
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX.Broadcast
+import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast
+import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.Broadcast
 import com.digitalasset.canton.sequencing.SubscriptionStart.FreshSubscription
 import com.digitalasset.canton.sequencing.protocol.{AllMembersOfDomain, OpenEnvelope, Recipients}
 import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
@@ -98,7 +98,7 @@ abstract class TopologyTransactionProcessorXTest
           EffectiveTime(ts),
           SequencerCounter(sc),
           List(
-            TopologyTransactionsBroadcastX.create(
+            TopologyTransactionsBroadcast.create(
               DefaultTestIdentities.domainId,
               Seq(Broadcast(String255.tryCreate("some request"), txs)),
               testedProtocolVersion,
@@ -600,7 +600,7 @@ abstract class TopologyTransactionProcessorXTest
         Traced(
           List(
             OpenEnvelope(
-              TopologyTransactionsBroadcastX.create(
+              TopologyTransactionsBroadcast.create(
                 domainId,
                 Seq(Broadcast(String255("topology request id")(), List(transactions))),
                 testedProtocolVersion,

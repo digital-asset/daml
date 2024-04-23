@@ -20,10 +20,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.domain.{DomainAliasResolution, DomainRegistryError}
 import com.digitalasset.canton.participant.store.*
-import com.digitalasset.canton.participant.topology.{
-  TopologyComponentFactory,
-  TopologyComponentFactoryX,
-}
+import com.digitalasset.canton.participant.topology.TopologyComponentFactory
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore, SequencedEventStore}
@@ -101,7 +98,7 @@ trait SyncDomainPersistentStateManager extends AutoCloseable with SyncDomainPers
 }
 
 // TODO(#15161) collapse with SyncDomainPersistentStateManager and SyncDomainPersistentStateManagerX
-abstract class SyncDomainPersistentStateManagerImpl[S <: SyncDomainPersistentState](
+abstract class SyncDomainPersistentStateManagerImpl(
     aliasResolution: DomainAliasResolution,
     storage: Storage,
     val indexedStringStore: IndexedStringStore,
@@ -177,7 +174,7 @@ abstract class SyncDomainPersistentStateManagerImpl[S <: SyncDomainPersistentSta
       alias: DomainAlias,
       domainId: IndexedDomain,
       protocolVersion: ProtocolVersion,
-  ): S =
+  ): SyncDomainPersistentState =
     get(domainId.item)
       .getOrElse(
         mkPersistentState(alias, domainId, protocolVersion)
@@ -187,7 +184,7 @@ abstract class SyncDomainPersistentStateManagerImpl[S <: SyncDomainPersistentSta
       alias: DomainAlias,
       domainId: IndexedDomain,
       protocolVersion: ProtocolVersion,
-  ): S
+  ): SyncDomainPersistentState
 
   private def checkAndUpdateDomainParameters(
       alias: DomainAlias,
@@ -217,28 +214,28 @@ abstract class SyncDomainPersistentStateManagerImpl[S <: SyncDomainPersistentSta
   def protocolVersionFor(domainId: DomainId): Option[ProtocolVersion] =
     get(domainId).map(_.protocolVersion)
 
-  private val domainStates: concurrent.Map[DomainId, S] =
-    TrieMap[DomainId, S]()
+  private val domainStates: concurrent.Map[DomainId, SyncDomainPersistentState] =
+    TrieMap[DomainId, SyncDomainPersistentState]()
 
-  private def put(state: S): Unit = {
+  private def put(state: SyncDomainPersistentState): Unit = {
     val domainId = state.domainId
     val previous = domainStates.putIfAbsent(domainId.item, state)
     if (previous.isDefined)
       throw new IllegalArgumentException(s"domain state already exists for $domainId")
   }
 
-  private def putIfAbsent(state: S): Unit =
+  private def putIfAbsent(state: SyncDomainPersistentState): Unit =
     domainStates.putIfAbsent(state.domainId.item, state).discard
 
-  override def get(domainId: DomainId): Option[S] =
+  override def get(domainId: DomainId): Option[SyncDomainPersistentState] =
     domainStates.get(domainId)
 
-  override def getAll: Map[DomainId, S] = domainStates.toMap
+  override def getAll: Map[DomainId, SyncDomainPersistentState] = domainStates.toMap
 
   override def getStatusOf(domainId: DomainId): Option[DomainConnectionConfigStore.Status] =
     this.aliasResolution.connectionStateForDomain(domainId)
 
-  override def getByAlias(domainAlias: DomainAlias): Option[S] =
+  override def getByAlias(domainAlias: DomainAlias): Option[SyncDomainPersistentState] =
     for {
       domainId <- domainIdForAlias(domainAlias)
       res <- get(domainId)
@@ -264,7 +261,7 @@ class SyncDomainPersistentStateManagerX(
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
-    extends SyncDomainPersistentStateManagerImpl[SyncDomainPersistentState](
+    extends SyncDomainPersistentStateManagerImpl(
       aliasResolution,
       storage,
       indexedStringStore,
@@ -296,7 +293,7 @@ class SyncDomainPersistentStateManagerX(
 
   override def topologyFactoryFor(domainId: DomainId): Option[TopologyComponentFactory] = {
     get(domainId).map(state =>
-      new TopologyComponentFactoryX(
+      new TopologyComponentFactory(
         domainId,
         crypto,
         clock,

@@ -48,7 +48,11 @@ import com.digitalasset.canton.platform.apiserver.services.command.{
   CommandSubmissionServiceImpl,
 }
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
-import com.digitalasset.canton.platform.config.{CommandServiceConfig, UserManagementServiceConfig}
+import com.digitalasset.canton.platform.config.{
+  CommandServiceConfig,
+  PartyManagementServiceConfig,
+  UserManagementServiceConfig,
+}
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadataStore
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.BindableService
@@ -104,6 +108,7 @@ object ApiServices {
       ledgerFeatures: LedgerFeatures,
       maxDeduplicationDuration: config.NonNegativeFiniteDuration,
       userManagementServiceConfig: UserManagementServiceConfig,
+      partyManagementServiceConfig: PartyManagementServiceConfig,
       apiStreamShutdownTimeout: FiniteDuration,
       meteringReportKey: MeteringReportKey,
       authenticateContract: AuthenticateContract,
@@ -215,6 +220,7 @@ object ApiServices {
           new ApiVersionService(
             ledgerFeatures,
             userManagementServiceConfig,
+            partyManagementServiceConfig,
             telemetry,
             loggerFactory,
           )
@@ -342,6 +348,7 @@ object ApiServices {
         val apiPartyManagementService = ApiPartyManagementService.createApiService(
           partyManagementService,
           new IdentityProviderExists(identityProviderConfigStore),
+          partyManagementServiceConfig.maxPartiesPageSize,
           partyRecordStore,
           transactionsService,
           writeService,

@@ -35,7 +35,7 @@ import com.digitalasset.canton.participant.sync.LedgerSyncEvent.TransactionAccep
 import com.digitalasset.canton.participant.sync.TimestampedEvent.EventId
 import com.digitalasset.canton.participant.topology.{
   LedgerServerPartyNotifier,
-  ParticipantTopologyDispatcherX,
+  ParticipantTopologyDispatcher,
   ParticipantTopologyManagerOps,
 }
 import com.digitalasset.canton.participant.util.DAMLe
@@ -78,7 +78,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
     private val packageService = mock[PackageService]
     val topologyManagerOps: ParticipantTopologyManagerOps = mock[ParticipantTopologyManagerOps]
 
-    private val identityPusher = mock[ParticipantTopologyDispatcherX]
+    private val identityPusher = mock[ParticipantTopologyDispatcher]
     val partyNotifier = mock[LedgerServerPartyNotifier]
     private val syncCrypto = mock[SyncCryptoApiProvider]
     private val multiDomainEventLog = mock[MultiDomainEventLog]

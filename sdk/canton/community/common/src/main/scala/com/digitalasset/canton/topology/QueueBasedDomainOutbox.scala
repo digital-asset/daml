@@ -13,7 +13,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.messages
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX
+import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.store.{TopologyStoreId, TopologyStoreX}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-class QueueBasedDomainOutboxX(
+class QueueBasedDomainOutbox(
     domain: DomainAlias,
     val domainId: DomainId,
     val memberId: Member,
@@ -42,8 +42,8 @@ class QueueBasedDomainOutboxX(
     batchSize: Int = 100,
     maybeObserverCloseable: Option[AutoCloseable] = None,
 )(implicit executionContext: ExecutionContext)
-    extends DomainOutboxCommon
-    with QueueBasedDomainOutboxDispatchHelperX
+    extends DomainOutbox
+    with QueueBasedDomainOutboxDispatchHelper
     with FlagCloseable {
 
   protected def awaitTransactionObserved(
@@ -239,8 +239,8 @@ class QueueBasedDomainOutboxX(
           _ <- dispatch(domain, transactions = convertedTxs)
           observed <- EitherT.right[String](
             // for x-nodes, we either receive
-            // * TopologyTransactionsBroadcastX.State.Accepted: SendTracker returned Success
-            // * TopologyTransactionsBroadcastX.State.Failed: SendTracker returned Timeout or Error
+            // * TopologyTransactionsBroadcast.State.Accepted: SendTracker returned Success
+            // * TopologyTransactionsBroadcast.State.Failed: SendTracker returned Timeout or Error
             // for all transactions in a submission batch.
             // Failed submissions are turned into a Left in dispatch. Therefore it's safe to await without additional checks.
             convertedTxs.headOption
@@ -287,7 +287,7 @@ class QueueBasedDomainOutboxX(
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, String, Seq[messages.TopologyTransactionsBroadcastX.State]] =
+  ): EitherT[FutureUnlessShutdown, String, Seq[messages.TopologyTransactionsBroadcast.State]] =
     if (transactions.isEmpty) EitherT.rightT(Seq.empty)
     else {
       implicit val success = retry.Success.always
@@ -328,7 +328,7 @@ class QueueBasedDomainOutboxX(
           }
           val failedResponses =
             responsesWithTransactions.collect {
-              case (TopologyTransactionsBroadcastX.State.Failed, tx) => tx
+              case (TopologyTransactionsBroadcast.State.Failed, tx) => tx
             }
 
           Either.cond(
