@@ -28,8 +28,8 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-sealed abstract class BaseCachingDomainTopologyClient(
-    protected val clock: Clock,
+final class CachingDomainTopologyClient(
+    clock: Clock,
     parent: DomainTopologyClientWithInit,
     cachingConfigs: CachingConfigs,
     batchingConfig: BatchingConfig,
@@ -151,28 +151,7 @@ sealed abstract class BaseCachingDomainTopologyClient(
   }
 
   override def numPendingChanges: Int = parent.numPendingChanges
-}
 
-// TODO(#15161) collapse with Base trait
-final class CachingDomainTopologyClientX(
-    clock: Clock,
-    parent: DomainTopologyClientWithInitX,
-    cachingConfigs: CachingConfigs,
-    batchingConfig: BatchingConfig,
-    timeouts: ProcessingTimeout,
-    futureSupervisor: FutureSupervisor,
-    loggerFactory: NamedLoggerFactory,
-)(implicit executionContext: ExecutionContext)
-    extends BaseCachingDomainTopologyClient(
-      clock,
-      parent,
-      cachingConfigs,
-      batchingConfig,
-      timeouts,
-      futureSupervisor,
-      loggerFactory,
-    )
-    with DomainTopologyClientWithInitX {
   override def observed(
       sequencedTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,
@@ -207,9 +186,9 @@ object CachingDomainTopologyClient {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[CachingDomainTopologyClientX] = {
+  ): Future[CachingDomainTopologyClient] = {
     val dbClient =
-      new StoreBasedDomainTopologyClientX(
+      new StoreBasedDomainTopologyClient(
         clock,
         domainId,
         protocolVersion,
@@ -220,7 +199,7 @@ object CachingDomainTopologyClient {
         loggerFactory,
       )
     val caching =
-      new CachingDomainTopologyClientX(
+      new CachingDomainTopologyClient(
         clock,
         dbClient,
         cachingConfigs,

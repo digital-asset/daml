@@ -21,7 +21,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationService
 import com.digitalasset.canton.domain.metrics.SequencerTestMetrics
-import com.digitalasset.canton.domain.sequencing.SequencerParameters
+import com.digitalasset.canton.domain.sequencing.config.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.lifecycle.{AsyncOrSyncCloseable, Lifecycle, SyncCloseable}
@@ -145,7 +145,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
     override def lookupCurrentMember(): Option[Member] = None
   }
   private val params = new SequencerParameters {
-    override def maxBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.1)
+    override def maxConfirmationRequestsBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.1)
     override def processingTimeouts: ProcessingTimeout = timeouts
   }
   private val service =

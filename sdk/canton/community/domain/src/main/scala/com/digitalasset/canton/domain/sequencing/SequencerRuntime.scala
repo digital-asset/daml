@@ -20,6 +20,7 @@ import com.digitalasset.canton.domain.sequencing.authentication.{
   MemberAuthenticationServiceFactory,
   MemberAuthenticationStore,
 }
+import com.digitalasset.canton.domain.sequencing.config.SequencerNodeParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.RegisterMemberError.AlreadyRegisteredError
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
@@ -74,7 +75,7 @@ class SequencerRuntime(
     sequencerId: SequencerId,
     val sequencer: Sequencer,
     staticDomainParameters: StaticDomainParameters,
-    localNodeParameters: CantonNodeWithSequencerParameters,
+    localNodeParameters: SequencerNodeParameters,
     publicServerConfig: PublicServerConfig,
     val metrics: SequencerMetrics,
     val domainId: DomainId,

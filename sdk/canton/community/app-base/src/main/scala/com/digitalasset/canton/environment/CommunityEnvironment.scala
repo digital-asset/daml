@@ -80,7 +80,7 @@ class CommunityEnvironment(
     val nodeFactoryArguments = NodeFactoryArguments(
       name,
       sequencerConfig,
-      config.sequencerNodeParametersByStringX(name),
+      config.sequencerNodeParametersByString(name),
       createClock(Some(SequencerNodeBootstrapX.LoggerFactoryKeyName -> name)),
       metricsRegistry.forSequencer(name),
       testingConfig,

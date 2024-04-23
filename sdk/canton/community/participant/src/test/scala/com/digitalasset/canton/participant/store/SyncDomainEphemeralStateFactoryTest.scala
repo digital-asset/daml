@@ -284,7 +284,7 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
           // we don't have to replay the latest clean request
           // if the next request is known to be after the commit time.
           // As the clean sequencer counter prehead is after the commit time,
-          // we start with the next dirty request and rewind the clean sequencer counter prehead
+          // we start with the next inflight validation request and rewind the clean sequencer counter prehead
           sp3c.cleanReplay shouldBe MessageCleanReplayStartingPoint(rc + 3L, sc + 5L, ts4)
           sp3c.processing shouldBe MessageProcessingStartingPoint(
             Some(requestOffset(rc + 2)),

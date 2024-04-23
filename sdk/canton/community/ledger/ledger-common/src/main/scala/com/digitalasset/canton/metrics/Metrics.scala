@@ -14,7 +14,7 @@ import io.opentelemetry.sdk.metrics.SdkMeterProvider
 
 object Metrics extends LazyLogging {
 
-  lazy val KNOWN_METRICS = Set("booh")
+  lazy val KNOWN_METRICS = Set[String]()
 
   def apply(prefix: MetricName, otelMeter: Meter) =
     new Metrics(
@@ -34,7 +34,9 @@ object Metrics extends LazyLogging {
   }
 }
 
-final class Metrics(prefix: MetricName, val openTelemetryMetricsFactory: LabeledMetricsFactory) {
+final class Metrics(parent: MetricName, val openTelemetryMetricsFactory: LabeledMetricsFactory) {
+
+  private val prefix = parent :+ "api"
 
   object commands extends CommandMetrics(prefix :+ "commands", openTelemetryMetricsFactory)
 

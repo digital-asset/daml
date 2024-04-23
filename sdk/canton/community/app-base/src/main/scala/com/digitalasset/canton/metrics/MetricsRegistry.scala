@@ -174,7 +174,7 @@ final case class MetricsRegistry(
       case MetricsFactoryType.External =>
         new OpenTelemetryMetricsFactory(
           meter,
-          Set(),
+          MetricsRegistry.KNOWN_METRICS,
           Some(logger.underlying),
           globalMetricsContext = extraContext,
         )
@@ -192,6 +192,14 @@ final case class MetricsRegistry(
 }
 
 object MetricsRegistry extends LazyLogging {
+
+  private lazy val KNOWN_METRICS = Set(
+    "daml.sequencer-client.handler.application-handle",
+    "daml.sequencer-client.submissions.sends",
+    "daml.sequencer-client.submissions.sequencing",
+    "daml.commitments.compute",
+    "daml.grpc.server",
+  ) ++ Metrics.KNOWN_METRICS
 
   val prefix: MetricName = MetricName.Daml
 

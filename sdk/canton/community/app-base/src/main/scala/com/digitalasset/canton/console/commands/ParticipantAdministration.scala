@@ -1498,26 +1498,26 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       """While a resource limit is attained or exceeded, the participant will reject any additional submission with GRPC status ABORTED.
         |Most importantly, a submission will be rejected **before** it consumes a significant amount of resources.
         |
-        |There are three kinds of limits: `maxDirtyRequests`,  `maxRate` and `maxBurstFactor`.
-        |The number of dirty requests of a participant P covers (1) requests initiated by P as well as
+        |There are three kinds of limits: `maxInflightValidationRequests`,  `maxSubmissionRate` and `maxSubmissionBurstFactor`.
+        |The number of inflight validation requests of a participant P covers (1) requests initiated by P as well as
         |(2) requests initiated by participants other than P that need to be validated by P.
-        |Compared to the maximum rate, the maximum number of dirty requests reflects the load on the participant more accurately.
-        |However, the maximum number of dirty requests alone does not protect the system from "bursts":
-        |If an application submits a huge number of commands at once, the maximum number of dirty requests will likely
-        |be exceeded, as the system is registering dirty requests only during validation and not already during
+        |Compared to the maximum rate, the maximum number of inflight validation requests reflects the load on the participant more accurately.
+        |However, the maximum number of inflight validation requests alone does not protect the system from "bursts":
+        |If an application submits a huge number of commands at once, the maximum number of inflight validation requests will likely
+        |be exceeded, as the system is registering inflight validation requests only during validation and not already during
         |submission.
         |
-        |The maximum rate is a hard limit on the rate of commands submitted to this participant through the ledger API.
+        |The maximum rate is a hard limit on the rate of commands submitted to this participant through the Ledger API.
         |As the rate of commands is checked and updated immediately after receiving a new command submission,
         |an application cannot exceed the maximum rate.
         |
-        |The `maxBurstFactor` parameter (positive, default 0.5) allows to configure how permissive the rate limitation should be
-        |with respect to bursts. The rate limiting will be enforced strictly after having observed `max_burst` * `max_rate` commands.
+        |The `maxSubmissionBurstFactor` parameter (positive, default 0.5) allows to configure how permissive the rate limitation should be
+        |with respect to bursts. The rate limiting will be enforced strictly after having observed `max_burst` * `max_submission_rate` commands.
         |
         |For the sake of illustration, let's assume the configured rate limit is ``100 commands/s`` with a burst ratio of 0.5.
         |If an application submits 100 commands within a single second, waiting exactly 10 milliseconds between consecutive commands,
         |then the participant will accept all commands.
-        |With a `maxBurstFactor` of 0.5, the participant will accept the first 50 commands and reject the remaining 50.
+        |With a `maxSubmissionBurstFactor` of 0.5, the participant will accept the first 50 commands and reject the remaining 50.
         |If the application then waits another 500 ms, it may submit another burst of 50 commands. If it waits 250 ms,
         |it may submit only a burst of 25 commands.
         |

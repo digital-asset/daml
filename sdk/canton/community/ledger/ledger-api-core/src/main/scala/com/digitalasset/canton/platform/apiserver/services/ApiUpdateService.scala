@@ -141,7 +141,7 @@ final class ApiUpdateService(
                 )
                 .via(logger.enrichedDebugStream("Responding with update trees.", updatesLoggable))
                 .via(logger.logErrorsOnStream)
-                .via(StreamMetrics.countElements(metrics.lapi.streams.updates))
+                .via(StreamMetrics.countElements(metrics.lapi.streams.updateTrees))
             },
         )
       }

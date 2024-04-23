@@ -14,7 +14,7 @@ import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.metrics.SequencerTestMetrics
-import com.digitalasset.canton.domain.sequencing.SequencerParameters
+import com.digitalasset.canton.domain.sequencing.config.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
 import com.digitalasset.canton.domain.sequencing.service.SubscriptionPool.PoolClosed
@@ -125,7 +125,8 @@ class GrpcSequencerServiceTest
         loggerFactory,
       )
     private val params = new SequencerParameters {
-      override def maxBurstFactor: PositiveDouble = PositiveDouble.tryCreate(1e-6)
+      override def maxConfirmationRequestsBurstFactor: PositiveDouble =
+        PositiveDouble.tryCreate(1e-6)
       override def processingTimeouts: ProcessingTimeout = timeouts
     }
 

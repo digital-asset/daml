@@ -13,6 +13,7 @@ import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.domain.config.PublicServerConfig
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.authentication.MemberAuthenticationServiceFactory
+import com.digitalasset.canton.domain.sequencing.config.SequencerNodeParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   DirectSequencerClientTransport,
   Sequencer,
@@ -70,7 +71,7 @@ class SequencerRuntimeForSeparateNode(
     sequencerId: SequencerId,
     sequencer: Sequencer,
     staticDomainParameters: StaticDomainParameters,
-    localNodeParameters: CantonNodeWithSequencerParameters,
+    localNodeParameters: SequencerNodeParameters,
     publicServerConfig: PublicServerConfig,
     timeTrackerConfig: DomainTimeTrackerConfig,
     testingConfig: TestingConfigInternal,

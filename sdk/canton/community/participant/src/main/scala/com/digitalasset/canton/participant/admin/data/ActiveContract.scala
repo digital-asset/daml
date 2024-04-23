@@ -5,44 +5,41 @@ package com.digitalasset.canton.participant.admin.data
 
 import better.files.File
 import cats.syntax.either.*
+import com.digitalasset.canton.TransferCounter
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.protocol.messages.HasDomainId
 import com.digitalasset.canton.protocol.{HasSerializableContract, SerializableContract}
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.util.{ByteStringUtil, ResourceUtil}
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{ProtoDeserializationError, TransferCounter}
 import com.google.protobuf.ByteString
 
 import java.io.{ByteArrayInputStream, InputStream}
 
-final case class ActiveContract private (
+final case class ActiveContract(
     domainId: DomainId,
     contract: SerializableContract,
     transferCounter: TransferCounter,
-)(protocolVersion: ProtocolVersion)
+)(override val representativeProtocolVersion: RepresentativeProtocolVersion[ActiveContract.type])
     extends HasProtocolVersionedWrapper[ActiveContract]
     with HasDomainId
     with HasSerializableContract {
   private def toProtoV30: v30.ActiveContract = {
     v30.ActiveContract(
-      protocolVersion.toProtoPrimitive,
       domainId.toProtoPrimitive,
-      contract.toByteString(protocolVersion),
+      Some(contract.toAdminProtoV30),
       transferCounter.toProtoPrimitive,
     )
   }
 
   override protected lazy val companionObj: ActiveContract.type = ActiveContract
 
-  override def representativeProtocolVersion: RepresentativeProtocolVersion[ActiveContract.type] =
-    ActiveContract.protocolVersionRepresentativeFor(protocolVersion)
-
   private[canton] def withSerializableContract(
       contract: SerializableContract
   ): ActiveContract =
-    copy(contract = contract)(protocolVersion)
+    copy(contract = contract)(representativeProtocolVersion)
 
 }
 
@@ -61,35 +58,27 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
       proto: v30.ActiveContract
   ): ParsingResult[ActiveContract] = {
     for {
-      protocolVersion <- ProtocolVersion.fromProtoPrimitive(proto.protocolVersion)
       domainId <- DomainId.fromProtoPrimitive(proto.domainId, "domain_id")
-      contract <- SerializableContract.fromTrustedByteString(proto.contract)
+      contract <- ProtoConverter.parseRequired(
+        SerializableContract.fromAdminProtoV30,
+        "contract",
+        proto.contract,
+      )
       transferCounter = proto.reassignmentCounter
-      activeContract <- create(domainId, contract, TransferCounter(transferCounter))(
-        protocolVersion
-      ).leftMap(_.toProtoDeserializationError)
+      reprProtocolVersion <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield {
-      activeContract
+      ActiveContract(domainId, contract, TransferCounter(transferCounter))(reprProtocolVersion)
     }
-  }
-
-  private[admin] class InvalidActiveContract(message: String) extends RuntimeException(message) {
-    lazy val toProtoDeserializationError: ProtoDeserializationError.InvariantViolation =
-      ProtoDeserializationError.InvariantViolation(message)
   }
 
   def create(
       domainId: DomainId,
       contract: SerializableContract,
       transferCounter: TransferCounter,
-  )(
-      protocolVersion: ProtocolVersion
-  ): Either[InvalidActiveContract, ActiveContract] =
-    Either
-      .catchOnly[IllegalArgumentException](
-        ActiveContract(domainId, contract, transferCounter)(protocolVersion)
-      )
-      .leftMap(iae => new InvalidActiveContract(iae.getMessage))
+  )(protocolVersion: ProtocolVersion): ActiveContract =
+    ActiveContract(domainId, contract, transferCounter)(
+      protocolVersionRepresentativeFor(protocolVersion)
+    )
 
   private[canton] def fromFile(fileInput: File): Iterator[ActiveContract] = {
     ResourceUtil.withResource(fileInput.newGzipInputStream(8192)) { fileInput =>

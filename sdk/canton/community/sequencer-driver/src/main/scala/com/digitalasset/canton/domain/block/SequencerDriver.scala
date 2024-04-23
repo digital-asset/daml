@@ -58,8 +58,7 @@ trait SequencerDriverFactory {
     *                         In the case of a newly started sequencer, it will be `None` and the driver
     *                         will start serving from whichever block it considers the beginning.
     *                         Given a specific `firstBlockHeight`, the sequence of blocks served by a driver
-    *                         must be always exactly the same and the blocks must be consecutively numbered.*
-    * @param domainId The `String` representation of the domain ID.
+    *                         must be always exactly the same and the blocks must be consecutively numbered.
     * @param loggerFactory A logger factory through which all logging should be done.
     *                      Useful in tests as we can capture log entries and check them.
     */

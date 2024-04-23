@@ -27,10 +27,7 @@ import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.{
   AuthorityOfResponse,
   PartyInfo,
 }
-import com.digitalasset.canton.topology.processing.{
-  TopologyTransactionProcessingSubscriberCommon,
-  TopologyTransactionProcessingSubscriberX,
-}
+import com.digitalasset.canton.topology.processing.TopologyTransactionProcessingSubscriber
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
@@ -543,14 +540,10 @@ trait TopologySnapshot
 
 // architecture-handbook-entry-end: IdentityProvidingServiceClient
 
-trait DomainTopologyClientWithInitX
-    extends DomainTopologyClientWithInit
-    with TopologyTransactionProcessingSubscriberX
-
 /** The internal domain topology client interface used for initialisation and efficient processing */
 trait DomainTopologyClientWithInit
     extends DomainTopologyClient
-    with TopologyTransactionProcessingSubscriberCommon
+    with TopologyTransactionProcessingSubscriber
     with HasFutureSupervision
     with NamedLogging {
 

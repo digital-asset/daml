@@ -670,9 +670,8 @@ private[mediator] class ConfirmationResponseProcessor(
           _ <- {
             if (
               // Note: This check relies on mediator trusting its sequencer
-              // and the sequencer performing validation `checkFromParticipantToAtMostOneMediator`
+              // and the sequencer performing validation `checkToAtMostOneMediator`
               // in the `BlockUpdateGenerator`
-              // TODO(i13849): Review the case below: the check in sequencer has to be made stricter (not to allow such messages from other than participant domain nodes)
               recipients.allRecipients.sizeCompare(1) == 0 &&
               recipients.allRecipients.contains(responseAggregation.request.mediator)
             ) {
