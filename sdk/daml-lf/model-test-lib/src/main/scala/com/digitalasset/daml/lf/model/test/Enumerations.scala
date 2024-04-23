@@ -66,6 +66,10 @@ class Enumerations(languageVersion: LanguageVersion) {
   lazy val fetches: Space[Action] =
     S.singleton(Fetch())
 
+  lazy val fetchesByKey: Space[Action] = withFeature(Features.contractKeys) {
+    S.singleton(FetchByKey())
+  }
+
   lazy val lookupsByKey: Space[Action] = withFeature(Features.contractKeys) {
     bools.map(LookupByKey)
   }
@@ -75,11 +79,13 @@ class Enumerations(languageVersion: LanguageVersion) {
 
   lazy val actions: Space[Action] =
     S.pay(
-      creates + createsWithKey + exercises + exercisesByKey + fetches + lookupsByKey + rollbacks
+      creates + createsWithKey + exercises + exercisesByKey + fetches + fetchesByKey + lookupsByKey + rollbacks
     )
 
   lazy val actionsWithoutRollback: Space[Action] =
-    S.pay(creates + createsWithKey + exercises + exercisesByKey + fetches + lookupsByKey)
+    S.pay(
+      creates + createsWithKey + exercises + exercisesByKey + fetches + fetchesByKey + lookupsByKey
+    )
 
   lazy val topLevelActions: Space[Action] =
     S.pay(creates + createsWithKey + exercises + exercisesByKey)
