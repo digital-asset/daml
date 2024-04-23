@@ -42,13 +42,13 @@ class UpgradesSpecLedgerAPIWithoutValidation
 
 class UpgradesSpecAdminAPIWithValidation
     extends UpgradesSpecAdminAPI("Admin API with validation")
-      with ShortTests
-      with LongTests
+    with ShortTests
+    with LongTests
 
 class UpgradesSpecLedgerAPIWithValidation
     extends UpgradesSpecLedgerAPI("Ledger API with validation")
-      with ShortTests
-      with LongTests
+    with ShortTests
+    with LongTests
 
 abstract class UpgradesSpecAdminAPI(override val suffix: String) extends UpgradesSpec(suffix) {
   override def uploadPackage(
@@ -569,7 +569,6 @@ trait LongTests { this: UpgradesSpec =>
           .map("%02x" format _)
           .mkString
       )
-      remy.log(pkgId)
       val os = ByteString.newOutput()
       DarWriter.encode(
         SdkVersion.sdkVersion,
