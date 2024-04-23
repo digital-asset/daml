@@ -20,7 +20,7 @@ object Symbolic {
   type PartySet = ArrayExpr[PartySort, BoolSort]
   type PartyId = IntExpr
   type ContractId = IntExpr
-  type keyId = IntExpr
+  type KeyId = IntExpr
 
   type ParticipantId = IntExpr
 
@@ -36,7 +36,7 @@ object Symbolic {
   ) extends Action
   final case class CreateWithKey(
       contractId: ContractId,
-      keyId: keyId,
+      keyId: KeyId,
       maintainers: PartySet,
       signatories: PartySet,
       observers: PartySet,
@@ -51,19 +51,28 @@ object Symbolic {
   final case class ExerciseByKey(
       kind: ExerciseKind,
       contractId: ContractId,
-      keyId: keyId,
+      keyId: KeyId,
       maintainers: PartySet,
       controllers: PartySet,
       choiceObservers: PartySet,
       subTransaction: Transaction,
   ) extends Action
-  final case class Fetch(contractId: ContractId) extends Action
-  final case class LookupByKey(
-      contractId: Option[ContractId],
-      keyId: keyId,
+  final case class Fetch(
+      contractId: ContractId
+  ) extends Action
+  final case class FetchByKey(
+      contractId: ContractId,
+      keyId: KeyId,
       maintainers: PartySet,
   ) extends Action
-  final case class Rollback(subTransaction: Transaction) extends Action
+  final case class LookupByKey(
+      contractId: Option[ContractId],
+      keyId: KeyId,
+      maintainers: PartySet,
+  ) extends Action
+  final case class Rollback(
+      subTransaction: Transaction
+  ) extends Action
 
   type Transaction = List[Action]
 

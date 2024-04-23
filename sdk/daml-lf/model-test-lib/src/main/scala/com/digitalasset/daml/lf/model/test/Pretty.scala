@@ -78,6 +78,8 @@ object Pretty {
         )
       case Fetch(contractId) =>
         Tree(s"Fetch $contractId", Nil)
+      case FetchByKey(contractId, _, _) =>
+        Tree(s"FetchByKey $contractId", Nil)
       case LookupByKey(contractId, keyId, maintainers) =>
         contractId match {
           case Some(cid) =>
@@ -140,6 +142,8 @@ object Pretty {
         )
       case Fetch() =>
         Tree("Fetch", Nil)
+      case FetchByKey() =>
+        Tree("FetchByKey", Nil)
       case LookupByKey(successful) =>
         Tree(s"LookupByKey ${if (successful) "success" else "failure"}", Nil)
       case Rollback(subTransaction) =>
@@ -234,6 +238,8 @@ object Pretty {
         )
       case Fetch(contractId) =>
         Tree(s"Fetch $contractId", Nil)
+      case FetchByKey(contractId, keyId, maintainers) =>
+        Tree(s"FetchByKey $contractId key=($keyId, ${prettyParties(maintainers)})", Nil)
       case LookupByKey(contractId, keyId, maintainers) =>
         contractId match {
           case Some(cid) =>

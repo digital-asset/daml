@@ -17,7 +17,7 @@ class FromSymbolic(numParties: Int, ctx: Context, model: Model) {
   private def evalContractId(cid: S.ContractId): L.ContractId =
     model.evaluate(cid, false).asInstanceOf[IntNum].getInt
 
-  private def evalkeyId(cid: S.keyId): L.keyId =
+  private def evalkeyId(cid: S.KeyId): L.KeyId =
     model.evaluate(cid, true).asInstanceOf[IntNum].getInt
 
   private def evalPartySet(set: S.PartySet): L.PartySet =
@@ -84,6 +84,12 @@ class FromSymbolic(numParties: Int, ctx: Context, model: Model) {
       )
     case Symbolic.Fetch(contractId) =>
       L.Fetch(evalContractId(contractId))
+    case Symbolic.FetchByKey(contractId, keyId, maintainers) =>
+      L.FetchByKey(
+        evalContractId(contractId),
+        evalkeyId(keyId),
+        evalPartySet(maintainers),
+      )
     case Symbolic.LookupByKey(contractId, keyId, maintainers) =>
       L.LookupByKey(
         contractId.map(evalContractId),

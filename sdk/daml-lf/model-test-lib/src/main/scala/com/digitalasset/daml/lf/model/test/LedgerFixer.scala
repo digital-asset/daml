@@ -164,6 +164,7 @@ class LedgerFixer(numParties: Int) {
       case S.CreateWithKey() => ???
       case S.ExerciseByKey(_, _) => ???
       case S.LookupByKey(_) => ???
+      case S.FetchByKey() => ???
     }
   }
 
