@@ -7,7 +7,7 @@ import better.files.File
 import ch.qos.logback.classic.Level
 import com.digitalasset.canton.admin.api.client.commands.{
   StatusAdminCommands,
-  TopologyAdminCommandsX,
+  TopologyAdminCommands,
 }
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.CommandErrors.{CommandError, GenericCommandError}
@@ -188,7 +188,7 @@ class HealthAdministrationX[S <: data.NodeStatus.Status](
 
   override def has_identity(): Boolean = runner
     .adminCommand(
-      TopologyAdminCommandsX.Init.GetId()
+      TopologyAdminCommands.Init.GetId()
     )
     .toEither
     .isRight

@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.admin
 import cats.data.EitherT
 import cats.implicits.toBifunctorOps
 import cats.syntax.either.*
+import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.daml.daml_lf_dev.DamlLf
@@ -64,6 +65,12 @@ trait DarService {
       vetAllPackages: Boolean,
       synchronizeVetting: Boolean,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Hash]
+
+  def validateByteString(
+      payload: ByteString,
+      filename: String,
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Hash]
+
   def getDar(hash: Hash)(implicit traceContext: TraceContext): Future[Option[PackageService.Dar]]
   def listDars(limit: Option[Int])(implicit
       traceContext: TraceContext
@@ -308,13 +315,24 @@ class PackageService(
       filename: String,
       vetAllPackages: Boolean,
       synchronizeVetting: Boolean,
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Hash] =
-    appendDar(
-      payload,
-      PathUtils.getFilenameWithoutExtension(Paths.get(filename).getFileName),
-      vetAllPackages,
-      synchronizeVetting,
-    )
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Hash] = {
+    val darName = PathUtils.getFilenameWithoutExtension(Paths.get(filename).getFileName)
+    for {
+      // Validate the packages before storing them in the DAR store or the package store
+      res <- validateByteStringToDar(payload, darName)
+      (hash, lengthValidatedName, dar) = res
+      _ <- storeValidatedPackagesAndSyncEvent(
+        dar.all,
+        lengthValidatedName.asString1GB,
+        LedgerSubmissionId.assertFromString(UUID.randomUUID().toString),
+        Some(
+          PackageService.Dar(DarDescriptor(hash, lengthValidatedName), payload.toByteArray)
+        ),
+        vetAllPackages = vetAllPackages,
+        synchronizeVetting = synchronizeVetting,
+      )
+    } yield hash
+  }
 
   private def catchUpstreamErrors[E](
       attempt: Either[LfArchiveError, E]
@@ -337,15 +355,21 @@ class PackageService(
         Left(PackageServiceErrors.InternalError.Unhandled(e))
     })
 
-  private def appendDar(
+  def validateByteString(
       payload: ByteString,
       darName: String,
-      vetAllPackages: Boolean,
-      synchronizeVetting: Boolean,
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Hash] = {
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Hash] =
+    validateByteStringToDar(payload, darName).map(_._1)
+
+  private def validateByteStringToDar(
+      payload: ByteString,
+      darName: String,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, DamlError, (Hash, String255, archive.Dar[DamlLf.Archive])] = {
     val hash = hashOps.digest(HashPurpose.DarIdentifier, payload)
     val stream = new ZipInputStream(payload.newInput())
-    val ret: EitherT[FutureUnlessShutdown, DamlError, Hash] = for {
+    val ret = for {
       lengthValidatedName <- EitherT
         .fromEither[FutureUnlessShutdown](
           String255.create(darName, Some("DAR file name"))
@@ -353,20 +377,8 @@ class PackageService(
         .leftMap(PackageServiceErrors.Reading.InvalidDarFileName.Error(_))
       dar <- catchUpstreamErrors(DarParser.readArchive(darName, stream))
         .mapK(FutureUnlessShutdown.outcomeK)
-      // Validate the packages before storing them in the DAR store or the package store
       _ <- validateArchives(dar).mapK(FutureUnlessShutdown.outcomeK)
-      _ <- storeValidatedPackagesAndSyncEvent(
-        dar.all,
-        lengthValidatedName.asString1GB,
-        LedgerSubmissionId.assertFromString(UUID.randomUUID().toString),
-        Some(
-          PackageService.Dar(DarDescriptor(hash, lengthValidatedName), payload.toByteArray)
-        ),
-        vetAllPackages = vetAllPackages,
-        synchronizeVetting = synchronizeVetting,
-      )
-
-    } yield hash
+    } yield (hash, lengthValidatedName, dar)
     ret.transform { res =>
       stream.close()
       res
@@ -394,7 +406,7 @@ class PackageService(
 
   private def validateArchives(archives: archive.Dar[DamlLf.Archive])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, DamlError, Unit] =
+  ): EitherT[Future, DamlError, PackageId] =
     for {
       mainPackage <- catchUpstreamErrors(Decode.decodeArchive(archives.main))
       dependencies <- archives.dependencies
@@ -417,7 +429,7 @@ class PackageService(
                 LoggingContextWithTrace(loggerFactory)
               )
             )
-    } yield ()
+    } yield mainPackage._1
 
   def vetPackages(packages: Seq[PackageId], syncVetting: Boolean)(implicit
       traceContext: TraceContext
