@@ -43,6 +43,9 @@ data TxAction
     | LookupByKey
         { keyId: Int
         , maintainers: [Party]
+        -- The expected result is not strictly necessary but we assert it as a
+        -- sanity check.
+        , expectedResult : Optional Int
         }
 #endif
     | CreateAndExercise
@@ -204,8 +207,9 @@ interpretTxAction env action =
           return env
 #endif
 #ifdef DAML_CONTRACT_KEYS
-    (LookupByKey keyId maintainers) -> do
-      lookupByKey @UniversalWithKey (keyId, maintainers)
+    (LookupByKey keyId maintainers expectedResult) -> do
+      result <- lookupByKey @UniversalWithKey (keyId, maintainers)
+      assert (fmap UniversalWithKeyContractId result == fmap (env !) expectedResult)
       return env
 #endif
     (Rollback subTransaction) -> do
