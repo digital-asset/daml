@@ -160,11 +160,14 @@ object UpgradeError {
       s"The upgraded $origin has changed the order of its variants - any new variant must be added at the end of the enum."
   }
 
-  final case class DecreasingLfVersion(pastVersion: LanguageVersion, presentVersion: LanguageVersion) extends  Error {
+  final case class DecreasingLfVersion(
+      pastVersion: LanguageVersion,
+      presentVersion: LanguageVersion,
+  ) extends Error {
     override def message: String =
       s"The upgraded package uses an older LF version (${presentVersion.pretty} < ${pastVersion.pretty})"
   }
- }
+}
 
 sealed abstract class UpgradedRecordOrigin
 

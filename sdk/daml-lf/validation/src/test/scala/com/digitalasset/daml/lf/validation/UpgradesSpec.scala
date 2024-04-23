@@ -87,14 +87,14 @@ class UpgradesSpecLedgerAPI(override val suffix: String = "Ledger API")
 
 trait ShortTests { this: UpgradesSpec =>
   s"Upload-time Upgradeability Checks ($suffix)" should {
-    s"report no upgrade errors for valid upgrade ($suffix)" ignore  {
+    s"report no upgrade errors for valid upgrade ($suffix)" ignore {
       testPackagePair(
         "test-common/upgrades-ValidUpgrade-v1.dar",
         "test-common/upgrades-ValidUpgrade-v2.dar",
         assertPackageUpgradeCheck(None),
       )
     }
-    s"report error when module is missing in upgrading package ($suffix)" ignore  {
+    s"report error when module is missing in upgrading package ($suffix)" ignore {
       testPackagePair(
         "test-common/upgrades-MissingModule-v1.dar",
         "test-common/upgrades-MissingModule-v2.dar",
@@ -646,8 +646,12 @@ abstract class UpgradesSpec(val suffix: String)
     val (testPackageV1Id, uploadV1Result) = v1
     val (testPackageV2Id, uploadV2Result) = v2
     if (disableUpgradeValidation) {
-      filterLog(cantonLogSrc, testPackageV1Id) should include(s"Skipping upgrade validation for package $testPackageV1Id")
-      filterLog(cantonLogSrc, testPackageV1Id) should include(s"Skipping upgrade validation for package $testPackageV2Id")
+      filterLog(cantonLogSrc, testPackageV1Id) should include(
+        s"Skipping upgrade validation for package $testPackageV1Id"
+      )
+      filterLog(cantonLogSrc, testPackageV1Id) should include(
+        s"Skipping upgrade validation for package $testPackageV2Id"
+      )
     } else {
       uploadV1Result match {
         case Some(err) if validateV1Checked =>
@@ -664,7 +668,10 @@ abstract class UpgradesSpec(val suffix: String)
       failureMessage match {
         // If a failure message is expected, look for it in the canton logs
         case Some(additionalInfo) =>
-          if (!cantonLogSrc.contains(s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade err-context:{additionalInfo=$additionalInfo")
+          if (
+            !cantonLogSrc.contains(
+              s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade err-context:{additionalInfo=$additionalInfo"
+            )
           ) fail("did not find upgrade failure in canton log")
 
           uploadV2Result match {
@@ -676,12 +683,14 @@ abstract class UpgradesSpec(val suffix: String)
               msg should include(
                 "The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade"
               )
+            }
           }
-        }
 
         // If a failure is not expected, look for a success message
         case None =>
-          filterLog(cantonLogSrc, testPackageV2Id) should include(s"Typechecking upgrades for $testPackageV2Id succeeded.")
+          filterLog(cantonLogSrc, testPackageV2Id) should include(
+            s"Typechecking upgrades for $testPackageV2Id succeeded."
+          )
           uploadV2Result match {
             case None => succeed;
             case Some(err) =>
