@@ -4,29 +4,26 @@
 package com.daml.lf.validation
 
 import com.daml.SdkVersion
+import com.daml.bazeltools.BazelRunfiles
+import com.daml.crypto.MessageDigestPrototype
 import com.daml.integrationtest.CantonFixture
+import com.daml.lf.archive.{Dar, DarReader, DarWriter}
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.language.LanguageVersion
+import com.google.protobuf.ByteString
+
 import org.scalatest.Inside
+import org.scalatest.Inspectors.forEvery
+import org.scalatest.compatible.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
-import com.google.protobuf.ByteString
-import com.daml.bazeltools.BazelRunfiles
-import com.daml.crypto.MessageDigestPrototype
-import com.daml.lf.archive.Dar
-
 import java.io.File
 import java.io.FileInputStream
-import org.scalatest.compatible.Assertion
 
+import scala.concurrent.Future
 import scala.io.Source
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.archive.DarReader
-import com.daml.lf.archive.DarWriter
-import com.daml.lf.language.LanguageVersion
-
 import scala.util.{Success, Failure}
-import org.scalatest.Inspectors.forEvery
 
 class UpgradesSpecAdminAPIWithoutValidation
     extends UpgradesSpecAdminAPI("Admin API without validation")
