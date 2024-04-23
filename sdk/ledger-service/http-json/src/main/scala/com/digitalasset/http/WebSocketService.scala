@@ -925,7 +925,7 @@ class WebSocketService(
             jwt,
             ledgerId,
             parties,
-            predicate.resolvedQuery.resolved.flatMap(_.expand).toList,
+            predicate.resolvedQuery.resolved.flatMap(_.allIds).toList,
           ) {
             case LedgerBegin =>
               fconn.pure(liveBegin(LedgerBegin))

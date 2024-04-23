@@ -82,6 +82,7 @@ class ContractsService(
           getActiveContracts,
           getCreatesAndArchivesSince,
           getTermination,
+          resolvePackageName,
         ),
       )
   }
@@ -336,7 +337,6 @@ class ContractsService(
                           ledgerId,
                           ledgerEnd,
                           offsetLimitToRefresh,
-                          resolvePackageName,
                         )
                     )
                     .unsafeToFuture()
@@ -396,7 +396,7 @@ class ContractsService(
               // in the same HTTP request, and they would all have to be bracketed once -SC
               timed(
                 metrics.Db.fetchByIdFetch,
-                fetch.fetchAndPersist(jwt, ledgerId, parties, resolved.expand.forgetNE.toList),
+                fetch.fetchAndPersist(jwt, ledgerId, parties, resolved.allIds.forgetNE.toList),
               ) *>
                 timed(
                   metrics.Db.fetchByIdQuery,
@@ -438,7 +438,7 @@ class ContractsService(
               // have to be contained within a single fetchAndPersistBracket -SC
               timed(
                 metrics.Db.fetchByKeyFetch,
-                fetch.fetchAndPersist(jwt, ledgerId, parties, resolved.expand.forgetNE.toList),
+                fetch.fetchAndPersist(jwt, ledgerId, parties, resolved.allIds.forgetNE.toList),
               ) *>
                 timed(
                   metrics.Db.fetchByKeyQuery,
@@ -501,7 +501,7 @@ class ContractsService(
               jwt,
               ledgerId,
               parties,
-              templateIds.resolved.flatMap(_.expand).toList,
+              templateIds.resolved.flatMap(_.allIds).toList,
               Lambda[ConnectionIO ~> ConnectionIO](
                 timed(metrics.Db.searchFetch, _)
               ),
@@ -548,7 +548,7 @@ class ContractsService(
       lc: LoggingContextOf[InstanceUUID]
   ): Source[InternalError \/ domain.ActiveContract.ResolvedCtTyId[LfValue], NotUsed] = {
     logger.debug(
-      s"Searching in memory, parties: $parties, templateIds: $resolvedQuery, queryParms: $queryParams"
+      s"Searching in memory, parties: $parties, resolvedQuery: $resolvedQuery, queryParms: $queryParams"
     )
 
     type Ac = domain.ActiveContract.ResolvedCtTyId[LfValue]

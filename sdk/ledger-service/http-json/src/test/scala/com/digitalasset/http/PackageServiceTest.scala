@@ -141,7 +141,7 @@ class PackageServiceTest
         val Some(resolvedTemplateId) = map resolve templateIdWithPackageName
 
         // Selects a package id with the given package name.
-        idName(resolvedTemplateId.packageId)._1.toOption shouldBe Some(
+        idName.get(resolvedTemplateId.packageId).flatMap(_._1.toOption) shouldBe Some(
           Ref.PackageName.assertFromString("foo")
         )
         // Should have selected package with highest version
