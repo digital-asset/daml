@@ -87,14 +87,14 @@ class UpgradesSpecLedgerAPI(override val suffix: String = "Ledger API")
 
 trait ShortTests { this: UpgradesSpec =>
   s"Upload-time Upgradeability Checks ($suffix)" should {
-    s"report no upgrade errors for valid upgrade ($suffix)" ignore {
+    s"report no upgrade errors for valid upgrade ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-ValidUpgrade-v1.dar",
         "test-common/upgrades-ValidUpgrade-v2.dar",
         assertPackageUpgradeCheck(None),
       )
     }
-    s"report error when module is missing in upgrading package ($suffix)" ignore {
+    s"report error when module is missing in upgrading package ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-MissingModule-v1.dar",
         "test-common/upgrades-MissingModule-v2.dar",
