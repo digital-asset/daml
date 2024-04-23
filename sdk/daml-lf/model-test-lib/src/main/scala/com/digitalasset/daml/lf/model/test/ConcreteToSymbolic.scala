@@ -32,7 +32,7 @@ object ConcreteToSymbolic {
       ctx.mkFreshConst("c", contractIdSort).asInstanceOf[Sym.ContractId]
 
     private def mkFreshKeyId(): Sym.ContractId =
-      ctx.mkFreshConst("ki", keyIdSort).asInstanceOf[Sym.keyId]
+      ctx.mkFreshConst("ki", keyIdSort).asInstanceOf[Sym.KeyId]
 
     private def mkFreshPartySet(name: String): Sym.PartySet =
       ctx.mkFreshConst(name, partySetSort).asInstanceOf[Sym.PartySet]
@@ -128,6 +128,14 @@ object ConcreteToSymbolic {
         val contractId = mkFreshContractId()
         val _ = constraints += ctx.mkEq(contractId, ctx.mkInt(fetch.contractId))
         Sym.Fetch(contractId)
+      case fetch: Conc.FetchByKey =>
+        val contractId = mkFreshContractId()
+        val keyId = mkFreshKeyId()
+        val maintainers = mkFreshPartySet("m")
+        val _ = constraints += ctx.mkEq(contractId, ctx.mkInt(fetch.contractId))
+        val _ = constraints += ctx.mkEq(keyId, ctx.mkInt(fetch.keyId))
+        val _ = constraints += ctx.mkEq(maintainers, toSymbolic(fetch.maintainers))
+        Sym.FetchByKey(contractId, keyId, maintainers)
       case lookup: Conc.LookupByKey =>
         val keyId = mkFreshKeyId()
         val maintainers = mkFreshPartySet("m")

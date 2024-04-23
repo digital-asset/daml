@@ -82,7 +82,7 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
 
   private def keyToValue(
       partyIds: PartyIdMapping,
-      keyId: keyId,
+      keyId: KeyId,
       maintainers: PartySet,
   ): Either[PartyIdNotFound, V] = for {
     concreteMaintainers <- partySetToValue(partyIds, maintainers)
@@ -185,6 +185,19 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
               "contractId" -> V.ValueInt64(contractId.longValue),
             ),
           )
+        )
+      case FetchByKey(contractId, keyId, maintainers) =>
+        for {
+          concreteMaintainers <- partySetToValue(partyIds, maintainers)
+        } yield mkVariant(
+          "Universal:TxAction",
+          "FetchByKey",
+          mkRecord(
+            "Universal:TxAction.FetchByKey",
+            "keyId" -> V.ValueInt64(keyId.longValue),
+            "maintainers" -> concreteMaintainers,
+            "expectedContractId" -> V.ValueInt64(contractId.longValue),
+          ),
         )
       case LookupByKey(contractId, keyId, maintainers) =>
         for {
@@ -335,6 +348,8 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
           ),
         )
       case Fetch(_) => throw new RuntimeException("Fetch not supported at command level")
+      case FetchByKey(_, _, _) =>
+        throw new RuntimeException("FetchByKey not supported at command level")
       case LookupByKey(_, _, _) =>
         throw new RuntimeException("LookupByKey not supported at command level")
       case Rollback(_) => throw new RuntimeException("Rollback not supported at command level")

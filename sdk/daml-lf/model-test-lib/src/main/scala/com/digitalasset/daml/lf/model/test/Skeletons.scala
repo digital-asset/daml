@@ -25,6 +25,7 @@ object Skeletons {
       subTransaction: Transaction,
   ) extends Action
   final case class Fetch() extends Action
+  final case class FetchByKey() extends Action
   final case class LookupByKey(
       successful: Boolean
   ) extends Action
