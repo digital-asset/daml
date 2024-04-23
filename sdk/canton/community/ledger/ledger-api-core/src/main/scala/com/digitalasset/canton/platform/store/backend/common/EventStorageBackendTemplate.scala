@@ -71,7 +71,6 @@ object EventStorageBackendTemplate {
       "event_id",
       "contract_id",
       "template_id",
-      // TODO Populate package name (https://github.com/DACH-NY/canton/issues/16757)
       "NULL as package_name",
       "NULL as create_argument",
       "NULL as create_argument_compression",
@@ -139,7 +138,7 @@ object EventStorageBackendTemplate {
 
   private type ExercisedEventRow =
     SharedRow ~ Boolean ~ String ~ Array[Byte] ~ Option[Int] ~ Option[Array[Byte]] ~ Option[Int] ~
-      Array[Int] ~ Array[String]
+      Array[Int] ~ Array[String] ~ Option[Int]
 
   private val exercisedEventRow: RowParser[ExercisedEventRow] = {
     import com.digitalasset.canton.platform.store.backend.Conversions.bigDecimalColumnToBoolean
@@ -151,7 +150,8 @@ object EventStorageBackendTemplate {
       byteArray("exercise_result").? ~
       int("exercise_result_compression").? ~
       array[Int]("exercise_actors") ~
-      array[String]("exercise_child_event_ids")
+      array[String]("exercise_child_event_ids") ~
+      int("package_name").?
   }
 
   private type ArchiveEventRow = SharedRow
@@ -331,7 +331,7 @@ object EventStorageBackendTemplate {
       stringInterning: StringInterning,
   ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent.Exercised]] =
     exercisedEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~ exerciseConsuming ~ qualifiedChoiceName ~ exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~ exerciseChildEventIds =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~ exerciseConsuming ~ qualifiedChoiceName ~ exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~ exerciseChildEventIds ~ packageName =>
         val Ref.QualifiedChoiceName(interfaceId, choiceName) =
           Ref.QualifiedChoiceName.assertFromString(qualifiedChoiceName)
         // ArraySeq.unsafeWrapArray is safe here
@@ -352,6 +352,7 @@ object EventStorageBackendTemplate {
             eventId = eventId,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
+            packageName = packageName.map(stringInterning.packageName.externalize),
             interfaceId = interfaceId,
             exerciseConsuming = exerciseConsuming,
             exerciseChoice = choiceName,
@@ -379,10 +380,8 @@ object EventStorageBackendTemplate {
       allQueryingParties: Set[Int],
       stringInterning: StringInterning,
   ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent]] =
-    createdTreeEventParser(allQueryingParties, stringInterning) | exercisedTreeEventParser(
-      allQueryingParties,
-      stringInterning,
-    )
+    createdTreeEventParser(allQueryingParties, stringInterning)
+      | exercisedTreeEventParser(allQueryingParties, stringInterning)
 
   val selectColumnsForTransactionTreeCreate: String = Seq(
     "event_offset",
@@ -426,8 +425,7 @@ object EventStorageBackendTemplate {
     "contract_id",
     "ledger_effective_time",
     "template_id",
-    // TODO Populate package name (https://github.com/DACH-NY/canton/issues/16757)
-    "NULL as package_name",
+    "package_name",
     "workflow_id",
     "NULL as create_argument",
     "NULL as create_argument_compression",

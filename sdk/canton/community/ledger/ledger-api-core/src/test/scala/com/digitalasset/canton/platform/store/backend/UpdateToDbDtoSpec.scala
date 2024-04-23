@@ -573,6 +573,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = Some(EventId(update.transactionId, exerciseNodeId).toLedgerString),
           contract_id = exerciseNode.targetCoid.coid,
           template_id = Some(exerciseNode.templateId.toString),
+          package_name = exerciseNode.packageName,
           flat_event_witnesses = Set("signatory", "observer"), // stakeholders
           tree_event_witnesses = Set("signatory", "observer"), // informees
           create_key_value = None,
@@ -675,6 +676,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = Some(EventId(update.transactionId, exerciseNodeId).toLedgerString),
           contract_id = exerciseNode.targetCoid.coid,
           template_id = Some(exerciseNode.templateId.toString),
+          package_name = exerciseNode.packageName,
           flat_event_witnesses = Set("signatory", "observer"), // stakeholders
           tree_event_witnesses = Set("signatory", "observer"), // informees
           create_key_value = None,
@@ -779,6 +781,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = Some(EventId(update.transactionId, exerciseNodeId).toLedgerString),
           contract_id = exerciseNode.targetCoid.coid,
           template_id = Some(exerciseNode.templateId.toString),
+          package_name = exerciseNode.packageName,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -875,6 +878,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = Some(EventId(update.transactionId, exerciseNodeId).toLedgerString),
           contract_id = exerciseNode.targetCoid.coid,
           template_id = Some(exerciseNode.templateId.toString),
+          package_name = exerciseNode.packageName,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -999,6 +1003,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = Some(EventId(update.transactionId, exerciseNodeAId).toLedgerString),
           contract_id = exerciseNodeA.targetCoid.coid,
           template_id = Some(exerciseNodeA.templateId.toString),
+          package_name = exerciseNodeA.packageName,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -1035,6 +1040,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = Some(EventId(update.transactionId, exerciseNodeBId).toLedgerString),
           contract_id = exerciseNodeB.targetCoid.coid,
           template_id = Some(exerciseNodeB.templateId.toString),
+          package_name = exerciseNodeB.packageName,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -1066,6 +1072,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = Some(EventId(update.transactionId, exerciseNodeCId).toLedgerString),
           contract_id = exerciseNodeC.targetCoid.coid,
           template_id = Some(exerciseNodeC.templateId.toString),
+          package_name = exerciseNodeC.packageName,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -1188,6 +1195,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = Some(EventId(update.transactionId, exerciseNodeAId).toLedgerString),
           contract_id = exerciseNodeA.targetCoid.coid,
           template_id = Some(exerciseNodeA.templateId.toString),
+          package_name = exerciseNodeA.packageName,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -1225,6 +1233,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = Some(EventId(update.transactionId, exerciseNodeBId).toLedgerString),
           contract_id = exerciseNodeB.targetCoid.coid,
           template_id = Some(exerciseNodeB.templateId.toString),
+          package_name = exerciseNodeB.packageName,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -1257,6 +1266,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = Some(EventId(update.transactionId, exerciseNodeCId).toLedgerString),
           contract_id = exerciseNodeC.targetCoid.coid,
           template_id = Some(exerciseNodeC.templateId.toString),
+          package_name = exerciseNodeC.packageName,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -1431,6 +1441,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = Some(EventId(update.transactionId, exerciseNodeId).toLedgerString),
           contract_id = exerciseNode.targetCoid.coid,
           template_id = Some(exerciseNode.templateId.toString),
+          package_name = exerciseNode.packageName,
           flat_event_witnesses = Set("signatory", "observer"),
           tree_event_witnesses = Set("signatory", "observer", "divulgee"),
           create_key_value = None,
@@ -1588,6 +1599,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_id = Some(EventId(update.transactionId, exerciseNodeId).toLedgerString),
         contract_id = exerciseNode.targetCoid.coid,
         template_id = Some(exerciseNode.templateId.toString),
+        package_name = exerciseNode.packageName,
         flat_event_witnesses = Set("signatory", "observer"),
         tree_event_witnesses = Set("signatory", "observer", "divulgee"),
         create_key_value = None,
@@ -1714,6 +1726,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_id = Some(EventId(update.transactionId, exerciseNodeId).toLedgerString),
         contract_id = exerciseNode.targetCoid.coid,
         template_id = Some(exerciseNode.templateId.toString),
+        package_name = exerciseNode.packageName,
         flat_event_witnesses = Set("signatory", "observer"),
         tree_event_witnesses = Set("disclosee"), // taken from explicit blinding info
         create_key_value = None,

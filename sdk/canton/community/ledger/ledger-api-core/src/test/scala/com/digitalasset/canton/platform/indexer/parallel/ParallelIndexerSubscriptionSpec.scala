@@ -106,6 +106,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
     event_id = None,
     contract_id = "1",
     template_id = None,
+    package_name = None,
     flat_event_witnesses = Set.empty,
     tree_event_witnesses = Set.empty,
     create_key_value = None,
