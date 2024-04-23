@@ -34,6 +34,8 @@ class Generators(numParticipants: Int, numParties: Int) {
         e.copy(subTransaction = numberTransactionCreates(e.subTransaction))
       case f: Fetch =>
         f
+      case f: FetchByKey =>
+        f
       case l: LookupByKey =>
         l
       case r: Rollback =>

@@ -43,9 +43,14 @@ data TxAction
     | LookupByKey
         { keyId: Int
         , maintainers: [Party]
-        -- The expected result is not strictly necessary but we assert it as a
-        -- sanity check.
+        -- The expected result is not necessary but we assert it as a sanity check.
         , expectedResult : Optional Int
+        }
+    | FetchByKey
+        { keyId: Int
+        , maintainers: [Party]
+        -- The expected result is not necessary but we assert it as a sanity check.
+        , expectedContractId : Int
         }
 #endif
     | CreateAndExercise
@@ -210,6 +215,10 @@ interpretTxAction env action =
     (LookupByKey keyId maintainers expectedResult) -> do
       result <- lookupByKey @UniversalWithKey (keyId, maintainers)
       assert (fmap UniversalWithKeyContractId result == fmap (env !) expectedResult)
+      return env
+    (FetchByKey keyId maintainers expectedContractId) -> do
+      (result, _) <- fetchByKey @UniversalWithKey (keyId, maintainers)
+      assert (UniversalWithKeyContractId result == env ! expectedContractId)
       return env
 #endif
     (Rollback subTransaction) -> do
