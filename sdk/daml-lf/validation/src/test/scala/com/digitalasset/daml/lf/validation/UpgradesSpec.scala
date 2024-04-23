@@ -40,13 +40,15 @@ class UpgradesSpecLedgerAPIWithoutValidation
   override val disableUpgradeValidation = true
 }
 
-abstract class UpgradesSpecAdminAPIWithValidation
+class UpgradesSpecAdminAPIWithValidation
     extends UpgradesSpecAdminAPI("Admin API with validation")
-    with LongTests
+      with ShortTests
+      with LongTests
 
 class UpgradesSpecLedgerAPIWithValidation
     extends UpgradesSpecLedgerAPI("Ledger API with validation")
-    with LongTests
+      with ShortTests
+      with LongTests
 
 abstract class UpgradesSpecAdminAPI(override val suffix: String) extends UpgradesSpec(suffix) {
   override def uploadPackage(
@@ -86,7 +88,7 @@ class UpgradesSpecLedgerAPI(override val suffix: String = "Ledger API")
 }
 
 trait ShortTests { this: UpgradesSpec =>
-  s"Upload-time Upgradeability Checks ($suffix)" should {
+  s"Short upload-time Upgradeability Checks ($suffix)" should {
     s"report no upgrade errors for valid upgrade ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-ValidUpgrade-v1.dar",
@@ -109,7 +111,7 @@ trait ShortTests { this: UpgradesSpec =>
 }
 
 trait LongTests { this: UpgradesSpec =>
-  s"Upload-time Upgradeability Checks ($suffix)" should {
+  s"Long upload-time Upgradeability Checks ($suffix)" should {
     s"uploading the same package multiple times succeeds ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-ValidUpgrade-v1.dar",
@@ -649,7 +651,7 @@ abstract class UpgradesSpec(val suffix: String)
       filterLog(cantonLogSrc, testPackageV1Id) should include(
         s"Skipping upgrade validation for package $testPackageV1Id"
       )
-      filterLog(cantonLogSrc, testPackageV1Id) should include(
+      filterLog(cantonLogSrc, testPackageV2Id) should include(
         s"Skipping upgrade validation for package $testPackageV2Id"
       )
     } else {
