@@ -186,7 +186,7 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
             ),
           )
         )
-      case LookupByKey(_, keyId, maintainers) =>
+      case LookupByKey(contractId, keyId, maintainers) =>
         for {
           concreteMaintainers <- partySetToValue(partyIds, maintainers)
         } yield mkVariant(
@@ -196,6 +196,7 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
             "Universal:TxAction.LookupByKey",
             "keyId" -> V.ValueInt64(keyId.longValue),
             "maintainers" -> concreteMaintainers,
+            "expectedResult" -> V.ValueOptional(contractId.map(cid => V.ValueInt64(cid.longValue))),
           ),
         )
       case Rollback(subTransaction) =>
