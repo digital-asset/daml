@@ -266,6 +266,7 @@ object TransactionGenerator {
     eventId <- nonEmptyId
     contractId <- nonEmptyId
     (scalaTemplateId, javaTemplateId) <- identifierGen
+    packageName <- Gen.option(nonEmptyId)
     mbInterfaceId <- Gen.option(identifierGen)
     scalaInterfaceId = mbInterfaceId.map(_._1)
     javaInterfaceId = mbInterfaceId.map(_._2)
@@ -282,7 +283,7 @@ object TransactionGenerator {
         eventId = eventId,
         contractId = contractId,
         templateId = Some(scalaTemplateId),
-        packageName = None,
+        packageName,
         interfaceId = scalaInterfaceId,
         choice = choice,
         choiceArgument = Some(scalaChoiceArgument),
