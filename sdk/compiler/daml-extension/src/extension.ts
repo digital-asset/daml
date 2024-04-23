@@ -40,7 +40,8 @@ type WebviewFiles = {
 };
 
 var damlLanguageClient: LanguageClient;
-var serverExecutable: Executable;
+var virtualResourceManager: VirtualResourceManager;
+
 // Extension activation
 // Note: You can log debug information by using `console.log()`
 // and then `Toggle Developer Tools` in VSCode. This will show
@@ -67,69 +68,76 @@ export async function activate(context: vscode.ExtensionContext) {
   // Display release notes on updates
   showReleaseNotesIfNewVersion(context);
 
-  [damlLanguageClient, serverExecutable] = createLanguageClient(
-    config,
-    consent,
-  );
-  damlLanguageClient.registerProposedFeatures();
-
   const webviewFiles: WebviewFiles = {
     src: vscode.Uri.file(path.join(context.extensionPath, "src", "webview.js")),
     css: vscode.Uri.file(
       path.join(context.extensionPath, "src", "webview.css"),
     ),
   };
-  let virtualResourceManager = new VirtualResourceManager(
-    damlLanguageClient,
-    webviewFiles,
-    context,
+
+  async function shutdownLanguageServer() {
+    // Stop the Language server
+    stopKeepAliveWatchdog();
+    await damlLanguageClient.stop();
+    virtualResourceManager.dispose();
+    const index = context.subscriptions.indexOf(virtualResourceManager, 0);
+    if (index > -1) {
+      context.subscriptions.splice(index, 1);
+    }
+  }
+
+  async function setupLanguageServer(
+    config: vscode.WorkspaceConfiguration,
+    consent: boolean | undefined,
+  ) {
+    damlLanguageClient = createLanguageClient(config, consent);
+    damlLanguageClient.registerProposedFeatures();
+
+    virtualResourceManager = new VirtualResourceManager(
+      damlLanguageClient,
+      webviewFiles,
+      context,
+    );
+    context.subscriptions.push(virtualResourceManager);
+
+    let _unused = damlLanguageClient.onReady().then(() => {
+      startKeepAliveWatchdog();
+      damlLanguageClient.onNotification(
+        DamlVirtualResourceDidChangeNotification.type,
+        params =>
+          virtualResourceManager.setContent(params.uri, params.contents),
+      );
+      damlLanguageClient.onNotification(
+        DamlVirtualResourceNoteNotification.type,
+        params => virtualResourceManager.setNote(params.uri, params.note),
+      );
+      damlLanguageClient.onNotification(
+        DamlVirtualResourceDidProgressNotification.type,
+        params =>
+          virtualResourceManager.setProgress(
+            params.uri,
+            params.millisecondsPassed,
+            params.startedAt,
+          ),
+      );
+    });
+
+    damlLanguageClient.start();
+  }
+
+  vscode.workspace.onDidChangeConfiguration(
+    async (event: vscode.ConfigurationChangeEvent) => {
+      if (event.affectsConfiguration("daml")) {
+        await shutdownLanguageServer();
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const config = vscode.workspace.getConfiguration("daml");
+        const consent = await getTelemetryConsent(config, context);
+        setupLanguageServer(config, consent);
+      }
+    },
   );
-  context.subscriptions.push(virtualResourceManager);
 
-  let _unused = damlLanguageClient.onReady().then(() => {
-    startKeepAliveWatchdog();
-    damlLanguageClient.onNotification(
-      DamlVirtualResourceDidChangeNotification.type,
-      params => virtualResourceManager.setContent(params.uri, params.contents),
-    );
-    damlLanguageClient.onNotification(
-      DamlVirtualResourceNoteNotification.type,
-      params => virtualResourceManager.setNote(params.uri, params.note),
-    );
-    damlLanguageClient.onNotification(
-      DamlVirtualResourceDidProgressNotification.type,
-      params =>
-        virtualResourceManager.setProgress(
-          params.uri,
-          params.millisecondsPassed,
-          params.startedAt,
-        ),
-    );
-    vscode.workspace.onDidChangeConfiguration(
-      async (event: vscode.ConfigurationChangeEvent) => {
-        if (event.affectsConfiguration("daml")) {
-          // Reload configuration from VSCode
-          const config = vscode.workspace.getConfiguration("daml");
-          const consent = await getTelemetryConsent(config, context);
-          // Recalculate server args
-          const serverArgs = getLanguageServerArgs(config, consent);
-          console.log(serverArgs);
-          // Assign them to the LanguageServer (in a way that VSCode likely doesn't like)
-          serverExecutable.args = serverArgs;
-          // Stop the Language server
-          stopKeepAliveWatchdog();
-          await damlLanguageClient.stop();
-          // Give it a moment
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          // Start it back up again using the new args
-          damlLanguageClient.start();
-          startKeepAliveWatchdog();
-        }
-      },
-    );
-  });
-
-  damlLanguageClient.start();
+  setupLanguageServer(config, consent);
 
   let d1 = vscode.commands.registerCommand("daml.showResource", (title, uri) =>
     virtualResourceManager.createOrShow(title, uri),
@@ -310,7 +318,7 @@ function getLanguageServerArgs(
 export function createLanguageClient(
   config: vscode.WorkspaceConfiguration,
   telemetryConsent: boolean | undefined,
-): [LanguageClient, Executable] {
+): LanguageClient {
   // Options to control the language client
   let clientOptions: LanguageClientOptions = {
     // Register the server for Daml
@@ -335,19 +343,18 @@ export function createLanguageClient(
 
   const serverArgs = getLanguageServerArgs(config, telemetryConsent);
 
-  const executable: Executable = {
-    args: serverArgs,
-    command: command,
-    options: { cwd: vscode.workspace.rootPath },
-  };
   const languageClient = new LanguageClient(
     "daml-language-server",
     "Daml Language Server",
-    executable,
+    {
+      args: serverArgs,
+      command: command,
+      options: { cwd: vscode.workspace.rootPath },
+    },
     clientOptions,
     true,
   );
-  return [languageClient, executable];
+  return languageClient;
 }
 
 // this method is called when your extension is deactivated
