@@ -12,7 +12,7 @@ import com.daml.lf.model.test.LedgerRunner.ApiPorts
 import com.daml.lf.model.test.Ledgers.Scenario
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
-import org.scalacheck.Gen
+import org.scalacheck.{Gen, Prop}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
@@ -20,6 +20,7 @@ import scala.concurrent.{Await, ExecutionContext}
 object Demo {
 
   private val languageVersion = LanguageVersion.v2_dev
+  private val alsoRunOnCanton = true
 
   private val universalDarPath: String = rlocation(
     s"daml-lf/model-test-lib/universal-v${languageVersion.pretty.replaceAll("\\.", "")}.dar"
@@ -28,7 +29,7 @@ object Demo {
   def main(args: Array[String]): Unit = {
 
     val scenarios =
-      new Enumerations(languageVersion).scenarios(numParticipants = 3, numCommands = 4)(50)
+      new Enumerations(languageVersion).scenarios(numParticipants = 3, numCommands = 4)(20)
 
     def randomBigIntLessThan(n: BigInt): BigInt = {
       var res: BigInt = BigInt(0)
@@ -89,37 +90,57 @@ object Demo {
               println(Pretty.prettyScenario(scenario))
               println(error.pretty)
               println(scenario)
+              println("shrinking")
+              Prop
+                .forAllShrink(Gen.const(scenario), Shrinkers.shrinkScenario.shrink)(s =>
+                  ideLedgerRunner.runAndProject(s).isRight
+                )
+                .check()
               System.exit(1)
             case Right(ideProjections) =>
               println("==== ide ledger ====")
               println("VALID!")
-//              ideProjections.foreach { case (partyId, projections) =>
-//                projections.foreach { case (participantId, projection) =>
-//                  println(s"Projection for party $partyId, participant $participantId")
-//                  println(Pretty.prettyProjection(projection))
-//                }
-//              }
-              println("==== canton ====")
-              cantonLedgerRunner.runAndProject(scenario) match {
-                case Left(error) =>
-                  println("ERROR")
-                  println(error.pretty)
-                  println(scenario)
-                  System.exit(1)
-                case Right(cantonProjections) =>
-                  if (cantonProjections == ideProjections) {
-                    println("MATCH!")
-                  } else {
-                    println("MISMATCH!")
-                    cantonProjections.foreach { case (partyId, projections) =>
-                      projections.foreach { case (participantId, projection) =>
-                        println(s"Projection for party $partyId on participant $participantId")
-                        println(Pretty.prettyProjection(projection))
-                      }
-                    }
+              //              ideProjections.foreach { case (partyId, projections) =>
+              //                projections.foreach { case (participantId, projection) =>
+              //                  println(s"Projection for party $partyId, participant $participantId")
+              //                  println(Pretty.prettyProjection(projection))
+              //                }
+              //              }
+              if (alsoRunOnCanton) {
+                println("==== canton ====")
+                cantonLedgerRunner.runAndProject(scenario) match {
+                  case Left(error) =>
+                    println("ERROR")
+                    println(error.pretty)
                     println(scenario)
+                    println("shrinking")
+                    Prop
+                      .forAllShrink(Gen.const(scenario), Shrinkers.shrinkScenario.shrink)(s =>
+                        cantonLedgerRunner.runAndProject(s).isRight
+                      )
+                      .check()
                     System.exit(1)
-                  }
+                  case Right(cantonProjections) =>
+                    if (cantonProjections == ideProjections) {
+                      println("MATCH!")
+                    } else {
+                      println("MISMATCH!")
+                      cantonProjections.foreach { case (partyId, projections) =>
+                        projections.foreach { case (participantId, projection) =>
+                          println(s"Projection for party $partyId on participant $participantId")
+                          println(Pretty.prettyProjection(projection))
+                        }
+                      }
+                      println(scenario)
+                      println("shrinking")
+                      Prop
+                        .forAllShrink(Gen.const(scenario), Shrinkers.shrinkScenario.shrink)(s =>
+                          ideLedgerRunner.runAndProject(s) != cantonLedgerRunner.runAndProject(s)
+                        )
+                        .check()
+                      System.exit(1)
+                    }
+                }
               }
           }
         }

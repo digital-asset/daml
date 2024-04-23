@@ -6,7 +6,7 @@ package model
 package test
 
 import com.daml.lf.model.test.Symbolic._
-import com.microsoft.z3.Status.{SATISFIABLE, UNSATISFIABLE}
+import com.microsoft.z3.Status.{SATISFIABLE, UNSATISFIABLE, UNKNOWN}
 import com.microsoft.z3._
 
 object SymbolicSolver {
@@ -712,7 +712,16 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
   }
 
   private def validate(scenario: Ledgers.Scenario): Boolean = {
-    val (symScenario, constraints) = ConcreteToSymbolic.toSymbolic(ctx, scenario)
+    // Global.setParameter("verbose", "100")
+    val solver = ctx.mkSolver()
+    val params = ctx.mkParams()
+    params.add("proof", false)
+    params.add("model", false)
+    params.add("unsat_core", false)
+    params.add("timeout", 1000)
+    solver.setParameters(params)
+
+    val symScenario = ConcreteToSymbolic.toSymbolic(ctx, scenario)
     val Constants(
       allParties,
       signatoriesOf,
@@ -724,10 +733,6 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     ) =
       mkFreshConstants()
 
-    val solver = ctx.mkSolver()
-    // Translation constraints
-    solver.add(constraints)
-    // The scenario is valid
     solver.add(
       validScenario(
         symScenario,
@@ -738,14 +743,14 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
         keyIdsOf,
         maintainersOf,
         hasKey,
-      )
+      ).simplify()
     )
 
     solver.check() match {
       case SATISFIABLE => true
       case UNSATISFIABLE => false
-      case other =>
-        throw new IllegalStateException(s"Unexpected solver result: $other")
+      case UNKNOWN =>
+        throw new IllegalStateException(s"Unexpected solver result: ${solver.getReasonUnknown}")
     }
   }
 }
