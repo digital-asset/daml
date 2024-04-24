@@ -396,11 +396,11 @@ class ContractsService(
               // in the same HTTP request, and they would all have to be bracketed once -SC
               timed(
                 metrics.Db.fetchByIdFetch,
-                fetch.fetchAndPersist(jwt, ledgerId, parties, resolved.allIds.forgetNE.toList),
+                fetch.fetchAndPersist(jwt, ledgerId, parties, resolved.allPkgIds.forgetNE.toList),
               ) *>
                 timed(
                   metrics.Db.fetchByIdQuery,
-                  ContractDao.fetchById(parties, resolved.allIds, contractId),
+                  ContractDao.fetchById(parties, resolved.allPkgIds, contractId),
                 )
             })
 
@@ -438,13 +438,13 @@ class ContractsService(
               // have to be contained within a single fetchAndPersistBracket -SC
               timed(
                 metrics.Db.fetchByKeyFetch,
-                fetch.fetchAndPersist(jwt, ledgerId, parties, resolved.allIds.forgetNE.toList),
+                fetch.fetchAndPersist(jwt, ledgerId, parties, resolved.allPkgIds.forgetNE.toList),
               ) *>
                 timed(
                   metrics.Db.fetchByKeyQuery,
                   ContractDao.fetchByKey(
                     parties,
-                    resolved.allIds,
+                    resolved.allPkgIds,
                     Hash.assertHashContractKey(
                       templateId = toLedgerApiValue(resolved.original),
                       key = contractKey,
@@ -501,7 +501,7 @@ class ContractsService(
               jwt,
               ledgerId,
               parties,
-              templateIds.resolved.flatMap(_.allIds).toList,
+              templateIds.resolved.flatMap(_.allPkgIds).toList,
               Lambda[ConnectionIO ~> ConnectionIO](
                 timed(metrics.Db.searchFetch, _)
               ),
@@ -525,8 +525,8 @@ class ContractsService(
         )(implicit
             lc: LoggingContextOf[InstanceUUID]
         ): doobie.ConnectionIO[Vector[domain.ActiveContract.ResolvedCtTyId[JsValue]]] = {
-          val predicate = valuePredicate(templateId.latestId, queryParams)
-          ContractDao.selectContracts(parties, templateId.allIds, predicate.toSqlWhereClause)
+          val predicate = valuePredicate(templateId.latestPkgId, queryParams)
+          ContractDao.selectContracts(parties, templateId.allPkgIds, predicate.toSqlWhereClause)
         }
       }
   }
@@ -559,9 +559,9 @@ class ContractsService(
       resolvedQuery.resolved
         .flatMap { case tid =>
           // Use the latest version of the template to convert JSON into a predicate
-          val predicate = queryParams.toPredicate(tid.latestId)
+          val predicate = queryParams.toPredicate(tid.latestPkgId)
           // This predicate is applicable to all version of the template returned.
-          tid.allIds.map(_ -> predicate)
+          tid.allPkgIds.map(_ -> predicate)
         }
         .forgetNE
         .toMap

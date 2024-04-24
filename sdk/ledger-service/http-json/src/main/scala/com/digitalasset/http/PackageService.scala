@@ -271,7 +271,7 @@ private class PackageService(
       val withPkgId =
         state.templateIdMap
           .toContractTypeRef(templateId)
-          .map(_.latestId)
+          .map(_.latestPkgId)
           .getOrElse(templateId)
       \/-(
         typesig

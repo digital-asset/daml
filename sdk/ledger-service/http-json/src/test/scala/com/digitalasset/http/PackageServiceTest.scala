@@ -106,8 +106,8 @@ class PackageServiceTest
         val unresolvedId: domain.ContractTypeId.Template.OptionalPkg = id.copy(packageId = None)
         val Some(resolved) = map resolve unresolvedId
         resolved.original shouldBe id
-        resolved.latestId shouldBe id
-        resolved.allIds shouldBe Set(id)
+        resolved.latestPkgId shouldBe id
+        resolved.allPkgIds shouldBe Set(id)
       }
     }
 
@@ -119,8 +119,8 @@ class PackageServiceTest
             id.copy(packageId = Some(id.packageId))
           val Some(resolved) = map resolve unresolvedId
           resolved.original shouldBe id
-          resolved.latestId shouldBe id
-          resolved.allIds shouldBe Set(id)
+          resolved.latestPkgId shouldBe id
+          resolved.allPkgIds shouldBe Set(id)
         }
     }
 
@@ -136,8 +136,8 @@ class PackageServiceTest
           id.copy(packageId = Some(pkgName))
         val Some(resolved) = map resolve unresolvedId
         resolved.original shouldBe id.copy(packageId = pkgName)
-        resolved.latestId shouldBe id
-        resolved.allIds shouldBe Set(id)
+        resolved.latestPkgId shouldBe id
+        resolved.allPkgIds shouldBe Set(id)
       }
     }
 
@@ -152,8 +152,8 @@ class PackageServiceTest
           id.copy(packageId = Some("#foo"))
         val Some(resolved) = map resolve unresolvedId
         resolved.original shouldBe id.copy(packageId = "#foo")
-        resolved.latestId shouldBe idWithMaxVer
-        resolved.allIds shouldBe ids
+        resolved.latestPkgId shouldBe idWithMaxVer
+        resolved.allPkgIds shouldBe ids
       }
     }
 
@@ -172,8 +172,8 @@ class PackageServiceTest
       val map = PackageService.buildTemplateIdMap(noPackageNames, ids)
       map.allIds.size shouldBe ids.size
       map.allIds.map(_.original) shouldBe ids
-      map.allIds.map(_.latestId) shouldBe ids
-      map.allIds.flatMap(_.allIds) shouldBe ids
+      map.allIds.map(_.latestPkgId) shouldBe ids
+      map.allIds.flatMap(_.allPkgIds) shouldBe ids
     }
 
     "when has single package name per package id, each has has its own item" in forAll(
@@ -187,8 +187,8 @@ class PackageServiceTest
       map.allIds.map(_.original) shouldBe ids.map { id =>
         id.copy(packageId = s"#${pkgNameForPkgId(id.packageId)}")
       }
-      map.allIds.map(_.latestId) shouldBe ids
-      map.allIds.map(_.allIds) shouldBe ids.map(Set(_))
+      map.allIds.map(_.latestPkgId) shouldBe ids
+      map.allIds.map(_.allPkgIds) shouldBe ids.map(Set(_))
     }
 
     "when has multiple names per package id, they are collapsed into a single item" in forAll(
@@ -200,8 +200,8 @@ class PackageServiceTest
 
       map.allIds.size shouldBe 1
       map.allIds.head.original shouldBe ids.head.copy(packageId = "#foo")
-      map.allIds.head.latestId shouldBe idWithMaxVer
-      map.allIds.head.allIds shouldBe ids
+      map.allIds.head.latestPkgId shouldBe idWithMaxVer
+      map.allIds.head.allPkgIds shouldBe ids
     }
   }
 

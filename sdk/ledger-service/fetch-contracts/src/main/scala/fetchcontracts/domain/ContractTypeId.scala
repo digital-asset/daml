@@ -275,8 +275,8 @@ sealed abstract class ContractTypeRef[+CtTyId](
     ids: NonEmpty[Seq[CtTyId]],
     kpn: KeyPackageName,
 ) {
-  def allIds: NonEmpty[Set[_ <: CtTyId]] = ids.toSet
-  def latestId: CtTyId = ids.head
+  def allPkgIds: NonEmpty[Set[_ <: CtTyId]] = ids.toSet
+  def latestPkgId: CtTyId = ids.head
   def original: CtTyId = orig
   def name = kpn
 }

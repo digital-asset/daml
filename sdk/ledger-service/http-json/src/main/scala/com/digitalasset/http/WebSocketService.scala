@@ -454,7 +454,7 @@ object WebSocketService {
         ]]] = {
           val compiledQueries =
             prepareFilters(
-              rsfq.resolvedQuery.resolved.flatMap(_.allIds).toSet,
+              rsfq.resolvedQuery.resolved.flatMap(_.allPkgIds).toSet,
               rsfq.query,
               lookupType,
             )
@@ -670,7 +670,7 @@ object WebSocketService {
         q.toSeq flatMap { case (tid, lfvKeys) =>
           val keys = lfvKeys.toVector
           import dbbackend.Queries.joinFragment, com.daml.lf.crypto.Hash
-          tid.allIds.toSeq
+          tid.allPkgIds.toSeq
             .sortBy(_.toString)
             .map(t =>
               (
@@ -692,7 +692,9 @@ object WebSocketService {
         StreamPredicate[Positive](
           resolvedRequest.resolvedQuery,
           resolvedRequest.unresolved,
-          fn(resolvedRequest.q.flatMap({ case (tid, v) => tid.allIds.map(_ -> v) }).forgetNE.toMap),
+          fn(
+            resolvedRequest.q.flatMap({ case (tid, v) => tid.allPkgIds.map(_ -> v) }).forgetNE.toMap
+          ),
           { (parties, dao) =>
             import dao.{logHandler, jdbcDriver}
             import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
@@ -925,7 +927,7 @@ class WebSocketService(
             jwt,
             ledgerId,
             parties,
-            predicate.resolvedQuery.resolved.flatMap(_.allIds).toList,
+            predicate.resolvedQuery.resolved.flatMap(_.allPkgIds).toList,
           ) {
             case LedgerBegin =>
               fconn.pure(liveBegin(LedgerBegin))
