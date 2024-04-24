@@ -39,6 +39,7 @@ import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTr
 import com.digitalasset.canton.platform.config.{
   CommandServiceConfig,
   IdentityProviderManagementConfig,
+  PartyManagementServiceConfig,
   UserManagementServiceConfig,
 }
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadataStore
@@ -97,6 +98,8 @@ object ApiServiceOwner {
       authService: AuthService,
       jwtVerifierLoader: JwtVerifierLoader,
       userManagement: UserManagementServiceConfig = ApiServiceOwner.DefaultUserManagement,
+      partyManagementServiceConfig: PartyManagementServiceConfig =
+        ApiServiceOwner.DefaultPartyManagementServiceConfig,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
       authenticateContract: AuthenticateContract,
@@ -166,6 +169,7 @@ object ApiServiceOwner {
         ledgerFeatures = ledgerFeatures,
         maxDeduplicationDuration = maxDeduplicationDuration,
         userManagementServiceConfig = userManagement,
+        partyManagementServiceConfig = partyManagementServiceConfig,
         apiStreamShutdownTimeout = apiStreamShutdownTimeout.underlying,
         meteringReportKey = meteringReportKey,
         telemetry = telemetry,
@@ -219,6 +223,8 @@ object ApiServiceOwner {
     NonNegativeFiniteDuration.ofMinutes(2)
   val DefaultUserManagement: UserManagementServiceConfig =
     UserManagementServiceConfig.default(enabled = false)
+  val DefaultPartyManagementServiceConfig: PartyManagementServiceConfig =
+    PartyManagementServiceConfig.default
   val DefaultIdentityProviderManagementConfig: IdentityProviderManagementConfig =
     IdentityProviderManagementConfig()
   val DefaultCommandServiceConfig: CommandServiceConfig = CommandServiceConfig.Default

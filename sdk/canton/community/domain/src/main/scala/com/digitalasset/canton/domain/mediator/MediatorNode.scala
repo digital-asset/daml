@@ -59,9 +59,9 @@ import com.digitalasset.canton.store.{
 }
 import com.digitalasset.canton.time.{Clock, HasUptime}
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.processing.TopologyTransactionProcessorX
+import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
+import com.digitalasset.canton.topology.store.TopologyStore
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
-import com.digitalasset.canton.topology.store.TopologyStoreX
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ResourceUtil, SingleUseCell}
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionCompatibility}
@@ -178,12 +178,12 @@ class MediatorNodeBootstrapX(
 
   override protected def member(uid: UniqueIdentifier): Member = MediatorId(uid)
 
-  private val domainTopologyManager = new SingleUseCell[DomainTopologyManagerX]()
+  private val domainTopologyManager = new SingleUseCell[DomainTopologyManager]()
 
-  override protected def sequencedTopologyStores: Seq[TopologyStoreX[DomainStore]] =
+  override protected def sequencedTopologyStores: Seq[TopologyStore[DomainStore]] =
     domainTopologyManager.get.map(_.store).toList
 
-  override protected def sequencedTopologyManagers: Seq[DomainTopologyManagerX] =
+  override protected def sequencedTopologyManagers: Seq[DomainTopologyManager] =
     domainTopologyManager.get.toList
 
   private lazy val deferredSequencerClientHealth =
@@ -201,7 +201,7 @@ class MediatorNodeBootstrapX(
       storage: Storage,
       crypto: Crypto,
       mediatorId: MediatorId,
-      authorizedTopologyManager: AuthorizedTopologyManagerX,
+      authorizedTopologyManager: AuthorizedTopologyManager,
       healthService: HealthService,
   ) extends BootstrapStageWithStorage[MediatorNode, StartupNode, DomainId](
         "wait-for-mediator-to-domain-init",
@@ -234,7 +234,7 @@ class MediatorNodeBootstrapX(
 
     override protected def buildNextStage(domainId: DomainId): StartupNode = {
       val domainTopologyStore =
-        TopologyStoreX(DomainStore(domainId), storage, timeouts, loggerFactory)
+        TopologyStore(DomainStore(domainId), storage, timeouts, loggerFactory)
       addCloseable(domainTopologyStore)
 
       new StartupNode(
@@ -300,10 +300,10 @@ class MediatorNodeBootstrapX(
       storage: Storage,
       crypto: Crypto,
       mediatorId: MediatorId,
-      authorizedTopologyManager: AuthorizedTopologyManagerX,
+      authorizedTopologyManager: AuthorizedTopologyManager,
       domainId: DomainId,
       domainConfigurationStore: MediatorDomainConfigurationStore,
-      domainTopologyStore: TopologyStoreX[DomainStore],
+      domainTopologyStore: TopologyStore[DomainStore],
       healthService: HealthService,
   ) extends BootstrapStage[MediatorNode, RunningNode[MediatorNode]](
         description = "Startup mediator node",
@@ -317,14 +317,14 @@ class MediatorNodeBootstrapX(
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, Option[RunningNode[MediatorNode]]] = {
 
-      def createDomainOutboxFactory(domainTopologyManager: DomainTopologyManagerX) =
+      def createDomainOutboxFactory(domainTopologyManager: DomainTopologyManager) =
         new DomainOutboxFactory(
           domainId = domainId,
           memberId = mediatorId,
           authorizedTopologyManager = authorizedTopologyManager,
           domainTopologyManager = domainTopologyManager,
           crypto = crypto,
-          topologyXConfig = config.topology,
+          topologyConfig = config.topology,
           timeouts = timeouts,
           loggerFactory = domainLoggerFactory,
           futureSupervisor = arguments.futureSupervisor,
@@ -332,10 +332,10 @@ class MediatorNodeBootstrapX(
 
       def createDomainTopologyManager(
           protocolVersion: ProtocolVersion
-      ): Either[String, DomainTopologyManagerX] = {
+      ): Either[String, DomainTopologyManager] = {
         val outboxQueue = new DomainOutboxQueue(loggerFactory)
 
-        val topologyManager = new DomainTopologyManagerX(
+        val topologyManager = new DomainTopologyManager(
           clock = clock,
           crypto = crypto,
           store = domainTopologyStore,
@@ -445,7 +445,7 @@ class MediatorNodeBootstrapX(
       saveConfig: MediatorDomainConfiguration => EitherT[Future, String, Unit],
       storage: Storage,
       crypto: Crypto,
-      domainTopologyStore: TopologyStoreX[DomainStore],
+      domainTopologyStore: TopologyStore[DomainStore],
       topologyManagerStatus: TopologyManagerStatus,
       domainTopologyStateInit: DomainTopologyInitializationCallback,
       domainOutboxFactory: DomainOutboxFactory,
@@ -478,7 +478,7 @@ class MediatorNodeBootstrapX(
       )
       topologyProcessorAndClient <-
         EitherT.right(
-          TopologyTransactionProcessorX.createProcessorAndClientForDomain(
+          TopologyTransactionProcessor.createProcessorAndClientForDomain(
             domainTopologyStore,
             domainId,
             domainConfig.domainParameters.protocolVersion,
@@ -614,7 +614,7 @@ class MediatorNodeBootstrapX(
       storage: Storage,
       crypto: Crypto,
       nodeId: UniqueIdentifier,
-      authorizedTopologyManager: AuthorizedTopologyManagerX,
+      authorizedTopologyManager: AuthorizedTopologyManager,
       healthServer: GrpcHealthReporter,
       healthService: HealthService,
   ): BootstrapStageOrLeaf[MediatorNode] = {

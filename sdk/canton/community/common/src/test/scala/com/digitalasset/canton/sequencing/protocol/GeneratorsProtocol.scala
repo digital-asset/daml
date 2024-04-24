@@ -154,4 +154,17 @@ final class GeneratorsProtocol(
     counter <- nonNegativeLongArb.arbitrary.map(_.unwrap)
     targetDomain <- Arbitrary.arbitrary[TargetDomainId]
   } yield TimeProofTestUtil.mkTimeProof(timestamp, counter, targetDomain, protocolVersion))
+
+  implicit val topologyStateForInitRequestArb: Arbitrary[TopologyStateForInitRequest] = Arbitrary(
+    for {
+      member <- Arbitrary.arbitrary[Member]
+    } yield TopologyStateForInitRequest(member, protocolVersion)
+  )
+
+  implicit val subscriptionRequestArb: Arbitrary[SubscriptionRequest] = Arbitrary(
+    for {
+      member <- Arbitrary.arbitrary[Member]
+      counter <- Arbitrary.arbitrary[SequencerCounter]
+    } yield SubscriptionRequest.apply(member, counter, protocolVersion)
+  )
 }

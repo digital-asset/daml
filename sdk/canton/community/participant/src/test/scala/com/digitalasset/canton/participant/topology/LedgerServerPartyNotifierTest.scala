@@ -52,14 +52,14 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
         loggerFactory,
       )
 
-    private val subscriber = notifier.attachToTopologyProcessorX()
+    private val subscriber = notifier.attachToTopologyProcessor()
 
     private var counter = SequencerCounter(0)
 
-    def simulateTransaction(mapping: PartyToParticipantX): Future[Unit] = {
-      val tx: TopologyTransactionX[TopologyChangeOpX.Replace, PartyToParticipantX] =
-        TopologyTransactionX(
-          TopologyChangeOpX.Replace,
+    def simulateTransaction(mapping: PartyToParticipant): Future[Unit] = {
+      val tx: TopologyTransaction[TopologyChangeOp.Replace, PartyToParticipant] =
+        TopologyTransaction(
+          TopologyChangeOp.Replace,
           PositiveInt.one,
           mapping,
           testedProtocolVersion,
@@ -84,7 +84,7 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
         participantId: ParticipantId,
     ): Future[Unit] =
       simulateTransaction(
-        PartyToParticipantX(
+        PartyToParticipant(
           partyId,
           None,
           PositiveInt.one,
@@ -139,7 +139,7 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
     "add admin parties" in Fixture { fixture =>
       for {
         _ <- fixture.simulateTransaction(
-          PartyToParticipantX(
+          PartyToParticipant(
             participant1.adminParty,
             Some(domainId),
             PositiveInt.one,

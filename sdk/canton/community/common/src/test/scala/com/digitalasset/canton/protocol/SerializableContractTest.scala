@@ -8,7 +8,14 @@ import com.daml.lf.value.Value
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, TestHash, TestSalt}
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
-import com.digitalasset.canton.{BaseTest, LfPartyId, LfTimestamp, LfValue, LfVersioned}
+import com.digitalasset.canton.{
+  BaseTest,
+  LfPackageName,
+  LfPartyId,
+  LfTimestamp,
+  LfValue,
+  LfVersioned,
+}
 import org.scalatest.wordspec.AnyWordSpec
 
 class SerializableContractTest extends AnyWordSpec with BaseTest {
@@ -28,7 +35,9 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
         stakeholders = Set(alice, bob),
         maybeKeyWithMaintainersVersioned = Some(
           ExampleTransactionFactory.globalKeyWithMaintainers(
-            LfGlobalKey.build(templateId, Value.ValueUnit).value,
+            LfGlobalKey
+              .build(templateId, Value.ValueUnit, LfPackageName.assertFromString("package-name"))
+              .value,
             Set(alice),
           )
         ),

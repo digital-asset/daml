@@ -101,7 +101,7 @@ private[sync] class PartyAllocation(
           ),
         )
         _ <- partyNotifier
-          .expectPartyAllocationForXNodes(
+          .expectPartyAllocationForNodes(
             partyId,
             participantId,
             validatedSubmissionId,
@@ -123,7 +123,7 @@ private[sync] class PartyAllocation(
             case e => reject(e.toString, TransactionError.internalError(e.toString))
           }
           .leftMap { x =>
-            partyNotifier.expireExpectedPartyAllocationForXNodes(
+            partyNotifier.expireExpectedPartyAllocationForNodes(
               partyId,
               participantId,
               validatedSubmissionId,

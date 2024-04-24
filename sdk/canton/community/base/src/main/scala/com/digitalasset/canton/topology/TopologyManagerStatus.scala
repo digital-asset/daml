@@ -10,7 +10,7 @@ trait TopologyManagerStatus {
 }
 
 object TopologyManagerStatus {
-  def combined(managers: TopologyManagerX[TopologyStoreId]*): TopologyManagerStatus =
+  def combined(managers: TopologyManager[TopologyStoreId]*): TopologyManagerStatus =
     new TopologyManagerStatus {
       override def queueSize: Int = managers.map(_.queueSize).sum
     }

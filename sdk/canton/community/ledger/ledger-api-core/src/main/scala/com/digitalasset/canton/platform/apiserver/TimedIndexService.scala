@@ -14,7 +14,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesResponse,
 }
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.ApplicationId
+import com.daml.lf.data.Ref.{ApplicationId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
@@ -153,10 +153,16 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
   ): Future[List[IndexerPartyDetails]] =
     Timed.future(metrics.services.index.getParties, delegate.getParties(parties))
 
-  override def listKnownParties()(implicit
+  override def listKnownParties(
+      fromExcl: Option[Party],
+      maxResults: Int,
+  )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[List[IndexerPartyDetails]] =
-    Timed.future(metrics.services.index.listKnownParties, delegate.listKnownParties())
+    Timed.future(
+      metrics.services.index.listKnownParties,
+      delegate.listKnownParties(fromExcl, maxResults),
+    )
 
   override def partyEntries(
       startExclusive: Option[ParticipantOffset.Absolute]

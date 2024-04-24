@@ -16,7 +16,7 @@ import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
-import com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminateProcessingTickerX
+import com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminateProcessingTicker
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.traffic.{
   TrafficStateController,
@@ -27,11 +27,11 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.client.*
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
+  TopologyTransactionProcessor,
   TopologyTransactionProcessorCommon,
-  TopologyTransactionProcessorX,
 }
+import com.digitalasset.canton.topology.store.TopologyStore
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
-import com.digitalasset.canton.topology.store.TopologyStoreX
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -46,7 +46,7 @@ class TopologyComponentFactory(
     caching: CachingConfigs,
     batching: BatchingConfig,
     topologyXConfig: TopologyConfig,
-    topologyStore: TopologyStoreX[DomainStore],
+    topologyStore: TopologyStore[DomainStore],
     loggerFactory: NamedLoggerFactory,
 ) {
 
@@ -62,12 +62,12 @@ class TopologyComponentFactory(
         acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit
     )(implicit executionContext: ExecutionContext): TopologyTransactionProcessorCommon = {
 
-      val terminateTopologyProcessing = new ParticipantTopologyTerminateProcessingTickerX(
+      val terminateTopologyProcessing = new ParticipantTopologyTerminateProcessingTicker(
         recordOrderPublisher,
         loggerFactory,
       )
 
-      val processor = new TopologyTransactionProcessorX(
+      val processor = new TopologyTransactionProcessor(
         domainId,
         crypto.pureCrypto,
         topologyStore,
@@ -79,7 +79,7 @@ class TopologyComponentFactory(
         loggerFactory,
       )
       // subscribe party notifier to topology processor
-      processor.subscribe(partyNotifier.attachToTopologyProcessorX())
+      processor.subscribe(partyNotifier.attachToTopologyProcessor())
       processor.subscribe(missingKeysAlerter.attachToTopologyProcessorX())
       processor.subscribe(topologyClient)
       if (!useNewTrafficControl)
@@ -111,7 +111,7 @@ class TopologyComponentFactory(
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[DomainTopologyClientWithInit] = CachingDomainTopologyClient.createX(
+  ): Future[DomainTopologyClientWithInit] = CachingDomainTopologyClient.create(
     clock,
     domainId,
     protocolVersion,

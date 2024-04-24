@@ -31,7 +31,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.{
-  StoredTopologyTransactionsX,
+  StoredTopologyTransactions,
   TopologyStateForInitializationService,
 }
 import com.digitalasset.canton.tracing.{
@@ -795,7 +795,7 @@ class GrpcSequencerService(
             case Success(Right(initialSnapshot)) =>
               initialSnapshot.result.grouped(maxItemsInTopologyResponse.value).foreach { batch =>
                 val response =
-                  TopologyStateForInitResponse(Traced(StoredTopologyTransactionsX(batch)))
+                  TopologyStateForInitResponse(Traced(StoredTopologyTransactions(batch)))
                 responseObserver.onNext(response.toProtoV30)
               }
               responseObserver.onCompleted()

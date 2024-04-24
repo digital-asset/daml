@@ -8,10 +8,10 @@ import com.digitalasset.canton.sequencing.client.transports.SequencerClientTrans
 import com.digitalasset.canton.sequencing.protocol.TopologyStateForInitRequest
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
+import com.digitalasset.canton.topology.store.TopologyStore
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
-import com.digitalasset.canton.topology.store.TopologyStoreX
-import com.digitalasset.canton.topology.transaction.{DomainTrustCertificateX, MediatorDomainStateX}
+import com.digitalasset.canton.topology.transaction.{DomainTrustCertificate, MediatorDomainState}
 import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
@@ -26,12 +26,12 @@ trait DomainTopologyInitializationCallback {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, GenericStoredTopologyTransactionsX]
+  ): EitherT[Future, String, GenericStoredTopologyTransactions]
 }
 
 class StoreBasedDomainTopologyInitializationCallback(
     member: Member,
-    topologyStore: TopologyStoreX[DomainStore],
+    topologyStore: TopologyStore[DomainStore],
 ) extends DomainTopologyInitializationCallback {
   override def callback(
       topologyClient: DomainTopologyClientWithInit,
@@ -40,7 +40,7 @@ class StoreBasedDomainTopologyInitializationCallback(
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, GenericStoredTopologyTransactionsX] = {
+  ): EitherT[Future, String, GenericStoredTopologyTransactions] = {
     for {
       response <- transport.downloadTopologyStateForInit(
         TopologyStateForInitRequest(
@@ -57,7 +57,7 @@ class StoreBasedDomainTopologyInitializationCallback(
           val fromOnboardingTransaction = response.topologyTransactions.value.result
             .dropWhile(storedTx =>
               !storedTx
-                .selectMapping[DomainTrustCertificateX]
+                .selectMapping[DomainTrustCertificate]
                 .exists(dtc =>
                   dtc.mapping.participantId == participantId && !dtc.transaction.isProposal
                 )
@@ -74,7 +74,7 @@ class StoreBasedDomainTopologyInitializationCallback(
           val fromOnboardingTransaction = response.topologyTransactions.value.result
             .dropWhile(storedTx =>
               !storedTx
-                .selectMapping[MediatorDomainStateX]
+                .selectMapping[MediatorDomainState]
                 .exists(mds =>
                   mds.mapping.allMediatorsInGroup
                     .contains(mediatorId) && !mds.transaction.isProposal

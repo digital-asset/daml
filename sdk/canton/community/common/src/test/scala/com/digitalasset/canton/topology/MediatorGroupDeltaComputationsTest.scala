@@ -6,7 +6,7 @@ package com.digitalasset.canton.topology
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.Fingerprint
-import com.digitalasset.canton.topology.transaction.MediatorDomainStateX
+import com.digitalasset.canton.topology.transaction.MediatorDomainState
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.annotation.nowarn
@@ -22,9 +22,9 @@ class MediatorGroupDeltaComputationsTest extends AnyWordSpec with BaseTest {
 
   def range(from: Int, to: Int): Seq[MediatorId] = from to to map mediatorIdFor
 
-  def mds(active: Seq[MediatorId], observers: Seq[MediatorId]): Option[MediatorDomainStateX] =
+  def mds(active: Seq[MediatorId], observers: Seq[MediatorId]): Option[MediatorDomainState] =
     Some(
-      MediatorDomainStateX
+      MediatorDomainState
         .create(
           DefaultTestIdentities.domainId,
           NonNegativeInt.zero,

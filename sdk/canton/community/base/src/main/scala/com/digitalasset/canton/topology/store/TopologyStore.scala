@@ -20,19 +20,19 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.v30 as topoV30
 import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionX.GenericStoredTopologyTransactionX
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.{
-  GenericStoredTopologyTransactionsX,
-  PositiveStoredTopologyTransactionsX,
+import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
+  GenericStoredTopologyTransactions,
+  PositiveStoredTopologyTransactions,
 }
 import com.digitalasset.canton.topology.store.TopologyTransactionRejection.Duplicate
-import com.digitalasset.canton.topology.store.ValidatedTopologyTransactionX.GenericValidatedTopologyTransactionX
-import com.digitalasset.canton.topology.store.db.DbTopologyStoreX
-import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
-import com.digitalasset.canton.topology.transaction.TopologyMappingX.MappingHash
-import com.digitalasset.canton.topology.transaction.TopologyTransactionX.{
-  GenericTopologyTransactionX,
+import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
+import com.digitalasset.canton.topology.store.db.DbTopologyStore
+import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.TopologyMapping.MappingHash
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
+  GenericTopologyTransaction,
   TxHash,
 }
 import com.digitalasset.canton.topology.transaction.*
@@ -127,24 +127,24 @@ object TopologyStoreId {
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  def selectX[StoreId <: TopologyStoreId](store: TopologyStoreX[TopologyStoreId])(implicit
+  def selectX[StoreId <: TopologyStoreId](store: TopologyStore[TopologyStoreId])(implicit
       checker: IdTypeChecker[StoreId]
-  ): Option[TopologyStoreX[StoreId]] = if (checker.isOfType(store.storeId))
-    Some(store.asInstanceOf[TopologyStoreX[StoreId]])
+  ): Option[TopologyStore[StoreId]] = if (checker.isOfType(store.storeId))
+    Some(store.asInstanceOf[TopologyStore[StoreId]])
   else None
 
 }
 
-final case class StoredTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: TopologyMappingX](
+final case class StoredTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapping](
     sequenced: SequencedTime,
     validFrom: EffectiveTime,
     validUntil: Option[EffectiveTime],
-    transaction: SignedTopologyTransactionX[Op, M],
+    transaction: SignedTopologyTransaction[Op, M],
 ) extends DelegatedTopologyTransactionLike[Op, M]
     with PrettyPrinting {
   override protected def transactionLikeDelegate: TopologyTransactionLike[Op, M] = transaction
 
-  override def pretty: Pretty[StoredTopologyTransactionX.this.type] =
+  override def pretty: Pretty[StoredTopologyTransaction.this.type] =
     prettyOfClass(
       unnamedParam(_.transaction),
       param("sequenced", _.sequenced.value),
@@ -153,23 +153,23 @@ final case class StoredTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: Topo
     )
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  def selectMapping[TargetMapping <: TopologyMappingX: ClassTag] = transaction
+  def selectMapping[TargetMapping <: TopologyMapping: ClassTag] = transaction
     .selectMapping[TargetMapping]
-    .map(_ => this.asInstanceOf[StoredTopologyTransactionX[Op, TargetMapping]])
+    .map(_ => this.asInstanceOf[StoredTopologyTransaction[Op, TargetMapping]])
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  def selectOp[TargetOp <: TopologyChangeOpX: ClassTag] = transaction
+  def selectOp[TargetOp <: TopologyChangeOp: ClassTag] = transaction
     .selectOp[TargetOp]
-    .map(_ => this.asInstanceOf[StoredTopologyTransactionX[TargetOp, M]])
+    .map(_ => this.asInstanceOf[StoredTopologyTransaction[TargetOp, M]])
 }
 
-object StoredTopologyTransactionX {
-  type GenericStoredTopologyTransactionX =
-    StoredTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]
+object StoredTopologyTransaction {
+  type GenericStoredTopologyTransaction =
+    StoredTopologyTransaction[TopologyChangeOp, TopologyMapping]
 }
 
-final case class ValidatedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: TopologyMappingX](
-    transaction: SignedTopologyTransactionX[Op, M],
+final case class ValidatedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapping](
+    transaction: SignedTopologyTransaction[Op, M],
     rejectionReason: Option[TopologyTransactionRejection] = None,
     expireImmediately: Boolean = false,
 ) extends DelegatedTopologyTransactionLike[Op, M]
@@ -182,15 +182,15 @@ final case class ValidatedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: T
     case otherwise => otherwise
   }
 
-  def collectOfMapping[TargetM <: TopologyMappingX: ClassTag]
-      : Option[ValidatedTopologyTransactionX[Op, TargetM]] =
+  def collectOfMapping[TargetM <: TopologyMapping: ClassTag]
+      : Option[ValidatedTopologyTransaction[Op, TargetM]] =
     transaction.selectMapping[TargetM].map(tx => copy[Op, TargetM](transaction = tx))
 
-  def collectOf[TargetO <: TopologyChangeOpX: ClassTag, TargetM <: TopologyMappingX: ClassTag]
-      : Option[ValidatedTopologyTransactionX[TargetO, TargetM]] =
+  def collectOf[TargetO <: TopologyChangeOp: ClassTag, TargetM <: TopologyMapping: ClassTag]
+      : Option[ValidatedTopologyTransaction[TargetO, TargetM]] =
     transaction.select[TargetO, TargetM].map(tx => copy[TargetO, TargetM](transaction = tx))
 
-  override def pretty: Pretty[ValidatedTopologyTransactionX.this.type] =
+  override def pretty: Pretty[ValidatedTopologyTransaction.this.type] =
     prettyOfClass(
       unnamedParam(_.transaction),
       paramIfDefined("rejectionReason", _.rejectionReason),
@@ -198,12 +198,12 @@ final case class ValidatedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: T
     )
 }
 
-object ValidatedTopologyTransactionX {
-  type GenericValidatedTopologyTransactionX =
-    ValidatedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]
+object ValidatedTopologyTransaction {
+  type GenericValidatedTopologyTransaction =
+    ValidatedTopologyTransaction[TopologyChangeOp, TopologyMapping]
 }
 
-abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
+abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
     protected val ec: ExecutionContext
 ) extends FlagCloseable {
   this: NamedLogging =>
@@ -217,7 +217,7 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
     */
   def findUpcomingEffectiveChanges(asOfInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Seq[TopologyStoreX.Change]]
+  ): Future[Seq[TopologyStore.Change]]
 
   def maxTimestamp()(implicit
       traceContext: TraceContext
@@ -241,15 +241,15 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
 
   def findTransactionsByTxHash(asOfExclusive: EffectiveTime, hashes: Set[TxHash])(implicit
       traceContext: TraceContext
-  ): Future[Seq[GenericSignedTopologyTransactionX]]
+  ): Future[Seq[GenericSignedTopologyTransaction]]
 
   def findProposalsByTxHash(asOfExclusive: EffectiveTime, hashes: NonEmpty[Set[TxHash]])(implicit
       traceContext: TraceContext
-  ): Future[Seq[GenericSignedTopologyTransactionX]]
+  ): Future[Seq[GenericSignedTopologyTransaction]]
 
   def findTransactionsForMapping(asOfExclusive: EffectiveTime, hashes: NonEmpty[Set[MappingHash]])(
       implicit traceContext: TraceContext
-  ): Future[Seq[GenericSignedTopologyTransactionX]]
+  ): Future[Seq[GenericSignedTopologyTransaction]]
 
   /** returns the set of positive transactions
     *
@@ -263,12 +263,12 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
       asOf: CantonTimestamp,
       asOfInclusive: Boolean,
       isProposal: Boolean,
-      types: Seq[TopologyMappingX.Code],
+      types: Seq[TopologyMapping.Code],
       filterUid: Option[Seq[UniqueIdentifier]],
       filterNamespace: Option[Seq[Namespace]],
   )(implicit
       traceContext: TraceContext
-  ): Future[PositiveStoredTopologyTransactionsX]
+  ): Future[PositiveStoredTopologyTransactions]
 
   /** add validated topology transaction as is to the topology transaction table */
   def update(
@@ -276,7 +276,7 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
       effective: EffectiveTime,
       removeMapping: Map[MappingHash, PositiveInt],
       removeTxs: Set[TxHash],
-      additions: Seq[GenericValidatedTopologyTransactionX],
+      additions: Seq[GenericValidatedTopologyTransaction],
   )(implicit
       traceContext: TraceContext
   ): Future[Unit]
@@ -284,10 +284,10 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
   @VisibleForTesting
   protected[topology] def dumpStoreContent()(implicit
       traceContext: TraceContext
-  ): Future[GenericStoredTopologyTransactionsX]
+  ): Future[GenericStoredTopologyTransactions]
 
   /** store an initial set of topology transactions as given into the store */
-  def bootstrap(snapshot: GenericStoredTopologyTransactionsX)(implicit
+  def bootstrap(snapshot: GenericStoredTopologyTransactions)(implicit
       traceContext: TraceContext
   ): Future[Unit]
 
@@ -301,13 +301,13 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
       timeQuery: TimeQuery,
       // TODO(#14048) - consider removing `recentTimestampO` and moving callers to TimeQueryX.Snapshot
       recentTimestampO: Option[CantonTimestamp],
-      op: Option[TopologyChangeOpX],
-      types: Seq[TopologyMappingX.Code],
+      op: Option[TopologyChangeOp],
+      types: Seq[TopologyMapping.Code],
       idFilter: Option[String],
       namespaceFilter: Option[String],
   )(implicit
       traceContext: TraceContext
-  ): Future[StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX]]
+  ): Future[StoredTopologyTransactions[TopologyChangeOp, TopologyMapping]]
 
   def inspectKnownParties(
       timestamp: CantonTimestamp,
@@ -322,7 +322,7 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
       sequencerId: SequencerId
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[StoredTopologyTransactionX[TopologyChangeOpX.Replace, SequencerDomainStateX]]]
+  ): Future[Option[StoredTopologyTransaction[TopologyChangeOp.Replace, SequencerDomainState]]]
 
   /** Finds the topology transaction that first onboarded the mediator with ID `mediatorId`
     */
@@ -330,7 +330,7 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
       mediatorId: MediatorId
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[StoredTopologyTransactionX[TopologyChangeOpX.Replace, MediatorDomainStateX]]]
+  ): Future[Option[StoredTopologyTransaction[TopologyChangeOp.Replace, MediatorDomainState]]]
 
   /** Finds the topology transaction that first onboarded the participant with ID `participantId`
     */
@@ -338,18 +338,18 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
       participant: ParticipantId
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[StoredTopologyTransactionX[TopologyChangeOpX.Replace, DomainTrustCertificateX]]]
+  ): Future[Option[StoredTopologyTransaction[TopologyChangeOp.Replace, DomainTrustCertificate]]]
 
   def findEssentialStateAtSequencedTime(
       asOfInclusive: SequencedTime
-  )(implicit traceContext: TraceContext): Future[GenericStoredTopologyTransactionsX]
+  )(implicit traceContext: TraceContext): Future[GenericStoredTopologyTransactions]
 
   protected def signedTxFromStoredTx(
-      storedTx: GenericStoredTopologyTransactionX
-  ): SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX] = storedTx.transaction
+      storedTx: GenericStoredTopologyTransaction
+  ): SignedTopologyTransaction[TopologyChangeOp, TopologyMapping] = storedTx.transaction
 
   def providesAdditionalSignatures(
-      transaction: GenericSignedTopologyTransactionX
+      transaction: GenericSignedTopologyTransaction
   )(implicit traceContext: TraceContext): Future[Boolean] = {
     findStored(CantonTimestamp.MaxValue, transaction).map(_.forall { inStore =>
       // check whether source still could provide an additional signature
@@ -363,24 +363,24 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
   /** returns initial set of onboarding transactions that should be dispatched to the domain */
   def findParticipantOnboardingTransactions(participantId: ParticipantId, domainId: DomainId)(
       implicit traceContext: TraceContext
-  ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransactionX]]
+  ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]]
 
   def findDispatchingTransactionsAfter(
       timestampExclusive: CantonTimestamp,
       limit: Option[Int],
   )(implicit
       traceContext: TraceContext
-  ): Future[GenericStoredTopologyTransactionsX]
+  ): Future[GenericStoredTopologyTransactions]
 
   def findStoredForVersion(
       asOfExclusive: CantonTimestamp,
-      transaction: GenericTopologyTransactionX,
+      transaction: GenericTopologyTransaction,
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[GenericStoredTopologyTransactionX]]
+  ): Future[Option[GenericStoredTopologyTransaction]]
 
-  final def exists(transaction: GenericSignedTopologyTransactionX)(implicit
+  final def exists(transaction: GenericSignedTopologyTransaction)(implicit
       traceContext: TraceContext
   ): Future[Boolean] = findStored(CantonTimestamp.MaxValue, transaction).map(
     _.exists(signedTxFromStoredTx(_) == transaction)
@@ -388,14 +388,14 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
 
   def findStored(
       asOfExclusive: CantonTimestamp,
-      transaction: GenericSignedTopologyTransactionX,
+      transaction: GenericSignedTopologyTransaction,
       includeRejected: Boolean = false,
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[GenericStoredTopologyTransactionX]]
+  ): Future[Option[GenericStoredTopologyTransaction]]
 }
 
-object TopologyStoreX {
+object TopologyStore {
 
   sealed trait Change extends Product with Serializable {
     def sequenced: SequencedTime
@@ -413,12 +413,12 @@ object TopologyStoreX {
   }
 
   def accumulateUpcomingEffectiveChanges(
-      items: Seq[StoredTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]]
+      items: Seq[StoredTopologyTransaction[TopologyChangeOp, TopologyMapping]]
   ): Seq[Change] = {
     items
       .map(x => (x, x.mapping))
       .map {
-        case (tx, x: DomainParametersStateX) =>
+        case (tx, x: DomainParametersState) =>
           Change.TopologyDelay(tx.sequenced, tx.validFrom, x.parameters.topologyChangeDelay)
         case (tx, _) => Change.Other(tx.sequenced, tx.validFrom)
       }
@@ -433,59 +433,59 @@ object TopologyStoreX {
       loggerFactory: NamedLoggerFactory,
   )(implicit
       ec: ExecutionContext
-  ): TopologyStoreX[StoreID] = {
+  ): TopologyStore[StoreID] = {
     val storeLoggerFactory = loggerFactory.append("store", storeId.toString)
     storage match {
       case _: MemoryStorage =>
-        new InMemoryTopologyStoreX(storeId, storeLoggerFactory, timeouts)
+        new InMemoryTopologyStore(storeId, storeLoggerFactory, timeouts)
       case dbStorage: DbStorage =>
-        new DbTopologyStoreX(dbStorage, storeId, timeouts, storeLoggerFactory)
+        new DbTopologyStore(dbStorage, storeId, timeouts, storeLoggerFactory)
     }
   }
 
   lazy val initialParticipantDispatchingSet = Set(
-    TopologyMappingX.Code.DomainTrustCertificateX,
-    TopologyMappingX.Code.OwnerToKeyMappingX,
+    TopologyMapping.Code.DomainTrustCertificate,
+    TopologyMapping.Code.OwnerToKeyMapping,
     // TODO(#14060) - potentially revisit this once we implement TopologyStoreX.filterInitialParticipantDispatchingTransactions
-    TopologyMappingX.Code.NamespaceDelegationX,
-    TopologyMappingX.Code.IdentifierDelegationX,
-    TopologyMappingX.Code.DecentralizedNamespaceDefinitionX,
+    TopologyMapping.Code.NamespaceDelegation,
+    TopologyMapping.Code.IdentifierDelegation,
+    TopologyMapping.Code.DecentralizedNamespaceDefinition,
   )
 
   def filterInitialParticipantDispatchingTransactions(
       participantId: ParticipantId,
       domainId: DomainId,
-      transactions: Seq[GenericStoredTopologyTransactionX],
-  ): Seq[GenericSignedTopologyTransactionX] = {
+      transactions: Seq[GenericStoredTopologyTransaction],
+  ): Seq[GenericSignedTopologyTransaction] = {
     // TODO(#14060): Extend filtering along the lines of:
     //  TopologyStore.filterInitialParticipantDispatchingTransactions
     transactions.map(_.transaction).collect {
-      case tx @ SignedTopologyTransactionX(
-            TopologyTransactionX(_, _, DomainTrustCertificateX(`participantId`, `domainId`, _, _)),
+      case tx @ SignedTopologyTransaction(
+            TopologyTransaction(_, _, DomainTrustCertificate(`participantId`, `domainId`, _, _)),
             _,
             _,
           ) =>
         tx
-      case tx @ SignedTopologyTransactionX(
-            TopologyTransactionX(_, _, OwnerToKeyMappingX(`participantId`, _, _)),
+      case tx @ SignedTopologyTransaction(
+            TopologyTransaction(_, _, OwnerToKeyMapping(`participantId`, _, _)),
             _,
             _,
           ) =>
         tx
-      case tx @ SignedTopologyTransactionX(
-            TopologyTransactionX(_, _, NamespaceDelegationX(ns, _, _)),
+      case tx @ SignedTopologyTransaction(
+            TopologyTransaction(_, _, NamespaceDelegation(ns, _, _)),
             _,
             _,
           ) if ns == participantId.uid.namespace =>
         tx
-      case tx @ SignedTopologyTransactionX(
-            TopologyTransactionX(_, _, IdentifierDelegationX(uid, _)),
+      case tx @ SignedTopologyTransaction(
+            TopologyTransaction(_, _, IdentifierDelegation(uid, _)),
             _,
             _,
           ) if uid == participantId.uid =>
         tx
-      case tx @ SignedTopologyTransactionX(
-            TopologyTransactionX(_, _, _: DecentralizedNamespaceDefinitionX),
+      case tx @ SignedTopologyTransaction(
+            TopologyTransaction(_, _, _: DecentralizedNamespaceDefinition),
             _,
             _,
           ) =>
@@ -496,8 +496,8 @@ object TopologyStoreX {
   /** convenience method waiting until the last eligible transaction inserted into the source store has been dispatched successfully to the target domain */
   def awaitTxObserved(
       client: DomainTopologyClient,
-      transaction: GenericSignedTopologyTransactionX,
-      target: TopologyStoreX[?],
+      transaction: GenericSignedTopologyTransaction,
+      target: TopologyStore[?],
       timeout: Duration,
   )(implicit
       traceContext: TraceContext,

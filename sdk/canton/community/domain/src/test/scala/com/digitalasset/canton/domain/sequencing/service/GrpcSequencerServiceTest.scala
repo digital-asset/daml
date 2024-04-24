@@ -37,10 +37,10 @@ import com.digitalasset.canton.topology.processing.{
   SequencedTime,
   TopologyTransactionTestFactoryX,
 }
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.{
-  StoredTopologyTransactionX,
-  StoredTopologyTransactionsX,
+  StoredTopologyTransaction,
+  StoredTopologyTransactions,
   TopologyStateForInitializationService,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -140,13 +140,13 @@ class GrpcSequencerServiceTest
         override def initialSnapshot(member: Member)(implicit
             executionContext: ExecutionContext,
             traceContext: TraceContext,
-        ): Future[GenericStoredTopologyTransactionsX] = Future.successful(
-          StoredTopologyTransactionsX(
+        ): Future[GenericStoredTopologyTransactions] = Future.successful(
+          StoredTopologyTransactions(
             // As we don't expect the actual transactions in this test, we can repeat the same transaction a bunch of times
             List
               .fill(maxItemsInTopologyBatch * numBatches)(factoryX.ns1k1_k1)
               .map(
-                StoredTopologyTransactionX(
+                StoredTopologyTransaction(
                   SequencedTime.MinValue,
                   EffectiveTime.MinValue,
                   None,
