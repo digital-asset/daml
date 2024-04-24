@@ -104,7 +104,7 @@ class PackageServiceTest
       val uniqueIds = map.unique.values.toSet
       uniqueIds.foreach { id =>
         val unresolvedId: domain.ContractTypeId.Template.OptionalPkg = id.copy(packageId = None)
-        map resolve unresolvedId shouldBe Some(id)
+        (map resolve unresolvedId).map(_.original) shouldBe Some(id)
       }
     }
 
@@ -114,7 +114,7 @@ class PackageServiceTest
         ids.foreach { id =>
           val unresolvedId: domain.ContractTypeId.Template.OptionalPkg =
             id.copy(packageId = Some(id.packageId))
-          map resolve unresolvedId shouldBe Some(id)
+          (map resolve unresolvedId).map(_.original) shouldBe Some(id)
         }
     }
 
@@ -126,7 +126,9 @@ class PackageServiceTest
       val map = PackageService.buildTemplateIdMap(idName, ids)
       ids.foreach { id =>
         val pkgName = "#" + pkgNameForPkgId(id.packageId)
-        map resolve id.copy(packageId = Some(pkgName)) shouldBe Some(id.copy(packageId = pkgName))
+        (map resolve id.copy(packageId = Some(pkgName))).map(_.original) shouldBe Some(
+          id.copy(packageId = pkgName)
+        )
       }
     }
 
@@ -138,7 +140,7 @@ class PackageServiceTest
       val map = PackageService.buildTemplateIdMap(idName, ids)
       ids.foreach { id =>
         val templateIdWithPackageName = id.copy(packageId = Some("#foo"))
-        val Some(resolvedTemplateId) = map resolve templateIdWithPackageName
+        val Some(resolvedTemplateId) = (map resolve templateIdWithPackageName).map(_.latestId)
 
         // Selects a package id with the given package name.
         idName.get(resolvedTemplateId.packageId).flatMap(_._1.toOption) shouldBe Some(
