@@ -82,7 +82,8 @@ data SubIDEInstance = SubIDEInstance
   , ideInHandleChannel :: TChan BSL.ByteString
   , ideOutHandleAsync :: Async ()
     -- ^ For sending messages to that SubIDE
-  , ideErrHandle :: Handle
+  , ideErrText :: TVar T.Text
+  , ideErrTextAsync :: Async ()
   , ideProcess :: Process Handle Handle Handle
   , ideHome :: FilePath
   , ideMessageIdPrefix :: T.Text

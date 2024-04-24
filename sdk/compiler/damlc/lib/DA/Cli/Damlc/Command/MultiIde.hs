@@ -16,6 +16,7 @@ import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async (async, cancel, pollSTM)
 import Control.Concurrent.STM.TChan
 import Control.Concurrent.STM.TMVar
+import Control.Concurrent.STM.TVar
 import Control.Concurrent.MVar
 import Control.Exception(SomeException, displayException, fromException, try)
 import Control.Lens
@@ -50,6 +51,7 @@ import Data.Maybe (catMaybes, fromMaybe, isJust, mapMaybe, maybeToList)
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.Extended as TE
+import qualified Data.Text.IO as T
 import Data.Time.Clock (getCurrentTime)
 import GHC.Conc (unsafeIOToSTM)
 import qualified Language.LSP.Types as LSP
@@ -69,7 +71,6 @@ import System.Process.Typed (
   getStderr,
   getStdin,
   getStdout,
-  mkPipeStreamSpec,
   proc,
   setEnv,
   setStderr,
@@ -129,6 +130,8 @@ addNewSubIDEAndSend miState home mMsg = do
           outHandle = getStdout subIdeProcess
           errHandle = getStderr subIdeProcess
 
+      ideErrText <- newTVarIO @T.Text ""
+
       -- Handles blocking the sender thread until the IDE is initialized.
       (onceUnblocked, unblock) <- makeIOBlocker
 
@@ -146,6 +149,15 @@ addNewSubIDEAndSend miState home mMsg = do
         onChunks outHandle $ subIDEMessageHandler miState unblock ide
 
       pid <- fromMaybe (error "SubIDE has no PID") <$> getPid (unsafeProcessHandle subIdeProcess)
+
+      ideErrTextAsync <- async $
+        let go = do
+              text <- T.hGetChunk errHandle
+              unless (text == "") $ do
+                atomically $ modifyTVar' ideErrText (<> text)
+                logDebug miState $ "[SubIDE " <> show pid <> "] " <> T.unpack text
+                go
+         in go
 
       mInitParams <- tryReadMVar (initParamsVar miState)
       let !initParams = fromMaybe (error "Attempted to create a SubIDE before initialization!") mInitParams
@@ -179,7 +191,8 @@ addNewSubIDEAndSend miState home mMsg = do
               , ideInHandle = inHandle
               , ideInHandleChannel = toSubIDEChan
               , ideOutHandleAsync = subIDEToCoord
-              , ideErrHandle = errHandle
+              , ideErrText = ideErrText
+              , ideErrTextAsync = ideErrTextAsync
               , ideProcess = subIdeProcess
               , ideHome = home
               , ideMessageIdPrefix = T.pack $ show pid
@@ -236,8 +249,7 @@ runSubProc miState home = do
     proc assistantPath ("ide" : subIdeArgs miState) &
       setStdin createPipe &
       setStdout createPipe &
-      -- Create a handle that isn't automatically closed when the process ends, so we can read it later.
-      setStderr (mkPipeStreamSpec $ \_ h -> return (h, pure ())) &
+      setStderr createPipe &
       setWorkingDir home &
       setEnv assistantEnv
 
@@ -848,7 +860,7 @@ runMultiIde loggingThreshold args = do
       subIdeInstanceOutcomes :: FilePath -> SubIDEInstance -> STM [(FilePath, SubIDEInstance, Either ExitCode SomeException)]
       subIdeInstanceOutcomes home ide = do
         mExitCode <- getExitCodeSTM (ideProcess ide)
-        errs <- lefts . catMaybes <$> traverse pollSTM [ideInhandleAsync ide, ideOutHandleAsync ide]
+        errs <- lefts . catMaybes <$> traverse pollSTM [ideInhandleAsync ide, ideOutHandleAsync ide, ideErrTextAsync ide]
         let mExitOutcome = (home, ide, ) . Left <$> mExitCode
             errorOutcomes = (home, ide, ) . Right <$> errs
         pure $ errorOutcomes <> maybeToList mExitOutcome
@@ -865,8 +877,8 @@ runMultiIde loggingThreshold args = do
             logDebug miState $ "SubIDE at " <> home <> " exited, cleaning up."
             cancel $ ideInhandleAsync ide
             cancel $ ideOutHandleAsync ide
-            stderrContent <- hGetContents' $ ideErrHandle ide
-            hClose $ ideErrHandle ide
+            cancel $ ideErrTextAsync ide
+            stderrContent <- T.unpack <$> readTVarIO (ideErrText ide)
             currentTime <- getCurrentTime
             let ideData = lookupSubIde home subIDEs
                 isMainIde = ideDataMain ideData == Just ide
