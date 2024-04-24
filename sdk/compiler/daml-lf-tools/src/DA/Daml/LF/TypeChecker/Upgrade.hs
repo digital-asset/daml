@@ -80,6 +80,7 @@ checkUpgrade version shouldTypecheckUpgrades presentPkg mbUpgradedPackage =
             let world = initWorldSelf [] presentPkg
             in
             runGamma world version $ do
+                 checkNewInterfacesHaveNoTemplates presentPkg
                  checkNewInterfacesAreUnused presentPkg
 
         extractDiagnostics :: Either Error ((), [Warning]) -> [Diagnostic]
@@ -93,7 +94,7 @@ checkUpgrade version shouldTypecheckUpgrades presentPkg mbUpgradedPackage =
 checkUpgradeM :: Upgrading LF.Package -> TcUpgradeM ()
 checkUpgradeM package = do
     (upgradedModules, _new) <- checkDeleted (EUpgradeError . MissingModule . NM.name) $ NM.toHashMap . packageModules <$> package
-    forM_ upgradedModules checkModule
+    forM_ upgradedModules $ \module_ -> checkModule package module_
 
 extractDelExistNew
     :: (Eq k, Hashable k)
@@ -148,8 +149,8 @@ throwIfNonEmpty handleError hm =
           ctxHandler $ throwWithContextF present err
       _ -> pure ()
 
-checkModule :: Upgrading LF.Module -> TcUpgradeM ()
-checkModule module_ = do
+checkModule :: Upgrading LF.Package -> Upgrading LF.Module -> TcUpgradeM ()
+checkModule package module_ = do
     (existingTemplates, _new) <- checkDeleted (EUpgradeError . MissingTemplate . NM.name) $ NM.toHashMap . moduleTemplates <$> module_
     forM_ existingTemplates $ \template ->
         withContextF
@@ -224,7 +225,7 @@ checkModule module_ = do
               Just iface -> Left (tcon, (datatype, iface))
 
     -- Check that no interfaces have been deleted, nor propagated
-    -- New interface checks are handled by `checkNewInterfacesAreUnused`,
+    -- New interface checks are handled by `checkNewInterfacesHaveNoTemplates`,
     -- invoked in `singlePkgDiagnostics` above
     -- Interface deletion is the correct behaviour so we ignore that
     let (_ifaceDel, ifaceExisting, _ifaceNew) = extractDelExistNew ifaceDts
@@ -238,13 +239,14 @@ checkModule module_ = do
             | template <- NM.elems (moduleTemplates module_)
             , implementation <- NM.elems (tplImplements template)
             ]
-    (_instanceExisting, _instanceNew) <-
+    (_instanceExisting, instanceNew) <-
         checkDeletedWithContext
             (\(tpl, impl) ->
                 ( ContextTemplate (_present module_) tpl TPWhole
                 , EUpgradeError (MissingImplementation (NM.name tpl) (LF.qualObject (NM.name impl)))
                 ))
             (flattenInstances <$> module_)
+    checkUpgradedInterfacesAreUnused (_present package) (_present module_) instanceNew
 
     -- checkDeleted should only trigger on datatypes not belonging to templates or choices or interfaces, which we checked above
     (dtExisting, _dtNew) <- checkDeleted (EUpgradeError . MissingDataCon . NM.name) unownedDts
@@ -273,12 +275,21 @@ checkContinuedIfaces module_ ifaces =
         withContextF present (ContextDefInterface (_present module_) iface IPWhole) $
             throwWithContextF present $ EUpgradeError $ TriedToUpgradeIface (NM.name iface)
 
--- This warning should run even when
+-- This warning should run even when no upgrade target is set
+checkNewInterfacesHaveNoTemplates :: LF.Package -> TcM ()
+checkNewInterfacesHaveNoTemplates presentPkg =
+    let templateDefined = not $ all (NM.null . moduleTemplates) (packageModules presentPkg)
+        interfaceDefined = not $ all (NM.null . moduleInterfaces) (packageModules presentPkg)
+    in
+    when (templateDefined && interfaceDefined) $
+        warnWithContext WShouldDefineIfacesAndTemplatesSeparately
+
+-- This warning should run even when no upgrade target is set
 checkNewInterfacesAreUnused :: LF.Package -> TcM ()
 checkNewInterfacesAreUnused presentPkg =
     forM_ definedAndInstantiated $ \((module_, iface), implementations) ->
         withContext (ContextDefInterface module_ iface IPWhole) $
-            warnWithContext $ WShouldDefineIfaceInOwnModule (NM.name iface) (NM.name . fst <$> implementations)
+            warnWithContext $ WShouldDefineIfaceWithoutImplementation (NM.name iface) ((\(_,a,_) -> NM.name a) <$> implementations)
     where
     definedIfaces :: HMS.HashMap (LF.Qualified LF.TypeConName) (Module, DefInterface)
     definedIfaces = HMS.unions
@@ -288,18 +299,38 @@ checkNewInterfacesAreUnused presentPkg =
               qualify tcn = Qualified PRSelf (NM.name module_) tcn
         ]
 
-    instantiatedIfaces :: HMS.HashMap (LF.Qualified LF.TypeConName) [(Template, TemplateImplements)]
-    instantiatedIfaces = foldl' (HMS.unionWith (<>)) HMS.empty $ (map . fmap) pure
-        [ HMS.map (template,) $ NM.toHashMap $ tplImplements template
-        | module_ <- NM.elems (packageModules presentPkg)
-        , template <- NM.elems (moduleTemplates module_)
-        ]
-
     definedAndInstantiated
         :: HMS.HashMap
             (LF.Qualified LF.TypeConName)
-            ((Module, DefInterface), [(Template, TemplateImplements)])
-    definedAndInstantiated = HMS.intersectionWith (,) definedIfaces instantiatedIfaces
+            ((Module, DefInterface), [(Module, Template, TemplateImplements)])
+    definedAndInstantiated = HMS.intersectionWith (,) definedIfaces (instantiatedIfaces presentPkg)
+
+checkUpgradedInterfacesAreUnused
+    :: Package
+    -> Module
+    -> HMS.HashMap (TypeConName, Qualified TypeConName) (Template, TemplateImplements)
+    -> TcUpgradeM ()
+checkUpgradedInterfacesAreUnused package module_ newInstances = do
+    forM_ (HMS.toList newInstances) $ \((tplName, ifaceName), (tpl, implementation)) ->
+        when (fromUpgradedPackage ifaceName) $
+            let qualifiedTplName = Qualified PRSelf (moduleName module_) tplName
+                ifaceInstanceHead = InterfaceInstanceHead ifaceName qualifiedTplName
+            in
+            withContextF present (ContextTemplate module_ tpl (TPInterfaceInstance ifaceInstanceHead Nothing)) $
+                warnWithContextF present $ WShouldDefineTplInSeparatePackage (NM.name tpl) (LF.qualObject (NM.name implementation))
+    where
+    fromUpgradedPackage :: forall a. LF.Qualified a -> Bool
+    fromUpgradedPackage identifier =
+        case (upgradedPackageId (packageMetadata package), qualPackage identifier) of
+          (Just upgradedId, PRImport identifierOrigin) -> upgradedId == identifierOrigin
+          _ -> False
+
+instantiatedIfaces :: LF.Package -> HMS.HashMap (LF.Qualified LF.TypeConName) [(Module, Template, TemplateImplements)]
+instantiatedIfaces pkg = foldl' (HMS.unionWith (<>)) HMS.empty $ (map . fmap) pure
+    [ HMS.map (module_,template,) $ NM.toHashMap $ tplImplements template
+    | module_ <- NM.elems (packageModules pkg)
+    , template <- NM.elems (moduleTemplates module_)
+    ]
 
 checkTemplate :: Upgrading Module -> Upgrading LF.Template -> TcUpgradeM ()
 checkTemplate module_ template = do
