@@ -7,12 +7,12 @@ import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.version.*
 
 final case class OnboardingStateForSequencer(
-    topologySnapshot: GenericStoredTopologyTransactionsX,
+    topologySnapshot: GenericStoredTopologyTransactions,
     staticDomainParameters: StaticDomainParameters,
     sequencerSnapshot: SequencerSnapshot,
 )(
@@ -36,7 +36,7 @@ object OnboardingStateForSequencer
   override def name: String = "onboarding state for sequencer"
 
   def apply(
-      topologySnapshot: GenericStoredTopologyTransactionsX,
+      topologySnapshot: GenericStoredTopologyTransactions,
       staticDomainParameters: StaticDomainParameters,
       sequencerSnapshot: SequencerSnapshot,
       protocolVersion: ProtocolVersion,
@@ -59,7 +59,7 @@ object OnboardingStateForSequencer
   ): ParsingResult[OnboardingStateForSequencer] = {
     for {
       topologySnapshot <- ProtoConverter.parseRequired(
-        StoredTopologyTransactionsX.fromProtoV30,
+        StoredTopologyTransactions.fromProtoV30,
         "topology_snapshot",
         value.topologySnapshot,
       )

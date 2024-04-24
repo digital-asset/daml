@@ -51,7 +51,7 @@ import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.participant.topology.{
   LedgerServerPartyNotifier,
-  ParticipantTopologyDispatcherCommon,
+  ParticipantTopologyDispatcher,
   ParticipantTopologyManagerOps,
 }
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
@@ -193,7 +193,7 @@ private[this] trait ParticipantComponentBootstrapFactory {
   def createSyncDomainAndTopologyDispatcher(
       aliasResolution: DomainAliasResolution,
       indexedStringStore: IndexedStringStore,
-  ): (SyncDomainPersistentStateManager, ParticipantTopologyDispatcherCommon)
+  ): (SyncDomainPersistentStateManager, ParticipantTopologyDispatcher)
 
   def createPackageOps(
       manager: SyncDomainPersistentStateManager,
@@ -277,7 +277,7 @@ trait ParticipantNodeBootstrapCommon {
         LedgerApiServerState,
         StartableStoppableLedgerApiDependentServices,
         SchedulersWithParticipantPruning,
-        ParticipantTopologyDispatcherCommon,
+        ParticipantTopologyDispatcher,
     ),
   ] = {
     val syncCrypto = new SyncCryptoApiProvider(

@@ -13,7 +13,7 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.client.*
-import com.digitalasset.canton.topology.store.{TopologyStoreId, TopologyStoreX}
+import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{DomainId, MemberCode, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -24,7 +24,7 @@ import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
 import scala.concurrent.{ExecutionContext, Future}
 
 abstract class GrpcTopologyAggregationServiceCommon[
-    Store <: TopologyStoreX[TopologyStoreId.DomainStore]
+    Store <: TopologyStore[TopologyStoreId.DomainStore]
 ](
     stores: => Seq[Store],
     ips: IdentityProvidingServiceClient,
@@ -183,18 +183,18 @@ abstract class GrpcTopologyAggregationServiceCommon[
 }
 
 class GrpcTopologyAggregationServiceX(
-    stores: => Seq[TopologyStoreX[TopologyStoreId.DomainStore]],
+    stores: => Seq[TopologyStore[TopologyStoreId.DomainStore]],
     ips: IdentityProvidingServiceClient,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends GrpcTopologyAggregationServiceCommon[TopologyStoreX[TopologyStoreId.DomainStore]](
+    extends GrpcTopologyAggregationServiceCommon[TopologyStore[TopologyStoreId.DomainStore]](
       stores,
       ips,
       loggerFactory,
     ) {
   override protected def getTopologySnapshot(
       asOf: CantonTimestamp,
-      store: TopologyStoreX[TopologyStoreId.DomainStore],
+      store: TopologyStore[TopologyStoreId.DomainStore],
   ): TopologySnapshotLoader =
     new StoreBasedTopologySnapshot(
       asOf,

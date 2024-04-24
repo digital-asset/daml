@@ -35,7 +35,7 @@ import com.digitalasset.canton.resource.{
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.{AuthorizedTopologyManagerX, Member, UniqueIdentifier}
+import com.digitalasset.canton.topology.{AuthorizedTopologyManager, Member, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.PekkoUtil
@@ -154,7 +154,7 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
         storage: Storage,
         crypto: Crypto,
         nodeId: UniqueIdentifier,
-        manager: AuthorizedTopologyManagerX,
+        manager: AuthorizedTopologyManager,
         healthReporter: GrpcHealthReporter,
         healthService: HealthService,
     ): BootstrapStageOrLeaf[TestNode] = ???

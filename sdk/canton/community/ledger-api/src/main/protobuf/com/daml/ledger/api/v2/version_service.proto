@@ -46,6 +46,11 @@ message FeaturesDescriptor {
   // It is recommended that clients query this field to gracefully adjust their behavior for
   // ledgers that do not support user management.
   UserManagementFeature user_management = 2;
+
+  // If set, then the Ledger API server supports party management configurability.
+  // It is recommended that clients query this field to gracefully adjust their behavior to
+  // maximum party page size.
+  PartyManagementFeature party_management = 3;
 }
 
 message UserManagementFeature {
@@ -61,4 +66,9 @@ message UserManagementFeature {
   // Servers MUST support at least a 100 users per page.
   // A value of 0 means that the server enforces no page size limit.
   int32 max_users_page_size = 3;
+}
+
+message PartyManagementFeature {
+  // The maximum number of parties the server can return in a single response (page).
+  int32 max_parties_page_size = 1;
 }

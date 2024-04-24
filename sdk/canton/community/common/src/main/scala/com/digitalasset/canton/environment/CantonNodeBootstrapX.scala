@@ -24,7 +24,7 @@ import com.digitalasset.canton.topology.admin.grpc.{
 }
 import com.digitalasset.canton.topology.admin.v30 as adminV30
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
-import com.digitalasset.canton.topology.store.{InitializationStore, TopologyStoreId, TopologyStoreX}
+import com.digitalasset.canton.topology.store.{InitializationStore, TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
@@ -58,7 +58,7 @@ abstract class CantonNodeBootstrapX[
       storage: Storage,
       crypto: Crypto,
       nodeId: UniqueIdentifier,
-      manager: AuthorizedTopologyManagerX,
+      manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
       healthService: HealthService,
   ): BootstrapStageOrLeaf[T]
@@ -85,9 +85,9 @@ abstract class CantonNodeBootstrapX[
     * in the node runtime itself (participant sync domain)
     */
   // TODO(#14048) implement me!
-  protected def sequencedTopologyStores: Seq[TopologyStoreX[DomainStore]] = Seq()
+  protected def sequencedTopologyStores: Seq[TopologyStore[DomainStore]] = Seq()
 
-  protected def sequencedTopologyManagers: Seq[DomainTopologyManagerX] = Seq()
+  protected def sequencedTopologyManagers: Seq[DomainTopologyManager] = Seq()
 
   protected val bootstrapStageCallback = new BootstrapStage.Callback {
     override def loggerFactory: NamedLoggerFactory = CantonNodeBootstrapX.this.loggerFactory
@@ -203,7 +203,7 @@ abstract class CantonNodeBootstrapX[
     private val initializationStore = InitializationStore(storage, timeouts, loggerFactory)
     addCloseable(initializationStore)
     private val authorizedStore =
-      TopologyStoreX(
+      TopologyStore(
         TopologyStoreId.AuthorizedStore,
         storage,
         timeouts,
@@ -211,8 +211,8 @@ abstract class CantonNodeBootstrapX[
       )
     addCloseable(authorizedStore)
 
-    private val topologyManager: AuthorizedTopologyManagerX =
-      new AuthorizedTopologyManagerX(
+    private val topologyManager: AuthorizedTopologyManager =
+      new AuthorizedTopologyManager(
         clock,
         crypto,
         authorizedStore,
@@ -321,8 +321,8 @@ abstract class CantonNodeBootstrapX[
 
   private class GenerateOrAwaitNodeTopologyTx(
       val nodeId: UniqueIdentifier,
-      manager: AuthorizedTopologyManagerX,
-      authorizedStore: TopologyStoreX[TopologyStoreId.AuthorizedStore],
+      manager: AuthorizedTopologyManager,
+      authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore],
       storage: Storage,
       crypto: Crypto,
       healthReporter: GrpcHealthReporter,
@@ -337,7 +337,7 @@ abstract class CantonNodeBootstrapX[
     private val topologyManagerObserver = new TopologyManagerObserver {
       override def addedNewTransactions(
           timestamp: CantonTimestamp,
-          transactions: Seq[SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]],
+          transactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
       )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
         logger.debug(
           s"Checking whether new topology transactions at $timestamp suffice for initializing the stage $description"
@@ -372,7 +372,7 @@ abstract class CantonNodeBootstrapX[
           CantonTimestamp.MaxValue,
           asOfInclusive = false,
           isProposal = false,
-          types = Seq(OwnerToKeyMappingX.code),
+          types = Seq(OwnerToKeyMapping.code),
           filterUid = Some(Seq(nodeId)),
           filterNamespace = None,
         )
@@ -381,7 +381,7 @@ abstract class CantonNodeBootstrapX[
             .filterNot(_.transaction.isProposal)
             .map(_.mapping)
             .exists {
-              case OwnerToKeyMappingX(`myMember`, None, keys) =>
+              case OwnerToKeyMapping(`myMember`, None, keys) =>
                 // stage is clear if we have a general signing key and possibly also an encryption key
                 // this tx can not exist without appropriate certificates, so don't need to check for them
                 keys.exists(_.isSigning) && (myMember.code != ParticipantId.Code || keys
@@ -418,7 +418,7 @@ abstract class CantonNodeBootstrapX[
         )
         // init topology manager
         nsd <- EitherT.fromEither[FutureUnlessShutdown](
-          NamespaceDelegationX.create(
+          NamespaceDelegation.create(
             Namespace(namespaceKey.fingerprint),
             namespaceKey,
             isRootDelegation = true,
@@ -447,7 +447,7 @@ abstract class CantonNodeBootstrapX[
         // register the keys
         _ <- authorizeStateUpdate(
           namespaceKey,
-          OwnerToKeyMappingX(ownerId, None, keys),
+          OwnerToKeyMapping(ownerId, None, keys),
           ProtocolVersion.latest,
         )
       } yield Some(())
@@ -455,14 +455,14 @@ abstract class CantonNodeBootstrapX[
 
     private def authorizeStateUpdate(
         key: SigningPublicKey,
-        mapping: TopologyMappingX,
+        mapping: TopologyMapping,
         protocolVersion: ProtocolVersion,
     )(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, Unit] = {
       manager
         .proposeAndAuthorize(
-          TopologyChangeOpX.Replace,
+          TopologyChangeOp.Replace,
           mapping,
           serial = None,
           Seq(key.fingerprint),

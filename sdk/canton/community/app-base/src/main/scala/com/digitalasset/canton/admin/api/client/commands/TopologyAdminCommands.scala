@@ -14,7 +14,7 @@ import com.digitalasset.canton.admin.api.client.data.topologyx.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.admin.grpc.BaseQueryX
+import com.digitalasset.canton.topology.admin.grpc.BaseQuery
 import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.admin.v30.AuthorizeRequest.Type.{Proposal, TransactionHash}
 import com.digitalasset.canton.topology.admin.v30.IdentityInitializationXServiceGrpc.IdentityInitializationXServiceStub
@@ -32,13 +32,13 @@ import com.digitalasset.canton.topology.admin.v30.{
   SignTransactionsRequest,
   SignTransactionsResponse,
 }
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.{
-  SignedTopologyTransactionX,
-  TopologyChangeOpX,
-  TopologyMappingX,
+  SignedTopologyTransaction,
+  TopologyChangeOp,
+  TopologyMapping,
 }
 import com.digitalasset.canton.version.ProtocolVersionValidation
 import com.google.protobuf.ByteString
@@ -64,7 +64,7 @@ object TopologyAdminCommands {
     }
 
     final case class ListTrafficControlState(
-        query: BaseQueryX,
+        query: BaseQuery,
         filterMember: String,
     ) extends BaseCommand[
           v30.ListTrafficStateRequest,
@@ -95,7 +95,7 @@ object TopologyAdminCommands {
     }
 
     final case class ListNamespaceDelegation(
-        query: BaseQueryX,
+        query: BaseQuery,
         filterNamespace: String,
         filterTargetKey: Option[Fingerprint],
     ) extends BaseCommand[
@@ -126,7 +126,7 @@ object TopologyAdminCommands {
     }
 
     final case class ListDecentralizedNamespaceDefinition(
-        query: BaseQueryX,
+        query: BaseQuery,
         filterNamespace: String,
     ) extends BaseCommand[
           v30.ListDecentralizedNamespaceDefinitionRequest,
@@ -158,7 +158,7 @@ object TopologyAdminCommands {
     }
 
     final case class ListIdentifierDelegation(
-        query: BaseQueryX,
+        query: BaseQuery,
         filterUid: String,
         filterTargetKey: Option[Fingerprint],
     ) extends BaseCommand[
@@ -189,7 +189,7 @@ object TopologyAdminCommands {
     }
 
     final case class ListOwnerToKeyMapping(
-        query: BaseQueryX,
+        query: BaseQuery,
         filterKeyOwnerType: Option[MemberCode],
         filterKeyOwnerUid: String,
     ) extends BaseCommand[v30.ListOwnerToKeyMappingRequest, v30.ListOwnerToKeyMappingResponse, Seq[
@@ -218,7 +218,7 @@ object TopologyAdminCommands {
     }
 
     final case class ListDomainTrustCertificate(
-        query: BaseQueryX,
+        query: BaseQuery,
         filterUid: String,
     ) extends BaseCommand[
           v30.ListDomainTrustCertificateRequest,
@@ -247,7 +247,7 @@ object TopologyAdminCommands {
     }
 
     final case class ListParticipantDomainPermission(
-        query: BaseQueryX,
+        query: BaseQuery,
         filterUid: String,
     ) extends BaseCommand[
           v30.ListParticipantDomainPermissionRequest,
@@ -278,7 +278,7 @@ object TopologyAdminCommands {
     }
 
     final case class ListPartyHostingLimits(
-        query: BaseQueryX,
+        query: BaseQuery,
         filterUid: String,
     ) extends BaseCommand[
           v30.ListPartyHostingLimitsRequest,
@@ -309,7 +309,7 @@ object TopologyAdminCommands {
     }
 
     final case class ListVettedPackages(
-        query: BaseQueryX,
+        query: BaseQuery,
         filterParticipant: String,
     ) extends BaseCommand[
           v30.ListVettedPackagesRequest,
@@ -340,7 +340,7 @@ object TopologyAdminCommands {
     }
 
     final case class ListPartyToParticipant(
-        query: BaseQueryX,
+        query: BaseQuery,
         filterParty: String,
         filterParticipant: String,
     ) extends BaseCommand[
@@ -373,7 +373,7 @@ object TopologyAdminCommands {
     }
 
     final case class ListAuthorityOf(
-        query: BaseQueryX,
+        query: BaseQuery,
         filterParty: String,
     ) extends BaseCommand[
           v30.ListAuthorityOfRequest,
@@ -404,7 +404,7 @@ object TopologyAdminCommands {
     }
 
     final case class DomainParametersState(
-        query: BaseQueryX,
+        query: BaseQuery,
         filterDomain: String,
     ) extends BaseCommand[
           v30.ListDomainParametersStateRequest,
@@ -435,7 +435,7 @@ object TopologyAdminCommands {
     }
 
     final case class MediatorDomainState(
-        query: BaseQueryX,
+        query: BaseQuery,
         filterDomain: String,
     ) extends BaseCommand[
           v30.ListMediatorDomainStateRequest,
@@ -466,7 +466,7 @@ object TopologyAdminCommands {
     }
 
     final case class SequencerDomainState(
-        query: BaseQueryX,
+        query: BaseQuery,
         filterDomain: String,
     ) extends BaseCommand[
           v30.ListSequencerDomainStateRequest,
@@ -497,7 +497,7 @@ object TopologyAdminCommands {
     }
 
     final case class PurgeTopologyTransaction(
-        query: BaseQueryX,
+        query: BaseQuery,
         filterDomain: String,
     ) extends BaseCommand[
           v30.ListPurgeTopologyTransactionRequest,
@@ -548,13 +548,13 @@ object TopologyAdminCommands {
     }
 
     final case class ListAll(
-        query: BaseQueryX,
+        query: BaseQuery,
         excludeMappings: Seq[String],
         filterNamespace: String,
     ) extends BaseCommand[
           v30.ListAllRequest,
           v30.ListAllResponse,
-          GenericStoredTopologyTransactionsX,
+          GenericStoredTopologyTransactions,
         ] {
       override def createRequest(): Either[String, v30.ListAllRequest] =
         Right(
@@ -572,16 +572,16 @@ object TopologyAdminCommands {
 
       override def handleResponse(
           response: v30.ListAllResponse
-      ): Either[String, GenericStoredTopologyTransactionsX] =
+      ): Either[String, GenericStoredTopologyTransactions] =
         response.result
-          .fold[Either[String, GenericStoredTopologyTransactionsX]](
-            Right(StoredTopologyTransactionsX.empty)
+          .fold[Either[String, GenericStoredTopologyTransactions]](
+            Right(StoredTopologyTransactions.empty)
           ) { collection =>
-            StoredTopologyTransactionsX.fromProtoV30(collection).leftMap(_.toString)
+            StoredTopologyTransactions.fromProtoV30(collection).leftMap(_.toString)
           }
     }
     final case class ExportTopologySnapshot(
-        query: BaseQueryX,
+        query: BaseQuery,
         excludeMappings: Seq[String],
         filterNamespace: String,
     ) extends BaseCommand[
@@ -706,7 +706,7 @@ object TopologyAdminCommands {
     }
 
     final case class AddTransactions(
-        transactions: Seq[GenericSignedTopologyTransactionX],
+        transactions: Seq[GenericSignedTopologyTransaction],
         store: String,
     ) extends BaseWriteCommand[AddTransactionsRequest, AddTransactionsResponse, Unit] {
       override def createRequest(): Either[String, AddTransactionsRequest] = {
@@ -746,10 +746,10 @@ object TopologyAdminCommands {
     }
 
     final case class SignTransactions(
-        transactions: Seq[GenericSignedTopologyTransactionX],
+        transactions: Seq[GenericSignedTopologyTransaction],
         signedBy: Seq[Fingerprint],
     ) extends BaseWriteCommand[SignTransactionsRequest, SignTransactionsResponse, Seq[
-          GenericSignedTopologyTransactionX
+          GenericSignedTopologyTransaction
         ]] {
       override def createRequest(): Either[String, SignTransactionsRequest] = {
         Right(
@@ -764,18 +764,18 @@ object TopologyAdminCommands {
 
       override def handleResponse(
           response: SignTransactionsResponse
-      ): Either[String, Seq[GenericSignedTopologyTransactionX]] =
+      ): Either[String, Seq[GenericSignedTopologyTransaction]] =
         response.transactions
           .traverse(tx =>
-            SignedTopologyTransactionX.fromProtoV30(ProtocolVersionValidation.NoValidation, tx)
+            SignedTopologyTransaction.fromProtoV30(ProtocolVersionValidation.NoValidation, tx)
           )
           .leftMap(_.message)
     }
 
-    final case class Propose[M <: TopologyMappingX: ClassTag](
+    final case class Propose[M <: TopologyMapping: ClassTag](
         mapping: Either[String, M],
         signedBy: Seq[Fingerprint],
-        change: TopologyChangeOpX,
+        change: TopologyChangeOp,
         serial: Option[PositiveInt],
         mustFullyAuthorize: Boolean,
         forceChange: Boolean,
@@ -783,7 +783,7 @@ object TopologyAdminCommands {
     ) extends BaseWriteCommand[
           AuthorizeRequest,
           AuthorizeResponse,
-          SignedTopologyTransactionX[TopologyChangeOpX, M],
+          SignedTopologyTransaction[TopologyChangeOp, M],
         ] {
 
       override def createRequest(): Either[String, AuthorizeRequest] = mapping.map(m =>
@@ -808,10 +808,10 @@ object TopologyAdminCommands {
 
       override def handleResponse(
           response: AuthorizeResponse
-      ): Either[String, SignedTopologyTransactionX[TopologyChangeOpX, M]] = response.transaction
+      ): Either[String, SignedTopologyTransaction[TopologyChangeOp, M]] = response.transaction
         .toRight("no transaction in response")
         .flatMap(
-          SignedTopologyTransactionX
+          SignedTopologyTransaction
             .fromProtoV30(ProtocolVersionValidation.NoValidation, _)
             .leftMap(_.message)
             .flatMap(tx =>
@@ -823,12 +823,12 @@ object TopologyAdminCommands {
         )
     }
     object Propose {
-      def apply[M <: TopologyMappingX: ClassTag](
+      def apply[M <: TopologyMapping: ClassTag](
           mapping: M,
           signedBy: Seq[Fingerprint],
           store: String,
           serial: Option[PositiveInt] = None,
-          change: TopologyChangeOpX = TopologyChangeOpX.Replace,
+          change: TopologyChangeOp = TopologyChangeOp.Replace,
           mustFullyAuthorize: Boolean = false,
           forceChange: Boolean = false,
       ): Propose[M] =
@@ -836,7 +836,7 @@ object TopologyAdminCommands {
 
     }
 
-    final case class Authorize[M <: TopologyMappingX: ClassTag](
+    final case class Authorize[M <: TopologyMapping: ClassTag](
         transactionHash: String,
         mustFullyAuthorize: Boolean,
         signedBy: Seq[Fingerprint],
@@ -844,7 +844,7 @@ object TopologyAdminCommands {
     ) extends BaseWriteCommand[
           AuthorizeRequest,
           AuthorizeResponse,
-          SignedTopologyTransactionX[TopologyChangeOpX, M],
+          SignedTopologyTransaction[TopologyChangeOp, M],
         ] {
 
       override def createRequest(): Either[String, AuthorizeRequest] = Right(
@@ -864,10 +864,10 @@ object TopologyAdminCommands {
 
       override def handleResponse(
           response: AuthorizeResponse
-      ): Either[String, SignedTopologyTransactionX[TopologyChangeOpX, M]] = response.transaction
+      ): Either[String, SignedTopologyTransaction[TopologyChangeOp, M]] = response.transaction
         .toRight("no transaction in response")
         .flatMap(
-          SignedTopologyTransactionX
+          SignedTopologyTransaction
             .fromProtoV30(ProtocolVersionValidation.NoValidation, _)
             .leftMap(_.message)
             .flatMap(tx =>

@@ -38,17 +38,17 @@ import com.digitalasset.canton.sequencer.admin.v30.SequencerInitializationServic
 import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.processing.{EffectiveTime, TopologyTransactionProcessorX}
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
+import com.digitalasset.canton.topology.processing.{EffectiveTime, TopologyTransactionProcessor}
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{
   StoreBasedTopologyStateForInitializationService,
-  TopologyStoreX,
+  TopologyStore,
 }
 import com.digitalasset.canton.topology.transaction.{
-  OwnerToKeyMappingX,
-  SequencerDomainStateX,
-  TrafficControlStateX,
+  OwnerToKeyMapping,
+  SequencerDomainState,
+  TrafficControlState,
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.traffic.TopUpEvent
@@ -108,7 +108,7 @@ class SequencerNodeBootstrapX(
       storage: Storage,
       crypto: Crypto,
       nodeId: UniqueIdentifier,
-      manager: AuthorizedTopologyManagerX,
+      manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
       healthService: HealthService,
   ): BootstrapStageOrLeaf[SequencerNodeX] = {
@@ -124,25 +124,25 @@ class SequencerNodeBootstrapX(
 
   override protected def mediatorsProcessParticipantTopologyRequests: Boolean = true
 
-  private val domainTopologyManager = new SingleUseCell[DomainTopologyManagerX]()
+  private val domainTopologyManager = new SingleUseCell[DomainTopologyManager]()
 
-  override protected def sequencedTopologyStores: Seq[TopologyStoreX[DomainStore]] =
+  override protected def sequencedTopologyStores: Seq[TopologyStore[DomainStore]] =
     domainTopologyManager.get.map(_.store).toList
 
-  override protected def sequencedTopologyManagers: Seq[DomainTopologyManagerX] =
+  override protected def sequencedTopologyManagers: Seq[DomainTopologyManager] =
     domainTopologyManager.get.toList
 
   private class WaitForSequencerToDomainInit(
       storage: Storage,
       crypto: Crypto,
       sequencerId: SequencerId,
-      manager: AuthorizedTopologyManagerX,
+      manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
       healthService: HealthService,
   ) extends BootstrapStageWithStorage[
         SequencerNodeX,
         StartupNode,
-        (StaticDomainParameters, SequencerFactory, DomainTopologyManagerX),
+        (StaticDomainParameters, SequencerFactory, DomainTopologyManager),
       ](
         "wait-for-sequencer-to-domain-init",
         bootstrapStageCallback,
@@ -215,7 +215,7 @@ class SequencerNodeBootstrapX(
     override protected def stageCompleted(implicit
         traceContext: TraceContext
     ): Future[Option[
-      (StaticDomainParameters, SequencerFactory, DomainTopologyManagerX)
+      (StaticDomainParameters, SequencerFactory, DomainTopologyManager)
     ]] = {
       domainConfigurationStore.fetchConfiguration.toOption
         .map {
@@ -224,7 +224,7 @@ class SequencerNodeBootstrapX(
               (
                 existing.domainParameters,
                 mkFactory(existing.domainParameters.protocolVersion),
-                new DomainTopologyManagerX(
+                new DomainTopologyManager(
                   clock,
                   crypto,
                   store = createDomainTopologyStore(existing.domainId),
@@ -247,9 +247,9 @@ class SequencerNodeBootstrapX(
         .map(_.flatten)
     }
 
-    private def createDomainTopologyStore(domainId: DomainId): TopologyStoreX[DomainStore] = {
+    private def createDomainTopologyStore(domainId: DomainId): TopologyStore[DomainStore] = {
       val store =
-        TopologyStoreX(DomainStore(domainId), storage, timeouts, loggerFactory)
+        TopologyStore(DomainStore(domainId), storage, timeouts, loggerFactory)
       addCloseable(store)
       store
     }
@@ -258,7 +258,7 @@ class SequencerNodeBootstrapX(
         result: (
             StaticDomainParameters,
             SequencerFactory,
-            DomainTopologyManagerX,
+            DomainTopologyManager,
         )
     ): StartupNode = {
       val (domainParameters, sequencerFactory, domainTopologyMgr) = result
@@ -281,17 +281,17 @@ class SequencerNodeBootstrapX(
     }
 
     override protected def autoCompleteStage(): EitherT[FutureUnlessShutdown, String, Option[
-      (StaticDomainParameters, SequencerFactory, DomainTopologyManagerX)
+      (StaticDomainParameters, SequencerFactory, DomainTopologyManager)
     ]] =
       EitherT.rightT(None) // this stage doesn't have auto-init
 
     // Extract the top event state from the topology snapshot
     private def extractTopUpEventsFromTopologySnapshot(
-        snapshot: GenericStoredTopologyTransactionsX,
+        snapshot: GenericStoredTopologyTransactions,
         lastTopologyUpdate: Option[CantonTimestamp],
     ): Map[Member, TopUpEvent] = {
       snapshot.result
-        .flatMap(_.selectMapping[TrafficControlStateX])
+        .flatMap(_.selectMapping[TrafficControlState])
         .map { tx =>
           tx.mapping.member ->
             TopUpEvent(
@@ -320,7 +320,7 @@ class SequencerNodeBootstrapX(
           val sequencerFactory = mkFactory(request.domainParameters.protocolVersion)
           val domainIds = request.topologySnapshot.result
             .map(_.mapping)
-            .collect { case SequencerDomainStateX(domain, _, _, _) => domain }
+            .collect { case SequencerDomainState(domain, _, _, _) => domain }
             .toSet
           for {
             // TODO(#12390) validate initalisation request, as from here on, it must succeed
@@ -352,7 +352,7 @@ class SequencerNodeBootstrapX(
               }
             store = createDomainTopologyStore(domainId)
             outboxQueue = new DomainOutboxQueue(loggerFactory)
-            topologyManager = new DomainTopologyManagerX(
+            topologyManager = new DomainTopologyManager(
               clock,
               crypto,
               store,
@@ -398,8 +398,8 @@ class SequencerNodeBootstrapX(
       sequencerId: SequencerId,
       sequencerFactory: SequencerFactory,
       staticDomainParameters: StaticDomainParameters,
-      authorizedTopologyManager: AuthorizedTopologyManagerX,
-      domainTopologyManager: DomainTopologyManagerX,
+      authorizedTopologyManager: AuthorizedTopologyManager,
+      domainTopologyManager: DomainTopologyManager,
       preinitializedServer: Option[DynamicDomainGrpcServer],
       healthReporter: GrpcHealthReporter,
       healthService: HealthService,
@@ -444,7 +444,7 @@ class SequencerNodeBootstrapX(
         addCloseable(indexedStringStore)
         for {
           processorAndClient <- EitherT.right(
-            TopologyTransactionProcessorX.createProcessorAndClientForDomain(
+            TopologyTransactionProcessor.createProcessorAndClientForDomain(
               domainTopologyStore,
               domainId,
               staticDomainParameters.protocolVersion,
@@ -485,12 +485,12 @@ class SequencerNodeBootstrapX(
                     tsNext.value,
                     asOfInclusive = false,
                     isProposal = false,
-                    types = Seq(OwnerToKeyMappingX.code),
+                    types = Seq(OwnerToKeyMapping.code),
                     filterUid = None,
                     filterNamespace = None,
                   )
                   .map(
-                    _.collectOfMapping[OwnerToKeyMappingX].collectLatestByUniqueKey.toTopologyState
+                    _.collectOfMapping[OwnerToKeyMapping].collectLatestByUniqueKey.toTopologyState
                       .map(_.member)
                       .toSet
                   )

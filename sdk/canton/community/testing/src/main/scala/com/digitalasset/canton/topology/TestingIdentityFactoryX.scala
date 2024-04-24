@@ -24,9 +24,9 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DefaultTestIdentities.*
 import com.digitalasset.canton.topology.client.*
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
-import com.digitalasset.canton.topology.store.{TopologyStoreId, ValidatedTopologyTransactionX}
-import com.digitalasset.canton.topology.transaction.TopologyChangeOpX.Remove
+import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
+import com.digitalasset.canton.topology.store.{TopologyStoreId, ValidatedTopologyTransaction}
+import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Remove
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.{MapsUtil, OptionUtil}
@@ -217,7 +217,7 @@ class TestingIdentityFactoryX(
       timestampForDomainParameters: CantonTimestamp = CantonTimestamp.Epoch,
   ): TopologySnapshot = {
 
-    val store = new InMemoryTopologyStoreX(
+    val store = new InMemoryTopologyStore(
       TopologyStoreId.AuthorizedStore,
       loggerFactory,
       DefaultProcessingTimeouts.testing,
@@ -238,7 +238,7 @@ class TestingIdentityFactoryX(
 
     val mediatorOnboarding = topology.mediatorGroups.map(group =>
       mkAdd(
-        MediatorDomainStateX
+        MediatorDomainState
           .create(
             domainId,
             group = group.index,
@@ -252,7 +252,7 @@ class TestingIdentityFactoryX(
 
     val sequencerOnboarding =
       mkAdd(
-        SequencerDomainStateX
+        SequencerDomainState
           .create(
             domainId,
             threshold = topology.sequencerGroup.threshold,
@@ -266,7 +266,7 @@ class TestingIdentityFactoryX(
 
     val domainGovernanceTxs = List(
       mkAdd(
-        DomainParametersStateX(domainId, domainParametersChangeTx(timestampForDomainParameters))
+        DomainParametersState(domainId, domainParametersChangeTx(timestampForDomainParameters))
       )
     )
     val transactions = (participantTxs ++
@@ -275,7 +275,7 @@ class TestingIdentityFactoryX(
       Seq(sequencerOnboarding) ++
       partyDataTx ++
       domainGovernanceTxs)
-      .map(ValidatedTopologyTransactionX(_, rejectionReason = None))
+      .map(ValidatedTopologyTransaction(_, rejectionReason = None))
 
     val updateF = store.update(
       SequencedTime(CantonTimestamp.Epoch.immediatePredecessor),
@@ -309,16 +309,16 @@ class TestingIdentityFactoryX(
     }
 
   private val signedTxProtocolRepresentative =
-    SignedTopologyTransactionX.protocolVersionRepresentativeFor(defaultProtocolVersion)
+    SignedTopologyTransaction.protocolVersionRepresentativeFor(defaultProtocolVersion)
 
   private def mkAdd(
-      mapping: TopologyMappingX,
+      mapping: TopologyMapping,
       serial: PositiveInt = PositiveInt.one,
       isProposal: Boolean = false,
-  ): SignedTopologyTransactionX[TopologyChangeOpX.Replace, TopologyMappingX] =
-    SignedTopologyTransactionX(
-      TopologyTransactionX(
-        TopologyChangeOpX.Replace,
+  ): SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping] =
+    SignedTopologyTransaction(
+      TopologyTransaction(
+        TopologyChangeOp.Replace,
         serial,
         mapping,
         defaultProtocolVersion,
@@ -329,7 +329,7 @@ class TestingIdentityFactoryX(
 
   private def genKeyCollection(
       owner: Member
-  ): Seq[SignedTopologyTransactionX[TopologyChangeOpX.Replace, TopologyMappingX]] = {
+  ): Seq[SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]] = {
     val keyPurposes = topology.keyPurposes
 
     val sigKey =
@@ -349,19 +349,19 @@ class TestingIdentityFactoryX(
     NonEmpty
       .from(sigKey ++ encKey)
       .map { keys =>
-        mkAdd(OwnerToKeyMappingX(owner, None, keys))
+        mkAdd(OwnerToKeyMapping(owner, None, keys))
       }
       .toList
   }
 
   private def partyToParticipantTxs()
-      : Iterable[SignedTopologyTransactionX[TopologyChangeOpX.Replace, TopologyMappingX]] =
+      : Iterable[SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]] =
     topology.topology
       .map { case (lfParty, participants) =>
         val partyId = PartyId.tryFromLfParty(lfParty)
         val participantsForParty = participants.iterator.filter(_._1.uid != partyId.uid)
         mkAdd(
-          PartyToParticipantX(
+          PartyToParticipant(
             partyId,
             None,
             threshold = PositiveInt.one,
@@ -376,7 +376,7 @@ class TestingIdentityFactoryX(
   private def participantsTxs(
       defaultPermissionByParticipant: Map[ParticipantId, ParticipantPermission],
       packages: Map[ParticipantId, Seq[LfPackageId]],
-  ): Seq[SignedTopologyTransactionX[TopologyChangeOpX.Replace, TopologyMappingX]] = topology
+  ): Seq[SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]] = topology
     .allParticipants()
     .toSeq
     .flatMap { participantId =>
@@ -392,17 +392,17 @@ class TestingIdentityFactoryX(
       val pkgs =
         packages
           .get(participantId)
-          .map(packages => mkAdd(VettedPackagesX(participantId, None, packages)))
+          .map(packages => mkAdd(VettedPackages(participantId, None, packages)))
           .toSeq
       pkgs ++ genKeyCollection(participantId) :+ mkAdd(
-        DomainTrustCertificateX(
+        DomainTrustCertificate(
           participantId,
           domainId,
           transferOnlyToGivenTargetDomains = false,
           targetDomains = Seq.empty,
         )
       ) :+ mkAdd(
-        ParticipantDomainPermissionX(
+        ParticipantDomainPermission(
           domainId,
           participantId,
           attributes.permission,
@@ -488,25 +488,25 @@ class TestingOwnerWithKeysX(
     val ts = CantonTimestamp.Epoch
     val ts1 = ts.plusSeconds(1)
     val ns1k1 = mkAdd(
-      NamespaceDelegationX.tryCreate(
+      NamespaceDelegation.tryCreate(
         Namespace(namespaceKey.fingerprint),
         namespaceKey,
         isRootDelegation = true,
       )
     )
     val ns1k2 = mkAdd(
-      NamespaceDelegationX.tryCreate(
+      NamespaceDelegation.tryCreate(
         Namespace(namespaceKey.fingerprint),
         key2,
         isRootDelegation = false,
       )
     )
-    val id1k1 = mkAdd(IdentifierDelegationX(uid, key1))
-    val id2k2 = mkAdd(IdentifierDelegationX(uid2, key2))
-    val seq_okm_k2 = mkAdd(OwnerToKeyMappingX(sequencerIdX, None, NonEmpty(Seq, key2)))
-    val med_okm_k3 = mkAdd(OwnerToKeyMappingX(mediatorIdX, None, NonEmpty(Seq, key3)))
+    val id1k1 = mkAdd(IdentifierDelegation(uid, key1))
+    val id2k2 = mkAdd(IdentifierDelegation(uid2, key2))
+    val seq_okm_k2 = mkAdd(OwnerToKeyMapping(sequencerIdX, None, NonEmpty(Seq, key2)))
+    val med_okm_k3 = mkAdd(OwnerToKeyMapping(mediatorIdX, None, NonEmpty(Seq, key3)))
     val dtc1m =
-      DomainTrustCertificateX(
+      DomainTrustCertificate(
         participant1,
         domainId,
         transferOnlyToGivenTargetDomains = false,
@@ -516,7 +516,7 @@ class TestingOwnerWithKeysX(
     private val defaultDomainParameters = TestDomainParameters.defaultDynamic
 
     val dpc1 = mkAdd(
-      DomainParametersStateX(
+      DomainParametersState(
         DomainId(uid),
         defaultDomainParameters
           .tryUpdate(confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(1)),
@@ -524,7 +524,7 @@ class TestingOwnerWithKeysX(
       namespaceKey,
     )
     val dpc1Updated = mkAdd(
-      DomainParametersStateX(
+      DomainParametersState(
         DomainId(uid),
         defaultDomainParameters
           .tryUpdate(
@@ -536,38 +536,38 @@ class TestingOwnerWithKeysX(
     )
 
     val dpc2 =
-      mkAdd(DomainParametersStateX(DomainId(uid2), defaultDomainParameters), key2)
+      mkAdd(DomainParametersState(DomainId(uid2), defaultDomainParameters), key2)
 
     val p1_nsk2 = mkAdd(
-      NamespaceDelegationX.tryCreate(
+      NamespaceDelegation.tryCreate(
         Namespace(participant1.uid.namespace.fingerprint),
         key2,
         isRootDelegation = false,
       )
     )
     val p2_nsk2 = mkAdd(
-      NamespaceDelegationX.tryCreate(
+      NamespaceDelegation.tryCreate(
         Namespace(participant2.uid.namespace.fingerprint),
         key2,
         isRootDelegation = false,
       )
     )
 
-    val p1_dtc = mkAdd(DomainTrustCertificateX(participant1, domainId, false, Seq.empty))
-    val p2_dtc = mkAdd(DomainTrustCertificateX(participant2, domainId, false, Seq.empty))
-    val p3_dtc = mkAdd(DomainTrustCertificateX(participant3, domainId, false, Seq.empty))
+    val p1_dtc = mkAdd(DomainTrustCertificate(participant1, domainId, false, Seq.empty))
+    val p2_dtc = mkAdd(DomainTrustCertificate(participant2, domainId, false, Seq.empty))
+    val p3_dtc = mkAdd(DomainTrustCertificate(participant3, domainId, false, Seq.empty))
     val p1_otk = mkAdd(
-      OwnerToKeyMappingX(participant1, None, NonEmpty(Seq, EncryptionKeys.key1, SigningKeys.key1))
+      OwnerToKeyMapping(participant1, None, NonEmpty(Seq, EncryptionKeys.key1, SigningKeys.key1))
     )
     val p2_otk = mkAdd(
-      OwnerToKeyMappingX(participant2, None, NonEmpty(Seq, EncryptionKeys.key2, SigningKeys.key2))
+      OwnerToKeyMapping(participant2, None, NonEmpty(Seq, EncryptionKeys.key2, SigningKeys.key2))
     )
     val p3_otk = mkAdd(
-      OwnerToKeyMappingX(participant3, None, NonEmpty(Seq, EncryptionKeys.key3, SigningKeys.key3))
+      OwnerToKeyMapping(participant3, None, NonEmpty(Seq, EncryptionKeys.key3, SigningKeys.key3))
     )
 
     val p1_pdp_observation = mkAdd(
-      ParticipantDomainPermissionX(
+      ParticipantDomainPermission(
         domainId,
         participant1,
         ParticipantPermission.Observation,
@@ -577,7 +577,7 @@ class TestingOwnerWithKeysX(
     )
 
     val p2_pdp_confirmation = mkAdd(
-      ParticipantDomainPermissionX(
+      ParticipantDomainPermission(
         domainId,
         participant2,
         ParticipantPermission.Confirmation,
@@ -587,7 +587,7 @@ class TestingOwnerWithKeysX(
     )
 
     val p1p1 = mkAdd(
-      PartyToParticipantX(
+      PartyToParticipant(
         PartyId(UniqueIdentifier(Identifier.tryCreate("one"), Namespace(key1.id))),
         None,
         PositiveInt.one,
@@ -598,16 +598,16 @@ class TestingOwnerWithKeysX(
 
   }
 
-  def mkTrans[Op <: TopologyChangeOpX, M <: TopologyMappingX](
-      trans: TopologyTransactionX[Op, M],
+  def mkTrans[Op <: TopologyChangeOp, M <: TopologyMapping](
+      trans: TopologyTransaction[Op, M],
       signingKeys: NonEmpty[Set[SigningPublicKey]] = NonEmpty(Set, SigningKeys.key1),
       isProposal: Boolean = false,
   )(implicit
       ec: ExecutionContext
-  ): SignedTopologyTransactionX[Op, M] =
+  ): SignedTopologyTransaction[Op, M] =
     Await
       .result(
-        SignedTopologyTransactionX
+        SignedTopologyTransaction
           .create(
             trans,
             signingKeys.map(_.id),
@@ -621,13 +621,13 @@ class TestingOwnerWithKeysX(
       .getOrElse(sys.error("failed to create signed topology transaction"))
 
   def setSerial(
-      trans: SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX],
+      trans: SignedTopologyTransaction[TopologyChangeOp, TopologyMapping],
       serial: PositiveInt,
       signingKeys: NonEmpty[Set[SigningPublicKey]] = NonEmpty(Set, SigningKeys.key1),
   )(implicit ec: ExecutionContext) = {
     import trans.transaction as tx
     mkTrans(
-      TopologyTransactionX(
+      TopologyTransaction(
         tx.operation,
         serial,
         tx.mapping,
@@ -637,27 +637,27 @@ class TestingOwnerWithKeysX(
     )
   }
 
-  def mkAdd[M <: TopologyMappingX](
+  def mkAdd[M <: TopologyMapping](
       mapping: M,
       signingKey: SigningPublicKey = SigningKeys.key1,
       serial: PositiveInt = PositiveInt.one,
       isProposal: Boolean = false,
   )(implicit
       ec: ExecutionContext
-  ): SignedTopologyTransactionX[TopologyChangeOpX.Replace, M] =
+  ): SignedTopologyTransaction[TopologyChangeOp.Replace, M] =
     mkAddMultiKey(mapping, NonEmpty(Set, signingKey), serial, isProposal)
 
-  def mkAddMultiKey[M <: TopologyMappingX](
+  def mkAddMultiKey[M <: TopologyMapping](
       mapping: M,
       signingKeys: NonEmpty[Set[SigningPublicKey]] = NonEmpty(Set, SigningKeys.key1),
       serial: PositiveInt = PositiveInt.one,
       isProposal: Boolean = false,
   )(implicit
       ec: ExecutionContext
-  ): SignedTopologyTransactionX[TopologyChangeOpX.Replace, M] =
+  ): SignedTopologyTransaction[TopologyChangeOp.Replace, M] =
     mkTrans(
-      TopologyTransactionX(
-        TopologyChangeOpX.Replace,
+      TopologyTransaction(
+        TopologyChangeOp.Replace,
         serial,
         mapping,
         BaseTest.testedProtocolVersion,
@@ -667,23 +667,23 @@ class TestingOwnerWithKeysX(
     )
 
   def mkRemoveTx(
-      tx: SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]
-  )(implicit ec: ExecutionContext): SignedTopologyTransactionX[Remove, TopologyMappingX] =
-    mkRemove[TopologyMappingX](
+      tx: SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]
+  )(implicit ec: ExecutionContext): SignedTopologyTransaction[Remove, TopologyMapping] =
+    mkRemove[TopologyMapping](
       tx.mapping,
       NonEmpty(Set, SigningKeys.key1),
       tx.serial.increment,
     )
 
-  def mkRemove[M <: TopologyMappingX](
+  def mkRemove[M <: TopologyMapping](
       mapping: M,
       signingKeys: NonEmpty[Set[SigningPublicKey]] = NonEmpty(Set, SigningKeys.key1),
       serial: PositiveInt = PositiveInt.one,
       isProposal: Boolean = false,
-  )(implicit ec: ExecutionContext): SignedTopologyTransactionX[TopologyChangeOpX.Remove, M] =
+  )(implicit ec: ExecutionContext): SignedTopologyTransaction[TopologyChangeOp.Remove, M] =
     mkTrans(
-      TopologyTransactionX(
-        TopologyChangeOpX.Remove,
+      TopologyTransaction(
+        TopologyChangeOp.Remove,
         serial,
         mapping,
         BaseTest.testedProtocolVersion,

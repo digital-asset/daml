@@ -34,17 +34,17 @@ import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.admin.grpc.{BaseQueryX, TopologyStore}
+import com.digitalasset.canton.topology.admin.grpc.{BaseQuery, TopologyStore}
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.{
-  StoredTopologyTransactionX,
-  StoredTopologyTransactionsX,
+  StoredTopologyTransaction,
+  StoredTopologyTransactions,
   TimeQuery,
   TopologyStoreId,
 }
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
-import com.digitalasset.canton.topology.transaction.TopologyMappingX.MappingHash
-import com.digitalasset.canton.topology.transaction.TopologyTransactionX.TxHash
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.TopologyMapping.MappingHash
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
@@ -206,10 +206,10 @@ class TopologyAdministrationGroup(
       "The node's identity is defined by topology transactions of type NamespaceDelegationX and OwnerToKeyMappingX."
     )
     def identity_transactions()
-        : Seq[SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]] = {
+        : Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]] = {
       instance.topology.transactions
         .list(
-          filterMappings = Seq(NamespaceDelegationX.code, OwnerToKeyMappingX.code),
+          filterMappings = Seq(NamespaceDelegation.code, OwnerToKeyMapping.code),
           filterNamespace = instance.id.uid.namespace.filterString,
         )
         .result
@@ -223,7 +223,7 @@ class TopologyAdministrationGroup(
     def export_identity_transactions(file: String): Unit = {
       val bytes = instance.topology.transactions
         .export_topology_snapshot(
-          filterMappings = Seq(NamespaceDelegationX.code, OwnerToKeyMappingX.code),
+          filterMappings = Seq(NamespaceDelegation.code, OwnerToKeyMapping.code),
           filterNamespace = instance.id.uid.namespace.filterString,
         )
       writeToFile(file, bytes)
@@ -244,7 +244,7 @@ class TopologyAdministrationGroup(
         )
       }
 
-    def load(transactions: Seq[GenericSignedTopologyTransactionX], store: String): Unit =
+    def load(transactions: Seq[GenericSignedTopologyTransaction], store: String): Unit =
       consoleEnvironment.run {
         adminCommand(
           TopologyAdminCommands.Write.AddTransactions(transactions, store)
@@ -252,19 +252,19 @@ class TopologyAdministrationGroup(
       }
 
     def sign(
-        transactions: Seq[GenericSignedTopologyTransactionX],
+        transactions: Seq[GenericSignedTopologyTransaction],
         signedBy: Seq[Fingerprint] = Seq(instance.id.uid.namespace.fingerprint),
-    ): Seq[GenericSignedTopologyTransactionX] =
+    ): Seq[GenericSignedTopologyTransaction] =
       consoleEnvironment.run {
         adminCommand(TopologyAdminCommands.Write.SignTransactions(transactions, signedBy))
       }
 
-    def authorize[M <: TopologyMappingX: ClassTag](
+    def authorize[M <: TopologyMapping: ClassTag](
         txHash: TxHash,
         mustBeFullyAuthorized: Boolean,
         store: String,
         signedBy: Seq[Fingerprint] = Seq(instance.id.uid.namespace.fingerprint),
-    ): SignedTopologyTransactionX[TopologyChangeOpX, M] =
+    ): SignedTopologyTransaction[TopologyChangeOp, M] =
       consoleEnvironment.run {
         adminCommand(
           TopologyAdminCommands.Write.Authorize(
@@ -281,13 +281,13 @@ class TopologyAdministrationGroup(
         filterStore: String = AuthorizedStore.filterName,
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOpX] = None,
-        filterMappings: Seq[TopologyMappingX.Code] = Nil,
-        excludeMappings: Seq[TopologyMappingX.Code] = Nil,
+        operation: Option[TopologyChangeOp] = None,
+        filterMappings: Seq[TopologyMapping.Code] = Nil,
+        excludeMappings: Seq[TopologyMapping.Code] = Nil,
         filterAuthorizedKey: Option[Fingerprint] = None,
         protocolVersion: Option[String] = None,
         filterNamespace: String = "",
-    ): StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX] = {
+    ): StoredTopologyTransactions[TopologyChangeOp, TopologyMapping] = {
       if (filterMappings.nonEmpty && excludeMappings.nonEmpty) {
         consoleEnvironment.run(
           CommandErrors
@@ -295,14 +295,14 @@ class TopologyAdministrationGroup(
         )
       }
       val excludeMappingsCodes = if (filterMappings.nonEmpty) {
-        TopologyMappingX.Code.all.diff(filterMappings).map(_.code)
+        TopologyMapping.Code.all.diff(filterMappings).map(_.code)
       } else excludeMappings.map(_.code)
 
       consoleEnvironment
         .run {
           adminCommand(
             TopologyAdminCommands.Read.ListAll(
-              BaseQueryX(
+              BaseQuery(
                 filterStore,
                 proposals,
                 timeQuery,
@@ -331,9 +331,9 @@ class TopologyAdministrationGroup(
         filterStore: String = AuthorizedStore.filterName,
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOpX] = None,
-        filterMappings: Seq[TopologyMappingX.Code] = Nil,
-        excludeMappings: Seq[TopologyMappingX.Code] = Nil,
+        operation: Option[TopologyChangeOp] = None,
+        filterMappings: Seq[TopologyMapping.Code] = Nil,
+        excludeMappings: Seq[TopologyMapping.Code] = Nil,
         filterAuthorizedKey: Option[Fingerprint] = None,
         protocolVersion: Option[String] = None,
         filterNamespace: String = "",
@@ -345,14 +345,14 @@ class TopologyAdministrationGroup(
         )
       }
       val excludeMappingsCodes = if (filterMappings.nonEmpty) {
-        TopologyMappingX.Code.all.diff(filterMappings).map(_.code)
+        TopologyMapping.Code.all.diff(filterMappings).map(_.code)
       } else excludeMappings.map(_.code)
 
       consoleEnvironment
         .run {
           adminCommand(
             TopologyAdminCommands.Read.ExportTopologySnapshot(
-              BaseQueryX(
+              BaseQuery(
                 filterStore,
                 proposals,
                 timeQuery,
@@ -375,11 +375,11 @@ class TopologyAdministrationGroup(
                - "<domain-id>": the topology transaction will be looked up in the specified domain store.
         includeProposals: when true, the result could be the latest proposal, otherwise will only return the latest fully authorized transaction"""
     )
-    def findLatestByMappingHash[M <: TopologyMappingX: ClassTag](
+    def findLatestByMappingHash[M <: TopologyMapping: ClassTag](
         mappingHash: MappingHash,
         filterStore: String,
         includeProposals: Boolean = false,
-    ): Option[StoredTopologyTransactionX[TopologyChangeOpX, M]] = {
+    ): Option[StoredTopologyTransaction[TopologyChangeOp, M]] = {
       val latestAuthorized = list(filterStore = filterStore)
         .collectOfMapping[M]
         .filter(_.mapping.uniqueKey == mappingHash)
@@ -401,14 +401,14 @@ class TopologyAdministrationGroup(
           filterStore: String = "",
           proposals: Boolean = false,
           timeQuery: TimeQuery = TimeQuery.HeadState,
-          operation: Option[TopologyChangeOpX] = None,
+          operation: Option[TopologyChangeOp] = None,
           filterDomain: String = "",
           filterSigningKey: String = "",
           protocolVersion: Option[String] = None,
       ): Seq[ListPurgeTopologyTransactionResult] = consoleEnvironment.run {
         adminCommand(
           TopologyAdminCommands.Read.PurgeTopologyTransaction(
-            BaseQueryX(
+            BaseQuery(
               filterStore,
               proposals,
               timeQuery,
@@ -436,13 +436,13 @@ class TopologyAdministrationGroup(
         domainOwners: Seq[Member],
         sequencers: Seq[SequencerId],
         mediators: Seq[MediatorId],
-    ): Seq[SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]] = {
+    ): Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]] = {
       val isDomainOwner = domainOwners.contains(instance.id)
       require(isDomainOwner, s"Only domain owners should call $functionFullName.")
 
       val thisNodeRootKey = Some(instance.id.uid.namespace.fingerprint)
 
-      def latest[M <: TopologyMappingX: ClassTag](hash: MappingHash) = {
+      def latest[M <: TopologyMapping: ClassTag](hash: MappingHash) = {
         instance.topology.transactions
           .findLatestByMappingHash[M](
             hash,
@@ -454,7 +454,7 @@ class TopologyAdministrationGroup(
 
       // create and sign the initial domain parameters
       val domainParameterState =
-        latest[DomainParametersStateX](DomainParametersStateX.uniqueKey(domainId))
+        latest[DomainParametersState](DomainParametersState.uniqueKey(domainId))
           .getOrElse(
             instance.topology.domain_parameters.propose(
               domainId,
@@ -470,7 +470,7 @@ class TopologyAdministrationGroup(
           )
 
       val mediatorState = {
-        latest[MediatorDomainStateX](MediatorDomainStateX.uniqueKey(domainId, NonNegativeInt.zero))
+        latest[MediatorDomainState](MediatorDomainState.uniqueKey(domainId, NonNegativeInt.zero))
           .getOrElse(
             instance.topology.mediators.propose(
               domainId,
@@ -484,7 +484,7 @@ class TopologyAdministrationGroup(
       }
 
       val sequencerState = {
-        latest[SequencerDomainStateX](SequencerDomainStateX.uniqueKey(domainId))
+        latest[SequencerDomainState](SequencerDomainState.uniqueKey(domainId))
           .getOrElse(
             instance.topology.sequencers.propose(
               domainId,
@@ -507,14 +507,14 @@ class TopologyAdministrationGroup(
         filterStore: String = "",
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOpX] = None,
+        operation: Option[TopologyChangeOp] = None,
         filterNamespace: String = "",
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
     ): Seq[ListDecentralizedNamespaceDefinitionResult] = consoleEnvironment.run {
       adminCommand(
         TopologyAdminCommands.Read.ListDecentralizedNamespaceDefinition(
-          BaseQueryX(
+          BaseQuery(
             filterStore,
             proposals,
             timeQuery,
@@ -559,7 +559,7 @@ class TopologyAdministrationGroup(
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-    ): SignedTopologyTransactionX[TopologyChangeOpX, DecentralizedNamespaceDefinitionX] = {
+    ): SignedTopologyTransaction[TopologyChangeOp, DecentralizedNamespaceDefinition] = {
       val ownersNE = NonEmpty
         .from(owners)
         .getOrElse(
@@ -568,9 +568,9 @@ class TopologyAdministrationGroup(
               .GenericCommandError("Proposed decentralized namespace needs at least one owner")
           )
         )
-      val decentralizedNamespace = DecentralizedNamespaceDefinitionX
+      val decentralizedNamespace = DecentralizedNamespaceDefinition
         .create(
-          DecentralizedNamespaceDefinitionX.computeNamespace(owners),
+          DecentralizedNamespaceDefinition.computeNamespace(owners),
           threshold,
           ownersNE,
         )
@@ -586,7 +586,7 @@ class TopologyAdministrationGroup(
     }
 
     def authorize(
-        decentralizedNamespace: DecentralizedNamespaceDefinitionX,
+        decentralizedNamespace: DecentralizedNamespaceDefinition,
         store: String,
         mustFullyAuthorize: Boolean = false,
         signedBy: Seq[Fingerprint],
@@ -594,13 +594,13 @@ class TopologyAdministrationGroup(
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-    ): SignedTopologyTransactionX[TopologyChangeOpX, DecentralizedNamespaceDefinitionX] = {
+    ): SignedTopologyTransaction[TopologyChangeOp, DecentralizedNamespaceDefinition] = {
 
       val command = TopologyAdminCommands.Write.Propose(
         decentralizedNamespace,
         signedBy = signedBy.toList,
         serial = serial,
-        change = TopologyChangeOpX.Replace,
+        change = TopologyChangeOp.Replace,
         mustFullyAuthorize = mustFullyAuthorize,
         forceChange = false,
         store = store,
@@ -612,7 +612,7 @@ class TopologyAdministrationGroup(
     def join(
         decentralizedNamespace: Fingerprint,
         owner: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
-    ): GenericSignedTopologyTransactionX = {
+    ): GenericSignedTopologyTransaction = {
       ???
     }
 
@@ -664,14 +664,14 @@ class TopologyAdministrationGroup(
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-    ): SignedTopologyTransactionX[TopologyChangeOpX, NamespaceDelegationX] =
+    ): SignedTopologyTransaction[TopologyChangeOp, NamespaceDelegation] =
       synchronisation.runAdminCommand(synchronize)(
         TopologyAdminCommands.Write.Propose(
-          NamespaceDelegationX.create(namespace, targetKey, isRootDelegation),
+          NamespaceDelegation.create(namespace, targetKey, isRootDelegation),
           signedBy = signedBy,
           store = store,
           serial = serial,
-          change = TopologyChangeOpX.Replace,
+          change = TopologyChangeOp.Replace,
           mustFullyAuthorize = mustFullyAuthorize,
           forceChange = false,
         )
@@ -712,7 +712,7 @@ class TopologyAdministrationGroup(
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-    ): SignedTopologyTransactionX[TopologyChangeOpX, NamespaceDelegationX] = {
+    ): SignedTopologyTransaction[TopologyChangeOp, NamespaceDelegation] = {
       list(
         store,
         filterNamespace = namespace.toProtoPrimitive,
@@ -725,7 +725,7 @@ class TopologyAdministrationGroup(
               signedBy = signedBy,
               store = store,
               serial = serial,
-              change = TopologyChangeOpX.Remove,
+              change = TopologyChangeOp.Remove,
               mustFullyAuthorize = mustFullyAuthorize,
               forceChange = force,
             )
@@ -747,7 +747,7 @@ class TopologyAdministrationGroup(
         filterStore: String = "",
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOpX] = None,
+        operation: Option[TopologyChangeOp] = None,
         filterNamespace: String = "",
         filterSigningKey: String = "",
         filterTargetKey: Option[Fingerprint] = None,
@@ -755,7 +755,7 @@ class TopologyAdministrationGroup(
     ): Seq[ListNamespaceDelegationResult] = consoleEnvironment.run {
       adminCommand(
         TopologyAdminCommands.Read.ListNamespaceDelegation(
-          BaseQueryX(
+          BaseQuery(
             filterStore,
             proposals,
             timeQuery,
@@ -807,9 +807,9 @@ class TopologyAdministrationGroup(
         store: String = AuthorizedStore.filterName,
         mustFullyAuthorize: Boolean = true,
         serial: Option[PositiveInt] = None,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, IdentifierDelegationX] = {
+    ): SignedTopologyTransaction[TopologyChangeOp, IdentifierDelegation] = {
       val command = TopologyAdminCommands.Write.Propose(
-        mapping = IdentifierDelegationX(
+        mapping = IdentifierDelegation(
           identifier = uid,
           target = targetKey,
         ),
@@ -826,7 +826,7 @@ class TopologyAdministrationGroup(
         filterStore: String = "",
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOpX] = None,
+        operation: Option[TopologyChangeOp] = None,
         filterUid: String = "",
         filterSigningKey: String = "",
         filterTargetKey: Option[Fingerprint] = None,
@@ -834,7 +834,7 @@ class TopologyAdministrationGroup(
     ): Seq[ListIdentifierDelegationResult] = consoleEnvironment.run {
       adminCommand(
         TopologyAdminCommands.Read.ListIdentifierDelegation(
-          BaseQueryX(
+          BaseQuery(
             filterStore,
             proposals,
             timeQuery,
@@ -859,7 +859,7 @@ class TopologyAdministrationGroup(
         filterStore: String = "",
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOpX] = None,
+        operation: Option[TopologyChangeOp] = None,
         filterKeyOwnerType: Option[MemberCode] = None,
         filterKeyOwnerUid: String = "",
         filterSigningKey: String = "",
@@ -868,7 +868,7 @@ class TopologyAdministrationGroup(
       consoleEnvironment.run {
         adminCommand(
           TopologyAdminCommands.Read.ListOwnerToKeyMapping(
-            BaseQueryX(
+            BaseQuery(
               filterStore,
               proposals,
               timeQuery,
@@ -996,7 +996,7 @@ class TopologyAdministrationGroup(
 
         val domainIds = list(
           filterStore = AuthorizedStore.filterName,
-          operation = Some(TopologyChangeOpX.Replace),
+          operation = Some(TopologyChangeOp.Replace),
           filterKeyOwnerUid = member.filterString,
           filterKeyOwnerType = Some(member.code),
           proposals = false,
@@ -1084,17 +1084,17 @@ class TopologyAdministrationGroup(
         maybePreviousState match {
           case None =>
             (
-              OwnerToKeyMappingX(keyOwner, domainId, NonEmpty(Seq, publicKey)),
+              OwnerToKeyMapping(keyOwner, domainId, NonEmpty(Seq, publicKey)),
               PositiveInt.one,
-              TopologyChangeOpX.Replace,
+              TopologyChangeOp.Replace,
             )
-          case Some((_, TopologyChangeOpX.Remove, previousSerial)) =>
+          case Some((_, TopologyChangeOp.Remove, previousSerial)) =>
             (
-              OwnerToKeyMappingX(keyOwner, domainId, NonEmpty(Seq, publicKey)),
+              OwnerToKeyMapping(keyOwner, domainId, NonEmpty(Seq, publicKey)),
               previousSerial.increment,
-              TopologyChangeOpX.Replace,
+              TopologyChangeOp.Replace,
             )
-          case Some((okm, TopologyChangeOpX.Replace, previousSerial)) =>
+          case Some((okm, TopologyChangeOp.Replace, previousSerial)) =>
             require(
               !okm.keys.contains(publicKey),
               "The owner-to-key mapping already contains the specified key to add",
@@ -1102,26 +1102,26 @@ class TopologyAdministrationGroup(
             (
               okm.copy(keys = okm.keys :+ publicKey),
               previousSerial.increment,
-              TopologyChangeOpX.Replace,
+              TopologyChangeOp.Replace,
             )
         }
       } else {
         // Remove key from mapping with serial + 1 or error.
         maybePreviousState match {
-          case None | Some((_, TopologyChangeOpX.Remove, _)) =>
+          case None | Some((_, TopologyChangeOp.Remove, _)) =>
             throw new IllegalArgumentException(
               "No authorized owner-to-key mapping exists for specified key owner"
             )
-          case Some((okm, TopologyChangeOpX.Replace, previousSerial)) =>
+          case Some((okm, TopologyChangeOp.Replace, previousSerial)) =>
             require(
               okm.keys.contains(publicKey),
               "The owner-to-key mapping does not contain the specified key to remove",
             )
             NonEmpty.from(okm.keys.filterNot(_ == publicKey)) match {
               case Some(fewerKeys) =>
-                (okm.copy(keys = fewerKeys), previousSerial.increment, TopologyChangeOpX.Replace)
+                (okm.copy(keys = fewerKeys), previousSerial.increment, TopologyChangeOp.Replace)
               case None =>
-                (okm, previousSerial.increment, TopologyChangeOpX.Remove)
+                (okm, previousSerial.increment, TopologyChangeOp.Remove)
             }
         }
       }
@@ -1139,9 +1139,9 @@ class TopologyAdministrationGroup(
     }
 
     def propose(
-        proposedMapping: OwnerToKeyMappingX,
+        proposedMapping: OwnerToKeyMapping,
         serial: RequireTypes.PositiveNumeric[Int],
-        ops: TopologyChangeOpX = TopologyChangeOpX.Replace,
+        ops: TopologyChangeOp = TopologyChangeOp.Replace,
         signedBy: Option[Fingerprint] = None,
         store: String = AuthorizedStore.filterName,
         synchronize: Option[config.NonNegativeDuration] = Some(
@@ -1150,7 +1150,7 @@ class TopologyAdministrationGroup(
         // configurable in case of a key under a decentralized namespace
         mustFullyAuthorize: Boolean = true,
         force: Boolean = false,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, OwnerToKeyMappingX] =
+    ): SignedTopologyTransaction[TopologyChangeOp, OwnerToKeyMapping] =
       synchronisation.runAdminCommand(synchronize)(
         TopologyAdminCommands.Write.Propose(
           mapping = proposedMapping,
@@ -1201,7 +1201,7 @@ class TopologyAdministrationGroup(
         ),
         mustFullyAuthorize: Boolean = false,
         store: String = AuthorizedStore.filterName,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, PartyToParticipantX] = {
+    ): SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant] = {
 
       val currentO = TopologyStoreId(store) match {
         case TopologyStoreId.DomainStore(domainId, _) =>
@@ -1211,15 +1211,19 @@ class TopologyAdministrationGroup(
           expectAtMostOneResult(list_from_authorized(filterParty = party.filterString))
       }
 
-      val (existingPermissions, newSerial) = currentO match {
-        case Some(current) if current.context.operation == TopologyChangeOpX.Remove =>
-          (Map.empty[ParticipantId, ParticipantPermission], Some(current.context.serial.increment))
+      val (existingPermissions, newSerial, threshold) = currentO match {
+        case Some(current) if current.context.operation == TopologyChangeOp.Remove =>
+          (
+            Map.empty[ParticipantId, ParticipantPermission],
+            Some(current.context.serial.increment),
+            current.item.threshold,
+          )
         case Some(current) =>
           val currentPermissions =
             current.item.participants.map(p => p.participantId -> p.permission).toMap
-          (currentPermissions, Some(current.context.serial.increment))
+          (currentPermissions, Some(current.context.serial.increment), current.item.threshold)
         case None =>
-          (Map.empty[ParticipantId, ParticipantPermission], None)
+          (Map.empty[ParticipantId, ParticipantPermission], None, PositiveInt.one)
       }
 
       val newPermissions = new PartyToParticipantComputations(loggerFactory)
@@ -1233,6 +1237,7 @@ class TopologyAdministrationGroup(
       propose(
         party = party,
         newParticipants = newPermissions.toSeq,
+        threshold = threshold,
         domainId = domainId,
         signedBy = signedBy,
         serial = newSerial,
@@ -1283,14 +1288,14 @@ class TopologyAdministrationGroup(
         groupAddressing: Boolean = false,
         mustFullyAuthorize: Boolean = false,
         store: String = AuthorizedStore.filterName,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, PartyToParticipantX] = {
+    ): SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant] = {
       val op = NonEmpty.from(newParticipants) match {
-        case Some(_) => TopologyChangeOpX.Replace
-        case None => TopologyChangeOpX.Remove
+        case Some(_) => TopologyChangeOp.Replace
+        case None => TopologyChangeOp.Remove
       }
 
       val command = TopologyAdminCommands.Write.Propose(
-        mapping = PartyToParticipantX(
+        mapping = PartyToParticipant(
           partyId = party,
           domainId = domainId,
           threshold = threshold,
@@ -1330,7 +1335,7 @@ class TopologyAdministrationGroup(
         domain: DomainId,
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOpX] = None,
+        operation: Option[TopologyChangeOp] = None,
         filterParty: String = "",
         filterParticipant: String = "",
         filterSigningKey: String = "",
@@ -1338,7 +1343,7 @@ class TopologyAdministrationGroup(
     ): Seq[ListPartyToParticipantResult] = consoleEnvironment.run {
       adminCommand(
         TopologyAdminCommands.Read.ListPartyToParticipant(
-          BaseQueryX(
+          BaseQuery(
             filterStore = domain.filterString,
             proposals,
             timeQuery,
@@ -1373,7 +1378,7 @@ class TopologyAdministrationGroup(
     def list_from_authorized(
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOpX] = None,
+        operation: Option[TopologyChangeOp] = None,
         filterParty: String = "",
         filterParticipant: String = "",
         filterSigningKey: String = "",
@@ -1381,7 +1386,7 @@ class TopologyAdministrationGroup(
     ): Seq[ListPartyToParticipantResult] = consoleEnvironment.run {
       adminCommand(
         TopologyAdminCommands.Read.ListPartyToParticipant(
-          BaseQueryX(
+          BaseQuery(
             filterStore = AuthorizedStore.filterName,
             proposals,
             timeQuery,
@@ -1416,7 +1421,7 @@ class TopologyAdministrationGroup(
     def list_from_all(
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOpX] = None,
+        operation: Option[TopologyChangeOp] = None,
         filterParty: String = "",
         filterParticipant: String = "",
         filterSigningKey: String = "",
@@ -1424,7 +1429,7 @@ class TopologyAdministrationGroup(
     ): Seq[ListPartyToParticipantResult] = consoleEnvironment.run {
       adminCommand(
         TopologyAdminCommands.Read.ListPartyToParticipant(
-          BaseQueryX(
+          BaseQuery(
             filterStore = "",
             proposals,
             timeQuery,
@@ -1446,7 +1451,7 @@ class TopologyAdministrationGroup(
         filterStore: String = "",
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOpX] = None,
+        operation: Option[TopologyChangeOp] = None,
         // TODO(#14048) should be filterDomain and filterParticipant
         filterUid: String = "",
         filterSigningKey: String = "",
@@ -1454,7 +1459,7 @@ class TopologyAdministrationGroup(
     ): Seq[ListDomainTrustCertificateResult] = consoleEnvironment.run {
       adminCommand(
         TopologyAdminCommands.Read.ListDomainTrustCertificate(
-          BaseQueryX(
+          BaseQuery(
             filterStore,
             proposals,
             timeQuery,
@@ -1511,10 +1516,10 @@ class TopologyAdministrationGroup(
         store: Option[String] = Some(AuthorizedStore.filterName),
         mustFullyAuthorize: Boolean = true,
         serial: Option[PositiveInt] = None,
-        change: TopologyChangeOpX = TopologyChangeOpX.Replace,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, DomainTrustCertificateX] = {
+        change: TopologyChangeOp = TopologyChangeOp.Replace,
+    ): SignedTopologyTransaction[TopologyChangeOp, DomainTrustCertificate] = {
       val cmd = TopologyAdminCommands.Write.Propose(
-        mapping = DomainTrustCertificateX(
+        mapping = DomainTrustCertificate(
           participantId,
           domainId,
           transferOnlyToGivenTargetDomains,
@@ -1570,9 +1575,9 @@ class TopologyAdministrationGroup(
         store: Option[String] = None,
         mustFullyAuthorize: Boolean = false,
         serial: Option[PositiveInt] = None,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, ParticipantDomainPermissionX] = {
+    ): SignedTopologyTransaction[TopologyChangeOp, ParticipantDomainPermission] = {
       val cmd = TopologyAdminCommands.Write.Propose(
-        mapping = ParticipantDomainPermissionX(
+        mapping = ParticipantDomainPermission(
           domainId = domainId,
           participantId = participantId,
           permission = permission,
@@ -1592,14 +1597,14 @@ class TopologyAdministrationGroup(
         filterStore: String = "",
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOpX] = None,
+        operation: Option[TopologyChangeOp] = None,
         filterUid: String = "",
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
     ): Seq[ListParticipantDomainPermissionResult] = consoleEnvironment.run {
       adminCommand(
         TopologyAdminCommands.Read.ListParticipantDomainPermission(
-          BaseQueryX(
+          BaseQuery(
             filterStore,
             proposals,
             timeQuery,
@@ -1636,13 +1641,13 @@ class TopologyAdministrationGroup(
         filterStore: String = "",
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOpX] = None,
+        operation: Option[TopologyChangeOp] = None,
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
     ): Seq[ListTrafficStateResult] = consoleEnvironment.run {
       adminCommand(
         TopologyAdminCommands.Read.ListTrafficControlState(
-          BaseQueryX(
+          BaseQuery(
             filterStore,
             proposals,
             timeQuery,
@@ -1670,10 +1675,10 @@ class TopologyAdministrationGroup(
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-    ): SignedTopologyTransactionX[TopologyChangeOpX, TrafficControlStateX] = {
+    ): SignedTopologyTransaction[TopologyChangeOp, TrafficControlState] = {
 
       val command = TopologyAdminCommands.Write.Propose(
-        TrafficControlStateX
+        TrafficControlState
           .create(
             domainId,
             member,
@@ -1681,7 +1686,7 @@ class TopologyAdministrationGroup(
           ),
         signedBy = signedBy.toList,
         serial = serial,
-        change = TopologyChangeOpX.Replace,
+        change = TopologyChangeOp.Replace,
         mustFullyAuthorize = true,
         forceChange = false,
         store = domainId.filterString,
@@ -1698,14 +1703,14 @@ class TopologyAdministrationGroup(
         filterStore: String = "",
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOpX] = None,
+        operation: Option[TopologyChangeOp] = None,
         filterUid: String = "",
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
     ): Seq[ListPartyHostingLimitsResult] = consoleEnvironment.run {
       adminCommand(
         TopologyAdminCommands.Read.ListPartyHostingLimits(
-          BaseQueryX(
+          BaseQuery(
             filterStore,
             proposals,
             timeQuery,
@@ -1749,14 +1754,14 @@ class TopologyAdministrationGroup(
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-    ): SignedTopologyTransactionX[TopologyChangeOpX, PartyHostingLimitsX] = {
+    ): SignedTopologyTransaction[TopologyChangeOp, PartyHostingLimits] = {
       synchronisation.runAdminCommand(synchronize)(
         TopologyAdminCommands.Write.Propose(
-          PartyHostingLimitsX(domainId, partyId, maxNumHostingParticipants),
+          PartyHostingLimits(domainId, partyId, maxNumHostingParticipants),
           signedBy = signedBy,
           store = store.getOrElse(domainId.toProtoPrimitive),
           serial = serial,
-          change = TopologyChangeOpX.Replace,
+          change = TopologyChangeOp.Replace,
           mustFullyAuthorize = mustFullyAuthorize,
         )
       )
@@ -1811,7 +1816,7 @@ class TopologyAdministrationGroup(
         signedBy: Option[Fingerprint] = Some(
           instance.id.uid.namespace.fingerprint
         ), // TODO(#12945) don't use the instance's root namespace key by default.
-    ): SignedTopologyTransactionX[TopologyChangeOpX, VettedPackagesX] = {
+    ): SignedTopologyTransaction[TopologyChangeOp, VettedPackages] = {
 
       // compute the diff and then call the propose method
       val current0 = expectAtMostOneResult(
@@ -1877,13 +1882,13 @@ class TopologyAdministrationGroup(
         signedBy: Option[Fingerprint] = Some(
           instance.id.uid.namespace.fingerprint
         ), // TODO(#12945) don't use the instance's root namespace key by default.
-    ): SignedTopologyTransactionX[TopologyChangeOpX, VettedPackagesX] = {
+    ): SignedTopologyTransaction[TopologyChangeOp, VettedPackages] = {
 
       val topologyChangeOpX =
-        if (packageIds.isEmpty) TopologyChangeOpX.Remove else TopologyChangeOpX.Replace
+        if (packageIds.isEmpty) TopologyChangeOp.Remove else TopologyChangeOp.Replace
 
       val command = TopologyAdminCommands.Write.Propose(
-        mapping = VettedPackagesX(
+        mapping = VettedPackages(
           participantId = participant,
           domainId = domainId,
           packageIds = packageIds,
@@ -1902,14 +1907,14 @@ class TopologyAdministrationGroup(
         filterStore: String = "",
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOpX] = None,
+        operation: Option[TopologyChangeOp] = None,
         filterParticipant: String = "",
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
     ): Seq[ListVettedPackagesResult] = consoleEnvironment.run {
       adminCommand(
         TopologyAdminCommands.Read.ListVettedPackages(
-          BaseQueryX(
+          BaseQuery(
             filterStore,
             proposals,
             timeQuery,
@@ -1961,10 +1966,10 @@ class TopologyAdministrationGroup(
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-    ): SignedTopologyTransactionX[TopologyChangeOpX, AuthorityOfX] = {
+    ): SignedTopologyTransaction[TopologyChangeOp, AuthorityOf] = {
 
       val command = TopologyAdminCommands.Write.Propose(
-        AuthorityOfX(
+        AuthorityOf(
           partyId,
           domainId,
           PositiveInt.tryCreate(threshold),
@@ -1983,14 +1988,14 @@ class TopologyAdministrationGroup(
         filterStore: String = "",
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOpX] = None,
+        operation: Option[TopologyChangeOp] = None,
         filterParty: String = "",
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
     ): Seq[ListAuthorityOfResult] = consoleEnvironment.run {
       adminCommand(
         TopologyAdminCommands.Read.ListAuthorityOf(
-          BaseQueryX(
+          BaseQuery(
             filterStore,
             proposals,
             timeQuery,
@@ -2011,7 +2016,7 @@ class TopologyAdministrationGroup(
         filterStore: String = "",
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOpX] = None,
+        operation: Option[TopologyChangeOp] = None,
         filterDomain: String = "",
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
@@ -2027,7 +2032,7 @@ class TopologyAdministrationGroup(
         .run {
           adminCommand(
             TopologyAdminCommands.Read.MediatorDomainState(
-              BaseQueryX(
+              BaseQuery(
                 filterStore,
                 proposals,
                 timeQuery,
@@ -2080,11 +2085,11 @@ class TopologyAdministrationGroup(
         .verifyProposalConsistency(adds, removes, observerAdds, observerRemoves, updateThreshold)
         .valueOr(err => throw new IllegalArgumentException(err))
 
-      def queryStore(proposals: Boolean): Option[MediatorDomainStateX] = expectAtMostOneResult(
+      def queryStore(proposals: Boolean): Option[MediatorDomainState] = expectAtMostOneResult(
         list(
           domainId.filterString,
           group = Some(group),
-          operation = Some(TopologyChangeOpX.Replace),
+          operation = Some(TopologyChangeOp.Replace),
           proposals = proposals,
         )
       ).map(_.item)
@@ -2127,7 +2132,7 @@ class TopologyAdministrationGroup(
 
       await.foreach { timeout =>
         ConsoleMacros.utils.retry_until_true(timeout) {
-          def areAllChangesPersisted(mds: MediatorDomainStateX): Boolean = {
+          def areAllChangesPersisted(mds: MediatorDomainState): Boolean = {
             adds.forall(mds.active.contains) && removes.forall(!mds.active.contains(_)) &&
             observerAdds.forall(mds.observers.contains) && observerRemoves.forall(
               !mds.observers.contains(_)
@@ -2182,13 +2187,13 @@ class TopologyAdministrationGroup(
         //  let the grpc service figure out the right key to use, once that's implemented
         signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
         serial: Option[PositiveInt] = None,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, MediatorDomainStateX] = {
+    ): SignedTopologyTransaction[TopologyChangeOp, MediatorDomainState] = {
       val command = TopologyAdminCommands.Write.Propose(
-        mapping = MediatorDomainStateX
+        mapping = MediatorDomainState
           .create(domainId, group, threshold, active, observers),
         signedBy = signedBy.toList,
         serial = serial,
-        change = TopologyChangeOpX.Replace,
+        change = TopologyChangeOp.Replace,
         mustFullyAuthorize = mustFullyAuthorize,
         forceChange = false,
         store = store.getOrElse(domainId.filterString),
@@ -2219,7 +2224,7 @@ class TopologyAdministrationGroup(
           consoleEnvironment.commandTimeouts.bounded
         ),
         mustFullyAuthorize: Boolean = false,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, MediatorDomainStateX] = {
+    ): SignedTopologyTransaction[TopologyChangeOp, MediatorDomainState] = {
 
       val mediatorStateResult = list(filterStore = domainId.filterString, group = Some(group))
         .maxByOption(_.context.serial)
@@ -2229,7 +2234,7 @@ class TopologyAdministrationGroup(
         mapping = mediatorStateResult.item,
         signedBy = mediatorStateResult.context.signedBy,
         serial = Some(mediatorStateResult.context.serial.increment),
-        change = TopologyChangeOpX.Remove,
+        change = TopologyChangeOp.Remove,
         mustFullyAuthorize = mustFullyAuthorize,
         forceChange = false,
         store = store.getOrElse(domainId.filterString),
@@ -2246,14 +2251,14 @@ class TopologyAdministrationGroup(
         filterStore: String = "",
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOpX] = None,
+        operation: Option[TopologyChangeOp] = None,
         filterDomain: String = "",
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
     ): Seq[ListSequencerDomainStateResult] = consoleEnvironment.run {
       adminCommand(
         TopologyAdminCommands.Read.SequencerDomainState(
-          BaseQueryX(
+          BaseQuery(
             filterStore,
             proposals,
             timeQuery,
@@ -2299,14 +2304,14 @@ class TopologyAdministrationGroup(
         //  let the grpc service figure out the right key to use, once that's implemented
         signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
         serial: Option[PositiveInt] = None,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, SequencerDomainStateX] =
+    ): SignedTopologyTransaction[TopologyChangeOp, SequencerDomainState] =
       consoleEnvironment.run {
         adminCommand(
           TopologyAdminCommands.Write.Propose(
-            mapping = SequencerDomainStateX.create(domainId, threshold, active, passive),
+            mapping = SequencerDomainState.create(domainId, threshold, active, passive),
             signedBy = signedBy.toList,
             serial = serial,
-            change = TopologyChangeOpX.Replace,
+            change = TopologyChangeOp.Replace,
             mustFullyAuthorize = mustFullyAuthorize,
             forceChange = false,
             store = store.getOrElse(domainId.filterString),
@@ -2323,14 +2328,14 @@ class TopologyAdministrationGroup(
         filterStore: String = "",
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOpX] = None,
+        operation: Option[TopologyChangeOp] = None,
         filterDomain: String = "",
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
     ): Seq[ListDomainParametersStateResult] = consoleEnvironment.run {
       adminCommand(
         TopologyAdminCommands.Read.DomainParametersState(
-          BaseQueryX(
+          BaseQuery(
             filterStore,
             proposals,
             timeQuery,
@@ -2351,7 +2356,7 @@ class TopologyAdministrationGroup(
             filterStore = domainId.filterString,
             proposals = false,
             timeQuery = TimeQuery.HeadState,
-            operation = Some(TopologyChangeOpX.Replace),
+            operation = Some(TopologyChangeOp.Replace),
             filterDomain = domainId.filterString,
           )
         ).item
@@ -2396,14 +2401,14 @@ class TopologyAdministrationGroup(
         ),
         waitForParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
         force: Boolean = false,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, DomainParametersStateX] = { // TODO(#15815): Don't expose internal TopologyMappingX and TopologyChangeOpX classes
+    ): SignedTopologyTransaction[TopologyChangeOp, DomainParametersState] = { // TODO(#15815): Don't expose internal TopologyMappingX and TopologyChangeOpX classes
 
       val parametersInternal =
         parameters.toInternal.valueOr(err => throw new IllegalArgumentException(err))
 
       val res = synchronisation.runAdminCommand(synchronize)(
         TopologyAdminCommands.Write.Propose(
-          DomainParametersStateX(
+          DomainParametersState(
             domainId,
             parametersInternal,
           ),
@@ -2425,7 +2430,7 @@ class TopologyAdministrationGroup(
                   .list(
                     filterStore = domainId.filterString,
                     timeQuery = TimeQuery.HeadState,
-                    operation = Some(TopologyChangeOpX.Replace),
+                    operation = Some(TopologyChangeOp.Replace),
                     filterDomain = domainId.filterString,
                   )
                   .map(r => ConsoleDynamicDomainParameters(r.item))
@@ -2480,7 +2485,7 @@ class TopologyAdministrationGroup(
         list(
           filterDomain = domainId.filterString,
           filterStore = domainStore,
-          operation = Some(TopologyChangeOpX.Replace),
+          operation = Some(TopologyChangeOp.Replace),
         )
       )
       val newParameters = update(ConsoleDynamicDomainParameters(previousParameters.item))

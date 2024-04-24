@@ -9,7 +9,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.util.LfTransactionBuilder
 import com.digitalasset.canton.util.LfTransactionBuilder.defaultTemplateId
 import com.digitalasset.canton.version.RepresentativeProtocolVersion
-import com.digitalasset.canton.{BaseTest, LfVersioned}
+import com.digitalasset.canton.{BaseTest, LfPackageName, LfVersioned}
 import org.scalatest.wordspec.AnyWordSpec
 
 class ActionDescriptionTest extends AnyWordSpec with BaseTest {
@@ -21,6 +21,7 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
       .build(
         LfTransactionBuilder.defaultTemplateId,
         Value.ValueInt64(10L),
+        LfPackageName.assertFromString("package-name"),
       )
       .value
   private val choiceName: LfChoiceName = LfChoiceName.assertFromString("choice")

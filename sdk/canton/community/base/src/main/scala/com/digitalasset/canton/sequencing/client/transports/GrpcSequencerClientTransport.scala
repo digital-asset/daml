@@ -33,8 +33,8 @@ import com.digitalasset.canton.sequencing.client.{
 import com.digitalasset.canton.sequencing.handshake.HandshakeRequestError
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionX.GenericStoredTopologyTransactionX
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX
+import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc, Traced}
 import com.digitalasset.canton.util.EitherTUtil.syntax.*
 import com.digitalasset.canton.util.EitherUtil
@@ -280,12 +280,12 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
           Source.single,
         )
       }
-      .runFold(Vector.empty[GenericStoredTopologyTransactionX])((acc, txs) =>
+      .runFold(Vector.empty[GenericStoredTopologyTransaction])((acc, txs) =>
         acc ++ txs.topologyTransactions.value.result
       )
       .toEitherTRight[String]
       .map { accumulated =>
-        val storedTxs = StoredTopologyTransactionsX(accumulated)
+        val storedTxs = StoredTopologyTransactions(accumulated)
         logger.debug(
           s"Downloaded topology state for initialization with last change timestamp at ${storedTxs.lastChangeTimestamp}:\n${storedTxs.result}"
         )

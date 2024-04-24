@@ -173,10 +173,10 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
   def listKnownParties(client: DamlLedgerClient)(implicit
       ec: EC
   ): ListKnownParties =
-    jwt =>
+    (jwt, pageToken, pageSize) =>
       implicit lc => {
         logFuture(ListKnownPartiesLog) {
-          client.partyManagementClient.listKnownParties(bearer(jwt))
+          client.partyManagementClient.listKnownParties(bearer(jwt), pageToken, pageSize)
         }
           .requireHandling { case Code.PERMISSION_DENIED =>
             PermissionDenied
@@ -338,9 +338,13 @@ object LedgerClientJwt {
   //    ) => LoggingContextOf[InstanceUUID] => EFuture[PermissionDenied, GetEventsByContractKeyResponse]
 
   type ListKnownParties =
-    Jwt => LoggingContextOf[InstanceUUID with RequestID] => EFuture[PermissionDenied, List[
+    (
+      Jwt,
+      String,
+      Int,
+    ) => LoggingContextOf[InstanceUUID with RequestID] => EFuture[PermissionDenied, (List[
       domainPartyDetails
-    ]]
+    ], String)]
 
   type GetParties =
     (

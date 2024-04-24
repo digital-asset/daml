@@ -58,7 +58,7 @@ import com.digitalasset.canton.participant.pruning.{
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
-import com.digitalasset.canton.participant.topology.ParticipantTopologyDispatcherCommon
+import com.digitalasset.canton.participant.topology.ParticipantTopologyDispatcher
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.traffic.{
   ParticipantTrafficControlSubscriber,
@@ -117,7 +117,7 @@ class SyncDomain(
     val ephemeral: SyncDomainEphemeralState,
     val packageService: PackageService,
     domainCrypto: DomainSyncCryptoClient,
-    identityPusher: ParticipantTopologyDispatcherCommon,
+    identityPusher: ParticipantTopologyDispatcher,
     topologyProcessorFactory: TopologyTransactionProcessorCommon.Factory,
     missingKeysAlerter: MissingKeysAlerter,
     transferCoordination: TransferCoordination,
@@ -981,7 +981,7 @@ object SyncDomain {
         ephemeralState: SyncDomainEphemeralState,
         packageService: PackageService,
         domainCrypto: DomainSyncCryptoClient,
-        identityPusher: ParticipantTopologyDispatcherCommon,
+        identityPusher: ParticipantTopologyDispatcher,
         topologyProcessorFactory: TopologyTransactionProcessorCommon.Factory,
         missingKeysAlerter: MissingKeysAlerter,
         transferCoordination: TransferCoordination,
@@ -1009,7 +1009,7 @@ object SyncDomain {
         ephemeralState: SyncDomainEphemeralState,
         packageService: PackageService,
         domainCrypto: DomainSyncCryptoClient,
-        identityPusher: ParticipantTopologyDispatcherCommon,
+        identityPusher: ParticipantTopologyDispatcher,
         topologyProcessorFactory: TopologyTransactionProcessorCommon.Factory,
         missingKeysAlerter: MissingKeysAlerter,
         transferCoordination: TransferCoordination,

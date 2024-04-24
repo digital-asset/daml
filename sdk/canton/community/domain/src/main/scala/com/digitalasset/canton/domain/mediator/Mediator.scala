@@ -44,7 +44,7 @@ import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessorCommon
 import com.digitalasset.canton.topology.{
   DomainId,
-  DomainOutboxStatus,
+  DomainOutboxHandle,
   MediatorId,
   TopologyManagerStatus,
 }
@@ -69,7 +69,7 @@ private[mediator] class Mediator(
     private[canton] val syncCrypto: DomainSyncCryptoClient,
     topologyTransactionProcessor: TopologyTransactionProcessorCommon,
     val topologyManagerStatus: TopologyManagerStatus,
-    val domainOutboxStatus: DomainOutboxStatus,
+    val domainOutboxHandle: DomainOutboxHandle,
     timeTrackerConfig: DomainTimeTrackerConfig,
     state: MediatorState,
     private[canton] val sequencerCounterTrackerStore: SequencerCounterTrackerStore,

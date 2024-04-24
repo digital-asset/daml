@@ -185,7 +185,9 @@ trait PartyStorageBackend {
       queryOffset: Long,
   )(connection: Connection): Vector[(Offset, PartyLedgerEntry)]
   def parties(parties: Seq[Party])(connection: Connection): List[IndexerPartyDetails]
-  def knownParties(connection: Connection): List[IndexerPartyDetails]
+  def knownParties(fromExcl: Option[Party], maxResults: Int)(
+      connection: Connection
+  ): List[IndexerPartyDetails]
 }
 
 trait PackageStorageBackend {

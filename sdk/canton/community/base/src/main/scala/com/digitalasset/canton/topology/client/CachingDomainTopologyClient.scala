@@ -15,8 +15,8 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.processing.*
-import com.digitalasset.canton.topology.store.{TopologyStoreId, TopologyStoreX}
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
+import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{TraceContext, TracedScaffeine}
 import com.digitalasset.canton.util.FutureInstances.*
@@ -156,7 +156,7 @@ final class CachingDomainTopologyClient(
       sequencedTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,
       sequencerCounter: SequencerCounter,
-      transactions: Seq[GenericSignedTopologyTransactionX],
+      transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     if (transactions.nonEmpty) {
       // if there is a transaction, we insert the effective timestamp as a snapshot
@@ -172,11 +172,11 @@ final class CachingDomainTopologyClient(
 
 object CachingDomainTopologyClient {
 
-  def createX(
+  def create(
       clock: Clock,
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
-      store: TopologyStoreX[TopologyStoreId.DomainStore],
+      store: TopologyStore[TopologyStoreId.DomainStore],
       packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
       cachingConfigs: CachingConfigs,
       batchingConfig: BatchingConfig,

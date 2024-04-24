@@ -10,42 +10,42 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.DynamicDomainParameters
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX.Broadcast
+import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast
+import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.Broadcast
 import com.digitalasset.canton.sequencing.SubscriptionStart.FreshSubscription
 import com.digitalasset.canton.sequencing.protocol.{AllMembersOfDomain, OpenEnvelope, Recipients}
 import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
 import com.digitalasset.canton.time.{DomainTimeTracker, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
-import com.digitalasset.canton.topology.store.db.DbTopologyStoreXHelper
-import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
+import com.digitalasset.canton.topology.store.db.DbTopologyStoreHelper
+import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{
-  StoredTopologyTransactionX,
-  StoredTopologyTransactionsX,
+  StoredTopologyTransaction,
+  StoredTopologyTransactions,
+  TopologyStore,
   TopologyStoreId,
-  TopologyStoreX,
 }
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import org.scalatest.wordspec.AnyWordSpec
 
-abstract class TopologyTransactionProcessorXTest
+abstract class TopologyTransactionProcessorTest
     extends AnyWordSpec
     with BaseTest
     with HasExecutionContext {
 
   private val crypto = new SymbolicPureCrypto()
 
-  protected def mkStore: TopologyStoreX[TopologyStoreId.DomainStore]
+  protected def mkStore: TopologyStore[TopologyStoreId.DomainStore]
 
   private def mk(
-      store: TopologyStoreX[TopologyStoreId.DomainStore] = mkStore
-  ): (TopologyTransactionProcessorX, TopologyStoreX[TopologyStoreId.DomainStore]) = {
+      store: TopologyStore[TopologyStoreId.DomainStore] = mkStore
+  ): (TopologyTransactionProcessor, TopologyStore[TopologyStoreId.DomainStore]) = {
 
-    val proc = new TopologyTransactionProcessorX(
+    val proc = new TopologyTransactionProcessor(
       DefaultTestIdentities.domainId,
       crypto,
       store,
@@ -61,24 +61,24 @@ abstract class TopologyTransactionProcessorXTest
 
   private def ts(idx: Int): CantonTimestamp = CantonTimestamp.Epoch.plusSeconds(idx.toLong)
   private def fetch(
-      store: TopologyStoreX[TopologyStoreId],
+      store: TopologyStore[TopologyStoreId],
       timestamp: CantonTimestamp,
       isProposal: Boolean = false,
-  ): List[TopologyMappingX] = {
+  ): List[TopologyMapping] = {
     fetchTx(store, timestamp, isProposal).toTopologyState
   }
 
   private def fetchTx(
-      store: TopologyStoreX[TopologyStoreId],
+      store: TopologyStore[TopologyStoreId],
       timestamp: CantonTimestamp,
       isProposal: Boolean = false,
-  ): GenericStoredTopologyTransactionsX = {
+  ): GenericStoredTopologyTransactions = {
     store
       .findPositiveTransactions(
         asOf = timestamp,
         asOfInclusive = false,
         isProposal = isProposal,
-        types = TopologyMappingX.Code.all.toSeq,
+        types = TopologyMapping.Code.all.toSeq,
         None,
         None,
       )
@@ -86,10 +86,10 @@ abstract class TopologyTransactionProcessorXTest
   }
 
   private def process(
-      proc: TopologyTransactionProcessorX,
+      proc: TopologyTransactionProcessor,
       ts: CantonTimestamp,
       sc: Long,
-      txs: List[SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]],
+      txs: List[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
   ): Unit =
     clue(s"block at sc $sc")(
       proc
@@ -98,7 +98,7 @@ abstract class TopologyTransactionProcessorXTest
           EffectiveTime(ts),
           SequencerCounter(sc),
           List(
-            TopologyTransactionsBroadcastX.create(
+            TopologyTransactionsBroadcast.create(
               DefaultTestIdentities.domainId,
               Seq(Broadcast(String255.tryCreate("some request"), txs)),
               testedProtocolVersion,
@@ -110,8 +110,8 @@ abstract class TopologyTransactionProcessorXTest
     )
 
   private def validate(
-      observed: List[TopologyMappingX],
-      expected: List[SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]],
+      observed: List[TopologyMapping],
+      expected: List[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
   ) = {
     observed.toSet shouldBe expected.map(_.mapping).toSet
   }
@@ -190,7 +190,7 @@ abstract class TopologyTransactionProcessorXTest
       process(proc, ts(5), 5, block6)
       val storeAfterProcessing = store.dumpStoreContent().futureValue
       val DNDafterProcessing = fetch(store, ts(5).immediateSuccessor)
-        .find(_.code == TopologyMappingX.Code.DecentralizedNamespaceDefinitionX)
+        .find(_.code == TopologyMapping.Code.DecentralizedNamespaceDefinition)
         .valueOrFail("Couldn't find DND")
 
       val proc2 = mk(store)._1
@@ -267,11 +267,11 @@ abstract class TopologyTransactionProcessorXTest
     "correctly handle duplicate transactions within the same batch" in {
       import SigningKeys.{ec as _, *}
       val dnsNamespace =
-        DecentralizedNamespaceDefinitionX.computeNamespace(Set(ns1, ns7, ns8, ns9))
+        DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns7, ns8, ns9))
       val domainId = DomainId(UniqueIdentifier(Identifier.tryCreate("test-domain"), dnsNamespace))
 
       val dns = mkAddMultiKey(
-        DecentralizedNamespaceDefinitionX
+        DecentralizedNamespaceDefinition
           .create(
             dnsNamespace,
             PositiveInt.three,
@@ -281,7 +281,7 @@ abstract class TopologyTransactionProcessorXTest
         NonEmpty(Set, key1, key7, key8, key9),
       )
 
-      val mdsMapping = MediatorDomainStateX
+      val mdsMapping = MediatorDomainState
         .create(
           domainId,
           NonNegativeInt.zero,
@@ -314,7 +314,7 @@ abstract class TopologyTransactionProcessorXTest
       }
 
       // setup
-      val block0 = List[GenericSignedTopologyTransactionX](
+      val block0 = List[GenericSignedTopologyTransaction](
         ns1k1_k1,
         ns7k7_k7,
         ns8k8_k8,
@@ -331,7 +331,7 @@ abstract class TopologyTransactionProcessorXTest
       val extraMds = mkAdd(mdsMapping, signingKey = key9, isProposal = true)
 
       // processing multiple of the same transaction in the same batch works correctly
-      val block1 = List[GenericSignedTopologyTransactionX](extraMds, extraMds)
+      val block1 = List[GenericSignedTopologyTransaction](extraMds, extraMds)
       process(proc, ts(1), 1L, block1)
       validate(fetch(store, ts(1).immediateSuccessor), block0)
       // check that the most recently stored version after ts(1) is the merge of the previous one with the additional signature
@@ -374,11 +374,11 @@ abstract class TopologyTransactionProcessorXTest
     "correctly handle additional signatures after new proposals have arrived" in {
       import SigningKeys.{ec as _, *}
       val dnsNamespace =
-        DecentralizedNamespaceDefinitionX.computeNamespace(Set(ns1, ns7, ns8))
+        DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns7, ns8))
       val domainId = DomainId(UniqueIdentifier(Identifier.tryCreate("test-domain"), dnsNamespace))
 
       val dns = mkAddMultiKey(
-        DecentralizedNamespaceDefinitionX
+        DecentralizedNamespaceDefinition
           .create(
             dnsNamespace,
             PositiveInt.two,
@@ -389,7 +389,7 @@ abstract class TopologyTransactionProcessorXTest
       )
 
       // mapping and transactions for serial=1
-      val mdsMapping1 = MediatorDomainStateX
+      val mdsMapping1 = MediatorDomainState
         .create(
           domainId,
           NonNegativeInt.zero,
@@ -407,7 +407,7 @@ abstract class TopologyTransactionProcessorXTest
         mkAdd(mdsMapping1, key8, isProposal = true, serial = PositiveInt.one)
 
       // mapping and transactions for serial=2
-      val mdsMapping2 = MediatorDomainStateX
+      val mdsMapping2 = MediatorDomainState
         .create(
           domainId,
           NonNegativeInt.zero,
@@ -428,7 +428,7 @@ abstract class TopologyTransactionProcessorXTest
 
       def checkMds(
           ts: CantonTimestamp,
-          transactionToLookUp: GenericSignedTopologyTransactionX,
+          transactionToLookUp: GenericSignedTopologyTransaction,
           expectedSignatures: Int,
           expectedValidFrom: CantonTimestamp,
       ) = {
@@ -444,7 +444,7 @@ abstract class TopologyTransactionProcessorXTest
       }
 
       // setup: namespaces and initial mediator state
-      val block0 = List[GenericSignedTopologyTransactionX](
+      val block0 = List[GenericSignedTopologyTransaction](
         ns1k1_k1,
         ns7k7_k7,
         ns8k8_k8,
@@ -540,11 +540,11 @@ abstract class TopologyTransactionProcessorXTest
     "only track fully authorized domain parameter state changes" in {
       import SigningKeys.{ec as _, *}
       val dnsNamespace =
-        DecentralizedNamespaceDefinitionX.computeNamespace(Set(ns1, ns2))
+        DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns2))
       val domainId = DomainId(UniqueIdentifier(Identifier.tryCreate("test-domain"), dnsNamespace))
 
       val dns = mkAddMultiKey(
-        DecentralizedNamespaceDefinitionX
+        DecentralizedNamespaceDefinition
           .create(
             dnsNamespace,
             PositiveInt.two,
@@ -554,7 +554,7 @@ abstract class TopologyTransactionProcessorXTest
         signingKeys = NonEmpty(Set, key1, key2),
       )
       val initialDomainParameters = mkAddMultiKey(
-        DomainParametersStateX(
+        DomainParametersState(
           domainId,
           DynamicDomainParameters.defaultXValues(testedProtocolVersion),
         ),
@@ -565,7 +565,7 @@ abstract class TopologyTransactionProcessorXTest
         initialDomainParameters.mapping.parameters.topologyChangeDelay.duration
       val updatedTopologyChangeDelay = initialTopologyChangeDelay.plusMillis(50)
 
-      val updatedDomainParams = DomainParametersStateX(
+      val updatedDomainParams = DomainParametersState(
         domainId,
         DynamicDomainParameters.initialValues(
           topologyChangeDelay = NonNegativeFiniteDuration.tryCreate(updatedTopologyChangeDelay),
@@ -585,9 +585,9 @@ abstract class TopologyTransactionProcessorXTest
         isProposal = true,
       )
 
-      val initialTopologyState = StoredTopologyTransactionsX(
+      val initialTopologyState = StoredTopologyTransactions(
         List(ns1k1_k1, ns2k2_k2, dns, initialDomainParameters).map(transaction =>
-          StoredTopologyTransactionX(
+          StoredTopologyTransaction(
             sequenced = SequencedTime(CantonTimestamp.MinValue.immediateSuccessor),
             validFrom = EffectiveTime(CantonTimestamp.MinValue.immediateSuccessor),
             validUntil = None,
@@ -596,11 +596,11 @@ abstract class TopologyTransactionProcessorXTest
         )
       )
 
-      def mkEnvelope(transactions: GenericSignedTopologyTransactionX) =
+      def mkEnvelope(transactions: GenericSignedTopologyTransaction) =
         Traced(
           List(
             OpenEnvelope(
-              TopologyTransactionsBroadcastX.create(
+              TopologyTransactionsBroadcast.create(
                 domainId,
                 Seq(Broadcast(String255("topology request id")(), List(transactions))),
                 testedProtocolVersion,
@@ -656,7 +656,7 @@ abstract class TopologyTransactionProcessorXTest
 
       // 1. fetch the proposal from block1 at a time when it has become effective
       val storedDomainParametersProposal = fetchTx(store, ts(0).plusSeconds(1), isProposal = true)
-        .collectOfMapping[DomainParametersStateX]
+        .collectOfMapping[DomainParametersState]
         .result
         .loneElement
       // the proposal itself should be processed with the default topology change delay
@@ -664,7 +664,7 @@ abstract class TopologyTransactionProcessorXTest
 
       // 2. fetch the latest fully authorized domain parameters transaction from block2 at a time when it has become effective
       val storedDomainParametersUpdate = fetchTx(store, ts(1).plusSeconds(1))
-        .collectOfMapping[DomainParametersStateX]
+        .collectOfMapping[DomainParametersState]
         .result
         .loneElement
       // the transaction to change the topology change delay itself should still be processed with the default topology change delay
@@ -672,7 +672,7 @@ abstract class TopologyTransactionProcessorXTest
 
       // 3. fetch the topology transaction from block3 at a time when it has become effective
       val storedNSD3 = fetchTx(store, ts(2).plusSeconds(1))
-        .collectOfMapping[NamespaceDelegationX]
+        .collectOfMapping[NamespaceDelegation]
         .filter(_.mapping.namespace == ns3)
         .result
         .loneElement
@@ -683,20 +683,20 @@ abstract class TopologyTransactionProcessorXTest
 
 }
 
-class TopologyTransactionProcessorXTestInMemory extends TopologyTransactionProcessorXTest {
-  protected def mkStore: TopologyStoreX[TopologyStoreId.DomainStore] =
-    new InMemoryTopologyStoreX(
+class TopologyTransactionProcessorTestInMemory extends TopologyTransactionProcessorTest {
+  protected def mkStore: TopologyStore[TopologyStoreId.DomainStore] =
+    new InMemoryTopologyStore(
       TopologyStoreId.DomainStore(DefaultTestIdentities.domainId),
       loggerFactory,
       timeouts,
     )
 
 }
-class TopologyTransactionProcessorXTestPostgres
-    extends TopologyTransactionProcessorXTest
+class TopologyTransactionProcessorTestPostgres
+    extends TopologyTransactionProcessorTest
     with DbTest
-    with DbTopologyStoreXHelper
+    with DbTopologyStoreHelper
     with PostgresTest {
-  override protected def mkStore: TopologyStoreX[TopologyStoreId.DomainStore] =
+  override protected def mkStore: TopologyStore[TopologyStoreId.DomainStore] =
     createTopologyStore()
 }

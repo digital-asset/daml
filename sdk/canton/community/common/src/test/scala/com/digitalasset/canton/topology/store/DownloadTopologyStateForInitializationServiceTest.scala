@@ -6,25 +6,25 @@ package com.digitalasset.canton.topology.store
 import cats.syntax.option.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
 trait DownloadTopologyStateForInitializationServiceTest
     extends AsyncWordSpec
-    with TopologyStoreXTestBase {
+    with TopologyStoreTestBase {
 
-  protected def createTopologyStore(): TopologyStoreX[DomainStore]
+  protected def createTopologyStore(): TopologyStore[DomainStore]
 
-  val testData = new TopologyStoreXTestData(loggerFactory, executionContext)
+  val testData = new TopologyStoreTestData(loggerFactory, executionContext)
   import testData.*
 
-  val bootstrapTransactions = StoredTopologyTransactionsX(
+  val bootstrapTransactions = StoredTopologyTransactions(
     Seq[
-      (CantonTimestamp, (GenericSignedTopologyTransactionX, Option[CantonTimestamp]))
+      (CantonTimestamp, (GenericSignedTopologyTransaction, Option[CantonTimestamp]))
     ](
       ts4 -> (tx4_DND, None),
       ts5 -> (tx5_PTP, None),
@@ -32,7 +32,7 @@ trait DownloadTopologyStateForInitializationServiceTest
       ts6 -> (tx6_MDS, None),
       ts8 -> (tx8_SDS, None),
     ).map { case (from, (tx, until)) =>
-      StoredTopologyTransactionX(
+      StoredTopologyTransaction(
         SequencedTime(from),
         EffectiveTime(from),
         until.map(EffectiveTime(_)),
@@ -41,9 +41,9 @@ trait DownloadTopologyStateForInitializationServiceTest
     }
   )
 
-  val bootstrapTransactionsWithUpdates = StoredTopologyTransactionsX(
+  val bootstrapTransactionsWithUpdates = StoredTopologyTransactions(
     Seq[
-      (CantonTimestamp, (GenericSignedTopologyTransactionX, Option[CantonTimestamp]))
+      (CantonTimestamp, (GenericSignedTopologyTransaction, Option[CantonTimestamp]))
     ](
       ts4 -> (tx4_DND, None),
       ts5 -> (tx5_PTP, None),
@@ -53,7 +53,7 @@ trait DownloadTopologyStateForInitializationServiceTest
       ts7 -> (tx7_MDS_Update, None),
       ts8 -> (tx8_SDS, None),
     ).map { case (from, (tx, until)) =>
-      StoredTopologyTransactionX(
+      StoredTopologyTransaction(
         SequencedTime(from),
         EffectiveTime(from),
         until.map(EffectiveTime(_)),
@@ -63,8 +63,8 @@ trait DownloadTopologyStateForInitializationServiceTest
   )
 
   private def initializeStore(
-      storedTransactions: GenericStoredTopologyTransactionsX
-  ): Future[TopologyStoreX[DomainStore]] = {
+      storedTransactions: GenericStoredTopologyTransactions
+  ): Future[TopologyStore[DomainStore]] = {
     val store = createTopologyStore()
     store.bootstrap(storedTransactions).map(_ => store)
   }

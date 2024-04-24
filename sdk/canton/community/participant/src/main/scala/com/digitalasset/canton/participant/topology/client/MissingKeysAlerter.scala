@@ -11,7 +11,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.processing.*
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -45,7 +45,7 @@ class MissingKeysAlerter(
           sequencedTimestamp: SequencedTime,
           effectiveTimestamp: EffectiveTime,
           sequencerCounter: SequencerCounter,
-          transactions: Seq[GenericSignedTopologyTransactionX],
+          transactions: Seq[GenericSignedTopologyTransaction],
       )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
         FutureUnlessShutdown.pure(
           processTransactionsX(effectiveTimestamp.value, transactions)
@@ -54,14 +54,14 @@ class MissingKeysAlerter(
 
   private def processTransactionsX(
       timestamp: CantonTimestamp,
-      transactions: Seq[GenericSignedTopologyTransactionX],
+      transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit traceContext: TraceContext): Unit = {
     // scan state and alarm if the domain suggest that I use a key which I don't have
     transactions.view
-      .filter(tx => tx.operation == TopologyChangeOpX.Replace && !tx.isProposal)
+      .filter(tx => tx.operation == TopologyChangeOp.Replace && !tx.isProposal)
       .map(_.mapping)
       .foreach {
-        case ParticipantDomainPermissionX(
+        case ParticipantDomainPermission(
               `domainId`,
               `participantId`,
               permission,
@@ -71,7 +71,7 @@ class MissingKeysAlerter(
           logger.info(
             s"Domain $domainId update my participant permission as of $timestamp to $permission"
           )
-        case OwnerToKeyMappingX(`participantId`, _, keys) =>
+        case OwnerToKeyMapping(`participantId`, _, keys) =>
           keys.foreach(k => alertOnMissingKey(k.fingerprint, k.purpose))
         case _ => ()
       }
