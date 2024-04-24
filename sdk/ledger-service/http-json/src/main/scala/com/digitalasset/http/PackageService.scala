@@ -398,7 +398,14 @@ object PackageService {
     }
 
     def allIds: Set[ContractTypeRef[ResolvedOf[CtId]]] =
-      all.values.flatMap(toContractTypeRef).toSet
+      all.values.flatMap { case id =>
+        // If the package has a name, use the package name instead of package id.
+        val useId = idNames
+          .get(id.packageId)
+          .flatMap { case (kpn, _) => kpn.toOption }
+          .fold(id)(name => id.copy(packageId = s"#${name}").asInstanceOf[ResolvedOf[CtId]])
+        toContractTypeRef(useId)
+      }.toSet
 
     private[http] def resolve(
         a: ContractTypeId[Option[String]]

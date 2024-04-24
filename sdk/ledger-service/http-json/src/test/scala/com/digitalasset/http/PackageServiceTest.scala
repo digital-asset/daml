@@ -95,7 +95,7 @@ class PackageServiceTest
       }
   }
 
-  "PackageService.resolveTemplateId" - {
+  "PackageService.resolveContractTypeId" - {
 
     "should resolve unique Template ID by (moduleName, entityName)" in forAll(
       nonEmptySetOf(genDomainTemplateId)
@@ -104,7 +104,10 @@ class PackageServiceTest
       val uniqueIds = map.unique.values.toSet
       uniqueIds.foreach { id =>
         val unresolvedId: domain.ContractTypeId.Template.OptionalPkg = id.copy(packageId = None)
-        (map resolve unresolvedId).map(_.original) shouldBe Some(id)
+        val Some(resolved) = map resolve unresolvedId
+        resolved.original shouldBe id
+        resolved.latestId shouldBe id
+        resolved.allIds shouldBe Set(id)
       }
     }
 
@@ -114,7 +117,10 @@ class PackageServiceTest
         ids.foreach { id =>
           val unresolvedId: domain.ContractTypeId.Template.OptionalPkg =
             id.copy(packageId = Some(id.packageId))
-          (map resolve unresolvedId).map(_.original) shouldBe Some(id)
+          val Some(resolved) = map resolve unresolvedId
+          resolved.original shouldBe id
+          resolved.latestId shouldBe id
+          resolved.allIds shouldBe Set(id)
         }
     }
 
@@ -126,9 +132,12 @@ class PackageServiceTest
       val map = PackageService.buildTemplateIdMap(idName, ids)
       ids.foreach { id =>
         val pkgName = "#" + pkgNameForPkgId(id.packageId)
-        (map resolve id.copy(packageId = Some(pkgName))).map(_.original) shouldBe Some(
-          id.copy(packageId = pkgName)
-        )
+        val unresolvedId: domain.ContractTypeId.Template.OptionalPkg =
+          id.copy(packageId = Some(pkgName))
+        val Some(resolved) = map resolve unresolvedId
+        resolved.original shouldBe id.copy(packageId = pkgName)
+        resolved.latestId shouldBe id
+        resolved.allIds shouldBe Set(id)
       }
     }
 
@@ -136,20 +145,15 @@ class PackageServiceTest
       genDuplicateModuleEntityTemplateIds
     ) { ids =>
       val idName = buildPackageNameMap(_ => "foo")(ids) // package_id:package_name is n:1
-      val pkgIdWithMaxVer = ids.maxBy(id => packageVersionForId(id.packageId))
+      val idWithMaxVer = ids.maxBy(id => packageVersionForId(id.packageId))
       val map = PackageService.buildTemplateIdMap(idName, ids)
       ids.foreach { id =>
-        val templateIdWithPackageName = id.copy(packageId = Some("#foo"))
-        val Some(resolvedTemplateId) = (map resolve templateIdWithPackageName).map(_.latestId)
-
-        // Selects a package id with the given package name.
-        idName.get(resolvedTemplateId.packageId).flatMap(_._1.toOption) shouldBe Some(
-          Ref.PackageName.assertFromString("foo")
-        )
-        // Should have selected package with highest version
-        resolvedTemplateId.packageId == pkgIdWithMaxVer
-        // The module and entity part of the template ids should be the same.
-        resolvedTemplateId.copy(packageId = None) shouldBe id.copy(packageId = None)
+        val unresolvedId: domain.ContractTypeId.Template.OptionalPkg =
+          id.copy(packageId = Some("#foo"))
+        val Some(resolved) = map resolve unresolvedId
+        resolved.original shouldBe id.copy(packageId = "#foo")
+        resolved.latestId shouldBe idWithMaxVer
+        resolved.allIds shouldBe ids
       }
     }
 
@@ -158,6 +162,46 @@ class PackageServiceTest
     ) { templateId: domain.ContractTypeId.OptionalPkg =>
       val map = TemplateIdMap.Empty[domain.ContractTypeId]
       map resolve templateId shouldBe None
+    }
+  }
+
+  "PackageService.allTemplateIds" - {
+    "when no package names, should resolve to input ids" in forAll(
+      nonEmptySetOf(genDomainTemplateId)
+    ) { ids =>
+      val map = PackageService.buildTemplateIdMap(noPackageNames, ids)
+      map.allIds.size shouldBe ids.size
+      map.allIds.map(_.original) shouldBe ids
+      map.allIds.map(_.latestId) shouldBe ids
+      map.allIds.flatMap(_.allIds) shouldBe ids
+    }
+
+    "when has single package name per package id, each has has its own item" in forAll(
+      nonEmptySetOf(genDomainTemplateId)
+    ) { ids =>
+      def pkgNameForPkgId(pkgId: String) = pkgId + "_name"
+      val idName = buildPackageNameMap(pkgNameForPkgId)(ids) // package_id:package_name is 1:1
+      val map = PackageService.buildTemplateIdMap(idName, ids)
+
+      map.allIds.size shouldBe ids.size
+      map.allIds.map(_.original) shouldBe ids.map { id =>
+        id.copy(packageId = s"#${pkgNameForPkgId(id.packageId)}")
+      }
+      map.allIds.map(_.latestId) shouldBe ids
+      map.allIds.map(_.allIds) shouldBe ids.map(Set(_))
+    }
+
+    "when has multiple names per package id, they are collapsed into a single item" in forAll(
+      genDuplicateModuleEntityTemplateIds
+    ) { ids =>
+      val idName = buildPackageNameMap(_ => "foo")(ids) // package_id:package_name is n:1
+      val idWithMaxVer = ids.maxBy(id => packageVersionForId(id.packageId))
+      val map = PackageService.buildTemplateIdMap(idName, ids)
+
+      map.allIds.size shouldBe 1
+      map.allIds.head.original shouldBe ids.head.copy(packageId = "#foo")
+      map.allIds.head.latestId shouldBe idWithMaxVer
+      map.allIds.head.allIds shouldBe ids
     }
   }
 
