@@ -298,18 +298,13 @@ object WebSocketService {
 
         def resolveIds(
             sfq: domain.SearchForeverQuery
-        ): Future[
-          (
-              Seq[ContractTypeRef.Resolved],
-              Seq[domain.ContractTypeId.OptionalPkg],
-          )
-        ] =
+        ): Future[(Set[ContractTypeRef.Resolved], Set[domain.ContractTypeId.OptionalPkg])] =
           sfq.templateIds.toList.toNEF
             .traverse(x =>
               resolveContractTypeId(jwt, ledgerId)(x).map(_.toOption.flatten.toLeft(x))
             )
             .map(
-              _.toSeq.partitionMap(
+              _.toSet.partitionMap(
                 identity[
                   Either[ContractTypeRef.Resolved, domain.ContractTypeId.OptionalPkg]
                 ]
@@ -329,7 +324,7 @@ object WebSocketService {
           (for {
             partitionedResolved <- resolveIds(sfq)
             (resolved, unresolved) = partitionedResolved
-            res = domain.ResolvedQuery(resolved.toSet).map { rq =>
+            res = domain.ResolvedQuery(resolved).map { rq =>
               (
                 ResolvedSearchForeverQuery(
                   rq,
@@ -337,7 +332,7 @@ object WebSocketService {
                   sfq.offset,
                 ),
                 pos,
-                unresolved.toSet,
+                unresolved,
               )
             }
           } yield res)
@@ -453,11 +448,7 @@ object WebSocketService {
           ((ValuePredicate, ValuePredicate.LfV => Boolean), (Int, Int))
         ]]] = {
           val compiledQueries =
-            prepareFilters(
-              rsfq.resolvedQuery.resolved.flatMap(_.allPkgIds).toSet,
-              rsfq.query,
-              lookupType,
-            )
+            prepareFilters(rsfq.resolvedQuery.resolved.flatMap(_.allPkgIds), rsfq.query, lookupType)
           compiledQueries.transform((_, p) => NonEmptyList((p, (ix, pos))))
         }
 
@@ -545,9 +536,7 @@ object WebSocketService {
   case class ResolvedContractKeyStreamRequest[C, V](
       resolvedQuery: ResolvedQuery,
       list: NonEmptyList[domain.ContractKeyStreamRequest[C, V]],
-      q: NonEmpty[
-        Map[ContractTypeRef.Resolved, NonEmpty[Set[V]]]
-      ],
+      q: NonEmpty[Map[ContractTypeRef.Resolved, NonEmpty[Set[V]]]],
       unresolved: Set[domain.ContractTypeId.OptionalPkg],
   )
 
