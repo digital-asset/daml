@@ -205,9 +205,8 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, d
                         ] <>
                         [ "init" Aeson..= Aeson.object
                               [ "domain-parameters" Aeson..= Aeson.object
-                                  [ "protocol-version" Aeson..= ("dev" :: T.Text) ]
+                                  [ "protocol-version" Aeson..= (if devVersionSupport then "dev" else "5" :: T.Text) ]
                               ]
-                        | devVersionSupport
                         ]
                     )
                 ]
