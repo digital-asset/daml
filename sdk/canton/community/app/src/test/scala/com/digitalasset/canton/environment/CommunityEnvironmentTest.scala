@@ -31,8 +31,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   // we don't care about any values of this config, so just mock
-  lazy val domain1Config: CommunityDomainConfig = ConfigStubs.domain
-  lazy val domain2Config: CommunityDomainConfig = ConfigStubs.domain
+  lazy val domain1Config: CommunityDomainConfig = ConfigStubs.domain(testedProtocolVersion)
+  lazy val domain2Config: CommunityDomainConfig = ConfigStubs.domain(testedProtocolVersion)
   lazy val participant1Config: CommunityParticipantConfig = ConfigStubs.participant
   lazy val participant2Config: CommunityParticipantConfig = ConfigStubs.participant
 

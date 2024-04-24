@@ -43,12 +43,11 @@ import java.io.ByteArrayOutputStream
 import java.nio.file.Paths
 
 class ConsoleTest extends AnyWordSpec with BaseTest {
-
   lazy val DefaultConfig: CantonCommunityConfig = CantonCommunityConfig(
     domains = Map(
-      InstanceName.tryCreate("d1") -> ConfigStubs.domain,
-      InstanceName.tryCreate("d2") -> ConfigStubs.domain,
-      InstanceName.tryCreate("d-3") -> ConfigStubs.domain,
+      InstanceName.tryCreate("d1") -> ConfigStubs.domain(testedProtocolVersion),
+      InstanceName.tryCreate("d2") -> ConfigStubs.domain(testedProtocolVersion),
+      InstanceName.tryCreate("d-3") -> ConfigStubs.domain(testedProtocolVersion),
     ),
     participants = Map(
       InstanceName.tryCreate("p1") -> ConfigStubs.participant
@@ -67,7 +66,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
       InstanceName.tryCreate("d1") -> ConfigStubs.participant,
     ),
     domains = Map(
-      InstanceName.tryCreate("d1") -> ConfigStubs.domain
+      InstanceName.tryCreate("d1") -> ConfigStubs.domain(testedProtocolVersion)
     ),
   )
 
