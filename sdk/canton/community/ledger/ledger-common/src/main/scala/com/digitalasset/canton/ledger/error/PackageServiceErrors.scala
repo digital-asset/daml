@@ -289,7 +289,7 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           val loggingContext: ContextualizedErrorLogger
       ) extends DamlError(
             cause =
-              "The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade",
+              s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade. ${upgradeError.prettyInternal}",
             extraContext = Map(
               "upgradingPackage" -> upgradingPackage,
               "upgradedPackage" -> upgradedPackage,

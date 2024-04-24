@@ -582,7 +582,7 @@ abstract class UpgradesSpec(val suffix: String)
     with Inside
     with CantonFixture {
   override lazy val devMode = true;
-  override val cantonFixtureDebugMode = CantonFixtureDebugRemoveTmpFiles;
+  override val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles;
 
   protected def loadPackageIdAndBS(path: String): Future[(PackageId, ByteString)] = {
     val dar = DarReader.assertReadArchiveFromFile(new File(BazelRunfiles.rlocation(path)))
