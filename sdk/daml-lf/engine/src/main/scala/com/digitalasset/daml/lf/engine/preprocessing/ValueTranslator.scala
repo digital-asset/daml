@@ -7,12 +7,13 @@ package preprocessing
 
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{Util => AstUtil}
+import com.digitalasset.daml.lf.language.TypeDestructor
 import com.digitalasset.daml.lf.speedy.{ArrayList, SValue}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
 
 import scala.annotation.tailrec
+import scala.collection.View
 
 private[lf] final class ValueTranslator(
     pkgInterface: language.PackageInterface,
@@ -66,16 +67,27 @@ private[lf] final class ValueTranslator(
       value: Value,
       config: Config,
   ): SValue = {
+    import TypeDestructor.TypeF._
+    val Destructor = TypeDestructor(pkgInterface)
+
     // TODO: https://github.com/digital-asset/daml/issues/17082
     //   Should we consider factorizing this code with Seedy.Machine#importValues
-
-    def go(ty0: Type, value0: Value, nesting: Int = 0): SValue =
+    def go(ty0: Destructor.Type, value0: Value, nesting: Int): SValue =
       if (nesting > Value.MAXIMUM_NESTING) {
         throw Error.Preprocessing.ValueNesting(value)
       } else {
         val newNesting = nesting + 1
         def typeError(msg: String = s"mismatching type: ${ty0.pretty} and value: $value0") =
           throw Error.Preprocessing.TypeMismatch(ty0, value0, msg)
+        def destruct(typ: Destructor.Type) =
+          Destructor.destruct(typ) match {
+            case Right(value) => value
+            case Left(TypeDestructor.Error.TypeError(err)) =>
+              typeError(err)
+            case Left(TypeDestructor.Error.LookupError(err)) =>
+              throw Error.Preprocessing.Lookup(err)
+          }
+
         def checkUserTypeId(targetType: Ref.TypeConName, mbSourceType: Option[Ref.TypeConName]) =
           mbSourceType.foreach(sourceType =>
             if (config.ignorePackageId) {
@@ -92,271 +104,219 @@ private[lf] final class ValueTranslator(
             }
           )
 
-        val (ty1, tyArgs) = AstUtil.destructApp(ty0)
-        ty1 match {
-          case TBuiltin(bt) =>
-            tyArgs match {
-              case Nil =>
-                (bt, value0) match {
-                  case (BTUnit, ValueUnit) =>
-                    SValue.SUnit
-                  case (BTBool, ValueBool(b)) =>
-                    if (b) SValue.SValue.True else SValue.SValue.False
-                  case (BTInt64, ValueInt64(i)) =>
-                    SValue.SInt64(i)
-                  case (BTTimestamp, ValueTimestamp(t)) =>
-                    SValue.STimestamp(t)
-                  case (BTDate, ValueDate(t)) =>
-                    SValue.SDate(t)
-                  case (BTText, ValueText(t)) =>
-                    SValue.SText(t)
-                  case (BTParty, ValueParty(p)) =>
-                    SValue.SParty(p)
-                  case _ =>
-                    typeError()
-                }
-              case typeArg0 :: Nil =>
-                (bt, value0) match {
-                  case (BTNumeric, ValueNumeric(d)) =>
-                    typeArg0 match {
-                      case TNat(s) =>
-                        Numeric.fromBigDecimal(s, d) match {
-                          case Right(value) => SValue.SNumeric(value)
-                          case Left(message) => typeError(message)
-                        }
-                      case _ =>
-                        typeError()
-                    }
-                  case (BTContractId, ValueContractId(c)) =>
-                    unsafeTranslateCid(c)
-                  case (BTOptional, ValueOptional(mbValue)) =>
-                    mbValue match {
-                      case Some(v) =>
-                        SValue.SOptional(Some(go(typeArg0, v, newNesting)))
-                      case None =>
-                        SValue.SValue.None
-                    }
-                  case (BTList, ValueList(ls)) =>
-                    if (ls.isEmpty) {
-                      SValue.SValue.EmptyList
-                    } else {
-                      SValue.SList(ls.map(go(typeArg0, _, newNesting)))
-                    }
-                  // textMap
-                  case (BTTextMap, ValueTextMap(entries)) =>
-                    if (entries.isEmpty) {
-                      SValue.SValue.EmptyTextMap
-                    } else {
-                      SValue.SMap(
-                        isTextMap = true,
-                        entries = entries.toImmArray.toSeq.view.map { case (k, v) =>
-                          SValue.SText(k) -> go(typeArg0, v, newNesting)
-                        },
-                      )
-                    }
-                  case _ =>
-                    typeError()
-                }
-              case typeArg0 :: typeArg1 :: Nil =>
-                (bt, value0) match {
-                  case (BTGenMap, ValueGenMap(entries)) =>
-                    if (entries.isEmpty) {
-                      SValue.SValue.EmptyGenMap
-                    } else {
-                      SValue.SMap(
-                        isTextMap = false,
-                        entries = entries.toSeq.view.map { case (k, v) =>
-                          go(typeArg0, k, newNesting) -> go(typeArg1, v, newNesting)
-                        },
-                      )
-                    }
-                  case _ =>
-                    typeError()
-                }
-              case _ =>
-                typeError()
+        (destruct(ty0), value0) match {
+          case (UnitF, ValueUnit) =>
+            SValue.SUnit
+          case (BoolF, ValueBool(b)) =>
+            if (b) SValue.SValue.True else SValue.SValue.False
+          case (Int64F, ValueInt64(i)) =>
+            SValue.SInt64(i)
+          case (TimestampF, ValueTimestamp(t)) =>
+            SValue.STimestamp(t)
+          case (DateF, ValueDate(t)) =>
+            SValue.SDate(t)
+          case (TextF, ValueText(t)) =>
+            SValue.SText(t)
+          case (PartyF, ValueParty(p)) =>
+            SValue.SParty(p)
+          case (NumericF(s), ValueNumeric(d)) =>
+            Numeric.fromBigDecimal(s, d) match {
+              case Right(value) => SValue.SNumeric(value)
+              case Left(message) => typeError(message)
             }
-          case TTyCon(tyCon) =>
-            value0 match {
-              // variant
-              case ValueVariant(mbId, constructorName, val0) =>
-                checkUserTypeId(tyCon, mbId)
-                val info = handleLookup(
-                  pkgInterface.lookupVariantConstructor(tyCon, constructorName)
-                )
-                val replacedTyp = info.concreteType(tyArgs)
-                SValue.SVariant(
-                  tyCon,
-                  constructorName,
-                  info.rank,
-                  go(replacedTyp, val0, newNesting),
-                )
-              // records
-              case ValueRecord(mbId, sourceElements) =>
-                checkUserTypeId(tyCon, mbId)
-                val lookupResult = handleLookup(pkgInterface.lookupDataRecord(tyCon))
-                val targetFieldsAndTypes = lookupResult.dataRecord.fields
-                val subst = lookupResult.subst(tyArgs)
-
-                def addMissingField(lbl: Ref.Name, ty: Type): (Option[Ref.Name], Value) =
-                  ty match {
-                    // If missing field is optional, fill it with None
-                    case TApp(TBuiltin(BTOptional), _) => (Some(lbl), Value.ValueOptional(None))
-                    // Else, throw error
-                    case _ =>
-                      typeError(
-                        s"Missing non-optional field \"$lbl\", cannot upgrade non-optional fields."
-                      )
-                  }
-
-                if (config.enableUpgrade) {
-                  val oLabeledFlds =
-                    labeledRecordToMap(sourceElements)
-                      .fold(typeError, identity _)
-
-                  // correctFields: (correct only by label/position) gives the value and type, length == targetFieldsAndTypes
-                  //   filled with Nones when type is Optional
-                  // extraFields: Unknown additional fields with name and value
-                  val (correctFields, extraFields): (
-                      Seq[(Ref.Name, Value, Type)],
-                      ImmArray[(Option[Ref.Name], Value)],
-                  ) =
-                    oLabeledFlds match {
-                      // Not fully labelled (or reordering disabled), so order dependent
-                      // Additional fields should downgrade, missing fields should upgrade
-                      case None => {
-                        val correctFields = targetFieldsAndTypes.toSeq.zipWithIndex.map {
-                          case ((lbl, ty), i) =>
-                            val (mbLbl, v) =
-                              sourceElements.get(i).getOrElse(addMissingField(lbl, ty))
-                            mbLbl.foreach(lbl_ =>
-                              if (lbl_ != lbl)
-                                typeError(
-                                  s"Mismatching record field label '$lbl_' (expecting '$lbl') for record $tyCon"
-                                )
-                            )
-                            (lbl, v, ty)
-                        }
-                        val numS = sourceElements.length
-                        val numT = targetFieldsAndTypes.length
-                        // We have extra fields
-                        val extraFields =
-                          if (numS > numT)
-                            sourceElements.strictSlice(numT, numS)
-                          else
-                            ImmArray.empty
-
-                        (correctFields, extraFields)
-                      }
-                      // Fully labelled and allowed to re-order
-                      case Some(labeledFlds) => {
-                        // new logic
-                        // iterate the expected fields, replace any missing with none
-                        //   while iterating, remove from remaining
-
-                        val initialState: (Seq[(Ref.Name, Value, Type)], Map[Ref.Name, Value]) =
-                          (Seq(), labeledFlds)
-
-                        val (backwardsCorrectFields, remaining) =
-                          targetFieldsAndTypes.foldLeft(initialState) {
-                            case ((correctFields, remaining), (lbl, ty)) =>
-                              val v = remaining.get(lbl).getOrElse(addMissingField(lbl, ty)._2)
-                              ((lbl, v, ty) +: correctFields, remaining - lbl)
-                          }
-
-                        // Put our fields the correct way around.
-                        val correctFields = backwardsCorrectFields.reverse
-                        // Wrap additional field names in Some to match with ordered case.
-                        val extraFields = ImmArray.from(remaining.toSeq.map { case (lbl, v) =>
-                          (Some(lbl), v)
-                        })
-
-                        (correctFields, extraFields)
-                      }
-                    }
-
-                  // Recursive substitution
-                  val translatedCorrectFields = correctFields.map { case (lbl, v, typ) =>
-                    val replacedTyp = AstUtil.substitute(typ, subst)
-                    lbl -> go(replacedTyp, v, newNesting)
-                  }
-
-                  extraFields.foreach {
-                    // If additional field is None, do nothing
-                    case (_, ValueOptional(None)) =>
-                    // Else, error depending on type
-                    case (oLbl, ValueOptional(Some(_))) =>
-                      typeError(
-                        s"An optional contract field${oLbl.fold("")(lbl => s" (\"$lbl\")")} with a value of Some may not be dropped during downgrading."
-                      )
-                    case (oLbl, _) =>
-                      typeError(
-                        s"Found non-optional extra field${oLbl.fold("")(lbl => s" \"$lbl\"")}, cannot remove for downgrading."
-                      )
-                  }
-
-                  SValue.SRecord(
-                    tyCon,
-                    ImmArray.from(translatedCorrectFields.map(_._1)),
-                    translatedCorrectFields.map(_._2).to(ArrayList),
-                  )
-                } else {
-
-                  // note that we check the number of fields _before_ checking if we can do
-                  // field reordering by looking at the labels. this means that it's forbidden to
-                  // repeat keys even if we provide all the labels, which might be surprising
-                  // since in JavaScript / Scala / most languages (but _not_ JSON, interestingly)
-                  // it's ok to do `{"a": 1, "a": 2}`, where the second occurrence would just win.
-                  if (targetFieldsAndTypes.length != sourceElements.length) {
-                    typeError(
-                      s"Expecting ${targetFieldsAndTypes.length} field for record $tyCon, but got ${sourceElements.length}"
-                    )
-                  }
-
-                  val fields =
-                    labeledRecordToMap(sourceElements).fold(typeError, identity _) match {
-                      case Some(labeledRecords) =>
-                        targetFieldsAndTypes.map { case (lbl, typ) =>
-                          labeledRecords
-                            .get(lbl)
-                            .fold(typeError(s"Missing record field '$lbl' for record $tyCon")) {
-                              v =>
-                                val replacedTyp = AstUtil.substitute(typ, subst)
-                                lbl -> go(replacedTyp, v, newNesting)
-                            }
-                        }
-                      case _ =>
-                        (targetFieldsAndTypes zip sourceElements).map {
-                          case ((targetField, typ), (mbLbl, v)) =>
-                            mbLbl.foreach(sourceField =>
-                              if (sourceField != targetField)
-                                typeError(
-                                  s"Mismatching record field label '$sourceField' (expecting '$targetField') for record $tyCon"
-                                )
-                            )
-                            val replacedTyp = AstUtil.substitute(typ, subst)
-                            targetField -> go(replacedTyp, v, newNesting)
-                        }
-                    }
-                  SValue.SRecord(
-                    tyCon,
-                    fields.map(_._1),
-                    fields.iterator.map(_._2).to(ArrayList),
-                  )
-                }
-              case ValueEnum(mbId, constructor) if tyArgs.isEmpty =>
-                checkUserTypeId(tyCon, mbId)
-                val rank = handleLookup(pkgInterface.lookupEnumConstructor(tyCon, constructor))
-                SValue.SEnum(tyCon, constructor, rank)
-              case _ =>
-                typeError()
+          case (ContractIdF(_), ValueContractId(c)) =>
+            unsafeTranslateCid(c)
+          case (OptionalF(a), ValueOptional(mbValue)) =>
+            mbValue match {
+              case Some(v) =>
+                SValue.SOptional(Some(go(a, v, newNesting)))
+              case None =>
+                SValue.SValue.None
             }
+          case (ListF(a), ValueList(ls)) =>
+            if (ls.isEmpty) {
+              SValue.SValue.EmptyList
+            } else {
+              SValue.SList(ls.toImmArray.toSeq.map(go(a, _, newNesting)).toImmArray.toFrontStack)
+            }
+          case (MapF(a, b), ValueGenMap(entries)) =>
+            if (entries.isEmpty) {
+              SValue.SValue.EmptyGenMap
+            } else {
+              SValue.SMap(
+                isTextMap = false,
+                entries = entries.toSeq.view.map { case (k, v) =>
+                  go(a, k, newNesting) -> go(b, v, newNesting)
+                },
+              )
+            }
+          case (TextMapF(a), ValueTextMap(entries)) =>
+            if (entries.isEmpty) {
+              SValue.SValue.EmptyGenMap
+            } else {
+              SValue.SMap(
+                isTextMap = true,
+                entries = entries.toImmArray.toSeq.view.map { case (k, v) =>
+                  SValue.SText(k) -> go(a, v, newNesting)
+                }.toList,
+              )
+            }
+          case (
+                vF @ VariantF(tyCon, _, _, consTyp),
+                ValueVariant(mbId, constructorName, val0),
+              ) =>
+            checkUserTypeId(tyCon, mbId)
+            val i = handleLookup(vF.consRank(constructorName))
+            SValue.SVariant(
+              tyCon,
+              constructorName,
+              i,
+              go(consTyp(i), val0, newNesting),
+            )
+          // records
+          case (
+                RecordF(tyCon, _, fieldNames, filedTypes),
+                ValueRecord(mbId, sourceElements),
+              ) =>
+            checkUserTypeId(tyCon, mbId)
+
+            def addMissingField(lbl: Ref.Name, ty: Destructor.Type): (Option[Ref.Name], Value) =
+              destruct(ty) match {
+                // If missing field is optional, fill it with None
+                case OptionalF(_) => (Some(lbl), Value.ValueOptional(None))
+                // Else, throw error
+                case _ =>
+                  typeError(
+                    s"Missing non-optional field \"$lbl\", cannot upgrade non-optional fields."
+                  )
+              }
+
+            if (config.enableUpgrade) {
+              val oLabeledFlds = labeledRecordToMap(sourceElements).fold(typeError, identity _)
+
+              // correctFields: (correct only by label/position) gives the value and type, length == targetFieldsAndTypes
+              //   filled with Nones when type is Optional
+              // extraFields: Unknown additional fields with name and value
+              val (correctFields, extraFields): (
+                  View[(Ref.Name, Value, Destructor.Type)],
+                  View[(Option[Ref.Name], Value)],
+              ) =
+                oLabeledFlds match {
+                  // Not fully labelled (or reordering disabled), so order dependent
+                  // Additional fields should downgrade, missing fields should upgrade
+                  case None => {
+                    val correctFields = (fieldNames.view zip filedTypes).zipWithIndex.map {
+                      case ((lbl, ty), i) =>
+                        val (mbLbl, v) =
+                          sourceElements.get(i).getOrElse(addMissingField(lbl, ty))
+                        mbLbl.foreach(lbl_ =>
+                          if (lbl_ != lbl)
+                            typeError(
+                              s"Mismatching record field label '$lbl_' (expecting '$lbl') for record $tyCon"
+                            )
+                        )
+                        (lbl, v, ty)
+                    }
+                    val numS = sourceElements.length
+                    val numT = filedTypes.length
+                    // We have extra fields
+                    val extraFields =
+                      if (numS > numT)
+                        sourceElements.strictSlice(numT, numS).toSeq.view
+                      else
+                        View.empty
+
+                    (correctFields, extraFields)
+                  }
+                  // Fully labelled and allowed to re-order
+                  case Some(labeledFlds) =>
+                    // new logic
+                    // iterate the expected fields, replace any missing with none
+                    val correctFields = (fieldNames.view zip filedTypes).map { case (lbl, ty) =>
+                      (lbl, labeledFlds.getOrElse(lbl, addMissingField(lbl, ty)._2), ty)
+                    }
+                    val extraFields = (labeledFlds -- fieldNames).view.map { case (lbl, v) =>
+                      (Some(lbl), v)
+                    }
+                    (correctFields, extraFields)
+                }
+
+              // Recursive substitution
+              val translatedCorrectFields = correctFields.map { case (lbl, v, typ) =>
+                lbl -> go(typ, v, newNesting)
+              }
+
+              extraFields.foreach {
+                // If additional field is None, do nothing
+                case (_, ValueOptional(None)) =>
+                // Else, error depending on type
+                case (oLbl, ValueOptional(Some(_))) =>
+                  typeError(
+                    s"An optional contract field${oLbl.fold("")(lbl => s" (\"$lbl\")")} with a value of Some may not be dropped during downgrading."
+                  )
+                case (oLbl, _) =>
+                  typeError(
+                    s"Found non-optional extra field${oLbl.fold("")(lbl => s" \"$lbl\"")}, cannot remove for downgrading."
+                  )
+              }
+
+              SValue.SRecord(
+                tyCon,
+                ImmArray.from(translatedCorrectFields.map(_._1)),
+                translatedCorrectFields.map(_._2).to(ArrayList),
+              )
+            } else {
+
+              // note that we check the number of fields _before_ checking if we can do
+              // field reordering by looking at the labels. this means that it's forbidden to
+              // repeat keys even if we provide all the labels, which might be surprising
+              // since in JavaScript / Scala / most languages (but _not_ JSON, interestingly)
+              // it's ok to do `{"a": 1, "a": 2}`, where the second occurrence would just win.
+              if (filedTypes.length != sourceElements.length) {
+                typeError(
+                  s"Expecting ${filedTypes.length} field for record $tyCon, but got ${sourceElements.length}"
+                )
+              }
+
+              val fields =
+                labeledRecordToMap(sourceElements).fold(typeError, identity) match {
+                  case Some(labeledRecords) =>
+                    (fieldNames.view zip filedTypes).map { case (lbl, typ) =>
+                      labeledRecords
+                        .get(lbl)
+                        .fold(typeError(s"Missing record field '$lbl' for record $tyCon")) { v =>
+                          lbl -> go(typ, v, newNesting)
+                        }
+                    }.toList
+                  case _ =>
+                    (fieldNames.view zip filedTypes zip sourceElements.toSeq).map {
+                      case ((targetField, typ), (mbLbl, v)) =>
+                        mbLbl.foreach(sourceField =>
+                          if (sourceField != targetField)
+                            typeError(
+                              s"Mismatching record field label '$sourceField' (expecting '$targetField') for record $tyCon"
+                            )
+                        )
+                        val x = go(typ, v, newNesting)
+                        targetField -> x
+                    }.toList
+                }
+              SValue.SRecord(
+                tyCon,
+                fields.map(_._1).to(ImmArray),
+                fields.map(_._2).to(ArrayList),
+              )
+            }
+          case (eF @ EnumF(tyCon, _, _), ValueEnum(mbId, constructor)) =>
+            checkUserTypeId(tyCon, mbId)
+            val rank = handleLookup(eF.consRank(constructor))
+            SValue.SEnum(tyCon, constructor, rank)
           case _ =>
             typeError()
         }
       }
 
-    go(ty, value)
+    go(Destructor.wrap(ty), value, 0)
   }
 
   // This does not try to pull missing packages, return an error instead.
