@@ -164,7 +164,7 @@ enableMultiPackageOpt = EnableMultiPackage <$> flagYesNoAuto "enable-multi-packa
 
 newtype MultiPackageBuildAll = MultiPackageBuildAll {getMultiPackageBuildAll :: Bool}
 multiPackageBuildAllOpt :: Parser MultiPackageBuildAll
-multiPackageBuildAllOpt = MultiPackageBuildAll <$> switch (long "all" <> help "Build all packages in multi-package.daml")
+multiPackageBuildAllOpt = MultiPackageBuildAll <$> switch (long "all" <> help "Build all packages in multi-package.yaml")
 
 newtype MultiPackageNoCache = MultiPackageNoCache {getMultiPackageNoCache :: Bool}
 multiPackageNoCacheOpt :: Parser MultiPackageNoCache
