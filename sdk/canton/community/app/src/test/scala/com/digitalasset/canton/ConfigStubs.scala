@@ -15,6 +15,7 @@ import com.digitalasset.canton.participant.config.{
   CommunityParticipantConfig,
   ParticipantInitConfig,
 }
+import com.digitalasset.canton.version.{DomainProtocolVersion, ProtocolVersion}
 
 /** Utilities for creating config objects for tests
   */
@@ -30,14 +31,11 @@ object ConfigStubs {
       CommunityStorageConfig.Memory(),
     )
 
-  def domain: CommunityDomainConfig =
+  def domain(protocolVersion: ProtocolVersion): CommunityDomainConfig =
     CommunityDomainConfig(
-      DomainInitConfig(),
-      false,
-      null,
-      null,
-      CommunityStorageConfig.Memory(),
-      CommunityCryptoConfig(),
+      init = DomainInitConfig.defaults(DomainProtocolVersion(protocolVersion)),
+      publicApi = null,
+      adminApi = null,
     )
 
   def adminApi: CommunityAdminServerConfig =

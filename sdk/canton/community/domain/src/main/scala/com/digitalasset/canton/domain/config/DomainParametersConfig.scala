@@ -45,17 +45,14 @@ final case class DomainParametersConfig(
     reconciliationInterval: PositiveDurationSeconds =
       StaticDomainParameters.defaultReconciliationInterval.toConfig,
     maxRatePerParticipant: NonNegativeInt = StaticDomainParameters.defaultMaxRatePerParticipant,
-    maxInboundMessageSize: MaxRequestSize =
-      StaticDomainParameters.defaultMaxRequestSize, // TODO(#15221) Rename to maxRequestSize
+    maxInboundMessageSize: MaxRequestSize = StaticDomainParameters.defaultMaxRequestSize,
     uniqueContractKeys: Boolean = true,
     requiredSigningKeySchemes: Option[NonEmpty[Set[SigningKeyScheme]]] = None,
     requiredEncryptionKeySchemes: Option[NonEmpty[Set[EncryptionKeyScheme]]] = None,
     requiredSymmetricKeySchemes: Option[NonEmpty[Set[SymmetricKeyScheme]]] = None,
     requiredHashAlgorithms: Option[NonEmpty[Set[HashAlgorithm]]] = None,
     requiredCryptoKeyFormats: Option[NonEmpty[Set[CryptoKeyFormat]]] = None,
-    protocolVersion: DomainProtocolVersion = DomainProtocolVersion(
-      ProtocolVersion.latest
-    ),
+    protocolVersion: DomainProtocolVersion,
     override val devVersionSupport: Boolean = false,
     override val dontWarnOnDeprecatedPV: Boolean = false,
     resetStoredStaticConfig: Boolean = false,
@@ -196,4 +193,9 @@ final case class DomainParametersConfig(
       ()
     )
   }
+}
+
+object DomainParametersConfig {
+  def defaults(protocolVersion: DomainProtocolVersion): DomainParametersConfig =
+    DomainParametersConfig(protocolVersion = protocolVersion)
 }

@@ -1,0 +1,3 @@
+ALTER TABLE party_entries
+    ALTER COLUMN party
+        SET DATA TYPE VARCHAR COLLATE "C";

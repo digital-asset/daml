@@ -99,7 +99,7 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
     }
 
     "successfully start a Canton node when configured only using -C" in { processLogger =>
-      s"$cantonBin -C canton.participants.participant1.storage.type=memory -C canton.participants.participant1.admin-api.port=5012 -C canton.participants.participant1.ledger-api.port=5011 -C canton.domains.domain1.public-api.port=5018 -C canton.domains.domain1.admin-api.port=5019 -C canton.domains.domain1.storage.type=memory $cantonShouldStartFlags" ! processLogger
+      s"$cantonBin -C canton.participants.participant1.storage.type=memory -C canton.participants.participant1.admin-api.port=5012 -C canton.participants.participant1.ledger-api.port=5011 -C canton.domains.domain1.public-api.port=5018 -C canton.domains.domain1.admin-api.port=5019 -C canton.domains.domain1.storage.type=memory -C canton.domains.domain1.init.domain-parameters.protocol-version=5 $cantonShouldStartFlags" ! processLogger
       checkOutput(processLogger, shouldContain = Seq(successMsg))
     }
 

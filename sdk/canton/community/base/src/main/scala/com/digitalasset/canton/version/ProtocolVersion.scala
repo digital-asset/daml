@@ -314,6 +314,12 @@ object ProtocolVersion {
   lazy val v4: ProtocolVersionWithStatus[Stable] = ProtocolVersion.stable(4)
   lazy val v5: ProtocolVersionWithStatus[Stable] = ProtocolVersion.stable(5)
   lazy val v6: ProtocolVersionWithStatus[Unstable] = ProtocolVersion.unstable(6)
+  /*
+  If you add a new protocol version, ensure that you add the corresponding CI
+  jobs (`test_protocol_version_X`) so that tests are run with this new protocol version.
+  Additionally, bump the protocol version (`domain-parameters.protocol-version`) in
+  the config files if you change the default protocol version.
+   */
 
   // Minimum stable protocol version introduced
   // We still use v3 instead of v5 because we still want to deserialize v3 messages for hard domain migration purposes.

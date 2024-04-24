@@ -147,4 +147,39 @@ private[backend] trait StorageBackendTestsParties
     pageTwo.exists(_.party == "ggf") shouldBe true
     pageTwo.exists(_.party == "hhf") shouldBe true
   }
+
+  it should "get all parties ordered by id using binary collation" in {
+    val dtos = Vector(
+      dtoPartyEntry(offset(1), "a", isLocal = false, Some(Some("a"))),
+      dtoPartyEntry(offset(2), "a-", isLocal = false, Some(Some("a!"))),
+      dtoPartyEntry(offset(3), "b", isLocal = false, Some(Some("b"))),
+      dtoPartyEntry(offset(4), "a_", isLocal = false, Some(Some("a_"))),
+      dtoPartyEntry(offset(5), "-a", isLocal = false, Some(Some("!a"))),
+      dtoPartyEntry(offset(6), "_a", isLocal = false, Some(Some("_a"))),
+    )
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(dtos, _))
+    // ledger end deliberately omitting the last test entries
+    executeSql(
+      updateLedgerEnd(offset(6), ledgerEndSequentialId = 0)
+    )
+
+    val allKnownParties = executeSql(backend.party.knownParties(None, 10))
+    allKnownParties.length shouldBe 6
+
+    allKnownParties
+      .map(_.party) shouldBe Seq("-a", "_a", "a", "a-", "a_", "b")
+
+    val pageOne = executeSql(backend.party.knownParties(None, 3))
+    pageOne.length shouldBe 3
+    pageOne
+      .map(_.party) shouldBe Seq("-a", "_a", "a")
+
+    val pageTwo =
+      executeSql(backend.party.knownParties(Some(LfPartyId.assertFromString("a")), 10))
+    pageTwo.length shouldBe 3
+    pageTwo
+      .map(_.party) shouldBe Seq("a-", "a_", "b")
+  }
 }
