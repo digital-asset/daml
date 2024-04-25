@@ -5,7 +5,6 @@ syntax = "proto3";
 
 package com.digitalasset.canton.domain.api.v30;
 
-import "com/digitalasset/canton/protocol/v30/signed_content.proto";
 import "com/digitalasset/canton/topology/admin/v30/topology_ext.proto";
 import "com/digitalasset/canton/v30/trace_context.proto";
 import "scalapb/scalapb.proto";
@@ -185,6 +184,7 @@ message SubscriptionRequest {
 
 message VersionedSubscriptionResponse {
   // Contains a versioned SignedContent which itself contains a versioned SequencedEvent
+  // Serialized SignedContent[SequencedEvent[ClosedEnvelope]]
   bytes signed_sequenced_event = 1;
 
   // optional, canton trace context
@@ -217,7 +217,8 @@ message AcknowledgeResponse {}
 message AcknowledgeSignedRequest {
   // contains a versioned AcknowledgeRequest
   // TODO(i17383): Have exactly one signature instead of multiple signatures.
-  com.digitalasset.canton.protocol.v30.SignedContent signed_content = 1;
+  // Serialized SignedContent[AcknowledgeRequest]
+  bytes signed_acknowledge_request = 1;
 }
 
 message AcknowledgeSignedResponse {}

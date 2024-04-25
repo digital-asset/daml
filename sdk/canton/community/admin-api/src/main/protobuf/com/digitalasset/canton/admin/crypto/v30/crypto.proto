@@ -1,0 +1,18 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.admin.crypto.v30;
+
+enum HmacAlgorithm {
+  HMAC_ALGORITHM_UNSPECIFIED = 0;
+  HMAC_ALGORITHM_HMAC_SHA256 = 1;
+}
+
+message Salt {
+  oneof algorithm {
+    HmacAlgorithm hmac = 1;
+  }
+  bytes salt = 2;
+}

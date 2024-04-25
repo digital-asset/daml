@@ -64,6 +64,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{
   BaseTest,
@@ -169,7 +170,7 @@ class ProtocolProcessorTest
             )
           )
         )
-        EitherT.pure[Future, SendAsyncClientError](())
+        EitherTUtil.unitUS
       }
     )
 
@@ -446,7 +447,7 @@ class ProtocolProcessorTest
           any[Boolean],
         )(anyTraceContext)
       )
-        .thenReturn(EitherT.leftT[Future, Unit](sendError))
+        .thenReturn(EitherT.leftT[FutureUnlessShutdown, Unit](sendError))
       val (sut, _persistent, _ephemeral) =
         testProcessingSteps(
           sequencerClient = failingSequencerClient,

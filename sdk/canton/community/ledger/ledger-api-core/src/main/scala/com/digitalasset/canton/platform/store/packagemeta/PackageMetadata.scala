@@ -8,6 +8,7 @@ import cats.syntax.semigroup.*
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
+import com.daml.lf.language.util.PackageInfo
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   InterfacesImplementedBy,
@@ -36,14 +37,15 @@ object PackageMetadata {
   )
 
   def from(archive: DamlLf.Archive): PackageMetadata = {
-    val ((packageId, pkg), packageInfo) = Decode.assertDecodeInfoPackage(archive)
+    val (pkgId, pkgAst) = Decode.assertDecodeArchive(archive, onlySerializableDataDefs = true)
+    val packageInfo = new PackageInfo(Map(pkgId -> pkgAst))
 
-    val packageName = pkg.metadata.name
-    val packageVersion = pkg.metadata.version
+    val packageName = pkgAst.metadata.name
+    val packageVersion = pkgAst.metadata.version
     val packageNameMap = Map(
       packageName -> PackageResolution(
-        preference = LocalPackagePreference(packageVersion, packageId),
-        allPackageIdsForName = NonEmpty(Set, packageId),
+        preference = LocalPackagePreference(packageVersion, pkgId),
+        allPackageIdsForName = NonEmpty(Set, pkgId),
       )
     )
 
@@ -52,7 +54,7 @@ object PackageMetadata {
       interfaces = packageInfo.definedInterfaces,
       templates = packageInfo.definedTemplates,
       interfacesImplementedBy = packageInfo.interfaceInstances,
-      packageIdVersionMap = Map(packageId -> (packageName, packageVersion)),
+      packageIdVersionMap = Map(pkgId -> (packageName, packageVersion)),
     )
   }
 

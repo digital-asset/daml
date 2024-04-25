@@ -3,21 +3,15 @@
 
 package com.digitalasset.canton.http
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.http.scaladsl.Http
-import org.apache.pekko.http.scaladsl.Http.ServerBinding
-import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.settings.ServerSettings
-import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
-import com.digitalasset.canton.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.pekkohttp.HttpMetricsInterceptor
 import com.daml.ports.{Port, PortFiles}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.http.HttpService.buildKeyStore
 import com.digitalasset.canton.http.json.{
   ApiValueToJsValueConverter,
   DomainJsonDecoder,
@@ -28,23 +22,34 @@ import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.ApiValueToLfValueConverter
 import com.digitalasset.canton.http.util.FutureUtil.*
 import com.digitalasset.canton.http.util.Logging.InstanceUUID
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes.ApplicationId
+import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
+import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
 import com.digitalasset.canton.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
 }
 import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
-import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
 import com.digitalasset.canton.ledger.service.LedgerReader
 import com.digitalasset.canton.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
 import io.grpc.Channel
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthGrpc}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http.ServerBinding
+import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.http.scaladsl.settings.ServerSettings
+import org.apache.pekko.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
+import org.apache.pekko.stream.Materializer
 import scalaz.*
 import scalaz.Scalaz.*
 
-import java.nio.file.Path
+import java.nio.file.{Files, Path}
+import java.security.{Key, KeyStore}
+import javax.net.ssl.SSLContext
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Using
 
 class HttpService(
     startSettings: StartSettings,
@@ -151,7 +156,7 @@ class HttpService(
       (encoder, decoder) = HttpService.buildJsonCodecs(packageService)
 
       jsonEndpoints = new Endpoints(
-        allowNonHttps,
+        startSettings.httpsConfiguration.isEmpty,
         HttpService.decodeJwt,
         commandService,
         contractsService,
@@ -197,12 +202,18 @@ class HttpService(
         EndpointsCompanion.notFound(logger),
       )
 
-      binding <- liftET[HttpService.Error](
-        Http()
+      binding <- liftET[HttpService.Error] {
+        val serverBuilder = Http()
           .newServerAt(address, httpPort.getOrElse(0))
           .withSettings(settings)
+
+        httpsConfiguration
+          .fold(serverBuilder) { config =>
+            logger.info(s"Enabling HTTPS with $config")
+            serverBuilder.enableHttps(HttpService.httpsConnectionContext(config))
+          }
           .bind(allEndpoints)
-      )
+      }
 
       _ <- either(portFile.cata(f => HttpService.createPortFile(f, binding), \/-(()))): ET[Unit]
 
@@ -216,6 +227,7 @@ class HttpService(
     logger.info(s"Stopping JSON API server..., ${lc.makeString}")
     binding.unbind().void
   })
+
 }
 
 object HttpService {
@@ -275,6 +287,66 @@ object HttpService {
   ): HttpService.Error \/ Unit = {
     import com.digitalasset.canton.http.util.ErrorOps.*
     PortFiles.write(file, Port(binding.localAddress.getPort)).liftErr(Error.apply)
+  }
+
+  def buildSSLContext(config: TlsConfiguration): SSLContext = {
+    import java.security.SecureRandom
+    import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
+
+    val keyStore = buildKeyStore(config)
+
+    val keyManagerFactory = KeyManagerFactory.getInstance("SunX509")
+    keyManagerFactory.init(keyStore, null)
+
+    val trustManagerFactory = TrustManagerFactory.getInstance("SunX509")
+    trustManagerFactory.init(keyStore)
+
+    val context = SSLContext.getInstance("TLS")
+    context.init(
+      keyManagerFactory.getKeyManagers,
+      trustManagerFactory.getTrustManagers,
+      new SecureRandom,
+    )
+    context
+  }
+
+  private def httpsConnectionContext(config: TlsConfiguration): HttpsConnectionContext =
+    ConnectionContext.httpsServer(buildSSLContext(config))
+
+  private def buildKeyStore(config: TlsConfiguration): KeyStore = buildKeyStore(
+    config.certChainFile.get.toPath,
+    config.privateKeyFile.get.toPath,
+    config.trustCollectionFile.get.toPath,
+  )
+
+  private def buildKeyStore(certFile: Path, privateKeyFile: Path, caCertFile: Path): KeyStore = {
+    import java.security.cert.CertificateFactory
+    val alias = "key" // This can be anything as long as it's consistent.
+
+    val cf = CertificateFactory.getInstance("X.509")
+    val cert = Using.resource(Files.newInputStream(certFile)) { cf.generateCertificate(_) }
+    val caCert = Using.resource(Files.newInputStream(caCertFile)) { cf.generateCertificate(_) }
+    val privateKey = loadPrivateKey(privateKeyFile)
+
+    val keyStore = KeyStore.getInstance("PKCS12")
+    keyStore.load(null)
+    keyStore.setCertificateEntry(alias, cert)
+    keyStore.setCertificateEntry(alias, caCert)
+    keyStore.setKeyEntry(alias, privateKey, null, Array(cert, caCert))
+    keyStore.setCertificateEntry("trusted-ca", caCert)
+    keyStore
+  }
+
+  private def loadPrivateKey(pkRsaPemFile: Path): Key = {
+    import org.bouncycastle.asn1.pkcs.PrivateKeyInfo
+    import org.bouncycastle.openssl.PEMParser
+    import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter
+
+    Using.resource(Files.newBufferedReader(pkRsaPemFile)) { reader =>
+      val pemParser = new PEMParser(reader)
+      val pkInfo = PrivateKeyInfo.getInstance(pemParser.readObject())
+      new JcaPEMKeyConverter().getPrivateKey(pkInfo)
+    }
   }
 
   final case class Error(message: String)

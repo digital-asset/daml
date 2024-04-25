@@ -267,7 +267,9 @@ object SyncDomainEphemeralStateFactory {
                 .RequestData(rcProcess, _state, requestTimestampProcess, _commitTime, repairContext)
             ) =>
           if (isRepairOnEmptyDomain(processData)) {
-            logger.debug(show"First dirty request is repair request $rcProcess on an empty domain.")
+            logger.debug(
+              show"First inflight validation request is repair request $rcProcess on an empty domain."
+            )
             Future.successful(
               MessageProcessingStartingPoint(
                 cleanRequestPreheadLocalOffsetO,
@@ -277,7 +279,9 @@ object SyncDomainEphemeralStateFactory {
               ) -> cleanSequencerCounterPreheadO
             )
           } else {
-            logger.debug(show"First dirty request $rcProcess at $requestTimestampProcess")
+            logger.debug(
+              show"First inflight validation request $rcProcess at $requestTimestampProcess"
+            )
 
             for {
               startingEvent <- sequencedEventStore
@@ -316,7 +320,7 @@ object SyncDomainEphemeralStateFactory {
                   }
                 } else {
                   // This is a repair, so the sequencer counter will remain clean
-                  // as there is no dirty request since the clean request prehead.
+                  // as there is no inflight validation request since the clean request prehead.
                   val startingPoint =
                     MessageProcessingStartingPoint(
                       cleanRequestPreheadLocalOffsetO,
@@ -468,7 +472,7 @@ object SyncDomainEphemeralStateFactory {
     implicit val traceContext: TraceContext = loggingContext.traceContext
     val logger = loggingContext.logger
     for {
-      // We're about to clean the dirty requests from the stores.
+      // We're about to clean the inflight validation requests from the stores.
       // Some of the corresponding events may already have become clean.
       // So we rewind the clean sequencer counter prehead first
       _ <- persistentState.sequencerCounterTrackerStore.rewindPreheadSequencerCounter(
@@ -497,7 +501,7 @@ object SyncDomainEphemeralStateFactory {
           )
           persistentState.eventLog.deleteAfter(unpublishedOffsetAfterCleanPrehead)
       }
-      _ = logger.debug("Deleting dirty requests")
+      _ = logger.debug("Deleting inflight validation requests")
       _ <- persistentState.requestJournalStore.deleteSince(
         processingStartingPoint.nextRequestCounter
       )

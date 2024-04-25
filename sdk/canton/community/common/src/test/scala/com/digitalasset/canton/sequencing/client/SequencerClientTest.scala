@@ -27,6 +27,7 @@ import com.digitalasset.canton.protocol.{
   TestDomainParameters,
 }
 import com.digitalasset.canton.sequencing.*
+import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.SequencedEventValidationError.GapInSequencerCounter
 import com.digitalasset.canton.sequencing.client.SequencerClient.CloseReason.{
   ClientShutdown,
@@ -65,6 +66,7 @@ import com.digitalasset.canton.topology.DefaultTestIdentities.{participant1, seq
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{DomainTopologyClient, TopologySnapshot}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.version.ProtocolVersion
 import org.apache.pekko.actor.ActorSystem
@@ -947,8 +949,10 @@ class SequencerClientTest
 
     def sendAsync(
         batch: Batch[DefaultOpenEnvelope]
-    )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] =
-      client.sendAsync(batch)
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[Future, SendAsyncClientError, Unit] =
+      client.sendAsync(batch).onShutdown(fail())
   }
 
   private class MockSubscription[E] extends SequencerSubscription[E] {
@@ -1001,20 +1005,20 @@ class SequencerClientTest
 
     override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
         traceContext: TraceContext
-    ): EitherT[Future, String, Unit] =
-      EitherT.rightT(())
+    ): EitherT[Future, String, Boolean] =
+      EitherT.rightT(true)
 
     private def sendAsync(
         request: SubmissionRequest
-    ): EitherT[Future, SendAsyncClientError, Unit] = {
+    ): EitherT[Future, SendAsyncClientResponseError, Unit] = {
       lastSend.set(Some(request))
-      EitherT.rightT(())
+      EitherTUtil.unit
     }
 
     override def sendAsyncSigned(
         request: SignedContent[SubmissionRequest],
         timeout: Duration,
-    )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] =
+    )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientResponseError, Unit] =
       sendAsync(request.content)
 
     override def sendAsyncUnauthenticatedVersioned(
@@ -1022,7 +1026,7 @@ class SequencerClientTest
         timeout: Duration,
     )(implicit
         traceContext: TraceContext
-    ): EitherT[Future, SendAsyncClientError, Unit] = ???
+    ): EitherT[Future, SendAsyncClientResponseError, Unit] = ???
 
     override def subscribe[E](request: SubscriptionRequest, handler: SerializedEventHandler[E])(
         implicit traceContext: TraceContext

@@ -137,7 +137,14 @@ class CantonLedgerApiServerFactory(
         .initialize(
           CantonLedgerApiServerWrapper.Config(
             serverConfig = config.ledgerApi,
-            jsonApiConfig = config.httpLedgerApiExperimental.map(_.toConfig),
+            jsonApiConfig = config.httpLedgerApiExperimental.map(
+              _.toConfig(
+                config.ledgerApi.tls
+                  .map(
+                    LedgerApiServerConfig.ledgerApiServerTlsConfigFromCantonServerConfig
+                  )
+              )
+            ),
             indexerConfig = parameters.ledgerApiServerParameters.indexer,
             indexerHaConfig = indexerHaConfig,
             participantId = participantId,

@@ -9,7 +9,7 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
-import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Signature}
+import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.data.SequencerBlockStore
 import com.digitalasset.canton.domain.block.{
@@ -19,7 +19,10 @@ import com.digitalasset.canton.domain.block.{
 }
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.PruningError.UnsafePruningPoint
-import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.EventSource
+import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.{
+  EventSource,
+  SignedOrderingRequest,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
@@ -41,6 +44,7 @@ import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -232,6 +236,24 @@ class BlockSequencer(
 
   override def adminServices: Seq[ServerServiceDefinition] = blockSequencerOps.adminServices
 
+  private def signOrderingRequest[A <: HasCryptographicEvidence](
+      content: SignedContent[SubmissionRequest]
+  )(implicit tc: TraceContext): EitherT[Future, SendAsyncError.Internal, SignedOrderingRequest] = {
+    val privateCrypto = cryptoApi.currentSnapshotApproximation
+    for {
+      signed <- SignedContent
+        .create(
+          cryptoApi.pureCrypto,
+          privateCrypto,
+          content,
+          Some(privateCrypto.ipsSnapshot.timestamp),
+          HashPurpose.OrderingRequestSignature,
+          protocolVersion,
+        )
+        .leftMap(error => SendAsyncError.Internal(s"Could not sign ordering request: $error"))
+    } yield signed
+  }
+
   override protected def sendAsyncSignedInternal(
       signedSubmission: SignedContent[SubmissionRequest]
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = {
@@ -271,13 +293,14 @@ class BlockSequencer(
           s"Invoking send operation on the ledger with the following protobuf message serialized to bytes ${prettyPrinter
               .printAdHoc(submission.toProtoVersioned)}"
         )
+      signedOrderingRequest <- signOrderingRequest(signedSubmission)
       _ <-
         EitherT(
           futureSupervisor
             .supervised(
               s"Sending submission request with id ${submission.messageId} from $sender to ${batch.allRecipients}"
             )(
-              blockSequencerOps.send(signedSubmission).value
+              blockSequencerOps.send(signedOrderingRequest).value
             )
         )
     } yield ()

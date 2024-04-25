@@ -63,6 +63,7 @@ import com.digitalasset.canton.sequencing.{
   SequencerConnection,
   SequencerConnectionValidation,
   SequencerConnections,
+  SubmissionRequestAmplification,
 }
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -91,11 +92,20 @@ private[console] object ParticipantCommands {
         vetAllPackages: Boolean,
         synchronizeVetting: Boolean,
         logger: TracedLogger,
-        dryRun: Boolean,
     ): ConsoleCommandResult[String] =
       runner.adminCommand(
         ParticipantAdminCommands.Package
-          .UploadDar(Some(path), vetAllPackages, synchronizeVetting, logger, dryRun)
+          .UploadDar(Some(path), vetAllPackages, synchronizeVetting, logger)
+      )
+
+    def validate(
+        runner: AdminCommandRunner,
+        path: String,
+        logger: TracedLogger,
+    ): ConsoleCommandResult[String] =
+      runner.adminCommand(
+        ParticipantAdminCommands.Package
+          .ValidateDar(Some(path), logger)
       )
 
   }
@@ -109,7 +119,8 @@ private[console] object ParticipantCommands {
         maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
         priority: Int = 0,
         sequencerTrustThreshold: PositiveInt = PositiveInt.one,
-        submissionRequestAmplification: PositiveInt = PositiveInt.one,
+        submissionRequestAmplification: SubmissionRequestAmplification =
+          SubmissionRequestAmplification.NoAmplification,
     ): DomainConnectionConfig = {
       DomainConnectionConfig(
         domainAlias,
@@ -851,7 +862,6 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |
         |If vetAllPackages is true (default), the packages will all be vetted on all domains the participant is registered.
         |If synchronizeVetting is true (default), then the command will block until the participant has observed the vetting transactions to be registered with the domain.
-        |If dryRun is true (false by default), the participant will not upload the DAR, even if all validation steps pass.
         |
         |Note that synchronize vetting might block on permissioned domains that do not just allow participants to update the topology state.
         |In such cases, synchronizeVetting should be turned off.
@@ -864,12 +874,11 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-        dryRun: Boolean = false,
     ): String = {
       val res = consoleEnvironment.runE {
         for {
           hash <- ParticipantCommands.dars
-            .upload(runner, path, vetAllPackages, synchronizeVetting, logger, dryRun)
+            .upload(runner, path, vetAllPackages, synchronizeVetting, logger)
             .toEither
         } yield hash
       }
@@ -1151,7 +1160,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           consoleEnvironment.commandTimeouts.bounded
         ),
         sequencerTrustThreshold: PositiveInt = PositiveInt.one,
-        submissionRequestAmplification: PositiveInt = PositiveInt.one,
+        submissionRequestAmplification: SubmissionRequestAmplification =
+          SubmissionRequestAmplification.NoAmplification,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): Unit = {
       val config = ParticipantCommands.domains.reference_to_config(
@@ -1498,26 +1508,26 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       """While a resource limit is attained or exceeded, the participant will reject any additional submission with GRPC status ABORTED.
         |Most importantly, a submission will be rejected **before** it consumes a significant amount of resources.
         |
-        |There are three kinds of limits: `maxDirtyRequests`,  `maxRate` and `maxBurstFactor`.
-        |The number of dirty requests of a participant P covers (1) requests initiated by P as well as
+        |There are three kinds of limits: `maxInflightValidationRequests`,  `maxSubmissionRate` and `maxSubmissionBurstFactor`.
+        |The number of inflight validation requests of a participant P covers (1) requests initiated by P as well as
         |(2) requests initiated by participants other than P that need to be validated by P.
-        |Compared to the maximum rate, the maximum number of dirty requests reflects the load on the participant more accurately.
-        |However, the maximum number of dirty requests alone does not protect the system from "bursts":
-        |If an application submits a huge number of commands at once, the maximum number of dirty requests will likely
-        |be exceeded, as the system is registering dirty requests only during validation and not already during
+        |Compared to the maximum rate, the maximum number of inflight validation requests reflects the load on the participant more accurately.
+        |However, the maximum number of inflight validation requests alone does not protect the system from "bursts":
+        |If an application submits a huge number of commands at once, the maximum number of inflight validation requests will likely
+        |be exceeded, as the system is registering inflight validation requests only during validation and not already during
         |submission.
         |
-        |The maximum rate is a hard limit on the rate of commands submitted to this participant through the ledger API.
+        |The maximum rate is a hard limit on the rate of commands submitted to this participant through the Ledger API.
         |As the rate of commands is checked and updated immediately after receiving a new command submission,
         |an application cannot exceed the maximum rate.
         |
-        |The `maxBurstFactor` parameter (positive, default 0.5) allows to configure how permissive the rate limitation should be
-        |with respect to bursts. The rate limiting will be enforced strictly after having observed `max_burst` * `max_rate` commands.
+        |The `maxSubmissionBurstFactor` parameter (positive, default 0.5) allows to configure how permissive the rate limitation should be
+        |with respect to bursts. The rate limiting will be enforced strictly after having observed `max_burst` * `max_submission_rate` commands.
         |
         |For the sake of illustration, let's assume the configured rate limit is ``100 commands/s`` with a burst ratio of 0.5.
         |If an application submits 100 commands within a single second, waiting exactly 10 milliseconds between consecutive commands,
         |then the participant will accept all commands.
-        |With a `maxBurstFactor` of 0.5, the participant will accept the first 50 commands and reject the remaining 50.
+        |With a `maxSubmissionBurstFactor` of 0.5, the participant will accept the first 50 commands and reject the remaining 50.
         |If the application then waits another 500 ms, it may submit another burst of 50 commands. If it waits 250 ms,
         |it may submit only a burst of 25 commands.
         |

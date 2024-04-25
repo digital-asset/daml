@@ -109,7 +109,7 @@ private[apiserver] final class ApiPackageManagementService private (
       darFile: ByteString
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[(Ref.PackageId, Dar[Archive])] = Future.delegate {
+  ): Future[Dar[Archive]] = Future.delegate {
     // Triggering computation in `executionContext` as caller thread (from netty)
     // should not be busy with heavy computation
     for {
@@ -133,7 +133,16 @@ private[apiserver] final class ApiPackageManagementService private (
           Future { () }
         } else
           packageUpgradeValidator.validateUpgrade(decodedDar.main)
-    } yield (decodedDar.main._1, dar)
+    } yield dar
+  }
+
+  override def validateDarFile(request: ValidateDarFileRequest): Future[ValidateDarFileResponse] = {
+    val submissionId = submissionIdGenerator(request.submissionId)
+    LoggingContextWithTrace.withEnrichedLoggingContext(telemetry)(
+      logging.submissionId(submissionId)
+    ) { implicit loggingContext: LoggingContextWithTrace =>
+      decodeAndValidate(request.darFile).map((_: Dar[Archive]) => ValidateDarFileResponse())
+    }
   }
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
@@ -144,12 +153,7 @@ private[apiserver] final class ApiPackageManagementService private (
       logger.info(s"Uploading DAR file, ${loggingContext.serializeFiltered("submissionId")}.")
 
       val response = for {
-        (packageId, dar) <- decodeAndValidate(request.darFile)
-        _ <-
-          if (request.dryRun)
-            Future.failed(Validation.DryRun.Error(packageId).asGrpcError)
-          else
-            Future { () }
+        dar <- decodeAndValidate(request.darFile)
         ledgerEndbeforeRequest <- transactionsService.currentLedgerEnd().map(Some(_))
         _ <- synchronousResponse.submitAndWait(
           submissionId,

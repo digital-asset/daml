@@ -23,7 +23,7 @@ import com.digitalasset.canton.sequencing.{ResubscriptionStart, SubscriptionStar
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.client.{
   CachingDomainTopologyClient,
-  DomainTopologyClientWithInitX,
+  DomainTopologyClientWithInit,
   StoreBasedDomainTopologyClient,
 }
 import com.digitalasset.canton.topology.store.TopologyStoreX.Change
@@ -60,8 +60,6 @@ class TopologyTransactionProcessorX(
       timeouts,
       loggerFactory,
     ) {
-
-  override type SubscriberType = TopologyTransactionProcessingSubscriberX
 
   private val maxSequencedTimeAtInitializationF =
     TraceContext.withNewTraceContext(implicit traceContext =>
@@ -226,7 +224,7 @@ object TopologyTransactionProcessorX {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[(TopologyTransactionProcessorX, DomainTopologyClientWithInitX)] = {
+  ): Future[(TopologyTransactionProcessorX, DomainTopologyClientWithInit)] = {
 
     val processor = new TopologyTransactionProcessorX(
       domainId,

@@ -27,6 +27,7 @@ import com.digitalasset.canton.sequencing.{
   SequencerConnection,
   SequencerConnectionValidation,
   SequencerConnections,
+  SubmissionRequestAmplification,
 }
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
@@ -440,7 +441,7 @@ object SequencerInfoLoader {
   private[grpc] def aggregateBootstrapInfo(
       logger: TracedLogger,
       sequencerTrustThreshold: PositiveInt,
-      submissionRequestAmplification: PositiveInt,
+      submissionRequestAmplification: SubmissionRequestAmplification,
       sequencerConnectionValidation: SequencerConnectionValidation,
   )(
       fullResult: Seq[LoadSequencerEndpointInformationResult]

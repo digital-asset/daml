@@ -8,23 +8,35 @@ import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
 import com.daml.metrics.grpc.DamlGrpcServerMetrics
+import com.typesafe.scalalogging.LazyLogging
 import io.opentelemetry.api.metrics.Meter
 import io.opentelemetry.sdk.metrics.SdkMeterProvider
 
-object Metrics {
+object Metrics extends LazyLogging {
+
+  lazy val KNOWN_METRICS = Set[String]()
 
   def apply(prefix: MetricName, otelMeter: Meter) =
-    new Metrics(prefix, new OpenTelemetryMetricsFactory(otelMeter))
+    new Metrics(
+      prefix,
+      new OpenTelemetryMetricsFactory(otelMeter, KNOWN_METRICS, Some(logger.underlying)),
+    )
 
   lazy val ForTesting: Metrics = {
     new Metrics(
       MetricName("est"),
-      new OpenTelemetryMetricsFactory(SdkMeterProvider.builder().build().get("for_testing")),
+      new OpenTelemetryMetricsFactory(
+        SdkMeterProvider.builder().build().get("for_testing"),
+        KNOWN_METRICS,
+        Some(logger.underlying),
+      ),
     )
   }
 }
 
-final class Metrics(prefix: MetricName, val openTelemetryMetricsFactory: LabeledMetricsFactory) {
+final class Metrics(parent: MetricName, val openTelemetryMetricsFactory: LabeledMetricsFactory) {
+
+  private val prefix = parent :+ "api"
 
   object commands extends CommandMetrics(prefix :+ "commands", openTelemetryMetricsFactory)
 

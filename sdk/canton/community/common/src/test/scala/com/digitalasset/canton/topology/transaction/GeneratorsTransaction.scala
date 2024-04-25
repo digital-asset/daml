@@ -29,7 +29,7 @@ final class GeneratorsTransaction(
   import GeneratorsLf.*
   import generatorsProtocol.*
   import GeneratorsTopology.*
-  import com.digitalasset.canton.config.GeneratorsConfig.{nonNegativeFiniteDurationArb as _, *}
+  import com.digitalasset.canton.config.GeneratorsConfig.*
 
   implicit val topologyChangeOpArb: Arbitrary[TopologyChangeOpX] = Arbitrary(
     Gen.oneOf(

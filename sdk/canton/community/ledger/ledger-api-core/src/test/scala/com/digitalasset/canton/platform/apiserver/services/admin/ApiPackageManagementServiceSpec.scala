@@ -12,6 +12,8 @@ import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.admin.package_management_service.{
   PackageManagementServiceGrpc,
   UploadDarFileRequest,
+  ValidateDarFileRequest,
+  ValidateDarFileResponse,
 }
 import com.daml.lf.archive.testing.Encode
 import com.daml.lf.archive.{Dar, GenDarReader}
@@ -87,7 +89,7 @@ class ApiPackageManagementServiceSpec
       val span = testTelemetrySetup.anEmptySpan()
       val scope = span.makeCurrent()
       apiService
-        .uploadDarFile(UploadDarFileRequest(ByteString.EMPTY, aSubmissionId, dryRun = false))
+        .uploadDarFile(UploadDarFileRequest(ByteString.EMPTY, aSubmissionId))
         .andThen { case _ =>
           scope.close()
           span.end()
@@ -106,7 +108,7 @@ class ApiPackageManagementServiceSpec
       loggerFactory.assertLogsSeq(SuppressionRule.LevelAndAbove(DEBUG))(
         within = {
           apiService
-            .uploadDarFile(UploadDarFileRequest(ByteString.EMPTY, aSubmissionId, dryRun = false))
+            .uploadDarFile(UploadDarFileRequest(ByteString.EMPTY, aSubmissionId))
             .map(_ => succeed)
         },
         { logEntries =>
@@ -116,6 +118,15 @@ class ApiPackageManagementServiceSpec
           forEvery(mdcs) { _.getOrElse("trace-id", "") should not be empty }
         },
       )
+    }
+
+    "validate a dar" in {
+      val apiService = createApiService()
+      apiService
+        .validateDarFile(ValidateDarFileRequest(ByteString.EMPTY, aSubmissionId))
+        .map { case ValidateDarFileResponse() =>
+          succeed
+        }
     }
 
     "close while uploading dar" in {
@@ -164,7 +175,7 @@ class ApiPackageManagementServiceSpec
 
       apiPackageManagementService
         .uploadDarFile(
-          UploadDarFileRequest(ByteString.EMPTY, aSubmissionId, dryRun = false)
+          UploadDarFileRequest(ByteString.EMPTY, aSubmissionId)
         )
         .transform {
           case Success(_) =>

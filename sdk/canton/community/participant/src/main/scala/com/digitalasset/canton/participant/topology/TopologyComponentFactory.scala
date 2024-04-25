@@ -12,7 +12,7 @@ import com.digitalasset.canton.config.{
   ProcessingTimeout,
   TopologyConfig,
 }
-import com.digitalasset.canton.crypto.{Crypto, DomainSyncCryptoClient}
+import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
@@ -37,54 +37,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait TopologyComponentFactory {
-
-  def createTopologyClient(
-      protocolVersion: ProtocolVersion,
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
-  )(implicit executionContext: ExecutionContext): DomainTopologyClientWithInit
-
-  def createCachingTopologyClient(
-      protocolVersion: ProtocolVersion,
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
-  )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
-  ): Future[DomainTopologyClientWithInit]
-
-  def createTopologySnapshot(
-      asOf: CantonTimestamp,
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
-      preferCaching: Boolean,
-  )(implicit executionContext: ExecutionContext): TopologySnapshot
-
-  def createHeadTopologySnapshot()(implicit
-      executionContext: ExecutionContext
-  ): TopologySnapshot =
-    createTopologySnapshot(
-      CantonTimestamp.MaxValue,
-      StoreBasedDomainTopologyClient.NoPackageDependencies,
-      preferCaching = false,
-    )
-
-  def createTopologyProcessorFactory(
-      partyNotifier: LedgerServerPartyNotifier,
-      missingKeysAlerter: MissingKeysAlerter,
-      topologyClient: DomainTopologyClientWithInit,
-      // this is the client above, wrapped with some crypto methods, but only the base client is accessible, so we
-      // need to pass both.
-      // TODO(#15208) remove me with 3.0
-      syncCrypto: DomainSyncCryptoClient,
-      trafficStateController: TrafficStateController,
-      recordOrderPublisher: RecordOrderPublisher,
-      protocolVersion: ProtocolVersion,
-      useNewTrafficControl: Boolean,
-  ): TopologyTransactionProcessorCommon.Factory
-
-}
-
-// TODO(#15161) collapse with base trait
-class TopologyComponentFactoryX(
+class TopologyComponentFactory(
     domainId: DomainId,
     crypto: Crypto,
     clock: Clock,
@@ -95,16 +48,14 @@ class TopologyComponentFactoryX(
     topologyXConfig: TopologyConfig,
     topologyStore: TopologyStoreX[DomainStore],
     loggerFactory: NamedLoggerFactory,
-) extends TopologyComponentFactory {
+) {
 
-  override def createTopologyProcessorFactory(
+  def createTopologyProcessorFactory(
       partyNotifier: LedgerServerPartyNotifier,
       missingKeysAlerter: MissingKeysAlerter,
       topologyClient: DomainTopologyClientWithInit,
-      syncCrypto: DomainSyncCryptoClient,
       trafficStateController: TrafficStateController,
       recordOrderPublisher: RecordOrderPublisher,
-      protocolVersion: ProtocolVersion,
       useNewTrafficControl: Boolean,
   ): TopologyTransactionProcessorCommon.Factory = new TopologyTransactionProcessorCommon.Factory {
     override def create(
@@ -130,14 +81,7 @@ class TopologyComponentFactoryX(
       // subscribe party notifier to topology processor
       processor.subscribe(partyNotifier.attachToTopologyProcessorX())
       processor.subscribe(missingKeysAlerter.attachToTopologyProcessorX())
-      // TODO(#14048) this is an ugly hack, but I don't know where we could create the individual components
-      //              and have the types align :(
-      topologyClient match {
-        case x: DomainTopologyClientWithInitX =>
-          processor.subscribe(x)
-        case _ =>
-          throw new IllegalStateException("passed wrong type. coding bug")
-      }
+      processor.subscribe(topologyClient)
       if (!useNewTrafficControl)
         processor.subscribe(
           new TrafficStateTopUpSubscription(trafficStateController, loggerFactory)
@@ -146,11 +90,11 @@ class TopologyComponentFactoryX(
     }
   }
 
-  override def createTopologyClient(
+  def createTopologyClient(
       protocolVersion: ProtocolVersion,
       packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
   )(implicit executionContext: ExecutionContext): DomainTopologyClientWithInit =
-    new StoreBasedDomainTopologyClientX(
+    new StoreBasedDomainTopologyClient(
       clock,
       domainId,
       protocolVersion,
@@ -161,7 +105,7 @@ class TopologyComponentFactoryX(
       loggerFactory,
     )
 
-  override def createCachingTopologyClient(
+  def createCachingTopologyClient(
       protocolVersion: ProtocolVersion,
       packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
   )(implicit
@@ -180,12 +124,12 @@ class TopologyComponentFactoryX(
     loggerFactory,
   )
 
-  override def createTopologySnapshot(
+  def createTopologySnapshot(
       asOf: CantonTimestamp,
       packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
       preferCaching: Boolean,
   )(implicit executionContext: ExecutionContext): TopologySnapshot = {
-    val snapshot = new StoreBasedTopologySnapshotX(
+    val snapshot = new StoreBasedTopologySnapshot(
       asOf,
       topologyStore,
       packageDependencies,
@@ -197,4 +141,12 @@ class TopologyComponentFactoryX(
       snapshot
   }
 
+  def createHeadTopologySnapshot()(implicit
+      executionContext: ExecutionContext
+  ): TopologySnapshot =
+    createTopologySnapshot(
+      CantonTimestamp.MaxValue,
+      StoreBasedDomainTopologyClient.NoPackageDependencies,
+      preferCaching = false,
+    )
 }

@@ -109,7 +109,6 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest {
             "CantonExamples",
             vetAllPackages = false,
             synchronizeVetting = false,
-            dryRun = false,
           )
           .value
           .map(_.valueOrFail("append dar"))
@@ -136,7 +135,6 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest {
             "some/path/CantonExamples.dar",
             vetAllPackages = false,
             synchronizeVetting = false,
-            dryRun = false,
           )
           .value
           .map(_.valueOrFail("should be right"))
@@ -146,6 +144,30 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest {
       } yield {
         packages should contain.only(expectedPackageIdsAndState*)
         dar shouldBe Some(Dar(DarDescriptor(hash, darName), bytes))
+      }
+    }
+
+    "validate DAR and packages from bytes" in withEnv { env =>
+      import env.*
+
+      val expectedPackageIdsAndState = examplePackages
+        .map(DamlPackageStore.readPackageId)
+        .map(PackageDescription(_, cantonExamplesDescription))
+
+      for {
+        hash <- sut
+          .validateByteString(
+            ByteString.copyFrom(bytes),
+            "some/path/CantonExamples.dar",
+          )
+          .value
+          .map(_.valueOrFail("couldn't validate a dar file"))
+          .failOnShutdown
+        packages <- packageStore.listPackages()
+        dar <- packageStore.getDar(hash)
+      } yield {
+        expectedPackageIdsAndState.foreach(packages should not contain _)
+        dar shouldBe None
       }
     }
 
@@ -162,7 +184,6 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest {
             "some/path/CantonExamples.dar",
             vetAllPackages = false,
             synchronizeVetting = false,
-            dryRun = false,
           )
           .valueOrFail("appending dar")
           .failOnShutdown
@@ -174,6 +195,29 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest {
           case Right(loaded) =>
             // all direct dependencies should be part of this
             (dependencyIds -- loaded) shouldBe empty
+        }
+      }
+    }
+
+    "validateDar validates the package" in withEnv { env =>
+      import env.*
+
+      val badDarPath = PackageServiceTest.badDarPath
+      val payload = BinaryFileUtil
+        .readByteStringFromFile(badDarPath)
+        .valueOrFail(s"could not load bad dar file at $badDarPath")
+      for {
+        error <- leftOrFail(
+          sut.validateByteString(
+            payload,
+            badDarPath,
+          )
+        )("append illformed.dar").failOnShutdown
+      } yield {
+        error match {
+          case validation: PackageServiceErrors.Validation.ValidationError.Error =>
+            validation.validationError shouldBe a[com.daml.lf.validation.ETypeMismatch]
+          case _ => fail(s"$error is not a validation error")
         }
       }
     }
@@ -192,7 +236,6 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest {
             badDarPath,
             vetAllPackages = false,
             synchronizeVetting = false,
-            dryRun = false,
           )
         )("append illformed.dar").failOnShutdown
       } yield {

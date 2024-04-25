@@ -202,7 +202,7 @@ private[mediator] class ConfirmationResponseProcessor(
       mediatorState
         .replace(responseAggregation, timeout)
         .semiflatMap { _ =>
-          sendResultIfDone(timeout, decisionTime)
+          sendResultIfDone(timeout, decisionTime).onShutdown(())
         }
         .getOrElse(())
     }
@@ -670,9 +670,8 @@ private[mediator] class ConfirmationResponseProcessor(
           _ <- {
             if (
               // Note: This check relies on mediator trusting its sequencer
-              // and the sequencer performing validation `checkFromParticipantToAtMostOneMediator`
+              // and the sequencer performing validation `checkToAtMostOneMediator`
               // in the `BlockUpdateGenerator`
-              // TODO(i13849): Review the case below: the check in sequencer has to be made stricter (not to allow such messages from other than participant domain nodes)
               recipients.allRecipients.sizeCompare(1) == 0 &&
               recipients.allRecipients.contains(responseAggregation.request.mediator)
             ) {
@@ -703,13 +702,11 @@ private[mediator] class ConfirmationResponseProcessor(
 
   /** This method is here to allow overriding the async send & determinism in tests
     */
-  protected def doNotAwait(requestId: RequestId, f: => Future[Any])(implicit
+  protected def doNotAwait(requestId: RequestId, f: => FutureUnlessShutdown[Any])(implicit
       tc: TraceContext
   ): Future[Unit] = {
-    FutureUtil.doNotAwait(
-      performUnlessClosingF("send-result-if-done")(
-        f
-      ).onShutdown(()),
+    FutureUtil.doNotAwaitUnlessShutdown(
+      performUnlessClosingUSF("send-result-if-done")(f),
       s"send-result-if-done failed for request $requestId",
       level = Level.WARN,
     )
@@ -719,7 +716,7 @@ private[mediator] class ConfirmationResponseProcessor(
   private def sendResultIfDone(
       responseAggregation: ResponseAggregation[?],
       decisionTime: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     responseAggregation.asFinalized(protocolVersion) match {
       case Some(finalizedResponse) =>
         logger.info(
@@ -733,6 +730,6 @@ private[mediator] class ConfirmationResponseProcessor(
         )
       case None =>
         /* no op */
-        Future.unit
+        FutureUnlessShutdown.unit
     }
 }

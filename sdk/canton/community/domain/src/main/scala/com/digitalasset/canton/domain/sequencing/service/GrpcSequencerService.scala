@@ -15,8 +15,8 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeN
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
-import com.digitalasset.canton.domain.sequencing.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.authentication.grpc.IdentityContextHelper
+import com.digitalasset.canton.domain.sequencing.config.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
 import com.digitalasset.canton.domain.sequencing.sequencer.{Sequencer, SequencerValidations}
 import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerService.*
@@ -481,7 +481,6 @@ class GrpcSequencerService(
       request: SubmissionRequest,
       sender: AuthenticatedMember,
   )(implicit traceContext: TraceContext): Either[SendAsyncError, Unit] = sender match {
-    case _: DomainTopologyManagerId => Right(())
     case _ =>
       val unauthRecipients = request.batch.envelopes
         .toSet[ClosedEnvelope]
@@ -506,7 +505,6 @@ class GrpcSequencerService(
     val nonIdmRecipients = request.batch.envelopes
       .flatMap(_.recipients.allRecipients)
       .filter {
-        case MemberRecipient(_: DomainTopologyManagerId) => false
         case TopologyBroadcastAddress.recipient if enableBroadcastOfUnauthenticatedMessages =>
           false
         case _ => true
@@ -575,14 +573,15 @@ class GrpcSequencerService(
         )
           rateLimiter
         else {
-          val newRateLimiter = new RateLimiter(rateAsNumeric, parameters.maxBurstFactor)
+          val newRateLimiter =
+            new RateLimiter(rateAsNumeric, parameters.maxConfirmationRequestsBurstFactor)
           rates.update(participantId, newRateLimiter)
           newRateLimiter
         }
       case None =>
         rates.getOrElseUpdate(
           participantId,
-          new RateLimiter(rateAsNumeric, parameters.maxBurstFactor),
+          new RateLimiter(rateAsNumeric, parameters.maxConfirmationRequestsBurstFactor),
         )
     }
   }
@@ -684,7 +683,7 @@ class GrpcSequencerService(
       request: v30.AcknowledgeSignedRequest
   ): Future[v30.AcknowledgeSignedResponse] = {
     val acknowledgeRequestE = SignedContent
-      .fromProtoV30(request.getSignedContent)
+      .fromByteString(protocolVersion)(request.signedAcknowledgeRequest)
       .flatMap(_.deserializeContent(AcknowledgeRequest.fromByteString(protocolVersion)))
     performAcknowledge(acknowledgeRequestE.map(SignedAcknowledgeRequest))
   }

@@ -64,17 +64,19 @@ class SimpleExecutionQueue(
   def executeEUS[A, B](
       execution: => EitherT[FutureUnlessShutdown, A, B],
       description: String,
+      runIfFailed: Boolean = false,
   )(implicit loggingContext: ErrorLoggingContext): EitherT[FutureUnlessShutdown, A, B] =
-    EitherT(executeUS(execution.value, description))
+    EitherT(executeUS(execution.value, description, runIfFailed))
 
   def executeUS[A](
       execution: => FutureUnlessShutdown[A],
       description: String,
+      runIfFailed: Boolean = false,
       runWhenUnderFailures: => Unit = (),
   )(implicit
       loggingContext: ErrorLoggingContext
   ): FutureUnlessShutdown[A] =
-    genExecute(runIfFailed = false, execution, description, runWhenUnderFailures)
+    genExecute(runIfFailed, execution, description, runWhenUnderFailures)
 
   def executeUnderFailuresUS[A](execution: => FutureUnlessShutdown[A], description: String)(implicit
       loggingContext: ErrorLoggingContext

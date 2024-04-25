@@ -59,8 +59,6 @@ trait SequencerDriverFactory {
     *                         will start serving from whichever block it considers the beginning.
     *                         Given a specific `firstBlockHeight`, the sequence of blocks served by a driver
     *                         must be always exactly the same and the blocks must be consecutively numbered.
-    * @param domainTopologyManagerId The Canton identifier of the Topology Manager for the domain being
-    *                                supported.
     * @param loggerFactory A logger factory through which all logging should be done.
     *                      Useful in tests as we can capture log entries and check them.
     */
@@ -69,7 +67,7 @@ trait SequencerDriverFactory {
       nonStandardConfig: Boolean,
       timeProvider: TimeProvider,
       firstBlockHeight: Option[Long],
-      domainTopologyManagerId: String,
+      domainId: String,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext,

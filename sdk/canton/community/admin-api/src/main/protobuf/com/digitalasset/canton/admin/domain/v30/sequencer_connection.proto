@@ -5,6 +5,7 @@ syntax = "proto3";
 
 package com.digitalasset.canton.admin.domain.v30;
 
+import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
 
@@ -45,9 +46,17 @@ message SequencerConnections {
   // This value must be positive.
   uint32 sequencerTrustThreshold = 2;
 
-  // This field determines to how many sequencers a client should try to send a submission request that is eligible for deduplication.
+  SubmissionRequestAmplification submission_request_amplification = 3;
+}
+
+message SubmissionRequestAmplification {
+  // Determines to how often the client should try to send a submission request that is eligible for deduplication.
   // A higher value increases the chance of a submission request being accepted by the system, but also increases the load on the sequencers
   // and thus the costs incurred by the client.
   // This value must be positive.
-  uint32 submissionRequestAmplification = 3;
+  uint32 factor = 1;
+
+  // Determines how long the sequencer client waits for observing the sequencing before it sends the submission request again.
+  // This value must be non-negative.
+  google.protobuf.Duration patience = 2;
 }

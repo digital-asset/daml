@@ -70,6 +70,8 @@ object FutureUnlessShutdown {
     case Success(value) => FutureUnlessShutdown.pure(value)
     case Failure(exception) => FutureUnlessShutdown.failed(exception)
   }
+
+  def never: FutureUnlessShutdown[Nothing] = FutureUnlessShutdown(Future.never)
 }
 
 /** Monad combination of `Future` and [[UnlessShutdown]]
