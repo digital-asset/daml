@@ -81,7 +81,7 @@ import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.Autho
 import com.digitalasset.canton.topology.processing.{
   ApproximateTime,
   EffectiveTime,
-  TopologyTransactionProcessorCommon,
+  TopologyTransactionProcessor,
 }
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -118,7 +118,7 @@ class SyncDomain(
     val packageService: PackageService,
     domainCrypto: DomainSyncCryptoClient,
     identityPusher: ParticipantTopologyDispatcher,
-    topologyProcessorFactory: TopologyTransactionProcessorCommon.Factory,
+    topologyProcessorFactory: TopologyTransactionProcessor.Factory,
     missingKeysAlerter: MissingKeysAlerter,
     transferCoordination: TransferCoordination,
     inFlightSubmissionTracker: InFlightSubmissionTracker,
@@ -982,7 +982,7 @@ object SyncDomain {
         packageService: PackageService,
         domainCrypto: DomainSyncCryptoClient,
         identityPusher: ParticipantTopologyDispatcher,
-        topologyProcessorFactory: TopologyTransactionProcessorCommon.Factory,
+        topologyProcessorFactory: TopologyTransactionProcessor.Factory,
         missingKeysAlerter: MissingKeysAlerter,
         transferCoordination: TransferCoordination,
         inFlightSubmissionTracker: InFlightSubmissionTracker,
@@ -1010,7 +1010,7 @@ object SyncDomain {
         packageService: PackageService,
         domainCrypto: DomainSyncCryptoClient,
         identityPusher: ParticipantTopologyDispatcher,
-        topologyProcessorFactory: TopologyTransactionProcessorCommon.Factory,
+        topologyProcessorFactory: TopologyTransactionProcessor.Factory,
         missingKeysAlerter: MissingKeysAlerter,
         transferCoordination: TransferCoordination,
         inFlightSubmissionTracker: InFlightSubmissionTracker,

@@ -1211,19 +1211,25 @@ class TopologyAdministrationGroup(
           expectAtMostOneResult(list_from_authorized(filterParty = party.filterString))
       }
 
-      val (existingPermissions, newSerial, threshold) = currentO match {
+      val (existingPermissions, newSerial, threshold, groupAddressing) = currentO match {
         case Some(current) if current.context.operation == TopologyChangeOp.Remove =>
           (
             Map.empty[ParticipantId, ParticipantPermission],
             Some(current.context.serial.increment),
             current.item.threshold,
+            current.item.groupAddressing,
           )
         case Some(current) =>
           val currentPermissions =
             current.item.participants.map(p => p.participantId -> p.permission).toMap
-          (currentPermissions, Some(current.context.serial.increment), current.item.threshold)
+          (
+            currentPermissions,
+            Some(current.context.serial.increment),
+            current.item.threshold,
+            current.item.groupAddressing,
+          )
         case None =>
-          (Map.empty[ParticipantId, ParticipantPermission], None, PositiveInt.one)
+          (Map.empty[ParticipantId, ParticipantPermission], None, PositiveInt.one, false)
       }
 
       val newPermissions = new PartyToParticipantComputations(loggerFactory)
@@ -1242,6 +1248,7 @@ class TopologyAdministrationGroup(
         signedBy = signedBy,
         serial = newSerial,
         synchronize = synchronize,
+        groupAddressing = groupAddressing,
         mustFullyAuthorize = mustFullyAuthorize,
         store = store,
       )

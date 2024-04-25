@@ -139,8 +139,13 @@ class SerializationDeserializationTest
         testVersioned(com.digitalasset.canton.sequencing.SequencerConnections)
         testProtocolVersioned(TopologyStateForInitRequest)
         testProtocolVersioned(SubscriptionRequest)
+        testMemoizedProtocolVersioned2(
+          com.digitalasset.canton.sequencing.protocol.SequencedEvent
+        )
+        testMemoizedProtocolVersioned2(
+          com.digitalasset.canton.sequencing.protocol.SignedContent
+        )
       }
-
     }
   }
 
@@ -148,6 +153,7 @@ class SerializationDeserializationTest
     val requiredTests = {
       findHasProtocolVersionedWrapperSubClasses("com.digitalasset.canton.protocol")
         ++ findHasProtocolVersionedWrapperSubClasses("com.digitalasset.canton.topology")
+        ++ findHasProtocolVersionedWrapperSubClasses("com.digitalasset.canton.sequencing")
     }
 
     val missingTests = requiredTests.diff(testedClasses.toList)

@@ -49,7 +49,7 @@ import com.digitalasset.canton.store.{
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
-import com.digitalasset.canton.topology.processing.TopologyTransactionProcessorCommon
+import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{TopologyStateForInitializationService, TopologyStore}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -77,7 +77,7 @@ class SequencerRuntimeForSeparateNode(
     syncCrypto: DomainSyncCryptoClient,
     topologyStore: TopologyStore[DomainStore],
     topologyClient: DomainTopologyClientWithInit,
-    topologyProcessor: TopologyTransactionProcessorCommon,
+    topologyProcessor: TopologyTransactionProcessor,
     topologyManagerStatusO: Option[TopologyManagerStatus],
     override val mediatorsProcessParticipantTopologyRequests: Boolean,
     initializationEffective: Future[Unit],
