@@ -19,11 +19,10 @@ import scala.concurrent.{ExecutionContext, Future}
   * The pruning method of the store must use [[advancePruningTimestamp]] to signal the start end completion
   * of each pruning.
   */
-trait DbPrunableByTime extends PrunableByTime {
+trait DbPrunableByTime[PartitionKey] extends PrunableByTime {
   this: DbStore =>
 
-  protected[this] implicit def setParameterIndexedDomain: SetParameter[IndexedDomain] =
-    IndexedString.setParameterIndexedString
+  protected[this] implicit def setParameterDiscriminator: SetParameter[PartitionKey]
 
   /** The table name to store the pruning timestamp in.
     * The table must define the following fields:
@@ -35,9 +34,9 @@ trait DbPrunableByTime extends PrunableByTime {
     */
   protected[this] def pruning_status_table: String
 
-  protected[this] def partitionColumn: String = "domain_id"
+  protected[this] def partitionColumn: String
 
-  protected[this] def partitionKey: IndexedDomain
+  protected[this] def partitionKey: PartitionKey
 
   protected[this] implicit val ec: ExecutionContext
 
@@ -130,11 +129,16 @@ trait DbPrunableByTime extends PrunableByTime {
 }
 
 /** Specialized [[DbPrunableByTime]] that uses the [[com.digitalasset.canton.topology.DomainId]] as discriminator */
-trait DbPrunableByTimeDomain extends DbPrunableByTime {
+trait DbPrunableByTimeDomain extends DbPrunableByTime[IndexedDomain] {
   this: DbStore =>
 
   protected[this] def domainId: IndexedDomain
 
   override protected[this] def partitionKey: IndexedDomain = domainId
+
+  override protected[this] val partitionColumn = "domain_id"
+
+  override protected[this] implicit val setParameterDiscriminator: SetParameter[IndexedDomain] =
+    IndexedString.setParameterIndexedString
 
 }

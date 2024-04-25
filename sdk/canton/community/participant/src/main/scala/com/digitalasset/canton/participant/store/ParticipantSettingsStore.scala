@@ -33,7 +33,7 @@ trait ParticipantSettingsLookup {
   */
 trait ParticipantSettingsStore extends ParticipantSettingsLookup with AutoCloseable {
 
-  /** A cache for the max number of inflight validation requests.
+  /** A cache for the max number of dirty requests.
     * It is updated in the following situations:
     * - Before and after a write (successful or not).
     * - Through [[refreshCache]]. (Clients are requested to call [[refreshCache]] before reading any value.)

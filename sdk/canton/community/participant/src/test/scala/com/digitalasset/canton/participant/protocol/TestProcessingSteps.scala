@@ -141,7 +141,7 @@ class TestProcessingSteps(
 
   override def prepareSubmission(
       param: Int,
-      mediator: MediatorGroupRecipient,
+      mediator: MediatorsOfDomain,
       ephemeralState: SyncDomainEphemeralStateLookup,
       recentSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit
@@ -223,7 +223,7 @@ class TestProcessingSteps(
       ],
       malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
       snapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorGroupRecipient,
+      mediator: MediatorsOfDomain,
       submitterMetadataO: Option[ViewSubmitterMetadata],
   )(implicit
       traceContext: TraceContext
@@ -236,7 +236,7 @@ class TestProcessingSteps(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
-      mediator: MediatorGroupRecipient,
+      mediator: MediatorsOfDomain,
       freshOwnTimelyTx: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -324,7 +324,7 @@ object TestProcessingSteps {
       informees: Set[Informee] = Set.empty,
       viewPosition: ViewPosition = ViewPosition(List(MerkleSeqIndex(List.empty))),
       domainId: DomainId = DefaultTestIdentities.domainId,
-      mediator: MediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.zero),
+      mediator: MediatorsOfDomain = MediatorsOfDomain(MediatorGroupIndex.zero),
   ) extends ViewTree
       with HasVersionedToByteString {
 
@@ -346,7 +346,7 @@ object TestProcessingSteps {
   final case class TestPendingRequestData(
       override val requestCounter: RequestCounter,
       override val requestSequencerCounter: SequencerCounter,
-      override val mediator: MediatorGroupRecipient,
+      override val mediator: MediatorsOfDomain,
       override val locallyRejected: Boolean,
   ) extends PendingRequestData {
 

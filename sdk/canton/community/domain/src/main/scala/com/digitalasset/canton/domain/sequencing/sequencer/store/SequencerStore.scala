@@ -26,7 +26,11 @@ import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
-import com.digitalasset.canton.sequencing.protocol.{MessageId, SequencedEvent}
+import com.digitalasset.canton.sequencing.protocol.{
+  MessageId,
+  SequencedEvent,
+  SequencedEventTrafficState,
+}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId}
@@ -112,8 +116,6 @@ final case class Payload(id: PayloadId, content: ByteString)
   */
 sealed trait StoreEvent[+PayloadReference] extends HasTraceContext {
 
-  val sender: SequencerMemberId
-
   /** Who gets notified of the event once it is successfully sequenced */
   val notifies: WriteNotification
 
@@ -129,27 +131,7 @@ sealed trait StoreEvent[+PayloadReference] extends HasTraceContext {
 
   def payloadO: Option[PayloadReference]
 
-  /** The timestamp of the snapshot to be used for determining the signing key of this event, resolving group addresses,
-    * and for checking signatures on envelopes, if absent, sequencing time will be used instead. Absent on errors.
-    */
-  def topologyTimestampO: Option[CantonTimestamp]
-}
-
-final case class ReceiptStoreEvent(
-    override val sender: SequencerMemberId,
-    messageId: MessageId,
-    override val topologyTimestampO: Option[CantonTimestamp],
-    override val traceContext: TraceContext,
-) extends StoreEvent[Nothing] {
-  override val notifies: WriteNotification = WriteNotification.Members(SortedSet(sender))
-
-  override val description: String = show"receipt[message-id:$messageId]"
-
-  override val members: NonEmpty[Set[SequencerMemberId]] = NonEmpty(Set, sender)
-
-  override def map[P](f: Nothing => P): StoreEvent[P] = this
-
-  override def payloadO: Option[Nothing] = None
+  val trafficStateO: Option[SequencedEventTrafficState]
 }
 
 /** Structure for storing a deliver events.
@@ -158,13 +140,15 @@ final case class ReceiptStoreEvent(
   *                          [[scala.None]] means that the sequencing timestamp should be used.
   */
 final case class DeliverStoreEvent[P](
-    override val sender: SequencerMemberId,
+    sender: SequencerMemberId,
     messageId: MessageId,
     override val members: NonEmpty[SortedSet[SequencerMemberId]],
     payload: P,
-    override val topologyTimestampO: Option[CantonTimestamp],
+    topologyTimestampO: Option[CantonTimestamp],
     override val traceContext: TraceContext,
+    override val trafficStateO: Option[SequencedEventTrafficState],
 ) extends StoreEvent[P] {
+  def mapPayload[Q](map: P => Q): DeliverStoreEvent[Q] = copy(payload = map(payload))
   override lazy val notifies: WriteNotification = WriteNotification.Members(members)
 
   override val description: String = show"deliver[message-id:$messageId]"
@@ -188,6 +172,7 @@ object DeliverStoreEvent {
       members: Set[SequencerMemberId],
       payload: Payload,
       topologyTimestampO: Option[CantonTimestamp],
+      trafficStateO: Option[SequencedEventTrafficState],
   )(implicit traceContext: TraceContext): DeliverStoreEvent[Payload] = {
     // ensure that sender is a recipient
     val recipientsWithSender = NonEmpty(SortedSet, sender, members.toSeq*)
@@ -198,23 +183,23 @@ object DeliverStoreEvent {
       payload,
       topologyTimestampO,
       traceContext,
+      trafficStateO,
     )
   }
 }
 
 final case class DeliverErrorStoreEvent(
-    override val sender: SequencerMemberId,
+    sender: SequencerMemberId,
     messageId: MessageId,
     error: Option[ByteString],
     override val traceContext: TraceContext,
+    override val trafficStateO: Option[SequencedEventTrafficState],
 ) extends StoreEvent[Nothing] {
   override val notifies: WriteNotification = WriteNotification.Members(SortedSet(sender))
   override val description: String = show"deliver-error[message-id:$messageId]"
-  override val members: NonEmpty[Set[SequencerMemberId]] = NonEmpty(Set, sender)
+  override def members: NonEmpty[Set[SequencerMemberId]] = NonEmpty(Set, sender)
   override def map[P](f: Nothing => P): StoreEvent[P] = this
-  override val payloadO: Option[Nothing] = None
-
-  override val topologyTimestampO: Option[CantonTimestamp] = None
+  override def payloadO: Option[Nothing] = None
 }
 
 object DeliverErrorStoreEvent {
@@ -232,6 +217,7 @@ object DeliverErrorStoreEvent {
       status: Status,
       protocolVersion: ProtocolVersion,
       traceContext: TraceContext,
+      trafficStateO: Option[SequencedEventTrafficState],
   ): DeliverErrorStoreEvent = {
     val serializedError =
       DeliverErrorStoreEvent.serializeError(status, protocolVersion)
@@ -241,6 +227,7 @@ object DeliverErrorStoreEvent {
       messageId,
       Some(serializedError),
       traceContext,
+      trafficStateO,
     )
   }
 

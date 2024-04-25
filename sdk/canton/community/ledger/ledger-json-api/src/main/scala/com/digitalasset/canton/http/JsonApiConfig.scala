@@ -5,7 +5,6 @@ package com.digitalasset.canton.http
 
 import org.apache.pekko.stream.ThrottleMode
 import com.digitalasset.canton.http.WebsocketConfig as WSC
-import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
 import scalaz.Show
 
 import java.io.File
@@ -16,14 +15,13 @@ import scala.concurrent.duration.*
 // users should extend StartSettings or DefaultStartSettings themselves
 // TODO(#13303): Move to LocalParticipantConfig
 final case class JsonApiConfig(
-                                address: String = com.digitalasset.canton.cliopts.Http.defaultAddress,
-                                httpPort: Option[Int] = None,
-                                portFile: Option[Path] = None,
-                                httpsConfiguration: Option[TlsConfiguration] = None,
-                                staticContentConfig: Option[StaticContentConfig] = None,
-                                allowNonHttps: Boolean = false,
-                                wsConfig: Option[WebsocketConfig] = None,
-                                debugLoggingOfHttpBodies: Boolean = false,
+    address: String = com.digitalasset.canton.cliopts.Http.defaultAddress,
+    httpPort: Option[Int] = None,
+    portFile: Option[Path] = None,
+    staticContentConfig: Option[StaticContentConfig] = None,
+    allowNonHttps: Boolean = false,
+    wsConfig: Option[WebsocketConfig] = None,
+    debugLoggingOfHttpBodies: Boolean = false,
 ) extends StartSettings
 
 object JsonApiConfig {

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.traffic
 
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.protocol.{
   Batch,
   ClosedEnvelope,
@@ -15,7 +14,7 @@ import com.digitalasset.canton.topology.Member
 import com.google.common.annotations.VisibleForTesting
 
 // TODO(i12907): Precise costs calculations
-class EventCostCalculator(override val loggerFactory: NamedLoggerFactory) extends NamedLogging {
+class EventCostCalculator {
 
   def computeEventCost(
       event: Batch[ClosedEnvelope],
@@ -34,28 +33,16 @@ class EventCostCalculator(override val loggerFactory: NamedLoggerFactory) extend
       costMultiplier: PositiveInt,
       groupToMembers: Map[GroupRecipient, Set[Member]],
   )(envelope: ClosedEnvelope): Long = {
-    val writeCosts = payloadSize(envelope).toLong
+    val writeCosts = payloadSize(envelope)
 
-    val allRecipients = envelope.recipients.allRecipients.toSeq
-    val recipientsSize = allRecipients.map {
+    val recipientsSize = envelope.recipients.allRecipients.toSeq.map {
       case recipient: GroupRecipient => groupToMembers.get(recipient).map(_.size).getOrElse(0)
       case _: MemberRecipient => 1
     }.sum
 
     // read costs are based on the write costs and multiplied by the number of recipients with a readVsWrite cost multiplier
-    try {
-      // `writeCosts` and `recipientsSize` are originally Int, so multiplying them together cannot overflow a long
-      val readCosts =
-        math.multiplyExact(writeCosts * recipientsSize.toLong, costMultiplier.value.toLong) / 10000
-      math.addExact(readCosts, writeCosts)
-    } catch {
-      case _: ArithmeticException =>
-        throw new IllegalStateException(
-          s"""Overflow in cost computation:
-           |  writeCosts = $writeCosts
-           |  recipientsSize = $recipientsSize
-           |  costMultiplier = $costMultiplier""".stripMargin
-        )
-    }
+    val readCosts = writeCosts * recipientsSize * costMultiplier.value / 10000L
+
+    writeCosts + readCosts
   }
 }

@@ -99,7 +99,7 @@ final class RateLimitingInterceptorSpec
 
   it should "allow metadata requests even when over limit" in {
     metrics.openTelemetryMetricsFactory
-      .meter(metrics.lapi.threadpool.apiServices :+ "submitted")(MetricsContext.Empty)
+      .meter(metrics.lapi.threadpool.apiServices :+ "submitted")
       .mark(config.maxApiServicesQueueSize.toLong + 1)(MetricsContext.Empty) // Over limit
 
     val protoService = ProtoReflectionService.newInstance()
@@ -131,7 +131,7 @@ final class RateLimitingInterceptorSpec
 
   it should "allow health checks event when over limit" in {
     metrics.openTelemetryMetricsFactory
-      .meter(metrics.lapi.threadpool.apiServices :+ "submitted")(MetricsContext.Empty)
+      .meter(metrics.lapi.threadpool.apiServices :+ "submitted")
       .mark(config.maxApiServicesQueueSize.toLong + 1)(MetricsContext.Empty) // Over limit
 
     val healthService =

@@ -135,7 +135,7 @@ class AuthenticationTokenProvider(
             .withDescription(s"Failed to deserialize fingerprints $fingerprintsP")
         )
         .toEitherT[Future]
-      signature <- MemberAuthentication
+      signature <- ParticipantAuthentication
         .signDomainNonce(
           member,
           nonce,

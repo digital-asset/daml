@@ -146,7 +146,6 @@ object ConsistencyErrors extends ConsistencyErrorGroup {
             //                   If the key is big, it can force chunking other resources.
             (ErrorResource.TemplateId, key.templateId.toString),
             (ErrorResource.ContractKey, encodedKey),
-            (ErrorResource.PackageName, key.packageName),
           )
         }
     }
@@ -204,7 +203,6 @@ object ConsistencyErrors extends ConsistencyErrorGroup {
             //                   If the key is big, it can force chunking other resources.
             (ErrorResource.TemplateId, key.templateId.toString),
             (ErrorResource.ContractKey, encodedKey),
-            (ErrorResource.PackageName, key.packageName),
           )
         }
     }

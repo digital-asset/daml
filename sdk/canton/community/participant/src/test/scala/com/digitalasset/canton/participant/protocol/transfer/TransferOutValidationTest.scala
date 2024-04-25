@@ -14,7 +14,7 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingS
   TransferProcessorError,
 }
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, Recipients}
+import com.digitalasset.canton.sequencing.protocol.{MediatorsOfDomain, Recipients}
 import com.digitalasset.canton.time.TimeProofTestUtil
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
@@ -31,7 +31,7 @@ class TransferOutValidationTest
   private val sourceDomain = SourceDomainId(
     DomainId.tryFromString("domain::source")
   )
-  private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(100))
+  private val sourceMediator = MediatorsOfDomain(MediatorGroupIndex.tryCreate(100))
   private val targetDomain = TargetDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
   )

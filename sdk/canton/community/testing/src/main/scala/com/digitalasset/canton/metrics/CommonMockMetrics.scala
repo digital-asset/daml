@@ -12,6 +12,6 @@ object CommonMockMetrics {
 
   object sequencerClient
       extends SequencerClientMetrics(prefix, NoOpMetricsFactory)(MetricsContext.Empty)
-  object dbStorage extends DbStorageMetrics(prefix, NoOpMetricsFactory)(MetricsContext.Empty)
+  object dbStorage extends DbStorageMetrics(prefix, NoOpMetricsFactory)
 
 }

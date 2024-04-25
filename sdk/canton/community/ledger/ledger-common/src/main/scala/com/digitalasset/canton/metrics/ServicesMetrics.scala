@@ -3,269 +3,243 @@
 
 package com.digitalasset.canton.metrics
 
+import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation}
 import com.daml.metrics.api.MetricHandle.*
-import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
+import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class ServicesMetrics(
     prefix: MetricName,
     openTelemetryMetricsFactory: LabeledMetricsFactory,
 ) {
 
-  private implicit val metricsContext: MetricsContext = MetricsContext.Empty
-
+  @MetricDoc.FanTag(
+    representative = "daml.services.index.<operation>",
+    summary = "The time to execute an index service operation.",
+    description = """The index service is an internal component responsible for access to the
+                    |index db data. Its operations are invoked whenever a client request received
+                    |over the ledger api requires access to the index db. This metric captures
+                    |time statistics of such operations.""",
+    qualification = Debug,
+  )
   object index {
-    private val prefix = ServicesMetrics.this.prefix :+ "index"
-    private val baseInfo = MetricInfo(
-      prefix,
-      summary = "The time to execute an index service operation.",
-      description = """The index service is an internal component responsible for access to the
-                      |index db data. Its operations are invoked whenever a client request received
-                      |over the ledger api requires access to the index db. This metric captures
-                      |time statistics of such operations.""",
-      qualification = MetricQualification.Debug,
-    )
+    val prefix: MetricName = ServicesMetrics.this.prefix :+ "index"
 
-    val listLfPackages: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("list_lf_packages"))
-
-    val getLfArchive: Timer = openTelemetryMetricsFactory.timer(baseInfo.extend("get_lf_archive"))
-
-    val packageEntries: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("package_entries"))
-
+    @MetricDoc.FanInstanceTag
+    val listLfPackages: Timer = openTelemetryMetricsFactory.timer(prefix :+ "list_lf_packages")
+    @MetricDoc.FanInstanceTag
+    val getLfArchive: Timer = openTelemetryMetricsFactory.timer(prefix :+ "get_lf_archive")
+    @MetricDoc.FanInstanceTag
+    val packageEntries: Timer = openTelemetryMetricsFactory.timer(prefix :+ "package_entries")
+    @MetricDoc.FanInstanceTag
     val getLedgerConfiguration: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("get_ledger_configuration"))
-
-    val currentLedgerEnd: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("current_ledger_end"))
-
+      openTelemetryMetricsFactory.timer(prefix :+ "get_ledger_configuration")
+    @MetricDoc.FanInstanceTag
+    val currentLedgerEnd: Timer = openTelemetryMetricsFactory.timer(prefix :+ "current_ledger_end")
+    @MetricDoc.FanInstanceTag
     val latestPrunedOffsets: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("latest_pruned_offsets"))
-
-    val getCompletions: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("get_completions"))
-
+      openTelemetryMetricsFactory.timer(prefix :+ "latest_pruned_offsets")
+    @MetricDoc.FanInstanceTag
+    val getCompletions: Timer = openTelemetryMetricsFactory.timer(prefix :+ "get_completions")
+    @MetricDoc.FanInstanceTag
     val getCompletionsLimited: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("get_completions_limited"))
-
-    val transactions: Timer = openTelemetryMetricsFactory.timer(baseInfo.extend("transactions"))
-
-    val transactionTrees: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("transaction_trees"))
-
+      openTelemetryMetricsFactory.timer(prefix :+ "get_completions_limited")
+    @MetricDoc.FanInstanceTag
+    val transactions: Timer = openTelemetryMetricsFactory.timer(prefix :+ "transactions")
+    @MetricDoc.FanInstanceTag
+    val transactionTrees: Timer = openTelemetryMetricsFactory.timer(prefix :+ "transaction_trees")
+    @MetricDoc.FanInstanceTag
     val getTransactionById: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("get_transaction_by_id"))
-
+      openTelemetryMetricsFactory.timer(prefix :+ "get_transaction_by_id")
+    @MetricDoc.FanInstanceTag
     val getTransactionTreeById: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("get_transaction_tree_by_id"))
-
+      openTelemetryMetricsFactory.timer(prefix :+ "get_transaction_tree_by_id")
+    @MetricDoc.FanInstanceTag
     val getActiveContracts: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("get_active_contracts"))
-
+      openTelemetryMetricsFactory.timer(prefix :+ "get_active_contracts")
+    @MetricDoc.FanInstanceTag
     val lookupActiveContract: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("lookup_active_contract"))
-
-    val lookupContractState: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("lookup_contract_state"))
-
+      openTelemetryMetricsFactory.timer(prefix :+ "lookup_active_contract")
+    @MetricDoc.FanInstanceTag
+    val lookupContractState: Timer = openTelemetryMetricsFactory.timer(
+      prefix :+ "lookup_contract_state"
+    )
+    @MetricDoc.FanInstanceTag
     val lookupContractKey: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("lookup_contract_key"))
-
+      openTelemetryMetricsFactory.timer(prefix :+ "lookup_contract_key")
+    @MetricDoc.FanInstanceTag
     val getEventsByContractId: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("get_events_by_contract_id"))
-
+      openTelemetryMetricsFactory.timer(prefix :+ "get_events_by_contract_id")
+    @MetricDoc.FanInstanceTag
     val getEventsByContractKey: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("get_events_by_contract_key"))
-
+      openTelemetryMetricsFactory.timer(prefix :+ "get_events_by_contract_key")
+    @MetricDoc.FanInstanceTag
     val lookupMaximumLedgerTime: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("lookup_maximum_ledger_time"))
-
-    val getParticipantId: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("get_participant_id"))
-
-    val getParties: Timer = openTelemetryMetricsFactory.timer(baseInfo.extend("get_parties"))
-
-    val listKnownParties: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("list_known_parties"))
-
-    val partyEntries: Timer = openTelemetryMetricsFactory.timer(baseInfo.extend("party_entries"))
-
+      openTelemetryMetricsFactory.timer(prefix :+ "lookup_maximum_ledger_time")
+    @MetricDoc.FanInstanceTag
+    val getParticipantId: Timer = openTelemetryMetricsFactory.timer(prefix :+ "get_participant_id")
+    @MetricDoc.FanInstanceTag
+    val getParties: Timer = openTelemetryMetricsFactory.timer(prefix :+ "get_parties")
+    @MetricDoc.FanInstanceTag
+    val listKnownParties: Timer = openTelemetryMetricsFactory.timer(prefix :+ "list_known_parties")
+    @MetricDoc.FanInstanceTag
+    val partyEntries: Timer = openTelemetryMetricsFactory.timer(prefix :+ "party_entries")
+    @MetricDoc.FanInstanceTag
     val lookupConfiguration: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("lookup_configuration"))
-
+      openTelemetryMetricsFactory.timer(prefix :+ "lookup_configuration")
+    @MetricDoc.FanInstanceTag
     val configurationEntries: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("configuration_entries"))
-
-    val prune: Timer = openTelemetryMetricsFactory.timer(baseInfo.extend("prune"))
-
+      openTelemetryMetricsFactory.timer(prefix :+ "configuration_entries")
+    @MetricDoc.FanInstanceTag
+    val prune: Timer = openTelemetryMetricsFactory.timer(prefix :+ "prune")
+    @MetricDoc.FanInstanceTag
     val getTransactionMetering: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("get_transaction_metering"))
+      openTelemetryMetricsFactory.timer(prefix :+ "get_transaction_metering")
 
     object InMemoryFanoutBuffer {
       val prefix: MetricName = index.prefix :+ "in_memory_fan_out_buffer"
 
-      val push: Timer = openTelemetryMetricsFactory.timer(
-        MetricInfo(
-          prefix :+ "push",
-          summary = "The time to add a new event into the buffer.",
-          description = """The in-memory fan-out buffer is a buffer that stores the last ingested
+      @MetricDoc.Tag(
+        summary = "The time to add a new event into the buffer.",
+        description = """The in-memory fan-out buffer is a buffer that stores the last ingested
                         |maxBufferSize accepted and rejected submission updates as
                         |TransactionLogUpdate. It allows bypassing IndexDB persistence fetches for
                         |recent updates for flat and transaction tree streams, command completion
                         |streams and by-event-id and by-transaction-id flat and transaction tree
                         |lookups. This metric exposes the time spent on adding a new event into the
                         |buffer.""",
-          qualification = MetricQualification.Debug,
-        )
+        qualification = Debug,
       )
+      val push: Timer = openTelemetryMetricsFactory.timer(prefix :+ "push")
 
-      val prune: Timer = openTelemetryMetricsFactory.timer(
-        MetricInfo(
-          prefix :+ "prune",
-          summary = "The time to remove all elements from the in-memory fan-out buffer.",
-          description = """It is possible to remove the oldest entries of the in-memory fan out
+      @MetricDoc.Tag(
+        summary = "The time to remove all elements from the in-memory fan-out buffer.",
+        description = """It is possible to remove the oldest entries of the in-memory fan out
                         |buffer. This metric exposes the time needed to prune the buffer.""",
-          qualification = MetricQualification.Debug,
-        )
+        qualification = Debug,
       )
+      val prune: Timer = openTelemetryMetricsFactory.timer(prefix :+ "prune")
 
-      val bufferSize: Histogram = openTelemetryMetricsFactory.histogram(
-        MetricInfo(
-          prefix :+ "size",
-          summary = "The size of the in-memory fan-out buffer.",
-          description = """The actual size of the in-memory fan-out buffer. This metric is mostly
+      @MetricDoc.Tag(
+        summary = "The size of the in-memory fan-out buffer.",
+        description = """The actual size of the in-memory fan-out buffer. This metric is mostly
                         |targeted for debugging purposes.""",
-          qualification = MetricQualification.Saturation,
-        )
+        qualification = Saturation,
       )
+      val bufferSize: Histogram = openTelemetryMetricsFactory.histogram(prefix :+ "size")
     }
 
     case class BufferedReader(streamName: String) {
       val prefix: MetricName = index.prefix :+ s"${streamName}_buffer_reader"
 
-      val fetchedTotal: Counter = openTelemetryMetricsFactory.counter(
-        MetricInfo(
-          prefix :+ "fetched_total",
-          summary =
-            "The total number of the events fetched (either from the buffer or the persistence).",
-          description = """The buffer reader serves processed and filtered events from the buffer,
+      @MetricDoc.Tag(
+        summary =
+          "The total number of the events fetched (either from the buffer or the persistence).",
+        description = """The buffer reader serves processed and filtered events from the buffer,
                         |with fallback to persistence fetches if the bounds are not within the
                         |buffer's range bounds. This metric exposes the total number of the fetched
                         |events.""",
-          qualification = MetricQualification.Debug,
-        )
+        qualification = Debug,
       )
+      val fetchedTotal: Counter = openTelemetryMetricsFactory.counter(prefix :+ "fetched_total")
 
+      @MetricDoc.Tag(
+        summary = "The total number of the events fetched from the buffer.",
+        description = """The buffer reader serves processed and filtered events from the buffer,
+                        |with fallback to persistence fetches if the bounds are not within the
+                        |buffer's range bounds. This metric counts the number of events delivered
+                        |exclusively from the buffer.""",
+        qualification = Debug,
+      )
       val fetchedBuffered: Counter =
-        openTelemetryMetricsFactory.counter(
-          MetricInfo(
-            prefix :+ "fetched_buffered",
-            summary = "The total number of the events fetched from the buffer.",
-            description = """The buffer reader serves processed and filtered events from the buffer,
-                          |with fallback to persistence fetches if the bounds are not within the
-                          |buffer's range bounds. This metric counts the number of events delivered
-                          |exclusively from the buffer.""",
-            qualification = MetricQualification.Debug,
-          )
-        )
+        openTelemetryMetricsFactory.counter(prefix :+ "fetched_buffered")
 
-      val fetchTimer: Timer = openTelemetryMetricsFactory.timer(
-        MetricInfo(
-          prefix :+ "fetch",
-          summary =
-            "The time needed to fetch an event (either from the buffer or the persistence).",
-          description = """The buffer reader serves stream events in chunks downstream to the gRPC
+      @MetricDoc.Tag(
+        summary = "The time needed to fetch an event (either from the buffer or the persistence).",
+        description = """The buffer reader serves stream events in chunks downstream to the gRPC
                         |layer and to the client. This metric times the duration needed for serving
                         |a chunk of events. This metric has been created with debugging purposes
                         |in mind.""",
-          qualification = MetricQualification.Debug,
-        )
+        qualification = Debug,
       )
+      val fetchTimer: Timer = openTelemetryMetricsFactory.timer(prefix :+ "fetch")
 
-      val conversion: Timer = openTelemetryMetricsFactory.timer(
-        MetricInfo(
-          prefix :+ "conversion",
-          summary = "The time to convert a buffered fetched event to a ledger api stream response.",
-          description = """Entries are stored in the buffer in a custom deserialized representation.
+      @MetricDoc.Tag(
+        summary = "The time to convert a buffered fetched event to a ledger api stream response.",
+        description = """Entries are stored in the buffer in a custom deserialized representation.
                         |When served to the gRPC layer, the entries are processed and serialized.
                         |This metric times this operation.""",
-          qualification = MetricQualification.Debug,
-        )
+        qualification = Debug,
       )
+      val conversion: Timer = openTelemetryMetricsFactory.timer(prefix :+ "conversion")
 
-      val slice: Timer = openTelemetryMetricsFactory.timer(
-        MetricInfo(
-          prefix :+ "slice",
-          summary = "The time to fetch a chunk of events from the buffer",
-          description = """The events are served from the buffer in chunks, respecting the input
+      @MetricDoc.Tag(
+        summary = "The time to fetch a chunk of events from the buffer",
+        description = """The events are served from the buffer in chunks, respecting the input
                         |bounds and a predicate filter. This metric times this operation.""",
-          qualification = MetricQualification.Debug,
-        )
+        qualification = Debug,
       )
+      val slice: Timer = openTelemetryMetricsFactory.timer(prefix :+ "slice")
 
-      val sliceSize: Histogram = openTelemetryMetricsFactory.histogram(
-        MetricInfo(
-          prefix :+ "slice_size",
-          summary = "The size of the slice requested.",
-          description = """The events are served from the buffer in chunks. This metric gauges the
+      @MetricDoc.Tag(
+        summary = "The size of the slice requested.",
+        description = """The events are served from the buffer in chunks. This metric gauges the
                         |chunk size delivered downstream.""",
-          qualification = MetricQualification.Debug,
-        )
+        qualification = Debug,
       )
+      val sliceSize: Histogram = openTelemetryMetricsFactory.histogram(prefix :+ "slice_size")
     }
   }
 
+  @MetricDoc.FanTag(
+    representative = "daml.services.read.<operation>",
+    summary = "The time to execute a read service operation.",
+    description = """The read service is an internal interface for reading the events from the
+                    |synchronization interfaces. The metrics expose the time needed to execute
+                    |each operation.""",
+    qualification = Debug,
+  )
   object read {
     val prefix: MetricName = ServicesMetrics.this.prefix :+ "read"
-    private val baseInfo = MetricInfo(
-      prefix,
-      summary = "The time to execute a read service operation.",
-      description = """The read service is an internal interface for reading the events from the
-                      |synchronization interfaces. The metrics expose the time needed to execute
-                      |each operation.""",
-      qualification = MetricQualification.Debug,
-    )
 
-    val stateUpdates: Timer = openTelemetryMetricsFactory.timer(baseInfo.extend("state_updates"))
-
+    @MetricDoc.FanInstanceTag
+    val stateUpdates: Timer = openTelemetryMetricsFactory.timer(prefix :+ "state_updates")
+    @MetricDoc.FanInstanceTag
     val getConnectedDomains: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("get_connected_domains"))
-
+      openTelemetryMetricsFactory.timer(prefix :+ "get_connected_domains")
+    @MetricDoc.FanInstanceTag
     val incompleteReassignmentOffsets: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("incomplete_reassignment_offsets"))
+      openTelemetryMetricsFactory.timer(prefix :+ "incomplete_reassignment_offsets")
   }
 
+  @MetricDoc.FanTag(
+    representative = "daml.services.write.<operation>",
+    summary = "The time to execute a write service operation.",
+    description = """The write service is an internal interface for changing the state through
+                    |the synchronization services. The methods in this interface are all methods
+                    |that are supported uniformly across all ledger implementations. This metric
+                    |exposes the time needed to execute each operation.""",
+    qualification = Debug,
+  )
   object write {
-
     val prefix: MetricName = ServicesMetrics.this.prefix :+ "write"
-    private val baseInfo = MetricInfo(
-      prefix,
-      summary = "The time to execute a write service operation.",
-      description = """The write service is an internal interface for changing the state through
-                      |the synchronization services. The methods in this interface are all methods
-                      |that are supported uniformly across all ledger implementations. This metric
-                      |exposes the time needed to execute each operation.""",
-      qualification = MetricQualification.Debug,
-    )
 
-    val submitTransaction: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("submit_transaction"))
-
+    @MetricDoc.FanInstanceTag
+    val submitTransaction: Timer = openTelemetryMetricsFactory.timer(prefix :+ "submit_transaction")
+    @MetricDoc.FanInstanceTag
     val submitTransactionRunning: Counter =
-      openTelemetryMetricsFactory.counter(baseInfo.extend("submit_transaction_running"))
-
+      openTelemetryMetricsFactory.counter(prefix :+ "submit_transaction_running")
+    @MetricDoc.FanInstanceTag
     val submitReassignment: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("submit_reassignment"))
-
+      openTelemetryMetricsFactory.timer(prefix :+ "submit_reassignment")
+    @MetricDoc.FanInstanceTag
     val submitReassignmentRunning: Counter =
-      openTelemetryMetricsFactory.counter(baseInfo.extend("submit_reassignment_running"))
-
-    val uploadPackages: Timer =
-      openTelemetryMetricsFactory.timer(baseInfo.extend("upload_packages"))
-
-    val allocateParty: Timer = openTelemetryMetricsFactory.timer(baseInfo.extend("allocate_party"))
-
-    val prune: Timer = openTelemetryMetricsFactory.timer(baseInfo.extend("prune"))
+      openTelemetryMetricsFactory.counter(prefix :+ "submit_reassignment_running")
+    @MetricDoc.FanInstanceTag
+    val uploadPackages: Timer = openTelemetryMetricsFactory.timer(prefix :+ "upload_packages")
+    @MetricDoc.FanInstanceTag
+    val allocateParty: Timer = openTelemetryMetricsFactory.timer(prefix :+ "allocate_party")
+    @MetricDoc.FanInstanceTag
+    val prune: Timer = openTelemetryMetricsFactory.timer(prefix :+ "prune")
   }
 
   object pruning extends PruningMetrics(prefix :+ "pruning", openTelemetryMetricsFactory)

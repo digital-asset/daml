@@ -149,7 +149,7 @@ class RequestJournal(
 
     } yield {
       incrementNumDirtyRequests()
-      logger.debug(s"The number of inflight validation requests is $numberOfDirtyRequests.")
+      logger.debug(s"The number of dirty requests is $numberOfDirtyRequests.")
 
       pending.add(rc).discard
     }

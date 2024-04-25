@@ -39,7 +39,7 @@ object GeneratorsConfig {
     Generators.lengthLimitedStringGen(String255)
   )
 
-  implicit val configNonNegativeFiniteDurationArb: Arbitrary[config.NonNegativeFiniteDuration] =
+  implicit val nonNegativeFiniteDurationArb: Arbitrary[config.NonNegativeFiniteDuration] =
     Arbitrary(
       Arbitrary
         .arbitrary[NonNegativeLong]

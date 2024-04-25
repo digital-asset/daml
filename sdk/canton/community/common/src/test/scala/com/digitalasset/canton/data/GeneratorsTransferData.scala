@@ -15,7 +15,7 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.sequencing.protocol.{
   Batch,
   GeneratorsProtocol as GeneratorsProtocolSequencing,
-  MediatorGroupRecipient,
+  MediatorsOfDomain,
   SignedContent,
   TimeProof,
 }
@@ -76,7 +76,7 @@ final class GeneratorsTransferData(
       salt <- Arbitrary.arbitrary[Salt]
       targetDomain <- Arbitrary.arbitrary[TargetDomainId]
 
-      targetMediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
+      targetMediator <- Arbitrary.arbitrary[MediatorsOfDomain]
 
       stakeholders <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       uuid <- Gen.uuid
@@ -102,7 +102,7 @@ final class GeneratorsTransferData(
       salt <- Arbitrary.arbitrary[Salt]
       sourceDomain <- Arbitrary.arbitrary[SourceDomainId]
 
-      sourceMediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
+      sourceMediator <- Arbitrary.arbitrary[MediatorsOfDomain]
 
       stakeholders <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       adminParties <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])

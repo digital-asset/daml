@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.http
 
-import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
 import com.digitalasset.canton.pureconfigutils.HttpServerConfig
 
 final case class HttpApiConfig(
@@ -15,11 +14,10 @@ final case class HttpApiConfig(
 ) {
 
   // TODO(#13303) Use directly instead of using JsonApiConfig as indirection
-  def toConfig(tls: Option[TlsConfiguration]): JsonApiConfig = {
+  def toConfig: JsonApiConfig = {
     JsonApiConfig(
       address = server.address,
       httpPort = server.port,
-      httpsConfiguration = tls,
       portFile = server.portFile,
       staticContentConfig = staticContent,
       allowNonHttps = allowInsecureTokens,

@@ -14,7 +14,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesResponse,
 }
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.ApplicationId
+import com.daml.lf.data.Ref.{ApplicationId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
@@ -171,6 +171,17 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
     Timed.future(
       metrics.services.index.prune,
       delegate.prune(pruneUpToInclusive, pruneAllDivulgedContracts, incompletReassignmentOffsets),
+    )
+
+  override def getCompletions(
+      startExclusive: ParticipantOffset,
+      endInclusive: ParticipantOffset,
+      applicationId: Ref.ApplicationId,
+      parties: Set[Party],
+  )(implicit loggingContext: LoggingContextWithTrace): Source[CompletionStreamResponse, NotUsed] =
+    Timed.source(
+      metrics.services.index.getCompletionsLimited,
+      delegate.getCompletions(startExclusive, endInclusive, applicationId, parties),
     )
 
   override def currentHealth(): HealthStatus =

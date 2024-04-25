@@ -196,7 +196,7 @@ class GrpcTopologyAggregationServiceX(
       asOf: CantonTimestamp,
       store: TopologyStoreX[TopologyStoreId.DomainStore],
   ): TopologySnapshotLoader =
-    new StoreBasedTopologySnapshot(
+    new StoreBasedTopologySnapshotX(
       asOf,
       store,
       StoreBasedDomainTopologyClient.NoPackageDependencies,

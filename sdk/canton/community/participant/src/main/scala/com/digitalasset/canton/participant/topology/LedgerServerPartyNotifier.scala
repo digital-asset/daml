@@ -85,8 +85,8 @@ class LedgerServerPartyNotifier(
     }
   }
 
-  def attachToTopologyProcessorX(): TopologyTransactionProcessingSubscriber =
-    new TopologyTransactionProcessingSubscriber {
+  def attachToTopologyProcessorX(): TopologyTransactionProcessingSubscriberX =
+    new TopologyTransactionProcessingSubscriberX {
 
       override def observed(
           sequencerTimestamp: SequencedTime,

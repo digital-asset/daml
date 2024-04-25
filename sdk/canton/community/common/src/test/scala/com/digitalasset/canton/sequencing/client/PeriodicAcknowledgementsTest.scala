@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.sequencing.client
 
-import cats.data.EitherT
 import cats.syntax.option.*
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.data.CantonTimestamp
@@ -24,7 +23,7 @@ class PeriodicAcknowledgementsTest extends AsyncWordSpec with BaseTest with HasE
   ) extends AutoCloseable {
     val clock = new SimClock(loggerFactory = PeriodicAcknowledgementsTest.this.loggerFactory)
     var latestCleanTimestamp: Option[CantonTimestamp] = initialCleanTimestamp
-    var nextResult: EitherT[Future, String, Boolean] = EitherT.rightT(true)
+    var nextResult: Future[Unit] = Future.unit
     val acknowledgements = mutable.Buffer[CantonTimestamp]()
     val interval = 10.seconds
 
@@ -84,7 +83,7 @@ class PeriodicAcknowledgementsTest extends AsyncWordSpec with BaseTest with HasE
   "should just log if acknowledging fails" in {
     val env = new Env()
 
-    env.nextResult = EitherT.leftT("BOOM")
+    env.nextResult = Future.failed(new RuntimeException("BOOM"))
     env.latestCleanTimestamp = CantonTimestamp.Epoch.some
 
     for {
@@ -93,7 +92,7 @@ class PeriodicAcknowledgementsTest extends AsyncWordSpec with BaseTest with HasE
           env.clock.advance(env.interval.plus(1.millis).toJava)
           env.sut.flush()
         },
-        _.warningMessage shouldBe "Failed to acknowledge clean timestamp (usually because sequencer is down): BOOM",
+        _.errorMessage shouldBe "periodic acknowledgement failed",
       )
     } yield succeed
   }

@@ -6,11 +6,6 @@ package com.digitalasset.canton.domain.block
 import cats.syntax.either.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.RawLedgerBlock.RawBlockEvent
-import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.{
-  SenderSigned,
-  SignedOrderingRequest,
-  SignedOrderingRequestOps,
-}
 import com.digitalasset.canton.logging.HasLoggerName
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
@@ -19,10 +14,6 @@ import com.digitalasset.canton.sequencing.protocol.{
   SubmissionRequest,
 }
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.serialization.{
-  BytestringWithCryptographicEvidence,
-  HasCryptographicEvidence,
-}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.version.ProtocolVersion
@@ -39,10 +30,8 @@ object LedgerBlockEvent extends HasLoggerName {
 
   final case class Send(
       timestamp: CantonTimestamp,
-      signedOrderingRequest: SignedOrderingRequest,
-  ) extends LedgerBlockEvent {
-    lazy val signedSubmissionRequest = signedOrderingRequest.signedSubmissionRequest
-  }
+      signedSubmissionRequest: SignedContent[SubmissionRequest],
+  ) extends LedgerBlockEvent
   final case class AddMember(member: Member) extends LedgerBlockEvent
   final case class Acknowledgment(request: SignedContent[AcknowledgeRequest])
       extends LedgerBlockEvent
@@ -53,7 +42,7 @@ object LedgerBlockEvent extends HasLoggerName {
     blockEvent match {
       case RawBlockEvent.Send(request, microsecondsSinceEpoch) =>
         for {
-          deserializedRequest <- deserializeSignedOrderingRequest(protocolVersion)(request)
+          deserializedRequest <- deserializeSignedSubmissionRequest(protocolVersion)(request)
           timestamp <- LfTimestamp
             .fromLong(microsecondsSinceEpoch)
             .leftMap(e => ProtoDeserializationError.TimestampConversionError(e))
@@ -68,50 +57,24 @@ object LedgerBlockEvent extends HasLoggerName {
         )
     }
 
-  def deserializeSignedOrderingRequest(
+  def deserializeSignedSubmissionRequest(
       protocolVersion: ProtocolVersion
-  )(submissionRequestBytes: ByteString): ParsingResult[SignedOrderingRequest] = {
+  )(submissionRequestBytes: ByteString): ParsingResult[SignedContent[SubmissionRequest]] = {
 
     // TODO(i10428) Prevent zip bombing when decompressing the request
-    for {
-      sequencerSignedContent <- SignedContent
-        .fromByteString(protocolVersion)(submissionRequestBytes)
-      signedOrderingRequest <- sequencerSignedContent
-        .deserializeContent(
-          deserializeOrderingRequestToValueClass(protocolVersion)
-            .andThen(deserializeOrderingRequestSignedContent(protocolVersion))
+    SignedContent
+      .fromByteString(protocolVersion)(
+        submissionRequestBytes
+      )
+      .flatMap(
+        _.deserializeContent(
+          SubmissionRequest.fromByteString(protocolVersion)(MaxRequestSizeToDeserialize.NoLimit)
         )
-    } yield signedOrderingRequest
-  }
-  private def deserializeOrderingRequestToValueClass(
-      protocolVersion: ProtocolVersion
-  ): ByteString => ParsingResult[SignedContent[BytestringWithCryptographicEvidence]] =
-    SignedContent.fromByteString(protocolVersion)
+      )
 
-  private def deserializeOrderingRequestSignedContent(protocolVersion: ProtocolVersion)(
-      signedContentParsingResult: ParsingResult[SignedContent[BytestringWithCryptographicEvidence]]
-  ): ParsingResult[SenderSigned[SubmissionRequest]] = for {
-    signedContent <- signedContentParsingResult
-    senderSignedRequest <- deserializeSenderSignedSubmissionRequest(protocolVersion)(signedContent)
-  } yield senderSignedRequest
-
-  private def deserializeSenderSignedSubmissionRequest[A <: HasCryptographicEvidence](
-      protocolVersion: ProtocolVersion
-  )(signedContent: SignedContent[A]): ParsingResult[SenderSigned[SubmissionRequest]] = {
-    signedContent.deserializeContent(
-      deserializeSubmissionRequest(protocolVersion)
-    )
   }
 
-  private def deserializeSubmissionRequest(
-      protocolVersion: ProtocolVersion
-  ): ByteString => ParsingResult[SubmissionRequest] = { bytes =>
-    SubmissionRequest.fromByteString(protocolVersion)(
-      MaxRequestSizeToDeserialize.NoLimit
-    )(bytes)
-  }
-
-  private def deserializeSignedAcknowledgeRequest(protocolVersion: ProtocolVersion)(
+  def deserializeSignedAcknowledgeRequest(protocolVersion: ProtocolVersion)(
       ackRequestBytes: ByteString
   ): ParsingResult[SignedContent[AcknowledgeRequest]] =
     SignedContent

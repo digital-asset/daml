@@ -29,11 +29,7 @@ trait ResourceManagementService {
   private val lastWarning: AtomicReference[CantonTimestamp] =
     new AtomicReference[CantonTimestamp](CantonTimestamp.now())
 
-  metrics
-    .registerMaxInflightValidationRequest(() =>
-      resourceLimits.maxInflightValidationRequests.map(_.unwrap)
-    )
-    .discard
+  metrics.registerMaxDirtyRequest(() => resourceLimits.maxDirtyRequests.map(_.unwrap)).discard
 
   def checkOverloaded(currentLoad: Int)(implicit
       loggingContext: ErrorLoggingContext
@@ -67,14 +63,12 @@ trait ResourceManagementService {
   protected def checkNumberOfDirtyRequests(
       currentLoad: Int
   )(implicit loggingContext: ErrorLoggingContext): Option[SubmissionResult] =
-    resourceLimits.maxInflightValidationRequests
+    resourceLimits.maxDirtyRequests
       .filter(currentLoad >= _.unwrap)
       .map(limit => {
         val status =
           ParticipantBackpressure
-            .Rejection(
-              s"too many in-flight validation requests (count: $currentLoad, limit: $limit)"
-            )
+            .Rejection(s"too many requests (count: $currentLoad, limit: $limit)")
             .rpcStatus()
         // Choosing SynchronousReject instead of Overloaded, because that allows us to specify a custom error message.
         SubmissionResult.SynchronousError(status)

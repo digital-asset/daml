@@ -14,7 +14,10 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.data.ActiveContract
-import com.digitalasset.canton.participant.admin.inspection.Error.SerializationIssue
+import com.digitalasset.canton.participant.admin.inspection.Error.{
+  InvariantIssue,
+  SerializationIssue,
+}
 import com.digitalasset.canton.participant.protocol.RequestJournal
 import com.digitalasset.canton.participant.store.ActiveContractStore.AcsError
 import com.digitalasset.canton.participant.store.*
@@ -207,17 +210,22 @@ final class SyncStateInspection(
                 timestamp,
                 skipCleanTimestampCheck = skipCleanTimestampCheck,
               ) { case (contract, transferCounter) =>
-                val activeContract =
+                val activeContractE =
                   ActiveContract.create(domainIdForExport, contract, transferCounter)(
                     protocolVersion
                   )
 
-                activeContract.writeDelimitedTo(outputStream) match {
-                  case Left(errorMessage) =>
-                    Left(SerializationIssue(domainId, contract.contractId, errorMessage))
-                  case Right(_) =>
-                    outputStream.flush()
-                    Right(())
+                activeContractE match {
+                  case Left(e) =>
+                    Left(InvariantIssue(domainId, contract.contractId, e.getMessage))
+                  case Right(bundle) =>
+                    bundle.writeDelimitedTo(outputStream) match {
+                      case Left(errorMessage) =>
+                        Left(SerializationIssue(domainId, contract.contractId, errorMessage))
+                      case Right(_) =>
+                        outputStream.flush()
+                        Right(())
+                    }
                 }
               }
 

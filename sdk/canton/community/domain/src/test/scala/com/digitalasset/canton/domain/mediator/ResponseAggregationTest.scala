@@ -19,7 +19,7 @@ import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -45,7 +45,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
     def salt(i: Int): Salt = TestSalt.generateSalt(i)
 
     val domainId = DefaultTestIdentities.domainId
-    val mediator = MediatorGroupRecipient(MediatorGroupIndex.zero)
+    val mediator = MediatorsOfDomain(MediatorGroupIndex.zero)
     val participantId = DefaultTestIdentities.participant1
 
     val aliceParty = LfPartyId.assertFromString("alice")

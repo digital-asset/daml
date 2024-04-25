@@ -235,6 +235,24 @@ private[index] class IndexServiceImpl(
       }
       .buffered(metrics.index.completionsBufferSize, LedgerApiStreamsBufferSize)
 
+  override def getCompletions(
+      startExclusive: ParticipantOffset,
+      endInclusive: ParticipantOffset,
+      applicationId: Ref.ApplicationId,
+      parties: Set[Ref.Party],
+  )(implicit loggingContext: LoggingContextWithTrace): Source[CompletionStreamResponse, NotUsed] =
+    between(startExclusive, Some(endInclusive)) { (start, end) =>
+      dispatcher()
+        .startingAt(
+          start.getOrElse(Offset.beforeBegin),
+          RangeSource(commandCompletionsReader.getCommandCompletions(_, _, applicationId, parties)),
+          end,
+        )
+        .mapError(shutdownError)
+        .map(_._2)
+    }
+      .buffered(metrics.index.completionsBufferSize, LedgerApiStreamsBufferSize)
+
   override def getActiveContracts(
       transactionFilter: TransactionFilter,
       verbose: Boolean,

@@ -11,6 +11,7 @@ import com.daml.metrics.api.testing.InMemoryMetricsFactory.{
   InMemoryTimer,
 }
 import com.daml.metrics.api.testing.MetricValues
+import com.daml.metrics.api.testing.ProxyMetricsFactory.{ProxyCounter, ProxyHistogram, ProxyTimer}
 import com.digitalasset.canton.metrics.Metrics
 
 import java.util.concurrent.TimeUnit
@@ -99,7 +100,14 @@ class IndexerBenchmarkResult(
 
       case _: InMemoryHistogram =>
         recordedHistogramValuesToString(histogram.values)
-
+      case ProxyHistogram(_, targets) =>
+        targets
+          .collectFirst { case inMemory: InMemoryHistogram =>
+            inMemory
+          }
+          .fold(throw new IllegalArgumentException(s"Histogram $histogram cannot be printed."))(
+            histogramToString
+          )
       case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
   }
@@ -109,7 +117,14 @@ class IndexerBenchmarkResult(
       case NoOpTimer(_) => ""
       case _: InMemoryTimer =>
         recordedHistogramValuesToString(timer.values)
-
+      case ProxyTimer(_, targets) =>
+        targets
+          .collectFirst { case inMemory: InMemoryTimer =>
+            inMemory
+          }
+          .fold(throw new IllegalArgumentException(s"Timer $timer cannot be printed."))(
+            timerToString
+          )
       case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
   }
@@ -119,6 +134,14 @@ class IndexerBenchmarkResult(
       case NoOpTimer(_) => 0
       case timer: InMemoryTimer =>
         timer.data.values.size.toDouble / duration
+      case ProxyTimer(_, targets) =>
+        targets
+          .collectFirst { case inMemory: InMemoryTimer =>
+            inMemory
+          }
+          .fold(throw new IllegalArgumentException(s"Timer $timer cannot be printed."))(
+            timerMeanRate
+          )
       case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
   }
@@ -127,7 +150,14 @@ class IndexerBenchmarkResult(
     counter match {
       case NoOpCounter(_) => 0
       case InMemoryCounter(_, _) => counter.value
-
+      case ProxyCounter(_, targets) =>
+        targets
+          .collectFirst { case inMemory: InMemoryCounter =>
+            inMemory
+          }
+          .fold(throw new IllegalArgumentException(s"Counter $counter cannot be printed."))(
+            counterState
+          )
       case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
   }

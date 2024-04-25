@@ -83,9 +83,7 @@ class ParticipantTopologyTerminateProcessingX(
   )(implicit traceContext: TraceContext): Future[Seq[LedgerSyncEvent]] = {
     def queryStore(asOfInclusive: Boolean): Future[PositiveStoredTopologyTransactionsX] =
       store.findPositiveTransactions(
-        // the effectiveTime of topology transactions is exclusive. so if we want to find
-        // the old and new state, we need to take the immediateSuccessor of the effectiveTime
-        asOf = effectiveTime.value.immediateSuccessor,
+        asOf = effectiveTime.value,
         asOfInclusive = asOfInclusive,
         isProposal = false,
         types = Seq(TopologyMappingX.Code.PartyToParticipantX),

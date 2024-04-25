@@ -384,7 +384,7 @@ class ParticipantTopologyDispatcherX(
 
             outboxes.forgetNE.parTraverse_(
               _.startup().leftMap(
-                DomainRegistryError.InitialOnboardingError.Error(_)
+                DomainRegistryError.DomainRegistryInternalError.InitialOnboardingError(_)
               )
             )
           }
@@ -435,7 +435,7 @@ private class DomainOnboardingOutboxX(
       s"Sending ${initialTransactions.size} onboarding transactions to ${domain}"
     )
     result <- dispatch(domain, initialTransactions).leftMap[DomainRegistryError](
-      DomainRegistryError.InitialOnboardingError.Error(_)
+      DomainRegistryError.DomainRegistryInternalError.InitialOnboardingError(_)
     )
   } yield {
     result.forall(res => isExpectedState(res))
@@ -483,13 +483,13 @@ private class DomainOnboardingOutboxX(
       }
     if (!haveEncryptionKey) {
       Left(
-        DomainRegistryError.InitialOnboardingError.Error(
+        DomainRegistryError.DomainRegistryInternalError.InitialOnboardingError(
           "Can not onboard as local participant doesn't have a valid encryption key"
         )
       )
     } else if (!haveSigningKey) {
       Left(
-        DomainRegistryError.InitialOnboardingError.Error(
+        DomainRegistryError.DomainRegistryInternalError.InitialOnboardingError(
           "Can not onboard as local participant doesn't have a valid signing key"
         )
       )

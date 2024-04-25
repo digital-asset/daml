@@ -4,13 +4,8 @@
 package com.digitalasset.canton.admin.api.client.commands
 
 import cats.syntax.either.*
-import ch.qos.logback.classic.Level
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.health.admin.v30.{
-  HealthDumpRequest,
-  HealthDumpResponse,
-  StatusServiceGrpc,
-}
+import com.digitalasset.canton.health.admin.v30.{HealthDumpRequest, HealthDumpResponse}
 import com.digitalasset.canton.health.admin.{data, v30}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import io.grpc.Context.CancellableContext
@@ -20,16 +15,12 @@ import io.grpc.{Context, ManagedChannel}
 import scala.concurrent.Future
 
 object StatusAdminCommands {
-  abstract class StatusServiceCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {
+  abstract class GetStatusBase[Result]
+      extends GrpcAdminCommand[v30.StatusRequest, v30.StatusResponse, Result] {
     override type Svc = v30.StatusServiceGrpc.StatusServiceStub
-
     override def createService(channel: ManagedChannel): v30.StatusServiceGrpc.StatusServiceStub =
       v30.StatusServiceGrpc.stub(channel)
-  }
-  abstract class GetStatusBase[Result]
-      extends StatusServiceCommand[v30.StatusRequest, v30.StatusResponse, Result] {
     override def createRequest(): Either[String, v30.StatusRequest] = Right(v30.StatusRequest())
-
     override def submitRequest(
         service: v30.StatusServiceGrpc.StatusServiceStub,
         request: v30.StatusRequest,
@@ -98,61 +89,4 @@ object StatusAdminCommands {
         case other => Right(predicate(other))
       }).leftMap(_.toString)
   }
-
-  class SetLogLevel(level: Level)
-      extends StatusServiceCommand[v30.SetLogLevelRequest, v30.SetLogLevelResponse, Unit] {
-
-    override def submitRequest(
-        service: StatusServiceGrpc.StatusServiceStub,
-        request: v30.SetLogLevelRequest,
-    ): Future[v30.SetLogLevelResponse] = service.setLogLevel(request)
-
-    override def createRequest(): Either[String, v30.SetLogLevelRequest] = Right(
-      v30.SetLogLevelRequest(level.toString)
-    )
-
-    override def handleResponse(response: v30.SetLogLevelResponse): Either[String, Unit] = Right(())
-  }
-
-  class GetLastErrors()
-      extends StatusServiceCommand[
-        v30.GetLastErrorsRequest,
-        v30.GetLastErrorsResponse,
-        Map[String, String],
-      ] {
-
-    override def submitRequest(
-        service: StatusServiceGrpc.StatusServiceStub,
-        request: v30.GetLastErrorsRequest,
-    ): Future[v30.GetLastErrorsResponse] =
-      service.getLastErrors(request)
-    override def createRequest(): Either[String, v30.GetLastErrorsRequest] = Right(
-      v30.GetLastErrorsRequest()
-    )
-    override def handleResponse(
-        response: v30.GetLastErrorsResponse
-    ): Either[String, Map[String, String]] =
-      response.errors.map(r => (r.traceId -> r.message)).toMap.asRight
-  }
-
-  class GetLastErrorTrace(traceId: String)
-      extends StatusServiceCommand[v30.GetLastErrorTraceRequest, v30.GetLastErrorTraceResponse, Seq[
-        String
-      ]] {
-
-    override def submitRequest(
-        service: StatusServiceGrpc.StatusServiceStub,
-        request: v30.GetLastErrorTraceRequest,
-    ): Future[v30.GetLastErrorTraceResponse] =
-      service.getLastErrorTrace(request)
-
-    override def createRequest(): Either[String, v30.GetLastErrorTraceRequest] = Right(
-      v30.GetLastErrorTraceRequest(traceId)
-    )
-
-    override def handleResponse(
-        response: v30.GetLastErrorTraceResponse
-    ): Either[String, Seq[String]] = Right(response.messages)
-  }
-
 }

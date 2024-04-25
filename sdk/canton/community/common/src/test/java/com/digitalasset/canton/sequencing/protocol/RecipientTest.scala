@@ -14,7 +14,7 @@ class RecipientTest extends AnyWordSpec with BaseTest {
   val memberRecipient = MemberRecipient(ParticipantId("participant1"))
   val participantsOfParty = ParticipantsOfParty(alice)
   val sequencersOfDomain = SequencersOfDomain
-  val mediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(99312312))
+  val mediatorsOfDomain = MediatorsOfDomain(MediatorGroupIndex.tryCreate(99312312))
   val allRecipients = AllMembersOfDomain
 
   "recipient test serialization" should {
@@ -35,9 +35,9 @@ class RecipientTest extends AnyWordSpec with BaseTest {
       ) shouldBe Right(sequencersOfDomain)
 
       Recipient.fromProtoPrimitive(
-        mediatorGroupRecipient.toProtoPrimitive,
+        mediatorsOfDomain.toProtoPrimitive,
         "recipient",
-      ) shouldBe Right(mediatorGroupRecipient)
+      ) shouldBe Right(mediatorsOfDomain)
 
       Recipient.fromProtoPrimitive(
         allRecipients.toProtoPrimitive,

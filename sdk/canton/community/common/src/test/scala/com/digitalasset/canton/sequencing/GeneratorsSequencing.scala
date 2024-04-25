@@ -31,9 +31,6 @@ object GeneratorsSequencing {
     Arbitrary(Generators.nonEmptySetGen[Endpoint].map(_.toSeq))
 
   implicit val sequencerConnectionArb: Arbitrary[SequencerConnection] = genArbitrary
-  implicit val submissionRequestAmplificationArb: Arbitrary[SubmissionRequestAmplification] =
-    genArbitrary
-
   implicit val sequencerConnectionsArb: Arbitrary[SequencerConnections] = Arbitrary(
     for {
       connections <- Generators
@@ -41,7 +38,7 @@ object GeneratorsSequencing {
         .map(_.toSeq)
         .map(_.distinctBy(_.sequencerAlias))
       sequencerTrustThreshold <- Gen.choose(1, connections.size).map(PositiveInt.tryCreate)
-      submissionRequestAmplification <- submissionRequestAmplificationArb.arbitrary
+      submissionRequestAmplification <- Gen.choose(1, connections.size).map(PositiveInt.tryCreate)
     } yield SequencerConnections.tryMany(
       connections,
       sequencerTrustThreshold,

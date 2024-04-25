@@ -28,9 +28,6 @@ final class PackageManagementServiceAuthorization(
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] =
     authorizer.requireAdminClaims(service.uploadDarFile)(request)
 
-  override def validateDarFile(request: ValidateDarFileRequest): Future[ValidateDarFileResponse] =
-    authorizer.requireAdminClaims(service.validateDarFile)(request)
-
   override def bindService(): ServerServiceDefinition =
     PackageManagementServiceGrpc.bindService(this, executionContext)
 

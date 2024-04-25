@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.protocol.submission.routing
 
 import cats.data.EitherT
 import cats.syntax.applicativeError.*
-import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
@@ -150,56 +149,17 @@ private[routing] final class AdmissibleDomains(
         ifEmpty = TopologyErrors.InformeesNotActive.Error(_, informees),
       )
 
-    // PartyTopology -> Map[LfPartyId, (Map[ParticipantId, ParticipantAttributes], Option[PositiveInt])]
     def suitableDomains(
         domainsWithAllSubmitters: NonEmpty[Map[DomainId, PartyTopology]]
     ): EitherT[Future, TransactionRoutingError, NonEmpty[Set[DomainId]]] = {
-      logger.debug(
-        s"Checking whether one domain in ${domainsWithAllSubmitters.keys} is suitable for submission"
-      )
-
-      // Return true if all submitters are locally hosted with correct permissions
-      def canUseDomain(
-          domainId: DomainId,
-          parties: Map[LfPartyId, (Map[ParticipantId, ParticipantAttributes], Option[PositiveInt])],
-      ): Boolean = {
-        // We keep only the relevant topology (submitter on the local participant)
-        val locallyHostedSubmitters: Map[LfPartyId, (ParticipantAttributes, Option[PositiveInt])] =
-          parties.toSeq.mapFilter { case (party, (participants, threshold)) =>
-            for {
-              permissions <- participants.get(localParticipantId)
-              _ <- Option.when(submitters.contains(party))(())
-            } yield (party, (permissions, threshold))
-          }.toMap
-
-        val unknownSubmitters: Set[LfPartyId] = submitters.diff(locallyHostedSubmitters.keySet)
-
-        val incorrectPermissionSubmitters = locallyHostedSubmitters.toSeq.flatMap {
-          case (party, (permissions, threshold)) =>
-            if (permissions.permission < Submission)
-              List(s"submitter $party has permissions=${permissions.permission}")
-            else if (threshold.forall(_ > PositiveInt.one))
-              List(s"submitter $party has threshold=$threshold")
-            else Nil
-        }
-
-        val canUseDomain = unknownSubmitters.isEmpty && incorrectPermissionSubmitters.isEmpty
-
-        if (!canUseDomain) {
-          val context = Map(
-            "unknown submitters" -> unknownSubmitters,
-            "incorrect permissions" -> incorrectPermissionSubmitters.toSeq,
-          )
-          logger.debug(s"Cannot use domain $domainId: $context")
-        }
-
-        canUseDomain
-      }
-
-      val suitableDomains = for {
-        (domainId, topology) <- domainsWithAllSubmitters
-        if canUseDomain(domainId, topology)
-      } yield domainId
+      val suitableDomains =
+        for {
+          (domainId, topology) <- domainsWithAllSubmitters
+          (partyId, (participants, threshold)) <- topology
+          if submitters.contains(partyId) && threshold.contains(PositiveInt.one)
+          (participantId, attributes) <- participants
+          if participantId == localParticipantId && attributes.permission >= Submission
+        } yield domainId
 
       ensureNonEmpty(suitableDomains.toSet, noDomainWhereAllSubmittersCanSubmit)
     }

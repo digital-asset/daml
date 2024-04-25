@@ -28,7 +28,6 @@ import com.digitalasset.canton.domain.block.{
   SignedChunkEvents,
 }
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
-import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequest
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerIntegration
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
@@ -45,10 +44,14 @@ import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
   SendAsyncError,
   SignedContent,
+  SubmissionRequest,
 }
 import com.digitalasset.canton.time.{Clock, SimClock}
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.topology.client.StoreBasedDomainTopologyClient
+import com.digitalasset.canton.topology.client.{
+  StoreBasedDomainTopologyClient,
+  StoreBasedDomainTopologyClientX,
+}
 import com.digitalasset.canton.topology.processing.{
   ApproximateTime,
   EffectiveTime,
@@ -117,7 +120,7 @@ class BlockSequencerTest
       )
       .futureValue
 
-    private val topologyClient = new StoreBasedDomainTopologyClient(
+    private val topologyClient = new StoreBasedDomainTopologyClientX(
       mock[Clock],
       domainId,
       testedProtocolVersion,
@@ -214,7 +217,7 @@ class BlockSequencerTest
     override def close(): Unit = ()
 
     // No need to implement these methods for the test
-    override def send(signedSubmission: SignedOrderingRequest)(implicit
+    override def send(signedSubmission: SignedContent[SubmissionRequest])(implicit
         traceContext: TraceContext
     ): EitherT[Future, SendAsyncError, Unit] = ???
     override def register(member: Member)(implicit

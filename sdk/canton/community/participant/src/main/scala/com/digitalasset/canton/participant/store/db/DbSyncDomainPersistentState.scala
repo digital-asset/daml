@@ -13,7 +13,11 @@ import com.digitalasset.canton.participant.store.EventLogId.DomainEventLogId
 import com.digitalasset.canton.participant.store.SyncDomainPersistentState
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.resource.DbStorage
-import com.digitalasset.canton.store.db.{DbSequencedEventStore, DbSequencerCounterTrackerStore}
+import com.digitalasset.canton.store.db.{
+  DbSequencedEventStore,
+  DbSequencerCounterTrackerStore,
+  SequencerClientDiscriminator,
+}
 import com.digitalasset.canton.store.memory.InMemorySendTrackerStore
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.time.Clock
@@ -90,9 +94,10 @@ class DbSyncDomainPersistentState(
       timeouts,
       loggerFactory,
     )
+  private val client = SequencerClientDiscriminator.fromIndexedDomainId(domainId)
   val sequencedEventStore = new DbSequencedEventStore(
     storage,
-    domainId,
+    client,
     protocolVersion,
     timeouts,
     loggerFactory,
@@ -119,7 +124,7 @@ class DbSyncDomainPersistentState(
   val parameterStore: DbDomainParameterStore =
     new DbDomainParameterStore(domainId.item, storage, timeouts, loggerFactory)
   val sequencerCounterTrackerStore =
-    new DbSequencerCounterTrackerStore(domainId, storage, timeouts, loggerFactory)
+    new DbSequencerCounterTrackerStore(client, storage, timeouts, loggerFactory)
   // TODO(i5660): Use the db-based send tracker store
   val sendTrackerStore = new InMemorySendTrackerStore()
 

@@ -52,9 +52,8 @@ class MemberAuthenticationService(
     cryptoApi: DomainSyncCryptoClient,
     store: MemberAuthenticationStore,
     clock: Clock,
-    nonceExpirationInterval: Duration,
-    maxTokenExpirationInterval: Duration,
-    useExponentialRandomTokenExpiration: Boolean,
+    nonceExpirationTime: Duration,
+    tokenExpirationTime: Duration,
     invalidateMemberCallback: Traced[Member] => Unit,
     isTopologyInitialized: Future[Unit],
     override val timeouts: ProcessingTimeout,
@@ -83,7 +82,7 @@ class MemberAuthenticationService(
         }
       )
       nonce = Nonce.generate(cryptoApi.pureCrypto)
-      storedNonce = StoredNonce(member, nonce, clock.now, nonceExpirationInterval)
+      storedNonce = StoredNonce(member, nonce, clock.now, nonceExpirationTime)
       _ <- handlePassiveInstanceException(store.saveNonce(storedNonce))
     } yield {
       scheduleExpirations(storedNonce.expireAt)
@@ -137,18 +136,7 @@ class MemberAuthenticationService(
         InvalidSignature(member)
       }
       token = AuthenticationToken.generate(cryptoApi.pureCrypto)
-      maybeRandomTokenExpirationTime =
-        if (useExponentialRandomTokenExpiration) {
-          val randomSeconds = MemberAuthenticationService.truncatedExponentialRandomDelay(
-            scale = maxTokenExpirationInterval.toSeconds.toDouble * 0.75,
-            min = maxTokenExpirationInterval.toSeconds / 2.0,
-            max = maxTokenExpirationInterval.toSeconds.toDouble,
-          )
-          Duration.ofSeconds(randomSeconds.toLong)
-        } else {
-          maxTokenExpirationInterval
-        }
-      tokenExpiry = clock.now.add(maybeRandomTokenExpirationTime)
+      tokenExpiry = clock.now.add(tokenExpirationTime)
       storedToken = StoredAuthenticationToken(member, tokenExpiry, token)
       _ <- handlePassiveInstanceException(tokenCache.saveToken(storedToken))
     } yield {
@@ -254,34 +242,13 @@ class MemberAuthenticationService(
 
 }
 
-object MemberAuthenticationService {
-
-  /** Generates a random delay between min and max, following an exponential distribution with the given scale.
-    * The delay is truncated to the range [min, max]. The interval should be sufficiently large around the scale,
-    *  to avoid long sampling times or even running indefinitely.
-    */
-  private[authentication] def truncatedExponentialRandomDelay(
-      scale: Double,
-      min: Double,
-      max: Double,
-  ): Double = {
-    Iterator
-      .continually {
-        -math.log(scala.util.Random.nextDouble()) * scale
-      }
-      .filter(d => d >= min && d <= max)
-      .next()
-  }
-}
-
 class MemberAuthenticationServiceImpl(
     domain: DomainId,
     cryptoApi: DomainSyncCryptoClient,
     store: MemberAuthenticationStore,
     clock: Clock,
-    nonceExpirationInterval: Duration,
-    maxTokenExpirationInterval: Duration,
-    useExponentialRandomTokenExpiration: Boolean,
+    nonceExpirationTime: Duration,
+    tokenExpirationTime: Duration,
     invalidateMemberCallback: Traced[Member] => Unit,
     isTopologyInitialized: Future[Unit],
     timeouts: ProcessingTimeout,
@@ -292,15 +259,14 @@ class MemberAuthenticationServiceImpl(
       cryptoApi,
       store,
       clock,
-      nonceExpirationInterval = nonceExpirationInterval,
-      maxTokenExpirationInterval = maxTokenExpirationInterval,
-      useExponentialRandomTokenExpiration = useExponentialRandomTokenExpiration,
+      nonceExpirationTime = nonceExpirationTime,
+      tokenExpirationTime = tokenExpirationTime,
       invalidateMemberCallback,
       isTopologyInitialized,
       timeouts,
       loggerFactory,
     )
-    with TopologyTransactionProcessingSubscriber {
+    with TopologyTransactionProcessingSubscriberX {
 
   /** domain topology client subscriber used to remove member tokens if they get disabled */
   override def observed(
@@ -352,9 +318,8 @@ object MemberAuthenticationServiceFactory {
   def apply(
       domain: DomainId,
       clock: Clock,
-      nonceExpirationInterval: Duration,
-      maxTokenExpirationInterval: Duration,
-      useExponentialRandomTokenExpiration: Boolean,
+      nonceExpirationTime: Duration,
+      tokenExpirationTime: Duration,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
       topologyTransactionProcessorX: TopologyTransactionProcessorX,
@@ -371,9 +336,8 @@ object MemberAuthenticationServiceFactory {
           syncCrypto,
           store,
           clock,
-          nonceExpirationInterval = nonceExpirationInterval,
-          maxTokenExpirationInterval = maxTokenExpirationInterval,
-          useExponentialRandomTokenExpiration = useExponentialRandomTokenExpiration,
+          nonceExpirationTime = nonceExpirationTime,
+          tokenExpirationTime = tokenExpirationTime,
           invalidateMemberCallback,
           isTopologyInitialized,
           timeouts,

@@ -8,47 +8,38 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDoub
 
 /** Encapsulated resource limits for a participant.
   *
-  * @param maxInflightValidationRequests the maximum number of requests that are currently being validated.
+  * @param maxDirtyRequests the maximum number of requests that are currently being validated.
   *                         This also covers requests submitted by other participants.
-  * @param maxSubmissionRate the maximum submission rate at which commands may be submitted through the ledger api.
-  * @param maxSubmissionBurstFactor to ratio of the max submission rate, describing the maximum acceptable initial burst before the steady
-  *                      submission rate limiting kicks in. example: if maxSubmissionRate is 100 and the burst ratio is 0.3, then the first
+  * @param maxRate the maximum rate at which commands may be submitted through the ledger api.
+  * @param maxBurstFactor to ratio of the max rate, describing the maximum acceptable initial burst before the steady
+  *                      rate limiting kicks in. example: if maxRate is 100 and the burst ratio is 0.3, then the first
   *                      30 commands can submitted in the same instant, while thereafter, only one command every 10ms
   *                      is accepted.
   */
 final case class ResourceLimits(
-    maxInflightValidationRequests: Option[NonNegativeInt],
-    maxSubmissionRate: Option[NonNegativeInt],
-    maxSubmissionBurstFactor: PositiveDouble = ResourceLimits.defaultMaxSubmissionBurstFactor,
+    maxDirtyRequests: Option[NonNegativeInt],
+    maxRate: Option[NonNegativeInt],
+    maxBurstFactor: PositiveDouble = ResourceLimits.defaultMaxBurstFactor,
 ) {
 
   def toProtoV30: v30.ResourceLimits =
     v30.ResourceLimits(
-      maxInflightValidationRequests = maxInflightValidationRequests.fold(-1)(_.unwrap),
-      maxSubmissionRate = maxSubmissionRate.fold(-1)(_.unwrap),
-      maxSubmissionBurstFactor = maxSubmissionBurstFactor.value,
+      maxDirtyRequests = maxDirtyRequests.fold(-1)(_.unwrap),
+      maxRate = maxRate.fold(-1)(_.unwrap),
+      maxBurstFactor = maxBurstFactor.value,
     )
 }
 
 object ResourceLimits {
   def fromProtoV30(resourceLimitsP: v30.ResourceLimits): ResourceLimits = {
-    val v30.ResourceLimits(
-      maxInflightValidationRequestsP,
-      maxSubmissionRateP,
-      maxSubmissionBurstFactorP,
-    ) = resourceLimitsP
+    val v30.ResourceLimits(maxDirtyRequestsP, maxRateP, maxBurstFactorP) = resourceLimitsP
 
-    val maxInflightValidationRequests =
-      if (maxInflightValidationRequestsP >= 0)
-        Some(NonNegativeInt.tryCreate(maxInflightValidationRequestsP))
-      else None
-    val maxSubmissionRate =
-      if (maxSubmissionRateP >= 0) Some(NonNegativeInt.tryCreate(maxSubmissionRateP)) else None
+    val maxDirtyRequests =
+      if (maxDirtyRequestsP >= 0) Some(NonNegativeInt.tryCreate(maxDirtyRequestsP)) else None
+    val maxRate = if (maxRateP >= 0) Some(NonNegativeInt.tryCreate(maxRateP)) else None
     // backwards compatible: use 0.5 as safe default value
-    val maxBurstRatio = PositiveNumeric.tryCreate(
-      if (maxSubmissionBurstFactorP > 0) maxSubmissionBurstFactorP else 0.5
-    )
-    ResourceLimits(maxInflightValidationRequests, maxSubmissionRate, maxBurstRatio)
+    val maxBurstRatio = PositiveNumeric.tryCreate(if (maxBurstFactorP > 0) maxBurstFactorP else 0.5)
+    ResourceLimits(maxDirtyRequests, maxRate, maxBurstRatio)
   }
 
   def noLimit: ResourceLimits = ResourceLimits(None, None)
@@ -58,14 +49,14 @@ object ResourceLimits {
     * with bursts of up to 200 commands/s.
     */
   def default: ResourceLimits = ResourceLimits(
-    maxInflightValidationRequests = Some(NonNegativeInt.tryCreate(500)),
-    maxSubmissionRate = Some(NonNegativeInt.tryCreate(200)),
-    maxSubmissionBurstFactor = defaultMaxSubmissionBurstFactor,
+    maxDirtyRequests = Some(NonNegativeInt.tryCreate(500)),
+    maxRate = Some(NonNegativeInt.tryCreate(200)),
+    maxBurstFactor = defaultMaxBurstFactor,
   )
 
   def community: ResourceLimits =
-    ResourceLimits(Some(NonNegativeInt.tryCreate(100)), None, defaultMaxSubmissionBurstFactor)
+    ResourceLimits(Some(NonNegativeInt.tryCreate(100)), None, defaultMaxBurstFactor)
 
-  private lazy val defaultMaxSubmissionBurstFactor = PositiveNumeric.tryCreate(0.5)
+  private lazy val defaultMaxBurstFactor = PositiveNumeric.tryCreate(0.5)
 
 }

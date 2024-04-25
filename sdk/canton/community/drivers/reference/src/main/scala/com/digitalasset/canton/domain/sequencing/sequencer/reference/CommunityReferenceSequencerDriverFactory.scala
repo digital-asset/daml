@@ -45,7 +45,7 @@ class CommunityReferenceSequencerDriverFactory extends SequencerDriverFactory {
       nonStandardConfig: Boolean,
       timeProvider: TimeProvider,
       firstBlockHeight: Option[Long],
-      domainId: String,
+      domainTopologyManagerId: String,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext, materializer: Materializer): SequencerDriver =
     delegate.create(
@@ -53,7 +53,7 @@ class CommunityReferenceSequencerDriverFactory extends SequencerDriverFactory {
       nonStandardConfig,
       timeProvider,
       firstBlockHeight,
-      domainId,
+      domainTopologyManagerId,
       loggerFactory,
     )
 

@@ -11,7 +11,7 @@ import com.digitalasset.canton.data.MerkleTree.RevealSubtree
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.TransferOutMediatorMessage
 import com.digitalasset.canton.protocol.{v30, *}
-import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
+import com.digitalasset.canton.sequencing.protocol.{MediatorsOfDomain, TimeProof}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
@@ -139,7 +139,7 @@ object TransferOutViewTree
 final case class TransferOutCommonData private (
     override val salt: Salt,
     sourceDomain: SourceDomainId,
-    sourceMediator: MediatorGroupRecipient,
+    sourceMediator: MediatorsOfDomain,
     stakeholders: Set[LfPartyId],
     adminParties: Set[LfPartyId],
     uuid: UUID,
@@ -206,7 +206,7 @@ object TransferOutCommonData
   def create(hashOps: HashOps)(
       salt: Salt,
       sourceDomain: SourceDomainId,
-      sourceMediator: MediatorGroupRecipient,
+      sourceMediator: MediatorsOfDomain,
       stakeholders: Set[LfPartyId],
       adminParties: Set[LfPartyId],
       uuid: UUID,
@@ -242,10 +242,7 @@ object TransferOutCommonData
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
       sourceDomain <- SourceDomainId.fromProtoPrimitive(sourceDomainP, "source_domain")
-      sourceMediator <- MediatorGroupRecipient.fromProtoPrimitive(
-        sourceMediatorP,
-        "source_mediator",
-      )
+      sourceMediator <- MediatorsOfDomain.fromProtoPrimitive(sourceMediatorP, "source_mediator")
       stakeholders <- stakeholdersP.traverse(ProtoConverter.parseLfPartyId)
       adminParties <- adminPartiesP.traverse(ProtoConverter.parseLfPartyId)
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP)
@@ -438,7 +435,7 @@ final case class FullTransferOutTree(tree: TransferOutViewTree)
 
   override def domainId: DomainId = sourceDomain.unwrap
 
-  override def mediator: MediatorGroupRecipient = commonData.sourceMediator
+  override def mediator: MediatorsOfDomain = commonData.sourceMediator
 
   override def informees: Set[Informee] = commonData.confirmingParties
 

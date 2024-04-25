@@ -20,14 +20,17 @@ import com.digitalasset.canton.protocol.{
   DynamicDomainParametersWithValidity,
 }
 import com.digitalasset.canton.sequencing.TrafficControlParameters
-import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.{
   AuthorityOfResponse,
   PartyInfo,
 }
-import com.digitalasset.canton.topology.processing.TopologyTransactionProcessingSubscriber
+import com.digitalasset.canton.topology.processing.{
+  TopologyTransactionProcessingSubscriberCommon,
+  TopologyTransactionProcessingSubscriberX,
+}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
@@ -417,7 +420,7 @@ trait MediatorDomainStateClient {
     })
 
   def isMediatorActive(
-      mediator: MediatorGroupRecipient
+      mediator: MediatorsOfDomain
   )(implicit traceContext: TraceContext): Future[Boolean] =
     mediatorGroup(mediator.group).map {
       case Some(group) => group.isActive
@@ -540,10 +543,14 @@ trait TopologySnapshot
 
 // architecture-handbook-entry-end: IdentityProvidingServiceClient
 
+trait DomainTopologyClientWithInitX
+    extends DomainTopologyClientWithInit
+    with TopologyTransactionProcessingSubscriberX
+
 /** The internal domain topology client interface used for initialisation and efficient processing */
 trait DomainTopologyClientWithInit
     extends DomainTopologyClient
-    with TopologyTransactionProcessingSubscriber
+    with TopologyTransactionProcessingSubscriberCommon
     with HasFutureSupervision
     with NamedLogging {
 

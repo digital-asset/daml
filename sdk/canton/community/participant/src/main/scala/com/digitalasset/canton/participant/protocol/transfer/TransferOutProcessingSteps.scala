@@ -110,7 +110,7 @@ class TransferOutProcessingSteps(
 
   override def prepareSubmission(
       param: SubmissionParam,
-      mediator: MediatorGroupRecipient,
+      mediator: MediatorsOfDomain,
       ephemeralState: SyncDomainEphemeralStateLookup,
       sourceRecentSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit
@@ -315,7 +315,7 @@ class TransferOutProcessingSteps(
       ],
       malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
       sourceSnapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorGroupRecipient,
+      mediator: MediatorsOfDomain,
       // not actually used here, because it's available in the only fully unblinded view
       submitterMetadataO: Option[ViewSubmitterMetadata],
   )(implicit
@@ -398,7 +398,7 @@ class TransferOutProcessingSteps(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
       activenessF: FutureUnlessShutdown[ActivenessResult],
-      mediator: MediatorGroupRecipient,
+      mediator: MediatorsOfDomain,
       freshOwnTimelyTx: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -800,7 +800,7 @@ object TransferOutProcessingSteps {
       hostedStakeholders: Set[LfPartyId],
       targetTimeProof: TimeProof,
       transferInExclusivity: Option[CantonTimestamp],
-      mediator: MediatorGroupRecipient,
+      mediator: MediatorsOfDomain,
       override val locallyRejected: Boolean,
   ) extends PendingTransfer
       with PendingRequestData {

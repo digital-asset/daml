@@ -6,7 +6,7 @@ package com.digitalasset.canton.protocol
 import com.digitalasset.canton.crypto.{Hash, HashOps, HashPurpose, HmacOps, Salt}
 import com.digitalasset.canton.data.ViewPosition
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
-import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.serialization.DeterministicEncoding
 import com.digitalasset.canton.topology.DomainId
 
@@ -107,7 +107,7 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
     */
   def generateSaltAndUnicum(
       domainId: DomainId,
-      mediator: MediatorGroupRecipient,
+      mediator: MediatorsOfDomain,
       transactionUuid: UUID,
       viewPosition: ViewPosition,
       viewParticipantDataSalt: Salt,

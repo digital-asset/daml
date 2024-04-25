@@ -14,21 +14,9 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
-import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{Member, PartyId, SafeSimpleString, UniqueIdentifier}
-import com.digitalasset.canton.tracing.TraceContext
-
-import scala.concurrent.{ExecutionContext, Future}
 
 sealed trait Recipient extends Product with Serializable with PrettyPrinting {
-
-  /** Determines if this recipient is authorized to send or receive through the sequencer.
-    */
-  def isAuthorized(snapshot: TopologySnapshot)(implicit
-      traceContext: TraceContext,
-      executionContext: ExecutionContext,
-  ): Future[Boolean]
-
   def toProtoPrimitive: String = toLengthLimitedString.unwrap
 
   def toLengthLimitedString: String300
@@ -75,7 +63,7 @@ object Recipient {
               .map(ParticipantsOfParty(_))
           case SequencersOfDomain.Code =>
             Right(SequencersOfDomain)
-          case MediatorGroupRecipient.Code =>
+          case MediatorsOfDomain.Code =>
             for {
               groupInt <-
                 Either
@@ -88,7 +76,7 @@ object Recipient {
               group <- NonNegativeInt
                 .create(groupInt)
                 .leftMap(e => InvariantViolation(e.message))
-            } yield MediatorGroupRecipient(group)
+            } yield MediatorsOfDomain(group)
           case AllMembersOfDomain.Code =>
             Right(AllMembersOfDomain)
         }
@@ -108,7 +96,7 @@ object GroupRecipientCode {
     String3.create(code).flatMap {
       case ParticipantsOfParty.Code.threeLetterId => Right(ParticipantsOfParty.Code)
       case SequencersOfDomain.Code.threeLetterId => Right(SequencersOfDomain.Code)
-      case MediatorGroupRecipient.Code.threeLetterId => Right(MediatorGroupRecipient.Code)
+      case MediatorsOfDomain.Code.threeLetterId => Right(MediatorsOfDomain.Code)
       case AllMembersOfDomain.Code.threeLetterId => Right(AllMembersOfDomain.Code)
       case _ => Left(s"Unknown three letter type $code")
     }
@@ -135,12 +123,6 @@ object TopologyBroadcastAddress {
 }
 
 final case class MemberRecipient(member: Member) extends Recipient {
-
-  override def isAuthorized(snapshot: TopologySnapshot)(implicit
-      traceContext: TraceContext,
-      executionContext: ExecutionContext,
-  ): Future[Boolean] = snapshot.isMemberKnown(member)
-
   override def pretty: Pretty[MemberRecipient] =
     prettyOfClass(
       unnamedParam(_.member)
@@ -150,12 +132,6 @@ final case class MemberRecipient(member: Member) extends Recipient {
 }
 
 final case class ParticipantsOfParty(party: PartyId) extends GroupRecipient {
-
-  override def isAuthorized(snapshot: TopologySnapshot)(implicit
-      traceContext: TraceContext,
-      executionContext: ExecutionContext,
-  ): Future[Boolean] = snapshot.activeParticipantsOf(party.toLf).map(_.nonEmpty)
-
   override def pretty: Pretty[ParticipantsOfParty] =
     prettyOfClass(
       unnamedParam(_.party)
@@ -172,13 +148,7 @@ object ParticipantsOfParty {
   }
 }
 
-case object SequencersOfDomain extends GroupRecipient {
-
-  override def isAuthorized(
-      snapshot: TopologySnapshot
-  )(implicit traceContext: TraceContext, executionContext: ExecutionContext): Future[Boolean] =
-    Future.successful(true)
-
+final case object SequencersOfDomain extends GroupRecipient {
   override def pretty: Pretty[SequencersOfDomain.type] =
     prettyOfObject[SequencersOfDomain.type]
 
@@ -191,46 +161,33 @@ case object SequencersOfDomain extends GroupRecipient {
   }
 }
 
-final case class MediatorGroupRecipient(group: MediatorGroupIndex) extends GroupRecipient {
-
-  override def isAuthorized(snapshot: TopologySnapshot)(implicit
-      traceContext: TraceContext,
-      executionContext: ExecutionContext,
-  ): Future[Boolean] = snapshot.isMediatorActive(this)
-
-  override def pretty: Pretty[MediatorGroupRecipient] =
+final case class MediatorsOfDomain(group: MediatorGroupIndex) extends GroupRecipient {
+  override def pretty: Pretty[MediatorsOfDomain] =
     prettyOfClass(
       param("group", _.group)
     )
 
-  override def code: GroupRecipientCode = MediatorGroupRecipient.Code
+  override def code: GroupRecipientCode = MediatorsOfDomain.Code
 
   override def suffix: String = group.toString
 }
 
-object MediatorGroupRecipient {
+object MediatorsOfDomain {
   object Code extends GroupRecipientCode {
-    val threeLetterId: String3 = String3.tryCreate("MGR")
+    val threeLetterId: String3 = String3.tryCreate("MOD")
   }
 
   def fromProtoPrimitive(
-      mediatorGroupRecipientP: String,
+      mediatorsOfDomain: String,
       fieldName: String,
-  ): ParsingResult[MediatorGroupRecipient] =
-    Recipient.fromProtoPrimitive(mediatorGroupRecipientP, fieldName).flatMap {
-      case mod: MediatorGroupRecipient => Right(mod)
-      case other =>
-        Left(ValueConversionError(fieldName, s"Expected MediatorGroupRecipient, got $other"))
+  ): ParsingResult[MediatorsOfDomain] =
+    Recipient.fromProtoPrimitive(mediatorsOfDomain, fieldName).flatMap {
+      case mod: MediatorsOfDomain => Right(mod)
+      case other => Left(ValueConversionError(fieldName, s"Expected MediatorsOfDomain, got $other"))
     }
 }
 
 case object AllMembersOfDomain extends GroupRecipient {
-
-  override def isAuthorized(snapshot: TopologySnapshot)(implicit
-      traceContext: TraceContext,
-      executionContext: ExecutionContext,
-  ): Future[Boolean] = Future.successful(true)
-
   override def pretty: Pretty[AllMembersOfDomain.type] =
     prettyOfString(_ => suffix)
 

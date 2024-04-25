@@ -13,7 +13,6 @@ import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.domain.config.PublicServerConfig
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.authentication.MemberAuthenticationServiceFactory
-import com.digitalasset.canton.domain.sequencing.config.SequencerNodeParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   DirectSequencerClientTransport,
   Sequencer,
@@ -40,8 +39,8 @@ import com.digitalasset.canton.sequencing.{
   UnsignedEnvelopeBox,
   UnsignedProtocolEventHandler,
 }
+import com.digitalasset.canton.store.db.SequencerClientDiscriminator
 import com.digitalasset.canton.store.{
-  IndexedDomain,
   SendTrackerStore,
   SequencedEventStore,
   SequencerCounterTrackerStore,
@@ -71,12 +70,12 @@ class SequencerRuntimeForSeparateNode(
     sequencerId: SequencerId,
     sequencer: Sequencer,
     staticDomainParameters: StaticDomainParameters,
-    localNodeParameters: SequencerNodeParameters,
+    localNodeParameters: CantonNodeWithSequencerParameters,
     publicServerConfig: PublicServerConfig,
     timeTrackerConfig: DomainTimeTrackerConfig,
     testingConfig: TestingConfigInternal,
     metrics: SequencerMetrics,
-    indexedDomain: IndexedDomain,
+    domainId: DomainId,
     syncCrypto: DomainSyncCryptoClient,
     topologyStore: TopologyStoreX[DomainStore],
     topologyClient: DomainTopologyClientWithInit,
@@ -94,6 +93,7 @@ class SequencerRuntimeForSeparateNode(
     memberAuthenticationServiceFactory: MemberAuthenticationServiceFactory,
     topologyStateForInitializationService: Option[TopologyStateForInitializationService],
     maybeDomainOutboxFactory: Option[DomainOutboxFactorySingleCreate],
+    clientDiscriminator: SequencerClientDiscriminator,
     loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext,
@@ -107,7 +107,7 @@ class SequencerRuntimeForSeparateNode(
       localNodeParameters,
       publicServerConfig,
       metrics,
-      indexedDomain.domainId,
+      domainId,
       syncCrypto,
       topologyClient,
       topologyManagerStatusO,
@@ -125,7 +125,7 @@ class SequencerRuntimeForSeparateNode(
   private val sequencedEventStore =
     SequencedEventStore(
       storage,
-      indexedDomain,
+      clientDiscriminator,
       staticDomainParameters.protocolVersion,
       timeouts,
       loggerFactory,
@@ -179,12 +179,7 @@ class SequencerRuntimeForSeparateNode(
   )
 
   private val topologyManagerSequencerCounterTrackerStore =
-    SequencerCounterTrackerStore(
-      storage,
-      indexedDomain,
-      timeouts,
-      loggerFactory,
-    )
+    SequencerCounterTrackerStore(storage, clientDiscriminator, timeouts, loggerFactory)
 
   override protected lazy val domainOutboxO: Option[DomainOutboxHandle] =
     maybeDomainOutboxFactory
@@ -268,7 +263,9 @@ class SequencerRuntimeForSeparateNode(
   def initializeAll()(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
     for {
       _ <- initialize(topologyInitIsCompleted = false)
-      _ = logger.debug("Subscribing topology client within sequencer runtime")
+      _ = logger.debug(
+        s"Subscribing topology client within sequencer runtime for $clientDiscriminator"
+      )
       _ <- EitherT.right(
         client.subscribeTracking(
           topologyManagerSequencerCounterTrackerStore,

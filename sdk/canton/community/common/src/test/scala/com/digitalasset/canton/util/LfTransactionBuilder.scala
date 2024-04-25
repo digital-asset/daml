@@ -33,7 +33,6 @@ object LfTransactionBuilder {
   val defaultGlobalKey: LfGlobalKey = LfGlobalKey.assertBuild(
     defaultTemplateId,
     Value.ValueUnit,
-    defaultPackageName,
   )
 
   def allocateNodeId[M[_]](implicit monadInstance: Monad[M]): StateT[M, NodeIdState, LfNodeId] =

@@ -22,9 +22,6 @@ object TryUtil {
   implicit final class ForFailedOps[A](private val a: Try[A]) extends AnyVal {
     @inline
     def forFailed(f: Throwable => Unit): Unit = a.fold(f, _ => ())
-
-    @inline
-    def valueOr[B >: A](f: Throwable => B): B = a.fold(f, identity)
   }
 
 }

@@ -20,7 +20,10 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.domain.{DomainAliasResolution, DomainRegistryError}
 import com.digitalasset.canton.participant.store.*
-import com.digitalasset.canton.participant.topology.TopologyComponentFactory
+import com.digitalasset.canton.participant.topology.{
+  TopologyComponentFactory,
+  TopologyComponentFactoryX,
+}
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore, SequencedEventStore}
@@ -293,7 +296,7 @@ class SyncDomainPersistentStateManagerX(
 
   override def topologyFactoryFor(domainId: DomainId): Option[TopologyComponentFactory] = {
     get(domainId).map(state =>
-      new TopologyComponentFactory(
+      new TopologyComponentFactoryX(
         domainId,
         crypto,
         clock,

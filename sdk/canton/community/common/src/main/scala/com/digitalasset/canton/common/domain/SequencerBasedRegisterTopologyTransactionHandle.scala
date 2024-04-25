@@ -22,7 +22,7 @@ import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.ProtocolVersion
 
 import java.util.UUID
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 // unsealed for testing
 trait RegisterTopologyTransactionHandle extends FlagCloseable {
@@ -107,6 +107,7 @@ class DomainTopologyServiceX(
       functionFullName
     )(
       sendRequest(request, sendCallback)
+        .mapK(FutureUnlessShutdown.outcomeK)
         .biSemiflatMap(
           sendAsyncClientError => {
             logger.error(s"Failed broadcasting topology transactions: $sendAsyncClientError")
@@ -133,11 +134,9 @@ class DomainTopologyServiceX(
   private def sendRequest(
       request: TopologyTransactionsBroadcastX,
       sendCallback: SendCallback,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
     logger.debug(s"Broadcasting topology transaction: ${request.broadcasts}")
-    EitherTUtil.logOnErrorU(
+    EitherTUtil.logOnError(
       sequencerClient.sendAsyncUnauthenticatedOrNot(
         Batch.of(protocolVersion, (request, Recipients.cc(TopologyBroadcastAddress.recipient))),
         maxSequencingTime =

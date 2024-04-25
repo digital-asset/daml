@@ -13,7 +13,7 @@ import com.digitalasset.canton.participant.protocol.TestProcessingSteps.{
   TestPendingRequestDataType,
 }
 import com.digitalasset.canton.protocol.RequestId
-import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, RequestCounter, SequencerCounter}
 import org.scalatest.wordspec.AnyWordSpec
@@ -37,7 +37,7 @@ class Phase37SynchronizerTest extends AnyWordSpec with BaseTest with HasExecutio
       TestPendingRequestData(
         RequestCounter(i),
         SequencerCounter(i),
-        MediatorGroupRecipient(MediatorGroupIndex.one),
+        MediatorsOfDomain(MediatorGroupIndex.one),
         locallyRejected = false,
       )
     )

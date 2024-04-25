@@ -295,7 +295,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_key_maintainers = Some(Set("signatory2", "signatory3")),
         create_key_hash = Some(
           GlobalKey
-            .assertBuild(contractTemplate, keyValue, createNode.packageName)
+            .assertBuild(contractTemplate, keyValue)
             .hash
             .bytes
             .toHexString

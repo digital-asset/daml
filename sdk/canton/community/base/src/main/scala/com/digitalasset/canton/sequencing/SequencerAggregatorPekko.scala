@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.sequencing
 
+import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
@@ -35,6 +36,7 @@ import com.digitalasset.canton.util.OrderedBucketMergeHub.{
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{
+  ErrorUtil,
   OrderedBucketMergeConfig,
   OrderedBucketMergeHub,
   OrderedBucketMergeHubOps,
@@ -129,11 +131,9 @@ class SequencerAggregatorPekko(
 
     val mergedSigs = elems.flatMap { case (_, event) => event.signedEvent.signatures }.toSeq
     val mergedSignedEvent = SignedContent
-      .create(
-        content,
-        mergedSigs,
-        timestampOfSigningKey = None,
-        representativeProtocolVersion,
+      .create(content, mergedSigs, timestampOfSigningKey = None, representativeProtocolVersion)
+      .valueOr(err =>
+        ErrorUtil.invalidState(s"Failed to aggregate signatures on sequenced event: $err")
       )
     // TODO(#13789) How should we merge the traffic state as it's currently not part of the bucketing?
     val mergedTrafficState = someElem.trafficState

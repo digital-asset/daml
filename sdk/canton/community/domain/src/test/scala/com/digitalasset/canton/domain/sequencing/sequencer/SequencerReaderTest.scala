@@ -677,6 +677,7 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
                     _payload,
                     Some(topologyTimestamp),
                     _traceContext,
+                    _trafficStateO,
                   ),
                 ),
               ),

@@ -9,6 +9,7 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.GeneratorsTopology.*
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalacheck.Arbitrary
+import org.scalatest.EitherValues.*
 
 final class GeneratorsData(
     protocolVersion: ProtocolVersion,
@@ -22,7 +23,10 @@ final class GeneratorsData(
       domainId <- Arbitrary.arbitrary[DomainId]
       contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
       transferCounter <- transferCounterGen
-    } yield ActiveContract.create(domainId, contract, transferCounter)(protocolVersion))
+
+      ac = ActiveContract.create(domainId, contract, transferCounter)(protocolVersion)
+
+    } yield ac.value)
 
   }
 

@@ -335,7 +335,7 @@ trait HasSupportedProtoVersions[ValueClass] {
       Either.cond(
         v.isEmpty == pv < untilExclusive.representative,
         (),
-        s"expecting None for $attributeName if and only if pv < ${untilExclusive.representative}; for $pv, found: $v",
+        s"expecting None if and only if pv < ${untilExclusive.representative}; for $pv, found: $v",
       )
   }
 
@@ -744,14 +744,6 @@ trait HasMemoizedProtocolVersionedWrapperCompanion2[
   ): Deserializer =
     (original: OriginalByteString, data: DataByteString) =>
       ProtoConverter.protoParser(p.parseFrom)(data).flatMap(fromProto(_)(original))
-
-  def fromTrustedByteArray(bytes: Array[Byte]): ParsingResult[DeserializedValueClass] =
-    for {
-      proto <- ProtoConverter.protoParserArray(v1.UntypedVersionedMessage.parseFrom)(bytes)
-      data <- proto.wrapper.data.toRight(ProtoDeserializationError.FieldNotSet(s"$name: data"))
-      valueClass <- supportedProtoVersions
-        .deserializerFor(ProtoVersion(proto.version))(ByteString.copyFrom(bytes), data)
-    } yield valueClass
 
   override def fromByteString(
       expectedProtocolVersion: ProtocolVersion

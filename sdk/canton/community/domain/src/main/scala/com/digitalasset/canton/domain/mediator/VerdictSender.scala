@@ -12,7 +12,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, SyncCryptoError}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.UnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.*
@@ -43,7 +43,7 @@ private[mediator] trait VerdictSender {
       request: MediatorConfirmationRequest,
       verdict: Verdict,
       decisionTime: CantonTimestamp,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
+  )(implicit traceContext: TraceContext): Future[Unit]
 
   def sendResultBatch(
       requestId: RequestId,
@@ -51,7 +51,7 @@ private[mediator] trait VerdictSender {
       decisionTime: CantonTimestamp,
       aggregationRule: Option[AggregationRule],
       sendVerdict: Boolean,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
+  )(implicit traceContext: TraceContext): Future[Unit]
 
   /** Mediator rejects are important for situations where malformed mediator confirmation request or RHMs can have valid state
     * and thus consume resources on the participant side. A prompt rejection will allow to free these resources.
@@ -92,27 +92,23 @@ private[mediator] class DefaultVerdictSender(
       request: MediatorConfirmationRequest,
       verdict: Verdict,
       decisionTime: CantonTimestamp,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] = {
     val resultET = for {
-      snapshot <- EitherT.right(crypto.ips.awaitSnapshotUS(requestId.unwrap))
-      aggregationRule <- EitherT
-        .right(
-          groupAggregationRule(
-            snapshot,
-            request.mediator,
-            protocolVersion,
-          )
-            .valueOr(err =>
-              ErrorUtil.invalidState(
-                s"Mediator rule should not fail at this point, the error was: $err"
-              )
-            )
+      snapshot <- EitherT.right(crypto.ips.awaitSnapshot(requestId.unwrap))
+      aggregationRule <- EitherT.right(
+        groupAggregationRule(
+          snapshot,
+          request.mediator,
+          protocolVersion,
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
-      sendVerdict <- EitherT
-        .right(shouldSendVerdict(request.mediator, snapshot))
-        .mapK(FutureUnlessShutdown.outcomeK)
-      batch <- createResults(requestId, request, verdict).mapK(FutureUnlessShutdown.outcomeK)
+          .valueOr(err =>
+            ErrorUtil.invalidState(
+              s"Mediator rule should not fail at this point, the error was: $err"
+            )
+          )
+      )
+      sendVerdict <- EitherT.right(shouldSendVerdict(request.mediator, snapshot))
+      batch <- createResults(requestId, request, verdict)
       _ <- EitherT.right[SyncCryptoError](
         sendResultBatch(requestId, batch, decisionTime, aggregationRule, sendVerdict)
       )
@@ -131,7 +127,7 @@ private[mediator] class DefaultVerdictSender(
       decisionTime: CantonTimestamp,
       aggregationRule: Option[AggregationRule],
       sendVerdict: Boolean,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] = {
     val callback: SendCallback = {
       case UnlessShutdown.Outcome(SendResult.Success(_)) =>
         logger.debug(s"Sent result for request ${requestId.unwrap}")
@@ -176,11 +172,11 @@ private[mediator] class DefaultVerdictSender(
       logger.info(
         s"Not sending the message batch of size ${batch.envelopes.size} for request $requestId as this mediator is passive in the request's mediator group."
       )
-      EitherT.pure[FutureUnlessShutdown, String](())
+      EitherT.pure[Future, String](())
     }
 
     EitherTUtil
-      .logOnErrorU(sendET, s"Failed to send result to sequencer for request ${requestId.unwrap}")
+      .logOnError(sendET, s"Failed to send result to sequencer for request ${requestId.unwrap}")
       .value
       .void
   }
@@ -255,7 +251,7 @@ private[mediator] class DefaultVerdictSender(
     }
 
   private def shouldSendVerdict(
-      mediatorGroup: MediatorGroupRecipient,
+      mediatorGroup: MediatorsOfDomain,
       topologySnapshot: TopologySnapshot,
   )(implicit traceContext: TraceContext): Future[Boolean] = {
     val mediatorGroupIndex = mediatorGroup.group
@@ -274,7 +270,7 @@ private[mediator] class DefaultVerdictSender(
 
   private def groupAggregationRule(
       topologySnapshot: TopologySnapshot,
-      mediatorGroup: MediatorGroupRecipient,
+      mediatorGroup: MediatorsOfDomain,
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
@@ -351,12 +347,13 @@ private[mediator] class DefaultVerdictSender(
               .map(_ -> recipients)
           }
         batches = envs.map(Batch.of(protocolVersion, _))
+        // TODO(i13849): Review the case below: the check in sequencer has to be made stricter (not to allow rhms with inconsistent mediators from other than participant domain nodes)
         mediatorGroupO = // we always use RHMs to figure out the mediator group, to address rejections from a correct mediator that participants that received the RHMs expect
           rootHashMessages.headOption // one RHM is enough because sequencer checks that all RHMs specify the same mediator recipient
             .map { rhm =>
               rhm.recipients.allRecipients
-                .collectFirst { case mediatorGroupRecipient: MediatorGroupRecipient =>
-                  mediatorGroupRecipient
+                .collectFirst { case mediatorsOfDomain: MediatorsOfDomain =>
+                  mediatorsOfDomain
                 }
                 .getOrElse {
                   ErrorUtil.invalidState(

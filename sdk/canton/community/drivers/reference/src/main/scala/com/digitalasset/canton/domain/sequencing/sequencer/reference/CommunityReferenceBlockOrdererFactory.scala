@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.reference
 
+import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.noop.NoOpMetricsFactory
-import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.digitalasset.canton.config.{
   BatchAggregatorConfig,
   BatchingConfig,
@@ -16,13 +16,14 @@ import com.digitalasset.canton.config.{
   QueryCostMonitoringConfig,
   StorageConfig,
 }
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.{BlockOrderer, BlockOrdererFactory}
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.DbStorageMetrics
 import com.digitalasset.canton.resource.{CommunityDbMigrations, CommunityStorageFactory, Storage}
-import com.digitalasset.canton.time.{TimeProvider, TimeProviderClock}
+import com.digitalasset.canton.time.{Clock, TimeProvider}
 import com.digitalasset.canton.tracing.TraceContext
 import monocle.macros.syntax.lens.*
 import org.apache.pekko.stream.Materializer
@@ -103,6 +104,7 @@ class CommunityReferenceBlockOrdererFactory extends BlockOrdererFactory {
 
   override def create(
       config: ConfigType,
+      domainTopologyManagerId: String,
       timeProvider: TimeProvider,
       lFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext, materializer: Materializer): BlockOrderer = {
@@ -131,10 +133,18 @@ object CommunityReferenceBlockOrdererFactory {
       processingTimeout: ProcessingTimeout,
       lFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): Storage = {
-    val clock = new TimeProviderClock(timeProvider, lFactory)
+    val clock = new Clock {
+      override def now: CantonTimestamp =
+        CantonTimestamp.assertFromLong(timeProvider.nowInMicrosecondsSinceEpoch)
+
+      override protected def addToQueue(queue: Queued): Unit = ()
+
+      override protected def loggerFactory: NamedLoggerFactory = lFactory
+
+      override def close(): Unit = ()
+    }
     implicit val traceContext: TraceContext = TraceContext.empty
     implicit val closeContext: CloseContext = new CloseContext(closeable)
-    implicit val metricContext: MetricsContext = MetricsContext.Empty
     val storageConfig = setMigrationsPath(config.storage)
     storageConfig match {
       case communityStorageConfig: CommunityStorageConfig =>

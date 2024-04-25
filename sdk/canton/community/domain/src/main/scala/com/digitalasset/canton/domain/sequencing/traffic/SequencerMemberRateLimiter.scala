@@ -25,7 +25,7 @@ class SequencerMemberRateLimiter(
     member: Member,
     override val loggerFactory: NamedLoggerFactory,
     metrics: SequencerMetrics,
-    eventCostCalculator: EventCostCalculator,
+    eventCostCalculator: EventCostCalculator = new EventCostCalculator(),
 ) extends NamedLogging {
 
   /** Consume the traffic costs of the event from the sequencer members traffic state.
@@ -50,10 +50,6 @@ class SequencerMemberRateLimiter(
       SequencerRateLimitError.EventOutOfOrder(member, trafficState.timestamp, sequencingTimestamp),
     )
     .flatMap { _ =>
-      logger.trace(
-        s"Calculating cost of event for sender $member at sequencing timestamp $sequencingTimestamp"
-      )
-
       val eventCost = eventCostCalculator.computeEventCost(
         event,
         trafficControlConfig.readVsWriteScalingFactor,

@@ -152,6 +152,7 @@ class TrafficBalanceSubmissionHandler(
         )
         .leftMap(err => TrafficControlErrors.TrafficBalanceRequestAsyncSendFailed.Error(err.show))
         .leftWiden[TrafficControlError]
+        .mapK(FutureUnlessShutdown.outcomeK)
       _ <- EitherT(
         callback.future
           .map {

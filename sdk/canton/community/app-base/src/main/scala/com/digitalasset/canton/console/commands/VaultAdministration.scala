@@ -135,7 +135,7 @@ class SecretKeyAdministration(
 
   private def findPublicKey(
       fingerprint: String,
-      topologyAdmin: TopologyAdministrationGroup,
+      topologyAdmin: TopologyAdministrationGroupCommon,
       owner: Member,
   ): PublicKey =
     findPublicKeys(topologyAdmin, owner).find(_.fingerprint.unwrap == fingerprint) match {
@@ -241,17 +241,24 @@ class SecretKeyAdministration(
   /** Helper to find public keys for topology/x shared between community and enterprise
     */
   protected def findPublicKeys(
-      topologyAdmin: TopologyAdministrationGroup,
+      topologyAdmin: TopologyAdministrationGroupCommon,
       owner: Member,
-  ): Seq[PublicKey] = {
-    topologyAdmin.owner_to_key_mappings
-      .list(
-        filterStore = AuthorizedStore.filterName,
-        filterKeyOwnerUid = owner.filterString,
-        filterKeyOwnerType = Some(owner.code),
-      )
-      .flatMap(_.item.keys)
-  }
+  ): Seq[PublicKey] =
+    topologyAdmin match {
+      case tx: TopologyAdministrationGroup =>
+        tx.owner_to_key_mappings
+          .list(
+            filterStore = AuthorizedStore.filterName,
+            filterKeyOwnerUid = owner.filterString,
+            filterKeyOwnerType = Some(owner.code),
+          )
+          .flatMap(_.item.keys)
+      case _ =>
+        // TODO(#15161): Remove the match when flattening TopologyAdministrationGroup and Common
+        throw new IllegalStateException(
+          "Impossible to encounter topology admin group besides X"
+        )
+    }
 
   /** Helper to name new keys generated during a rotation with a ...-rotated-<timestamp> tag to better identify
     * the new keys after a rotation
@@ -484,7 +491,8 @@ class PublicKeyAdministration(
       filterDomain: String = "",
       asOf: Option[Instant] = None,
       limit: PositiveInt = defaultLimit,
-  ): Seq[ListKeyOwnersResult] =
+  ): Seq[ListKeyOwnersResult] = {
+    println(s"keyOwner.uid.toProtoPrimitive = ${keyOwner.uid.toProtoPrimitive}")
     consoleEnvironment.run {
       adminCommand(
         TopologyAdminCommands.Aggregation.ListKeyOwners(
@@ -496,6 +504,7 @@ class PublicKeyAdministration(
         )
       )
     }
+  }
 }
 
 class KeyAdministrationGroup(

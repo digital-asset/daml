@@ -5,7 +5,7 @@ package com.digitalasset.canton.protocol
 
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.ViewPosition
-import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.serialization.DeterministicEncoding
 import com.digitalasset.canton.topology.DomainId
 
@@ -34,7 +34,7 @@ object ContractSalt {
   def create(hmacOps: HmacOps)(
       transactionUuid: UUID,
       domainId: DomainId,
-      mediator: MediatorGroupRecipient,
+      mediator: MediatorsOfDomain,
       actionSalt: Salt,
       createIndex: Int,
       viewPosition: ViewPosition,

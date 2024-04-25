@@ -9,7 +9,6 @@ import com.digitalasset.canton.domain.block.{
   SequencerDriver,
   SequencerDriverHealthStatus,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequest
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   RegisterMemberError,
   SequencerWriteError,
@@ -36,7 +35,7 @@ class DriverBlockSequencerOps(
     driver.subscribe()
 
   override def send(
-      signedSubmission: SignedOrderingRequest
+      signedSubmission: SignedContent[SubmissionRequest]
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] =
     // The driver API doesn't provide error reporting, so we don't attempt to translate the exception
     EitherT.right(

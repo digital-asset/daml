@@ -30,7 +30,7 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.{DomainParametersLookup, StaticDomainParameters}
 import com.digitalasset.canton.resource.Storage
-import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
+import com.digitalasset.canton.store.db.SequencerClientDiscriminator
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
@@ -119,7 +119,6 @@ trait SequencerNodeBootstrapCommon[
       staticDomainParameters: StaticDomainParameters,
       storage: Storage,
       crypto: Crypto,
-      indexedStringStore: IndexedStringStore,
       initializationObserver: Future[Unit],
       initializedAtHead: => Future[Boolean],
       arguments: CantonNodeBootstrapCommonArguments[_, SequencerNodeParameters, SequencerMetrics],
@@ -129,22 +128,18 @@ trait SequencerNodeBootstrapCommon[
       domainLoggerFactory: NamedLoggerFactory,
       trafficConfig: SequencerTrafficConfig,
   ): EitherT[Future, String, SequencerRuntime] = {
+    val syncCrypto = new DomainSyncCryptoClient(
+      sequencerId,
+      domainId,
+      topologyClient,
+      crypto,
+      parameters.cachingConfigs,
+      parameters.processingTimeouts,
+      futureSupervisor,
+      loggerFactory,
+    )
+
     for {
-      indexedDomain <- EitherT.liftF[Future, String, IndexedDomain](
-        IndexedDomain.indexed(indexedStringStore)(domainId)
-      )
-
-      syncCrypto = new DomainSyncCryptoClient(
-        sequencerId,
-        domainId,
-        topologyClient,
-        crypto,
-        parameters.cachingConfigs,
-        parameters.processingTimeouts,
-        futureSupervisor,
-        loggerFactory,
-      )
-
       sequencer <- EitherT.liftF[Future, String, Sequencer](
         sequencerFactory.create(
           domainId,
@@ -166,7 +161,7 @@ trait SequencerNodeBootstrapCommon[
         config.timeTracker,
         arguments.testingConfig,
         arguments.metrics,
-        indexedDomain,
+        domainId,
         syncCrypto,
         topologyStore,
         topologyClient,
@@ -178,8 +173,8 @@ trait SequencerNodeBootstrapCommon[
         storage,
         clock,
         SequencerAuthenticationConfig(
-          config.publicApi.nonceExpirationInterval,
-          config.publicApi.maxTokenExpirationInterval,
+          config.publicApi.nonceExpirationTime,
+          config.publicApi.tokenExpirationTime,
         ),
         createEnterpriseAdminService(_, domainLoggerFactory),
         staticMembersToRegister,
@@ -187,6 +182,7 @@ trait SequencerNodeBootstrapCommon[
         memberAuthServiceFactory,
         topologyStateForInitializationService,
         maybeDomainOutboxFactory,
+        SequencerClientDiscriminator.UniqueDiscriminator,
         domainLoggerFactory,
       )
       _ <- runtime.initializeAll()

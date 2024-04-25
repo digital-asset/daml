@@ -8,6 +8,7 @@ package com.digitalasset.canton.protocol.v30;
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/domain/api/v30/sequencer_service.proto";
 import "com/digitalasset/canton/protocol/v30/common_stable.proto";
+import "com/digitalasset/canton/protocol/v30/signed_content.proto";
 import "com/digitalasset/canton/v30/trace_context.proto";
 import "google/protobuf/wrappers.proto";
 import "google/rpc/status.proto";
@@ -19,19 +20,13 @@ message PossiblyIgnoredSequencedEvent {
   int64 timestamp = 2; // in microseconds of UTC time since Unix epoch
   com.digitalasset.canton.v30.TraceContext trace_context = 3;
   bool is_ignored = 4;
-  google.protobuf.BytesValue underlying = 5; // Serialized SignedContent[SequencedEvent]. Optional if is_ignored == true, required otherwise
+  v30.SignedContent underlying = 5; // Optional if is_ignored == true, required otherwise
   com.digitalasset.canton.domain.api.v30.SequencedEventTrafficState traffic_state = 6; // Optional
 }
 
 // Protobuf has a hard limit on the nesting depth of messages, so this message could potentially hit
 // the nesting depth limit. However this probably won't be an issue any time soon.
 message RecipientsTree {
-  // Recipients of the request.
-  // Must be non-empty.
-  // A recipient is either a member (cf. MemberRecipient) or a set of members (cf. GroupRecipient such as AllMembersOfDomain).
-  // TARGET STATE: Each recipient must be authorized at the underlying domain (cf. Recipient.isAuthorized).
-  // CURRENT STATE: A recipient must be "known" to the sequencer.
-  //   A recipient in general remains "known" even after its topology transactions have been removed on the domain.
   repeated string recipients = 1;
   repeated com.digitalasset.canton.protocol.v30.RecipientsTree children = 2;
 }
@@ -89,11 +84,6 @@ message Envelope {
   // Contains a v30.EnvelopeContent if signatures are empty and a v30.TypedSignedProtocolMessageContent otherwise
   bytes content = 1;
   com.digitalasset.canton.protocol.v30.Recipients recipients = 2;
-
-  // The sequencer may reject a request if it contains an invalid signature.
-  // But clients should not trust a sequencer node to verify signatures for them.
-  // If the underlying request has an aggregation rule, then the sequencer must reject the request if it contains an invalid signature.
-  // CURRENT STATE: The signature is only checked, if a topology_timestamp and an aggregation rule are defined.
   repeated com.digitalasset.canton.crypto.v30.Signature signatures = 3;
 }
 
@@ -119,77 +109,24 @@ message CompressedBatch {
 message SequencedEvent {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
 
-  // A sequence number for all events emitted to a subscriber. Starting at 0.
-  // The same event may have different counter values for different recipients.
   int64 counter = 1;
-
-  // The timestamp of the event. Unique and monotonically increasing.
-  // The same event has the same timestamp for all recipients.
-  // in microseconds of UTC time since Unix epoch
-  int64 timestamp = 2;
-
-  // The domain on which the event has been sequenced.
+  int64 timestamp = 2; // in microseconds of UTC time since Unix epoch
   string domain_id = 3;
-
-  // The message_id of the request.
-  // Optional, but will be defined iff the request sender is the subscriber.
-  google.protobuf.StringValue message_id = 4;
-
-  // The payload of the event.
-  // Optional, defined iff deliver_error_reason is undefined.
-  CompressedBatch batch = 5;
-
-  // Optional error, indicates why the underlying SubmissionRequest has been rejected.
-  google.rpc.Status deliver_error_reason = 6;
-
-  // Optional timestamp of the topology snapshot used for processing the underlying request
-  // (e.g., validation, signing, resolving group addresses).
-  // If undefined, timestamp is used instead.
-  google.protobuf.Int64Value topology_timestamp = 7;
+  google.protobuf.StringValue message_id = 4; // Optional: Present for DeliverError, present for the sender of a Deliver.
+  CompressedBatch batch = 5; // Optional: Present for Deliver, absent for DeliverError
+  google.rpc.Status deliver_error_reason = 6; // Optional: Present for DeliverError, absent for other events
+  google.protobuf.Int64Value topology_timestamp = 7; // Optional: Present for Deliver events when it is different from timestamp, absent for other events
 }
 
 // Messages used for synchronization between sequencer nodes
 message SubmissionRequest {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
 
-  // Sender of the request.
-  // This request must be wrapped in a SignedContent and
-  // the signature therein must validate under one of the sender's public keys.
-  // The request metadata must contain a valid authentication token belonging to the sender.
-  // (Details in SequencerAuthenticationServerInterceptor.)
-  // TARGET STATE: The sender must be authorized (cf. TopologySnapshot.isMemberKnown)
-  // CURRENT STATE: The sender authorization check might have a few gaps (e.g., see MemberAuthenticationService.isActive)
-  //   and/or may use the wrong snapshot.
   string sender = 1;
-
-  // Will be included in the receipt of the request.
-  // The sender should not reuse a message_id until max_sequencing_time,
-  // because otherwise it will be unable to correlate receipts with requests.
   string message_id = 2;
-
-  // CURRENT STATE: Indicates whether the batch contains a confirmation request
-  // Used for rate limiting
-  // TARGET STATE: Remove this field
   bool is_request = 3;
-
-  // The payload, mandatory
-  // At most one recipient of an envelope may be (a) a mediator, (b) a mediator group, or (c) all domain members.
   CompressedBatch batch = 4;
-
-  // Maximum sequencing time for the request.
-  // If the request can't be sequenced until the specified time, the sequencer will reject it.
-  // After max_sequencing_time, no event corresponding to the request will be emitted.
-  // in microseconds of UTC time since Unix epoch
-  int64 max_sequencing_time = 5;
-
-  // Optional timestamp of topology snapshot to be used for processing the request
-  // (e.g., validation, signing, resolving group addresses).
-  // If undefined or invalid, the sequencing timestamp will be used instead.
-  // If defined, it must be before or at the sequencing timestamp and by
-  // at most DynamicDomainParameters.sequencerTopologyTimestampTolerance before the sequencing timestamp.
-  // in microseconds of UTC time since Unix epoch
-  google.protobuf.Int64Value topology_timestamp = 6;
-
-  // Optional rule used to aggregate requests.
-  v30.AggregationRule aggregation_rule = 7;
+  int64 max_sequencing_time = 5; // in microseconds of UTC time since Unix epoch
+  google.protobuf.Int64Value topology_timestamp = 6; // in microseconds of UTC time since Unix epoch
+  v30.AggregationRule aggregation_rule = 7; // optional
 }

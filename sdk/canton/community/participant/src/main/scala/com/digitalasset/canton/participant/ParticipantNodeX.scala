@@ -50,7 +50,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{
   IdentityProvidingServiceClient,
   StoreBasedDomainTopologyClient,
-  StoreBasedTopologySnapshot,
+  StoreBasedTopologySnapshotX,
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{PartyMetadataStore, TopologyStoreX}
@@ -184,7 +184,7 @@ class ParticipantNodeBootstrapX(
           manager: SyncDomainPersistentStateManager,
           crypto: SyncCryptoApiProvider,
       ): PackageOps = {
-        val authorizedTopologyStoreClient = new StoreBasedTopologySnapshot(
+        val authorizedTopologyStoreClient = new StoreBasedTopologySnapshotX(
           CantonTimestamp.MaxValue,
           topologyManager.store,
           StoreBasedDomainTopologyClient.NoPackageDependencies,

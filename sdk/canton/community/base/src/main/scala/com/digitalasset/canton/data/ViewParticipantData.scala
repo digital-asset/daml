@@ -177,7 +177,7 @@ final case class ViewParticipantData private (
 
       case ExerciseActionDescription(
             inputContractId,
-            templateId,
+            commandTemplateId,
             choice,
             interfaceId,
             packagePreference,
@@ -193,6 +193,12 @@ final case class ViewParticipantData private (
             show"Input contract $inputContractId of the Exercise root action is not declared as core input."
           ),
         )
+
+        // commandTemplateId is not populated prior to ProtocolVersion.v5
+        val templateId = commandTemplateId match {
+          case Some(templateId) => templateId
+          case _ => inputContract.contract.contractInstance.unversioned.template
+        }
 
         val cmd = if (byKey) {
           val key = inputContract.contract.metadata.maybeKey

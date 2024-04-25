@@ -44,7 +44,7 @@ import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.client.{SendAsyncClientError, SequencerClient}
-import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
@@ -380,7 +380,7 @@ object TransactionProcessor {
           id = "CHOSEN_MEDIATOR_IS_INACTIVE",
           ErrorCategory.ContentionOnSharedResources,
         ) {
-      final case class Error(chosen_mediator: MediatorGroupRecipient, timestamp: CantonTimestamp)
+      final case class Error(chosen_mediator: MediatorsOfDomain, timestamp: CantonTimestamp)
           extends TransactionErrorImpl(
             cause = "the chosen mediator is not active on the domain"
           )

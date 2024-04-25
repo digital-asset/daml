@@ -51,7 +51,7 @@ final case class Batch[+Env <: Envelope[?]] private (envelopes: List[Env])(
   lazy val allMediatorRecipients: Set[Recipient] = {
     allRecipients.collect {
       case r @ MemberRecipient(_: MediatorId) => r
-      case r: MediatorGroupRecipient => r
+      case r: MediatorsOfDomain => r
       case AllMembersOfDomain => AllMembersOfDomain
     }
   }

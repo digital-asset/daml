@@ -252,7 +252,7 @@ private[platform] object InMemoryStateUpdater {
                 arg = createdEvent.createArgument,
               ),
               globalKey = createdEvent.contractKey.map(k =>
-                Key.assertBuild(createdEvent.templateId, k.unversioned, createdEvent.packageName)
+                Key.assertBuild(createdEvent.templateId, k.unversioned)
               ),
               ledgerEffectiveTime = createdEvent.ledgerEffectiveTime,
               stakeholders = createdEvent.flatEventWitnesses.map(Party.assertFromString),
@@ -266,11 +266,7 @@ private[platform] object InMemoryStateUpdater {
             ContractStateEvent.Archived(
               contractId = exercisedEvent.contractId,
               globalKey = exercisedEvent.contractKey.map(k =>
-                Key.assertBuild(
-                  exercisedEvent.templateId,
-                  k.unversioned,
-                  exercisedEvent.packageName,
-                )
+                Key.assertBuild(exercisedEvent.templateId, k.unversioned)
               ),
               stakeholders = exercisedEvent.flatEventWitnesses.map(Party.assertFromString),
               eventOffset = exercisedEvent.eventOffset,

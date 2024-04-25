@@ -88,5 +88,4 @@ object HashPurpose {
   val AggregationId = HashPurpose(39, "AggregationId")
   val BftOrderingPbftBlock = HashPurpose(40, "BftOrderingPbftBlock")
   val _SetTrafficBalance = HashPurpose(41, "SetTrafficBalance")
-  val OrderingRequestSignature = HashPurpose(42, "OrderingRequestSignature")
 }

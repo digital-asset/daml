@@ -1560,7 +1560,7 @@ class AcsCommitmentProcessorTest
         withClue("request 1:") {
           assertInIntervalBefore(ts1, reconciliationInterval)(res1)
         } // Do not prune request 1
-        // Do not prune request 1 as crash recovery may delete the inflight validation request 4 and then we're back in the same situation as for res1
+        // Do not prune request 1 as crash recovery may delete the dirty request 4 and then we're back in the same situation as for res1
         withClue("request 3:") {
           assertInIntervalBefore(ts1, reconciliationInterval)(res2)
         }

@@ -9,7 +9,7 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.HandlerResult
 import com.digitalasset.canton.sequencing.protocol.{
   Deliver,
-  MediatorGroupRecipient,
+  MediatorsOfDomain,
   SignedContent,
   WithOpeningErrors,
 }
@@ -58,6 +58,6 @@ trait Phase37Processor[RequestBatch] {
 final case class RequestAndRootHashMessage[RequestEnvelope](
     requestEnvelopes: NonEmpty[Seq[RequestEnvelope]],
     rootHashMessage: RootHashMessage[SerializedRootHashMessagePayload],
-    mediator: MediatorGroupRecipient,
+    mediator: MediatorsOfDomain,
     isReceipt: Boolean,
 )

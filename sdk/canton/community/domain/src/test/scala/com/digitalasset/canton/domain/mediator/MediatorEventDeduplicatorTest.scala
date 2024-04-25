@@ -14,7 +14,7 @@ import com.digitalasset.canton.domain.mediator.store.{
   MediatorDeduplicationStore,
 }
 import com.digitalasset.canton.error.MediatorError
-import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.RequestId
@@ -368,8 +368,8 @@ class MediatorEventDeduplicatorTest
           request: MediatorConfirmationRequest,
           verdict: Verdict,
           decisionTime: CantonTimestamp,
-      )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-        FutureUnlessShutdown.never
+      )(implicit traceContext: TraceContext): Future[Unit] =
+        Future.never
 
       override def sendResultBatch(
           requestId: RequestId,
@@ -377,8 +377,8 @@ class MediatorEventDeduplicatorTest
           decisionTime: CantonTimestamp,
           aggregationRule: Option[AggregationRule],
           sendVerdict: Boolean,
-      )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-        FutureUnlessShutdown.never
+      )(implicit traceContext: TraceContext): Future[Unit] =
+        Future.never
 
       override def sendReject(
           requestId: RequestId,

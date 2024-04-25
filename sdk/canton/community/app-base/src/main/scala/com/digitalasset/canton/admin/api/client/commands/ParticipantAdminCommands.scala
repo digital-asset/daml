@@ -151,42 +151,6 @@ object ParticipantAdminCommands {
 
     }
 
-    final case class ValidateDar(
-        darPath: Option[String],
-        logger: TracedLogger,
-    ) extends PackageCommand[ValidateDarRequest, ValidateDarResponse, String] {
-
-      override def createRequest(): Either[String, ValidateDarRequest] =
-        for {
-          pathValue <- darPath.toRight("DAR path not provided")
-          nonEmptyPathValue <- Either.cond(
-            pathValue.nonEmpty,
-            pathValue,
-            "Provided DAR path is empty",
-          )
-          filename = Paths.get(nonEmptyPathValue).getFileName.toString
-          darData <- BinaryFileUtil.readByteStringFromFile(nonEmptyPathValue)
-        } yield ValidateDarRequest(
-          darData,
-          filename,
-        )
-
-      override def submitRequest(
-          service: PackageServiceStub,
-          request: ValidateDarRequest,
-      ): Future[ValidateDarResponse] =
-        service.validateDar(request)
-
-      override def handleResponse(response: ValidateDarResponse): Either[String, String] =
-        response match {
-          case ValidateDarResponse(hash) => Right(hash)
-        }
-
-      // file can be big. checking & vetting might take a while
-      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
-
-    }
-
     final case class RemovePackage(
         packageId: String,
         force: Boolean,

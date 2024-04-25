@@ -19,7 +19,11 @@ import com.digitalasset.canton.participant.store.db.DbRequestJournalStore.Replac
 import com.digitalasset.canton.resource.DbStorage.DbAction.ReadOnly
 import com.digitalasset.canton.resource.DbStorage.{DbAction, Profile}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
-import com.digitalasset.canton.store.db.{DbBulkUpdateProcessor, DbCursorPreheadStore}
+import com.digitalasset.canton.store.db.{
+  DbBulkUpdateProcessor,
+  DbCursorPreheadStore,
+  SequencerClientDiscriminator,
+}
 import com.digitalasset.canton.store.{CursorPreheadStore, IndexedDomain}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
@@ -50,7 +54,7 @@ class DbRequestJournalStore(
 
   private[store] override val cleanPreheadStore: CursorPreheadStore[RequestCounterDiscriminator] =
     new DbCursorPreheadStore[RequestCounterDiscriminator](
-      domainId,
+      SequencerClientDiscriminator.fromIndexedDomainId(domainId),
       storage,
       cursorTable = "par_head_clean_counters",
       timeouts,

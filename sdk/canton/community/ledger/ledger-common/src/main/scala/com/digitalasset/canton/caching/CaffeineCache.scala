@@ -4,13 +4,13 @@
 package com.digitalasset.canton.caching
 
 import com.daml.metrics.CacheMetrics
-import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.github.benmanes.caffeine.cache.{AsyncCacheLoader, AsyncLoadingCache}
 import com.github.benmanes.caffeine.cache as caffeine
 
 import java.util.concurrent.{CompletableFuture, Executor}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.*
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.jdk.OptionConverters.{RichOptional, RichOptionalLong}
 import scala.util.{Failure, Success}
 
@@ -50,7 +50,7 @@ object CaffeineCache {
   ) {
     installMetrics(cacheMetrics, cache.synchronous())
 
-    def get(key: Key): Future[Value] = cache.get(key).toScalaUnwrapped
+    def get(key: Key): Future[Value] = cache.get(key).asScala
 
     def invalidate(key: Key): Unit = cache.synchronous().invalidate(key)
 

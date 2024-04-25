@@ -193,7 +193,7 @@ class ClockTest extends AnyWordSpec with BaseTest with HasExecutionContext {
     "warn but work if clock is adjusted backwards" in {
       class MyClock(val loggerFactory: NamedLoggerFactory) extends Clock {
         val nowR = new AtomicReference[CantonTimestamp](CantonTimestamp.Epoch.plusSeconds(120))
-        override protected def addToQueue(queue: Queued[?]): Unit = {
+        override protected def addToQueue(queue: Queued): Unit = {
           val _ = tasks.add(queue)
         }
 

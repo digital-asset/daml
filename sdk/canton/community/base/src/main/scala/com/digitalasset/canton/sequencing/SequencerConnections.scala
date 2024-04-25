@@ -28,7 +28,7 @@ import java.net.URI
 final case class SequencerConnections private (
     aliasToConnection: NonEmpty[Map[SequencerAlias, SequencerConnection]],
     sequencerTrustThreshold: PositiveInt,
-    submissionRequestAmplification: SubmissionRequestAmplification,
+    submissionRequestAmplification: PositiveInt,
 ) extends HasVersionedWrapper[SequencerConnections]
     with PrettyPrinting {
   require(
@@ -94,23 +94,14 @@ final case class SequencerConnections private (
   ): SequencerConnections =
     modify(sequencerAlias, _.withCertificates(certificates))
 
-  def withSubmissionRequestAmplification(
-      submissionRequestAmplification: SubmissionRequestAmplification
-  ): SequencerConnections =
-    this.copy(submissionRequestAmplification = submissionRequestAmplification)
-
   override def pretty: Pretty[SequencerConnections] =
-    prettyOfClass(
-      param("connections", _.aliasToConnection.forgetNE),
-      param("sequencer trust threshold", _.sequencerTrustThreshold),
-      param("submission request amplification", _.submissionRequestAmplification),
-    )
+    prettyOfParam(_.aliasToConnection.forgetNE)
 
   def toProtoV30: v30.SequencerConnections =
     new v30.SequencerConnections(
       connections.map(_.toProtoV30),
       sequencerTrustThreshold.unwrap,
-      Some(submissionRequestAmplification.toProtoV30),
+      submissionRequestAmplification.unwrap,
     )
 
   @transient override protected lazy val companionObj
@@ -124,41 +115,44 @@ object SequencerConnections
 
   def single(connection: SequencerConnection): SequencerConnections =
     new SequencerConnections(
-      aliasToConnection = NonEmpty(Map, connection.sequencerAlias -> connection),
+      aliasToConnection = NonEmpty.mk(Seq, (connection.sequencerAlias, connection)).toMap,
       sequencerTrustThreshold = PositiveInt.one,
-      submissionRequestAmplification = SubmissionRequestAmplification.NoAmplification,
+      submissionRequestAmplification = PositiveInt.one,
     )
 
   def many(
       connections: NonEmpty[Seq[SequencerConnection]],
       sequencerTrustThreshold: PositiveInt,
-      submissionRequestAmplification: SubmissionRequestAmplification,
-  ): Either[String, SequencerConnections] = {
-    val repeatedAliases = connections.groupBy(_.sequencerAlias).filter { case (_, connections) =>
-      connections.lengthCompare(1) > 0
-    }
-    for {
-      _ <- Either.cond(
-        repeatedAliases.isEmpty,
-        (),
-        s"Repeated sequencer aliases found: $repeatedAliases",
-      )
-      sequencerConnections <- Either
-        .catchOnly[IllegalArgumentException](
-          new SequencerConnections(
-            connections.map(conn => (conn.sequencerAlias, conn)).toMap,
-            sequencerTrustThreshold,
-            submissionRequestAmplification,
-          )
+      submissionRequestAmplification: PositiveInt,
+  ): Either[String, SequencerConnections] =
+    if (connections.sizeIs == 1) {
+      Right(SequencerConnections.single(connections.head1))
+    } else {
+      val repeatedAliases = connections.groupBy(_.sequencerAlias).filter { case (_, connections) =>
+        connections.lengthCompare(1) > 0
+      }
+      for {
+        _ <- Either.cond(
+          repeatedAliases.isEmpty,
+          (),
+          s"Repeated sequencer aliases found: $repeatedAliases",
         )
-        .leftMap(_.getMessage)
-    } yield sequencerConnections
-  }
+        sequencerConnections <- Either
+          .catchOnly[IllegalArgumentException](
+            new SequencerConnections(
+              connections.map(conn => (conn.sequencerAlias, conn)).toMap,
+              sequencerTrustThreshold,
+              submissionRequestAmplification,
+            )
+          )
+          .leftMap(_.getMessage)
+      } yield sequencerConnections
+    }
 
   def tryMany(
       connections: Seq[SequencerConnection],
       sequencerTrustThreshold: PositiveInt,
-      submissionRequestAmplification: SubmissionRequestAmplification,
+      submissionRequestAmplification: PositiveInt,
   ): SequencerConnections =
     many(
       NonEmptyUtil.fromUnsafe(connections),
@@ -176,10 +170,8 @@ object SequencerConnections
     ) = sequencerConnectionsProto
     for {
       sequencerTrustThreshold <- ProtoConverter.parsePositiveInt(sequencerTrustThresholdP)
-      submissionRequestAmplification <- ProtoConverter.parseRequired(
-        SubmissionRequestAmplification.fromProtoV30,
-        "submission_request_amplification",
-        submissionRequestAmplificationP,
+      submissionRequestAmplification <- ProtoConverter.parsePositiveInt(
+        submissionRequestAmplificationP
       )
       sequencerConnectionsNes <- ProtoConverter.parseRequiredNonEmpty(
         SequencerConnection.fromProtoV30,

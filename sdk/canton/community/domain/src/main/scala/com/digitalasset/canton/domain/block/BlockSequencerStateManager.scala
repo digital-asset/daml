@@ -5,6 +5,7 @@ package com.digitalasset.canton.domain.block
 
 import cats.data.{EitherT, Nested}
 import cats.syntax.parallel.*
+import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
@@ -486,7 +487,7 @@ class BlockSequencerStateManager(
     if (unifiedSequencer) {
       (for {
         _ <- EitherT.right(dbSequencerIntegration.blockSequencerRegisterMembers(update.newMembers))
-        _ <- dbSequencerIntegration.blockSequencerWrites(update.submissionsOutcomes.map(_.outcome))
+        _ <- dbSequencerIntegration.blockSequencerWrites(update.submissionsOutcomes)
         // TODO(#18415): Write acknowledgements to the database sequencer
         // TODO(#18415): Disable members in the database sequencer
 

@@ -26,7 +26,6 @@ import com.digitalasset.canton.scheduler.PruningScheduler
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.traffic.TrafficControlErrors.TrafficControlError
@@ -261,47 +260,4 @@ object Sequencer extends HasLoggerName {
     * was pulled. Termination of the main flow must be awaited separately.
     */
   type EventSource = Source[OrdinarySerializedEventOrError, (KillSwitch, Future[Done])]
-
-  /** Type alias for a content that is signed by the sender (as in, whoever sent the SubmissionRequest to the sequencer).
-    * Note that the sequencer itself can be the "sender": for instance when processing balance updates for traffic control,
-    * the sequencer will craft a SetTrafficBalance protocol message and sign it as the "sender".
-    */
-  type SenderSigned[A <: HasCryptographicEvidence] = SignedContent[A]
-
-  /** Type alias for content that has been signed but the sequencer. The purpose of this is to identify which sequencer has processed a submission request,
-    * such that after the request is ordered and processed by all sequencers, each sequencer knows which sequencer received the submission request.
-    * The signature here will always be one of a sequencer.
-    */
-  type SequencerSigned[A <: HasCryptographicEvidence] = SignedContent[SenderSigned[A]]
-
-  /** Ordering request signed by the sequencer.
-    * Outer signature is the signature of the sequencer that received the submission request.
-    * Inner signature is the signature of the member from which the submission request originated.
-    *
-    *                            ┌─────────────────┐       ┌────────────┐
-    *                            │SenderSigned     │       │Sequencer   │
-    * ┌─────────────────┐        │  ┌──────────────┤       │            │
-    * │Sender           │signs   │  │Submission    │sends  │            │
-    * │(e.g participant)├───────►│  │Request       ├──────►│            │
-    * └─────────────────┘        └──┴──────────────┘       └─────┬──────┘
-    *                                                            │
-    *                                                            │signs
-    *                                                            ▼
-    *                                                 ┌──────────────────────┐
-    *                                                 │SequencerSigned       │
-    *                                                 │ ┌────────────────────┤
-    *                                         send to │ │SenderSigned        │
-    *                                         ordering│ │ ┌──────────────────┤
-    *                                        ◄────────┤ │ │Submission        │
-    *                                                 │ │ │Request           │
-    *                                                 └─┴─┴──────────────────┘
-    */
-  type SignedOrderingRequest = SequencerSigned[SubmissionRequest]
-
-  implicit class SignedOrderingRequestOps(val value: SignedOrderingRequest) extends AnyVal {
-    def signedSubmissionRequest: SignedContent[SubmissionRequest] =
-      value.content
-    def submissionRequest: SubmissionRequest = signedSubmissionRequest.content
-    def toByteString = value.toByteString
-  }
 }

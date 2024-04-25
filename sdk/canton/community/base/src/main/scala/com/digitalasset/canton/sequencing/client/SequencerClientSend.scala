@@ -5,10 +5,11 @@ package com.digitalasset.canton.sequencing.client
 
 import cats.data.EitherT
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.sequencing.protocol.{AggregationRule, Batch, MessageId}
 import com.digitalasset.canton.tracing.TraceContext
+
+import scala.concurrent.Future
 
 trait SequencerClientSend {
 
@@ -48,7 +49,7 @@ trait SequencerClientSend {
       aggregationRule: Option[AggregationRule] = None,
       callback: SendCallback = SendCallback.empty,
       amplify: Boolean = false,
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit]
+  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit]
 
   /** Provides a value for max-sequencing-time to use for `sendAsync` if no better application provided timeout is available.
     * Is currently a configurable offset from our clock.

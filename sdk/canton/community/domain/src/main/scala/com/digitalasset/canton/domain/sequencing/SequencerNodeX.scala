@@ -35,7 +35,6 @@ import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencer.admin.v30.SequencerInitializationServiceGrpc
-import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{EffectiveTime, TopologyTransactionProcessorX}
@@ -435,13 +434,6 @@ class SequencerNodeBootstrapX(
       addCloseable(domainOutboxFactory)
 
       performUnlessClosingEitherU("starting up runtime") {
-        val indexedStringStore = IndexedStringStore.create(
-          storage,
-          parameterConfig.cachingConfigs.indexedStrings,
-          timeouts,
-          domainLoggerFactory,
-        )
-        addCloseable(indexedStringStore)
         for {
           processorAndClient <- EitherT.right(
             TopologyTransactionProcessorX.createProcessorAndClientForDomain(
@@ -501,10 +493,8 @@ class SequencerNodeBootstrapX(
           memberAuthServiceFactory = MemberAuthenticationServiceFactory(
             domainId,
             clock,
-            config.publicApi.nonceExpirationInterval.asJava,
-            config.publicApi.maxTokenExpirationInterval.asJava,
-            useExponentialRandomTokenExpiration =
-              config.publicApi.useExponentialRandomTokenExpiration,
+            config.publicApi.nonceExpirationTime.asJava,
+            config.publicApi.tokenExpirationTime.asJava,
             parameters.processingTimeouts,
             domainLoggerFactory,
             topologyProcessor,
@@ -521,7 +511,6 @@ class SequencerNodeBootstrapX(
             staticDomainParameters,
             storage,
             crypto,
-            indexedStringStore,
             Future.unit, // domain is already initialised
             Future.successful(true),
             arguments,

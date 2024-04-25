@@ -38,7 +38,6 @@ import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{DomainId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.traffic.EventCostCalculator
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.FutureUtil
 import com.digitalasset.canton.version.ProtocolVersion
@@ -146,7 +145,6 @@ abstract class BlockSequencerFactory(
       futureSupervisor,
       nodeParameters.processingTimeouts,
       metrics,
-      eventCostCalculator = new EventCostCalculator(loggerFactory),
     )
   }
 

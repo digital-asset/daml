@@ -80,7 +80,6 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       someTemplateId,
       aTextValue,
       Set(alice, bob),
-      somePackageName,
     )
 
     for {

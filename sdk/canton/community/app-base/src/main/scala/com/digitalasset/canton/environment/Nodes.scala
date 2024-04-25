@@ -28,7 +28,6 @@ import com.digitalasset.canton.participant.config.LocalParticipantConfig
 import com.digitalasset.canton.resource.DbStorage.RetryConfig
 import com.digitalasset.canton.resource.{DbMigrations, DbMigrationsFactory}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.Thereafter.syntax.*
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
@@ -147,13 +146,14 @@ class ManagedNodes[
       )
       .flatMap(startNode(name, _).map(_ => ()))
 
+  // TODO(#17726) Ratko, Thibault: The access to `nodes` in runStartup is not covered by the synchronized block. Are there concurrency issues here?
+  @SuppressWarnings(Array("com.digitalasset.canton.SynchronizedFuture"))
   private def startNode(
       name: InstanceName,
       config: NodeConfig,
   ): EitherT[Future, StartupError, NodeBootstrap] = if (isClosing)
     EitherT.leftT(ShutdownDuringStartup(name, "Won't start during shutdown"))
   else {
-    // Does not run concurrently with itself as ensured by putIfAbsent below
     def runStartup(
         promise: Promise[Either[StartupError, NodeBootstrap]]
     ): EitherT[Future, StartupError, NodeBootstrap] = {
@@ -176,19 +176,26 @@ class ManagedNodes[
         nodes.put(name, Running(instance)).discard
         instance
       }
+      import com.digitalasset.canton.util.Thereafter.syntax.*
+      promise.completeWith(startup.value)
       // remove node upon failure
-      val withCleanup = startup.thereafterSuccessOrFailure(_ => (), nodes.remove(name).discard)
-      promise.completeWith(withCleanup.value)
-      withCleanup
+      startup.thereafterSuccessOrFailure(_ => (), nodes.remove(name).discard)
     }
 
-    val promise = Promise[Either[StartupError, NodeBootstrap]]()
-    nodes.putIfAbsent(name, PreparingDatabase(promise)) match {
-      case None => runStartup(promise) // startup will run async
-      case Some(PreparingDatabase(promise)) => EitherT(promise.future)
-      case Some(StartingUp(promise, _)) => EitherT(promise.future)
-      case Some(Running(node)) => EitherT.rightT(node)
-    }
+    blocking(synchronized {
+      nodes.get(name) match {
+        case Some(PreparingDatabase(promise)) => EitherT(promise.future)
+        case Some(StartingUp(promise, _)) => EitherT(promise.future)
+        case Some(Running(node)) => EitherT.rightT(node)
+        case None =>
+          val promise = Promise[Either[StartupError, NodeBootstrap]]()
+          nodes
+            .put(name, PreparingDatabase(promise))
+            .discard // discard is okay as this is running in the sync block
+          runStartup(promise) // startup will run async
+      }
+    })
+
   }
 
   private def configAndParams(

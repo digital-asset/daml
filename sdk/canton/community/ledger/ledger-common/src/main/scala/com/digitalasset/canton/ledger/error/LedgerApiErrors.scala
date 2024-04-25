@@ -22,29 +22,10 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     """This error occurs when a participant rejects a command due to excessive load.
       |Load can be caused by the following factors:
       |1. when commands are submitted to the participant through its Ledger API,
-      |2. when the participant receives validation requests from other participants through a connected domain.
-      |
-      |In order to prevent the participant of being overloaded, it will start to reject commands once a
-      |certain load threshold is reached. The main threshold is the number of in-flight validation requests
-      |that the participant is currently processing. These requests can be caused either by this participant
-      |or by other participants.
-      |
-      |For a submission to be counted as an in-flight validation request, the participant must first
-      |observe its sequencing, which means that there is a delay between the submission and the submitted
-      |command to be counted towards the currently in-flight validation requests. In order to avoid an
-      |overload situation by a sudden burst of commands, the participant will also enforce a rate limit
-      |before a submission is accepted for interpretation. This rate limit can be configured with a steady
-      |state rate and a burst factor. The burst factor is a multiplier of the steady state rate that allows
-      |for a certain number of commands to be submitted in a burst before the rate limit kicks in.
-      |
-      |As an example, with a rate limit of 1000 commands per second and a burst factor of 2, the rate limit
-      |will kick in once 2000 commands have been submitted on top of the commands allowed by the rate limit.
-      |
-      |"""
+      |2. when the participant receives requests from other participants through a connected domain."""
   )
   @Resolution(
-    """Verify the limits configured, the load and the command latency on the participant and adjust if necessary.
-      |If the participant is highly loaded, ensure that your application waits some time with the resubmission, preferably with some backoff factor.
+    """Wait a bit and retry, preferably with some backoff factor.
       |If possible, ask other participants to send fewer requests; the domain operator can enforce this by imposing a rate limit."""
   )
   object ParticipantBackpressure

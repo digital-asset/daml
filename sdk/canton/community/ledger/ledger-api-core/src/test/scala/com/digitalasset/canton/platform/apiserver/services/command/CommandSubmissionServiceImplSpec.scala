@@ -118,8 +118,7 @@ class CommandSubmissionServiceImplSpec
             LfError.Interpretation(
               LfError.Interpretation.DamlException(
                 LfInterpretationError.DuplicateContractKey(
-                  GlobalKey
-                    .assertBuild(tmplId, Value.ValueUnit, PackageName.assertFromString("pkg-name"))
+                  GlobalKey.assertBuild(tmplId, Value.ValueUnit)
                 )
               ),
               None,

@@ -28,10 +28,10 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
     UniqueIdentifier.tryFromProtoPrimitive("da::default")
   )
 
-  private lazy val messageP: v30domain.VersionedSubscriptionResponse = v30domain
-    .VersionedSubscriptionResponse(
-      v30
-        .SignedContent(
+  private lazy val messageP: v30domain.SubscriptionResponse = v30domain
+    .SubscriptionResponse(
+      Some(
+        v30.SignedContent(
           Some(
             v30
               .SequencedEvent(
@@ -72,9 +72,8 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
           ),
           timestampOfSigningKey = None,
         )
-        .toByteString,
+      ),
       Some(SerializableTraceContext.empty.toProtoV30),
-      None,
     )
 
   val RequestDescription = "request description"
@@ -85,11 +84,11 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
     Left(GrpcError(RequestDescription, ServerName, ex))
 
   def createSubscription(
-      handler: v30domain.VersionedSubscriptionResponse => Future[Either[String, Unit]] = _ =>
+      handler: v30domain.SubscriptionResponse => Future[Either[String, Unit]] = _ =>
         Future.successful(Right(())),
       context: CancellableContext = Context.ROOT.withCancellation(),
-  ): GrpcSequencerSubscription[String, v30domain.VersionedSubscriptionResponse] =
-    new GrpcSequencerSubscription[String, v30domain.VersionedSubscriptionResponse](
+  ): GrpcSequencerSubscription[String, v30domain.SubscriptionResponse] =
+    new GrpcSequencerSubscription[String, v30domain.SubscriptionResponse](
       context,
       tracedEvent => handler(tracedEvent.value), // ignore Traced[..] wrapper
       DefaultProcessingTimeouts.testing,
@@ -143,7 +142,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
     }
 
     "use the given handler to process received messages" in {
-      val messagePromise = Promise[v30domain.VersionedSubscriptionResponse]()
+      val messagePromise = Promise[v30domain.SubscriptionResponse]()
 
       val sut =
         createSubscription(handler = m => Future.successful(Right(messagePromise.success(m))))
@@ -199,7 +198,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
     }
 
     "not invoke the handler after closing" in {
-      val messagePromise = Promise[v30domain.VersionedSubscriptionResponse]()
+      val messagePromise = Promise[v30domain.SubscriptionResponse]()
 
       val sut =
         createSubscription(handler = m => Future.successful(Right(messagePromise.success(m))))
@@ -221,7 +220,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
         {
           // receive some items
           sut.observer.onNext(
-            v30domain.VersionedSubscriptionResponse.defaultInstance
+            v30domain.SubscriptionResponse.defaultInstance
               .copy(traceContext = Some(SerializableTraceContext.empty.toProtoV30))
           )
           sut.observer.onError(Status.INTERNAL.asRuntimeException())

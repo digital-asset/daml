@@ -24,7 +24,9 @@ trait DbSendTrackerTrackerStoreTest extends AsyncWordSpec with BaseTest with Sen
     behave like sendTrackerStore(() =>
       new DbSendTrackerStore_Unused(
         storage,
-        IndexedDomain.tryCreate(DefaultTestIdentities.domainId, 1),
+        SequencerClientDiscriminator.fromIndexedDomainId(
+          IndexedDomain.tryCreate(DefaultTestIdentities.domainId, 1)
+        ),
         timeouts,
         loggerFactory,
       )

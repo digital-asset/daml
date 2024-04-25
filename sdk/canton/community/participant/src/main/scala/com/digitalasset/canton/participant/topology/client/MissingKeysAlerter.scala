@@ -39,8 +39,8 @@ class MissingKeysAlerter(
     }
   }
 
-  def attachToTopologyProcessorX(): TopologyTransactionProcessingSubscriber =
-    new TopologyTransactionProcessingSubscriber {
+  def attachToTopologyProcessorX(): TopologyTransactionProcessingSubscriberX =
+    new TopologyTransactionProcessingSubscriberX {
       override def observed(
           sequencedTimestamp: SequencedTime,
           effectiveTimestamp: EffectiveTime,

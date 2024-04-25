@@ -223,6 +223,8 @@ final class CommandsValidator(
     } yield Submitters(actAs, readAs)
   }
 
+  // TODO(i12279): Address usage of deprecated class DeduplicationTime
+
   /** We validate only using current time because we set the currentTime as submitTime so no need to check both
     */
   def validateDeduplicationPeriod(

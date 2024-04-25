@@ -308,7 +308,7 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
       final case class Error(
-          uploadedPackageId: Ref.PackageId,
+          uploadedPackage: Ref.PackageId,
           existingPackage: Ref.PackageId,
           packageVersion: Ref.PackageVersion,
       )(implicit
@@ -316,7 +316,7 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
       ) extends DamlError(
             cause = "A DAR with the same version number has previously been uploaded.",
             extraContext = Map(
-              "uploadedPackageId" -> uploadedPackageId,
+              "uploadedPackage" -> uploadedPackage,
               "existingPackage" -> existingPackage,
               "packageVersion" -> packageVersion.toString,
             ),

@@ -40,16 +40,13 @@ object SendAsyncClientError extends SequencerErrorGroup {
     override def pretty: Pretty[DuplicateMessageId.type] = prettyOfObject[DuplicateMessageId.type]
   }
 
-  /** Errors that the client can get back from the sequencer synchronously */
-  sealed trait SendAsyncClientResponseError extends SendAsyncClientError
-
   /** We were unable to make the request for a technical reason */
-  final case class RequestFailed(message: String) extends SendAsyncClientResponseError {
+  final case class RequestFailed(message: String) extends SendAsyncClientError {
     override def pretty: Pretty[RequestFailed] = prettyOfClass(unnamedParam(_.message.unquoted))
   }
 
   /** We were able to contact the server but the request was declined */
-  final case class RequestRefused(error: SendAsyncError) extends SendAsyncClientResponseError {
+  final case class RequestRefused(error: SendAsyncError) extends SendAsyncClientError {
     override def pretty: Pretty[RequestRefused] = prettyOfClass(unnamedParam(_.error))
   }
 }

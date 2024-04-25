@@ -179,14 +179,9 @@ object ProtocolVersion {
 
   /** Like [[create]] ensures a supported protocol version; tailored to (de-)serialization purposes.
     */
-  def fromProtoPrimitive(
-      rawVersion: Int,
-      allowDeleted: Boolean = false,
-  ): ParsingResult[ProtocolVersion] = {
+  def fromProtoPrimitive(rawVersion: Int): ParsingResult[ProtocolVersion] = {
     val pv = ProtocolVersion(rawVersion)
-    val isSupported = pv.isSupported || (allowDeleted && pv.isDeleted)
-
-    Either.cond(isSupported, pv, OtherError(unsupportedErrorMessage(pv)))
+    Either.cond(pv.isSupported, pv, OtherError(unsupportedErrorMessage(pv)))
   }
 
   /** Like [[create]] ensures a supported protocol version; tailored to (de-)serialization purposes.
@@ -224,14 +219,6 @@ object ProtocolVersion {
 
   val supported: NonEmpty[List[ProtocolVersion]] = (unstable ++ stableAndSupported).sorted
 
-  private val allProtocolVersions = deprecated ++ deleted ++ unstable ++ stableAndSupported
-
-  require(
-    allProtocolVersions.sizeCompare(allProtocolVersions.distinct) == 0,
-    s"All the protocol versions should be distinct." +
-      s"Found: ${Map("deprecated" -> deprecated, "deleted" -> deleted, "unstable" -> unstable, "stable" -> stableAndSupported)}",
-  )
-
   // TODO(i15561): change back to `stableAndSupported.max1` once there is a stable Daml 3 protocol version
   val latest: ProtocolVersion = stableAndSupported.lastOption.getOrElse(unstable.head1)
 
@@ -239,7 +226,7 @@ object ProtocolVersion {
     ProtocolVersion.unstable(Int.MaxValue)
 
   lazy val v31: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Unstable] =
-    ProtocolVersion.unstable(31)
+    ProtocolVersion.unstable(30)
 
   // Minimum stable protocol version introduced
   lazy val minimum: ProtocolVersion = v31

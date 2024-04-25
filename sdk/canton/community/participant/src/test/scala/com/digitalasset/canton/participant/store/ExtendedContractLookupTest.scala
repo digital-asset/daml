@@ -11,7 +11,6 @@ import com.digitalasset.canton.participant.store.memory.InMemoryContractStore
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   asSerializable,
   contractInstance,
-  packageName,
   transactionId,
 }
 import com.digitalasset.canton.protocol.*
@@ -98,12 +97,12 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest {
     val transactionId1 = transactionId(1)
     val transactionId2 = transactionId(2)
     val key00: LfGlobalKey =
-      LfGlobalKey.build(instance0Template, ValueUnit, packageName).value
+      LfGlobalKey.build(instance0Template, ValueUnit).value
     val key1: LfGlobalKey =
-      LfGlobalKey.build(instance0Template, ValueText("abc"), packageName).value
+      LfGlobalKey.build(instance0Template, ValueText("abc")).value
     val forbiddenKey: LfGlobalKey =
       LfGlobalKey
-        .build(instance0Template, ValueText("forbiddenKey"), packageName)
+        .build(instance0Template, ValueText("forbiddenKey"))
         .value
     val alice = LfPartyId.assertFromString("alice")
     val bob = LfPartyId.assertFromString("bob")

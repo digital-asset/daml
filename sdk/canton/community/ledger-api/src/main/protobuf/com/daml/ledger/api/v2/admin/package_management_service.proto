@@ -31,13 +31,6 @@ service PackageManagementService {
   //   was already uploaded before.
   // - Respond with a gRPC error
   rpc UploadDarFile(UploadDarFileRequest) returns (UploadDarFileResponse);
-
-  // Performs the same checks that UploadDarFile call perform, but doesn't
-  // upload the DAR and does not make it available on the whole ledger.
-  // This call may:
-  // - Succeed if the package is valid
-  // - Respond with a gRPC error if the package is not valid
-  rpc ValidateDarFile(ValidateDarFileRequest) returns (ValidateDarFileResponse);
 }
 
 message ListKnownPackagesRequest {}
@@ -82,21 +75,5 @@ message UploadDarFileRequest {
   string submission_id = 2;
 }
 
-// A message that is received when the upload operation succeeded.
+// An empty message that is received when the upload operation succeeded.
 message UploadDarFileResponse {}
-
-// Performs the same checks that UploadDarFileRequest would perform, but doesn't
-// upload the DAR.
-message ValidateDarFileRequest {
-  // Contains a Daml archive DAR file, which in turn is a jar like zipped
-  // container for ``daml_lf`` archives. See further details in
-  // ``daml_lf.proto``.
-  // Required
-  bytes dar_file = 1;
-
-  // Unique submission identifier.
-  // Optional, defaults to a random identifier.
-  string submission_id = 2;
-}
-
-message ValidateDarFileResponse {}

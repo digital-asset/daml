@@ -9,7 +9,7 @@ import com.digitalasset.canton.data.{FullInformeeTree, Informee, ViewPosition, V
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
 import com.digitalasset.canton.protocol.{RootHash, v30}
-import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
@@ -54,7 +54,7 @@ case class InformeeMessage(
 
   override def domainId: DomainId = fullInformeeTree.domainId
 
-  override def mediator: MediatorGroupRecipient = fullInformeeTree.mediator
+  override def mediator: MediatorsOfDomain = fullInformeeTree.mediator
 
   override def informeesAndThresholdByViewPosition
       : Map[ViewPosition, (Set[Informee], NonNegativeInt)] =

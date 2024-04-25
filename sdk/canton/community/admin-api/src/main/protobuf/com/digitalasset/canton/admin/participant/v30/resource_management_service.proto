@@ -17,15 +17,15 @@ service ResourceManagementService {
 }
 
 message ResourceLimits {
-  // The maximum number of inflight validation requests.
+  // The maximum number of dirty requests.
   // A negative value indicates that there is no limit.
-  int32 max_inflight_validation_requests = 1;
+  int32 max_dirty_requests = 1;
 
   // The maximum rate of command submissions through the ledger api.
   // A negative value indicates that there is no limit.
-  int32 max_submission_rate = 2;
+  int32 max_rate = 2;
 
   // The maximum burst acceptable (factor > 0) before
-  // steady state throttling kicks in.
-  double max_submission_burst_factor = 3;
+  // steady state throtteling kicks in.
+  double max_burst_factor = 3;
 }

@@ -72,6 +72,7 @@ trait BaseSequencerDriverApiTest[ConfigType]
   protected def createDriver(
       timeProvider: TimeProvider = timeProvider,
       firstBlockHeight: Option[Long] = None,
+      domainTopologyManagerId: String = "da::tluafed",
       topologyClient: DomainSyncCryptoClient = topologyClient,
   ): SequencerDriver
 }

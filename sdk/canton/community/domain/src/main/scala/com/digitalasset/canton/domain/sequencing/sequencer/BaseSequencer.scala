@@ -5,6 +5,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer
 
 import cats.data.EitherT
 import cats.instances.future.*
+import cats.syntax.parallel.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.*
@@ -19,9 +20,16 @@ import com.digitalasset.canton.sequencing.protocol.{
 }
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.{Clock, PeriodicAction}
-import com.digitalasset.canton.topology.{DomainMember, Member, UnauthenticatedMemberId}
+import com.digitalasset.canton.topology.{
+  DomainMember,
+  DomainTopologyManagerId,
+  Member,
+  UnauthenticatedMemberId,
+}
 import com.digitalasset.canton.tracing.Spanning.SpanWrapper
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
+import com.digitalasset.canton.util.EitherTUtil.ifThenET
+import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import io.opentelemetry.api.trace.Tracer
 
@@ -32,6 +40,7 @@ import scala.concurrent.{ExecutionContext, Future}
   *    (avoids explicit registration from the domain node -> sequencer which will be useful when separate processes)
   */
 abstract class BaseSequencer(
+    domainManagerId: DomainTopologyManagerId,
     protected val loggerFactory: NamedLoggerFactory,
     healthConfig: Option[SequencerHealthConfig],
     clock: Clock,
@@ -52,6 +61,19 @@ abstract class BaseSequencer(
       "health-check",
     )(tc => healthInternal(tc).map(reportHealthState(_)(tc)))
   )
+
+  /** The domain manager is responsible for identities within the domain.
+    * If they decide to address a message to a member then we can be confident that they want the member available on the sequencer.
+    * No other member gets such privileges.
+    */
+  private def autoRegisterNewMembersMentionedByIdentityManager(
+      submission: SubmissionRequest
+  )(implicit traceContext: TraceContext): EitherT[Future, WriteRequestRefused, Unit] = {
+    ifThenET(submission.sender == domainManagerId)(
+      submission.batch.allMembers.toList
+        .parTraverse_(ensureMemberRegistered)
+    )
+  }
 
   private def ensureMemberRegistered(member: Member)(implicit
       executionContext: ExecutionContext,
@@ -130,6 +152,7 @@ abstract class BaseSequencer(
       submission: SubmissionRequest
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] =
     (for {
+      _ <- autoRegisterNewMembersMentionedByIdentityManager(submission)
       _ <- submission.sender match {
         case member: UnauthenticatedMemberId =>
           ensureMemberRegistered(member)

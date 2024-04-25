@@ -86,7 +86,7 @@ final class TransferOutProcessingStepsTest
   private val sourceDomain = SourceDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("source::domain"))
   )
-  private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(100))
+  private val sourceMediator = MediatorsOfDomain(MediatorGroupIndex.tryCreate(100))
   private val targetDomain = TargetDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("target::domain"))
   )
@@ -684,7 +684,7 @@ final class TransferOutProcessingStepsTest
             NonEmptyUtil.fromUnsafe(decrypted.views),
             Seq.empty,
             cryptoSnapshot,
-            MediatorGroupRecipient(MediatorGroupIndex.one),
+            MediatorsOfDomain(MediatorGroupIndex.one),
             None,
           )
         )("compute activeness set failed")
@@ -844,7 +844,7 @@ final class TransferOutProcessingStepsTest
           Set(party1),
           timeEvent,
           Some(transferInExclusivity),
-          MediatorGroupRecipient(MediatorGroupIndex.one),
+          MediatorsOfDomain(MediatorGroupIndex.one),
           locallyRejected = false,
         )
         _ <- valueOrFail(

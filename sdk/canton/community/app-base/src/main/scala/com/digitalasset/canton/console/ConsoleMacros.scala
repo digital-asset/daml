@@ -8,7 +8,10 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
-import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.classic.{Level, Logger}
+import ch.qos.logback.core.spi.AppenderAttachable
+import ch.qos.logback.core.{Appender, FileAppender}
 import com.daml.ledger.api.v2.commands.{Command, CreateCommand, ExerciseCommand}
 import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.value.Value.Sum
@@ -37,17 +40,13 @@ import com.digitalasset.canton.health.admin.data.{
   NodeStatus,
   SequencerNodeStatus,
 }
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NodeLoggingUtil}
+import com.digitalasset.canton.logging.{LastErrorsAppender, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.admin.repair.RepairService
 import com.digitalasset.canton.participant.config.BaseParticipantConfig
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.sequencing.{
-  SequencerConnectionValidation,
-  SequencerConnections,
-  SubmissionRequestAmplification,
-}
+import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, SequencerConnections}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
@@ -75,6 +74,7 @@ import java.time.Instant
 import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.concurrent.duration.*
+import scala.jdk.CollectionConverters.*
 
 trait ConsoleMacros extends NamedLogging with NoTracing {
   import scala.reflect.runtime.universe.*
@@ -585,25 +585,76 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     @SuppressWarnings(Array("org.wartremover.warts.Null"))
     @Help.Summary("Dynamically change log level (TRACE, DEBUG, INFO, WARN, ERROR, OFF, null)")
     def set_level(loggerName: String = "com.digitalasset.canton", level: String): Unit = {
-      NodeLoggingUtil.setLevel(loggerName, level)
+      if (Seq("com.digitalasset.canton", "com.daml").exists(loggerName.startsWith))
+        System.setProperty("LOG_LEVEL_CANTON", level)
+
+      val logger = getLogger(loggerName)
+      if (level == "null")
+        logger.setLevel(null)
+      else
+        logger.setLevel(Level.valueOf(level))
     }
 
     @Help.Summary("Determine current logging level")
     def get_level(loggerName: String = "com.digitalasset.canton"): Option[Level] =
-      Option(NodeLoggingUtil.getLogger(loggerName).getLevel)
+      Option(getLogger(loggerName).getLevel)
+
+    private def getLogger(loggerName: String): Logger = {
+      import org.slf4j.LoggerFactory
+      @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
+      val logger: Logger = LoggerFactory.getLogger(loggerName).asInstanceOf[Logger]
+      logger
+    }
+
+    private def getAppenders(logger: Logger): List[Appender[ILoggingEvent]] = {
+      def go(currentAppender: Appender[ILoggingEvent]): List[Appender[ILoggingEvent]] = {
+        currentAppender match {
+          case attachable: AppenderAttachable[ILoggingEvent @unchecked] =>
+            attachable.iteratorForAppenders().asScala.toList.flatMap(go)
+          case appender: Appender[ILoggingEvent] => List(appender)
+        }
+      }
+
+      logger.iteratorForAppenders().asScala.toList.flatMap(go)
+    }
+
+    private lazy val rootLogger = getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)
+
+    private lazy val allAppenders = getAppenders(rootLogger)
+
+    private lazy val lastErrorsAppender: LastErrorsAppender = {
+      findAppender("LAST_ERRORS") match {
+        case Some(lastErrorsAppender: LastErrorsAppender) =>
+          lastErrorsAppender
+        case _ =>
+          logger.error(s"Log appender for last errors not found/configured")
+          throw new CommandFailure()
+      }
+    }
+
+    private def findAppender(appenderName: String): Option[Appender[ILoggingEvent]] =
+      Option(rootLogger.getAppender(appenderName))
+        .orElse(allAppenders.find(_.getName == appenderName))
+
+    private def renderError(errorEvent: ILoggingEvent): String = {
+      findAppender("FILE") match {
+        case Some(appender: FileAppender[ILoggingEvent]) =>
+          ByteString.copyFrom(appender.getEncoder.encode(errorEvent)).toStringUtf8
+        case _ => errorEvent.getFormattedMessage
+      }
+    }
 
     @Help.Summary("Returns the last errors (trace-id -> error event) that have been logged locally")
     def last_errors(): Map[String, String] =
-      NodeLoggingUtil.lastErrors().getOrElse {
-        logger.error(s"Log appender for last errors not found/configured")
-        throw new CommandFailure()
-      }
+      lastErrorsAppender.lastErrors.fmap(renderError)
 
     @Help.Summary("Returns log events for an error with the same trace-id")
     def last_error_trace(traceId: String): Seq[String] = {
-      NodeLoggingUtil.lastErrorTrace(traceId).getOrElse {
-        logger.error(s"No events found for last error trace-id $traceId")
-        throw new CommandFailure()
+      lastErrorsAppender.lastErrorTrace(traceId) match {
+        case Some(events) => events.map(renderError)
+        case None =>
+          logger.error(s"No events found for last error trace-id $traceId")
+          throw new CommandFailure()
       }
     }
   }
@@ -891,7 +942,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
               sequencers
                 .map(s => s.sequencerConnection.withAlias(SequencerAlias.tryCreate(s.name))),
               PositiveInt.one,
-              SubmissionRequestAmplification.NoAmplification,
+              PositiveInt.one,
             ),
             // if we run bootstrap ourselves, we should have been able to reach the nodes
             // so we don't want the bootstrapping to fail spuriously here in the middle of

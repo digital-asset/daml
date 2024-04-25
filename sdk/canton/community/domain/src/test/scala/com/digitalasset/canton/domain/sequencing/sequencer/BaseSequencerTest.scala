@@ -24,6 +24,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.DefaultTestIdentities.{
+  domainManager,
   participant1,
   participant2,
   sequencerIdX,
@@ -78,6 +79,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
 
   class StubSequencer(existingMembers: Set[Member])
       extends BaseSequencer(
+        domainManager,
         loggerFactory,
         None,
         new SimClock(CantonTimestamp.Epoch, loggerFactory),
@@ -192,6 +194,14 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
       else sequencer.sendAsync(submission)
 
     name should {
+      "topology manager sends should automatically register all unknown members" in {
+        val sequencer = new StubSequencer(existingMembers = Set(participant1))
+        val request = submission(from = domainManager, to = Set(participant1, participant2))
+
+        for {
+          _ <- send(sequencer)(request).value
+        } yield sequencer.newlyRegisteredMembers should contain only participant2
+      }
 
       "sends from an unauthenticated member should auto register this member" in {
         val sequencer = new StubSequencer(existingMembers = Set(participant1))

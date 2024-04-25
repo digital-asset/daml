@@ -283,7 +283,6 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
                 templateId,
                 contractInst.unversioned.arg,
                 Set.empty,
-                packageName,
               )
             ),
           ),

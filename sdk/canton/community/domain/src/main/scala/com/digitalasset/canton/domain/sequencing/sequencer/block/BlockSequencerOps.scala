@@ -5,7 +5,6 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block
 
 import cats.data.EitherT
 import com.digitalasset.canton.domain.block.{RawLedgerBlock, SequencerDriverHealthStatus}
-import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequest
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   RegisterMemberError,
   SequencerWriteError,
@@ -14,6 +13,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
   SendAsyncError,
   SignedContent,
+  SubmissionRequest,
 }
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
@@ -48,10 +48,8 @@ trait BlockSequencerOps extends AutoCloseable {
 
   /** Send a submission request.
     * Results in a [[com.digitalasset.canton.domain.block.RawLedgerBlock.RawBlockEvent.Send]].
-    * There's a double SignedContent wrapping because the outer signature is the sequencer's,
-    * and the inner signature is the sender's.
     */
-  def send(signedSubmission: SignedOrderingRequest)(implicit
+  def send(signedSubmission: SignedContent[SubmissionRequest])(implicit
       traceContext: TraceContext
   ): EitherT[Future, SendAsyncError, Unit]
 

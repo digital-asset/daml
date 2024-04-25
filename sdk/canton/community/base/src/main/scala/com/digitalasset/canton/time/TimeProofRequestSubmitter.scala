@@ -6,7 +6,7 @@ package com.digitalasset.canton.time
 import cats.data.EitherT
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.{ProcessingTimeout, TimeProofRequestConfig}
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.client.{SendAsyncClientError, SequencerClient}
 import com.digitalasset.canton.sequencing.protocol.TimeProof
@@ -49,7 +49,7 @@ trait TimeProofRequestSubmitter extends AutoCloseable {
 
 private[time] class TimeProofRequestSubmitterImpl(
     config: TimeProofRequestConfig,
-    sendRequest: TraceContext => EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit],
+    sendRequest: TraceContext => EitherT[Future, SendAsyncClientError, Unit],
     clock: Clock,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -81,31 +81,31 @@ private[time] class TimeProofRequestSubmitterImpl(
     def stillPending: Boolean = !isClosing && currentRequestToken.get() == token
 
     /* Make the request or short circuit if we're no longer waiting a time event */
-    def mkRequest(): FutureUnlessShutdown[Either[SendAsyncClientError, Unit]] =
-      performUnlessClosingUSF(functionFullName) {
+    def mkRequest(): Future[Either[SendAsyncClientError, Unit]] =
+      performUnlessClosingF(functionFullName) {
         if (stillPending) {
           logger.debug("Sending time request")
           sendRequest(traceContext).value
-        } else FutureUnlessShutdown.pure(Right(()))
-      }
+        } else Future.successful(Right(()))
+      }.onShutdown(Right(()))
 
     def eventuallySendRequest(): Unit = {
       performUnlessClosing("unless closing, sendRequestIfPending") {
         addToFlushAndLogError(
           s"sendRequestIfPending scheduled ${config.maxSequencingDelay} after ${clock.now}"
         ) {
-          import Success.either
-          val retrySendTimeRequest = Backoff(
-            logger,
-            this,
-            retry.Forever,
-            config.initialRetryDelay.underlying,
-            config.maxRetryDelay.underlying,
-            "request current time",
-          )
-          retrySendTimeRequest
-            .unlessShutdown(mkRequest(), AllExnRetryable)
-            .map { _ =>
+          {
+            import Success.either
+            val retrySendTimeRequest = Backoff(
+              logger,
+              this,
+              retry.Forever,
+              config.initialRetryDelay.underlying,
+              config.maxRetryDelay.underlying,
+              "request current time",
+            )
+
+            retrySendTimeRequest(mkRequest(), AllExnRetryable) map { _ =>
               // if we still care about the outcome (we could have witnessed a recent time while sending the request),
               // then schedule retrying a new request.
               // this will short circuit if a new timestamp is not needed at that point.
@@ -122,7 +122,7 @@ private[time] class TimeProofRequestSubmitterImpl(
                 )
               }
             }
-            .onShutdown(())
+          }
         }
       }.onShutdown(
         // using instead of discard to highlight that this change goes with reducing activity during shutdown

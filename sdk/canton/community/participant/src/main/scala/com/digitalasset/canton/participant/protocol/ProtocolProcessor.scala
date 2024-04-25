@@ -156,9 +156,7 @@ abstract class ProtocolProcessor[
 
   private def chooseMediator(
       recentSnapshot: TopologySnapshot
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, NoMediatorError, MediatorGroupRecipient] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, NoMediatorError, MediatorsOfDomain] = {
     val fut = for {
       allMediatorGroups <- recentSnapshot.mediatorGroups()
       allActiveMediatorGroups = allMediatorGroups.filter(_.isActive)
@@ -183,7 +181,7 @@ abstract class ProtocolProcessor[
         }
         val chosen = checked(allActiveMediatorGroups(chosenIndex)).index
         logger.debug(s"Chose the mediator group $chosen")
-        Right(MediatorGroupRecipient(chosen))
+        Right(MediatorsOfDomain(chosen))
       }
     }
     EitherT(fut)
@@ -449,6 +447,7 @@ abstract class ProtocolProcessor[
           messageId = messageId,
           amplify = true,
         )
+        .mapK(FutureUnlessShutdown.outcomeK)
         .leftMap { err =>
           removePendingSubmission()
           embedSubmissionError(SequencerRequestError(err))
@@ -790,7 +789,7 @@ abstract class ProtocolProcessor[
                   mediator,
                   snapshot,
                   malformedPayloads,
-                )
+                ).mapK(FutureUnlessShutdown.outcomeK)
             }
 
           case Some(goodViewsWithSignatures) =>
@@ -925,7 +924,7 @@ abstract class ProtocolProcessor[
       ],
       decisionTime: CantonTimestamp,
       snapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorGroupRecipient,
+      mediator: MediatorsOfDomain,
       fullViewsWithSignatures: NonEmpty[
         Seq[(WithRecipients[steps.FullView], Option[Signature])]
       ],
@@ -1006,7 +1005,7 @@ abstract class ProtocolProcessor[
       handleRequestData: Phase37Synchronizer.PendingRequestDataHandle[
         steps.requestType.PendingRequestData
       ],
-      mediator: MediatorGroupRecipient,
+      mediator: MediatorsOfDomain,
       snapshot: DomainSnapshotSyncCryptoApi,
       decisionTime: CantonTimestamp,
       contractsAndContinue: steps.CheckActivenessAndWritePendingContracts,
@@ -1125,11 +1124,12 @@ abstract class ProtocolProcessor[
           )
           sendResponses(requestId, signedResponsesTo, Some(messageId))
             .leftMap(err => steps.embedRequestError(SequencerRequestError(err)))
+            .mapK(FutureUnlessShutdown.outcomeK)
         } else {
           logger.info(
             s"Phase 4: Finished validation for request=${requestId.unwrap} with nothing to approve."
           )
-          EitherTUtil.unitUS[steps.RequestError]
+          EitherT.rightT[FutureUnlessShutdown, steps.RequestError](())
         }
 
     } yield ()
@@ -1144,23 +1144,19 @@ abstract class ProtocolProcessor[
       handleRequestData: Phase37Synchronizer.PendingRequestDataHandle[
         steps.requestType.PendingRequestData
       ],
-      mediatorGroup: MediatorGroupRecipient,
+      mediatorGroup: MediatorsOfDomain,
       snapshot: DomainSnapshotSyncCryptoApi,
       malformedPayloads: Seq[MalformedPayload],
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, steps.RequestError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, steps.RequestError, Unit] = {
 
     val requestId = RequestId(ts)
 
     if (isCleanReplay(rc)) {
       ephemeral.requestTracker.tick(sc, ts)
-      EitherTUtil.unitUS
+      EitherT.rightT(())
     } else {
       for {
-        _ <- EitherT
-          .right(ephemeral.requestJournal.insert(rc, ts))
-          .mapK(FutureUnlessShutdown.outcomeK)
+        _ <- EitherT.right(ephemeral.requestJournal.insert(rc, ts))
 
         _ = ephemeral.requestTracker.tick(sc, ts)
 
@@ -1170,20 +1166,16 @@ abstract class ProtocolProcessor[
           malformedPayloads,
         )
         recipients = Recipients.cc(mediatorGroup)
-        messages <- EitherT
-          .right(responses.parTraverse { response =>
-            signResponse(snapshot, response).map(_ -> recipients)
-          })
-          .mapK(FutureUnlessShutdown.outcomeK)
+        messages <- EitherT.right(responses.parTraverse { response =>
+          signResponse(snapshot, response).map(_ -> recipients)
+        })
 
         _ <- sendResponses(requestId, messages)
           .leftMap(err => steps.embedRequestError(SequencerRequestError(err)))
 
         _ = handleRequestData.complete(None)
 
-        _ <- EitherT.right[steps.RequestError](
-          FutureUnlessShutdown.outcomeF(terminateRequest(rc, sc, ts, ts))
-        )
+        _ <- EitherT.right[steps.RequestError](terminateRequest(rc, sc, ts, ts))
       } yield ()
     }
   }
@@ -1826,7 +1818,7 @@ object ProtocolProcessor {
     override def requestCounter: RequestCounter = unwrap.requestCounter
     override def requestSequencerCounter: SequencerCounter = unwrap.requestSequencerCounter
     override def isCleanReplay: Boolean = false
-    override def mediator: MediatorGroupRecipient = unwrap.mediator
+    override def mediator: MediatorsOfDomain = unwrap.mediator
 
     override def locallyRejected: Boolean = unwrap.locallyRejected
 
@@ -1836,7 +1828,7 @@ object ProtocolProcessor {
   final case class CleanReplayData(
       override val requestCounter: RequestCounter,
       override val requestSequencerCounter: SequencerCounter,
-      override val mediator: MediatorGroupRecipient,
+      override val mediator: MediatorsOfDomain,
       override val locallyRejected: Boolean,
   ) extends PendingRequestDataOrReplayData[Nothing] {
     override def isCleanReplay: Boolean = true

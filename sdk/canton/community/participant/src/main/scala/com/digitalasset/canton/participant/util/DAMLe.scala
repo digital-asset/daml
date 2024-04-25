@@ -54,6 +54,7 @@ object DAMLe {
         profileDir = profileDir,
         requireSuffixedGlobalContractId = true,
         contractKeyUniqueness = ContractKeyUniquenessMode.Off,
+        enableContractUpgrading = true,
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
       )
     )

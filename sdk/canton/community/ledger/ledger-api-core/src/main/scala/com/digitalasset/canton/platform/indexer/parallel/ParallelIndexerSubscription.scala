@@ -59,6 +59,9 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
 ) extends NamedLogging
     with Spanning {
   import ParallelIndexerSubscription.*
+  private implicit val metricsContext: MetricsContext = MetricsContext(
+    "participant_id" -> participantId
+  )
   private def mapInSpan(
       mapper: Offset => Traced[Update] => Iterator[DbDto]
   )(offset: Offset)(update: Traced[Update]): Iterator[DbDto] = {
@@ -72,7 +75,6 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
       materializer: Materializer,
   )(implicit traceContext: TraceContext): InitializeParallelIngestion.Initialized => Handle = {
     initialized =>
-      import MetricsContext.Implicits.empty
       val (killSwitch, completionFuture) = BatchingParallelIngestionPipe(
         submissionBatchSize = submissionBatchSize,
         inputMappingParallelism = inputMappingParallelism,

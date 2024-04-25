@@ -16,7 +16,6 @@ import com.digitalasset.canton.lifecycle.{OnShutdownRunner, SyncCloseable}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.sequencing.SerializedEventHandler
-import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.client.transports.{
   SequencerClientTransport,
@@ -66,7 +65,7 @@ class DirectSequencerClientTransport(
   override def sendAsyncSigned(
       request: SignedContent[SubmissionRequest],
       timeout: Duration,
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientResponseError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] =
     sequencer
       .sendAsyncSigned(request)
       .leftMap(SendAsyncClientError.RequestRefused)
@@ -76,15 +75,20 @@ class DirectSequencerClientTransport(
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SendAsyncClientResponseError, Unit] =
-    ErrorUtil.internalError(
-      new UnsupportedOperationException("Direct client does not support unauthenticated sends")
+  ): EitherT[Future, SendAsyncClientError, Unit] =
+    EitherT.leftT(
+      SendAsyncClientError.RequestInvalid("Direct client does not support unauthenticated sends")
     )
+
+  override def acknowledge(request: AcknowledgeRequest)(implicit
+      traceContext: TraceContext
+  ): Future[Unit] =
+    sequencer.acknowledge(request.member, request.timestamp)
 
   override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Boolean] =
-    sequencer.acknowledgeSigned(request).map { _ => true }
+  ): EitherT[Future, String, Unit] =
+    sequencer.acknowledgeSigned(request)
 
   override def subscribe[E](request: SubscriptionRequest, handler: SerializedEventHandler[E])(
       implicit traceContext: TraceContext

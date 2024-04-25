@@ -23,7 +23,7 @@ trait SequencerIntegration {
   ): Future[Unit]
 
   def blockSequencerWrites(
-      orderedOutcomes: Seq[SubmissionOutcome]
+      orderedOutcomes: Seq[SubmissionRequestOutcome]
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -38,7 +38,7 @@ object SequencerIntegration {
     ): Future[Unit] = Future.unit
 
     override def blockSequencerWrites(
-        orderedOutcomes: Seq[SubmissionOutcome]
+        orderedOutcomes: Seq[SubmissionRequestOutcome]
     )(implicit
         executionContext: ExecutionContext,
         traceContext: TraceContext,
@@ -67,19 +67,16 @@ trait DatabaseSequencerIntegration extends SequencerIntegration {
     }
 
   override def blockSequencerWrites(
-      orderedOutcomes: Seq[SubmissionOutcome]
+      orderedOutcomes: Seq[SubmissionRequestOutcome]
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[Future, String, Unit] =
     // TODO(#18394): Implement batch db write for BS sequencer writes, align with DBS batching
     MonadUtil
-      .sequentialTraverse_(orderedOutcomes) {
-        case _: SubmissionOutcome.Discard.type =>
-          EitherT.pure[Future, String](())
-        case outcome: DeliverableSubmissionOutcome =>
-          this
-            .blockSequencerWriteInternal(outcome)
-            .leftMap(_.toString)
+      .sequentialTraverse_(orderedOutcomes) { outcome =>
+        this
+          .blockSequencerWriteInternal(outcome)
+          .leftMap(_.toString)
       }
 }

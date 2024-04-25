@@ -8,6 +8,7 @@ package com.digitalasset.canton.protocol.v30;
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/protocol/v30/common_stable.proto";
 import "com/digitalasset/canton/protocol/v30/merkle.proto";
+import "com/digitalasset/canton/protocol/v30/signed_content.proto";
 import "com/digitalasset/canton/time/v30/time_proof.proto";
 import "scalapb/scalapb.proto";
 
@@ -92,8 +93,7 @@ message TransferInView {
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
   v30.SerializableContract contract = 3;
-  // Serialized SignedContent[SequencedEvent]
-  bytes transfer_out_result_event = 4;
+  v30.SignedContent transfer_out_result_event = 4;
   bytes creating_transaction_id = 5;
   int32 source_protocol_version = 6;
   int64 transfer_counter = 12;

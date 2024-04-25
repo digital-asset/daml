@@ -3,16 +3,22 @@
 
 package com.digitalasset.canton.http
 
-import com.daml.jwt.domain.Jwt
-import com.daml.logging.LoggingContextOf
-import com.daml.metrics.api.MetricsContext
-import com.daml.metrics.pekkohttp.{MetricLabelsExtractor, WebSocketMetricsInterceptor}
-import com.digitalasset.canton.http.EndpointsCompanion.*
+import org.apache.pekko.http.scaladsl.model.*
+import org.apache.pekko.http.scaladsl.model.HttpMethods.*
+import org.apache.pekko.http.scaladsl.model.ws.{Message, WebSocketUpgrade}
+import org.apache.pekko.http.scaladsl.server.RouteResult.{Complete, Rejected}
+import org.apache.pekko.http.scaladsl.server.{Rejection, RequestContext, Route, RouteResult}
+import org.apache.pekko.stream.scaladsl.Flow
 import com.digitalasset.canton.http.domain.{
   ContractKeyStreamRequest,
   JwtPayload,
   SearchForeverRequest,
 }
+import com.daml.jwt.domain.Jwt
+import com.daml.logging.LoggingContextOf
+import com.daml.metrics.pekkohttp.{MetricLabelsExtractor, WebSocketMetricsInterceptor}
+import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.http.EndpointsCompanion.*
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.Logging.{
   InstanceUUID,
@@ -22,12 +28,6 @@ import com.digitalasset.canton.http.util.Logging.{
 import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
-import org.apache.pekko.http.scaladsl.model.*
-import org.apache.pekko.http.scaladsl.model.HttpMethods.*
-import org.apache.pekko.http.scaladsl.model.ws.{Message, WebSocketUpgrade}
-import org.apache.pekko.http.scaladsl.server.RouteResult.{Complete, Rejected}
-import org.apache.pekko.http.scaladsl.server.{Rejection, RequestContext, Route, RouteResult}
-import org.apache.pekko.stream.scaladsl.Flow
 import scalaz.std.scalaFuture.*
 import scalaz.syntax.std.boolean.*
 import scalaz.syntax.std.option.*
@@ -106,7 +106,7 @@ class WebsocketEndpoints(
                 )
                 (jwt, jwtPayload) = payload
               } yield {
-                MetricsContext.withMetricLabels(MetricLabelsExtractor.labelsFromRequest(req)*) {
+                MetricsContext.withMetricLabels(MetricLabelsExtractor.labelsFromRequest(req): _*) {
                   implicit mc: MetricsContext =>
                     handleWebsocketRequest[SearchForeverRequest](
                       jwt,
@@ -136,7 +136,7 @@ class WebsocketEndpoints(
                 )
                 (jwt, jwtPayload) = payload
               } yield {
-                MetricsContext.withMetricLabels(MetricLabelsExtractor.labelsFromRequest(req)*) {
+                MetricsContext.withMetricLabels(MetricLabelsExtractor.labelsFromRequest(req): _*) {
                   implicit mc: MetricsContext =>
                     handleWebsocketRequest[ContractKeyStreamRequest[_, _]](
                       jwt,

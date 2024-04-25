@@ -275,7 +275,6 @@ object ValidateDisclosedContractsTest {
         ),
       ),
       api.keyMaintainers,
-      Ref.PackageName.assertFromString(api.packageName),
     )
 
     private val keyHash: Hash = keyWithMaintainers.globalKey.hash

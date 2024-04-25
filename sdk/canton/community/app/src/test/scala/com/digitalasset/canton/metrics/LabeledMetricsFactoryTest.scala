@@ -16,7 +16,6 @@ class LabeledMetricsFactoryTest extends AnyWordSpec with BaseTest {
       val mf = MetricsRegistry(
         OpenTelemetry.noop().getMeter("test"),
         MetricsFactoryType.InMemory(_ => new InMemoryMetricsFactory),
-        loggerFactory,
       )
       val (participantMetrics, sequencerMetrics, mediatorMetrics) = mf.metricsDoc()
       sequencerMetrics should not be empty

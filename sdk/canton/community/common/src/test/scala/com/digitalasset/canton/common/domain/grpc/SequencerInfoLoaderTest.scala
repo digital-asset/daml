@@ -11,11 +11,7 @@ import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader.{
 }
 import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.networking.Endpoint
-import com.digitalasset.canton.sequencing.{
-  GrpcSequencerConnection,
-  SequencerConnectionValidation,
-  SubmissionRequestAmplification,
-}
+import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnectionValidation}
 import com.digitalasset.canton.topology.{DomainId, SequencerId, UniqueIdentifier}
 import com.digitalasset.canton.{BaseTest, BaseTestWordSpec, SequencerAlias}
 import org.scalatest.Assertion
@@ -157,11 +153,11 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec {
         args: List[
           (SequencerAlias, Endpoint, Either[SequencerInfoLoaderError, DomainClientBootstrapInfo])
         ]
-    ): Either[SequencerInfoLoaderError, SequencerInfoLoader.SequencerAggregatedInfo] = {
+    ) = {
       SequencerInfoLoader.aggregateBootstrapInfo(
         logger,
         sequencerTrustThreshold = PositiveInt.tryCreate(2),
-        SubmissionRequestAmplification.NoAmplification,
+        submissionRequestAmplification = PositiveInt.one,
         SequencerConnectionValidation.All,
       )(mapArgs(args))
     }

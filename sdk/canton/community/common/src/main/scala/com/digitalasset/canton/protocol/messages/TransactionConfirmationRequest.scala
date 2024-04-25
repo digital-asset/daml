@@ -9,7 +9,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.sequencing.protocol.{
   Batch,
-  MediatorGroupRecipient,
+  MediatorsOfDomain,
   OpenEnvelope,
   ParticipantsOfParty,
   Recipients,
@@ -28,7 +28,7 @@ final case class TransactionConfirmationRequest(
 ) extends PrettyPrinting
     with HasLoggerName {
 
-  def mediator: MediatorGroupRecipient = informeeMessage.mediator
+  def mediator: MediatorsOfDomain = informeeMessage.mediator
 
   lazy val rootHashMessage: RootHashMessage[EmptyRootHashMessagePayload.type] = RootHashMessage(
     rootHash = informeeMessage.fullInformeeTree.transactionId.toRootHash,

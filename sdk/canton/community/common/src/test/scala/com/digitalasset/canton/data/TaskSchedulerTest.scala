@@ -7,8 +7,8 @@ import cats.syntax.parallel.*
 import com.daml.metrics
 import com.daml.metrics.api.MetricHandle.Gauge
 import com.daml.metrics.api.MetricHandle.Gauge.SimpleCloseableGauge
+import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.noop.NoOpCounter
-import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.tracing.TraceContext
@@ -371,7 +371,7 @@ object TaskSchedulerTest {
     )
 
     override def taskQueue(size: () => Int): Gauge.CloseableGauge =
-      SimpleCloseableGauge(MetricInfo(MetricName("test"), "", MetricQualification.Debug), () => ())
+      SimpleCloseableGauge("test", () => ())
   }
 
   val Finalization: Int = 0

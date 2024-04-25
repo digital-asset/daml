@@ -80,7 +80,7 @@ class ConfirmationResponseProcessorTest
     SequencerGroup(active = NonEmpty.mk(Seq, sequencer), Seq.empty, PositiveInt.one)
 
   private lazy val mediatorId: MediatorId = activeMediator2
-  private lazy val mediatorGroupRecipient: MediatorGroupRecipient = MediatorGroupRecipient(
+  private lazy val mediatorGroupRecipient: MediatorsOfDomain = MediatorsOfDomain(
     mediatorGroup.index
   )
 
@@ -671,7 +671,7 @@ class ConfirmationResponseProcessorTest
     "reject when declared mediator is wrong" in {
       val sut = new Fixture()
 
-      val otherMediatorGroupIndex = MediatorGroupRecipient(mediatorGroup2.index)
+      val otherMediatorGroupIndex = MediatorsOfDomain(mediatorGroup2.index)
       val factoryOtherMediatorId =
         new ExampleTransactionFactory()(
           domainId = domainId,

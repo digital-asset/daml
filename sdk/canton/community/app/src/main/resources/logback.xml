@@ -7,9 +7,7 @@
   <contextListener class="ch.qos.logback.classic.jul.LevelChangePropagator">
     <resetJUL>true</resetJUL>
   </contextListener>
-  <!--
-    TODO(#18445) move all this logic into the "application setup", as this xml file has reached the point of not being maintainable and testable
-  -->
+
   <!-- whoever figures out how to define the encoder once and doesn't use copy pasta such as I did here wins a price! -->
   <if condition='isDefined("LOG_FORMAT_JSON")'>
     <then>

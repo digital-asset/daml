@@ -85,7 +85,6 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   lazy val metricsRegistry: MetricsRegistry = new MetricsRegistry(
     configuredOpenTelemetry.openTelemetry.meterBuilder("canton").build(),
     testingConfig.metricsFactoryType,
-    loggerFactory,
   )
 
   protected def participantNodeFactoryX
@@ -260,7 +259,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     migrationsFactory,
     timeouts,
     config.sequencersByString,
-    config.sequencerNodeParametersByString,
+    config.sequencerNodeParametersByStringX,
     loggerFactory,
   )
 
@@ -270,7 +269,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
       migrationsFactory,
       timeouts,
       config.mediatorsByString,
-      config.mediatorNodeParametersByString,
+      config.mediatorNodeParametersByStringX,
       loggerFactory,
     )
 
@@ -486,7 +485,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   ] = NodeFactoryArguments(
     name,
     mediatorConfig,
-    config.mediatorNodeParametersByString(name),
+    config.mediatorNodeParametersByStringX(name),
     createClock(Some(MediatorNodeBootstrapX.LoggerFactoryKeyName -> name)),
     metricsRegistry.forMediator(name),
     testingConfig,

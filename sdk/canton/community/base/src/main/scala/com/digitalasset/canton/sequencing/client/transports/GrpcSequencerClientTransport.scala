@@ -24,7 +24,6 @@ import com.digitalasset.canton.networking.grpc.GrpcError.{
 }
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcError}
 import com.digitalasset.canton.sequencing.SerializedEventHandler
-import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.{
   SendAsyncClientError,
   SequencerSubscription,
@@ -112,7 +111,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
   override def sendAsyncSigned(
       request: SignedContent[SubmissionRequest],
       timeout: Duration,
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientResponseError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
     sendInternal(
       stub =>
         stub.sendAsyncVersioned(
@@ -127,7 +126,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
 
   override def sendAsyncUnauthenticatedVersioned(request: SubmissionRequest, timeout: Duration)(
       implicit traceContext: TraceContext
-  ): EitherT[Future, SendAsyncClientResponseError, Unit] = sendInternal(
+  ): EitherT[Future, SendAsyncClientError, Unit] = sendInternal(
     stub =>
       stub.sendAsyncUnauthenticatedVersioned(
         v30.SendAsyncUnauthenticatedVersionedRequest(submissionRequest = request.toByteString)
@@ -144,7 +143,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       messageId: MessageId,
       timeout: Duration,
       fromResponseProto: Resp => ParsingResult[SendAsyncUnauthenticatedVersionedResponse],
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientResponseError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
     // sends are at-most-once so we cannot retry when unavailable as we don't know if the request has been accepted
     val sendAtMostOnce = retryPolicy(retryOnUnavailable = false)
     val response =
@@ -165,10 +164,10 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
   private def fromResponse[Proto](
       p: Proto,
       deserializer: Proto => ParsingResult[SendAsyncUnauthenticatedVersionedResponse],
-  ): Either[SendAsyncClientResponseError, Unit] = {
+  ) = {
     for {
       response <- deserializer(p)
-        .leftMap[SendAsyncClientResponseError](err =>
+        .leftMap[SendAsyncClientError](err =>
           SendAsyncClientError.RequestFailed(s"Failed to deserialize response: $err")
         )
       _ <- response.error.toLeft(()).leftMap(SendAsyncClientError.RequestRefused)
@@ -177,7 +176,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
 
   private def fromGrpcError(error: GrpcError, messageId: MessageId)(implicit
       traceContext: TraceContext
-  ): Either[SendAsyncClientResponseError, Unit] = {
+  ): Either[SendAsyncClientError, Unit] = {
     val result = EitherUtil.condUnitE(
       !bubbleSendErrorPolicy(error),
       SendAsyncClientError.RequestFailed(s"Failed to make request to the server: $error"),
@@ -240,30 +239,47 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         }
   }
 
+  override def acknowledge(request: AcknowledgeRequest)(implicit
+      traceContext: TraceContext
+  ): Future[Unit] = {
+    val timestamp = request.timestamp
+    val requestP = request.toProtoV30
+    val responseP = CantonGrpcUtil.sendGrpcRequest(sequencerServiceClient, "sequencer")(
+      _.acknowledge(requestP),
+      requestDescription = s"acknowledge/$timestamp",
+      timeout = timeouts.network.duration,
+      logger = logger,
+      logPolicy = noLoggingShutdownErrorsLogPolicy,
+      retryPolicy = retryPolicy(retryOnUnavailable = false),
+    )
+
+    logger.debug(s"Acknowledging timestamp: $timestamp")
+    responseP.value map {
+      case Left(error) =>
+        logger.warn(s"Failed to send acknowledgement for $timestamp: $error")
+      case Right(_) =>
+        logger.debug(s"Acknowledged timestamp: $timestamp")
+    }
+  }
+
   override def acknowledgeSigned(signedRequest: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Boolean] = {
+  ): EitherT[Future, String, Unit] = {
     val request = signedRequest.content
     val timestamp = request.timestamp
+    val requestP = signedRequest.toProtoV30
     logger.debug(s"Acknowledging timestamp: $timestamp")
     CantonGrpcUtil
       .sendGrpcRequest(sequencerServiceClient, "sequencer")(
-        _.acknowledgeSigned(v30.AcknowledgeSignedRequest(signedRequest.toByteString)),
+        _.acknowledgeSigned(v30.AcknowledgeSignedRequest(Some(requestP))),
         requestDescription = s"acknowledge-signed/$timestamp",
         timeout = timeouts.network.duration,
         logger = logger,
         logPolicy = noLoggingShutdownErrorsLogPolicy,
         retryPolicy = retryPolicy(retryOnUnavailable = false),
       )
-      .map { _ =>
-        logger.debug(s"Acknowledged timestamp: $timestamp")
-        true
-      }
-      .recover {
-        // if sequencer is not available, we'll return false
-        case x if x.status == io.grpc.Status.UNAVAILABLE => false
-      }
       .leftMap(_.toString)
+      .map(_ => logger.debug(s"Acknowledged timestamp: $timestamp"))
   }
 
   override def downloadTopologyStateForInit(request: TopologyStateForInitRequest)(implicit

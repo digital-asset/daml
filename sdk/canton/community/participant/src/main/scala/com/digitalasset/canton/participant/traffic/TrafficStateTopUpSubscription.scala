@@ -9,7 +9,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
   SequencedTime,
-  TopologyTransactionProcessingSubscriber,
+  TopologyTransactionProcessingSubscriberX,
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.{TopologyChangeOpX, TrafficControlStateX}
@@ -18,7 +18,7 @@ import com.digitalasset.canton.tracing.TraceContext
 class TrafficStateTopUpSubscription(
     trafficStateController: TrafficStateController,
     override val loggerFactory: NamedLoggerFactory,
-) extends TopologyTransactionProcessingSubscriber
+) extends TopologyTransactionProcessingSubscriberX
     with NamedLogging {
   override def observed(
       sequencedTimestamp: SequencedTime,
