@@ -44,7 +44,7 @@ repos:
       description: Idempotently add DA copyright headers to source files.
       language: system
       pass_filenames: false
-      entry: "dade-copyright-headers update"
+      entry: "bash -c 'unset GIT_DIR; dade-copyright-headers update'"
       types: [text]
     - id: platform-independence-check
       name: platform-independence-check

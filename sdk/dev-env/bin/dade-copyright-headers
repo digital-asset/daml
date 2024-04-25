@@ -19,7 +19,6 @@ import os
 import string
 import sys
 
-
 #########################
 # File-type configuration
 # start: The start marker of the block.
