@@ -357,7 +357,7 @@ object MemberAuthenticationServiceFactory {
       useExponentialRandomTokenExpiration: Boolean,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
-      topologyTransactionProcessorX: TopologyTransactionProcessor,
+      topologyTransactionProcessor: TopologyTransactionProcessor,
   ): MemberAuthenticationServiceFactory =
     new MemberAuthenticationServiceFactory {
       override def createAndSubscribe(
@@ -379,7 +379,7 @@ object MemberAuthenticationServiceFactory {
           timeouts,
           loggerFactory,
         )
-        topologyTransactionProcessorX.subscribe(service)
+        topologyTransactionProcessor.subscribe(service)
         service
       }
     }

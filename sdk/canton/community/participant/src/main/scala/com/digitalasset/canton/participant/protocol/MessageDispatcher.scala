@@ -40,10 +40,7 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.topology.processing.{
-  SequencedTime,
-  TopologyTransactionProcessorCommon,
-}
+import com.digitalasset.canton.topology.processing.{SequencedTime, TopologyTransactionProcessor}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.traffic.TrafficControlProcessor
@@ -792,7 +789,7 @@ private[participant] object MessageDispatcher {
         transferOutProcessor: TransferOutProcessor,
         transferInProcessor: TransferInProcessor,
         registerTopologyTransactionResponseProcessor: EnvelopeHandler,
-        topologyProcessor: TopologyTransactionProcessorCommon,
+        topologyProcessor: TopologyTransactionProcessor,
         trafficProcessor: TrafficControlProcessor,
         acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType,
         requestCounterAllocator: RequestCounterAllocator,

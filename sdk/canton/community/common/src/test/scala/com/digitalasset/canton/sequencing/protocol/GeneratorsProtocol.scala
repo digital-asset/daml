@@ -6,9 +6,15 @@ package com.digitalasset.canton.sequencing.protocol
 import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.config.CantonRequireTypes.String73
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.protocol.messages.{GeneratorsMessages, ProtocolMessage}
+import com.digitalasset.canton.sequencing.protocol.SequencerErrors.*
+import com.digitalasset.canton.serialization.{
+  BytestringWithCryptographicEvidence,
+  HasCryptographicEvidence,
+}
 import com.digitalasset.canton.time.TimeProofTestUtil
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -166,5 +172,79 @@ final class GeneratorsProtocol(
       member <- Arbitrary.arbitrary[Member]
       counter <- Arbitrary.arbitrary[SequencerCounter]
     } yield SubscriptionRequest.apply(member, counter, protocolVersion)
+  )
+
+  private val sequencerDeliverErrorCodeArb: Arbitrary[SequencerDeliverErrorCode] =
+    Arbitrary(
+      Gen.oneOf(
+        AggregateSubmissionAlreadySent,
+        AggregateSubmissionStuffing,
+        MaxSequencingTimeTooFar,
+        PersistTombstone,
+        SubmissionRequestMalformed,
+        SubmissionRequestRefused,
+        TopologyTimestampAfterSequencingTimestamp,
+        TopoologyTimestampTooEarly,
+        TopologyTimestampMissing,
+        TrafficCredit,
+        UnknownRecipients,
+      )
+    )
+
+  private implicit val sequencerDeliverErrorArb: Arbitrary[SequencerDeliverError] = {
+    Arbitrary(
+      for {
+        code <- sequencerDeliverErrorCodeArb.arbitrary
+        message <- Arbitrary.arbitrary[String]
+      } yield code.apply(message)
+    )
+  }
+
+  private implicit val deliverErrorArb: Arbitrary[DeliverError] = Arbitrary(
+    for {
+      sequencerCounter <- Arbitrary.arbitrary[SequencerCounter]
+      ts <- Arbitrary.arbitrary[CantonTimestamp]
+      domainId <- Arbitrary.arbitrary[DomainId]
+      messageId <- Arbitrary.arbitrary[MessageId]
+      error <- sequencerDeliverErrorArb.arbitrary
+    } yield DeliverError.create(
+      sequencerCounter,
+      timestamp = ts,
+      domainId = domainId,
+      messageId,
+      error,
+      protocolVersion,
+    )
+  )
+  private implicit val deliverArbitrary: Arbitrary[Deliver[Envelope[?]]] = Arbitrary(
+    for {
+      domainId <- Arbitrary.arbitrary[DomainId]
+      batch <- batchArb.arbitrary
+      deliver <- Arbitrary(deliverGen(domainId, batch)).arbitrary
+    } yield deliver
+  )
+
+  implicit val sequencerEventArb: Arbitrary[SequencedEvent[Envelope[?]]] =
+    Arbitrary(Gen.oneOf(deliverErrorArb.arbitrary, deliverArbitrary.arbitrary))
+
+  implicit val signedContent: Arbitrary[SignedContent[HasCryptographicEvidence]] = Arbitrary(
+    for {
+      signatures <- Generators.nonEmptyListGen[Signature]
+      ts <- Gen.option(Arbitrary.arbitrary[CantonTimestamp])
+      content <- signedProtocolMessageContentArb.arbitrary
+      byteStringWithCryptographicEvidence = BytestringWithCryptographicEvidence(
+        content.getCryptographicEvidence
+      )
+    } yield {
+      // When we deserialize SignedContent we don't get the original Content, but instead we get a byteStringWithCryptographicEvidence
+      // This is why I pass directly a byteStringWithCryptographicEvidence instead of any Content With HasCryptographicEvidence.
+      SignedContent.create(
+        content = byteStringWithCryptographicEvidence,
+        signatures = signatures,
+        timestampOfSigningKey = ts,
+        representativeProtocolVersion =
+          SignedContent.protocolVersionRepresentativeFor(protocolVersion),
+      )
+    }
   )
 }

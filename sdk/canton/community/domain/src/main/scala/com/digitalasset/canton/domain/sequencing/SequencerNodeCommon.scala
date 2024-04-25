@@ -34,7 +34,7 @@ import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
-import com.digitalasset.canton.topology.processing.TopologyTransactionProcessorCommon
+import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{TopologyStateForInitializationService, TopologyStore}
 import com.digitalasset.canton.tracing.TraceContext
@@ -111,7 +111,7 @@ trait SequencerNodeBootstrapCommon[
       staticMembersToRegister: Seq[Member],
       topologyStore: TopologyStore[DomainStore],
       topologyClient: DomainTopologyClientWithInit,
-      topologyProcessor: TopologyTransactionProcessorCommon,
+      topologyProcessor: TopologyTransactionProcessor,
       topologyManagerStatus: Option[TopologyManagerStatus],
       staticDomainParameters: StaticDomainParameters,
       storage: Storage,

@@ -556,7 +556,7 @@ abstract class TopologyTransactionProcessorTest
       val initialDomainParameters = mkAddMultiKey(
         DomainParametersState(
           domainId,
-          DynamicDomainParameters.defaultXValues(testedProtocolVersion),
+          DynamicDomainParameters.defaultValues(testedProtocolVersion),
         ),
         signingKeys = NonEmpty(Set, key1, key2),
       )

@@ -39,7 +39,7 @@ class MissingKeysAlerter(
     }
   }
 
-  def attachToTopologyProcessorX(): TopologyTransactionProcessingSubscriber =
+  def attachToTopologyProcessor(): TopologyTransactionProcessingSubscriber =
     new TopologyTransactionProcessingSubscriber {
       override def observed(
           sequencedTimestamp: SequencedTime,
@@ -48,11 +48,11 @@ class MissingKeysAlerter(
           transactions: Seq[GenericSignedTopologyTransaction],
       )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
         FutureUnlessShutdown.pure(
-          processTransactionsX(effectiveTimestamp.value, transactions)
+          processTransactions(effectiveTimestamp.value, transactions)
         )
     }
 
-  private def processTransactionsX(
+  private def processTransactions(
       timestamp: CantonTimestamp,
       transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit traceContext: TraceContext): Unit = {

@@ -43,7 +43,7 @@ import scala.concurrent.{ExecutionContext, Future}
 /** @param outboxQueue If a [[DomainOutboxQueue]] is provided, the processed transactions are not directly stored,
   *                    but rather sent to the domain via an ephemeral queue (i.e. no persistence).
   * @param enableTopologyTransactionValidation If disabled, all of the authorization validation logic in
-  *                                            IncomingTopologyTransactionAuthorizationValidatorX is skipped.
+  *                                            IncomingTopologyTransactionAuthorizationValidator is skipped.
   */
 class TopologyStateProcessor(
     val store: TopologyStore[TopologyStoreId],
