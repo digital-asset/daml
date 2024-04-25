@@ -29,7 +29,7 @@ import com.digitalasset.canton.participant.protocol.validation.{
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.sequencing.protocol.{MediatorsOfDomain, OpenEnvelope}
+import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, OpenEnvelope}
 import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -70,7 +70,7 @@ class TransactionConfirmationRequestFactory(
       submitterInfo: SubmitterInfo,
       workflowId: Option[WorkflowId],
       keyResolver: LfKeyResolver,
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       cryptoSnapshot: DomainSnapshotSyncCryptoApi,
       sessionKeyStore: SessionKeyStore,
       contractInstanceOfId: SerializableContractOfId,

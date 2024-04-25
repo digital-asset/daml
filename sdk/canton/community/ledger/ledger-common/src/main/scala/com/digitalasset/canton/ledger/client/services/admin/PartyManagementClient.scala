@@ -37,7 +37,8 @@ object PartyManagementClient {
 
   private val getParticipantIdRequest = GetParticipantIdRequest()
 
-  private val listKnownPartiesRequest = ListKnownPartiesRequest()
+  private def listKnownPartiesRequest(pageToken: String, pageSize: Int) =
+    ListKnownPartiesRequest(pageToken, pageSize)
 
   private def getPartiesRequest(parties: OneAnd[Set, Ref.Party]) = {
     import scalaz.std.iterable.*
@@ -56,11 +57,17 @@ final class PartyManagementClient(service: PartyManagementServiceStub)(implicit
       .getParticipantId(PartyManagementClient.getParticipantIdRequest)
       .map(r => ParticipantId(Ref.ParticipantId.assertFromString(r.participantId)))
 
-  def listKnownParties(token: Option[String] = None): Future[List[PartyDetails]] =
+  def listKnownParties(
+      token: Option[String] = None,
+      pageToken: String = "",
+      pageSize: Int = 1000,
+  ): Future[(List[PartyDetails], String)] =
     LedgerClient
       .stub(service, token)
-      .listKnownParties(PartyManagementClient.listKnownPartiesRequest)
-      .map(_.partyDetails.view.map(PartyManagementClient.details).toList)
+      .listKnownParties(PartyManagementClient.listKnownPartiesRequest(pageToken, pageSize))
+      .map(resp =>
+        (resp.partyDetails.view.map(PartyManagementClient.details).toList, resp.nextPageToken)
+      )
 
   def getParties(
       parties: OneAnd[Set, Ref.Party],

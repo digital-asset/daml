@@ -11,14 +11,14 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.protocol.MessageId
 import com.digitalasset.canton.store.SavePendingSendError.MessageIdAlreadyTracked
-import com.digitalasset.canton.store.{SavePendingSendError, SendTrackerStore}
+import com.digitalasset.canton.store.{IndexedDomain, SavePendingSendError, SendTrackerStore}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class DbSendTrackerStore_Unused(
     override protected val storage: DbStorage,
-    client: SequencerClientDiscriminator,
+    indexedDomain: IndexedDomain,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit
@@ -37,12 +37,12 @@ class DbSendTrackerStore_Unused(
           storage.profile match {
             case _: DbStorage.Profile.Oracle =>
               sqlu"""insert
-                       /*+  IGNORE_ROW_ON_DUPKEY_INDEX ( sequencer_client_pending_sends ( message_id, client ) ) */
-                       into sequencer_client_pending_sends (client, message_id, max_sequencing_time)
-                       values ($client, $messageId, $maxSequencingTime)"""
+                       /*+  IGNORE_ROW_ON_DUPKEY_INDEX ( sequencer_client_pending_sends ( message_id, domain_id ) ) */
+                       into sequencer_client_pending_sends (domain_id, message_id, max_sequencing_time)
+                       values ($indexedDomain, $messageId, $maxSequencingTime)"""
             case _ =>
-              sqlu"""insert into sequencer_client_pending_sends (client, message_id, max_sequencing_time)
-                       values ($client, $messageId, $maxSequencingTime)
+              sqlu"""insert into sequencer_client_pending_sends (domain_id, message_id, max_sequencing_time)
+                       values ($indexedDomain, $messageId, $maxSequencingTime)
                        on conflict do nothing"""
           },
           operationName = s"${this.getClass}: save pending send",
@@ -56,7 +56,7 @@ class DbSendTrackerStore_Unused(
           EitherT(for {
             existingMaxSequencingTimeO <- storage.query(
               sql"""select max_sequencing_time from sequencer_client_pending_sends
-                    where client = $client and message_id = $messageId"""
+                    where domain_id = $indexedDomain and message_id = $messageId"""
                 .as[CantonTimestamp]
                 .headOption,
               functionFullName,
@@ -77,7 +77,7 @@ class DbSendTrackerStore_Unused(
   ): Future[Map[MessageId, CantonTimestamp]] = {
     for {
       items <- storage.query(
-        sql"select message_id, max_sequencing_time from sequencer_client_pending_sends where client = $client"
+        sql"select message_id, max_sequencing_time from sequencer_client_pending_sends where domain_id = $indexedDomain"
           .as[(MessageId, CantonTimestamp)],
         functionFullName,
       )
@@ -88,7 +88,7 @@ class DbSendTrackerStore_Unused(
       messageId: MessageId
   )(implicit traceContext: TraceContext): Future[Unit] = {
     storage.update_(
-      sqlu"delete from sequencer_client_pending_sends where client = $client and message_id = $messageId",
+      sqlu"delete from sequencer_client_pending_sends where domain_id = $indexedDomain and message_id = $messageId",
       functionFullName,
     )
   }

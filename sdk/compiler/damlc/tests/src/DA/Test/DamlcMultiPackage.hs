@@ -5,24 +5,28 @@ module DA.Test.DamlcMultiPackage (main) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
-import Control.Exception (try)
+import qualified Data.ByteString.Lazy.Char8 as BSLC
+import Control.Exception (onException, try)
 import Control.Monad.Extra (forM_, unless, void)
 import DA.Bazel.Runfiles (exe, locateRunfiles, mainWorkspace)
-import Data.List (intercalate, intersect, isInfixOf, union, (\\))
+import DA.Cli.Damlc (MultiPackageManifestEntry (..))
+import Data.Aeson (eitherDecode)
+import Data.List (intercalate, intersect, isInfixOf, sortOn, union, (\\))
+import Data.List.Extra (replace)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, fromJust)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Time.Clock (UTCTime)
 import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
-import System.Directory.Extra (canonicalizePath, createDirectoryIfMissing, doesFileExist, getModificationTime, removeFile, withCurrentDirectory)
+import System.Directory.Extra (canonicalizePath, createDirectoryIfMissing, doesFileExist, getModificationTime, removePathForcibly, removeFile, withCurrentDirectory)
 import System.Environment.Blank (setEnv)
 import System.Exit (ExitCode (..))
 import System.FilePath (makeRelative, (</>))
 import System.IO.Extra (withTempDir)
 import System.Process (CreateProcess (..), proc, readCreateProcessWithExitCode, readCreateProcess)
 import Test.Tasty (TestTree, defaultMain, testGroup)
-import Test.Tasty.HUnit (HUnitFailure (..), assertFailure, assertBool, testCase)
+import Test.Tasty.HUnit (HUnitFailure (..), assertFailure, assertBool, testCase, (@?=))
 import Text.Regex.TDFA (Regex, makeRegex, matchTest)
 
 -- Abstraction over the folder structure of a project, consisting of many packages.
@@ -74,16 +78,17 @@ main :: IO ()
 main = withSdkVersions $ do
   damlAssistant <- locateRunfiles (mainWorkspace </> "daml-assistant" </> exe "daml")
   release <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball-ce.tar.gz")
-  withTempDir $ \damlHome -> do
-    setEnv "DAML_HOME" damlHome True
-    -- Install sdk `env:DAML_SDK_RELEASE_VERSION` into temp DAML_HOME
-    -- corresponds to:
-    --   - `0.0.0` on PR builds
-    --   - `x.y.z-snapshot.yyyymmdd.nnnnn.m.vpppppppp` on MAIN/Release builds
-    void $ readCreateProcess (proc damlAssistant ["install", release, "--install-with-custom-version", sdkVersion]) ""
-    -- Install a copy under the release version 10.0.0
-    void $ readCreateProcess (proc damlAssistant ["install", release, "--install-with-custom-version", "10.0.0"]) ""
-    defaultMain $ tests damlAssistant
+  withTempDir $ \damlHome ->
+    flip onException (removePathForcibly damlHome) $ do
+      setEnv "DAML_HOME" damlHome True
+      -- Install sdk `env:DAML_SDK_RELEASE_VERSION` into temp DAML_HOME
+      -- corresponds to:
+      --   - `0.0.0` on PR builds
+      --   - `x.y.z-snapshot.yyyymmdd.nnnnn.m.vpppppppp` on MAIN/Release builds
+      void $ readCreateProcess (proc damlAssistant ["install", release, "--install-with-custom-version", sdkVersion]) ""
+      -- Install a copy under the release version 10.0.0
+      void $ readCreateProcess (proc damlAssistant ["install", release, "--install-with-custom-version", "10.0.0"]) ""
+      defaultMain $ tests damlAssistant
 
 tests :: SdkVersioned => FilePath -> TestTree
 tests damlAssistant =
@@ -393,6 +398,73 @@ tests damlAssistant =
             [PackageIdentifier "package-b" "0.0.1"]
             warningProject
         ]
+    , testGroup
+        "Manifest Generation"
+        [ assertManifestHashChange "Hash single daml file change"
+            manifestHashBaseCase
+            (writeFile "./package-a/daml/MyLib.daml" "module MyLib where a = 3")
+            (\preEntries postEntries -> do
+              fileHashUnchanged (head preEntries) (head postEntries) "package-a/daml/MyModule.daml"
+              fileHashChanged (head preEntries) (head postEntries) "package-a/daml/MyLib.daml"
+              fileHashUnchanged (head preEntries) (head postEntries) "package-a/daml.yaml"
+
+              assertBool "Expected package hash to change" $ packageHash (head preEntries) /= packageHash (head postEntries)
+            )
+        , assertManifestHashChange "Hash daml.yaml file change"
+            manifestHashBaseCase
+            (appendFile "./package-a/daml.yaml" "\nnewField: true")
+            (\preEntries postEntries -> do
+              fileHashUnchanged (head preEntries) (head postEntries) "package-a/daml/MyModule.daml"
+              fileHashUnchanged (head preEntries) (head postEntries) "package-a/daml/MyLib.daml"
+              fileHashChanged (head preEntries) (head postEntries) "package-a/daml.yaml"
+
+              assertBool "Expected package hash to change" $ packageHash (head preEntries) /= packageHash (head postEntries)
+            )
+        , assertManifestHashChange "Hash non daml file ignored"
+            manifestHashBaseCase
+            (writeFile "./package-a/daml/NonDamlFile.notdaml" "hello world")
+            (\preEntries postEntries -> do
+              fileHashUnchanged (head preEntries) (head postEntries) "package-a/daml/MyModule.daml"
+              fileHashUnchanged (head preEntries) (head postEntries) "package-a/daml/MyLib.daml"
+              fileHashUnchanged (head preEntries) (head postEntries) "package-a/daml.yaml"
+
+              assertBool "Expected package hash not to change" $ packageHash (head preEntries) == packageHash (head postEntries)
+            )
+        , assertManifest "Data dependencies correctly classified"
+            [ MultiPackage ["./package-a", "./package-b"] []
+            , Dir "package-a"
+              [ damlYaml "package-a" "0.0.1" []
+              , Dir "daml" [GenericFile "MyModule.daml" "module MyModule where"]
+              ]
+            , Dir "package-b"
+              [ damlYaml "package-b" "0.0.1" ["../package-a/.daml/dist/package-a-0.0.1.dar", "../some-external-dar.dar"]
+              , Dir "daml" [GenericFile "MySecondModule.daml" "module MySecondModule where"]
+              ]
+            ]
+            (\(sortOn packageName -> entries) -> do
+              packageDeps (entries !! 1) @?= ["package-a-0.0.1"]
+              darDeps (entries !! 1) @?= ["some-external-dar.dar"]
+            )
+        , assertManifest "Output dar correctly scraped"
+            [ MultiPackage ["./package-a", "./package-b"] []
+            , Dir "package-a"
+              [ (damlYaml "package-a" "0.0.1" []) {dyOutPath = Just "./my-dar.dar"}
+              , Dir "daml"
+                  [ GenericFile "MyModule.daml" "module MyModule where"
+                  ]
+              ]
+            , Dir "package-b"
+              [ damlYaml "package-b" "0.0.1" ["../package-a/my-dar.dar"]
+              , Dir "daml"
+                  [ GenericFile "MyModule.daml" "module MyModule where"
+                  ]
+              ]
+            ]
+            (\(sortOn packageName -> entries) -> do
+              output (head entries) @?= "package-a/my-dar.dar"
+              packageDeps (entries !! 1) @?= ["package-a-0.0.1"]
+            )
+        ]
     ]
 
   where
@@ -484,6 +556,62 @@ tests damlAssistant =
         void $ Map.traverseWithKey 
           (\pkg newTime -> assertBool (show pkg <> " shouldn't have rebuilt, but did") $ newTime == fromJust (Map.lookup pkg modifiedTimes))
           expectedUnchangedModifiedTimes
+
+    assertManifest
+      :: String
+      -> [ProjectStructure]
+      -> ([MultiPackageManifestEntry] -> IO ())
+      -> TestTree
+    assertManifest name projectStructure predicate =
+      testCase name $
+      withTempDir $ \dir -> do
+        void $ buildProject dir projectStructure
+        entries <- getManifest dir
+        predicate entries
+
+    -- Cannot directly check hashes, as they change between versions + OS.
+    -- Instead, test for changes in hashes
+    assertManifestHashChange
+      :: String
+      -> [ProjectStructure]
+      -> IO ()
+      -> ([MultiPackageManifestEntry] -> [MultiPackageManifestEntry] -> IO ())
+      -> TestTree
+    assertManifestHashChange name projectStructure structureModifier predicate =
+      testCase name $
+      withTempDir $ \dir -> do
+        void $ buildProject dir projectStructure
+        preManifest <- getManifest dir
+        withCurrentDirectory dir structureModifier
+        postManifest <- getManifest dir
+        predicate preManifest postManifest
+
+    fileHashChanged :: MultiPackageManifestEntry -> MultiPackageManifestEntry -> FilePath -> IO ()
+    fileHashChanged preEntry postEntry path =
+      assertBool ("Expected hash of " <> path <> " to change") $ packageFileHashes preEntry Map.! path /= packageFileHashes postEntry Map.! path
+
+    fileHashUnchanged :: MultiPackageManifestEntry -> MultiPackageManifestEntry -> FilePath -> IO ()
+    fileHashUnchanged preEntry postEntry path =
+      assertBool ("Expected hash of " <> path <> " not to change") $ packageFileHashes preEntry Map.! path == packageFileHashes postEntry Map.! path
+    
+    getManifest :: FilePath -> IO [MultiPackageManifestEntry]
+    getManifest dir = do
+      let args = ["damlc", "generate-multi-package-manifest"]
+          process = (proc damlAssistant args) {cwd = Just dir}
+      entriesStr <- readCreateProcess process ""
+      let eEntries = eitherDecode @[MultiPackageManifestEntry] (BSLC.pack entriesStr)
+          convertPath = replace "\\" "/"
+      case eEntries of
+        Left err -> assertFailure $ "Expected valid json output but got: " <> err
+        Right entries -> pure $ do
+          entry <- entries
+          pure $ entry
+            { packageDir = convertPath $ packageDir entry
+            , packageSrc = convertPath $ packageSrc entry
+            , packageFileHashes = Map.mapKeys convertPath $ packageFileHashes entry
+            , output = convertPath $ output entry
+            , darDeps = convertPath <$> darDeps entry
+            }
 
     runBuildAndAssert
       :: FilePath
@@ -807,5 +935,17 @@ simpleTwoPackageProjectModulePrefixes =
   , Dir "package-b"
     [ (damlYaml "package-b" "0.0.1" ["../package-a/.daml/dist/package-a-0.0.1.dar"]) {dyModulePrefixes = [(PackageIdentifier "package-a" "0.0.1", "A")]}
     , Dir "daml" [DamlSource "PackageBMain" ["A.PackageAMain"]]
+    ]
+  ]
+
+manifestHashBaseCase :: [ProjectStructure]
+manifestHashBaseCase =
+  [ MultiPackage ["./package-a"] []
+  , Dir "package-a"
+    [ damlYaml "package-a" "0.0.1" []
+    , Dir "daml"
+        [ GenericFile "MyModule.daml" "module MyModule where"
+        , GenericFile "MyLib.daml" "module MyLib where"
+        ]
     ]
   ]

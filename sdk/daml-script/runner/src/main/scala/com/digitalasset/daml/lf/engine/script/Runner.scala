@@ -27,7 +27,7 @@ import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedg
 import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageMajorVersion, PackageInterface}
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.language.LanguageVersionRangeOps._
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.SExpr._
@@ -493,7 +493,7 @@ private[lf] class Runner(
   // We do the same substitution for 'castCatchPayload' to circumvent Daml's
   // lack of existential types.
   val extendedCompiledPackages = {
-    val damlScriptDefs: PartialFunction[SDefinitionRef, SDefinition] = {
+    def getDamlScriptDefs(ref: SDefinitionRef): Option[SDefinition] = ref match {
       // Daml3 script
       // Generalised version of the various unsafe casts we need in daml scripts,
       // casting various types involving LedgerValue to/from their real types.
@@ -502,31 +502,31 @@ private[lf] class Runner(
             "Daml.Script.Internal.LowLevel",
             "dangerousCast",
           ) =>
-        SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
+        Some(SDefinition(SEMakeClo(Array(), 1, SELocA(0))))
       // Daml script legacy
       case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
-        SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
+        Some(SDefinition(SEMakeClo(Array(), 1, SELocA(0))))
       case LfDefRef(id) if id == script.scriptIds.damlScript("castCatchPayload") =>
-        SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
+        Some(SDefinition(SEMakeClo(Array(), 1, SELocA(0))))
+      case _ =>
+        None
     }
+
     new CompiledPackages(
       Runner.compilerConfig(compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion)
     ) {
-      override def getDefinition(dref: SDefinitionRef): Option[SDefinition] =
-        damlScriptDefs.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
-      // FIXME: avoid override of non abstract method
-      override def pkgInterface: PackageInterface = compiledPackages.pkgInterface
-      override def packageIds: collection.Set[PackageId] = compiledPackages.packageIds
-      // FIXME: avoid override of non abstract method
-      override def definitions: PartialFunction[SDefinitionRef, SDefinition] =
-        damlScriptDefs.orElse(compiledPackages.definitions)
+      override def signatures = compiledPackages.signatures
+
+      override def getDefinition(ref: SDefinitionRef): Option[SDefinition] =
+        getDamlScriptDefs(ref).orElse(compiledPackages.getDefinition(ref))
     }
   }
 
   // Maps GHC unit ids to LF package ids. Used for location conversion.
   val knownPackages: Map[String, PackageId] = (for {
-    pkgId <- compiledPackages.packageIds
-    md <- compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.map(_.metadata).toList
+    entry <- compiledPackages.signatures
+    (pkgId, pkg) = entry
+    md = pkg.metadata
   } yield (s"${md.name}-${md.version}" -> pkgId)).toMap
 
   def runWithClients(

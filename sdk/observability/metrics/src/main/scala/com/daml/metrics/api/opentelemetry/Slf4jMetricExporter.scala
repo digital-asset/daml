@@ -20,12 +20,11 @@ class Slf4jMetricExporter(
   override def `export`(
       metrics: util.Collection[MetricData]
   ): CompletableResultCode = {
-    (new CompletableResultCode()).whenComplete(() => {
-      metrics.asScala.foreach(metricData =>
-        if (logAsInfo) logger.info(s"$metricData")
-        else logger.debug(s"$metricData")
-      )
-    })
+    metrics.asScala.foreach(metricData =>
+      if (logAsInfo) logger.info(s"$metricData")
+      else logger.debug(s"$metricData")
+    )
+    CompletableResultCode.ofSuccess()
   }
 
   override def flush(): CompletableResultCode = CompletableResultCode.ofSuccess()

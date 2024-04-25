@@ -23,7 +23,7 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.processing.*
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
@@ -52,8 +52,9 @@ class MemberAuthenticationService(
     cryptoApi: DomainSyncCryptoClient,
     store: MemberAuthenticationStore,
     clock: Clock,
-    nonceExpirationTime: Duration,
-    tokenExpirationTime: Duration,
+    nonceExpirationInterval: Duration,
+    maxTokenExpirationInterval: Duration,
+    useExponentialRandomTokenExpiration: Boolean,
     invalidateMemberCallback: Traced[Member] => Unit,
     isTopologyInitialized: Future[Unit],
     override val timeouts: ProcessingTimeout,
@@ -82,7 +83,7 @@ class MemberAuthenticationService(
         }
       )
       nonce = Nonce.generate(cryptoApi.pureCrypto)
-      storedNonce = StoredNonce(member, nonce, clock.now, nonceExpirationTime)
+      storedNonce = StoredNonce(member, nonce, clock.now, nonceExpirationInterval)
       _ <- handlePassiveInstanceException(store.saveNonce(storedNonce))
     } yield {
       scheduleExpirations(storedNonce.expireAt)
@@ -136,7 +137,18 @@ class MemberAuthenticationService(
         InvalidSignature(member)
       }
       token = AuthenticationToken.generate(cryptoApi.pureCrypto)
-      tokenExpiry = clock.now.add(tokenExpirationTime)
+      maybeRandomTokenExpirationTime =
+        if (useExponentialRandomTokenExpiration) {
+          val randomSeconds = MemberAuthenticationService.truncatedExponentialRandomDelay(
+            scale = maxTokenExpirationInterval.toSeconds.toDouble * 0.75,
+            min = maxTokenExpirationInterval.toSeconds / 2.0,
+            max = maxTokenExpirationInterval.toSeconds.toDouble,
+          )
+          Duration.ofSeconds(randomSeconds.toLong)
+        } else {
+          maxTokenExpirationInterval
+        }
+      tokenExpiry = clock.now.add(maybeRandomTokenExpirationTime)
       storedToken = StoredAuthenticationToken(member, tokenExpiry, token)
       _ <- handlePassiveInstanceException(tokenCache.saveToken(storedToken))
     } yield {
@@ -242,13 +254,34 @@ class MemberAuthenticationService(
 
 }
 
+object MemberAuthenticationService {
+
+  /** Generates a random delay between min and max, following an exponential distribution with the given scale.
+    * The delay is truncated to the range [min, max]. The interval should be sufficiently large around the scale,
+    *  to avoid long sampling times or even running indefinitely.
+    */
+  private[authentication] def truncatedExponentialRandomDelay(
+      scale: Double,
+      min: Double,
+      max: Double,
+  ): Double = {
+    Iterator
+      .continually {
+        -math.log(scala.util.Random.nextDouble()) * scale
+      }
+      .filter(d => d >= min && d <= max)
+      .next()
+  }
+}
+
 class MemberAuthenticationServiceImpl(
     domain: DomainId,
     cryptoApi: DomainSyncCryptoClient,
     store: MemberAuthenticationStore,
     clock: Clock,
-    nonceExpirationTime: Duration,
-    tokenExpirationTime: Duration,
+    nonceExpirationInterval: Duration,
+    maxTokenExpirationInterval: Duration,
+    useExponentialRandomTokenExpiration: Boolean,
     invalidateMemberCallback: Traced[Member] => Unit,
     isTopologyInitialized: Future[Unit],
     timeouts: ProcessingTimeout,
@@ -259,38 +292,39 @@ class MemberAuthenticationServiceImpl(
       cryptoApi,
       store,
       clock,
-      nonceExpirationTime = nonceExpirationTime,
-      tokenExpirationTime = tokenExpirationTime,
+      nonceExpirationInterval = nonceExpirationInterval,
+      maxTokenExpirationInterval = maxTokenExpirationInterval,
+      useExponentialRandomTokenExpiration = useExponentialRandomTokenExpiration,
       invalidateMemberCallback,
       isTopologyInitialized,
       timeouts,
       loggerFactory,
     )
-    with TopologyTransactionProcessingSubscriberX {
+    with TopologyTransactionProcessingSubscriber {
 
   /** domain topology client subscriber used to remove member tokens if they get disabled */
   override def observed(
       sequencerTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,
       sc: SequencerCounter,
-      transactions: Seq[GenericSignedTopologyTransactionX],
+      transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.lift(performUnlessClosing(functionFullName) {
       transactions.map(_.transaction).foreach {
-        case TopologyTransactionX(
-              TopologyChangeOpX.Remove,
+        case TopologyTransaction(
+              TopologyChangeOp.Remove,
               _serial,
-              cert: DomainTrustCertificateX,
+              cert: DomainTrustCertificate,
             ) =>
           val participant = cert.participantId
           logger.info(
             s"Domain trust certificate of ${participant} was removed, forcefully disconnecting the participant."
           )
           invalidateAndExpire(isParticipantActive)(participant)
-        case TopologyTransactionX(
-              TopologyChangeOpX.Replace,
+        case TopologyTransaction(
+              TopologyChangeOp.Replace,
               _serial,
-              cert: ParticipantDomainPermissionX,
+              cert: ParticipantDomainPermission,
             ) if cert.loginAfter.exists(_ > clock.now) =>
           val participant = cert.participantId
           logger.info(
@@ -318,11 +352,12 @@ object MemberAuthenticationServiceFactory {
   def apply(
       domain: DomainId,
       clock: Clock,
-      nonceExpirationTime: Duration,
-      tokenExpirationTime: Duration,
+      nonceExpirationInterval: Duration,
+      maxTokenExpirationInterval: Duration,
+      useExponentialRandomTokenExpiration: Boolean,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
-      topologyTransactionProcessorX: TopologyTransactionProcessorX,
+      topologyTransactionProcessor: TopologyTransactionProcessor,
   ): MemberAuthenticationServiceFactory =
     new MemberAuthenticationServiceFactory {
       override def createAndSubscribe(
@@ -336,14 +371,15 @@ object MemberAuthenticationServiceFactory {
           syncCrypto,
           store,
           clock,
-          nonceExpirationTime = nonceExpirationTime,
-          tokenExpirationTime = tokenExpirationTime,
+          nonceExpirationInterval = nonceExpirationInterval,
+          maxTokenExpirationInterval = maxTokenExpirationInterval,
+          useExponentialRandomTokenExpiration = useExponentialRandomTokenExpiration,
           invalidateMemberCallback,
           isTopologyInitialized,
           timeouts,
           loggerFactory,
         )
-        topologyTransactionProcessorX.subscribe(service)
+        topologyTransactionProcessor.subscribe(service)
         service
       }
     }

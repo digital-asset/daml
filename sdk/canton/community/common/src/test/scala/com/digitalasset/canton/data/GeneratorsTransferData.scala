@@ -15,7 +15,7 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.sequencing.protocol.{
   Batch,
   GeneratorsProtocol as GeneratorsProtocolSequencing,
-  MediatorsOfDomain,
+  MediatorGroupRecipient,
   SignedContent,
   TimeProof,
 }
@@ -76,7 +76,7 @@ final class GeneratorsTransferData(
       salt <- Arbitrary.arbitrary[Salt]
       targetDomain <- Arbitrary.arbitrary[TargetDomainId]
 
-      targetMediator <- Arbitrary.arbitrary[MediatorsOfDomain]
+      targetMediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
       stakeholders <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       uuid <- Gen.uuid
@@ -102,7 +102,7 @@ final class GeneratorsTransferData(
       salt <- Arbitrary.arbitrary[Salt]
       sourceDomain <- Arbitrary.arbitrary[SourceDomainId]
 
-      sourceMediator <- Arbitrary.arbitrary[MediatorsOfDomain]
+      sourceMediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
       stakeholders <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       adminParties <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
@@ -158,10 +158,10 @@ final class GeneratorsTransferData(
 
       recipients <- recipientsArb.arbitrary
 
-      transferOutTimestamp <- Arbitrary.arbitrary[CantonTimestamp]
-
       batch = Batch.of(protocolVersion, signedResult -> recipients)
       deliver <- deliverGen(sourceDomain.unwrap, batch)
+
+      transferOutTimestamp <- Arbitrary.arbitrary[CantonTimestamp]
     } yield DeliveredTransferOutResult {
       SignedContent(
         deliver,

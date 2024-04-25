@@ -13,6 +13,7 @@ import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.domain.config.PublicServerConfig
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.authentication.MemberAuthenticationServiceFactory
+import com.digitalasset.canton.domain.sequencing.config.SequencerNodeParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   DirectSequencerClientTransport,
   Sequencer,
@@ -39,8 +40,8 @@ import com.digitalasset.canton.sequencing.{
   UnsignedEnvelopeBox,
   UnsignedProtocolEventHandler,
 }
-import com.digitalasset.canton.store.db.SequencerClientDiscriminator
 import com.digitalasset.canton.store.{
+  IndexedDomain,
   SendTrackerStore,
   SequencedEventStore,
   SequencerCounterTrackerStore,
@@ -48,12 +49,9 @@ import com.digitalasset.canton.store.{
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
-import com.digitalasset.canton.topology.processing.TopologyTransactionProcessorCommon
+import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
-import com.digitalasset.canton.topology.store.{
-  TopologyStateForInitializationService,
-  TopologyStoreX,
-}
+import com.digitalasset.canton.topology.store.{TopologyStateForInitializationService, TopologyStore}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.traffic.TrafficControlProcessor
 import io.grpc.ServerServiceDefinition
@@ -70,16 +68,16 @@ class SequencerRuntimeForSeparateNode(
     sequencerId: SequencerId,
     sequencer: Sequencer,
     staticDomainParameters: StaticDomainParameters,
-    localNodeParameters: CantonNodeWithSequencerParameters,
+    localNodeParameters: SequencerNodeParameters,
     publicServerConfig: PublicServerConfig,
     timeTrackerConfig: DomainTimeTrackerConfig,
     testingConfig: TestingConfigInternal,
     metrics: SequencerMetrics,
-    domainId: DomainId,
+    indexedDomain: IndexedDomain,
     syncCrypto: DomainSyncCryptoClient,
-    topologyStore: TopologyStoreX[DomainStore],
+    topologyStore: TopologyStore[DomainStore],
     topologyClient: DomainTopologyClientWithInit,
-    topologyProcessor: TopologyTransactionProcessorCommon,
+    topologyProcessor: TopologyTransactionProcessor,
     topologyManagerStatusO: Option[TopologyManagerStatus],
     override val mediatorsProcessParticipantTopologyRequests: Boolean,
     initializationEffective: Future[Unit],
@@ -93,7 +91,6 @@ class SequencerRuntimeForSeparateNode(
     memberAuthenticationServiceFactory: MemberAuthenticationServiceFactory,
     topologyStateForInitializationService: Option[TopologyStateForInitializationService],
     maybeDomainOutboxFactory: Option[DomainOutboxFactorySingleCreate],
-    clientDiscriminator: SequencerClientDiscriminator,
     loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext,
@@ -107,7 +104,7 @@ class SequencerRuntimeForSeparateNode(
       localNodeParameters,
       publicServerConfig,
       metrics,
-      domainId,
+      indexedDomain.domainId,
       syncCrypto,
       topologyClient,
       topologyManagerStatusO,
@@ -125,7 +122,7 @@ class SequencerRuntimeForSeparateNode(
   private val sequencedEventStore =
     SequencedEventStore(
       storage,
-      clientDiscriminator,
+      indexedDomain,
       staticDomainParameters.protocolVersion,
       timeouts,
       loggerFactory,
@@ -179,7 +176,12 @@ class SequencerRuntimeForSeparateNode(
   )
 
   private val topologyManagerSequencerCounterTrackerStore =
-    SequencerCounterTrackerStore(storage, clientDiscriminator, timeouts, loggerFactory)
+    SequencerCounterTrackerStore(
+      storage,
+      indexedDomain,
+      timeouts,
+      loggerFactory,
+    )
 
   override protected lazy val domainOutboxO: Option[DomainOutboxHandle] =
     maybeDomainOutboxFactory
@@ -263,9 +265,7 @@ class SequencerRuntimeForSeparateNode(
   def initializeAll()(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
     for {
       _ <- initialize(topologyInitIsCompleted = false)
-      _ = logger.debug(
-        s"Subscribing topology client within sequencer runtime for $clientDiscriminator"
-      )
+      _ = logger.debug("Subscribing topology client within sequencer runtime")
       _ <- EitherT.right(
         client.subscribeTracking(
           topologyManagerSequencerCounterTrackerStore,

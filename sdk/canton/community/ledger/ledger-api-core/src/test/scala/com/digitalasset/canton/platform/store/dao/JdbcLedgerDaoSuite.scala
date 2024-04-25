@@ -342,7 +342,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       maintainers: Set[Party]
   ): GlobalKeyWithMaintainers = {
     val aTextValue = ValueText(scala.util.Random.nextString(10))
-    GlobalKeyWithMaintainers.assertBuild(someTemplateId, aTextValue, maintainers)
+    GlobalKeyWithMaintainers.assertBuild(someTemplateId, aTextValue, maintainers, somePackageName)
   }
 
   protected final def createAndStoreContract(
@@ -665,7 +665,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         stakeholders = Set(party),
         keyOpt = Some(
           GlobalKeyWithMaintainers
-            .assertBuild(someTemplateId, someContractKey(party, key), Set(party))
+            .assertBuild(someTemplateId, someContractKey(party, key), Set(party), somePackageName)
         ),
         version = txVersion,
       )
@@ -710,7 +710,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         exerciseResult = Some(LfValue.ValueUnit),
         keyOpt = maybeKey.map(k =>
           GlobalKeyWithMaintainers
-            .assertBuild(someTemplateId, someContractKey(party, k), Set(party))
+            .assertBuild(someTemplateId, someContractKey(party, k), Set(party), somePackageName)
         ),
         byKey = false,
         version = txVersion,
@@ -742,7 +742,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         templateId = someTemplateId,
         packageName = somePackageName,
         key = GlobalKeyWithMaintainers
-          .assertBuild(someTemplateId, someContractKey(party, key), Set(party)),
+          .assertBuild(someTemplateId, someContractKey(party, key), Set(party), somePackageName),
         result = result,
         version = txVersion,
       )

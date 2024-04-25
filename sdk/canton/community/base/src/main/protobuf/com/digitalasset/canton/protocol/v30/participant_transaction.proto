@@ -10,6 +10,7 @@ import "com/digitalasset/canton/protocol/v30/common.proto";
 import "com/digitalasset/canton/protocol/v30/common_stable.proto";
 import "com/digitalasset/canton/protocol/v30/merkle.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
 
 // Messages sent by a participant as part of the transaction protocol
@@ -186,8 +187,8 @@ message ActionDescription {
     bool by_key = 5;
     bytes node_seed = 6;
     bool failed = 8;
-    optional string interface_id = 9;
-    optional string template_id = 10;
+    google.protobuf.StringValue interface_id = 9;
+    string template_id = 10;
     repeated string package_preference = 11;
   }
 

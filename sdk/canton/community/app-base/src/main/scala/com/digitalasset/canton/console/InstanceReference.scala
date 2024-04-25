@@ -115,7 +115,7 @@ trait InstanceReference
 
   @Help.Summary("Inspect parties")
   @Help.Group("Parties")
-  def parties: PartiesAdministrationGroupX
+  def parties: PartiesAdministrationGroup
 
   def topology: TopologyAdministrationGroup
 
@@ -511,7 +511,7 @@ abstract class ParticipantReference(
   override def health: ParticipantHealthAdministrationX =
     new ParticipantHealthAdministrationX(this, consoleEnvironment, loggerFactory)
 
-  override def parties: ParticipantPartiesAdministrationGroupX
+  override def parties: ParticipantPartiesAdministrationGroup
 
   private lazy val topology_ =
     new TopologyAdministrationGroup(
@@ -612,11 +612,11 @@ class RemoteParticipantReference(environment: ConsoleEnvironment, override val n
 
   @Help.Summary("Inspect and manage parties")
   @Help.Group("Parties")
-  override def parties: ParticipantPartiesAdministrationGroupX = partiesGroup
+  override def parties: ParticipantPartiesAdministrationGroup = partiesGroup
 
   // above command needs to be def such that `Help` works.
   lazy private val partiesGroup =
-    new ParticipantPartiesAdministrationGroupX(id, this, consoleEnvironment)
+    new ParticipantPartiesAdministrationGroup(id, this, consoleEnvironment)
 
   @Help.Summary("Return remote participant config")
   def config: RemoteParticipantConfig =
@@ -683,10 +683,10 @@ class LocalParticipantReference(
   //   but rather than keeping this, we should make local == remote and add local methods separately
   @Help.Summary("Inspect and manage parties")
   @Help.Group("Parties")
-  def parties: LocalParticipantPartiesAdministrationGroupX = partiesGroup
+  def parties: LocalParticipantPartiesAdministrationGroup = partiesGroup
   // above command needs to be def such that `Help` works.
   lazy private val partiesGroup =
-    new LocalParticipantPartiesAdministrationGroupX(this, this, consoleEnvironment, loggerFactory)
+    new LocalParticipantPartiesAdministrationGroup(this, this, consoleEnvironment, loggerFactory)
 
   private lazy val testing_ =
     new LocalParticipantTestingGroup(this, consoleEnvironment, loggerFactory)
@@ -764,9 +764,9 @@ abstract class SequencerNodeReference(
 
   override def topology: TopologyAdministrationGroup = topology_
 
-  private lazy val parties_ = new PartiesAdministrationGroupX(this, consoleEnvironment)
+  private lazy val parties_ = new PartiesAdministrationGroup(this, consoleEnvironment)
 
-  override def parties: PartiesAdministrationGroupX = parties_
+  override def parties: PartiesAdministrationGroup = parties_
 
   private val staticDomainParameters: AtomicReference[Option[ConsoleStaticDomainParameters]] =
     new AtomicReference[Option[ConsoleStaticDomainParameters]](None)
@@ -1290,9 +1290,9 @@ abstract class MediatorReference(val consoleEnvironment: ConsoleEnvironment, nam
 
   override def topology: TopologyAdministrationGroup = topology_
 
-  private lazy val parties_ = new PartiesAdministrationGroupX(this, consoleEnvironment)
+  private lazy val parties_ = new PartiesAdministrationGroup(this, consoleEnvironment)
 
-  override def parties: PartiesAdministrationGroupX = parties_
+  override def parties: PartiesAdministrationGroup = parties_
 
   override def equals(obj: Any): Boolean =
     obj match {

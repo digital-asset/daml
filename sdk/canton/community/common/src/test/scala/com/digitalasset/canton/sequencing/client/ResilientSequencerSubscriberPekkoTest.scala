@@ -382,7 +382,7 @@ object TestSequencerSubscriptionFactoryPekko {
       BaseTest.testedProtocolVersion,
     )
     val signedContent =
-      SignedContent.tryCreate(
+      SignedContent.create(
         sequencedEvent,
         signatures.toSeq,
         None,

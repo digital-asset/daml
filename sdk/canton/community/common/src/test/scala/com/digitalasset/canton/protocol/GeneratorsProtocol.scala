@@ -12,7 +12,7 @@ import com.digitalasset.canton.data.ViewPosition
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.TrafficControlParameters
-import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.version.ProtocolVersion
@@ -24,7 +24,7 @@ final class GeneratorsProtocol(
 ) {
   import com.digitalasset.canton.Generators.*
   import com.digitalasset.canton.GeneratorsLf.*
-  import com.digitalasset.canton.config.GeneratorsConfig.{nonNegativeFiniteDurationArb as _, *}
+  import com.digitalasset.canton.config.GeneratorsConfig.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
   import com.digitalasset.canton.time.GeneratorsTime.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
@@ -146,7 +146,7 @@ final class GeneratorsProtocol(
         ledgerCreateTime <- Arbitrary.arbitrary[LedgerCreateTime]
 
         domainId <- Arbitrary.arbitrary[DomainId]
-        mediatorGroup <- Arbitrary.arbitrary[MediatorsOfDomain]
+        mediatorGroup <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
         saltIndex <- Gen.choose(Int.MinValue, Int.MaxValue)
         transactionUUID <- Gen.uuid

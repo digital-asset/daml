@@ -4,6 +4,7 @@
 package com.digitalasset.canton.protocol
 
 import cats.syntax.either.*
+import com.daml.lf.data.Ref
 import com.daml.lf.value.{ValueCoder, ValueOuterClass}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -19,18 +20,19 @@ object GlobalKeySerialization {
       keyP <- ValueCoder
         .encodeVersionedValue(globalKey.map(_.key))
         .leftMap(_.errorMessage)
-    } yield v30.GlobalKey(templateId = templateIdP.toByteString, key = keyP.toByteString)
+    } yield v30.GlobalKey(
+      templateId = templateIdP.toByteString,
+      key = keyP.toByteString,
+      globalKey.unversioned.packageName,
+    )
   }
 
   def assertToProto(key: LfVersioned[LfGlobalKey]): v30.GlobalKey =
     toProto(key)
-      .fold(
-        err => throw new IllegalArgumentException(s"Can't encode contract key: $err"),
-        identity,
-      )
+      .valueOr(err => throw new IllegalArgumentException(s"Can't encode contract key: $err"))
 
   def fromProtoV30(globalKeyP: v30.GlobalKey): ParsingResult[LfVersioned[LfGlobalKey]] = {
-    val v30.GlobalKey(templateIdBytes, keyBytes) = globalKeyP
+    val v30.GlobalKey(templateIdBytes, keyBytes, packageNameP) = globalKeyP
     for {
       templateIdP <- ProtoConverter.protoParser(ValueOuterClass.Identifier.parseFrom)(
         templateIdBytes
@@ -51,12 +53,15 @@ object GlobalKeySerialization {
           ProtoDeserializationError.ValueDeserializationError("GlobalKey.proto", err.toString)
         )
 
-      globalKey <-
-        LfGlobalKey
-          .build(templateId, versionedKey.unversioned)
-          .leftMap(err =>
-            ProtoDeserializationError.ValueDeserializationError("GlobalKey.key", err.toString)
-          )
+      packageName <- Ref.PackageName
+        .fromString(packageNameP)
+        .leftMap(err => ProtoDeserializationError.ValueDeserializationError("GlobalKey.proto", err))
+
+      globalKey <- LfGlobalKey
+        .build(templateId, versionedKey.unversioned, packageName)
+        .leftMap(err =>
+          ProtoDeserializationError.ValueDeserializationError("GlobalKey.key", err.toString)
+        )
 
     } yield LfVersioned(versionedKey.version, globalKey)
   }

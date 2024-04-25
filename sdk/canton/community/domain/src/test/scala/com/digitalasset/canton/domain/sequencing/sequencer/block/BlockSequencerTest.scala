@@ -28,6 +28,7 @@ import com.digitalasset.canton.domain.block.{
   SignedChunkEvents,
 }
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
+import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequest
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerIntegration
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
@@ -44,14 +45,10 @@ import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
   SendAsyncError,
   SignedContent,
-  SubmissionRequest,
 }
 import com.digitalasset.canton.time.{Clock, SimClock}
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.topology.client.{
-  StoreBasedDomainTopologyClient,
-  StoreBasedDomainTopologyClientX,
-}
+import com.digitalasset.canton.topology.client.StoreBasedDomainTopologyClient
 import com.digitalasset.canton.topology.processing.{
   ApproximateTime,
   EffectiveTime,
@@ -59,8 +56,8 @@ import com.digitalasset.canton.topology.processing.{
   TopologyTransactionTestFactoryX,
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
-import com.digitalasset.canton.topology.store.ValidatedTopologyTransactionX
-import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
+import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction
+import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import org.apache.pekko.NotUsed
@@ -103,7 +100,7 @@ class BlockSequencerTest
     private val domainId = topologyTransactionFactory.domainId1
     private val sequencer1 = topologyTransactionFactory.sequencer1
     private val topologyStore =
-      new InMemoryTopologyStoreX(DomainStore(domainId), loggerFactory, timeouts)
+      new InMemoryTopologyStore(DomainStore(domainId), loggerFactory, timeouts)
 
     topologyStore
       .update(
@@ -116,11 +113,11 @@ class BlockSequencerTest
           topologyTransactionFactory.okmS1k7_k1,
           topologyTransactionFactory.dmp1_k1,
           topologyTransactionFactory.okm1bk5_k1, // this one to allow verification of the sender's signature
-        ).map(ValidatedTopologyTransactionX(_, rejectionReason = None)),
+        ).map(ValidatedTopologyTransaction(_, rejectionReason = None)),
       )
       .futureValue
 
-    private val topologyClient = new StoreBasedDomainTopologyClientX(
+    private val topologyClient = new StoreBasedDomainTopologyClient(
       mock[Clock],
       domainId,
       testedProtocolVersion,
@@ -217,7 +214,7 @@ class BlockSequencerTest
     override def close(): Unit = ()
 
     // No need to implement these methods for the test
-    override def send(signedSubmission: SignedContent[SubmissionRequest])(implicit
+    override def send(signedSubmission: SignedOrderingRequest)(implicit
         traceContext: TraceContext
     ): EitherT[Future, SendAsyncError, Unit] = ???
     override def register(member: Member)(implicit

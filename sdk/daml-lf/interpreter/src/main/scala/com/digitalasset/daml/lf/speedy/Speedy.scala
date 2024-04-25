@@ -278,7 +278,7 @@ private[lf] object Speedy {
               "NeedPackage", {
                 this.compiledPackages = packages
                 // To avoid infinite loop in case the packages are not updated properly by the caller
-                assert(compiledPackages.packageIds.contains(packageId))
+                assert(compiledPackages.contains(packageId))
                 continue()
               },
             ),
@@ -521,7 +521,7 @@ private[lf] object Speedy {
           { packages =>
             this.compiledPackages = packages
             // To avoid infinite loop in case the packages are not updated properly by the caller
-            assert(compiledPackages.packageIds.contains(packageId))
+            assert(compiledPackages.contains(packageId))
             setControl(k())
           },
         )
@@ -530,7 +530,7 @@ private[lf] object Speedy {
     private[speedy] def ensurePackageIsLoaded(packageId: PackageId, ref: => language.Reference)(
         k: () => Control[Question.Update]
     ): Control[Question.Update] =
-      if (compiledPackages.packageIds.contains(packageId))
+      if (compiledPackages.contains(packageId))
         k()
       else
         needPackage(packageId, ref, k)
@@ -1106,7 +1106,7 @@ private[lf] object Speedy {
                   Control.Expression(defn.body)
               }
             case None =>
-              if (compiledPackages.packageIds.contains(ref.packageId))
+              if (compiledPackages.contains(ref.packageId))
                 throw SErrorCrash(
                   NameOf.qualifiedNameOfCurrentFunc,
                   s"definition $ref not found even after caller provided new set of packages",

@@ -15,25 +15,22 @@ import com.daml.lf.speedy.{Compiler, SDefinition}
 private[lf] abstract class CompiledPackages(
     val compilerConfig: Compiler.Config
 ) {
-  def getDefinition(dref: SDefinitionRef): Option[SDefinition]
-  def packageIds: scala.collection.Set[PackageId]
-  def pkgInterface: PackageInterface
-  def definitions: PartialFunction[SDefinitionRef, SDefinition] =
-    Function.unlift(this.getDefinition)
-
+  def signatures: collection.Map[PackageId, PackageSignature]
+  def getDefinition(ref: SDefinitionRef): Option[SDefinition]
   final def compiler: Compiler = new Compiler(pkgInterface, compilerConfig)
+  final def pkgInterface = new PackageInterface(signatures)
+  final def contains(pkgId: PackageId): Boolean = signatures.contains(pkgId)
 }
 
 /** Important: use the constructor only if you _know_ you have all the definitions! Otherwise
   * use the apply in the companion object, which will compile them for you.
   */
-private[lf] final case class PureCompiledPackages(
-    val packageIds: Set[PackageId],
-    val pkgInterface: PackageInterface,
-    val defns: Map[SDefinitionRef, SDefinition],
+private[lf] final class PureCompiledPackages(
+    override val signatures: Map[PackageId, PackageSignature],
+    val definitions: Map[SDefinitionRef, SDefinition],
     override val compilerConfig: Compiler.Config,
 ) extends CompiledPackages(compilerConfig) {
-  override def getDefinition(dref: SDefinitionRef): Option[SDefinition] = defns.get(dref)
+  override def getDefinition(ref: SDefinitionRef): Option[SDefinition] = definitions.get(ref)
 }
 
 private[lf] object PureCompiledPackages {
@@ -43,10 +40,10 @@ private[lf] object PureCompiledPackages {
     */
   def apply(
       packages: Map[PackageId, PackageSignature],
-      defns: Map[SDefinitionRef, SDefinition],
+      definitions: Map[SDefinitionRef, SDefinition],
       compilerConfig: Compiler.Config,
   ): PureCompiledPackages =
-    new PureCompiledPackages(packages.keySet, new PackageInterface(packages), defns, compilerConfig)
+    new PureCompiledPackages(packages, definitions, compilerConfig)
 
   def build(
       packages: Map[PackageId, Package],

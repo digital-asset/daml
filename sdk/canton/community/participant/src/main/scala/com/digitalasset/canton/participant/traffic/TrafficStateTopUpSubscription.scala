@@ -9,29 +9,29 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
   SequencedTime,
-  TopologyTransactionProcessingSubscriberX,
+  TopologyTransactionProcessingSubscriber,
 }
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
-import com.digitalasset.canton.topology.transaction.{TopologyChangeOpX, TrafficControlStateX}
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.{TopologyChangeOp, TrafficControlState}
 import com.digitalasset.canton.tracing.TraceContext
 
 class TrafficStateTopUpSubscription(
     trafficStateController: TrafficStateController,
     override val loggerFactory: NamedLoggerFactory,
-) extends TopologyTransactionProcessingSubscriberX
+) extends TopologyTransactionProcessingSubscriber
     with NamedLogging {
   override def observed(
       sequencedTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,
       sequencerCounter: SequencerCounter,
-      transactions: Seq[GenericSignedTopologyTransactionX],
+      transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.pure {
     transactions
-      .flatMap(_.transaction.selectMapping[TrafficControlStateX])
+      .flatMap(_.transaction.selectMapping[TrafficControlState])
       .filter(_.mapping.member == trafficStateController.participant)
       .toList
       .foreach { tx =>
-        if (tx.operation.select[TopologyChangeOpX.Replace].isEmpty) {
+        if (tx.operation.select[TopologyChangeOp.Replace].isEmpty) {
           logger.warn("Expected replace operation for traffic top up")
         } else {
           logger.debug(

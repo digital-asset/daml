@@ -8,7 +8,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.common.domain.{
   RegisterTopologyTransactionHandle,
-  SequencerBasedRegisterTopologyTransactionHandleX,
+  SequencerBasedRegisterTopologyTransactionHandle,
 }
 import com.digitalasset.canton.config.{DomainTimeTrackerConfig, ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.Crypto
@@ -16,8 +16,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
-import com.digitalasset.canton.participant.topology.DomainOnboardingOutboxX
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX
+import com.digitalasset.canton.participant.topology.DomainOnboardingOutbox
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.RequestSigner.UnauthenticatedRequestSigner
 import com.digitalasset.canton.sequencing.client.{SequencerClient, SequencerClientFactory}
@@ -26,9 +25,8 @@ import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Deliver, Seq
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.store.memory.{InMemorySendTrackerStore, InMemorySequencedEventStore}
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
+import com.digitalasset.canton.topology.store.TopologyStore
 import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, DomainStore}
-import com.digitalasset.canton.topology.store.TopologyStoreX
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.{
   DomainId,
   ParticipantId,
@@ -50,32 +48,23 @@ import scala.util.{Failure, Success}
   * authenticate without the IDM having approved the transactions. Because of that, this initial request is sent by
   * a dynamically created unauthenticated member whose sole purpose is to send this request and wait for the response.
   */
-abstract class ParticipantInitializeTopologyCommon[TX, State](
+final class ParticipantInitializeTopology(
+    domainId: DomainId,
     alias: DomainAlias,
     participantId: ParticipantId,
+    authorizedStore: TopologyStore[AuthorizedStore],
+    targetStore: TopologyStore[DomainStore],
     clock: Clock,
-    timeouts: ProcessingTimeout,
     timeTracker: DomainTimeTrackerConfig,
+    processingTimeout: ProcessingTimeout,
     loggerFactory: NamedLoggerFactory,
     sequencerClientFactory: SequencerClientFactory,
     connections: SequencerConnections,
     crypto: Crypto,
+    config: TopologyConfig,
     protocolVersion: ProtocolVersion,
     expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
 ) {
-
-  protected def createHandler(
-      client: SequencerClient,
-      member: UnauthenticatedMemberId,
-  )(implicit ec: ExecutionContext): RegisterTopologyTransactionHandle
-
-  protected def initiateOnboarding(
-      handle: RegisterTopologyTransactionHandle
-  )(implicit
-      traceContext: TraceContext,
-      ec: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, DomainRegistryError, Boolean]
-
   def run()(implicit
       executionContext: ExecutionContextExecutor,
       executionSequencerFactory: ExecutionSequencerFactory,
@@ -95,7 +84,7 @@ abstract class ParticipantInitializeTopologyCommon[TX, State](
         client: SequencerClient,
         domainTimeTracker: DomainTimeTracker,
     ): EitherT[FutureUnlessShutdown, DomainRegistryError, Boolean] = {
-      val handle = createHandler(client, unauthenticatedMember)
+      val handle = createHandler(client)
 
       val eventHandler = new OrdinaryApplicationHandler[ClosedEnvelope] {
         override def name: String = s"participant-initialize-topology-$alias"
@@ -173,7 +162,7 @@ abstract class ParticipantInitializeTopologyCommon[TX, State](
         clock,
         unauthenticatedSequencerClient,
         protocolVersion,
-        timeouts,
+        processingTimeout,
         loggerFactory,
       )
 
@@ -202,48 +191,11 @@ abstract class ParticipantInitializeTopologyCommon[TX, State](
       success
     }
   }
-}
 
-class ParticipantInitializeTopologyX(
-    domainId: DomainId,
-    alias: DomainAlias,
-    participantId: ParticipantId,
-    authorizedStore: TopologyStoreX[AuthorizedStore],
-    targetStore: TopologyStoreX[DomainStore],
-    clock: Clock,
-    timeTracker: DomainTimeTrackerConfig,
-    processingTimeout: ProcessingTimeout,
-    loggerFactory: NamedLoggerFactory,
-    sequencerClientFactory: SequencerClientFactory,
-    connections: SequencerConnections,
-    crypto: Crypto,
-    config: TopologyConfig,
-    protocolVersion: ProtocolVersion,
-    expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
-) extends ParticipantInitializeTopologyCommon[
-      GenericSignedTopologyTransactionX,
-      TopologyTransactionsBroadcastX.State,
-    ](
-      alias,
-      participantId,
-      clock,
-      processingTimeout,
-      timeTracker,
-      loggerFactory,
-      sequencerClientFactory,
-      connections,
-      crypto,
-      protocolVersion,
-      expectedSequencers,
-    ) {
-
-  override protected def createHandler(
-      client: SequencerClient,
-      member: UnauthenticatedMemberId,
-  )(implicit
-      ec: ExecutionContext
-  ): RegisterTopologyTransactionHandle =
-    new SequencerBasedRegisterTopologyTransactionHandleX(
+  private def createHandler(
+      client: SequencerClient
+  )(implicit ec: ExecutionContext): RegisterTopologyTransactionHandle =
+    new SequencerBasedRegisterTopologyTransactionHandle(
       client,
       domainId,
       participantId,
@@ -254,13 +206,13 @@ class ParticipantInitializeTopologyX(
       loggerFactory,
     )
 
-  protected def initiateOnboarding(
+  private def initiateOnboarding(
       handle: RegisterTopologyTransactionHandle
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[FutureUnlessShutdown, DomainRegistryError, Boolean] =
-    DomainOnboardingOutboxX
+    DomainOnboardingOutbox
       .initiateOnboarding(
         alias,
         domainId,

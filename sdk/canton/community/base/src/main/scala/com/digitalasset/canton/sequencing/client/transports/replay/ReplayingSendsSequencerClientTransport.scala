@@ -13,6 +13,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.{MetricValue, SequencerClientMetrics}
+import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.client.transports.{
   SequencerClientTransport,
@@ -27,7 +28,7 @@ import com.digitalasset.canton.sequencing.{
   SerializedEventHandler,
 }
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
@@ -368,7 +369,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
   override def sendAsyncSigned(
       request: SignedContent[SubmissionRequest],
       timeout: Duration,
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientResponseError, Unit] =
     EitherT.rightT(())
 
   /** We're replaying sends so shouldn't allow the app to send any new ones */
@@ -377,16 +378,12 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SendAsyncClientError, Unit] = EitherT.rightT(())
-
-  override def acknowledge(request: AcknowledgeRequest)(implicit
-      traceContext: TraceContext
-  ): Future[Unit] = Future.unit
+  ): EitherT[Future, SendAsyncClientResponseError, Unit] = EitherT.rightT(())
 
   override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit] =
-    EitherT.rightT(())
+  ): EitherT[Future, String, Boolean] =
+    EitherT.rightT(true)
 
   override def handshake(request: HandshakeRequest)(implicit
       traceContext: TraceContext
@@ -396,7 +393,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
   override def downloadTopologyStateForInit(request: TopologyStateForInitRequest)(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, TopologyStateForInitResponse] =
-    EitherT.rightT(TopologyStateForInitResponse(Traced(StoredTopologyTransactionsX.empty)))
+    EitherT.rightT(TopologyStateForInitResponse(Traced(StoredTopologyTransactions.empty)))
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = Seq(
     SyncCloseable("underlying-transport", underlyingTransport.close())

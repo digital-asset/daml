@@ -27,7 +27,7 @@ import com.digitalasset.canton.sequencing.client.{
 import com.digitalasset.canton.sequencing.protocol.{Batch, MessageId, Recipients}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, FutureUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 
@@ -87,16 +87,22 @@ abstract class AbstractMessageProcessor(
       messages: Seq[(ProtocolMessage, Recipients)],
       // use client.messageId. passed in here such that we can log it before sending
       messageId: Option[MessageId] = None,
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
-    if (messages.isEmpty) EitherT.pure[Future, SendAsyncClientError](())
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
+    if (messages.isEmpty) EitherTUtil.unitUS[SendAsyncClientError]
     else {
       logger.trace(s"Request $requestId: ProtocolProcessor scheduling the sending of responses")
 
       for {
         domainParameters <- EitherT.right(
           crypto.ips
-            .awaitSnapshot(requestId.unwrap)
-            .flatMap(_.findDynamicDomainParametersOrDefault(protocolVersion))
+            .awaitSnapshotUS(requestId.unwrap)
+            .flatMap(snapshot =>
+              FutureUnlessShutdown.outcomeF(
+                snapshot.findDynamicDomainParametersOrDefault(protocolVersion)
+              )
+            )
         )
         maxSequencingTime = requestId.unwrap.add(
           domainParameters.confirmationResponseTimeout.unwrap

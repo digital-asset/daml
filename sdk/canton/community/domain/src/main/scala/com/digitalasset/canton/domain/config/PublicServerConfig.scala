@@ -17,18 +17,27 @@ trait PublicServerConfig extends ServerConfig {
 
   def tls: Option[TlsBaseServerConfig]
 
-  /** Expiration time for a nonce that is generated for an
+  /** Expiration interval for a nonce that is generated for an
     * authentication challenge. as an authentication request is
     * expected to be followed up with almost immediately to generate
     * an authentication token the nonce expiry should be short. the
     * nonce is automatically invalided on use.
     */
-  def nonceExpirationTime: NonNegativeFiniteDuration
+  def nonceExpirationInterval: NonNegativeFiniteDuration
 
-  /** Expiration time for authentication tokens. Tokens are used to authenticate participants.
-    * Choose a shorter time for better security and a longer time for better performance.
+  /** Expiration time interval for authentication tokens. Tokens are used to authenticate participants.
+    * Choose a shorter interval for better security and a longer interval for better performance.
     */
-  def tokenExpirationTime: NonNegativeFiniteDuration
+  def maxTokenExpirationInterval: NonNegativeFiniteDuration
+
+  /** If enabled, the token expiration interval will be exponentially distributed with the following parameters:
+    *  - `scale` of `0.75 * maxTokenExpirationInterval`;
+    *  - value is re-sampled to fit into the interval [maxTokenExpirationInterval / 2, maxTokenExpirationInterval].
+    *  This is useful to avoid the thundering herd problem when many tokens expire at the same time and should
+    *  result in nearly uniform distribution of token expiration intervals.
+    *  If disabled, the token expiration interval will be constant.
+    */
+  def useExponentialRandomTokenExpiration: Boolean
 
   lazy val clientConfig: ClientConfig =
     ClientConfig(address, port, tls.map(c => TlsClientConfig(Some(c.certChainFile), None)))
@@ -54,10 +63,11 @@ final case class CommunityPublicServerConfig(
     override val internalPort: Option[Port] = None,
     override val tls: Option[TlsBaseServerConfig] = None,
     override val keepAliveServer: Option[KeepAliveServerConfig] = Some(KeepAliveServerConfig()),
-    override val nonceExpirationTime: NonNegativeFiniteDuration =
+    override val nonceExpirationInterval: NonNegativeFiniteDuration =
       NonNegativeFiniteDuration.ofMinutes(1),
-    override val tokenExpirationTime: NonNegativeFiniteDuration =
+    override val maxTokenExpirationInterval: NonNegativeFiniteDuration =
       NonNegativeFiniteDuration.ofHours(1),
+    override val useExponentialRandomTokenExpiration: Boolean = false,
     override val overrideMaxRequestSize: Option[NonNegativeInt] = None,
 ) extends PublicServerConfig
     with CommunityServerConfig

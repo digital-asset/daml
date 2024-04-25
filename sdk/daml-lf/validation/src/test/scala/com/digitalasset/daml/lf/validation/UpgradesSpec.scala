@@ -21,7 +21,8 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.archive.DarReader
 
 import scala.util.{Success, Failure}
-import com.daml.lf.validation.Upgrading
+import org.scalatest.Inspectors.forEvery
+import scala.util.Using
 
 class UpgradesSpecAdminAPIWithoutValidation
     extends UpgradesSpecAdminAPI("Admin API without validation")
@@ -56,66 +57,50 @@ class UpgradesSpecLedgerAPIWithValidation
     with LongTests
 
 abstract class UpgradesSpecAdminAPI(override val suffix: String) extends UpgradesSpec(suffix) {
-  override def uploadPackagePair(
-      path: Upgrading[String]
-  ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
+  override def uploadPackage(
+      path: String,
+      dryRun: Boolean,
+  ): Future[(PackageId, Option[Throwable])] = {
     val client = AdminLedgerClient.singleHost(
       ledgerPorts(0).adminPort,
       config,
     )
     for {
-      (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(path.past)
-      (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(path.present)
-      uploadV1Result <- client
-        .uploadDar(testPackageV1BS, path.past, false)
-        .transform({
+      (testPackageId, testPackageBS) <- loadPackageIdAndBS(path)
+      uploadResult <-
+        (
+          if (dryRun)
+            client.validateDar(testPackageBS, path)
+          else
+            client.uploadDar(testPackageBS, path)
+        ).transform({
           case Failure(err) => Success(Some(err));
           case Success(_) => Success(None);
         })
-      uploadV2Result <- client
-        .uploadDar(testPackageV2BS, path.present, uploadSecondPackageDryRun)
-        .transform({
-          case Failure(err) => Success(Some(err));
-          case Success(_) => Success(None);
-        })
-    } yield Upgrading(
-      (testPackageV1Id, uploadV1Result),
-      (testPackageV2Id, uploadV2Result),
-    )
+    } yield (testPackageId, uploadResult)
   }
 }
 
 class UpgradesSpecLedgerAPI(override val suffix: String = "Ledger API")
     extends UpgradesSpec(suffix) {
-  override def uploadPackagePair(
-      path: Upgrading[String]
-  ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
+  override def uploadPackage(
+      path: String,
+      dryRun: Boolean,
+  ): Future[(PackageId, Option[Throwable])] = {
     for {
       client <- defaultLedgerClient()
-      (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(path.past)
-      (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(path.present)
-      uploadV1Result <- client.packageManagementClient
-        .uploadDarFile(testPackageV1BS)
-        .transform({
-          case Failure(err) => Success(Some(err));
-          case Success(_) => Success(None);
-        })
-      uploadV2Result <-
+      (testPackageId, testPackageBS) <- loadPackageIdAndBS(path)
+      uploadResult <-
         (
-          if (uploadSecondPackageDryRun)
-            client.packageManagementClient
-              .uploadDarFileDryRun(testPackageV2BS)
+          if (dryRun)
+            client.packageManagementClient.validateDarFile(testPackageBS)
           else
-            client.packageManagementClient
-              .uploadDarFile(testPackageV2BS)
+            client.packageManagementClient.uploadDarFile(testPackageBS)
         ).transform({
           case Failure(err) => Success(Some(err));
           case Success(_) => Success(None);
         })
-    } yield Upgrading(
-      (testPackageV1Id, uploadV1Result),
-      (testPackageV2Id, uploadV2Result),
-    )
+    } yield (testPackageId, uploadResult)
   }
 }
 
@@ -350,59 +335,77 @@ trait LongTests { this: UpgradesSpec =>
     }
 
     s"Succeeds when v1 upgrades to v2 and then v3 ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-SuccessUpgradingV2ThenV3-v1.dar",
-        "test-common/upgrades-SuccessUpgradingV2ThenV3-v2.dar",
-        assertPackageUpgradeCheck(None),
-      )
-      testPackagePair(
-        "test-common/upgrades-SuccessUpgradingV2ThenV3-v1.dar",
-        "test-common/upgrades-SuccessUpgradingV2ThenV3-v3.dar",
-        assertPackageUpgradeCheck(None),
-      )
+      for {
+        v1Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV2ThenV3-v1.dar")
+        v2Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV2ThenV3-v2.dar")
+        v3Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV2ThenV3-v3.dar")
+        rawCantonLog <- Future.fromTry(
+          Using(Source.fromFile(s"$cantonTmpDir/canton.log"))(_.mkString)
+        )
+      } yield {
+        forEvery(
+          List(
+            assertPackageUpgradeCheck(None)(v1Upload, v2Upload)(rawCantonLog),
+            assertPackageUpgradeCheck(None)(v2Upload, v3Upload)(rawCantonLog),
+          )
+        )(Predef.identity)
+      }
     }
 
     s"Succeeds when v1 upgrades to v3 and then v2 ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-SuccessUpgradingV3ThenV2-v1.dar",
-        "test-common/upgrades-SuccessUpgradingV3ThenV2-v3.dar",
-        assertPackageUpgradeCheck(None),
-      )
-      testPackagePair(
-        "test-common/upgrades-SuccessUpgradingV3ThenV2-v1.dar",
-        "test-common/upgrades-SuccessUpgradingV3ThenV2-v2.dar",
-        assertPackageUpgradeCheck(None),
-      )
+      for {
+        v1Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV3ThenV2-v1.dar")
+        v3Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV3ThenV2-v3.dar")
+        v2Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV3ThenV2-v2.dar")
+        rawCantonLog <- Future.fromTry(
+          Using(Source.fromFile(s"$cantonTmpDir/canton.log"))(_.mkString)
+        )
+      } yield {
+        forEvery(
+          List(
+            assertPackageUpgradeCheck(None)(v1Upload, v3Upload)(rawCantonLog),
+            assertPackageUpgradeCheck(None)(v1Upload, v2Upload)(rawCantonLog),
+          )
+        )(Predef.identity)
+      }
     }
 
     s"Fails when v1 upgrades to v2, but v3 does not upgrade v2 ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenUpgradingV2ThenV3-v1.dar",
-        "test-common/upgrades-FailsWhenUpgradingV2ThenV3-v2.dar",
-        assertPackageUpgradeCheck(None),
-      )
-      testPackagePair(
-        "test-common/upgrades-FailsWhenUpgradingV2ThenV3-v1.dar",
-        "test-common/upgrades-FailsWhenUpgradingV2ThenV3-v3.dar",
-        assertPackageUpgradeCheck(
-          Some("The upgraded template T has added new fields, but those fields are not Optional.")
-        ),
-      )
+      for {
+        v1Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV2ThenV3-v1.dar")
+        v2Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV2ThenV3-v2.dar")
+        v3Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV2ThenV3-v3.dar")
+        rawCantonLog <- Future.fromTry(
+          Using(Source.fromFile(s"$cantonTmpDir/canton.log"))(_.mkString)
+        )
+      } yield {
+        forEvery(
+          List(
+            assertPackageUpgradeCheck(None)(v1Upload, v2Upload)(rawCantonLog),
+            assertPackageUpgradeCheck(
+              Some("The upgraded template T is missing some of its original fields.")
+            )(v2Upload, v3Upload)(rawCantonLog),
+          )
+        )(Predef.identity)
+      }
     }
 
     s"Fails when v1 upgrades to v3, but v3 does not upgrade v2 ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v1.dar",
-        "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v2.dar",
-        assertPackageUpgradeCheck(None),
-      )
-      testPackagePair(
-        "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v1.dar",
-        "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v3.dar",
-        assertPackageUpgradeCheck(
-          Some("The upgraded template T has added new fields, but those fields are not Optional.")
-        ),
-      )
+      for {
+        v1Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV3ThenV2-v1.dar")
+        v3Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV3ThenV2-v3.dar")
+        v2Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV3ThenV2-v2.dar")
+        rawCantonLog <- Future.fromTry(
+          Using(Source.fromFile(s"$cantonTmpDir/canton.log"))(_.mkString)
+        )
+      } yield forEvery(
+        List(
+          assertPackageUpgradeCheck(None)(v1Upload, v3Upload)(rawCantonLog),
+          assertPackageUpgradeCheck(
+            Some("The upgraded template T is missing some of its original fields.")
+          )(v1Upload, v2Upload)(rawCantonLog),
+        )
+      )(Predef.identity)
     }
 
     "Fails when a top-level record adds a non-optional field" in {
@@ -562,29 +565,45 @@ abstract class UpgradesSpec(val suffix: String)
     bytes.map((dar.main.pkgId, _))
   }
 
-  def uploadPackagePair(
-      path: Upgrading[String]
-  ): Future[Upgrading[(PackageId, Option[Throwable])]]
+  def uploadPackage(
+      path: String,
+      dryRun: Boolean = false,
+  ): Future[(PackageId, Option[Throwable])]
+
+  def assertPackageUpgradeCheckSecondOnly(failureMessage: Option[String])(
+      v1: (PackageId, Option[Throwable]),
+      v2: (PackageId, Option[Throwable]),
+  )(cantonLogSrc: String): Assertion =
+    assertPackageUpgradeCheckGeneral(failureMessage)(v1, v2, false)(cantonLogSrc)
 
   def assertPackageUpgradeCheck(failureMessage: Option[String])(
-      testPackageV1Id: PackageId,
-      uploadV1Result: Option[Throwable],
-      testPackageV2Id: PackageId,
-      uploadV2Result: Option[Throwable],
+      v1: (PackageId, Option[Throwable]),
+      v2: (PackageId, Option[Throwable]),
+  )(cantonLogSrc: String): Assertion =
+    assertPackageUpgradeCheckGeneral(failureMessage)(v1, v2, true)(cantonLogSrc)
+
+  def assertPackageUpgradeCheckGeneral(failureMessage: Option[String])(
+      v1: (PackageId, Option[Throwable]),
+      v2: (PackageId, Option[Throwable]),
+      validateV1Checked: Boolean = true,
   )(cantonLogSrc: String): Assertion = {
+    val (testPackageV1Id, uploadV1Result) = v1
+    val (testPackageV2Id, uploadV2Result) = v2
     if (disableUpgradeValidation) {
       cantonLogSrc should include(s"Skipping upgrade validation for package $testPackageV1Id")
       cantonLogSrc should include(s"Skipping upgrade validation for package $testPackageV2Id")
     } else {
       uploadV1Result match {
-        case Some(err) =>
+        case Some(err) if validateV1Checked =>
           fail(s"Uploading first package $testPackageV1Id failed with message: $err");
         case _ => {}
       }
 
-      cantonLogSrc should include(
-        s"Package $testPackageV2Id claims to upgrade package id $testPackageV1Id"
-      )
+      if (validateV1Checked) {
+        cantonLogSrc should include(
+          s"Package $testPackageV2Id claims to upgrade package id $testPackageV1Id"
+        )
+      }
 
       failureMessage match {
         // If a failure message is expected, look for it in the canton logs
@@ -600,23 +619,6 @@ abstract class UpgradesSpec(val suffix: String)
               msg should include("INVALID_ARGUMENT: DAR_NOT_VALID_UPGRADE")
               msg should include(
                 "The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade"
-              )
-            }
-          }
-        }
-
-        case None if uploadSecondPackageDryRun => {
-          cantonLogSrc should include regex (
-            s"The DAR will not be uploaded because dry run is set in UploadDarRequest err-context:\\{.*, uploadedPackageId=$testPackageV2Id"
-          )
-          uploadV2Result match {
-            case None =>
-              fail(s"Dry run should prevent upload of second package $testPackageV2Id but didn't.");
-            case Some(err) => {
-              val msg = err.toString
-              msg should include("DAR_DONT_UPLOAD_DUE_TO_DRY_RUN")
-              msg should include(
-                "The DAR will not be uploaded because dry run is set in UploadDarRequest"
               )
             }
           }
@@ -640,38 +642,29 @@ abstract class UpgradesSpec(val suffix: String)
 
   @scala.annotation.nowarn("cat=unused")
   def assertDuplicatePackageUpload()(
-      testPackageV1Id: PackageId,
-      uploadV1Result: Option[Throwable],
-      testPackageV2Id: PackageId,
-      uploadV2Result: Option[Throwable],
+      v1: (PackageId, Option[Throwable]),
+      v2: (PackageId, Option[Throwable]),
   )(cantonLogSrc: String): Assertion = {
+    val (testPackageV1Id, uploadV1Result) = v1
+    val (testPackageV2Id, uploadV2Result) = v2
     uploadV1Result should be(empty)
     cantonLogSrc should include(
       s"Ignoring upload of package $testPackageV2Id as it has been previously uploaded"
     )
-    if (uploadSecondPackageDryRun) {
-      uploadV2Result match {
-        case None =>
-          fail(s"Dry run should prevent upload of second package $testPackageV2Id but didn't.");
-        case Some(err) => {
-          val msg = err.toString
-          msg should include("DAR_DONT_UPLOAD_DUE_TO_DRY_RUN")
-          msg should include(
-            "The DAR will not be uploaded because dry run is set in UploadDarRequest"
-          )
-        }
-      }
-    } else {
-      uploadV2Result should be(empty)
-    }
+    uploadV2Result should be(empty)
   }
 
+  def assertDontCheckUpload(
+      @annotation.unused v1: (PackageId, Option[Throwable]),
+      @annotation.unused v2: (PackageId, Option[Throwable]),
+  )(@annotation.unused cantonLogSrc: String): Assertion = succeed
+
   def assertPackageUploadVersionFailure(failureMessage: String, packageVersion: String)(
-      testPackageV1Id: PackageId,
-      uploadV1Result: Option[Throwable],
-      testPackageV2Id: PackageId,
-      uploadV2Result: Option[Throwable],
+      v1: (PackageId, Option[Throwable]),
+      v2: (PackageId, Option[Throwable]),
   )(cantonLogSrc: String): Assertion = {
+    val (testPackageV1Id, uploadV1Result) = v1
+    val (testPackageV2Id, uploadV2Result) = v2
     uploadV1Result match {
       case Some(err) =>
         fail(s"Uploading first package $testPackageV1Id failed with message: $err");
@@ -695,23 +688,57 @@ abstract class UpgradesSpec(val suffix: String)
       upgraded: String,
       upgrading: String,
       uploadAssertion: (
-          PackageId,
-          Option[Throwable],
-          PackageId,
-          Option[Throwable],
+          (PackageId, Option[Throwable]),
+          (PackageId, Option[Throwable]),
       ) => String => Assertion,
   ): Future[Assertion] = {
     for {
-      Upgrading(
-        (testPackageV1Id, uploadV1Result),
-        (testPackageV2Id, uploadV2Result),
-      ) <- uploadPackagePair(Upgrading(upgraded, upgrading))
+      v1Upload <- uploadPackage(upgraded)
+      v2Upload <- uploadPackage(upgrading, uploadSecondPackageDryRun)
     } yield {
       val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
       try {
-        uploadAssertion(testPackageV1Id, uploadV1Result, testPackageV2Id, uploadV2Result)(
+        uploadAssertion(v1Upload, v2Upload)(
           cantonLog.mkString
         )
+      } finally {
+        cantonLog.close()
+      }
+    }
+  }
+
+  def testPackageTriple(
+      first: String,
+      second: String,
+      third: String,
+      assertFirstToSecond: (
+          (PackageId, Option[Throwable]),
+          (PackageId, Option[Throwable]),
+      ) => String => Assertion,
+      assertSecondToThird: (
+          (PackageId, Option[Throwable]),
+          (PackageId, Option[Throwable]),
+      ) => String => Assertion,
+      assertFirstToThird: (
+          (PackageId, Option[Throwable]),
+          (PackageId, Option[Throwable]),
+      ) => String => Assertion,
+  ): Future[Assertion] = {
+    for {
+      firstUpload <- uploadPackage(first)
+      secondUpload <- uploadPackage(second)
+      thirdUpload <- uploadPackage(third)
+    } yield {
+      val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
+      try {
+        val rawCantonLog = cantonLog.mkString
+        forEvery(
+          List(
+            assertFirstToSecond(firstUpload, secondUpload)(rawCantonLog),
+            assertSecondToThird(secondUpload, thirdUpload)(rawCantonLog),
+            assertFirstToThird(firstUpload, thirdUpload)(rawCantonLog),
+          )
+        ) { a => a }
       } finally {
         cantonLog.close()
       }

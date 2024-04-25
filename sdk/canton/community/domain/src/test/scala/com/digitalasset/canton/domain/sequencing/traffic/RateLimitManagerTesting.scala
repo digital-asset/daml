@@ -47,6 +47,7 @@ trait RateLimitManagerTesting { this: BaseTest with HasExecutionContext =>
       futureSupervisor,
       timeouts,
       SequencerMetrics.noop("sequencer-rate-limit-manager-test"),
+      eventCostCalculator = new EventCostCalculator(loggerFactory),
     )
 
   def mkRateLimiter(manager: TrafficBalanceManager) =
@@ -56,5 +57,6 @@ trait RateLimitManagerTesting { this: BaseTest with HasExecutionContext =>
       futureSupervisor,
       timeouts,
       SequencerMetrics.noop("sequencer-rate-limit-manager-test"),
+      eventCostCalculator = new EventCostCalculator(loggerFactory),
     )
 }

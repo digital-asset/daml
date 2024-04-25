@@ -6,8 +6,8 @@ package com.digitalasset.canton.sequencing.client.transports
 import cats.data.EitherT
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.sequencing.SerializedEventHandler
+import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.{
-  SendAsyncClientError,
   SequencerSubscription,
   SubscriptionErrorRetryPolicy,
 }
@@ -30,25 +30,23 @@ trait SequencerClientTransportCommon extends FlagCloseable with SupportsHandshak
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SendAsyncClientError, Unit]
+  ): EitherT[Future, SendAsyncClientResponseError, Unit]
 
   def sendAsyncUnauthenticatedVersioned(
       request: SubmissionRequest,
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SendAsyncClientError, Unit]
+  ): EitherT[Future, SendAsyncClientResponseError, Unit]
 
   /** Acknowledge that we have successfully processed all events up to and including the given timestamp.
     * The client should then never subscribe for events from before this point.
+    *
+    * @return True if acknowledgement succeeded, false if sequencer was unavailable
     */
-  def acknowledge(request: AcknowledgeRequest)(implicit
-      traceContext: TraceContext
-  ): Future[Unit]
-
   def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit]
+  ): EitherT[Future, String, Boolean]
 
   def downloadTopologyStateForInit(request: TopologyStateForInitRequest)(implicit
       traceContext: TraceContext

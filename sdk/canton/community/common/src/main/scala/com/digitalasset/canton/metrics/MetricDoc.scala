@@ -3,7 +3,8 @@
 
 package com.digitalasset.canton.metrics
 
-import com.daml.metrics.api.MetricDoc.*
+import com.daml.metrics.api.MetricDoc.Tag
+import com.daml.metrics.api.MetricQualification
 
 object MetricDoc {
 

@@ -39,6 +39,7 @@ class ConsoleEnvironmentBinding {
        |import ${classOf[com.digitalasset.canton.console.BootstrapScriptException].getName}
        |import com.digitalasset.canton.config.RequireTypes._
        |import com.digitalasset.canton.participant.admin.ResourceLimits
+       |import ch.qos.logback.classic.Level
        |import java.time.Instant
        |import scala.concurrent.ExecutionContextExecutor
        |import scala.concurrent.duration._

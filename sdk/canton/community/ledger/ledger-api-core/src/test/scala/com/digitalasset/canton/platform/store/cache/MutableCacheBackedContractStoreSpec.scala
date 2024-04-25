@@ -397,6 +397,7 @@ object MutableCacheBackedContractStoreSpec {
     GlobalKey.assertBuild(
       Identifier.assertFromString(s"some:template:$desc"),
       ValueText(desc),
+      Ref.PackageName.assertFromString("pkg-name"),
     )
 
   private def offset(idx: Long) = Offset.fromByteArray(BigInt(idx).toByteArray)

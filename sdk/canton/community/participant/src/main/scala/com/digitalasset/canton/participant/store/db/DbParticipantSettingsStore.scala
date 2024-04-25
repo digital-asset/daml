@@ -43,15 +43,15 @@ class DbParticipantSettingsStore(
   import storage.converters.*
 
   private implicit val readSettings: GetResult[Settings] = GetResult { r =>
-    val maxDirtyRequests = r.<<[Option[NonNegativeInt]]
-    val maxRate = r.<<[Option[NonNegativeInt]]
+    val maxInflightValidationRequests = r.<<[Option[NonNegativeInt]]
+    val maxSubmissionRate = r.<<[Option[NonNegativeInt]]
     val maxDedupDuration = r.<<[Option[NonNegativeFiniteDuration]]
-    val maxBurstFactor = r.<<[PositiveDouble]
+    val maxSubmissionBurstFactor = r.<<[PositiveDouble]
     Settings(
       ResourceLimits(
-        maxDirtyRequests = maxDirtyRequests,
-        maxRate = maxRate,
-        maxBurstFactor = maxBurstFactor,
+        maxInflightValidationRequests = maxInflightValidationRequests,
+        maxSubmissionRate = maxSubmissionRate,
+        maxSubmissionBurstFactor = maxSubmissionBurstFactor,
       ),
       maxDedupDuration,
     )
@@ -62,7 +62,7 @@ class DbParticipantSettingsStore(
       {
         for {
           settingsO <- storage.query(
-            sql"select max_dirty_requests, max_rate, max_deduplication_duration, max_burst_factor from par_settings"
+            sql"select max_infight_validation_requests, max_submission_rate, max_deduplication_duration, max_submission_burst_factor from par_settings"
               .as[Settings]
               .headOption,
             functionFullName,
@@ -73,18 +73,22 @@ class DbParticipantSettingsStore(
           // For participants with v2.3.0 or earlier, this will upgrade resource limits from "no limits" to the new default
           _ <- settingsO match {
             case None if storage.isActive =>
-              val ResourceLimits(maxDirtyRequests, maxRate, maxBurstFactor) = ResourceLimits.default
+              val ResourceLimits(
+                maxInflightValidationRequests,
+                maxSubmissionRate,
+                maxSubmissionBurstFactor,
+              ) = ResourceLimits.default
               val query = storage.profile match {
                 case _: DbStorage.Profile.Postgres | _: DbStorage.Profile.H2 =>
-                  sqlu"""insert into par_settings(client, max_dirty_requests, max_rate, max_burst_factor)
-                           values($client, $maxDirtyRequests, $maxRate, $maxBurstFactor)
+                  sqlu"""insert into par_settings(client, max_infight_validation_requests, max_submission_rate, max_submission_burst_factor)
+                           values($client, $maxInflightValidationRequests, $maxSubmissionRate, $maxSubmissionBurstFactor)
                            on conflict do nothing"""
 
                 case _: DbStorage.Profile.Oracle =>
                   sqlu"""merge into par_settings using dual on (1 = 1)
                            when not matched then
-                             insert(client, max_dirty_requests, max_rate, max_burst_factor)
-                             values($client, $maxDirtyRequests, $maxRate, $maxBurstFactor)"""
+                             insert(client, max_infight_validation_requests, max_submission_rate, max_submission_burst_factor)
+                             values($client, $maxInflightValidationRequests, $maxSubmissionRate, $maxSubmissionBurstFactor)"""
               }
               storage.update_(query, functionFullName)
 
@@ -102,19 +106,20 @@ class DbParticipantSettingsStore(
     // This also ensures that value meets the object invariant of Settings.
     cache.updateAndGet(_.map(_.copy(resourceLimits = resourceLimits)))
 
-    val ResourceLimits(maxDirtyRequests, maxRate, maxBurstFactor) = resourceLimits
+    val ResourceLimits(maxInflightValidationRequests, maxSubmissionRate, maxSubmissionBurstFactor) =
+      resourceLimits
 
     val query = storage.profile match {
       case _: DbStorage.Profile.Postgres =>
-        sqlu"""insert into par_settings(max_dirty_requests, max_rate, max_burst_factor, client) values($maxDirtyRequests, $maxRate, $maxBurstFactor, $client)
-                   on conflict(client) do update set max_dirty_requests = $maxDirtyRequests, max_rate = $maxRate, max_burst_factor = $maxBurstFactor"""
+        sqlu"""insert into par_settings(max_infight_validation_requests, max_submission_rate, max_submission_burst_factor, client) values($maxInflightValidationRequests, $maxSubmissionRate, $maxSubmissionBurstFactor, $client)
+                   on conflict(client) do update set max_infight_validation_requests = $maxInflightValidationRequests, max_submission_rate = $maxSubmissionRate, max_submission_burst_factor = $maxSubmissionBurstFactor"""
 
       case _: DbStorage.Profile.Oracle | _: DbStorage.Profile.H2 =>
         sqlu"""merge into par_settings using dual on (1 = 1)
                  when matched then
-                   update set max_dirty_requests = $maxDirtyRequests, max_rate = $maxRate, max_burst_factor = $maxBurstFactor
+                   update set max_infight_validation_requests = $maxInflightValidationRequests, max_submission_rate = $maxSubmissionRate, max_submission_burst_factor = $maxSubmissionBurstFactor
                  when not matched then
-                   insert (max_dirty_requests, max_rate, max_burst_factor, client) values ($maxDirtyRequests, $maxRate, $maxBurstFactor, $client)"""
+                   insert (max_infight_validation_requests, max_submission_rate, max_submission_burst_factor, client) values ($maxInflightValidationRequests, $maxSubmissionRate, $maxSubmissionBurstFactor, $client)"""
     }
     runQueryAndRefreshCache(query, functionFullName)
   }

@@ -13,7 +13,7 @@ import cats.data.Validated
 import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.jwt.JwtTimestampLeeway
-import com.daml.metrics.HistogramDefinition
+import com.daml.metrics.{HistogramDefinition, MetricsFilterConfig}
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.{
@@ -59,6 +59,7 @@ import com.digitalasset.canton.ledger.runner.common.PureConfigReaderWriter.Secur
   identityProviderManagementConfigConvert,
   indexServiceConfigConvert,
   indexerConfigConvert,
+  partyManagementServiceConfigConvert,
   userManagementServiceConfigConvert,
 }
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -399,22 +400,23 @@ trait CantonConfig {
     InstanceName.tryCreate(name)
   )
 
-  private lazy val sequencerNodeParametersX_ : Map[InstanceName, SequencerNodeParameters] =
-    sequencers.fmap { sequencerNodeXConfig =>
+  private lazy val sequencerNodeParameters_ : Map[InstanceName, SequencerNodeParameters] =
+    sequencers.fmap { sequencerNodeConfig =>
       SequencerNodeParameters(
-        general = CantonNodeParameterConverter.general(this, sequencerNodeXConfig),
-        protocol = CantonNodeParameterConverter.protocol(this, sequencerNodeXConfig.parameters),
-        maxBurstFactor = sequencerNodeXConfig.parameters.maxBurstFactor,
+        general = CantonNodeParameterConverter.general(this, sequencerNodeConfig),
+        protocol = CantonNodeParameterConverter.protocol(this, sequencerNodeConfig.parameters),
+        maxConfirmationRequestsBurstFactor =
+          sequencerNodeConfig.parameters.maxConfirmationRequestsBurstFactor,
       )
     }
 
-  private[canton] def sequencerNodeParametersX(name: InstanceName): SequencerNodeParameters =
-    nodeParametersFor(sequencerNodeParametersX_, "sequencer-x", name)
+  private[canton] def sequencerNodeParameters(name: InstanceName): SequencerNodeParameters =
+    nodeParametersFor(sequencerNodeParameters_, "sequencer", name)
 
-  private[canton] def sequencerNodeParametersByStringX(name: String): SequencerNodeParameters =
-    sequencerNodeParametersX(InstanceName.tryCreate(name))
+  private[canton] def sequencerNodeParametersByString(name: String): SequencerNodeParameters =
+    sequencerNodeParameters(InstanceName.tryCreate(name))
 
-  private lazy val mediatorNodeParametersX_ : Map[InstanceName, MediatorNodeParameters] =
+  private lazy val mediatorNodeParameters_ : Map[InstanceName, MediatorNodeParameters] =
     mediators.fmap { mediatorNodeConfig =>
       MediatorNodeParameters(
         general = CantonNodeParameterConverter.general(this, mediatorNodeConfig),
@@ -422,11 +424,11 @@ trait CantonConfig {
       )
     }
 
-  private[canton] def mediatorNodeParametersX(name: InstanceName): MediatorNodeParameters =
-    nodeParametersFor(mediatorNodeParametersX_, "mediator-x", name)
+  private[canton] def mediatorNodeParameters(name: InstanceName): MediatorNodeParameters =
+    nodeParametersFor(mediatorNodeParameters_, "mediator", name)
 
-  private[canton] def mediatorNodeParametersByStringX(name: String): MediatorNodeParameters =
-    mediatorNodeParametersX(InstanceName.tryCreate(name))
+  private[canton] def mediatorNodeParametersByString(name: String): MediatorNodeParameters =
+    mediatorNodeParameters(InstanceName.tryCreate(name))
 
   protected def nodeParametersFor[A](
       cachedNodeParameters: Map[InstanceName, A],
@@ -882,8 +884,8 @@ object CantonConfig {
       deriveReader[DeadlockDetectionConfig]
     lazy implicit val sequencerTrafficConfigReader: ConfigReader[SequencerTrafficConfig] =
       deriveReader[SequencerTrafficConfig]
-    lazy implicit val metricsFilterConfigReader: ConfigReader[MetricsConfig.MetricsFilterConfig] =
-      deriveReader[MetricsConfig.MetricsFilterConfig]
+    lazy implicit val metricsFilterConfigReader: ConfigReader[MetricsFilterConfig] =
+      deriveReader[MetricsFilterConfig]
     lazy implicit val metricsConfigPrometheusReader
         : ConfigReader[MetricsReporterConfig.Prometheus] =
       deriveReader[MetricsReporterConfig.Prometheus]
@@ -1272,8 +1274,8 @@ object CantonConfig {
     lazy implicit val deadlockDetectionConfigWriter: ConfigWriter[DeadlockDetectionConfig] =
       deriveWriter[DeadlockDetectionConfig]
 
-    lazy implicit val metricsFilterConfigWriter: ConfigWriter[MetricsConfig.MetricsFilterConfig] =
-      deriveWriter[MetricsConfig.MetricsFilterConfig]
+    lazy implicit val metricsFilterConfigWriter: ConfigWriter[MetricsFilterConfig] =
+      deriveWriter[MetricsFilterConfig]
     lazy implicit val metricsConfigPrometheusWriter
         : ConfigWriter[MetricsReporterConfig.Prometheus] =
       deriveWriter[MetricsReporterConfig.Prometheus]

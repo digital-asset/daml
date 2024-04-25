@@ -282,7 +282,7 @@ final class LfValueTranslation(
           globalKey <- createKey
             .traverse(key =>
               GlobalKey
-                .build(templateId, key.unversioned)
+                .build(templateId, key.unversioned, packageName)
                 .left
                 .map(_.msg)
             )
@@ -406,7 +406,7 @@ final class LfValueTranslation(
           globalKey <- createKey
             .traverse(key =>
               GlobalKey
-                .build(templateId, key.unversioned)
+                .build(templateId, key.unversioned, createdEvent.packageName)
                 .left
                 .map(_.msg)
             )

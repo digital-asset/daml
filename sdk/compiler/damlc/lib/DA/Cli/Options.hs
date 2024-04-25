@@ -154,13 +154,17 @@ newtype InitPkgDb = InitPkgDb Bool
 initPkgDbOpt :: Parser InitPkgDb
 initPkgDbOpt = InitPkgDb <$> flagYesNoAuto "init-package-db" True "Initialize package database" idm
 
+newtype MultiIdeVerbose = MultiIdeVerbose {getMultiIdeVerbose :: Bool}
+multiIdeVerboseOpt :: Parser MultiIdeVerbose
+multiIdeVerboseOpt = MultiIdeVerbose <$> flagYesNoAuto "verbose" False "Enable verbose logging for the Multi-IDE" idm
+
 newtype EnableMultiPackage = EnableMultiPackage {getEnableMultiPackage :: Bool}
 enableMultiPackageOpt :: Parser EnableMultiPackage
 enableMultiPackageOpt = EnableMultiPackage <$> flagYesNoAuto "enable-multi-package" True "Enable/disable multi-package.yaml support (enabled by default)" idm
 
 newtype MultiPackageBuildAll = MultiPackageBuildAll {getMultiPackageBuildAll :: Bool}
 multiPackageBuildAllOpt :: Parser MultiPackageBuildAll
-multiPackageBuildAllOpt = MultiPackageBuildAll <$> switch (long "all" <> help "Build all packages in multi-package.daml")
+multiPackageBuildAllOpt = MultiPackageBuildAll <$> switch (long "all" <> help "Build all packages in multi-package.yaml")
 
 newtype MultiPackageNoCache = MultiPackageNoCache {getMultiPackageNoCache :: Bool}
 multiPackageNoCacheOpt :: Parser MultiPackageNoCache
@@ -184,7 +188,7 @@ multiPackageLocationOpt =
 
 newtype MultiPackageCleanAll = MultiPackageCleanAll {getMultiPackageCleanAll :: Bool}
 multiPackageCleanAllOpt :: Parser MultiPackageCleanAll
-multiPackageCleanAllOpt = MultiPackageCleanAll <$> switch (long "all" <> help "Clean all packages in multi-package.daml")
+multiPackageCleanAllOpt = MultiPackageCleanAll <$> switch (long "all" <> help "Clean all packages in multi-package.yaml")
 
 data Telemetry
     = TelemetryOptedIn -- ^ User has explicitly opted in
@@ -193,6 +197,14 @@ data Telemetry
     | TelemetryDisabled -- ^ No options have been supplied so telemetry is
                -- disabled. You’ll never get this in the IDE but it is
                -- used when invoking the compiler from a terminal.
+
+newtype GenerateMultiPackageManifestOutput = GenerateMultiPackageManifestOutput {getGenerateMultiPackageManifestOutput :: Maybe FilePath}
+generateMultiPackageManifestOutputOpt :: Parser GenerateMultiPackageManifestOutput
+generateMultiPackageManifestOutputOpt = fmap GenerateMultiPackageManifestOutput $ optional $ optionOnce str
+    (  metavar "FILE"
+    <> help "File to write the manifest to (JSON)"
+    <> long "output"
+    )
 
 telemetryOpt :: Parser Telemetry
 telemetryOpt = fromMaybe TelemetryDisabled <$> optional (optIn <|> optOut <|> optIgnored)

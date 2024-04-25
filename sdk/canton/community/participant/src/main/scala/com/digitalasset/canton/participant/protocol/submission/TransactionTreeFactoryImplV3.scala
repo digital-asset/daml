@@ -23,7 +23,7 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFa
 }
 import com.digitalasset.canton.protocol.RollbackContext.RollbackScope
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
@@ -100,7 +100,7 @@ class TransactionTreeFactoryImplV3(
   }
 
   protected[submission] class State private (
-      override val mediator: MediatorsOfDomain,
+      override val mediator: MediatorGroupRecipient,
       override val transactionUUID: UUID,
       override val ledgerTime: CantonTimestamp,
       override protected val salts: Iterator[Salt],
@@ -146,7 +146,7 @@ class TransactionTreeFactoryImplV3(
   private[submission] object State {
     private[submission] def submission(
         transactionSeed: SaltSeed,
-        mediator: MediatorsOfDomain,
+        mediator: MediatorGroupRecipient,
         transactionUUID: UUID,
         ledgerTime: CantonTimestamp,
         nextSaltIndex: Int,
@@ -159,7 +159,7 @@ class TransactionTreeFactoryImplV3(
     }
 
     private[submission] def validation(
-        mediator: MediatorsOfDomain,
+        mediator: MediatorGroupRecipient,
         transactionUUID: UUID,
         ledgerTime: CantonTimestamp,
         salts: Iterable[Salt],
@@ -169,7 +169,7 @@ class TransactionTreeFactoryImplV3(
 
   override protected def stateForSubmission(
       transactionSeed: SaltSeed,
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       transactionUUID: UUID,
       ledgerTime: CantonTimestamp,
       keyResolver: LfKeyResolver,
@@ -185,7 +185,7 @@ class TransactionTreeFactoryImplV3(
     )
 
   override protected def stateForValidation(
-      mediator: MediatorsOfDomain,
+      mediator: MediatorGroupRecipient,
       transactionUUID: UUID,
       ledgerTime: CantonTimestamp,
       salts: Iterable[Salt],

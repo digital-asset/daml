@@ -64,6 +64,16 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       companion.fromTrustedByteString,
     )
   }
+  protected def testMemoizedProtocolVersioned2[T <: HasProtocolVersionedWrapper[
+    T
+  ], U <: HasProtocolVersionedWrapper[?]](
+      companion: HasMemoizedProtocolVersionedWrapperCompanion2[T, U]
+  )(implicit arb: Arbitrary[T]): Assertion = {
+    testProtocolVersionedCommon(
+      companion,
+      companion.fromTrustedByteString,
+    )
+  }
 
   /*
    Test for classes extending `HasProtocolVersionedWrapper` (protocol version embedded in the instance),
@@ -152,7 +162,6 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       withClue(
         s"Comparing ${companion.name} with representative ${instance.representativeProtocolVersion}"
       ) {
-
         instance shouldBe deserializedInstance
         instance.representativeProtocolVersion shouldBe deserializedInstance.representativeProtocolVersion
       }

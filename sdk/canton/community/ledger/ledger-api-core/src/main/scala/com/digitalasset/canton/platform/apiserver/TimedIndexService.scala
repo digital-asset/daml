@@ -153,10 +153,16 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
   ): Future[List[IndexerPartyDetails]] =
     Timed.future(metrics.services.index.getParties, delegate.getParties(parties))
 
-  override def listKnownParties()(implicit
+  override def listKnownParties(
+      fromExcl: Option[Party],
+      maxResults: Int,
+  )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[List[IndexerPartyDetails]] =
-    Timed.future(metrics.services.index.listKnownParties, delegate.listKnownParties())
+    Timed.future(
+      metrics.services.index.listKnownParties,
+      delegate.listKnownParties(fromExcl, maxResults),
+    )
 
   override def partyEntries(
       startExclusive: Option[ParticipantOffset.Absolute]
@@ -171,17 +177,6 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
     Timed.future(
       metrics.services.index.prune,
       delegate.prune(pruneUpToInclusive, pruneAllDivulgedContracts, incompletReassignmentOffsets),
-    )
-
-  override def getCompletions(
-      startExclusive: ParticipantOffset,
-      endInclusive: ParticipantOffset,
-      applicationId: Ref.ApplicationId,
-      parties: Set[Party],
-  )(implicit loggingContext: LoggingContextWithTrace): Source[CompletionStreamResponse, NotUsed] =
-    Timed.source(
-      metrics.services.index.getCompletionsLimited,
-      delegate.getCompletions(startExclusive, endInclusive, applicationId, parties),
     )
 
   override def currentHealth(): HealthStatus =

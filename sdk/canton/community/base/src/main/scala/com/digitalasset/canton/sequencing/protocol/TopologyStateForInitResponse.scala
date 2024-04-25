@@ -6,12 +6,12 @@ package com.digitalasset.canton.sequencing.protocol
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 
 final case class TopologyStateForInitResponse(
-    topologyTransactions: Traced[GenericStoredTopologyTransactionsX]
+    topologyTransactions: Traced[GenericStoredTopologyTransactions]
 ) {
   def toProtoV30: v30.DownloadTopologyStateForInitResponse =
     v30.DownloadTopologyStateForInitResponse(
@@ -31,7 +31,7 @@ object TopologyStateForInitResponse {
     }
     for {
       topologyTransactions <- ProtoConverter.parseRequired(
-        StoredTopologyTransactionsX.fromProtoV30,
+        StoredTopologyTransactions.fromProtoV30,
         "topology_transactions",
         topologyTransactionsP,
       )

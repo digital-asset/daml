@@ -20,6 +20,7 @@ import com.digitalasset.canton.domain.sequencing.authentication.{
   MemberAuthenticationServiceFactory,
   MemberAuthenticationStore,
 }
+import com.digitalasset.canton.domain.sequencing.config.SequencerNodeParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.RegisterMemberError.AlreadyRegisteredError
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
@@ -54,8 +55,8 @@ import org.apache.pekko.actor.ActorSystem
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 final case class SequencerAuthenticationConfig(
-    nonceExpirationTime: config.NonNegativeFiniteDuration,
-    tokenExpirationTime: config.NonNegativeFiniteDuration,
+    nonceExpirationInterval: config.NonNegativeFiniteDuration,
+    maxTokenExpirationInterval: config.NonNegativeFiniteDuration,
 ) {
   // only authentication tokens are supported
   val check: AuthenticationCheck = AuthenticationCheck.AuthenticationToken
@@ -74,7 +75,7 @@ class SequencerRuntime(
     sequencerId: SequencerId,
     val sequencer: Sequencer,
     staticDomainParameters: StaticDomainParameters,
-    localNodeParameters: CantonNodeWithSequencerParameters,
+    localNodeParameters: SequencerNodeParameters,
     publicServerConfig: PublicServerConfig,
     val metrics: SequencerMetrics,
     val domainId: DomainId,

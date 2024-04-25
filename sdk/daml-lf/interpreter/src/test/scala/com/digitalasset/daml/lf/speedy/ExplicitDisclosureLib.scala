@@ -96,7 +96,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   val caveTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:Cave")
   val caveTemplateType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:Cave")
   val keyType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:Key")
-  val contractKey: GlobalKey = buildContractKey(maintainerParty, somePackageName)
+  val contractKey: GlobalKey = buildContractKey(maintainerParty, pkg.name)
   val contractSStructKey: SValue =
     SValue.SStruct(
       fieldNames =

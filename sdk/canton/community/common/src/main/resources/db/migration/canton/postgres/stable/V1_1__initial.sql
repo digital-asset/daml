@@ -251,7 +251,7 @@ create table med_response_aggregations (
 -- Stores the received sequencer messages
 create table common_sequenced_events (
   -- discriminate between different users of the sequenced events tables
-  client integer not null,
+  domain_id integer not null,
   -- Proto serialized signed message
   sequenced_event bytea not null,
   -- Explicit fields to query the messages, which are stored as blobs
@@ -265,22 +265,22 @@ create table common_sequenced_events (
   -- flag to skip problematic events
   ignore boolean not null,
   -- The sequencer ensures that the timestamp is unique
-  primary key (client, ts)
+  primary key (domain_id, ts)
 );
 
-create unique index idx_common_sequenced_events_sequencer_counter on common_sequenced_events(client, sequencer_counter);
+create unique index idx_common_sequenced_events_sequencer_counter on common_sequenced_events(domain_id, sequencer_counter);
 
 -- Track what send requests we've made but have yet to observe being sequenced.
 -- If events are not observed by the max sequencing time we know that the send will never be processed.
 create table sequencer_client_pending_sends (
-  -- ids for distinguishing between different sequencer clients in the same node
-  client integer not null,
+  -- domain id for distinguishing between different sequencer clients in the same node
+  domain_id integer not null,
 
   -- the message id of the send being tracked (expected to be unique for the sequencer client while the send is in flight)
   message_id varchar(300) collate "C" not null,
 
   -- the message id should be unique for the sequencer client
-  primary key (client, message_id),
+  primary key (domain_id, message_id),
 
   -- the max sequencing time of the send request (UTC timestamp in microseconds relative to EPOCH)
   max_sequencing_time bigint not null
@@ -412,7 +412,7 @@ create index idx_journal_request_commit_time on par_journal_requests (domain_id,
 
 -- the last recorded head clean counter for each domain
 create table par_head_clean_counters (
-  client integer not null primary key,
+  domain_id integer not null primary key,
   prehead_counter bigint not null, -- request counter of the prehead request
   -- UTC timestamp in microseconds relative to EPOCH
   ts bigint not null
@@ -577,12 +577,12 @@ create table par_contract_key_pruning (
 
 -- Maintains the latest timestamp (by sequencer client) for which the sequenced event store pruning has started or finished
 create table common_sequenced_event_store_pruning (
-  client integer not null,
+  domain_id integer not null,
   phase pruning_phase not null,
   -- UTC timestamp in microseconds relative to EPOCH
   ts bigint not null,
   succeeded bigint null,
-  primary key (client)
+  primary key (domain_id)
 );
 
 -- table to contain the values provided by the domain to the mediator node for initialization.
@@ -600,7 +600,7 @@ create table mediator_domain_configuration (
 -- the last recorded head clean sequencer counter for each domain
 create table common_head_sequencer_counters (
   -- discriminate between different users of the sequencer counter tracker tables
-  client integer not null primary key,
+  domain_id integer not null primary key,
   prehead_counter bigint not null, -- sequencer counter before the first unclean sequenced event
   -- UTC timestamp in microseconds relative to EPOCH
   ts bigint not null
@@ -684,11 +684,7 @@ create table sequencer_events (
   topology_timestamp bigint null,
   -- trace context associated with the event
   trace_context bytea not null,
-  error bytea,
-  -- extra traffic remainder at the time of the event
-  extra_traffic_remainder bigint,
-  -- total extra traffic consumed at the time of the event
-  extra_traffic_consumed bigint
+  error bytea
 );
 
 -- Sequence of local offsets used by the participant event publisher
@@ -767,10 +763,10 @@ create index idx_par_in_flight_submission_message_id on par_in_flight_submission
 
 create table par_settings(
   client integer primary key, -- dummy field to enforce at most one row
-  max_dirty_requests integer,
-  max_rate integer,
+  max_infight_validation_requests integer,
+  max_submission_rate integer,
   max_deduplication_duration bytea, -- non-negative finite duration
-  max_burst_factor double precision not null default 0.5
+  max_submission_burst_factor double precision not null default 0.5
 );
 
 create table par_command_deduplication (

@@ -198,7 +198,7 @@ da_scala_test_suite(
             "//test-common:upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v1.dar",
             "//test-common:upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v2.dar",
         ],
-        flaky = True,
+        flaky = False,
         scala_deps = [
             "@maven//:org_apache_pekko_pekko_actor",
             "@maven//:org_apache_pekko_pekko_stream",
@@ -206,7 +206,7 @@ da_scala_test_suite(
         scalacopts = lf_scalacopts,
         deps = [
             ":upgrade-test-lib",
-            ":validation",
+            #":validation",
             "//bazel_tools/runfiles:scala_runfiles",
             "//canton:community_ledger_ledger-common",
             "//canton:ledger_api_proto_scala",

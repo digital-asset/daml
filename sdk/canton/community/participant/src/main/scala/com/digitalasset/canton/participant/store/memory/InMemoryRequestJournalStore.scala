@@ -17,7 +17,7 @@ import com.digitalasset.canton.{RequestCounter, RequestCounterDiscriminator}
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactory)
@@ -68,24 +68,21 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
         )
       )
     else {
-      // TODO(#17726) Why do we need the synchronized block here? The TrieMap is already thread-safe
-      //  and other places in this store do not synchronize when they access the requestTable.
-      val resultE = blocking(requestTable.synchronized {
-        requestTable.get(rc) match {
-          case None => Left(UnknownRequestCounter(rc))
-          case Some(oldResult) =>
-            if (oldResult.requestTimestamp != requestTimestamp)
-              Left(
-                InconsistentRequestTimestamp(rc, oldResult.requestTimestamp, requestTimestamp)
-              )
-            else if (oldResult.state == newState && oldResult.commitTime == commitTime)
-              Right(())
-            else {
-              requestTable.put(rc, oldResult.tryAdvance(newState, commitTime)).discard
-              Right(())
-            }
-        }
-      })
+      val resultE = requestTable.updateWith(rc) {
+        case old @ Some(oldResult) =>
+          if (oldResult.requestTimestamp != requestTimestamp) old
+          else if (oldResult.state == newState && oldResult.commitTime == commitTime) old
+          else Some(oldResult.tryAdvance(newState, commitTime))
+        case None => None
+      } match {
+        case None => Left(UnknownRequestCounter(rc))
+        case Some(possiblyNewResult) =>
+          Either.cond(
+            possiblyNewResult.requestTimestamp == requestTimestamp,
+            (),
+            InconsistentRequestTimestamp(rc, possiblyNewResult.requestTimestamp, requestTimestamp),
+          )
+      }
       EitherT.fromEither(resultE)
     }
 

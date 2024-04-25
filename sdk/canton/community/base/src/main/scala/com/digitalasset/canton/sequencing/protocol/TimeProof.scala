@@ -10,6 +10,7 @@ import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.CantonRequireTypes.String73
 import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.OrdinaryProtocolEvent
 import com.digitalasset.canton.sequencing.client.{SendAsyncClientError, SequencerClient}
@@ -27,7 +28,6 @@ import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
 import java.util.UUID
-import scala.concurrent.Future
 
 /** Wrapper for a sequenced event that has the correct properties to act as a time proof:
   *  - a deliver event with no envelopes
@@ -127,7 +127,9 @@ object TimeProof {
   def sendRequest(
       client: SequencerClient,
       protocolVersion: ProtocolVersion,
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] =
     client.sendAsyncUnauthenticatedOrNot(
       // we intentionally ask for an empty event to be sequenced to observe the time.
       // this means we can safely share this event without mentioning other recipients.

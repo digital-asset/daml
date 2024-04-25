@@ -3,8 +3,9 @@
 
 package com.daml.metrics.http
 
+import com.daml.metrics.api.MetricQualification
 import com.daml.metrics.api.MetricHandle.{Histogram, LabeledMetricsFactory, Meter}
-import com.daml.metrics.api.{MetricName, MetricsContext}
+import com.daml.metrics.api.{MetricInfo, MetricName, MetricsContext}
 
 class DamlWebSocketMetrics(metricsFactory: LabeledMetricsFactory, component: String)
     extends WebSocketMetrics {
@@ -17,23 +18,35 @@ class DamlWebSocketMetrics(metricsFactory: LabeledMetricsFactory, component: Str
 
   override val messagesReceivedTotal: Meter =
     metricsFactory.meter(
-      httpMetricsPrefix :+ "websocket" :+ "messages" :+ "received",
-      "Total number of received WebSocket messages.",
+      MetricInfo(
+        httpMetricsPrefix :+ "websocket" :+ "messages" :+ "received",
+        "Total number of received WebSocket messages.",
+        MetricQualification.Debug,
+      )
     )
   override val messagesReceivedBytes: Histogram =
     metricsFactory.histogram(
-      httpMetricsPrefix :+ "websocket" :+ "messages" :+ "received" :+ Histogram.Bytes,
-      "Distribution of the size of received WebSocket messages.",
+      MetricInfo(
+        httpMetricsPrefix :+ "websocket" :+ "messages" :+ "received" :+ Histogram.Bytes,
+        "Distribution of the size of received WebSocket messages.",
+        MetricQualification.Debug,
+      )
     )
   override val messagesSentTotal: Meter =
     metricsFactory.meter(
-      httpMetricsPrefix :+ "websocket" :+ "messages" :+ "sent",
-      "Total number of sent WebSocket messages.",
+      MetricInfo(
+        httpMetricsPrefix :+ "websocket" :+ "messages" :+ "sent",
+        "Total number of sent WebSocket messages.",
+        MetricQualification.Debug,
+      )
     )
   override val messagesSentBytes: Histogram =
     metricsFactory.histogram(
-      httpMetricsPrefix :+ "websocket" :+ "messages" :+ "sent" :+ Histogram.Bytes,
-      "Distribution of the size of sent WebSocket messages.",
+      MetricInfo(
+        httpMetricsPrefix :+ "websocket" :+ "messages" :+ "sent" :+ Histogram.Bytes,
+        "Distribution of the size of sent WebSocket messages.",
+        MetricQualification.Debug,
+      )
     )
 
 }

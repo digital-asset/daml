@@ -35,7 +35,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.messages.EncryptedView.CompressedView
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX.Broadcast
+import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.Broadcast
 import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{
@@ -89,8 +89,8 @@ trait MessageDispatcherTest {
   private val participantId =
     ParticipantId.tryFromProtoPrimitive("PAR::messageDispatcher::participant")
   private val otherParticipant = ParticipantId.tryFromProtoPrimitive("PAR::other::participant")
-  private val mediatorGroup = MediatorsOfDomain(MediatorGroupIndex.zero)
-  private val mediatorGroup2 = MediatorsOfDomain(MediatorGroupIndex.one)
+  private val mediatorGroup = MediatorGroupRecipient(MediatorGroupIndex.zero)
+  private val mediatorGroup2 = MediatorGroupRecipient(MediatorGroupIndex.one)
 
   private val encryptedRandomnessTest =
     Encrypted.fromByteString[SecureRandomness](ByteString.EMPTY)
@@ -211,7 +211,7 @@ trait MessageDispatcherTest {
           any[SequencerCounter],
           any[CantonTimestamp],
           any[RootHash],
-          any[MediatorsOfDomain],
+          any[MediatorGroupRecipient],
           any[LocalRejectError],
         )(anyTraceContext)
       )
@@ -388,7 +388,7 @@ trait MessageDispatcherTest {
 
     val factoryX =
       new TopologyTransactionTestFactoryX(loggerFactory, initEc = executionContext)
-    val idTx = TopologyTransactionsBroadcastX.create(
+    val idTx = TopologyTransactionsBroadcast.create(
       domainId,
       Seq(
         Broadcast(

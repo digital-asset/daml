@@ -15,8 +15,8 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeN
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
-import com.digitalasset.canton.domain.sequencing.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.authentication.grpc.IdentityContextHelper
+import com.digitalasset.canton.domain.sequencing.config.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
 import com.digitalasset.canton.domain.sequencing.sequencer.{Sequencer, SequencerValidations}
 import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerService.*
@@ -31,7 +31,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.{
-  StoredTopologyTransactionsX,
+  StoredTopologyTransactions,
   TopologyStateForInitializationService,
 }
 import com.digitalasset.canton.tracing.{
@@ -463,14 +463,6 @@ class GrpcSequencerService(
       .wellformedAggregationRule(sender, aggregationRule)
       .leftMap(message => invalid(messageId.toProtoPrimitive, sender)(message))
 
-  private def invalid(messageIdP: String, senderPO: String)(
-      message: String
-  )(implicit traceContext: TraceContext): SendAsyncError = {
-    val senderText = if (senderPO.isEmpty) "[sender-not-set]" else senderPO
-    logger.warn(s"Request '$messageIdP' from '$senderText' is invalid: $message")
-    SendAsyncError.RequestInvalid(message)
-  }
-
   private def invalid(messageIdP: String, sender: Member)(
       message: String
   )(implicit traceContext: TraceContext): SendAsyncError = {
@@ -489,7 +481,6 @@ class GrpcSequencerService(
       request: SubmissionRequest,
       sender: AuthenticatedMember,
   )(implicit traceContext: TraceContext): Either[SendAsyncError, Unit] = sender match {
-    case _: DomainTopologyManagerId => Right(())
     case _ =>
       val unauthRecipients = request.batch.envelopes
         .toSet[ClosedEnvelope]
@@ -514,7 +505,6 @@ class GrpcSequencerService(
     val nonIdmRecipients = request.batch.envelopes
       .flatMap(_.recipients.allRecipients)
       .filter {
-        case MemberRecipient(_: DomainTopologyManagerId) => false
         case TopologyBroadcastAddress.recipient if enableBroadcastOfUnauthenticatedMessages =>
           false
         case _ => true
@@ -583,14 +573,15 @@ class GrpcSequencerService(
         )
           rateLimiter
         else {
-          val newRateLimiter = new RateLimiter(rateAsNumeric, parameters.maxBurstFactor)
+          val newRateLimiter =
+            new RateLimiter(rateAsNumeric, parameters.maxConfirmationRequestsBurstFactor)
           rates.update(participantId, newRateLimiter)
           newRateLimiter
         }
       case None =>
         rates.getOrElseUpdate(
           participantId,
-          new RateLimiter(rateAsNumeric, parameters.maxBurstFactor),
+          new RateLimiter(rateAsNumeric, parameters.maxConfirmationRequestsBurstFactor),
         )
     }
   }
@@ -601,25 +592,6 @@ class GrpcSequencerService(
       Some(SerializableTraceContext(event.traceContext).toProtoV30),
       event.trafficState.map(_.toProtoV30),
     )
-
-  override def subscribe(
-      request: v30.SubscriptionRequest,
-      responseObserver: StreamObserver[v30.SubscriptionResponse],
-  ): Unit =
-    responseObserver.onError(
-      wrongProtocolVersion(
-        s"The versioned subscribe endpoints must be used with protocol version $protocolVersion"
-      ).asException
-    )
-
-  override def subscribeUnauthenticated(
-      request: v30.SubscriptionRequest,
-      responseObserver: StreamObserver[v30.SubscriptionResponse],
-  ): Unit = responseObserver.onError(
-    wrongProtocolVersion(
-      s"The versioned subscribe endpoints must be used with protocol version $protocolVersion"
-    ).asException
-  )
 
   override def subscribeVersioned(
       request: v30.SubscriptionRequest,
@@ -707,18 +679,11 @@ class GrpcSequencerService(
         )
     }
 
-  override def acknowledge(requestP: v30.AcknowledgeRequest): Future[v30.AcknowledgeResponse] =
-    Future.failed(
-      wrongProtocolVersion(
-        s"The signed acknowledgement endpoints must be used with protocol version $protocolVersion"
-      ).asException
-    )
-
   override def acknowledgeSigned(
       request: v30.AcknowledgeSignedRequest
   ): Future[v30.AcknowledgeSignedResponse] = {
     val acknowledgeRequestE = SignedContent
-      .fromProtoV30(request.getSignedContent)
+      .fromByteString(protocolVersion)(request.signedAcknowledgeRequest)
       .flatMap(_.deserializeContent(AcknowledgeRequest.fromByteString(protocolVersion)))
     performAcknowledge(acknowledgeRequestE.map(SignedAcknowledgeRequest))
   }
@@ -830,7 +795,7 @@ class GrpcSequencerService(
             case Success(Right(initialSnapshot)) =>
               initialSnapshot.result.grouped(maxItemsInTopologyResponse.value).foreach { batch =>
                 val response =
-                  TopologyStateForInitResponse(Traced(StoredTopologyTransactionsX(batch)))
+                  TopologyStateForInitResponse(Traced(StoredTopologyTransactions(batch)))
                 responseObserver.onNext(response.toProtoV30)
               }
               responseObserver.onCompleted()

@@ -17,7 +17,7 @@ import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.protocol.messages.InformeeMessage
 import com.digitalasset.canton.protocol.{ConfirmationPolicy, RequestId, RootHash}
 import com.digitalasset.canton.resource.DbStorage
-import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingIdentityFactoryX}
@@ -84,7 +84,7 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
       .create(hashOps, testedProtocolVersion)(
         ConfirmationPolicy.Signatory,
         domainId,
-        MediatorsOfDomain(MediatorGroupIndex.zero),
+        MediatorGroupRecipient(MediatorGroupIndex.zero),
         s(5417),
         new UUID(0L, 0L),
       )

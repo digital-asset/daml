@@ -15,8 +15,8 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.processing.*
-import com.digitalasset.canton.topology.store.{TopologyStoreId, TopologyStoreX}
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
+import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{TraceContext, TracedScaffeine}
 import com.digitalasset.canton.util.FutureInstances.*
@@ -28,8 +28,8 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-sealed abstract class BaseCachingDomainTopologyClient(
-    protected val clock: Clock,
+final class CachingDomainTopologyClient(
+    clock: Clock,
     parent: DomainTopologyClientWithInit,
     cachingConfigs: CachingConfigs,
     batchingConfig: BatchingConfig,
@@ -151,33 +151,12 @@ sealed abstract class BaseCachingDomainTopologyClient(
   }
 
   override def numPendingChanges: Int = parent.numPendingChanges
-}
 
-// TODO(#15161) collapse with Base trait
-final class CachingDomainTopologyClientX(
-    clock: Clock,
-    parent: DomainTopologyClientWithInitX,
-    cachingConfigs: CachingConfigs,
-    batchingConfig: BatchingConfig,
-    timeouts: ProcessingTimeout,
-    futureSupervisor: FutureSupervisor,
-    loggerFactory: NamedLoggerFactory,
-)(implicit executionContext: ExecutionContext)
-    extends BaseCachingDomainTopologyClient(
-      clock,
-      parent,
-      cachingConfigs,
-      batchingConfig,
-      timeouts,
-      futureSupervisor,
-      loggerFactory,
-    )
-    with DomainTopologyClientWithInitX {
   override def observed(
       sequencedTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,
       sequencerCounter: SequencerCounter,
-      transactions: Seq[GenericSignedTopologyTransactionX],
+      transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     if (transactions.nonEmpty) {
       // if there is a transaction, we insert the effective timestamp as a snapshot
@@ -193,11 +172,11 @@ final class CachingDomainTopologyClientX(
 
 object CachingDomainTopologyClient {
 
-  def createX(
+  def create(
       clock: Clock,
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
-      store: TopologyStoreX[TopologyStoreId.DomainStore],
+      store: TopologyStore[TopologyStoreId.DomainStore],
       packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
       cachingConfigs: CachingConfigs,
       batchingConfig: BatchingConfig,
@@ -207,9 +186,9 @@ object CachingDomainTopologyClient {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[CachingDomainTopologyClientX] = {
+  ): Future[CachingDomainTopologyClient] = {
     val dbClient =
-      new StoreBasedDomainTopologyClientX(
+      new StoreBasedDomainTopologyClient(
         clock,
         domainId,
         protocolVersion,
@@ -220,7 +199,7 @@ object CachingDomainTopologyClient {
         loggerFactory,
       )
     val caching =
-      new CachingDomainTopologyClientX(
+      new CachingDomainTopologyClient(
         clock,
         dbClient,
         cachingConfigs,

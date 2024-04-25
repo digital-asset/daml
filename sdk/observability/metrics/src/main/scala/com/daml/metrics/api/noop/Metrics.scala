@@ -6,12 +6,11 @@ package com.daml.metrics.api.noop
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
-
 import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Histogram, Meter, Timer}
-import com.daml.metrics.api.MetricsContext
+import com.daml.metrics.api.{MetricInfo, MetricsContext}
 
-case class NoOpTimer(name: String) extends Timer {
+final case class NoOpTimer(info: MetricInfo) extends Timer {
   override def update(duration: Long, unit: TimeUnit)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): Unit = ()
@@ -30,7 +29,7 @@ case object NoOpTimerHandle extends TimerHandle {
   override def stop()(implicit context: MetricsContext): Unit = ()
 }
 
-case class NoOpGauge[T](name: String, value: T) extends Gauge[T] {
+final case class NoOpGauge[T](info: MetricInfo, value: T) extends Gauge[T] {
 
   private val ref = new AtomicReference[T](value)
 
@@ -45,13 +44,13 @@ case class NoOpGauge[T](name: String, value: T) extends Gauge[T] {
   override def close(): Unit = ()
 }
 
-case class NoOpMeter(name: String) extends Meter {
+final case class NoOpMeter(info: MetricInfo) extends Meter {
   override def mark(value: Long)(implicit
       context: MetricsContext
   ): Unit = ()
 }
 
-case class NoOpCounter(name: String) extends Counter {
+final case class NoOpCounter(info: MetricInfo) extends Counter {
 
   override def inc(n: Long)(implicit context: MetricsContext): Unit =
     ()
@@ -61,7 +60,7 @@ case class NoOpCounter(name: String) extends Counter {
 
 }
 
-case class NoOpHistogram(name: String) extends Histogram {
+final case class NoOpHistogram(info: MetricInfo) extends Histogram {
 
   override def update(value: Long)(implicit
       context: MetricsContext

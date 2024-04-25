@@ -8,19 +8,25 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.lf.data.Ref.PackageId
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.time.{Clock, TimeAwaiter}
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
+import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DiscardOps, SequencerCounter}
 
 import java.time.Duration as JDuration
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Success
 import scala.util.control.NonFatal
 
@@ -99,25 +105,25 @@ trait TopologyAwaiter extends FlagCloseable {
   }
 }
 
-// TODO(#15161) collapse with base trait
-abstract class BaseDomainTopologyClientX
-    extends BaseDomainTopologyClient
-    with DomainTopologyClientWithInitX {
-  override def observed(
-      sequencedTimestamp: SequencedTime,
-      effectiveTimestamp: EffectiveTime,
-      sequencerCounter: SequencerCounter,
-      transactions: Seq[GenericSignedTopologyTransactionX],
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    observedInternal(sequencedTimestamp, effectiveTimestamp)
-}
-
-abstract class BaseDomainTopologyClient
+/** The domain topology client that reads data from a topology store
+  *
+  * @param domainId The domain-id corresponding to this store
+  * @param store The store
+  */
+class StoreBasedDomainTopologyClient(
+    val clock: Clock,
+    val domainId: DomainId,
+    protocolVersion: ProtocolVersion,
+    store: TopologyStore[TopologyStoreId],
+    packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
+    override val timeouts: ProcessingTimeout,
+    override protected val futureSupervisor: FutureSupervisor,
+    val loggerFactory: NamedLoggerFactory,
+)(implicit val executionContext: ExecutionContext)
     extends DomainTopologyClientWithInit
     with TopologyAwaiter
-    with TimeAwaiter {
-
-  def protocolVersion: ProtocolVersion
+    with TimeAwaiter
+    with NamedLogging {
 
   private val pendingChanges = new AtomicInteger(0)
 
@@ -159,6 +165,14 @@ abstract class BaseDomainTopologyClient
     if (potentialTopologyChange)
       checkAwaitingConditions()
   }
+
+  override def observed(
+      sequencedTimestamp: SequencedTime,
+      effectiveTimestamp: EffectiveTime,
+      sequencerCounter: SequencerCounter,
+      transactions: Seq[GenericSignedTopologyTransaction],
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    observedInternal(sequencedTimestamp, effectiveTimestamp)
 
   protected def currentKnownTime: CantonTimestamp = topologyKnownUntilTimestamp
 
@@ -207,6 +221,21 @@ abstract class BaseDomainTopologyClient
   /** Returns whether a snapshot for the given timestamp is available. */
   override def snapshotAvailable(timestamp: CantonTimestamp): Boolean =
     topologyKnownUntilTimestamp >= timestamp
+
+  override def trySnapshot(
+      timestamp: CantonTimestamp
+  )(implicit traceContext: TraceContext): StoreBasedTopologySnapshot = {
+    ErrorUtil.requireArgument(
+      timestamp <= topologyKnownUntilTimestamp,
+      s"requested snapshot=$timestamp, topology known until=$topologyKnownUntilTimestamp",
+    )
+    new StoreBasedTopologySnapshot(
+      timestamp,
+      store,
+      packageDependencies,
+      loggerFactory,
+    )
+  }
 
   override def topologyKnownUntilTimestamp: CantonTimestamp =
     head.get().effectiveTimestamp.value.immediateSuccessor

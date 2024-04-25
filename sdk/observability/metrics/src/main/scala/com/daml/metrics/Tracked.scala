@@ -39,7 +39,7 @@ object Tracked {
   }
 
   def future[T](startMeter: Meter, completedMeter: Meter, future: => Future[T])(implicit
-      context: MetricsContext
+      metricsContext: MetricsContext
   ): Future[T] = {
     startMeter.mark()
     completedMeter.mark(0)

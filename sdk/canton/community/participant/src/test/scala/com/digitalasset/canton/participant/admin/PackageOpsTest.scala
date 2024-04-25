@@ -26,13 +26,13 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.{
-  StoredTopologyTransactionX,
-  StoredTopologyTransactionsX,
-  TopologyStoreX,
+  StoredTopologyTransaction,
+  StoredTopologyTransactions,
+  TopologyStore,
 }
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{
-  AuthorizedTopologyManagerX,
+  AuthorizedTopologyManager,
   DomainId,
   ParticipantId,
   UniqueIdentifier,
@@ -225,8 +225,8 @@ class PackageOpsXTest extends PackageOpsTestBase {
           .unwrap
           .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) =>
             verify(topologyManagerX, never).proposeAndAuthorize(
-              any[TopologyChangeOpX],
-              any[TopologyMappingX],
+              any[TopologyChangeOp],
+              any[TopologyMapping],
               any[Option[PositiveInt]],
               any[Seq[Fingerprint]],
               any[ProtocolVersion],
@@ -275,8 +275,8 @@ class PackageOpsXTest extends PackageOpsTestBase {
           .unwrap
           .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) =>
             verify(topologyManagerX, never).proposeAndAuthorize(
-              any[TopologyChangeOpX],
-              any[TopologyMappingX],
+              any[TopologyChangeOp],
+              any[TopologyMapping],
               any[Option[PositiveInt]],
               any[Seq[Fingerprint]],
               any[ProtocolVersion],
@@ -291,7 +291,7 @@ class PackageOpsXTest extends PackageOpsTestBase {
   }
 
   protected class TestSetupX extends CommonTestSetup {
-    val topologyManagerX = mock[AuthorizedTopologyManagerX]
+    val topologyManagerX = mock[AuthorizedTopologyManager]
 
     private val nodeId: UniqueIdentifier = UniqueIdentifier.tryCreate("node", "one")
     val packageOps = new PackageOpsX(
@@ -305,7 +305,7 @@ class PackageOpsXTest extends PackageOpsTestBase {
       timeouts = ProcessingTimeout(),
     )
 
-    val topologyStoreX = mock[TopologyStoreX[AuthorizedStore]]
+    val topologyStoreX = mock[TopologyStore[AuthorizedStore]]
     when(topologyManagerX.store).thenReturn(topologyStoreX)
     val txSerial = PositiveInt.tryCreate(1)
     def arrangeCurrentlyVetted(currentlyVettedPackages: List[LfPackageId]) =
@@ -314,7 +314,7 @@ class PackageOpsXTest extends PackageOpsTestBase {
           eqTo(CantonTimestamp.MaxValue),
           eqTo(true),
           eqTo(false),
-          eqTo(Seq(VettedPackagesX.code)),
+          eqTo(Seq(VettedPackages.code)),
           eqTo(Some(Seq(nodeId))),
           eqTo(None),
         )(anyTraceContext)
@@ -323,8 +323,8 @@ class PackageOpsXTest extends PackageOpsTestBase {
     def expectNewVettingState(newVettedPackagesState: List[LfPackageId]) =
       when(
         topologyManagerX.proposeAndAuthorize(
-          eqTo(TopologyChangeOpX.Replace),
-          eqTo(VettedPackagesX(participantId, None, newVettedPackagesState)),
+          eqTo(TopologyChangeOp.Replace),
+          eqTo(VettedPackages(participantId, None, newVettedPackagesState)),
           eqTo(Some(txSerial.tryAdd(1))),
           eqTo(Seq(participantId.uid.namespace.fingerprint)),
           eqTo(testedProtocolVersion),
@@ -334,9 +334,9 @@ class PackageOpsXTest extends PackageOpsTestBase {
       ).thenReturn(EitherT.rightT(signedTopologyTransactionX(List(pkgId2))))
 
     def packagesVettedStoredTx(vettedPackages: List[LfPackageId]) =
-      StoredTopologyTransactionsX(
+      StoredTopologyTransactions(
         Seq(
-          StoredTopologyTransactionX(
+          StoredTopologyTransaction(
             sequenced = SequencedTime(CantonTimestamp.MaxValue),
             validFrom = EffectiveTime(CantonTimestamp.MinValue),
             validUntil = None,
@@ -346,17 +346,17 @@ class PackageOpsXTest extends PackageOpsTestBase {
       )
 
     private def signedTopologyTransactionX(vettedPackages: List[LfPackageId]) =
-      SignedTopologyTransactionX(
-        transaction = TopologyTransactionX(
-          op = TopologyChangeOpX.Replace,
+      SignedTopologyTransaction(
+        transaction = TopologyTransaction(
+          op = TopologyChangeOp.Replace,
           serial = txSerial,
-          mapping = VettedPackagesX(participantId, None, vettedPackages),
+          mapping = VettedPackages(participantId, None, vettedPackages),
           protocolVersion = testedProtocolVersion,
         ),
         signatures = NonEmpty(Set, Signature.noSignature),
         isProposal = false,
       )(
-        SignedTopologyTransactionX.supportedProtoVersions.protocolVersionRepresentativeFor(
+        SignedTopologyTransaction.supportedProtoVersions.protocolVersionRepresentativeFor(
           testedProtocolVersion
         )
       )

@@ -51,7 +51,7 @@ import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.participant.topology.{
   LedgerServerPartyNotifier,
-  ParticipantTopologyDispatcherCommon,
+  ParticipantTopologyDispatcher,
   ParticipantTopologyManagerOps,
 }
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
@@ -137,7 +137,14 @@ class CantonLedgerApiServerFactory(
         .initialize(
           CantonLedgerApiServerWrapper.Config(
             serverConfig = config.ledgerApi,
-            jsonApiConfig = config.httpLedgerApiExperimental.map(_.toConfig),
+            jsonApiConfig = config.httpLedgerApiExperimental.map(
+              _.toConfig(
+                config.ledgerApi.tls
+                  .map(
+                    LedgerApiServerConfig.ledgerApiServerTlsConfigFromCantonServerConfig
+                  )
+              )
+            ),
             indexerConfig = parameters.ledgerApiServerParameters.indexer,
             indexerHaConfig = indexerHaConfig,
             participantId = participantId,
@@ -186,7 +193,7 @@ private[this] trait ParticipantComponentBootstrapFactory {
   def createSyncDomainAndTopologyDispatcher(
       aliasResolution: DomainAliasResolution,
       indexedStringStore: IndexedStringStore,
-  ): (SyncDomainPersistentStateManager, ParticipantTopologyDispatcherCommon)
+  ): (SyncDomainPersistentStateManager, ParticipantTopologyDispatcher)
 
   def createPackageOps(
       manager: SyncDomainPersistentStateManager,
@@ -270,7 +277,7 @@ trait ParticipantNodeBootstrapCommon {
         LedgerApiServerState,
         StartableStoppableLedgerApiDependentServices,
         SchedulersWithParticipantPruning,
-        ParticipantTopologyDispatcherCommon,
+        ParticipantTopologyDispatcher,
     ),
   ] = {
     val syncCrypto = new SyncCryptoApiProvider(

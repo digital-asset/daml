@@ -63,7 +63,7 @@ import scala.concurrent.{ExecutionContext, Future}
   *
   * This database table has the following indexes to support scaling query performance:
   * - CREATE index idx_par_active_contracts_dirty_request_reset ON par_active_contracts (domain_id, request_counter)
-  * used on startup of the SyncDomain to delete all dirty requests.
+  * used on startup of the SyncDomain to delete all inflight validation requests.
   * - CREATE index idx_par_active_contracts_contract_id ON par_active_contracts (contract_id)
   * used in conflict detection for point wise lookup of the contract status.
   * - CREATE index idx_par_active_contracts_ts_domain_id ON par_active_contracts (ts, domain_id)

@@ -64,6 +64,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{
   BaseTest,
@@ -169,7 +170,7 @@ class ProtocolProcessorTest
             )
           )
         )
-        EitherT.pure[Future, SendAsyncClientError](())
+        EitherTUtil.unitUS
       }
     )
 
@@ -383,7 +384,7 @@ class ProtocolProcessorTest
   private lazy val someRequestBatch = RequestAndRootHashMessage(
     NonEmpty(Seq, OpenEnvelope(viewMessage, someRecipients)(testedProtocolVersion)),
     rootHashMessage,
-    MediatorsOfDomain(MediatorGroupIndex.zero),
+    MediatorGroupRecipient(MediatorGroupIndex.zero),
     isReceipt = false,
   )
 
@@ -446,7 +447,7 @@ class ProtocolProcessorTest
           any[Boolean],
         )(anyTraceContext)
       )
-        .thenReturn(EitherT.leftT[Future, Unit](sendError))
+        .thenReturn(EitherT.leftT[FutureUnlessShutdown, Unit](sendError))
       val (sut, _persistent, _ephemeral) =
         testProcessingSteps(
           sequencerClient = failingSequencerClient,
@@ -512,7 +513,7 @@ class ProtocolProcessorTest
       val pd = TestPendingRequestData(
         rc,
         requestSc,
-        MediatorsOfDomain(MediatorGroupIndex.one),
+        MediatorGroupRecipient(MediatorGroupIndex.one),
         locallyRejected = false,
       )
       val (sut, _persistent, ephemeral) =
@@ -538,7 +539,7 @@ class ProtocolProcessorTest
         TestPendingRequestData(
           rc,
           requestSc,
-          MediatorsOfDomain(MediatorGroupIndex.one),
+          MediatorGroupRecipient(MediatorGroupIndex.one),
           locallyRejected = false,
         )
       val (sut, _persistent, ephemeral) =
@@ -577,7 +578,7 @@ class ProtocolProcessorTest
       val pd = TestPendingRequestData(
         rc,
         requestSc,
-        MediatorsOfDomain(MediatorGroupIndex.one),
+        MediatorGroupRecipient(MediatorGroupIndex.one),
         locallyRejected = false,
       )
       val (sut, _persistent, ephemeral) =
@@ -638,7 +639,7 @@ class ProtocolProcessorTest
           OpenEnvelope(viewMessageWrongRH, someRecipients)(testedProtocolVersion),
         ),
         rootHashMessage,
-        MediatorsOfDomain(MediatorGroupIndex.zero),
+        MediatorGroupRecipient(MediatorGroupIndex.zero),
         isReceipt = false,
       )
 
@@ -674,7 +675,7 @@ class ProtocolProcessorTest
           OpenEnvelope(viewMessageDecryptError, someRecipients)(testedProtocolVersion),
         ),
         rootHashMessage,
-        MediatorsOfDomain(MediatorGroupIndex.zero),
+        MediatorGroupRecipient(MediatorGroupIndex.zero),
         isReceipt = false,
       )
 
@@ -702,7 +703,7 @@ class ProtocolProcessorTest
     } in {
       // Instead of rolling back the request in Phase 7, it is discarded in Phase 3. This has the same effect.
 
-      val otherMediatorGroup = MediatorsOfDomain(MediatorGroupIndex.one)
+      val otherMediatorGroup = MediatorGroupRecipient(MediatorGroupIndex.one)
       val requestBatch = RequestAndRootHashMessage(
         NonEmpty(Seq, OpenEnvelope(viewMessage, someRecipients)(testedProtocolVersion)),
         rootHashMessage,
@@ -717,7 +718,7 @@ class ProtocolProcessorTest
             .processRequest(requestId.unwrap, rc, requestSc, requestBatch)
             .onShutdown(fail()),
           _.errorMessage should include(
-            s"Mediator ${MediatorsOfDomain(MediatorGroupIndex.zero)} declared in views is not the recipient $otherMediatorGroup of the root hash message"
+            s"Mediator ${MediatorGroupRecipient(MediatorGroupIndex.zero)} declared in views is not the recipient $otherMediatorGroup of the root hash message"
           ),
         )
         .futureValue
@@ -746,7 +747,7 @@ class ProtocolProcessorTest
             .onShutdown(fail()),
           _.shouldBeCantonError(
             SyncServiceAlarm,
-            _ shouldBe s"Request $rc: Chosen mediator ${MediatorsOfDomain(MediatorGroupIndex.zero)} is inactive at ${requestId.unwrap}. Skipping this request.",
+            _ shouldBe s"Request $rc: Chosen mediator ${MediatorGroupRecipient(MediatorGroupIndex.zero)} is inactive at ${requestId.unwrap}. Skipping this request.",
           ),
         )
         .futureValue
@@ -929,7 +930,7 @@ class ProtocolProcessorTest
               TestPendingRequestData(
                 rc,
                 requestSc,
-                MediatorsOfDomain(MediatorGroupIndex.one),
+                MediatorGroupRecipient(MediatorGroupIndex.one),
                 locallyRejected = false,
               )
             )
@@ -1057,7 +1058,7 @@ class ProtocolProcessorTest
             CleanReplayData(
               rc,
               requestSc,
-              MediatorsOfDomain(MediatorGroupIndex.one),
+              MediatorGroupRecipient(MediatorGroupIndex.one),
               locallyRejected = false,
             )
           )

@@ -81,14 +81,15 @@ class StoreBackedCommandExecutorSpec
     val mockEngine = mock[Engine]
     when(
       mockEngine.submit(
+        packageMap = any[Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]],
+        packagePreference = any[Set[Ref.PackageId]],
         submitters = any[Set[Ref.Party]],
         readAs = any[Set[Ref.Party]],
         cmds = any[com.daml.lf.command.ApiCommands],
+        disclosures = any[ImmArray[LfDisclosedContract]],
         participantId = any[ParticipantId],
         submissionSeed = any[Hash],
-        disclosures = any[ImmArray[LfDisclosedContract]],
-        packageMap = any[Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]],
-        packagePreference = any[Set[Ref.PackageId]],
+        engineLogger = any[Option[EngineLogger]],
       )(any[LoggingContext])
     )
       .thenReturn(result)
@@ -257,7 +258,12 @@ class StoreBackedCommandExecutorSpec
             observers = Set(Ref.Party.assertFromString("observer")),
             keyOpt = Some(
               GlobalKeyWithMaintainers
-                .assertBuild(identifier, someContractKey(signatory, "some key"), Set(signatory))
+                .assertBuild(
+                  identifier,
+                  someContractKey(signatory, "some key"),
+                  Set(signatory),
+                  packageName,
+                )
             ),
             resume = verdict => {
               ref.set(Some(verdict))
@@ -268,14 +274,15 @@ class StoreBackedCommandExecutorSpec
 
       when(
         mockEngine.submit(
-          submitters = any[Set[Party]],
-          readAs = any[Set[Party]],
-          cmds = any[LfCommands],
-          participantId = any[ParticipantId],
-          submissionSeed = any[Hash],
-          disclosures = any[ImmArray[LfDisclosedContract]],
           packageMap = any[Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]],
           packagePreference = any[Set[Ref.PackageId]],
+          submitters = any[Set[Ref.Party]],
+          readAs = any[Set[Ref.Party]],
+          cmds = any[com.daml.lf.command.ApiCommands],
+          disclosures = any[ImmArray[LfDisclosedContract]],
+          participantId = any[ParticipantId],
+          submissionSeed = any[Hash],
+          engineLogger = any[Option[EngineLogger]],
         )(any[LoggingContext])
       ).thenReturn(engineResult)
 
@@ -367,7 +374,7 @@ class StoreBackedCommandExecutorSpec
 
     "disallow unauthorized disclosed contracts" in {
       val expected =
-        s"Upgrading contract with $disclosedContractId failed authentication check with error: Not authorized. The following upgrading checks failed: ['signatories mismatch: Set(unexpectedSig) vs Set(signatory)', 'observers mismatch: Set(unexpectedObs) vs Set(observer)', 'key maintainers mismatch: Set(unexpectedSig) vs Set(signatory)', 'key value mismatch: Some(GlobalKey(p:m:n, ValueBool(true))) vs Some(GlobalKey(p:m:n, ValueRecord(None,ImmArray((None,ValueParty(signatory)),(None,ValueText(some key))))))']"
+        s"Upgrading contract with $disclosedContractId failed authentication check with error: Not authorized. The following upgrading checks failed: ['signatories mismatch: Set(unexpectedSig) vs Set(signatory)', 'observers mismatch: Set(unexpectedObs) vs Set(observer)', 'key maintainers mismatch: Set(unexpectedSig) vs Set(signatory)', 'key value mismatch: Some(GlobalKey(p:m:n, pkg-name, ValueBool(true))) vs Some(GlobalKey(p:m:n, pkg-name, ValueRecord(None,ImmArray((None,ValueParty(signatory)),(None,ValueText(some key))))))']"
       doTest(
         Some(disclosedContractId),
         Some(Some(expected)),
@@ -378,7 +385,7 @@ class StoreBackedCommandExecutorSpec
     "disallow unauthorized stakeholder contracts" in {
       val errorMessage = "Not authorized"
       val expected =
-        s"Upgrading contract with $stakeholderContractId failed authentication check with error: Not authorized. The following upgrading checks failed: ['signatories mismatch: Set(unexpectedSig) vs Set(signatory)', 'observers mismatch: Set() vs Set(observer)', 'key maintainers mismatch: Set() vs Set(signatory)', 'key value mismatch: None vs Some(GlobalKey(p:m:n, ValueRecord(None,ImmArray((None,ValueParty(signatory)),(None,ValueText(some key))))))']"
+        s"Upgrading contract with $stakeholderContractId failed authentication check with error: Not authorized. The following upgrading checks failed: ['signatories mismatch: Set(unexpectedSig) vs Set(signatory)', 'observers mismatch: Set() vs Set(observer)', 'key maintainers mismatch: Set() vs Set(signatory)', 'key value mismatch: None vs Some(GlobalKey(p:m:n, pkg-name, ValueRecord(None,ImmArray((None,ValueParty(signatory)),(None,ValueText(some key))))))']"
       doTest(
         Some(stakeholderContractId),
         Some(Some(expected)),

@@ -50,10 +50,10 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{
   IdentityProvidingServiceClient,
   StoreBasedDomainTopologyClient,
-  StoreBasedTopologySnapshotX,
+  StoreBasedTopologySnapshot,
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
-import com.digitalasset.canton.topology.store.{PartyMetadataStore, TopologyStoreX}
+import com.digitalasset.canton.topology.store.{PartyMetadataStore, TopologyStore}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.SingleUseCell
@@ -100,12 +100,12 @@ class ParticipantNodeBootstrapX(
   // TODO(#12946) clean up to remove SingleUseCell
   private val cantonSyncService = new SingleUseCell[CantonSyncService]
 
-  override protected def sequencedTopologyStores: Seq[TopologyStoreX[DomainStore]] =
+  override protected def sequencedTopologyStores: Seq[TopologyStore[DomainStore]] =
     cantonSyncService.get.toList.flatMap(_.syncDomainPersistentStateManager.getAll.values).collect {
       case s: SyncDomainPersistentState => s.topologyStore
     }
 
-  override protected def sequencedTopologyManagers: Seq[DomainTopologyManagerX] =
+  override protected def sequencedTopologyManagers: Seq[DomainTopologyManager] =
     cantonSyncService.get.toList.flatMap(_.syncDomainPersistentStateManager.getAll.values).collect {
       case s: SyncDomainPersistentState => s.topologyManager
     }
@@ -114,7 +114,7 @@ class ParticipantNodeBootstrapX(
       storage: Storage,
       crypto: Crypto,
       nodeId: UniqueIdentifier,
-      manager: AuthorizedTopologyManagerX,
+      manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
       healthService: HealthService,
   ): BootstrapStageOrLeaf[ParticipantNodeX] =
@@ -124,7 +124,7 @@ class ParticipantNodeBootstrapX(
       storage: Storage,
       crypto: Crypto,
       nodeId: UniqueIdentifier,
-      topologyManager: AuthorizedTopologyManagerX,
+      topologyManager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
       healthService: HealthService,
   ) extends BootstrapStage[ParticipantNodeX, RunningNode[ParticipantNodeX]](
@@ -151,7 +151,7 @@ class ParticipantNodeBootstrapX(
       override def createSyncDomainAndTopologyDispatcher(
           aliasResolution: DomainAliasResolution,
           indexedStringStore: IndexedStringStore,
-      ): (SyncDomainPersistentStateManager, ParticipantTopologyDispatcherCommon) = {
+      ): (SyncDomainPersistentStateManager, ParticipantTopologyDispatcher) = {
         val manager = new SyncDomainPersistentStateManagerX(
           aliasResolution,
           storage,
@@ -165,7 +165,7 @@ class ParticipantNodeBootstrapX(
         )
 
         val topologyDispatcher =
-          new ParticipantTopologyDispatcherX(
+          new ParticipantTopologyDispatcher(
             topologyManager,
             participantId,
             manager,
@@ -184,7 +184,7 @@ class ParticipantNodeBootstrapX(
           manager: SyncDomainPersistentStateManager,
           crypto: SyncCryptoApiProvider,
       ): PackageOps = {
-        val authorizedTopologyStoreClient = new StoreBasedTopologySnapshotX(
+        val authorizedTopologyStoreClient = new StoreBasedTopologySnapshot(
           CantonTimestamp.MaxValue,
           topologyManager.store,
           StoreBasedDomainTopologyClient.NoPackageDependencies,
@@ -220,8 +220,8 @@ class ParticipantNodeBootstrapX(
         performUnlessClosingEitherUSF(functionFullName)(
           topologyManager
             .proposeAndAuthorize(
-              TopologyChangeOpX.Replace,
-              PartyToParticipantX(
+              TopologyChangeOp.Replace,
+              PartyToParticipant(
                 partyId,
                 None,
                 threshold = PositiveInt.one,
@@ -272,7 +272,7 @@ class ParticipantNodeBootstrapX(
         )
         // Notify at participant level if eager notification is configured, else rely on notification via domain.
         if (parameterConfig.partyChangeNotification == PartyNotificationConfig.Eager) {
-          topologyManager.addObserver(partyNotifier.attachToIdentityManagerX())
+          topologyManager.addObserver(partyNotifier.attachToIdentityManager())
         }
         partyNotifier
       }
@@ -410,7 +410,7 @@ class ParticipantNodeX(
     storage: Storage,
     override protected val clock: Clock,
     override val cryptoPureApi: CryptoPureApi,
-    identityPusher: ParticipantTopologyDispatcherCommon,
+    identityPusher: ParticipantTopologyDispatcher,
     private[canton] val ips: IdentityProvidingServiceClient,
     override private[canton] val sync: CantonSyncService,
     val adminToken: CantonAdminToken,

@@ -11,6 +11,7 @@ import com.daml.lf.archive.{Dar, DarParser, Decode, GenDarReader}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
+import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.domain.{PackageEntry, ParticipantOffset}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
@@ -44,7 +45,6 @@ import scalaz.syntax.traverse.*
 import java.util.zip.ZipInputStream
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.FutureConverters.CompletionStageOps
 import scala.util.{Try, Using}
 
 private[apiserver] final class ApiPackageManagementService private (
@@ -136,6 +136,15 @@ private[apiserver] final class ApiPackageManagementService private (
     } yield dar
   }
 
+  override def validateDarFile(request: ValidateDarFileRequest): Future[ValidateDarFileResponse] = {
+    val submissionId = submissionIdGenerator(request.submissionId)
+    LoggingContextWithTrace.withEnrichedLoggingContext(telemetry)(
+      logging.submissionId(submissionId)
+    ) { implicit loggingContext: LoggingContextWithTrace =>
+      decodeAndValidate(request.darFile).map((_: Dar[Archive]) => ValidateDarFileResponse())
+    }
+  }
+
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
     val submissionId = submissionIdGenerator(request.submissionId)
     LoggingContextWithTrace.withEnrichedLoggingContext(telemetry)(
@@ -216,7 +225,7 @@ private[apiserver] object ApiPackageManagementService {
     override def submit(submissionId: Ref.SubmissionId, dar: Dar[Archive])(implicit
         loggingContext: LoggingContextWithTrace
     ): Future[state.SubmissionResult] =
-      packagesWrite.uploadPackages(submissionId, dar.all, None).asScala
+      packagesWrite.uploadPackages(submissionId, dar.all, None).toScalaUnwrapped
 
     override def entries(offset: Option[ParticipantOffset.Absolute])(implicit
         loggingContext: LoggingContextWithTrace

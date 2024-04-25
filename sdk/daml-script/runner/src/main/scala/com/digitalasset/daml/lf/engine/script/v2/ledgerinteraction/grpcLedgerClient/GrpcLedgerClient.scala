@@ -9,7 +9,7 @@ import java.time.Instant
 import java.util.UUID
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.canton.ledger.api.domain.{User, UserRight}
+import com.digitalasset.canton.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.commands._
 import com.daml.ledger.api.v2.event.InterfaceView
@@ -35,9 +35,9 @@ import com.daml.lf.speedy.{SValue, svalue}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.{
+  lfValueToApiRecord,
   lfValueToApiValue,
   toApiIdentifier,
-  lfValueToApiRecord,
   toTimestamp,
 }
 import com.daml.script.converter.ConverterException
@@ -333,9 +333,20 @@ class GrpcLedgerClient(
       .map(_.party)
   }
 
-  override def listKnownParties()(implicit ec: ExecutionContext, mat: Materializer) = {
-    grpcClient.partyManagementClient
-      .listKnownParties()
+  override def listKnownParties()(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[List[PartyDetails]] = {
+    def listParties(pageToken: String): Future[List[PartyDetails]] = for {
+      response <- grpcClient.partyManagementClient.listKnownParties(
+        pageToken = pageToken,
+        pageSize = 0, // lets the server pick the page size
+      )
+      (parties, nextPageToken) = response
+      tail <- if (nextPageToken.isEmpty) Future.successful(Nil) else listParties(nextPageToken)
+    } yield parties ++ tail
+
+    listParties("")
   }
 
   override def getStaticTime()(implicit

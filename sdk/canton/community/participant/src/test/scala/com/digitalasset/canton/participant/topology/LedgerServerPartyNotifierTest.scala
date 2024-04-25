@@ -19,7 +19,7 @@ import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.{Future, blocking}
+import scala.concurrent.Future
 
 final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
 
@@ -27,7 +27,7 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
   import com.digitalasset.canton.topology.client.EffectiveTimeTestHelpers.*
 
   private lazy val crypto =
-    new TestingOwnerWithKeysX(domainManager, loggerFactory, directExecutionContext)
+    new TestingOwnerWithKeysX(sequencerIdX, loggerFactory, directExecutionContext)
 
   private object Fixture {
     def apply(test: Fixture => Future[Assertion]): Future[Assertion] =
@@ -52,44 +52,39 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
         loggerFactory,
       )
 
-    private val subscriber = notifier.attachToTopologyProcessorX()
+    private val subscriber = notifier.attachToTopologyProcessor()
 
     private var counter = SequencerCounter(0)
 
-    // TODO(#17726) Figure out whether what this synchronization block is actually guarding.
-    @SuppressWarnings(Array("com.digitalasset.canton.SynchronizedFuture"))
-    def simulateTransaction(mapping: PartyToParticipantX): Future[Unit] =
-      blocking {
-        clock.synchronized {
-          val tx: TopologyTransactionX[TopologyChangeOpX.Replace, PartyToParticipantX] =
-            TopologyTransactionX(
-              TopologyChangeOpX.Replace,
-              PositiveInt.one,
-              mapping,
-              testedProtocolVersion,
-            )
+    def simulateTransaction(mapping: PartyToParticipant): Future[Unit] = {
+      val tx: TopologyTransaction[TopologyChangeOp.Replace, PartyToParticipant] =
+        TopologyTransaction(
+          TopologyChangeOp.Replace,
+          PositiveInt.one,
+          mapping,
+          testedProtocolVersion,
+        )
 
-          val txs = Seq(crypto.mkTrans(tx)(directExecutionContext))
-          val now = clock.now
-          val result = subscriber
-            .observed(now, now, counter, txs)
-            .onShutdown(
-              logger.debug(
-                "Tests are shutting down before the simulated transaction could be processed"
-              )
-            )
-          clock.advanceTo(now.immediateSuccessor)
-          counter += 1
-          result
-        }
-      }
+      val txs = Seq(crypto.mkTrans(tx)(directExecutionContext))
+      val now = clock.now
+      val result = subscriber
+        .observed(now, now, counter, txs)
+        .onShutdown(
+          logger.debug(
+            "Tests are shutting down before the simulated transaction could be processed"
+          )
+        )
+      clock.advanceTo(now.immediateSuccessor)
+      counter += 1
+      result
+    }
 
     def simulateTransaction(
         partyId: PartyId,
         participantId: ParticipantId,
     ): Future[Unit] =
       simulateTransaction(
-        PartyToParticipantX(
+        PartyToParticipant(
           partyId,
           None,
           PositiveInt.one,
@@ -144,7 +139,7 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
     "add admin parties" in Fixture { fixture =>
       for {
         _ <- fixture.simulateTransaction(
-          PartyToParticipantX(
+          PartyToParticipant(
             participant1.adminParty,
             Some(domainId),
             PositiveInt.one,
