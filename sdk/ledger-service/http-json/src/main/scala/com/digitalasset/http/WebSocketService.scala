@@ -448,7 +448,7 @@ object WebSocketService {
           ((ValuePredicate, ValuePredicate.LfV => Boolean), (Int, Int))
         ]]] = {
           val compiledQueries =
-            prepareFilters(rsfq.resolvedQuery.resolved.flatMap(_.allPkgIds), rsfq.query, lookupType)
+            prepareFilters(rsfq.resolvedQuery.resolved, rsfq.query, lookupType)
           compiledQueries.transform((_, p) => NonEmptyList((p, (ix, pos))))
         }
 
@@ -477,13 +477,13 @@ object WebSocketService {
       }
 
       private def prepareFilters(
-          resolved: NonEmpty[Set[domain.ContractTypeId.Resolved]],
+          resolved: NonEmpty[Set[_ <: ContractTypeRef.Resolved]],
           queryExpr: Map[String, JsValue],
           lookupType: ValuePredicate.TypeLookup,
       ): CompiledQueries =
-        resolved.toSeq.map { tid =>
-          val vp = ValuePredicate.fromTemplateJsObject(queryExpr, tid, lookupType)
-          (tid, (vp, vp.toFunPredicate))
+        resolved.flatMap { tid =>
+          val vp = ValuePredicate.fromTemplateJsObject(queryExpr, tid.latestPkgId, lookupType)
+          tid.allPkgIds.map(_ -> (vp, vp.toFunPredicate))
         }.toMap
 
       override def renderCreatedMetadata(p: Positive) =
@@ -681,9 +681,7 @@ object WebSocketService {
         StreamPredicate[Positive](
           resolvedRequest.resolvedQuery,
           resolvedRequest.unresolved,
-          fn(
-            resolvedRequest.q.flatMap({ case (tid, v) => tid.allPkgIds.map(_ -> v) }).forgetNE.toMap
-          ),
+          fn(resolvedRequest.q.flatMap({ case (k, v) => k.allPkgIds.map(_ -> v) }).forgetNE.toMap),
           { (parties, dao) =>
             import dao.{logHandler, jdbcDriver}
             import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
