@@ -21,20 +21,31 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.archive.DarReader
 
 import scala.util.{Success, Failure}
-import com.daml.lf.validation.Upgrading
 import org.scalatest.Inspectors.forEvery
 import scala.util.Using
 
 class UpgradesSpecAdminAPIWithoutValidation
     extends UpgradesSpecAdminAPI("Admin API without validation")
     with ShortTests {
-  override val disableUpgradeValidation = true
+  override val disableUpgradeValidation = true;
 }
 
 class UpgradesSpecLedgerAPIWithoutValidation
     extends UpgradesSpecLedgerAPI("Ledger API without validation")
     with ShortTests {
-  override val disableUpgradeValidation = true
+  override val disableUpgradeValidation = true;
+}
+
+class UpgradesSpecAdminAPIDryRun
+    extends UpgradesSpecAdminAPI("Admin API with dry run")
+    with LongTests {
+  override val uploadSecondPackageDryRun = true;
+}
+
+class UpgradesSpecLedgerAPIDryRun
+    extends UpgradesSpecLedgerAPI("Ledger API with dry run")
+    with LongTests {
+  override val uploadSecondPackageDryRun = true;
 }
 
 class UpgradesSpecAdminAPIWithValidation
@@ -47,7 +58,8 @@ class UpgradesSpecLedgerAPIWithValidation
 
 abstract class UpgradesSpecAdminAPI(override val suffix: String) extends UpgradesSpec(suffix) {
   override def uploadPackage(
-      path: String
+      path: String,
+      dryRun: Boolean,
   ): Future[(PackageId, Option[Throwable])] = {
     val client = AdminLedgerClient.singleHost(
       ledgerPorts(0).adminPort,
@@ -55,86 +67,40 @@ abstract class UpgradesSpecAdminAPI(override val suffix: String) extends Upgrade
     )
     for {
       (testPackageId, testPackageBS) <- loadPackageIdAndBS(path)
-      uploadResult <- client
-        .uploadDar(testPackageBS, path)
-        .transform({
+      uploadResult <-
+        (
+          if (dryRun)
+            client.validateDar(testPackageBS, path)
+          else
+            client.uploadDar(testPackageBS, path)
+        ).transform({
           case Failure(err) => Success(Some(err));
           case Success(_) => Success(None);
         })
     } yield (testPackageId, uploadResult)
-  }
-
-  override def uploadPackagePair(
-      path: Upgrading[String]
-  ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
-    val client = AdminLedgerClient.singleHost(
-      ledgerPorts(0).adminPort,
-      config,
-    )
-    for {
-      (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(path.past)
-      (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(path.present)
-      uploadV1Result <- client
-        .uploadDar(testPackageV1BS, path.past)
-        .transform({
-          case Failure(err) => Success(Some(err));
-          case Success(_) => Success(None);
-        })
-      uploadV2Result <- client
-        .uploadDar(testPackageV2BS, path.present)
-        .transform({
-          case Failure(err) => Success(Some(err));
-          case Success(_) => Success(None);
-        })
-    } yield Upgrading(
-      (testPackageV1Id, uploadV1Result),
-      (testPackageV2Id, uploadV2Result),
-    )
   }
 }
 
 class UpgradesSpecLedgerAPI(override val suffix: String = "Ledger API")
     extends UpgradesSpec(suffix) {
   override def uploadPackage(
-      path: String
+      path: String,
+      dryRun: Boolean,
   ): Future[(PackageId, Option[Throwable])] = {
     for {
       client <- defaultLedgerClient()
       (testPackageId, testPackageBS) <- loadPackageIdAndBS(path)
-      uploadResult <- client.packageManagementClient
-        .uploadDarFile(testPackageBS)
-        .transform({
+      uploadResult <-
+        (
+          if (dryRun)
+            client.packageManagementClient.validateDarFile(testPackageBS)
+          else
+            client.packageManagementClient.uploadDarFile(testPackageBS)
+        ).transform({
           case Failure(err) => Success(Some(err));
           case Success(_) => Success(None);
         })
     } yield (testPackageId, uploadResult)
-  }
-
-  override def uploadPackagePair(
-      path: Upgrading[String]
-  ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
-    for {
-      client <- defaultLedgerClient()
-      (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(path.past)
-      (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(path.present)
-      _ = logger.info(s"Uploading package ${path.past} $testPackageV1Id")
-      uploadV1Result <- client.packageManagementClient
-        .uploadDarFile(testPackageV1BS)
-        .transform({
-          case Failure(err) => Success(Some(err));
-          case Success(_) => Success(None);
-        })
-      _ = logger.info(s"Uploading package ${path.present} $testPackageV2Id")
-      uploadV2Result <- client.packageManagementClient
-        .uploadDarFile(testPackageV2BS)
-        .transform({
-          case Failure(err) => Success(Some(err));
-          case Success(_) => Success(None);
-        })
-    } yield Upgrading(
-      (testPackageV1Id, uploadV1Result),
-      (testPackageV2Id, uploadV2Result),
-    )
   }
 }
 
@@ -583,6 +549,7 @@ abstract class UpgradesSpec(val suffix: String)
     with CantonFixture {
   override lazy val devMode = true;
   override val cantonFixtureDebugMode = CantonFixtureDebugRemoveTmpFiles;
+  val uploadSecondPackageDryRun: Boolean = false;
 
   protected def loadPackageIdAndBS(path: String): Future[(PackageId, ByteString)] = {
     val dar = DarReader.assertReadArchiveFromFile(new File(BazelRunfiles.rlocation(path)))
@@ -598,12 +565,9 @@ abstract class UpgradesSpec(val suffix: String)
     bytes.map((dar.main.pkgId, _))
   }
 
-  def uploadPackagePair(
-      path: Upgrading[String]
-  ): Future[Upgrading[(PackageId, Option[Throwable])]]
-
   def uploadPackage(
-      path: String
+      path: String,
+      dryRun: Boolean = false,
   ): Future[(PackageId, Option[Throwable])]
 
   def assertPackageUpgradeCheckSecondOnly(failureMessage: Option[String])(
@@ -730,7 +694,7 @@ abstract class UpgradesSpec(val suffix: String)
   ): Future[Assertion] = {
     for {
       v1Upload <- uploadPackage(upgraded)
-      v2Upload <- uploadPackage(upgrading)
+      v2Upload <- uploadPackage(upgrading, uploadSecondPackageDryRun)
     } yield {
       val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
       try {
