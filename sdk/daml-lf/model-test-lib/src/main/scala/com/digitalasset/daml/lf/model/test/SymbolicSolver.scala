@@ -5,13 +5,16 @@ package com.daml.lf
 package model
 package test
 
+import com.daml.lf.model.test.LedgerImplicits._
 import com.daml.lf.model.test.Symbolic._
-import com.microsoft.z3.Status.{SATISFIABLE, UNSATISFIABLE, UNKNOWN}
+import com.microsoft.z3.Status.{SATISFIABLE, UNKNOWN, UNSATISFIABLE}
 import com.microsoft.z3._
+
+import scala.util.Random
 
 object SymbolicSolver {
   def solve(skeleton: Skeletons.Scenario, numParties: Int): Option[Ledgers.Scenario] = {
-    // Global.setParameter("verbose", "1")
+    Global.setParameter("model_validate", "true")
     val ctx = new Context()
     val res = new SymbolicSolver(ctx, numParties).solve(skeleton)
     ctx.close()
@@ -26,6 +29,7 @@ object SymbolicSolver {
   }
 }
 
+//@nowarn("cat=unused")
 private class SymbolicSolver(ctx: Context, numParties: Int) {
 
   private val participantIdSort = ctx.mkIntSort()
@@ -39,6 +43,9 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
 
   private def or(bools: Seq[BoolExpr]): BoolExpr =
     ctx.mkOr(bools: _*)
+
+  def toSet[E <: Sort](elemSort: E, elems: Iterable[Expr[E]]): ArrayExpr[E, BoolSort] =
+    elems.foldLeft(ctx.mkEmptySet(elemSort))((acc, cid) => ctx.mkSetAdd(acc, cid))
 
   private def isEmptyPartySet(partySet: PartySet): BoolExpr =
     ctx.mkEq(partySet, ctx.mkEmptySet(partySort))
@@ -132,6 +139,10 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     }
 
     ledger.flatMap(collectCommandsPartySets)
+  }
+
+  private def collectDisclosures(ledger: Ledger): List[ContractIdSet] = {
+    ledger.map(_.disclosures)
   }
 
   private def collectNonEmptyPartySets(ledger: Ledger): List[PartySet] = {
@@ -234,7 +245,7 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
 
   private def consistentLedger(
       hasKey: FuncDecl[BoolSort],
-      keyIdsOf: FuncDecl[keyIdSort],
+      keyIdsOf: FuncDecl[KeyIdSort],
       maintainersOf: FuncDecl[PartySetSort],
       ledger: Ledger,
   ): BoolExpr = {
@@ -244,8 +255,46 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     def elem(contractId: ContractId, set: Set[ContractId]): BoolExpr =
       or(set.map(ctx.mkEq(contractId, _)).toList)
 
-    def consistentCommands(commands: Commands): BoolExpr =
-      and(commands.actions.map(consistentAction))
+    def isActive(contractId: ContractId): BoolExpr =
+      ctx.mkAnd(
+        elem(contractId, state.created),
+        ctx.mkNot(elem(contractId, state.consumed)),
+      )
+
+    def contractHasKey(contractId: ContractId, keyId: KeyId, maintainers: PartySet): BoolExpr =
+      ctx.mkAnd(
+        ctx.mkApp(hasKey, contractId),
+        ctx.mkEq(ctx.mkApp(keyIdsOf, contractId), keyId),
+        ctx.mkEq(ctx.mkApp(maintainersOf, contractId), maintainers),
+      )
+
+    def noActiveContractWithKey(keyId: KeyId, maintainers: PartySet): BoolExpr =
+      and(
+        for {
+          cid <- state.created.toSeq
+        } yield ctx.mkImplies(
+          contractHasKey(cid, keyId, maintainers),
+          elem(cid, state.consumed),
+        )
+      )
+
+    def consistentCommands(commands: Commands): BoolExpr = {
+      ctx.mkAnd(
+        ctx.mkSetSubset(
+          commands.disclosures,
+          toSet(contractIdSort, state.created),
+        ),
+        // in theory you can disclose consumed contracts, but we don't allow it
+        // yet because their disclosure is tricky to fetch.
+        isEmptyPartySet(
+          ctx.mkSetIntersection(
+            commands.disclosures,
+            toSet(contractIdSort, state.consumed),
+          )
+        ),
+        and(commands.actions.map(consistentAction)),
+      )
+    }
 
     def consistentAction(action: Action): BoolExpr = {
       action match {
@@ -253,83 +302,45 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
           state = state.copy(created = state.created + contractId)
           ctx.mkEq(ctx.mkApp(hasKey, contractId), ctx.mkFalse())
         case CreateWithKey(contractId, keyId, maintainers, _, _) =>
-          val oldState = state
+          val res = ctx.mkAnd(
+            contractHasKey(contractId, keyId, maintainers),
+            noActiveContractWithKey(keyId, maintainers),
+          )
           state = state.copy(created = state.created + contractId)
-          ctx.mkAnd(
-            ctx.mkEq(ctx.mkApp(keyIdsOf, contractId), keyId),
-            ctx.mkEq(ctx.mkApp(maintainersOf, contractId), maintainers),
-            ctx.mkEq(ctx.mkApp(hasKey, contractId), ctx.mkTrue()),
-            and(
-              for {
-                cid <- oldState.created.toSeq
-              } yield ctx.mkImplies(
-                ctx.mkAnd(
-                  ctx.mkEq(ctx.mkApp(keyIdsOf, cid), keyId),
-                  ctx.mkEq(ctx.mkApp(maintainersOf, cid), maintainers),
-                ),
-                elem(cid, oldState.consumed),
-              )
-            ),
-          )
+          res
         case Exercise(kind, contractId, _, _, subTransaction) =>
-          val oldState = state
+          val pre = isActive(contractId)
           if (kind == Consuming) {
             state = state.copy(consumed = state.consumed + contractId)
           }
-          ctx.mkAnd(
-            elem(contractId, oldState.created),
-            ctx.mkNot(elem(contractId, oldState.consumed)),
-            and(subTransaction.map(consistentAction)),
-          )
+          val post = and(subTransaction.map(consistentAction))
+          ctx.mkAnd(pre, post)
         case ExerciseByKey(kind, contractId, keyId, maintainers, _, _, subTransaction) =>
-          val oldState = state
+          val pre = ctx.mkAnd(
+            isActive(contractId),
+            contractHasKey(contractId, keyId, maintainers),
+          )
           if (kind == Consuming) {
             state = state.copy(consumed = state.consumed + contractId)
           }
-          ctx.mkAnd(
-            elem(contractId, oldState.created),
-            ctx.mkNot(elem(contractId, oldState.consumed)),
-            ctx.mkApp(hasKey, contractId),
-            ctx.mkEq(ctx.mkApp(keyIdsOf, contractId), keyId),
-            ctx.mkEq(ctx.mkApp(maintainersOf, contractId), maintainers),
-            and(subTransaction.map(consistentAction)),
-          )
+          val post = and(subTransaction.map(consistentAction))
+          ctx.mkAnd(pre, post)
         case Fetch(contractId) =>
-          ctx.mkAnd(
-            elem(contractId, state.created),
-            ctx.mkNot(elem(contractId, state.consumed)),
-          )
+          isActive(contractId)
         case FetchByKey(contractId, keyId, maintainers) =>
           ctx.mkAnd(
-            elem(contractId, state.created),
-            ctx.mkNot(elem(contractId, state.consumed)),
-            ctx.mkApp(hasKey, contractId),
-            ctx.mkEq(ctx.mkApp(keyIdsOf, contractId), keyId),
-            ctx.mkEq(ctx.mkApp(maintainersOf, contractId), maintainers),
+            isActive(contractId),
+            contractHasKey(contractId, keyId, maintainers),
           )
         case LookupByKey(contractId, keyId, maintainers) =>
           contractId match {
             case Some(cid) =>
               ctx.mkAnd(
-                elem(cid, state.created),
-                ctx.mkNot(elem(cid, state.consumed)),
-                ctx.mkApp(hasKey, cid),
-                ctx.mkEq(ctx.mkApp(keyIdsOf, cid), keyId),
-                ctx.mkEq(ctx.mkApp(maintainersOf, cid), maintainers),
+                isActive(cid),
+                contractHasKey(cid, keyId, maintainers),
               )
             case None =>
-              and(
-                for {
-                  cid <- state.created.toSeq
-                } yield ctx.mkImplies(
-                  ctx.mkAnd(
-                    ctx.mkApp(hasKey, cid),
-                    ctx.mkEq(ctx.mkApp(keyIdsOf, cid), keyId),
-                    ctx.mkEq(ctx.mkApp(maintainersOf, cid), maintainers),
-                  ),
-                  elem(cid, state.consumed),
-                )
-              )
+              noActiveContractWithKey(keyId, maintainers)
           }
         case Rollback(subTransaction) =>
           val oldState = state
@@ -349,51 +360,63 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
       ledger: Symbolic.Ledger,
   ): BoolExpr = {
 
-    def visibleContractId(participantId: ParticipantId, contractId: ContractId): BoolExpr =
-      ctx.mkNot(
-        isEmptyPartySet(
-          ctx.mkSetIntersection(
-            ctx.mkApp(partiesOf, participantId).asInstanceOf[PartySet],
-            ctx.mkSetUnion(
-              ctx.mkApp(signatoriesOf, contractId).asInstanceOf[PartySet],
-              ctx.mkApp(observersOf, contractId).asInstanceOf[PartySet],
-            ),
+    def visibleContractId(
+        disclosures: ContractIdSet,
+        participantId: ParticipantId,
+        contractId: ContractId,
+    ): BoolExpr = {
+      ctx.mkOr(
+        ctx.mkSetMembership(contractId, disclosures),
+        ctx.mkNot(
+          isEmptyPartySet(
+            ctx.mkSetIntersection(
+              ctx.mkApp(partiesOf, participantId).asInstanceOf[PartySet],
+              ctx.mkSetUnion(
+                ctx.mkApp(signatoriesOf, contractId).asInstanceOf[PartySet],
+                ctx.mkApp(observersOf, contractId).asInstanceOf[PartySet],
+              ),
+            )
           )
-        )
+        ),
       )
+    }
 
-    def visibleAction(participantId: ParticipantId, action: Action): BoolExpr = action match {
+    def visibleAction(
+        disclosures: ContractIdSet,
+        participantId: ParticipantId,
+        action: Action,
+    ): BoolExpr = action match {
       case Create(_, _, _) =>
         ctx.mkTrue()
       case CreateWithKey(_, _, _, _, _) =>
         ctx.mkTrue()
       case Exercise(_, contractId, _, _, subTransaction) =>
         ctx.mkAnd(
-          visibleContractId(participantId, contractId),
-          and(subTransaction.map(visibleAction(participantId, _))),
+          visibleContractId(disclosures, participantId, contractId),
+          and(subTransaction.map(visibleAction(disclosures, participantId, _))),
         )
       case ExerciseByKey(_, contractId, _, _, _, _, subTransaction) =>
         ctx.mkAnd(
-          visibleContractId(participantId, contractId),
-          and(subTransaction.map(visibleAction(participantId, _))),
+          visibleContractId(disclosures, participantId, contractId),
+          and(subTransaction.map(visibleAction(disclosures, participantId, _))),
         )
       case Fetch(contractId) =>
-        visibleContractId(participantId, contractId)
+        visibleContractId(disclosures, participantId, contractId)
       case FetchByKey(contractId, _, _) =>
-        visibleContractId(participantId, contractId)
+        visibleContractId(disclosures, participantId, contractId)
       case LookupByKey(contractId, _, _) =>
         contractId match {
           case Some(cid) =>
-            visibleContractId(participantId, cid)
+            visibleContractId(disclosures, participantId, cid)
           case None =>
             ctx.mkTrue()
         }
       case Rollback(subTransaction) =>
-        and(subTransaction.map(visibleAction(participantId, _)))
+        and(subTransaction.map(visibleAction(disclosures, participantId, _)))
     }
 
     def visibleCommands(commands: Commands): BoolExpr =
-      and(commands.actions.map(visibleAction(commands.participantId, _)))
+      and(commands.actions.map(visibleAction(commands.disclosures, commands.participantId, _)))
 
     and(ledger.map(visibleCommands))
   }
@@ -522,10 +545,7 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     and(ledger.map(actorsAreHostedOnParticipant))
   }
 
-  private val allPartiesSetLiteral =
-    (1 to numParties).foldLeft(ctx.mkEmptySet(ctx.mkIntSort()))((acc, i) =>
-      ctx.mkSetAdd(acc, ctx.mkInt(i))
-    )
+  private val allPartiesSetLiteral = toSet(partySort, (1 to numParties).map(ctx.mkInt))
 
   private def partySetsWellFormed(ledger: Ledger, allParties: PartySet): BoolExpr =
     and(collectPartySets(ledger).map(s => ctx.mkSetSubset(s, allParties)))
@@ -573,10 +593,17 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
       (1 to numParties).map(i => ctx.mkSelect(partySet, ctx.mkInt(i)).asInstanceOf[BoolExpr])
     }
 
+    def contractIdSetToBits(contractIdSet: ContractIdSet): Seq[BoolExpr] = {
+      (0 until scenario.ledger.numContracts).map(i =>
+        ctx.mkSelect(contractIdSet, ctx.mkInt(i)).asInstanceOf[BoolExpr]
+      )
+    }
+
     def ledgerToBits(ledger: Ledger): Seq[BoolExpr] =
       Seq.concat(
         collectReferences(ledger).toSeq.flatMap(contractIdToBits),
         collectPartySets(ledger).flatMap(partySetToBits),
+        collectDisclosures(ledger).flatMap(contractIdSetToBits),
       )
 
     def participantToBits(participant: Participant): Seq[BoolExpr] =
@@ -586,13 +613,16 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
       topology.flatMap(participantToBits)
 
     def scenarioToBits(scenario: Scenario): Seq[BoolExpr] = {
-      Seq.concat(topologyToBits(scenario.topology), ledgerToBits(scenario.ledger))
+      Seq.concat(
+        topologyToBits(scenario.topology),
+        ledgerToBits(scenario.ledger),
+      )
     }
 
     def xor(bits: Iterable[BoolExpr]): BoolExpr = bits.reduce((b1, b2) => ctx.mkXor(b1, b2))
 
     def mkRandomHash(chunkSize: Int, scenario: Scenario): Seq[BoolExpr] =
-      scenarioToBits(scenario).grouped(chunkSize).map(xor).toSeq
+      Random.shuffle(scenarioToBits(scenario)).grouped(chunkSize).map(xor).toSeq
 
     and(mkRandomHash(chunkSize, scenario))
   }
@@ -603,7 +633,7 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
       signatoriesOf: FuncDecl[PartySetSort],
       observersOf: FuncDecl[PartySetSort],
       partiesOf: FuncDecl[PartySetSort],
-      keyIdsOf: FuncDecl[keyIdSort],
+      keyIdsOf: FuncDecl[KeyIdSort],
       maintainersOf: FuncDecl[PartySetSort],
       hasKey: FuncDecl[BoolSort],
   ): BoolExpr = {
@@ -650,7 +680,7 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
       signatoriesOf: FuncDecl[PartySetSort],
       observersOf: FuncDecl[PartySetSort],
       partiesOf: FuncDecl[PartySetSort],
-      keyIdsOf: FuncDecl[keyIdSort],
+      keyIdsOf: FuncDecl[KeyIdSort],
       maintainersOf: FuncDecl[PartySetSort],
       hasKey: FuncDecl[BoolSort],
   )
@@ -697,7 +727,7 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
         hasKey,
       )
     )
-    // Equate a random hash of all the symbols to 0
+    // Equate a random hash of all the symbols to a constant
     solver.add(hashConstraint(20, symScenario))
 
     solver.check() match {
@@ -707,18 +737,20 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
         print(".")
         None
       case other =>
-        throw new IllegalStateException(s"Unexpected solver result: $other")
+        throw new IllegalStateException(
+          s"Unexpected solver result: $other, ${solver.getReasonUnknown}"
+        )
     }
   }
 
   private def validate(scenario: Ledgers.Scenario): Boolean = {
-    // Global.setParameter("verbose", "100")
+    // Global.setParameter("verbose", "1000")
     val solver = ctx.mkSolver()
     val params = ctx.mkParams()
     params.add("proof", false)
     params.add("model", false)
     params.add("unsat_core", false)
-    params.add("timeout", 1000)
+    params.add("timeout", 5000)
     solver.setParameters(params)
 
     val symScenario = ConcreteToSymbolic.toSymbolic(ctx, scenario)
@@ -743,12 +775,13 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
         keyIdsOf,
         maintainersOf,
         hasKey,
-      ).simplify()
+      )
     )
 
     solver.check() match {
       case SATISFIABLE => true
-      case UNSATISFIABLE => false
+      case UNSATISFIABLE =>
+        false
       case UNKNOWN =>
         throw new IllegalStateException(s"Unexpected solver result: ${solver.getReasonUnknown}")
     }

@@ -13,11 +13,13 @@ object Symbolic {
 
   type ParticipantIdSort = IntSort
   type ContractIdSort = IntSort
-  type keyIdSort = IntSort
+  type KeyIdSort = IntSort
   type PartySort = IntSort
-  type PartySetSort = SetSort[IntSort]
+  type PartySetSort = SetSort[PartySort]
+  type ContractIdSetSort = SetSort[ContractIdSort]
 
   type PartySet = ArrayExpr[PartySort, BoolSort]
+  type ContractIdSet = ArrayExpr[ContractIdSort, BoolSort]
   type PartyId = IntExpr
   type ContractId = IntExpr
   type KeyId = IntExpr
@@ -79,6 +81,7 @@ object Symbolic {
   final case class Commands(
       participantId: ParticipantId,
       actAs: PartySet,
+      disclosures: ContractIdSet,
       actions: Transaction,
   )
 

@@ -9,6 +9,7 @@ import cats.data.EitherT
 import cats.implicits.toTraverseOps
 import cats.instances.all._
 import com.daml.lf.data.Ref
+import com.daml.lf.engine.script.Disclosure
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient.{
   CommandResult,
@@ -204,14 +205,52 @@ class Interpreter(
       }
       .fold(Map.empty)(_ ++ _)
 
+  private def fetchDisclosure(
+      contractInfos: ContractInfos,
+      partyIds: PartyIdMapping,
+      contractIds: ContractIdMapping,
+      contractIdToFetch: ContractId,
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Disclosure] = {
+    val ContractInfo(templatedId, signatories, createdOn) = contractInfos(contractIdToFetch)
+    val concreteContractId = contractIds(contractIdToFetch).contractId
+    val concreteSignatory = partyIds(signatories.head)
+    for {
+      contract <- ledgerClients(createdOn)
+        .queryContractId(OneAnd(concreteSignatory, Set.empty), templatedId, concreteContractId)
+        .map(
+          _.getOrElse(
+            throw new IllegalArgumentException(
+              s"contract ${contractIdToFetch} not found while fetching disclosures"
+            )
+          )
+        )
+    } yield Disclosure(templatedId, concreteContractId, contract.blob)
+  }
+
+  private def fetchDisclosures(
+      contractInfos: ContractInfos,
+      partyIds: PartyIdMapping,
+      contractIds: ContractIdMapping,
+      contractIdsToFetch: Iterable[ContractId],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[List[Disclosure]] =
+    contractIdsToFetch.toList
+      .traverse(fetchDisclosure(contractInfos, partyIds, contractIds, _))
+
   private def runCommands(
+      contractInfos: ContractInfos,
       partyIds: PartyIdMapping,
       contractIds: ContractIdMapping,
       commands: Commands,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Eval[ContractIdMapping] =
+  ): Eval[ContractIdMapping] = {
     for {
       apiCommands <- EitherT
         .fromEither[Future](
@@ -221,11 +260,14 @@ class Interpreter(
             )
         )
         .leftMap(TranslationError)
+      disclosures <- EitherT.liftF(
+        fetchDisclosures(contractInfos, partyIds, contractIds, commands.disclosures)
+      )
       resultAndTree <- EitherT(
         ledgerClients(commands.participantId).submit(
           actAs = assertToOneAnd(commands.actAs.map(partyIds)),
           readAs = partyIds.values.toSet,
-          disclosures = List.empty,
+          disclosures = disclosures,
           commands = apiCommands.map(cmd =>
             CommandWithMeta(
               cmd,
@@ -238,8 +280,10 @@ class Interpreter(
         )
       ).leftMap[InterpreterError](SubmitFailure)
     } yield commandResultsToContractIdMapping(commands.actions, resultAndTree._1)
+  }
 
   private def runCommandsList(
+      contractInfos: ContractInfos,
       partyIds: PartyIdMapping,
       contractIds: ContractIdMapping,
       commandsList: List[Commands],
@@ -251,12 +295,60 @@ class Interpreter(
       case Nil => EitherT.pure(contractIds)
       case commands :: tail =>
         for {
-          newContractIds <- runCommands(partyIds, contractIds, commands)
+          newContractIds <- runCommands(contractInfos, partyIds, contractIds, commands)
           // TODO: find a better way
           _ <- EitherT.liftF(Future { blocking { Thread.sleep(500) } })
-          result <- runCommandsList(partyIds, contractIds ++ newContractIds, tail)
+          result <- runCommandsList(contractInfos, partyIds, contractIds ++ newContractIds, tail)
         } yield result
     }
+
+  private case class ContractInfo(
+      templatedId: Ref.TypeConName,
+      signatories: PartySet,
+      createdOn: ParticipantId,
+  )
+  private type ContractInfos = Map[ContractId, ContractInfo]
+
+  private def extractContractInfos(ledger: Ledger): ContractInfos = {
+
+    def unions(infos: Iterable[ContractInfos]): ContractInfos =
+      infos.foldLeft(Map.empty[ContractId, ContractInfo])(_ ++ _)
+
+    def extractFromAction(
+        participantId: ParticipantId,
+        action: Action,
+    ): ContractInfos = action match {
+      case create: Create =>
+        Map(
+          create.contractId -> ContractInfo(
+            toCommands.universalTemplateId,
+            create.signatories,
+            participantId,
+          )
+        )
+      case create: CreateWithKey =>
+        Map(
+          create.contractId -> ContractInfo(
+            toCommands.universalWithKeyTemplateId,
+            create.signatories,
+            participantId,
+          )
+        )
+      case exe: Exercise =>
+        extractFromTransaction(participantId, exe.subTransaction)
+      case exe: ExerciseByKey =>
+        extractFromTransaction(participantId, exe.subTransaction)
+      case rb: Rollback =>
+        extractFromTransaction(participantId, rb.subTransaction)
+      case _: Fetch | _: FetchByKey | _: LookupByKey =>
+        Map.empty
+    }
+
+    def extractFromTransaction(participantId: ParticipantId, actions: Transaction) =
+      unions(actions.map(extractFromAction(participantId, _)))
+
+    unions(ledger.map(commands => extractFromTransaction(commands.participantId, commands.actions)))
+  }
 
   def runLedger(scenario: Scenario)(implicit
       ec: ExecutionContext,
@@ -269,7 +361,7 @@ class Interpreter(
       _ <- waitForPartyPropagation(substituteInTopology(disjointTopology, partyIds))
       _ <- replicateParties(substituteInReplications(replications, partyIds))
       _ <- waitForPartyPropagation(substituteInTopology(topology.simplify, partyIds))
-      result <- runCommandsList(partyIds, Map.empty, ledger).value
+      result <- runCommandsList(extractContractInfos(ledger), partyIds, Map.empty, ledger).value
     } yield (partyIds, result)
   }
 }
