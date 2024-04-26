@@ -41,7 +41,7 @@ class UpgradesSpecLedgerAPIWithoutValidation
 class UpgradesSpecAdminAPIWithValidation
     extends UpgradesSpecAdminAPI("Admin API with validation")
     with LongTests
-    */
+ */
 
 class UpgradesSpecLedgerAPIWithValidation
     extends UpgradesSpecLedgerAPI("Ledger API with validation")
@@ -583,7 +583,7 @@ trait LongTests { this: UpgradesSpec =>
         "test-common/upgrades-SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage-v2.dar",
         assertPackageUpgradeCheck(
           None
-        )
+        ),
       )
     }
 
@@ -592,8 +592,10 @@ trait LongTests { this: UpgradesSpec =>
         "test-common/upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
         "test-common/upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
         assertPackageUpgradeCheck(
-          Some("Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed in any upgrading package.")
-        )
+          Some(
+            "Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed in any upgrading package."
+          )
+        ),
       )
     }
 
@@ -604,9 +606,11 @@ trait LongTests { this: UpgradesSpec =>
           "test-common/upgrades-FailsWhenAnInstanceIsDropped-v1.dar",
           "test-common/upgrades-FailsWhenAnInstanceIsDropped-v2.dar",
           assertPackageUpgradeCheck(
-            Some("Implementation of interface .*:Dep:I by template T appears in package that is being upgraded, but does not appear in this package."),
-            true
-          )
+            Some(
+              "Implementation of interface .*:Dep:I by template T appears in package that is being upgraded, but does not appear in this package."
+            ),
+            true,
+          ),
         )
       } yield result
     }
@@ -619,7 +623,7 @@ trait LongTests { this: UpgradesSpec =>
           "test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-v2.dar",
           assertPackageUpgradeCheck(
             None
-          )
+          ),
         )
       } yield result
     }
@@ -630,7 +634,7 @@ trait LongTests { this: UpgradesSpec =>
         "test-common/upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
         assertPackageUpgradeCheck(
           None
-        )
+        ),
       )
     }
   }
