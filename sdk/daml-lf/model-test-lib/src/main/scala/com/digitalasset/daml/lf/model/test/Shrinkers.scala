@@ -31,6 +31,9 @@ object Shrinkers {
   lazy val shrinkPartySet: Shrink[PartySet] =
     Shrink.shrinkContainer[Set, PartyId](implicitly, shrinkPartyId, implicitly)
 
+  lazy val shrinkContractIdSet: Shrink[ContractIdSet] =
+    Shrink.shrinkContainer[Set, ContractId](implicitly, shrinkContractId, implicitly)
+
   lazy val shrinkKeyId: Shrink[KeyId] =
     Shrink.shrinkIntegral[KeyId].suchThat(_ >= 0)
 
@@ -75,6 +78,11 @@ object Shrinkers {
             shrunkenObservers,
           )
         }
+        .lazyAppendedAll(
+          List(
+            Create(contractId, signatories, observers)
+          )
+        )
     case Exercise(kind, contractId, controllers, choiceObservers, subTransaction) =>
       Shrink
         .shrinkTuple5(
@@ -111,6 +119,17 @@ object Shrinkers {
         )
         .map((ExerciseByKey.apply _).tupled)
         .lazyAppendedAll(subTransaction)
+        .lazyAppendedAll(
+          List(
+            Exercise(
+              kind,
+              contractId,
+              controllers,
+              choiceObservers,
+              subTransaction,
+            )
+          )
+        )
     case Fetch(contractId) =>
       shrinkContractId
         .shrink(contractId)
@@ -146,14 +165,15 @@ object Shrinkers {
   }
 
   lazy val shrinkCommands: Shrink[Commands] = Shrink {
-    case Commands(participantId, actAs, actions) =>
+    case Commands(participantId, actAs, disclosures, actions) =>
       Shrink
-        .shrinkTuple3(
+        .shrinkTuple4(
           shrinkParticipantId,
           shrinkPartySet,
+          shrinkContractIdSet,
           shrinkTransaction.suchThat(as => as.nonEmpty && as.forall(isToplevelAction)),
         )
-        .shrink((participantId, actAs, actions))
+        .shrink((participantId, actAs, disclosures, actions))
         .map((Commands.apply _).tupled)
   }
 
