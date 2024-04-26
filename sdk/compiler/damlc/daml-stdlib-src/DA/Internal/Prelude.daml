@@ -516,31 +516,31 @@ unzip3 = foldr (\(a,b,c) ~(as,bs,cs) -> (a::as,b::bs,c::cs))
 
 -- | `traceRaw msg a` prints `msg` and returns `a`, for debugging purposes.
 --
--- Note that on some ledgers, those messages are not displayed at the default log level. For Sandbox, you can use `--log-level=debug` to include them.
+-- The default configuration on the participant logs these messages at DEBUG level.
 traceRaw : Text -> a -> a
 traceRaw = primitive @"BETrace"
 
 -- | `trace b a` prints `b` and returns `a`, for debugging purposes.
 --
--- Note that on some ledgers, those messages are not displayed at the default log level. For Sandbox, you can use `--log-level=debug` to include them.
+-- The default configuration on the participant logs these messages at DEBUG level.
 trace : Show b => b -> a -> a
 trace = traceRaw . show
 
 -- | `traceId a` prints `a` and returns `a`, for debugging purposes.
 --
--- Note that on some ledgers, those messages are not displayed at the default log level. For Sandbox, you can use `--log-level=debug` to include them.
+-- The default configuration on the participant logs these messages at DEBUG level.
 traceId : Show b => b -> b
 traceId x = trace x x
 
 -- | `debug x` prints `x` for debugging purposes.
 --
--- Note that on some ledgers, those messages are not displayed at the default log level. For Sandbox, you can use `--log-level=debug` to include them.
+-- The default configuration on the participant logs these messages at DEBUG level.
 debug : (Show b, Action m) => b -> m ()
 debug x = debugRaw (show x)
 
 -- | `debugRaw msg` prints `msg` for debugging purposes.
 --
--- Note that on some ledgers, those messages are not displayed at the default log level. For Sandbox, you can use `--log-level=debug` to include them.
+-- The default configuration on the participant logs these messages at DEBUG level.
 debugRaw : Action m => Text -> m ()
 debugRaw x =
   -- NOTE (MK): We introduce an explicit indirection via >>=
