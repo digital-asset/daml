@@ -67,8 +67,8 @@ object ResolvedQuery {
 
   def apply(resolved: ContractTypeRef.Resolved): ResolvedQuery =
     resolved match {
-      case t: ContractTypeRef.Template => ByTemplateId(t)
-      case i: ContractTypeRef.Interface => ByInterfaceId(i)
+      case t: ContractTypeRef.TemplateRef => ByTemplateId(t)
+      case i: ContractTypeRef.InterfaceRef => ByInterfaceId(i)
     }
 
   def apply(
@@ -102,12 +102,12 @@ object ResolvedQuery {
   private def partitionKPN[CC[_], C](
       resolved: IterableOps[ContractTypeRef[_], CC, C]
   ): (
-      CC[ContractTypeRef.Template],
-      CC[ContractTypeRef.Interface],
+      CC[ContractTypeRef.TemplateRef],
+      CC[ContractTypeRef.InterfaceRef],
   ) =
     resolved.partitionMap {
-      case t: ContractTypeRef.Template => Left(t)
-      case i: ContractTypeRef.Interface => Right(i)
+      case t: ContractTypeRef.TemplateRef => Left(t)
+      case i: ContractTypeRef.InterfaceRef => Right(i)
     }
 
   sealed abstract class Unsupported(val errorMsg: String) extends Product with Serializable
@@ -118,18 +118,18 @@ object ResolvedQuery {
   final case object CannotBeEmpty extends Unsupported("Cannot resolve any template ID from request")
 
   final case class ByTemplateIds(
-      templateIds: NonEmpty[Set[ContractTypeRef.Template]]
+      templateIds: NonEmpty[Set[ContractTypeRef.TemplateRef]]
   ) extends ResolvedQuery {
     def resolved = templateIds
   }
   final case class ByTemplateId(
-      templateId: ContractTypeRef.Template
+      templateId: ContractTypeRef.TemplateRef
   ) extends ResolvedQuery {
     def resolved = NonEmpty(Set, templateId)
   }
 
   final case class ByInterfaceId(
-      interfaceId: ContractTypeRef.Interface
+      interfaceId: ContractTypeRef.InterfaceRef
   ) extends ResolvedQuery {
     def resolved = NonEmpty(Set, interfaceId)
   }
@@ -273,12 +273,11 @@ sealed abstract class ContractTypeIdLike[CtId[T] <: ContractTypeId[T]] {
 sealed abstract class ContractTypeRef[+CtTyId](
     orig: CtTyId,
     ids: NonEmpty[Seq[CtTyId]],
-    kpn: KeyPackageName,
+    val name: KeyPackageName,
 ) {
   def allPkgIds: NonEmpty[Set[_ <: CtTyId]] = ids.toSet
   def latestPkgId: CtTyId = ids.head
   def original: CtTyId = orig
-  def name = kpn
 }
 
 object ContractTypeRef {
@@ -295,12 +294,12 @@ object ContractTypeRef {
       name: KeyPackageName, // The package name info
   ): ContractTypeRef[CtId] = {
     (id match {
-      case t @ ContractTypeId.Template(_, _, _) => Template(t, pkgIds, name)
-      case i @ ContractTypeId.Interface(_, _, _) => Interface(i, pkgIds, name)
+      case t @ ContractTypeId.Template(_, _, _) => TemplateRef(t, pkgIds, name)
+      case i @ ContractTypeId.Interface(_, _, _) => InterfaceRef(i, pkgIds, name)
     }).asInstanceOf[ContractTypeRef[CtId]]
   }
 
-  final case class Template(
+  private[domain] final case class TemplateRef(
       orig: ContractTypeId.Template.Resolved,
       pkgIds: NonEmpty[Seq[String]],
       kpn: KeyPackageName,
@@ -310,7 +309,7 @@ object ContractTypeRef {
         kpn,
       )
 
-  final case class Interface(
+  private[domain] final case class InterfaceRef(
       orig: ContractTypeId.Interface.Resolved,
       pkgIds: NonEmpty[Seq[String]],
       kpn: KeyPackageName,

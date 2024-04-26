@@ -94,14 +94,14 @@ package domain {
     def matchesKey(k: LfValue)(a: ResolvedCtTyId[LfValue]): Boolean =
       a.key.fold(false)(_ == k)
 
-    def fromLedgerApi[RQ, CtTyId](
+    def fromLedgerApi[CtTyId](
         extractor: ExtractAs[CtTyId],
         gacr: lav1.active_contracts_service.GetActiveContractsResponse,
     ): Error \/ List[ActiveContract[CtTyId, lav1.value.Value]] = {
       gacr.activeContracts.toList.traverse(fromLedgerApi(extractor, _))
     }
 
-    def fromLedgerApi[RQ, CtTyId](
+    def fromLedgerApi[CtTyId](
         extractor: ExtractAs[CtTyId],
         in: lav1.event.CreatedEvent,
     ): Error \/ ActiveContract[CtTyId, lav1.value.Value] = {
@@ -121,11 +121,12 @@ package domain {
     // Strategy for extracting data from the created event,
     // depending on the kind of thing we were expecting, i.e. template or interface view.
     sealed trait ExtractAs[+CtTyId] {
-      type IdKeyPayload[+T] = Error \/ (T, Option[lav1.value.Value], lav1.value.Record)
-      def getIdKeyPayload(in: lav1.event.CreatedEvent): IdKeyPayload[CtTyId]
+      def getIdKeyPayload(in: lav1.event.CreatedEvent): ExtractAs.IdKeyPayload[CtTyId]
     }
 
     object ExtractAs {
+      type IdKeyPayload[+Id] = Error \/ (Id, Option[lav1.value.Value], lav1.value.Record)
+
       def apply(id: ContractTypeId.Resolved): ExtractAs[ContractTypeId.Resolved] = id match {
         case ContractTypeId.Interface(_, mod, entity) => ExtractAs.InterfaceView(mod, entity)
         case ContractTypeId.Template(_, _, _) => ExtractAs.Template

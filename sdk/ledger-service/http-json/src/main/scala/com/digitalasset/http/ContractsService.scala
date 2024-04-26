@@ -52,7 +52,6 @@ import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
-import com.daml.lf.crypto.Hash.KeyPackageName
 import scalaz.std.scalaFuture._
 import doobie.free.{connection => fconn}
 import fconn.ConnectionIO
@@ -818,6 +817,4 @@ object ContractsService {
   }
 
   type SearchResult[A] = domain.SyncResponse[Source[A, NotUsed]]
-
-  type RPN = (domain.ContractTypeId.Resolved, KeyPackageName)
 }

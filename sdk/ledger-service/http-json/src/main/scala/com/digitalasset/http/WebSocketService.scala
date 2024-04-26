@@ -657,24 +657,16 @@ object WebSocketService {
           sjd: dbbackend.SupportedJdbcDriver.TC
       ): NonEmpty[Seq[(domain.ContractTypeId.Resolved, doobie.Fragment)]] =
         q.toSeq flatMap { case (tid, lfvKeys) =>
-          val keys = lfvKeys.toVector
-          import dbbackend.Queries.joinFragment, com.daml.lf.crypto.Hash
+          // We can use the same set of hashes for all package ids within this ContractTypeRef.
+          // If we have a package name, then the packageId part is ignored for hashing.
+          // If we did not have a package name, then there is only one package id anyway.
+          val keyHashes: NonEmpty[Vector[Hash]] = lfvKeys.toVector
+            .map(k => Hash.assertHashContractKey(toLedgerApiValue(tid.original), k, tid.name))
+            .sorted
+          val keyEqHashes = dbbackend.Queries.joinFragment(keyHashes.map(keyEquality), sql" OR ")
           tid.allPkgIds.toSeq
             .sortBy(_.toString)
-            .map(t =>
-              (
-                t,
-                joinFragment(
-                  keys map (k =>
-                    keyEquality(
-                      Hash
-                        .assertHashContractKey(toLedgerApiValue(t), k, tid.name)
-                    )
-                  ),
-                  sql" OR ",
-                ),
-              )
-            )
+            .map(t => (t, keyEqHashes))
         }
 
       Future.successful(

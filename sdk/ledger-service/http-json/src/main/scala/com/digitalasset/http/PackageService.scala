@@ -392,8 +392,8 @@ object PackageService {
             )
             (kpn, _) <- idNames.get(id.packageId)
           } yield ContractTypeRef(id, pkgIdsForCtId, kpn)
-        case pkgId =>
-          Some(ContractTypeRef(id, NonEmpty(Seq, pkgId), KeyPackageName.empty))
+        case _ =>
+          Some(ContractTypeRef.unnamed(id))
       }
     }
 
