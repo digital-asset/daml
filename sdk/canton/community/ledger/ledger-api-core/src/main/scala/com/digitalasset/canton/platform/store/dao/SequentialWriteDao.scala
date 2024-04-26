@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.dao
 
 import com.daml.lf.data.Ref
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.Update
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.Metrics

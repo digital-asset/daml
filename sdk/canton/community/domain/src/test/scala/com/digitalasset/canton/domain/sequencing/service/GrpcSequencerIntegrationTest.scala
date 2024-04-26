@@ -52,6 +52,7 @@ import com.digitalasset.canton.store.memory.{InMemorySendTrackerStore, InMemoryS
 import com.digitalasset.canton.time.{DomainTimeTracker, SimClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{DomainTopologyClient, TopologySnapshot}
+import com.digitalasset.canton.topology.store.TopologyStateForInitializationService
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.util.PekkoUtil
 import com.digitalasset.canton.version.{
@@ -90,7 +91,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
   private val domainId = DefaultTestIdentities.domainId
   private val sequencerId = DefaultTestIdentities.sequencerId
   private val cryptoApi =
-    TestingTopologyX()
+    TestingTopology()
       .withSimpleParticipants(participant)
       .build()
       .forOwnerAndDomain(participant, domainId)
@@ -103,6 +104,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
   private val confirmationRequestsMaxRate =
     DynamicDomainParameters.defaultConfirmationRequestsMaxRate
   private val maxRequestSize = DynamicDomainParameters.defaultMaxRequestSize
+  private val topologyStateForInitializationService = mock[TopologyStateForInitializationService]
 
   when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
     .thenReturn(mockTopologySnapshot)
@@ -163,9 +165,8 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       sequencerSubscriptionFactory,
       domainParamsLookup,
       params,
-      None,
+      topologyStateForInitializationService,
       BaseTest.testedProtocolVersion,
-      enableBroadcastOfUnauthenticatedMessages = false,
     )
   private val connectService = new GrpcSequencerConnectService(
     domainId = domainId,

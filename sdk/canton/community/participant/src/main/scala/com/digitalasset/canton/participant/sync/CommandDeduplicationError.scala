@@ -5,9 +5,9 @@ package com.digitalasset.canton.participant.sync
 
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.LedgerSubmissionId
+import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.InjectionErrorGroup
 import com.digitalasset.canton.error.*
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors.DuplicateCommand
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidDeduplicationPeriodField
 import com.digitalasset.canton.ledger.participant.state.v2.ChangeId

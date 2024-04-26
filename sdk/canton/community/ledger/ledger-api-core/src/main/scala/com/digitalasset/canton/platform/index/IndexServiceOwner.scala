@@ -9,9 +9,9 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.error.IndexErrors.IndexDbException
-import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.IndexService
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}

@@ -21,11 +21,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Submission,
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.{
-  DefaultTestIdentities,
-  ParticipantId,
-  TestingOwnerWithKeysX,
-}
+import com.digitalasset.canton.topology.{DefaultTestIdentities, ParticipantId, TestingOwnerWithKeys}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, ProtocolVersionChecksAnyWordSpec}
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -37,7 +33,7 @@ class ValidatingTopologyMappingChecksTest
     with HasExecutionContext
     with ProtocolVersionChecksAnyWordSpec {
 
-  private lazy val factory = new TestingOwnerWithKeysX(
+  private lazy val factory = new TestingOwnerWithKeys(
     DefaultTestIdentities.mediatorIdX,
     loggerFactory,
     initEc = parallelExecutionContext,

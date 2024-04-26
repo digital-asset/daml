@@ -73,7 +73,7 @@ class TransactionConfirmationRequestFactoryTest
   ): DomainSnapshotSyncCryptoApi = {
 
     val map = partyToParticipant.fmap(parties => parties.map(_ -> permission).toMap)
-    TestingTopologyX()
+    TestingTopology()
       .withReversedTopology(map)
       .withDomains(domain)
       .withKeyPurposes(keyPurposes)

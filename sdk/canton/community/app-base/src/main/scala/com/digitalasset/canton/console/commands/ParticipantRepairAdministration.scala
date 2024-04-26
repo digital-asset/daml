@@ -27,7 +27,7 @@ import com.digitalasset.canton.console.{
 import com.digitalasset.canton.data.RepairContract
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.GrpcError
-import com.digitalasset.canton.participant.ParticipantNodeCommon
+import com.digitalasset.canton.participant.ParticipantNode
 import com.digitalasset.canton.participant.admin.data.ActiveContract
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.protocol.LfContractId
@@ -313,7 +313,7 @@ abstract class LocalParticipantRepairAdministration(
       loggerFactory = loggerFactory,
     ) {
 
-  protected def access[T](handler: ParticipantNodeCommon => T): T
+  protected def access[T](handler: ParticipantNode => T): T
 
   private def runRepairCommand[T](command: TraceContext => Either[String, T]): T =
     check(FeatureFlag.Repair) {

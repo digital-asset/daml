@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.{bool, flatten, str}
 import anorm.{RowParser, ~}
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.IndexerPartyDetails
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.backend.Conversions.{

@@ -36,7 +36,7 @@ import com.digitalasset.canton.console.{
   ParticipantReference,
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.ParticipantNodeX
+import com.digitalasset.canton.participant.ParticipantNode
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.transaction.*
@@ -373,7 +373,7 @@ class ParticipantPartiesAdministrationGroup(
 class LocalParticipantPartiesAdministrationGroup(
     reference: LocalParticipantReference,
     runner: AdminCommandRunner
-      & BaseInspection[ParticipantNodeX]
+      & BaseInspection[ParticipantNode]
       & ParticipantAdministration
       & BaseLedgerApiAdministration
       & InstanceReference,

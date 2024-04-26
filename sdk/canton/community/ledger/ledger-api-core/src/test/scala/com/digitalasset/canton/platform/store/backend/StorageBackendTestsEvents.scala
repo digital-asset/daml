@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.backend
 import com.daml.ledger.api.v2.event.Event
 import com.daml.ledger.api.v2.transaction.TreeEvent
 import com.daml.lf.data.Ref
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.store.dao.events.Raw
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import org.scalatest.Inside

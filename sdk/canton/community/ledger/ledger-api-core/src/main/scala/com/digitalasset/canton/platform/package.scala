@@ -4,7 +4,7 @@
 package com.digitalasset.canton
 
 import com.daml.ledger.resources.ResourceOwner
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 
 import scala.concurrent.Future
 

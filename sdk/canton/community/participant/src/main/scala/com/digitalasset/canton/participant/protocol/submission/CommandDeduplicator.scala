@@ -8,8 +8,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import com.digitalasset.canton.LedgerSubmissionId
-import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod
+import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.{
   AlreadyExists,
@@ -43,16 +42,15 @@ trait CommandDeduplicator {
   ): Future[Unit]
 
   /** Perform deduplication for the given [[com.digitalasset.canton.participant.protocol.submission.ChangeIdHash]]
-    * and [[com.digitalasset.canton.ledger.api.DeduplicationPeriod]].
+    * and [[com.digitalasset.canton.data.DeduplicationPeriod]].
     *
     * @param changeIdHash The change ID hash of the submission to be deduplicated
     * @param deduplicationPeriod The deduplication period specified with the submission
-    *
-    * @return The [[com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationOffset]]
+    * @return The [[canton.data.DeduplicationPeriod.DeduplicationOffset]]
     *         to be included in the command completion's [[com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo]].
-    *         Canton always returns a [[com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationOffset]]
+    *         Canton always returns a [[com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationOffset]]
     *         because it cannot meet the record time requirements for the other kinds of
-    *         [[com.digitalasset.canton.ledger.api.DeduplicationPeriod]]s.
+    *         [[com.digitalasset.canton.data.DeduplicationPeriod]]s.
     */
   def checkDuplication(changeIdHash: ChangeIdHash, deduplicationPeriod: DeduplicationPeriod)(
       implicit traceContext: TraceContext

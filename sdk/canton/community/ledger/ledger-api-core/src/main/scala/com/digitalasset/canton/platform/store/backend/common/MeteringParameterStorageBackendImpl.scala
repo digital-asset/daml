@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.{RowParser, ~}
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.platform.store.backend.Conversions.{offset, timestampFromMicros}
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend

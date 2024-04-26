@@ -4,7 +4,7 @@
 package com.digitalasset.canton.console.commands
 
 import com.digitalasset.canton.admin.api.client.commands.EnterpriseMediatorAdministrationCommands.{
-  InitializeX,
+  Initialize,
   LocatePruningTimestampCommand,
   Prune,
 }
@@ -128,7 +128,7 @@ class MediatorPruningAdministrationGroup(
 
 }
 
-class MediatorXSetupGroup(consoleCommandGroup: ConsoleCommandGroup)
+class MediatorSetupGroup(consoleCommandGroup: ConsoleCommandGroup)
     extends ConsoleCommandGroup.Impl(consoleCommandGroup) {
   @Help.Summary("Assign a mediator to a domain")
   def assign(
@@ -139,7 +139,7 @@ class MediatorXSetupGroup(consoleCommandGroup: ConsoleCommandGroup)
         SequencerConnectionValidation.All,
   ): Unit = consoleEnvironment.run {
     runner.adminCommand(
-      InitializeX(
+      Initialize(
         domainId,
         domainParameters.toInternal,
         sequencerConnections,

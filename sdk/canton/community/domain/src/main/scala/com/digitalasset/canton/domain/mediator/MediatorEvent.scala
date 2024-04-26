@@ -27,7 +27,7 @@ private[mediator] object MediatorEvent {
       timestamp: CantonTimestamp,
       request: MediatorConfirmationRequest,
       rootHashMessages: List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
-      batchAlsoContainsTopologyXTransaction: Boolean,
+      batchAlsoContainsTopologyTransaction: Boolean,
   ) extends MediatorEvent {
     override val requestId: RequestId = RequestId(timestamp)
   }

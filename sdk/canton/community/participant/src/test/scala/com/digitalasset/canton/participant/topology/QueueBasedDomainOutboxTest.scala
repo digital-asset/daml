@@ -50,7 +50,7 @@ class QueueBasedDomainOutboxTest
   import DefaultTestIdentities.*
 
   private val clock = new WallClock(timeouts, loggerFactory)
-  private val crypto = TestingIdentityFactoryX.newCrypto(loggerFactory)(participant1)
+  private val crypto = TestingIdentityFactory.newCrypto(loggerFactory)(participant1)
   private val publicKey =
     config
       .NonNegativeFiniteDuration(10.seconds)

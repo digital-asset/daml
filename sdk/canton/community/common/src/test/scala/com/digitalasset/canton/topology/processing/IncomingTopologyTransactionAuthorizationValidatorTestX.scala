@@ -35,7 +35,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
 
   "topology transaction authorization" when {
 
-    object Factory extends TopologyTransactionTestFactoryX(loggerFactory, parallelExecutionContext)
+    object Factory extends TopologyTransactionTestFactory(loggerFactory, parallelExecutionContext)
 
     def ts(seconds: Long) = CantonTimestamp.Epoch.plusSeconds(seconds)
 

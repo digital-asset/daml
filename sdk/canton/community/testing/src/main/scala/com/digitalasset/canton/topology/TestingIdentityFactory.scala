@@ -9,11 +9,17 @@ import cats.syntax.functor.*
 import com.daml.lf.data.Ref.PackageId
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BaseTest.testedReleaseProtocolVersion
-import com.digitalasset.canton.config.DefaultProcessingTimeouts
+import com.digitalasset.canton.concurrent.{
+  DirectExecutionContext,
+  FutureSupervisor,
+  HasFutureSupervision,
+}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, SymbolicPureCrypto}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{
   DomainParameters,
@@ -29,11 +35,12 @@ import com.digitalasset.canton.topology.store.{TopologyStoreId, ValidatedTopolog
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Remove
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
-import com.digitalasset.canton.util.{MapsUtil, OptionUtil}
+import com.digitalasset.canton.util.{ErrorUtil, MapsUtil, OptionUtil}
 import com.digitalasset.canton.{BaseTest, LfPackageId, LfPartyId}
 
 import scala.concurrent.duration.*
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.Try
 
 /** Utility functions to setup identity & crypto apis for testing purposes
   *
@@ -60,8 +67,8 @@ import scala.concurrent.{Await, ExecutionContext, Future}
   *
   * Now, in order to conveniently create a static topology for testing, we provide a
   * <ul>
-  *   <li>[[TestingTopologyX]] which allows us to define a certain static topology</li>
-  *   <li>[[TestingIdentityFactoryX]] which consumes a static topology and delivers all necessary components and
+  *   <li>[[TestingTopology]] which allows us to define a certain static topology</li>
+  *   <li>[[TestingIdentityFactory]] which consumes a static topology and delivers all necessary components and
   *       objects that a unit test might need.</li>
   *   <li>[[DefaultTestIdentities]] which provides a predefined set of identities that can be used for unit tests.</li>
   * </ul>
@@ -70,7 +77,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
   * <ul>
   *   <li>Get a [[DomainSyncCryptoClient]] with an empty topology: `TestingIdentityFactory().forOwnerAndDomain(participant1)`</li>
   *   <li>To get a [[DomainSnapshotSyncCryptoApi]]: same as above, just add `.recentState`.</li>
-  *   <li>Define a specific topology and get the [[SyncCryptoApiProvider]]: `TestingTopologyX().withTopology(Map(party1 -> participant1)).build()`.</li>
+  *   <li>Define a specific topology and get the [[SyncCryptoApiProvider]]: `TestingTopology().withTopology(Map(party1 -> participant1)).build()`.</li>
   * </ul>
   *
   * @param domains Set of domains for which the topology is valid
@@ -81,7 +88,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
   *                     If a participant occurs both in `topology` and `participants`, the attributes of `participants` have higher precedence.
   * @param keyPurposes The purposes of the keys that will be generated.
   */
-final case class TestingTopologyX(
+final case class TestingTopology(
     domains: Set[DomainId] = Set(DefaultTestIdentities.domainId),
     topology: Map[LfPartyId, Map[ParticipantId, ParticipantPermission]] = Map.empty,
     mediatorGroups: Set[MediatorGroup] = Set(
@@ -115,20 +122,20 @@ final case class TestingTopologyX(
     *
     * All domains will have exactly the same topology.
     */
-  def withDomains(domains: DomainId*): TestingTopologyX = this.copy(domains = domains.toSet)
+  def withDomains(domains: DomainId*): TestingTopology = this.copy(domains = domains.toSet)
 
   /** Overwrites the `sequencerGroup` field.
     */
   def withSequencerGroup(
       sequencerGroup: SequencerGroup
-  ): TestingTopologyX =
+  ): TestingTopology =
     this.copy(sequencerGroup = sequencerGroup)
 
   /** Overwrites the `participants` parameter while setting attributes to Submission / Ordinary.
     */
   def withSimpleParticipants(
       participants: ParticipantId*
-  ): TestingTopologyX =
+  ): TestingTopology =
     this.copy(participants =
       participants
         .map(
@@ -141,7 +148,7 @@ final case class TestingTopologyX(
     */
   def withParticipants(
       participants: (ParticipantId, ParticipantAttributes)*
-  ): TestingTopologyX =
+  ): TestingTopology =
     this.copy(participants = participants.toMap)
 
   def allParticipants(): Set[ParticipantId] = {
@@ -149,20 +156,20 @@ final case class TestingTopologyX(
       .flatMap(x => x.keys) ++ participants.keys).toSet
   }
 
-  def withKeyPurposes(keyPurposes: Set[KeyPurpose]): TestingTopologyX =
+  def withKeyPurposes(keyPurposes: Set[KeyPurpose]): TestingTopology =
     this.copy(keyPurposes = keyPurposes)
 
   /** This adds a tag to the id of the encryption key during key generation [[genKeyCollection]].
     * Therefore, we can potentially enforce a different key id for the same encryption key.
     */
-  def withEncKeyTag(tag: String): TestingTopologyX =
+  def withEncKeyTag(tag: String): TestingTopology =
     this.copy(encKeyTag = Some(tag))
 
   /** Define the topology as a simple map of party to participant */
   def withTopology(
       parties: Map[LfPartyId, ParticipantId],
       permission: ParticipantPermission = ParticipantPermission.Submission,
-  ): TestingTopologyX = {
+  ): TestingTopology = {
     val tmp: Map[LfPartyId, Map[ParticipantId, ParticipantPermission]] = parties.toSeq
       .map { case (party, participant) =>
         (party, (participant, permission))
@@ -175,7 +182,7 @@ final case class TestingTopologyX(
   /** Define the topology as a map of participant to map of parties */
   def withReversedTopology(
       parties: Map[ParticipantId, Map[LfPartyId, ParticipantPermission]]
-  ): TestingTopologyX = {
+  ): TestingTopology = {
     val converted = parties
       .flatMap { case (participantId, partyToPermission) =>
         partyToPermission.toSeq.map { case (party, permission) =>
@@ -189,26 +196,129 @@ final case class TestingTopologyX(
     copy(topology = converted)
   }
 
-  def withPackages(packages: Map[ParticipantId, Seq[LfPackageId]]): TestingTopologyX =
+  def withPackages(packages: Map[ParticipantId, Seq[LfPackageId]]): TestingTopology =
     this.copy(packages = packages)
 
   def build(
       loggerFactory: NamedLoggerFactory = NamedLoggerFactory("test-area", "crypto")
-  ): TestingIdentityFactoryX =
-    new TestingIdentityFactoryX(this, loggerFactory, domainParameters)
+  ): TestingIdentityFactory =
+    new TestingIdentityFactory(this, loggerFactory, domainParameters)
 }
 
-// TODO(#15161): merge with base trait
-class TestingIdentityFactoryX(
-    topology: TestingTopologyX,
+class TestingIdentityFactory(
+    topology: TestingTopology,
     override protected val loggerFactory: NamedLoggerFactory,
     dynamicDomainParameters: List[DomainParameters.WithValidity[DynamicDomainParameters]],
-) extends TestingIdentityFactoryBase
-    with NamedLogging {
+) extends NamedLogging {
+  protected implicit val directExecutionContext: ExecutionContext =
+    DirectExecutionContext(noTracingLogger)
+
+  def forOwner(
+      owner: Member,
+      availableUpToInclusive: CantonTimestamp = CantonTimestamp.MaxValue,
+  ): SyncCryptoApiProvider = {
+    new SyncCryptoApiProvider(
+      owner,
+      ips(availableUpToInclusive),
+      TestingIdentityFactory.newCrypto(loggerFactory)(owner),
+      CachingConfigs.testing,
+      DefaultProcessingTimeouts.testing,
+      FutureSupervisor.Noop,
+      loggerFactory,
+    )
+  }
+
+  def forOwnerAndDomain(
+      owner: Member,
+      domain: DomainId = DefaultTestIdentities.domainId,
+      availableUpToInclusive: CantonTimestamp = CantonTimestamp.MaxValue,
+  ): DomainSyncCryptoClient =
+    forOwner(owner, availableUpToInclusive).tryForDomain(domain)
+
+  private def ips(upToInclusive: CantonTimestamp): IdentityProvidingServiceClient = {
+    val ips = new IdentityProvidingServiceClient()
+    domains.foreach(dId =>
+      ips.add(new DomainTopologyClient() with HasFutureSupervision with NamedLogging {
+
+        override protected def loggerFactory: NamedLoggerFactory =
+          TestingIdentityFactory.this.loggerFactory
+
+        override protected def futureSupervisor: FutureSupervisor = FutureSupervisor.Noop
+
+        override protected val executionContext: ExecutionContext =
+          TestingIdentityFactory.this.directExecutionContext
+
+        override def await(condition: TopologySnapshot => Future[Boolean], timeout: Duration)(
+            implicit traceContext: TraceContext
+        ): FutureUnlessShutdown[Boolean] = ???
+
+        override def domainId: DomainId = dId
+
+        override def trySnapshot(timestamp: CantonTimestamp)(implicit
+            traceContext: TraceContext
+        ): TopologySnapshot = {
+          require(timestamp <= upToInclusive, "Topology information not yet available")
+          topologySnapshot(domainId, timestampForDomainParameters = timestamp)
+        }
+
+        override def currentSnapshotApproximation(implicit
+            traceContext: TraceContext
+        ): TopologySnapshot =
+          topologySnapshot(
+            domainId,
+            timestampForDomainParameters = CantonTimestamp.Epoch,
+          )
+
+        override def snapshotAvailable(timestamp: CantonTimestamp): Boolean =
+          timestamp <= upToInclusive
+
+        override def awaitTimestamp(timestamp: CantonTimestamp, waitForEffectiveTime: Boolean)(
+            implicit traceContext: TraceContext
+        ): Option[Future[Unit]] = Option.when(timestamp > upToInclusive) {
+          ErrorUtil.internalErrorAsync(
+            new IllegalArgumentException(
+              s"Attempt to obtain a topology snapshot at $timestamp that will never be available"
+            )
+          )
+        }
+
+        override def awaitTimestampUS(timestamp: CantonTimestamp, waitForEffectiveTime: Boolean)(
+            implicit traceContext: TraceContext
+        ): Option[FutureUnlessShutdown[Unit]] =
+          awaitTimestamp(timestamp, waitForEffectiveTime).map(FutureUnlessShutdown.outcomeF)
+
+        override def approximateTimestamp: CantonTimestamp =
+          currentSnapshotApproximation(TraceContext.empty).timestamp
+
+        override def snapshot(timestamp: CantonTimestamp)(implicit
+            traceContext: TraceContext
+        ): Future[TopologySnapshot] = awaitSnapshot(timestamp)
+
+        override def awaitSnapshot(timestamp: CantonTimestamp)(implicit
+            traceContext: TraceContext
+        ): Future[TopologySnapshot] =
+          Future.fromTry(Try(trySnapshot(timestamp)))
+
+        override def awaitSnapshotUS(timestamp: CantonTimestamp)(implicit
+            traceContext: TraceContext
+        ): FutureUnlessShutdown[TopologySnapshot] =
+          FutureUnlessShutdown.fromTry(Try(trySnapshot(timestamp)))
+
+        override def close(): Unit = ()
+
+        override def topologyKnownUntilTimestamp: CantonTimestamp = upToInclusive
+
+        override def snapshotUS(timestamp: CantonTimestamp)(implicit
+            traceContext: TraceContext
+        ): FutureUnlessShutdown[TopologySnapshot] = awaitSnapshotUS(timestamp)
+      })
+    )
+    ips
+  }
 
   private val defaultProtocolVersion = BaseTest.testedProtocolVersion
 
-  override protected def domains: Set[DomainId] = topology.domains
+  private def domains: Set[DomainId] = topology.domains
 
   def topologySnapshot(
       domainId: DomainId = DefaultTestIdentities.domainId,
@@ -246,7 +356,7 @@ class TestingIdentityFactoryX(
             active = group.active,
             observers = group.passive,
           )
-          .getOrElse(sys.error("creating MediatorDomainStateX should not have failed"))
+          .getOrElse(sys.error("creating MediatorDomainState should not have failed"))
       )
     )
 
@@ -259,7 +369,7 @@ class TestingIdentityFactoryX(
             active = topology.sequencerGroup.active.forgetNE,
             observers = topology.sequencerGroup.passive,
           )
-          .valueOr(err => sys.error(s"creating SequencerDomainStateX should not have failed: $err"))
+          .valueOr(err => sys.error(s"creating SequencerDomainState should not have failed: $err"))
       )
 
     val partyDataTx = partyToParticipantTxs()
@@ -450,13 +560,13 @@ class TestingIdentityFactoryX(
 }
 
 /** something used often: somebody with keys and ability to created signed transactions */
-class TestingOwnerWithKeysX(
+class TestingOwnerWithKeys(
     val keyOwner: Member,
     loggerFactory: NamedLoggerFactory,
     initEc: ExecutionContext,
 ) extends NoTracing {
 
-  val cryptoApi = TestingIdentityFactoryX(loggerFactory).forOwnerAndDomain(keyOwner)
+  val cryptoApi = TestingIdentityFactory(loggerFactory).forOwnerAndDomain(keyOwner)
 
   object SigningKeys {
 
@@ -713,23 +823,23 @@ class TestingOwnerWithKeysX(
 
 }
 
-object TestingIdentityFactoryX {
+object TestingIdentityFactory {
 
   def apply(
       loggerFactory: NamedLoggerFactory,
       topology: Map[LfPartyId, Map[ParticipantId, ParticipantPermission]] = Map.empty,
-  ): TestingIdentityFactoryX =
-    TestingIdentityFactoryX(
-      TestingTopologyX(topology = topology),
+  ): TestingIdentityFactory =
+    TestingIdentityFactory(
+      TestingTopology(topology = topology),
       loggerFactory,
       TestDomainParameters.defaultDynamic,
     )
 
   def apply(
-      topology: TestingTopologyX,
+      topology: TestingTopology,
       loggerFactory: NamedLoggerFactory,
       dynamicDomainParameters: DynamicDomainParameters,
-  ) = new TestingIdentityFactoryX(
+  ) = new TestingIdentityFactory(
     topology,
     loggerFactory,
     dynamicDomainParameters = List(

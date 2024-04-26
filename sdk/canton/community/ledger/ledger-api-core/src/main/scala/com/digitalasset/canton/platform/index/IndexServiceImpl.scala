@@ -22,6 +22,7 @@ import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.metrics.InstrumentedGraph.*
 import com.daml.tracing.{Event, SpanAttribute, Spans}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.{
   Filters,
   InclusiveFilters,
@@ -34,7 +35,6 @@ import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.api.{TraceIdentifiers, domain}
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2
 import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.digitalasset.canton.ledger.participant.state.index.v2.*

@@ -51,7 +51,7 @@ abstract class SequencerApiTest
         topologyFactory.forOwnerAndDomain(owner = mediatorId, domainId)
       )
 
-    def topologyFactory: TestingIdentityFactoryBase
+    def topologyFactory: TestingIdentityFactory
 
     def close(): Unit = {
       sequencer.close()

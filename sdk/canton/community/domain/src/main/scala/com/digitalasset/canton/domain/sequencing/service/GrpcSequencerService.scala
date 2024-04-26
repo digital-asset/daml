@@ -113,8 +113,7 @@ object GrpcSequencerService {
       domainParamsLookup: DynamicDomainParametersLookup[SequencerDomainParameters],
       parameters: SequencerParameters,
       protocolVersion: ProtocolVersion,
-      topologyStateForInitializationService: Option[TopologyStateForInitializationService],
-      enableBroadcastOfUnauthenticatedMessages: Boolean,
+      topologyStateForInitializationService: TopologyStateForInitializationService,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext, materializer: Materializer): GrpcSequencerService =
     new GrpcSequencerService(
@@ -137,7 +136,6 @@ object GrpcSequencerService {
       parameters,
       topologyStateForInitializationService,
       protocolVersion,
-      enableBroadcastOfUnauthenticatedMessages,
     )
 
   /** Abstracts the steps that are different in processing the submission requests coming from the various sendAsync endpoints
@@ -245,10 +243,8 @@ class GrpcSequencerService(
     directSequencerSubscriptionFactory: DirectSequencerSubscriptionFactory,
     domainParamsLookup: DynamicDomainParametersLookup[SequencerDomainParameters],
     parameters: SequencerParameters,
-    // TODO(#15161) Remove the option
-    topologyStateForInitializationService: Option[TopologyStateForInitializationService],
+    topologyStateForInitializationService: TopologyStateForInitializationService,
     protocolVersion: ProtocolVersion,
-    enableBroadcastOfUnauthenticatedMessages: Boolean,
     maxItemsInTopologyResponse: PositiveInt = PositiveInt.tryCreate(100),
 )(implicit ec: ExecutionContext)
     extends v30.SequencerServiceGrpc.SequencerService
@@ -505,8 +501,7 @@ class GrpcSequencerService(
     val nonIdmRecipients = request.batch.envelopes
       .flatMap(_.recipients.allRecipients)
       .filter {
-        case TopologyBroadcastAddress.recipient if enableBroadcastOfUnauthenticatedMessages =>
-          false
+        case TopologyBroadcastAddress.recipient => false
         case _ => true
       }
     Either.cond(
@@ -780,37 +775,27 @@ class GrpcSequencerService(
       responseObserver: StreamObserver[v30.DownloadTopologyStateForInitResponse],
   ): Unit = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    topologyStateForInitializationService match {
-      case Some(topologyStateForInitializationService) =>
-        TopologyStateForInitRequest
-          .fromProtoV30(requestP)
-          .traverse(request =>
-            topologyStateForInitializationService
-              .initialSnapshot(request.member)
-          )
-          .onComplete {
-            case Success(Left(parsingError)) =>
-              responseObserver.onError(ProtoDeserializationFailure.Wrap(parsingError).asGrpcError)
+    TopologyStateForInitRequest
+      .fromProtoV30(requestP)
+      .traverse(request =>
+        topologyStateForInitializationService
+          .initialSnapshot(request.member)
+      )
+      .onComplete {
+        case Success(Left(parsingError)) =>
+          responseObserver.onError(ProtoDeserializationFailure.Wrap(parsingError).asGrpcError)
 
-            case Success(Right(initialSnapshot)) =>
-              initialSnapshot.result.grouped(maxItemsInTopologyResponse.value).foreach { batch =>
-                val response =
-                  TopologyStateForInitResponse(Traced(StoredTopologyTransactions(batch)))
-                responseObserver.onNext(response.toProtoV30)
-              }
-              responseObserver.onCompleted()
-
-            case Failure(exception) =>
-              responseObserver.onError(exception)
+        case Success(Right(initialSnapshot)) =>
+          initialSnapshot.result.grouped(maxItemsInTopologyResponse.value).foreach { batch =>
+            val response =
+              TopologyStateForInitResponse(Traced(StoredTopologyTransactions(batch)))
+            responseObserver.onNext(response.toProtoV30)
           }
+          responseObserver.onCompleted()
 
-      case None =>
-        responseObserver.onError(
-          new UnsupportedOperationException(
-            "service not implemented for non-x nodes. this is a coding bug"
-          )
-        )
-    }
+        case Failure(exception) =>
+          responseObserver.onError(exception)
+      }
   }
 
   private def invalidRequest(message: String): Status =

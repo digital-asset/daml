@@ -35,7 +35,7 @@ import com.digitalasset.canton.topology.client.{DomainTopologyClient, TopologySn
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
   SequencedTime,
-  TopologyTransactionTestFactoryX,
+  TopologyTransactionTestFactory,
 }
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.{
@@ -91,7 +91,7 @@ class GrpcSequencerServiceTest
     when(sequencer.acknowledgeSigned(any[SignedContent[AcknowledgeRequest]])(anyTraceContext))
       .thenReturn(EitherT.rightT(()))
     val cryptoApi: DomainSyncCryptoClient =
-      TestingIdentityFactoryX(loggerFactory).forOwnerAndDomain(member)
+      TestingIdentityFactory(loggerFactory).forOwnerAndDomain(member)
     val subscriptionPool: SubscriptionPool[Subscription] =
       mock[SubscriptionPool[GrpcManagedSubscription[?]]]
 
@@ -135,7 +135,7 @@ class GrpcSequencerServiceTest
     private val topologyInitService: TopologyStateForInitializationService =
       new TopologyStateForInitializationService {
         val factoryX =
-          new TopologyTransactionTestFactoryX(loggerFactory, initEc = parallelExecutionContext)
+          new TopologyTransactionTestFactory(loggerFactory, initEc = parallelExecutionContext)
 
         override def initialSnapshot(member: Member)(implicit
             executionContext: ExecutionContext,
@@ -168,9 +168,8 @@ class GrpcSequencerServiceTest
         sequencerSubscriptionFactory,
         domainParamLookup,
         params,
-        Some(topologyInitService),
+        topologyInitService,
         BaseTest.testedProtocolVersion,
-        enableBroadcastOfUnauthenticatedMessages = false,
         maxItemsInTopologyResponse = PositiveInt.tryCreate(maxItemsInTopologyBatch),
       )
   }

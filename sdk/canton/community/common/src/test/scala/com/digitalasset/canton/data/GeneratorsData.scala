@@ -13,7 +13,6 @@ import com.digitalasset.canton.data.ActionDescription.{
   LookupByKeyActionDescription,
 }
 import com.digitalasset.canton.data.ViewPosition.{MerklePathElement, MerkleSeqIndex}
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}

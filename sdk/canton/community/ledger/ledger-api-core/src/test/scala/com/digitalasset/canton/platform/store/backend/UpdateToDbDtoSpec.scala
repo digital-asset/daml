@@ -14,12 +14,8 @@ import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder, 
 import com.daml.lf.value.Value
 import com.daml.metrics.api.MetricsContext
 import com.daml.platform.v1.index.StatusDetails
-import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{
-  DeduplicationDuration,
-  DeduplicationOffset,
-}
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.v2.{Reassignment, ReassignmentInfo, Update}
 import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextWithTrace

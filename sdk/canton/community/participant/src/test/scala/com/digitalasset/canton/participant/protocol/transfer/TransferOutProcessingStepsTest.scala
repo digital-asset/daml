@@ -125,7 +125,7 @@ final class TransferOutProcessingStepsTest
 
   private val adminSubmitter: LfPartyId = submittingParticipant.adminParty.toLf
 
-  private val crypto = TestingIdentityFactoryX.newCrypto(loggerFactory)(submittingParticipant)
+  private val crypto = TestingIdentityFactory.newCrypto(loggerFactory)(submittingParticipant)
 
   private lazy val multiDomainEventLog = mock[MultiDomainEventLog]
   private val clock = new WallClock(timeouts, loggerFactory)
@@ -169,7 +169,7 @@ final class TransferOutProcessingStepsTest
       packages: Map[ParticipantId, Seq[LfPackageId]] = Map.empty,
       domains: Set[DomainId] = Set(DefaultTestIdentities.domainId),
   ) =
-    TestingTopologyX(domains)
+    TestingTopology(domains)
       .withReversedTopology(topology)
       .withPackages(packages)
       .build(loggerFactory)
@@ -197,7 +197,7 @@ final class TransferOutProcessingStepsTest
   private val cryptoFactory = createCryptoFactory()
 
   private def createCryptoSnapshot(
-      testingIdentityFactory: TestingIdentityFactoryX = cryptoFactory
+      testingIdentityFactory: TestingIdentityFactory = cryptoFactory
   ) =
     testingIdentityFactory
       .forOwnerAndDomain(submittingParticipant, sourceDomain.unwrap)

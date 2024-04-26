@@ -279,7 +279,7 @@ private[mediator] class MediatorEventsProcessor(
     val responses =
       envelopes.mapFilter(ProtocolMessage.select[SignedProtocolMessage[ConfirmationResponse]])
 
-    val containsTopologyTransactionsX = DefaultOpenEnvelopesFilter.containsTopologyX(envelopes)
+    val containsTopologyTransactions = DefaultOpenEnvelopesFilter.containsTopology(envelopes)
 
     val events: Seq[MediatorEvent] = if (requests.nonEmpty && responses.nonEmpty) {
       logger.error("Received both mediator confirmation requests and confirmation responses.")
@@ -297,7 +297,7 @@ private[mediator] class MediatorEventsProcessor(
               timestamp,
               request.protocolMessage,
               rootHashMessages.toList,
-              batchAlsoContainsTopologyXTransaction = containsTopologyTransactionsX,
+              batchAlsoContainsTopologyTransaction = containsTopologyTransactions,
             )
           )
 

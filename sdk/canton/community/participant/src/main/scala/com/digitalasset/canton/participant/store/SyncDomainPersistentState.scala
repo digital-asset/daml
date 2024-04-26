@@ -56,14 +56,14 @@ trait SyncDomainPersistentState extends NamedLogging with AutoCloseable {
 
 object SyncDomainPersistentState {
 
-  def createX(
+  def create(
       storage: Storage,
       domainId: IndexedDomain,
       protocolVersion: ProtocolVersion,
       clock: Clock,
       crypto: Crypto,
       parameters: ParticipantStoreConfig,
-      topologyXConfig: TopologyConfig,
+      topologyConfig: TopologyConfig,
       caching: CachingConfigs,
       batching: BatchingConfig,
       processingTimeouts: ProcessingTimeout,
@@ -81,7 +81,7 @@ object SyncDomainPersistentState {
           domainId,
           protocolVersion,
           enableAdditionalConsistencyChecks,
-          topologyXConfig.enableTopologyTransactionValidation,
+          topologyConfig.enableTopologyTransactionValidation,
           indexedStringStore,
           domainLoggerFactory,
           processingTimeouts,
@@ -99,7 +99,7 @@ object SyncDomainPersistentState {
           batching,
           processingTimeouts,
           enableAdditionalConsistencyChecks,
-          topologyXConfig.enableTopologyTransactionValidation,
+          topologyConfig.enableTopologyTransactionValidation,
           indexedStringStore,
           domainLoggerFactory,
           futureSupervisor,

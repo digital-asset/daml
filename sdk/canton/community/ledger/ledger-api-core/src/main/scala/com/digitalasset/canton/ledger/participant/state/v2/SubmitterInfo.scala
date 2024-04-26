@@ -6,7 +6,7 @@ package com.digitalasset.canton.ledger.participant.state.v2
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.TransactionNodeStatistics
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod
+import com.digitalasset.canton.data.DeduplicationPeriod
 
 /** Collects context information for a submission.
   *

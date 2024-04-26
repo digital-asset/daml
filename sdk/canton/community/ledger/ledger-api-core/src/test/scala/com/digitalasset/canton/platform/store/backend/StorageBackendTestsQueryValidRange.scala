@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.daml.logging.entries.LoggingEntries
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, SuppressionRule}
 import com.digitalasset.canton.platform.store.backend.StorageBackendTestValues.{
   offset,

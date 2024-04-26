@@ -25,7 +25,7 @@ import com.digitalasset.canton.participant.domain.{
   ParticipantInitializeTopology,
 }
 import com.digitalasset.canton.participant.store.SyncDomainPersistentState
-import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManagerImpl
+import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.client.{SequencerClient, SequencerClientFactory}
 import com.digitalasset.canton.sequencing.{EnvelopeHandler, SequencerConnections}
@@ -69,7 +69,7 @@ trait ParticipantTopologyDispatcherHandle {
 class ParticipantTopologyDispatcher(
     val manager: AuthorizedTopologyManager,
     participantId: ParticipantId,
-    state: SyncDomainPersistentStateManagerImpl,
+    state: SyncDomainPersistentStateManager,
     crypto: Crypto,
     clock: Clock,
     config: LocalNodeConfig,
@@ -347,7 +347,7 @@ class ParticipantTopologyDispatcher(
 
 }
 
-/** Utility class to dispatch the initial set of onboarding transactions to a domain - X version
+/** Utility class to dispatch the initial set of onboarding transactions to a domain
   *
   * Generally, when we onboard to a new domain, we only want to onboard with the minimal set of
   * topology transactions that are required to join a domain. Otherwise, if we e.g. have

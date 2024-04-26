@@ -335,7 +335,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
           keys,
           isProposal,
           crypto.privateCrypto,
-          // TODO(#14048) The `SignedTopologyTransactionX` may use a different versioning scheme than the contained transaction. Use the right protocol version here
+          // TODO(#14048) The `SignedTopologyTransaction` may use a different versioning scheme than the contained transaction. Use the right protocol version here
           transaction.representativeProtocolVersion.representative,
         )
         .leftMap {

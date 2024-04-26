@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 
 // (startExclusive, endInclusive]
 final case class EventsRange(

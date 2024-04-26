@@ -29,12 +29,12 @@ import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.CommunityGrpcV
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.domain.mediator.*
 import com.digitalasset.canton.domain.metrics.MediatorMetrics
-import com.digitalasset.canton.domain.sequencing.SequencerNodeBootstrapX
-import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeXConfig
+import com.digitalasset.canton.domain.sequencing.SequencerNodeBootstrap
+import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeConfig
 import com.digitalasset.canton.domain.sequencing.sequencer.CommunitySequencerFactory
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.StaticGrpcServices
-import com.digitalasset.canton.participant.{ParticipantNodeBootstrap, ParticipantNodeBootstrapX}
+import com.digitalasset.canton.participant.ParticipantNodeBootstrap
 import com.digitalasset.canton.resource.{
   CommunityDbMigrationsFactory,
   CommunityStorageFactory,
@@ -50,9 +50,9 @@ class CommunityEnvironment(
 
   override type Config = CantonCommunityConfig
 
-  override protected val participantNodeFactoryX
-      : ParticipantNodeBootstrap.Factory[Config#ParticipantConfigType, ParticipantNodeBootstrapX] =
-    ParticipantNodeBootstrapX.CommunityParticipantFactory
+  override protected val participantNodeFactory
+      : ParticipantNodeBootstrap.Factory[Config#ParticipantConfigType, ParticipantNodeBootstrap] =
+    ParticipantNodeBootstrap.CommunityParticipantFactory
 
   override type Console = CommunityConsoleEnvironment
 
@@ -73,24 +73,24 @@ class CommunityEnvironment(
     new CommunityHealthDumpGenerator(this, commandRunner)
   }
 
-  override protected def createSequencerX(
+  override protected def createSequencer(
       name: String,
-      sequencerConfig: CommunitySequencerNodeXConfig,
-  ): SequencerNodeBootstrapX = {
+      sequencerConfig: CommunitySequencerNodeConfig,
+  ): SequencerNodeBootstrap = {
     val nodeFactoryArguments = NodeFactoryArguments(
       name,
       sequencerConfig,
       config.sequencerNodeParametersByString(name),
-      createClock(Some(SequencerNodeBootstrapX.LoggerFactoryKeyName -> name)),
+      createClock(Some(SequencerNodeBootstrap.LoggerFactoryKeyName -> name)),
       metricsRegistry.forSequencer(name),
       testingConfig,
       futureSupervisor,
-      loggerFactory.append(SequencerNodeBootstrapX.LoggerFactoryKeyName, name),
+      loggerFactory.append(SequencerNodeBootstrap.LoggerFactoryKeyName, name),
       writeHealthDumpToFile,
       configuredOpenTelemetry,
     )
 
-    val boostrapCommonArguments = nodeFactoryArguments
+    val bootstrapCommonArguments = nodeFactoryArguments
       .toCantonNodeBootstrapCommonArguments(
         new CommunityStorageFactory(sequencerConfig.storage),
         new CommunityCryptoFactory(),
@@ -98,11 +98,11 @@ class CommunityEnvironment(
         new CommunityGrpcVaultServiceFactory,
       )
       .valueOr(err =>
-        throw new RuntimeException(s"Failed to create sequencer-x node $name: $err")
+        throw new RuntimeException(s"Failed to create sequencer node $name: $err")
       ) // TODO(i3168): Handle node startup errors gracefully
 
-    new SequencerNodeBootstrapX(
-      boostrapCommonArguments,
+    new SequencerNodeBootstrap(
+      bootstrapCommonArguments,
       CommunitySequencerFactory,
       (_, _) =>
         StaticGrpcServices
@@ -111,10 +111,10 @@ class CommunityEnvironment(
     )
   }
 
-  override protected def createMediatorX(
+  override protected def createMediator(
       name: String,
-      mediatorConfig: CommunityMediatorNodeXConfig,
-  ): MediatorNodeBootstrapX = {
+      mediatorConfig: CommunityMediatorNodeConfig,
+  ): MediatorNodeBootstrap = {
 
     val factoryArguments = mediatorNodeFactoryArguments(name, mediatorConfig)
     val arguments = factoryArguments
@@ -132,7 +132,7 @@ class CommunityEnvironment(
       MediatorMetrics,
     ]
 
-    new MediatorNodeBootstrapX(
+    new MediatorNodeBootstrap(
       arguments,
       new CommunityMediatorReplicaManager(
         config.parameters.timeouts.processing,

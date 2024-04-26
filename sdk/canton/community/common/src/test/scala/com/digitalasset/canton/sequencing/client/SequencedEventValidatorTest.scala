@@ -474,7 +474,7 @@ class SequencedEventValidatorTest
     "not request a topology snapshot after a validation failure" in { fixture =>
       import fixture.*
 
-      val syncCryptoApi = TestingIdentityFactoryX(loggerFactory)
+      val syncCryptoApi = TestingIdentityFactory(loggerFactory)
         .forOwnerAndDomain(subscriberId, defaultDomainId, CantonTimestamp.ofEpochSecond(2))
       val validator = mkValidator(syncCryptoApi)
       val deliver1 = createEventWithCounterAndTs(1L, CantonTimestamp.Epoch).futureValue

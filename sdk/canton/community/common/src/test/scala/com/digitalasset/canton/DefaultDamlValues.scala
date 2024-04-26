@@ -5,7 +5,7 @@ package com.digitalasset.canton
 
 import cats.Id
 import com.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationDuration
+import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.ledger.participant.state.v2.*
 import com.digitalasset.canton.protocol.{
   LfCommittedTransaction,

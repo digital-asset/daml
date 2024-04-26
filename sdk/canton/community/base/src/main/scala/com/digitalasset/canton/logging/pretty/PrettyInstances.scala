@@ -5,10 +5,6 @@ package com.digitalasset.canton.logging.pretty
 
 import cats.Show.Shown
 import com.daml.error.utils.DecodedCantonError
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary
-import com.daml.ledger.javaapi.data.Party
-import com.daml.ledger.javaapi.data.codegen.ContractId
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{DottedName, PackageId, QualifiedName}
 import com.daml.lf.transaction.ContractStateMachine.ActiveLedgerState
@@ -17,9 +13,7 @@ import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.RequireTypes.{Port, RefinedNumeric}
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod
-import com.digitalasset.canton.ledger.offset
-import com.digitalasset.canton.ledger.participant.state.v2.ChangeId
+import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.UniqueIdentifier
 import com.digitalasset.canton.tracing.{TraceContext, W3CTraceContext}
@@ -161,27 +155,6 @@ trait PrettyInstances {
 
   implicit def prettyLedgerString: Pretty[Ref.LedgerString] = prettyOfString(id => id: String)
 
-  implicit val prettyLedgerBoundary: Pretty[ParticipantBoundary] = {
-    case ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN =>
-      Tree.Literal("PARTICIPANT_BOUNDARY_BEGIN")
-    case ParticipantBoundary.PARTICIPANT_BOUNDARY_END => Tree.Literal("PARTICIPANT_BOUNDARY_END")
-    case ParticipantBoundary.Unrecognized(value) => Tree.Literal(s"Unrecognized($value)")
-  }
-
-  implicit val prettyLedgerOffset: Pretty[ParticipantOffset] = {
-    case ParticipantOffset(ParticipantOffset.Value.Absolute(absolute)) =>
-      Tree.Apply("AbsoluteOffset", Iterator(Tree.Literal(absolute)))
-    case ParticipantOffset(ParticipantOffset.Value.Boundary(boundary)) =>
-      Tree.Apply("Boundary", Iterator(boundary.toTree))
-    case ParticipantOffset(ParticipantOffset.Value.Empty) => Tree.Literal("Empty")
-  }
-
-  implicit val prettyReadServiceOffset: Pretty[offset.Offset] = prettyOfString(
-    // Do not use `toReadableHash` because this is not a hash but a hex-encoded string
-    // whose end contains the most important information
-    _.toHexString
-  )
-
   implicit def prettyLfParticipantId: Pretty[Ref.ParticipantId] = prettyOfString(prettyUidString(_))
 
   implicit def prettyLedgerApplicationId: Pretty[LedgerApplicationId] = prettyOfString(
@@ -196,9 +169,6 @@ trait PrettyInstances {
 
   implicit val prettyNodeId: Pretty[LfNodeId] = prettyOfParam(_.index)
 
-  implicit def prettyPrimitiveParty: Pretty[Party] =
-    prettyOfString(party => prettyUidString(party.getValue))
-
   private def prettyUidString(partyStr: String): String =
     UniqueIdentifier.fromProtoPrimitive_(partyStr) match {
       case Right(uid) => uid.show
@@ -206,12 +176,6 @@ trait PrettyInstances {
     }
 
   implicit def prettyPackageId: Pretty[PackageId] = prettyOfString(id => show"${id.readableHash}")
-
-  implicit def prettyChangeId: Pretty[ChangeId] = prettyOfClass(
-    param("application Id", _.applicationId),
-    param("command Id", _.commandId),
-    param("act as", _.actAs),
-  )
 
   implicit def prettyLfDottedName: Pretty[DottedName] = prettyOfString { dottedName =>
     val segments = dottedName.segments
@@ -254,17 +218,6 @@ trait PrettyInstances {
 
   implicit def prettyLfVersioned[A: Pretty]: Pretty[LfVersioned[A]] =
     prettyOfClass[Versioned[A]](unnamedParam(_.unversioned), param("version", _.version))
-
-  implicit def prettyContractId: Pretty[ContractId[_]] = prettyOfString { coid =>
-    val coidStr = coid.contractId
-    val tokens = coidStr.split(':')
-    if (tokens.lengthCompare(2) == 0) {
-      tokens(0).readableHash.toString + ":" + tokens(1).readableHash.toString
-    } else {
-      // Don't abbreviate anything for unusual contract ids
-      coidStr
-    }
-  }
 
   implicit def prettyLfGlobalKey: Pretty[LfGlobalKey] = prettyOfClass(
     param("templateId", _.templateId),

@@ -18,7 +18,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   InternalSequencerPruningStatus,
   SequencerMemberStatus,
 }
-import com.digitalasset.canton.sequencing.protocol.{SequencerErrors, *}
+import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.{OrdinarySerializedEvent, SequencerTestUtils}
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.topology.{
@@ -26,7 +26,7 @@ import com.digitalasset.canton.topology.{
   Member,
   ParticipantId,
   SequencerGroup,
-  TestingTopologyX,
+  TestingTopology,
   UniqueIdentifier,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -56,7 +56,7 @@ trait SequencerStateManagerStoreTest
   private var materializer: Materializer = _
   private lazy val domainId = DefaultTestIdentities.domainId
   private lazy val syncCryptoApi =
-    TestingTopologyX(
+    TestingTopology(
       domains = Set(domainId),
       sequencerGroup = SequencerGroup(
         active = NonEmpty.mk(Seq, DefaultTestIdentities.sequencerId),

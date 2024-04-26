@@ -92,7 +92,7 @@ class StoreBasedTopologySnapshot(
             ).getOrElse(throw new IllegalStateException("Unable to locate domain parameters state"))
               .discard
 
-            // TODO(#14054) Once the non-proto DynamicDomainParametersX is available, use it
+            // TODO(#14054) Once the non-proto DynamicDomainParameters is available, use it
             //   _.parameters.requiredPackages
             Seq.empty[PackageId]
           }
@@ -204,7 +204,7 @@ class StoreBasedTopologySnapshot(
             seq.sortBy(_.validFrom),
           ).getOrElse(
             throw new IllegalStateException(
-              "Group-by would not have produced empty PartyToParticipantX seq"
+              "Group-by would not have produced empty PartyToParticipant seq"
             )
           )
         }

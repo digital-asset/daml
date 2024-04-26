@@ -6,8 +6,8 @@ package com.digitalasset.canton.platform
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.timer.Timeout.*
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.error.CommonErrors
-import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.DispatcherState.{

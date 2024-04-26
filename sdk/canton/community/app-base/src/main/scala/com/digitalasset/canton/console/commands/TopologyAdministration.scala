@@ -203,7 +203,7 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("Downloads the node's topology identity transactions")
     @Help.Description(
-      "The node's identity is defined by topology transactions of type NamespaceDelegationX and OwnerToKeyMappingX."
+      "The node's identity is defined by topology transactions of type NamespaceDelegation and OwnerToKeyMapping."
     )
     def identity_transactions()
         : Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]] = {
@@ -230,7 +230,7 @@ class TopologyAdministrationGroup(
     }
 
     @Help.Summary("Loads topology transactions from a file into the specified topology store")
-    @Help.Description("The file must contain data serialized by TopologyTransactionsX.")
+    @Help.Description("The file must contain data serialized by TopologyTransactions.")
     def import_topology_snapshot_from(file: String, store: String): Unit = {
       BinaryFileUtil.readByteStringFromFile(file).map(import_topology_snapshot(_, store)).valueOr {
         err =>
@@ -429,7 +429,7 @@ class TopologyAdministrationGroup(
 
     @Help.Summary(
       """Creates and returns proposals of topology transactions to bootstrap a domain, specifically
-        |DomainParametersStateX, SequencerDomainStateX, and MediatorDomainStateX.""".stripMargin
+        |DomainParametersState, SequencerDomainState, and MediatorDomainState.""".stripMargin
     )
     def generate_genesis_topology(
         domainId: DomainId,
@@ -849,7 +849,7 @@ class TopologyAdministrationGroup(
     }
   }
 
-  // TODO(#14057) complete @Help.Description's (by adapting TopologyAdministrationGroup-non-X descriptions)
+  // TODO(#14057) complete @Help.Description's (by adapting TopologyAdministrationGroup descriptions from main-2.x)
   @Help.Summary("Manage owner to key mappings")
   @Help.Group("Owner to key mappings")
   object owner_to_key_mappings extends Helpful {
@@ -984,61 +984,56 @@ class TopologyAdministrationGroup(
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-    ): Unit = nodeInstance match {
-      case nodeInstanceX: InstanceReference =>
-        val keysInStore = nodeInstance.keys.secret.list().map(_.publicKey)
-        require(
-          keysInStore.contains(currentKey),
-          "The current key must exist and pertain to this node",
+    ): Unit = {
+      val keysInStore = nodeInstance.keys.secret.list().map(_.publicKey)
+      require(
+        keysInStore.contains(currentKey),
+        "The current key must exist and pertain to this node",
+      )
+      require(keysInStore.contains(newKey), "The new key must exist and pertain to this node")
+      require(currentKey.purpose == newKey.purpose, "The rotated keys must have the same purpose")
+
+      val domainIds = list(
+        filterStore = AuthorizedStore.filterName,
+        operation = Some(TopologyChangeOp.Replace),
+        filterKeyOwnerUid = member.filterString,
+        filterKeyOwnerType = Some(member.code),
+        proposals = false,
+      ).collect { case res if res.item.keys.contains(currentKey) => res.item.domain }
+
+      require(domainIds.nonEmpty, "The current key is not authorized in any owner to key mapping")
+
+      // TODO(#12945): Remove this workaround once the TopologyManager is able to determine the signing key
+      //  among its IDDs and NSDs.
+      val signingKeyForNow = Some(nodeInstance.id.uid.namespace.fingerprint)
+
+      domainIds.foreach { maybeDomainId =>
+        // Authorize the new key
+        // The owner will now have two keys, but by convention the first one added is always
+        // used by everybody.
+        update(
+          newKey.fingerprint,
+          newKey.purpose,
+          member,
+          domainId = maybeDomainId,
+          signedBy = signingKeyForNow,
+          add = true,
+          nodeInstance = nodeInstance,
+          synchronize = synchronize,
         )
-        require(keysInStore.contains(newKey), "The new key must exist and pertain to this node")
-        require(currentKey.purpose == newKey.purpose, "The rotated keys must have the same purpose")
 
-        val domainIds = list(
-          filterStore = AuthorizedStore.filterName,
-          operation = Some(TopologyChangeOp.Replace),
-          filterKeyOwnerUid = member.filterString,
-          filterKeyOwnerType = Some(member.code),
-          proposals = false,
-        ).collect { case res if res.item.keys.contains(currentKey) => res.item.domain }
-
-        require(domainIds.nonEmpty, "The current key is not authorized in any owner to key mapping")
-
-        // TODO(#12945): Remove this workaround once the TopologyManagerX is able to determine the signing key
-        //  among its IDDs and NSDs.
-        val signingKeyForNow = Some(nodeInstanceX.id.uid.namespace.fingerprint)
-
-        domainIds.foreach { maybeDomainId =>
-          // Authorize the new key
-          // The owner will now have two keys, but by convention the first one added is always
-          // used by everybody.
-          update(
-            newKey.fingerprint,
-            newKey.purpose,
-            member,
-            domainId = maybeDomainId,
-            signedBy = signingKeyForNow,
-            add = true,
-            nodeInstance = nodeInstanceX,
-            synchronize = synchronize,
-          )
-
-          // Remove the old key by sending the matching `Remove` transaction
-          update(
-            currentKey.fingerprint,
-            currentKey.purpose,
-            member,
-            domainId = maybeDomainId,
-            signedBy = signingKeyForNow,
-            add = false,
-            nodeInstance = nodeInstanceX,
-            synchronize = synchronize,
-          )
-        }
-      case _ =>
-        throw new IllegalArgumentException(
-          "InstanceReference.owner_to_key_mapping.rotate_key called with a non-XNode"
+        // Remove the old key by sending the matching `Remove` transaction
+        update(
+          currentKey.fingerprint,
+          currentKey.purpose,
+          member,
+          domainId = maybeDomainId,
+          signedBy = signingKeyForNow,
+          add = false,
+          nodeInstance = nodeInstance,
+          synchronize = synchronize,
         )
+      }
     }
 
     private def update(
@@ -1891,7 +1886,7 @@ class TopologyAdministrationGroup(
         ), // TODO(#12945) don't use the instance's root namespace key by default.
     ): SignedTopologyTransaction[TopologyChangeOp, VettedPackages] = {
 
-      val topologyChangeOpX =
+      val topologyChangeOp =
         if (packageIds.isEmpty) TopologyChangeOp.Remove else TopologyChangeOp.Replace
 
       val command = TopologyAdminCommands.Write.Propose(
@@ -1902,7 +1897,7 @@ class TopologyAdministrationGroup(
         ),
         signedBy = signedBy.toList,
         serial = serial,
-        change = topologyChangeOpX,
+        change = topologyChangeOp,
         mustFullyAuthorize = mustFullyAuthorize,
         store = store,
       )
@@ -2408,7 +2403,7 @@ class TopologyAdministrationGroup(
         ),
         waitForParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
         force: Boolean = false,
-    ): SignedTopologyTransaction[TopologyChangeOp, DomainParametersState] = { // TODO(#15815): Don't expose internal TopologyMappingX and TopologyChangeOpX classes
+    ): SignedTopologyTransaction[TopologyChangeOp, DomainParametersState] = { // TODO(#15815): Don't expose internal TopologyMapping and TopologyChangeOp classes
 
       val parametersInternal =
         parameters.toInternal.valueOr(err => throw new IllegalArgumentException(err))

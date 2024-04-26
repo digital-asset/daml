@@ -7,7 +7,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer
 import com.digitalasset.canton.platform.store.dao.BufferedTransactionByIdReader.{

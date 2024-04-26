@@ -11,8 +11,8 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
-import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.platform.store.dao.*
 import com.digitalasset.canton.platform.store.entries.{LedgerEntry, PartyLedgerEntry}
 import com.digitalasset.canton.platform.store.utils.EventOps.EventOps

@@ -32,8 +32,7 @@ import io.grpc.StatusRuntimeException
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{Await, Promise, TimeoutException}
 
-// TODO(#15161): fold HealthAdministrationCommon into HealthAdministrationX
-abstract class HealthAdministrationCommon[S <: data.NodeStatus.Status](
+class HealthAdministration[S <: data.NodeStatus.Status](
     runner: AdminCommandRunner,
     consoleEnvironment: ConsoleEnvironment,
     deserialize: v30.StatusResponse.Status => ParsingResult[S],
@@ -52,7 +51,9 @@ abstract class HealthAdministrationCommon[S <: data.NodeStatus.Status](
   }
 
   @Help.Summary("Returns true if the node has an identity")
-  def has_identity(): Boolean
+  def has_identity(): Boolean = adminCommand(
+    TopologyAdminCommands.Init.GetId()
+  ).toEither.isRight
 
   @Help.Summary("Wait for the node to have an identity")
   @Help.Description(
@@ -177,20 +178,5 @@ abstract class HealthAdministrationCommon[S <: data.NodeStatus.Status](
       new StatusAdminCommands.GetLastErrorTrace(traceId)
     )
   }
-
-}
-
-class HealthAdministrationX[S <: data.NodeStatus.Status](
-    runner: AdminCommandRunner,
-    consoleEnvironment: ConsoleEnvironment,
-    deserialize: v30.StatusResponse.Status => ParsingResult[S],
-) extends HealthAdministrationCommon[S](runner, consoleEnvironment, deserialize) {
-
-  override def has_identity(): Boolean = runner
-    .adminCommand(
-      TopologyAdminCommands.Init.GetId()
-    )
-    .toEither
-    .isRight
 
 }

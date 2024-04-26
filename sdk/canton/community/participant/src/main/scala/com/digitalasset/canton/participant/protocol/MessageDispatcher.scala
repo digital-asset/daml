@@ -289,13 +289,13 @@ trait MessageDispatcher { this: NamedLogging =>
           case (viewType, messages) => alarmIfNonEmptySigned(ResultKind(viewType), messages)
         }
 
-        val containsTopologyTransactionsX = DefaultOpenEnvelopesFilter.containsTopologyX(envelopes)
+        val containsTopologyTransactions = DefaultOpenEnvelopesFilter.containsTopology(envelopes)
 
         val isReceipt = event.event.content.messageIdO.isDefined
         processEncryptedViewsAndRootHashMessages(
           encryptedViews = encryptedViews,
           rootHashMessages = rootHashMessages,
-          containsTopologyTransactionsX = containsTopologyTransactionsX,
+          containsTopologyTransactions = containsTopologyTransactions,
           sc = sc,
           ts = ts,
           isReceipt = isReceipt,
@@ -306,7 +306,7 @@ trait MessageDispatcher { this: NamedLogging =>
   private def processEncryptedViewsAndRootHashMessages(
       encryptedViews: List[OpenEnvelope[EncryptedViewMessage[ViewType]]],
       rootHashMessages: List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
-      containsTopologyTransactionsX: Boolean,
+      containsTopologyTransactions: Boolean,
       sc: SequencerCounter,
       ts: CantonTimestamp,
       isReceipt: Boolean,
@@ -345,7 +345,7 @@ trait MessageDispatcher { this: NamedLogging =>
     for {
       result <- checkedRootHashMessagesC.toEither match {
         case Right(goodRequest) =>
-          if (!containsTopologyTransactionsX)
+          if (!containsTopologyTransactions)
             processRequest(goodRequest)
           else {
             /* A batch should not contain a request and a topology transaction.
@@ -356,7 +356,7 @@ trait MessageDispatcher { this: NamedLogging =>
           }
 
         case Left(DoNotExpectMediatorResult) =>
-          if (containsTopologyTransactionsX) {
+          if (containsTopologyTransactions) {
             // The topology processor will tick the record order publisher at the end of the processing
             doProcess(UnspecifiedMessageKind, FutureUnlessShutdown.pure(()))
           } else

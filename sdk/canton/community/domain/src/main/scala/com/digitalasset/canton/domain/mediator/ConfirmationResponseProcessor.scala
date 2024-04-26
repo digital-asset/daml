@@ -139,7 +139,7 @@ private[mediator] class ConfirmationResponseProcessor(
                   _,
                   request,
                   rootHashMessages,
-                  batchAlsoContainsTopologyXTransaction,
+                  batchAlsoContainsTopologyTransaction,
                 ) =>
               processRequest(
                 requestId,
@@ -148,7 +148,7 @@ private[mediator] class ConfirmationResponseProcessor(
                 decisionTime,
                 request,
                 rootHashMessages,
-                batchAlsoContainsTopologyXTransaction,
+                batchAlsoContainsTopologyTransaction,
               )
             case MediatorEvent.Response(
                   counter,
@@ -220,7 +220,7 @@ private[mediator] class ConfirmationResponseProcessor(
       decisionTime: CantonTimestamp,
       request: MediatorConfirmationRequest,
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
-      batchAlsoContainsTopologyXTransaction: Boolean,
+      batchAlsoContainsTopologyTransaction: Boolean,
   )(implicit traceContext: TraceContext): Future[Unit] = {
     withSpan("TransactionConfirmationResponseProcessor.processRequest") {
       implicit traceContext => span =>
@@ -235,7 +235,7 @@ private[mediator] class ConfirmationResponseProcessor(
             request,
             rootHashMessages,
             snapshot,
-            batchAlsoContainsTopologyXTransaction,
+            batchAlsoContainsTopologyTransaction,
           )
 
           // Take appropriate actions based on unitOrVerdictO
@@ -294,7 +294,7 @@ private[mediator] class ConfirmationResponseProcessor(
       request: MediatorConfirmationRequest,
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       snapshot: DomainSnapshotSyncCryptoApi,
-      batchAlsoContainsTopologyXTransaction: Boolean,
+      batchAlsoContainsTopologyTransaction: Boolean,
   )(implicit
       traceContext: TraceContext
   ): Future[Either[Option[MediatorVerdict.MediatorReject], Unit]] = {
@@ -365,7 +365,7 @@ private[mediator] class ConfirmationResponseProcessor(
       // Reject, if the batch also contains a topology transaction
       _ <- EitherTUtil
         .condUnitET(
-          !batchAlsoContainsTopologyXTransaction, {
+          !batchAlsoContainsTopologyTransaction, {
             val rejection = MediatorError.MalformedMessage
               .Reject(
                 s"Received a mediator confirmation request with id $requestId also containing a topology transaction."

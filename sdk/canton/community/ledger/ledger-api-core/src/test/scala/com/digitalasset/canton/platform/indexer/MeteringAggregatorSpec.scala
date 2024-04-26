@@ -7,7 +7,7 @@ import com.daml.executors.executors.QueueAwareExecutionContextExecutorService
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.DatabaseMetrics
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.{
   ParticipantMetering,
   TransactionMetering,

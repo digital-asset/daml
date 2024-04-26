@@ -6,7 +6,7 @@ package com.digitalasset.canton.ledger.participant.state.index.v2
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time.Timestamp
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 
