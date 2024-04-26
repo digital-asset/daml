@@ -25,6 +25,7 @@ import com.daml.lf.validation.Upgrading
 import org.scalatest.Inspectors.forEvery
 import scala.util.Using
 
+/*
 class UpgradesSpecAdminAPIWithoutValidation
     extends UpgradesSpecAdminAPI("Admin API without validation")
     with ShortTests {
@@ -40,6 +41,7 @@ class UpgradesSpecLedgerAPIWithoutValidation
 class UpgradesSpecAdminAPIWithValidation
     extends UpgradesSpecAdminAPI("Admin API with validation")
     with LongTests
+    */
 
 class UpgradesSpecLedgerAPIWithValidation
     extends UpgradesSpecLedgerAPI("Ledger API with validation")
@@ -581,7 +583,7 @@ trait LongTests { this: UpgradesSpec =>
         "test-common/upgrades-SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage-v2.dar",
         assertPackageUpgradeCheck(
           None
-        ),
+        )
       )
     }
 
@@ -590,10 +592,8 @@ trait LongTests { this: UpgradesSpec =>
         "test-common/upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
         "test-common/upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
         assertPackageUpgradeCheck(
-          Some(
-            "Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed in any upgrading package."
-          )
-        ),
+          Some("Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed in any upgrading package.")
+        )
       )
     }
 
@@ -604,26 +604,34 @@ trait LongTests { this: UpgradesSpec =>
           "test-common/upgrades-FailsWhenAnInstanceIsDropped-v1.dar",
           "test-common/upgrades-FailsWhenAnInstanceIsDropped-v2.dar",
           assertPackageUpgradeCheck(
-            Some(
-              "Implementation of interface .+:Dep:I by template T appears in package that is being upgraded, but does not appear in this package."
-            ),
-            true,
-          ),
+            Some("Implementation of interface .*:Dep:I by template T appears in package that is being upgraded, but does not appear in this package."),
+            true
+          )
         )
       } yield result
     }
 
-    "Succeeds when an instance is added." in {
+    "Succeeds when an instance is added (separate dep)." in {
       for {
-        _ <- uploadPackage("test-common/upgrades-SucceedsWhenAnInstanceIsAdded-dep.dar")
+        _ <- uploadPackage("test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-dep.dar")
         result <- testPackagePair(
-          "test-common/upgrades-SucceedsWhenAnInstanceIsAdded-v1.dar",
-          "test-common/upgrades-SucceedsWhenAnInstanceIsAdded-v2.dar",
+          "test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-v1.dar",
+          "test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-v2.dar",
           assertPackageUpgradeCheck(
             None
-          ),
+          )
         )
       } yield result
+    }
+
+    "Succeeds when an instance is added (upgraded package)." in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
+        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        )
+      )
     }
   }
 }

@@ -1,4 +1,8 @@
-module Dep where
+module Main where
+template T with
+    p: Party
+  where
+    signatory p
 data IView = IView { i : Text }
 interface I where
   viewtype IView
