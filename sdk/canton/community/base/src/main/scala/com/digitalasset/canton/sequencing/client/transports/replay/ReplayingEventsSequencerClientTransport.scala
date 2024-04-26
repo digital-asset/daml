@@ -28,7 +28,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   TopologyStateForInitResponse,
 }
 import com.digitalasset.canton.sequencing.{SequencerClientRecorder, SerializedEventHandler}
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil}
@@ -130,7 +130,7 @@ class ReplayingEventsSequencerClientTransport(
   ): EitherT[Future, String, TopologyStateForInitResponse] =
     EitherT.rightT[Future, String](
       TopologyStateForInitResponse(
-        topologyTransactions = Traced(StoredTopologyTransactionsX.empty)
+        topologyTransactions = Traced(StoredTopologyTransactions.empty)
       )
     )
 

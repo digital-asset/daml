@@ -17,7 +17,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
   it should "start with an empty index" in {
     val identity = executeSql(backend.parameter.ledgerIdentity)
     val end = executeSql(backend.parameter.ledgerEnd)
-    val parties = executeSql(backend.party.knownParties)
+    val parties = executeSql(backend.party.knownParties(None, 10))
     val packages = executeSql(backend.packageBackend.lfPackages)
     val stringInterningEntries = executeSql(
       backend.stringInterning.loadStringInterningEntries(0, 1000)
@@ -32,7 +32,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
 
   it should "not see any data after advancing the ledger end" in {
     advanceLedgerEndToMakeOldDataVisible()
-    val parties = executeSql(backend.party.knownParties)
+    val parties = executeSql(backend.party.knownParties(None, 10))
     val packages = executeSql(backend.packageBackend.lfPackages)
 
     parties shouldBe empty
@@ -86,7 +86,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
         )
     }
 
-    def parties = executeSql(backend.party.knownParties)
+    def parties = executeSql(backend.party.knownParties(None, 10))
 
     def packages = executeSql(backend.packageBackend.lfPackages)
 

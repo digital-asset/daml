@@ -18,9 +18,9 @@ import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.{
-  SignedTopologyTransactionX,
-  TopologyChangeOpX,
-  TrafficControlStateX,
+  SignedTopologyTransaction,
+  TopologyChangeOp,
+  TrafficControlState,
 }
 import com.digitalasset.canton.traffic.MemberTrafficStatus
 
@@ -61,7 +61,7 @@ class TrafficControlAdministrationGroup(
       synchronize: Option[config.NonNegativeDuration] = Some(
         consoleEnvironment.commandTimeouts.bounded
       ),
-  ): SignedTopologyTransactionX[TopologyChangeOpX, TrafficControlStateX] = {
+  ): SignedTopologyTransaction[TopologyChangeOp, TrafficControlState] = {
     topology.traffic_control.top_up(
       domainId,
       newTotalTrafficAmount,

@@ -15,11 +15,13 @@ import com.digitalasset.canton.sequencing.protocol.{
   GeneratorsProtocol as GeneratorsProtocolSequencing,
   MaxRequestSizeToDeserialize,
   SubmissionRequest,
+  SubscriptionRequest,
+  TopologyStateForInitRequest,
 }
 import com.digitalasset.canton.topology.transaction.{
   GeneratorsTransaction,
-  SignedTopologyTransactionX,
-  TopologyTransactionX,
+  SignedTopologyTransaction,
+  TopologyTransaction,
 }
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{BaseTest, SerializationDeserializationTestHelpers}
@@ -118,9 +120,9 @@ class SerializationDeserializationTest
           (TestHash, ConfirmationPolicy.Signatory),
         )
 
-        testMemoizedProtocolVersioned(TopologyTransactionX)
+        testMemoizedProtocolVersioned(TopologyTransaction)
         testProtocolVersionedWithCtx(
-          SignedTopologyTransactionX,
+          SignedTopologyTransaction,
           ProtocolVersionValidation(version),
         )
 
@@ -135,8 +137,15 @@ class SerializationDeserializationTest
           MaxRequestSizeToDeserialize.NoLimit,
         )
         testVersioned(com.digitalasset.canton.sequencing.SequencerConnections)
+        testProtocolVersioned(TopologyStateForInitRequest)
+        testProtocolVersioned(SubscriptionRequest)
+        testMemoizedProtocolVersioned2(
+          com.digitalasset.canton.sequencing.protocol.SequencedEvent
+        )
+        testMemoizedProtocolVersioned2(
+          com.digitalasset.canton.sequencing.protocol.SignedContent
+        )
       }
-
     }
   }
 
@@ -144,6 +153,7 @@ class SerializationDeserializationTest
     val requiredTests = {
       findHasProtocolVersionedWrapperSubClasses("com.digitalasset.canton.protocol")
         ++ findHasProtocolVersionedWrapperSubClasses("com.digitalasset.canton.topology")
+        ++ findHasProtocolVersionedWrapperSubClasses("com.digitalasset.canton.sequencing")
     }
 
     val missingTests = requiredTests.diff(testedClasses.toList)

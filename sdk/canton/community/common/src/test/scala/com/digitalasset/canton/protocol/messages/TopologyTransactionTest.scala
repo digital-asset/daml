@@ -36,15 +36,15 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
       .getOrElse(sys.error("no key"))
   private val defaultDynamicDomainParameters = TestDomainParameters.defaultDynamic
 
-  private def mk[T <: TopologyMappingX](
+  private def mk[T <: TopologyMapping](
       mapping: T
-  ): TopologyTransactionX[TopologyChangeOpX.Replace, T] = {
-    TopologyTransactionX(TopologyChangeOpX.Replace, PositiveInt.one, mapping, testedProtocolVersion)
+  ): TopologyTransaction[TopologyChangeOp.Replace, T] = {
+    TopologyTransaction(TopologyChangeOp.Replace, PositiveInt.one, mapping, testedProtocolVersion)
   }
 
-  private val deserialize: ByteString => TopologyTransactionX[TopologyChangeOpX, TopologyMappingX] =
+  private val deserialize: ByteString => TopologyTransaction[TopologyChangeOp, TopologyMapping] =
     bytes =>
-      TopologyTransactionX.fromByteString(
+      TopologyTransaction.fromByteString(
         testedProtocolVersionValidation
       )(
         bytes
@@ -54,8 +54,8 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
       }
 
   private def runTest(
-      t1: TopologyTransactionX[TopologyChangeOpX, TopologyMappingX],
-      t2: TopologyTransactionX[TopologyChangeOpX, TopologyMappingX],
+      t1: TopologyTransaction[TopologyChangeOp, TopologyMapping],
+      t2: TopologyTransaction[TopologyChangeOp, TopologyMapping],
   ): Unit = {
     behave like hasCryptographicEvidenceSerialization(t1, t2)
     behave like hasCryptographicEvidenceDeserialization(t1, t1.getCryptographicEvidence)(
@@ -68,30 +68,30 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
     "namespace mappings" should {
 
       val nsd =
-        mk(NamespaceDelegationX.tryCreate(uid.namespace, publicKey, isRootDelegation = true))
+        mk(NamespaceDelegation.tryCreate(uid.namespace, publicKey, isRootDelegation = true))
       val nsd2 =
-        mk(NamespaceDelegationX.tryCreate(uid2.namespace, publicKey, isRootDelegation = false))
+        mk(NamespaceDelegation.tryCreate(uid2.namespace, publicKey, isRootDelegation = false))
 
       runTest(nsd, nsd2)
 
     }
 
     "identifier delegations" should {
-      val id1 = mk(IdentifierDelegationX(uid, publicKey))
-      val id2 = mk(IdentifierDelegationX(uid2, publicKey))
+      val id1 = mk(IdentifierDelegation(uid, publicKey))
+      val id2 = mk(IdentifierDelegation(uid2, publicKey))
       runTest(id1, id2)
     }
 
     "key to owner mappings" should {
-      val k1 = mk(OwnerToKeyMappingX(sequencerId, None, NonEmpty(Seq, publicKey)))
-      val k2 = mk(OwnerToKeyMappingX(sequencerId, None, NonEmpty(Seq, publicKey)))
+      val k1 = mk(OwnerToKeyMapping(sequencerId, None, NonEmpty(Seq, publicKey)))
+      val k2 = mk(OwnerToKeyMapping(sequencerId, None, NonEmpty(Seq, publicKey)))
       runTest(k1, k2)
     }
 
     "party to participant" should {
       val p1 =
         mk(
-          PartyToParticipantX(
+          PartyToParticipant(
             PartyId(uid),
             None,
             PositiveInt.one,
@@ -102,7 +102,7 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
 
       val p2 =
         mk(
-          PartyToParticipantX(
+          PartyToParticipant(
             PartyId(uid),
             Some(domainId),
             PositiveInt.two,
@@ -119,7 +119,7 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
 
     "participant state" should {
       val ps1 = mk(
-        ParticipantDomainPermissionX(
+        ParticipantDomainPermission(
           domainId,
           ParticipantId(uid),
           ParticipantPermission.Submission,
@@ -128,7 +128,7 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
         )
       )
       val ps2 = mk(
-        ParticipantDomainPermissionX(
+        ParticipantDomainPermission(
           domainId,
           ParticipantId(uid),
           ParticipantPermission.Observation,
@@ -142,8 +142,8 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
     }
 
     "domain parameters change" should {
-      val dmp1 = mk(DomainParametersStateX(DomainId(uid), defaultDynamicDomainParameters))
-      val dmp2 = mk(DomainParametersStateX(DomainId(uid), defaultDynamicDomainParameters))
+      val dmp1 = mk(DomainParametersState(DomainId(uid), defaultDynamicDomainParameters))
+      val dmp2 = mk(DomainParametersState(DomainId(uid), defaultDynamicDomainParameters))
       runTest(dmp1, dmp2)
     }
 

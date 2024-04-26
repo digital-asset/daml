@@ -16,7 +16,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.Refer
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.v1 as proto
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 
 import scala.concurrent.{ExecutionContext, Future, blocking}
@@ -143,7 +143,7 @@ class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore 
                   (
                     request.value.microsecondsSinceEpoch,
                     Seq(request),
-                    SignedTopologyTransactionX.InitialTopologySequencingTime,
+                    SignedTopologyTransaction.InitialTopologySequencingTime,
                   )
               }
           requestsWithTimestampsAndLastTopologyTimestamps.zip(LazyList.from(initial.toInt)).map {

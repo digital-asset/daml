@@ -311,7 +311,9 @@ class RecoveringIndexerIntegrationSpec
           .executeSql(metrics.index.db.getLedgerEnd)(parameterStorageBackend.ledgerEnd)
         _ = ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
         knownParties <- dbDispatcher
-          .executeSql(metrics.index.db.loadAllParties)(partyStorageBacked.knownParties)
+          .executeSql(metrics.index.db.loadAllParties)(
+            partyStorageBacked.knownParties(None, 10)
+          )
       } yield {
         knownParties.map(_.displayName) shouldBe partyNames.map(Some(_))
         ()

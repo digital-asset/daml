@@ -3,6 +3,8 @@
 
 package com.digitalasset.canton.http
 
+import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
+
 import java.nio.file.Path
 
 // defined separately from Config so
@@ -12,8 +14,8 @@ trait StartSettings {
   val address: String
   val httpPort: Option[Int]
   val portFile: Option[Path]
+  val httpsConfiguration:Option[TlsConfiguration]
   val wsConfig: Option[WebsocketConfig]
-  val allowNonHttps: Boolean
   val staticContentConfig: Option[StaticContentConfig]
   val debugLoggingOfHttpBodies: Boolean
 }

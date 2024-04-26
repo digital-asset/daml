@@ -28,7 +28,7 @@ import com.digitalasset.canton.sequencing.{
   SerializedEventHandler,
 }
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
@@ -393,7 +393,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
   override def downloadTopologyStateForInit(request: TopologyStateForInitRequest)(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, TopologyStateForInitResponse] =
-    EitherT.rightT(TopologyStateForInitResponse(Traced(StoredTopologyTransactionsX.empty)))
+    EitherT.rightT(TopologyStateForInitResponse(Traced(StoredTopologyTransactions.empty)))
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = Seq(
     SyncCloseable("underlying-transport", underlyingTransport.close())

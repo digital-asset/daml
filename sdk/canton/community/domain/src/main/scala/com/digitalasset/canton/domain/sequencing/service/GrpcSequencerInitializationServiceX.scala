@@ -27,13 +27,13 @@ import com.digitalasset.canton.sequencer.admin.v30.{
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.{
-  StoredTopologyTransactionX,
-  StoredTopologyTransactionsX,
+  StoredTopologyTransaction,
+  StoredTopologyTransactions,
 }
 import com.digitalasset.canton.topology.transaction.{
-  SignedTopologyTransactionX,
-  TopologyChangeOpX,
-  TopologyMappingX,
+  SignedTopologyTransaction,
+  TopologyChangeOp,
+  TopologyMapping,
 }
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 
@@ -54,7 +54,7 @@ class GrpcSequencerInitializationServiceX(
 
     val res: EitherT[Future, CantonError, InitializeSequencerFromGenesisStateResponse] = for {
       topologyState <- EitherT.fromEither[Future](
-        StoredTopologyTransactionsX
+        StoredTopologyTransactions
           .fromTrustedByteString(request.topologySnapshot)
           .leftMap(ProtoDeserializationFailure.Wrap(_))
       )
@@ -70,14 +70,14 @@ class GrpcSequencerInitializationServiceX(
       )
       // TODO(i17940): Remove this when we have a method to distinguish between initialization during an upgrade and initialization during the bootstrap of a domain
       // reset effective time and sequenced time if we are initializing the sequencer from the beginning
-      genesisState: StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX] =
-        StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX](
+      genesisState: StoredTopologyTransactions[TopologyChangeOp, TopologyMapping] =
+        StoredTopologyTransactions[TopologyChangeOp, TopologyMapping](
           topologyState.result.map(stored =>
-            StoredTopologyTransactionX(
-              SequencedTime(SignedTopologyTransactionX.InitialTopologySequencingTime),
-              EffectiveTime(SignedTopologyTransactionX.InitialTopologySequencingTime),
+            StoredTopologyTransaction(
+              SequencedTime(SignedTopologyTransaction.InitialTopologySequencingTime),
+              EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime),
               stored.validUntil.map(_ =>
-                EffectiveTime(SignedTopologyTransactionX.InitialTopologySequencingTime)
+                EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime)
               ),
               stored.transaction,
             )

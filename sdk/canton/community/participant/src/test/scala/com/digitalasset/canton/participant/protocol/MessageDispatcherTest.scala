@@ -35,7 +35,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.messages.EncryptedView.CompressedView
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX.Broadcast
+import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.Broadcast
 import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{
@@ -388,7 +388,7 @@ trait MessageDispatcherTest {
 
     val factoryX =
       new TopologyTransactionTestFactoryX(loggerFactory, initEc = executionContext)
-    val idTx = TopologyTransactionsBroadcastX.create(
+    val idTx = TopologyTransactionsBroadcast.create(
       domainId,
       Seq(
         Broadcast(

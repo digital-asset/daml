@@ -18,7 +18,7 @@ import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.{
   PartyInfo,
 }
 import com.digitalasset.canton.topology.store.*
-import com.digitalasset.canton.topology.transaction.TopologyChangeOpX.Replace
+import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -33,7 +33,7 @@ import scala.reflect.ClassTag
   */
 class StoreBasedTopologySnapshot(
     val timestamp: CantonTimestamp,
-    store: TopologyStoreX[TopologyStoreId],
+    store: TopologyStore[TopologyStoreId],
     packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
     val loggerFactory: NamedLoggerFactory,
 )(implicit val executionContext: ExecutionContext)
@@ -42,12 +42,12 @@ class StoreBasedTopologySnapshot(
 
   private def findTransactions(
       asOfInclusive: Boolean,
-      types: Seq[TopologyMappingX.Code],
+      types: Seq[TopologyMapping.Code],
       filterUid: Option[Seq[UniqueIdentifier]],
       filterNamespace: Option[Seq[Namespace]],
   )(implicit
       traceContext: TraceContext
-  ): Future[StoredTopologyTransactionsX[TopologyChangeOpX.Replace, TopologyMappingX]] =
+  ): Future[StoredTopologyTransactions[TopologyChangeOp.Replace, TopologyMapping]] =
     store
       .findPositiveTransactions(
         timestamp,
@@ -66,13 +66,13 @@ class StoreBasedTopologySnapshot(
     val vettedET = EitherT.right[PackageId](
       findTransactions(
         asOfInclusive = false,
-        types = Seq(TopologyMappingX.Code.VettedPackagesX),
+        types = Seq(TopologyMapping.Code.VettedPackages),
         filterUid = Some(Seq(participant.uid)),
         filterNamespace = None,
       ).map { transactions =>
         collectLatestMapping(
-          TopologyMappingX.Code.VettedPackagesX,
-          transactions.collectOfMapping[VettedPackagesX].result,
+          TopologyMapping.Code.VettedPackages,
+          transactions.collectOfMapping[VettedPackages].result,
         ).toList.flatMap(_.packageIds).toSet
       }
     )
@@ -82,13 +82,13 @@ class StoreBasedTopologySnapshot(
         EitherT.right[PackageId](
           findTransactions(
             asOfInclusive = false,
-            types = Seq(TopologyMappingX.Code.DomainParametersStateX),
+            types = Seq(TopologyMapping.Code.DomainParametersState),
             filterUid = None,
             filterNamespace = None,
           ).map { transactions =>
             collectLatestMapping(
-              TopologyMappingX.Code.DomainParametersStateX,
-              transactions.collectOfMapping[DomainParametersStateX].result,
+              TopologyMapping.Code.DomainParametersState,
+              transactions.collectOfMapping[DomainParametersState].result,
             ).getOrElse(throw new IllegalStateException("Unable to locate domain parameters state"))
               .discard
 
@@ -124,15 +124,15 @@ class StoreBasedTopologySnapshot(
   ): Future[Either[String, DynamicDomainParametersWithValidity]] =
     findTransactions(
       asOfInclusive = false,
-      types = Seq(TopologyMappingX.Code.DomainParametersStateX),
+      types = Seq(TopologyMapping.Code.DomainParametersState),
       filterUid = None,
       filterNamespace = None,
     ).map { transactions =>
       for {
         storedTx <- collectLatestTransaction(
-          TopologyMappingX.Code.DomainParametersStateX,
+          TopologyMapping.Code.DomainParametersState,
           transactions
-            .collectOfMapping[DomainParametersStateX]
+            .collectOfMapping[DomainParametersState]
             .result,
         ).toRight(s"Unable to fetch domain parameters at $timestamp")
 
@@ -156,13 +156,13 @@ class StoreBasedTopologySnapshot(
       proposals = false,
       timeQuery = TimeQuery.Range(None, Some(timestamp)),
       recentTimestampO = None,
-      op = Some(TopologyChangeOpX.Replace),
-      types = Seq(TopologyMappingX.Code.DomainParametersStateX),
+      op = Some(TopologyChangeOp.Replace),
+      types = Seq(TopologyMapping.Code.DomainParametersState),
       idFilter = None,
       namespaceFilter = None,
     )
     .map {
-      _.collectOfMapping[DomainParametersStateX].result
+      _.collectOfMapping[DomainParametersState].result
         .map { storedTx =>
           val dps = storedTx.mapping
           DynamicDomainParametersWithValidity(
@@ -187,12 +187,12 @@ class StoreBasedTopologySnapshot(
       loadParticipantStates: Seq[ParticipantId] => Future[Map[ParticipantId, ParticipantAttributes]],
   )(implicit traceContext: TraceContext): Future[Map[PartyId, PartyInfo]] = {
 
-    def collectLatestByType[M <: TopologyMappingX: ClassTag](
-        storedTransactions: StoredTopologyTransactionsX[
-          TopologyChangeOpX.Replace,
-          TopologyMappingX,
+    def collectLatestByType[M <: TopologyMapping: ClassTag](
+        storedTransactions: StoredTopologyTransactions[
+          TopologyChangeOp.Replace,
+          TopologyMapping,
         ],
-        code: TopologyMappingX.Code,
+        code: TopologyMapping.Code,
     ): Seq[M] = {
       storedTransactions
         .collectOfMapping[M]
@@ -216,16 +216,16 @@ class StoreBasedTopologySnapshot(
       partyData <- findTransactions(
         asOfInclusive = false,
         types = Seq(
-          TopologyMappingX.Code.PartyToParticipantX,
-          TopologyMappingX.Code.DomainTrustCertificateX,
+          TopologyMapping.Code.PartyToParticipant,
+          TopologyMapping.Code.DomainTrustCertificate,
         ),
         filterUid = Some(parties.map(_.uid)),
         filterNamespace = None,
       ).map { storedTransactions =>
         // find normal party declarations
-        val partyToParticipantMappings = collectLatestByType[PartyToParticipantX](
+        val partyToParticipantMappings = collectLatestByType[PartyToParticipant](
           storedTransactions,
-          TopologyMappingX.Code.PartyToParticipantX,
+          TopologyMapping.Code.PartyToParticipant,
         ).map { ptp =>
           ptp.partyId -> (ptp.groupAddressing, ptp.threshold, ptp.participants.map {
             case HostingParticipant(participantId, partyPermission) =>
@@ -235,9 +235,9 @@ class StoreBasedTopologySnapshot(
 
         // admin parties are implicitly defined by the fact that a participant is available on a domain.
         // admin parties have the same UID as their participant
-        val domainTrustCerts = collectLatestByType[DomainTrustCertificateX](
+        val domainTrustCerts = collectLatestByType[DomainTrustCertificate](
           storedTransactions,
-          TopologyMappingX.Code.DomainTrustCertificateX,
+          TopologyMapping.Code.DomainTrustCertificate,
         ).map(cert => cert.participantId)
 
         (partyToParticipantMappings, domainTrustCerts)
@@ -313,15 +313,15 @@ class StoreBasedTopologySnapshot(
   override def mediatorGroups()(implicit traceContext: TraceContext): Future[Seq[MediatorGroup]] =
     findTransactions(
       asOfInclusive = false,
-      types = Seq(TopologyMappingX.Code.MediatorDomainStateX),
+      types = Seq(TopologyMapping.Code.MediatorDomainState),
       filterUid = None,
       filterNamespace = None,
     ).map(
-      _.collectOfMapping[MediatorDomainStateX].result
+      _.collectOfMapping[MediatorDomainState].result
         .groupBy(_.mapping.group)
         .map { case (groupId, seq) =>
           val mds = collectLatestMapping(
-            TopologyMappingX.Code.MediatorDomainStateX,
+            TopologyMapping.Code.MediatorDomainState,
             seq.sortBy(_.validFrom),
           )
             .getOrElse(
@@ -337,14 +337,14 @@ class StoreBasedTopologySnapshot(
       traceContext: TraceContext
   ): Future[Option[SequencerGroup]] = findTransactions(
     asOfInclusive = false,
-    types = Seq(TopologyMappingX.Code.SequencerDomainStateX),
+    types = Seq(TopologyMapping.Code.SequencerDomainState),
     filterUid = None,
     filterNamespace = None,
   ).map { transactions =>
     collectLatestMapping(
-      TopologyMappingX.Code.SequencerDomainStateX,
-      transactions.collectOfMapping[SequencerDomainStateX].result,
-    ).map { (sds: SequencerDomainStateX) =>
+      TopologyMapping.Code.SequencerDomainState,
+      transactions.collectOfMapping[SequencerDomainState].result,
+    ).map { (sds: SequencerDomainState) =>
       SequencerGroup(sds.active, sds.observers, sds.threshold)
     }
   }
@@ -354,17 +354,17 @@ class StoreBasedTopologySnapshot(
   )(implicit traceContext: TraceContext): Future[Map[Member, Option[MemberTrafficControlState]]] =
     findTransactions(
       asOfInclusive = false,
-      types = Seq(TopologyMappingX.Code.TrafficControlStateX),
+      types = Seq(TopologyMapping.Code.TrafficControlState),
       filterUid = Some(members.map(_.uid)),
       filterNamespace = None,
     ).map { txs =>
       val membersWithState = txs
-        .collectOfMapping[TrafficControlStateX]
+        .collectOfMapping[TrafficControlState]
         .result
         .groupBy(_.mapping.member)
         .flatMap { case (member, mappings) =>
           collectLatestTransaction(
-            TopologyMappingX.Code.TrafficControlStateX,
+            TopologyMapping.Code.TrafficControlState,
             mappings.sortBy(_.validFrom),
           ).map { tx =>
             val mapping = tx.mapping
@@ -396,19 +396,19 @@ class StoreBasedTopologySnapshot(
       parties: Set[LfPartyId]
   )(implicit traceContext: TraceContext): Future[AuthorityOfResponse] = findTransactions(
     asOfInclusive = false,
-    types = Seq(TopologyMappingX.Code.AuthorityOfX),
+    types = Seq(TopologyMapping.Code.AuthorityOf),
     filterUid = None,
     filterNamespace = None,
   ).map { transactions =>
     val consortiumDelegations =
       transactions
-        .collectOfMapping[AuthorityOfX]
+        .collectOfMapping[AuthorityOf]
         .result
         .groupBy(_.mapping.partyId)
         .collect {
           case (partyId, seq) if parties.contains(partyId.toLf) =>
             val authorityOf = collectLatestMapping(
-              TopologyMappingX.Code.AuthorityOfX,
+              TopologyMapping.Code.AuthorityOf,
               seq.sortBy(_.validFrom),
             )
               .getOrElse(
@@ -439,14 +439,14 @@ class StoreBasedTopologySnapshot(
         proposals = false,
         timeQuery = TimeQuery.Snapshot(timestamp),
         recentTimestampO = None,
-        op = Some(TopologyChangeOpX.Replace),
-        types = Seq(TopologyMappingX.Code.OwnerToKeyMappingX),
+        op = Some(TopologyChangeOp.Replace),
+        types = Seq(TopologyMapping.Code.OwnerToKeyMapping),
         idFilter = Some(idFilter),
         namespaceFilter = Some(namespaceFilter),
       )
       .map(
-        _.collectOfMapping[OwnerToKeyMappingX]
-          .collectOfType[TopologyChangeOpX.Replace]
+        _.collectOfMapping[OwnerToKeyMapping]
+          .collectOfType[TopologyChangeOp.Replace]
           .result
           .groupBy(_.mapping.member)
           .collect {
@@ -456,7 +456,7 @@ class StoreBasedTopologySnapshot(
               val keys = KeyCollection(Seq(), Seq())
               val okm =
                 collectLatestMapping(
-                  TopologyMappingX.Code.OwnerToKeyMappingX,
+                  TopologyMapping.Code.OwnerToKeyMapping,
                   seq.sortBy(_.validFrom),
                 )
               owner -> okm
@@ -470,15 +470,15 @@ class StoreBasedTopologySnapshot(
   private val keysRequiredForParticipants = Set(KeyPurpose.Signing, KeyPurpose.Encryption)
 
   private def getParticipantsWithCertificates(
-      storedTxs: StoredTopologyTransactionsX[Replace, TopologyMappingX]
+      storedTxs: StoredTopologyTransactions[Replace, TopologyMapping]
   )(implicit traceContext: TraceContext): Set[ParticipantId] = storedTxs
-    .collectOfMapping[DomainTrustCertificateX]
+    .collectOfMapping[DomainTrustCertificate]
     .result
     .groupBy(_.mapping.participantId)
     .collect { case (pid, seq) =>
       // invoke collectLatestMapping only to warn in case a participantId's domain trust certificate is not unique
       collectLatestMapping(
-        TopologyMappingX.Code.DomainTrustCertificateX,
+        TopologyMapping.Code.DomainTrustCertificate,
         seq.sortBy(_.validFrom),
       ).discard
       pid
@@ -486,17 +486,17 @@ class StoreBasedTopologySnapshot(
     .toSet
 
   private def getParticipantsWithCertAndKeys(
-      storedTxs: StoredTopologyTransactionsX[Replace, TopologyMappingX],
+      storedTxs: StoredTopologyTransactions[Replace, TopologyMapping],
       participantsWithCertificates: Set[ParticipantId],
   )(implicit traceContext: TraceContext): Set[ParticipantId] = {
     storedTxs
-      .collectOfMapping[OwnerToKeyMappingX]
+      .collectOfMapping[OwnerToKeyMapping]
       .result
       .groupBy(_.mapping.member)
       .collect {
         case (pid: ParticipantId, seq)
             if participantsWithCertificates(pid) && collectLatestMapping(
-              TopologyMappingX.Code.OwnerToKeyMappingX,
+              TopologyMapping.Code.OwnerToKeyMapping,
               seq.sortBy(_.validFrom),
             ).exists(otk =>
               keysRequiredForParticipants.diff(otk.keys.forgetNE.map(_.purpose).toSet).isEmpty
@@ -507,18 +507,18 @@ class StoreBasedTopologySnapshot(
   }
 
   private def getParticipantDomainPermissions(
-      storedTxs: StoredTopologyTransactionsX[Replace, TopologyMappingX],
+      storedTxs: StoredTopologyTransactions[Replace, TopologyMapping],
       participantsWithCertAndKeys: Set[ParticipantId],
-  )(implicit traceContext: TraceContext): Map[ParticipantId, ParticipantDomainPermissionX] = {
+  )(implicit traceContext: TraceContext): Map[ParticipantId, ParticipantDomainPermission] = {
     storedTxs
-      .collectOfMapping[ParticipantDomainPermissionX]
+      .collectOfMapping[ParticipantDomainPermission]
       .result
       .groupBy(_.mapping.participantId)
       .collect {
         case (pid, seq) if participantsWithCertAndKeys(pid) =>
           val mapping =
             collectLatestMapping(
-              TopologyMappingX.Code.ParticipantDomainPermissionX,
+              TopologyMapping.Code.ParticipantDomainPermission,
               seq.sortBy(_.validFrom),
             )
               .getOrElse(
@@ -532,28 +532,28 @@ class StoreBasedTopologySnapshot(
       participantsFilter: Seq[ParticipantId]
   )(implicit
       traceContext: TraceContext
-  ): Future[Map[ParticipantId, ParticipantDomainPermissionX]] = {
+  ): Future[Map[ParticipantId, ParticipantDomainPermission]] = {
     for {
       // Looks up domain parameters for default rate limits.
       domainParametersState <- findTransactions(
         asOfInclusive = false,
         types = Seq(
-          TopologyMappingX.Code.DomainParametersStateX
+          TopologyMapping.Code.DomainParametersState
         ),
         filterUid = None,
         filterNamespace = None,
       ).map(transactions =>
         collectLatestMapping(
-          TopologyMappingX.Code.DomainParametersStateX,
-          transactions.collectOfMapping[DomainParametersStateX].result,
+          TopologyMapping.Code.DomainParametersState,
+          transactions.collectOfMapping[DomainParametersState].result,
         ).getOrElse(throw new IllegalStateException("Unable to locate domain parameters state"))
       )
       storedTxs <- findTransactions(
         asOfInclusive = false,
         types = Seq(
-          TopologyMappingX.Code.DomainTrustCertificateX,
-          TopologyMappingX.Code.OwnerToKeyMappingX,
-          TopologyMappingX.Code.ParticipantDomainPermissionX,
+          TopologyMapping.Code.DomainTrustCertificate,
+          TopologyMapping.Code.OwnerToKeyMapping,
+          TopologyMapping.Code.ParticipantDomainPermission,
         ),
         filterUid = Some(participantsFilter.map(_.uid)),
         filterNamespace = None,
@@ -580,7 +580,7 @@ class StoreBasedTopologySnapshot(
         pid -> participantDomainPermissions
           .getOrElse(
             pid,
-            ParticipantDomainPermissionX.default(domainParametersState.domain, pid),
+            ParticipantDomainPermission.default(domainParametersState.domain, pid),
           )
           .setDefaultLimitIfNotSet(domainParametersState.parameters.v2DefaultParticipantLimits)
       }.toMap
@@ -604,7 +604,7 @@ class StoreBasedTopologySnapshot(
   ): Future[Seq[(ParticipantId, ParticipantPermission)]] =
     Future.failed(
       new UnsupportedOperationException(
-        s"Participants lookup not supported by StoreBasedDomainTopologyClientX. This is a coding bug."
+        s"Participants lookup not supported by StoreBasedDomainTopologyClient. This is a coding bug."
       )
     )
 
@@ -617,17 +617,17 @@ class StoreBasedTopologySnapshot(
   )(implicit traceContext: TraceContext): Future[Map[Member, KeyCollection]] =
     findTransactions(
       asOfInclusive = false,
-      types = Seq(TopologyMappingX.Code.OwnerToKeyMappingX),
+      types = Seq(TopologyMapping.Code.OwnerToKeyMapping),
       filterUid = Some(members.map(_.uid)),
       filterNamespace = None,
     ).map { transactions =>
       transactions
-        .collectOfMapping[OwnerToKeyMappingX]
+        .collectOfMapping[OwnerToKeyMapping]
         .result
         .groupBy(_.mapping.member)
         .map { case (member, otks) =>
-          val keys = collectLatestMapping[OwnerToKeyMappingX](
-            TopologyMappingX.Code.OwnerToKeyMappingX,
+          val keys = collectLatestMapping[OwnerToKeyMapping](
+            TopologyMapping.Code.OwnerToKeyMapping,
             otks.sortBy(_.validFrom),
           ).toList.flatMap(_.keys.forgetNE)
           member -> KeyCollection.empty.addAll(keys)
@@ -638,9 +638,9 @@ class StoreBasedTopologySnapshot(
     findTransactions(
       asOfInclusive = false,
       types = Seq(
-        DomainTrustCertificateX.code,
-        MediatorDomainStateX.code,
-        SequencerDomainStateX.code,
+        DomainTrustCertificate.code,
+        MediatorDomainState.code,
+        SequencerDomainState.code,
       ),
       filterUid = None,
       filterNamespace = None,
@@ -648,9 +648,9 @@ class StoreBasedTopologySnapshot(
       _.result.view
         .map(_.mapping)
         .flatMap {
-          case dtc: DomainTrustCertificateX => Seq(dtc.participantId)
-          case mds: MediatorDomainStateX => mds.active ++ mds.observers
-          case sds: SequencerDomainStateX => sds.active ++ sds.observers
+          case dtc: DomainTrustCertificate => Seq(dtc.participantId)
+          case mds: MediatorDomainState => mds.active ++ mds.observers
+          case sds: SequencerDomainState => sds.active ++ sds.observers
           case _ => Seq.empty
         }
         .toSet
@@ -664,28 +664,28 @@ class StoreBasedTopologySnapshot(
       case ParticipantId(pid) =>
         findTransactions(
           asOfInclusive = false,
-          types = Seq(DomainTrustCertificateX.code),
+          types = Seq(DomainTrustCertificate.code),
           filterUid = Some(Seq(pid)),
           filterNamespace = None,
         ).map(_.result.nonEmpty)
       case mediatorId @ MediatorId(_) =>
         findTransactions(
           asOfInclusive = false,
-          types = Seq(MediatorDomainStateX.code),
+          types = Seq(MediatorDomainState.code),
           filterUid = None,
           filterNamespace = None,
         ).map(
-          _.collectOfMapping[MediatorDomainStateX].result
+          _.collectOfMapping[MediatorDomainState].result
             .exists(_.mapping.allMediatorsInGroup.contains(mediatorId))
         )
       case sequencerId @ SequencerId(_) =>
         findTransactions(
           asOfInclusive = false,
-          types = Seq(SequencerDomainStateX.code),
+          types = Seq(SequencerDomainState.code),
           filterUid = None,
           filterNamespace = None,
         ).map(
-          _.collectOfMapping[SequencerDomainStateX].result
+          _.collectOfMapping[SequencerDomainState].result
             .exists(_.mapping.allSequencers.contains(sequencerId))
         )
       case _ =>
@@ -697,18 +697,18 @@ class StoreBasedTopologySnapshot(
     }
   }
 
-  private def collectLatestMapping[T <: TopologyMappingX](
-      typ: TopologyMappingX.Code,
-      transactions: Seq[StoredTopologyTransactionX[TopologyChangeOpX.Replace, T]],
+  private def collectLatestMapping[T <: TopologyMapping](
+      typ: TopologyMapping.Code,
+      transactions: Seq[StoredTopologyTransaction[TopologyChangeOp.Replace, T]],
   )(implicit traceContext: TraceContext): Option[T] =
     collectLatestTransaction(typ, transactions).map(_.mapping)
 
-  private def collectLatestTransaction[T <: TopologyMappingX](
-      typ: TopologyMappingX.Code,
-      transactions: Seq[StoredTopologyTransactionX[TopologyChangeOpX.Replace, T]],
+  private def collectLatestTransaction[T <: TopologyMapping](
+      typ: TopologyMapping.Code,
+      transactions: Seq[StoredTopologyTransaction[TopologyChangeOp.Replace, T]],
   )(implicit
       traceContext: TraceContext
-  ): Option[StoredTopologyTransactionX[TopologyChangeOpX.Replace, T]] = {
+  ): Option[StoredTopologyTransaction[TopologyChangeOp.Replace, T]] = {
     if (transactions.sizeCompare(1) > 0) {
       logger.warn(
         s"Expected unique \"${typ.code}\" at $referenceTime, but found multiple instances"

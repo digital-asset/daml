@@ -5,7 +5,7 @@ package com.digitalasset.canton.topology.processing
 
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.TraceContext
 
 trait TopologyTransactionProcessingSubscriber {
@@ -32,7 +32,7 @@ trait TopologyTransactionProcessingSubscriber {
       sequencedTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,
       sequencerCounter: SequencerCounter,
-      transactions: Seq[GenericSignedTopologyTransactionX],
+      transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
 }

@@ -17,7 +17,7 @@ import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Oracle, Postgres}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.store.db.DbDeserializationException
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction
 import com.digitalasset.canton.tracing.{TraceContext, Traced, W3CTraceContext}
 import com.digitalasset.canton.util.retry
 import com.digitalasset.canton.util.retry.RetryUtil
@@ -214,7 +214,7 @@ class DbReferenceBlockOrderingStore(
                 tracedBatchedBlockOrderingRequests.lastTopologyTimestampEpochMicros
               )
             } else {
-              Seq(tracedRequest) -> SignedTopologyTransactionX.InitialTopologySequencingTime
+              Seq(tracedRequest) -> SignedTopologyTransaction.InitialTopologySequencingTime
             }
           // Logging the UUID to be able to correlate the block on the write side.
           logger.debug(s"Retrieved block at height $height with UUID: $uuid")

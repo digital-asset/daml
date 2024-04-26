@@ -56,8 +56,8 @@ import com.digitalasset.canton.topology.processing.{
   TopologyTransactionTestFactoryX,
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
-import com.digitalasset.canton.topology.store.ValidatedTopologyTransactionX
-import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
+import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction
+import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import org.apache.pekko.NotUsed
@@ -100,7 +100,7 @@ class BlockSequencerTest
     private val domainId = topologyTransactionFactory.domainId1
     private val sequencer1 = topologyTransactionFactory.sequencer1
     private val topologyStore =
-      new InMemoryTopologyStoreX(DomainStore(domainId), loggerFactory, timeouts)
+      new InMemoryTopologyStore(DomainStore(domainId), loggerFactory, timeouts)
 
     topologyStore
       .update(
@@ -113,7 +113,7 @@ class BlockSequencerTest
           topologyTransactionFactory.okmS1k7_k1,
           topologyTransactionFactory.dmp1_k1,
           topologyTransactionFactory.okm1bk5_k1, // this one to allow verification of the sender's signature
-        ).map(ValidatedTopologyTransactionX(_, rejectionReason = None)),
+        ).map(ValidatedTopologyTransaction(_, rejectionReason = None)),
       )
       .futureValue
 

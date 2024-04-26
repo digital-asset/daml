@@ -39,18 +39,35 @@ class GrpcPackageService(
     })
   }
 
+  override def validateDar(request: ValidateDarRequest): Future[ValidateDarResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val ret =
+      service
+        .validateByteString(
+          request.data,
+          request.filename,
+        )
+        .map((hash: Hash) => ValidateDarResponse(hash.toHexString))
+    EitherTUtil.toFuture(
+      ret
+        .leftMap(ErrorCode.asGrpcError)
+        .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError))
+    )
+  }
+
   override def uploadDar(request: UploadDarRequest): Future[UploadDarResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val ret = for {
-      hash <- service.appendDarFromByteString(
-        request.data,
-        request.filename,
-        request.vetAllPackages,
-        request.synchronizeVetting,
+    val ret =
+      for {
+        hash <- service.appendDarFromByteString(
+          request.data,
+          request.filename,
+          request.vetAllPackages,
+          request.synchronizeVetting,
+        )
+      } yield UploadDarResponse(
+        UploadDarResponse.Value.Success(UploadDarResponse.Success(hash.toHexString))
       )
-    } yield UploadDarResponse(
-      UploadDarResponse.Value.Success(UploadDarResponse.Success(hash.toHexString))
-    )
     EitherTUtil.toFuture(
       ret
         .leftMap(ErrorCode.asGrpcError)

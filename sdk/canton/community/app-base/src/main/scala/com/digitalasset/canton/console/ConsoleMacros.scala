@@ -52,12 +52,12 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.{
-  StoredTopologyTransactionX,
-  StoredTopologyTransactionsX,
+  StoredTopologyTransaction,
+  StoredTopologyTransactions,
 }
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.{
-  GenericSignedTopologyTransactionX,
-  PositiveSignedTopologyTransactionX,
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.{
+  GenericSignedTopologyTransaction,
+  PositiveSignedTopologyTransaction,
 }
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
@@ -659,7 +659,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     def decentralized_namespace(
         owners: Seq[InstanceReference],
         store: String = AuthorizedStore.filterName,
-    ): (Namespace, Seq[GenericSignedTopologyTransactionX]) = {
+    ): (Namespace, Seq[GenericSignedTopologyTransaction]) = {
       val ownersNE = NonEmpty
         .from(owners)
         .getOrElse(
@@ -667,15 +667,15 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
             "There must be at least 1 owner for a decentralizedNamespace."
           )
         )
-      val expectedDNS = DecentralizedNamespaceDefinitionX.computeNamespace(
+      val expectedDNS = DecentralizedNamespaceDefinition.computeNamespace(
         owners.map(_.id.member.uid.namespace).toSet
       )
       val proposedOrExisting = ownersNE
         .map { owner =>
           val existingDnsO =
             owner.topology.transactions
-              .findLatestByMappingHash[DecentralizedNamespaceDefinitionX](
-                DecentralizedNamespaceDefinitionX.uniqueKey(expectedDNS),
+              .findLatestByMappingHash[DecentralizedNamespaceDefinition](
+                DecentralizedNamespaceDefinition.uniqueKey(expectedDNS),
                 filterStore = AuthorizedStore.filterName,
                 includeProposals = true,
               )
@@ -701,9 +701,9 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       // merging the signatures here is an "optimization" so that later we only upload a single
       // decentralizedNamespace transaction, instead of a transaction per owner.
       val decentralizedNamespaceDefinition =
-        proposedOrExisting.reduceLeft[SignedTopologyTransactionX[
-          TopologyChangeOpX,
-          DecentralizedNamespaceDefinitionX,
+        proposedOrExisting.reduceLeft[SignedTopologyTransaction[
+          TopologyChangeOp,
+          DecentralizedNamespaceDefinition,
         ]]((txA, txB) => txA.addSignatures(txB.signatures.forgetNE.toSeq))
 
       val ownerNSDs = owners.flatMap(_.topology.transactions.identity_transactions())
@@ -718,14 +718,14 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         owners: Seq[InstanceReference]
     ): Either[String, Option[Namespace]] = {
       val expectedNamespace =
-        DecentralizedNamespaceDefinitionX.computeNamespace(
+        DecentralizedNamespaceDefinition.computeNamespace(
           owners.map(_.id.member.uid.namespace).toSet
         )
       val recordedNamespaces =
         owners.map(
           _.topology.transactions
-            .findLatestByMappingHash[DecentralizedNamespaceDefinitionX](
-              DecentralizedNamespaceDefinitionX.uniqueKey(expectedNamespace),
+            .findLatestByMappingHash[DecentralizedNamespaceDefinition](
+              DecentralizedNamespaceDefinition.uniqueKey(expectedNamespace),
               filterStore = AuthorizedStore.filterName,
               includeProposals = true,
             )
@@ -841,14 +841,14 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       )
 
       val initialTopologyState = (foundingTxs ++ seqMedIdentityTxs ++ domainGenesisTxs)
-        .mapFilter(_.selectOp[TopologyChangeOpX.Replace])
+        .mapFilter(_.selectOp[TopologyChangeOp.Replace])
 
       // TODO(#12390) replace this merge / active with proper tooling and checks that things are really fully authorized
       val orderingMap =
         Seq(
-          NamespaceDelegationX.code,
-          OwnerToKeyMappingX.code,
-          DecentralizedNamespaceDefinitionX.code,
+          NamespaceDelegation.code,
+          OwnerToKeyMapping.code,
+          DecentralizedNamespaceDefinition.code,
         ).zipWithIndex.toMap
           .withDefaultValue(5)
 
@@ -857,18 +857,18 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         .values
         .map(
           // combine signatures of transactions with the same hash
-          _.reduceLeft[PositiveSignedTopologyTransactionX] { (a, b) =>
+          _.reduceLeft[PositiveSignedTopologyTransaction] { (a, b) =>
             a.addSignatures(b.signatures.toSeq)
           }.copy(isProposal = false)
         )
         .toSeq
         .sortBy(tx => orderingMap(tx.mapping.code))
 
-      val storedTopologySnapshot = StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX](
+      val storedTopologySnapshot = StoredTopologyTransactions[TopologyChangeOp, TopologyMapping](
         merged.map(stored =>
-          StoredTopologyTransactionX(
-            SequencedTime(SignedTopologyTransactionX.InitialTopologySequencingTime),
-            EffectiveTime(SignedTopologyTransactionX.InitialTopologySequencingTime),
+          StoredTopologyTransaction(
+            SequencedTime(SignedTopologyTransaction.InitialTopologySequencingTime),
+            EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime),
             None,
             stored,
           )

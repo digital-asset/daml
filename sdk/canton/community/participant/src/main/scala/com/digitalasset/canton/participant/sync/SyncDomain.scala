@@ -58,7 +58,7 @@ import com.digitalasset.canton.participant.pruning.{
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
-import com.digitalasset.canton.participant.topology.ParticipantTopologyDispatcherCommon
+import com.digitalasset.canton.participant.topology.ParticipantTopologyDispatcher
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.traffic.{
   ParticipantTrafficControlSubscriber,
@@ -81,7 +81,7 @@ import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.Autho
 import com.digitalasset.canton.topology.processing.{
   ApproximateTime,
   EffectiveTime,
-  TopologyTransactionProcessorCommon,
+  TopologyTransactionProcessor,
 }
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -117,8 +117,8 @@ class SyncDomain(
     val ephemeral: SyncDomainEphemeralState,
     val packageService: PackageService,
     domainCrypto: DomainSyncCryptoClient,
-    identityPusher: ParticipantTopologyDispatcherCommon,
-    topologyProcessorFactory: TopologyTransactionProcessorCommon.Factory,
+    identityPusher: ParticipantTopologyDispatcher,
+    topologyProcessorFactory: TopologyTransactionProcessor.Factory,
     missingKeysAlerter: MissingKeysAlerter,
     transferCoordination: TransferCoordination,
     inFlightSubmissionTracker: InFlightSubmissionTracker,
@@ -981,8 +981,8 @@ object SyncDomain {
         ephemeralState: SyncDomainEphemeralState,
         packageService: PackageService,
         domainCrypto: DomainSyncCryptoClient,
-        identityPusher: ParticipantTopologyDispatcherCommon,
-        topologyProcessorFactory: TopologyTransactionProcessorCommon.Factory,
+        identityPusher: ParticipantTopologyDispatcher,
+        topologyProcessorFactory: TopologyTransactionProcessor.Factory,
         missingKeysAlerter: MissingKeysAlerter,
         transferCoordination: TransferCoordination,
         inFlightSubmissionTracker: InFlightSubmissionTracker,
@@ -1009,8 +1009,8 @@ object SyncDomain {
         ephemeralState: SyncDomainEphemeralState,
         packageService: PackageService,
         domainCrypto: DomainSyncCryptoClient,
-        identityPusher: ParticipantTopologyDispatcherCommon,
-        topologyProcessorFactory: TopologyTransactionProcessorCommon.Factory,
+        identityPusher: ParticipantTopologyDispatcher,
+        topologyProcessorFactory: TopologyTransactionProcessor.Factory,
         missingKeysAlerter: MissingKeysAlerter,
         transferCoordination: TransferCoordination,
         inFlightSubmissionTracker: InFlightSubmissionTracker,

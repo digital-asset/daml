@@ -22,11 +22,7 @@ import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerEr
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.{
-  AuthorizedTopologyManagerX,
-  ParticipantId,
-  UniqueIdentifier,
-}
+import com.digitalasset.canton.topology.{AuthorizedTopologyManager, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
@@ -112,7 +108,7 @@ class PackageOpsX(
     val participantId: ParticipantId,
     val headAuthorizedTopologySnapshot: TopologySnapshot,
     manager: SyncDomainPersistentStateManager,
-    topologyManager: AuthorizedTopologyManagerX,
+    topologyManager: AuthorizedTopologyManager,
     nodeId: UniqueIdentifier,
     initialProtocolVersion: ProtocolVersion,
     val loggerFactory: NamedLoggerFactory,
@@ -157,13 +153,13 @@ class PackageOpsX(
               asOf = CantonTimestamp.MaxValue,
               asOfInclusive = true,
               isProposal = false,
-              types = Seq(VettedPackagesX.code),
+              types = Seq(VettedPackages.code),
               filterUid = Some(Seq(nodeId)),
               filterNamespace = None,
             )
             .map { result =>
               result
-                .collectOfMapping[VettedPackagesX]
+                .collectOfMapping[VettedPackages]
                 .result
                 .lastOption
             }
@@ -178,8 +174,8 @@ class PackageOpsX(
         performUnlessClosingEitherUSF(functionFullName)(
           topologyManager
             .proposeAndAuthorize(
-              op = TopologyChangeOpX.Replace,
-              mapping = VettedPackagesX(
+              op = TopologyChangeOp.Replace,
+              mapping = VettedPackages(
                 participantId = participantId,
                 domainId = None,
                 newVettedPackagesState,

@@ -10,12 +10,12 @@ import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.LogEntry
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX.Broadcast
+import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.Broadcast
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
   SetTrafficBalanceMessage,
   SignedProtocolMessage,
-  TopologyTransactionsBroadcastX,
+  TopologyTransactionsBroadcast,
 }
 import com.digitalasset.canton.sequencing.protocol.{
   Batch,
@@ -68,7 +68,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
   private val factoryX =
     new TopologyTransactionTestFactoryX(loggerFactory, initEc = parallelExecutionContext)
 
-  private def mkTopoTx(): TopologyTransactionsBroadcastX = TopologyTransactionsBroadcastX.create(
+  private def mkTopoTx(): TopologyTransactionsBroadcast = TopologyTransactionsBroadcast.create(
     domainId,
     Seq(
       Broadcast(

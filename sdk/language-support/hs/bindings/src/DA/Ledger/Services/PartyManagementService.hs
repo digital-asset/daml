@@ -16,6 +16,7 @@ import DA.Ledger.Types
 import Data.Functor
 import Data.Maybe (fromMaybe)
 import Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as LT
 import Network.GRPC.HighLevel.Generated
 import qualified Data.Aeson as A
 import Data.Aeson ((.:), (.:?))
@@ -55,12 +56,21 @@ listKnownParties =
     withGRPCClient config $ \client -> do
         service <- LL.partyManagementServiceClient client
         let LL.PartyManagementService{partyManagementServiceListKnownParties=rpc} = service
-        let listKnownPartiesRequestIdentityProviderId = ""
-        let request = LL.ListKnownPartiesRequest{..}
-        rpc (ClientNormalRequest request timeout mdm)
-            >>= unwrap
-            >>= \(LL.ListKnownPartiesResponse xs) ->
-                    either (fail . show) return $ raiseList raisePartyDetails xs
+        let loop token = do
+            let request = 
+                  LL.ListKnownPartiesRequest
+                    { listKnownPartiesRequestIdentityProviderId = ""
+                    , listKnownPartiesRequestPageToken = token
+                    -- 0 means the server chooses the page size
+                    , listKnownPartiesRequestPageSize = 0 
+                    }
+            result <- rpc (ClientNormalRequest request timeout mdm)
+            LL.ListKnownPartiesResponse parties nextPageToken <- unwrap result
+            if LT.null nextPageToken
+                then pure parties
+                else (parties <>) <$> loop nextPageToken
+        parties <- loop ""
+        either (fail . show) return $ raiseList raisePartyDetails parties
 
 raisePartyDetails :: LL.PartyDetails -> Perhaps PartyDetails
 raisePartyDetails = \case

@@ -27,7 +27,7 @@ import com.digitalasset.canton.tracing.TraceContext
   *
   * This must only be used on code paths where there cannot be other types of events by construction.
   * Otherwise, the application handler will not be informed about ignored event and cannot tick any of the trackers,
-  * including the [[com.digitalasset.canton.topology.processing.TopologyTransactionProcessorX]].
+  * including the [[com.digitalasset.canton.topology.processing.TopologyTransactionProcessor]].
   */
 class DiscardIgnoredEvents[Env <: Envelope[_]](
     handler: OrdinaryApplicationHandler[Env],

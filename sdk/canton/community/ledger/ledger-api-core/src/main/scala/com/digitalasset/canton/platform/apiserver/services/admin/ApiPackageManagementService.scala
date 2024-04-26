@@ -136,6 +136,15 @@ private[apiserver] final class ApiPackageManagementService private (
     } yield dar
   }
 
+  override def validateDarFile(request: ValidateDarFileRequest): Future[ValidateDarFileResponse] = {
+    val submissionId = submissionIdGenerator(request.submissionId)
+    LoggingContextWithTrace.withEnrichedLoggingContext(telemetry)(
+      logging.submissionId(submissionId)
+    ) { implicit loggingContext: LoggingContextWithTrace =>
+      decodeAndValidate(request.darFile).map((_: Dar[Archive]) => ValidateDarFileResponse())
+    }
+  }
+
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
     val submissionId = submissionIdGenerator(request.submissionId)
     LoggingContextWithTrace.withEnrichedLoggingContext(telemetry)(

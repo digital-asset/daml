@@ -158,10 +158,10 @@ final class GeneratorsTransferData(
 
       recipients <- recipientsArb.arbitrary
 
-      transferOutTimestamp <- Arbitrary.arbitrary[CantonTimestamp]
-
       batch = Batch.of(protocolVersion, signedResult -> recipients)
       deliver <- deliverGen(sourceDomain.unwrap, batch)
+
+      transferOutTimestamp <- Arbitrary.arbitrary[CantonTimestamp]
     } yield DeliveredTransferOutResult {
       SignedContent(
         deliver,

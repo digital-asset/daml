@@ -15,11 +15,11 @@ import com.digitalasset.canton.topology.store.TopologyTransactionRejection.{
   NoDelegationFoundForKeys,
   NotAuthorized,
 }
-import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
+import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{
   TopologyStoreId,
   TopologyTransactionRejection,
-  ValidatedTopologyTransactionX,
+  ValidatedTopologyTransaction,
 }
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
@@ -40,12 +40,12 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
     def ts(seconds: Long) = CantonTimestamp.Epoch.plusSeconds(seconds)
 
     def mk(
-        store: InMemoryTopologyStoreX[TopologyStoreId] =
-          new InMemoryTopologyStoreX(DomainStore(Factory.domainId1), loggerFactory, timeouts),
+        store: InMemoryTopologyStore[TopologyStoreId] =
+          new InMemoryTopologyStore(DomainStore(Factory.domainId1), loggerFactory, timeouts),
         validationIsFinal: Boolean = true,
     ) = {
       val validator =
-        new IncomingTopologyTransactionAuthorizationValidatorX(
+        new IncomingTopologyTransactionAuthorizationValidator(
           Factory.cryptoApi.crypto.pureCrypto,
           store,
           Some(Factory.domainId1),
@@ -56,14 +56,14 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
     }
 
     def check(
-        validated: Seq[ValidatedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]],
+        validated: Seq[ValidatedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
         expectedOutcome: Seq[Option[TopologyTransactionRejection => Boolean]],
     ) = {
       validated should have length (expectedOutcome.size.toLong)
       validated.zipWithIndex.zip(expectedOutcome).foreach {
-        case ((ValidatedTopologyTransactionX(_, Some(err), _), _), Some(expected)) =>
+        case ((ValidatedTopologyTransaction(_, Some(err), _), _), Some(expected)) =>
           assert(expected(err), (err, expected))
-        case ((ValidatedTopologyTransactionX(transaction, rej, _), idx), expected) =>
+        case ((ValidatedTopologyTransaction(transaction, rej, _), idx), expected) =>
           assertResult(expected, s"idx=$idx $transaction")(rej)
       }
       assert(true)
@@ -181,7 +181,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
       }
       "succeed and use load existing delegations" in {
         val store =
-          new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
         val validator = mk(store)
         import Factory.*
         for {
@@ -190,7 +190,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             EffectiveTime(ts(0)),
             removeMapping = Map.empty,
             removeTxs = Set.empty,
-            additions = List(ns1k1_k1).map(ValidatedTopologyTransactionX(_)),
+            additions = List(ns1k1_k1).map(ValidatedTopologyTransaction(_)),
           )
           res <- validator.validateAndUpdateHeadAuthState(
             ts(1),
@@ -308,8 +308,8 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
         }
       }
       "succeed with loading existing identifier delegations" in {
-        val store: InMemoryTopologyStoreX[TopologyStoreId.AuthorizedStore] =
-          new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+        val store: InMemoryTopologyStore[TopologyStoreId.AuthorizedStore] =
+          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
         val validator = mk(store)
         import Factory.*
         for {
@@ -318,7 +318,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             EffectiveTime(ts(0)),
             removeMapping = Map.empty,
             removeTxs = Set.empty,
-            additions = List(ns1k1_k1, ns6k6_k6, id1ak4_k1).map(ValidatedTopologyTransactionX(_)),
+            additions = List(ns1k1_k1, ns6k6_k6, id1ak4_k1).map(ValidatedTopologyTransaction(_)),
           )
           res <- validator.validateAndUpdateHeadAuthState(
             ts(1),
@@ -383,7 +383,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
     "correctly determine cascading update for" should {
       "namespace additions" in {
         val store =
-          new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
         val validator = mk(store)
         import Factory.*
         for {
@@ -392,7 +392,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             EffectiveTime(ts(0)),
             removeMapping = Map.empty,
             removeTxs = Set.empty,
-            additions = List(ns6k6_k6).map(ValidatedTopologyTransactionX(_)),
+            additions = List(ns6k6_k6).map(ValidatedTopologyTransaction(_)),
           )
           res <- validator.validateAndUpdateHeadAuthState(
             ts(1),
@@ -407,7 +407,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
 
       "namespace removals" in {
         val store =
-          new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
         val validator = mk(store)
         import Factory.*
         val Rns1k1_k1 = mkTrans(ns1k1_k1.transaction.reverse)
@@ -417,7 +417,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             EffectiveTime(ts(0)),
             removeMapping = Map.empty,
             removeTxs = Set.empty,
-            additions = List(ns1k1_k1).map(ValidatedTopologyTransactionX(_)),
+            additions = List(ns1k1_k1).map(ValidatedTopologyTransaction(_)),
           )
           res <- validator.validateAndUpdateHeadAuthState(
             ts(1),
@@ -436,7 +436,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
 
       "identifier additions and removals" in {
         val store =
-          new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
         val validator = mk(store)
         import Factory.*
         val Rid1ak4_k1 = mkTrans(id1ak4_k1.transaction.reverse)
@@ -446,7 +446,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             EffectiveTime(ts(0)),
             removeMapping = Map.empty,
             removeTxs = Set.empty,
-            additions = List(ns1k1_k1).map(ValidatedTopologyTransactionX(_)),
+            additions = List(ns1k1_k1).map(ValidatedTopologyTransaction(_)),
           )
           res <- validator.validateAndUpdateHeadAuthState(
             ts(1),
@@ -469,14 +469,14 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
 
       "cascading invalidation pre-existing identifier uids" in {
         val store =
-          new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
         val validator = mk(store)
         import Factory.*
         import Factory.SigningKeys.{ec as _, *}
         // scenario: we have id1ak4_k2 previously loaded. now we get a removal on k2. we need to ensure that
         // nothing can be added by k4
         val Rns1k2_k1 = mkTrans(ns1k2_k1.transaction.reverse)
-        val id6ak7_k6 = mkAdd(IdentifierDelegationX(uid6, key7), key6)
+        val id6ak7_k6 = mkAdd(IdentifierDelegation(uid6, key7), key6)
         for {
           _ <- store.update(
             SequencedTime(ts(0)),
@@ -484,7 +484,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             removeMapping = Map.empty,
             removeTxs = Set.empty,
             additions =
-              List(ns1k1_k1, ns1k2_k1, id1ak4_k2, ns6k6_k6).map(ValidatedTopologyTransactionX(_)),
+              List(ns1k1_k1, ns1k2_k1, id1ak4_k2, ns6k6_k6).map(ValidatedTopologyTransaction(_)),
           )
           res <- validator.validateAndUpdateHeadAuthState(
             ts(1),
@@ -513,13 +513,13 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
     "observing PartyToParticipant mappings" should {
       "allow participants to unilaterally disassociate themselves from parties" in {
         val store =
-          new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
         val validator = mk(store)
         import Factory.*
 
         val pid2 = ParticipantId(UniqueIdentifier(Identifier.tryCreate("participant2"), ns2))
         val participant2HostsParty1 = mkAddMultiKey(
-          PartyToParticipantX(
+          PartyToParticipant(
             party1b, // lives in the namespace of p1, corresponding to `SigningKeys.key1`
             None,
             threshold = PositiveInt.two,
@@ -534,7 +534,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           serial = PositiveInt.one,
         )
 
-        val unhostingMapping = PartyToParticipantX(
+        val unhostingMapping = PartyToParticipant(
           party1b,
           None,
           threshold = PositiveInt.two,
@@ -564,7 +564,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             removeMapping = Map.empty,
             removeTxs = Set.empty,
             additions = List(ns1k1_k1, ns2k2_k2).map(
-              ValidatedTopologyTransactionX(_)
+              ValidatedTopologyTransaction(_)
             ),
           )
           hostingResult <- validator.validateAndUpdateHeadAuthState(
@@ -619,7 +619,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
     "evolving decentralized namespace definitions with threshold > 1" should {
       "succeed if proposing lower threshold and number of owners" in {
         val store =
-          new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
         val validator = mk(store)
         import Factory.*
         for {
@@ -629,7 +629,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             removeMapping = Map.empty,
             removeTxs = Set.empty,
             additions = decentralizedNamespaceWithMultipleOwnerThreshold.map(
-              ValidatedTopologyTransactionX(_)
+              ValidatedTopologyTransaction(_)
             ),
           )
           res <- validator.validateAndUpdateHeadAuthState(
@@ -647,7 +647,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
 
       "succeed in authorizing with quorum of owner signatures" in {
         val store =
-          new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
         val validator = mk(store)
         import Factory.*
         val proposeDecentralizedNamespaceWithLowerThresholdAndOwnerNumber = List(dns2)
@@ -658,7 +658,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             removeMapping = Map.empty,
             removeTxs = Set.empty,
             additions = decentralizedNamespaceWithMultipleOwnerThreshold.map(
-              ValidatedTopologyTransactionX(_)
+              ValidatedTopologyTransaction(_)
             ),
           )
           _ <- store.update(
@@ -667,7 +667,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             removeMapping = Map.empty,
             removeTxs = Set.empty,
             additions = proposeDecentralizedNamespaceWithLowerThresholdAndOwnerNumber.map(
-              ValidatedTopologyTransactionX(_)
+              ValidatedTopologyTransaction(_)
             ),
           )
           res <- validator.validateAndUpdateHeadAuthState(
@@ -690,14 +690,14 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
 
     def checkProposalFlatAfterValidation(validationIsFinal: Boolean, expectProposal: Boolean) = {
       val store =
-        new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+        new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
       val validator = mk(store, validationIsFinal)
       import Factory.*
       import SigningKeys.{ec as _, *}
 
-      val dns_id = DecentralizedNamespaceDefinitionX.computeNamespace(Set(ns1, ns8))
+      val dns_id = DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns8))
       val dns_2_owners = mkAddMultiKey(
-        DecentralizedNamespaceDefinitionX
+        DecentralizedNamespaceDefinition
           .create(dns_id, PositiveInt.two, NonEmpty(Set, ns1, ns8))
           .value,
         NonEmpty(Set, key1, key8),
@@ -712,14 +712,14 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           removeMapping = Map.empty,
           removeTxs = Set.empty,
           additions = decentralizedNamespaceWithThreeOwners.map(
-            ValidatedTopologyTransactionX(_)
+            ValidatedTopologyTransaction(_)
           ),
         )
 
-        pkgTx = TopologyTransactionX(
-          TopologyChangeOpX.Replace,
+        pkgTx = TopologyTransaction(
+          TopologyChangeOp.Replace,
           serial = PositiveInt.one,
-          VettedPackagesX(
+          VettedPackages(
             ParticipantId(Identifier.tryCreate("consortium-participiant"), dns_id),
             None,
             Seq.empty,
@@ -759,14 +759,14 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
 
     "remove superfluous signatures" in {
       val store =
-        new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+        new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
       val validator = mk(store)
       import Factory.*
       import SigningKeys.{ec as _, *}
 
-      val dns_id = DecentralizedNamespaceDefinitionX.computeNamespace(Set(ns1, ns8))
+      val dns_id = DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns8))
       val dnsTwoOwners = mkAddMultiKey(
-        DecentralizedNamespaceDefinitionX
+        DecentralizedNamespaceDefinition
           .create(dns_id, PositiveInt.two, NonEmpty(Set, ns1, ns8))
           .value,
         NonEmpty(Set, key1, key8),
@@ -781,14 +781,14 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           removeMapping = Map.empty,
           removeTxs = Set.empty,
           additions = decentralizedNamespaceWithTwoOwners.map(
-            ValidatedTopologyTransactionX(_)
+            ValidatedTopologyTransaction(_)
           ),
         )
 
-        pkgTx = TopologyTransactionX(
-          TopologyChangeOpX.Replace,
+        pkgTx = TopologyTransaction(
+          TopologyChangeOp.Replace,
           serial = PositiveInt.one,
-          VettedPackagesX(
+          VettedPackages(
             ParticipantId(Identifier.tryCreate("consortium-participiant"), dns_id),
             None,
             Seq.empty,
@@ -835,14 +835,14 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
 
     "respect the threshold of decentralized namespaces" in {
       val store =
-        new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+        new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
       val validator = mk(store)
       import Factory.*
       import SigningKeys.{ec as _, *}
 
-      val dns_id = DecentralizedNamespaceDefinitionX.computeNamespace(Set(ns1, ns8, ns9))
+      val dns_id = DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns8, ns9))
       val dns = mkAddMultiKey(
-        DecentralizedNamespaceDefinitionX
+        DecentralizedNamespaceDefinition
           .create(dns_id, PositiveInt.tryCreate(3), NonEmpty(Set, ns1, ns8, ns9))
           .value,
         NonEmpty(Set, key1, key8, key9),
@@ -851,13 +851,13 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
 
       val decentralizedNamespaceWithThreeOwners = List(ns1k1_k1, ns8k8_k8, ns9k9_k9, dns)
 
-      val pkgMapping = VettedPackagesX(
+      val pkgMapping = VettedPackages(
         ParticipantId(Identifier.tryCreate("consortium-participiant"), dns_id),
         None,
         Seq.empty,
       )
-      val pkgTx = TopologyTransactionX(
-        TopologyChangeOpX.Replace,
+      val pkgTx = TopologyTransaction(
+        TopologyChangeOp.Replace,
         serial = PositiveInt.one,
         pkgMapping,
         BaseTest.testedProtocolVersion,
@@ -891,7 +891,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           removeMapping = Map.empty,
           removeTxs = Set.empty,
           additions = decentralizedNamespaceWithThreeOwners.map(
-            ValidatedTopologyTransactionX(_)
+            ValidatedTopologyTransaction(_)
           ),
         )
 

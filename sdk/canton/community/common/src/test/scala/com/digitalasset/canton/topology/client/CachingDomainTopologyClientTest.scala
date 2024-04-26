@@ -15,7 +15,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
   KeyCollection,
@@ -44,7 +44,7 @@ class CachingDomainTopologyClientTest extends AsyncWordSpecLike with BaseTest {
 
     val owner = DefaultTestIdentities.sequencerIdX
     val crypto = new TestingOwnerWithKeysX(owner, loggerFactory, directExecutionContext)
-    val mockTransaction = mock[GenericSignedTopologyTransactionX]
+    val mockTransaction = mock[GenericSignedTopologyTransaction]
 
     val mockParent = mock[DomainTopologyClientWithInit]
     val mockSnapshot0 = mock[TopologySnapshotLoader]
@@ -95,7 +95,7 @@ class CachingDomainTopologyClientTest extends AsyncWordSpecLike with BaseTest {
         any[CantonTimestamp],
         any[CantonTimestamp],
         any[SequencerCounter],
-        anySeq[GenericSignedTopologyTransactionX],
+        anySeq[GenericSignedTopologyTransaction],
       )(any[TraceContext])
     ).thenReturn(FutureUnlessShutdown.unit)
 

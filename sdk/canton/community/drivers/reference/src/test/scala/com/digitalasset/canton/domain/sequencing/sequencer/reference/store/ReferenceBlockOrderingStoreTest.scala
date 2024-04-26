@@ -12,7 +12,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.Refer
   sequencedRegisterMember,
   sequencedSend,
 }
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction
 import com.digitalasset.canton.tracing.{TraceContext, Traced, W3CTraceContext}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
@@ -40,7 +40,7 @@ trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest {
     TimestampedBlock(
       BlockOrderer.Block(height, Seq(tracedEvent)),
       CantonTimestamp.ofEpochMicro(tracedEvent.value.microsecondsSinceEpoch),
-      SignedTopologyTransactionX.InitialTopologySequencingTime,
+      SignedTopologyTransaction.InitialTopologySequencingTime,
     )
 
   def referenceBlockOrderingStore(mk: () => ReferenceBlockOrderingStore): Unit = {

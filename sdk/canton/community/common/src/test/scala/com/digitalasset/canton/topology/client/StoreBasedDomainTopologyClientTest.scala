@@ -12,12 +12,12 @@ import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.store.db.DbTopologyStoreXHelper
-import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
+import com.digitalasset.canton.topology.store.db.DbTopologyStoreHelper
+import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{
+  TopologyStore,
   TopologyStoreId,
-  TopologyStoreX,
-  ValidatedTopologyTransactionX,
+  ValidatedTopologyTransaction,
 }
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.*
 import com.digitalasset.canton.topology.transaction.*
@@ -31,7 +31,7 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
 
   import EffectiveTimeTestHelpers.*
 
-  def topologySnapshot(mk: () => TopologyStoreX[TopologyStoreId]): Unit = {
+  def topologySnapshot(mk: () => TopologyStore[TopologyStoreId]): Unit = {
 
     val factory = new TestingOwnerWithKeysX(
       DefaultTestIdentities.participant1,
@@ -43,7 +43,7 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
     import factory.TestingTransactions.*
 
     lazy val party1participant1 = mkAdd(
-      PartyToParticipantX(
+      PartyToParticipant(
         party1,
         None,
         PositiveInt.one,
@@ -52,7 +52,7 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
       )
     )
     lazy val party2participant1_2 = mkAdd(
-      PartyToParticipantX(
+      PartyToParticipant(
         party2,
         None,
         PositiveInt.one,
@@ -80,7 +80,7 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
 
       def add(
           timestamp: CantonTimestamp,
-          transactions: Seq[SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]],
+          transactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
       ): Future[Unit] = {
 
         for {
@@ -89,7 +89,7 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
             EffectiveTime(timestamp),
             removeMapping = transactions.map(tx => tx.mapping.uniqueKey -> tx.serial).toMap,
             removeTxs = transactions.map(_.hash).toSet,
-            additions = transactions.map(ValidatedTopologyTransactionX(_)),
+            additions = transactions.map(ValidatedTopologyTransaction(_)),
           )
           _ <- client
             .observed(timestamp, timestamp, SequencerCounter(1), transactions)
@@ -309,7 +309,7 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
 class StoreBasedTopologySnapshotTestInMemory extends StoreBasedTopologySnapshotTest {
   "InMemoryTopologyStore" should {
     behave like topologySnapshot(() =>
-      new InMemoryTopologyStoreX(
+      new InMemoryTopologyStore(
         TopologyStoreId.AuthorizedStore,
         loggerFactory,
         timeouts,
@@ -320,7 +320,7 @@ class StoreBasedTopologySnapshotTestInMemory extends StoreBasedTopologySnapshotT
 
 trait DbStoreBasedTopologySnapshotTest
     extends StoreBasedTopologySnapshotTest
-    with DbTopologyStoreXHelper {
+    with DbTopologyStoreHelper {
 
   this: AsyncWordSpec with BaseTest with HasExecutionContext with DbTest =>
 

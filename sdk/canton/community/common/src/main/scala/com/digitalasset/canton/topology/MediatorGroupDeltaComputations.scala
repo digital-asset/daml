@@ -4,7 +4,7 @@
 package com.digitalasset.canton.topology
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.topology.transaction.MediatorDomainStateX
+import com.digitalasset.canton.topology.transaction.MediatorDomainState
 
 object MediatorGroupDeltaComputations {
 
@@ -37,7 +37,7 @@ object MediatorGroupDeltaComputations {
   } yield ()
 
   def verifyProposalAgainstCurrentState(
-      mdsO: Option[MediatorDomainStateX],
+      mdsO: Option[MediatorDomainState],
       adds: Seq[MediatorId],
       removes: Seq[MediatorId],
       observerAdds: Seq[MediatorId],
