@@ -202,8 +202,10 @@ class LedgerFixer(numParties: Int) {
   def genCommands(topology: L.Topology, commands: S.Commands): LGen[L.Commands] = for {
     participantId <- StateT.liftF(Gen.choose(0, topology.size - 1))
     actAs <- StateT.liftF(genNonEmptySubsetOf(topology(participantId).parties))
+    activeContracts <- StateT.inspect((s: GenState) => s.activeContracts)
+    disclosures <- StateT.liftF(genSubsetOf(activeContracts.keySet))
     fixedActions <- genActions(topology(participantId).parties, Set.empty, actAs, commands.actions)
-  } yield L.Commands(participantId, actAs, fixedActions)
+  } yield L.Commands(participantId, actAs, disclosures, fixedActions)
 
   def genLedger(topology: L.Topology, ledger: S.Ledger): LGen[L.Ledger] =
     ledger.traverse(genCommands(topology, _))
