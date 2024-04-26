@@ -198,7 +198,7 @@ da_scala_library(
 
 scala_library(
     name = "community_util-external",
-    srcs = glob(["community/util-external/src/main/scala/**/*.scala"]),
+    srcs = glob(["daml-common-staging/util-external/src/main/scala/**/*.scala"]),
     scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
@@ -470,11 +470,9 @@ scala_library(
         "@maven//:org_apache_pekko_pekko_slf4j_2_13",
     ],
     deps = [
-        ":bindings-java",
         ":community_admin-api",
         ":community_base",
         ":community_buildinfo",
-        ":community_ledger_ledger-common",
         ":community_lib_Blake2b",
         ":community_lib_slick_slick-fork",
         ":community_lib_wartremover",
@@ -768,7 +766,6 @@ scala_library(
     ],
     unused_dependency_checker_mode = "error",
     deps = [
-        ":bindings-java",
         ":community_admin-api",
         ":community_base",
         ":community_common",
