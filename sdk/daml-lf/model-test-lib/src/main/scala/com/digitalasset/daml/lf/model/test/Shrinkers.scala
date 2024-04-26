@@ -12,13 +12,13 @@ import scala.annotation.nowarn
 object Shrinkers {
 
   private def validScenario(scenario: Scenario): Boolean = {
-    val numParties = scenario.topology.flatMap(_.parties).max
+    val numParties = scenario.topology.flatMap(_.parties).toSet.size
     val res =
       try {
         SymbolicSolver.valid(scenario, numParties)
       } catch {
         case _: Throwable =>
-          // sometimes z3 times out on closed terms
+          // sometimes z3 times out on ground constraints (!)
           false
       }
     if (res) print('.')
@@ -157,6 +157,7 @@ object Shrinkers {
         .suchThat(as => as.nonEmpty && as.forall(isNoRollback))
         .shrink(subTransaction)
         .map(Rollback)
+        .lazyAppendedAll(subTransaction)
   }
 
   private def isToplevelAction(action: Action): Boolean = action match {
@@ -180,9 +181,18 @@ object Shrinkers {
   lazy val shrinkLedger: Shrink[Ledger] =
     Shrink.shrinkContainer[List, Commands](implicitly, shrinkCommands, implicitly)
 
+  lazy val shrinkParticipant: Shrink[Participant] = Shrink {
+    case Participant(participantId, parties) =>
+      shrinkPartySet.shrink(parties).map(Participant(participantId, _))
+  }
+
+  lazy val shrinkTopology: Shrink[Topology] =
+    Shrink.shrinkContainer[Seq, Participant](implicitly, shrinkParticipant, implicitly)
+
   lazy val shrinkScenario: Shrink[Scenario] = Shrink[Scenario] { case Scenario(topology, ledger) =>
-    shrinkLedger
-      .shrink(ledger)
-      .map(Scenario(topology, _))
+    Shrink
+      .shrinkTuple2(shrinkTopology, shrinkLedger)
+      .shrink((topology, ledger))
+      .map((Scenario.apply _).tupled)
   }.suchThat(validScenario)
 }
