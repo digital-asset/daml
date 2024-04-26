@@ -20,6 +20,8 @@ object Demo {
 
   private val languageVersion = LanguageVersion.v2_dev
   private val alsoRunOnCanton = true
+  private val numParticipants = 3
+  private val numParties = 5
 
   private val universalDarPath: String = rlocation(
     s"daml-lf/model-test-lib/universal-v${languageVersion.pretty.replaceAll("\\.", "")}.dar"
@@ -28,7 +30,7 @@ object Demo {
   def main(args: Array[String]): Unit = {
 
     val scenarios =
-      new Enumerations(languageVersion).scenarios(numParticipants = 3, numCommands = 4)(50)
+      new Enumerations(languageVersion).scenarios(numParticipants, numCommands = 4)(50)
 
     def randomBigIntLessThan(n: BigInt): BigInt = {
       var res: BigInt = BigInt(0)
@@ -40,20 +42,20 @@ object Demo {
 
     def randomScenarios: LazyList[Ledgers.Scenario] = LazyList.continually {
       Gen
-        .resize(5, new Generators(numParticipants = 3, numParties = 5).scenarioGen)
+        .resize(5, new Generators(numParticipants, numParties).scenarioGen)
         .sample
     }.flatten
     val _ = randomScenarios
 
     def validSymScenarios: LazyList[Ledgers.Scenario] = LazyList.continually {
       val skeleton = scenarios(randomBigIntLessThan(scenarios.cardinal))
-      SymbolicSolver.solve(skeleton, numParties = 5)
+      SymbolicSolver.solve(skeleton, numParties)
     }.flatten
     val _ = validSymScenarios
 
     def validScenarios: LazyList[Ledgers.Scenario] = LazyList.continually {
       val randomSkeleton = scenarios(randomBigIntLessThan(scenarios.cardinal))
-      new LedgerFixer(numParties = 5).fixScenario(randomSkeleton).sample
+      new LedgerFixer(numParties).fixScenario(randomSkeleton).sample
     }.flatten
     val _ = validScenarios
 
@@ -82,43 +84,19 @@ object Demo {
       import Ledgers._
 
       Scenario(
-        List(
-          Participant(0, Set(1, 2)),
-          Participant(1, Set(1)),
-        ),
+        List(Participant(0, Set(2)), Participant(1, Set(1))),
         List(
           Commands(0, Set(2), Set(), List(Create(0, Set(2), Set(1)))),
           Commands(
             1,
             Set(1),
             Set(),
-            List(
-              Exercise(
-                Consuming,
-                0,
-                Set(1),
-                Set(),
-                List(Create(1, Set(2), Set())),
-              )
-            ),
+            List(Exercise(Consuming, 0, Set(1), Set(), List(Create(1, Set(2), Set())))),
           ),
-          Commands(
-            1,
-            Set(1),
-            Set(1),
-            List(
-              Exercise(
-                Consuming,
-                1,
-                Set(1),
-                Set(),
-                List(
-                ),
-              )
-            ),
-          ),
+          Commands(1, Set(1), Set(1), List(Exercise(Consuming, 1, Set(1), Set(), List()))),
         ),
       )
+
     }
 
     println("BAD is valid: " + SymbolicSolver.valid(bad, numParties = 2))

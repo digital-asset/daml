@@ -44,21 +44,27 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
   private def or(bools: Seq[BoolExpr]): BoolExpr =
     ctx.mkOr(bools: _*)
 
+  def union[E <: Sort](elemSort: E, sets: Seq[ArrayExpr[E, BoolSort]]): ArrayExpr[E, BoolSort] =
+    sets.foldLeft(ctx.mkEmptySet(elemSort))(ctx.mkSetUnion(_, _))
+
   def toSet[E <: Sort](elemSort: E, elems: Iterable[Expr[E]]): ArrayExpr[E, BoolSort] =
     elems.foldLeft(ctx.mkEmptySet(elemSort))((acc, cid) => ctx.mkSetAdd(acc, cid))
 
   private def isEmptyPartySet(partySet: PartySet): BoolExpr =
     ctx.mkEq(partySet, ctx.mkEmptySet(partySort))
 
-  private def collectCreates(action: Action): Set[ContractId] = action match {
+  private def collectCreatedContractIds(ledger: Ledger): Set[ContractId] =
+    ledger.flatMap(_.actions.flatMap(collectCreatedContractIds)).toSet
+
+  private def collectCreatedContractIds(action: Action): Set[ContractId] = action match {
     case Create(contractId, _, _) =>
       Set(contractId)
     case CreateWithKey(contractId, _, _, _, _) =>
       Set(contractId)
     case Exercise(_, _, _, _, subTransaction) =>
-      subTransaction.view.flatMap(collectCreates).toSet
+      subTransaction.view.flatMap(collectCreatedContractIds).toSet
     case ExerciseByKey(_, _, _, _, _, _, subTransaction) =>
-      subTransaction.view.flatMap(collectCreates).toSet
+      subTransaction.view.flatMap(collectCreatedContractIds).toSet
     case Fetch(_) =>
       Set.empty
     case FetchByKey(_, _, _) =>
@@ -66,7 +72,7 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     case LookupByKey(_, _, _) =>
       Set.empty
     case Rollback(subTransaction) =>
-      subTransaction.view.flatMap(collectCreates).toSet
+      subTransaction.view.flatMap(collectCreatedContractIds).toSet
   }
 
   private def collectCreatedKeyIds(ledger: Ledger): Set[KeyId] =
@@ -237,11 +243,8 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
   private def allPartiesCoveredBy(
       allParties: Symbolic.PartySet,
       partySets: Seq[Symbolic.PartySet],
-  ): BoolExpr = {
-    def union(sets: Seq[Symbolic.PartySet]): Symbolic.PartySet =
-      sets.foldLeft(ctx.mkEmptySet(partySort))(ctx.mkSetUnion(_, _))
-    ctx.mkAnd(ctx.mkEq(union(partySets), allParties))
-  }
+  ): BoolExpr =
+    ctx.mkAnd(ctx.mkEq(union(partySort, partySets), allParties))
 
   private def consistentLedger(
       hasKey: FuncDecl[BoolSort],
@@ -429,7 +432,7 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
       case Nil => ctx.mkBool(true)
       case action :: actions =>
         val constraints = for {
-          contractId <- collectCreates(action)
+          contractId <- collectCreatedContractIds(action)
           reference <- actions.flatMap(collectReferences)
         } yield ctx.mkNot(ctx.mkEq(contractId, reference))
         ctx.mkAnd(and(constraints.toList), hideInActions(actions))
@@ -627,27 +630,30 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     and(mkRandomHash(chunkSize, scenario))
   }
 
-  private def validScenario(
-      symScenario: Scenario,
-      allParties: PartySet,
-      signatoriesOf: FuncDecl[PartySetSort],
-      observersOf: FuncDecl[PartySetSort],
-      partiesOf: FuncDecl[PartySetSort],
-      keyIdsOf: FuncDecl[KeyIdSort],
-      maintainersOf: FuncDecl[PartySetSort],
-      hasKey: FuncDecl[BoolSort],
-  ): BoolExpr = {
+  private def niceNumbers(symScenario: Scenario): BoolExpr = {
     val Scenario(symTopology, symLedger) = symScenario
     ctx.mkAnd(
-      // Declare allParties = {1 .. numParties}
-      ctx.mkEq(allParties, allPartiesSetLiteral),
-      // Assign distinct contract IDs to create events
+      // Assign IDs 0..n to create events
       numberLedger(symLedger),
-      // Make sure that key nums are between 1 and number of create with keys
-      // in order to limit the leeway given to the hash function here.
+      // Make sure that key nums are between 1 and number of creates with keys
       numberkeyIds(symLedger),
       // Assign distinct participant IDs to participants in the topology
       numberParticipants(symTopology),
+    )
+  }
+
+  private def validScenario(
+      constants: Constants,
+      allParties: PartySet,
+      symScenario: Scenario,
+  ): BoolExpr = {
+    import constants._
+    val Scenario(symTopology, symLedger) = symScenario
+    ctx.mkAnd(
+      // Assign distinct contract IDs to create actions
+      ctx.mkDistinct(collectCreatedContractIds(symLedger).toSeq: _*),
+      // Assign distinct participant IDs to participants in the topology
+      ctx.mkDistinct(symTopology.map(_.participantId): _*),
       // Tie parties to participants via partiesOf
       tiePartiesToParticipants(symTopology, partiesOf),
       // Participants cover all parties
@@ -676,7 +682,6 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
   }
 
   private case class Constants(
-      allParties: PartySet,
       signatoriesOf: FuncDecl[PartySetSort],
       observersOf: FuncDecl[PartySetSort],
       partiesOf: FuncDecl[PartySetSort],
@@ -687,7 +692,6 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
 
   private def mkFreshConstants(): Constants =
     Constants(
-      allParties = ctx.mkFreshConst("all_parties", partySetSort).asInstanceOf[PartySet],
       signatoriesOf = ctx.mkFreshFuncDecl("signatories", Array[Sort](contractIdSort), partySetSort),
       observersOf = ctx.mkFreshFuncDecl("observers", Array[Sort](contractIdSort), partySetSort),
       partiesOf = ctx.mkFreshFuncDecl("parties", Array[Sort](participantIdSort), partySetSort),
@@ -698,33 +702,23 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
 
   private def solve(scenario: Skeletons.Scenario): Option[Ledgers.Scenario] = {
     val symScenario = SkeletonToSymbolic.toSymbolic(ctx, scenario)
-    val Constants(
-      allParties,
-      signatoriesOf,
-      observersOf,
-      partiesOf,
-      keyIdsOf,
-      maintainersOf,
-      hasKey,
-    ) =
-      mkFreshConstants()
+    val constants = mkFreshConstants()
 
     val solver = ctx.mkSolver()
     // val params = ctx.mkParams()
     // params.add("threads", 20)
     // solver.setParameters(params)
 
+    // Constrain the various IDs without loss of generality in order to
+    // prevent the generation of different but alpha-equivalent random
+    // scenarios.
+    solver.add(niceNumbers(symScenario))
     // The scenario is valid
+    val allParties = ctx.mkFreshConst("all_parties", partySetSort).asInstanceOf[PartySet]
     solver.add(
-      validScenario(
-        symScenario,
-        allParties,
-        signatoriesOf,
-        observersOf,
-        partiesOf,
-        keyIdsOf,
-        maintainersOf,
-        hasKey,
+      ctx.mkAnd(
+        ctx.mkEq(allParties, allPartiesSetLiteral),
+        validScenario(constants, allParties, symScenario),
       )
     )
     // Equate a random hash of all the symbols to a constant
@@ -754,31 +748,10 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     solver.setParameters(params)
 
     val symScenario = ConcreteToSymbolic.toSymbolic(ctx, scenario)
-    val Constants(
-      allParties,
-      signatoriesOf,
-      observersOf,
-      partiesOf,
-      keyIdsOf,
-      maintainersOf,
-      hasKey,
-    ) =
-      mkFreshConstants()
+    val allParties = union(partySort, symScenario.topology.map(_.parties))
+    val constants = mkFreshConstants()
 
-    solver.add(
-      validScenario(
-        symScenario,
-        allParties,
-        signatoriesOf,
-        observersOf,
-        partiesOf,
-        keyIdsOf,
-        maintainersOf,
-        hasKey,
-      )
-    )
-
-    solver.check() match {
+    solver.check(validScenario(constants, allParties, symScenario)) match {
       case SATISFIABLE => true
       case UNSATISFIABLE =>
         false
