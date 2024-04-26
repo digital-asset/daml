@@ -79,28 +79,6 @@ object Demo {
 
     // val workers = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(1))
 
-    // this one fails because we can't fetch the disclosures
-    val bad = {
-      import Ledgers._
-
-      Scenario(
-        List(Participant(0, Set(2)), Participant(1, Set(1))),
-        List(
-          Commands(0, Set(2), Set(), List(Create(0, Set(2), Set(1)))),
-          Commands(
-            1,
-            Set(1),
-            Set(),
-            List(Exercise(Consuming, 0, Set(1), Set(), List(Create(1, Set(2), Set())))),
-          ),
-          Commands(1, Set(1), Set(1), List(Exercise(Consuming, 1, Set(1), Set(), List()))),
-        ),
-      )
-
-    }
-
-    println("BAD is valid: " + SymbolicSolver.valid(bad, numParties = 2))
-
     validSymScenarios
       .foreach(scenario => {
         // workers.execute(() =>
