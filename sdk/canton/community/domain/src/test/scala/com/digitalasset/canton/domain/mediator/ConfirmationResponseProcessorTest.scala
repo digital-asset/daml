@@ -119,7 +119,7 @@ class ConfirmationResponseProcessorTest
   protected val participant2 = ExampleTransactionFactory.signatoryParticipant
   protected val participant3 = ParticipantId("participant3")
 
-  private lazy val topology: TestingTopologyX = TestingTopologyX(
+  private lazy val topology: TestingTopology = TestingTopology(
     Set(domainId),
     Map(
       submitter -> Map(participant -> ParticipantPermission.Confirmation),
@@ -131,15 +131,15 @@ class ConfirmationResponseProcessorTest
     Set(mediatorGroup, mediatorGroup2),
     sequencerGroup,
   )
-  private lazy val identityFactory: TestingIdentityFactoryBase = TestingIdentityFactoryX(
+  private lazy val identityFactory = TestingIdentityFactory(
     topology,
     loggerFactory,
     dynamicDomainParameters =
       initialDomainParameters.tryUpdate(confirmationResponseTimeout = confirmationResponseTimeout),
   )
 
-  private lazy val identityFactory2: TestingIdentityFactoryBase = {
-    val topology2 = TestingTopologyX(
+  private lazy val identityFactory2 = {
+    val topology2 = TestingTopology(
       Set(domainId),
       Map(
         submitter -> Map(participant1 -> ParticipantPermission.Confirmation),
@@ -149,23 +149,23 @@ class ConfirmationResponseProcessorTest
       Set(mediatorGroup),
       sequencerGroup,
     )
-    TestingIdentityFactoryX(topology2, loggerFactory, initialDomainParameters)
+    TestingIdentityFactory(topology2, loggerFactory, initialDomainParameters)
   }
 
-  private lazy val identityFactory3: TestingIdentityFactoryBase = {
+  private lazy val identityFactory3 = {
     val otherMediatorId = MediatorId(UniqueIdentifier.tryCreate("mediator", "other"))
     val topology3 =
       topology.copy(mediatorGroups = Set(mediatorGroup0(NonEmpty.mk(Seq, otherMediatorId))))
-    TestingIdentityFactoryX(
+    TestingIdentityFactory(
       topology3,
       loggerFactory,
       dynamicDomainParameters = initialDomainParameters,
     )
   }
 
-  private lazy val identityFactoryOnlySubmitter: TestingIdentityFactoryBase =
-    TestingIdentityFactoryX(
-      TestingTopologyX(
+  private lazy val identityFactoryOnlySubmitter =
+    TestingIdentityFactory(
+      TestingTopology(
         Set(domainId),
         Map(
           submitter -> Map(participant1 -> ParticipantPermission.Confirmation)
@@ -308,7 +308,7 @@ class ConfirmationResponseProcessorTest
             requestTimestamp.plusSeconds(120),
             testMediatorRequest,
             rootHashMessages,
-            batchAlsoContainsTopologyXTransaction = false,
+            batchAlsoContainsTopologyTransaction = false,
           ),
           shouldBeViewThresholdBelowMinimumAlarm(
             RequestId(requestTimestamp),
@@ -337,7 +337,7 @@ class ConfirmationResponseProcessorTest
             decisionTime,
             informeeMessage,
             rootHashMessages,
-            batchAlsoContainsTopologyXTransaction = false,
+            batchAlsoContainsTopologyTransaction = false,
           ),
           _.shouldBeCantonError(
             MediatorError.MalformedMessage,
@@ -373,7 +373,7 @@ class ConfirmationResponseProcessorTest
           requestTimestamp.plusSeconds(120),
           informeeMessage,
           rootHashMessages,
-          batchAlsoContainsTopologyXTransaction = false,
+          batchAlsoContainsTopologyTransaction = false,
         )
         response = ConfirmationResponse.tryCreate(
           reqId,
@@ -473,7 +473,7 @@ class ConfirmationResponseProcessorTest
             ts.plusSeconds(120),
             informeeMessage,
             rootHashMessages,
-            batchAlsoContainsTopologyXTransaction = false,
+            batchAlsoContainsTopologyTransaction = false,
           )
         }
       }.map(_ => succeed)
@@ -637,7 +637,7 @@ class ConfirmationResponseProcessorTest
                   ts.plusSeconds(120),
                   req,
                   rootHashMessages,
-                  batchAlsoContainsTopologyXTransaction = false,
+                  batchAlsoContainsTopologyTransaction = false,
                 ),
                 _.shouldBeCantonError(
                   MediatorError.MalformedMessage,
@@ -705,7 +705,7 @@ class ConfirmationResponseProcessorTest
                 Recipients.cc(mediatorGroupRecipient, MemberRecipient(participant)),
               )(testedProtocolVersion)
             ),
-            batchAlsoContainsTopologyXTransaction = false,
+            batchAlsoContainsTopologyTransaction = false,
           ),
           _.shouldBeCantonError(
             MediatorError.MalformedMessage,
@@ -761,7 +761,7 @@ class ConfirmationResponseProcessorTest
               testedProtocolVersion
             )
           ),
-          batchAlsoContainsTopologyXTransaction = false,
+          batchAlsoContainsTopologyTransaction = false,
         )
         // should record the request
         requestState <- sut.mediatorState.fetch(requestId).value.map(_.value)
@@ -1011,7 +1011,7 @@ class ConfirmationResponseProcessorTest
               testedProtocolVersion
             )
           ),
-          batchAlsoContainsTopologyXTransaction = false,
+          batchAlsoContainsTopologyTransaction = false,
         )
 
         // receiving a confirmation response
@@ -1096,7 +1096,7 @@ class ConfirmationResponseProcessorTest
               testedProtocolVersion
             )
           ),
-          batchAlsoContainsTopologyXTransaction = false,
+          batchAlsoContainsTopologyTransaction = false,
         )
         response <- signedResponse(
           Set(submitter),
@@ -1151,7 +1151,7 @@ class ConfirmationResponseProcessorTest
                 testedProtocolVersion
               )
             ),
-            batchAlsoContainsTopologyXTransaction = true,
+            batchAlsoContainsTopologyTransaction = true,
           ),
           _.shouldBeCantonError(
             MediatorError.MalformedMessage,
@@ -1196,7 +1196,7 @@ class ConfirmationResponseProcessorTest
             decisionTime,
             request,
             rootHashMessages,
-            batchAlsoContainsTopologyXTransaction = false,
+            batchAlsoContainsTopologyTransaction = false,
           ),
           _.shouldBeCantonError(
             MediatorError.InvalidMessage,
@@ -1238,7 +1238,7 @@ class ConfirmationResponseProcessorTest
               testedProtocolVersion
             )
           ),
-          batchAlsoContainsTopologyXTransaction = false,
+          batchAlsoContainsTopologyTransaction = false,
         )
         _ = sut.verdictSender.sentResults shouldBe empty
 

@@ -39,8 +39,8 @@ import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class GrpcSequencerInitializationServiceX(
-    handler: GrpcSequencerInitializationServiceX.Callback,
+class GrpcSequencerInitializationService(
+    handler: GrpcSequencerInitializationService.Callback,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
@@ -130,7 +130,7 @@ class GrpcSequencerInitializationServiceX(
 
 }
 
-object GrpcSequencerInitializationServiceX {
+object GrpcSequencerInitializationService {
   trait Callback {
     def initialize(request: InitializeSequencerRequest)(implicit
         traceContext: TraceContext

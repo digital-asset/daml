@@ -37,7 +37,7 @@ import com.digitalasset.canton.topology.{
   ParticipantId,
   SequencerGroup,
   SequencerId,
-  TestingTopologyX,
+  TestingTopology,
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
@@ -65,7 +65,7 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
   private val ts0 = CantonTimestamp.Epoch
   private val domainId = DefaultTestIdentities.domainId
   private val topologyClientMember = SequencerId(domainId)
-  private val crypto = TestingTopologyX(sequencerGroup =
+  private val crypto = TestingTopology(sequencerGroup =
     SequencerGroup(
       active = NonEmpty.mk(Seq, SequencerId(domainId)),
       passive = Seq.empty,

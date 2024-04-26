@@ -9,7 +9,7 @@ import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.DiscardOps
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.{
   ParticipantMetering,
   ReportData,

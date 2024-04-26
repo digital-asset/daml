@@ -7,7 +7,7 @@ import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.caching.Cache
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.store.cache.StateCache.PendingUpdatesState
 import com.digitalasset.canton.tracing.TraceContext

@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.dao
 
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.lf.data.Time.Timestamp
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer

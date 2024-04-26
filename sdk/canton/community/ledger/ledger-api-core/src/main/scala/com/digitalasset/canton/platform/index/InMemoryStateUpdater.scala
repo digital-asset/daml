@@ -15,11 +15,8 @@ import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.lf.transaction.{Node, NodeId}
 import com.daml.metrics.Timed
 import com.daml.timer.FutureCheck.*
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{
-  DeduplicationDuration,
-  DeduplicationOffset,
-}
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{CompletionInfo, Reassignment, Update}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.Metrics

@@ -22,9 +22,10 @@ import com.daml.logging.LoggingContext
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{CryptoPureApi, Salt, SaltSeed}
+import com.digitalasset.canton.data.DeduplicationPeriod
+import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
-import com.digitalasset.canton.ledger.api.{DeduplicationPeriod, domain}
 import com.digitalasset.canton.ledger.participant.state.index.v2.{
   ContractState,
   ContractStore,

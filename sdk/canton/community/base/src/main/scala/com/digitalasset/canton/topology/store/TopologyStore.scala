@@ -127,7 +127,7 @@ object TopologyStoreId {
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  def selectX[StoreId <: TopologyStoreId](store: TopologyStore[TopologyStoreId])(implicit
+  def select[StoreId <: TopologyStoreId](store: TopologyStore[TopologyStoreId])(implicit
       checker: IdTypeChecker[StoreId]
   ): Option[TopologyStore[StoreId]] = if (checker.isOfType(store.storeId))
     Some(store.asInstanceOf[TopologyStore[StoreId]])
@@ -299,7 +299,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
   def inspect(
       proposals: Boolean,
       timeQuery: TimeQuery,
-      // TODO(#14048) - consider removing `recentTimestampO` and moving callers to TimeQueryX.Snapshot
+      // TODO(#14048) - consider removing `recentTimestampO` and moving callers to TimeQuery.Snapshot
       recentTimestampO: Option[CantonTimestamp],
       op: Option[TopologyChangeOp],
       types: Seq[TopologyMapping.Code],
@@ -446,7 +446,7 @@ object TopologyStore {
   lazy val initialParticipantDispatchingSet = Set(
     TopologyMapping.Code.DomainTrustCertificate,
     TopologyMapping.Code.OwnerToKeyMapping,
-    // TODO(#14060) - potentially revisit this once we implement TopologyStoreX.filterInitialParticipantDispatchingTransactions
+    // TODO(#14060) - potentially revisit this once we implement TopologyStore.filterInitialParticipantDispatchingTransactions
     TopologyMapping.Code.NamespaceDelegation,
     TopologyMapping.Code.IdentifierDelegation,
     TopologyMapping.Code.DecentralizedNamespaceDefinition,

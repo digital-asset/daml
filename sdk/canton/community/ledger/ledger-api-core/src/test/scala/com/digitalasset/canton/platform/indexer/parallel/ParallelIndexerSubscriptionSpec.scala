@@ -15,7 +15,7 @@ import com.daml.lf.transaction.{
   VersionedTransaction,
 }
 import com.daml.metrics.DatabaseMetrics
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.Update
 import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLogging, SuppressingLogger}

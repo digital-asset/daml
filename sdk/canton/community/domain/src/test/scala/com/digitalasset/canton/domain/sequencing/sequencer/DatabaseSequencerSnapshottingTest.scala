@@ -14,7 +14,7 @@ import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.sequencing.protocol.RecipientsTest.{p11, p12, p13, p14, p15}
 import com.digitalasset.canton.sequencing.protocol.{Recipients, SubmissionRequest}
-import com.digitalasset.canton.topology.{MediatorId, TestingIdentityFactoryX, TestingTopologyX}
+import com.digitalasset.canton.topology.{MediatorId, TestingIdentityFactory, TestingTopology}
 import org.apache.pekko.stream.Materializer
 
 import java.time.Duration
@@ -32,8 +32,8 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
   )(implicit materializer: Materializer): CantonSequencer = {
     if (clock == null)
       clock = createClock()
-    val crypto = TestingIdentityFactoryX(
-      TestingTopologyX(),
+    val crypto = TestingIdentityFactory(
+      TestingTopology(),
       loggerFactory,
       DynamicDomainParameters.initialValues(clock, testedProtocolVersion),
     ).forOwnerAndDomain(owner = mediatorId, domainId)
@@ -61,8 +61,8 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
       DatabaseSequencerSnapshottingTest.this.loggerFactory
 
     override lazy val topologyFactory =
-      new TestingIdentityFactoryX(
-        topology = TestingTopologyX().withSimpleParticipants(p11, p12, p13, p14, p15),
+      new TestingIdentityFactory(
+        topology = TestingTopology().withSimpleParticipants(p11, p12, p13, p14, p15),
         loggerFactory,
         List.empty,
       )

@@ -9,7 +9,6 @@ import com.daml.lf.data.Ref
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult

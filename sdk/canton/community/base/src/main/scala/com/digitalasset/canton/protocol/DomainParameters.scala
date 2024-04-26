@@ -597,7 +597,6 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
   def defaultValues(protocolVersion: ProtocolVersion): DynamicDomainParameters =
     initialValues(defaultTopologyChangeDelay, protocolVersion)
 
-  // TODO(#15161) Rework this when old nodes are killed
   def initialValues(
       topologyChangeDelay: NonNegativeFiniteDuration,
       protocolVersion: ProtocolVersion,

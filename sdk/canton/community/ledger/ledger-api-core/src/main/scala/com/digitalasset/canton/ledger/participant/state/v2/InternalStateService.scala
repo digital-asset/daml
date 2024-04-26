@@ -5,7 +5,7 @@ package com.digitalasset.canton.ledger.participant.state.v2
 
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.tracing.TraceContext
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source

@@ -8,7 +8,7 @@ import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.NonNegativeFiniteDuration as _
-import com.digitalasset.canton.crypto.Crypto
+import com.digitalasset.canton.crypto.{Crypto, DomainSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.admin.grpc.{
@@ -25,24 +25,34 @@ import com.digitalasset.canton.domain.sequencing.sequencer.store.{
   SequencerDomainConfiguration,
   SequencerDomainConfigurationStore,
 }
-import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerInitializationServiceX
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficConfig
+import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerInitializationService
 import com.digitalasset.canton.domain.server.DynamicDomainGrpcServer
 import com.digitalasset.canton.environment.*
-import com.digitalasset.canton.health.{ComponentStatus, GrpcHealthReporter, HealthService}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
-import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.health.admin.data.{SequencerHealthStatus, SequencerNodeStatus}
+import com.digitalasset.canton.health.{
+  ComponentStatus,
+  GrpcHealthReporter,
+  HealthService,
+  MutableHealthQuasiComponent,
+}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext, Lifecycle}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.{DomainParametersLookup, StaticDomainParameters}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencer.admin.v30.SequencerInitializationServiceGrpc
-import com.digitalasset.canton.store.IndexedStringStore
+import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.{EffectiveTime, TopologyTransactionProcessor}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{
   StoreBasedTopologyStateForInitializationService,
+  TopologyStateForInitializationService,
   TopologyStore,
 }
 import com.digitalasset.canton.topology.transaction.{
@@ -52,7 +62,7 @@ import com.digitalasset.canton.topology.transaction.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.traffic.TopUpEvent
-import com.digitalasset.canton.util.SingleUseCell
+import com.digitalasset.canton.util.{EitherTUtil, SingleUseCell}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.actor.ActorSystem
@@ -61,7 +71,7 @@ import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContextExecutorService, Future}
 
-object SequencerNodeBootstrapX {
+object SequencerNodeBootstrap {
   trait Factory[C <: SequencerNodeConfigCommon] {
     def create(
         arguments: NodeFactoryArguments[
@@ -73,20 +83,20 @@ object SequencerNodeBootstrapX {
         executionContext: ExecutionContextIdlenessExecutorService,
         scheduler: ScheduledExecutorService,
         actorSystem: ActorSystem,
-    ): Either[String, SequencerNodeBootstrapX]
+    ): Either[String, SequencerNodeBootstrap]
   }
 
-  val LoggerFactoryKeyName: String = "sequencerx"
+  val LoggerFactoryKeyName: String = "sequencer"
 }
 
-class SequencerNodeBootstrapX(
+class SequencerNodeBootstrap(
     arguments: CantonNodeBootstrapCommonArguments[
       SequencerNodeConfigCommon,
       SequencerNodeParameters,
       SequencerMetrics,
     ],
     mkSequencerFactory: MkSequencerFactory,
-    override protected val createEnterpriseAdminService: (
+    createEnterpriseAdminService: (
         Sequencer,
         NamedLoggerFactory,
     ) => Option[ServerServiceDefinition],
@@ -94,13 +104,12 @@ class SequencerNodeBootstrapX(
     executionContext: ExecutionContextIdlenessExecutorService,
     scheduler: ScheduledExecutorService,
     actorSystem: ActorSystem,
-) extends CantonNodeBootstrapX[
-      SequencerNodeX,
+) extends CantonNodeBootstrapImpl[
+      SequencerNode,
       SequencerNodeConfigCommon,
       SequencerNodeParameters,
       SequencerMetrics,
-    ](arguments)
-    with SequencerNodeBootstrapCommon[SequencerNodeX, SequencerNodeConfigCommon] {
+    ](arguments) {
 
   override protected def member(uid: UniqueIdentifier): Member = SequencerId(uid)
 
@@ -111,7 +120,7 @@ class SequencerNodeBootstrapX(
       manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
       healthService: HealthService,
-  ): BootstrapStageOrLeaf[SequencerNodeX] = {
+  ): BootstrapStageOrLeaf[SequencerNode] = {
     new WaitForSequencerToDomainInit(
       storage,
       crypto,
@@ -121,8 +130,6 @@ class SequencerNodeBootstrapX(
       healthService,
     )
   }
-
-  override protected def mediatorsProcessParticipantTopologyRequests: Boolean = true
 
   private val domainTopologyManager = new SingleUseCell[DomainTopologyManager]()
 
@@ -140,7 +147,7 @@ class SequencerNodeBootstrapX(
       healthReporter: GrpcHealthReporter,
       healthService: HealthService,
   ) extends BootstrapStageWithStorage[
-        SequencerNodeX,
+        SequencerNode,
         StartupNode,
         (StaticDomainParameters, SequencerFactory, DomainTopologyManager),
       ](
@@ -149,12 +156,12 @@ class SequencerNodeBootstrapX(
         storage,
         config.init.autoInit,
       )
-      with GrpcSequencerInitializationServiceX.Callback {
+      with GrpcSequencerInitializationService.Callback {
 
     // add initialization service
     adminServerRegistry.addServiceU(
       SequencerInitializationServiceGrpc.bindService(
-        new GrpcSequencerInitializationServiceX(this, loggerFactory)(executionContext),
+        new GrpcSequencerInitializationService(this, loggerFactory)(executionContext),
         executionContext,
       )
     )
@@ -403,7 +410,7 @@ class SequencerNodeBootstrapX(
       preinitializedServer: Option[DynamicDomainGrpcServer],
       healthReporter: GrpcHealthReporter,
       healthService: HealthService,
-  ) extends BootstrapStage[SequencerNodeX, RunningNode[SequencerNodeX]](
+  ) extends BootstrapStage[SequencerNode, RunningNode[SequencerNode]](
         description = "Startup sequencer node",
         bootstrapStageCallback,
       )
@@ -416,7 +423,7 @@ class SequencerNodeBootstrapX(
 
     override protected def attempt()(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, String, Option[RunningNode[SequencerNodeX]]] = {
+    ): EitherT[FutureUnlessShutdown, String, Option[RunningNode[SequencerNode]]] = {
 
       val domainOutboxFactory = new DomainOutboxFactorySingleCreate(
         domainId,
@@ -477,7 +484,7 @@ class SequencerNodeBootstrapX(
               )
               topologyClient.updateHead(tsNext, tsNext.toApproximate, false)
               // this sequencer node was started for the first time an initialized with a topology state.
-              // therefore we fetch all members who have registered a key (OwnerToKeyMappingX) and pass them
+              // therefore we fetch all members who have registered a key (OwnerToKeyMapping) and pass them
               // to the underlying sequencer driver to register them as known members
               EitherT.right[String](
                 domainTopologyStore
@@ -525,11 +532,9 @@ class SequencerNodeBootstrapX(
             Future.unit, // domain is already initialised
             Future.successful(true),
             arguments,
-            Some(
-              new StoreBasedTopologyStateForInitializationService(
-                domainTopologyStore,
-                domainLoggerFactory,
-              )
+            new StoreBasedTopologyStateForInitializationService(
+              domainTopologyStore,
+              domainLoggerFactory,
             ),
             Some(domainOutboxFactory),
             memberAuthServiceFactory,
@@ -551,7 +556,7 @@ class SequencerNodeBootstrapX(
           if (preinitializedServer.isEmpty) {
             addCloseable(server.publicServer)
           }
-          val node = new SequencerNodeX(
+          val node = new SequencerNode(
             config,
             arguments.metrics,
             arguments.parameterConfig,
@@ -569,26 +574,213 @@ class SequencerNodeBootstrapX(
       }
     }
   }
+
+  // Deferred health component for the sequencer health, created during initialization
+  private lazy val sequencerHealth = new MutableHealthQuasiComponent[Sequencer](
+    loggerFactory,
+    Sequencer.healthName,
+    SequencerHealthStatus(isActive = false),
+    timeouts,
+    SequencerHealthStatus.shutdownStatus,
+  )
+
+  // The service exposed by the gRPC health endpoint of sequencer public API
+  // This will be used by sequencer clients who perform client-side load balancing to determine sequencer health
+  private lazy val sequencerPublicApiHealthService = HealthService(
+    CantonGrpcUtil.sequencerHealthCheckServiceName,
+    logger,
+    timeouts,
+    criticalDependencies = Seq(sequencerHealth),
+  )
+
+  override protected def mkNodeHealthService(storage: Storage): HealthService =
+    HealthService(
+      "sequencer",
+      logger,
+      timeouts,
+      Seq(storage),
+    )
+
+  // Creates a dynamic domain server that initially only exposes a health endpoint, and can later be
+  // setup with the sequencer runtime to provide the full sequencer domain API
+  private def makeDynamicDomainServer(
+      maxRequestSize: MaxRequestSize,
+      grpcHealthReporter: GrpcHealthReporter,
+  ) = {
+    new DynamicDomainGrpcServer(
+      loggerFactory,
+      maxRequestSize,
+      arguments.parameterConfig,
+      config.publicApi,
+      arguments.metrics.openTelemetryMetricsFactory,
+      arguments.metrics.grpcMetrics,
+      grpcHealthReporter,
+      sequencerPublicApiHealthService,
+    )
+  }
+
+  private def createSequencerRuntime(
+      sequencerFactory: SequencerFactory,
+      domainId: DomainId,
+      sequencerId: SequencerId,
+      staticMembersToRegister: Seq[Member],
+      topologyStore: TopologyStore[DomainStore],
+      topologyClient: DomainTopologyClientWithInit,
+      topologyProcessor: TopologyTransactionProcessor,
+      topologyManagerStatus: Option[TopologyManagerStatus],
+      staticDomainParameters: StaticDomainParameters,
+      storage: Storage,
+      crypto: Crypto,
+      indexedStringStore: IndexedStringStore,
+      initializationObserver: Future[Unit],
+      initializedAtHead: => Future[Boolean],
+      arguments: CantonNodeBootstrapCommonArguments[_, SequencerNodeParameters, SequencerMetrics],
+      topologyStateForInitializationService: TopologyStateForInitializationService,
+      maybeDomainOutboxFactory: Option[DomainOutboxFactorySingleCreate],
+      memberAuthServiceFactory: MemberAuthenticationServiceFactory,
+      domainLoggerFactory: NamedLoggerFactory,
+      trafficConfig: SequencerTrafficConfig,
+  ): EitherT[Future, String, SequencerRuntime] = {
+    for {
+      indexedDomain <- EitherT.liftF[Future, String, IndexedDomain](
+        IndexedDomain.indexed(indexedStringStore)(domainId)
+      )
+
+      syncCrypto = new DomainSyncCryptoClient(
+        sequencerId,
+        domainId,
+        topologyClient,
+        crypto,
+        parameters.cachingConfigs,
+        parameters.processingTimeouts,
+        futureSupervisor,
+        loggerFactory,
+      )
+
+      sequencer <- EitherT.liftF[Future, String, Sequencer](
+        sequencerFactory.create(
+          domainId,
+          sequencerId,
+          clock,
+          clock,
+          syncCrypto,
+          futureSupervisor,
+          trafficConfig,
+        )
+      )
+
+      runtime = new SequencerRuntime(
+        sequencerId,
+        sequencer,
+        staticDomainParameters,
+        parameters,
+        config.publicApi,
+        config.timeTracker,
+        arguments.testingConfig,
+        arguments.metrics,
+        indexedDomain,
+        syncCrypto,
+        topologyStore,
+        topologyClient,
+        topologyProcessor,
+        topologyManagerStatus,
+        initializationObserver,
+        initializedAtHead,
+        storage,
+        clock,
+        SequencerAuthenticationConfig(
+          config.publicApi.nonceExpirationInterval,
+          config.publicApi.maxTokenExpirationInterval,
+        ),
+        createEnterpriseAdminService(_, domainLoggerFactory),
+        staticMembersToRegister,
+        futureSupervisor,
+        memberAuthServiceFactory,
+        topologyStateForInitializationService,
+        maybeDomainOutboxFactory,
+        domainLoggerFactory,
+      )
+      _ <- runtime.initializeAll()
+    } yield runtime
+  }
+
+  private def createSequencerServer(
+      runtime: SequencerRuntime,
+      staticDomainParameters: StaticDomainParameters,
+      topologyClient: DomainTopologyClientWithInit,
+      server: Option[DynamicDomainGrpcServer],
+      healthReporter: GrpcHealthReporter,
+      loggerFactory: NamedLoggerFactory,
+  ): EitherT[Future, String, DynamicDomainGrpcServer] = {
+    runtime.registerAdminGrpcServices(service => adminServerRegistry.addServiceU(service))
+    val domainParamsLookup = DomainParametersLookup.forSequencerDomainParameters(
+      staticDomainParameters,
+      config.publicApi.overrideMaxRequestSize,
+      topologyClient,
+      futureSupervisor,
+      loggerFactory,
+    )
+    for {
+      maxRequestSize <- EitherTUtil
+        .fromFuture(
+          domainParamsLookup.getApproximate(),
+          error => s"Unable to retrieve the domain parameters: ${error.getMessage}",
+        )
+        .map(paramsO =>
+          paramsO.map(_.maxRequestSize).getOrElse(MaxRequestSize(NonNegativeInt.maxValue))
+        )
+      sequencerNodeServer = server
+        .getOrElse(
+          makeDynamicDomainServer(maxRequestSize, healthReporter)
+        )
+        .initialize(runtime)
+      // wait for the server to be initialized before reporting a serving health state
+      _ = sequencerHealth.set(runtime.sequencer)
+    } yield sequencerNodeServer
+  }
 }
 
-// TODO(#15161): Rename SequencerNodeX to SequencerNode, also remove X from SequencerNodeBootstrapX above
-class SequencerNodeX(
+class SequencerNode(
     config: SequencerNodeConfigCommon,
     metrics: SequencerMetrics,
     parameters: SequencerNodeParameters,
-    clock: Clock,
-    sequencer: SequencerRuntime,
-    loggerFactory: NamedLoggerFactory,
+    override protected val clock: Clock,
+    val sequencer: SequencerRuntime,
+    protected val loggerFactory: NamedLoggerFactory,
     sequencerNodeServer: DynamicDomainGrpcServer,
-    components: => Seq[ComponentStatus],
+    healthData: => Seq[ComponentStatus],
 )(implicit executionContext: ExecutionContextExecutorService)
-    extends SequencerNodeCommon(
-      config,
-      metrics,
-      parameters,
-      clock,
+    extends CantonNode
+    with NamedLogging
+    with HasUptime {
+
+  logger.info(s"Creating sequencer server with public api ${config.publicApi}")(TraceContext.empty)
+
+  override def isActive = true
+
+  override def status: Future[SequencerNodeStatus] = {
+    for {
+      healthStatus <- sequencer.health
+      activeMembers <- sequencer.fetchActiveMembers()
+      ports = Map("public" -> config.publicApi.port, "admin" -> config.adminApi.port)
+      participants = activeMembers.collect { case participant: ParticipantId =>
+        participant
+      }
+    } yield SequencerNodeStatus(
+      sequencer.domainId.unwrap,
+      sequencer.domainId,
+      uptime(),
+      ports,
+      participants,
+      healthStatus,
+      topologyQueue = sequencer.topologyQueue,
+      healthData,
+    )
+  }
+
+  override def close(): Unit =
+    Lifecycle.close(
       sequencer,
-      loggerFactory,
-      sequencerNodeServer,
-      components,
-    ) {}
+      sequencerNodeServer.publicServer,
+    )(logger)
+}

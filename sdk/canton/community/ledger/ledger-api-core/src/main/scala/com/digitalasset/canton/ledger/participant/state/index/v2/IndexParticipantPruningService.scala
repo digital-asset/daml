@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state.index.v2
 
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 
 import scala.concurrent.Future

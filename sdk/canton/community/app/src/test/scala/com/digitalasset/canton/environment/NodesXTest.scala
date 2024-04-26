@@ -143,7 +143,7 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
   }
 
   class TestNodeBootstrap(config: TestNodeConfig)
-      extends CantonNodeBootstrapX[TestNode, TestNodeConfig, CantonNodeParameters, TestMetrics](
+      extends CantonNodeBootstrapImpl[TestNode, TestNodeConfig, CantonNodeParameters, TestMetrics](
         arguments(config)
       )(executorService, scheduledExecutor(), actorSystem) {
     implicit val parallelApplicative: Applicative[Future] = parallelApplicativeFuture(

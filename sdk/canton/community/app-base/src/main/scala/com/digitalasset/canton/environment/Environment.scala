@@ -18,12 +18,11 @@ import com.digitalasset.canton.console.{
   StandardConsoleOutput,
 }
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.mediator.{MediatorNodeBootstrapX, MediatorNodeParameters}
+import com.digitalasset.canton.domain.mediator.{MediatorNodeBootstrap, MediatorNodeParameters}
 import com.digitalasset.canton.domain.metrics.MediatorMetrics
-import com.digitalasset.canton.domain.sequencing.SequencerNodeBootstrapX
+import com.digitalasset.canton.domain.sequencing.SequencerNodeBootstrap
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction
 import com.digitalasset.canton.environment.Environment.*
-import com.digitalasset.canton.environment.ParticipantNodes.ParticipantNodesX
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.MetricsConfig.JvmMetrics
@@ -88,8 +87,8 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     loggerFactory,
   )
 
-  protected def participantNodeFactoryX
-      : ParticipantNodeBootstrap.Factory[Config#ParticipantConfigType, ParticipantNodeBootstrapX]
+  protected def participantNodeFactory
+      : ParticipantNodeBootstrap.Factory[Config#ParticipantConfigType, ParticipantNodeBootstrap]
   protected def migrationsFactory: DbMigrationsFactory
 
   def isEnterprise: Boolean
@@ -246,8 +245,8 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   private val testingTimeService = new TestingTimeService(clock, () => simClocks)
 
   lazy val participants =
-    new ParticipantNodesX[Config#ParticipantConfigType](
-      createParticipantX,
+    new ParticipantNodes[ParticipantNodeBootstrap, ParticipantNode, Config#ParticipantConfigType](
+      createParticipant,
       migrationsFactory,
       timeouts,
       config.participantsByString,
@@ -255,8 +254,8 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
       loggerFactory,
     )
 
-  val sequencers = new SequencerNodesX(
-    createSequencerX,
+  val sequencers = new SequencerNodes(
+    createSequencer,
     migrationsFactory,
     timeouts,
     config.sequencersByString,
@@ -265,8 +264,8 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   )
 
   val mediators =
-    new MediatorNodesX(
-      createMediatorX,
+    new MediatorNodes(
+      createMediator,
       migrationsFactory,
       timeouts,
       config.mediatorsByString,
@@ -343,7 +342,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
       traceContext: TraceContext
   ): Either[StartupError, Unit] = {
     def reconnect(
-        instance: CantonNodeBootstrap[ParticipantNodeCommon] & ParticipantNodeBootstrapCommon
+        instance: ParticipantNodeBootstrap
     ): EitherT[Future, StartupError, Unit] = {
       instance.getNode match {
         case None =>
@@ -442,21 +441,21 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     )
   }
 
-  protected def createSequencerX(
+  protected def createSequencer(
       name: String,
-      sequencerConfig: Config#SequencerNodeXConfigType,
-  ): SequencerNodeBootstrapX
+      sequencerConfig: Config#SequencerNodeConfigType,
+  ): SequencerNodeBootstrap
 
-  protected def createMediatorX(
+  protected def createMediator(
       name: String,
-      mediatorConfig: Config#MediatorNodeXConfigType,
-  ): MediatorNodeBootstrapX
+      mediatorConfig: Config#MediatorNodeConfigType,
+  ): MediatorNodeBootstrap
 
-  protected def createParticipantX(
+  protected def createParticipant(
       name: String,
       participantConfig: Config#ParticipantConfigType,
-  ): ParticipantNodeBootstrapX = {
-    participantNodeFactoryX
+  ): ParticipantNodeBootstrap = {
+    participantNodeFactory
       .create(
         NodeFactoryArguments(
           name,
@@ -478,20 +477,20 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
 
   protected def mediatorNodeFactoryArguments(
       name: String,
-      mediatorConfig: Config#MediatorNodeXConfigType,
+      mediatorConfig: Config#MediatorNodeConfigType,
   ): NodeFactoryArguments[
-    Config#MediatorNodeXConfigType,
+    Config#MediatorNodeConfigType,
     MediatorNodeParameters,
     MediatorMetrics,
   ] = NodeFactoryArguments(
     name,
     mediatorConfig,
     config.mediatorNodeParametersByString(name),
-    createClock(Some(MediatorNodeBootstrapX.LoggerFactoryKeyName -> name)),
+    createClock(Some(MediatorNodeBootstrap.LoggerFactoryKeyName -> name)),
     metricsRegistry.forMediator(name),
     testingConfig,
     futureSupervisor,
-    loggerFactory.append(MediatorNodeBootstrapX.LoggerFactoryKeyName, name),
+    loggerFactory.append(MediatorNodeBootstrap.LoggerFactoryKeyName, name),
     writeHealthDumpToFile,
     configuredOpenTelemetry,
   )

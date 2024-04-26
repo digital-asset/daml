@@ -7,8 +7,8 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.InstrumentedGraph
 import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
-import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   LoggingContextWithTrace,

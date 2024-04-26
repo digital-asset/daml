@@ -30,7 +30,7 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{lfHash, submi
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.VettedPackages
-import com.digitalasset.canton.topology.{TestingIdentityFactoryX, TestingTopologyX}
+import com.digitalasset.canton.topology.{TestingIdentityFactory, TestingTopology}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.{
@@ -412,8 +412,8 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         loggerFactory,
       )
 
-      val snapshot = TestingIdentityFactoryX(
-        TestingTopologyX(
+      val snapshot = TestingIdentityFactory(
+        TestingTopology(
         ).withTopology(Map(submitter -> submittingParticipant, observer -> signatoryParticipant))
           .withPackages(vettings.map(vetting => vetting.participantId -> vetting.packageIds).toMap),
         loggerFactory,

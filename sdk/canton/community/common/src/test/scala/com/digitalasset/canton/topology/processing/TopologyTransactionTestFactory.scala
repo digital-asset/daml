@@ -15,8 +15,8 @@ import com.digitalasset.canton.topology.transaction.*
 
 import scala.concurrent.ExecutionContext
 
-class TopologyTransactionTestFactoryX(loggerFactory: NamedLoggerFactory, initEc: ExecutionContext)
-    extends TestingOwnerWithKeysX(sequencerIdX, loggerFactory, initEc) {
+class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: ExecutionContext)
+    extends TestingOwnerWithKeys(sequencerIdX, loggerFactory, initEc) {
 
   import SigningKeys.*
 

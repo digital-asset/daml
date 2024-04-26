@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.cache
 
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 
 trait LedgerEndCache {
   def apply(): (Offset, Long)

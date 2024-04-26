@@ -12,8 +12,8 @@ import com.digitalasset.canton.config.{
   H2DbConfig,
   StorageConfig,
 }
-import com.digitalasset.canton.domain.mediator.CommunityMediatorNodeXConfig
-import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeXConfig
+import com.digitalasset.canton.domain.mediator.CommunityMediatorNodeConfig
+import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeConfig
 import com.digitalasset.canton.participant.config.CommunityParticipantConfig
 import com.typesafe.config.{Config, ConfigValueFactory}
 import monocle.macros.syntax.lens.*
@@ -72,23 +72,23 @@ object CommunityConfigTransforms {
         .modify(_.map { case (pName, pConfig) => (pName, update(pName.unwrap, pConfig)) })
 
   def updateAllSequencerXConfigs(
-      update: (String, CommunitySequencerNodeXConfig) => CommunitySequencerNodeXConfig
+      update: (String, CommunitySequencerNodeConfig) => CommunitySequencerNodeConfig
   ): CommunityConfigTransform =
     _.focus(_.sequencers)
       .modify(_.map { case (sName, sConfig) => (sName, update(sName.unwrap, sConfig)) })
 
   def updateAllSequencerXConfigs_(
-      update: CommunitySequencerNodeXConfig => CommunitySequencerNodeXConfig
+      update: CommunitySequencerNodeConfig => CommunitySequencerNodeConfig
   ): CommunityConfigTransform =
     updateAllSequencerXConfigs((_, config) => update(config))
 
   def updateAllMediatorXConfigs_(
-      update: CommunityMediatorNodeXConfig => CommunityMediatorNodeXConfig
+      update: CommunityMediatorNodeConfig => CommunityMediatorNodeConfig
   ): CommunityConfigTransform =
     updateAllMediatorXConfigs((_, config) => update(config))
 
   def updateAllMediatorXConfigs(
-      update: (String, CommunityMediatorNodeXConfig) => CommunityMediatorNodeXConfig
+      update: (String, CommunityMediatorNodeConfig) => CommunityMediatorNodeConfig
   ): CommunityConfigTransform =
     cantonConfig =>
       cantonConfig

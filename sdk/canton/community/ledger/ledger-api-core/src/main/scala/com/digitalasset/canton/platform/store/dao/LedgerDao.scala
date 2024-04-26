@@ -16,9 +16,9 @@ import com.daml.ledger.api.v2.update_service.{
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
-import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.digitalasset.canton.ledger.participant.state.index.v2.{
   IndexerPartyDetails,

@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.protocol.submission
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod
+import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.DeduplicationFailed
 import com.digitalasset.canton.participant.store
 import com.digitalasset.canton.participant.store.MultiDomainEventLog

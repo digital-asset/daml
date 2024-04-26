@@ -8,7 +8,7 @@ import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.v1.index.StatusDetails
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.store.CompletionFromTransaction
 import com.digitalasset.canton.platform.store.backend.CompletionStorageBackend

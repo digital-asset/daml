@@ -8,9 +8,8 @@ import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.metrics.Timed
-import com.digitalasset.canton.data.ProcessedDisclosedContract
+import com.digitalasset.canton.data.{Offset, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{
   PruningResult,
   ReassignmentCommand,

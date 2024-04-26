@@ -116,7 +116,7 @@ abstract class TopologyTransactionProcessorTest
     observed.toSet shouldBe expected.map(_.mapping).toSet
   }
 
-  object Factory extends TopologyTransactionTestFactoryX(loggerFactory, parallelExecutionContext)
+  object Factory extends TopologyTransactionTestFactory(loggerFactory, parallelExecutionContext)
   import Factory.*
 
   "topology transaction processor" should {

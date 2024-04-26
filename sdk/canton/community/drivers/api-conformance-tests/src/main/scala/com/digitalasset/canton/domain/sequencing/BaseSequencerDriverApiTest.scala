@@ -52,8 +52,8 @@ trait BaseSequencerDriverApiTest[ConfigType]
   protected final def topologyClientMember: Member = DefaultTestIdentities.sequencerId
 
   private val topologyFactory =
-    new TestingIdentityFactoryX(
-      topology = TestingTopologyX(),
+    new TestingIdentityFactory(
+      topology = TestingTopology(),
       loggerFactory,
       List.empty,
     )

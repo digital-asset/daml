@@ -9,7 +9,6 @@ import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.ledger.participant.state.v2.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
@@ -74,21 +73,21 @@ private[sync] class PartyAllocation(
     val result =
       for {
         _ <- EitherT
-          .cond[Future](isActive(), (), TransactionError.PassiveNode)
+          .cond[Future](isActive(), (), SyncServiceError.Synchronous.PassiveNode)
           .leftWiden[SubmissionResult]
         id <- Identifier
           .create(partyName)
-          .leftMap(TransactionError.internalError)
+          .leftMap(SyncServiceError.Synchronous.internalError)
           .toEitherT[Future]
         partyId = PartyId(id, participantId.uid.namespace)
         validatedDisplayName <- displayName
           .traverse(n => String255.create(n, Some("DisplayName")))
-          .leftMap(TransactionError.internalError)
+          .leftMap(SyncServiceError.Synchronous.internalError)
           .toEitherT[Future]
         validatedSubmissionId <- EitherT.fromEither[Future](
           String255
             .fromProtoPrimitive(rawSubmissionId, "LedgerSubmissionId")
-            .leftMap(err => TransactionError.internalError(err.toString))
+            .leftMap(err => SyncServiceError.Synchronous.internalError(err.toString))
         )
         // Allow party allocation via ledger API only if notification is Eager or the participant is connected to a domain
         // Otherwise the gRPC call will just timeout without a meaning error message
@@ -120,7 +119,7 @@ private[sync] class PartyAllocation(
                 SubmissionResult.Acknowledged,
               )
             case IdentityManagerParentError(e) => reject(e.cause, SubmissionResult.Acknowledged)
-            case e => reject(e.toString, TransactionError.internalError(e.toString))
+            case e => reject(e.toString, SyncServiceError.Synchronous.internalError(e.toString))
           }
           .leftMap { x =>
             partyNotifier.expireExpectedPartyAllocationForNodes(
@@ -130,7 +129,7 @@ private[sync] class PartyAllocation(
             )
             x
           }
-          .onShutdown(Left(TransactionError.shutdownError))
+          .onShutdown(Left(SyncServiceError.Synchronous.shutdownError))
 
       } yield SubmissionResult.Acknowledged
 

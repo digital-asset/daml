@@ -14,8 +14,8 @@ import com.daml.lf.transaction.*
 import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TransactionBuilder}
 import com.daml.lf.value.Value.{ContractId, ContractInstance, ValueText, VersionedContractInstance}
 import com.daml.lf.value.Value as LfValue
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.TemplateFilter
-import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2
 import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextWithTrace

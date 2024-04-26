@@ -9,7 +9,7 @@ import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFai
 import com.digitalasset.canton.domain.Domain.FailedToInitialiseDomainNode
 import com.digitalasset.canton.domain.mediator.admin.gprc.{
   InitializeMediatorRequest,
-  InitializeMediatorResponseX,
+  InitializeMediatorResponse,
 }
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -47,7 +47,7 @@ class GrpcMediatorInitializationService(
         .onShutdown(Left(FailedToInitialiseDomainNode.Shutdown())): EitherT[
         Future,
         CantonError,
-        InitializeMediatorResponseX,
+        InitializeMediatorResponse,
       ]
     } yield result.toProtoV30
     mapErrNew(res)
@@ -59,6 +59,6 @@ object GrpcMediatorInitializationService {
   trait Callback {
     def initialize(request: InitializeMediatorRequest)(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, String, InitializeMediatorResponseX]
+    ): EitherT[FutureUnlessShutdown, String, InitializeMediatorResponse]
   }
 }

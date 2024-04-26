@@ -216,7 +216,7 @@ object SignedTopologyTransaction
       transaction <- TopologyTransaction.fromByteString(protocolVersionValidation)(txBytes)
       signatures <- ProtoConverter.parseRequiredNonEmpty(
         Signature.fromProtoV30,
-        "SignedTopologyTransactionX.signatures",
+        "SignedTopologyTransaction.signatures",
         signaturesP,
       )
       rpv <- supportedProtoVersions.protocolVersionRepresentativeFor(ProtoVersion(30))
@@ -227,7 +227,7 @@ object SignedTopologyTransaction
     GetResult { r =>
       fromTrustedByteString(r.<<[ByteString]).valueOr(err =>
         throw new DbSerializationException(
-          s"Failed to deserialize SignedTopologyTransactionX: $err"
+          s"Failed to deserialize SignedTopologyTransaction: $err"
         )
       )
     }

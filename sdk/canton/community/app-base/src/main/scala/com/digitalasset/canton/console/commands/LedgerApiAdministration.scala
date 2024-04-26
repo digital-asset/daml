@@ -72,14 +72,14 @@ import com.digitalasset.canton.console.{
   ParticipantReference,
   RemoteParticipantReference,
 }
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.ledger.api.auth.{AuthServiceJWTCodec, StandardJWTPayload}
+import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{
   IdentityProviderConfig,
   IdentityProviderId,
   JwksUrl,
 }
-import com.digitalasset.canton.ledger.api.{DeduplicationPeriod, domain}
 import com.digitalasset.canton.ledger.client.services.admin.IdentityProviderConfigClient
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.networking.grpc.{GrpcError, RecordingStreamObserver}

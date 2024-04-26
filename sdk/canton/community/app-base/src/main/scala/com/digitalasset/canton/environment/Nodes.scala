@@ -12,7 +12,7 @@ import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorServic
 import com.digitalasset.canton.config.{DbConfig, LocalNodeConfig, ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.domain.mediator.{
   MediatorNode,
-  MediatorNodeBootstrapX,
+  MediatorNodeBootstrap,
   MediatorNodeConfigCommon,
   MediatorNodeParameters,
 }
@@ -20,7 +20,7 @@ import com.digitalasset.canton.domain.sequencing.config.{
   SequencerNodeConfigCommon,
   SequencerNodeParameters,
 }
-import com.digitalasset.canton.domain.sequencing.{SequencerNodeBootstrapX, SequencerNodeX}
+import com.digitalasset.canton.domain.sequencing.{SequencerNode, SequencerNodeBootstrap}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.*
@@ -379,20 +379,15 @@ class ParticipantNodes[B <: CantonNodeBootstrap[N], N <: CantonNode, PC <: Local
       loggerFactory,
     ) {}
 
-object ParticipantNodes {
-  type ParticipantNodesX[PC <: LocalParticipantConfig] =
-    ParticipantNodes[ParticipantNodeBootstrapX, ParticipantNodeX, PC]
-}
-
-class SequencerNodesX[SC <: SequencerNodeConfigCommon](
-    create: (String, SC) => SequencerNodeBootstrapX,
+class SequencerNodes[SC <: SequencerNodeConfigCommon](
+    create: (String, SC) => SequencerNodeBootstrap,
     migrationsFactory: DbMigrationsFactory,
     timeouts: ProcessingTimeout,
     configs: Map[String, SC],
     parameters: String => SequencerNodeParameters,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends ManagedNodes[SequencerNodeX, SC, SequencerNodeParameters, SequencerNodeBootstrapX](
+    extends ManagedNodes[SequencerNode, SC, SequencerNodeParameters, SequencerNodeBootstrap](
       create,
       migrationsFactory,
       timeouts,
@@ -402,8 +397,8 @@ class SequencerNodesX[SC <: SequencerNodeConfigCommon](
       loggerFactory,
     )
 
-class MediatorNodesX[MNC <: MediatorNodeConfigCommon](
-    create: (String, MNC) => MediatorNodeBootstrapX,
+class MediatorNodes[MNC <: MediatorNodeConfigCommon](
+    create: (String, MNC) => MediatorNodeBootstrap,
     migrationsFactory: DbMigrationsFactory,
     timeouts: ProcessingTimeout,
     configs: Map[String, MNC],
@@ -414,7 +409,7 @@ class MediatorNodesX[MNC <: MediatorNodeConfigCommon](
       MediatorNode,
       MNC,
       MediatorNodeParameters,
-      MediatorNodeBootstrapX,
+      MediatorNodeBootstrap,
     ](
       create,
       migrationsFactory,

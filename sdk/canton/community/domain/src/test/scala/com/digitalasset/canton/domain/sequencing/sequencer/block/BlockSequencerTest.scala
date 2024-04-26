@@ -53,7 +53,7 @@ import com.digitalasset.canton.topology.processing.{
   ApproximateTime,
   EffectiveTime,
   SequencedTime,
-  TopologyTransactionTestFactoryX,
+  TopologyTransactionTestFactory,
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction
@@ -82,7 +82,7 @@ class BlockSequencerTest
   }
 
   private val topologyTransactionFactory =
-    new TopologyTransactionTestFactoryX(loggerFactory, executorService)
+    new TopologyTransactionTestFactory(loggerFactory, executorService)
 
   private val N = 1_000_000
 

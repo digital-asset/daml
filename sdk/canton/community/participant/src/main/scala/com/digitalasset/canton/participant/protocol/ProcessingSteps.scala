@@ -7,9 +7,8 @@ import cats.data.{EitherT, OptionT}
 import cats.syntax.alternative.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashOps, Signature}
-import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
+import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod, ViewType}
 import com.digitalasset.canton.error.TransactionError
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.WrapsProcessorError
@@ -228,7 +227,7 @@ trait ProcessingSteps[
     /** Phase 1, step 1a
       *
       * Prepare the batch of envelopes to be sent off
-      * given the [[com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationOffset]] chosen
+      * given the [[data.DeduplicationPeriod.DeduplicationOffset]] chosen
       * by in-flight submission tracking and deduplication.
       *
       * Errors will be reported asynchronously by updating the

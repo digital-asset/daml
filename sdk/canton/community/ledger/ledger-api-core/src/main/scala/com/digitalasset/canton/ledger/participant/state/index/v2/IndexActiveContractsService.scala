@@ -4,8 +4,8 @@
 package com.digitalasset.canton.ledger.participant.state.index.v2
 
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.TransactionFilter
-import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source

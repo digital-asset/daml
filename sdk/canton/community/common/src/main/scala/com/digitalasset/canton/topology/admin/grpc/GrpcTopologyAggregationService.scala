@@ -23,20 +23,24 @@ import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
 
 import scala.concurrent.{ExecutionContext, Future}
 
-abstract class GrpcTopologyAggregationServiceCommon[
-    Store <: TopologyStore[TopologyStoreId.DomainStore]
-](
-    stores: => Seq[Store],
+class GrpcTopologyAggregationService(
+    stores: => Seq[TopologyStore[TopologyStoreId.DomainStore]],
     ips: IdentityProvidingServiceClient,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends v30.TopologyAggregationServiceGrpc.TopologyAggregationService
     with NamedLogging {
 
-  protected def getTopologySnapshot(
+  private def getTopologySnapshot(
       asOf: CantonTimestamp,
-      store: Store,
-  ): TopologySnapshotLoader
+      store: TopologyStore[TopologyStoreId.DomainStore],
+  ): TopologySnapshotLoader =
+    new StoreBasedTopologySnapshot(
+      asOf,
+      store,
+      StoreBasedDomainTopologyClient.NoPackageDependencies,
+      loggerFactory,
+    )
 
   private def snapshots(filterStore: String, asOf: Option[ProtoTimestamp])(implicit
       traceContext: TraceContext
@@ -180,26 +184,4 @@ abstract class GrpcTopologyAggregationServiceCommon[
     }
     CantonGrpcUtil.mapErrNew(res)
   }
-}
-
-class GrpcTopologyAggregationServiceX(
-    stores: => Seq[TopologyStore[TopologyStoreId.DomainStore]],
-    ips: IdentityProvidingServiceClient,
-    loggerFactory: NamedLoggerFactory,
-)(implicit ec: ExecutionContext)
-    extends GrpcTopologyAggregationServiceCommon[TopologyStore[TopologyStoreId.DomainStore]](
-      stores,
-      ips,
-      loggerFactory,
-    ) {
-  override protected def getTopologySnapshot(
-      asOf: CantonTimestamp,
-      store: TopologyStore[TopologyStoreId.DomainStore],
-  ): TopologySnapshotLoader =
-    new StoreBasedTopologySnapshot(
-      asOf,
-      store,
-      StoreBasedDomainTopologyClient.NoPackageDependencies,
-      loggerFactory,
-    )
 }

@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store
 import com.daml.ledger.api.v2.completion.Completion.DeduplicationPeriod
 import com.daml.lf.data.Time
 import com.digitalasset.canton.TestEssentials
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.status.Status

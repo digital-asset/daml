@@ -4,6 +4,7 @@
 package com.digitalasset.canton.ledger.offset
 
 import com.daml.lf.data.Ref
+import com.digitalasset.canton.data.Offset
 import org.scalacheck.{Arbitrary, Gen}
 
 object GeneratorsOffset {
@@ -12,7 +13,7 @@ object GeneratorsOffset {
     for {
       len <- Gen.oneOf(4, 8, 12, 16)
       str <- Gen.stringOfN(len, Gen.hexChar)
-    } yield com.digitalasset.canton.ledger.offset.Offset
+    } yield Offset
       .fromHexString(Ref.HexString.assertFromString(str.toLowerCase))
   )
 }

@@ -11,7 +11,7 @@ import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{
   ParticipantId,
   PartyId,
-  TestingOwnerWithKeysX,
+  TestingOwnerWithKeys,
   UniqueIdentifier,
 }
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, ProtocolVersionChecksAsyncWordSpec}
@@ -23,7 +23,7 @@ class TopologyTransactionsToEventsTest
     with HasExecutionContext
     with ProtocolVersionChecksAsyncWordSpec {
   private lazy val topologyFactoryX =
-    new TestingOwnerWithKeysX(sequencerIdX, loggerFactory, executorService)
+    new TestingOwnerWithKeys(sequencerIdX, loggerFactory, executorService)
 
   private def ptp(
       partyId: PartyId,
