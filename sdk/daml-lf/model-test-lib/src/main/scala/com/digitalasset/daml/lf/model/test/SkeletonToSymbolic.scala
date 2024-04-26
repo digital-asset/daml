@@ -17,6 +17,7 @@ object SkeletonToSymbolic {
   private class Converter(ctx: Context) {
 
     private val partySetSort: Sym.PartySetSort = ctx.mkSetSort(ctx.mkIntSort())
+    private val contractIdSetSort: Sym.ContractIdSetSort = ctx.mkSetSort(ctx.mkIntSort())
     private val contractIdSort: Sym.ContractIdSort = ctx.mkIntSort()
     private val participantIdSort: Sym.ParticipantIdSort = ctx.mkIntSort()
 
@@ -32,8 +33,16 @@ object SkeletonToSymbolic {
     private def mkFreshPartySet(name: String): Sym.PartySet =
       ctx.mkFreshConst(name, partySetSort).asInstanceOf[Sym.PartySet]
 
+    private def mkFreshContractIdSet(name: String): Sym.ContractIdSet =
+      ctx.mkFreshConst(name, contractIdSetSort).asInstanceOf[Sym.ContractIdSet]
+
     private def toSymbolic(commands: Skel.Commands): Sym.Commands =
-      Sym.Commands(mkFreshParticipantId(), mkFreshPartySet("a"), commands.actions.map(toSymbolic))
+      Sym.Commands(
+        mkFreshParticipantId(),
+        mkFreshPartySet("a"),
+        mkFreshContractIdSet("d"),
+        commands.actions.map(toSymbolic),
+      )
 
     private def toSymbolic(kind: Skel.ExerciseKind): Sym.ExerciseKind = {
       kind match {

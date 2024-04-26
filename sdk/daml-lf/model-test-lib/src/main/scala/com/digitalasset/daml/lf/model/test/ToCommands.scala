@@ -34,6 +34,9 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
   private def mkIdentifier(name: String): Ref.Identifier =
     Ref.Identifier(universalTemplatePkgId, Ref.QualifiedName.assertFromString(name))
 
+  val universalTemplateId = mkIdentifier("Universal:Universal")
+  val universalWithKeyTemplateId = mkIdentifier("Universal:UniversalWithKey")
+
   private def mkName(name: String): Ref.Name = Ref.Name.assertFromString(name)
 
   private def mkRecord(tycon: String, fields: (String, V)*): V = {
@@ -255,7 +258,7 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
           concreteSignatories <- partySetToValue(partyIds, signatories)
           concreteObservers <- partySetToValue(partyIds, observers)
         } yield ApiCommand.Create(
-          mkIdentifier("Universal:Universal"),
+          universalTemplateId,
           mkRecord(
             "Universal:Universal",
             "signatories" -> concreteSignatories,
@@ -268,7 +271,7 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
           concreteSignatories <- partySetToValue(partyIds, signatories)
           concreteObservers <- partySetToValue(partyIds, observers)
         } yield ApiCommand.Create(
-          mkIdentifier("Universal:UniversalWithKey"),
+          universalWithKeyTemplateId,
           mkRecord(
             "Universal:UniversalWithKey",
             "keyId" -> V.ValueInt64(keyId.longValue),
@@ -292,7 +295,7 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
         } yield someConcreteContractId match {
           case UniversalContractId(concreteContractId) =>
             ApiCommand.Exercise(
-              typeId = mkIdentifier("Universal:Universal"),
+              typeId = universalTemplateId,
               contractId = concreteContractId,
               choiceId = mkName(choiceName),
               argument = mkRecord(
@@ -305,7 +308,7 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
             )
           case UniversalWithKeyContractId(concreteContractId) =>
             ApiCommand.Exercise(
-              typeId = mkIdentifier("Universal:UniversalWithKey"),
+              typeId = universalWithKeyTemplateId,
               contractId = concreteContractId,
               choiceId = mkName(s"K$choiceName"),
               argument = mkRecord(
@@ -336,7 +339,7 @@ class ToCommands(universalTemplatePkgId: Ref.PackageId) {
           concreteChoiceObservers <- partySetToValue(partyIds, choiceObservers)
           translatedActions <- subTransaction.traverse(actionToValue(partyIds, _))
         } yield ApiCommand.ExerciseByKey(
-          templateId = mkIdentifier("Universal:UniversalWithKey"),
+          templateId = universalWithKeyTemplateId,
           contractKey = concreteKey,
           choiceId = mkName(s"K$choiceName"),
           argument = mkRecord(

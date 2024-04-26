@@ -80,8 +80,9 @@ class Generators(numParticipants: Int, numParties: Int) {
     for {
       participantId <- Gen.choose(0, numParticipants - 1)
       actAs <- Gen.atLeastOne(topology(participantId).parties).map(_.toSet)
+      disclosures <- Gen.listOf(contractIdGen).map(_.toSet)
       actions <- transactionGen(1, NoRollbacksAllowed, NoFetchesAllowed)
-    } yield Commands(participantId, actAs, actions)
+    } yield Commands(participantId, actAs, disclosures, actions)
 
   trait RollbacksAllowed
   case object NoRollbacksAllowed extends RollbacksAllowed

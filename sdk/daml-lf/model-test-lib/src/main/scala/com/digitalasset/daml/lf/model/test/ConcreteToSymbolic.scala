@@ -4,7 +4,7 @@
 package com.daml.lf
 
 import com.daml.lf.model.test.{Ledgers => Conc, Symbolic => Sym}
-import com.microsoft.z3.Context
+import com.microsoft.z3.{ArrayExpr, BoolSort, Context, IntSort}
 
 object ConcreteToSymbolic {
   def toSymbolic(ctx: Context, scenario: Conc.Scenario): Sym.Scenario =
@@ -12,17 +12,18 @@ object ConcreteToSymbolic {
 
   private class Converter(ctx: Context) {
 
-    private def toSymbolic(parties: Conc.PartySet): Sym.PartySet =
-      parties
-        .foldLeft(ctx.mkEmptySet(ctx.mkIntSort())) { (acc, party) =>
-          ctx.mkSetAdd(acc, ctx.mkInt(party))
+    private def toSymbolic(set: Set[Int]): ArrayExpr[IntSort, BoolSort] =
+      set
+        .foldLeft(ctx.mkEmptySet(ctx.mkIntSort())) { (acc, elem) =>
+          ctx.mkSetAdd(acc, ctx.mkInt(elem))
         }
-        .asInstanceOf[Sym.PartySet]
+        .asInstanceOf[ArrayExpr[IntSort, BoolSort]]
 
     private def toSymbolic(commands: Conc.Commands): Sym.Commands =
       Sym.Commands(
         ctx.mkInt(commands.participantId),
         toSymbolic(commands.actAs),
+        toSymbolic(commands.disclosures),
         commands.actions.map(toSymbolic),
       )
 

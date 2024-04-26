@@ -9,7 +9,6 @@ import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.model.test.LedgerRunner.ApiPorts
-import com.daml.lf.model.test.Ledgers.Scenario
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 import org.scalacheck.{Gen, Prop}
@@ -29,7 +28,7 @@ object Demo {
   def main(args: Array[String]): Unit = {
 
     val scenarios =
-      new Enumerations(languageVersion).scenarios(numParticipants = 3, numCommands = 4)(20)
+      new Enumerations(languageVersion).scenarios(numParticipants = 3, numCommands = 4)(50)
 
     def randomBigIntLessThan(n: BigInt): BigInt = {
       var res: BigInt = BigInt(0)
@@ -41,7 +40,7 @@ object Demo {
 
     def randomScenarios: LazyList[Ledgers.Scenario] = LazyList.continually {
       Gen
-        .resize(5, new Generators(numParticipants = 3, numParties = 6).scenarioGen)
+        .resize(5, new Generators(numParticipants = 3, numParties = 5).scenarioGen)
         .sample
     }.flatten
     val _ = randomScenarios
@@ -52,7 +51,7 @@ object Demo {
     }.flatten
     val _ = validSymScenarios
 
-    def validScenarios: LazyList[Scenario] = LazyList.continually {
+    def validScenarios: LazyList[Ledgers.Scenario] = LazyList.continually {
       val randomSkeleton = scenarios(randomBigIntLessThan(scenarios.cardinal))
       new LedgerFixer(numParties = 5).fixScenario(randomSkeleton).sample
     }.flatten
@@ -77,6 +76,52 @@ object Demo {
     val ideLedgerRunner = LedgerRunner.forIdeLedger(languageVersion, universalDarPath)
 
     // val workers = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(1))
+
+    // this one fails because we can't fetch the disclosures
+    val bad = {
+      import Ledgers._
+
+      Scenario(
+        List(
+          Participant(0, Set(1, 2)),
+          Participant(1, Set(1)),
+        ),
+        List(
+          Commands(0, Set(2), Set(), List(Create(0, Set(2), Set(1)))),
+          Commands(
+            1,
+            Set(1),
+            Set(),
+            List(
+              Exercise(
+                Consuming,
+                0,
+                Set(1),
+                Set(),
+                List(Create(1, Set(2), Set())),
+              )
+            ),
+          ),
+          Commands(
+            1,
+            Set(1),
+            Set(1),
+            List(
+              Exercise(
+                Consuming,
+                1,
+                Set(1),
+                Set(),
+                List(
+                ),
+              )
+            ),
+          ),
+        ),
+      )
+    }
+
+    println("BAD is valid: " + SymbolicSolver.valid(bad, numParties = 2))
 
     validSymScenarios
       .foreach(scenario => {
