@@ -608,8 +608,8 @@ abstract class UpgradesSpec(val suffix: String)
       failureMessage match {
         // If a failure message is expected, look for it in the canton logs
         case Some(additionalInfo) => {
-          cantonLogSrc should include(
-            s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade err-context:{additionalInfo=$additionalInfo"
+          cantonLogSrc should include regex(
+            s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade..*Reason: $additionalInfo"
           )
           uploadV2Result match {
             case None =>
@@ -617,8 +617,8 @@ abstract class UpgradesSpec(val suffix: String)
             case Some(err) => {
               val msg = err.toString
               msg should include("INVALID_ARGUMENT: DAR_NOT_VALID_UPGRADE")
-              msg should include(
-                "The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade"
+              msg should include regex(
+                s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade..*Reason: $additionalInfo"
               )
             }
           }
