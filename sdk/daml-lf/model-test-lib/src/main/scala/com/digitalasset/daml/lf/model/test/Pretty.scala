@@ -41,7 +41,7 @@ object Pretty {
 
     private def commandsToTree(commands: Commands): Tree =
       Tree(
-        s"Commands participant=${commands.participantId} actAs=${prettyParties(commands.actAs)}",
+        s"Commands participant=${commands.participantId} actAs=${prettyParties(commands.actAs)} disclosures=${prettyContracts(commands.disclosures)}",
         commands.actions.map(actionToTree),
       )
 
@@ -93,6 +93,9 @@ object Pretty {
 
     private def prettyParties(partySet: PartySet): String =
       partySet.toSeq.sorted.mkString("{", ",", "}")
+
+    private def prettyContracts(contractIdSet: ContractIdSet): String =
+      contractIdSet.toSeq.sorted.mkString("{", ",", "}")
   }
 
   object PrettySkeletons {
@@ -191,7 +194,7 @@ object Pretty {
 
     def participantToTree(participant: Participant): Tree = {
       Tree(
-        s"Participant ${participant.participantId} parties=${prettyParties(participant.parties)}",
+        s"Participant ${participant.participantId} parties=${participant.parties}",
         Seq.empty,
       )
     }
@@ -201,24 +204,25 @@ object Pretty {
     }
 
     private def commandsToTree(commands: Commands): Tree =
-      Tree(s"Commands actAs=${prettyParties(commands.actAs)}", commands.actions.map(actionToTree))
+      Tree(
+        s"Commands participant=${commands.participantId} actAs=${commands.actAs} disclosures=${commands.disclosures}",
+        commands.actions.map(actionToTree),
+      )
 
     private def actionToTree(action: Action): Tree = action match {
       case Create(contractId, signatories, observers) =>
         Tree(
-          s"Create ${contractId} sigs=${prettyParties(signatories)} obs=${prettyParties(observers)}",
+          s"Create ${contractId} sigs=${signatories} obs=${observers}",
           Nil,
         )
       case CreateWithKey(contractId, keyId, maintainers, signatories, observers) =>
         Tree(
-          s"CreateWithKey ${contractId} key=(${keyId}, ${prettyParties(
-              maintainers
-            )}) sigs=${prettyParties(signatories)} obs=${prettyParties(observers)}",
+          s"CreateWithKey ${contractId} key=(${keyId}, ${maintainers}) sigs=${signatories} obs=${observers}",
           Nil,
         )
       case Exercise(kind, contractId, controllers, choiceObservers, subTransaction) =>
         Tree(
-          s"Exercise $kind $contractId ctl=${prettyParties(controllers)} cobs=${prettyParties(choiceObservers)}",
+          s"Exercise $kind $contractId ctl=${controllers} cobs=${choiceObservers}",
           subTransaction.map(actionToTree),
         )
       case ExerciseByKey(
@@ -231,27 +235,23 @@ object Pretty {
             subTransaction,
           ) =>
         Tree(
-          s"ExerciseByKey $kind $contractId key=(${keyId}, ${prettyParties(
-              maintainers
-            )}) ctl=${prettyParties(controllers)} cobs=${prettyParties(choiceObservers)}",
+          s"ExerciseByKey $kind $contractId key=(${keyId}, ${maintainers}) ctl=${controllers} cobs=${choiceObservers}",
           subTransaction.map(actionToTree),
         )
       case Fetch(contractId) =>
         Tree(s"Fetch $contractId", Nil)
       case FetchByKey(contractId, keyId, maintainers) =>
-        Tree(s"FetchByKey $contractId key=($keyId, ${prettyParties(maintainers)})", Nil)
+        Tree(s"FetchByKey $contractId key=($keyId, ${maintainers})", Nil)
       case LookupByKey(contractId, keyId, maintainers) =>
         contractId match {
           case Some(cid) =>
             Tree(s"LookupByKey success $cid", Nil)
           case None =>
-            Tree(s"LookupByKey failure key=($keyId, ${prettyParties(maintainers)})", Nil)
+            Tree(s"LookupByKey failure key=($keyId, ${maintainers})", Nil)
         }
       case Rollback(subTransaction) =>
         Tree(s"Rollback", subTransaction.map(actionToTree))
     }
-
-    private def prettyParties(partySet: PartySet): String = partySet.toString
   }
 
   def prettyScenario(scenarion: Ledgers.Scenario): String =

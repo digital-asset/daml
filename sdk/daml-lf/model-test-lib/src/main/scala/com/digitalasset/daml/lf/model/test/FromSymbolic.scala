@@ -8,6 +8,7 @@ package test
 import com.daml.lf.model.test.{Ledgers => L, Symbolic => S}
 import com.microsoft.z3.enumerations.Z3_lbool
 import com.microsoft.z3.{Context, IntNum, Model}
+import LedgerImplicits._
 
 class FromSymbolic(numParties: Int, ctx: Context, model: Model) {
 
@@ -27,10 +28,18 @@ class FromSymbolic(numParties: Int, ctx: Context, model: Model) {
         .getBoolValue == Z3_lbool.Z3_L_TRUE
     }
 
-  private def toConcrete(commands: S.Commands): L.Commands =
+  private def evalContractIdSet(numContracts: Int, set: S.ContractIdSet): L.ContractIdSet =
+    (0 until numContracts).toSet.filter { i =>
+      model
+        .evaluate(ctx.mkSelect(set, ctx.mkInt(i)), false)
+        .getBoolValue == Z3_lbool.Z3_L_TRUE
+    }
+
+  private def toConcrete(numContracts: Int, commands: S.Commands): L.Commands =
     L.Commands(
       evalParticipantId(commands.participantId),
       evalPartySet(commands.actAs),
+      evalContractIdSet(numContracts, commands.disclosures),
       commands.actions.map(toConcrete),
     )
 
@@ -101,7 +110,7 @@ class FromSymbolic(numParties: Int, ctx: Context, model: Model) {
   }
 
   private def toConcrete(ledger: S.Ledger): L.Ledger =
-    ledger.map(toConcrete)
+    ledger.map(toConcrete(ledger.numContracts, _))
 
   private def toConcrete(participant: S.Participant): L.Participant = {
     L.Participant(
