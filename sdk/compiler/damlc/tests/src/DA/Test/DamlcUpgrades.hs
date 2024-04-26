@@ -1217,7 +1217,7 @@ tests damlc =
               ]
         , test
               "Cannot upgrade view"
-              (FailWithError ".*Tried to implement a view of type ‘IView’ on interface ‘V1.I’, but the definition of interface ‘V1.I’ requires a view of type ‘V1.IView’")
+              (FailWithError ".*Tried to implement a view of type (‘|\915\199\255)IView(’|\915\199\214) on interface (‘|\915\199\255)V1.I(’|\915\199\214), but the definition of interface (‘|\915\199\255)V1.I(’|\915\199\214) requires a view of type (‘|\915\199\255)V1.IView(’|\915\199\214)")
               LF.versionDefault
               DependOnV1
               [ ( "daml/MyLib.daml"
