@@ -92,6 +92,25 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
     )
 
   /*
+ Test for classes extending `HasProtocolVersionedWrapper` (protocol version embedded in the instance),
+ with memoization and context and validation for deserialization.
+
+ No deserialization validation (`fromByteStringUnsafe`) because the protocol version of the generated
+  instances is unpredictable.
+   */
+  protected def testProtocolVersionedWithCtxAndValidation[T <: HasProtocolVersionedWrapper[
+    T
+  ], Context](
+      companion: HasProtocolVersionedWithContextAndValidationCompanion[T, Context],
+      context: Context,
+      protocolVersion: ProtocolVersion,
+  )(implicit arb: Arbitrary[T]): Assertion =
+    testProtocolVersionedCommon(
+      companion,
+      companion.fromByteString(context, protocolVersion),
+    )
+
+  /*
    Test for classes extending `HasProtocolVersionedWrapper` (protocol version embedded in the instance),
    with context for deserialization.
 

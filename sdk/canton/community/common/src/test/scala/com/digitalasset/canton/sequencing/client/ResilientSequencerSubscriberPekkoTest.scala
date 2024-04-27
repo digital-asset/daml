@@ -298,7 +298,7 @@ class TestSequencerSubscriptionFactoryPekko(
     with NamedLogging {
   import TestSequencerSubscriptionFactoryPekko.*
 
-  override def sequencerId: SequencerId = DefaultTestIdentities.sequencerId
+  override def sequencerId: SequencerId = DefaultTestIdentities.daSequencerId
 
   private val sources = new AtomicReference[Seq[SequencerCounter => Seq[Element]]](Seq.empty)
 

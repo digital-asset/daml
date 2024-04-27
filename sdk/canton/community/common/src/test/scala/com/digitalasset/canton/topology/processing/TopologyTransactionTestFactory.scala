@@ -9,18 +9,18 @@ import com.digitalasset.canton.crypto.{Fingerprint, SigningPublicKey}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.TestDomainParameters
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.DefaultTestIdentities.sequencerIdX
+import com.digitalasset.canton.topology.DefaultTestIdentities.sequencerId
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.*
 
 import scala.concurrent.ExecutionContext
 
 class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: ExecutionContext)
-    extends TestingOwnerWithKeys(sequencerIdX, loggerFactory, initEc) {
+    extends TestingOwnerWithKeys(sequencerId, loggerFactory, initEc) {
 
   import SigningKeys.*
 
-  def createNsX(ns: Namespace, key: SigningPublicKey, isRootDelegation: Boolean) =
+  def createNs(ns: Namespace, key: SigningPublicKey, isRootDelegation: Boolean) =
     NamespaceDelegation.tryCreate(ns, key, isRootDelegation)
 
   val ns1 = Namespace(key1.fingerprint)
@@ -39,15 +39,15 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
   val party6 = PartyId(uid6)
   val participant1 = ParticipantId(uid1a)
   val participant6 = ParticipantId(uid6)
-  val ns1k1_k1 = mkAdd(createNsX(ns1, key1, isRootDelegation = true), key1)
-  val ns1k2_k1 = mkAdd(createNsX(ns1, key2, isRootDelegation = true), key1)
-  val ns1k2_k1p = mkAdd(createNsX(ns1, key2, isRootDelegation = true), key1)
-  val ns1k3_k2 = mkAdd(createNsX(ns1, key3, isRootDelegation = false), key2)
-  val ns1k8_k3_fail = mkAdd(createNsX(ns1, key8, isRootDelegation = false), key3)
-  val ns2k2_k2 = mkAdd(createNsX(ns2, key2, isRootDelegation = true), key2)
-  val ns3k3_k3 = mkAdd(createNsX(ns3, key3, isRootDelegation = true), key3)
-  val ns6k3_k6 = mkAdd(createNsX(ns6, key3, isRootDelegation = false), key6)
-  val ns6k6_k6 = mkAdd(createNsX(ns6, key6, isRootDelegation = true), key6)
+  val ns1k1_k1 = mkAdd(createNs(ns1, key1, isRootDelegation = true), key1)
+  val ns1k2_k1 = mkAdd(createNs(ns1, key2, isRootDelegation = true), key1)
+  val ns1k2_k1p = mkAdd(createNs(ns1, key2, isRootDelegation = true), key1)
+  val ns1k3_k2 = mkAdd(createNs(ns1, key3, isRootDelegation = false), key2)
+  val ns1k8_k3_fail = mkAdd(createNs(ns1, key8, isRootDelegation = false), key3)
+  val ns2k2_k2 = mkAdd(createNs(ns2, key2, isRootDelegation = true), key2)
+  val ns3k3_k3 = mkAdd(createNs(ns3, key3, isRootDelegation = true), key3)
+  val ns6k3_k6 = mkAdd(createNs(ns6, key3, isRootDelegation = false), key6)
+  val ns6k6_k6 = mkAdd(createNs(ns6, key6, isRootDelegation = true), key6)
   val id1ak4_k2 = mkAdd(IdentifierDelegation(uid1a, key4), key2)
   val id1ak4_k2p = mkAdd(IdentifierDelegation(uid1a, key4), key2)
   val id1ak4_k1 = mkAdd(IdentifierDelegation(uid1a, key4), key1)
@@ -74,7 +74,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     mkAdd(
       SequencerDomainState
         .create(domainId1, PositiveInt.one, Seq(sequencer1), Seq.empty)
-        .getOrElse(sys.error("Failed to create SequencerDomainStateX")),
+        .getOrElse(sys.error("Failed to create SequencerDomainState")),
       key1,
     )
   def add_OkmS1k9_k1(otk: OwnerToKeyMapping, serial: PositiveInt) =
@@ -172,15 +172,15 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     key1,
   )
 
-  val ns7k7_k7 = mkAdd(createNsX(ns7, key7, isRootDelegation = true), key7)
-  val ns8k8_k8 = mkAdd(createNsX(ns8, key8, isRootDelegation = true), key8)
-  val ns9k9_k9 = mkAdd(createNsX(ns9, key9, isRootDelegation = true), key9)
+  val ns7k7_k7 = mkAdd(createNs(ns7, key7, isRootDelegation = true), key7)
+  val ns8k8_k8 = mkAdd(createNs(ns8, key8, isRootDelegation = true), key8)
+  val ns9k9_k9 = mkAdd(createNs(ns9, key9, isRootDelegation = true), key9)
 
   val dns1 = mkAddMultiKey(
     DecentralizedNamespaceDefinition
       .create(ns7, PositiveInt.two, NonEmpty(Set, ns1, ns8, ns9))
       .fold(
-        err => sys.error(s"Failed to create DecentralizedNamespaceDefinitionX 1: $err"),
+        err => sys.error(s"Failed to create DecentralizedNamespaceDefinition 1: $err"),
         identity,
       ),
     NonEmpty(Set, key1, key8, key9),
@@ -190,7 +190,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     DecentralizedNamespaceDefinition
       .create(ns7, PositiveInt.one, NonEmpty(Set, ns1))
       .fold(
-        err => sys.error(s"Failed to create DecentralizedNamespaceDefinitionX 2: $err"),
+        err => sys.error(s"Failed to create DecentralizedNamespaceDefinition 2: $err"),
         identity,
       ),
     key9,
@@ -201,7 +201,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     DecentralizedNamespaceDefinition
       .create(ns7, PositiveInt.one, NonEmpty(Set, ns1))
       .fold(
-        err => sys.error(s"Failed to create DecentralizedNamespaceDefinitionX 3: $err"),
+        err => sys.error(s"Failed to create DecentralizedNamespaceDefinition 3: $err"),
         identity,
       ),
     key8,

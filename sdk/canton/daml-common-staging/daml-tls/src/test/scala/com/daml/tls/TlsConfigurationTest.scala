@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.ledger.api.tls
+package com.daml.tls
 
-import com.digitalasset.canton.ledger.api.tls.TlsVersion.TlsVersion
-import com.digitalasset.canton.testing.utils.TestResourceUtils
+import com.daml.tls.TlsVersion.TlsVersion
+import com.digitalasset.canton.util.JarResourceUtils
 import io.netty.handler.ssl.{OpenSslServerContext, SslContext}
 import org.apache.commons.io.IOUtils
 import org.scalatest.BeforeAndAfterEach
@@ -115,7 +115,7 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
 
   private def configWithProtocols(minTls: Option[TlsVersion]): Option[TlsConfiguration] = {
     List("server.crt", "server.pem", "ca.crt").map { src =>
-      TestResourceUtils.resourceFile("test-certificates/" + src)
+      JarResourceUtils.resourceFile("test-certificates/" + src)
     } match {
       case List(
             certChainFilePath,

@@ -24,7 +24,6 @@ import com.digitalasset.canton.data.{CantonTimestamp, ConfirmingParty, PeanoQueu
 import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.Phase37Synchronizer.RequestOutcome
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.*
@@ -45,6 +44,7 @@ import com.digitalasset.canton.participant.sync.{
   ParticipantEventPublisher,
   SyncDomainPersistentStateLookup,
 }
+import com.digitalasset.canton.participant.{DefaultParticipantStateValues, RequestOffset}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.resource.MemoryStorage
@@ -123,7 +123,7 @@ class ProtocolProcessorTest
     Set(
       MediatorGroup(
         NonNegativeInt.zero,
-        NonEmpty.mk(Seq, DefaultTestIdentities.mediator),
+        NonEmpty.mk(Seq, DefaultTestIdentities.daMediator),
         Seq(),
         PositiveInt.one,
       )
@@ -389,7 +389,7 @@ class ProtocolProcessorTest
   )
 
   private lazy val subId = DefaultDamlValues.submissionId()
-  private lazy val changeId = DefaultDamlValues.changeId(Set.empty)
+  private lazy val changeId = DefaultParticipantStateValues.changeId(Set.empty)
   private lazy val changeIdHash = ChangeIdHash(changeId)
 
   private lazy val unsequencedSubmission = InFlightSubmission(

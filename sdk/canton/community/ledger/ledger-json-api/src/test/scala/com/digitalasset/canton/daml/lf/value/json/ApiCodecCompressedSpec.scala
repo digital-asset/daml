@@ -10,7 +10,7 @@ import com.daml.lf.value.test.ValueGenerators.coidGen
 import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
 import com.digitalasset.canton.daml.lf.value.json.NavigatorModelAliases as model
 import com.digitalasset.canton.ledger.service.MetadataReader
-import com.digitalasset.canton.testing.utils.TestResourceUtils
+import com.digitalasset.canton.util.JarResourceUtils
 import org.scalactic.source
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -38,7 +38,7 @@ abstract class ApiCodecCompressedSpec
 
   protected implicit val cidArb: Arbitrary[ContractId] = Arbitrary(coidGen)
 
-  private val dar = TestResourceUtils.resourceFile(darPath)
+  private val dar = JarResourceUtils.resourceFile(darPath)
   require(dar.exists())
 
   protected val darMetadata: MetadataReader.LfMetadata =

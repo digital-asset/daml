@@ -386,14 +386,14 @@ trait MessageDispatcherTest {
     ): Fixture =
       Fixture.mk(mkMd, initRc, cleanReplaySequencerCounter)
 
-    val factoryX =
+    val factory =
       new TopologyTransactionTestFactory(loggerFactory, initEc = executionContext)
     val idTx = TopologyTransactionsBroadcast.create(
       domainId,
       Seq(
         Broadcast(
           String255.tryCreate("some request"),
-          List(factoryX.ns1k1_k1),
+          List(factory.ns1k1_k1),
         )
       ),
       testedProtocolVersion,

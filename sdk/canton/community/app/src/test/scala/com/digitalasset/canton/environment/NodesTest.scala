@@ -49,7 +49,7 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future, Promise}
 
-class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContext {
+class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContext {
   val clock = new SimClock(loggerFactory = loggerFactory)
   trait TestNode extends CantonNode
   case class TestNodeConfig()
@@ -191,10 +191,10 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
             _useUnifiedSequencer = testedUseUnifiedSequencer
           ),
         startUpGroup = 0,
-        NodesXTest.this.loggerFactory,
+        NodesTest.this.loggerFactory,
       ) {
     protected val executionContext: ExecutionContextIdlenessExecutorService =
-      NodesXTest.this.executorService
+      NodesTest.this.executorService
   }
 
   class Env {

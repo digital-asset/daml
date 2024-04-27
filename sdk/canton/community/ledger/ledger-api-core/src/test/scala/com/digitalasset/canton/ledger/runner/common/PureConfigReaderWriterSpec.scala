@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.runner.common
 
 import com.daml.jwt.JwtTimestampLeeway
-import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsVersion}
+import com.daml.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.ledger.runner.common.OptConfigValue.{
   optReaderEnabled,
   optWriterEnabled,

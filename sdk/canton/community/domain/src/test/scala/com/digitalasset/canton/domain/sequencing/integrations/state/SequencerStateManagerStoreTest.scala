@@ -59,13 +59,13 @@ trait SequencerStateManagerStoreTest
     TestingTopology(
       domains = Set(domainId),
       sequencerGroup = SequencerGroup(
-        active = NonEmpty.mk(Seq, DefaultTestIdentities.sequencerId),
+        active = NonEmpty.mk(Seq, DefaultTestIdentities.daSequencerId),
         passive = Seq.empty,
         threshold = PositiveInt.one,
       ),
     )
       .build()
-      .forOwnerAndDomain(DefaultTestIdentities.sequencerId, domainId)
+      .forOwnerAndDomain(DefaultTestIdentities.daSequencerId, domainId)
       .currentSnapshotApproximation
 
   // we don't do any signature verification in these tests so any signature that will deserialize with the testing crypto api is fine

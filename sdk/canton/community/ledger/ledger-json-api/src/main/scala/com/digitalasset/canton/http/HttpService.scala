@@ -11,7 +11,6 @@ import com.daml.logging.LoggingContextOf
 import com.daml.metrics.pekkohttp.HttpMetricsInterceptor
 import com.daml.ports.{Port, PortFiles}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.http.HttpService.buildKeyStore
 import com.digitalasset.canton.http.json.{
   ApiValueToJsValueConverter,
   DomainJsonDecoder,
@@ -23,7 +22,6 @@ import com.digitalasset.canton.http.util.ApiValueToLfValueConverter
 import com.digitalasset.canton.http.util.FutureUtil.*
 import com.digitalasset.canton.http.util.Logging.InstanceUUID
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes.ApplicationId
-import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
 import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
 import com.digitalasset.canton.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -48,6 +46,7 @@ import scalaz.Scalaz.*
 import java.nio.file.{Files, Path}
 import java.security.{Key, KeyStore}
 import javax.net.ssl.SSLContext
+import com.daml.tls.TlsConfiguration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Using
 

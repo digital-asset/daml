@@ -35,7 +35,7 @@ import scala.concurrent.Future
 class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with HasTestCloseContext {
   self =>
   private lazy val domainId = DefaultTestIdentities.domainId
-  private lazy val mediatorId = DefaultTestIdentities.mediatorIdX
+  private lazy val mediatorId = DefaultTestIdentities.mediatorId
   private lazy val mediatorMetrics = MediatorTestMetrics
   private lazy val confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(10)
   private lazy val factory = new ExampleTransactionFactory()(domainId = domainId)

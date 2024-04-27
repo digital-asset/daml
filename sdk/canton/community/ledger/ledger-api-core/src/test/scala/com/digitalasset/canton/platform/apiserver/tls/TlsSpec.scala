@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.apiserver.tls
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.resources.TestResourceContext
 import com.digitalasset.canton.platform.apiserver.LedgerApiService
-import com.digitalasset.canton.testing.utils.TestResourceUtils
+import com.digitalasset.canton.util.JarResourceUtils
 import io.netty.handler.ssl.ClientAuth
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AsyncWordSpec
@@ -122,6 +122,6 @@ class TlsSpec
 object TlsSpec {
 
   protected def resource(src: String) =
-    TestResourceUtils.resourceFile("test-certificates/" + src)
+    JarResourceUtils.resourceFile("test-certificates/" + src)
 
 }

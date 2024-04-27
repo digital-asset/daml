@@ -15,9 +15,7 @@ import com.digitalasset.canton.crypto.store.memory.{
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import com.google.protobuf.ByteString
-import org.bouncycastle.asn1.x509.AlgorithmIdentifier
 
-import java.security.PublicKey as JPublicKey
 import scala.concurrent.{ExecutionContext, Future}
 
 object SymbolicCrypto {
@@ -88,38 +86,11 @@ object SymbolicCrypto {
     val cryptoPrivateStore = new InMemoryCryptoPrivateStore(releaseProtocolVersion, loggerFactory)
     val privateCrypto = new SymbolicPrivateCrypto(pureCrypto, cryptoPrivateStore)
 
-    // Conversion to java keys is not supported by symbolic crypto
-    val javaKeyConverter = new JavaKeyConverter {
-      override def toJava(
-          publicKey: PublicKey
-      ): Either[JavaKeyConversionError, (AlgorithmIdentifier, JPublicKey)] =
-        throw new UnsupportedOperationException(
-          "Symbolic crypto does not support conversion to java keys"
-        )
-
-      override def fromJavaSigningKey(
-          publicKey: JPublicKey,
-          algorithmIdentifier: AlgorithmIdentifier,
-      ): Either[JavaKeyConversionError, SigningPublicKey] =
-        throw new UnsupportedOperationException(
-          "Symbolic crypto does not support conversion to java keys"
-        )
-
-      override def fromJavaEncryptionKey(
-          publicKey: JPublicKey,
-          algorithmIdentifier: AlgorithmIdentifier,
-      ): Either[JavaKeyConversionError, EncryptionPublicKey] =
-        throw new UnsupportedOperationException(
-          "Symbolic crypto does not support conversion to java keys"
-        )
-    }
-
     new Crypto(
       pureCrypto,
       privateCrypto,
       cryptoPrivateStore,
       cryptoPublicStore,
-      javaKeyConverter,
       timeouts,
       loggerFactory,
     )

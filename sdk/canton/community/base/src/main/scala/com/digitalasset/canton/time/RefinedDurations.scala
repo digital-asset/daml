@@ -25,6 +25,7 @@ import io.scalaland.chimney.Transformer
 import slick.jdbc.{GetResult, SetParameter}
 
 import java.time.Duration
+import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.jdk.DurationConverters.*
@@ -193,6 +194,9 @@ object NonNegativeFiniteDuration extends RefinedDurationCompanion[NonNegativeFin
       : Transformer[NonNegativeFiniteDuration, NonNegativeFiniteDurationConfig] = _.toConfig
 
   val Zero: NonNegativeFiniteDuration = NonNegativeFiniteDuration(Duration.ZERO)
+  val MaxValue: NonNegativeFiniteDuration = NonNegativeFiniteDuration(
+    ChronoUnit.FOREVER.getDuration
+  )
 
   override def create(duration: Duration): Either[String, NonNegativeFiniteDuration] =
     Either.cond(

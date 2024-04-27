@@ -584,13 +584,12 @@ class SyncDomain(
       initializationTraceContext: TraceContext
   ): Future[Either[SyncDomainInitializationError, Unit]] = {
 
-    val delayLogger =
-      new DelayLogger(
-        clock,
-        logger,
-        parameters.delayLoggingThreshold,
-        metrics.sequencerClient.handler.delay,
-      )
+    val delayLogger = new DelayLogger(
+      clock,
+      logger,
+      parameters.delayLoggingThreshold,
+      metrics.sequencerClient.handler.delay,
+    )
 
     def firstUnpersistedEventScF: Future[SequencerCounter] =
       persistent.sequencedEventStore

@@ -89,7 +89,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
   val sequencer = mock[Sequencer]
   private val participant = ParticipantId("testing")
   private val domainId = DefaultTestIdentities.domainId
-  private val sequencerId = DefaultTestIdentities.sequencerId
+  private val sequencerId = DefaultTestIdentities.daSequencerId
   private val cryptoApi =
     TestingTopology()
       .withSimpleParticipants(participant)

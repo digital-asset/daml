@@ -286,7 +286,7 @@ abstract class TopologyTransactionProcessorTest
           domainId,
           NonNegativeInt.zero,
           PositiveInt.one,
-          active = Seq(DefaultTestIdentities.mediatorIdX),
+          active = Seq(DefaultTestIdentities.mediatorId),
           observers = Seq.empty,
         )
         .value
@@ -394,7 +394,7 @@ abstract class TopologyTransactionProcessorTest
           domainId,
           NonNegativeInt.zero,
           PositiveInt.one,
-          active = Seq(DefaultTestIdentities.mediatorIdX),
+          active = Seq(DefaultTestIdentities.mediatorId),
           observers = Seq.empty,
         )
         .value
@@ -413,7 +413,7 @@ abstract class TopologyTransactionProcessorTest
           NonNegativeInt.zero,
           PositiveInt.two,
           active =
-            Seq(DefaultTestIdentities.mediatorIdX, MediatorId(Identifier.tryCreate("med2"), ns7)),
+            Seq(DefaultTestIdentities.mediatorId, MediatorId(Identifier.tryCreate("med2"), ns7)),
           observers = Seq.empty,
         )
         .value

@@ -232,7 +232,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase {
               proposalTransactions,
               Seq(
                 tx1_NSD_Proposal
-              ), // only proposal transaction, TimeQueryX.Range is inclusive on both sides
+              ), // only proposal transaction, TimeQuery.Range is inclusive on both sides
             )
             expectTransactions(
               proposalTransactionsFiltered,
@@ -242,7 +242,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase {
             )
             expectTransactions(
               proposalTransactionsFiltered2,
-              Nil, // no proposal transaction of type PartyToParticipantX in the range
+              Nil, // no proposal transaction of type PartyToParticipant in the range
             )
             expectTransactions(positiveProposals, Seq(tx1_NSD_Proposal))
 
@@ -302,7 +302,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase {
             )
             expectTransactions(
               proposalTransactionsFiltered2,
-              Nil, // no proposal transaction of type PartyToParticipantX in the range
+              Nil, // no proposal transaction of type PartyToParticipant in the range
             )
           }
         }

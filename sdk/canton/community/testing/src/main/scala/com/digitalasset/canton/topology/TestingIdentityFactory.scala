@@ -94,13 +94,13 @@ final case class TestingTopology(
     mediatorGroups: Set[MediatorGroup] = Set(
       MediatorGroup(
         NonNegativeInt.zero,
-        NonEmpty.mk(Seq, DefaultTestIdentities.mediatorIdX),
+        NonEmpty.mk(Seq, DefaultTestIdentities.mediatorId),
         Seq(),
         PositiveInt.one,
       )
     ),
     sequencerGroup: SequencerGroup = SequencerGroup(
-      active = NonEmpty.mk(Seq, DefaultTestIdentities.sequencerIdX),
+      active = NonEmpty.mk(Seq, DefaultTestIdentities.sequencerId),
       passive = Seq.empty,
       threshold = PositiveInt.one,
     ),
@@ -613,8 +613,8 @@ class TestingOwnerWithKeys(
     )
     val id1k1 = mkAdd(IdentifierDelegation(uid, key1))
     val id2k2 = mkAdd(IdentifierDelegation(uid2, key2))
-    val seq_okm_k2 = mkAdd(OwnerToKeyMapping(sequencerIdX, None, NonEmpty(Seq, key2)))
-    val med_okm_k3 = mkAdd(OwnerToKeyMapping(mediatorIdX, None, NonEmpty(Seq, key3)))
+    val seq_okm_k2 = mkAdd(OwnerToKeyMapping(sequencerId, None, NonEmpty(Seq, key2)))
+    val med_okm_k3 = mkAdd(OwnerToKeyMapping(mediatorId, None, NonEmpty(Seq, key3)))
     val dtc1m =
       DomainTrustCertificate(
         participant1,

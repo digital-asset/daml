@@ -93,7 +93,7 @@ trait MediatorRuntimeFactory {
       topologyClient: DomainTopologyClientWithInit,
       topologyTransactionProcessor: TopologyTransactionProcessor,
       topologyManagerStatus: TopologyManagerStatus,
-      domainOutboxXFactory: DomainOutboxFactory,
+      domainOutboxFactory: DomainOutboxFactory,
       timeTrackerConfig: DomainTimeTrackerConfig,
       nodeParameters: CantonNodeParameters,
       protocolVersion: ProtocolVersion,

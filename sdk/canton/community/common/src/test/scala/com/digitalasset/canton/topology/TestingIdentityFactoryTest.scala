@@ -118,7 +118,7 @@ class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecu
         val sequencers = p1.currentSnapshotApproximation.ipsSnapshot
           .sequencerGroup()
           .futureValue
-          .valueOrFail("did not find SequencerDomainStateX")
+          .valueOrFail("did not find SequencerDomainState")
           .active
 
         val mediators =

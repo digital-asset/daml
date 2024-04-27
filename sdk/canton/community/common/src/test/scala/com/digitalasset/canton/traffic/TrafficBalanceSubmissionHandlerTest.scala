@@ -67,7 +67,7 @@ class TrafficBalanceSubmissionHandlerTest
       )
     ),
   )
-    .forOwnerAndDomain(DefaultTestIdentities.sequencerIdX, domainId)
+    .forOwnerAndDomain(DefaultTestIdentities.sequencerId, domainId)
 
   override def beforeEach(): Unit = {
     super.beforeEach()

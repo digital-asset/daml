@@ -25,7 +25,7 @@ class DecentralizedNamespaceAuthorizationGraphTest
 
   private class Fixture {
 
-    val factory = new TestingOwnerWithKeys(sequencerIdX, loggerFactory, directExecutionContext)
+    val factory = new TestingOwnerWithKeys(sequencerId, loggerFactory, directExecutionContext)
 
     import factory.SigningKeys.*
 
@@ -54,7 +54,7 @@ class DecentralizedNamespaceAuthorizationGraphTest
           .toSeq,
       )
 
-    implicit class DecentralizedNamespaceAuthorizationGraphXExtension(
+    implicit class DecentralizedNamespaceAuthorizationGraphExtension(
         dns: DecentralizedNamespaceAuthorizationGraph
     ) {
       def addAuth(authorizedNSD: AuthorizedNamespaceDelegation) = {

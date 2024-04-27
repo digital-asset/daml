@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.metrics
 
+import cats.Eval
 import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, LabeledMetricsFactory, Meter}
@@ -42,17 +43,25 @@ class ParticipantMetrics(
   val httpApiServer: HttpApiMetrics =
     new HttpApiMetrics(parent, openTelemetryMetricsFactory, openTelemetryMetricsFactory)
 
-  private val clients = TrieMap[DomainAlias, SyncDomainMetrics]()
+  private val clients = TrieMap[DomainAlias, Eval[SyncDomainMetrics]]()
 
   object pruning extends ParticipantPruningMetrics(parent, openTelemetryMetricsFactory)
 
   def domainMetrics(alias: DomainAlias): SyncDomainMetrics = {
-    clients.getOrElseUpdate(
-      alias,
-      new SyncDomainMetrics(prefix, openTelemetryMetricsFactory)(
-        mc.withExtraLabels("domain" -> alias.unwrap)
-      ),
-    )
+    clients
+      .getOrElseUpdate(
+        alias,
+        // Two concurrent calls with the same domain alias may cause getOrElseUpdate to evaluate the new value expression twice,
+        // even though only one of the results will be stored in the map.
+        // Eval.later ensures that we actually create only one instance of SyncDomainMetrics in such a case
+        // by delaying the creation until the getOrElseUpdate call has finished.
+        Eval.later(
+          new SyncDomainMetrics(prefix, openTelemetryMetricsFactory)(
+            mc.withExtraLabels("domain" -> alias.unwrap)
+          )
+        ),
+      )
+      .value
   }
 
   val updatesPublished: Meter = openTelemetryMetricsFactory.meter(
