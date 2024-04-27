@@ -17,10 +17,18 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.participant.topology.DomainOnboardingOutbox
-import com.digitalasset.canton.protocol.messages.RegisterTopologyTransactionResponseResult
+import com.digitalasset.canton.protocol.messages.{
+  DefaultOpenEnvelope,
+  RegisterTopologyTransactionResponseResult,
+}
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.RequestSigner.UnauthenticatedRequestSigner
-import com.digitalasset.canton.sequencing.client.{SequencerClient, SequencerClientFactory}
+import com.digitalasset.canton.sequencing.client.{
+  SendAsyncClientError,
+  SendCallback,
+  SequencerClient,
+  SequencerClientFactory,
+}
 import com.digitalasset.canton.sequencing.handlers.DiscardIgnoredEvents
 import com.digitalasset.canton.sequencing.protocol.{Batch, ClosedEnvelope, Deliver, SequencedEvent}
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
@@ -240,10 +248,18 @@ class ParticipantInitializeTopology(
     TopologyChangeOp
   ], RegisterTopologyTransactionResponseResult.State] =
     new SequencerBasedRegisterTopologyTransactionHandle(
-      (traceContext, env) =>
-        client.sendAsyncUnauthenticated(
-          Batch(List(env), protocolVersion)
-        )(traceContext),
+      new SequencerBasedRegisterTopologyTransactionHandle.SenderImpl(clock, protocolVersion) {
+        override def sendInternal(
+            batch: Batch[DefaultOpenEnvelope],
+            maxSequencingTime: CantonTimestamp,
+            callback: SendCallback,
+        )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] =
+          client.sendAsyncUnauthenticated(
+            batch = batch,
+            maxSequencingTime = maxSequencingTime,
+            callback = callback,
+          )
+      },
       domainId,
       participantId,
       member,

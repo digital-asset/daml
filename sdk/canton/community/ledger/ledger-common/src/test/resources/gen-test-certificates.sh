@@ -84,7 +84,7 @@ print_certificate "ca"
 create_key_and_pem "server"
 create_csr "server" "/CN=0.0.0.0.server" "DNS:localhost, IP:127.0.0.1" "openssl.cnf"
 openssl ca -batch -config "openssl.cnf" \
-    -extensions server_cert -days $DAYS -notext -md sha256 \
+    -extensions server_cert -days $DAYS -notext -md sha256 -days ${DAYS}  \
     -in "server.csr" \
     -out "server.crt"
 chmod 444 "server.crt"
@@ -105,7 +105,7 @@ openssl req -new -key "client.pem" \
     -out "client.csr"
 # Sign Client Cert
 openssl ca -batch -config "openssl.cnf" \
-    -extensions usr_cert -notext -md sha256 \
+    -extensions usr_cert -notext -md sha256 -days ${DAYS} \
     -in "client.csr" \
     -out "client.crt"
 # Validate cert is correct
@@ -134,7 +134,7 @@ create_pem "client-revoked"
 create_csr "client-revoked" "/CN=0.0.0.0.clientrevoked" "DNS:localhost, IP:127.0.0.1"
 # Sign Client Cert
 openssl ca -batch -config "openssl.cnf" \
-    -extensions usr_cert -notext -md sha256 \
+    -extensions usr_cert -notext -md sha256 -days ${DAYS} \
     -in "client-revoked.csr" \
     -out "client-revoked.crt"
 # Validate cert is correct
