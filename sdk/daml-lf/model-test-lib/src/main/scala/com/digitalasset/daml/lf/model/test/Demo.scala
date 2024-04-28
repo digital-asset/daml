@@ -79,6 +79,23 @@ object Demo {
 
     // val workers = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(1))
 
+    val parsingDemo = Parser.parseScenario("""Scenario
+        |  Topology
+        |    Participant 0 parties={1}
+        |  Ledger
+        |    Commands participant=0 actAs={1} disclosures={}
+        |      Create 0 sigs={1} obs={}
+        |      CreateWithKey 1 key=(42, {1}) sigs={1} obs={}
+        |    Commands participant=0 actAs={1} disclosures={0}
+        |      Exercise Consuming 0 ctl={1} cobs={}
+        |        Fetch 1
+        |        LookupByKey success 1
+        |        LookupByKey failure key=(43, {1})
+        |        Rollback
+        |          FetchByKey 1
+        |        Exercise NonConsuming 1 ctl={1} cobs={}""".stripMargin)
+    val _ = parsingDemo
+
     validSymScenarios
       .foreach(scenario => {
         // workers.execute(() =>
