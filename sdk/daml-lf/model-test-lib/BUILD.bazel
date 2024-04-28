@@ -37,6 +37,7 @@ da_scala_library(
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_cats_core",
+        "@maven//:org_scala_lang_modules_scala_parser_combinators",
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_typelevel_cats_kernel",
         "@maven//:org_typelevel_paiges_core",
@@ -75,6 +76,7 @@ da_scala_binary(
     resources = ["//daml-script/runner:src/main/resources/logback.xml"],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scala_lang_modules_scala_parser_combinators",
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
         #"@maven//:org_typelevel_cats_core",
