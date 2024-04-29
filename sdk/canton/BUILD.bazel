@@ -226,6 +226,7 @@ scala_library(
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    tags = ["maven_coordinates=com.daml:daml-common-staging-daml-tls:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
         "//daml-script:__subpackages__",
