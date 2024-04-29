@@ -62,7 +62,7 @@ import com.digitalasset.canton.store.{
   SequencerCounterTrackerStore,
 }
 import com.digitalasset.canton.time.{DomainTimeTracker, MockTimeRequestSubmitter, SimClock}
-import com.digitalasset.canton.topology.DefaultTestIdentities.{participant1, sequencerId}
+import com.digitalasset.canton.topology.DefaultTestIdentities.{daSequencerId, participant1}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{DomainTopologyClient, TopologySnapshot}
 import com.digitalasset.canton.tracing.TraceContext
@@ -813,7 +813,7 @@ class SequencerClientTest
           _ <- env.changeTransport(
             SequencerTransports.single(
               SequencerAlias.tryCreate("somethingElse"),
-              sequencerId,
+              daSequencerId,
               secondTransport,
             )
           )
@@ -938,7 +938,7 @@ class SequencerClientTest
         newTransport: SequencerClientTransport & SequencerClientTransportPekko
     )(implicit ev: Client <:< RichSequencerClient): Future[Unit] = {
       changeTransport(
-        SequencerTransports.default(sequencerId, newTransport)
+        SequencerTransports.default(daSequencerId, newTransport)
       )
     }
 
@@ -1218,7 +1218,7 @@ class SequencerClientTest
       val client = new RichSequencerClientImpl(
         DefaultTestIdentities.domainId,
         participant1,
-        SequencerTransports.default(DefaultTestIdentities.sequencerId, transport),
+        SequencerTransports.default(DefaultTestIdentities.daSequencerId, transport),
         options,
         TestingConfigInternal(),
         BaseTest.defaultStaticDomainParameters.protocolVersion,
@@ -1274,7 +1274,7 @@ class SequencerClientTest
       val client = new SequencerClientImplPekko(
         DefaultTestIdentities.domainId,
         participant1,
-        SequencerTransports.default(DefaultTestIdentities.sequencerId, transport),
+        SequencerTransports.default(DefaultTestIdentities.daSequencerId, transport),
         options,
         TestingConfigInternal(),
         BaseTest.defaultStaticDomainParameters.protocolVersion,

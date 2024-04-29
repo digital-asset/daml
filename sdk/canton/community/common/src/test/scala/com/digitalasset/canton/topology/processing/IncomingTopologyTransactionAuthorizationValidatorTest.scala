@@ -27,7 +27,7 @@ import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, ProtocolVersionChecksAsyncWordSpec}
 import org.scalatest.wordspec.AsyncWordSpec
 
-class IncomingTopologyTransactionAuthorizationValidatorTestX
+class IncomingTopologyTransactionAuthorizationValidatorTest
     extends AsyncWordSpec
     with BaseTest
     with HasExecutionContext
@@ -672,7 +672,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           )
           res <- validator.validateAndUpdateHeadAuthState(
             ts(2),
-            // Analogously to how the TopologyStateProcessorX merges the signatures of proposals
+            // Analogously to how the TopologyStateProcessor merges the signatures of proposals
             // with the same serial, combine the signature of the previous proposal to the current proposal.
             List(dns3.addSignatures(dns2.signatures.toSeq)),
             (decentralizedNamespaceWithMultipleOwnerThreshold ++ proposeDecentralizedNamespaceWithLowerThresholdAndOwnerNumber)

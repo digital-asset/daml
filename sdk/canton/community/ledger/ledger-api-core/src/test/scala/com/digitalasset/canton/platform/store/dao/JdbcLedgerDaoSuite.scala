@@ -20,7 +20,8 @@ import com.digitalasset.canton.ledger.participant.state.index.v2
 import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
-import com.digitalasset.canton.testing.utils.{TestModels, TestResourceUtils}
+import com.digitalasset.canton.testing.utils.TestModels
+import com.digitalasset.canton.util.JarResourceUtils
 import org.apache.pekko.stream.scaladsl.Sink
 import org.scalatest.{AsyncTestSuite, OptionValues}
 
@@ -53,7 +54,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
 
   private[this] val dar =
     TestModels.com_daml_ledger_test_ModelTestDar_path
-      .pipe(TestResourceUtils.resourceFileFromJar)
+      .pipe(JarResourceUtils.resourceFileFromJar)
       .pipe(DarParser.assertReadArchiveFromFile(_))
 
   private val now = Timestamp.now()

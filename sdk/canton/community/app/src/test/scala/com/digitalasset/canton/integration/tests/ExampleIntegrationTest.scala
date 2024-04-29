@@ -82,7 +82,7 @@ object ExampleIntegrationTest {
   })
 }
 
-sealed abstract class SimplePingExampleXIntegrationTest
+sealed abstract class SimplePingExampleIntegrationTest
     extends ExampleIntegrationTest(simpleTopology / "simple-topology.conf") {
 
   "run simple-ping.canton successfully" in { implicit env =>
@@ -93,12 +93,12 @@ sealed abstract class SimplePingExampleXIntegrationTest
   }
 }
 
-final class SimplePingExampleReferenceXIntegrationTestDefault
-    extends SimplePingExampleXIntegrationTest {
+final class SimplePingExampleReferenceIntegrationTestDefault
+    extends SimplePingExampleIntegrationTest {
   registerPlugin(new UseCommunityReferenceBlockSequencer[H2](loggerFactory))
 }
 
-sealed abstract class RepairExampleXIntegrationTest
+sealed abstract class RepairExampleIntegrationTest
     extends ExampleIntegrationTest(
       referenceConfiguration / "storage" / "h2.conf",
       repairConfiguration / "domain-repair-lost.conf",
@@ -113,6 +113,6 @@ sealed abstract class RepairExampleXIntegrationTest
   }
 }
 
-final class RepairExampleReferenceXIntegrationTestDefault extends RepairExampleXIntegrationTest {
+final class RepairExampleReferenceIntegrationTestDefault extends RepairExampleIntegrationTest {
   registerPlugin(new UseCommunityReferenceBlockSequencer[H2](loggerFactory))
 }

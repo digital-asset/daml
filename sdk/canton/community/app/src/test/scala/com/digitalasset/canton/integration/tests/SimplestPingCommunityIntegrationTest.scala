@@ -6,7 +6,6 @@ package com.digitalasset.canton.integration.tests
 import com.digitalasset.canton.config.CommunityStorageConfig
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.health.admin.data.NodeStatus
-import com.digitalasset.canton.integration.CommunityEnvironmentDefinition.defaultStaticDomainParametersX
 import com.digitalasset.canton.integration.CommunityTests.{
   CommunityIntegrationTest,
   SharedCommunityEnvironment,
@@ -17,7 +16,7 @@ import com.digitalasset.canton.integration.{
   CommunityEnvironmentDefinition,
 }
 
-sealed trait SimplestPingXCommunityIntegrationTest
+sealed trait SimplestPingCommunityIntegrationTest
     extends CommunityIntegrationTest
     with SharedCommunityEnvironment {
 
@@ -40,7 +39,7 @@ sealed trait SimplestPingXCommunityIntegrationTest
       Seq(sequencer1),
       Seq(mediator1),
       Seq[InstanceReference](sequencer1, mediator1),
-      staticDomainParameters = defaultStaticDomainParametersX,
+      staticDomainParameters = CommunityEnvironmentDefinition.defaultStaticDomainParameters,
     )
 
     sequencer1.health.status shouldBe a[NodeStatus.Success[?]]
@@ -56,8 +55,8 @@ sealed trait SimplestPingXCommunityIntegrationTest
 }
 
 // If this test is renamed, update `propose-open-source-code-drop.sh`
-final class SimplestPingReferenceXCommunityIntegrationTest
-    extends SimplestPingXCommunityIntegrationTest {
+final class SimplestPingReferenceCommunityIntegrationTest
+    extends SimplestPingCommunityIntegrationTest {
   registerPlugin(
     new UseCommunityReferenceBlockSequencer[CommunityStorageConfig.Memory](loggerFactory)
   )

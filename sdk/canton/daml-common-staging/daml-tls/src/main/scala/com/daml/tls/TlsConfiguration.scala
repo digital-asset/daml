@@ -1,9 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.ledger.api.tls
+package com.daml.tls
 
-import com.digitalasset.canton.ledger.api.tls.TlsVersion.{TlsVersion, V1, V1_1, V1_2, V1_3}
+import com.daml.tls.TlsVersion.{TlsVersion, V1, V1_1, V1_2, V1_3}
 import io.grpc.netty.GrpcSslContexts
 import io.netty.handler.ssl.{ClientAuth, SslContext}
 import org.slf4j.LoggerFactory

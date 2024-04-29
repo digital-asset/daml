@@ -67,7 +67,7 @@ final case class CommunityEnvironmentDefinition(
 }
 
 object CommunityEnvironmentDefinition {
-  lazy val defaultStaticDomainParametersX: StaticDomainParameters =
+  lazy val defaultStaticDomainParameters: StaticDomainParameters =
     StaticDomainParameters.defaults(
       CommunityCryptoConfig(),
       BaseTest.testedProtocolVersion,

@@ -70,6 +70,12 @@ object EitherTUtil {
   ): EitherT[Future, E, A] =
     liftFailedFuture(fut.map(Right(_)), errorHandler)
 
+  /** Variation of fromFuture  that takes a [[com.digitalasset.canton.lifecycle.FutureUnlessShutdown]] */
+  def fromFuture[E, A](futUnlSht: FutureUnlessShutdown[A], errorHandler: Throwable => E)(implicit
+      ec: ExecutionContext
+  ): EitherT[FutureUnlessShutdown, E, A] =
+    liftFailedFuture(futUnlSht.map(Right(_)), errorHandler)
+
   /** Lift a failed future into a Left value. */
   def liftFailedFuture[E, A](fut: Future[Either[E, A]], errorHandler: Throwable => E)(implicit
       executionContext: ExecutionContext
@@ -77,6 +83,18 @@ object EitherTUtil {
     EitherT(fut.recover[Either[E, A]] { case NonFatal(x) =>
       errorHandler(x).asLeft[A]
     })
+
+  /** Variation of liftFailedFuture that takes a [[com.digitalasset.canton.lifecycle.FutureUnlessShutdown]] */
+  def liftFailedFuture[E, A](
+      futUnlSht: FutureUnlessShutdown[Either[E, A]],
+      errorHandler: Throwable => E,
+  )(implicit
+      executionContext: ExecutionContext
+  ): EitherT[FutureUnlessShutdown, E, A] = {
+    EitherT(futUnlSht.recover[Either[E, A]] { case NonFatal(x) =>
+      UnlessShutdown.Outcome(errorHandler(x).asLeft[A])
+    })
+  }
 
   /** Log `message` if `result` fails with an exception or results in a `Left` */
   def logOnError[E, R](result: EitherT[Future, E, R], message: String, level: Level = Level.ERROR)(

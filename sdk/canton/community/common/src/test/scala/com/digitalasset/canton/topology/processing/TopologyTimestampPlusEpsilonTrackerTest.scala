@@ -29,7 +29,7 @@ class TopologyTimestampPlusEpsilonTrackerTest
 
   protected class Fixture {
     val crypto = new TestingOwnerWithKeys(
-      DefaultTestIdentities.sequencerIdX,
+      DefaultTestIdentities.sequencerId,
       loggerFactory,
       parallelExecutionContext,
     )

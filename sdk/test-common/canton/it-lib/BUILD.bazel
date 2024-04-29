@@ -28,6 +28,7 @@ da_scala_library(
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-logging",
+        "//canton:daml-common-staging_daml-tls",
         "//daml-lf/data",
         "//libs-scala/fs-utils",
         "//libs-scala/jwt",

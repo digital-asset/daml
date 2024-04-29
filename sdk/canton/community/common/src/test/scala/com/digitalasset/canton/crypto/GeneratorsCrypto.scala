@@ -67,11 +67,11 @@ object GeneratorsCrypto {
 
   lazy val cryptoFactory =
     TestingIdentityFactory(loggerFactoryNotUsed).forOwnerAndDomain(
-      DefaultTestIdentities.sequencerId
+      DefaultTestIdentities.daSequencerId
     )
   private lazy val sequencerKey =
     TestingIdentityFactory(loggerFactoryNotUsed)
-      .newSigningPublicKey(DefaultTestIdentities.sequencerId)
+      .newSigningPublicKey(DefaultTestIdentities.daSequencerId)
       .fingerprint
   private lazy val privateCrypto = cryptoFactory.crypto.privateCrypto
   private lazy val pureCryptoApi: CryptoPureApi = cryptoFactory.pureCrypto

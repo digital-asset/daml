@@ -147,7 +147,7 @@ class QueueBasedDomainOutboxTest
                   SequencedTime(ts),
                   EffectiveTime(ts),
                   additions = List(ValidatedTopologyTransaction(x, rejections.next())),
-                  // dumbed down version of how to "append" ValidatedTopologyTransactionXs:
+                  // dumbed down version of how to "append" ValidatedTopologyTransactions:
                   removeMapping = Option
                     .when(x.operation == TopologyChangeOp.Remove)(
                       x.mapping.uniqueKey -> x.serial

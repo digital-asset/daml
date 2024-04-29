@@ -26,8 +26,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   // we don't care about any values of this config, so just mock
-  lazy val participant1xConfig: CommunityParticipantConfig = ConfigStubs.participant
-  lazy val participant2xConfig: CommunityParticipantConfig = ConfigStubs.participant
+  lazy val participant1Config: CommunityParticipantConfig = ConfigStubs.participant
+  lazy val participant2Config: CommunityParticipantConfig = ConfigStubs.participant
 
   lazy val sampleConfig: CantonCommunityConfig = CantonCommunityConfig(
     sequencers = Map(
@@ -39,8 +39,8 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
       InstanceName.tryCreate("m2") -> ConfigStubs.mediator,
     ),
     participants = Map(
-      InstanceName.tryCreate("p1") -> participant1xConfig,
-      InstanceName.tryCreate("p2") -> participant2xConfig,
+      InstanceName.tryCreate("p1") -> participant1Config,
+      InstanceName.tryCreate("p2") -> participant2Config,
     ),
   )
 
@@ -80,7 +80,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
       when(bootstrap.getNode).thenReturn(Some(node))
       when(node.reconnectDomainsIgnoreFailures()(any[TraceContext], any[ExecutionContext]))
         .thenReturn(EitherT.pure[FutureUnlessShutdown, SyncServiceError](()))
-      when(node.config).thenReturn(participant1xConfig)
+      when(node.config).thenReturn(participant1Config)
       (bootstrap, node)
     }
     def mockParticipant: ParticipantNodeBootstrap = mockParticipantAndNode._1
@@ -190,7 +190,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
 
         override def config: CantonCommunityConfig = {
           val tmp = sampleConfig.focus(_.parameters.portsFile).replace(Some("my-ports.txt"))
-          (CommunityConfigTransforms.updateAllParticipantXConfigs { case (_, config) =>
+          (CommunityConfigTransforms.updateAllParticipantConfigs { case (_, config) =>
             config
               .focus(_.ledgerApi)
               .replace(LedgerApiServerConfig(internalPort = Some(Port.tryCreate(42))))

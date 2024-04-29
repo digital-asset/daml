@@ -3,13 +3,30 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.crypto.Signature
-import com.digitalasset.canton.data.{CantonTimestampSecond, GeneratorsData, ViewPosition, ViewType}
-import com.digitalasset.canton.protocol.{GeneratorsProtocol, RequestId, RootHash}
+import com.digitalasset.canton.config.GeneratorsConfig
+import com.digitalasset.canton.crypto.{
+  AsymmetricEncrypted,
+  Encrypted,
+  SecureRandomness,
+  Signature,
+  SymmetricKeyScheme,
+}
+import com.digitalasset.canton.data.{
+  CantonTimestampSecond,
+  FullInformeeTree,
+  GeneratorsData,
+  TransferInViewTree,
+  TransferOutViewTree,
+  ViewPosition,
+  ViewType,
+}
+import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.Broadcast
+import com.digitalasset.canton.protocol.{GeneratorsProtocol, RequestId, RootHash, ViewHash}
 import com.digitalasset.canton.time.PositiveSeconds
+import com.digitalasset.canton.topology.transaction.GeneratorsTransaction
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{Generators, LfPartyId}
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 
@@ -21,6 +38,7 @@ final class GeneratorsMessages(
     generatorsProtocol: GeneratorsProtocol,
     generatorsLocalVerdict: GeneratorsLocalVerdict,
     generatorsVerdict: GeneratorsVerdict,
+    generatorTransactions: GeneratorsTransaction,
 ) {
   import com.digitalasset.canton.Generators.*
   import com.digitalasset.canton.GeneratorsLf.*
@@ -31,6 +49,7 @@ final class GeneratorsMessages(
   import generatorsLocalVerdict.*
   import generatorsProtocol.*
   import generatorsVerdict.*
+  import generatorTransactions.*
 
   @SuppressWarnings(Array("com.digitalasset.canton.GlobalExecutionContext"))
   /*
@@ -69,7 +88,7 @@ final class GeneratorsMessages(
       verdict <- verdictArb.arbitrary
       informees <- Arbitrary.arbitrary[Set[LfPartyId]]
 
-      // TODO(#14241) Also generate instance that makes pv above cover all the values
+      // TODO(#14515) Also generate instance that makes pv above cover all the values
     } yield ConfirmationResultMessage.create(
       domainId,
       viewType,
@@ -155,12 +174,56 @@ final class GeneratorsMessages(
     // )
   )
 
+  val informeeMessageArb: Arbitrary[InformeeMessage] = Arbitrary(
+    for {
+      fullInformeeTree <- Arbitrary.arbitrary[FullInformeeTree]
+      submittingParticipantSignature <- Arbitrary.arbitrary[Signature]
+    } yield InformeeMessage(fullInformeeTree, submittingParticipantSignature)(protocolVersion)
+  )
+
+  val encryptedViewMessage: Arbitrary[EncryptedViewMessage[ViewType]] = Arbitrary(
+    for {
+      signatureO <- Gen.option(Arbitrary.arbitrary[Signature])
+      viewHash <- Arbitrary.arbitrary[ViewHash]
+      encryptedViewBytestring <- byteStringArb.arbitrary
+      randomness = Encrypted.fromByteString[SecureRandomness](encryptedViewBytestring)
+      sessionKey <- Generators.nonEmptyListGen[AsymmetricEncrypted[SecureRandomness]]
+      viewType <- viewTypeArb.arbitrary
+      encryptedView = EncryptedView(viewType)(Encrypted.fromByteString(encryptedViewBytestring))
+      domainId <- Arbitrary.arbitrary[DomainId]
+      viewEncryptionScheme <- genArbitrary[SymmetricKeyScheme].arbitrary
+    } yield EncryptedViewMessage.apply(
+      submittingParticipantSignature = signatureO,
+      viewHash = viewHash,
+      randomness = randomness,
+      sessionKey = sessionKey,
+      encryptedView = encryptedView,
+      domainId = domainId,
+      viewEncryptionScheme = viewEncryptionScheme,
+      protocolVersion = protocolVersion,
+    )
+  )
+
+  private val transferInMediatorMessageArb: Arbitrary[TransferInMediatorMessage] = Arbitrary(
+    for {
+      tree <- Arbitrary.arbitrary[TransferInViewTree]
+      submittingParticipantSignature <- Arbitrary.arbitrary[Signature]
+    } yield TransferInMediatorMessage(tree, submittingParticipantSignature)
+  )
+
+  private val transferOutMediatorMessageArb: Arbitrary[TransferOutMediatorMessage] = Arbitrary(
+    for {
+      tree <- Arbitrary.arbitrary[TransferOutViewTree]
+      submittingParticipantSignature <- Arbitrary.arbitrary[Signature]
+    } yield TransferOutMediatorMessage(tree, submittingParticipantSignature)
+  )
+
   implicit val rootHashMessageArb: Arbitrary[RootHashMessage[RootHashMessagePayload]] =
     Arbitrary(
       for {
         rootHash <- Arbitrary.arbitrary[RootHash]
         domainId <- Arbitrary.arbitrary[DomainId]
-        viewType <- Arbitrary.arbitrary[ViewType]
+        viewType <- viewTypeArb.arbitrary
         payload <- Arbitrary.arbitrary[RootHashMessagePayload]
       } yield RootHashMessage.apply(
         rootHash,
@@ -171,9 +234,32 @@ final class GeneratorsMessages(
       )
     )
 
-  // TODO(#14241) Once we have more generators for merkle trees base classes, make these generators exhaustive
+  implicit val broadcast: Arbitrary[Broadcast] = Arbitrary(
+    for {
+      id <- GeneratorsConfig.string255Arb.arbitrary
+      transactions <- Gen.listOfN(10, signedTopologyTransactionArb.arbitrary)
+    } yield Broadcast(id, transactions)
+  )
+
+  implicit val topologyTransactionsBroadcast: Arbitrary[TopologyTransactionsBroadcast] = Arbitrary(
+    for {
+      domainId <- Arbitrary.arbitrary[DomainId]
+      broadcast <- broadcast.arbitrary
+    } yield TopologyTransactionsBroadcast.create(domainId, Seq(broadcast), protocolVersion)
+  )
+
+  // TODO(#14515) Check that the generator is exhaustive
   implicit val unsignedProtocolMessageArb: Arbitrary[UnsignedProtocolMessage] =
-    Arbitrary(rootHashMessageArb.arbitrary)
+    Arbitrary(
+      Gen.oneOf(
+        rootHashMessageArb.arbitrary,
+        informeeMessageArb.arbitrary,
+        encryptedViewMessage.arbitrary,
+        transferInMediatorMessageArb.arbitrary,
+        transferOutMediatorMessageArb.arbitrary,
+        topologyTransactionsBroadcast.arbitrary,
+      )
+    )
 
   // TODO(#14515) Check that the generator is exhaustive
   implicit val protocolMessageArb: Arbitrary[ProtocolMessage] =
@@ -183,5 +269,4 @@ final class GeneratorsMessages(
   implicit val envelopeContentArb: Arbitrary[EnvelopeContent] = Arbitrary(for {
     protocolMessage <- protocolMessageArb.arbitrary
   } yield EnvelopeContent.tryCreate(protocolMessage, protocolVersion))
-
 }

@@ -31,7 +31,7 @@ class EnterpriseSequencerRateLimitManagerTest
   private val trafficConfig: TrafficControlParameters = TrafficControlParameters(
     maxBaseTrafficAmount = NonNegativeLong.zero
   )
-  private val sender: Member = mediatorIdX.member
+  private val sender: Member = mediatorId.member
   private val recipients: Recipients = Recipients.cc(participant1, participant2)
   private val envelope1: ClosedEnvelope = ClosedEnvelope.create(
     ByteString.copyFromUtf8("hello"),

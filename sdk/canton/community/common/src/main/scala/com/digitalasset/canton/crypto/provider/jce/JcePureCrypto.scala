@@ -4,7 +4,6 @@
 package com.digitalasset.canton.crypto.provider.jce
 
 import cats.syntax.either.*
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.CommunityCryptoProvider.Jce
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.HkdfError.HkdfInternalError
@@ -25,24 +24,16 @@ import com.google.crypto.tink.subtle.Enums.HashType
 import com.google.crypto.tink.subtle.*
 import com.google.crypto.tink.{Aead, PublicKeySign, PublicKeyVerify}
 import com.google.protobuf.ByteString
-import org.bouncycastle.asn1.DEROctetString
-import org.bouncycastle.asn1.edec.EdECObjectIdentifiers
-import org.bouncycastle.asn1.pkcs.PrivateKeyInfo
-import org.bouncycastle.asn1.x509.AlgorithmIdentifier
 import org.bouncycastle.crypto.DataLengthException
 import org.bouncycastle.crypto.digests.SHA256Digest
 import org.bouncycastle.crypto.generators.{Argon2BytesGenerator, HKDFBytesGenerator}
 import org.bouncycastle.crypto.params.{Argon2Parameters, HKDFParameters}
 import org.bouncycastle.jcajce.provider.asymmetric.edec.BCEdDSAPublicKey
 import org.bouncycastle.jce.spec.IESParameterSpec
-import sun.security.ec.ECPrivateKeyImpl
 
 import java.security.interfaces.*
-import java.security.spec.{InvalidKeySpecException, PKCS8EncodedKeySpec}
 import java.security.{
   GeneralSecurityException,
-  KeyFactory,
-  NoSuchAlgorithmException,
   PrivateKey as JPrivateKey,
   PublicKey as JPublicKey,
   SecureRandom,
@@ -72,7 +63,6 @@ object JceSecureRandom {
 }
 
 class JcePureCrypto(
-    javaKeyConverter: JceJavaConverter,
     override val defaultSymmetricKeyScheme: SymmetricKeyScheme,
     override val defaultHashAlgorithm: HashAlgorithm,
     override val defaultPbkdfScheme: PbkdfScheme,
@@ -134,9 +124,8 @@ class JcePureCrypto(
     def convertToFormatAndGenerateJavaPublicKey: Either[KeyParseAndValidateError, JPublicKey] = {
       for {
         // convert key to java key
-        jPublicKey <- javaKeyConverter
+        jPublicKey <- JceJavaKeyConverter
           .toJava(publicKey)
-          .map(_._2)
           .leftMap(err =>
             KeyParseAndValidateError(s"Failed to convert public key to java key: $err")
           )
@@ -170,7 +159,8 @@ class JcePureCrypto(
       privateKey <- javaPrivateKeyCache
         .getOrElseUpdate(
           privateKey.id,
-          toJava(privateKey)
+          JceJavaKeyConverter
+            .toJava(privateKey)
             .leftMap(err =>
               KeyParseAndValidateError(s"Failed to convert private key to java key: ${err.show}")
             ),
@@ -227,80 +217,6 @@ class JcePureCrypto(
         }
       }
     )
-  }
-
-  private def toJava(privateKey: PrivateKey): Either[JavaKeyConversionError, JPrivateKey] = {
-
-    def convertFromPkcs8(
-        pkcs8PrivateKey: Array[Byte],
-        keyInstance: String,
-    ): Either[JavaKeyConversionError, JPrivateKey] = {
-      val pkcs8KeySpec = new PKCS8EncodedKeySpec(pkcs8PrivateKey)
-      for {
-        keyFactory <- Either
-          .catchOnly[NoSuchAlgorithmException](KeyFactory.getInstance(keyInstance, "BC"))
-          .leftMap(JavaKeyConversionError.GeneralError)
-        javaPrivateKey <- Either
-          .catchOnly[InvalidKeySpecException](keyFactory.generatePrivate(pkcs8KeySpec))
-          .leftMap(err => JavaKeyConversionError.InvalidKey(show"$err"))
-        _ =
-          // There exists a race condition in ECPrivateKey before java 15
-          if (Runtime.version.feature < 15)
-            javaPrivateKey match {
-              case pk: ECPrivateKeyImpl =>
-                /* Force the initialization of the private key's internal array data structure.
-                 * This prevents concurrency problems later on during decryption, while generating the shared secret,
-                 * due to a race condition in getArrayS.
-                 */
-                pk.getArrayS.discard
-              case _ => ()
-            }
-      } yield javaPrivateKey
-    }
-
-    (privateKey: @unchecked) match {
-      case sigKey: SigningPrivateKey =>
-        sigKey.scheme match {
-          case SigningKeyScheme.Ed25519 if sigKey.format == CryptoKeyFormat.Raw =>
-            val privateKeyInfo = new PrivateKeyInfo(
-              new AlgorithmIdentifier(EdECObjectIdentifiers.id_Ed25519),
-              new DEROctetString(privateKey.key.toByteArray),
-            )
-            convertFromPkcs8(privateKeyInfo.getEncoded, "Ed25519")
-          case SigningKeyScheme.EcDsaP256 if sigKey.format == CryptoKeyFormat.Der =>
-            convertFromPkcs8(privateKey.key.toByteArray, "EC")
-          case SigningKeyScheme.EcDsaP384 if sigKey.format == CryptoKeyFormat.Der =>
-            convertFromPkcs8(privateKey.key.toByteArray, "EC")
-          case _ =>
-            Either.left[JavaKeyConversionError, JPrivateKey](
-              JavaKeyConversionError.UnsupportedKeyFormat(
-                sigKey.format, {
-                  sigKey.scheme match {
-                    case SigningKeyScheme.Ed25519 => CryptoKeyFormat.Raw
-                    case SigningKeyScheme.EcDsaP256 => CryptoKeyFormat.Der
-                    case SigningKeyScheme.EcDsaP384 => CryptoKeyFormat.Der
-                  }
-                },
-              )
-            )
-        }
-      case encKey: EncryptionPrivateKey =>
-        encKey.scheme match {
-          case EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm
-              if encKey.format == CryptoKeyFormat.Der =>
-            convertFromPkcs8(privateKey.key.toByteArray, "EC")
-          case EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc
-              if encKey.format == CryptoKeyFormat.Der =>
-            convertFromPkcs8(privateKey.key.toByteArray, "EC")
-          case EncryptionKeyScheme.Rsa2048OaepSha256 if encKey.format == CryptoKeyFormat.Der =>
-            convertFromPkcs8(privateKey.key.toByteArray, "RSA")
-          case _ =>
-            Either.left[JavaKeyConversionError, JPrivateKey](
-              JavaKeyConversionError.UnsupportedKeyFormat(encKey.format, CryptoKeyFormat.Der)
-            )
-
-        }
-    }
   }
 
   private def ecDsaSigner(

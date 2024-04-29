@@ -29,25 +29,24 @@ class DelayLogger(
   def checkForDelay(event: PossiblyIgnoredSequencedEvent[_]): Unit = event match {
     case OrdinarySequencedEvent(signedEvent, _) =>
       implicit val traceContext: TraceContext = event.traceContext
-      if (logger.underlying.isDebugEnabled) {
-        signedEvent.content match {
-          case Deliver(counter, ts, _, _, _, _) =>
-            val now = clock.now
-            val delta = now.toEpochMilli - ts.toEpochMilli
-            gauge.updateValue(delta)
-            if (ts < now.minus(threshold.unwrap)) {
-              if (caughtUp.compareAndSet(true, false)) {
-                logger.warn(
-                  s"Late processing (or clock skew) of batch with counter=$counter with timestamp $delta ms after sequencing."
-                )
-              }
-            } else if (caughtUp.compareAndSet(false, true)) {
-              logger.info(
-                s"Caught up with batch with counter=${counter} with sequencer with $delta ms delay"
+      signedEvent.content match {
+        case Deliver(counter, ts, _, _, _, _) =>
+          val now = clock.now
+          val delta = java.time.Duration.between(ts.toInstant, now.toInstant)
+          val deltaMs = delta.toMillis
+          gauge.updateValue(deltaMs)
+          if (delta.compareTo(threshold.unwrap) > 0) {
+            if (caughtUp.compareAndSet(true, false)) {
+              logger.warn(
+                s"Late processing (or clock skew) of batch with counter=$counter with timestamp $delta ms after sequencing."
               )
             }
-          case _ => ()
-        }
+          } else if (caughtUp.compareAndSet(false, true)) {
+            logger.info(
+              s"Caught up with batch with counter=${counter} with sequencer with $delta ms delay"
+            )
+          }
+        case _ => ()
       }
     case _ => ()
   }

@@ -7,7 +7,7 @@ package script
 
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
+import com.daml.tls.TlsConfiguration
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.client.configuration.{
   CommandClientConfiguration,

@@ -47,9 +47,9 @@ trait BaseSequencerDriverApiTest[ConfigType]
 
   protected final def domainId: DomainId = DefaultTestIdentities.domainId
 
-  protected final def mediatorId: MediatorId = DefaultTestIdentities.mediator
+  protected final def mediatorId: MediatorId = DefaultTestIdentities.daMediator
 
-  protected final def topologyClientMember: Member = DefaultTestIdentities.sequencerId
+  protected final def topologyClientMember: Member = DefaultTestIdentities.daSequencerId
 
   private val topologyFactory =
     new TestingIdentityFactory(

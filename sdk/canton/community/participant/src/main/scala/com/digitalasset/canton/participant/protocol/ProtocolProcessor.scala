@@ -1781,8 +1781,8 @@ abstract class ProtocolProcessor[
 object ProtocolProcessor {
   private val approvalContradictionCheckIsEnabled = new AtomicReference[Boolean](true)
   private val testsAllowedToDisableApprovalContradictionCheck = Seq(
-    "LedgerAuthorizationReferenceXIntegrationTestDefault",
-    "LedgerAuthorizationBftOrderingXIntegrationTestDefault",
+    "LedgerAuthorizationReferenceIntegrationTestDefault",
+    "LedgerAuthorizationBftOrderingIntegrationTestDefault",
     "PackageVettingIntegrationTestDefault",
   )
 

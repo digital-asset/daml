@@ -5,7 +5,7 @@ package com.digitalasset.canton.crypto
 
 import cats.syntax.either.*
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
-import com.digitalasset.canton.crypto.provider.jce.JceJavaConverter
+import com.digitalasset.canton.crypto.provider.jce.JceJavaKeyConverter
 
 import java.security.PublicKey as JPublicKey
 import scala.collection.concurrent.TrieMap
@@ -31,14 +31,9 @@ object CryptoKeyValidation {
         ),
       )
       // we try to convert the key to a Java key to ensure the format is correct
-      jceJavaConverter = new JceJavaConverter(
-        SigningKeyScheme.allSchemes,
-        EncryptionKeyScheme.allSchemes,
-      )
-      javaPublicKeyAndAlgorithm <- jceJavaConverter
+      javaPublicKey <- JceJavaKeyConverter
         .toJava(publicKey)
         .leftMap(err => KeyParseAndValidateError(err.show))
-      (_, javaPublicKey) = javaPublicKeyAndAlgorithm
     } yield javaPublicKey
   }
 

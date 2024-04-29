@@ -31,7 +31,6 @@ class Crypto(
     val privateCrypto: CryptoPrivateApi,
     val cryptoPrivateStore: CryptoPrivateStore,
     val cryptoPublicStore: CryptoPublicStore,
-    val javaKeyConverter: JavaKeyConverter,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)

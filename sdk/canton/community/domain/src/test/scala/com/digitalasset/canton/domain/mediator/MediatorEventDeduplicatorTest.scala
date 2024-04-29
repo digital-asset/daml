@@ -53,7 +53,7 @@ class MediatorEventDeduplicatorTest
     store.initialize(CantonTimestamp.MinValue).futureValue
 
     val verdictSender =
-      new TestVerdictSender(null, mediator, null, testedProtocolVersion, loggerFactory)
+      new TestVerdictSender(null, daMediator, null, testedProtocolVersion, loggerFactory)
 
     val deduplicator = new DefaultMediatorEventDeduplicator(
       store,
@@ -103,7 +103,7 @@ class MediatorEventDeduplicatorTest
   }
 
   private def mkDefaultOpenEnvelope[A <: ProtocolMessage](protocolMessage: A): OpenEnvelope[A] =
-    OpenEnvelope(protocolMessage, Recipients.cc(mediator))(testedProtocolVersion)
+    OpenEnvelope(protocolMessage, Recipients.cc(daMediator))(testedProtocolVersion)
 
   private lazy val response: DefaultOpenEnvelope = {
     val message = SignedProtocolMessage(

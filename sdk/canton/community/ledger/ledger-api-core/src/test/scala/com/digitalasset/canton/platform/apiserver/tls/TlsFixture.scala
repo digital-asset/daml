@@ -4,10 +4,10 @@
 package com.digitalasset.canton.platform.apiserver.tls
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.tls.TlsConfiguration
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.domain.api.v0
 import com.digitalasset.canton.grpc.sampleservice.HelloServiceReferenceImplementation
-import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
 import com.digitalasset.canton.ledger.client.GrpcChannel
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.digitalasset.canton.logging.NamedLoggerFactory

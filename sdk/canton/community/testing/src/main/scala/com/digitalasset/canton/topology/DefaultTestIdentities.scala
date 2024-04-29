@@ -21,11 +21,11 @@ object DefaultTestIdentities {
   val uid = UniqueIdentifier(Identifier.tryCreate("da"), namespace)
   val domainId = DomainId(uid)
 
-  val sequencerId = SequencerId(uid)
-  val mediator = MediatorId(uid)
+  val daSequencerId = SequencerId(uid)
+  val daMediator = MediatorId(uid)
 
-  val sequencerIdX = SequencerId(UniqueIdentifier(Identifier.tryCreate("sequencer"), namespace))
-  val mediatorIdX = MediatorId(UniqueIdentifier(Identifier.tryCreate("mediator"), namespace))
+  val sequencerId = SequencerId(UniqueIdentifier(Identifier.tryCreate("sequencer"), namespace))
+  val mediatorId = MediatorId(UniqueIdentifier(Identifier.tryCreate("mediator"), namespace))
 
   val (participant1, party1) = createParticipantAndParty(1)
   val (participant2, party2) = createParticipantAndParty(2)

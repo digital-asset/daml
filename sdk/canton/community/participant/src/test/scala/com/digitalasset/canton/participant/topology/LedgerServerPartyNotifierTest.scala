@@ -27,7 +27,7 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
   import com.digitalasset.canton.topology.client.EffectiveTimeTestHelpers.*
 
   private lazy val crypto =
-    new TestingOwnerWithKeys(sequencerIdX, loggerFactory, directExecutionContext)
+    new TestingOwnerWithKeys(sequencerId, loggerFactory, directExecutionContext)
 
   private object Fixture {
     def apply(test: Fixture => Future[Assertion]): Future[Assertion] =

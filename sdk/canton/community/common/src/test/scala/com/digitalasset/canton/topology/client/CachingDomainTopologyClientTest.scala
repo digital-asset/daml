@@ -38,7 +38,7 @@ class CachingDomainTopologyClientTest extends AsyncWordSpecLike with BaseTest {
 
   private object Fixture {
 
-    val owner = DefaultTestIdentities.sequencerIdX
+    val owner = DefaultTestIdentities.sequencerId
     val crypto = new TestingOwnerWithKeys(owner, loggerFactory, directExecutionContext)
     val mockTransaction = mock[GenericSignedTopologyTransaction]
 

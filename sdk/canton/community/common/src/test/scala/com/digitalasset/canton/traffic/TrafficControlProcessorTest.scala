@@ -61,11 +61,11 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
     loggerFactory,
     dynamicDomainParameters = List.empty,
   )
-    .forOwnerAndDomain(DefaultTestIdentities.sequencerIdX, domainId)
+    .forOwnerAndDomain(DefaultTestIdentities.sequencerId, domainId)
 
   private val dummySignature = SymbolicCrypto.emptySignature
 
-  private val factoryX =
+  private val factory =
     new TopologyTransactionTestFactory(loggerFactory, initEc = parallelExecutionContext)
 
   private def mkTopoTx(): TopologyTransactionsBroadcast = TopologyTransactionsBroadcast.create(
@@ -73,7 +73,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
     Seq(
       Broadcast(
         String255.tryCreate("some request"),
-        List(factoryX.ns1k1_k1),
+        List(factory.ns1k1_k1),
       )
     ),
     testedProtocolVersion,

@@ -5,11 +5,11 @@ package com.digitalasset.canton.http
 
 import org.apache.pekko.stream.ThrottleMode
 import com.digitalasset.canton.http.WebsocketConfig as WSC
-import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
 import scalaz.Show
 
 import java.io.File
 import java.nio.file.Path
+import com.daml.tls.TlsConfiguration
 import scala.concurrent.duration.*
 
 // The internal transient scopt structure *and* StartSettings; external `start`
