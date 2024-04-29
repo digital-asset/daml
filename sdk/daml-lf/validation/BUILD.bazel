@@ -11,7 +11,7 @@ load(
     "lf_scalacopts",
     "lf_scalacopts_stricter",
 )
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl", "is_windows", "is_intel")
 
 da_scala_library(
     name = "validation",
@@ -219,7 +219,7 @@ da_scala_test_suite(
             "//test-common/canton/it-lib",
         ],
     ),
-] if not is_windows else []
+] if is_intel and not is_windows else []
 
 da_scala_benchmark_jmh(
     name = "typechecking-benchmark",
