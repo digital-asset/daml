@@ -197,6 +197,20 @@ da_scala_test_suite(
             "//test-common:upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-v2.dar",
             "//test-common:upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v1.dar",
             "//test-common:upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v2.dar",
+
+            # More more more tests ported from DamlcUpgrades.hs
+            "//test-common:upgrades-SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage-v1.dar",
+            "//test-common:upgrades-SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage-v2.dar",
+            "//test-common:upgrades-FailsWhenAnInstanceIsDropped-dep.dar",
+            "//test-common:upgrades-FailsWhenAnInstanceIsDropped-v1.dar",
+            "//test-common:upgrades-FailsWhenAnInstanceIsDropped-v2.dar",
+            "//test-common:upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
+            "//test-common:upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
+            "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-dep.dar",
+            "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-v1.dar",
+            "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-v2.dar",
+            "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
+            "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
         ],
         flaky = True,
         scala_deps = [

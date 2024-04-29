@@ -539,6 +539,67 @@ trait LongTests { this: UpgradesSpec =>
         ),
       )
     }
+
+    // Copied interface tests
+    "Succeeds when an interface is only defined in the initial package." in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage-v1.dar",
+        "test-common/upgrades-SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
+
+    "Fails when an interface is defined in an upgrading package when it was already in the prior package." in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
+        "test-common/upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
+        assertPackageUpgradeCheck(
+          Some(
+            "Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed in any upgrading package."
+          )
+        ),
+      )
+    }
+
+    "Fails when an instance is dropped." in {
+      for {
+        _ <- uploadPackage("test-common/upgrades-FailsWhenAnInstanceIsDropped-dep.dar")
+        result <- testPackagePair(
+          "test-common/upgrades-FailsWhenAnInstanceIsDropped-v1.dar",
+          "test-common/upgrades-FailsWhenAnInstanceIsDropped-v2.dar",
+          assertPackageUpgradeCheck(
+            Some(
+              "Implementation of interface .*:Dep:I by template T appears in package that is being upgraded, but does not appear in this package."
+            )
+          ),
+        )
+      } yield result
+    }
+
+    "Succeeds when an instance is added (separate dep)." in {
+      for {
+        _ <- uploadPackage("test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-dep.dar")
+        result <- testPackagePair(
+          "test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-v1.dar",
+          "test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-v2.dar",
+          assertPackageUpgradeCheck(
+            None
+          ),
+        )
+      } yield result
+    }
+
+    "Succeeds when an instance is added (upgraded package)." in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
+        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
   }
 }
 
@@ -570,7 +631,9 @@ abstract class UpgradesSpec(val suffix: String)
       dryRun: Boolean = false,
   ): Future[(PackageId, Option[Throwable])]
 
-  def assertPackageUpgradeCheckSecondOnly(failureMessage: Option[String])(
+  def assertPackageUpgradeCheckSecondOnly(
+      failureMessage: Option[String]
+  )(
       v1: (PackageId, Option[Throwable]),
       v2: (PackageId, Option[Throwable]),
   )(cantonLogSrc: String): Assertion =
@@ -582,7 +645,9 @@ abstract class UpgradesSpec(val suffix: String)
   )(cantonLogSrc: String): Assertion =
     assertPackageUpgradeCheckGeneral(failureMessage)(v1, v2, true)(cantonLogSrc)
 
-  def assertPackageUpgradeCheckGeneral(failureMessage: Option[String])(
+  def assertPackageUpgradeCheckGeneral(
+      failureMessage: Option[String]
+  )(
       v1: (PackageId, Option[Throwable]),
       v2: (PackageId, Option[Throwable]),
       validateV1Checked: Boolean = true,
