@@ -5,8 +5,8 @@ package com.digitalasset.canton.ledger.participant.state.v2.metrics
 
 import com.daml.metrics.Timed
 import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{
   InternalStateService,
   ReadService,

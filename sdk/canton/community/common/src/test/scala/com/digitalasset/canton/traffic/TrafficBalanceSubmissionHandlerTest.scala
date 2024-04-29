@@ -54,8 +54,8 @@ class TrafficBalanceSubmissionHandlerTest
   private val clock = new SimClock(loggerFactory = loggerFactory)
   private val trafficParams = TrafficControlParameters()
   private val handler = new TrafficBalanceSubmissionHandler(clock, loggerFactory)
-  val crypto = new TestingIdentityFactoryX(
-    TestingTopologyX(),
+  val crypto = new TestingIdentityFactory(
+    TestingTopology(),
     loggerFactory,
     dynamicDomainParameters = List(
       DomainParameters.WithValidity(
@@ -67,7 +67,7 @@ class TrafficBalanceSubmissionHandlerTest
       )
     ),
   )
-    .forOwnerAndDomain(DefaultTestIdentities.sequencerIdX, domainId)
+    .forOwnerAndDomain(DefaultTestIdentities.sequencerId, domainId)
 
   override def beforeEach(): Unit = {
     super.beforeEach()

@@ -32,8 +32,8 @@ import com.digitalasset.canton.topology.{
   MediatorGroup,
   MediatorId,
   ParticipantId,
-  TestingIdentityFactoryX,
-  TestingTopologyX,
+  TestingIdentityFactory,
+  TestingTopology,
   UniqueIdentifier,
 }
 import com.digitalasset.canton.version.ProtocolVersion
@@ -199,7 +199,7 @@ class DefaultVerdictSenderTest
 
     val domainSyncCryptoApi: DomainSyncCryptoClient =
       if (testedProtocolVersion >= ProtocolVersion.v31) {
-        val topology = TestingTopologyX(
+        val topology = TestingTopology(
           Set(domainId),
           Map(
             submitter -> Map(participant -> ParticipantPermission.Confirmation),
@@ -211,7 +211,7 @@ class DefaultVerdictSenderTest
           Set(mediatorGroup),
         )
 
-        val identityFactory = TestingIdentityFactoryX(
+        val identityFactory = TestingIdentityFactory(
           topology,
           loggerFactory,
           dynamicDomainParameters = initialDomainParameters,
@@ -219,7 +219,7 @@ class DefaultVerdictSenderTest
 
         identityFactory.forOwnerAndDomain(mediatorId, domainId)
       } else {
-        val topology = TestingTopologyX(
+        val topology = TestingTopology(
           Set(domainId),
           Map(
             submitter -> Map(participant -> ParticipantPermission.Confirmation),
@@ -238,7 +238,7 @@ class DefaultVerdictSenderTest
           ),
         )
 
-        val identityFactory = TestingIdentityFactoryX(
+        val identityFactory = TestingIdentityFactory(
           topology,
           loggerFactory,
           dynamicDomainParameters = initialDomainParameters,

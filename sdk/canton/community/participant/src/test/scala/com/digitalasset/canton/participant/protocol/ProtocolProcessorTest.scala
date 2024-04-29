@@ -18,13 +18,12 @@ import com.digitalasset.canton.config.{
   ProcessingTimeout,
 }
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.data.PeanoQueue.{BeforeHead, NotInserted}
 import com.digitalasset.canton.data.{CantonTimestamp, ConfirmingParty, PeanoQueue}
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.Phase37Synchronizer.RequestOutcome
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.*
@@ -45,6 +44,7 @@ import com.digitalasset.canton.participant.sync.{
   ParticipantEventPublisher,
   SyncDomainPersistentStateLookup,
 }
+import com.digitalasset.canton.participant.{DefaultParticipantStateValues, RequestOffset}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.resource.MemoryStorage
@@ -113,7 +113,7 @@ class ProtocolProcessorTest
   )
   private val party = PartyId(UniqueIdentifier.tryFromProtoPrimitive("party::participant"))
   private val domain = DefaultTestIdentities.domainId
-  private val topology: TestingTopologyX = TestingTopologyX(
+  private val topology: TestingTopology = TestingTopology(
     Set(domain),
     Map(
       party.toLf -> Map(
@@ -123,14 +123,14 @@ class ProtocolProcessorTest
     Set(
       MediatorGroup(
         NonNegativeInt.zero,
-        NonEmpty.mk(Seq, DefaultTestIdentities.mediator),
+        NonEmpty.mk(Seq, DefaultTestIdentities.daMediator),
         Seq(),
         PositiveInt.one,
       )
     ),
   )
   private val crypto =
-    TestingIdentityFactoryX(topology, loggerFactory, TestDomainParameters.defaultDynamic)
+    TestingIdentityFactory(topology, loggerFactory, TestDomainParameters.defaultDynamic)
       .forOwnerAndDomain(participant, domain)
   private val mockSequencerClient = mock[SequencerClientSend]
   when(
@@ -389,7 +389,7 @@ class ProtocolProcessorTest
   )
 
   private lazy val subId = DefaultDamlValues.submissionId()
-  private lazy val changeId = DefaultDamlValues.changeId(Set.empty)
+  private lazy val changeId = DefaultParticipantStateValues.changeId(Set.empty)
   private lazy val changeIdHash = ChangeIdHash(changeId)
 
   private lazy val unsequencedSubmission = InFlightSubmission(
@@ -486,8 +486,8 @@ class ProtocolProcessorTest
     }
 
     "fail if there is no active mediator" in {
-      val crypto2 = TestingIdentityFactoryX(
-        TestingTopologyX(mediatorGroups = Set.empty),
+      val crypto2 = TestingIdentityFactory(
+        TestingTopology(mediatorGroups = Set.empty),
         loggerFactory,
         parameters.parameters,
       ).forOwnerAndDomain(participant, domain)
@@ -733,7 +733,7 @@ class ProtocolProcessorTest
     } in {
       // Instead of rolling back the request in Phase 7, it is discarded in Phase 3. This has the same effect.
 
-      val testCrypto = TestingIdentityFactoryX(
+      val testCrypto = TestingIdentityFactory(
         topology.copy(mediatorGroups = Set.empty), // Topology without any mediator active
         loggerFactory,
         parameters.parameters,

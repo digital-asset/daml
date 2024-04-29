@@ -6,8 +6,8 @@ package com.digitalasset.canton.ledger.runner.common
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.lf.data.Ref
 import com.daml.ports.Port
-import com.digitalasset.canton.ledger.api.tls.TlsVersion.TlsVersion
-import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsVersion}
+import com.daml.tls.TlsVersion.TlsVersion
+import com.daml.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.ledger.runner.common.OptConfigValue.{
   optConvertEnabled,
   optProductHint,

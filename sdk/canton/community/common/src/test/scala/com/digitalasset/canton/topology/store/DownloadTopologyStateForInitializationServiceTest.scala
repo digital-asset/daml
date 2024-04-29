@@ -71,7 +71,7 @@ trait DownloadTopologyStateForInitializationServiceTest
 
   "DownloadTopologyStateForInitializationService" should {
     "return a valid topology state" when {
-      "there's only one DomainTrustCertificateX" in {
+      "there's only one DomainTrustCertificate" in {
         for {
           store <- initializeStore(bootstrapTransactions)
           service = new StoreBasedTopologyStateForInitializationService(store, loggerFactory)
@@ -84,7 +84,7 @@ trait DownloadTopologyStateForInitializationServiceTest
         }
       }
     }
-    "the first DomainTrustCertificateX is superseded by another one" in {
+    "the first DomainTrustCertificate is superseded by another one" in {
       for {
         store <- initializeStore(bootstrapTransactionsWithUpdates)
         service = new StoreBasedTopologyStateForInitializationService(store, loggerFactory)
@@ -98,7 +98,7 @@ trait DownloadTopologyStateForInitializationServiceTest
       }
     }
 
-    "there's only one MediatorDomainStateX" in {
+    "there's only one MediatorDomainState" in {
       for {
         store <- initializeStore(bootstrapTransactions)
         service = new StoreBasedTopologyStateForInitializationService(store, loggerFactory)
@@ -111,7 +111,7 @@ trait DownloadTopologyStateForInitializationServiceTest
       }
     }
 
-    "the first MediatorDomainStateX is superseded by another one" in {
+    "the first MediatorDomainState is superseded by another one" in {
       for {
         store <- initializeStore(bootstrapTransactionsWithUpdates)
         service = new StoreBasedTopologyStateForInitializationService(store, loggerFactory)

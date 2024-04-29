@@ -360,37 +360,37 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
     */
   protected def topLevelValues: Seq[TopLevelValue[_]] = {
     val nodeTopic = Seq(topicNodeReferences)
-    val localParticipantXBinds: Seq[TopLevelValue[_]] =
+    val localParticipantBinds: Seq[TopLevelValue[_]] =
       participants.local.map(p =>
-        TopLevelValue(p.name, helpText("participant x", p.name), p, nodeTopic)
+        TopLevelValue(p.name, helpText("participant", p.name), p, nodeTopic)
       )
-    val remoteParticipantXBinds: Seq[TopLevelValue[_]] =
+    val remoteParticipantBinds: Seq[TopLevelValue[_]] =
       participants.remote.map(p =>
-        TopLevelValue(p.name, helpText("remote participant x", p.name), p, nodeTopic)
+        TopLevelValue(p.name, helpText("remote participant", p.name), p, nodeTopic)
       )
-    val localMediatorXBinds: Seq[TopLevelValue[_]] =
+    val localMediatorBinds: Seq[TopLevelValue[_]] =
       mediators.local.map(d =>
-        TopLevelValue(d.name, helpText("local mediator-x", d.name), d, nodeTopic)
+        TopLevelValue(d.name, helpText("local mediator", d.name), d, nodeTopic)
       )
-    val remoteMediatorXBinds: Seq[TopLevelValue[_]] =
+    val remoteMediatorBinds: Seq[TopLevelValue[_]] =
       mediators.remote.map(d =>
-        TopLevelValue(d.name, helpText("remote mediator-x", d.name), d, nodeTopic)
+        TopLevelValue(d.name, helpText("remote mediator", d.name), d, nodeTopic)
       )
-    val localSequencerXBinds: Seq[TopLevelValue[_]] =
+    val localSequencerBinds: Seq[TopLevelValue[_]] =
       sequencers.local.map(d =>
-        TopLevelValue(d.name, helpText("local sequencer-x", d.name), d, nodeTopic)
+        TopLevelValue(d.name, helpText("local sequencer", d.name), d, nodeTopic)
       )
-    val remoteSequencerXBinds: Seq[TopLevelValue[_]] =
+    val remoteSequencerBinds: Seq[TopLevelValue[_]] =
       sequencers.remote.map(d =>
-        TopLevelValue(d.name, helpText("remote sequencer-x", d.name), d, nodeTopic)
+        TopLevelValue(d.name, helpText("remote sequencer", d.name), d, nodeTopic)
       )
     val clockBinds: Option[TopLevelValue[_]] =
       environment.simClock.map(cl =>
         TopLevelValue("clock", "Simulated time", new SimClockCommand(cl))
       )
     val referencesTopic = Seq(topicGenericNodeReferences)
-    localParticipantXBinds ++ remoteParticipantXBinds ++
-      localSequencerXBinds ++ remoteSequencerXBinds ++ localMediatorXBinds ++ remoteMediatorXBinds ++ clockBinds.toList :+
+    localParticipantBinds ++ remoteParticipantBinds ++
+      localSequencerBinds ++ remoteSequencerBinds ++ localMediatorBinds ++ remoteMediatorBinds ++ clockBinds.toList :+
       TopLevelValue(
         "participants",
         "All participant nodes" + genericNodeReferencesDoc,
@@ -533,7 +533,7 @@ object ConsoleEnvironment {
 
     /** Implicitly map ParticipantReferences to the ParticipantId
       */
-    implicit def toParticipantIdX(reference: ParticipantReference): ParticipantId = reference.id
+    implicit def toParticipantId(reference: ParticipantReference): ParticipantId = reference.id
 
     /** Implicitly map an `Int` to a `NonNegativeInt`.
       * @throws java.lang.IllegalArgumentException if `n` is negative

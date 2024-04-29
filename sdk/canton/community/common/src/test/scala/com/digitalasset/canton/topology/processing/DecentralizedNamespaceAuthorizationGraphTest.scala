@@ -12,7 +12,7 @@ import com.digitalasset.canton.topology.transaction.{
   NamespaceDelegation,
   TopologyMapping,
 }
-import com.digitalasset.canton.topology.{Namespace, TestingOwnerWithKeysX}
+import com.digitalasset.canton.topology.{Namespace, TestingOwnerWithKeys}
 import com.digitalasset.canton.{BaseTestWordSpec, ProtocolVersionChecksAnyWordSpec}
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -25,7 +25,7 @@ class DecentralizedNamespaceAuthorizationGraphTest
 
   private class Fixture {
 
-    val factory = new TestingOwnerWithKeysX(sequencerIdX, loggerFactory, directExecutionContext)
+    val factory = new TestingOwnerWithKeys(sequencerId, loggerFactory, directExecutionContext)
 
     import factory.SigningKeys.*
 
@@ -54,7 +54,7 @@ class DecentralizedNamespaceAuthorizationGraphTest
           .toSeq,
       )
 
-    implicit class DecentralizedNamespaceAuthorizationGraphXExtension(
+    implicit class DecentralizedNamespaceAuthorizationGraphExtension(
         dns: DecentralizedNamespaceAuthorizationGraph
     ) {
       def addAuth(authorizedNSD: AuthorizedNamespaceDelegation) = {

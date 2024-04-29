@@ -474,6 +474,8 @@ object MultiDomainEventLog {
       acceptance: Boolean,
       eventTraceContext: TraceContext,
   ) extends PrettyPrinting {
+    import com.digitalasset.canton.participant.pretty.Implicits.*
+
     override def pretty: Pretty[DeduplicationInfo] = prettyOfClass(
       param("change id", _.changeId),
       paramIfDefined("submission id", _.submissionId),

@@ -4,13 +4,13 @@
 package com.digitalasset.canton
 
 import com.daml.lf.data.Time
-import com.digitalasset.canton.ledger.offset
+import com.digitalasset.canton.data.Offset
 
 package object participant {
 
   // Sync event and offset used by participant state ReadService api
-  type LedgerSyncOffset = offset.Offset
-  val LedgerSyncOffset: offset.Offset.type = offset.Offset
+  type LedgerSyncOffset = Offset
+  val LedgerSyncOffset: Offset.type = data.Offset
 
   // Ledger record time is "single-dimensional"
   type LedgerSyncRecordTime = Time.Timestamp

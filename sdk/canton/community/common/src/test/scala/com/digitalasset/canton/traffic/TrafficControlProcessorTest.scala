@@ -26,11 +26,11 @@ import com.digitalasset.canton.sequencing.protocol.{
   SequencerErrors,
   SequencersOfDomain,
 }
-import com.digitalasset.canton.topology.processing.TopologyTransactionTestFactoryX
+import com.digitalasset.canton.topology.processing.TopologyTransactionTestFactory
 import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
-  TestingIdentityFactoryX,
-  TestingTopologyX,
+  TestingIdentityFactory,
+  TestingTopology,
 }
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.traffic.TrafficControlErrors.InvalidTrafficControlBalanceMessage
@@ -56,24 +56,24 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
   private val sc2 = SequencerCounter(2)
   private val sc3 = SequencerCounter(3)
 
-  private val domainCrypto = new TestingIdentityFactoryX(
-    TestingTopologyX(),
+  private val domainCrypto = new TestingIdentityFactory(
+    TestingTopology(),
     loggerFactory,
     dynamicDomainParameters = List.empty,
   )
-    .forOwnerAndDomain(DefaultTestIdentities.sequencerIdX, domainId)
+    .forOwnerAndDomain(DefaultTestIdentities.sequencerId, domainId)
 
   private val dummySignature = SymbolicCrypto.emptySignature
 
-  private val factoryX =
-    new TopologyTransactionTestFactoryX(loggerFactory, initEc = parallelExecutionContext)
+  private val factory =
+    new TopologyTransactionTestFactory(loggerFactory, initEc = parallelExecutionContext)
 
   private def mkTopoTx(): TopologyTransactionsBroadcast = TopologyTransactionsBroadcast.create(
     domainId,
     Seq(
       Broadcast(
         String255.tryCreate("some request"),
-        List(factoryX.ns1k1_k1),
+        List(factory.ns1k1_k1),
       )
     ),
     testedProtocolVersion,

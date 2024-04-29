@@ -19,12 +19,12 @@ class SequencerPruningStatusTest extends BaseTestWordSpec {
         now = ts(15),
         members = Seq(
           SequencerMemberStatus(
-            member = DefaultTestIdentities.sequencerId,
+            member = DefaultTestIdentities.daSequencerId,
             registeredAt = ts(8),
             ts(10).some,
           ),
           SequencerMemberStatus(
-            member = DefaultTestIdentities.mediator,
+            member = DefaultTestIdentities.daMediator,
             registeredAt = ts(7),
             ts(12).some,
           ),
@@ -41,12 +41,12 @@ class SequencerPruningStatusTest extends BaseTestWordSpec {
         now = ts(15),
         members = Seq(
           SequencerMemberStatus(
-            member = DefaultTestIdentities.sequencerId,
+            member = DefaultTestIdentities.daSequencerId,
             registeredAt = ts(8),
             ts(15).some,
           ),
           SequencerMemberStatus(
-            member = DefaultTestIdentities.mediator,
+            member = DefaultTestIdentities.daMediator,
             registeredAt = ts(7),
             None,
           ),
@@ -63,7 +63,7 @@ class SequencerPruningStatusTest extends BaseTestWordSpec {
         now = ts(12),
         members = Seq(
           SequencerMemberStatus(
-            member = DefaultTestIdentities.sequencerId,
+            member = DefaultTestIdentities.daSequencerId,
             registeredAt = ts(3),
             None,
           )
@@ -79,13 +79,13 @@ class SequencerPruningStatusTest extends BaseTestWordSpec {
         now = ts(12),
         members = Seq(
           SequencerMemberStatus(
-            member = DefaultTestIdentities.sequencerId,
+            member = DefaultTestIdentities.daSequencerId,
             registeredAt = ts(1),
             ts(2).some,
             enabled = false, // this is the key bit..
           ),
           SequencerMemberStatus(
-            member = DefaultTestIdentities.mediator,
+            member = DefaultTestIdentities.daMediator,
             registeredAt = ts(2),
             ts(12).some,
           ),

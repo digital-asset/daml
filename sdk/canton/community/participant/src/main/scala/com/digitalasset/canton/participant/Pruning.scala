@@ -9,6 +9,8 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.util.ShowUtil.*
 
 object Pruning {
+  import com.digitalasset.canton.participant.pretty.Implicits.*
+
   trait LedgerPruningError extends Product with Serializable { def message: String }
 
   case object LedgerPruningCancelledDueToShutdown extends LedgerPruningError {

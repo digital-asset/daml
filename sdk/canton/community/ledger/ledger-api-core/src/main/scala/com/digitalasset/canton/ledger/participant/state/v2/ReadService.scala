@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.participant.state.v2
 
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
-import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -30,20 +30,20 @@ import scala.concurrent.Future
 trait ReadService extends ReportsHealth with InternalStateServiceProvider {
 
   /** Get the stream of state [[Update]]s starting from the beginning or right
-    * after the given [[com.digitalasset.canton.ledger.offset.Offset]]
+    * after the given [[com.digitalasset.canton.data.Offset]]
     *
     * This is where the meat of the implementation effort lies. Please take your time
     * to read carefully through the properties required from correct implementations.
     * These properties fall into two categories:
     *
-    * 1. properties about the sequence of ([[com.digitalasset.canton.ledger.offset.Offset]],[[Update]]) tuples
+    * 1. properties about the sequence of ([[com.digitalasset.canton.data.Offset]],[[Update]]) tuples
     *    in a stream read from the beginning, and
     * 2. properties relating the streams obtained from separate calls
     *   to [[stateUpdates]].
     *
     * The first class of properties are invariants of a single stream:
     *
-    * - *strictly increasing [[com.digitalasset.canton.ledger.offset.Offset]]s*:
+    * - *strictly increasing [[com.digitalasset.canton.data.Offset]]s*:
     *   for any two consecutive tuples `(o1, u1)` and `(o2, u2)`, `o1` is
     *   strictly smaller than `o2`.
     *
@@ -69,9 +69,9 @@ trait ReadService extends ReportsHealth with InternalStateServiceProvider {
     *
     * - *command deduplication*: Let there be a [[Update.TransactionAccepted]] with [[CompletionInfo]]
     *   or a [[Update.CommandRejected]] with [[CompletionInfo]] at offset `off2`.
-    *   If `off2`'s [[CompletionInfo.optDeduplicationPeriod]] is a [[api.DeduplicationPeriod.DeduplicationOffset]],
+    *   If `off2`'s [[CompletionInfo.optDeduplicationPeriod]] is a [[com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationOffset]],
     *   let `off1` be the first offset after the deduplication offset.
-    *   If the deduplication period is a [[api.DeduplicationPeriod.DeduplicationDuration]],
+    *   If the deduplication period is a [[com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration]],
     *   let `off1` be the first offset whose record time is at most the duration before `off2`'s record time (inclusive).
     *   Then there is no other [[Update.TransactionAccepted]] with [[CompletionInfo]] for the same [[CompletionInfo.changeId]]
     *   between the offsets `off1` and `off2` inclusive.

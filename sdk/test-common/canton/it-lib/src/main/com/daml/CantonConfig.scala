@@ -6,7 +6,7 @@ package integrationtest
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
+import com.daml.tls.TlsConfiguration
 import com.digitalasset.canton.ledger.client.{GrpcChannel, LedgerClient}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref

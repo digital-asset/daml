@@ -19,10 +19,10 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
 
   private val uid = DefaultTestIdentities.uid
   private val uid2 = UniqueIdentifier.tryFromProtoPrimitive("da1::default1")
-  private val sequencerId = DefaultTestIdentities.sequencerId
+  private val sequencerId = DefaultTestIdentities.daSequencerId
   private val domainId = DefaultTestIdentities.domainId
   private val crypto =
-    TestingTopologyX(sequencerGroup =
+    TestingTopology(sequencerGroup =
       SequencerGroup(
         active = NonEmpty.mk(Seq, SequencerId(domainId)),
         passive = Seq.empty,

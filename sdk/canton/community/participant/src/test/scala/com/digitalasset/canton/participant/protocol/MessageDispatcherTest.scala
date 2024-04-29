@@ -57,7 +57,7 @@ import com.digitalasset.canton.sequencing.{
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.processing.{SequencedTime, TopologyTransactionTestFactoryX}
+import com.digitalasset.canton.topology.processing.{SequencedTime, TopologyTransactionTestFactory}
 import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.traffic.TrafficControlProcessor
 import com.digitalasset.canton.util.ShowUtil.*
@@ -386,14 +386,14 @@ trait MessageDispatcherTest {
     ): Fixture =
       Fixture.mk(mkMd, initRc, cleanReplaySequencerCounter)
 
-    val factoryX =
-      new TopologyTransactionTestFactoryX(loggerFactory, initEc = executionContext)
+    val factory =
+      new TopologyTransactionTestFactory(loggerFactory, initEc = executionContext)
     val idTx = TopologyTransactionsBroadcast.create(
       domainId,
       Seq(
         Broadcast(
           String255.tryCreate("some request"),
-          List(factoryX.ns1k1_k1),
+          List(factory.ns1k1_k1),
         )
       ),
       testedProtocolVersion,

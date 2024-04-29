@@ -55,13 +55,19 @@ trait PackageOps extends NamedLogging {
   ): EitherT[FutureUnlessShutdown, CantonError, Unit]
 }
 
-abstract class PackageOpsCommon(
-    participantId: ParticipantId,
-    headAuthorizedTopologySnapshot: TopologySnapshot,
+class PackageOpsImpl(
+    val participantId: ParticipantId,
+    val headAuthorizedTopologySnapshot: TopologySnapshot,
     stateManager: SyncDomainPersistentStateManager,
-)(implicit
-    val ec: ExecutionContext
-) extends PackageOps {
+    topologyManager: AuthorizedTopologyManager,
+    nodeId: UniqueIdentifier,
+    initialProtocolVersion: ProtocolVersion,
+    val loggerFactory: NamedLoggerFactory,
+    val timeouts: ProcessingTimeout,
+)(implicit val ec: ExecutionContext)
+    extends PackageOps
+    with FlagCloseable {
+
   override def checkPackageUnused(packageId: PackageId)(implicit
       tc: TraceContext
   ): EitherT[Future, PackageInUse, Unit] =
@@ -101,21 +107,6 @@ abstract class PackageOpsCommon(
 
     packageIsVettedOn.bimap(PackageMissingDependencies.Reject(packageId, _), _.contains(true))
   }
-}
-
-// TODO(#15161) collapse with PackageOpsCommon
-class PackageOpsX(
-    val participantId: ParticipantId,
-    val headAuthorizedTopologySnapshot: TopologySnapshot,
-    manager: SyncDomainPersistentStateManager,
-    topologyManager: AuthorizedTopologyManager,
-    nodeId: UniqueIdentifier,
-    initialProtocolVersion: ProtocolVersion,
-    val loggerFactory: NamedLoggerFactory,
-    val timeouts: ProcessingTimeout,
-)(implicit override val ec: ExecutionContext)
-    extends PackageOpsCommon(participantId, headAuthorizedTopologySnapshot, manager)
-    with FlagCloseable {
 
   override def vetPackages(packages: Seq[PackageId], synchronize: Boolean)(implicit
       traceContext: TraceContext

@@ -18,17 +18,17 @@ import com.daml.lf.data.Ref.TypeConRef
 import com.daml.lf.data.*
 import com.daml.lf.value.Value.ValueRecord
 import com.daml.lf.value.Value as Lf
+import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
 import com.digitalasset.canton.ledger.api.DomainMocks.{
   applicationId,
   commandId,
   submissionId,
   workflowId,
 }
-import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands}
+import com.digitalasset.canton.ledger.api.domain.Commands as ApiCommands
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
-import com.digitalasset.canton.ledger.api.{DeduplicationPeriod, DomainMocks, domain}
+import com.digitalasset.canton.ledger.api.{DomainMocks, domain}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.ledger.offset.Offset
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import io.grpc.Status.Code.INVALID_ARGUMENT

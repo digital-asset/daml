@@ -7,7 +7,7 @@ import cats.syntax.bifunctor.toBifunctorOps
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.lf.data.Time
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.BufferSlice.LastBufferChunkSuffix
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.{

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.google.protobuf.duration.Duration
 import org.scalatest.Inside

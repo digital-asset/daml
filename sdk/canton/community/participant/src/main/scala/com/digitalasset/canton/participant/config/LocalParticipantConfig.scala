@@ -5,10 +5,10 @@ package com.digitalasset.canton.participant.config
 
 import cats.syntax.option.*
 import com.daml.jwt.JwtTimestampLeeway
+import com.daml.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.http.HttpApiConfig
-import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig.DefaultRateLimit

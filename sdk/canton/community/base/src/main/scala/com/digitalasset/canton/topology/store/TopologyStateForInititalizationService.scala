@@ -27,7 +27,7 @@ final class StoreBasedTopologyStateForInitializationService(
 
   /** Downloading the initial topology snapshot works as follows:
     *
-    * 1. Determine the first MediatorDomainStateX or DomainTrustCertificateX that mentions the member to onboard.
+    * 1. Determine the first MediatorDomainState or DomainTrustCertificate that mentions the member to onboard.
     * 2. Take its effective time (here t0')
     * 3. Find all transactions with sequence time <= t0'
     * 4. Find the maximum effective time of the transactions returned in 3. (here ts1')

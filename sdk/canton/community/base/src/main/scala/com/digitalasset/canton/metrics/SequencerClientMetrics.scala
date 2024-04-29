@@ -3,8 +3,12 @@
 
 package com.digitalasset.canton.metrics
 
+import cats.Eval
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, LabeledMetricsFactory, Timer}
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
+import com.digitalasset.canton.SequencerAlias
+
+import scala.collection.concurrent.TrieMap
 
 class SequencerClientMetrics(
     basePrefix: MetricName,
@@ -39,23 +43,57 @@ class SequencerClientMetrics(
     val delay: Gauge[Long] = metricsFactory.gauge(
       MetricInfo(
         prefix :+ "delay",
-        summary = "The delay on the event processing",
+        summary = "The delay on the event processing in milliseconds",
         description = """Every message received from the sequencer carries a timestamp that was assigned
                       |by the sequencer when it sequenced the message. This timestamp is called the sequencing timestamp.
-                      |The component receiving the message on the participant, mediator or topology manager side, is the sequencer client,
+                      |The component receiving the message on the participant or mediator is the sequencer client,
                       |while on the block sequencer itself, it's the block update generator.
-                      |Upon receiving the message, the sequencer client compares the time difference between the
+                      |Upon having received the same message from enough sequencers (as configured by the trust threshold),
+                      |the sequencer client compares the time difference between the
                       |sequencing time and the computers local clock and exposes this difference as the given metric.
                       |The difference will include the clock-skew and the processing latency between assigning the timestamp on the
-                      |sequencer and receiving the message by the recipient.
-                      |If the difference is large compared to the usual latencies and if clock skew can be ruled out, then
-                      |it means that the node is still trying to catch up with events that were sequenced by the
-                      |sequencer a while ago. This can happen after having been offline for a while or if the node is
+                      |sequencer and receiving the message by the recipient from enough sequencers.
+                      |If the difference is large compared to the usual latencies, clock skew can be ruled out,
+                      |and enough sequencers are not slow, then it means that the node is still trying to catch up with events that the sequencers sequenced
+                      |a while ago. This can happen after having been offline for a while or if the node is
                       |too slow to keep up with the messaging load.""",
         qualification = MetricQualification.Debug,
       ),
       0L,
     )
+
+    private val connectionDelayMetrics: TrieMap[SequencerAlias, Eval[Gauge[Long]]] =
+      TrieMap.empty[SequencerAlias, Eval[Gauge[Long]]]
+
+    def connectionDelay(alias: SequencerAlias): Gauge[Long] = {
+      def createConnectionDelayGauge: Gauge[Long] = metricsFactory.gauge(
+        MetricInfo(
+          prefix :+ "delay-per-connection",
+          summary =
+            "The delay on receiving an event over the given sequencer connection in milliseconds",
+          description = """Every message received from the sequencer carries a timestamp that was assigned
+              |by the sequencers when they sequenced the message. This timestamp is called the sequencing timestamp.
+              |The component receiving the message on the participant or mediator is the sequencer client.
+              |Upon receiving the message, the sequencer client compares the time difference between the
+              |sequencing time and the computers local clock and exposes this difference as the given metric.
+              |The difference will include the clock-skew and the processing latency between assigning the timestamp on the
+              |sequencer and receiving the message by the recipient.
+              |If the difference is large compared to the usual latencies and if clock skew can be ruled out, then
+              |it means that either the sequencer is slow in delivering the messages or the node is still trying to
+              |catch up with events that the sequencers sequenced a while ago.
+              |This can happen after having been offline for a while or if the node is
+              |too slow to keep up with the messaging load.""",
+          qualification = MetricQualification.Debug,
+        ),
+        0L,
+      )(context.withExtraLabels("sequencer" -> alias.unwrap))
+
+      // Two concurrent calls with the same domain alias may cause getOrElseUpdate to evaluate the new value expression twice,
+      // even though only one of the results will be stored in the map.
+      // Eval.later ensures that we actually create only one instance of SyncDomainMetrics in such a case
+      // by delaying the creation until the getOrElseUpdate call has finished.
+      connectionDelayMetrics.getOrElseUpdate(alias, Eval.later(createConnectionDelayGauge)).value
+    }
 
     val actualInFlightEventBatches: Counter =
       metricsFactory.counter(

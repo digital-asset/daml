@@ -8,9 +8,9 @@ import com.daml.lf.VersionRange
 import com.daml.lf.interpretation.Limits
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.ContractKeyUniquenessMode
+import com.daml.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
-import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
 import com.digitalasset.canton.platform.config.{IdentityProviderManagementConfig, *}
 import com.digitalasset.canton.platform.indexer.{IndexerConfig, PackageMetadataViewConfig}

@@ -4,14 +4,14 @@
 package com.digitalasset.canton.participant.protocol
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.topology.DefaultTestIdentities.sequencerIdX
+import com.digitalasset.canton.topology.DefaultTestIdentities.sequencerId
 import com.digitalasset.canton.topology.store.SignedTopologyTransactions
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{
   ParticipantId,
   PartyId,
-  TestingOwnerWithKeysX,
+  TestingOwnerWithKeys,
   UniqueIdentifier,
 }
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, ProtocolVersionChecksAsyncWordSpec}
@@ -22,8 +22,8 @@ class TopologyTransactionsToEventsTest
     with BaseTest
     with HasExecutionContext
     with ProtocolVersionChecksAsyncWordSpec {
-  private lazy val topologyFactoryX =
-    new TestingOwnerWithKeysX(sequencerIdX, loggerFactory, executorService)
+  private lazy val topologyFactory =
+    new TestingOwnerWithKeys(sequencerId, loggerFactory, executorService)
 
   private def ptp(
       partyId: PartyId,
@@ -45,7 +45,7 @@ class TopologyTransactionsToEventsTest
       testedProtocolVersion,
     )
 
-    topologyFactoryX.mkTrans[Replace, PartyToParticipant](trans = tx)
+    topologyFactory.mkTrans[Replace, PartyToParticipant](trans = tx)
   }
 
   private lazy val converter: TopologyTransactionsToEvents = new TopologyTransactionsToEvents(

@@ -33,7 +33,7 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
 
   def topologySnapshot(mk: () => TopologyStore[TopologyStoreId]): Unit = {
 
-    val factory = new TestingOwnerWithKeysX(
+    val factory = new TestingOwnerWithKeys(
       DefaultTestIdentities.participant1,
       loggerFactory,
       parallelExecutionContext,
@@ -267,10 +267,10 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
         party2Ma <- snapshotA.activeParticipantsOf(party2.toLf)
         party2Mb <- snapshotB.activeParticipantsOf(party2.toLf)
         party2Mc <- snapshotC.activeParticipantsOf(party2.toLf)
-        keysMa <- snapshotA.signingKeys(mediatorIdX)
-        keysMb <- snapshotB.signingKeys(mediatorIdX)
-        keysSa <- snapshotA.signingKeys(sequencerIdX)
-        keysSb <- snapshotB.signingKeys(sequencerIdX)
+        keysMa <- snapshotA.signingKeys(mediatorId)
+        keysMb <- snapshotB.signingKeys(mediatorId)
+        keysSa <- snapshotA.signingKeys(sequencerId)
+        keysSb <- snapshotB.signingKeys(sequencerId)
         partPermA <- snapshotA.findParticipantState(participant1)
         partPermB <- snapshotB.findParticipantState(participant1)
         partPermC <- snapshotC.findParticipantState(participant1)

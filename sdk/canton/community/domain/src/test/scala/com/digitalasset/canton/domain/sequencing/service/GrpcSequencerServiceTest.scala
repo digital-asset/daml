@@ -35,7 +35,7 @@ import com.digitalasset.canton.topology.client.{DomainTopologyClient, TopologySn
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
   SequencedTime,
-  TopologyTransactionTestFactoryX,
+  TopologyTransactionTestFactory,
 }
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.{
@@ -91,7 +91,7 @@ class GrpcSequencerServiceTest
     when(sequencer.acknowledgeSigned(any[SignedContent[AcknowledgeRequest]])(anyTraceContext))
       .thenReturn(EitherT.rightT(()))
     val cryptoApi: DomainSyncCryptoClient =
-      TestingIdentityFactoryX(loggerFactory).forOwnerAndDomain(member)
+      TestingIdentityFactory(loggerFactory).forOwnerAndDomain(member)
     val subscriptionPool: SubscriptionPool[Subscription] =
       mock[SubscriptionPool[GrpcManagedSubscription[?]]]
 
@@ -134,8 +134,8 @@ class GrpcSequencerServiceTest
     private val numBatches = 3
     private val topologyInitService: TopologyStateForInitializationService =
       new TopologyStateForInitializationService {
-        val factoryX =
-          new TopologyTransactionTestFactoryX(loggerFactory, initEc = parallelExecutionContext)
+        val factory =
+          new TopologyTransactionTestFactory(loggerFactory, initEc = parallelExecutionContext)
 
         override def initialSnapshot(member: Member)(implicit
             executionContext: ExecutionContext,
@@ -144,7 +144,7 @@ class GrpcSequencerServiceTest
           StoredTopologyTransactions(
             // As we don't expect the actual transactions in this test, we can repeat the same transaction a bunch of times
             List
-              .fill(maxItemsInTopologyBatch * numBatches)(factoryX.ns1k1_k1)
+              .fill(maxItemsInTopologyBatch * numBatches)(factory.ns1k1_k1)
               .map(
                 StoredTopologyTransaction(
                   SequencedTime.MinValue,
@@ -168,9 +168,8 @@ class GrpcSequencerServiceTest
         sequencerSubscriptionFactory,
         domainParamLookup,
         params,
-        Some(topologyInitService),
+        topologyInitService,
         BaseTest.testedProtocolVersion,
-        enableBroadcastOfUnauthenticatedMessages = false,
         maxItemsInTopologyResponse = PositiveInt.tryCreate(maxItemsInTopologyBatch),
       )
   }
@@ -513,8 +512,8 @@ class GrpcSequencerServiceTest
         batch <- batches
         sender <- Seq(
           participant,
-          DefaultTestIdentities.mediator,
-          DefaultTestIdentities.sequencerId,
+          DefaultTestIdentities.daMediator,
+          DefaultTestIdentities.daSequencerId,
         )
       } yield mkSubmissionRequest(batch, sender) -> sender
       for {
@@ -537,7 +536,7 @@ class GrpcSequencerServiceTest
     }
 
     "reject sending to multiple mediators" in multipleMediatorTestCase(
-      RecipientsTree.leaf(NonEmpty.mk(Set, DefaultTestIdentities.mediator)),
+      RecipientsTree.leaf(NonEmpty.mk(Set, DefaultTestIdentities.daMediator)),
       RecipientsTree.leaf(
         NonEmpty.mk(Set, MediatorId(UniqueIdentifier.tryCreate("another", "mediator")))
       ),
@@ -706,7 +705,7 @@ class GrpcSequencerServiceTest
             List(
               ClosedEnvelope.create(
                 content,
-                Recipients.cc(DefaultTestIdentities.sequencerIdX),
+                Recipients.cc(DefaultTestIdentities.sequencerId),
                 Seq.empty,
                 testedProtocolVersion,
               )

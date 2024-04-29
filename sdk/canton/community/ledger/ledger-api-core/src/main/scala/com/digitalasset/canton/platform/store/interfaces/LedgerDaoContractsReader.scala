@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.interfaces
 
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.*

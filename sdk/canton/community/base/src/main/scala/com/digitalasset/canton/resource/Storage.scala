@@ -21,6 +21,7 @@ import com.digitalasset.canton.health.{
 import com.digitalasset.canton.lifecycle.{
   CloseContext,
   FlagCloseable,
+  FutureUnlessShutdown,
   HasCloseContext,
   UnlessShutdown,
 }
@@ -303,6 +304,123 @@ trait DbStorage extends Storage { self: NamedLogging =>
 
   private val defaultMaxRetries = retry.Forever
 
+  // TODO(#18629) Rename this method
+  /** this will be renamed once all instances of [[run]] has been deprecated */
+  protected def runUnlessShutdown[A](action: String, operationName: String, maxRetries: Int)(
+      body: => FutureUnlessShutdown[A]
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A] = {
+    if (logOperations) {
+      logger.debug(s"started $action: $operationName")
+    }
+    import Thereafter.syntax.*
+    implicit val success: retry.Success[A] = retry.Success.always
+    retry
+      .Backoff(
+        logger,
+        closeContext.context,
+        maxRetries = maxRetries,
+        initialDelay = 50.milliseconds,
+        maxDelay = timeouts.storageMaxRetryInterval.unwrap,
+        operationName = operationName,
+        suspendRetries = Eval.always(
+          if (isActive) Duration.Zero
+          else dbConfig.parameters.connectionTimeout.asFiniteApproximation
+        ),
+      )
+      .unlessShutdown(body, DbExceptionRetryable)
+      .thereafter { _ =>
+        if (logOperations) {
+          logger.debug(s"completed $action: $operationName")
+        }
+      }
+  }
+
+  // TODO(#18629) Rename this method
+  /** this will be renamed once all instances of [[runRead]] has been deprecated */
+  protected[canton] def runReadUnlessShutdown[A](
+      action: DbAction.ReadTransactional[A],
+      operationName: String,
+      maxRetries: Int,
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A]
+
+  // TODO(#18629) Rename this method
+  /** this will be renamed once all instances of [[runWrite]] has been deprecated */
+  protected[canton] def runWriteUnlessShutdown[A](
+      action: DbAction.All[A],
+      operationName: String,
+      maxRetries: Int,
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A]
+
+  // TODO(#18629) Rename this method
+  /** this will be renamed once all instances of [[query]] has been deprecated */
+  def queryUnlessShutdown[A](
+      action: DbAction.ReadTransactional[A],
+      operationName: String,
+      maxRetries: Int = defaultMaxRetries,
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A] =
+    runReadUnlessShutdown(action, operationName, maxRetries)
+
+  // TODO(#18629) Rename this method
+  /** this will be renamed once all instances of [[sequentialQueryAndCombine]] has been deprecated */
+  def sequentialQueryAndCombineUnlessShutdown[A](
+      actions: immutable.Iterable[DbAction.ReadOnly[immutable.Iterable[A]]],
+      operationName: String,
+  )(implicit
+      traceContext: TraceContext,
+      closeContext: CloseContext,
+  ): FutureUnlessShutdown[immutable.Iterable[A]] =
+    if (actions.nonEmpty) {
+      MonadUtil.foldLeftM(actions.iterableFactory.empty[A], actions) { case (acc, action) =>
+        queryUnlessShutdown(action, operationName)(traceContext, closeContext).map(acc ++ _)
+      }
+    } else FutureUnlessShutdown.pure(immutable.Iterable.empty[A])
+
+  // TODO(#18629) Rename this method
+  /** this will be renamed once all instances of [[querySingleUnlessShutdown]] has been deprecated */
+  def querySingleUnlessShutdown[A](
+      action: DBIOAction[Option[A], NoStream, Effect.Read with Effect.Transactional],
+      operationName: String,
+      maxRetries: Int = defaultMaxRetries,
+  )(implicit
+      traceContext: TraceContext,
+      closeContext: CloseContext,
+  ): OptionT[FutureUnlessShutdown, A] =
+    OptionT(queryUnlessShutdown(action, operationName, maxRetries))
+
+  // TODO(#18629) Rename this method
+  /** this will be renamed once all instances of [[update]] has been deprecated */
+  def updateUnlessShutdown[A](
+      action: DBIOAction[A, NoStream, Effect.Write with Effect.Transactional],
+      operationName: String,
+      maxRetries: Int = defaultMaxRetries,
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A] =
+    runWriteUnlessShutdown(action, operationName, maxRetries)
+
+  // TODO(#18629) Rename this method
+  /** this will be renamed once all instances of [[update_]] has been deprecated */
+  def updateUnlessShutdown_(
+      action: DBIOAction[_, NoStream, Effect.Write with Effect.Transactional],
+      operationName: String,
+      maxRetries: Int = defaultMaxRetries,
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[Unit] =
+    runWriteUnlessShutdown(action, operationName, maxRetries).map(_ => ())
+
+  // TODO(#18629) Rename this method
+  /** this will be renamed once all instances of [[queryAndUpdate]] has been deprecated */
+  def queryAndUpdateUnlessShutdown[A](
+      action: DBIOAction[A, NoStream, Effect.All],
+      operationName: String,
+      maxRetries: Int = defaultMaxRetries,
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A] =
+    runWriteUnlessShutdown(action, operationName, maxRetries)
+
+  /** Related issue is #18629 (Ongoing)
+    * These are the legacy methods that needs to be changed to use the [[FutureUnlessShutdown]] version, they will be removed once their dependencies are gone
+    * (and UnlessShutdown versions will be renamed to take over their name).
+    */
+
+  // TODO(#18629) Remove this method
+  /** this will be removed, use [[runUnlessShutdown]] instead */
   protected def run[A](action: String, operationName: String, maxRetries: Int)(
       body: => Future[A]
   )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A] = {
@@ -333,19 +451,24 @@ trait DbStorage extends Storage { self: NamedLogging =>
 
   }
 
+  // TODO(#18629) Remove this method
+  /** this will be removed, use [[runReadUnlessShutdown]] instead */
   protected[canton] def runRead[A](
       action: DbAction.ReadTransactional[A],
       operationName: String,
       maxRetries: Int,
   )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A]
 
+  // TODO(#18629) Remove this method
+  /** this will be removed, use [[runWriteUnlessShutdown]] instead */
   protected[canton] def runWrite[A](
       action: DbAction.All[A],
       operationName: String,
       maxRetries: Int,
   )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A]
 
-  /** Read-only query, possibly transactional */
+  // TODO(#18629) Remove this method
+  /** this will be removed, use [[queryUnlessShutdown]] instead */
   def query[A](
       action: DbAction.ReadTransactional[A],
       operationName: String,
@@ -353,6 +476,8 @@ trait DbStorage extends Storage { self: NamedLogging =>
   )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A] =
     runRead(action, operationName, maxRetries)
 
+  // TODO(#18629) Remove this method
+  /** this will be removed, use [[sequentialQueryAndCombineUnlessShutdown]] instead */
   def sequentialQueryAndCombine[A](
       actions: immutable.Iterable[DbAction.ReadOnly[immutable.Iterable[A]]],
       operationName: String,
@@ -366,6 +491,8 @@ trait DbStorage extends Storage { self: NamedLogging =>
       }
     } else Future.successful(immutable.Iterable.empty[A])
 
+  // TODO(#18629) Remove this method
+  /** this will be removed, use [[querySingleUnlessShutdown]] instead */
   def querySingle[A](
       action: DBIOAction[Option[A], NoStream, Effect.Read with Effect.Transactional],
       operationName: String,
@@ -381,6 +508,8 @@ trait DbStorage extends Storage { self: NamedLogging =>
     * this number may be lower than actual number of affected rows
     * because updates from earlier retries are not accounted.
     */
+  // TODO(#18629) Remove this method
+  /** this will be removed, use [[updateUnlessShutdown]] instead */
   def update[A](
       action: DBIOAction[A, NoStream, Effect.Write with Effect.Transactional],
       operationName: String,
@@ -391,6 +520,8 @@ trait DbStorage extends Storage { self: NamedLogging =>
   /** Write-only action, possibly transactional
     * The action must be idempotent because it may be retried multiple times.
     */
+  // TODO(#18629) Remove this method
+  /** this will be removed, use [[updateUnlessShutdown_]] instead */
   def update_(
       action: DBIOAction[_, NoStream, Effect.Write with Effect.Transactional],
       operationName: String,
@@ -409,13 +540,14 @@ trait DbStorage extends Storage { self: NamedLogging =>
     * this number may be lower than actual number of affected rows
     * because updates from earlier retries are not accounted.
     */
+  // TODO(#18629) Remove this method
+  /** this will be removed, use [[queryAndUpdateUnlessShutdown]] instead */
   def queryAndUpdate[A](
       action: DBIOAction[A, NoStream, Effect.All],
       operationName: String,
       maxRetries: Int = defaultMaxRetries,
   )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A] =
     runWrite(action, operationName, maxRetries)
-
 }
 
 object DbStorage {

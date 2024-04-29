@@ -13,7 +13,7 @@ import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{TopologyStoreId, ValidatedTopologyTransaction}
 import com.digitalasset.canton.topology.transaction.DomainParametersState
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingOwnerWithKeysX}
+import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingOwnerWithKeys}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.Outcome
 import org.scalatest.wordspec.FixtureAnyWordSpec
@@ -28,8 +28,8 @@ class TopologyTimestampPlusEpsilonTrackerTest
   import com.digitalasset.canton.topology.client.EffectiveTimeTestHelpers.*
 
   protected class Fixture {
-    val crypto = new TestingOwnerWithKeysX(
-      DefaultTestIdentities.sequencerIdX,
+    val crypto = new TestingOwnerWithKeys(
+      DefaultTestIdentities.sequencerId,
       loggerFactory,
       parallelExecutionContext,
     )

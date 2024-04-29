@@ -26,7 +26,7 @@ import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.DefaultTestIdentities.{
   participant1,
   participant2,
-  sequencerIdX,
+  sequencerId,
 }
 import com.digitalasset.canton.topology.{
   DomainMember,
@@ -150,7 +150,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
         traceContext: TraceContext
     ): EitherT[Future, String, SequencerSnapshot] =
       ???
-    override protected val localSequencerMember: DomainMember = sequencerIdX
+    override protected val localSequencerMember: DomainMember = sequencerId
     override protected def disableMemberInternal(member: Member)(implicit
         traceContext: TraceContext
     ): Future[Unit] = Future.unit
@@ -251,7 +251,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
       val sequencer = new StubSequencer(Set(participant1))
       for {
         _ <- sequencer.disableMember(participant1).valueOrFail("Can disable regular member")
-        err <- sequencer.disableMember(sequencerIdX).leftOrFail("Fail to disable local sequencer")
+        err <- sequencer.disableMember(sequencerId).leftOrFail("Fail to disable local sequencer")
         _ <- sequencer
           .disableMember(SequencerId(UniqueIdentifier.tryFromProtoPrimitive("seq::other")))
           .valueOrFail("Can disable other sequencer")

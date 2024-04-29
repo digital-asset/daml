@@ -74,7 +74,7 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
     val store = new InMemorySequencerStore(testedProtocolVersion, loggerFactory)
     val clock = new WallClock(timeouts, loggerFactory = loggerFactory)
     val crypto: DomainSyncCryptoClient = valueOrFail(
-      TestingTopologyX(sequencerGroup =
+      TestingTopology(sequencerGroup =
         SequencerGroup(
           active = NonEmpty.mk(Seq, SequencerId(domainId)),
           passive = Seq.empty,

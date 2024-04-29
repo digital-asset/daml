@@ -199,8 +199,8 @@ sealed trait AcsCommitmentProcessorBaseTest
 
     val testingTopology = dynamicDomainParametersWithValidity match {
       // this way we get default values for an empty List
-      case Nil => TestingTopologyX()
-      case _ => TestingTopologyX(domainParameters = dynamicDomainParametersWithValidity)
+      case Nil => TestingTopology()
+      case _ => TestingTopology(domainParameters = dynamicDomainParametersWithValidity)
     }
 
     testingTopology
@@ -891,7 +891,7 @@ class AcsCommitmentProcessorTest
     val (remote, contracts, fromExclusive, toInclusive, reconciliationInterval) = params
 
     val crypto =
-      TestingTopologyX().withSimpleParticipants(remote).build().forOwnerAndDomain(remote)
+      TestingTopology().withSimpleParticipants(remote).build().forOwnerAndDomain(remote)
     // we assume that the participant has a single stakeholder group
     val cmt = commitmentsFromStkhdCmts(Seq(stakeholderCommitment(contracts)))
     val snapshotF = crypto.snapshot(CantonTimestamp.Epoch)

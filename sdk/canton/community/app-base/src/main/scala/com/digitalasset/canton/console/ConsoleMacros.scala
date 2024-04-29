@@ -197,7 +197,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       def apply(
           file: Option[String] = None,
           useParticipantAlias: Boolean = true,
-          defaultParticipantX: Option[ParticipantReference] = None,
+          defaultParticipant: Option[ParticipantReference] = None,
       )(implicit env: ConsoleEnvironment): JFile = {
 
         def toLedgerApi(participantConfig: BaseParticipantConfig) =
@@ -215,7 +215,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         val uidToAlias = allParticipants.map(p => (p.id, p.name)).toMap
 
         val default_participant =
-          defaultParticipantX.map(participantReference => toLedgerApi(participantReference.config))
+          defaultParticipant.map(participantReference => toLedgerApi(participantReference.config))
 
         val participantJson = Participants(
           default_participant,
@@ -237,18 +237,18 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         |It takes three arguments:
         |- file (default to "participant-config.json")
         |- useParticipantAlias (default to true): participant aliases are used instead of UIDs
-        |- defaultParticipantX (default to None): adds a default participant if provided
+        |- defaultParticipant (default to None): adds a default participant if provided
         |"""
     )
     def generate_daml_script_participants_conf(
         file: Option[String] = None,
         useParticipantAlias: Boolean = true,
-        defaultParticipantX: Option[ParticipantReference] = None,
+        defaultParticipant: Option[ParticipantReference] = None,
     )(implicit env: ConsoleEnvironment): JFile =
       GenerateDamlScriptParticipantsConf(
         file,
         useParticipantAlias,
-        defaultParticipantX,
+        defaultParticipant,
       )
 
     // TODO(i7387): add check that flag is set

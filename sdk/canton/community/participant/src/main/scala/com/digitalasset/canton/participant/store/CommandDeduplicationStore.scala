@@ -125,6 +125,8 @@ final case class CommandDeduplicationData private (
     latestDefiniteAnswer: DefiniteAnswerEvent,
     latestAcceptance: Option[DefiniteAnswerEvent],
 ) extends PrettyPrinting {
+  import com.digitalasset.canton.participant.pretty.Implicits.*
+
   latestAcceptance.foreach { acceptance =>
     if (acceptance.offset > latestDefiniteAnswer.offset) {
       throw CommandDeduplicationData.InvalidCommandDeduplicationData(

@@ -7,7 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.Generators
 import com.digitalasset.canton.config.CantonRequireTypes.String68
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingIdentityFactoryX}
+import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingIdentityFactory}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.ByteString
 import magnolify.scalacheck.auto.*
@@ -66,12 +66,12 @@ object GeneratorsCrypto {
     NamedLoggerFactory.unnamedKey("test", "NotUsed-GeneratorsCrypto")
 
   lazy val cryptoFactory =
-    TestingIdentityFactoryX(loggerFactoryNotUsed).forOwnerAndDomain(
-      DefaultTestIdentities.sequencerId
+    TestingIdentityFactory(loggerFactoryNotUsed).forOwnerAndDomain(
+      DefaultTestIdentities.daSequencerId
     )
   private lazy val sequencerKey =
-    TestingIdentityFactoryX(loggerFactoryNotUsed)
-      .newSigningPublicKey(DefaultTestIdentities.sequencerId)
+    TestingIdentityFactory(loggerFactoryNotUsed)
+      .newSigningPublicKey(DefaultTestIdentities.daSequencerId)
       .fingerprint
   private lazy val privateCrypto = cryptoFactory.crypto.privateCrypto
   private lazy val pureCryptoApi: CryptoPureApi = cryptoFactory.pureCrypto

@@ -22,7 +22,7 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.domain.Domain
 import com.digitalasset.canton.domain.mediator.admin.gprc.{
   InitializeMediatorRequest,
-  InitializeMediatorResponseX,
+  InitializeMediatorResponse,
 }
 import com.digitalasset.canton.domain.mediator.service.GrpcMediatorInitializationService
 import com.digitalasset.canton.domain.mediator.store.{
@@ -121,7 +121,7 @@ final case class RemoteMediatorConfig(
 
 /** Community Mediator Node configuration that defaults to auto-init
   */
-final case class CommunityMediatorNodeXConfig(
+final case class CommunityMediatorNodeConfig(
     override val adminApi: CommunityAdminServerConfig = CommunityAdminServerConfig(),
     override val storage: CommunityStorageConfig = CommunityStorageConfig.Memory(),
     override val crypto: CommunityCryptoConfig = CommunityCryptoConfig(),
@@ -143,20 +143,20 @@ final case class CommunityMediatorNodeXConfig(
       parameters,
       monitoring,
     )
-    with ConfigDefaults[DefaultPorts, CommunityMediatorNodeXConfig] {
+    with ConfigDefaults[DefaultPorts, CommunityMediatorNodeConfig] {
 
   override val nodeTypeName: String = "mediator"
 
   override def replicationEnabled: Boolean = false
 
-  override def withDefaults(ports: DefaultPorts): CommunityMediatorNodeXConfig = {
+  override def withDefaults(ports: DefaultPorts): CommunityMediatorNodeConfig = {
     this
       .focus(_.adminApi.internalPort)
       .modify(ports.mediatorAdminApiPort.setDefaultPort)
   }
 }
 
-class MediatorNodeBootstrapX(
+class MediatorNodeBootstrap(
     arguments: CantonNodeBootstrapCommonArguments[
       MediatorNodeConfigCommon,
       MediatorNodeParameters,
@@ -169,7 +169,7 @@ class MediatorNodeBootstrapX(
     implicit val executionSequencerFactory: ExecutionSequencerFactory,
     scheduler: ScheduledExecutorService,
     actorSystem: ActorSystem,
-) extends CantonNodeBootstrapX[
+) extends CantonNodeBootstrapImpl[
       MediatorNode,
       MediatorNodeConfigCommon,
       MediatorNodeParameters,
@@ -255,12 +255,12 @@ class MediatorNodeBootstrapX(
 
     override def initialize(request: InitializeMediatorRequest)(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, String, InitializeMediatorResponseX] = {
+    ): EitherT[FutureUnlessShutdown, String, InitializeMediatorResponse] = {
       if (isInitialized) {
         logger.info(
           "Received a request to initialize an already initialized mediator. Skipping initialization!"
         )
-        EitherT.pure(InitializeMediatorResponseX())
+        EitherT.pure(InitializeMediatorResponse())
       } else {
         val configToStore = MediatorDomainConfiguration(
           Fingerprint.tryCreate(
@@ -290,7 +290,7 @@ class MediatorNodeBootstrapX(
                 .saveConfiguration(configToStore)
                 .leftMap(_.toString)
           } yield request.domainId
-        }.map(_ => InitializeMediatorResponseX())
+        }.map(_ => InitializeMediatorResponse())
       }
     }
 
@@ -633,7 +633,7 @@ class MediatorNodeBootstrapX(
 
 }
 
-object MediatorNodeBootstrapX {
+object MediatorNodeBootstrap {
   val LoggerFactoryKeyName: String = "mediator"
 }
 

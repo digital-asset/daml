@@ -50,7 +50,7 @@ class QueueBasedDomainOutboxTest
   import DefaultTestIdentities.*
 
   private val clock = new WallClock(timeouts, loggerFactory)
-  private val crypto = TestingIdentityFactoryX.newCrypto(loggerFactory)(participant1)
+  private val crypto = TestingIdentityFactory.newCrypto(loggerFactory)(participant1)
   private val publicKey =
     config
       .NonNegativeFiniteDuration(10.seconds)
@@ -147,7 +147,7 @@ class QueueBasedDomainOutboxTest
                   SequencedTime(ts),
                   EffectiveTime(ts),
                   additions = List(ValidatedTopologyTransaction(x, rejections.next())),
-                  // dumbed down version of how to "append" ValidatedTopologyTransactionXs:
+                  // dumbed down version of how to "append" ValidatedTopologyTransactions:
                   removeMapping = Option
                     .when(x.operation == TopologyChangeOp.Remove)(
                       x.mapping.uniqueKey -> x.serial

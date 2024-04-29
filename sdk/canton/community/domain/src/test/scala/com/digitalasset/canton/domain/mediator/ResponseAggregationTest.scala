@@ -16,7 +16,6 @@ import com.digitalasset.canton.domain.mediator.ResponseAggregation.{
   ViewState,
 }
 import com.digitalasset.canton.error.MediatorError
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient

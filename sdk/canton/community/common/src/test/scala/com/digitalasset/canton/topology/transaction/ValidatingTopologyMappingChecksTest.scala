@@ -21,11 +21,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Submission,
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.{
-  DefaultTestIdentities,
-  ParticipantId,
-  TestingOwnerWithKeysX,
-}
+import com.digitalasset.canton.topology.{DefaultTestIdentities, ParticipantId, TestingOwnerWithKeys}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, ProtocolVersionChecksAnyWordSpec}
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -37,8 +33,8 @@ class ValidatingTopologyMappingChecksTest
     with HasExecutionContext
     with ProtocolVersionChecksAnyWordSpec {
 
-  private lazy val factory = new TestingOwnerWithKeysX(
-    DefaultTestIdentities.mediatorIdX,
+  private lazy val factory = new TestingOwnerWithKeys(
+    DefaultTestIdentities.mediatorId,
     loggerFactory,
     initEc = parallelExecutionContext,
   )
@@ -49,7 +45,7 @@ class ValidatingTopologyMappingChecksTest
     (check, store)
   }
 
-  "TopologyMappingXChecks" when {
+  "TopologyMappingChecks" when {
     import DefaultTestIdentities.{participant1, participant2, participant3, party1, domainId}
     import factory.TestingTransactions.*
 
@@ -58,7 +54,7 @@ class ValidatingTopologyMappingChecksTest
     ): HostingParticipant =
       HostingParticipant(participantToPermission._1, participantToPermission._2)
 
-    "validating PartyToParticipantX" should {
+    "validating PartyToParticipant" should {
 
       "reject an invalid threshold" in {
         val (checks, _) = mk()
@@ -175,7 +171,7 @@ class ValidatingTopologyMappingChecksTest
 
     }
 
-    "validating DomainTrustCertificateX" should {
+    "validating DomainTrustCertificate" should {
       "reject a removal when the participant still hosts a party" in {
         val (checks, store) = mk()
         val ptp = factory.mkAdd(
@@ -278,17 +274,17 @@ class ValidatingTopologyMappingChecksTest
 
     }
 
-    "validating TrafficControlStateX" should {
+    "validating TrafficControlState" should {
       def trafficControlState(limit: Int): TrafficControlState =
         TrafficControlState
           .create(domainId, participant1, PositiveLong.tryCreate(limit.toLong))
-          .getOrElse(sys.error("Error creating TrafficControlStateX"))
+          .getOrElse(sys.error("Error creating TrafficControlState"))
 
       val limit5 = factory.mkAdd(trafficControlState(5))
       val limit10 = factory.mkAdd(trafficControlState(10))
       val removal10 = factory.mkRemove(trafficControlState(10))
 
-      "reject non monotonically increasing extra traffict limits" in {
+      "reject non monotonically increasing extra traffic limits" in {
         val (checks, _) = mk()
 
         val result =

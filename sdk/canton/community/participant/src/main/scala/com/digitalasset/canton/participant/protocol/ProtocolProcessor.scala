@@ -16,9 +16,14 @@ import com.digitalasset.canton.crypto.{
   DomainSyncCryptoClient,
   Signature,
 }
-import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition, ViewTree, ViewType}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  DeduplicationPeriod,
+  ViewPosition,
+  ViewTree,
+  ViewType,
+}
 import com.digitalasset.canton.error.TransactionError
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -1776,8 +1781,8 @@ abstract class ProtocolProcessor[
 object ProtocolProcessor {
   private val approvalContradictionCheckIsEnabled = new AtomicReference[Boolean](true)
   private val testsAllowedToDisableApprovalContradictionCheck = Seq(
-    "LedgerAuthorizationReferenceXIntegrationTestDefault",
-    "LedgerAuthorizationBftOrderingXIntegrationTestDefault",
+    "LedgerAuthorizationReferenceIntegrationTestDefault",
+    "LedgerAuthorizationBftOrderingIntegrationTestDefault",
     "PackageVettingIntegrationTestDefault",
   )
 

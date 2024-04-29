@@ -61,7 +61,7 @@ class TransferOutValidationTest
 
   val transferId = TransferId(sourceDomain, CantonTimestamp.Epoch)
   val uuid = new UUID(3L, 4L)
-  private val pureCrypto = TestingIdentityFactoryX.pureCrypto()
+  private val pureCrypto = TestingIdentityFactory.pureCrypto()
   private val seedGenerator = new SeedGenerator(pureCrypto)
   val seed = seedGenerator.generateSaltSeed()
 
@@ -81,7 +81,7 @@ class TransferOutValidationTest
     ),
   )
 
-  private val identityFactory = TestingTopologyX()
+  private val identityFactory = TestingTopology()
     .withDomains(sourceDomain.unwrap)
     .withReversedTopology(
       Map(

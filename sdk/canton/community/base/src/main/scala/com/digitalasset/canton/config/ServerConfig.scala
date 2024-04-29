@@ -6,10 +6,10 @@ package com.digitalasset.canton.config
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.grpc.GrpcServerMetrics
+import com.daml.tls.TlsVersion
 import com.digitalasset.canton.config.AdminServerConfig.defaultAddress
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port}
 import com.digitalasset.canton.config.SequencerConnectionConfig.CertificateFile
-import com.digitalasset.canton.ledger.api.tls.TlsVersion
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.{
   CantonCommunityServerInterceptors,

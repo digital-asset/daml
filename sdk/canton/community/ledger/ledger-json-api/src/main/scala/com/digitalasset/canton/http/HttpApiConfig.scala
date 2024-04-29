@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.http
 
-import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
+import com.daml.tls.TlsConfiguration
 import com.digitalasset.canton.pureconfigutils.HttpServerConfig
 
 final case class HttpApiConfig(

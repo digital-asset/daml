@@ -7,8 +7,8 @@ import com.daml.ledger.api.v2.reassignment.Reassignment
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.metrics.{DatabaseMetrics, Timed}
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
-import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics

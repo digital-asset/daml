@@ -318,17 +318,17 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     queryForTransactions(
       asOfQuery(timestamp, asOfInclusive = false) ++
         sql" AND NOT is_proposal AND operation = ${TopologyChangeOp.Replace} AND ("
-        // PartyToParticipantX filtering
+        // PartyToParticipant filtering
         ++ Seq(
           sql"(transaction_type = ${PartyToParticipant.code}"
             ++ conditionalAppend(filterParty, sqlPartyIdentifier, sqlPartyNS)
             ++ sql")"
         )
         ++ sql" OR "
-        // DomainTrustCertificateX filtering
+        // DomainTrustCertificate filtering
         ++ Seq(
           sql"(transaction_type = ${DomainTrustCertificate.code}"
-          // In DomainTrustCertificateX part of the filter, compare not only to participant, but also to party identifier
+          // In DomainTrustCertificate part of the filter, compare not only to participant, but also to party identifier
           // to enable searching for the admin party
             ++ conditionalAppend(filterParty, sqlPartyIdentifier, sqlPartyNS)
             ++ conditionalAppend(filterParticipant, sqlParticipantIdentifier, sqlParticipantNS)
@@ -383,7 +383,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     logger.debug(s"Querying first sequencer state for $sequencerId")
 
     queryForTransactions(
-      // We don't expect too many MediatorDomainStateX mappings in a single domain, so fetching them all from the db
+      // We don't expect too many MediatorDomainState mappings in a single domain, so fetching them all from the db
       // is acceptable and also because we don't expect to run this query frequently. We can only evaluate the
       // `mediatorId` field locally as the mediator-id is not exposed in a separate column.
       sql" AND is_proposal = false" ++
@@ -408,7 +408,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     logger.debug(s"Querying first mediator state for $mediatorId")
 
     queryForTransactions(
-      // We don't expect too many MediatorDomainStateX mappings in a single domain, so fetching them all from the db
+      // We don't expect too many MediatorDomainState mappings in a single domain, so fetching them all from the db
       // is acceptable and also because we don't expect to run this query frequently. We can only evaluate the
       // `mediatorId` field locally as the mediator-id is not exposed in a separate column.
       sql" AND is_proposal = false" ++
@@ -602,7 +602,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
           sql"""($transactionStoreIdName, $sequencedTs, $validFrom, $validUntil, $transactionType, $namespace,
            $identifier, $mappingHash, $serial, $operation, $signedTx, $txHash, $isProposal, $reason, $representativeProtocolVersion, $hashOfSignatures)"""
         case _: DbStorage.Profile.Oracle =>
-          throw new IllegalStateException("Oracle not supported by daml 3.0/X yet")
+          throw new IllegalStateException("Oracle not supported by daml 3.0 yet")
       }
     }
 
@@ -849,7 +849,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
 
 }
 
-// Helper case class to hold StoredTopologyTransactionX-fields in update() providing umbrella
+// Helper case class to hold StoredTopologyTransaction-fields in update() providing umbrella
 // values for all transactions.
 private[db] final case class TransactionEntry(
     sequenced: SequencedTime,

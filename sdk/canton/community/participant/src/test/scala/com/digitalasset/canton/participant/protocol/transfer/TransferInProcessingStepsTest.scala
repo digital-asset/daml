@@ -94,7 +94,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
     )
   }
 
-  private lazy val identityFactory = TestingTopologyX()
+  private lazy val identityFactory = TestingTopology()
     .withDomains(sourceDomain.unwrap)
     .withReversedTopology(
       Map(submittingParticipant -> Map(party1 -> ParticipantPermission.Submission))
@@ -108,7 +108,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
       .currentSnapshotApproximation
 
   private val clock = new WallClock(timeouts, loggerFactory)
-  private val crypto = TestingIdentityFactoryX.newCrypto(loggerFactory)(participant)
+  private val crypto = TestingIdentityFactory.newCrypto(loggerFactory)(participant)
 
   private val seedGenerator = new SeedGenerator(crypto.pureCrypto)
 
@@ -313,7 +313,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
 
     "fail when participant does not have submission permission for party" in {
 
-      val failingTopology = TestingTopologyX(domains = Set(sourceDomain.unwrap))
+      val failingTopology = TestingTopology(domains = Set(sourceDomain.unwrap))
         .withReversedTopology(
           Map(submittingParticipant -> Map(party1 -> ParticipantPermission.Observation))
         )

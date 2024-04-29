@@ -14,6 +14,7 @@ import com.digitalasset.canton.concurrent.{
   FutureSupervisor,
 }
 import com.digitalasset.canton.config.{MemoryStorageConfig, ProcessingTimeout}
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.http.HttpApiServer
 import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader
 import com.digitalasset.canton.ledger.api.domain.{Filters, TransactionFilter}
@@ -21,7 +22,6 @@ import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.localstore.*
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
-import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.InternalStateService
 import com.digitalasset.canton.ledger.participant.state.v2.metrics.{
   TimedReadService,

@@ -217,7 +217,7 @@ trait DbMediatorDeduplicationStoreTest extends MediatorDeduplicationStoreTest wi
       firstEventTs: CantonTimestamp
   ): DbMediatorDeduplicationStore = {
     val store = new DbMediatorDeduplicationStore(
-      DefaultTestIdentities.mediator,
+      DefaultTestIdentities.daMediator,
       storage,
       timeouts,
       BatchAggregatorConfig.defaultsForTesting,

@@ -10,7 +10,7 @@ import com.daml.lf.data.{Bytes, Ref}
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.logging.entries.{LoggingEntry, LoggingValue, ToLoggingValue}
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod
+import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.topology.DomainId
 import com.google.rpc.status.Status as RpcStatus

@@ -12,8 +12,8 @@ import com.digitalasset.canton.config.{
   H2DbConfig,
   StorageConfig,
 }
-import com.digitalasset.canton.domain.mediator.CommunityMediatorNodeXConfig
-import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeXConfig
+import com.digitalasset.canton.domain.mediator.CommunityMediatorNodeConfig
+import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeConfig
 import com.digitalasset.canton.participant.config.CommunityParticipantConfig
 import com.typesafe.config.{Config, ConfigValueFactory}
 import monocle.macros.syntax.lens.*
@@ -71,44 +71,36 @@ object CommunityConfigTransforms {
         .focus(_.participants)
         .modify(_.map { case (pName, pConfig) => (pName, update(pName.unwrap, pConfig)) })
 
-  def updateAllSequencerXConfigs(
-      update: (String, CommunitySequencerNodeXConfig) => CommunitySequencerNodeXConfig
+  def updateAllSequencerConfigs(
+      update: (String, CommunitySequencerNodeConfig) => CommunitySequencerNodeConfig
   ): CommunityConfigTransform =
     _.focus(_.sequencers)
       .modify(_.map { case (sName, sConfig) => (sName, update(sName.unwrap, sConfig)) })
 
-  def updateAllSequencerXConfigs_(
-      update: CommunitySequencerNodeXConfig => CommunitySequencerNodeXConfig
+  def updateAllSequencerConfigs_(
+      update: CommunitySequencerNodeConfig => CommunitySequencerNodeConfig
   ): CommunityConfigTransform =
-    updateAllSequencerXConfigs((_, config) => update(config))
+    updateAllSequencerConfigs((_, config) => update(config))
 
-  def updateAllMediatorXConfigs_(
-      update: CommunityMediatorNodeXConfig => CommunityMediatorNodeXConfig
+  def updateAllMediatorConfigs_(
+      update: CommunityMediatorNodeConfig => CommunityMediatorNodeConfig
   ): CommunityConfigTransform =
-    updateAllMediatorXConfigs((_, config) => update(config))
+    updateAllMediatorConfigs((_, config) => update(config))
 
-  def updateAllMediatorXConfigs(
-      update: (String, CommunityMediatorNodeXConfig) => CommunityMediatorNodeXConfig
+  def updateAllMediatorConfigs(
+      update: (String, CommunityMediatorNodeConfig) => CommunityMediatorNodeConfig
   ): CommunityConfigTransform =
     cantonConfig =>
       cantonConfig
         .focus(_.mediators)
         .modify(_.map { case (pName, pConfig) => (pName, update(pName.unwrap, pConfig)) })
 
-  def updateAllParticipantXConfigs(
-      update: (String, CommunityParticipantConfig) => CommunityParticipantConfig
-  ): CommunityConfigTransform =
-    cantonConfig =>
-      cantonConfig
-        .focus(_.participants)
-        .modify(_.map { case (pName, pConfig) => (pName, update(pName.unwrap, pConfig)) })
-
   def uniqueH2DatabaseNames: CommunityConfigTransform = {
-    updateAllSequencerXConfigs { case (nodeName, cfg) =>
+    updateAllSequencerConfigs { case (nodeName, cfg) =>
       cfg.focus(_.storage).modify(CommunityConfigTransforms.withUniqueDbName(nodeName, _))
-    } compose updateAllMediatorXConfigs { case (nodeName, cfg) =>
+    } compose updateAllMediatorConfigs { case (nodeName, cfg) =>
       cfg.focus(_.storage).modify(CommunityConfigTransforms.withUniqueDbName(nodeName, _))
-    } compose updateAllParticipantXConfigs { case (nodeName, cfg) =>
+    } compose updateAllParticipantConfigs { case (nodeName, cfg) =>
       cfg.focus(_.storage).modify(CommunityConfigTransforms.withUniqueDbName(nodeName, _))
     }
   }
@@ -125,15 +117,7 @@ object CommunityConfigTransforms {
         .replace(nextPort.some)
     }
 
-    val participantXUpdate = updateAllParticipantXConfigs { case (_, config) =>
-      config
-        .focus(_.ledgerApi.internalPort)
-        .replace(nextPort.some)
-        .focus(_.adminApi.internalPort)
-        .replace(nextPort.some)
-    }
-
-    val sequencerXUpdate = updateAllSequencerXConfigs_(
+    val sequencerUpdate = updateAllSequencerConfigs_(
       _.focus(_.publicApi.internalPort)
         .replace(nextPort.some)
         .focus(_.adminApi.internalPort)
@@ -142,13 +126,13 @@ object CommunityConfigTransforms {
         .modify(_.map(_.copy(internalPort = nextPort.some)))
     )
 
-    val mediatorXUpdate = updateAllMediatorXConfigs_(
+    val mediatorUpdate = updateAllMediatorConfigs_(
       _.focus(_.adminApi.internalPort)
         .replace(nextPort.some)
         .focus(_.monitoring.grpcHealthServer)
         .modify(_.map(_.copy(internalPort = nextPort.some)))
     )
 
-    participantUpdate compose sequencerXUpdate compose mediatorXUpdate compose participantXUpdate
+    participantUpdate compose sequencerUpdate compose mediatorUpdate
   }
 }

@@ -3,9 +3,8 @@
 
 package com.digitalasset.canton.http
 
-import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
-
 import java.nio.file.Path
+import com.daml.tls.TlsConfiguration
 
 // defined separately from Config so
 //  1. it is absolutely lexically apparent what `import startSettings._` means

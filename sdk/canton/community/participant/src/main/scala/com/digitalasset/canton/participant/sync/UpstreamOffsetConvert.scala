@@ -16,6 +16,7 @@ import java.nio.{ByteBuffer, ByteOrder}
   *  ParticipantState API ReadService still based on a byte string. Canton emits single-Long GlobalOffsets.
   */
 object UpstreamOffsetConvert {
+  import com.digitalasset.canton.participant.pretty.Implicits.*
 
   private val versionUpstreamOffsetsAsLong: Byte = 0
   private val longBasedByteLength: Int = 9 // One byte for the version plus 8 bytes for Long

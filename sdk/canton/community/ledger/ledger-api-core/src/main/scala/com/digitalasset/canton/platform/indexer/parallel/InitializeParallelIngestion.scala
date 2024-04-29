@@ -4,8 +4,8 @@
 package com.digitalasset.canton.platform.indexer.parallel
 
 import com.daml.lf.data.Ref
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{ReadService, Update}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}

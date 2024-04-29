@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.backend
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricsContext.withExtraMetricLabels
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.Update
 import com.digitalasset.canton.ledger.participant.state.v2.Update.TransactionAccepted
 import com.digitalasset.canton.metrics.IndexedUpdatesMetrics
