@@ -136,7 +136,7 @@ getChecksums ver = do
             "/-/" <> name <> "-" <> SemVer.toString ver <> ".tgz"
         createDamlAppUrl =
           -- TODO: remove condition when 2.7 has a post-subdir release
-            if getMinor ver `elem` ["2.7"]  then
+            if getMinor ver == "2.7"  then
                "https://raw.githubusercontent.com/digital-asset/daml/v" <> SemVer.toString ver
                <> "/templates/create-daml-app-test-resources/messaging.patch"
             else
