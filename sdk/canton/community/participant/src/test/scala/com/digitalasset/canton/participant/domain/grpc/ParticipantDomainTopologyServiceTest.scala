@@ -4,22 +4,25 @@
 package com.digitalasset.canton.participant.domain.grpc
 
 import cats.data.EitherT
-import com.digitalasset.canton.common.domain.DomainTopologyService
+import com.digitalasset.canton.common.domain.{
+  DomainTopologyService,
+  SequencerBasedRegisterTopologyTransactionHandle,
+}
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.lifecycle.UnlessShutdown
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.protocol.messages.{
-  ProtocolMessage,
   RegisterTopologyTransactionRequest,
   RegisterTopologyTransactionResponse,
   RegisterTopologyTransactionResponseResult,
 }
-import com.digitalasset.canton.sequencing.client.SendAsyncClientError
-import com.digitalasset.canton.sequencing.protocol.{OpenEnvelope, Recipients}
+import com.digitalasset.canton.sequencing.client.{SendAsyncClientError, SendResult}
+import com.digitalasset.canton.sequencing.protocol.{Deliver, Envelope, OpenEnvelope, Recipients}
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{DomainId, DomainTopologyManagerId, ParticipantId}
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -71,25 +74,22 @@ class ParticipantDomainTopologyServiceTest
     )
 
   "ParticipantDomainTopologyService" should {
-    val sendRequest =
-      mock[
-        (
-            TraceContext,
-            OpenEnvelope[ProtocolMessage],
-        ) => EitherT[Future, SendAsyncClientError, Unit]
-      ]
+    val sendRequest = mock[SequencerBasedRegisterTopologyTransactionHandle.Sender]
 
     when(
-      sendRequest.apply(
-        eqTo(traceContext),
+      sendRequest.send(
         eqTo(
           OpenEnvelope(request, Recipients.cc(DomainTopologyManagerId(domainId)))(
             testedProtocolVersion
           )
         ),
+        any[NonNegativeFiniteDuration],
+      )(eqTo(traceContext))
+    ).thenReturn(
+      EitherT.pure[Future, SendAsyncClientError](
+        FutureUnlessShutdown.pure(SendResult.Success(mock[Deliver[Envelope[_]]]))
       )
     )
-      .thenReturn(EitherT.pure[Future, SendAsyncClientError](()))
 
     "send request to IDM and wait to process response" in {
       val sut = new DomainTopologyService(

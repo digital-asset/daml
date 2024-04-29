@@ -25,6 +25,7 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
 import com.digitalasset.canton.util.{FutureUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
+import org.slf4j.event.Level
 
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
@@ -188,7 +189,8 @@ trait DomainOutboxDispatch[
             )
             FutureUtil.logOnFailureUnlessShutdown(
               handle.submit(transactions),
-              s"Pushing topology transactions to $domain",
+              s"Retrying after failing to push topology transactions to $domain",
+              level = Level.WARN,
             )
           },
           AllExnRetryable,

@@ -10,10 +10,11 @@ import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.TopologyRequestId
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.mapErr
 import com.digitalasset.canton.protocol.messages.*
+import com.digitalasset.canton.sequencing.client.SendCallback.CallbackFuture
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.{
@@ -22,12 +23,14 @@ import com.digitalasset.canton.sequencing.{
   HandlerResult,
   NoEnvelopeBox,
 }
+import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.transaction.{SignedTopologyTransaction, TopologyChangeOp}
 import com.digitalasset.canton.topology.{DomainId, DomainTopologyManagerId, Member, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{EitherTUtil, FutureUtil}
 import com.digitalasset.canton.version.ProtocolVersion
+import io.grpc.Status
 
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -51,10 +54,7 @@ trait RegisterTopologyTransactionHandleWithProcessor[TX, State]
   * This gets created in [[com.digitalasset.canton.participant.topology.ParticipantTopologyDispatcher]]
   */
 class SequencerBasedRegisterTopologyTransactionHandle(
-    send: (
-        TraceContext,
-        OpenEnvelope[ProtocolMessage],
-    ) => EitherT[Future, SendAsyncClientError, Unit],
+    sender: SequencerBasedRegisterTopologyTransactionHandle.Sender,
     domainId: DomainId,
     participantId: ParticipantId,
     requestedBy: Member,
@@ -69,7 +69,7 @@ class SequencerBasedRegisterTopologyTransactionHandle(
     with NamedLogging {
 
   private val service =
-    new DomainTopologyService(domainId, send, protocolVersion, timeouts, loggerFactory)
+    new DomainTopologyService(domainId, sender, protocolVersion, timeouts, loggerFactory)
 
   // must be used by the event handler of a sequencer subscription in order to complete the promises of requests sent with the given sequencer client
   override val processor: EnvelopeHandler = service.processor
@@ -94,12 +94,52 @@ class SequencerBasedRegisterTopologyTransactionHandle(
   override def onClosed(): Unit = service.close()
 }
 
+object SequencerBasedRegisterTopologyTransactionHandle {
+
+  trait Sender {
+
+    def send(
+        envelope: OpenEnvelope[ProtocolMessage],
+        timeout: NonNegativeFiniteDuration,
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[Future, SendAsyncClientError, FutureUnlessShutdown[SendResult]]
+
+  }
+
+  abstract class SenderImpl(clock: Clock, protocolVersion: ProtocolVersion)(implicit
+      executionContext: ExecutionContext
+  ) extends Sender {
+
+    protected def sendInternal(
+        batch: Batch[DefaultOpenEnvelope],
+        maxSequencingTime: CantonTimestamp,
+        callback: SendCallback,
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[Future, SendAsyncClientError, Unit]
+
+    override def send(
+        envelope: OpenEnvelope[ProtocolMessage],
+        timeout: NonNegativeFiniteDuration,
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[Future, SendAsyncClientError, FutureUnlessShutdown[SendResult]] = {
+      val fut = new CallbackFuture()
+      sendInternal(
+        Batch(List(envelope), protocolVersion),
+        maxSequencingTime = clock.now.add(timeout.duration),
+        callback = fut,
+        // return callback, as we might have to wait a bit for the domain to respond, hence risking a shutdown issue
+      ).map { _ => fut.future }
+    }
+  }
+
+}
+
 class DomainTopologyService(
     domainId: DomainId,
-    send: (
-        TraceContext,
-        OpenEnvelope[ProtocolMessage],
-    ) => EitherT[Future, SendAsyncClientError, Unit],
+    sender: SequencerBasedRegisterTopologyTransactionHandle.Sender,
     protocolVersion: ProtocolVersion,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -138,25 +178,40 @@ class DomainTopologyService(
   def registerTopologyTransaction(
       request: Request
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Result] = {
+
     val responseF = getResponse(request)
-    for {
-      _ <- performUnlessClosingF(functionFullName)(
-        EitherTUtil.toFuture(mapErr(sendRequest(request)))
+    val ret = for {
+      sendResultFU <- performUnlessClosingEitherU(functionFullName)(
+        sendRequest(request)
       )
-      response <- responseF
+      _ <- EitherT(
+        sendResultFU
+          .map {
+            case SendResult.Success(_) =>
+              Right(())
+            case failed: SendResult.NotSequenced =>
+              Left(SendAsyncClientError.RequestFailed(failed.toString): SendAsyncClientError)
+          }
+      )
+      response <- EitherT.right[SendAsyncClientError](responseF)
     } yield response
+    val tmp = ret.leftMap { err =>
+      // clean up on left
+      responsePromiseMap.remove(requestToIndex(request)).discard
+      Status.ABORTED.withDescription(err.toString).asRuntimeException()
+    }
+    EitherTUtil.toFutureUnlessShutdown(tmp)
   }
 
   private def sendRequest(
       request: Request
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, SendAsyncClientError, FutureUnlessShutdown[SendResult]] = {
     logger.debug(s"Sending register topology transaction request ${request}")
-    EitherTUtil.logOnError(
-      send(
-        traceContext,
-        OpenEnvelope(request, recipients)(protocolVersion),
-      ),
-      s"Failed sending register topology transaction request ${request}",
+    sender.send(
+      OpenEnvelope(request, recipients)(protocolVersion),
+      timeouts.topologyDispatching.toInternal,
     )
   }
 
