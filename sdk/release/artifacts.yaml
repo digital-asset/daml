@@ -167,5 +167,3 @@
   type: jar-scala
 - target: //canton:daml-common-staging_daml-tls
   type: jar-scala
-
-

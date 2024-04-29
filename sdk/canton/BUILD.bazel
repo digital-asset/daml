@@ -219,7 +219,7 @@ scala_library(
     ],
 )
 
-scala_library(
+da_scala_library(
     name = "daml-common-staging_daml-tls",
     srcs = glob(["daml-common-staging/daml-tls/src/main/scala/**/*.scala"]),
     scalacopts = [
