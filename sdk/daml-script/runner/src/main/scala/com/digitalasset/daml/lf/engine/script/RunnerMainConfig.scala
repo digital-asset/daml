@@ -7,7 +7,7 @@ import java.nio.file.{Path, Paths}
 import java.io.File
 
 import com.daml.lf.data.Ref
-import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
+import com.daml.tls.{TlsConfiguration, TlsConfigurationCli}
 
 case class RunnerMainConfig(
     darPath: File,

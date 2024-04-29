@@ -204,6 +204,7 @@ da_scala_library(
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:community_base",
         "//canton:community_ledger_ledger-common",
+        "//canton:daml-common-staging_daml-tls",
         "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",

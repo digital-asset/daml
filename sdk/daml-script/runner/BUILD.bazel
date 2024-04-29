@@ -61,6 +61,7 @@ da_scala_library(
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-logging",
         "//canton:daml-common-staging_daml-errors",
+        "//canton:daml-common-staging_daml-tls",
         "//canton:ledger_api_proto_scala",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
