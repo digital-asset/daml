@@ -11,7 +11,7 @@ load(
     "lf_scalacopts",
     "lf_scalacopts_stricter",
 )
-load("@os_info//:os_info.bzl", "is_windows", "is_intel")
+load("@os_info//:os_info.bzl", "is_intel", "is_windows")
 
 da_scala_library(
     name = "validation",
