@@ -24,7 +24,6 @@ import scala.util.{Success, Failure}
 import org.scalatest.Inspectors.forEvery
 import scala.util.Using
 
-/*
 class UpgradesSpecAdminAPIWithoutValidation
     extends UpgradesSpecAdminAPI("Admin API without validation")
     with ShortTests {
@@ -52,7 +51,6 @@ class UpgradesSpecLedgerAPIDryRun
 class UpgradesSpecAdminAPIWithValidation
     extends UpgradesSpecAdminAPI("Admin API with validation")
     with LongTests
- */
 
 class UpgradesSpecLedgerAPIWithValidation
     extends UpgradesSpecLedgerAPI("Ledger API with validation")
