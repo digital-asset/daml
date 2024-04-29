@@ -572,7 +572,7 @@ trait LongTests { this: UpgradesSpec =>
           assertPackageUpgradeCheck(
             Some(
               "Implementation of interface .*:Dep:I by template T appears in package that is being upgraded, but does not appear in this package."
-            ),
+            )
           ),
         )
       } yield result
@@ -632,7 +632,7 @@ abstract class UpgradesSpec(val suffix: String)
   ): Future[(PackageId, Option[Throwable])]
 
   def assertPackageUpgradeCheckSecondOnly(
-      failureMessage: Option[String],
+      failureMessage: Option[String]
   )(
       v1: (PackageId, Option[Throwable]),
       v2: (PackageId, Option[Throwable]),
@@ -646,7 +646,7 @@ abstract class UpgradesSpec(val suffix: String)
     assertPackageUpgradeCheckGeneral(failureMessage)(v1, v2, true)(cantonLogSrc)
 
   def assertPackageUpgradeCheckGeneral(
-      failureMessage: Option[String],
+      failureMessage: Option[String]
   )(
       v1: (PackageId, Option[Throwable]),
       v2: (PackageId, Option[Throwable]),
