@@ -30,6 +30,7 @@ import DA.Daml.UtilLF (sourceLocToRange)
 -- | Type checking context for error reporting purposes.
 data Context
   = ContextNone
+  | ContextDefModule !Module
   | ContextDefTypeSyn !Module !DefTypeSyn
   | ContextDefDataType !Module !DefDataType
   | ContextTemplate !Module !Template !TemplatePart
@@ -203,6 +204,7 @@ data UpgradedRecordOrigin
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
   ContextNone                -> Nothing
+  ContextDefModule _         -> Nothing
   ContextDefTypeSyn _ s      -> synLocation s
   ContextDefDataType _ d     -> dataLocation d
   ContextTemplate _ t tp     -> templateLocation t tp <|> tplLocation t -- Fallback to template header location if other locations are missing
@@ -243,6 +245,8 @@ errorLocation = \case
 instance Show Context where
   show = \case
     ContextNone -> "<none>"
+    ContextDefModule m ->
+      "module " <> show (moduleName m)
     ContextDefTypeSyn m ts ->
       "type synonym " <> show (moduleName m) <> "." <> show (synName ts)
     ContextDefDataType m dt ->
@@ -604,6 +608,8 @@ instance Pretty Context where
   pPrint = \case
     ContextNone ->
       string "<none>"
+    ContextDefModule m ->
+      hsep [ "module" , pretty (moduleName m) ]
     ContextDefTypeSyn m ts ->
       hsep [ "type synonym", pretty (moduleName m) <> "." <>  pretty (synName ts) ]
     ContextDefDataType m dt ->
@@ -671,7 +677,12 @@ instance Pretty Warning where
     WTemplateChangedKeyExpression template -> "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
     WTemplateChangedKeyMaintainers template -> "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
     WCouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
-    WShouldDefineIfacesAndTemplatesSeparately -> "This package defines both interfaces and templates separately. This is not recommended - templates are upgradeable, but interfaces are not, which means that this version of the package can never be unvetted."
+    WShouldDefineIfacesAndTemplatesSeparately ->
+      vsep
+        [ "This package defines both interfaces and templates."
+        , "This is not recommended - templates are upgradeable, but interfaces are not, which means that this version of the package and its templates can never be uninstalled."
+        , "It is recommended that interfaces are defined in their own package separate from their implementations."
+        ]
     WShouldDefineIfaceWithoutImplementation iface implementingTemplates ->
       vsep $ concat
         [ [ "The interface " <> pPrint iface <> " was defined in this package and implemented in this package by the following templates:" ]

@@ -1017,7 +1017,7 @@ tests damlc =
               ]
         , test
               "Warns when an interface and a template are defined in the same package."
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking interface MyLib.I :\n  The interface I was defined in this package and implemented in this package by the following templates:\n  \n  'T'\n  \n  However, it is recommended that interfaces are defined in their own package separate from their implementations.")
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking module MyLib:\n  This package defines both interfaces and templates.\n  \n  This is not recommended - templates are upgradeable, but interfaces are not, which means that this version of the package and its templates can never be uninstalled.\n  \n  It is recommended that interfaces are defined in their own package separate from their implementations.")
               LF.versionDefault
               NoDependencies
               [ ( "daml/MyLib.daml"
@@ -1037,9 +1037,6 @@ tests damlc =
                       , "    p: Party"
                       , "  where"
                       , "    signatory p"
-                      , "    interface instance I for T where"
-                      , "      view = IView \"hi\""
-                      , "      method1 = 2"
                       ]
                 )
               ]

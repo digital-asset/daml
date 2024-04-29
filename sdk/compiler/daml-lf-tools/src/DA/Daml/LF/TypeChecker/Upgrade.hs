@@ -278,11 +278,15 @@ checkContinuedIfaces module_ ifaces =
 -- This warning should run even when no upgrade target is set
 checkNewInterfacesHaveNoTemplates :: LF.Package -> TcM ()
 checkNewInterfacesHaveNoTemplates presentPkg =
-    let templateDefined = not $ all (NM.null . moduleTemplates) (packageModules presentPkg)
-        interfaceDefined = not $ all (NM.null . moduleInterfaces) (packageModules presentPkg)
+    let modules = NM.toHashMap $ packageModules presentPkg
+        templateDefined = HMS.filter (not . NM.null . moduleTemplates) modules
+        interfaceDefined = HMS.filter (not . NM.null . moduleInterfaces) modules
+        templateAndInterfaceDefined =
+            HMS.intersectionWith (,) templateDefined interfaceDefined
     in
-    when (templateDefined && interfaceDefined) $
-        warnWithContext WShouldDefineIfacesAndTemplatesSeparately
+    forM_ (HMS.toList templateAndInterfaceDefined) $ \(_, (module_, _)) ->
+        withContext (ContextDefModule module_) $
+            warnWithContext WShouldDefineIfacesAndTemplatesSeparately
 
 -- This warning should run even when no upgrade target is set
 checkNewInterfacesAreUnused :: LF.Package -> TcM ()
