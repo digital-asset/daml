@@ -163,6 +163,7 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec {
         sequencerTrustThreshold = PositiveInt.tryCreate(2),
         SubmissionRequestAmplification.NoAmplification,
         SequencerConnectionValidation.All,
+        None,
       )(mapArgs(args))
     }
 

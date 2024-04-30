@@ -8,17 +8,11 @@ import cats.data.EitherT
 import cats.instances.future.*
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.*
-import com.digitalasset.canton.crypto.{
-  Crypto,
-  CryptoHandshakeValidator,
-  DomainSyncCryptoClient,
-  Fingerprint,
-}
+import com.digitalasset.canton.crypto.{Crypto, CryptoHandshakeValidator, DomainSyncCryptoClient}
 import com.digitalasset.canton.domain.Domain
 import com.digitalasset.canton.domain.mediator.admin.gprc.{
   InitializeMediatorRequest,
@@ -50,13 +44,7 @@ import com.digitalasset.canton.sequencing.client.{
   SequencerClientConfig,
   SequencerClientFactory,
 }
-import com.digitalasset.canton.store.{
-  IndexedDomain,
-  IndexedStringStore,
-  SendTrackerStore,
-  SequencedEventStore,
-  SequencerCounterTrackerStore,
-}
+import com.digitalasset.canton.store.*
 import com.digitalasset.canton.time.{Clock, HasUptime}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
@@ -262,29 +250,26 @@ class MediatorNodeBootstrap(
         )
         EitherT.pure(InitializeMediatorResponse())
       } else {
-        val configToStore = MediatorDomainConfiguration(
-          Fingerprint.tryCreate(
-            "unused"
-          ), // x-nodes do not need to return the initial key
-          request.domainId,
-          request.domainParameters,
-          request.sequencerConnections,
-        )
-        val sequencerInfoLoader = createSequencerInfoLoader(configToStore)
-        lazy val validatedET = sequencerInfoLoader.validateSequencerConnection(
-          DomainAlias.tryCreate("domain"),
-          Some(request.domainId),
-          configToStore.sequencerConnections,
-          request.sequencerConnectionValidation,
-        )
+        val domainAlias = DomainAlias.tryCreate("domain")
+        val sequencerInfoLoader = createSequencerInfoLoader()
         completeWithExternal {
           logger.info(
             s"Assigning mediator to ${request.domainId} via sequencers ${request.sequencerConnections}"
           )
           for {
-            _ <- validatedET.leftMap { errors =>
-              s"Invalid sequencer connections provided for initialisation: $errors"
-            }
+            sequencerAggregatedInfo <- sequencerInfoLoader
+              .loadAndAggregateSequencerEndpoints(
+                domainAlias,
+                Some(request.domainId),
+                request.sequencerConnections,
+                request.sequencerConnectionValidation,
+              )
+              .leftMap(error => s"Error loading sequencer endpoint information: $error")
+            configToStore = MediatorDomainConfiguration(
+              request.domainId,
+              sequencerAggregatedInfo.staticDomainParameters,
+              request.sequencerConnections,
+            )
             _ <-
               domainConfigurationStore
                 .saveConfiguration(configToStore)
@@ -427,15 +412,16 @@ class MediatorNodeBootstrap(
     }
   }
 
-  private def createSequencerInfoLoader(config: MediatorDomainConfiguration) =
+  private def createSequencerInfoLoader() = {
     new SequencerInfoLoader(
       timeouts = timeouts,
       traceContextPropagation = parameters.tracing.propagation,
-      clientProtocolVersions = NonEmpty.mk(Seq, config.domainParameters.protocolVersion),
-      minimumProtocolVersion = Some(config.domainParameters.protocolVersion),
+      clientProtocolVersions = ProtocolVersion.supported,
+      minimumProtocolVersion = Some(ProtocolVersion.minimum),
       dontWarnOnDeprecatedPV = parameterConfig.dontWarnOnDeprecatedPV,
       loggerFactory = loggerFactory,
     )
+  }
 
   private def mkMediatorRuntime(
       mediatorId: MediatorId,
@@ -453,7 +439,7 @@ class MediatorNodeBootstrap(
     val domainId = domainConfig.domainId
     val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
     val domainAlias = DomainAlias(domainConfig.domainId.uid.toLengthLimitedString)
-    val sequencerInfoLoader = createSequencerInfoLoader(domainConfig)
+    val sequencerInfoLoader = createSequencerInfoLoader()
     def getSequencerConnectionFromStore = fetchConfig()
       .map(_.map(_.sequencerConnections))
 
@@ -539,6 +525,7 @@ class MediatorNodeBootstrap(
           sequencerClientFactory,
           sequencerInfoLoader,
           domainAlias,
+          domainId,
         )
       // we wait here until the sequencer becomes active. this allows to reconfigure the
       // sequencer client address

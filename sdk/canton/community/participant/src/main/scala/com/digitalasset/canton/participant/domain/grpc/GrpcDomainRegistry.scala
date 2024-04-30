@@ -125,6 +125,7 @@ class GrpcDomainRegistry(
       info <- sequencerInfoLoader
         .loadAndAggregateSequencerEndpoints(
           config.domain,
+          config.domainId,
           sequencerConnections,
           SequencerConnectionValidation.Active, // only validate active sequencers (not all endpoints)
         )(

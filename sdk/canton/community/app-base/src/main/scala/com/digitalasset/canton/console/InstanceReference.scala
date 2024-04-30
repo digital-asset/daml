@@ -843,7 +843,6 @@ abstract class SequencerNodeReference(
       ): Unit = {
 
         val domainId = domain_id
-        val staticDomainParameters = domain_parameters.static.get()
 
         val mediators = active ++ observers
 
@@ -866,7 +865,6 @@ abstract class SequencerNodeReference(
         mediators.foreach(
           _.setup.assign(
             domainId,
-            staticDomainParameters,
             SequencerConnections.single(sequencerConnection),
           )
         )
@@ -885,8 +883,6 @@ abstract class SequencerNodeReference(
           additionalActive: Seq[MediatorReference],
           additionalObservers: Seq[MediatorReference] = Nil,
       ): Unit = {
-
-        val staticDomainParameters = domain_parameters.static.get()
         val domainId = domain_id
 
         val currentMediators = topology.mediators
@@ -920,7 +916,6 @@ abstract class SequencerNodeReference(
         newMediators.foreach(
           _.setup.assign(
             domainId,
-            staticDomainParameters,
             SequencerConnections.single(sequencerConnection),
           )
         )
