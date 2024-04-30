@@ -51,6 +51,7 @@ object Lexer extends RegexParsers {
   final case object COMMANDS extends Token
   final case object ACT_AS extends Token
   final case object DISCLOSURES extends Token
+  final case object PKG extends Token
 
   override def skipWhitespace = true
   override val whiteSpace: Regex = "[ \t\r\f]+".r
@@ -89,6 +90,7 @@ object Lexer extends RegexParsers {
   private def commands: Parser[Token] = "Commands" ^^^ COMMANDS
   private def actAs: Parser[Token] = "actAs" ^^^ ACT_AS
   private def disclosures: Parser[Token] = "disclosures" ^^^ DISCLOSURES
+  private def pkg: Parser[Token] = "pkg" ^^^ PKG
 
   private def processIndentation(tokens: List[Token], indents: List[Int]): List[Token] = {
     tokens match {
@@ -115,7 +117,7 @@ object Lexer extends RegexParsers {
         | fetchByKey | fetch | rollback | createWithKey | create | lookupByKey
         | exerciseByKey | exercise | success | failure | consuming
         | nonConsuming | key | ctl | cobs | sigs | obs | scenario | topology
-        | ledger | commands | actAs | disclosures
+        | ledger | commands | actAs | disclosures | pkg
     )
   ) ^^ { tokens => processIndentation(tokens, List(0)) }
 
@@ -157,6 +159,8 @@ object Parser extends Parsers {
 
   def participantId: Parser[ParticipantId] = accept("participant ID", { case NAT(n) => n })
 
+  def packageId: Parser[PackageId] = accept("package ID", { case NAT(n) => n })
+
   def keyId: Parser[KeyId] = accept("key ID", { case NAT(n) => n })
 
   def partySet: Parser[PartySet] = for {
@@ -173,6 +177,12 @@ object Parser extends Parsers {
     _ <- accept(PAREN_CLOSE)
   } yield (keyId, maintainers)
 
+  def maybePkgKeyVal: Parser[Option[PackageId]] = opt(for {
+    _ <- accept(PKG)
+    _ <- accept(EQUAL).commit
+    pkgId <- packageId.commit
+  } yield pkgId)
+
   def participant: Parser[Participant] = for {
     _ <- accept(BIG_PARTICIPANT)
     id <- participantId.commit
@@ -181,11 +191,12 @@ object Parser extends Parsers {
     parties <- partySet.commit
   } yield Participant(id, parties)
 
-  def createWithKey: Parser[CreateWithKey] = for {
+  def createWithKey: Parser[(CreateWithKey, Option[PackageId])] = for {
     _ <- accept(CREATE_WITH_KEY)
     cid <- contractId.commit
     _ <- accept(KEY).commit
     _ <- accept(EQUAL).commit
+    pkgId <- maybePkgKeyVal.commit
     key <- key.commit
     _ <- accept(SIGS).commit
     _ <- accept(EQUAL).commit
@@ -195,41 +206,44 @@ object Parser extends Parsers {
     obs <- partySet.commit
   } yield {
     val (keyId, maintainers) = key
-    CreateWithKey(cid, keyId, maintainers, sigs, obs)
+    (CreateWithKey(cid, keyId, maintainers, sigs, obs), pkgId)
   }
 
-  def create: Parser[Create] = for {
+  def create: Parser[(Create, Option[PackageId])] = for {
     _ <- accept(CREATE)
     cid <- contractId.commit
+    pkgId <- maybePkgKeyVal.commit
     _ <- accept(SIGS).commit
     _ <- accept(EQUAL).commit
     sigs <- partySet.commit
     _ <- accept(OBS).commit
     _ <- accept(EQUAL).commit
     obs <- partySet.commit
-  } yield Create(cid, sigs, obs)
+  } yield (Create(cid, sigs, obs), pkgId)
 
-  def lookupByKey(keys: Keys): Parser[LookupByKey] = for {
+  def lookupByKey(keys: Keys): Parser[(LookupByKey, Option[PackageId])] = for {
     _ <- accept(LOOKUP_BY_KEY)
     res <- lookupByKeySuccess(keys) | lookupByKeyFailure
   } yield res
 
-  def lookupByKeySuccess(keys: Keys): Parser[LookupByKey] = for {
+  def lookupByKeySuccess(keys: Keys): Parser[(LookupByKey, Option[PackageId])] = for {
     _ <- accept(SUCCESS)
     cid <- contractId.commit
+    pkgId <- maybePkgKeyVal.commit
   } yield {
     val (keyId, maintainers) = keys(cid)
-    LookupByKey(Some(cid), keyId, maintainers)
+    (LookupByKey(Some(cid), keyId, maintainers), pkgId)
   }
 
-  def lookupByKeyFailure: Parser[LookupByKey] = for {
+  def lookupByKeyFailure: Parser[(LookupByKey, Option[PackageId])] = for {
     _ <- accept(FAILURE)
+    pkgId <- maybePkgKeyVal.commit
     _ <- accept(KEY).commit
     _ <- accept(EQUAL).commit
     key <- key.commit
   } yield {
     val (keyId, maintainers) = key
-    LookupByKey(None, keyId, maintainers)
+    (LookupByKey(None, keyId, maintainers), pkgId)
   }
 
   def exerciseKind: Parser[ExerciseKind] =
@@ -247,10 +261,11 @@ object Parser extends Parsers {
     nonEmpty | empty
   }
 
-  def exercise(keys: Keys): Parser[(Exercise, Keys)] = for {
+  def exercise(keys: Keys): Parser[(Exercise, Option[PackageId], Keys)] = for {
     _ <- accept(EXERCISE)
     kind <- exerciseKind.commit
-    id <- contractId.commit
+    cid <- contractId.commit
+    pkgId <- maybePkgKeyVal.commit
     _ <- accept(CTL).commit
     _ <- accept(EQUAL).commit
     ctl <- partySet.commit
@@ -261,15 +276,17 @@ object Parser extends Parsers {
   } yield {
     val (subTransaction, keys) = subTransactionAndKeys
     (
-      Exercise(kind, id, ctl, cobs, subTransaction),
+      Exercise(kind, cid, ctl, cobs, subTransaction),
+      pkgId,
       keys,
     )
   }
 
-  def exerciseByKey(keys: Keys): Parser[(ExerciseByKey, Keys)] = for {
+  def exerciseByKey(keys: Keys): Parser[(ExerciseByKey, Option[PackageId], Keys)] = for {
     _ <- accept(EXERCISE_BY_KEY)
     kind <- exerciseKind.commit
     cid <- contractId.commit
+    pkgId <- maybePkgKeyVal.commit
     _ <- accept(CTL).commit
     _ <- accept(EQUAL).commit
     ctl <- partySet.commit
@@ -282,21 +299,24 @@ object Parser extends Parsers {
     val (keyId, maintainers) = keys(cid)
     (
       ExerciseByKey(kind, cid, keyId, maintainers, ctl, cobs, subTransaction),
+      pkgId,
       keys,
     )
   }
 
-  def fetch: Parser[Fetch] = for {
+  def fetch: Parser[(Fetch, Option[PackageId])] = for {
     _ <- accept(FETCH)
     cid <- contractId.commit
-  } yield Fetch(cid)
+    pkgId <- maybePkgKeyVal.commit
+  } yield (Fetch(cid), pkgId)
 
-  def fetchByKey(keys: Keys): Parser[FetchByKey] = for {
+  def fetchByKey(keys: Keys): Parser[(FetchByKey, Option[PackageId])] = for {
     _ <- accept(FETCH_BY_KEY)
     cid <- contractId.commit
+    pkgId <- maybePkgKeyVal.commit
   } yield {
     val (keyId, maintainers) = keys(cid)
-    FetchByKey(cid, keyId, maintainers)
+    (FetchByKey(cid, keyId, maintainers), pkgId)
   }
 
   def rollback(keys: Keys): Parser[(Rollback, Keys)] = for {
@@ -307,15 +327,23 @@ object Parser extends Parsers {
     (Rollback(subTransaction), keys)
   }
 
-  def action(keys: Keys): Parser[(Action, Keys)] =
-    (createWithKey.map(cwk => (cwk, keys + (cwk.contractId -> (cwk.keyId, cwk.maintainers))))
-      | create.map(_ -> keys)
+  def action(keys: Keys): Parser[(Action, Option[PackageId], Keys)] =
+    (createWithKey.map { case (cwk, pkgId) =>
+      (cwk, pkgId, keys + (cwk.contractId -> (cwk.keyId, cwk.maintainers)))
+    }
+      | create.map { case (cr, pkgId) => (cr, pkgId, keys) }
       | exercise(keys)
       | exerciseByKey(keys)
-      | fetch.map(_ -> keys)
-      | fetchByKey(keys).map(_ -> keys)
-      | rollback(keys)
-      | lookupByKey(keys).map(_ -> keys))
+      | fetch.map { case (fe, pkgId) => (fe, pkgId, keys) }
+      | fetchByKey(keys).map { case (fe, pkgId) => (fe, pkgId, keys) }
+      | rollback(keys).map { case (rb, keys) => (rb, Option.empty[PackageId], keys) }
+      | lookupByKey(keys).map { case (lbk, pkgId) => (lbk, pkgId, keys) })
+
+  def nestedAction(keys: Keys): Parser[(Action, Keys)] =
+    action(keys).flatMap {
+      case (action, None, keys) => success((action, keys))
+      case (_, Some(_), _) => failure("nested action cannot have a package ID")
+    }
 
   def sequence[A](parser: Keys => Parser[(A, Keys)], keys: Keys): Parser[(List[A], Keys)] =
     opt(parser(keys)).flatMap {
@@ -328,7 +356,12 @@ object Parser extends Parsers {
     }
 
   def transaction(keys: Keys): Parser[(List[Action], Keys)] =
-    sequence(action, keys)
+    sequence(nestedAction, keys)
+
+  def command(keys: Keys): Parser[(Command, Keys)] =
+    action(keys).map { case (action, pkgId, keys) =>
+      (Command(pkgId, action), keys)
+    }
 
   def commands(keys: Keys): Parser[(Commands, Keys)] = for {
     _ <- accept(COMMANDS)
@@ -342,11 +375,11 @@ object Parser extends Parsers {
     _ <- accept(EQUAL).commit
     disclosures <- partySet.commit
     _ <- accept(INDENT).commit
-    transactionAndKeys <- transaction(keys).commit
+    commandListAndKeys <- sequence(command, keys).commit
     _ <- accept(DEDENT).commit
   } yield {
-    val (transaction, keys1) = transactionAndKeys
-    (Commands(participant, actAs, disclosures, transaction), keys1)
+    val (commandList, keys1) = commandListAndKeys
+    (Commands(participant, actAs, disclosures, commandList), keys1)
   }
 
   def ledger(keys: Keys): Parser[(Ledger, Keys)] = for {

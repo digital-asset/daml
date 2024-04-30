@@ -13,7 +13,6 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 import org.scalacheck.{Gen, Prop}
 
-import scala.annotation.nowarn
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
 
@@ -23,6 +22,7 @@ object Demo {
   private val alsoRunOnCanton = true
   private val numParticipants = 3
   private val numParties = 5
+  private val numPackages = 3
 
   private val universalDarPaths: List[String] = for {
     pkgVersion <- List(1, 2, 3)
@@ -48,20 +48,20 @@ object Demo {
 
     def randomScenarios: LazyList[Ledgers.Scenario] = LazyList.continually {
       Gen
-        .resize(5, new Generators(numParticipants, numParties).scenarioGen)
+        .resize(5, new Generators(numParticipants, numPackages, numParties).scenarioGen)
         .sample
     }.flatten
     val _ = randomScenarios
 
     def validSymScenarios: LazyList[Ledgers.Scenario] = LazyList.continually {
       val skeleton = scenarios(randomBigIntLessThan(scenarios.cardinal))
-      SymbolicSolver.solve(skeleton, numParties)
+      SymbolicSolver.solve(skeleton, numPackages, numParties)
     }.flatten
     val _ = validSymScenarios
 
     def validScenarios: LazyList[Ledgers.Scenario] = LazyList.continually {
       val randomSkeleton = scenarios(randomBigIntLessThan(scenarios.cardinal))
-      new LedgerFixer(numParties).fixScenario(randomSkeleton).sample
+      new LedgerFixer(numPackages, numParties).fixScenario(randomSkeleton).sample
     }.flatten
     val _ = validScenarios
 
@@ -85,21 +85,20 @@ object Demo {
 
     // val workers = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(1))
 
-    @nowarn("cat=unused")
+    // @nowarn("cat=unused")
     val bad = Parser.parseScenario("""
         |Scenario
         |  Topology
-        |    Participant 1 parties={3}
-        |    Participant 2 parties={3}
+        |    Participant 0 parties={1}
+        |    Participant 1 parties={1}
+        |    Participant 2 parties={1}
         |  Ledger
-        |    Commands participant=1 actAs={3} disclosures={}
-        |      Create 1 sigs={3} obs={}
-        |    Commands participant=2 actAs={3} disclosures={}
-        |      Exercise Consuming 1 ctl={3} cobs={}
+        |    Commands participant=0 actAs={1} disclosures={}
+        |      Create 0 pkg=1 sigs={1} obs={}
         |""".stripMargin)
 
     validSymScenarios
-      // List(bad)
+    List(bad)
       .foreach(scenario => {
         // workers.execute(() =>
         if (scenario.ledger.nonEmpty) {

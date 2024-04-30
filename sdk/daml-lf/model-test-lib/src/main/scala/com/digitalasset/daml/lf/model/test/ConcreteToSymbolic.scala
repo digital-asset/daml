@@ -24,8 +24,11 @@ object ConcreteToSymbolic {
         ctx.mkInt(commands.participantId),
         toSymbolic(commands.actAs),
         toSymbolic(commands.disclosures),
-        commands.actions.map(toSymbolic),
+        commands.commands.map(toSymbolic),
       )
+
+    private def toSymbolic(command: Conc.Command): Sym.Command =
+      Sym.Command(command.packageId.map(ctx.mkInt), toSymbolic(command.action))
 
     private def toSymbolic(kind: Conc.ExerciseKind): Sym.ExerciseKind = {
       kind match {

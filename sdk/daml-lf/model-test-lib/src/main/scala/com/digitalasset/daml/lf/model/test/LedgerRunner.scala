@@ -104,8 +104,8 @@ private abstract class AbstractLedgerRunner(
     darPath <- universalDarPaths
   } yield UniversalArchiveDecoder.assertReadFile(new File(darPath))
 
-  protected val universalTemplatePkgId: Ref.PackageId =
-    universalTemplateDars.head.main._1
+  protected val universalTemplatePkgIds: Seq[Ref.PackageId] =
+    universalTemplateDars.map(_.main._1)
 
   protected val compiledPkgs: PureCompiledPackages =
     PureCompiledPackages.assertBuild(
@@ -117,7 +117,7 @@ private abstract class AbstractLedgerRunner(
     )
 
   private lazy val interpreter =
-    new Interpreter(universalTemplatePkgId, ledgerClients, replicateParties)
+    new Interpreter(universalTemplatePkgIds, ledgerClients, replicateParties)
 
   // partial implementation of the parent trait
 
