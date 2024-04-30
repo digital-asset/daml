@@ -5,22 +5,22 @@
 sdk_versions = [
     "2.3.19",
     "2.7.9",
-    "2.8.4",
+    "2.8.5",
     "0.0.0",
 ]
 platform_versions = [
     "2.3.19",
     "2.7.9",
-    "2.8.4",
+    "2.8.5",
     "0.0.0",
 ]
 stable_versions = [
     "2.3.19",
     "2.7.9",
-    "2.8.4",
+    "2.8.5",
     "0.0.0",
 ]
-latest_stable_version = "2.8.4"
+latest_stable_version = "2.8.5"
 version_sha256s = {
     "2.3.19": {
         "linux": "d97ebe77b18b2c8d34e7d49e908a116c6768603804c3fc2cb0a3bc390b2dd257",
@@ -42,14 +42,14 @@ version_sha256s = {
         "daml_react": "e41b6d7e1e6290399cedfb1731b0317d72e1db90f4ac488a95a766148e99e4cf",
         "create_daml_app_patch": "57b76fb4ed7c3bf6bc900dc70965b51434a22a30aa4229d46684a35e300bfe81",
     },
-    "2.8.4": {
-        "linux": "d18feb6573adef85cfaf51e886bf0dec77945aa03fe31317fe1b0de36e00817f",
-        "macos": "1227c65967bc8eaf048a3bb7c8cc49c13ce48af0f8114dfbf24a0b402f392f76",
-        "windows": "30fad8eb7372a837d3ba2961dfa49a0a7c1899d3052754d242508ea0dc085fea",
-        "test_tool": "3dbbbfb664f6006f77a5b057de39b707817527972cb1a098e1fd0869db3dd4b4",
-        "daml_types": "37d6dc1d06f1002ebd9950aea4dfcb5af6a017d5767d067d41e7a92e46b4ecf2",
-        "daml_ledger": "dea76f11f2bfbf38f8ead69008ffafad88393ca990fc9cd319a647749c641487",
-        "daml_react": "a03735b2c7759ca77ee1b8c32008db5b22c2be25702294e4ba890ced9fea5476",
+    "2.8.5": {
+        "linux": "5439b8d132605054051f733be6d79adcc842b58c00cd5e4708978ab6c28238b9",
+        "macos": "38cc4f93b9cacfbc5866f491d4c77531beb1a487cefe90e15fc75f9467c3bef2",
+        "windows": "67ac139280c60485e952379fb2a0610baf32226722757eb7fe1714e9b1803eba",
+        "test_tool": "1af11ddc39e0f86ec35e8484707eba3e66178e6b2559ee044137245e3f4e8b73",
+        "daml_types": "5b9c14fc62f450a1ac0e13b136adeb3d80718cf53af378fdc117b318afcbc983",
+        "daml_ledger": "d6d156827735112415781c6ab0a9fdfb3bfa664324ca6ef9df5089ad599e01ce",
+        "daml_react": "c2948af3f7eb907afd02a6018d5f7ad5090dc04836b3dad068f52de186a9a893",
         "create_daml_app_patch": "57b76fb4ed7c3bf6bc900dc70965b51434a22a30aa4229d46684a35e300bfe81",
     },
 }
