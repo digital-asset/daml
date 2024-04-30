@@ -13,15 +13,13 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
+class MultiUpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
 
   final override protected lazy val nParticipants = 2
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
   override val disableUpgradeValidation = true
 
   final override protected lazy val devMode = true
-
-  override val majorLanguageVersion: LanguageMajorVersion = LanguageMajorVersion.V1
 
   lazy val testDarPath: Path = rlocation(
     Paths.get(s"daml-script/test/upgrades-test.dar")

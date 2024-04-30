@@ -8,7 +8,6 @@ import com.daml.ledger.api.domain
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.integrationtest._
-import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.value.Value
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -16,22 +15,10 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-class AuthITV1 extends AuthIT(LanguageMajorVersion.V1)
-
-// TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
-//  at the bazel target level.
-//class AuthITV2 extends AuthIT(LanguageMajorVersion.V2)
-
-class AuthIT(override val majorLanguageVersion: LanguageMajorVersion)
-    extends AsyncWordSpec
-    with AbstractScriptTest
-    with Matchers {
+class AuthIT extends AsyncWordSpec with AbstractScriptTest with Matchers {
 
   final override protected lazy val authSecret = Some("secret")
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
-
-  // TODO(#17366): Delete once 2.0 is introduced and Canton supports LF v2 in non-dev mode.
-  final override protected lazy val devMode = (majorLanguageVersion == LanguageMajorVersion.V2)
 
   "Daml Script against authorized ledger" can {
     "auth" should {

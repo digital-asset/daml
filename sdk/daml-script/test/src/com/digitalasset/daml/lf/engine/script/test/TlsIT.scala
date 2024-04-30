@@ -6,26 +6,13 @@ package test
 
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.script.ScriptTimeMode
-import com.daml.lf.language.LanguageMajorVersion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-class TlsITV1 extends TlsIT(LanguageMajorVersion.V1)
-
-// TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
-//  at the bazel target level.
-//class TlsITV2 extends TlsIT(LanguageMajorVersion.V2)
-
-class TlsIT(override val majorLanguageVersion: LanguageMajorVersion)
-    extends AsyncWordSpec
-    with AbstractScriptTest
-    with Matchers {
+class TlsIT extends AsyncWordSpec with AbstractScriptTest with Matchers {
 
   final override protected lazy val tlsEnable = true
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
-
-  // TODO(#17366): Delete once 2.0 is introduced and Canton supports LF v2 in non-dev mode.
-  final override protected lazy val devMode = (majorLanguageVersion == LanguageMajorVersion.V2)
 
   "Daml Script against ledger with TLS" can {
     "test0" should {

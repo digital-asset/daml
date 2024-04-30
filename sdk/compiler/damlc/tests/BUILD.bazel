@@ -1078,12 +1078,12 @@ da_haskell_test(
 
 da_haskell_test(
     name = "script-service-interfaces",  # TODO: dedup with script-service test setup
-    srcs = ["src/DA/Test/ScriptService_1_15.hs"],
+    srcs = ["src/DA/Test/ScriptService_1_16.hs"],
     data = [
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-script/daml:daml-script-1.15.dar",
+        "//daml-script/daml:daml-script-1.16.dar",
         ghc_pkg,
     ],
     hackage_deps = [

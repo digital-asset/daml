@@ -23,19 +23,18 @@ import scala.concurrent.{ExecutionContext, Future}
 trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
   self: Suite =>
 
-  val majorLanguageVersion: LanguageMajorVersion;
-
   def tuple(a: SValue, b: SValue) =
     SValue.SRecord(
-      id = StablePackages(majorLanguageVersion).Tuple2,
+      id = StablePackages(LanguageMajorVersion.V1).Tuple2,
       fields = ImmArray(Ref.Name.assertFromString("_1"), Ref.Name.assertFromString("_2")),
       values = ArrayList(a, b),
     )
 
   lazy val darPath: Path = rlocation(
-    Paths.get(s"daml-script/test/script-test-v${majorLanguageVersion.pretty}.dar")
+    Paths.get(s"daml-script/test/script-test.dar")
   )
-  lazy val dar: CompiledDar = CompiledDar.read(darPath, Runner.compilerConfig(majorLanguageVersion))
+  lazy val dar: CompiledDar =
+    CompiledDar.read(darPath, Runner.compilerConfig(LanguageMajorVersion.V1))
 
   protected def timeMode: ScriptTimeMode
   override protected lazy val darFiles = List(darPath)
