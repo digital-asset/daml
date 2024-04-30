@@ -92,6 +92,12 @@ template Universal
   with
     signatories : [Party]
     observers : [Party]
+#if PACKAGE_VERSION >= 2
+    v2Field: Optional ()
+#endif
+#if PACKAGE_VERSION >= 3
+    v3Field: Optional ()
+#endif
   where
     signatory signatories
     observer observers
@@ -172,6 +178,8 @@ interpretTxAction : Env -> TxAction -> Update Env
 interpretTxAction env action = 
   case action of
     (Create contractId signatories observers) -> do
+       let v2Field = None
+       let v3Field = None
        actualContractId <- create Universal {..}
        return (M.insert contractId (UniversalContractId actualContractId) env)
 #ifdef DAML_CONTRACT_KEYS

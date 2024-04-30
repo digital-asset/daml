@@ -58,7 +58,7 @@ object LedgerRunner {
 
   def forCantonLedger(
       languageVersion: LanguageVersion,
-      universalDarPath: String,
+      universalDarPaths: List[String],
       host: String,
       apiPorts: Iterable[ApiPorts],
   )(implicit
@@ -66,18 +66,18 @@ object LedgerRunner {
       esf: ExecutionSequencerFactory,
       materializer: Materializer,
   ): LedgerRunner =
-    new CantonLedgerRunner(languageVersion, universalDarPath, host, apiPorts)
+    new CantonLedgerRunner(languageVersion, universalDarPaths, host, apiPorts)
 
   def forIdeLedger(
       languageVersion: LanguageVersion,
-      universalDarPath: String,
+      universalDarPaths: List[String],
   )(implicit ec: ExecutionContext, materializer: Materializer): LedgerRunner =
-    new IdeLedgerRunner(languageVersion, universalDarPath)
+    new IdeLedgerRunner(languageVersion, universalDarPaths)
 }
 
 private abstract class AbstractLedgerRunner(
     languageVersion: LanguageVersion,
-    universalDarPath: String,
+    universalDarPaths: Seq[String],
 )(implicit
     ec: ExecutionContext,
     materializer: Materializer,
@@ -100,16 +100,16 @@ private abstract class AbstractLedgerRunner(
 
   // definitions
 
-  private val universalTemplateDar: Dar[(PackageId, Ast.Package)] =
-    UniversalArchiveDecoder
-      .assertReadFile(new File(universalDarPath))
+  private val universalTemplateDars: Seq[Dar[(PackageId, Ast.Package)]] = for {
+    darPath <- universalDarPaths
+  } yield UniversalArchiveDecoder.assertReadFile(new File(darPath))
 
   protected val universalTemplatePkgId: Ref.PackageId =
-    universalTemplateDar.main._1
+    universalTemplateDars.head.main._1
 
   protected val compiledPkgs: PureCompiledPackages =
     PureCompiledPackages.assertBuild(
-      universalTemplateDar.all.toMap,
+      universalTemplateDars.map(_.all.toMap).foldLeft(Map.empty[PackageId, Ast.Package])(_ ++ _),
       if (languageVersion.isDevVersion)
         Compiler.Config.Dev(LanguageMajorVersion.V2)
       else
@@ -145,14 +145,14 @@ private abstract class AbstractLedgerRunner(
 
 private class CantonLedgerRunner(
     languageVersion: LanguageVersion,
-    universalDarPath: String,
+    universalDarPaths: Seq[String],
     host: String,
     apiPorts: Iterable[LedgerRunner.ApiPorts],
 )(implicit
     ec: ExecutionContext,
     esf: ExecutionSequencerFactory,
     materializer: Materializer,
-) extends AbstractLedgerRunner(languageVersion, universalDarPath) {
+) extends AbstractLedgerRunner(languageVersion, universalDarPaths) {
 
   override def ledgerClients: Seq[ScriptLedgerClient] =
     Await.result(apiPorts.toSeq.traverse(makeGprcLedgerClient), Duration.Inf)
@@ -181,8 +181,12 @@ private class CantonLedgerRunner(
           NamedLoggerFactory("model.test", ""),
         )
       _ <- Future.successful(
-        grpcClient.packageManagementClient
-          .uploadDarFile(ByteString.readFrom(new FileInputStream(universalDarPath)))
+        for (darPath <- universalDarPaths) {
+          val _ = grpcClient.packageManagementClient
+            .uploadDarFile(ByteString.readFrom(new FileInputStream(darPath)))
+          // Uploading many dars to the same participant in quick succession can cause race conditions.
+          Thread.sleep(500)
+        }
       )
     } yield {
       new GrpcLedgerClient(
@@ -191,7 +195,7 @@ private class CantonLedgerRunner(
         oAdminClient = Some(
           AdminLedgerClient.singleHost(host, apiPorts.adminApiPort, None, clientChannelConfig)
         ),
-        enableContractUpgrading = false,
+        enableContractUpgrading = true,
         compiledPackages = compiledPkgs,
       )
     }
@@ -267,7 +271,7 @@ private class CantonLedgerRunner(
 
     def entryLiteral(entry: (Party, (ParticipantId, Set[ParticipantId]))): String = {
       val (party, (participantFrom, participantTo)) = entry
-      s"${partyLiteral(party)} -> (${participantLiteral(participantFrom)}, ${participantSetLiteral(participantTo)})"
+      s"${partyLiteral(party)} -> (${participantLiteral(participantFrom)} -> ${participantSetLiteral(participantTo)})"
     }
 
     val replicationsLiteral = replications.map(entryLiteral).mkString("Map(", ", ", ")")
@@ -307,10 +311,11 @@ private class CantonLedgerRunner(
     ledgerClientsForProjections.foreach(_.close())
 }
 
-private class IdeLedgerRunner(languageVersion: LanguageVersion, universalDarPath: String)(implicit
+private class IdeLedgerRunner(languageVersion: LanguageVersion, universalDarPaths: List[String])(
+    implicit
     ec: ExecutionContext,
     materializer: Materializer,
-) extends AbstractLedgerRunner(languageVersion, universalDarPath) {
+) extends AbstractLedgerRunner(languageVersion, universalDarPaths) {
 
   private val ledgerClient: IdeLedgerClient = {
     new IdeLedgerClient(
