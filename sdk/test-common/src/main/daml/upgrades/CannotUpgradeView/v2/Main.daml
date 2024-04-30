@@ -1,0 +1,10 @@
+module Main where
+import qualified "upgrades-example-CannotUpgradeView" Main as V1
+template T with
+    p: Party
+  where
+    signatory p
+    interface instance V1.I for T where
+      view = IView "hi" None
+      method1 = 2
+data IView = IView { i : Text, other : Optional Text }

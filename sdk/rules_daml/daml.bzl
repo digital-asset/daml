@@ -113,12 +113,13 @@ def _daml_build_impl(ctx):
     damlc = ctx.executable.damlc
     input_dars = [file_of_target(k) for k in dar_dict.keys()]
     output_dar = ctx.outputs.dar
+    output_stdout = ctx.outputs.stdout
     posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
     ghc_opts = ctx.attr.ghc_options
     ctx.actions.run_shell(
         tools = [damlc],
         inputs = [daml_yaml] + srcs + input_dars,
-        outputs = [output_dar],
+        outputs = [output_dar, output_stdout],
         progress_message = "Building Daml project %s" % name,
         command = """
             set -eou pipefail
@@ -131,7 +132,7 @@ def _daml_build_impl(ctx):
             {sed} -i 's/daml-script$/daml-script.dar/;s/daml3-script$/daml3-script.dar/;s/daml-trigger$/daml-trigger.dar/' $tmpdir/daml.yaml
             {cp_srcs}
             {cp_dars}
-            {damlc} build --project-root $tmpdir {ghc_opts} -o $PWD/{output_dar}
+            {damlc} build --project-root $tmpdir {ghc_opts} -o $PWD/{output_dar} 2>&1 | tee $PWD/{output_stdout}
         """.format(
             config = daml_yaml.path,
             cp_srcs = "\n".join([
@@ -152,6 +153,7 @@ def _daml_build_impl(ctx):
             sed = posix.commands["sed"],
             damlc = damlc.path,
             output_dar = output_dar.path,
+            output_stdout = output_stdout.path,
             sdk_version = sdk_version,
             ghc_opts = " ".join(ghc_opts),
         ),
@@ -178,6 +180,10 @@ _daml_build = rule(
         "dar": attr.output(
             mandatory = True,
             doc = "The generated DAR file.",
+        ),
+        "stdout": attr.output(
+            mandatory = True,
+            doc = "The standard output of the build command.",
         ),
         "ghc_options": attr.string_list(
             doc = "Options passed to GHC.",
@@ -348,6 +354,7 @@ def daml_compile(
         dar_dict =
             {dar: path_to_dar(dar) for dar in (dependencies + data_dependencies + ([upgrades] if upgrades else []))},
         dar = name + ".dar",
+        stdout = name + ".stdout",
         ghc_options =
             ghc_options +
             (["--enable-scenarios=yes"] if enable_scenarios and (target == None or _supports_scenarios(target)) else []) +

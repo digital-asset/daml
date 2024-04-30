@@ -1,0 +1,5 @@
+module Main where
+template A with
+    p : Party
+    q : Party
+  where signatory [p, q]

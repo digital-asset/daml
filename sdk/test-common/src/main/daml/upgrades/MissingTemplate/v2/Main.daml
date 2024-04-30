@@ -3,11 +3,6 @@
 
 module Main where
 
-import Daml.Script
-
-main : Script ()
-main = pure ()
-
 template T with
     p: Party
   where

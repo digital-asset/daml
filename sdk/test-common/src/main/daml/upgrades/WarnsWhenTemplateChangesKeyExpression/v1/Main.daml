@@ -1,0 +1,8 @@
+module Main where
+template A with
+    p : Party
+    q : Party
+  where
+    signatory p
+    key (p, "example") : (Party, Text)
+    maintainer (fst key)

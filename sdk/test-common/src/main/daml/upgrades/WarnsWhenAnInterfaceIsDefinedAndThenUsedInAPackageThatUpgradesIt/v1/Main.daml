@@ -1,0 +1,5 @@
+module Main where
+data IView = IView { i : Text }
+interface I where
+  viewtype IView
+  method1 : Int
