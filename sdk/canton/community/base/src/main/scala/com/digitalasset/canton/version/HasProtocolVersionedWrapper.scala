@@ -8,12 +8,13 @@ import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.ProtoDeserializationError.{OtherError, UnknownProtoVersion}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.util.BinaryFileUtil
-import com.digitalasset.canton.{DiscardOps, ProtoDeserializationError, checked}
+import com.digitalasset.canton.{ProtoDeserializationError, checked}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.{ByteString, InvalidProtocolBufferException}
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}

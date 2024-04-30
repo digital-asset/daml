@@ -7,7 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.{Applicative, Functor}
 import com.daml.metrics.api.MetricHandle.Timer
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.UnlessShutdown.Outcome
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.ErrorLoggingContext

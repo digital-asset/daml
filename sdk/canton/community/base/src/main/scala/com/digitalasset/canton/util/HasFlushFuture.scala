@@ -4,12 +4,13 @@
 package com.digitalasset.canton.util
 
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeDuration
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.SyncCloseable
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{DiscardOps, config}
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future, Promise}

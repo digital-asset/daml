@@ -20,6 +20,7 @@ import com.digitalasset.canton.crypto.{
   TestHash,
 }
 import com.digitalasset.canton.data.*
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.PrettyUtil
@@ -63,13 +64,7 @@ import com.digitalasset.canton.traffic.TrafficControlProcessor
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{
-  BaseTest,
-  DiscardOps,
-  HasExecutorService,
-  RequestCounter,
-  SequencerCounter,
-}
+import com.digitalasset.canton.{BaseTest, HasExecutorService, RequestCounter, SequencerCounter}
 import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers.eq as isEq
 import org.scalatest.Assertion

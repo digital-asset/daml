@@ -18,6 +18,7 @@ import com.digitalasset.canton.config.{
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{HashPurpose, Nonce}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationService
 import com.digitalasset.canton.domain.metrics.SequencerTestMetrics

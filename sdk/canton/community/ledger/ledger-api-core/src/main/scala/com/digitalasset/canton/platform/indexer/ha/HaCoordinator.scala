@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.indexer.ha
 
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.platform.store.backend.DBLockStorageBackend
 import com.digitalasset.canton.platform.store.backend.DBLockStorageBackend.{Lock, LockId, LockMode}

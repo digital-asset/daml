@@ -9,13 +9,14 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.PeanoQueue.{BeforeHead, InsertedValue, NotInserted}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.pretty.PrettyPrinting
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, SimpleExecutionQueue}
-import com.digitalasset.canton.{DiscardOps, SequencerCounter, SequencerCounterDiscriminator}
+import com.digitalasset.canton.{SequencerCounter, SequencerCounterDiscriminator}
 import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.atomic.AtomicReference

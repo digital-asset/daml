@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.utils
 
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}

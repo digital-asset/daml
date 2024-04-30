@@ -5,6 +5,7 @@ package com.digitalasset.canton.sequencing.client
 
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.{AsyncOrSyncCloseable, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -22,7 +23,7 @@ import com.digitalasset.canton.sequencing.{SequencerTestUtils, SerializedEventHa
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, DiscardOps, HasExecutionContext, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.{AnyWordSpec, AsyncWordSpec}
 

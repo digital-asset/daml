@@ -8,8 +8,8 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.daml.lf.data.Ref.PackageId
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.DamlPackageStore

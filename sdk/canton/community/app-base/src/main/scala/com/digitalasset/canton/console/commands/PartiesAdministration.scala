@@ -35,6 +35,7 @@ import com.digitalasset.canton.console.{
   LocalParticipantReference,
   ParticipantReference,
 }
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.ParticipantNode
 import com.digitalasset.canton.topology.*
@@ -158,7 +159,7 @@ class ParticipantPartiesAdministrationGroup(
       |""")
   def enable(
       name: String,
-      namespace: Namespace = participantId.uid.namespace,
+      namespace: Namespace = participantId.namespace,
       participants: Seq[ParticipantId] = Seq(participantId),
       threshold: PositiveInt = PositiveInt.one,
       displayName: Option[String] = None,
@@ -238,7 +239,7 @@ class ParticipantPartiesAdministrationGroup(
             .leftMap(_.getMessage)
           validDisplayName <- displayName.map(String255.create(_, Some("display name"))).sequence
           // find the domain ids
-          domainIds <- findDomainIds(this.participantId.uid.id.unwrap, primaryConnected)
+          domainIds <- findDomainIds(this.participantId.identifier.unwrap, primaryConnected)
           // find the domain ids the additional participants are connected to
           additionalSync <- synchronizeParticipants.traverse { p =>
             findDomainIds(
@@ -322,7 +323,7 @@ class ParticipantPartiesAdministrationGroup(
             ),
             groupAddressing,
           ),
-          signedBy = Seq(this.participantId.uid.namespace.fingerprint),
+          signedBy = Seq(this.participantId.fingerprint),
           serial = None,
           store = AuthorizedStore.filterName,
           mustFullyAuthorize = mustFullyAuthorize,
@@ -335,7 +336,7 @@ class ParticipantPartiesAdministrationGroup(
   def disable(name: Identifier /*, force: Boolean = false*/ ): Unit = {
     runner.topology.party_to_participant_mappings
       .propose_delta(
-        PartyId(name, runner.id.member.uid.namespace),
+        PartyId(name, runner.namespace),
         removes = List(this.participantId),
       )
       .discard

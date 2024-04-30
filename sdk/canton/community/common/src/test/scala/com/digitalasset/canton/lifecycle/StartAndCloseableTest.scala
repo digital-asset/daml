@@ -4,10 +4,11 @@
 package com.digitalasset.canton.lifecycle
 
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.StartAndCloseable.StartAfterClose
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, DiscardOps, HasExecutionContext, config}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext, config}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
 

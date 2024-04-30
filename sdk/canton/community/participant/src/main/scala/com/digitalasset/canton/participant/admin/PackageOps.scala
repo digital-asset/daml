@@ -173,7 +173,7 @@ class PackageOpsImpl(
               ),
               serial = nextSerial,
               // TODO(#12390) auto-determine signing keys
-              signingKeys = Seq(participantId.uid.namespace.fingerprint),
+              signingKeys = Seq(participantId.fingerprint),
               protocolVersion = initialProtocolVersion,
               expectFullAuthorization = true,
             )

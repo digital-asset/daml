@@ -13,6 +13,7 @@ import cats.syntax.traverse.*
 import com.daml.lf.data.Ref.PackageId
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
 import com.digitalasset.canton.participant.store.ActiveContractStore.ActivenessChangeDetail.{

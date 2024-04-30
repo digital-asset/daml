@@ -124,12 +124,6 @@ package object canton {
   /** Wrap a method call with this method to document that the caller is sure that the callee's preconditions are met. */
   def checked[A](x: => A): A = x
 
-  /** Evaluate the expression and discard the result. */
-  implicit final class DiscardOps[A](private val a: A) extends AnyVal {
-    @inline
-    def discard[B](implicit ev: A =:= B): Unit = ()
-  }
-
   implicit val lfPartyOrdering: Ordering[LfPartyId] =
     IdString.`Party order instance`.toScalaOrdering
 

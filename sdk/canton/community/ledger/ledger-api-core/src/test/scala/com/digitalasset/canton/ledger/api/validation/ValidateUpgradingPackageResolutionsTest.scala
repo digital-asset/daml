@@ -48,7 +48,7 @@ class ValidateUpgradingPackageResolutionsTest
         request = validator(Seq(p11, p12)),
         code = INVALID_ARGUMENT,
         description =
-          "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: duplicate preference for package-name pkgName1: pkgId11 vs pkgId12",
+          "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: duplicate preference for package-name pkgName1: pkgId11 vs pkgId12",
       )
     }
 
@@ -57,7 +57,7 @@ class ValidateUpgradingPackageResolutionsTest
         request = validator(Seq("not%valid^pkgId")),
         code = INVALID_ARGUMENT,
         description =
-          """INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: package_id_selection_preference parsing failed with `non expected character 0x25 in Daml-LF Package ID "not%valid^pkgId"`. The package_id_selection_preference field must contain non-empty and valid package ids""",
+          """INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: package_id_selection_preference parsing failed with `non expected character 0x25 in Daml-LF Package ID "not%valid^pkgId"`. The package_id_selection_preference field must contain non-empty and valid package ids""",
       )
     }
 
@@ -66,7 +66,7 @@ class ValidateUpgradingPackageResolutionsTest
         request = validator(Seq("nonExistingPackageId")),
         code = INVALID_ARGUMENT,
         description =
-          "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: user-specified pkg id (nonExistingPackageId) could not be found",
+          "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: user-specified pkg id (nonExistingPackageId) could not be found",
       )
     }
   }

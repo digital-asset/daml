@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.admin.api.client.commands
 
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   DefaultBoundedTimeout,
   TimeoutType,
 }
 import com.digitalasset.canton.config.NonNegativeDuration
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import io.grpc.stub.{AbstractStub, StreamObserver}
 import io.grpc.{Context, ManagedChannel, Status, StatusException, StatusRuntimeException}
 

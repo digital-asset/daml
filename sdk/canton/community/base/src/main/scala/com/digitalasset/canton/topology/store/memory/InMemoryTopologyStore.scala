@@ -8,6 +8,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.*
@@ -308,7 +309,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       idFilter match {
         case Some(value) if value.nonEmpty =>
           (entry: TopologyStoreEntry) =>
-            entry.mapping.maybeUid.exists(_.id.unwrap.startsWith(value))
+            entry.mapping.maybeUid.exists(_.identifier.unwrap.startsWith(value))
         case _ => _ => true
       }
     }
@@ -446,7 +447,8 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
   }
 
   override def findEssentialStateAtSequencedTime(
-      asOfInclusive: SequencedTime
+      asOfInclusive: SequencedTime,
+      excludeMappings: Seq[TopologyMapping.Code],
   )(implicit
       traceContext: TraceContext
   ): Future[GenericStoredTopologyTransactions] = {
@@ -456,7 +458,9 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       blocking(synchronized {
         topologyTransactionStore.toSeq
       }),
-      entry => entry.sequenced <= asOfInclusive,
+      entry =>
+        entry.sequenced <= asOfInclusive &&
+          !excludeMappings.contains(entry.mapping.code),
     ).map(
       // 2. transform the result such that the validUntil fields are set as they were at maxEffective time of the snapshot
       _.asSnapshotAtMaxEffectiveTime

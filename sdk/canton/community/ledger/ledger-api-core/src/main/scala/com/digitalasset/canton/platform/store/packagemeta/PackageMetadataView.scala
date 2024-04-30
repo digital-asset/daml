@@ -4,6 +4,7 @@
 package com.digitalasset.canton.platform.store.packagemeta
 
 import cats.implicits.catsSyntaxSemigroup
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 
 import java.util.concurrent.atomic.AtomicReference
 

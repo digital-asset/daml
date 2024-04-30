@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.time
 
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{
   FutureUnlessShutdown,
   PerformUnlessClosing,

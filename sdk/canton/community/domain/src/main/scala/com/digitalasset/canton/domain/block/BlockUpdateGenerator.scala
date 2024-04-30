@@ -22,6 +22,7 @@ import com.digitalasset.canton.crypto.{
   SyncCryptoClient,
 }
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.block.LedgerBlockEvent.*
 import com.digitalasset.canton.domain.block.data.{
   BlockEphemeralState,
@@ -1457,7 +1458,7 @@ class BlockUpdateGeneratorImpl(
         // "soon" after initial sequencer onboarding. See #13609
         events.toSeq.parTraverse { case (member, event) =>
           logger.info(
-            s"Sequencing tombstone for ${member.uid.id} at ${event.timestamp} and ${event.counter}. Sequencer signing key at $signingTimestamp not available before the bound $bound."
+            s"Sequencing tombstone for ${member.identifier} at ${event.timestamp} and ${event.counter}. Sequencer signing key at $signingTimestamp not available before the bound $bound."
           )
           // sign tombstones using key valid at sequencing timestamp as event timestamp has no signing key and we
           // are not sequencing the event anyway, but the tombstone

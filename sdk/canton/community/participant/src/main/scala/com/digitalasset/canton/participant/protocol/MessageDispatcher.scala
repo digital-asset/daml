@@ -14,6 +14,7 @@ import com.digitalasset.canton.data.ViewType.{
   TransferOutViewType,
 }
 import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -47,7 +48,7 @@ import com.digitalasset.canton.traffic.TrafficControlProcessor
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{Checked, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DiscardOps, RequestCounter, SequencerCounter}
+import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.google.common.annotations.VisibleForTesting
 import com.google.rpc.status.Status
 import io.opentelemetry.api.trace.Tracer

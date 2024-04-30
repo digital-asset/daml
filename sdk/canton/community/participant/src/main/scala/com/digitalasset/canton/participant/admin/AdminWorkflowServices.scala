@@ -12,9 +12,9 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.AdminWorkflowServicesErrorGroup
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as A

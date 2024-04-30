@@ -78,7 +78,7 @@ class GrpcSequencerServiceTest
   private lazy val participant = DefaultTestIdentities.participant1
   private lazy val crypto = new SymbolicPureCrypto
   private lazy val unauthenticatedMember =
-    UnauthenticatedMemberId.tryCreate(participant.uid.namespace)(crypto)
+    UnauthenticatedMemberId.tryCreate(participant.namespace)(crypto)
 
   class Environment(member: Member) extends Matchers {
     val sequencer: Sequencer = mock[Sequencer]

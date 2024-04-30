@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.reference.store
 
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.{CantonTimestamp, Counter, PeanoTreeQueue}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.block.BlockOrderer
 import com.digitalasset.canton.domain.block.BlockOrderingSequencer.BatchTag
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore.{

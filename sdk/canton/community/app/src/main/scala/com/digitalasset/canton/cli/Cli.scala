@@ -4,8 +4,8 @@
 package com.digitalasset.canton.cli
 
 import ch.qos.logback.classic.Level
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.buildinfo.BuildInfo
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import scopt.OptionParser
 
 import java.io.File

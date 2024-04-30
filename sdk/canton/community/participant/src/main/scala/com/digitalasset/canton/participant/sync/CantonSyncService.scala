@@ -29,6 +29,7 @@ import com.digitalasset.canton.data.{
   ProcessedDisclosedContract,
   TransferSubmitterMetadata,
 }
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.health.MutableHealthComponent
 import com.digitalasset.canton.ledger.api.health.HealthStatus

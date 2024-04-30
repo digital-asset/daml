@@ -22,9 +22,11 @@ import io.circe.Encoder
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
 /** Top level trait representing an identity within the system */
-sealed trait Identity extends Product with Serializable with PrettyPrinting {
-  def uid: UniqueIdentifier
-
+sealed trait Identity
+    extends HasUniqueIdentifier
+    with Product
+    with Serializable
+    with PrettyPrinting {
   def toProtoPrimitive: String = uid.toProtoPrimitive
 
   /** returns the string representation used in console filters (maps to the uid) */

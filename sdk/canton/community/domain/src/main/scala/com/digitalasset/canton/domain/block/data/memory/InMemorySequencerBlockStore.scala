@@ -10,6 +10,7 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.block.data.EphemeralState.counterToCheckpoint
 import com.digitalasset.canton.domain.block.data.SequencerBlockStore.InvalidTimestamp
 import com.digitalasset.canton.domain.block.data.{

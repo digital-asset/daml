@@ -8,6 +8,7 @@ import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
 import com.digitalasset.canton.admin.pruning.v30
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.scheduler.Cron.*
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.PositiveSeconds

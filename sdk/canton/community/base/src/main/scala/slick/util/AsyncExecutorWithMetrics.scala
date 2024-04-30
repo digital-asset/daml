@@ -3,9 +3,9 @@
 
 package slick.util
 
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.QueryCostMonitoringConfig
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.metrics.DbQueueMetrics
 import com.digitalasset.canton.time.PositiveFiniteDuration
 import com.digitalasset.canton.util.{LoggerUtil, MonadUtil}

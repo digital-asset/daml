@@ -10,7 +10,6 @@ import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
@@ -29,6 +28,7 @@ import com.digitalasset.canton.crypto.admin.v30.VaultServiceGrpc
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPublicStoreError}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction
 import com.digitalasset.canton.error.FatalError
 import com.digitalasset.canton.health.admin.data.NodeStatus
@@ -90,7 +90,6 @@ trait CantonNodeBootstrap[+T <: CantonNode] extends FlagCloseable with NamedLogg
 
   def name: InstanceName
   def clock: Clock
-  def getId: Option[NodeId]
   def isInitialized: Boolean
 
   def start(): EitherT[Future, String, Unit]
@@ -291,9 +290,6 @@ abstract class CantonNodeBootstrapImpl[
 
   /** member depends on node type */
   protected def member(uid: UniqueIdentifier): Member
-
-  override def getId: Option[NodeId] =
-    startupStage.next.flatMap(_.next).flatMap(_.next.map(x => NodeId(x.nodeId)))
 
   override def isInitialized: Boolean = startupStage.getNode.isDefined
   override def isActive: Boolean = startupStage.next.forall(_.storage.isActive)
@@ -507,7 +503,7 @@ abstract class CantonNodeBootstrapImpl[
 
     override protected def stageCompleted(implicit
         traceContext: TraceContext
-    ): Future[Option[UniqueIdentifier]] = initializationStore.id.map(_.map(_.identity))
+    ): Future[Option[UniqueIdentifier]] = initializationStore.uid
 
     override protected def buildNextStage(uid: UniqueIdentifier): GenerateOrAwaitNodeTopologyTx =
       new GenerateOrAwaitNodeTopologyTx(
@@ -536,13 +532,13 @@ abstract class CantonNodeBootstrapImpl[
           identifier,
           Namespace(namespaceKey.fingerprint),
         )
-        _ <- EitherT.right[String](initializationStore.setId(NodeId(uid)))
+        _ <- EitherT.right[String](initializationStore.setUid(uid))
       } yield Option(uid)
     }.mapK(FutureUnlessShutdown.outcomeK)
 
     override def initializeWithProvidedId(uid: UniqueIdentifier): EitherT[Future, String, Unit] =
       completeWithExternal(
-        EitherT.right(initializationStore.setId(NodeId(uid)).map(_ => uid))
+        EitherT.right(initializationStore.setUid(uid).map(_ => uid))
       ).onShutdown(Left("Node has been shutdown"))
 
     override def getId: Option[UniqueIdentifier] = next.map(_.nodeId)
@@ -638,12 +634,12 @@ abstract class CantonNodeBootstrapImpl[
         : EitherT[FutureUnlessShutdown, String, Option[Unit]] = {
       for {
         namespaceKeyO <- crypto.cryptoPublicStore
-          .signingKey(nodeId.namespace.fingerprint)
+          .signingKey(nodeId.fingerprint)
           .leftMap(_.toString)
           .mapK(FutureUnlessShutdown.outcomeK)
         namespaceKey <- EitherT.fromEither[FutureUnlessShutdown](
           namespaceKeyO.toRight(
-            s"Performing auto-init but can't find key ${nodeId.namespace.fingerprint} from previous step"
+            s"Performing auto-init but can't find key ${nodeId.fingerprint} from previous step"
           )
         )
         // init topology manager

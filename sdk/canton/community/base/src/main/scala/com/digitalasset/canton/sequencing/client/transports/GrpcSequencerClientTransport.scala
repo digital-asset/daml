@@ -9,6 +9,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.api.v30.SequencerConnect
 import com.digitalasset.canton.domain.api.v30.SequencerConnectServiceGrpc.SequencerConnectServiceStub

@@ -24,9 +24,9 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 trait InitializationStore extends AutoCloseable {
 
-  def id(implicit traceContext: TraceContext): Future[Option[NodeId]]
+  def uid(implicit traceContext: TraceContext): Future[Option[UniqueIdentifier]]
 
-  def setId(id: NodeId)(implicit traceContext: TraceContext): Future[Unit]
+  def setUid(id: UniqueIdentifier)(implicit traceContext: TraceContext): Future[Unit]
 
   /** Function used for testing dev version flag. */
   @VisibleForTesting
@@ -47,11 +47,11 @@ object InitializationStore {
 class InMemoryInitializationStore(override protected val loggerFactory: NamedLoggerFactory)
     extends InitializationStore
     with NamedLogging {
-  private val myId = new AtomicReference[Option[NodeId]](None)
-  override def id(implicit traceContext: TraceContext): Future[Option[NodeId]] =
+  private val myId = new AtomicReference[Option[UniqueIdentifier]](None)
+  override def uid(implicit traceContext: TraceContext): Future[Option[UniqueIdentifier]] =
     Future.successful(myId.get())
 
-  override def setId(id: NodeId)(implicit traceContext: TraceContext): Future[Unit] =
+  override def setUid(id: UniqueIdentifier)(implicit traceContext: TraceContext): Future[Unit] =
     if (myId.compareAndSet(None, Some(id))) Future.successful(())
     // once we get to this branch, we know that the id is already set (so the logic used here is safe)
     else
@@ -76,13 +76,13 @@ class DbInitializationStore(
     with DbStore {
   import storage.api.*
 
-  override def id(implicit traceContext: TraceContext): Future[Option[NodeId]] =
+  override def uid(implicit traceContext: TraceContext): Future[Option[UniqueIdentifier]] =
     storage.query(
       {
         for {
           data <- idQuery
         } yield data.headOption.map { case (identity, fingerprint) =>
-          NodeId(UniqueIdentifier(identity, Namespace(fingerprint)))
+          UniqueIdentifier(identity, Namespace(fingerprint))
         }
       },
       functionFullName,
@@ -92,7 +92,7 @@ class DbInitializationStore(
     sql"select identifier, namespace from common_node_id"
       .as[(Identifier, Fingerprint)]
 
-  override def setId(id: NodeId)(implicit traceContext: TraceContext): Future[Unit] =
+  override def setUid(id: UniqueIdentifier)(implicit traceContext: TraceContext): Future[Unit] =
     storage.queryAndUpdate(
       {
         for {
@@ -100,14 +100,14 @@ class DbInitializationStore(
           _ <-
             if (storedData.nonEmpty) {
               val data = storedData(0)
-              val prevNodeId = NodeId(UniqueIdentifier(data._1, Namespace(data._2)))
+              val prevNodeId = UniqueIdentifier(data._1, Namespace(data._2))
               ErrorUtil.requireArgument(
                 prevNodeId == id,
                 s"Unique id of node is already defined as $prevNodeId and can't be changed to $id!",
               )
               DbStorage.DbAction.unit
             } else
-              sqlu"insert into common_node_id(identifier, namespace) values(${id.identity.id},${id.identity.namespace.fingerprint})"
+              sqlu"insert into common_node_id(identifier, namespace) values(${id.identifier},${id.fingerprint})"
         } yield ()
       }.transactionally.withTransactionIsolation(Serializable),
       functionFullName,

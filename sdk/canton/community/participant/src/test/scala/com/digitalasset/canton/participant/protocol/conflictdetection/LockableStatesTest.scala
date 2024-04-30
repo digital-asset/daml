@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.conflictdetection
 
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting, PrettyUtil}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.conflictdetection.LockableState.{
@@ -15,7 +16,7 @@ import com.digitalasset.canton.participant.store.{ConflictDetectionStore, HasPru
 import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
 import com.digitalasset.canton.store.memory.InMemoryPrunableByTime
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, DiscardOps, HasExecutorService, RequestCounter}
+import com.digitalasset.canton.{BaseTest, HasExecutorService, RequestCounter}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.{ExecutionContext, Future}

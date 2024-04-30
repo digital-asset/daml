@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.update
 
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 
 import scala.annotation.tailrec
 import scala.collection.immutable.SortedMap

@@ -6,10 +6,12 @@ package com.digitalasset.canton.topology
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandle
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.messages
@@ -21,7 +23,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
 import com.digitalasset.canton.util.{DelayUtil, EitherTUtil, FutureUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DiscardOps, DomainAlias}
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.duration.*

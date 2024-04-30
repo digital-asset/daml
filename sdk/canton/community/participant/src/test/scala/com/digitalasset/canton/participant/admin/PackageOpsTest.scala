@@ -326,7 +326,7 @@ class PackageOpsTest extends PackageOpsTestBase {
           eqTo(TopologyChangeOp.Replace),
           eqTo(VettedPackages(participantId, None, newVettedPackagesState)),
           eqTo(Some(txSerial.tryAdd(1))),
-          eqTo(Seq(participantId.uid.namespace.fingerprint)),
+          eqTo(Seq(participantId.fingerprint)),
           eqTo(testedProtocolVersion),
           eqTo(true),
           eqTo(false),

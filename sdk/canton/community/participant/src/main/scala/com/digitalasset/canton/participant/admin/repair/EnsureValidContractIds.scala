@@ -10,6 +10,7 @@ import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.lf.crypto.Hash
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.data.ActiveContract
 import com.digitalasset.canton.protocol.{

@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation}
 import com.digitalasset.canton.crypto.{Nonce, Signature}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.Domain.GrpcSequencerAuthenticationErrorGroup
 import com.digitalasset.canton.domain.api.v30.SequencerAuthentication.{
   AuthenticateRequest,

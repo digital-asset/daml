@@ -6,8 +6,9 @@ package com.digitalasset.canton.util
 import cats.data.{EitherT, OptionT}
 import cats.syntax.either.*
 import cats.{Applicative, Functor}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
-import com.digitalasset.canton.{BaseTest, DiscardOps, HasExecutionContext}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.util.concurrent.atomic.AtomicInteger

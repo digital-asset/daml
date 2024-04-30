@@ -143,7 +143,7 @@ class SubmissionRequestTest extends BaseTestWordSpec {
 
         val someSignature = SymbolicCrypto.signature(
           ByteString.copyFromUtf8("A signature"),
-          DefaultTestIdentities.participant1.uid.namespace.fingerprint,
+          DefaultTestIdentities.participant1.fingerprint,
         )
 
         val requestsWithSignatures = Seq(

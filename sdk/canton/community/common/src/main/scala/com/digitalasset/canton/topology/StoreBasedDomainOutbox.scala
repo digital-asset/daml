@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.common.domain.{
   RegisterTopologyTransactionHandle,
   SequencerBasedRegisterTopologyTransactionHandle,
@@ -15,6 +16,7 @@ import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervisio
 import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
@@ -38,7 +40,6 @@ import com.digitalasset.canton.topology.transaction.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{DelayUtil, EitherTUtil, ErrorUtil, SingleUseCell}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DiscardOps, DomainAlias}
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.duration.*

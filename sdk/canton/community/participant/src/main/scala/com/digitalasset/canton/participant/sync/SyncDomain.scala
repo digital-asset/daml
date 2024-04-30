@@ -15,6 +15,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.{
   AtomicHealthComponent,
   CloseableHealthComponent,

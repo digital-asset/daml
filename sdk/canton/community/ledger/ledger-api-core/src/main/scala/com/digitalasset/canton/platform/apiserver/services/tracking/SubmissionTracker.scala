@@ -8,7 +8,9 @@ import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.error.{CommonErrors, LedgerApiErrors}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics
@@ -17,7 +19,6 @@ import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTr
   Submitters,
 }
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
-import com.digitalasset.canton.{DiscardOps, config}
 import io.opentelemetry.api.trace.Tracer
 
 import scala.collection.concurrent.TrieMap

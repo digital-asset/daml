@@ -379,6 +379,43 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase {
             neitherParty shouldBe Set.empty
           }
         }
+        "able to findEssentialStateAtSequencedTime" in {
+          val store = mk()
+          for {
+            _ <- update(store, ts2, add = Seq(tx2_OTK))
+            _ <- update(store, ts5, add = Seq(tx5_DTC))
+            _ <- update(store, ts6, add = Seq(tx6_MDS))
+
+            proposalTransactions <- store.findEssentialStateAtSequencedTime(
+              asOfInclusive = SequencedTime(ts6),
+              excludeMappings = Nil,
+            )
+
+            proposalTransactionsFiltered <- store.findEssentialStateAtSequencedTime(
+              asOfInclusive = SequencedTime(ts6),
+              excludeMappings = TopologyMapping.Code.all.diff(
+                Seq(DomainTrustCertificate.code, OwnerToKeyMapping.code)
+              ),
+            )
+
+          } yield {
+            expectTransactions(
+              proposalTransactions,
+              Seq(
+                tx2_OTK,
+                tx5_DTC,
+                tx6_MDS,
+              ),
+            )
+            expectTransactions(
+              proposalTransactionsFiltered,
+              Seq(
+                tx2_OTK,
+                tx5_DTC,
+              ),
+            )
+          }
+        }
 
         "able to find positive transactions" in {
           val store = mk()

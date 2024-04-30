@@ -8,12 +8,14 @@ import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.{
   DomainTimeTrackerConfig,
   ProcessingTimeout,
   TestingConfigInternal,
 }
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.config.PublicServerConfig
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
@@ -93,7 +95,6 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.traffic.TrafficControlProcessor
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.FutureUtil
-import com.digitalasset.canton.{DiscardOps, config}
 import io.grpc.{ServerInterceptors, ServerServiceDefinition}
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem

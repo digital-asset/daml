@@ -4,9 +4,9 @@
 package com.digitalasset.canton.domain.sequencing.service
 
 import cats.data.EitherT
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}

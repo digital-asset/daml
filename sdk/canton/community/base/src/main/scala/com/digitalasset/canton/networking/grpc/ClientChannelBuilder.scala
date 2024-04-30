@@ -4,9 +4,9 @@
 package com.digitalasset.canton.networking.grpc
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{ClientConfig, KeepAliveClientConfig, TlsClientConfig}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.tracing.TracingConfig.Propagation

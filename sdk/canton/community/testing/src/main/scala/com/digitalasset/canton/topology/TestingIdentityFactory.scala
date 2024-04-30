@@ -525,7 +525,7 @@ class TestingIdentityFactory(
   private def keyFingerprintForOwner(owner: Member): Fingerprint =
     // We are converting an Identity (limit of 185 characters) to a Fingerprint (limit of 68 characters) - this would be
     // problematic if this function wasn't only used for testing
-    Fingerprint.tryCreate(owner.uid.id.toLengthLimitedString.unwrap)
+    Fingerprint.tryCreate(owner.identifier.toLengthLimitedString.unwrap)
 
   def newCrypto(
       owner: Member,
@@ -594,7 +594,7 @@ class TestingOwnerWithKeys(
   object TestingTransactions {
     import SigningKeys.*
     val namespaceKey = key1
-    val uid2 = uid.copy(id = Identifier.tryCreate("second"))
+    val uid2 = uid.copy(identifier = Identifier.tryCreate("second"))
     val ts = CantonTimestamp.Epoch
     val ts1 = ts.plusSeconds(1)
     val ns1k1 = mkAdd(
@@ -650,14 +650,14 @@ class TestingOwnerWithKeys(
 
     val p1_nsk2 = mkAdd(
       NamespaceDelegation.tryCreate(
-        Namespace(participant1.uid.namespace.fingerprint),
+        Namespace(participant1.fingerprint),
         key2,
         isRootDelegation = false,
       )
     )
     val p2_nsk2 = mkAdd(
       NamespaceDelegation.tryCreate(
-        Namespace(participant2.uid.namespace.fingerprint),
+        Namespace(participant2.fingerprint),
         key2,
         isRootDelegation = false,
       )
@@ -882,6 +882,6 @@ object TestingIdentityFactory {
   private def keyFingerprintForOwner(owner: Member): Fingerprint =
     // We are converting an Identity (limit of 185 characters) to a Fingerprint (limit of 68 characters) - this would be
     // problematic if this function wasn't only used for testing
-    Fingerprint.tryCreate(owner.uid.id.toLengthLimitedString.unwrap)
+    Fingerprint.tryCreate(owner.identifier.toLengthLimitedString.unwrap)
 
 }

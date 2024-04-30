@@ -3,13 +3,10 @@
 
 package com.digitalasset.canton.pekkostreams.dispatcher
 
-import com.daml.ledger.resources.ResourceOwner
-import com.daml.timer.Timeout.*
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.Future
-import scala.concurrent.duration.Duration
 
 /** A fanout signaller, representing a stream of external updates,
   * that can be subscribed to dynamically at a given point in the stream.
@@ -68,16 +65,5 @@ object Dispatcher {
       headAtInitialization: Index,
   ): Dispatcher[Index] =
     new DispatcherImpl[Index](name: String, zeroIndex, headAtInitialization)
-
-  def owner[Index: Ordering](
-      name: String,
-      zeroIndex: Index,
-      headAtInitialization: Index,
-      shutdownTimeout: Duration = Duration.Inf,
-      onShutdownTimeout: () => Unit = () => (),
-  ): ResourceOwner[Dispatcher[Index]] =
-    ResourceOwner.forReleasable(() => apply(name, zeroIndex, headAtInitialization))(
-      _.shutdown().withTimeout(shutdownTimeout)(onShutdownTimeout())
-    )
 
 }

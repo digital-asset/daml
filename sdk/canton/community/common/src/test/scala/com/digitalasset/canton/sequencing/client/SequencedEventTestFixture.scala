@@ -74,15 +74,15 @@ class SequencedEventTestFixture(
   private val carlos = ParticipantId(UniqueIdentifier.tryCreate("participant", "carlos"))
   private val signatureAlice = SymbolicCrypto.signature(
     ByteString.copyFromUtf8("signatureAlice1"),
-    alice.uid.namespace.fingerprint,
+    alice.fingerprint,
   )
   private val signatureBob = SymbolicCrypto.signature(
     ByteString.copyFromUtf8("signatureBob1"),
-    bob.uid.namespace.fingerprint,
+    bob.fingerprint,
   )
   private val signatureCarlos = SymbolicCrypto.signature(
     ByteString.copyFromUtf8("signatureCarlos1"),
-    carlos.uid.namespace.fingerprint,
+    carlos.fingerprint,
   )
   lazy val aliceEvents: Seq[OrdinarySerializedEvent] = (1 to 5).map(s =>
     createEvent(

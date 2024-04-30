@@ -6,6 +6,7 @@ package com.digitalasset.canton.topology.store.memory
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.DisplayName
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.topology.store.{PartyMetadata, PartyMetadataStore}
 import com.digitalasset.canton.topology.{ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext

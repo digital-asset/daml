@@ -9,7 +9,7 @@ import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.spi.AppenderAttachable
 import ch.qos.logback.core.{Appender, AppenderBase}
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.github.blemale.scaffeine.Scaffeine
 
 import java.util

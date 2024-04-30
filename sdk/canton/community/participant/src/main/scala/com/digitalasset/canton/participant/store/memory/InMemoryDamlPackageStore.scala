@@ -7,8 +7,10 @@ import cats.Monoid
 import cats.data.OptionT
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.data.Ref.PackageId
+import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String256M}
 import com.digitalasset.canton.crypto.Hash
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.PackageService
@@ -17,7 +19,6 @@ import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.participant.store.memory.InMemoryDamlPackageStore.defaultPackageDescription
 import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{DiscardOps, LfPackageId}
 
 import java.util.concurrent.ConcurrentHashMap
 import scala.collection.concurrent

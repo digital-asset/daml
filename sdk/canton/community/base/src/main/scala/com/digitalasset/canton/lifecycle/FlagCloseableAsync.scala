@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.lifecycle
 
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.RefinedNonNegativeDuration
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.ErrorLoggingContext
 
 import scala.concurrent.{Future, TimeoutException}

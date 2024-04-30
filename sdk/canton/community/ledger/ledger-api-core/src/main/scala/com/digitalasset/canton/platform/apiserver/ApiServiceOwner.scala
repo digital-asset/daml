@@ -57,8 +57,6 @@ object ApiServiceOwner {
 
   def apply(
       // configuration parameters
-      apiStreamShutdownTimeout: NonNegativeFiniteDuration =
-        ApiServiceOwner.DefaultApiStreamShutdownTimeout,
       address: Option[String] = DefaultAddress, // This defaults to "localhost" when set to `None`.
       maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
       port: Port = DefaultPort,
@@ -170,7 +168,6 @@ object ApiServiceOwner {
         maxDeduplicationDuration = maxDeduplicationDuration,
         userManagementServiceConfig = userManagement,
         partyManagementServiceConfig = partyManagementServiceConfig,
-        apiStreamShutdownTimeout = apiStreamShutdownTimeout.underlying,
         meteringReportKey = meteringReportKey,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
@@ -228,6 +225,4 @@ object ApiServiceOwner {
   val DefaultIdentityProviderManagementConfig: IdentityProviderManagementConfig =
     IdentityProviderManagementConfig()
   val DefaultCommandServiceConfig: CommandServiceConfig = CommandServiceConfig.Default
-  val DefaultApiStreamShutdownTimeout: NonNegativeFiniteDuration =
-    NonNegativeFiniteDuration.ofSeconds(5)
 }

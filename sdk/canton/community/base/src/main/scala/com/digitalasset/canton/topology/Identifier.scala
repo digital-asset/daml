@@ -12,7 +12,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.{
   String255,
   String68,
 }
-import com.digitalasset.canton.crypto.Fingerprint
+import com.digitalasset.canton.crypto.{Fingerprint, HasFingerprint}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
@@ -81,6 +81,10 @@ object Identifier {
 
 }
 
+trait HasIdentifier {
+  def identifier: Identifier
+}
+
 object Namespace {
   implicit val setParameterNamespace: SetParameter[Namespace] = (v, pp) =>
     pp >> v.toLengthLimitedString
@@ -94,12 +98,18 @@ object Namespace {
   *
   * This is based on the assumption that the fingerprint is unique to the public-key
   */
-final case class Namespace(fingerprint: Fingerprint) extends PrettyPrinting {
+final case class Namespace(fingerprint: Fingerprint) extends HasFingerprint with PrettyPrinting {
   def unwrap: String = fingerprint.unwrap
   def toProtoPrimitive: String = fingerprint.toProtoPrimitive
   def toLengthLimitedString: String68 = fingerprint.toLengthLimitedString
   def filterString: String = fingerprint.unwrap
   override def pretty: Pretty[Namespace] = prettyOfParam(_.fingerprint)
+}
+
+trait HasNamespace extends HasFingerprint {
+  @inline def namespace: Namespace
+
+  @inline final override def fingerprint: Fingerprint = namespace.fingerprint
 }
 
 /** a unique identifier within a namespace
@@ -108,19 +118,25 @@ final case class Namespace(fingerprint: Fingerprint) extends PrettyPrinting {
   * - 2 characters as delimiters, and
   * - the last 185 characters for the Identifier.
   */
-final case class UniqueIdentifier(id: Identifier, namespace: Namespace) extends PrettyPrinting {
-// architecture-handbook-entry-end: UniqueIdentifier
+final case class UniqueIdentifier(identifier: Identifier, namespace: Namespace)
+    extends HasNamespace
+    with HasIdentifier
+    with PrettyPrinting {
+
+  // architecture-handbook-entry-end: UniqueIdentifier
   def toProtoPrimitive: String =
-    id.toProtoPrimitive + SafeSimpleString.delimiter + namespace.toProtoPrimitive
+    identifier.toProtoPrimitive + SafeSimpleString.delimiter + namespace.toProtoPrimitive
 
   def toLengthLimitedString: String255 = checked(String255.tryCreate(toProtoPrimitive))
 
   // utility to filter UIDs using prefixes obtained via UniqueIdentifier.splitFilter() below
   def matchesPrefixes(idPrefix: String, nsPrefix: String): Boolean =
-    id.toProtoPrimitive.startsWith(idPrefix) && namespace.toProtoPrimitive.startsWith(nsPrefix)
+    identifier.toProtoPrimitive.startsWith(idPrefix) && namespace.toProtoPrimitive.startsWith(
+      nsPrefix
+    )
 
   override def pretty: Pretty[this.type] =
-    prettyOfString(uid => uid.id.show + SafeSimpleString.delimiter + uid.namespace.show)
+    prettyOfString(uid => uid.identifier.show + SafeSimpleString.delimiter + uid.namespace.show)
 }
 
 object UniqueIdentifier {
@@ -183,4 +199,12 @@ object UniqueIdentifier {
     } else (prefix ++ append, append)
   }
 
+}
+
+trait HasUniqueIdentifier extends HasNamespace with HasIdentifier {
+  @inline def uid: UniqueIdentifier
+
+  @inline final override def namespace: Namespace = uid.namespace
+
+  @inline final override def identifier: Identifier = uid.identifier
 }

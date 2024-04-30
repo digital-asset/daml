@@ -8,9 +8,11 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.lf.data.Ref.PackageId
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.time.{Clock, TimeAwaiter}
@@ -21,7 +23,6 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DiscardOps, SequencerCounter}
 
 import java.time.Duration as JDuration
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}

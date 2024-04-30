@@ -7,10 +7,10 @@ import cats.data.{EitherT, OptionT}
 import cats.syntax.alternative.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}

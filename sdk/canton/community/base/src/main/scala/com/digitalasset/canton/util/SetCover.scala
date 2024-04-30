@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.util
 
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 
 import scala.collection.{immutable, mutable}
 

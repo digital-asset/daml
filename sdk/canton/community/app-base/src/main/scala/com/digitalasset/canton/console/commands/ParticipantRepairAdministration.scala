@@ -25,6 +25,7 @@ import com.digitalasset.canton.console.{
   Helpful,
 }
 import com.digitalasset.canton.data.RepairContract
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.participant.ParticipantNode
@@ -35,7 +36,7 @@ import com.digitalasset.canton.topology.{DomainId, PartyId}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DiscardOps, DomainAlias, SequencerCounter}
+import com.digitalasset.canton.{DomainAlias, SequencerCounter}
 import com.google.protobuf.ByteString
 import io.grpc.Context.CancellableContext
 import io.grpc.StatusRuntimeException

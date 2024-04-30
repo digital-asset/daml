@@ -439,7 +439,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       sql" AND is_proposal = false" ++
         sql" AND operation = ${TopologyChangeOp.Replace}" ++
         sql" AND transaction_type = ${DomainTrustCertificate.code}" ++
-        sql" AND identifier = ${participant.uid.id} AND namespace = ${participant.uid.namespace}",
+        sql" AND identifier = ${participant.identifier} AND namespace = ${participant.namespace}",
       limit = storage.limit(1),
       orderBy = " ORDER BY serial_counter ",
       operation = "participantFirstTrustCertificate",
@@ -452,14 +452,16 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   }
 
   override def findEssentialStateAtSequencedTime(
-      asOfInclusive: SequencedTime
+      asOfInclusive: SequencedTime,
+      excludeMappings: Seq[TopologyMapping.Code],
   )(implicit
       traceContext: TraceContext
   ): Future[GenericStoredTopologyTransactions] = {
     val timeFilter = sql" AND sequenced <= ${asOfInclusive.value}"
+    val mappingFilter = excludeMapping(excludeMappings.toSet)
     logger.debug(s"Querying essential state as of asOfInclusive")
 
-    queryForTransactions(timeFilter, "essentialState").map(
+    queryForTransactions(timeFilter ++ mappingFilter, "essentialState").map(
       _.asSnapshotAtMaxEffectiveTime.retainAuthorizedHistoryAndEffectiveProposals
     )
   }
@@ -588,7 +590,8 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       val mapping = signedTx.mapping
       val transactionType = mapping.code
       val namespace = mapping.namespace
-      val identifier = mapping.maybeUid.map(_.id.toLengthLimitedString).getOrElse(String185.empty)
+      val identifier =
+        mapping.maybeUid.map(_.identifier.toLengthLimitedString).getOrElse(String185.empty)
       val serial = signedTx.serial
       val mappingHash = mapping.uniqueKey.hash.toLengthLimitedHexString
       val reason = txEntry.rejectionReason.map(_.asString1GB)
@@ -690,7 +693,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
           val namespaceFilter = filterNamespace.toList.flatMap(_.map(ns => sql"namespace = $ns"))
           val uidFilter =
             filterUid.toList.flatten.map(uid =>
-              sql"(identifier = ${uid.id} AND namespace = ${uid.namespace})"
+              sql"(identifier = ${uid.identifier} AND namespace = ${uid.namespace})"
             )
           sql" AND (" ++ (namespaceFilter ++ uidFilter).intercalate(sql" OR ") ++ sql")"
         } else SQLActionBuilderChain(sql"")
@@ -706,6 +709,14 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     if (types.isEmpty) sql""
     else
       sql" AND transaction_type IN (" ++ types.toSeq
+        .map(t => sql"$t")
+        .intercalate(sql", ") ++ sql")"
+  }
+
+  private def excludeMapping(types: Set[TopologyMapping.Code]): SQLActionBuilderChain = {
+    if (types.isEmpty) sql""
+    else
+      sql" AND transaction_type NOT IN (" ++ types.toSeq
         .map(t => sql"$t")
         .intercalate(sql", ") ++ sql")"
   }
@@ -731,7 +742,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     queryForTransactions(
       // Query for leading fields of `idx_common_topology_transactions` to enable use of this index
       sql" AND transaction_type = ${mapping.code} AND namespace = ${mapping.namespace} AND identifier = ${mapping.maybeUid
-          .fold(String185.empty)(_.id.toLengthLimitedString)}"
+          .fold(String185.empty)(_.identifier.toLengthLimitedString)}"
         ++ sql" AND valid_from < $asOfExclusive"
         ++ sql" AND mapping_key_hash = ${mapping.uniqueKey.hash.toLengthLimitedHexString}"
         ++ sql" AND serial_counter = ${transaction.serial}"

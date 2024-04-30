@@ -5,6 +5,7 @@ package com.digitalasset.canton.domain.sequencing.traffic.store.memory
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalance
 import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}

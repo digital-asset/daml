@@ -23,6 +23,7 @@ import com.digitalasset.canton.console.CommandErrors.{
 import com.digitalasset.canton.console.Help.{Description, Summary, Topic}
 import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}

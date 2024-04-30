@@ -12,6 +12,7 @@ import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervi
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{
   AsyncCloseable,
   AsyncOrSyncCloseable,

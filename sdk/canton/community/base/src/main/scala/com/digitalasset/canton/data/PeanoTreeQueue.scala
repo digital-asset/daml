@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.data
 
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.data.PeanoQueue.{
   AssociatedValue,
   BeforeHead,
   InsertedValue,
   NotInserted,
 }
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.mutable

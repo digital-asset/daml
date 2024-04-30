@@ -21,6 +21,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.crypto.{CryptoPureApi, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.{
   CloseableHealthComponent,
   ComponentHealthState,
@@ -75,7 +76,7 @@ import com.digitalasset.canton.util.TryUtil.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DiscardOps, SequencerAlias, SequencerCounter, time}
+import com.digitalasset.canton.{SequencerAlias, SequencerCounter, time}
 import com.google.common.annotations.VisibleForTesting
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
@@ -1074,8 +1075,8 @@ class RichSequencerClientImpl(
 
     val eventDelay: DelaySequencedEvent = {
       val first = testingConfig.testSequencerClientFor.find(elem =>
-        elem.memberName == member.uid.id.unwrap &&
-          elem.domainName == domainId.unwrap.id.unwrap
+        elem.memberName == member.identifier.unwrap &&
+          elem.domainName == domainId.identifier.unwrap
       )
 
       first match {

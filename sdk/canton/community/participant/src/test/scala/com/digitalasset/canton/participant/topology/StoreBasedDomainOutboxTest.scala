@@ -391,7 +391,7 @@ class StoreBasedDomainOutboxTest
         handle.buffer.map(x =>
           (
             x.operation,
-            x.mapping.maybeUid.map(_.id),
+            x.mapping.maybeUid.map(_.identifier),
           )
         ) shouldBe Seq(
           (Replace, None),

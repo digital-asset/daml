@@ -54,7 +54,7 @@ class IdentifierTest extends AnyWordSpec with BaseTest {
       "should yield the same identifier" in {
         assertResult(uid)(
           UniqueIdentifier.tryFromProtoPrimitive(
-            uid.id.unwrap + "::" + uid.namespace.fingerprint.unwrap
+            uid.identifier.unwrap + "::" + uid.fingerprint.unwrap
           )
         )
       }

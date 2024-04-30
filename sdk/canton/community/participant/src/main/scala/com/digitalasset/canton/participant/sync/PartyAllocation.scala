@@ -79,7 +79,7 @@ private[sync] class PartyAllocation(
           .create(partyName)
           .leftMap(SyncServiceError.Synchronous.internalError)
           .toEitherT[Future]
-        partyId = PartyId(id, participantId.uid.namespace)
+        partyId = PartyId(id, participantId.namespace)
         validatedDisplayName <- displayName
           .traverse(n => String255.create(n, Some("DisplayName")))
           .leftMap(SyncServiceError.Synchronous.internalError)
@@ -136,11 +136,11 @@ private[sync] class PartyAllocation(
     result.fold(
       _.tap { l =>
         logger.info(
-          s"Failed to allocate party $partyName::${participantId.uid.namespace}: ${l.toString}"
+          s"Failed to allocate party $partyName::${participantId.namespace}: ${l.toString}"
         )
       },
       _.tap { _ =>
-        logger.debug(s"Allocated party $partyName::${participantId.uid.namespace}")
+        logger.debug(s"Allocated party $partyName::${participantId.namespace}")
       },
     )
   }

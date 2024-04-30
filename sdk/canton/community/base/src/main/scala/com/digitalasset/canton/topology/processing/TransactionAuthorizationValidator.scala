@@ -5,9 +5,9 @@ package com.digitalasset.canton.topology.processing
 
 import cats.syntax.bifunctor.*
 import cats.syntax.foldable.*
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.crypto.{CryptoPureApi, Fingerprint, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.topology.processing.AuthorizedTopologyTransaction.AuthorizedIdentifierDelegation
 import com.digitalasset.canton.topology.store.{

@@ -9,6 +9,7 @@ import cats.syntax.traverse.*
 import com.daml.lf.data.Bytes
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.repair.ChangeAssignation.Changed
 import com.digitalasset.canton.participant.store.ActiveContractStore.ContractState
