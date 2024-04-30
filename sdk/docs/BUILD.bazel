@@ -78,20 +78,10 @@ genrule(
         "//canton:ledger-api-docs",
         "//:LICENSE",
         "//:NOTICES",
-        ":generate-docs-error-codes-inventory-into-rst-file",
-        ":generate-docs-error-categories-inventory-into-rst-file",
     ],
     outs = ["source.tar.gz"],
     cmd = """
         cp -rL docs/source source
-
-        # Copy in error inventories
-        #
-        # These files are meant to be only included into other .rst files and so
-        # in order to prevent Sphinx from recognizing them as source files
-        # we append an '.inc' suffix. (See `source_suffix` in `conf.py`.)
-        cp -L -- $(location //docs:generate-docs-error-codes-inventory-into-rst-file)      source/app-dev/grpc/error-codes-inventory.rst.inc
-        cp -L -- $(location //docs:generate-docs-error-categories-inventory-into-rst-file) source/app-dev/grpc/error-categories-inventory.rst.inc
 
         # Copy in Stdlib
         mkdir -p source/daml/stdlib
@@ -126,8 +116,6 @@ genrule(
         "configs/pdf/conf.py",
         "configs/pdf/logo.png",
         "//templates:templates-tarball",
-        ":generate-docs-error-codes-inventory-into-rst-file",
-        ":generate-docs-error-categories-inventory-into-rst-file",
         "//compiler/damlc:daml-base-rst.tar.gz",
         "//daml-script/daml:daml-script-rst.tar.gz",
         "//canton:ledger-api-docs",
@@ -149,8 +137,6 @@ genrule(
 
     cp $(location //templates:templates-tarball) $$DIR/deps/
 
-    cp -L -- $(location //docs:generate-docs-error-codes-inventory-into-rst-file) $$DIR/deps/
-    cp -L -- $(location //docs:generate-docs-error-categories-inventory-into-rst-file) $$DIR/deps/
     cp $(location //compiler/damlc:daml-base-rst.tar.gz) $$DIR/deps/
     cp $(location //daml-script/daml:daml-script-rst.tar.gz) $$DIR/deps/
     cp -L $(location //canton:ledger-api-docs) $$DIR/deps/
@@ -653,49 +639,6 @@ pkg_tar(
     visibility = ["//visibility:public"],
 )
 
-genrule(
-    name = "generate-error-codes-json",
-    srcs = [],
-    outs = ["error_codes_export.json"],
-    cmd = "$(location //ledger/error/generator:export-error-codes-json-app) $(location error_codes_export.json)",
-    tools = ["//ledger/error/generator:export-error-codes-json-app"],
-    visibility = ["//visibility:public"],
-)
-
-genrule(
-    name = "generate-docs-error-codes-inventory-into-rst-file",
-    srcs = [],
-    outs = ["error-codes-inventory.rst"],
-    cmd = "$(location //ledger/error/generator:generate-docs-error-codes-inventory-app) $(location error-codes-inventory.rst)",
-    tools = ["//ledger/error/generator:generate-docs-error-codes-inventory-app"],
-    visibility = ["//visibility:public"],
-)
-
-genrule(
-    name = "generate-docs-error-categories-inventory-into-rst-file",
-    srcs = [],
-    outs = ["error-categories-inventory.rst"],
-    cmd = "$(location //ledger/error/generator:generate-docs-error-categories-inventory-app) $(location error-categories-inventory.rst)",
-    tools = ["//ledger/error/generator:generate-docs-error-categories-inventory-app"],
-    visibility = ["//visibility:public"],
-)
-
 exports_files([
     "source/daml-script/template-root/src/ScriptExample.daml",
 ])
-
-da_scala_test(
-    name = "generated-error-pages-are-up-to-date",
-    srcs = glob(["src/test/**/*.scala"]),
-    resources = glob(["resources/**/*"]),
-    scala_deps = [
-        "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalatest_scalatest_shouldmatchers",
-    ],
-    deps = [
-        "//ledger/error/generator:lib",
-        "@maven//:commons_io_commons_io",
-    ],
-) if not is_windows else None
