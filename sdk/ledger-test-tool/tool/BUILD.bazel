@@ -201,6 +201,7 @@ conformance_test(
         ",".join([
             "dev-mode=no",
             "_shared.participant_ledger-api_tls.minimum-server-protocol-version=TLSv1.3",
+            "canton.domains.test_domain.init.domain-parameters.protocol-version=5",
         ]),
     ],
     tags = ["main-only"],
@@ -223,6 +224,7 @@ conformance_test(
         "-C",
         ",".join([
             "dev-mode=no",
+            "canton.domains.test_domain.init.domain-parameters.protocol-version=5",
         ]),
     ],
     tags = ["main-only"],
