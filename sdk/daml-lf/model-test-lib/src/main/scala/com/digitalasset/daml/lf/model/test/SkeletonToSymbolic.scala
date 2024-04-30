@@ -36,12 +36,21 @@ object SkeletonToSymbolic {
     private def mkFreshContractIdSet(name: String): Sym.ContractIdSet =
       ctx.mkFreshConst(name, contractIdSetSort).asInstanceOf[Sym.ContractIdSet]
 
+    private def mkFreshPackageId(): Sym.PackageId =
+      ctx.mkFreshConst("pkg", contractIdSort).asInstanceOf[Sym.PackageId]
+
     private def toSymbolic(commands: Skel.Commands): Sym.Commands =
       Sym.Commands(
         mkFreshParticipantId(),
         mkFreshPartySet("a"),
         mkFreshContractIdSet("d"),
-        commands.actions.map(toSymbolic),
+        commands.commands.map(toSymbolic),
+      )
+
+    private def toSymbolic(command: Skel.Command): Sym.Command =
+      Sym.Command(
+        Option.when(command.explicitPackageId)(mkFreshPackageId()),
+        toSymbolic(command.action),
       )
 
     private def toSymbolic(kind: Skel.ExerciseKind): Sym.ExerciseKind = {

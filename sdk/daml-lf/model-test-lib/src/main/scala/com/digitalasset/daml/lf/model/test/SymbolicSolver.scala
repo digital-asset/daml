@@ -13,24 +13,28 @@ import com.microsoft.z3._
 import scala.util.Random
 
 object SymbolicSolver {
-  def solve(skeleton: Skeletons.Scenario, numParties: Int): Option[Ledgers.Scenario] = {
+  def solve(
+      skeleton: Skeletons.Scenario,
+      numPackages: Int,
+      numParties: Int,
+  ): Option[Ledgers.Scenario] = {
     Global.setParameter("model_validate", "true")
     val ctx = new Context()
-    val res = new SymbolicSolver(ctx, numParties).solve(skeleton)
+    val res = new SymbolicSolver(ctx, numPackages, numParties).solve(skeleton)
     ctx.close()
     res
   }
 
-  def valid(scenario: Ledgers.Scenario, numParties: Int): Boolean = {
+  def valid(scenario: Ledgers.Scenario, numPackages: Int, numParties: Int): Boolean = {
     val ctx = new Context()
-    val res = new SymbolicSolver(ctx, numParties).validate(scenario)
+    val res = new SymbolicSolver(ctx, numPackages, numParties).validate(scenario)
     ctx.close()
     res
   }
 }
 
 //@nowarn("cat=unused")
-private class SymbolicSolver(ctx: Context, numParties: Int) {
+private class SymbolicSolver(ctx: Context, numPackages: Int, numParties: Int) {
 
   private val participantIdSort = ctx.mkIntSort()
   private val contractIdSort = ctx.mkIntSort()
@@ -54,7 +58,12 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     ctx.mkEq(partySet, ctx.mkEmptySet(partySort))
 
   private def collectCreatedContractIds(ledger: Ledger): Set[ContractId] =
-    ledger.flatMap(_.actions.flatMap(collectCreatedContractIds)).toSet
+    ledger.flatMap(_.commands.flatMap(collectCreatedContractIds)).toSet
+
+  private def collectCreatedContractIds(command: Command): Set[ContractId] = command match {
+    case Command(_, action) =>
+      collectCreatedContractIds(action)
+  }
 
   private def collectCreatedContractIds(action: Action): Set[ContractId] = action match {
     case Create(contractId, _, _) =>
@@ -76,7 +85,11 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
   }
 
   private def collectCreatedKeyIds(ledger: Ledger): Set[KeyId] =
-    ledger.flatMap(_.actions.flatMap(collectCreatedKeyIds)).toSet
+    ledger.flatMap(_.commands.flatMap(collectCreatedKeyIds)).toSet
+
+  private def collectCreatedKeyIds(command: Command): Set[KeyId] = command match {
+    case Command(_, action) => collectCreatedKeyIds(action)
+  }
 
   private def collectCreatedKeyIds(action: Action): Set[KeyId] = action match {
     case Create(_, _, _) =>
@@ -98,7 +111,11 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
   }
 
   private def collectReferences(ledger: Ledger): Set[ContractId] =
-    ledger.flatMap(_.actions.flatMap(collectReferences)).toSet
+    ledger.flatMap(_.commands.flatMap(collectReferences)).toSet
+
+  private def collectReferences(command: Command): Set[ContractId] = command match {
+    case Command(_, action) => collectReferences(action)
+  }
 
   private def collectReferences(action: Action): Set[ContractId] = action match {
     case Create(_, _, _) =>
@@ -121,7 +138,11 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
 
   private def collectPartySets(ledger: Ledger): List[PartySet] = {
     def collectCommandsPartySets(commands: Commands): List[PartySet] =
-      commands.actAs +: commands.actions.flatMap(collectActionPartySets)
+      commands.actAs +: commands.commands.flatMap(collectCommandPartySets)
+
+    def collectCommandPartySets(command: Command): List[PartySet] = command match {
+      case Command(_, action) => collectActionPartySets(action)
+    }
 
     def collectActionPartySets(action: Action): List[PartySet] = action match {
       case Create(_, signatories, observers) =>
@@ -153,7 +174,11 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
 
   private def collectNonEmptyPartySets(ledger: Ledger): List[PartySet] = {
     def collectCommandsNonEmptyPartySets(commands: Commands): List[PartySet] =
-      commands.actAs +: commands.actions.flatMap(collectActionNonEmptyPartySets)
+      commands.actAs +: commands.commands.flatMap(collectCommandNonEmptyPartySets)
+
+    def collectCommandNonEmptyPartySets(command: Command): List[PartySet] = command match {
+      case Command(_, action) => collectActionNonEmptyPartySets(action)
+    }
 
     def collectActionNonEmptyPartySets(action: Action): List[PartySet] = action match {
       case Create(_, signatories, _) =>
@@ -177,11 +202,18 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
     ledger.flatMap(collectCommandsNonEmptyPartySets)
   }
 
+  private def collectPackageIds(ledger: Ledger): Set[PackageId] =
+    ledger.flatMap(_.commands.flatMap(_.packageId)).toSet
+
   private def numberLedger(ledger: Ledger): BoolExpr = {
     var lastContractId = -1
 
     def numberCommands(commands: Commands): BoolExpr =
-      and(commands.actions.map(numberAction))
+      and(commands.commands.map(numberCommand))
+
+    def numberCommand(command: Command): BoolExpr = command match {
+      case Command(_, action) => numberAction(action)
+    }
 
     def numberAction(action: Action): BoolExpr = action match {
       case Create(contractId, _, _) =>
@@ -295,8 +327,12 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
             toSet(contractIdSort, state.consumed),
           )
         ),
-        and(commands.actions.map(consistentAction)),
+        and(commands.commands.map(consistentCommand)),
       )
+    }
+
+    def consistentCommand(command: Command): BoolExpr = command match {
+      case Command(_, action) => consistentAction(action)
     }
 
     def consistentAction(action: Action): BoolExpr = {
@@ -418,24 +454,32 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
         and(subTransaction.map(visibleAction(disclosures, participantId, _)))
     }
 
+    def visibleCommand(
+        disclosures: ContractIdSet,
+        participantId: ParticipantId,
+        command: Command,
+    ): BoolExpr = command match {
+      case Command(_, action) => visibleAction(disclosures, participantId, action)
+    }
+
     def visibleCommands(commands: Commands): BoolExpr =
-      and(commands.actions.map(visibleAction(commands.disclosures, commands.participantId, _)))
+      and(commands.commands.map(visibleCommand(commands.disclosures, commands.participantId, _)))
 
     and(ledger.map(visibleCommands))
   }
 
   private def hideCreatedContractsInSiblings(ledger: Ledger): BoolExpr = {
     def hideInCommands(commands: Commands): BoolExpr =
-      hideInActions(commands.actions)
+      hideInCommandList(commands.commands)
 
-    def hideInActions(actions: List[Action]): BoolExpr = actions match {
+    def hideInCommandList(commands: List[Command]): BoolExpr = commands match {
       case Nil => ctx.mkBool(true)
-      case action :: actions =>
+      case command :: commands =>
         val constraints = for {
-          contractId <- collectCreatedContractIds(action)
-          reference <- actions.flatMap(collectReferences)
+          contractId <- collectCreatedContractIds(command)
+          reference <- commands.flatMap(collectReferences)
         } yield ctx.mkNot(ctx.mkEq(contractId, reference))
-        ctx.mkAnd(and(constraints.toList), hideInActions(actions))
+        ctx.mkAnd(and(constraints.toList), hideInCommandList(commands))
     }
 
     and(ledger.map(hideInCommands))
@@ -448,7 +492,11 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
   ): BoolExpr = {
 
     def authorizedCommands(commands: Commands): BoolExpr =
-      and(commands.actions.map(authorizedAction(commands.actAs, _)))
+      and(commands.commands.map(authorizedCommand(commands.actAs, _)))
+
+    def authorizedCommand(actAs: PartySet, command: Command): BoolExpr = command match {
+      case Command(_, action) => authorizedAction(actAs, action)
+    }
 
     def authorizedAction(actAs: PartySet, action: Action): BoolExpr = action match {
       case Create(contractId, signatories, observers) =>
@@ -559,9 +607,27 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
         .map(s => ctx.mkNot(isEmptyPartySet(s)))
     )
 
+  private def packageIdsWellFormed(ledger: Ledger): BoolExpr = {
+    val packageIds = collectPackageIds(ledger)
+    and(
+      packageIds
+        .map(packageId =>
+          ctx.mkAnd(
+            ctx.mkGe(packageId, ctx.mkInt(0)),
+            ctx.mkLt(packageId, ctx.mkInt(numPackages)),
+          )
+        )
+        .toSeq
+    )
+  }
+
   private def maintainersAreSubsetsOfSignatories(ledger: Ledger): BoolExpr = {
     def validCommands(commands: Commands): BoolExpr = {
-      and(commands.actions.map(validAction))
+      and(commands.commands.map(validCommand))
+    }
+
+    def validCommand(command: Command): BoolExpr = command match {
+      case Command(_, action) => validAction(action)
     }
 
     def validAction(action: Action): BoolExpr = action match {
@@ -602,11 +668,18 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
       )
     }
 
+    def packageIdToBits(packageId: PackageId): Seq[BoolExpr] = {
+      val numBits = (scala.math.log(numPackages.toDouble) / scala.math.log(2)).ceil.toInt
+      val bitVector = ctx.mkInt2BV(numBits, packageId)
+      (0 until numBits).map(i => ctx.mkEq(ctx.mkExtract(i, i, bitVector), ctx.mkBV(1, 1)))
+    }
+
     def ledgerToBits(ledger: Ledger): Seq[BoolExpr] =
       Seq.concat(
         collectReferences(ledger).toSeq.flatMap(contractIdToBits),
         collectPartySets(ledger).flatMap(partySetToBits),
         collectDisclosures(ledger).flatMap(contractIdSetToBits),
+        collectPackageIds(ledger).flatMap(packageIdToBits),
       )
 
     def participantToBits(participant: Participant): Seq[BoolExpr] =
@@ -678,6 +751,8 @@ private class SymbolicSolver(ctx: Context, numParties: Int) {
       actorsAreHostedOnParticipant(partiesOf, symLedger),
       // Maintainers are subsets of signatories
       maintainersAreSubsetsOfSignatories(symLedger),
+      // Package IDs are in {0 .. numPackages-1}
+      packageIdsWellFormed(symLedger),
     )
   }
 

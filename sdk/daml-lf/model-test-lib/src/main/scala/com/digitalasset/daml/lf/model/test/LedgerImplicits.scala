@@ -44,10 +44,17 @@ object LedgerImplicits {
           rb.subTransaction.map(numActionContracts).sum
       }
 
+      def numCommandContracts(command: Symbolic.Command): Int =
+        numActionContracts(command.action)
+
       def numCommandsContracts(commands: Symbolic.Commands): Int =
-        commands.actions.map(numActionContracts).sum
+        commands.commands.map(numCommandContracts).sum
 
       ledger.map(numCommandsContracts).sum
     }
+  }
+
+  implicit class RichCommands(commands: Ledgers.Commands) {
+    def actions: List[Ledgers.Action] = commands.commands.map(_.action)
   }
 }

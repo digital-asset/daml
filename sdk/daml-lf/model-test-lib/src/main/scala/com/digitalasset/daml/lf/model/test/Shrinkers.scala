@@ -13,9 +13,11 @@ object Shrinkers {
 
   private def validScenario(scenario: Scenario): Boolean = {
     val numParties = scenario.topology.flatMap(_.parties).toSet.size
+    val maxPackageId =
+      scenario.ledger.flatMap(_.commands.flatMap(_.packageId)).maxOption.getOrElse(0)
     val res =
       try {
-        SymbolicSolver.valid(scenario, numParties)
+        SymbolicSolver.valid(scenario, maxPackageId, numParties)
       } catch {
         case _: Throwable =>
           // sometimes z3 times out on ground constraints (!)
@@ -42,6 +44,9 @@ object Shrinkers {
 
   lazy val shrinkParticipantId: Shrink[ParticipantId] =
     Shrink.shrinkIntegral[ParticipantId].suchThat(_ >= 0)
+
+  lazy val shrinkPackageId: Shrink[PackageId] =
+    Shrink.shrinkIntegral[PackageId].suchThat(_ >= 0)
 
   @nowarn("cat=deprecation")
   lazy val shrinkExerciseKind: Shrink[ExerciseKind] = Shrink {
@@ -165,6 +170,16 @@ object Shrinkers {
     case _ => false
   }
 
+  lazy val shrinkCommand: Shrink[Command] = Shrink { case Command(packageId, action) =>
+    Shrink
+      .shrinkTuple2(
+        Shrink.shrinkOption(shrinkPackageId),
+        shrinkAction.suchThat(isToplevelAction),
+      )
+      .shrink((packageId, action))
+      .map((Command.apply _).tupled)
+  }
+
   lazy val shrinkCommands: Shrink[Commands] = Shrink {
     case Commands(participantId, actAs, disclosures, actions) =>
       Shrink
@@ -172,7 +187,9 @@ object Shrinkers {
           shrinkParticipantId,
           shrinkPartySet,
           shrinkContractIdSet,
-          shrinkTransaction.suchThat(as => as.nonEmpty && as.forall(isToplevelAction)),
+          Shrink
+            .shrinkContainer[List, Command](implicitly, shrinkCommand, implicitly)
+            .suchThat(_.nonEmpty),
         )
         .shrink((participantId, actAs, disclosures, actions))
         .map((Commands.apply _).tupled)

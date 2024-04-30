@@ -90,8 +90,11 @@ class Enumerations(languageVersion: LanguageVersion) {
   lazy val topLevelActions: Space[Action] =
     S.pay(creates + createsWithKey + exercises + exercisesByKey)
 
+  lazy val command: Space[Command] =
+    AS.map2(bools, topLevelActions)(Command)
+
   lazy val commands: Space[Commands] =
-    AS.map(nonEmptyListOf(topLevelActions))(Commands)
+    AS.map(nonEmptyListOf(command))(Commands)
 
   lazy val ledgers: Space[Ledger] =
     listsOf(commands)

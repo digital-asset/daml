@@ -33,7 +33,12 @@ object Skeletons {
 
   type Transaction = List[Action]
 
-  final case class Commands(actions: Transaction)
+  final case class Command(
+      explicitPackageId: Boolean,
+      action: Action,
+  )
+
+  final case class Commands(commands: List[Command])
 
   type Ledger = List[Commands]
 

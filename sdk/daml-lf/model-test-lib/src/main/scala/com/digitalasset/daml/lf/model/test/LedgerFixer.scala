@@ -17,7 +17,7 @@ object LedgerFixer {
   case class GenState(maxContractId: Int, activeContracts: Map[Int, Contract])
 }
 
-class LedgerFixer(numParties: Int) {
+class LedgerFixer(numPackages: Int, numParties: Int) {
   import GenInstances._
   import LedgerFixer._
 
@@ -177,25 +177,43 @@ class LedgerFixer(numParties: Int) {
     transaction.traverse(genAction(partiesOnParticipant, hidden, authorizers, _))
   }
 
-  def genActions(
+  def genMaybePackageId(explicitPackageId: Boolean): Gen[Option[L.PackageId]] =
+    if (explicitPackageId) Gen.option(Gen.choose(0, numPackages - 1)) else Gen.const(None)
+
+  def genCommand(
       partiesOnParticipant: L.PartySet,
       hidden: L.PartySet,
       authorizers: L.PartySet,
-      actions: List[S.Action],
-  ): LGen[List[L.Action]] = {
-    actions match {
+      command: S.Command,
+  ): WriterT[LGen, L.PartySet, L.Command] = command match {
+    case S.Command(explicitPackageId, action) =>
+      for {
+        fixedPkgId <- WriterT.liftF[LGen, L.PartySet, Option[L.PackageId]](
+          StateT.liftF(genMaybePackageId(explicitPackageId))
+        )
+        fixedAction <- genAction(partiesOnParticipant, hidden, authorizers, action)
+      } yield L.Command(fixedPkgId, fixedAction)
+  }
+
+  def genCommandList(
+      partiesOnParticipant: L.PartySet,
+      hidden: L.PartySet,
+      authorizers: L.PartySet,
+      commands: List[S.Command],
+  ): LGen[List[L.Command]] = {
+    commands match {
       case Nil => StateT.pure(List.empty)
-      case action :: actions =>
+      case command :: commands =>
         for {
-          genActionResult <- genAction(partiesOnParticipant, hidden, authorizers, action).run
-          (created, fixedAction) = genActionResult
-          fixedActions <- genActions(
+          genCommandResult <- genCommand(partiesOnParticipant, hidden, authorizers, command).run
+          (created, fixedCommand) = genCommandResult
+          fixedCommands <- genCommandList(
             partiesOnParticipant,
             created ++ hidden,
             authorizers,
-            actions,
+            commands,
           )
-        } yield fixedAction :: fixedActions
+        } yield fixedCommand :: fixedCommands
     }
   }
 
@@ -204,14 +222,19 @@ class LedgerFixer(numParties: Int) {
     actAs <- StateT.liftF(genNonEmptySubsetOf(topology(participantId).parties))
     activeContracts <- StateT.inspect((s: GenState) => s.activeContracts)
     disclosures <- StateT.liftF(genSubsetOf(activeContracts.keySet))
-    fixedActions <- genActions(topology(participantId).parties, Set.empty, actAs, commands.actions)
-  } yield L.Commands(participantId, actAs, disclosures, fixedActions)
+    fixedCommands <- genCommandList(
+      topology(participantId).parties,
+      Set.empty,
+      actAs,
+      commands.commands,
+    )
+  } yield L.Commands(participantId, actAs, disclosures, fixedCommands)
 
   def genLedger(topology: L.Topology, ledger: S.Ledger): LGen[L.Ledger] =
     ledger.traverse(genCommands(topology, _))
 
   def fixScenario(scenario: S.Scenario): Gen[L.Scenario] = for {
-    topology <- new Generators(scenario.topology.size, numParties).topologyGen
+    topology <- new Generators(scenario.topology.size, numPackages, numParties).topologyGen
     ledger <- genLedger(topology, scenario.ledger).run(GenState(-1, Map.empty)).map(_._2)
   } yield L.Scenario(topology, ledger)
 }
