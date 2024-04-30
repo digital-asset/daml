@@ -157,7 +157,16 @@ class GrpcLedgerClient(
             )
         val blob =
           Bytes.fromByteString(createdEvent.createdEventBlob)
-        (ScriptLedgerClient.ActiveContract(templateId, cid, argument, blob), key)
+        // TODO: upstream that fix
+        (
+          ScriptLedgerClient.ActiveContract(
+            Converter.fromApiIdentifier(createdEvent.templateId.get).getOrElse(???),
+            cid,
+            argument,
+            blob,
+          ),
+          key,
+        )
       })
     )
   }

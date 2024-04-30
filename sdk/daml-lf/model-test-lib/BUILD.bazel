@@ -10,6 +10,7 @@ load(
 load(
     "//rules_daml:daml.bzl",
     "daml_compile",
+    "default_damlc_opts",
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
@@ -17,13 +18,27 @@ load(
     "mangle_for_damlc",
 )
 
+PKG_VERSIONS = [
+    1,
+    2,
+    3,
+]
+
 [
     daml_compile(
-        name = "universal-{}".format(mangle_for_damlc(lf_version)),
+        name = "universal-pkgv{pkg_version}-lf{lf_version}".format(
+            lf_version = mangle_for_damlc(lf_version),
+            pkg_version = pkg_version,
+        ),
         srcs = ["src/main/daml/Universal.daml"],
+        ghc_options = default_damlc_opts + [
+            "--ghc-option=-DPACKAGE_VERSION={}".format(pkg_version),
+        ],
+        project_name = "universal",
         target = lf_version,
     )
     for lf_version in ENGINE_LF_VERSIONS
+    for pkg_version in PKG_VERSIONS
 ]
 
 da_scala_library(
@@ -71,7 +86,10 @@ da_scala_library(
 da_scala_binary(
     name = "demo",
     srcs = ["src/main/scala/com/digitalasset/daml/lf/model/test/Demo.scala"],
-    data = [":universal-{}.dar".format(mangle_for_damlc(lf_version)) for lf_version in ENGINE_LF_VERSIONS],
+    data = [":universal-pkgv{pkg_version}-lf{lf_version}.dar".format(
+        lf_version = mangle_for_damlc(lf_version),
+        pkg_version = pkg_version,
+    ) for lf_version in ENGINE_LF_VERSIONS for pkg_version in PKG_VERSIONS],
     main_class = "com.daml.lf.model.test.Demo",
     resources = ["//daml-script/runner:src/main/resources/logback.xml"],
     scala_deps = [
