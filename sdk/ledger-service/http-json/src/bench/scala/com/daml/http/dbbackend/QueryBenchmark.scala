@@ -19,7 +19,7 @@ trait QueryBenchmark extends ContractDaoBenchmark {
   @Param(Array("1", "10"))
   var extraTemplates: Int = _
 
-  private val tpid = ContractTypeId.Template("-pkg-", "M", "T")
+  private val tpid: ContractTypeId.Resolved = ContractTypeId.Template("-pkg-", "M", "T")
   private var surrogateTpid: SurrogateTpId = _
   val party = "Alice"
 
@@ -50,7 +50,7 @@ trait QueryBenchmark extends ContractDaoBenchmark {
     val result = instanceUUIDLogCtx(implicit lc =>
       dao
         .transact(
-          ContractDao.selectContracts(NonEmpty(Set, Party(party)), tpid, fr"1 = 1")
+          ContractDao.selectContracts(NonEmpty(Set, Party(party)), NonEmpty(Set, tpid), fr"1 = 1")
         )
         .unsafeRunSync()
     )

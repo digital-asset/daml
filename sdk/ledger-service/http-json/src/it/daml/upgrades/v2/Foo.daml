@@ -1,0 +1,11 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Foo where
+
+-- This template is an upgrade on the Bar in v1/Foo.daml
+template Bar with
+    owner : Party
+    extra : Optional Int
+  where
+    signatory owner

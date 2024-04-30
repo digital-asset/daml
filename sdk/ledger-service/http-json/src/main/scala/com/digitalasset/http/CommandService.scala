@@ -286,7 +286,7 @@ class CommandService(
   ): Error \/ ImmArraySeq[ActiveContract[ContractTypeId.Template.Resolved, lav1.value.Value]] = {
     Transactions
       .allCreatedEvents(tx)
-      .traverse(ActiveContract.fromLedgerApi(domain.ActiveContract.IgnoreInterface, _))
+      .traverse(ActiveContract.fromLedgerApi(domain.ActiveContract.ExtractAs.Template, _))
       .leftMap(e => InternalError(Some(Symbol("activeContracts")), e.shows))
   }
 

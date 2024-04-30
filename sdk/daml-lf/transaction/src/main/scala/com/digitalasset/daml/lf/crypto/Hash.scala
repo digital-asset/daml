@@ -409,6 +409,7 @@ object Hash {
     override val toOption: Option[PackageName] = None
   }
   object KeyPackageName {
+    val empty: KeyPackageName = NoPackageName
 
     def build(
         packageName: Option[PackageName],

@@ -42,8 +42,6 @@ package object domain {
 
 package domain {
 
-  import scalaz.\/-
-
   final case class Error(id: Symbol, message: String)
 
   object Error {
@@ -96,77 +94,95 @@ package domain {
     def matchesKey(k: LfValue)(a: ResolvedCtTyId[LfValue]): Boolean =
       a.key.fold(false)(_ == k)
 
-    case object IgnoreInterface
-
-    def fromLedgerApi[RQ, CtTyId](
-        resolvedQuery: RQ,
+    def fromLedgerApi[CtTyId](
+        extractor: ExtractAs[CtTyId],
         gacr: lav1.active_contracts_service.GetActiveContractsResponse,
-    )(implicit
-        RQ: ForQuery[RQ, CtTyId]
     ): Error \/ List[ActiveContract[CtTyId, lav1.value.Value]] = {
-      gacr.activeContracts.toList.traverse(fromLedgerApi(resolvedQuery, _))
+      gacr.activeContracts.toList.traverse(fromLedgerApi(extractor, _))
     }
 
-    def fromLedgerApi[RQ, CtTyId](
-        resolvedQuery: RQ,
+    def fromLedgerApi[CtTyId](
+        extractor: ExtractAs[CtTyId],
         in: lav1.event.CreatedEvent,
-    )(implicit RQ: ForQuery[RQ, CtTyId]): Error \/ ActiveContract[CtTyId, lav1.value.Value] = {
-      type IdKeyPayload =
-        (Error \/ CtTyId, Option[lav1.value.Value], Error \/ lav1.value.Record)
-
-      def templateFallback = {
-        val id = in.templateId.required("templateId").map(ContractTypeId.Template.fromLedgerApi)
-        (id, in.contractKey, in.createArguments required "createArguments")
+    ): Error \/ ActiveContract[CtTyId, lav1.value.Value] = {
+      extractor.getIdKeyPayload(in).map { case (id, key, payload) =>
+        ActiveContract(
+          contractId = ContractId(in.contractId),
+          templateId = id,
+          key = key,
+          payload = boxedRecord(payload),
+          signatories = Party.subst(in.signatories),
+          observers = Party.subst(in.observers),
+          agreementText = in.agreementText getOrElse "",
+        )
       }
-
-      def viewError(view: lav1.event.InterfaceView): Option[Status] = {
-        view.viewStatus.filter(_.code != Code.OK_VALUE)
-      }
-
-      val (getId, key, getPayload): IdKeyPayload = RQ match {
-        case ForQuery.Resolved =>
-          resolvedQuery match {
-            case ResolvedQuery.ByInterfaceId((interfaceId, _)) =>
-              import util.IdentifierConverters.apiIdentifier
-              val id = apiIdentifier(interfaceId)
-              val view = in.interfaceViews.find(_.interfaceId.exists(_ == id))
-              val payload = view match {
-                case None =>
-                  -\/(Error(Symbol("ErrorOps_view_missing"), s"Missing view with id $id in $in"))
-                case Some(v) =>
-                  viewError(v) match {
-                    case Some(s) => -\/(Error(Symbol("ErrorOps_view_eval"), s.toString))
-                    case None => v.viewValue required "interviewView"
-                  }
-              }
-              (\/-(interfaceId: CtTyId), None, payload)
-            case ResolvedQuery.ByTemplateId(_) | ResolvedQuery.ByTemplateIds(_) => templateFallback
-          }
-        case ForQuery.Tpl => templateFallback
-      }
-
-      for {
-        id <- getId
-        payload <- getPayload
-      } yield ActiveContract(
-        contractId = ContractId(in.contractId),
-        templateId = id,
-        key = key,
-        payload = boxedRecord(payload),
-        signatories = Party.subst(in.signatories),
-        observers = Party.subst(in.observers),
-        agreementText = in.agreementText getOrElse "",
-      )
     }
 
-    /** Either a [[ResolvedQuery]] or [[IgnoreInterface]].  Enables well-founded
-      * overloading of `fromLedgerApi` on these contexts.
-      */
-    sealed abstract class ForQuery[-RQ, CtTyId] extends Product with Serializable
-    object ForQuery {
-      implicit case object Resolved extends ForQuery[ResolvedQuery, ContractTypeId.Resolved]
-      implicit case object Tpl
-          extends ForQuery[IgnoreInterface.type, ContractTypeId.Template.Resolved]
+    // Strategy for extracting data from the created event,
+    // depending on the kind of thing we were expecting, i.e. template or interface view.
+    sealed trait ExtractAs[+CtTyId] {
+      def getIdKeyPayload(in: lav1.event.CreatedEvent): ExtractAs.IdKeyPayload[CtTyId]
+    }
+
+    object ExtractAs {
+      type IdKeyPayload[+Id] = Error \/ (Id, Option[lav1.value.Value], lav1.value.Record)
+
+      def apply(id: ContractTypeId.Resolved): ExtractAs[ContractTypeId.Resolved] = id match {
+        case ContractTypeId.Interface(_, mod, entity) => ExtractAs.InterfaceView(mod, entity)
+        case ContractTypeId.Template(_, _, _) => ExtractAs.Template
+      }
+
+      def apply(resolvedQuery: ResolvedQuery): ExtractAs[ContractTypeId.Resolved] =
+        resolvedQuery match {
+          case ResolvedQuery.ByInterfaceId(intfId) =>
+            ExtractAs.InterfaceView(intfId.original.moduleName, intfId.original.entityName)
+          case ResolvedQuery.ByTemplateId(_) => ExtractAs.Template
+          case ResolvedQuery.ByTemplateIds(_) => ExtractAs.Template
+        }
+
+      // For interfaces we need to find the correct view and extract the payload and id from that.
+      final case class InterfaceView(module: String, entity: String)
+          extends ExtractAs[ContractTypeId.Interface.Resolved] {
+        def getIdKeyPayload(
+            in: lav1.event.CreatedEvent
+        ): IdKeyPayload[ContractTypeId.Interface.Resolved] = {
+          val view = in.interfaceViews.find(
+            // We ignore the package id when matching views.
+            // The search result should have already selected the correct packages,
+            // and if the query used a package name, multiple different corresponding
+            // package ids may be returned.
+            _.interfaceId.exists(id => id.moduleName == module && id.entityName == entity)
+          )
+          view match {
+            case None =>
+              val msg = s"Missing view with id matching '$module:$entity' in $in"
+              -\/(Error(Symbol("ErrorOps_view_missing"), msg))
+            case Some(v) =>
+              viewError(v) match {
+                case Some(s) => -\/(Error(Symbol("ErrorOps_view_eval"), s.toString))
+                case None =>
+                  for {
+                    id <- v.interfaceId.required("interfaceId")
+                    payload <- v.viewValue.required("interviewView")
+                  } yield (ContractTypeId.Interface.fromLedgerApi(id), None, payload)
+              }
+          }
+        }
+
+        private def viewError(view: lav1.event.InterfaceView): Option[Status] = {
+          view.viewStatus.filter(_.code != Code.OK_VALUE)
+        }
+      }
+
+      // For templates we can get the data more directly.
+      final case object Template extends ExtractAs[ContractTypeId.Template.Resolved] {
+        def getIdKeyPayload(
+            in: lav1.event.CreatedEvent
+        ): IdKeyPayload[ContractTypeId.Template.Resolved] = for {
+          id <- in.templateId.required("templateId")
+          payload <- in.createArguments.required("createArguments")
+        } yield (ContractTypeId.Template.fromLedgerApi(id), in.contractKey, payload)
+      }
     }
 
     implicit def covariant[C]: Traverse[ActiveContract[C, *]] = new Traverse[ActiveContract[C, *]] {
@@ -205,5 +221,7 @@ package domain {
     final val ActiveContract = here.ActiveContract
     final val ResolvedQuery = here.ResolvedQuery
     type ResolvedQuery = here.ResolvedQuery
+    final val ContractTypeRef = here.ContractTypeRef
+    type ContractTypeRef[+CtTyId] = here.ContractTypeRef[CtTyId]
   }
 }

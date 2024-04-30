@@ -406,7 +406,7 @@ package domain {
             case lav1.transaction.TreeEvent.Kind.Created(created) =>
               val a =
                 ActiveContract
-                  .fromLedgerApi(domain.ActiveContract.IgnoreInterface, created)
+                  .fromLedgerApi(domain.ActiveContract.ExtractAs.Template, created)
                   .map(a => Contract[lav1.value.Value](\/-(a)))
               val newAcc = ^(acc, a)(_ :+ _)
               loop(tail, newAcc)
@@ -479,8 +479,8 @@ package domain {
         in: lav1.event.ArchivedEvent,
     ): Error \/ ArchivedContract = {
       val resolvedTemplateId = resolvedQuery match {
-        case ResolvedQuery.ByInterfaceId((interfaceId, _)) =>
-          \/-(interfaceId)
+        case ResolvedQuery.ByInterfaceId(interfaceId) =>
+          \/-(interfaceId.original)
         case _ =>
           (in.templateId required "templateId").map(ContractTypeId.Template.fromLedgerApi)
       }

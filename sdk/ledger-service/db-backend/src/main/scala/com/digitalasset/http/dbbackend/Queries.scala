@@ -416,17 +416,16 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
 
   private[http] final def selectContracts(
       parties: PartySet,
-      tpid: SurrogateTpId,
+      tpids: NonEmpty[Set[SurrogateTpId]],
       predicate: Fragment,
   )(implicit
       log: LogHandler
-  ): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] =
+  ): Query0[DBContract[SurrogateTpId, JsValue, JsValue, Vector[String]]] =
     selectContractsMultiTemplate(
       parties,
-      NonEmpty(ISeq, (tpid, predicate)),
+      tpids.toSeq.sorted.map(tpid => (tpid, predicate)),
       MatchedQueryMarker.Unused,
     )
-      .map(_ copy (templateId = ()))
 
   /** Make a query that may indicate
     * which query or queries produced each contract.
@@ -492,20 +491,20 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
 
   private[http] final def fetchById(
       parties: PartySet,
-      tpid: SurrogateTpId,
+      tpid: NonEmpty[Set[SurrogateTpId]],
       contractId: String,
   )(implicit
       log: LogHandler
-  ): ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
+  ): ConnectionIO[Option[DBContract[SurrogateTpId, JsValue, JsValue, Vector[String]]]] =
     selectContracts(parties, tpid, sql"c.contract_id = $contractId").option
 
   private[http] final def fetchByKey(
       parties: PartySet,
-      tpid: SurrogateTpId,
+      tpid: NonEmpty[Set[SurrogateTpId]],
       key: Hash,
   )(implicit
       log: LogHandler
-  ): ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
+  ): ConnectionIO[Option[DBContract[SurrogateTpId, JsValue, JsValue, Vector[String]]]] =
     selectContracts(parties, tpid, keyEquality(key)).option
 
   private[http] def keyEquality(key: Hash): Fragment = sql"key_hash = ${key.toHexString.toString}"
