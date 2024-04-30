@@ -11,7 +11,7 @@ import com.digitalasset.canton.admin.api.client.commands.{GrpcAdminCommand, Topo
 import com.digitalasset.canton.admin.api.client.data.topologyx.*
 import com.digitalasset.canton.admin.api.client.data.DynamicDomainParameters as ConsoleDynamicDomainParameters
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveLong}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{NonNegativeDuration, RequireTypes}
 import com.digitalasset.canton.console.CommandErrors.{CommandError, GenericCommandError}
 import com.digitalasset.canton.console.{
@@ -1632,70 +1632,6 @@ class TopologyAdministrationGroup(
     def active(domainId: DomainId, participantId: ParticipantId): Boolean = {
       // TODO(#14048) Should we check the other side (domain accepts participant)?
       domain_trust_certificates.active(domainId, participantId)
-    }
-  }
-
-  @Help.Summary("Manage traffic control")
-  @Help.Group("Member traffic control")
-  object traffic_control {
-    @Help.Summary("List traffic control topology transactions.")
-    def list(
-        filterMember: String = instance.id.filterString,
-        filterStore: String = "",
-        proposals: Boolean = false,
-        timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOp] = None,
-        filterSigningKey: String = "",
-        protocolVersion: Option[String] = None,
-    ): Seq[ListTrafficStateResult] = consoleEnvironment.run {
-      adminCommand(
-        TopologyAdminCommands.Read.ListTrafficControlState(
-          BaseQuery(
-            filterStore,
-            proposals,
-            timeQuery,
-            operation,
-            filterSigningKey,
-            protocolVersion.map(ProtocolVersion.tryCreate),
-          ),
-          filterMember = filterMember,
-        )
-      )
-    }
-
-    @Help.Summary("Top up traffic for this node")
-    @Help.Description(
-      """Use this command to update the new total traffic limit for the node.
-         The top up will have to be authorized by the domain to be accepted.
-         The newTotalTrafficAmount must be strictly increasing top up after top up."""
-    )
-    def top_up(
-        domainId: DomainId,
-        newTotalTrafficAmount: PositiveLong,
-        member: Member = instance.id.member,
-        serial: Option[PositiveInt] = None,
-        signedBy: Option[Fingerprint] = Some(instance.id.fingerprint),
-        synchronize: Option[config.NonNegativeDuration] = Some(
-          consoleEnvironment.commandTimeouts.bounded
-        ),
-    ): SignedTopologyTransaction[TopologyChangeOp, TrafficControlState] = {
-
-      val command = TopologyAdminCommands.Write.Propose(
-        TrafficControlState
-          .create(
-            domainId,
-            member,
-            newTotalTrafficAmount,
-          ),
-        signedBy = signedBy.toList,
-        serial = serial,
-        change = TopologyChangeOp.Replace,
-        mustFullyAuthorize = true,
-        forceChange = false,
-        store = domainId.filterString,
-      )
-
-      synchronisation.runAdminCommand(synchronize)(command)
     }
   }
 

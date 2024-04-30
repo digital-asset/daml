@@ -4,14 +4,13 @@
 package com.digitalasset.canton.topology.transaction
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveLong}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{GeneratorsCrypto, PublicKey, Signature, SigningPublicKey}
 import com.digitalasset.canton.protocol.GeneratorsProtocol
 import com.digitalasset.canton.topology.{
   DomainId,
   GeneratorsTopology,
   MediatorId,
-  Member,
   Namespace,
   SequencerId,
 }
@@ -98,14 +97,6 @@ final class GeneratorsTransaction(
       threshold <- Gen.choose(1, active.size).map(PositiveInt.tryCreate)
       observers <- Arbitrary.arbitrary[NonEmpty[Seq[SequencerId]]]
     } yield SequencerDomainState.create(domain, threshold, active, observers).value
-  )
-
-  implicit val trafficControlStateArb: Arbitrary[TrafficControlState] = Arbitrary(
-    for {
-      domain <- Arbitrary.arbitrary[DomainId]
-      member <- Arbitrary.arbitrary[Member]
-      totalExtraTrafficLimit <- Arbitrary.arbitrary[PositiveLong]
-    } yield TrafficControlState.create(domain, member, totalExtraTrafficLimit).value
   )
 
   implicit val topologyTransactionArb

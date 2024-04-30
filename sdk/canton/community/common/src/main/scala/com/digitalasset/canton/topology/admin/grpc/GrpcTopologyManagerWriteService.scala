@@ -116,8 +116,6 @@ class GrpcTopologyManagerWriteService(
               VettedPackages.fromProtoV30(mapping)
             case Mapping.ParticipantPermission(mapping) =>
               ParticipantDomainPermission.fromProtoV30(mapping)
-            case Mapping.TrafficControlState(mapping) =>
-              TrafficControlState.fromProtoV30(mapping)
             case Mapping.PartyHostingLimits(mapping) =>
               PartyHostingLimits.fromProtoV30(mapping)
             case Mapping.PurgeTopologyTxs(mapping) =>

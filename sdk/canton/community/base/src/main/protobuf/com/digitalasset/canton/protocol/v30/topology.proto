@@ -287,19 +287,6 @@ message PurgeTopologyTransaction {
   repeated TopologyMapping mappings = 2;
 }
 
-// UNIQUE(domain, member)
-// authorization: whoever controls the domain
-message TrafficControlState {
-  // the domain-id
-  string domain = 1;
-
-  // member to change traffic control state for
-  string member = 2;
-
-  // total amount of traffic ever purchased, including the new top up amount, which must be positive and monotonically increasing.
-  uint64 total_extra_traffic_limit = 3;
-}
-
 message TopologyMapping {
   oneof mapping {
     NamespaceDelegation namespace_delegation = 1;
@@ -320,7 +307,6 @@ message TopologyMapping {
     MediatorDomainState mediator_domain_state = 12;
     SequencerDomainState sequencer_domain_state = 13;
     PurgeTopologyTransaction purge_topology_txs = 14;
-    TrafficControlState traffic_control_state = 15;
   }
 }
 

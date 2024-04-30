@@ -1343,7 +1343,6 @@ class CantonSyncService(
               domainHandle.topologyClient,
               trafficStateController,
               ephemeral.recordOrderPublisher,
-              parameters.useNewTrafficControl,
             ),
           missingKeysAlerter,
           transferCoordination,

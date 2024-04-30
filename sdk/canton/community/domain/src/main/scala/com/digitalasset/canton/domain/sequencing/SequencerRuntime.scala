@@ -442,7 +442,7 @@ class SequencerRuntime(
       loggerFactory,
     )
 
-  sequencer.rateLimitManager.foreach(_.balanceUpdateSubscriber.foreach(trafficProcessor.subscribe))
+  sequencer.rateLimitManager.foreach(rlm => trafficProcessor.subscribe(rlm.balanceUpdateSubscriber))
 
   // TODO(i17434): Use topologyHandler.combineWith(trafficProcessorHandler)
   private def handler(domainId: DomainId): UnsignedProtocolEventHandler =

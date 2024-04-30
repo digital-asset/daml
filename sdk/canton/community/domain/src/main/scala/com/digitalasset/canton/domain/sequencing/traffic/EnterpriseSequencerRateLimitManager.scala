@@ -16,10 +16,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerRateLimitError,
   SequencerRateLimitManager,
 }
-import com.digitalasset.canton.domain.sequencing.traffic.EnterpriseSequencerRateLimitManager.{
-  BalanceUpdateClient,
-  TrafficStateUpdateResult,
-}
+import com.digitalasset.canton.domain.sequencing.traffic.EnterpriseSequencerRateLimitManager.TrafficStateUpdateResult
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.TrafficControlParameters
@@ -39,7 +36,7 @@ import scala.concurrent.ExecutionContext
 
 class EnterpriseSequencerRateLimitManager(
     @VisibleForTesting
-    private[canton] val balanceUpdateClient: BalanceUpdateClient,
+    private[canton] val trafficBalanceManager: TrafficBalanceManager,
     override protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
     override val timeouts: ProcessingTimeout,
@@ -110,12 +107,16 @@ class EnterpriseSequencerRateLimitManager(
   ] = {
     logger.debug(s"Consuming event for $sender at $sequencingTimestamp with state $trafficState")
     for {
-      currentBalance <- balanceUpdateClient(
-        sender,
-        sequencingTimestamp,
-        lastBalanceUpdateTimestamp,
-        warnIfApproximate,
-      )
+      currentBalance <- trafficBalanceManager
+        .getTrafficBalanceAt(
+          sender,
+          sequencingTimestamp,
+          lastBalanceUpdateTimestamp,
+          warnIfApproximate,
+        )
+        .leftMap { case TrafficBalanceManager.TrafficBalanceAlreadyPruned(member, timestamp) =>
+          SequencerRateLimitError.UnknownBalance(member, timestamp)
+        }
       newTrafficState <- EitherT
         .fromEither[FutureUnlessShutdown](
           getOrCreateMemberRateLimiter(sender)
@@ -142,7 +143,11 @@ class EnterpriseSequencerRateLimitManager(
       ec: ExecutionContext,
       tc: TraceContext,
   ): FutureUnlessShutdown[Option[TrafficBalance]] = {
-    balanceUpdateClient(member, timestamp, lastBalanceUpdateTimestamp, warnIfApproximate)
+    trafficBalanceManager
+      .getTrafficBalanceAt(member, timestamp, lastBalanceUpdateTimestamp, warnIfApproximate)
+      .leftMap { case TrafficBalanceManager.TrafficBalanceAlreadyPruned(member, timestamp) =>
+        SequencerRateLimitError.UnknownBalance(member, timestamp)
+      }
       .valueOr { err =>
         logger.warn(s"Failed to obtain the traffic balance for $member at $timestamp", err)
         None
@@ -198,7 +203,7 @@ class EnterpriseSequencerRateLimitManager(
   ): FutureUnlessShutdown[Map[Member, TrafficStateUpdateResult]] = {
     getUpdatedTrafficStates(
       partialTrafficStates,
-      balanceUpdateClient.latestKnownBalanceFor,
+      trafficBalanceManager.getLatestKnownBalance,
       trafficControlParameters,
       None,
     )
@@ -225,20 +230,20 @@ class EnterpriseSequencerRateLimitManager(
   override def lastKnownBalanceFor(member: Member)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[TrafficBalance]] =
-    balanceUpdateClient.latestKnownBalanceFor(member)
+    trafficBalanceManager.getLatestKnownBalance(member)
 
   override def onClosed(): Unit = {
-    Lifecycle.close(balanceUpdateClient)(logger)
+    Lifecycle.close(trafficBalanceManager)(logger)
   }
-  override def balanceUpdateSubscriber: Option[SequencerTrafficControlSubscriber] =
-    balanceUpdateClient.balanceUpdateSubscription
+  override def balanceUpdateSubscriber: SequencerTrafficControlSubscriber =
+    trafficBalanceManager.subscription
 
   override def safeForPruning(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Unit =
-    balanceUpdateClient.safeForPruning(timestamp)
+    trafficBalanceManager.setSafeToPruneBeforeExclusive(timestamp)
 
-  override def balanceKnownUntil: Option[CantonTimestamp] = balanceUpdateClient.lastKnownTimestamp
+  override def balanceKnownUntil: Option[CantonTimestamp] = trafficBalanceManager.maxTsO
 }
 
 object EnterpriseSequencerRateLimitManager {
@@ -250,30 +255,4 @@ object EnterpriseSequencerRateLimitManager {
       state: TrafficState,
       balanceUpdateSerial: Option[PositiveInt],
   )
-
-  trait BalanceUpdateClient extends AutoCloseable {
-
-    /** Provides the traffic balance for the member at the given timestamp.
-      * If no timestamp is provided, returns the latest known balance.
-      * @param member member for which to provide the traffic balance
-      * @param timestamp timestamp at which to provide the traffic balance
-      * @param lastSeen last known timestamp possibly containing a balance update
-      * @param warnIfApproximate if true, a warning will be logged if the balance is approximate
-      */
-    def apply(
-        member: Member,
-        timestamp: CantonTimestamp,
-        lastSeen: Option[CantonTimestamp] = None,
-        warnIfApproximate: Boolean = true,
-    )(implicit
-        traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, SequencerRateLimitError, Option[TrafficBalance]]
-    def lastKnownTimestamp: Option[CantonTimestamp]
-    def latestKnownBalanceFor(member: Member)(implicit
-        traceContext: TraceContext
-    ): FutureUnlessShutdown[Option[TrafficBalance]]
-
-    def balanceUpdateSubscription: Option[SequencerTrafficControlSubscriber] = None
-    def safeForPruning(timestamp: CantonTimestamp)(implicit traceContext: TraceContext): Unit = {}
-  }
 }

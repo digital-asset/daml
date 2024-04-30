@@ -5,7 +5,6 @@ package com.digitalasset.canton.topology.transaction
 
 import cats.data.EitherT
 import cats.instances.future.*
-import com.digitalasset.canton.config.RequireTypes.PositiveLong
 import com.digitalasset.canton.crypto.KeyPurpose
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -67,16 +66,6 @@ class ValidatingTopologyMappingChecks(
         toValidate
           .select[TopologyChangeOp.Replace, PartyToParticipant]
           .map(checkPartyToParticipant(_, inStore.flatMap(_.selectMapping[PartyToParticipant])))
-
-      case (Code.TrafficControlState, None | Some(Code.TrafficControlState)) =>
-        toValidate
-          .select[TopologyChangeOp.Replace, TrafficControlState]
-          .map(
-            checkTrafficControl(
-              _,
-              inStore.flatMap(_.selectMapping[TrafficControlState]),
-            )
-          )
 
       case otherwise => None
     }
@@ -287,29 +276,5 @@ class ValidatingTopologyMappingChecks(
     } yield {
       ()
     }
-  }
-
-  /** Checks that the extraTrafficLimit is monotonically increasing */
-  private def checkTrafficControl(
-      toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, TrafficControlState],
-      inStore: Option[SignedTopologyTransaction[TopologyChangeOp, TrafficControlState]],
-  ): EitherT[Future, TopologyTransactionRejection, Unit] = {
-    val minimumExtraTrafficLimit = inStore match {
-      case None => PositiveLong.one
-      case Some(TopologyChangeOp(TopologyChangeOp.Remove)) =>
-        // if the transaction in the store is a removal, we "reset" the monotonicity requirement
-        PositiveLong.one
-      case Some(tx) => tx.mapping.totalExtraTrafficLimit
-    }
-
-    EitherTUtil.condUnitET(
-      toValidate.mapping.totalExtraTrafficLimit >= minimumExtraTrafficLimit,
-      TopologyTransactionRejection.ExtraTrafficLimitTooLow(
-        toValidate.mapping.member,
-        toValidate.mapping.totalExtraTrafficLimit,
-        minimumExtraTrafficLimit,
-      ),
-    )
-
   }
 }

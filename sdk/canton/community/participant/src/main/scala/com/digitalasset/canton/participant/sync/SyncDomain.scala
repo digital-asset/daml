@@ -283,11 +283,9 @@ class SyncDomain(
       loggerFactory,
     )
 
-  if (parameters.useNewTrafficControl) {
-    trafficProcessor.subscribe(
-      new ParticipantTrafficControlSubscriber(trafficStateController, participantId, loggerFactory)
-    )
-  }
+  trafficProcessor.subscribe(
+    new ParticipantTrafficControlSubscriber(trafficStateController, participantId, loggerFactory)
+  )
 
   private val badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor =
     new BadRootHashMessagesRequestProcessor(

@@ -8,12 +8,8 @@ import cats.syntax.either.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.ProtoDeserializationError.{
-  FieldNotSet,
-  InvariantViolation,
-  UnrecognizedEnum,
-}
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveLong}
+import com.digitalasset.canton.ProtoDeserializationError.{FieldNotSet, UnrecognizedEnum}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -319,7 +315,6 @@ object TopologyMapping {
       case Mapping.MediatorDomainState(value) => MediatorDomainState.fromProtoV30(value)
       case Mapping.SequencerDomainState(value) => SequencerDomainState.fromProtoV30(value)
       case Mapping.PurgeTopologyTxs(value) => PurgeTopologyTransaction.fromProtoV30(value)
-      case Mapping.TrafficControlState(value) => TrafficControlState.fromProtoV30(value)
     }
 
   private[transaction] def addDomainId(
@@ -1508,74 +1503,4 @@ object PurgeTopologyTransaction {
     } yield result
   }
 
-}
-
-// Traffic control state topology transactions
-final case class TrafficControlState private (
-    domain: DomainId,
-    member: Member,
-    totalExtraTrafficLimit: PositiveLong,
-) extends TopologyMapping {
-
-  def toProto: v30.TrafficControlState = {
-    v30.TrafficControlState(
-      domain = domain.toProtoPrimitive,
-      member = member.toProtoPrimitive,
-      totalExtraTrafficLimit = totalExtraTrafficLimit.value,
-    )
-  }
-
-  def toProtoV30: v30.TopologyMapping =
-    v30.TopologyMapping(
-      v30.TopologyMapping.Mapping.TrafficControlState(
-        toProto
-      )
-    )
-
-  def code: TopologyMapping.Code = Code.TrafficControlState
-
-  override def namespace: Namespace = member.namespace
-  override def maybeUid: Option[UniqueIdentifier] = Some(member.uid)
-
-  override def requiredAuth(
-      previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): RequiredAuth = RequiredUids(Set(domain.uid))
-
-  override def restrictedToDomain: Option[DomainId] = Some(domain)
-
-  override def uniqueKey: MappingHash = TrafficControlState.uniqueKey(domain, member)
-}
-
-object TrafficControlState {
-
-  def uniqueKey(domainId: DomainId, member: Member): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(
-      _.add(domainId.toProtoPrimitive).add(member.uid.toProtoPrimitive)
-    )
-
-  def code: TopologyMapping.Code = Code.TrafficControlState
-
-  def create(
-      domain: DomainId,
-      member: Member,
-      totalExtraTrafficLimit: PositiveLong,
-  ): Either[String, TrafficControlState] =
-    Right(TrafficControlState(domain, member, totalExtraTrafficLimit))
-
-  def fromProtoV30(
-      value: v30.TrafficControlState
-  ): ParsingResult[TrafficControlState] = {
-    val v30.TrafficControlState(domainIdP, memberP, totalExtraTrafficLimitP) =
-      value
-    for {
-      domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain")
-      member <- Member.fromProtoPrimitive(memberP, "member")
-      totalExtraTrafficLimit <- PositiveLong
-        .create(totalExtraTrafficLimitP)
-        .leftMap(e => InvariantViolation(e.message))
-      result <- create(domainId, member, totalExtraTrafficLimit).leftMap(
-        ProtoDeserializationError.OtherError
-      )
-    } yield result
-  }
 }

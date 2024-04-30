@@ -89,7 +89,6 @@ final case class MediatorNodeParameterConfig(
     override val dontWarnOnDeprecatedPV: Boolean = false,
     override val batching: BatchingConfig = BatchingConfig(),
     override val caching: CachingConfigs = CachingConfigs(),
-    override val useNewTrafficControl: Boolean = false,
     override val useUnifiedSequencer: Boolean = false,
 ) extends ProtocolConfig
     with LocalNodeParametersConfig

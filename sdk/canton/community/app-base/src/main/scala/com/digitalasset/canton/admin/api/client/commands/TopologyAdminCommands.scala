@@ -28,7 +28,6 @@ import com.digitalasset.canton.topology.admin.v30.{
   AuthorizeResponse,
   ImportTopologySnapshotRequest,
   ImportTopologySnapshotResponse,
-  ListTrafficStateRequest,
   SignTransactionsRequest,
   SignTransactionsResponse,
 }
@@ -61,37 +60,6 @@ object TopologyAdminCommands {
       //  command will potentially take a long time
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
 
-    }
-
-    final case class ListTrafficControlState(
-        query: BaseQuery,
-        filterMember: String,
-    ) extends BaseCommand[
-          v30.ListTrafficStateRequest,
-          v30.ListTrafficStateResponse,
-          Seq[ListTrafficStateResult],
-        ] {
-
-      override def createRequest(): Either[String, v30.ListTrafficStateRequest] =
-        Right(
-          new ListTrafficStateRequest(
-            baseQuery = Some(query.toProtoV1),
-            filterMember = filterMember,
-          )
-        )
-
-      override def submitRequest(
-          service: TopologyManagerReadServiceStub,
-          request: v30.ListTrafficStateRequest,
-      ): Future[v30.ListTrafficStateResponse] =
-        service.listTrafficState(request)
-
-      override def handleResponse(
-          response: v30.ListTrafficStateResponse
-      ): Either[String, Seq[ListTrafficStateResult]] =
-        response.results
-          .traverse(ListTrafficStateResult.fromProtoV30)
-          .leftMap(_.toString)
     }
 
     final case class ListNamespaceDelegation(
