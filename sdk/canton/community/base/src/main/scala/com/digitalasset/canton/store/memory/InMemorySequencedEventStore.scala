@@ -7,6 +7,7 @@ import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.{OrdinarySerializedEvent, PossiblyIgnoredSerializedEvent}

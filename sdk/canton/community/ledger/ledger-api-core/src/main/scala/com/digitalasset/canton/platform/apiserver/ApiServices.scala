@@ -109,7 +109,6 @@ object ApiServices {
       maxDeduplicationDuration: config.NonNegativeFiniteDuration,
       userManagementServiceConfig: UserManagementServiceConfig,
       partyManagementServiceConfig: PartyManagementServiceConfig,
-      apiStreamShutdownTimeout: FiniteDuration,
       meteringReportKey: MeteringReportKey,
       authenticateContract: AuthenticateContract,
       telemetry: Telemetry,

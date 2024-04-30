@@ -4,7 +4,7 @@
 package com.digitalasset.canton.health
 
 import cats.Eval
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.RunOnShutdown
 import com.digitalasset.canton.tracing.TraceContext
 

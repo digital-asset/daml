@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.util
 
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.tracing.TraceContext

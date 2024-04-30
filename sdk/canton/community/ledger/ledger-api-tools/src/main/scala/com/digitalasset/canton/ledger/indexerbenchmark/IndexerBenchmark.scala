@@ -7,9 +7,9 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.resources
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.canton.ledger.participant.state.v2.{
   InternalStateServiceProviderImpl,

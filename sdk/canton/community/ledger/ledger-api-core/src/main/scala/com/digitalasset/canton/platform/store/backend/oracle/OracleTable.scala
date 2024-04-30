@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend.oracle
 
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.platform.store.backend.common.{BaseTable, Field, Table}
 
 import java.sql.Connection

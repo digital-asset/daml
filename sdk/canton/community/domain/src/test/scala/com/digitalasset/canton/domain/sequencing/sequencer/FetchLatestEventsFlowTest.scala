@@ -4,9 +4,10 @@
 package com.digitalasset.canton.domain.sequencing.sequencer
 
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
 import com.digitalasset.canton.util.{MonadUtil, PekkoUtil}
-import com.digitalasset.canton.{BaseTest, DiscardOps, HasExecutionContext}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, SinkQueueWithCancel, Source}
 import org.scalatest.FutureOutcome

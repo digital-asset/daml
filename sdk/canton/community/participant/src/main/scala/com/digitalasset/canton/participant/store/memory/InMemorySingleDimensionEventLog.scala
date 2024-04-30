@@ -7,6 +7,7 @@ import cats.data.OptionT
 import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.LocalOffset
 import com.digitalasset.canton.participant.store.{EventLogId, SingleDimensionEventLog}

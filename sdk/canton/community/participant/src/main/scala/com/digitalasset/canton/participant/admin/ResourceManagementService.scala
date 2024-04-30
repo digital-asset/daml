@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.participant.admin
 
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.error.LedgerApiErrors.ParticipantBackpressure
 import com.digitalasset.canton.ledger.participant.state.v2.SubmissionResult
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown

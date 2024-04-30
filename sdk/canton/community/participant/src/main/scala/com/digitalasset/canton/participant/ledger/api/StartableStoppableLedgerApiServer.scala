@@ -9,12 +9,14 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.entries.LoggingEntries
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.tracing.Telemetry
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
 }
 import com.digitalasset.canton.config.{MemoryStorageConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.http.HttpApiServer
 import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader
 import com.digitalasset.canton.ledger.api.domain.{Filters, TransactionFilter}
@@ -54,7 +56,6 @@ import com.digitalasset.canton.platform.store.dao.events.ContractLoader
 import com.digitalasset.canton.platform.store.packagemeta.InMemoryPackageMetadataStore
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
-import com.digitalasset.canton.{DiscardOps, LfPartyId}
 import io.grpc.ServerInterceptor
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTelemetry
@@ -317,7 +318,6 @@ class StartableStoppableLedgerApiServer(
         ),
         partyRecordStore = partyRecordStore,
         participantId = config.participantId,
-        apiStreamShutdownTimeout = config.serverConfig.apiStreamShutdownTimeout,
         command = config.serverConfig.commandService,
         initSyncTimeout = config.serverConfig.initSyncTimeout,
         managementServiceTimeout = config.serverConfig.managementServiceTimeout,

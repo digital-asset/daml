@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.crypto
 
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.util.HexString
 import com.google.protobuf.ByteString
 

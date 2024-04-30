@@ -6,6 +6,7 @@ package com.digitalasset.canton.domain.server
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.grpc.GrpcServerMetrics
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.config.PublicServerConfig
 import com.digitalasset.canton.domain.sequencing.SequencerRuntime
 import com.digitalasset.canton.environment.HasGeneralCantonNodeParameters

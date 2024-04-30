@@ -4,7 +4,7 @@
 package com.digitalasset.canton.tracing
 
 import cats.data.{EitherT, OptionT}
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.UnlessShutdown
 import com.digitalasset.canton.sequencing.AsyncResult
 import com.digitalasset.canton.tracing.Spanning.{SpanEndingExecutionContext, SpanWrapper}

@@ -7,6 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.HealthComponent.AlwaysHealthyComponent
 import com.digitalasset.canton.health.{ComponentHealthState, HealthComponent}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}

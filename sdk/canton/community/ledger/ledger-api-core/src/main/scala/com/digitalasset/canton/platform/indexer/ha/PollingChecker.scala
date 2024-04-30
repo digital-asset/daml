@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.indexer.ha
 
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import org.apache.pekko.stream.KillSwitch

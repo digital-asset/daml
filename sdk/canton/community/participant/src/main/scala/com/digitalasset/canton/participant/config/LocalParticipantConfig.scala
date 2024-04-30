@@ -6,8 +6,10 @@ package com.digitalasset.canton.participant.config
 import cats.syntax.option.*
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.tls.{TlsConfiguration, TlsVersion}
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.config.*
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.http.HttpApiConfig
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
@@ -28,7 +30,6 @@ import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.store.PrunableByTimeParameters
 import com.digitalasset.canton.time.EnrichedDurations.RichNonNegativeFiniteDurationConfig
 import com.digitalasset.canton.version.{ParticipantProtocolVersion, ProtocolVersion}
-import com.digitalasset.canton.{DiscardOps, config}
 import io.netty.handler.ssl.{ClientAuth, SslContext}
 import monocle.macros.syntax.lens.*
 
@@ -188,9 +189,6 @@ final case class LedgerApiServerConfig(
     maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
     databaseConnectionTimeout: config.NonNegativeFiniteDuration =
       LedgerApiServerConfig.DefaultDatabaseConnectionTimeout,
-    // TODO(#14529): use a common value for ApiServerConfig's and LedgerIndexServiceConfig's apiStreamShutdownTimeout
-    apiStreamShutdownTimeout: config.NonNegativeFiniteDuration =
-      LedgerApiServerConfig.DefaultApiStreamShutdownTimeout,
     rateLimit: Option[RateLimitingConfig] = Some(DefaultRateLimit),
     adminToken: Option[String] = None,
     identityProviderManagement: IdentityProviderManagementConfig =
@@ -217,8 +215,6 @@ object LedgerApiServerConfig {
     config.NonNegativeFiniteDuration.ofMinutes(2L)
   private val DefaultDatabaseConnectionTimeout: config.NonNegativeFiniteDuration =
     config.NonNegativeFiniteDuration.ofSeconds(30)
-  private val DefaultApiStreamShutdownTimeout: config.NonNegativeFiniteDuration =
-    config.NonNegativeFiniteDuration.ofSeconds(5)
   private val DefaultIdentityProviderManagementConfig: IdentityProviderManagementConfig =
     ApiServiceOwner.DefaultIdentityProviderManagementConfig
   val DefaultRateLimit: RateLimitingConfig =

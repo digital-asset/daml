@@ -4,8 +4,8 @@
 package com.digitalasset.canton.crypto.provider.jce
 
 import cats.syntax.either.*
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import org.bouncycastle.asn1.DEROctetString
 import org.bouncycastle.asn1.edec.EdECObjectIdentifiers

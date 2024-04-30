@@ -7,9 +7,9 @@ import cats.data.EitherT
 import cats.instances.future.*
 import cats.syntax.foldable.*
 import cats.{Applicative, Id}
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.{DbConfig, LocalNodeConfig, ProcessingTimeout, StorageConfig}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.mediator.{
   MediatorNode,
   MediatorNodeBootstrap,

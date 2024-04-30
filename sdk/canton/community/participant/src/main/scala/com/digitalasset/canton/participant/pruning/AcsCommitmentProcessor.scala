@@ -17,6 +17,7 @@ import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.AcsCommitmentErrorGroup
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
@@ -64,7 +65,7 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.retry.Policy
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DiscardOps, LfPartyId, TransferCounter}
+import com.digitalasset.canton.{LfPartyId, TransferCounter}
 import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.atomic.AtomicReference
@@ -243,7 +244,7 @@ class AcsCommitmentProcessor(
   val runningCommitments: Future[RunningCommitments] = initRunningCommitments(store)
 
   private val cachedCommitments: Option[CachedCommitments] =
-    if (testingConfig.doNotUseCommitmentCachingFor.contains(participantId.uid.id))
+    if (testingConfig.doNotUseCommitmentCachingFor.contains(participantId.identifier))
       None
     else Some(new CachedCommitments())
 

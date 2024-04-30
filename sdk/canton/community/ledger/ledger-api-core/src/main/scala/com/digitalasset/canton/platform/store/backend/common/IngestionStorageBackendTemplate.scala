@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend.common
 
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.{
   DbDto,

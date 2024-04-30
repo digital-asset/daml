@@ -5,8 +5,8 @@ package com.digitalasset.canton.console
 
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.google.protobuf.ByteString

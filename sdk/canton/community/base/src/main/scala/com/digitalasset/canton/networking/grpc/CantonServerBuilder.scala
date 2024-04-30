@@ -6,9 +6,9 @@ package com.digitalasset.canton.networking.grpc
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.grpc.GrpcServerMetrics
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.*
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TracingConfig
 import io.grpc.*

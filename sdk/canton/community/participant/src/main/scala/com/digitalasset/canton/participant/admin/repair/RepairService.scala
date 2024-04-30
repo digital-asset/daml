@@ -17,6 +17,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Salt, SyncCryptoApiProvider}
 import com.digitalasset.canton.data.{CantonTimestamp, RepairContract}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.canton.ledger.api.validation.StricterValueValidator as LedgerApiValueValidator
 import com.digitalasset.canton.lifecycle.{

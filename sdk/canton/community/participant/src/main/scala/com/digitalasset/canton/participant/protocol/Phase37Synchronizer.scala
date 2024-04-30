@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.participant.protocol
 
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.{CantonTimestamp, ConcurrentHMap}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,

@@ -19,6 +19,7 @@ import com.digitalasset.canton.config.*
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.CommunityGrpcVaultServiceFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.{CommunityCryptoFactory, Crypto}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.{GrpcHealthReporter, HealthService}
 import com.digitalasset.canton.lifecycle.{Lifecycle, ShutdownFailedException}
 import com.digitalasset.canton.metrics.{

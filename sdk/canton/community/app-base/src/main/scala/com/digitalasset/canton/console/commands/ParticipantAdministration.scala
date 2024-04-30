@@ -44,6 +44,7 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.admin.data.ParticipantStatus
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.participant.ParticipantNode
@@ -71,7 +72,7 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
-import com.digitalasset.canton.{DiscardOps, DomainAlias, SequencerAlias, config}
+import com.digitalasset.canton.{DomainAlias, SequencerAlias, config}
 
 import java.time.Instant
 import scala.concurrent.duration.Duration

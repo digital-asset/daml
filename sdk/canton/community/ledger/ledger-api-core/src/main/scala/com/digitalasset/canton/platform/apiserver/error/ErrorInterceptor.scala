@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.apiserver.error
 
 import com.daml.error.{BaseError, NoLogging}
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.logging.*
 import io.grpc.ForwardingServerCall.SimpleForwardingServerCall

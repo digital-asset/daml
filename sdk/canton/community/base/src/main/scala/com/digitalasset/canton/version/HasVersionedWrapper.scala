@@ -5,11 +5,12 @@ package com.digitalasset.canton.version
 
 import cats.syntax.either.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.util.BinaryFileUtil
-import com.digitalasset.canton.{DiscardOps, ProtoDeserializationError, checked}
+import com.digitalasset.canton.{ProtoDeserializationError, checked}
 import com.google.protobuf.ByteString
 import slick.jdbc.{GetResult, SetParameter}
 

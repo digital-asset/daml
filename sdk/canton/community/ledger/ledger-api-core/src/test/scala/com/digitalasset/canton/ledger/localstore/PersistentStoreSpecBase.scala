@@ -6,13 +6,14 @@ package com.digitalasset.canton.ledger.localstore
 import com.daml.ledger.resources.ResourceContext
 import com.daml.metrics.DatabaseMetrics
 import com.daml.resources.Resource
+import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, SuppressingLogger}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.config.ServerRole
 import com.digitalasset.canton.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.digitalasset.canton.platform.store.backend.StorageBackendProvider
 import com.digitalasset.canton.platform.store.{DbSupport, FlywayMigrations}
-import com.digitalasset.canton.{BaseTest, DiscardOps}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Suite}
 
 import java.util.concurrent.Executors

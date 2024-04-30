@@ -130,9 +130,9 @@ class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecu
         require(did != DefaultTestIdentities.domainId.unwrap)
         checkDomainKeys(
           sequencers =
-            Seq(SequencerId(Identifier.tryCreate("fake-sequencer"), participant2.uid.namespace)),
+            Seq(SequencerId(Identifier.tryCreate("fake-sequencer"), participant2.namespace)),
           mediators =
-            Seq(MediatorId(Identifier.tryCreate("fake-mediator"), participant2.uid.namespace)),
+            Seq(MediatorId(Identifier.tryCreate("fake-mediator"), participant2.namespace)),
           0,
         )
       }

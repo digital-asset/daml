@@ -7,6 +7,7 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.console.commands.ParticipantCommands
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation

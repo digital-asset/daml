@@ -32,6 +32,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
 import com.digitalasset.canton.crypto.{CryptoPureApi, Salt}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.admin.data.{
   MediatorNodeStatus,
   NodeStatus,
@@ -151,7 +152,6 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
 
     @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
     private object GenerateDamlScriptParticipantsConf {
-      import ConsoleEnvironment.Implicits.*
 
       private val filename = "participant-config.json"
 
@@ -668,7 +668,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           )
         )
       val expectedDNS = DecentralizedNamespaceDefinition.computeNamespace(
-        owners.map(_.id.member.uid.namespace).toSet
+        owners.map(_.namespace).toSet
       )
       val proposedOrExisting = ownersNE
         .map { owner =>
@@ -683,7 +683,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
 
           existingDnsO.getOrElse(
             owner.topology.decentralized_namespaces.propose(
-              owners.map(_.id.member.uid.namespace).toSet,
+              owners.map(_.namespace).toSet,
               PositiveInt.tryCreate(1.max(owners.size - 1)),
               store = store,
             )
@@ -719,7 +719,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     ): Either[String, Option[Namespace]] = {
       val expectedNamespace =
         DecentralizedNamespaceDefinition.computeNamespace(
-          owners.map(_.id.member.uid.namespace).toSet
+          owners.map(_.namespace).toSet
         )
       val recordedNamespaces =
         owners.map(

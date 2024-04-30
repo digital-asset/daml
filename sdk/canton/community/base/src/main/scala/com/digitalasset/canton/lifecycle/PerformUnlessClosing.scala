@@ -5,8 +5,8 @@ package com.digitalasset.canton.lifecycle
 
 import cats.data.EitherT
 import cats.syntax.traverse.*
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.Threading
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{Checked, CheckedT}

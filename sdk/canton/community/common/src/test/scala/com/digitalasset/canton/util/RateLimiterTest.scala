@@ -4,7 +4,8 @@
 package com.digitalasset.canton.util
 
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeNumeric, PositiveNumeric}
-import com.digitalasset.canton.{BaseTestWordSpec, DiscardOps, HasExecutionContext}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.{BaseTestWordSpec, HasExecutionContext}
 import org.scalatest.prop.TableFor2
 
 import java.util.concurrent.atomic.AtomicLong

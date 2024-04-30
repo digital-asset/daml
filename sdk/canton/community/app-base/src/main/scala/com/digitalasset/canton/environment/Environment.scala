@@ -6,7 +6,6 @@ package com.digitalasset.canton.environment
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.*
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.console.{
@@ -18,6 +17,7 @@ import com.digitalasset.canton.console.{
   StandardConsoleOutput,
 }
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.mediator.{MediatorNodeBootstrap, MediatorNodeParameters}
 import com.digitalasset.canton.domain.metrics.MediatorMetrics
 import com.digitalasset.canton.domain.sequencing.SequencerNodeBootstrap

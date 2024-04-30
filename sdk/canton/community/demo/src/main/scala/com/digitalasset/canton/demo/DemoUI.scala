@@ -13,9 +13,9 @@ import com.daml.ledger.api.v2.update_service.{
   UpdateServiceGrpc,
 }
 import com.daml.ledger.api.v2.value.{Record, Value}
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.console.ParticipantReference
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
 import com.digitalasset.canton.topology.{Identifier, UniqueIdentifier}
@@ -150,7 +150,7 @@ class ParticipantTab(
     case v: Value.Sum.Record => renderRecord(v.value)
     case v: Value.Sum.Party =>
       val uid = UniqueIdentifier.tryFromProtoPrimitive(v.value)
-      uid.id.unwrap + "::" + formatHash(uid.namespace.fingerprint.unwrap)
+      uid.identifier.unwrap + "::" + formatHash(uid.fingerprint.unwrap)
     case v: Value.Sum.List => "{" + v.value.elements.map(x => renderSum(x.sum)).mkString(",") + "}"
     case v => v.value.toString
   }
@@ -183,7 +183,7 @@ class ParticipantTab(
   )
 
   private def terminateChannel(channel: ManagedChannel): Unit = {
-    logger.debug(s"Closing channel for ${uid.id}")
+    logger.debug(s"Closing channel for ${uid.identifier}")
     channel.shutdownNow()
     val _ = channel.awaitTermination(3, TimeUnit.SECONDS)
   }
@@ -377,7 +377,7 @@ class ParticipantTab(
 
   val tab = new Tab() {
 
-    text = party + "/" + uid.id.unwrap
+    text = party + "/" + uid.identifier.unwrap
 
     private val colState = new ActiveTableColumn("State") {
       cellValueFactory = { _.value.state }
@@ -429,7 +429,7 @@ class ParticipantTab(
             participant.dars.list().map(x => DarData(x.name, x.hash.substring(0, 16)))
           val hosted = participant.parties
             .hosted()
-            .map(_.party.uid.id.unwrap)
+            .map(_.party.identifier.unwrap)
             .toSet
             .mkString("\n")
           val connected =
@@ -512,7 +512,7 @@ class ParticipantTab(
                 0,
               )
               add(new Label("Namespace"), 0, 1)
-              add(new Label(uid.namespace.fingerprint.unwrap.substring(0, 16) + "..."), 1, 1)
+              add(new Label(uid.fingerprint.unwrap.substring(0, 16) + "..."), 1, 1)
               add(new Label("Parties"), 0, 2)
               add(parties, 1, 2)
               add(new Label("Domains"), 0, 3)

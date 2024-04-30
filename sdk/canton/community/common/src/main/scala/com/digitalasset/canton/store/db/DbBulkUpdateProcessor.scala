@@ -5,7 +5,7 @@ package com.digitalasset.canton.store.db
 
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.Pretty

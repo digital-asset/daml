@@ -14,6 +14,7 @@ import com.digitalasset.canton.data.ActionDescription.{
 }
 import com.digitalasset.canton.data.MerkleTree.VersionedMerkleTree
 import com.digitalasset.canton.data.ViewPosition.{MerklePathElement, MerkleSeqIndex}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.{
   ConfirmationResultMessage,

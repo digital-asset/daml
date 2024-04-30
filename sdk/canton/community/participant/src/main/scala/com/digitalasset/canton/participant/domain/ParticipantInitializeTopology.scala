@@ -74,7 +74,7 @@ final class ParticipantInitializeTopology(
       loggingContext: ErrorLoggingContext,
   ): EitherT[FutureUnlessShutdown, DomainRegistryError, Boolean] = {
     val unauthenticatedMember =
-      UnauthenticatedMemberId.tryCreate(participantId.uid.namespace)(crypto.pureCrypto)
+      UnauthenticatedMemberId.tryCreate(participantId.namespace)(crypto.pureCrypto)
 
     loggingContext.logger.debug(
       s"Unauthenticated member $unauthenticatedMember will register initial topology transactions on behalf of participant $participantId"

@@ -4,12 +4,12 @@
 package com.digitalasset.canton.domain.sequencing
 
 import cats.data.EitherT
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.NonNegativeFiniteDuration as _
 import com.digitalasset.canton.crypto.{Crypto, DomainSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.admin.grpc.{
   InitializeSequencerRequest,

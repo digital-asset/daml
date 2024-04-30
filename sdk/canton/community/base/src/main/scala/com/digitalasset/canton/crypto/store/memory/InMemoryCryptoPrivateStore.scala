@@ -24,6 +24,7 @@ import com.digitalasset.canton.crypto.{
   PrivateKey,
   SigningPrivateKey,
 }
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*

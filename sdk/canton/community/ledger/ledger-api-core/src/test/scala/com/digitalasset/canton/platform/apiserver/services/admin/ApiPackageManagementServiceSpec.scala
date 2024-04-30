@@ -25,6 +25,8 @@ import com.daml.lf.language.Ast.Expr
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.tracing.TelemetrySpecBase.*
 import com.daml.tracing.{DefaultOpenTelemetry, NoOpTelemetry}
+import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.domain.PackageEntry
 import com.digitalasset.canton.ledger.api.domain.ParticipantOffset.Absolute
 import com.digitalasset.canton.ledger.participant.state.index.v2.{
@@ -40,7 +42,6 @@ import com.digitalasset.canton.platform.store.packagemeta.{
   PackageMetadataStore,
 }
 import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
-import com.digitalasset.canton.{BaseTest, DiscardOps}
 import com.google.protobuf.ByteString
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException

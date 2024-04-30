@@ -10,6 +10,7 @@ import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.CryptoPureApi
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,

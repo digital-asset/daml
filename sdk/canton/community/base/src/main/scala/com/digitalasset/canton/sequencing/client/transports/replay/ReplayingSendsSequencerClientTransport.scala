@@ -7,9 +7,11 @@ import cats.data.EitherT
 import cats.syntax.traverse.*
 import com.daml.metrics.api.MetricsContext.withEmptyMetricsContext
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.{MetricValue, SequencerClientMetrics}
@@ -34,7 +36,6 @@ import com.digitalasset.canton.tracing.{NoTracing, TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, OptionUtil, PekkoUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DiscardOps, SequencerCounter}
 import io.opentelemetry.sdk.metrics.data.MetricData
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Materializer

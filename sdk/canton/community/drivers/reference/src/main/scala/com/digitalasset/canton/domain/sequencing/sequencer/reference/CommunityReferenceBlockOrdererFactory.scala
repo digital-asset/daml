@@ -16,6 +16,7 @@ import com.digitalasset.canton.config.{
   QueryCostMonitoringConfig,
   StorageConfig,
 }
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.block.{BlockOrderer, BlockOrdererFactory}
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}

@@ -15,6 +15,7 @@ import com.digitalasset.canton.config.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{CryptoPureApi, Fingerprint, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.HealthComponent.AlwaysHealthyComponent
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyInstances}

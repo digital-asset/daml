@@ -21,6 +21,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.data.PeanoQueue.{BeforeHead, NotInserted}
 import com.digitalasset.canton.data.{CantonTimestamp, ConfirmingParty, PeanoQueue}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty

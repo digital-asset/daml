@@ -20,6 +20,7 @@ import com.digitalasset.canton.concurrent.{FutureSupervisor, SupervisedPromise}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.ViewType.TransactionViewType
 import com.digitalasset.canton.data.*
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.ledger.participant.state.v2.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -81,7 +82,6 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, IterableUtil}
 import com.digitalasset.canton.{
-  DiscardOps,
   LedgerSubmissionId,
   LfKeyResolver,
   LfPartyId,

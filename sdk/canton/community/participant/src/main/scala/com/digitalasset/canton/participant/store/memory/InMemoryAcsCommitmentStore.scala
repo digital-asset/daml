@@ -3,7 +3,9 @@
 
 package com.digitalasset.canton.participant.store.memory
 
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.pruning.{
@@ -24,7 +26,6 @@ import com.digitalasset.canton.store.memory.InMemoryPrunableByTime
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
-import com.digitalasset.canton.{DiscardOps, LfPartyId}
 import pprint.Tree
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}

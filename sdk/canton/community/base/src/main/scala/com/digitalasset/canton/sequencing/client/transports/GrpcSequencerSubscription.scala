@@ -4,8 +4,8 @@
 package com.digitalasset.canton.sequencing.client.transports
 
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.*

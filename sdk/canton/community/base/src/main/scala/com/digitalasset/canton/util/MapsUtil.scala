@@ -8,7 +8,7 @@ import cats.data.Chain
 import cats.kernel.Semigroup
 import cats.syntax.either.*
 import cats.syntax.foldable.*
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.ErrorLoggingContext
 
 import scala.annotation.tailrec

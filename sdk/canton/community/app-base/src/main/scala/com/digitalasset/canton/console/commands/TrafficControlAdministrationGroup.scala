@@ -57,7 +57,7 @@ class TrafficControlAdministrationGroup(
       newTotalTrafficAmount: PositiveLong,
       member: Member = instance.id.member,
       serial: Option[PositiveInt] = None,
-      signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
+      signedBy: Option[Fingerprint] = Some(instance.fingerprint),
       synchronize: Option[config.NonNegativeDuration] = Some(
         consoleEnvironment.commandTimeouts.bounded
       ),

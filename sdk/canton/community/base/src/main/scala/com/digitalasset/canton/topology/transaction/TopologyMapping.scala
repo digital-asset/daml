@@ -631,7 +631,7 @@ final case class OwnerToKeyMapping(
 
   def code: TopologyMapping.Code = Code.OwnerToKeyMapping
 
-  override def namespace: Namespace = member.uid.namespace
+  override def namespace: Namespace = member.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(member.uid)
 
   override def restrictedToDomain: Option[DomainId] = domain
@@ -700,7 +700,7 @@ final case class DomainTrustCertificate(
 
   override def code: Code = Code.DomainTrustCertificate
 
-  override def namespace: Namespace = participantId.uid.namespace
+  override def namespace: Namespace = participantId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(participantId.uid)
 
   override def restrictedToDomain: Option[DomainId] = Some(domainId)
@@ -841,7 +841,7 @@ final case class ParticipantDomainPermission(
 
   override def code: Code = Code.ParticipantDomainPermission
 
-  override def namespace: Namespace = participantId.uid.namespace
+  override def namespace: Namespace = participantId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(participantId.uid)
 
   override def restrictedToDomain: Option[DomainId] = Some(domainId)
@@ -931,7 +931,7 @@ final case class PartyHostingLimits(
 
   override def code: Code = Code.PartyHostingLimits
 
-  override def namespace: Namespace = domainId.uid.namespace
+  override def namespace: Namespace = domainId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(domainId.uid)
 
   override def restrictedToDomain: Option[DomainId] = Some(domainId)
@@ -986,7 +986,7 @@ final case class VettedPackages(
 
   override def code: Code = Code.VettedPackages
 
-  override def namespace: Namespace = participantId.uid.namespace
+  override def namespace: Namespace = participantId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(participantId.uid)
 
   override def restrictedToDomain: Option[DomainId] = domainId
@@ -1070,7 +1070,7 @@ final case class PartyToParticipant(
 
   override def code: Code = Code.PartyToParticipant
 
-  override def namespace: Namespace = partyId.uid.namespace
+  override def namespace: Namespace = partyId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(partyId.uid)
 
   override def restrictedToDomain: Option[DomainId] = domainId
@@ -1169,7 +1169,7 @@ final case class AuthorityOf(
 
   override def code: Code = Code.AuthorityOf
 
-  override def namespace: Namespace = partyId.uid.namespace
+  override def namespace: Namespace = partyId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(partyId.uid)
 
   override def restrictedToDomain: Option[DomainId] = domainId
@@ -1228,7 +1228,7 @@ final case class DomainParametersState(domain: DomainId, parameters: DynamicDoma
 
   def code: TopologyMapping.Code = Code.DomainParametersState
 
-  override def namespace: Namespace = domain.uid.namespace
+  override def namespace: Namespace = domain.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(domain.uid)
 
   override def restrictedToDomain: Option[DomainId] = Some(domain)
@@ -1296,7 +1296,7 @@ final case class MediatorDomainState private (
 
   override def code: TopologyMapping.Code = Code.MediatorDomainState
 
-  override def namespace: Namespace = domain.uid.namespace
+  override def namespace: Namespace = domain.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(domain.uid)
 
   override def restrictedToDomain: Option[DomainId] = Some(domain)
@@ -1390,7 +1390,7 @@ final case class SequencerDomainState private (
 
   def code: TopologyMapping.Code = Code.SequencerDomainState
 
-  override def namespace: Namespace = domain.uid.namespace
+  override def namespace: Namespace = domain.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(domain.uid)
 
   override def restrictedToDomain: Option[DomainId] = Some(domain)
@@ -1467,7 +1467,7 @@ final case class PurgeTopologyTransaction private (
 
   def code: TopologyMapping.Code = Code.PurgeTopologyTransaction
 
-  override def namespace: Namespace = domain.uid.namespace
+  override def namespace: Namespace = domain.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(domain.uid)
 
   override def restrictedToDomain: Option[DomainId] = Some(domain)
@@ -1534,7 +1534,7 @@ final case class TrafficControlState private (
 
   def code: TopologyMapping.Code = Code.TrafficControlState
 
-  override def namespace: Namespace = member.uid.namespace
+  override def namespace: Namespace = member.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(member.uid)
 
   override def requiredAuth(

@@ -5,6 +5,7 @@ package com.digitalasset.canton.sequencing.client
 
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.sequencing.SequencerAggregator.SequencerAggregatorError
 import com.digitalasset.canton.sequencing.{OrdinarySerializedEvent, SequencerAggregator}
 import com.digitalasset.canton.util.ResourceUtil

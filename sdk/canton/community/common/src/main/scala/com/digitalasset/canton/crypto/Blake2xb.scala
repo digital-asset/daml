@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.crypto
 
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import org.bouncycastle.crypto.digests.canton.Blake2bDigest
 
 /** Derives Blake2xb on top of Blake2b as defined in:

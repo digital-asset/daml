@@ -4,6 +4,7 @@
 package com.digitalasset.canton.protocol.messages
 
 import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.protocol.LocalRejectError.ConsistencyRejections.{
   InactiveContracts,
   LockedContracts,

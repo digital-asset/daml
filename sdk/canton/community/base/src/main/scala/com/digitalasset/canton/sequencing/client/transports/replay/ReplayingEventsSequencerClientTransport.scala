@@ -4,9 +4,9 @@
 package com.digitalasset.canton.sequencing.client.transports.replay
 
 import cats.data.EitherT
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.SequencerClient.ReplayStatistics

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.get
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 
 import java.sql.Connection

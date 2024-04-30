@@ -199,7 +199,7 @@ class ParticipantTopologyDispatcher(
               ),
               serial = None,
               // TODO(#12390) auto-determine signing keys
-              signingKeys = Seq(participantId.uid.namespace.fingerprint),
+              signingKeys = Seq(participantId.fingerprint),
               protocolVersion = state.protocolVersion,
               expectFullAuthorization = true,
               force = false,

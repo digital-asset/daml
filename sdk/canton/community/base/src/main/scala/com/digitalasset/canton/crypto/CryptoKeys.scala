@@ -41,6 +41,10 @@ final case class Fingerprint(protected val str: String68)
   override def pretty: Pretty[Fingerprint] = prettyOfParam(_.unwrap.readableHash)
 }
 
+trait HasFingerprint {
+  @inline def fingerprint: Fingerprint
+}
+
 object Fingerprint {
 
   implicit val fingerprintOrder: Order[Fingerprint] =

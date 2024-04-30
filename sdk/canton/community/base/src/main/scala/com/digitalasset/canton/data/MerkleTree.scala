@@ -4,15 +4,16 @@
 package com.digitalasset.canton.data
 
 import cats.implicits.*
+import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.MerkleSeq.MerkleSeqElement
 import com.digitalasset.canton.data.MerkleTree.*
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{RootHash, v30}
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.HasProtocolVersionedWrapper
-import com.digitalasset.canton.{DiscardOps, ProtoDeserializationError}
 import com.google.protobuf.ByteString
 import monocle.Lens
 

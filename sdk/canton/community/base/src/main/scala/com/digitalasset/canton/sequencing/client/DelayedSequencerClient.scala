@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.sequencing.client
 
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.client.DelayedSequencerClient.{
   Immediate,

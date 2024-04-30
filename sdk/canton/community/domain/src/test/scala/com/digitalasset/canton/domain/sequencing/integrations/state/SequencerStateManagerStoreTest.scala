@@ -233,19 +233,19 @@ trait SequencerStateManagerStoreTest
         )
         val signatureAlice1 = SymbolicCrypto.signature(
           ByteString.copyFromUtf8("signatureAlice1"),
-          alice.uid.namespace.fingerprint,
+          alice.fingerprint,
         )
         val signatureAlice2 = SymbolicCrypto.signature(
           ByteString.copyFromUtf8("signatureAlice2"),
-          alice.uid.namespace.fingerprint,
+          alice.fingerprint,
         )
         val signatureAlice3 = SymbolicCrypto.signature(
           ByteString.copyFromUtf8("signatureAlice3"),
-          alice.uid.namespace.fingerprint,
+          alice.fingerprint,
         )
         val signatureBob = SymbolicCrypto.signature(
           ByteString.copyFromUtf8("signatureBob"),
-          bob.uid.namespace.fingerprint,
+          bob.fingerprint,
         )
 
         val inFlightAggregation1 = InFlightAggregation(
@@ -618,19 +618,19 @@ trait SequencerStateManagerStoreTest
         )
         val signatureAlice1 = SymbolicCrypto.signature(
           ByteString.copyFromUtf8("signatureAlice1"),
-          alice.uid.namespace.fingerprint,
+          alice.fingerprint,
         )
         val signatureAlice2 = SymbolicCrypto.signature(
           ByteString.copyFromUtf8("signatureAlice2"),
-          alice.uid.namespace.fingerprint,
+          alice.fingerprint,
         )
         val signatureAlice3 = SymbolicCrypto.signature(
           ByteString.copyFromUtf8("signatureAlice3"),
-          alice.uid.namespace.fingerprint,
+          alice.fingerprint,
         )
         val signatureBob = SymbolicCrypto.signature(
           ByteString.copyFromUtf8("signatureBob"),
-          bob.uid.namespace.fingerprint,
+          bob.fingerprint,
         )
 
         val inFlightAggregation1 = InFlightAggregation(

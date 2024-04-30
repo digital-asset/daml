@@ -9,6 +9,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.ExceededMaxSequencingTime
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer as CantonSequencer
 import com.digitalasset.canton.lifecycle.Lifecycle

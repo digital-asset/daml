@@ -11,6 +11,7 @@ import com.digitalasset.canton.data.{
   PeanoQueue,
   SynchronizedPeanoTreeQueue,
 }
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -22,7 +23,7 @@ import com.digitalasset.canton.store.CursorPrehead
 import com.digitalasset.canton.store.CursorPrehead.RequestCounterCursorPrehead
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, HasFlushFuture, NoCopy}
-import com.digitalasset.canton.{DiscardOps, RequestCounter, RequestCounterDiscriminator}
+import com.digitalasset.canton.{RequestCounter, RequestCounterDiscriminator}
 import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.ConcurrentSkipListSet

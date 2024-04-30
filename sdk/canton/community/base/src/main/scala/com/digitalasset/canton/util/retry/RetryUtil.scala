@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.util.retry
 
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.resource.DatabaseStorageError.DatabaseStorageDegradation.DatabaseTaskRejected
 import com.digitalasset.canton.resource.DbStorage.NoConnectionAvailable

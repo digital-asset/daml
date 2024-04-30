@@ -9,6 +9,7 @@ import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.KeyPurpose
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DynamicDomainParametersWithValidity
 import com.digitalasset.canton.topology.*

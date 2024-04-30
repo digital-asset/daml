@@ -4,8 +4,10 @@
 package com.digitalasset.canton.integration.tests
 
 import better.files.*
+import com.digitalasset.canton.ConsoleScriptRunner
 import com.digitalasset.canton.config.CommunityDbConfig.H2
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.integration.CommunityTests.{
   CommunityIntegrationTest,
@@ -25,7 +27,6 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{ConsoleScriptRunner, DiscardOps}
 import monocle.macros.syntax.lens.*
 
 import scala.concurrent.blocking

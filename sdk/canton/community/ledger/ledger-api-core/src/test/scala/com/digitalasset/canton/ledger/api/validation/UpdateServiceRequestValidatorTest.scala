@@ -133,7 +133,7 @@ class UpdateServiceRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: filtersByParty cannot be empty",
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: filtersByParty cannot be empty",
           metadata = Map.empty,
         )
       }
@@ -196,7 +196,7 @@ class UpdateServiceRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Unknown ledger boundary value '7' in field begin.boundary",
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Unknown ledger boundary value '7' in field begin.boundary",
           metadata = Map.empty,
         )
       }
@@ -213,7 +213,7 @@ class UpdateServiceRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Unknown ledger boundary value '7' in field end.boundary",
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Unknown ledger boundary value '7' in field end.boundary",
           metadata = Map.empty,
         )
       }
@@ -413,7 +413,7 @@ class UpdateServiceRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: party attempted subscription for templates. Template filtration is not supported on GetTransactionTrees RPC. To get filtered data, use the GetTransactions RPC.",
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: party attempted subscription for templates. Template filtration is not supported on GetTransactionTrees RPC. To get filtered data, use the GetTransactions RPC.",
           metadata = Map.empty,
         )
       }
@@ -519,7 +519,7 @@ class UpdateServiceRequestValidatorTest
             partyRestrictiveValidator.validate(txReq.withFilter(filterWithUnknown), ledgerEnd),
           code = INVALID_ARGUMENT,
           description =
-            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Unknown parties: [Alice, Bob]",
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Unknown parties: [Alice, Bob]",
           metadata = Map.empty,
         )
       }
@@ -530,7 +530,7 @@ class UpdateServiceRequestValidatorTest
             .validateTree(txTreeReq.withFilter(filterWithUnknown), ledgerEnd),
           code = INVALID_ARGUMENT,
           description =
-            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Unknown parties: [Alice, Bob]",
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Unknown parties: [Alice, Bob]",
           metadata = Map.empty,
         )
       }
@@ -542,7 +542,7 @@ class UpdateServiceRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Unknown parties: [Alice, Bob]",
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Unknown parties: [Alice, Bob]",
           metadata = Map.empty,
         )
       }
@@ -554,7 +554,7 @@ class UpdateServiceRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Unknown parties: [Alice, Bob]",
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Unknown parties: [Alice, Bob]",
           metadata = Map.empty,
         )
       }

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.console
 
-import com.digitalasset.canton.*
 import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands.LocatePruningTimestampCommand
 import com.digitalasset.canton.admin.api.client.commands.{
   EnterpriseSequencerAdminCommands,
@@ -20,6 +19,7 @@ import com.digitalasset.canton.console.CommandErrors.NodeNotStarted
 import com.digitalasset.canton.console.commands.*
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.mediator.{
   MediatorNode,
   MediatorNodeBootstrap,
@@ -66,10 +66,13 @@ import scala.util.hashing.MurmurHash3
 
 trait InstanceReference
     extends AdminCommandRunner
+    with HasUniqueIdentifier
     with Helpful
     with NamedLogging
     with FeatureFlagFilter
     with PrettyPrinting {
+
+  @inline final override def uid: UniqueIdentifier = id.uid
 
   val name: String
   protected val instanceType: String

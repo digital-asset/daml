@@ -4,8 +4,8 @@
 package com.digitalasset.canton.domain.sequencing.service
 
 import cats.syntax.either.*
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
 import com.digitalasset.canton.lifecycle.{
   AsyncCloseable,

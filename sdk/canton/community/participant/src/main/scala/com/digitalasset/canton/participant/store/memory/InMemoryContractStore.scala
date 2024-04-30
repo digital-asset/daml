@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.store.memory
 
 import cats.Id
 import cats.data.{EitherT, OptionT}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.protocol.*

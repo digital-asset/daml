@@ -341,7 +341,8 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
   ): Future[Option[StoredTopologyTransaction[TopologyChangeOp.Replace, DomainTrustCertificate]]]
 
   def findEssentialStateAtSequencedTime(
-      asOfInclusive: SequencedTime
+      asOfInclusive: SequencedTime,
+      excludeMappings: Seq[TopologyMapping.Code] = Nil,
   )(implicit traceContext: TraceContext): Future[GenericStoredTopologyTransactions]
 
   protected def signedTxFromStoredTx(
@@ -476,7 +477,7 @@ object TopologyStore {
             TopologyTransaction(_, _, NamespaceDelegation(ns, _, _)),
             _,
             _,
-          ) if ns == participantId.uid.namespace =>
+          ) if ns == participantId.namespace =>
         tx
       case tx @ SignedTopologyTransaction(
             TopologyTransaction(_, _, IdentifierDelegation(uid, _)),

@@ -7,6 +7,7 @@ import cats.data.EitherT
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.store.SequencerCounterTrackerStore
