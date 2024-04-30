@@ -13,6 +13,7 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 import org.scalacheck.{Gen, Prop}
 
+import scala.annotation.nowarn
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
 
@@ -23,9 +24,14 @@ object Demo {
   private val numParticipants = 3
   private val numParties = 5
 
-  private val universalDarPath: String = rlocation(
-    s"daml-lf/model-test-lib/universal-v${languageVersion.pretty.replaceAll("\\.", "")}.dar"
-  )
+  private val universalDarPaths: List[String] = for {
+    pkgVersion <- List(1, 2, 3)
+  } yield {
+    val mangledLanguageVersion = languageVersion.pretty.replaceAll("\\.", "")
+    rlocation(
+      s"daml-lf/model-test-lib/universal-pkgv${pkgVersion}-lfv${mangledLanguageVersion}.dar"
+    )
+  }
 
   def main(args: Array[String]): Unit = {
 
@@ -67,7 +73,7 @@ object Demo {
 
     val cantonLedgerRunner = LedgerRunner.forCantonLedger(
       languageVersion,
-      universalDarPath,
+      universalDarPaths,
       "localhost",
       List(
         ApiPorts(5011, 5012),
@@ -75,28 +81,25 @@ object Demo {
         ApiPorts(5015, 5016),
       ),
     )
-    val ideLedgerRunner = LedgerRunner.forIdeLedger(languageVersion, universalDarPath)
+    val ideLedgerRunner = LedgerRunner.forIdeLedger(languageVersion, universalDarPaths)
 
     // val workers = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(1))
 
-    val parsingDemo = Parser.parseScenario("""Scenario
+    @nowarn("cat=unused")
+    val bad = Parser.parseScenario("""
+        |Scenario
         |  Topology
-        |    Participant 0 parties={1}
+        |    Participant 1 parties={3}
+        |    Participant 2 parties={3}
         |  Ledger
-        |    Commands participant=0 actAs={1} disclosures={}
-        |      Create 0 sigs={1} obs={}
-        |      CreateWithKey 1 key=(42, {1}) sigs={1} obs={}
-        |    Commands participant=0 actAs={1} disclosures={0}
-        |      Exercise Consuming 0 ctl={1} cobs={}
-        |        Fetch 1
-        |        LookupByKey success 1
-        |        LookupByKey failure key=(43, {1})
-        |        Rollback
-        |          FetchByKey 1
-        |        Exercise NonConsuming 1 ctl={1} cobs={}""".stripMargin)
-    val _ = parsingDemo
+        |    Commands participant=1 actAs={3} disclosures={}
+        |      Create 1 sigs={3} obs={}
+        |    Commands participant=2 actAs={3} disclosures={}
+        |      Exercise Consuming 1 ctl={3} cobs={}
+        |""".stripMargin)
 
     validSymScenarios
+      // List(bad)
       .foreach(scenario => {
         // workers.execute(() =>
         if (scenario.ledger.nonEmpty) {
@@ -133,9 +136,13 @@ object Demo {
                     println(scenario)
                     println("shrinking")
                     Prop
-                      .forAllShrink(Gen.const(scenario), Shrinkers.shrinkScenario.shrink)(s =>
-                        cantonLedgerRunner.runAndProject(s).isRight
-                      )
+                      .forAllShrink(Gen.const(scenario), Shrinkers.shrinkScenario.shrink)(s => {
+                        val res = cantonLedgerRunner.runAndProject(s)
+                        res.isRight || {
+                          println(res)
+                          false
+                        }
+                      })
                       .check()
                     System.exit(1)
                   case Right(cantonProjections) =>

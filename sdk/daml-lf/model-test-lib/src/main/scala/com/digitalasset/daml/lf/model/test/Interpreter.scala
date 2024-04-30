@@ -228,7 +228,7 @@ class Interpreter(
             )
           )
         )
-    } yield Disclosure(templatedId, concreteContractId, contract.blob)
+    } yield Disclosure(contract.templateId, concreteContractId, contract.blob)
   }
 
   private def fetchDisclosures(
@@ -274,7 +274,7 @@ class Interpreter(
           commands = apiCommands.map(cmd =>
             CommandWithMeta(
               cmd,
-              explicitPackageId = false,
+              explicitPackageId = true,
             )
           ),
           optLocation = None,
