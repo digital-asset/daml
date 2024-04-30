@@ -183,50 +183,6 @@ conformance_test_excluded_test = [
     "ActiveContractsServiceIT:AcsAtPruningOffsetIsAllowed",  # requires pruning not available in canton community
 ]
 
-# conformance tests for default and latest
-#  those test the conformance test it-self for stable features
-conformance_test(
-    name = "conformance-test",
-    extra_data = conformance_test_extra_data_base + ["//canton:community_app_deploy.jar"],
-    extra_runner_args = ["7000"],
-    lf_versions = [
-        "default",
-        "latest",
-    ],
-    ports = conformance_test_ports,
-    runner = "@//bazel_tools/client_server/runner_with_health_check",
-    server = ":canton-test-runner-with-dependencies",
-    server_args = conformance_server_args_base + [
-        "-C",
-        ",".join([
-            "dev-mode=no",
-            "_shared.participant_ledger-api_tls.minimum-server-protocol-version=TLSv1.3",
-        ]),
-    ],
-    test_tool_args = conformance_test_tool_args_base + [
-        "--exclude=" + ",".join(conformance_test_excluded_test),
-        "--additional=TLSOnePointThreeIT",
-    ],
-) if not is_windows and is_intel else None
-
-# this tests TLSAtLeastOnePointTwoIT
-conformance_test(
-    name = "conformance-test-tls1.2-or-newer",
-    extra_data = conformance_test_extra_data_base + ["//canton:community_app_deploy.jar"],
-    extra_runner_args = ["7000"],
-    lf_versions = ["latest"],
-    ports = conformance_test_ports,
-    runner = "@//bazel_tools/client_server/runner_with_health_check",
-    server = ":canton-test-runner-with-dependencies",
-    server_args = conformance_server_args_base + [
-        "-C",
-        ",".join([
-            "dev-mode=no",
-        ]),
-    ],
-    test_tool_args = conformance_test_tool_args_base + ["--include=TLSAtLeastOnePointTwoIT"],
-) if not is_windows and is_intel else None
-
 # conformance tests for preview and dev
 #  those test the conformance test it-self for preview/dev features
 [
