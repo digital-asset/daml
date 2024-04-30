@@ -90,10 +90,16 @@ def _daml_sdk_impl(ctx):
                 url = "https://raw.githubusercontent.com/digital-asset/daml/v{}/sdk/templates/create-daml-app-test-resources/messaging.patch".format(ctx.attr.version),
                 sha256 = ctx.attr.create_daml_app_patch_sha256,
             )
-        else:
+        elif versions.is_at_least("2.7.0", ctx.attr.version) and versions.is_at_most("2.8.0", ctx.attr.version):
             ctx.download(
                 output = "create_daml_app.patch",
                 url = "https://raw.githubusercontent.com/digital-asset/daml/v{}/templates/create-daml-app-test-resources/messaging.patch".format(ctx.attr.version),
+                sha256 = ctx.attr.create_daml_app_patch_sha256,
+            )
+        else:
+            ctx.download(
+                output = "create_daml_app.patch",
+                url = "https://raw.githubusercontent.com/digital-asset/daml/v{}/sdk/templates/create-daml-app-test-resources/messaging.patch".format(ctx.attr.version),
                 sha256 = ctx.attr.create_daml_app_patch_sha256,
             )
     else:
