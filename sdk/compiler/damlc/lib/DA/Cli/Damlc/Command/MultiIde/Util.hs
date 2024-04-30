@@ -15,8 +15,9 @@ module DA.Cli.Damlc.Command.MultiIde.Util (
 
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TMVar
-import Control.Exception (handle)
+import Control.Exception (SomeException, handle, try)
 import Control.Lens ((^.))
+import Control.Monad (void)
 import Control.Monad.STM
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except
@@ -24,13 +25,17 @@ import DA.Daml.Project.Config (readProjectConfig, queryProjectConfig, queryProje
 import DA.Daml.Project.Consts (projectConfigName)
 import DA.Daml.Project.Types (ConfigError, ProjectPath (..))
 import Data.Aeson (Value (Null))
+import Data.Bifunctor (first)
+import Data.List.Extra (lower, replace)
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified Language.LSP.Types as LSP
 import qualified Language.LSP.Types.Lens as LSP
 import qualified Language.LSP.Types.Capabilities as LSP
 import System.Directory (doesDirectoryExist, listDirectory, withCurrentDirectory, canonicalizePath)
-import System.FilePath (takeDirectory, takeExtension)
+import qualified System.FilePath as NativeFilePath
+import System.FilePath.Posix (joinDrive, takeDirectory, takeExtension)
+import System.IO (Handle, hClose, hFlush)
 
 er :: Show x => String -> Either x a -> a
 er _msg (Right a) = a
@@ -190,7 +195,7 @@ unitIdAndDepsFromDamlYaml path = do
     canonDeps <- lift $ withCurrentDirectory path $ traverse canonicalizePath $ dataDeps <> directDarDeps
     name <- except $ queryProjectConfigRequired ["name"] project
     version <- except $ queryProjectConfigRequired ["version"] project
-    pure (name <> "-" <> version, canonDeps)
+    pure (name <> "-" <> version, toPosixFilePath <$> canonDeps)
 
 -- LSP requires all requests are replied to. When we don't have a working IDE (say the daml.yaml is malformed), we need to reply
 -- We don't want to reply with LSP errors, as there will be too many. Instead, we show our error in diagnostics, and send empty replies
@@ -250,3 +255,19 @@ fromClientRequestLspId _ = Nothing
 fromClientRequestMethod :: LSP.FromClientMessage -> LSP.SomeMethod
 fromClientRequestMethod (LSP.FromClientMess method _) = LSP.SomeMethod method
 fromClientRequestMethod (LSP.FromClientRsp method _) = LSP.SomeMethod method
+
+-- Windows can throw errors like `resource vanished` on dead handles, instead of being a no-op
+-- In those cases, we're already convinced the handle is closed, so we simply "try" to close handles
+-- and accept whatever happens
+hTryClose :: Handle -> IO ()
+hTryClose handle = void $ try @SomeException $ hClose handle
+
+-- hFlush will error if the handle closes while its blocked on flushing
+-- We don't care what happens in this event, so we ignore the error as with tryClose
+hTryFlush :: Handle -> IO ()
+hTryFlush handle = void $ try @SomeException $ hFlush handle
+
+-- Changes backslashes to forward slashes, lowercases the drive
+-- Need native filepath for splitDrive, as Posix version just takes first n `/`s
+toPosixFilePath :: FilePath -> FilePath
+toPosixFilePath = uncurry joinDrive . first lower . NativeFilePath.splitDrive . replace "\\" "/"

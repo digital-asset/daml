@@ -27,7 +27,7 @@ import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import Data.Tuple.Extra (fst3, thd3)
 import System.Directory (createDirectoryIfMissing, doesFileExist, removePathForcibly)
-import System.FilePath
+import System.FilePath.Posix
 
 import qualified Module as Ghc
 

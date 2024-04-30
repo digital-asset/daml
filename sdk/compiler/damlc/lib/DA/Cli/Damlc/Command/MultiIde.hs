@@ -60,17 +60,19 @@ import qualified SdkVersion.Class
 import System.Directory (doesFileExist, getCurrentDirectory)
 import System.Environment (getEnv, getEnvironment)
 import System.Exit (exitSuccess)
-import System.FilePath (takeDirectory, takeExtension, takeFileName, (</>))
+import System.FilePath.Posix (takeDirectory, takeExtension, takeFileName, (</>))
 import System.IO.Extra
-import System.Process (getPid)
+import System.Info.Extra (isWindows)
+import System.Process (getPid, terminateProcess)
 import System.Process.Typed (
   ExitCode (..),
   Process,
-  createPipe,
+  StreamSpec,
   getExitCodeSTM,
   getStderr,
   getStdin,
   getStdout,
+  mkPipeStreamSpec,
   proc,
   setEnv,
   setStderr,
@@ -103,9 +105,9 @@ addNewSubIDEAndSend miState home mMsg = do
       forM_ mMsg $ unsafeSendSubIDE ide
       atomically $ putTMVar (subIDEsVar miState) ides
     Nothing | ideShouldDisable ideData || ideDataDisabled ideData -> do
-      when (ideDataDisabled ideData) $ logDebug miState "SubIDE failed twice within 5 seconds, disabling SubIDE"
+      when (ideShouldDisable ideData) $ logDebug miState "SubIDE failed twice within 5 seconds, disabling SubIDE"
 
-      responses <- getUnrespondedRequestsFallbackResponses miState home
+      responses <- getUnrespondedRequestsFallbackResponses miState ideData home
       logDebug miState $ "Found " <> show (length responses) <> " unresponded messages, sending empty replies."
       
       -- Doesn't include mMsg, as if it was request, it'll already be in the tracker, so a reply for it will be in `responses`
@@ -121,7 +123,7 @@ addNewSubIDEAndSend miState home mMsg = do
         putTMVar (subIDEsVar miState) $ Map.insert home ideData' ides
     Nothing -> do
       logInfo miState $ "Creating new SubIDE for " <> home
-      sendClient miState $ clearDiagnostics $ home </> "daml.yaml"
+      traverse_ (sendClient miState) $ clearIdeDiagnosticMessages ideData home
 
       unitId <- either (\cErr -> error $ "Failed to get unit ID from daml.yaml: " <> show cErr) fst <$> unitIdAndDepsFromDamlYaml home
 
@@ -137,10 +139,15 @@ addNewSubIDEAndSend miState home mMsg = do
 
       --           ***** -> SubIDE
       toSubIDEChan <- atomically newTChan
-      toSubIDE <- async $ onceUnblocked $ forever $ do
-        msg <- atomically $ readTChan toSubIDEChan
-        logDebug miState "Pushing message to subIDE"
-        putChunk inHandle msg
+      let pushMessageToSubIDE :: IO ()
+          pushMessageToSubIDE = do
+            msg <- atomically $ readTChan toSubIDEChan
+            logDebug miState "Pushing message to subIDE"
+            putChunk inHandle msg
+      toSubIDE <- async $ do
+        -- Allow first message (init) to be sent before unblocked
+        pushMessageToSubIDE
+        onceUnblocked $ forever pushMessageToSubIDE
 
       --           Coord <- SubIDE
       subIDEToCoord <- async $ do
@@ -161,7 +168,7 @@ addNewSubIDEAndSend miState home mMsg = do
 
       mInitParams <- tryReadMVar (initParamsVar miState)
       let !initParams = fromMaybe (error "Attempted to create a SubIDE before initialization!") mInitParams
-          initId = LSP.IdString $ T.pack $ show pid
+          initId = LSP.IdString $ T.pack $ show pid <> "-init"
           initMsg :: LSP.FromClientMessage
           initMsg = LSP.FromClientMess LSP.SInitialize LSP.RequestMessage 
             { _id = initId
@@ -190,7 +197,9 @@ addNewSubIDEAndSend miState home mMsg = do
               { ideInhandleAsync = toSubIDE
               , ideInHandle = inHandle
               , ideInHandleChannel = toSubIDEChan
+              , ideOutHandle = outHandle
               , ideOutHandleAsync = subIDEToCoord
+              , ideErrHandle = errHandle
               , ideErrText = ideErrText
               , ideErrTextAsync = ideErrTextAsync
               , ideProcess = subIdeProcess
@@ -201,11 +210,11 @@ addNewSubIDEAndSend miState home mMsg = do
           ideData' = ideData {ideDataMain = Just ide}
 
       -- Must happen before the initialize message is added, else it'll delete that
-      unrespondedRequests <- getUnrespondedRequestsToResend miState home
+      unrespondedRequests <- getUnrespondedRequestsToResend miState ideData home
 
       logDebug miState "Sending init message to SubIDE"
       putSingleFromClientMessage miState home initMsg
-      putChunk inHandle $ Aeson.encode initMsg
+      unsafeSendSubIDE ide initMsg
 
       -- Dangerous calls are okay here because we're already holding the subIDEsVar lock
       -- Send the open file notifications
@@ -239,6 +248,10 @@ disableIdeDiagnosticMessages ideData home =
     )
     <$> ((home </> "daml.yaml") : Set.toList (ideDataOpenFiles ideData))
 
+clearIdeDiagnosticMessages :: SubIDEData -> FilePath -> [LSP.FromServerMessage]
+clearIdeDiagnosticMessages ideData home =
+  clearDiagnostics <$> ((home </> "daml.yaml") : Set.toList (ideDataOpenFiles ideData))
+
 runSubProc :: MultiIdeState -> FilePath -> IO (Process Handle Handle Handle)
 runSubProc miState home = do
   assistantPath <- getEnv "DAML_ASSISTANT"
@@ -247,11 +260,14 @@ runSubProc miState home = do
 
   startProcess $
     proc assistantPath ("ide" : subIdeArgs miState) &
-      setStdin createPipe &
-      setStdout createPipe &
-      setStderr createPipe &
+      setStdin createPipeNoClose &
+      setStdout createPipeNoClose &
+      setStderr createPipeNoClose &
       setWorkingDir home &
       setEnv assistantEnv
+  where
+    createPipeNoClose :: StreamSpec streamType Handle
+    createPipeNoClose = mkPipeStreamSpec $ \_ h -> pure (h, pure ())
 
 -- Spin-down logic
 
@@ -321,15 +337,24 @@ shutdownIdeWithLock miState ides ideData = do
 -- To be called once we receive the Shutdown response
 -- Safe to assume that the sending channel is empty, so we can end the thread and send the final notification directly on the handle
 handleExit :: MultiIdeState -> SubIDEInstance -> IO ()
-handleExit miState ide = do
-  let (exitMsg :: LSP.FromClientMessage) = LSP.FromClientMess LSP.SExit LSP.NotificationMessage
-        { _method = LSP.SExit
-        , _params = LSP.Empty
-        , _jsonrpc = "2.0"
-        }
-  logDebug miState $ "Sending exit message to " <> ideHome ide
-  -- This will cause the subIDE process to exit
-  putChunk (ideInHandle ide) $ Aeson.encode exitMsg
+handleExit miState ide =
+  if isWindows
+    then do
+      -- On windows, ghc-ide doesn't close correctly on exit messages (even terminating the process leaves subprocesses behind)
+      -- Instead, we close the handle its listening on, and terminate the process.
+      logDebug miState $ "(windows) Closing handle and terminating " <> ideHome ide
+      hTryClose $ ideInHandle ide
+      terminateProcess $ unsafeProcessHandle $ ideProcess ide
+    else do
+      let (exitMsg :: LSP.FromClientMessage) = LSP.FromClientMess LSP.SExit LSP.NotificationMessage
+            { _method = LSP.SExit
+            , _params = LSP.Empty
+            , _jsonrpc = "2.0"
+            }
+      logDebug miState $ "Sending exit message to " <> ideHome ide
+      -- This will cause the subIDE process to exit
+      -- Able to be unsafe as no other messages can use this IDE once it has been shutdown
+      unsafeSendSubIDE ide exitMsg
 
 -- Communication logic
 
@@ -345,6 +370,10 @@ sendClientSTM miState = writeTChan (toClientChan miState) . Aeson.encode
 
 sendClient :: MultiIdeState -> LSP.FromServerMessage -> IO ()
 sendClient miState = atomically . sendClientSTM miState
+
+-- Sends a message to the client, putting it at the start of the queue to be sent first
+sendClientFirst :: MultiIdeState -> LSP.FromServerMessage -> IO ()
+sendClientFirst miState = atomically . unGetTChan (toClientChan miState) . Aeson.encode
 
 sendAllSubIDEs :: MultiIdeState -> LSP.FromClientMessage -> IO [FilePath]
 sendAllSubIDEs miState msg = atomically $ do
@@ -584,8 +613,8 @@ clientMessageHandler miState unblock bs = do
     -- Store the initialize params for starting subIDEs, respond statically with what ghc-ide usually sends.
     LSP.FromClientMess LSP.SInitialize LSP.RequestMessage {_id, _method, _params} -> do
       putMVar (initParamsVar miState) _params
-      -- Send initialized out directly (skipping the queue), then unblock for other messages
-      putChunk stdout $ Aeson.encode $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) (Right initializeResult)
+      -- Send initialized out first (skipping the queue), then unblock for other messages
+      sendClientFirst miState $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) (Right initializeResult)
       unblock
 
       -- Register watchers for daml.yaml, multi-package.yaml and *.dar files
@@ -661,6 +690,13 @@ clientMessageHandler miState unblock bs = do
       let damlOnlyChanges = filter (maybe False (\path -> takeExtension path == ".daml") . LSP.uriToFilePath . view LSP.uri) changes
       sendAllSubIDEs_ miState $ LSP.FromClientMess LSP.SWorkspaceDidChangeWatchedFiles $ LSP.params .~ LSP.DidChangeWatchedFilesParams (LSP.List damlOnlyChanges) $ msg
 
+    LSP.FromClientMess LSP.SExit _ -> do
+      ides <- atomically $ readTMVar $ subIDEsVar miState
+      traverse_ (handleExit miState) $ Map.mapMaybe ideDataMain ides
+      -- Wait half a second for all the exit messages to be sent
+      threadDelay 500_000
+      exitSuccess
+
     LSP.FromClientMess meth params ->
       case getMessageForwardingBehaviour miState meth params of
         ForwardRequest mess (Single path) -> do
@@ -684,15 +720,9 @@ clientMessageHandler miState unblock bs = do
           -- Notifications aren't stored, so failure to send can be ignored
           sendSubIDEByPath miState path (castFromClientMessage msg)
 
-        ForwardNotification mess AllNotification -> do
+        ForwardNotification _ AllNotification -> do
           logDebug miState $ "all not on method " <> show meth
           sendAllSubIDEs_ miState (castFromClientMessage msg)
-          case mess ^. LSP.method of
-            LSP.SExit -> do
-              -- Wait half a second for all the exit messages to be sent
-              threadDelay 500_000
-              exitSuccess
-            _ -> pure ()
 
         ExplicitHandler handler -> do
           logDebug miState "calling explicit handler"
@@ -745,8 +775,8 @@ updatePackageData miState = do
     Just path -> do
       logDebug miState "Found multi-package.yaml"
       eRes <- try @SomeException $ withMultiPackageConfig path $ \multiPackage ->
-        deriveAndWriteMappings (mpPackagePaths multiPackage) (mpDars multiPackage)
-      let multiPackagePath = unwrapProjectPath path </> "multi-package.yaml"
+        deriveAndWriteMappings (toPosixFilePath <$> mpPackagePaths multiPackage) (toPosixFilePath <$> mpDars multiPackage)
+      let multiPackagePath = toPosixFilePath $ unwrapProjectPath path </> "multi-package.yaml"
       case eRes of
         Right paths -> do
           sendClient miState $ clearDiagnostics multiPackagePath
@@ -812,7 +842,7 @@ updatePackageData miState = do
 
 createDefaultPackage :: SdkVersion.Class.SdkVersioned => IO (FilePath, IO ())
 createDefaultPackage = do
-  (defaultPackagePath, cleanup) <- newTempDir
+  (toPosixFilePath -> defaultPackagePath, cleanup) <- newTempDir
   writeFile (defaultPackagePath </> "daml.yaml") $ unlines
     [ "sdk-version: " <> SdkVersion.Class.sdkVersion
     , "name: daml-ide-default-environment"
@@ -826,7 +856,7 @@ createDefaultPackage = do
 
 runMultiIde :: SdkVersion.Class.SdkVersioned => Logger.Priority -> [String] -> IO ()
 runMultiIde loggingThreshold args = do
-  homePath <- getCurrentDirectory
+  homePath <- toPosixFilePath <$> getCurrentDirectory
   (defaultPackagePath, cleanupDefaultPackage) <- createDefaultPackage
   let subIdeArgs = if loggingThreshold <= Logger.Debug then "--debug" : args else args
   miState <- newMultiIdeState homePath defaultPackagePath loggingThreshold subIdeArgs
@@ -875,9 +905,8 @@ runMultiIde loggingThreshold args = do
           -- subIDE process exits
           Left exitCode -> do
             logDebug miState $ "SubIDE at " <> home <> " exited, cleaning up."
-            cancel $ ideInhandleAsync ide
-            cancel $ ideOutHandleAsync ide
-            cancel $ ideErrTextAsync ide
+            traverse_ hTryClose [ideInHandle ide, ideOutHandle ide, ideErrHandle ide]
+            traverse_ cancel [ideInhandleAsync ide, ideOutHandleAsync ide, ideErrTextAsync ide]
             stderrContent <- T.unpack <$> readTVarIO (ideErrText ide)
             currentTime <- getCurrentTime
             let ideData = lookupSubIde home subIDEs
@@ -893,7 +922,7 @@ runMultiIde loggingThreshold args = do
                   , ideDataLastError = if isCrash && isMainIde then Just stderrContent else Nothing
                   }
                 toRestart' = if isCrash && isMainIde then home : toRestart else toRestart
-            when isCrash $
+            when (isCrash && isMainIde) $
               logWarning miState $ "Proccess failed, stderr content:\n" <> stderrContent
               
             pure (errs, Map.insert home ideData' subIDEs, toRestart')

@@ -41,6 +41,7 @@ type WebviewFiles = {
 
 var damlLanguageClient: LanguageClient;
 var virtualResourceManager: VirtualResourceManager;
+var isMultiIde: boolean;
 
 // Extension activation
 // Note: You can log debug information by using `console.log()`
@@ -285,6 +286,7 @@ function getLanguageServerArgs(
   telemetryConsent: boolean | undefined,
 ): string[] {
   const multiIDESupport = config.get("multiPackageIdeSupport");
+  isMultiIde = !!multiIDESupport;
   const logLevel = config.get("logLevel");
   const isDebug = logLevel == "Debug" || logLevel == "Telemetry";
 
@@ -358,11 +360,12 @@ export function createLanguageClient(
 }
 
 // this method is called when your extension is deactivated
-export function deactivate() {
+export async function deactivate() {
   // unLinkSyntax();
   // Stop keep-alive watchdog and terminate language server.
   stopKeepAliveWatchdog();
-  (<any>damlLanguageClient)._childProcess.kill("SIGTERM");
+  if (isMultiIde) await damlLanguageClient.stop();
+  else (<any>damlLanguageClient)._serverProcess.kill("SIGTERM");
 }
 
 // Keep alive timer for periodically checking that the server is responding

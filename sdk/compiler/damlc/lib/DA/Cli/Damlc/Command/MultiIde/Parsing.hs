@@ -75,7 +75,7 @@ putChunk :: Handle -> BSL.ByteString -> IO ()
 putChunk handle payload = do
   let fullMessage = "Content-Length: " <> BSLC.pack (show (BSL.length payload)) <> "\r\n\r\n" <> payload
   BSL.hPut handle fullMessage
-  hFlush handle
+  hTryFlush handle
 
 putReqMethodSingleFromServer
   :: forall (m :: LSP.Method 'LSP.FromServer 'LSP.Request)
@@ -194,21 +194,24 @@ parseClientMessageWithTracker tracker val = pickReqMethodTo tracker $ \extract -
       (Right (LSP.FromClientRsp (Pair method (Const mHome)) rsp), Just newIxMap)
     Left msg -> (Left msg, Nothing)
 
--- Map.mapAccum where the replacement value is a Maybe. Accumulator is still updated for `Nothing` values
-mapMaybeAccum :: Ord k => (a -> b -> (a, Maybe c)) -> a -> Map.Map k b -> (a, Map.Map k c)
-mapMaybeAccum f z = flip Map.foldrWithKey (z, Map.empty) $ \k v (accum, m) ->
-  second (maybe m (\v' -> Map.insert k v' m)) $ f accum v
+-- Map.mapAccumWithKey where the replacement value is a Maybe. Accumulator is still updated for `Nothing` values
+mapMaybeAccumWithKey :: Ord k => (a -> k -> b -> (a, Maybe c)) -> a -> Map.Map k b -> (a, Map.Map k c)
+mapMaybeAccumWithKey f z = flip Map.foldrWithKey (z, Map.empty) $ \k v (accum, m) ->
+  second (maybe m (\v' -> Map.insert k v' m)) $ f accum k v
 
 -- Convenience for the longwinded FromClient Some TrackedMethod type
 type SomeFromClientTrackedMethod = Some @(LSP.Method 'LSP.FromClient 'LSP.Request) TrackedMethod
 
+-- Sadly some coercions needed here, as IxMap doesn't expose methods to traverse the map safely
+-- Each usage is explained in comments nearby
 {-# ANN adjustClientTrackers ("HLint: ignore Avoid restricted function" :: String) #-}
 adjustClientTrackers 
   :: forall a
   .  MultiIdeState
   -> FilePath
   -> (  forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
-     .  TrackedMethod m 
+     .  LSP.LspId m
+     -> TrackedMethod m 
      -> (Maybe (TrackedMethod m), Maybe a)
      )
   -> IO [a]
@@ -216,24 +219,36 @@ adjustClientTrackers miState home adjuster = atomically $ stateTVar (fromClientM
   let doAdjust 
         :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
         .  [a]
+        -> LSP.LspId m
         -> TrackedMethod m
         -> ([a], Maybe SomeFromClientTrackedMethod)
-      doAdjust accum tracker = let (mTracker, mV) = adjuster tracker in (maybe accum (:accum) mV, mkSome <$> mTracker)
-      adjust :: [a] -> SomeFromClientTrackedMethod -> ([a], Maybe SomeFromClientTrackedMethod)
-      adjust accum someTracker = withSome someTracker $ \tracker -> case tracker of
-        TrackedSingleMethodFromClient _ _ home' | home == home' -> doAdjust accum tracker
-        TrackedAllMethod {tamRemainingResponseIDERoots} | home `elem` tamRemainingResponseIDERoots -> doAdjust accum tracker
+      doAdjust accum lspId tracker = let (mTracker, mV) = adjuster lspId tracker in (maybe accum (:accum) mV, mkSome <$> mTracker)
+      -- In this function, we unpack the SomeLspId to LspId m', then coerce the `m'` to match the `m` of TrackedMethod.
+      -- This invariant is enforced by the interface to IxMaps, and thus is safe.
+      adjust :: [a] -> LSP.SomeLspId -> SomeFromClientTrackedMethod -> ([a], Maybe SomeFromClientTrackedMethod)
+      adjust accum someLspId someTracker = withSome someTracker $ \tracker -> case (tracker, someLspId) of
+        (TrackedSingleMethodFromClient _ _ home', LSP.SomeLspId lspId) | home == home' -> doAdjust accum (unsafeCoerce lspId) tracker
+        (TrackedAllMethod {tamRemainingResponseIDERoots}, LSP.SomeLspId lspId) | home `elem` tamRemainingResponseIDERoots -> doAdjust accum (unsafeCoerce lspId) tracker
         _ -> (accum, Just someTracker)
       -- We know that the fromClientMethodTrackerVar only contains Trackers for FromClient, but this information is lost in the `Some` inside the IxMap
       -- We define our `adjust` method safely, by having it know this `FromClient` constraint, then coerce it to bring said constraint into scope.
       -- (trackerMap :: forall (from :: LSP.From). Map.Map SomeLspId (Some @(Lsp.Method from @LSP.Request) TrackedMethod))
       -- where `from` is constrained outside the IxMap and as such, enforced weakly (using unsafeCoerce)
-      (accum, trackerMap) = mapMaybeAccum (unsafeCoerce adjust) [] $ IM.getMap tracker
+      (accum, trackerMap) = mapMaybeAccumWithKey (unsafeCoerce adjust) [] $ IM.getMap tracker
    in (accum, IM.IxMap trackerMap)
 
+-- Checks if a given Shutdown or Initialize lspId is for an IDE that is still closing, and as such, should not be removed
+isClosingIdeInFlight :: SubIDEData -> LSP.SMethod m -> LSP.LspId m -> Bool
+isClosingIdeInFlight ideData LSP.SShutdown (LSP.IdString str) = any (\ide -> str == ideMessageIdPrefix ide <> "-shutdown") $ ideDataClosing ideData
+isClosingIdeInFlight ideData LSP.SInitialize (LSP.IdString str) = any (\ide -> str == ideMessageIdPrefix ide <> "-init") $ ideDataClosing ideData
+isClosingIdeInFlight _ _ _ = False
+
 -- Reads all unresponded messages for a given home, gives back the original messages. Ignores and deletes Initialize and Shutdown requests
-getUnrespondedRequestsToResend :: MultiIdeState -> FilePath -> IO [LSP.FromClientMessage]
-getUnrespondedRequestsToResend miState home = adjustClientTrackers miState home $ \tracker -> case tmMethod tracker of
+-- but only if no ideClosing ides are using them
+getUnrespondedRequestsToResend :: MultiIdeState -> SubIDEData -> FilePath -> IO [LSP.FromClientMessage]
+getUnrespondedRequestsToResend miState ideData home = adjustClientTrackers miState home $ \lspId tracker -> case tmMethod tracker of
+  -- Keep shutdown/initialize messages that are in use, but don't return them
+  method | isClosingIdeInFlight ideData method lspId -> (Just tracker, Nothing)
   LSP.SInitialize -> (Nothing, Nothing)
   LSP.SShutdown -> (Nothing, Nothing)
   _ -> (Just tracker, Just $ tmClientMessage tracker)
@@ -241,8 +256,10 @@ getUnrespondedRequestsToResend miState home = adjustClientTrackers miState home 
 -- Gets fallback responses for all unresponded requests for a given home.
 -- For Single IDE requests, we return noIDEReply, and delete the request from the tracker
 -- For All IDE requests, we delete this home from the aggregate response, and if it is now complete, run the combiner and return the result
-getUnrespondedRequestsFallbackResponses :: MultiIdeState -> FilePath -> IO [LSP.FromServerMessage]
-getUnrespondedRequestsFallbackResponses miState home = adjustClientTrackers miState home $ \case
+getUnrespondedRequestsFallbackResponses :: MultiIdeState -> SubIDEData -> FilePath -> IO [LSP.FromServerMessage]
+getUnrespondedRequestsFallbackResponses miState ideData home = adjustClientTrackers miState home $ \lspId tracker -> case tracker of
+-- Keep shutdown/initialize messages that are in use, but don't return them
+  TrackedSingleMethodFromClient method _ _ | isClosingIdeInFlight ideData method lspId -> (Just tracker, Nothing)
   TrackedSingleMethodFromClient _ msg _ -> (Nothing, noIDEReply msg)
   tm@TrackedAllMethod {tamRemainingResponseIDERoots = [home']} | home' == home ->
     let reply = LSP.FromServerRsp (tamMethod tm) $ LSP.ResponseMessage "2.0" (Just $ tamLspId tm) (tamCombiner tm $ tamResponses tm)

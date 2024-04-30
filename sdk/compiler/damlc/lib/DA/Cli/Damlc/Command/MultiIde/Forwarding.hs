@@ -88,7 +88,7 @@ getMessageForwardingBehaviour miState meth params =
     LSP.SInitialized -> ignore
     -- send to all then const reply
     LSP.SShutdown -> ForwardRequest params $ AllRequest (assumeSuccessCombiner @m $ const LSP.Empty)
-    LSP.SExit -> ForwardNotification params AllNotification
+    LSP.SExit -> handleElsewhere "Exit"
     LSP.SWorkspaceDidChangeWorkspaceFolders -> ForwardNotification params AllNotification
     LSP.SWorkspaceDidChangeConfiguration -> ForwardNotification params AllNotification
     LSP.SWorkspaceDidChangeWatchedFiles -> ForwardNotification params AllNotification
