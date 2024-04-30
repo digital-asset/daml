@@ -14,6 +14,7 @@ object Symbolic {
   type ParticipantIdSort = IntSort
   type ContractIdSort = IntSort
   type KeyIdSort = IntSort
+  type PackageIdSort = IntSort
   type PartySort = IntSort
   type PartySetSort = SetSort[PartySort]
   type ContractIdSetSort = SetSort[ContractIdSort]
@@ -23,6 +24,7 @@ object Symbolic {
   type PartyId = IntExpr
   type ContractId = IntExpr
   type KeyId = IntExpr
+  type PackageId = IntExpr
 
   type ParticipantId = IntExpr
 
@@ -78,11 +80,16 @@ object Symbolic {
 
   type Transaction = List[Action]
 
+  final case class Command(
+      packageId: Option[PackageId],
+      action: Action,
+  )
+
   final case class Commands(
       participantId: ParticipantId,
       actAs: PartySet,
       disclosures: ContractIdSet,
-      actions: Transaction,
+      commands: List[Command],
   )
 
   type Ledger = List[Commands]

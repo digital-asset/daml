@@ -10,13 +10,16 @@ import com.daml.lf.model.test.Ledgers._
 import GenInstances._
 import cats.implicits.toTraverseOps
 
-class Generators(numParticipants: Int, numParties: Int) {
+class Generators(numParticipants: Int, numPackages: Int, numParties: Int) {
 
   private def numberCreates(ledger: Ledger): Ledger = {
     var lastContractId: ContractId = 0
 
     def numberCommandsCreates(commands: Commands): Commands =
-      commands.copy(actions = numberTransactionCreates(commands.actions))
+      commands.copy(commands = commands.commands.map(numberCommandCreates))
+
+    def numberCommandCreates(command: Command): Command =
+      command.copy(action = numberActionCreates(command.action))
 
     def numberTransactionCreates(transaction: Transaction): Transaction =
       transaction.map(numberActionCreates)
@@ -69,6 +72,9 @@ class Generators(numParticipants: Int, numParties: Int) {
   lazy val contractIdGen: Gen[ContractId] =
     Gen.posNum[ContractId]
 
+  lazy val packageIdGen: Gen[PackageId] =
+    Gen.choose(0, numPackages - 1)
+
   def ledgerGen(topology: Topology): Gen[Ledger] = Gen.sized(size =>
     for {
       listLen <- Gen.choose(0, size)
@@ -81,8 +87,23 @@ class Generators(numParticipants: Int, numParties: Int) {
       participantId <- Gen.choose(0, numParticipants - 1)
       actAs <- Gen.atLeastOne(topology(participantId).parties).map(_.toSet)
       disclosures <- Gen.listOf(contractIdGen).map(_.toSet)
-      actions <- transactionGen(1, NoRollbacksAllowed, NoFetchesAllowed)
+      actions <- commandListGen
     } yield Commands(participantId, actAs, disclosures, actions)
+
+  lazy val commandListGen: Gen[List[Command]] = Gen.sized(size =>
+    for {
+      listLen <- Gen.choose(1, size)
+      res <- Gen.listOfN(
+        listLen,
+        Gen.lzy(Gen.resize(size / listLen, commandGen)),
+      )
+    } yield res
+  )
+
+  lazy val commandGen: Gen[Command] = for {
+    pkgId <- Gen.option(packageIdGen)
+    action <- actionGen(NoRollbacksAllowed, NoFetchesAllowed)
+  } yield Command(pkgId, action)
 
   trait RollbacksAllowed
   case object NoRollbacksAllowed extends RollbacksAllowed
