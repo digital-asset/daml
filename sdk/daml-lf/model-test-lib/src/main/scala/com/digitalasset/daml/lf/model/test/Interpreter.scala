@@ -49,13 +49,11 @@ object Interpreter {
 }
 
 class Interpreter(
-    universalTemplatePkgId: Ref.PackageId,
+    universalTemplatePkgIds: Seq[Ref.PackageId],
     ledgerClients: PartialFunction[ParticipantId, ScriptLedgerClient],
     replicateParties: Function[Map[Ref.Party, (ParticipantId, Set[ParticipantId])], Future[Unit]],
 ) {
   import Interpreter._
-
-  private val toCommands = new ToCommands(universalTemplatePkgId)
 
   type SymbSimplifiedTopology = Map[ParticipantId, Set[PartyId]]
   type SymbReplications = Map[PartyId, (ParticipantId, Set[ParticipantId])]
@@ -255,11 +253,13 @@ class Interpreter(
       mat: Materializer,
   ): Eval[ContractIdMapping] = {
     for {
-      apiCommands <- EitherT
+      apiCommandsWithMeta <- EitherT
         .fromEither[Future](
-          commands.actions
-            .traverse(
-              toCommands.actionToApiCommand(partyIds, contractIds, _)
+          commands.commands
+            .traverse(cmd =>
+              new ToCommands(universalTemplatePkgIds(cmd.packageId.getOrElse(0)))
+                .actionToApiCommand(partyIds, contractIds, cmd.action)
+                .map(CommandWithMeta(_, cmd.packageId.isDefined))
             )
         )
         .leftMap(TranslationError)
@@ -271,18 +271,13 @@ class Interpreter(
           actAs = assertToOneAnd(commands.actAs.map(partyIds)),
           readAs = partyIds.values.toSet,
           disclosures = disclosures,
-          commands = apiCommands.map(cmd =>
-            CommandWithMeta(
-              cmd,
-              explicitPackageId = true,
-            )
-          ),
+          commands = apiCommandsWithMeta,
           optLocation = None,
           languageVersionLookup = _ => Left("language version lookup not supported"),
           errorBehaviour = ScriptLedgerClient.SubmissionErrorBehaviour.MustSucceed,
         )
       ).leftMap[InterpreterError](SubmitFailure)
-    } yield commandResultsToContractIdMapping(commands.actions, resultAndTree._1)
+    } yield commandResultsToContractIdMapping(commands.commands.map(_.action), resultAndTree._1)
   }
 
   private def runCommandsList(
@@ -329,37 +324,48 @@ class Interpreter(
     def unions(infos: Iterable[ContractInfos]): ContractInfos =
       infos.foldLeft(Map.empty[ContractId, ContractInfo])(_ ++ _)
 
+    def extractFromCommand(
+        command: Command
+    ): ContractInfos = command match {
+      case Command(pkgId, action) =>
+        extractFromAction(
+          pkgId.fold(universalTemplatePkgIds.head)(universalTemplatePkgIds(_)),
+          action,
+        )
+    }
+
     def extractFromAction(
-        action: Action
+        pkgId: Ref.PackageId,
+        action: Action,
     ): ContractInfos = action match {
       case create: Create =>
         Map(
           create.contractId -> ContractInfo(
-            toCommands.universalTemplateId,
+            new ToCommands(pkgId).universalTemplateId,
             create.signatories,
           )
         )
       case create: CreateWithKey =>
         Map(
           create.contractId -> ContractInfo(
-            toCommands.universalWithKeyTemplateId,
+            new ToCommands(pkgId).universalWithKeyTemplateId,
             create.signatories,
           )
         )
       case exe: Exercise =>
-        extractFromTransaction(exe.subTransaction)
+        extractFromTransaction(pkgId, exe.subTransaction)
       case exe: ExerciseByKey =>
-        extractFromTransaction(exe.subTransaction)
+        extractFromTransaction(pkgId, exe.subTransaction)
       case rb: Rollback =>
-        extractFromTransaction(rb.subTransaction)
+        extractFromTransaction(pkgId, rb.subTransaction)
       case _: Fetch | _: FetchByKey | _: LookupByKey =>
         Map.empty
     }
 
-    def extractFromTransaction(actions: Transaction): ContractInfos =
-      unions(actions.map(extractFromAction))
+    def extractFromTransaction(pkgId: Ref.PackageId, actions: Transaction): ContractInfos =
+      unions(actions.map(extractFromAction(pkgId, _)))
 
-    unions(ledger.map(commands => extractFromTransaction(commands.actions)))
+    unions(ledger.map(commands => unions(commands.commands.map(extractFromCommand))))
   }
 
   def runLedger(scenario: Scenario)(implicit

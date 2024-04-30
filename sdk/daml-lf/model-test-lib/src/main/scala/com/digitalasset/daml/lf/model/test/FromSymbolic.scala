@@ -18,8 +18,11 @@ class FromSymbolic(numParties: Int, ctx: Context, model: Model) {
   private def evalContractId(cid: S.ContractId): L.ContractId =
     model.evaluate(cid, false).asInstanceOf[IntNum].getInt
 
-  private def evalkeyId(cid: S.KeyId): L.KeyId =
+  private def evalKeyId(cid: S.KeyId): L.KeyId =
     model.evaluate(cid, true).asInstanceOf[IntNum].getInt
+
+  private def evalPackageId(pid: S.PackageId): L.PackageId =
+    model.evaluate(pid, false).asInstanceOf[IntNum].getInt
 
   private def evalPartySet(set: S.PartySet): L.PartySet =
     (1 to numParties).toSet.filter { i =>
@@ -40,8 +43,11 @@ class FromSymbolic(numParties: Int, ctx: Context, model: Model) {
       evalParticipantId(commands.participantId),
       evalPartySet(commands.actAs),
       evalContractIdSet(numContracts, commands.disclosures),
-      commands.actions.map(toConcrete),
+      commands.commands.map(toConcrete),
     )
+
+  private def toConcrete(command: S.Command): L.Command =
+    L.Command(command.packageId.map(evalPackageId), toConcrete(command.action))
 
   private def toConcrete(kind: S.ExerciseKind): L.ExerciseKind = {
     kind match {
@@ -60,7 +66,7 @@ class FromSymbolic(numParties: Int, ctx: Context, model: Model) {
     case Symbolic.CreateWithKey(contractId, keyId, maintainers, signatories, observers) =>
       L.CreateWithKey(
         evalContractId(contractId),
-        evalkeyId(keyId),
+        evalKeyId(keyId),
         evalPartySet(maintainers),
         evalPartySet(signatories),
         evalPartySet(observers),
@@ -85,7 +91,7 @@ class FromSymbolic(numParties: Int, ctx: Context, model: Model) {
       L.ExerciseByKey(
         toConcrete(kind),
         evalContractId(contractId),
-        evalkeyId(keyId),
+        evalKeyId(keyId),
         evalPartySet(maintainers),
         evalPartySet(controllers),
         evalPartySet(choiceObservers),
@@ -96,13 +102,13 @@ class FromSymbolic(numParties: Int, ctx: Context, model: Model) {
     case Symbolic.FetchByKey(contractId, keyId, maintainers) =>
       L.FetchByKey(
         evalContractId(contractId),
-        evalkeyId(keyId),
+        evalKeyId(keyId),
         evalPartySet(maintainers),
       )
     case Symbolic.LookupByKey(contractId, keyId, maintainers) =>
       L.LookupByKey(
         contractId.map(evalContractId),
-        evalkeyId(keyId),
+        evalKeyId(keyId),
         evalPartySet(maintainers),
       )
     case Symbolic.Rollback(subTransaction) =>

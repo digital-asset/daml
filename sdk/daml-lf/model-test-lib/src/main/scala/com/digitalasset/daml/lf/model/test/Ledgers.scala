@@ -14,6 +14,7 @@ object Ledgers {
   type PartyId = Int
   type ContractId = Int
   type KeyId = Int
+  type PackageId = Int
 
   type ParticipantId = Int
 
@@ -69,11 +70,16 @@ object Ledgers {
 
   type Transaction = List[Action]
 
+  final case class Command(
+      packageId: Option[PackageId],
+      action: Action,
+  )
+
   final case class Commands(
       participantId: ParticipantId,
       actAs: PartySet,
       disclosures: ContractIdSet,
-      actions: Transaction,
+      commands: List[Command],
   )
 
   type Ledger = List[Commands]
