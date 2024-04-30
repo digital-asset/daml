@@ -203,7 +203,6 @@ conformance_test(
             "_shared.participant_ledger-api_tls.minimum-server-protocol-version=TLSv1.3",
         ]),
     ],
-    tags = ["main-only"],
     test_tool_args = conformance_test_tool_args_base + [
         "--exclude=" + ",".join(conformance_test_excluded_test),
         "--additional=TLSOnePointThreeIT",
@@ -225,7 +224,6 @@ conformance_test(
             "dev-mode=no",
         ]),
     ],
-    tags = ["main-only"],
     test_tool_args = conformance_test_tool_args_base + ["--include=TLSAtLeastOnePointTwoIT"],
 ) if not is_windows and is_intel else None
 
