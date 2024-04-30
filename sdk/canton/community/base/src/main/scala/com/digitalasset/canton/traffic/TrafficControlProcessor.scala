@@ -62,7 +62,6 @@ class TrafficControlProcessor(
   ): FutureUnlessShutdown[Unit] = {
     import SubscriptionStart.*
 
-    logger.debug(s"subscriptionStartsAt called with start $start")
     val tsStart = start match {
       case FreshSubscription =>
         // Use the max timestamp from the store. If the store is empty, use a minimum value

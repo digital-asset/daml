@@ -239,6 +239,7 @@ class GrpcDomainConnectivityService(
         sequencerInfoLoader
           .loadAndAggregateSequencerEndpoints(
             connectionConfig.domain,
+            None,
             connectionConfig.sequencerConnections,
             SequencerConnectionValidation.Active,
           )(

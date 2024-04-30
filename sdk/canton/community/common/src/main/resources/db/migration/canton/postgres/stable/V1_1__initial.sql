@@ -591,7 +591,6 @@ create table common_sequenced_event_store_pruning (
 create table mediator_domain_configuration (
   -- this lock column ensures that there can only ever be a single row: https://stackoverflow.com/questions/3967372/sql-server-how-to-constrain-a-table-to-contain-a-single-row
   lock char(1) not null default 'X' primary key check (lock = 'X'),
-  initial_key_context varchar(300) collate "C" not null,
   domain_id varchar(300) collate "C" not null,
   static_domain_parameters bytea not null,
   sequencer_connection bytea not null

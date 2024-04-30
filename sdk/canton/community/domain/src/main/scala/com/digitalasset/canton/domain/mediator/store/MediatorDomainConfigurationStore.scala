@@ -6,7 +6,6 @@ package com.digitalasset.canton.domain.mediator.store
 import cats.data.EitherT
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
@@ -17,10 +16,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.concurrent.{ExecutionContext, Future}
 
 final case class MediatorDomainConfiguration(
-    // Ok to use in the old topology management.
-    // Do not use from the new topology management.
-    @Deprecated(since = "3.0.0, x-nodes do not need to return the initial key")
-    initialKeyFingerprint: Fingerprint,
     domainId: DomainId,
     domainParameters: StaticDomainParameters,
     sequencerConnections: SequencerConnections,
