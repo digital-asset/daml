@@ -101,7 +101,7 @@ trait SequencerRateLimitManager extends AutoCloseable {
 
   /** Optional subscriber to the traffic control processor, only used for the new top up implementation
     */
-  def balanceUpdateSubscriber: Option[SequencerTrafficControlSubscriber]
+  def balanceUpdateSubscriber: SequencerTrafficControlSubscriber
 
   /** Marks the provided timestamp as safe for pruning.
     * This has for consequence that requesting balances strictly below this timestamp may lead to an UnknownBalance error,

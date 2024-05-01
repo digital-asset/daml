@@ -4,29 +4,18 @@
 package com.digitalasset.canton.console.commands
 
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands
-import com.digitalasset.canton.config
-import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
   ConsoleEnvironment,
   FeatureFlagFilter,
   Help,
   Helpful,
-  InstanceReference,
 }
-import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.transaction.{
-  SignedTopologyTransaction,
-  TopologyChangeOp,
-  TrafficControlState,
-}
 import com.digitalasset.canton.traffic.MemberTrafficStatus
 
 class TrafficControlAdministrationGroup(
-    instance: InstanceReference,
-    topology: TopologyAdministrationGroup,
     runner: AdminCommandRunner,
     override val consoleEnvironment: ConsoleEnvironment,
     override val loggerFactory: NamedLoggerFactory,
@@ -47,29 +36,4 @@ class TrafficControlAdministrationGroup(
       )
     )
   }
-
-  @Help.Summary("Top up traffic for this node")
-  @Help.Description(
-    """Use this command to update the new total traffic limit for the node."""
-  )
-  def top_up(
-      domainId: DomainId,
-      newTotalTrafficAmount: PositiveLong,
-      member: Member = instance.id.member,
-      serial: Option[PositiveInt] = None,
-      signedBy: Option[Fingerprint] = Some(instance.fingerprint),
-      synchronize: Option[config.NonNegativeDuration] = Some(
-        consoleEnvironment.commandTimeouts.bounded
-      ),
-  ): SignedTopologyTransaction[TopologyChangeOp, TrafficControlState] = {
-    topology.traffic_control.top_up(
-      domainId,
-      newTotalTrafficAmount,
-      member,
-      serial,
-      signedBy,
-      synchronize,
-    )
-  }
-
 }

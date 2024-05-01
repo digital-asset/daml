@@ -132,6 +132,7 @@ final class TransferOutProcessingStepsTest
   private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
   private lazy val persistentState =
     new InMemorySyncDomainPersistentState(
+      submittingParticipant,
       clock,
       crypto,
       IndexedDomain.tryCreate(sourceDomain.unwrap, 1),

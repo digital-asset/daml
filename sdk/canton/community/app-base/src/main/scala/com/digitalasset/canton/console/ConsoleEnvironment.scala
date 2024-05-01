@@ -34,7 +34,7 @@ import com.digitalasset.canton.sequencing.{
   SequencerConnections,
 }
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.{Identifier, ParticipantId, PartyId}
+import com.digitalasset.canton.topology.{ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracerProvider}
 import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.{DomainAlias, LfPartyId}
@@ -529,7 +529,6 @@ object ConsoleEnvironment {
     ): SequencerConnections =
       SequencerConnections.single(ref.sequencerConnection)
 
-    implicit def toIdentifier(id: String): Identifier = Identifier.tryCreate(id)
     implicit def toFingerprint(fp: String): Fingerprint = Fingerprint.tryCreate(fp)
 
     /** Implicitly map ParticipantReferences to the ParticipantId

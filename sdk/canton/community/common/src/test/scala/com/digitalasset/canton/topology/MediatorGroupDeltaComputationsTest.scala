@@ -5,7 +5,6 @@ package com.digitalasset.canton.topology
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.topology.transaction.MediatorDomainState
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -14,8 +13,7 @@ import scala.annotation.nowarn
 @nowarn("msg=match may not be exhaustive")
 class MediatorGroupDeltaComputationsTest extends AnyWordSpec with BaseTest {
   private def mediatorIdFor(idx: Int) = {
-    val namespace = Namespace(Fingerprint.tryCreate(s"m${idx}"))
-    MediatorId(Identifier.tryCreate(s"mediator$idx"), namespace)
+    MediatorId(UniqueIdentifier.tryCreate(s"mediator$idx", s"m${idx}"))
   }
 
   private lazy val Seq(m1, m2, m3, m4) = (1 to 4).map(mediatorIdFor)

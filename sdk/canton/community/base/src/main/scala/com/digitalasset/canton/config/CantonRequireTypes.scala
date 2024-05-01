@@ -76,7 +76,7 @@ object CantonRequireTypes {
       */
     def maxLength: Int
     // optionally give a name for the type of String you are attempting to validate for nicer error messages
-    def name: Option[String] = None
+    protected def name: Option[String] = None
 
     // overwriting equals here to improve console UX - see e.g. issue i7071 for context
     @SuppressWarnings(Array("org.wartremover.warts.IsInstanceOf"))
@@ -291,11 +291,11 @@ object CantonRequireTypes {
       new String100(str)(name)
   }
 
-  /** Limit used by [[com.digitalasset.canton.topology.Identifier]].
+  /** Limit used by [[com.digitalasset.canton.topology.UniqueIdentifier]].
     *
     * @see com.digitalasset.canton.topology.Identifier for documentation on its origin
     */
-  final case class String185(str: String)(override val name: Option[String] = None)
+  final case class String185(str: String)(override protected val name: Option[String] = None)
       extends LengthLimitedString {
     override def maxLength: Int = String185.maxLength
   }

@@ -37,7 +37,7 @@ object TestDomainParameters {
         identity[DynamicDomainParameters],
   ): DomainSyncCryptoClient =
     identityFactory(loggerFactory, clock, transformDefaults).forOwnerAndDomain(
-      SequencerId(domainId),
+      SequencerId(domainId.uid),
       domainId,
     )
 

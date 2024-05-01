@@ -365,7 +365,6 @@ final case class ParticipantNodeParameterConfig(
       10000, // 10000 is the default value in the engine configuration
     journalGarbageCollectionDelay: config.NonNegativeFiniteDuration =
       config.NonNegativeFiniteDuration.ofSeconds(0),
-    override val useNewTrafficControl: Boolean = false,
     disableUpgradeValidation: Boolean = false,
     override val useUnifiedSequencer: Boolean = false,
     allowForUnauthenticatedContractIds: Boolean = false,

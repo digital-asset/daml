@@ -5,7 +5,6 @@ package com.digitalasset.canton.topology.transaction
 
 import cats.data.EitherT
 import cats.instances.future.*
-import com.digitalasset.canton.config.RequireTypes.PositiveLong
 import com.digitalasset.canton.crypto.KeyPurpose
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -19,7 +18,12 @@ import com.digitalasset.canton.topology.store.{
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
-import com.digitalasset.canton.topology.{ParticipantId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{
+  AuthenticatedMember,
+  ParticipantId,
+  UnauthenticatedMemberId,
+  UniqueIdentifier,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 
@@ -66,17 +70,28 @@ class ValidatingTopologyMappingChecks(
       case (Code.PartyToParticipant, None | Some(Code.PartyToParticipant)) =>
         toValidate
           .select[TopologyChangeOp.Replace, PartyToParticipant]
-          .map(checkPartyToParticipant(_, inStore.flatMap(_.selectMapping[PartyToParticipant])))
-
-      case (Code.TrafficControlState, None | Some(Code.TrafficControlState)) =>
-        toValidate
-          .select[TopologyChangeOp.Replace, TrafficControlState]
           .map(
-            checkTrafficControl(
+            checkPartyToParticipant(
               _,
-              inStore.flatMap(_.selectMapping[TrafficControlState]),
+              inStore.flatMap(_.select[TopologyChangeOp.Replace, PartyToParticipant]),
             )
           )
+
+      case (Code.OwnerToKeyMapping, None | Some(Code.OwnerToKeyMapping)) =>
+        val checkReplace = toValidate
+          .select[TopologyChangeOp.Replace, OwnerToKeyMapping]
+          .map(checkOwnerToKeyMappingReplace)
+
+        val checkRemove = toValidate
+          .select[TopologyChangeOp.Remove, OwnerToKeyMapping]
+          .map(
+            checkOwnerToKeyMappingRemove(
+              effective,
+              _,
+            )
+          )
+
+        checkReplace.orElse(checkRemove)
 
       case otherwise => None
     }
@@ -103,6 +118,30 @@ class ValidatingTopologyMappingChecks(
           )
       )
 
+  private def ensureParticipantDoesNotHostParties(
+      effective: EffectiveTime,
+      participantId: ParticipantId,
+  )(implicit traceContext: TraceContext) = {
+    for {
+      storedPartyToParticipantMappings <- loadFromStore(effective, PartyToParticipant.code, None)
+      participantHostsParties = storedPartyToParticipantMappings.result.view
+        .flatMap(_.selectMapping[PartyToParticipant])
+        .collect {
+          case tx if tx.mapping.participants.exists(_.participantId == participantId) =>
+            tx.mapping.partyId
+        }
+        .toSeq
+      _ <- EitherTUtil.condUnitET[Future][TopologyTransactionRejection](
+        participantHostsParties.isEmpty,
+        TopologyTransactionRejection.ParticipantStillHostsParties(
+          participantId,
+          participantHostsParties,
+        ),
+      )
+    } yield ()
+
+  }
+
   private def checkDomainTrustCertificate(
       effective: EffectiveTime,
       isFirst: Boolean,
@@ -116,24 +155,7 @@ class ValidatingTopologyMappingChecks(
        * This check is potentially quite expensive: we have to fetch all party to participant mappings, because
        * we cannot index by the hosting participants.
        */
-      for {
-        storedPartyToParticipantMappings <- loadFromStore(effective, PartyToParticipant.code, None)
-        participantToOffboard = toValidate.mapping.participantId
-        participantHostsParties = storedPartyToParticipantMappings.result.view
-          .flatMap(_.selectMapping[PartyToParticipant])
-          .collect {
-            case tx if tx.mapping.participants.exists(_.participantId == participantToOffboard) =>
-              tx.mapping.partyId
-          }
-          .toSeq
-        _ <- EitherTUtil.condUnitET[Future][TopologyTransactionRejection](
-          participantHostsParties.isEmpty,
-          TopologyTransactionRejection.ParticipantStillHostsParties(
-            participantToOffboard,
-            participantHostsParties,
-          ),
-        )
-      } yield ()
+      ensureParticipantDoesNotHostParties(effective, toValidate.mapping.participantId)
     } else if (isFirst) {
 
       // Checks if the participant is allowed to submit its domain trust certificate
@@ -222,8 +244,8 @@ class ValidatingTopologyMappingChecks(
     * - new participants have an OTK with at least 1 signing key and 1 encryption key
     */
   private def checkPartyToParticipant(
-      toValidate: SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant],
-      inStore: Option[SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant]],
+      toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, PartyToParticipant],
+      inStore: Option[SignedTopologyTransaction[TopologyChangeOp.Replace, PartyToParticipant]],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TopologyTransactionRejection, Unit] = {
@@ -289,27 +311,45 @@ class ValidatingTopologyMappingChecks(
     }
   }
 
-  /** Checks that the extraTrafficLimit is monotonically increasing */
-  private def checkTrafficControl(
-      toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, TrafficControlState],
-      inStore: Option[SignedTopologyTransaction[TopologyChangeOp, TrafficControlState]],
+  private def checkOwnerToKeyMappingReplace(
+      toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, OwnerToKeyMapping]
   ): EitherT[Future, TopologyTransactionRejection, Unit] = {
-    val minimumExtraTrafficLimit = inStore match {
-      case None => PositiveLong.one
-      case Some(TopologyChangeOp(TopologyChangeOp.Remove)) =>
-        // if the transaction in the store is a removal, we "reset" the monotonicity requirement
-        PositiveLong.one
-      case Some(tx) => tx.mapping.totalExtraTrafficLimit
+    // check for at least 1 signing and 1 encryption key
+    val keysByPurpose = toValidate.mapping.keys.forgetNE.groupBy(_.purpose)
+    val signingKeys = keysByPurpose.getOrElse(KeyPurpose.Signing, Seq.empty)
+
+    val minimumSigningKeyRequirement =
+      EitherTUtil.condUnitET[Future][TopologyTransactionRejection](
+        // all nodes require signing keys
+        signingKeys.nonEmpty,
+        TopologyTransactionRejection.InvalidTopologyMapping(
+          "OwnerToKeyMapping must contain at least 1 signing key."
+        ),
+      )
+
+    val encryptionKeys = keysByPurpose.getOrElse(KeyPurpose.Encryption, Seq.empty)
+    val isParticipant = toValidate.mapping.member.code == ParticipantId.Code
+
+    val minimumEncryptionKeyRequirement =
+      EitherTUtil.condUnitET[Future][TopologyTransactionRejection](
+        // all nodes require signing keys
+        // non-participants don't need encryption keys
+        (!isParticipant || encryptionKeys.nonEmpty),
+        TopologyTransactionRejection.InvalidTopologyMapping(
+          "OwnerToKeyMapping for participants must contain at least 1 encryption key."
+        ),
+      )
+    minimumSigningKeyRequirement.flatMap(_ => minimumEncryptionKeyRequirement)
+  }
+
+  private def checkOwnerToKeyMappingRemove(
+      effective: EffectiveTime,
+      toValidate: SignedTopologyTransaction[TopologyChangeOp.Remove, OwnerToKeyMapping],
+  )(implicit traceContext: TraceContext): EitherT[Future, TopologyTransactionRejection, Unit] = {
+    toValidate.mapping.member match {
+      case participantId: ParticipantId =>
+        ensureParticipantDoesNotHostParties(effective, participantId)
+      case _: UnauthenticatedMemberId | _: AuthenticatedMember => EitherTUtil.unit
     }
-
-    EitherTUtil.condUnitET(
-      toValidate.mapping.totalExtraTrafficLimit >= minimumExtraTrafficLimit,
-      TopologyTransactionRejection.ExtraTrafficLimitTooLow(
-        toValidate.mapping.member,
-        toValidate.mapping.totalExtraTrafficLimit,
-        minimumExtraTrafficLimit,
-      ),
-    )
-
   }
 }

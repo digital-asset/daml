@@ -46,6 +46,7 @@ trait SyncDomainPersistentStateLookup {
   * and checks consistency of domain parameters and unique contract key domains
   */
 class SyncDomainPersistentStateManager(
+    participantId: ParticipantId,
     aliasResolution: DomainAliasResolution,
     storage: Storage,
     val indexedStringStore: IndexedStringStore,
@@ -208,6 +209,7 @@ class SyncDomainPersistentStateManager(
       protocolVersion: ProtocolVersion,
   ): SyncDomainPersistentState = SyncDomainPersistentState
     .create(
+      participantId,
       storage,
       domainId,
       protocolVersion,

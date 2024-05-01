@@ -534,7 +534,6 @@ trait TopologySnapshot
     with VettedPackagesSnapshotClient
     with MediatorDomainStateClient
     with SequencerDomainStateClient
-    with DomainTrafficControlStateClient
     with DomainGovernanceSnapshotClient
     with MembersTopologySnapshotClient { this: BaseTopologySnapshotClient with NamedLogging => }
 
@@ -912,5 +911,4 @@ trait TopologySnapshotLoader
     with KeyTopologySnapshotClientLoader
     with VettedPackagesSnapshotLoader
     with DomainGovernanceSnapshotLoader
-    with DomainTrafficControlStateClient
     with NamedLogging

@@ -89,7 +89,6 @@ final case class MediatorNodeParameterConfig(
     override val dontWarnOnDeprecatedPV: Boolean = false,
     override val batching: BatchingConfig = BatchingConfig(),
     override val caching: CachingConfigs = CachingConfigs(),
-    override val useNewTrafficControl: Boolean = false,
     override val useUnifiedSequencer: Boolean = false,
 ) extends ProtocolConfig
     with LocalNodeParametersConfig
@@ -321,6 +320,7 @@ class MediatorNodeBootstrap(
         val outboxQueue = new DomainOutboxQueue(loggerFactory)
 
         val topologyManager = new DomainTopologyManager(
+          nodeId = mediatorId.uid,
           clock = clock,
           crypto = crypto,
           store = domainTopologyStore,

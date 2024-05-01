@@ -48,20 +48,14 @@ import com.digitalasset.canton.time.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.{EffectiveTime, TopologyTransactionProcessor}
-import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{
   StoreBasedTopologyStateForInitializationService,
   TopologyStateForInitializationService,
   TopologyStore,
 }
-import com.digitalasset.canton.topology.transaction.{
-  OwnerToKeyMapping,
-  SequencerDomainState,
-  TrafficControlState,
-}
+import com.digitalasset.canton.topology.transaction.{OwnerToKeyMapping, SequencerDomainState}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.traffic.TopUpEvent
 import com.digitalasset.canton.util.{EitherTUtil, SingleUseCell}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.ServerServiceDefinition
@@ -232,6 +226,7 @@ class SequencerNodeBootstrap(
                 existing.domainParameters,
                 mkFactory(existing.domainParameters.protocolVersion),
                 new DomainTopologyManager(
+                  sequencerId.uid,
                   clock,
                   crypto,
                   store = createDomainTopologyStore(existing.domainId),
@@ -292,24 +287,6 @@ class SequencerNodeBootstrap(
     ]] =
       EitherT.rightT(None) // this stage doesn't have auto-init
 
-    // Extract the top event state from the topology snapshot
-    private def extractTopUpEventsFromTopologySnapshot(
-        snapshot: GenericStoredTopologyTransactions,
-        lastTopologyUpdate: Option[CantonTimestamp],
-    ): Map[Member, TopUpEvent] = {
-      snapshot.result
-        .flatMap(_.selectMapping[TrafficControlState])
-        .map { tx =>
-          tx.mapping.member ->
-            TopUpEvent(
-              tx.mapping.totalExtraTrafficLimit,
-              tx.validFrom.value,
-              tx.serial,
-            )
-        }
-        .toMap
-    }
-
     override def initialize(request: InitializeSequencerRequest)(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, InitializeSequencerResponse] = {
@@ -360,6 +337,7 @@ class SequencerNodeBootstrap(
             store = createDomainTopologyStore(domainId)
             outboxQueue = new DomainOutboxQueue(loggerFactory)
             topologyManager = new DomainTopologyManager(
+              sequencerId.uid,
               clock,
               crypto,
               store,

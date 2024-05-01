@@ -5,6 +5,7 @@ package com.digitalasset.canton.environment
 
 import better.files.File
 import cats.data.EitherT
+import cats.syntax.functorFilter.*
 import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
@@ -437,8 +438,79 @@ abstract class CantonNodeBootstrapImpl[
       )
     addCloseable(authorizedStore)
 
+    adminServerRegistry
+      .addServiceU(
+        adminV30.IdentityInitializationXServiceGrpc
+          .bindService(
+            new GrpcIdentityInitializationServiceX(
+              clock,
+              this,
+              crypto.cryptoPublicStore,
+              bootstrapStageCallback.loggerFactory,
+            ),
+            executionContext,
+          )
+      )
+
+    override protected def stageCompleted(implicit
+        traceContext: TraceContext
+    ): Future[Option[UniqueIdentifier]] = initializationStore.uid
+
+    override protected def buildNextStage(uid: UniqueIdentifier): GenerateOrAwaitNodeTopologyTx =
+      new GenerateOrAwaitNodeTopologyTx(
+        uid,
+        authorizedStore,
+        storage,
+        crypto,
+        healthReporter,
+        healthService,
+      )
+
+    override protected def autoCompleteStage()
+        : EitherT[FutureUnlessShutdown, String, Option[UniqueIdentifier]] = {
+      for {
+        // create namespace key
+        namespaceKey <- CantonNodeBootstrapImpl.getOrCreateSigningKey(crypto)(s"$name-namespace")
+        // create id
+        identifierName = arguments.config.init.identity
+          .flatMap(_.nodeIdentifier.identifierName)
+          .getOrElse(name.unwrap)
+        uid <- EitherT
+          .fromEither[Future](
+            UniqueIdentifier
+              .create(identifierName, namespaceKey.fingerprint)
+          )
+          .leftMap(err => s"Failed to convert name to identifier: $err")
+        _ <- EitherT.right[String](initializationStore.setUid(uid))
+      } yield Option(uid)
+    }.mapK(FutureUnlessShutdown.outcomeK)
+
+    override def initializeWithProvidedId(uid: UniqueIdentifier): EitherT[Future, String, Unit] =
+      completeWithExternal(
+        EitherT.right(initializationStore.setUid(uid).map(_ => uid))
+      ).onShutdown(Left("Node has been shutdown"))
+
+    override def getId: Option[UniqueIdentifier] = next.map(_.nodeId)
+    override def isInitialized: Boolean = getId.isDefined
+  }
+
+  private class GenerateOrAwaitNodeTopologyTx(
+      val nodeId: UniqueIdentifier,
+      authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore],
+      storage: Storage,
+      crypto: Crypto,
+      healthReporter: GrpcHealthReporter,
+      healthService: HealthService,
+  ) extends BootstrapStageWithStorage[T, BootstrapStageOrLeaf[T], Unit](
+        description = "generate-or-await-node-topology-tx",
+        bootstrapStageCallback,
+        storage,
+        config.init.autoInit,
+      ) {
+
     private val topologyManager: AuthorizedTopologyManager =
       new AuthorizedTopologyManager(
+        nodeId,
         clock,
         crypto,
         authorizedStore,
@@ -466,29 +538,12 @@ abstract class CantonNodeBootstrapImpl[
           .bindService(
             new GrpcTopologyManagerWriteService(
               sequencedTopologyManagers :+ topologyManager,
-              authorizedStore,
-              getId,
               crypto,
-              clock,
               bootstrapStageCallback.loggerFactory,
             ),
             executionContext,
           )
       )
-    adminServerRegistry
-      .addServiceU(
-        adminV30.IdentityInitializationXServiceGrpc
-          .bindService(
-            new GrpcIdentityInitializationServiceX(
-              clock,
-              this,
-              crypto.cryptoPublicStore,
-              bootstrapStageCallback.loggerFactory,
-            ),
-            executionContext,
-          )
-      )
-    import cats.syntax.functorFilter.*
     adminServerRegistry
       .addServiceU(
         adminV30.TopologyAggregationServiceGrpc.bindService(
@@ -500,65 +555,6 @@ abstract class CantonNodeBootstrapImpl[
           executionContext,
         )
       )
-
-    override protected def stageCompleted(implicit
-        traceContext: TraceContext
-    ): Future[Option[UniqueIdentifier]] = initializationStore.uid
-
-    override protected def buildNextStage(uid: UniqueIdentifier): GenerateOrAwaitNodeTopologyTx =
-      new GenerateOrAwaitNodeTopologyTx(
-        uid,
-        topologyManager,
-        authorizedStore,
-        storage,
-        crypto,
-        healthReporter,
-        healthService,
-      )
-
-    override protected def autoCompleteStage()
-        : EitherT[FutureUnlessShutdown, String, Option[UniqueIdentifier]] = {
-      for {
-        // create namespace key
-        namespaceKey <- CantonNodeBootstrapImpl.getOrCreateSigningKey(crypto)(s"$name-namespace")
-        // create id
-        identifierName = arguments.config.init.identity
-          .flatMap(_.nodeIdentifier.identifierName)
-          .getOrElse(name.unwrap)
-        identifier <- EitherT
-          .fromEither[Future](Identifier.create(identifierName))
-          .leftMap(err => s"Failed to convert name to identifier: $err")
-        uid = UniqueIdentifier(
-          identifier,
-          Namespace(namespaceKey.fingerprint),
-        )
-        _ <- EitherT.right[String](initializationStore.setUid(uid))
-      } yield Option(uid)
-    }.mapK(FutureUnlessShutdown.outcomeK)
-
-    override def initializeWithProvidedId(uid: UniqueIdentifier): EitherT[Future, String, Unit] =
-      completeWithExternal(
-        EitherT.right(initializationStore.setUid(uid).map(_ => uid))
-      ).onShutdown(Left("Node has been shutdown"))
-
-    override def getId: Option[UniqueIdentifier] = next.map(_.nodeId)
-    override def isInitialized: Boolean = getId.isDefined
-  }
-
-  private class GenerateOrAwaitNodeTopologyTx(
-      val nodeId: UniqueIdentifier,
-      manager: AuthorizedTopologyManager,
-      authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore],
-      storage: Storage,
-      crypto: Crypto,
-      healthReporter: GrpcHealthReporter,
-      healthService: HealthService,
-  ) extends BootstrapStageWithStorage[T, BootstrapStageOrLeaf[T], Unit](
-        description = "generate-or-await-node-topology-tx",
-        bootstrapStageCallback,
-        storage,
-        config.init.autoInit,
-      ) {
 
     private val topologyManagerObserver = new TopologyManagerObserver {
       override def addedNewTransactions(
@@ -585,7 +581,7 @@ abstract class CantonNodeBootstrapImpl[
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, Unit] = {
       // Register the observer first so that it does not race with the removal when the stage has finished.
-      manager.addObserver(topologyManagerObserver)
+      topologyManager.addObserver(topologyManagerObserver)
       super.start()
     }
 
@@ -619,12 +615,12 @@ abstract class CantonNodeBootstrapImpl[
     }
 
     override protected def buildNextStage(result: Unit): BootstrapStageOrLeaf[T] = {
-      manager.removeObserver(topologyManagerObserver)
+      topologyManager.removeObserver(topologyManagerObserver)
       customNodeStages(
         storage,
         crypto,
         nodeId,
-        manager,
+        topologyManager,
         healthReporter,
         healthService,
       )
@@ -650,7 +646,7 @@ abstract class CantonNodeBootstrapImpl[
             isRootDelegation = true,
           )
         )
-        _ <- authorizeStateUpdate(namespaceKey, nsd, ProtocolVersion.latest)
+        _ <- authorizeStateUpdate(Seq(namespaceKey.fingerprint), nsd, ProtocolVersion.latest)
         // all nodes need a signing key
         signingKey <- CantonNodeBootstrapImpl
           .getOrCreateSigningKey(crypto)(s"$name-signing")
@@ -672,7 +668,7 @@ abstract class CantonNodeBootstrapImpl[
           }
         // register the keys
         _ <- authorizeStateUpdate(
-          namespaceKey,
+          Seq(namespaceKey.fingerprint, signingKey.fingerprint),
           OwnerToKeyMapping(ownerId, None, keys),
           ProtocolVersion.latest,
         )
@@ -680,18 +676,18 @@ abstract class CantonNodeBootstrapImpl[
     }
 
     private def authorizeStateUpdate(
-        key: SigningPublicKey,
+        keys: Seq[Fingerprint],
         mapping: TopologyMapping,
         protocolVersion: ProtocolVersion,
     )(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, Unit] = {
-      manager
+      topologyManager
         .proposeAndAuthorize(
           TopologyChangeOp.Replace,
           mapping,
           serial = None,
-          Seq(key.fingerprint),
+          keys,
           protocolVersion,
           expectFullAuthorization = true,
         )

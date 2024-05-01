@@ -31,7 +31,6 @@ trait LocalNodeParametersConfig {
 
   /** Various cache sizes */
   def caching: CachingConfigs
-  def useNewTrafficControl: Boolean
   def useUnifiedSequencer: Boolean
   def devVersionSupport: Boolean
 }

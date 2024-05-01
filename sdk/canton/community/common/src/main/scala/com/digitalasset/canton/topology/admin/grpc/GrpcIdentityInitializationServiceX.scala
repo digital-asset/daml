@@ -33,7 +33,7 @@ class GrpcIdentityInitializationServiceX(
       uid <- Future(
         UniqueIdentifier
           .fromProtoPrimitive_(uidP)
-          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLoggingStr(err).asGrpcError)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
       )
       _ <- bootstrap
         .initializeWithProvidedId(uid)

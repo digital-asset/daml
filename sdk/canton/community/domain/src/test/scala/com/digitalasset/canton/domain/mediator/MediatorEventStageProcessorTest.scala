@@ -76,7 +76,7 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
       loggerFactory,
       dynamicDomainParameters,
     ).forOwnerAndDomain(
-      SequencerId(domainId),
+      SequencerId(domainId.uid),
       domainId,
     )
 

@@ -65,7 +65,7 @@ trait TransactionAuthorizationValidator {
               if (rns.requireRootDelegation) rns.namespaces else Set.empty[Namespace],
             namespaces = if (rns.requireRootDelegation) Set.empty[Namespace] else rns.namespaces,
           ),
-        uidCheck = ruid => RequiredAuthAuthorizations(uids = ruid.uids),
+        uidCheck = ruid => RequiredAuthAuthorizations(uids = ruid.uids, extraKeys = ruid.extraKeys),
       )
 
     val signingKeys = toValidate.signatures.map(_.signedBy)
@@ -109,18 +109,41 @@ trait TransactionAuthorizationValidator {
         (uid -> (keysAuthorizeNamespace || keyForUid.nonEmpty, keysWithDelegation ++ keyForUid))
       }.toMap
 
+    val extraKeyAuthorizations = {
+      // assume extra keys are not found
+      required.extraKeys.map(k => k -> (false, Set.empty[SigningPublicKey])).toMap ++
+        // and replace with those that were actually found
+        // we have to dive into the owner to key mapping directly here, because we don't
+        // need to keep it around (like we do for namespace delegations) and the OTK is the
+        // only place that holds the SigningPublicKey.
+        toValidate
+          .select[TopologyChangeOp.Replace, OwnerToKeyMapping]
+          .toList
+          .flatMap { otk =>
+            otk.mapping.keys.collect {
+              case k: SigningPublicKey
+                  // only consider the public key as "found" if:
+                  // * it's required and
+                  // * actually used to sign the transaction
+                  if required.extraKeys(k.fingerprint) && signingKeys(k.fingerprint) =>
+                k.fingerprint -> (true, Set(k))
+            }
+          }
+          .toMap
+    }
+
     val allAuthorizingKeys =
-      namespaceWithRootAuthorizations.values.flatMap { case (_, keys) =>
+      (namespaceWithRootAuthorizations.values ++
+        namespaceAuthorizations.values ++
+        uidAuthorizations.values ++
+        extraKeyAuthorizations.values).flatMap { case (_, keys) =>
         keys.map(k => k.id -> k)
       }.toMap
-        ++ namespaceAuthorizations.values.flatMap { case (_, keys) =>
-          keys.map(k => k.id -> k)
-        }.toMap
-        ++ uidAuthorizations.values.flatMap { case (_, keys) => keys.map(k => k.id -> k) }.toMap
 
     logAuthorizations("Authorizations with root for namespaces", namespaceWithRootAuthorizations)
     logAuthorizations("Authorizations for namespaces", namespaceAuthorizations)
     logAuthorizations("Authorizations for UIDs", uidAuthorizations)
+    logAuthorizations("Authorizations for extraKeys", extraKeyAuthorizations)
 
     logger.debug(s"All authorizing keys: ${allAuthorizingKeys.keySet}")
 
@@ -169,19 +192,19 @@ trait TransactionAuthorizationValidator {
     } yield {
       // and finally we can check whether the authorizations granted by the keys actually satisfy
       // the authorization requirements
+      def onlyFullyAuthorized[A](map: Map[A, (Boolean, ?)]): Set[A] = map.collect {
+        case (a, (true, _)) => a
+      }.toSet
       val actual = RequiredAuthAuthorizations(
-        namespaceWithRootAuthorizations.collect { case (ns, (true, _)) => ns }.toSet,
-        namespaceAuthorizations.collect { case (ns, (true, _)) => ns }.toSet,
-        uidAuthorizations.collect { case (uid, (true, _)) => uid }.toSet,
+        namespacesWithRoot = onlyFullyAuthorized(namespaceWithRootAuthorizations),
+        namespaces = onlyFullyAuthorized(namespaceAuthorizations),
+        uids = onlyFullyAuthorized(uidAuthorizations),
+        extraKeys = onlyFullyAuthorized(extraKeyAuthorizations),
       )
       (
         txWithValidSignatures,
         requiredAuth
-          .satisfiedByActualAuthorizers(
-            namespacesWithRoot = actual.namespacesWithRoot,
-            namespaces = actual.namespaces,
-            uids = actual.uids,
-          )
+          .satisfiedByActualAuthorizers(actual)
           .fold(identity, _ => RequiredAuthAuthorizations.empty),
       )
     }

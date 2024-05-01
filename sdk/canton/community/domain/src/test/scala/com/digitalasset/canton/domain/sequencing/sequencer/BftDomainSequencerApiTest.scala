@@ -26,7 +26,7 @@ abstract class BftDomainSequencerApiTest extends SequencerApiTest {
         topology = TestingTopology()
           .withSequencerGroup(
             SequencerGroup(
-              active = NonEmpty.mk(Seq, SequencerId(domainId)),
+              active = NonEmpty.mk(Seq, SequencerId(domainId.uid)),
               passive = Seq.empty,
               threshold = PositiveInt.one,
             )

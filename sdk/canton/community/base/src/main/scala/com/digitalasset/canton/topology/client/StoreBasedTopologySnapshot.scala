@@ -350,40 +350,6 @@ class StoreBasedTopologySnapshot(
     }
   }
 
-  def trafficControlStatus(
-      members: Seq[Member]
-  )(implicit traceContext: TraceContext): Future[Map[Member, Option[MemberTrafficControlState]]] =
-    findTransactions(
-      asOfInclusive = false,
-      types = Seq(TopologyMapping.Code.TrafficControlState),
-      filterUid = Some(members.map(_.uid)),
-      filterNamespace = None,
-    ).map { txs =>
-      val membersWithState = txs
-        .collectOfMapping[TrafficControlState]
-        .result
-        .groupBy(_.mapping.member)
-        .flatMap { case (member, mappings) =>
-          collectLatestTransaction(
-            TopologyMapping.Code.TrafficControlState,
-            mappings.sortBy(_.validFrom),
-          ).map { tx =>
-            val mapping = tx.mapping
-            Some(
-              MemberTrafficControlState(
-                totalExtraTrafficLimit = mapping.totalExtraTrafficLimit,
-                tx.serial,
-                tx.validFrom.value,
-              )
-            )
-          }.map(member -> _)
-        }
-
-      val membersWithoutState = members.toSet.diff(membersWithState.keySet).map(_ -> None).toMap
-
-      membersWithState ++ membersWithoutState
-    }
-
   /** Returns a list of all known parties on this domain */
   override def inspectKnownParties(
       filterParty: String,

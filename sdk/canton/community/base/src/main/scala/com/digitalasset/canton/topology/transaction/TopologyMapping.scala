@@ -8,12 +8,8 @@ import cats.syntax.either.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.ProtoDeserializationError.{
-  FieldNotSet,
-  InvariantViolation,
-  UnrecognizedEnum,
-}
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveLong}
+import com.digitalasset.canton.ProtoDeserializationError.{FieldNotSet, UnrecognizedEnum}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -153,13 +149,16 @@ object TopologyMapping {
       namespacesWithRoot: Set[Namespace] = Set.empty,
       namespaces: Set[Namespace] = Set.empty,
       uids: Set[UniqueIdentifier] = Set.empty,
+      extraKeys: Set[Fingerprint] = Set.empty,
   ) extends PrettyPrinting {
-    def isEmpty: Boolean = namespacesWithRoot.isEmpty && namespaces.isEmpty && uids.isEmpty
+    def isEmpty: Boolean =
+      namespacesWithRoot.isEmpty && namespaces.isEmpty && uids.isEmpty && extraKeys.isEmpty
 
     override def pretty: Pretty[RequiredAuthAuthorizations.this.type] = prettyOfClass(
       paramIfNonEmpty("namespacesWithRoot", _.namespacesWithRoot),
       paramIfNonEmpty("namespaces", _.namespaces),
       paramIfNonEmpty("uids", _.uids),
+      paramIfNonEmpty("extraKeys", _.extraKeys),
     )
   }
 
@@ -179,6 +178,7 @@ object TopologyMapping {
             namespacesWithRoot = x.namespacesWithRoot ++ y.namespacesWithRoot,
             namespaces = x.namespaces ++ y.namespaces,
             uids = x.uids ++ y.uids,
+            extraKeys = x.extraKeys ++ y.extraKeys,
           )
       }
   }
@@ -186,9 +186,7 @@ object TopologyMapping {
   sealed trait RequiredAuth extends PrettyPrinting {
     def requireRootDelegation: Boolean = false
     def satisfiedByActualAuthorizers(
-        namespacesWithRoot: Set[Namespace],
-        namespaces: Set[Namespace],
-        uids: Set[UniqueIdentifier],
+        provided: RequiredAuthAuthorizations
     ): Either[RequiredAuthAuthorizations, Unit]
 
     final def or(next: RequiredAuth): RequiredAuth =
@@ -200,7 +198,7 @@ object TopologyMapping {
     )(implicit T: Monoid[T]): T = {
       def loop(x: RequiredAuth): T = x match {
         case ns @ RequiredNamespaces(_, _) => namespaceCheck(ns)
-        case uids @ RequiredUids(_) => uidCheck(uids)
+        case uids @ RequiredUids(_, _) => uidCheck(uids)
         case EmptyAuthorization => T.empty
         case Or(first, second) => T.combine(loop(first), loop(second))
       }
@@ -214,9 +212,7 @@ object TopologyMapping {
 
     private[transaction] case object EmptyAuthorization extends RequiredAuth {
       override def satisfiedByActualAuthorizers(
-          namespacesWithRoot: Set[Namespace],
-          namespaces: Set[Namespace],
-          uids: Set[UniqueIdentifier],
+          provided: RequiredAuthAuthorizations
       ): Either[RequiredAuthAuthorizations, Unit] = Either.unit
 
       override def authorizations: RequiredAuthAuthorizations = RequiredAuthAuthorizations()
@@ -229,11 +225,9 @@ object TopologyMapping {
         override val requireRootDelegation: Boolean = false,
     ) extends RequiredAuth {
       override def satisfiedByActualAuthorizers(
-          providedNamespacesWithRoot: Set[Namespace],
-          providedNamespaces: Set[Namespace],
-          uids: Set[UniqueIdentifier],
+          provided: RequiredAuthAuthorizations
       ): Either[RequiredAuthAuthorizations, Unit] = {
-        val filter = if (requireRootDelegation) providedNamespacesWithRoot else providedNamespaces
+        val filter = if (requireRootDelegation) provided.namespacesWithRoot else provided.namespaces
         val missing = namespaces.filter(ns => !filter(ns))
         Either.cond(
           missing.isEmpty,
@@ -256,23 +250,33 @@ object TopologyMapping {
       )
     }
 
-    final case class RequiredUids(uids: Set[UniqueIdentifier]) extends RequiredAuth {
+    final case class RequiredUids(
+        uids: Set[UniqueIdentifier],
+        extraKeys: Set[Fingerprint] = Set.empty,
+    ) extends RequiredAuth {
       override def satisfiedByActualAuthorizers(
-          namespacesWithRoot: Set[Namespace],
-          namespaces: Set[Namespace],
-          providedUids: Set[UniqueIdentifier],
+          provided: RequiredAuthAuthorizations
       ): Either[RequiredAuthAuthorizations, Unit] = {
-        val missing = uids.filter(uid => !providedUids(uid) && !namespaces(uid.namespace))
-        Either.cond(missing.isEmpty, (), RequiredAuthAuthorizations(uids = missing))
+        val missingUids =
+          uids.filter(uid => !provided.uids(uid) && !provided.namespaces(uid.namespace))
+        val missingExtraKeys = extraKeys -- provided.extraKeys
+        val missingAuth =
+          RequiredAuthAuthorizations(uids = missingUids, extraKeys = missingExtraKeys)
+        Either.cond(
+          missingAuth.isEmpty,
+          (),
+          missingAuth,
+        )
       }
 
       override def authorizations: RequiredAuthAuthorizations = RequiredAuthAuthorizations(
-        namespaces = uids.map(_.namespace),
         uids = uids,
+        extraKeys = extraKeys,
       )
 
       override def pretty: Pretty[RequiredUids.this.type] = prettyOfClass(
-        unnamedParam(_.uids)
+        paramIfNonEmpty("uids", _.uids),
+        paramIfNonEmpty("extraKeys", _.extraKeys),
       )
     }
 
@@ -281,16 +285,11 @@ object TopologyMapping {
         second: RequiredAuth,
     ) extends RequiredAuth {
       override def satisfiedByActualAuthorizers(
-          namespacesWithRoot: Set[Namespace],
-          namespaces: Set[Namespace],
-          uids: Set[UniqueIdentifier],
+          provided: RequiredAuthAuthorizations
       ): Either[RequiredAuthAuthorizations, Unit] =
         first
-          .satisfiedByActualAuthorizers(namespacesWithRoot, namespaces, uids)
-          .orElse(
-            second
-              .satisfiedByActualAuthorizers(namespacesWithRoot, namespaces, uids)
-          )
+          .satisfiedByActualAuthorizers(provided)
+          .orElse(second.satisfiedByActualAuthorizers(provided))
 
       override def authorizations: RequiredAuthAuthorizations =
         RequiredAuthAuthorizations.monoid.combine(first.authorizations, second.authorizations)
@@ -319,7 +318,6 @@ object TopologyMapping {
       case Mapping.MediatorDomainState(value) => MediatorDomainState.fromProtoV30(value)
       case Mapping.SequencerDomainState(value) => SequencerDomainState.fromProtoV30(value)
       case Mapping.PurgeTopologyTxs(value) => PurgeTopologyTransaction.fromProtoV30(value)
-      case Mapping.TrafficControlState(value) => TrafficControlState.fromProtoV30(value)
     }
 
   private[transaction] def addDomainId(
@@ -544,7 +542,7 @@ object DecentralizedNamespaceDefinition {
     owners.toSeq
       .sorted(Namespace.namespaceOrder.toOrdering)
       .foreach(ns => builder.add(ns.fingerprint.unwrap))
-    Namespace(Fingerprint(builder.finish().toLengthLimitedHexString))
+    Namespace(Fingerprint.tryCreate(builder.finish().toLengthLimitedHexString))
   }
 }
 
@@ -638,7 +636,16 @@ final case class OwnerToKeyMapping(
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): RequiredAuth = RequiredUids(Set(member.uid))
+  ): RequiredAuth = {
+    val previouslyRegisteredKeys = previous
+      .flatMap(_.selectOp[TopologyChangeOp.Replace])
+      .flatMap(_.selectMapping[OwnerToKeyMapping])
+      .toList
+      .flatMap(_.mapping.keys.map(_.fingerprint).forgetNE)
+      .toSet
+    val newKeys = keys.filter(_.isSigning).map(_.fingerprint).toSet -- previouslyRegisteredKeys
+    RequiredUids(Set(member.uid), extraKeys = newKeys)
+  }
 
   override def uniqueKey: MappingHash = OwnerToKeyMapping.uniqueKey(member, domain)
 }
@@ -1508,74 +1515,4 @@ object PurgeTopologyTransaction {
     } yield result
   }
 
-}
-
-// Traffic control state topology transactions
-final case class TrafficControlState private (
-    domain: DomainId,
-    member: Member,
-    totalExtraTrafficLimit: PositiveLong,
-) extends TopologyMapping {
-
-  def toProto: v30.TrafficControlState = {
-    v30.TrafficControlState(
-      domain = domain.toProtoPrimitive,
-      member = member.toProtoPrimitive,
-      totalExtraTrafficLimit = totalExtraTrafficLimit.value,
-    )
-  }
-
-  def toProtoV30: v30.TopologyMapping =
-    v30.TopologyMapping(
-      v30.TopologyMapping.Mapping.TrafficControlState(
-        toProto
-      )
-    )
-
-  def code: TopologyMapping.Code = Code.TrafficControlState
-
-  override def namespace: Namespace = member.namespace
-  override def maybeUid: Option[UniqueIdentifier] = Some(member.uid)
-
-  override def requiredAuth(
-      previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): RequiredAuth = RequiredUids(Set(domain.uid))
-
-  override def restrictedToDomain: Option[DomainId] = Some(domain)
-
-  override def uniqueKey: MappingHash = TrafficControlState.uniqueKey(domain, member)
-}
-
-object TrafficControlState {
-
-  def uniqueKey(domainId: DomainId, member: Member): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(
-      _.add(domainId.toProtoPrimitive).add(member.uid.toProtoPrimitive)
-    )
-
-  def code: TopologyMapping.Code = Code.TrafficControlState
-
-  def create(
-      domain: DomainId,
-      member: Member,
-      totalExtraTrafficLimit: PositiveLong,
-  ): Either[String, TrafficControlState] =
-    Right(TrafficControlState(domain, member, totalExtraTrafficLimit))
-
-  def fromProtoV30(
-      value: v30.TrafficControlState
-  ): ParsingResult[TrafficControlState] = {
-    val v30.TrafficControlState(domainIdP, memberP, totalExtraTrafficLimitP) =
-      value
-    for {
-      domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain")
-      member <- Member.fromProtoPrimitive(memberP, "member")
-      totalExtraTrafficLimit <- PositiveLong
-        .create(totalExtraTrafficLimitP)
-        .leftMap(e => InvariantViolation(e.message))
-      result <- create(domainId, member, totalExtraTrafficLimit).leftMap(
-        ProtoDeserializationError.OtherError
-      )
-    } yield result
-  }
 }

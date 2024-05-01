@@ -508,7 +508,6 @@ private[canton] object CantonNodeParameterConverter {
       batchingConfig = node.parameters.batching,
       nonStandardConfig = parent.parameters.nonStandardConfig,
       dbMigrateAndStart = node.storage.parameters.migrateAndStart,
-      useNewTrafficControl = node.parameters.useNewTrafficControl,
       exitOnFatalFailures = parent.parameters.exitOnFatalFailures,
       useUnifiedSequencer = node.parameters.useUnifiedSequencer,
     )

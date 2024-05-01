@@ -67,7 +67,7 @@ class SequencerAuthenticationServerInterceptor(
             intendedDomainId <- UniqueIdentifier
               .fromProtoPrimitive_(intendedDomain)
               .map(DomainId(_))
-              .leftMap(VerifyTokenError.GeneralError)
+              .leftMap(err => VerifyTokenError.GeneralError(err.message))
               .toEitherT[Future]
             storedTokenO <- member match {
               case _: UnauthenticatedMemberId =>

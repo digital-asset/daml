@@ -124,7 +124,7 @@ abstract class TopologyTransactionProcessorTest
       val (proc, store) = mk()
       // topology processor assumes to be able to find domain parameters in the store for additional checks
       val block1 = List(ns1k1_k1, dmp1_k1)
-      val block2Adds = List(ns1k2_k1, okm1bk5_k1, dtcp1_k1)
+      val block2Adds = List(ns1k2_k1, okm1bk5k1E_k1, dtcp1_k1)
       val block3Replaces = List(ns1k1_k1, setSerial(dmp1_k1_bis, PositiveInt.two))
 
       process(proc, ts(0), 0, block1)
@@ -150,7 +150,7 @@ abstract class TopologyTransactionProcessorTest
       val block1Adds = List(ns1k1_k1, ns1k2_k1)
       val block1Replaces = List(dmp1_k1)
       val block1 = block1Adds ++ block1Replaces
-      val block2 = List(okm1bk5_k1, dtcp1_k1, setSerial(dmp1_k1_bis, PositiveInt.two))
+      val block2 = List(okm1bk5k1E_k1, dtcp1_k1, setSerial(dmp1_k1_bis, PositiveInt.two))
 
       process(proc, ts(0), 0, block1)
       val st0 = fetch(store, ts(0).immediateSuccessor)
@@ -178,7 +178,7 @@ abstract class TopologyTransactionProcessorTest
       val (proc, store) = mk()
       val block1 = List(ns1k1_k1, dmp1_k1, ns2k2_k2, ns3k3_k3)
       val block2 = List(ns1k2_k1, dtcp1_k1)
-      val block3 = List(okm1bk5_k1)
+      val block3 = List(okm1bk5k1E_k1)
       val block4 = List(dnd_proposal_k1)
       val block5 = List(dnd_proposal_k2)
       val block6 = List(dnd_proposal_k3)
@@ -213,7 +213,7 @@ abstract class TopologyTransactionProcessorTest
     // TODO(#12390) enable test after support for cascading updates
     "cascading update" ignore {
       val (proc, store) = mk()
-      val block1 = List(ns1k1_k1, ns1k2_k1, id1ak4_k2, okm1bk5_k4)
+      val block1 = List(ns1k1_k1, ns1k2_k1, id1ak4_k2, okm1bk5k1E_k4)
       process(proc, ts(0), 0, block1)
       val st1 = fetch(store, ts(0).immediateSuccessor)
       process(proc, ts(1), 1, List(Factory.mkRemoveTx(ns1k2_k1)))
@@ -226,9 +226,9 @@ abstract class TopologyTransactionProcessorTest
       val st5 = fetch(store, ts(4).immediateSuccessor)
       validate(st1, block1)
       validate(st2, List(ns1k1_k1))
-      validate(st3, List(ns1k1_k1, ns1k2_k1p, id1ak4_k2, okm1bk5_k4))
+      validate(st3, List(ns1k1_k1, ns1k2_k1p, id1ak4_k2, okm1bk5k1E_k4))
       validate(st4, List(ns1k1_k1, ns1k2_k1p))
-      validate(st5, List(ns1k1_k1, ns1k2_k1p, id1ak4_k2p, okm1bk5_k4))
+      validate(st5, List(ns1k1_k1, ns1k2_k1p, id1ak4_k2p, okm1bk5k1E_k4))
     }
 
     "cascading update and domain parameters change" in {
@@ -254,7 +254,7 @@ abstract class TopologyTransactionProcessorTest
       // after a restart, we need to fetch pre-existing authorizations from our store
       // simulate this one by one
       val store = mkStore
-      val block1 = List(ns1k1_k1, ns1k2_k1, id1ak4_k2, okm1bk5_k4)
+      val block1 = List(ns1k1_k1, ns1k2_k1, id1ak4_k2, okm1bk5k1E_k4)
       block1.zipWithIndex.foreach { case (elem, idx) =>
         val proc = mk(store)._1
         process(proc, ts(idx), idx.toLong, List(elem))
@@ -268,7 +268,7 @@ abstract class TopologyTransactionProcessorTest
       import SigningKeys.{ec as _, *}
       val dnsNamespace =
         DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns7, ns8, ns9))
-      val domainId = DomainId(UniqueIdentifier(Identifier.tryCreate("test-domain"), dnsNamespace))
+      val domainId = DomainId(UniqueIdentifier.tryCreate("test-domain", dnsNamespace))
 
       val dns = mkAddMultiKey(
         DecentralizedNamespaceDefinition
@@ -375,7 +375,7 @@ abstract class TopologyTransactionProcessorTest
       import SigningKeys.{ec as _, *}
       val dnsNamespace =
         DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns7, ns8))
-      val domainId = DomainId(UniqueIdentifier(Identifier.tryCreate("test-domain"), dnsNamespace))
+      val domainId = DomainId(UniqueIdentifier.tryCreate("test-domain", dnsNamespace))
 
       val dns = mkAddMultiKey(
         DecentralizedNamespaceDefinition
@@ -412,8 +412,10 @@ abstract class TopologyTransactionProcessorTest
           domainId,
           NonNegativeInt.zero,
           PositiveInt.two,
-          active =
-            Seq(DefaultTestIdentities.mediatorId, MediatorId(Identifier.tryCreate("med2"), ns7)),
+          active = Seq(
+            DefaultTestIdentities.mediatorId,
+            MediatorId(UniqueIdentifier.tryCreate("med2", ns7)),
+          ),
           observers = Seq.empty,
         )
         .value
@@ -541,7 +543,7 @@ abstract class TopologyTransactionProcessorTest
       import SigningKeys.{ec as _, *}
       val dnsNamespace =
         DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns2))
-      val domainId = DomainId(UniqueIdentifier(Identifier.tryCreate("test-domain"), dnsNamespace))
+      val domainId = DomainId(UniqueIdentifier.tryCreate("test-domain", dnsNamespace))
 
       val dns = mkAddMultiKey(
         DecentralizedNamespaceDefinition

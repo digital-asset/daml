@@ -232,8 +232,7 @@ class ParticipantPartiesAdministrationGroup(
         for {
           // validating party and display name here to prevent, e.g., a party being registered despite it having an invalid display name
           // assert that name is valid ParticipantId
-          id <- Identifier.create(name)
-          partyId = PartyId(id, namespace)
+          partyId <- UniqueIdentifier.create(name, namespace).map(PartyId(_))
           _ <- Either
             .catchOnly[IllegalArgumentException](LedgerParticipantId.assertFromString(name))
             .leftMap(_.getMessage)
@@ -333,10 +332,10 @@ class ParticipantPartiesAdministrationGroup(
 
   @Help.Summary("Disable party on participant")
   // TODO(#14067): reintroduce `force` once it is implemented on the server side and threaded through properly.
-  def disable(name: Identifier /*, force: Boolean = false*/ ): Unit = {
+  def disable(name: String /*, force: Boolean = false*/ ): Unit = {
     runner.topology.party_to_participant_mappings
       .propose_delta(
-        PartyId(name, runner.namespace),
+        PartyId(runner.id.member.uid.tryChangeId(name)),
         removes = List(this.participantId),
       )
       .discard

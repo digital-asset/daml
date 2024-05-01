@@ -23,16 +23,13 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerHealthConfig,
   SequencerInitialState,
 }
-import com.digitalasset.canton.domain.sequencing.traffic.EnterpriseSequencerRateLimitManager.BalanceUpdateClient
 import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
 import com.digitalasset.canton.domain.sequencing.traffic.{
-  BalanceUpdateClientImpl,
-  BalanceUpdateClientTopologyImpl,
   EnterpriseSequencerRateLimitManager,
   TrafficBalanceManager,
 }
 import com.digitalasset.canton.environment.CantonNodeParameters
-import com.digitalasset.canton.lifecycle.{CloseContext, Lifecycle}
+import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.time.Clock
@@ -137,11 +134,11 @@ abstract class BlockSequencerFactory(
 
   @VisibleForTesting
   protected def makeRateLimitManager(
-      balanceUpdateClient: BalanceUpdateClient,
+      trafficBalanceManager: TrafficBalanceManager,
       futureSupervisor: FutureSupervisor,
   ): SequencerRateLimitManager = {
     new EnterpriseSequencerRateLimitManager(
-      balanceUpdateClient,
+      trafficBalanceManager,
       loggerFactory,
       futureSupervisor,
       nodeParameters.processingTimeouts,
@@ -196,24 +193,9 @@ abstract class BlockSequencerFactory(
       balanceManager.startAutoPruning,
       "Auto pruning of traffic balances",
     )
-    def newTrafficBalanceClient = new BalanceUpdateClientImpl(balanceManager, loggerFactory)
-
-    // Old balance client from topology
-    def topologyTrafficBalanceClient = {
-      implicit val closeContext = CloseContext(domainSyncCryptoApi)
-      new BalanceUpdateClientTopologyImpl(
-        domainSyncCryptoApi,
-        protocolVersion,
-        loggerFactory,
-      )
-    }
-
-    val balanceUpdateClient =
-      if (nodeParameters.useNewTrafficControl) newTrafficBalanceClient
-      else topologyTrafficBalanceClient
 
     val rateLimitManager = makeRateLimitManager(
-      balanceUpdateClient,
+      balanceManager,
       futureSupervisor,
     )
 

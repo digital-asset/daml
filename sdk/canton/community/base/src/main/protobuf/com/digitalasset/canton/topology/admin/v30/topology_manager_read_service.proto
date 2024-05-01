@@ -36,21 +36,6 @@ service TopologyManagerReadService {
   rpc ListAvailableStores(ListAvailableStoresRequest) returns (ListAvailableStoresResponse);
   rpc ListAll(ListAllRequest) returns (ListAllResponse);
   rpc ExportTopologySnapshot(ExportTopologySnapshotRequest) returns (ExportTopologySnapshotResponse);
-
-  rpc ListTrafficState(ListTrafficStateRequest) returns (ListTrafficStateResponse);
-}
-
-message ListTrafficStateRequest {
-  BaseQuery base_query = 1;
-  string filter_member = 2;
-}
-
-message ListTrafficStateResponse {
-  message Result {
-    BaseResult context = 1;
-    com.digitalasset.canton.protocol.v30.TrafficControlState item = 2;
-  }
-  repeated Result results = 1;
 }
 
 message BaseQuery {

@@ -82,7 +82,7 @@ class DbInitializationStore(
         for {
           data <- idQuery
         } yield data.headOption.map { case (identity, fingerprint) =>
-          UniqueIdentifier(identity, Namespace(fingerprint))
+          UniqueIdentifier.tryCreate(identity, Namespace(fingerprint))
         }
       },
       functionFullName,
@@ -90,7 +90,7 @@ class DbInitializationStore(
 
   private val idQuery =
     sql"select identifier, namespace from common_node_id"
-      .as[(Identifier, Fingerprint)]
+      .as[(String, Fingerprint)]
 
   override def setUid(id: UniqueIdentifier)(implicit traceContext: TraceContext): Future[Unit] =
     storage.queryAndUpdate(
@@ -100,7 +100,7 @@ class DbInitializationStore(
           _ <-
             if (storedData.nonEmpty) {
               val data = storedData(0)
-              val prevNodeId = UniqueIdentifier(data._1, Namespace(data._2))
+              val prevNodeId = UniqueIdentifier.tryCreate(data._1, Namespace(data._2))
               ErrorUtil.requireArgument(
                 prevNodeId == id,
                 s"Unique id of node is already defined as $prevNodeId and can't be changed to $id!",

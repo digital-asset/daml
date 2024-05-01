@@ -3,27 +3,27 @@
 
 package com.digitalasset.canton.topology
 
+import com.digitalasset.canton.ProtoDeserializationError.StringConversionError
 import com.digitalasset.canton.{BaseTest, ProtoDeserializationError}
 import org.scalatest.wordspec.AnyWordSpec
 
-class IdentifierTest extends AnyWordSpec with BaseTest {
+class UniqueIdentifierTest extends AnyWordSpec with BaseTest {
 
   "safe simple string" when {
 
     "should" should {
       "be a happy cookie and not return an error" in {
-
-        assert(SafeSimpleString.fromProtoPrimitive("aAbbZ09-").isRight)
+        assert(UniqueIdentifier.verifyValidString("aAbbZ09-").isRight)
       }
 
       "complain on any non simple string character" in {
-        "#%!><,;".foreach(x => assert(SafeSimpleString.fromProtoPrimitive(x.toString).isLeft))
+        "#%!><,;".foreach(x => assert(UniqueIdentifier.verifyValidString(x.toString).isLeft))
 
       }
 
       "complain if the delimiter is used" in {
         Seq("not::ok", "::not::ok", "::notok", "::not::ok::", "notok::").foreach(ss =>
-          SafeSimpleString.fromProtoPrimitive(ss).left.value shouldBe a[String]
+          UniqueIdentifier.verifyValidString(ss).left.value shouldBe a[String]
         )
       }
 
@@ -34,9 +34,9 @@ class IdentifierTest extends AnyWordSpec with BaseTest {
   "identifier" should {
     "contain only simple characters" in {
       forEvery(Seq("#a", "\\a", "/a", "ä")) { s =>
-        Identifier.create(s).left.value shouldBe a[String]
-        an[IllegalArgumentException] shouldBe thrownBy(Identifier.tryCreate(s))
-        Identifier.fromProtoPrimitive(s).left.value shouldBe a[String]
+        UniqueIdentifier.create(s, s).left.value shouldBe a[String]
+        an[IllegalArgumentException] shouldBe thrownBy(UniqueIdentifier.tryCreate(s, s))
+        UniqueIdentifier.fromProtoPrimitive_(s).left.value shouldBe a[ProtoDeserializationError]
       }
     }
   }
@@ -61,7 +61,7 @@ class IdentifierTest extends AnyWordSpec with BaseTest {
 
       "fail for invalid string using the delimiter" in {
         Seq("::not::ok", "::not::ok", "::notok", "::not::ok::", "notok::").foreach(ss =>
-          UniqueIdentifier.fromProtoPrimitive_(ss).left.value shouldBe a[String]
+          UniqueIdentifier.fromProtoPrimitive_(ss).left.value shouldBe a[ProtoDeserializationError]
         )
       }
 
@@ -77,7 +77,7 @@ class IdentifierTest extends AnyWordSpec with BaseTest {
           templates.map(_(x))
         )
         forEvery(checks) { ss =>
-          UniqueIdentifier.fromProtoPrimitive_(ss).left.value shouldBe a[String]
+          UniqueIdentifier.fromProtoPrimitive_(ss).left.value shouldBe a[ProtoDeserializationError]
         }
       }
 
@@ -95,19 +95,23 @@ class IdentifierTest extends AnyWordSpec with BaseTest {
 
       "produce sensible error messages " in {
         UniqueIdentifier.fromProtoPrimitive_("Bank::") shouldEqual Left(
-          "Fingerprint decoding of `Bank::` failed with: StringConversionError(Daml-LF Party is empty)"
+          StringConversionError(
+            "Fingerprint decoding of `Bank::` failed with: StringConversionError(Daml-LF Party is empty)"
+          )
         )
         UniqueIdentifier.fromProtoPrimitive_("") shouldEqual Left(
-          "Empty string is not a valid unique identifier."
+          StringConversionError("Empty string is not a valid unique identifier.")
         )
         UniqueIdentifier.fromProtoPrimitive_("::Wurst") shouldEqual Left(
-          "Invalid unique identifier `::Wurst` with empty identifier."
+          StringConversionError("Invalid unique identifier `::Wurst` with empty identifier.")
         )
         UniqueIdentifier.fromProtoPrimitive_("aa::Wur:st::") shouldEqual Left(
-          "Fingerprint decoding of `aa::Wur:st::` failed with: StringConversionError(String contains reserved delimiter `::`.)"
+          StringConversionError(
+            "Fingerprint decoding of `aa::Wur:st::` failed with: StringConversionError(String contains reserved delimiter `::`.)"
+          )
         )
         UniqueIdentifier.fromProtoPrimitive_("::") shouldEqual Left(
-          "Invalid unique identifier `::` with empty identifier."
+          StringConversionError("Invalid unique identifier `::` with empty identifier.")
         )
       }
 

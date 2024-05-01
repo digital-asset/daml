@@ -71,6 +71,13 @@ object TopologyTransactionRejection {
     }
   }
 
+  final case class InvalidTopologyMapping(err: String) extends TopologyTransactionRejection {
+    override def asString: String = s"Invalid mapping: $err"
+    override def pretty: Pretty[InvalidTopologyMapping] = prettyOfString(_ => asString)
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
+      TopologyManagerError.InvalidTopologyMapping.Reject(err)
+  }
+
   final case class SignatureCheckFailed(err: SignatureCheckError)
       extends TopologyTransactionRejection {
     override def asString: String = err.toString

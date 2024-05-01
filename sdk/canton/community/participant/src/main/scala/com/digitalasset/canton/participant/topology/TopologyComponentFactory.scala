@@ -18,10 +18,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminateProcessingTicker
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
-import com.digitalasset.canton.participant.traffic.{
-  TrafficStateController,
-  TrafficStateTopUpSubscription,
-}
+import com.digitalasset.canton.participant.traffic.TrafficStateController
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.client.*
@@ -52,7 +49,6 @@ class TopologyComponentFactory(
       topologyClient: DomainTopologyClientWithInit,
       trafficStateController: TrafficStateController,
       recordOrderPublisher: RecordOrderPublisher,
-      useNewTrafficControl: Boolean,
   ): TopologyTransactionProcessor.Factory = new TopologyTransactionProcessor.Factory {
     override def create(
         acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit
@@ -78,10 +74,6 @@ class TopologyComponentFactory(
       processor.subscribe(partyNotifier.attachToTopologyProcessor())
       processor.subscribe(missingKeysAlerter.attachToTopologyProcessor())
       processor.subscribe(topologyClient)
-      if (!useNewTrafficControl)
-        processor.subscribe(
-          new TrafficStateTopUpSubscription(trafficStateController, loggerFactory)
-        )
       processor
     }
   }
