@@ -174,7 +174,7 @@ class DomainJsonDecoder(
           JsValue,
           JsValue,
           ContractTypeId.Template.RequiredPkg,
-          ContractTypeId.OptionalPkg,
+          ContractTypeId.RequiredPkg,
         ]
       ],
       ec: ExecutionContext,
@@ -188,10 +188,10 @@ class DomainJsonDecoder(
             JsValue,
             JsValue,
             ContractTypeId.Template.RequiredPkg,
-            ContractTypeId.OptionalPkg,
+            ContractTypeId.RequiredPkg,
           ]](a)
           .liftErrS(err)(JsonError)
-      ).flatMap(_.bitraverse(id => templateId_(id.map(Some(_)), jwt, ledgerId), templateId_(_, jwt, ledgerId)))
+      ).flatMap(_.bitraverse(id => templateId_(id.map(Some(_)), jwt, ledgerId), id => templateId_(id.map(Some(_)), jwt, ledgerId)))
 
       tId = fjj.templateId
       ciId = fjj.choiceInterfaceId

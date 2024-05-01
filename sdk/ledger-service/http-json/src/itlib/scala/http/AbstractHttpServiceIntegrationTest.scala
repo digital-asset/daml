@@ -1796,7 +1796,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       val numContracts: Long = 2000
       val helperId = TpId.Account.Helper.map(_.get)
       val payload = recordFromFields(ShRecord(owner = v.Value.Sum.Party(alice.unwrap)))
-      val createCmd: domain.CreateAndExerciseCommand.LAVUnresolved =
+      val createCmd: domain.CreateAndExerciseCommand.LAVResolved =
         domain.CreateAndExerciseCommand(
           templateId = helperId,
           payload = payload,
@@ -1807,7 +1807,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         )
 
       def encode(
-          cmd: domain.CreateAndExerciseCommand.LAVUnresolved
+          cmd: domain.CreateAndExerciseCommand.LAVResolved
       ): JsValue =
         encoder.encodeCreateAndExerciseCommand(cmd).valueOr(e => fail(e.shows))
 

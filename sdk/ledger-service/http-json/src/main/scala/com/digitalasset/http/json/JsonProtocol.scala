@@ -513,7 +513,7 @@ object JsonProtocol extends JsonProtocolLow {
       JsValue,
       JsValue,
       domain.ContractTypeId.Template.RequiredPkg,
-      domain.ContractTypeId.OptionalPkg,
+      domain.ContractTypeId.RequiredPkg,
     ]
   ] =
     jsonFormat6(
@@ -521,7 +521,7 @@ object JsonProtocol extends JsonProtocolLow {
         JsValue,
         JsValue,
         domain.ContractTypeId.Template.RequiredPkg,
-        domain.ContractTypeId.OptionalPkg,
+        domain.ContractTypeId.RequiredPkg,
       ]
     )
 

@@ -620,7 +620,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     v.Record,
     v.Value,
     domain.ContractTypeId.Template.RequiredPkg,
-    domain.ContractTypeId.OptionalPkg,
+    domain.ContractTypeId.RequiredPkg,
   ] = {
     val targetParty = Ref.Party assertFromString target.unwrap
     val payload = argToApi(iouVA)(
