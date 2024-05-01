@@ -1393,6 +1393,17 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
 
       val checkVisibilityChoice = domain.Choice("CheckVisibility")
 
+      def mapMeta[A, B, C[P] <: domain.ContractTypeId[P] with domain.ContractTypeId.Ops[C, P]](
+        meta: Option[domain.CommandMeta[C[A]]],
+        f: A => B
+      ): Option[domain.CommandMeta[C[B]]] =
+        meta.map(cm =>
+          cm.copy(
+            disclosedContracts = cm.disclosedContracts.map(ds =>
+              ds.map(d =>
+                d.copy(
+                  templateId = d.templateId.map(f))))))
+
       "exercise" in withHttpService { fixture =>
         runDisclosureTestCase(fixture)(
           Uri.Path("/v1/exercise"),
@@ -1422,7 +1433,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                 )
               ),
               None,
-              meta,
+              mapMeta(meta, (pkgId: Option[String]) => pkgId.get),
             )
           )
         }
@@ -1435,18 +1446,6 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             Future successful bob
           },
         ) { (bob, toDisclose, meta) =>
-          val meta1 : Option[domain.CommandMeta[domain.ContractTypeId.Template.RequiredPkg]] =
-            meta.map(cm =>
-              cm.copy(
-                disclosedContracts = cm.disclosedContracts.map(ds =>
-                  ds.map(d =>
-                    d.copy(
-                      templateId = d.templateId.map(_.get)
-                    )
-                  )
-                )
-              )
-            )
           fixture.encoder
             .encodeCreateAndExerciseCommand(
               domain.CreateAndExerciseCommand(
@@ -1462,7 +1461,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                   )
                 ),
                 None,
-                meta1,
+                mapMeta(meta, (p: Option[String]) => p.get),
               )
             )
             .valueOr(e => fail(e.shows))
@@ -1735,7 +1734,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       "payload": { "party": "$party", "amount": "$decimal" }
     }""")
     val fetchRequest = jsObject(s"""{
-      "templateId": "Account:KeyedByDecimal",
+      "templateId": "${tidString(TpId.Account.KeyedByDecimal)}",
       "key": [ "$party", "$decimal" ]
     }""")
 

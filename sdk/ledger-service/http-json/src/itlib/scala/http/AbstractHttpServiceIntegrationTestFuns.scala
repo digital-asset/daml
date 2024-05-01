@@ -117,6 +117,9 @@ object AbstractHttpServiceIntegrationTestFuns {
     object RIIou {
       val RIIou: IId = CtId.Interface(pkgIdCiou, "RIIou", "RIIou")
     }
+    object Transferrable {
+      val Transferrable: IId = CtId.Interface(pkgIdCiou, "Transferrable", "Transferrable")
+    }
 
     def unsafeCoerce[Like[T] <: CtId[T], T](ctId: CtId[T])(implicit
         Like: CtId.Like[Like]
@@ -728,7 +731,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def encodeExercise(encoder: DomainJsonEncoder)(
-      exercise: domain.ExerciseCommand.OptionalPkg[v.Value, domain.ContractLocator[v.Value]]
+      exercise: domain.ExerciseCommand.RequiredPkg[v.Value, domain.ContractLocator[v.Value]]
   ): JsValue =
     encoder.encodeExerciseCommand(exercise).getOrElse(fail(s"Cannot encode: $exercise"))
 
@@ -1014,7 +1017,7 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected def assertExerciseResponseArchivedContract(
       exerciseResponse: domain.ExerciseResponse[JsValue],
-      exercise: domain.ExerciseCommand.OptionalPkg[v.Value, domain.EnrichedContractId],
+      exercise: domain.ExerciseCommand.RequiredPkg[v.Value, domain.EnrichedContractId],
   ): Assertion =
     inside(exerciseResponse) { case domain.ExerciseResponse(exerciseResult, List(contract1), _) =>
       exerciseResult shouldBe JsObject()

@@ -260,7 +260,7 @@ class JsonProtocolTest
 
     "roundtrips" in forAll(exerciseCmdGen) { a =>
       val b = a.toJson
-        .convertTo[domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]]
+        .convertTo[domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]]
       b should ===(a)
     }
   }

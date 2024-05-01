@@ -65,9 +65,9 @@ object Generators {
 
   def inputContractRefGen[LfV](lfv: Gen[LfV]): Gen[domain.InputContractRef[LfV]] =
     scalazEitherGen(
-      Gen.zip(genDomainTemplateIdO[domain.ContractTypeId.Template, Option[String]], lfv),
+      Gen.zip(genDomainTemplateIdO[domain.ContractTypeId.Template, String], lfv),
       Gen.zip(
-        Gen.option(genDomainTemplateIdO: Gen[domain.ContractTypeId.OptionalPkg]),
+        Gen.option(genDomainTemplateIdO: Gen[domain.ContractTypeId.RequiredPkg]),
         contractIdGen,
       ),
     )
@@ -114,22 +114,24 @@ object Generators {
 
   def enrichedContractKeyGen: Gen[domain.EnrichedContractKey[JsObject]] =
     for {
-      templateId <- genDomainTemplateIdO[domain.ContractTypeId.Template, Option[String]]
+      templateId <- genDomainTemplateIdO[domain.ContractTypeId.Template, String]
+      templateId2 = templateId.copy(packageId = Some(templateId.packageId))
       key <- genJsObj
-    } yield domain.EnrichedContractKey(templateId, key)
+    } yield domain.EnrichedContractKey(templateId2, key)
 
   def enrichedContractIdGen: Gen[domain.EnrichedContractId] =
     for {
-      templateId <- Gen.option(genDomainTemplateIdO: Gen[domain.ContractTypeId.OptionalPkg])
+      templateId <- Gen.option(genDomainTemplateIdO: Gen[domain.ContractTypeId.RequiredPkg])
+      templateId2 = templateId.map(tid => tid.copy(packageId = Some(tid.packageId)))
       contractId <- contractIdGen
-    } yield domain.EnrichedContractId(templateId, contractId)
+    } yield domain.EnrichedContractId(templateId2, contractId)
 
   def exerciseCmdGen
-      : Gen[domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]] =
+      : Gen[domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]] =
     for {
       ref <- contractLocatorGen
       arg <- genJsObj
-      cIfId <- Gen.option(genDomainTemplateIdO: Gen[domain.ContractTypeId.OptionalPkg])
+      cIfId <- Gen.option(genDomainTemplateIdO: Gen[domain.ContractTypeId.RequiredPkg])
       choice <- Gen.identifier.map(domain.Choice(_))
       meta <- Gen.option(metaGen)
     } yield domain.ExerciseCommand(

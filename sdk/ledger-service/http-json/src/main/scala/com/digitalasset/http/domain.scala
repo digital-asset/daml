@@ -29,7 +29,7 @@ package object domain extends com.daml.fetchcontracts.domain.Aliases {
   import scalaz.{@@, Tag}
 
   type InputContractRef[LfV] =
-    (ContractTypeId.Template.OptionalPkg, LfV) \/ (Option[ContractTypeId.OptionalPkg], ContractId)
+    (ContractTypeId.Template.RequiredPkg, LfV) \/ (Option[ContractTypeId.RequiredPkg], ContractId)
 
   type ResolvedContractRef[LfV] =
     (ContractTypeId.Template.RequiredPkg, LfV) \/ (ContractTypeId.RequiredPkg, ContractId)
@@ -530,12 +530,14 @@ package domain {
 
     val structure: ContractLocator <~> InputContractRef =
       new IsoFunctorTemplate[ContractLocator, InputContractRef] {
-        override def from[A](ga: InputContractRef[A]) =
-          ga.fold((EnrichedContractKey[A] _).tupled, EnrichedContractId.tupled)
+        override def from[A](ga: InputContractRef[A]) = ga.fold(
+          { case (otid, cid) => EnrichedContractKey[A](otid.map(Some(_)), cid) },
+          { case (tid, key) => EnrichedContractId(tid.map(id => id.map(Some(_))), key) },
+        )
 
         override def to[A](fa: ContractLocator[A]) = fa match {
-          case EnrichedContractId(otid, cid) => \/-((otid, cid))
-          case EnrichedContractKey(tid, key) => -\/((tid, key))
+          case EnrichedContractId(otid, cid) => \/-((otid.map(id => id.map(_.get)), cid))
+          case EnrichedContractKey(tid, key) => -\/((tid.map(_.get), key))
         }
       }
   }
@@ -642,7 +644,6 @@ package domain {
   }
 
   object ExerciseCommand {
-    type OptionalPkg[+LfV, +Ref] = ExerciseCommand[Option[String], LfV, Ref]
     type RequiredPkg[+LfV, +Ref] = ExerciseCommand[String, LfV, Ref]
 
     implicit def bitraverseInstance[PkgId]: Bitraverse[ExerciseCommand[PkgId, *, *]] =
@@ -659,16 +660,16 @@ package domain {
         }
       }
 
-    implicit val leftTraverseInstance: Traverse[OptionalPkg[+*, Nothing]] =
-      bitraverseInstance[Option[String]].leftTraverse
+    implicit val leftTraverseInstance: Traverse[RequiredPkg[+*, Nothing]] =
+      bitraverseInstance[String].leftTraverse
 
-    implicit val hasTemplateId: HasTemplateId.Aux[OptionalPkg[
+    implicit val hasTemplateId: HasTemplateId.Aux[RequiredPkg[
       +*,
       domain.ContractLocator[_],
     ], (Option[domain.ContractTypeId.Interface.Resolved], LfType)] =
-      new HasTemplateId[OptionalPkg[+*, domain.ContractLocator[_]]] {
+      new HasTemplateId[RequiredPkg[+*, domain.ContractLocator[_]]] {
         override def templateId(fab: FHuh): ContractTypeId.OptionalPkg =
-          fab.choiceInterfaceId getOrElse (fab.reference match {
+          fab.choiceInterfaceId.map(id => id.map(Some(_))) getOrElse (fab.reference match {
             case EnrichedContractKey(templateId, _) => templateId
             case EnrichedContractId(Some(templateId), _) => templateId
             case EnrichedContractId(None, _) =>

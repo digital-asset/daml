@@ -210,10 +210,6 @@ abstract class HttpServiceIntegrationTest
       inside(exerciseTest) { case domain.OkResponse(er, None, StatusCodes.OK) =>
         inside(jdecode[String](er.exerciseResult)) { case \/-(decoded) => decoded }
       }
-    object Transferrable {
-      val Transferrable: domain.ContractTypeId.Interface.OptionalPkg =
-        domain.ContractTypeId.Interface(None, "Transferrable", "Transferrable")
-    }
 
     "templateId = interface ID" in withHttpService { fixture =>
       for {
@@ -248,7 +244,7 @@ abstract class HttpServiceIntegrationTest
           fixture,
           initialTplId = TpId.CIou.CIou.map(_.get),
           exerciseTid = TpId.CIou.CIou,
-          choice = tExercise(choiceInterfaceId = Some(TpId.IIou.IIou), choiceArgType = echoTextVA)(
+          choice = tExercise(choiceInterfaceId = Some(TpId.IIou.IIou.map(_.get)), choiceArgType = echoTextVA)(
             echoTextSample
           ),
         ) map exerciseSucceeded
@@ -278,7 +274,7 @@ abstract class HttpServiceIntegrationTest
             fixture,
             initialTplId = TpId.CIou.CIou.map(_.get),
             exerciseTid = TpId.CIou.CIou,
-            choice = tExercise(Some(Transferrable.Transferrable), "Overridden", echoTextVA)(
+            choice = tExercise(Some(TpId.Transferrable.Transferrable.map(_.get)), "Overridden", echoTextVA)(
               ShRecord(echo = "yesyes")
             ),
           ) map exerciseSucceeded
@@ -383,7 +379,7 @@ object HttpServiceIntegrationTest {
   private val echoTextSample: echoTextVA.Inj = ShRecord(echo = "Bob")
 
   private def tExercise(
-      choiceInterfaceId: Option[domain.ContractTypeId.Interface.OptionalPkg] = None,
+      choiceInterfaceId: Option[domain.ContractTypeId.Interface.RequiredPkg] = None,
       choiceName: String = "Transfer",
       choiceArgType: VA = echoTextVA,
   )(
@@ -392,7 +388,7 @@ object HttpServiceIntegrationTest {
     TExercise(choiceInterfaceId, choiceName, choiceArgType, choiceArg)
 
   private final case class TExercise[Inj](
-      choiceInterfaceId: Option[domain.ContractTypeId.Interface.OptionalPkg],
+      choiceInterfaceId: Option[domain.ContractTypeId.Interface.RequiredPkg],
       choiceName: String,
       choiceArgType: VA.Aux[Inj],
       choiceArg: Inj,
