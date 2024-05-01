@@ -137,9 +137,12 @@ extractDarSourceFiles archive = foldr handleEntry (archive, Map.empty) $ zEntrie
 -- Recreate the conf file from a dalf
 readDalfConf :: Entry -> (FilePath, BSL.ByteString)
 readDalfConf entry =
-  let (pkgId, pkg) = either (error . show) id $ decodeArchive DecodeAsMain $ BSL.toStrict $ fromEntry entry
+  let (pkgId :: LF.PackageId, pkg :: LF.Package) = either (error . show) id $ decodeArchive DecodeAsMain $ BSL.toStrict $ fromEntry entry
+      moduleNames :: [Ghc.ModuleName]
       moduleNames = Ghc.mkModuleName . T.unpack . T.intercalate "." . LF.unModuleName <$> NM.names (LF.packageModules pkg)
+      pkgName :: LF.PackageName
       pkgName = LF.packageName $ LF.packageMetadata pkg
+      pkgVersion :: LF.PackageVersion
       pkgVersion = LF.packageVersion $ LF.packageMetadata pkg
       -- TODO[SW]: the `depends` list is empty right now, as we don't have the full dar dependency tree.
    in second BSL.fromStrict $ mkConfFile pkgName (Just pkgVersion) [] Nothing moduleNames pkgId
@@ -164,7 +167,7 @@ rebuildDarFromDalfEntry archive rawManifest dalfPaths topDalfPath mainEntry = ar
         ".conf" ->
           let (confFileName, confContent) = readDalfConf mainEntry
            in Just $ toEntry
-                (replaceFileName (updatePathToMainEntry $ eRelativePath entry) confFileName)
+                (mainEntryName </> "data" </> confFileName)
                 (eLastModified entry)
                 confContent
         _ -> Just entry

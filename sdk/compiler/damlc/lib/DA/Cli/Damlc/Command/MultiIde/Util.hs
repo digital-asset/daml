@@ -21,6 +21,7 @@ import Control.Monad (void)
 import Control.Monad.STM
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except
+import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Daml.Project.Config (readProjectConfig, queryProjectConfig, queryProjectConfigRequired)
 import DA.Daml.Project.Consts (projectConfigName)
 import DA.Daml.Project.Types (ConfigError, ProjectPath (..))
@@ -152,6 +153,31 @@ initializeResult = LSP.InitializeResult
   where
     true = Just (LSP.InL True)
     false = Just (LSP.InL False)
+
+initializeRequest :: InitParams -> SubIDEInstance -> LSP.FromClientMessage
+initializeRequest initParams ide = LSP.FromClientMess LSP.SInitialize LSP.RequestMessage 
+  { _id = LSP.IdString $ ideMessageIdPrefix ide <> "-init"
+  , _method = LSP.SInitialize
+  , _params = initParams
+      { LSP._rootPath = Just $ T.pack $ ideHome ide
+      , LSP._rootUri = Just $ LSP.filePathToUri $ ideHome ide
+      }
+  , _jsonrpc = "2.0"
+  }
+
+openFileNotification :: FilePath -> T.Text -> LSP.FromClientMessage
+openFileNotification path content = LSP.FromClientMess LSP.STextDocumentDidOpen LSP.NotificationMessage
+  { _method = LSP.STextDocumentDidOpen
+  , _params = LSP.DidOpenTextDocumentParams
+    { _textDocument = LSP.TextDocumentItem
+      { _uri = LSP.filePathToUri path
+      , _languageId = "daml"
+      , _version = 1
+      , _text = content
+      }
+    }
+  , _jsonrpc = "2.0"
+  } 
 
 registerFileWatchersMessage :: LSP.RequestMessage 'LSP.ClientRegisterCapability
 registerFileWatchersMessage =

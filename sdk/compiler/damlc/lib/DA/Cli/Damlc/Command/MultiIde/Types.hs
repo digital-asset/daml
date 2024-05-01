@@ -26,7 +26,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import qualified Data.Text as T
-import Data.Time.Clock (UTCTime, diffUTCTime)
+import Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime)
 import qualified Language.LSP.Types as LSP
 import System.IO.Extra
 import System.Process.Typed (Process)
@@ -38,7 +38,7 @@ data TrackedMethod (m :: LSP.Method from 'LSP.Request) where
     :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
     .  LSP.SMethod m
     -> LSP.FromClientMessage -- | Store the whole message for re-transmission on subIDE restart
-    -> FilePath -- | Store the subIDE that was sent this request
+    -> FilePath -- | Store the recipient subIDE for this message
     -> TrackedMethod m
   TrackedSingleMethodFromServer
     :: forall (m :: LSP.Method 'LSP.FromServer 'LSP.Request)
@@ -123,8 +123,11 @@ defaultSubIDEData home = SubIDEData home Nothing Set.empty Set.empty [] False No
 lookupSubIde :: FilePath -> SubIDEs -> SubIDEData
 lookupSubIde home ides = fromMaybe (defaultSubIDEData home) $ Map.lookup home ides
 
+ideShouldDisableTimeout :: NominalDiffTime
+ideShouldDisableTimeout = 5
+
 ideShouldDisable :: SubIDEData -> Bool
-ideShouldDisable (ideDataFailTimes -> [t1, t2]) = t1 `diffUTCTime` t2 < 5
+ideShouldDisable (ideDataFailTimes -> (t1:t2:_)) = t1 `diffUTCTime` t2 < ideShouldDisableTimeout
 ideShouldDisable _ = False
 
 -- SubIDEs placed in a TMVar. The emptyness representents a modification lock.
@@ -255,3 +258,8 @@ data Forwarding (m :: LSP.Method 'LSP.FromClient t) where
 
 type ResponseCombiner (m :: LSP.Method 'LSP.FromClient 'LSP.Request) =
   [(FilePath, Either LSP.ResponseError (LSP.ResponseResult m))] -> Either LSP.ResponseError (LSP.ResponseResult m)
+
+data SMethodWithSender (m :: LSP.Method 'LSP.FromServer t) = SMethodWithSender
+  { smsMethod :: LSP.SMethod m
+  , smsSender :: Maybe FilePath
+  }

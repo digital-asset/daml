@@ -186,12 +186,12 @@ parseServerMessageWithTracker tracker selfIde val = pickReqMethodTo tracker $ \e
 parseClientMessageWithTracker
   :: MethodTrackerVar 'LSP.FromServer
   -> Aeson.Value
-  -> IO (Either String (LSP.FromClientMessage' (Product LSP.SMethod (Const (Maybe FilePath)))))
+  -> IO (Either String (LSP.FromClientMessage' SMethodWithSender))
 parseClientMessageWithTracker tracker val = pickReqMethodTo tracker $ \extract ->
   case Aeson.parseEither (LSP.parseClientMessage (wrapParseMessageLookup . extract)) val of
     Right (LSP.FromClientMess meth mess) -> (Right (LSP.FromClientMess meth mess), Nothing)
     Right (LSP.FromClientRsp (Pair (TrackedSingleMethodFromServer method mHome) (Const newIxMap)) rsp) ->
-      (Right (LSP.FromClientRsp (Pair method (Const mHome)) rsp), Just newIxMap)
+      (Right (LSP.FromClientRsp (SMethodWithSender method mHome) rsp), Just newIxMap)
     Left msg -> (Left msg, Nothing)
 
 -- Map.mapAccumWithKey where the replacement value is a Maybe. Accumulator is still updated for `Nothing` values

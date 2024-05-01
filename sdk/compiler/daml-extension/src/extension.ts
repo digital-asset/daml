@@ -301,9 +301,9 @@ function getLanguageServerArgs(
     args.push("--telemetry-ignored");
   }
   if (multiIDESupport === true) {
-    if (isDebug) args.push("--debug");
-  } else {
     args.push("--log-level=" + logLevel);
+  } else {
+    if (isDebug) args.push("--debug");
   }
   const extraArgsString = config.get("extraArguments", "").trim();
   // split on an empty string returns an array with a single empty string
