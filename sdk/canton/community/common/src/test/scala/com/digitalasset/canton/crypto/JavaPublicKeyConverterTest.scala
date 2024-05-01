@@ -82,18 +82,38 @@ trait JavaPublicKeyConverterTest extends BaseTest with CryptoTestHelper { this: 
     }
   }
 
+  /** Test conversion of keys from the providers' format to Java and back.
+    *
+    * @param newSigningPublicKey either generate a new signing public key using `getSigningPublicKey`
+    *                                       or use an alternative custom key generation function. This is
+    *                                       used to specify a custom function that generates a different
+    *                                       signing public key; for example a Tink key with TINK output
+    *                                       prefix.
+    * @param newEncryptionPublicKey either generate a new encryption public key using `getEncryptionPublicKey`
+    *                                          or use an alternative custom key generation function. This is
+    *                                          used to specify a custom function that generates a different
+    *                                          encryption public key; for example a Tink key with TINK output
+    *                                          prefix.
+    */
   def javaPublicKeyConverterProvider(
       supportedSigningKeySchemes: Set[SigningKeyScheme],
       supportedEncryptionKeySchemes: Set[EncryptionKeyScheme],
       newCrypto: => Future[Crypto],
       convertName: String,
+      newSigningPublicKey: (Crypto, SigningKeyScheme) => Future[SigningPublicKey] =
+        getSigningPublicKey,
+      newEncryptionPublicKey: (
+          Crypto,
+          EncryptionKeyScheme,
+      ) => Future[EncryptionPublicKey] = getEncryptionPublicKey,
+      testNameSuffix: String = "",
   ): Unit =
-    "Convert public keys to java keys with own provider" should {
+    s"Convert public keys to java keys with own provider $testNameSuffix" should {
       forAll(supportedSigningKeySchemes) { signingKeyScheme =>
         javaSigningKeyConvertTest(
           signingKeyScheme.toString,
           newCrypto,
-          crypto => getSigningPublicKey(crypto, signingKeyScheme),
+          crypto => newSigningPublicKey(crypto, signingKeyScheme),
           crypto => crypto.javaKeyConverter.fromJavaSigningKey,
           convertName,
         )
@@ -103,26 +123,46 @@ trait JavaPublicKeyConverterTest extends BaseTest with CryptoTestHelper { this: 
         javaEncryptionKeyConvertTest(
           encryptionKeyScheme.toString,
           newCrypto,
-          crypto => getEncryptionPublicKey(crypto, encryptionKeyScheme),
+          crypto => newEncryptionPublicKey(crypto, encryptionKeyScheme),
           crypto => crypto.javaKeyConverter.fromJavaEncryptionKey,
           convertName,
         )
       }
     }
 
+  /** Test conversion of keys from another providers' format to Java and back.
+    *
+    * @param newSigningPublicKey either generate a new signing public key using `getSigningPublicKey`
+    *                                       or use an alternative custom key generation function. This is
+    *                                       used to specify a custom function that generates a different
+    *                                       signing public key; for example a Tink key with TINK output
+    *                                       prefix.
+    * @param newEncryptionPublicKey either generate a new encryption public key using `getEncryptionPublicKey`
+    *                                          or use an alternative custom key generation function. This is
+    *                                          used to specify a custom function that generates a different
+    *                                          encryption public key; for example a Tink key with TINK output
+    *                                          prefix.
+    */
   def javaPublicKeyConverterProviderOther(
       supportedSigningKeySchemes: Set[SigningKeyScheme],
       supportedEncryptionKeySchemes: Set[EncryptionKeyScheme],
       newCrypto: => Future[Crypto],
       otherConvertName: String,
       otherKeyConverter: JavaKeyConverter,
+      newSigningPublicKey: (Crypto, SigningKeyScheme) => Future[SigningPublicKey] =
+        getSigningPublicKey,
+      newEncryptionPublicKey: (
+          Crypto,
+          EncryptionKeyScheme,
+      ) => Future[EncryptionPublicKey] = getEncryptionPublicKey,
+      testNameSuffix: String = "",
   ): Unit =
-    "Convert public keys to java keys with different provider" should {
+    s"Convert public keys to java keys with different provider $testNameSuffix" should {
       forAll(supportedSigningKeySchemes) { signingKeyScheme =>
         javaSigningKeyConvertTest(
           signingKeyScheme.toString,
           newCrypto,
-          crypto => getSigningPublicKey(crypto, signingKeyScheme),
+          crypto => newSigningPublicKey(crypto, signingKeyScheme),
           _ => otherKeyConverter.fromJavaSigningKey,
           otherConvertName,
         )
@@ -132,7 +172,7 @@ trait JavaPublicKeyConverterTest extends BaseTest with CryptoTestHelper { this: 
         javaEncryptionKeyConvertTest(
           encryptionKeyScheme.toString,
           newCrypto,
-          crypto => getEncryptionPublicKey(crypto, encryptionKeyScheme),
+          crypto => newEncryptionPublicKey(crypto, encryptionKeyScheme),
           _ => otherKeyConverter.fromJavaEncryptionKey,
           otherConvertName,
         )

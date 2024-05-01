@@ -45,7 +45,7 @@ object CryptoKeyValidation {
         (outputPrefixType == OutputPrefixType.RAW) || (outputPrefixType == OutputPrefixType.TINK),
         (),
         KeyParseAndValidateError(
-          s"Wrong output prefix type: expected RAW got $outputPrefixType"
+          s"Wrong output prefix type: expected RAW or TINK got $outputPrefixType"
         ),
       )
     } yield handle
@@ -84,25 +84,27 @@ object CryptoKeyValidation {
       publicKey: PublicKey,
       errFn: String => E,
   ): Either[E, Unit] = {
-    val parseRes = publicKey.format match {
-      case CryptoKeyFormat.Tink =>
-        /* We check the cache first and if it's not there we:
-         * 1. deserialize handle (and consequently check the key format); 2. check fingerprint
-         */
-        parseAndValidateTinkKey(publicKey).map(_ => ())
-      case CryptoKeyFormat.Der | CryptoKeyFormat.Raw =>
-        /* We check the cache first and if it's not there we:
-         * 1. check fingerprint; 2. convert to Java Key (and consequently check the key format)
-         */
-        parseAndValidateDerOrRawKey(publicKey).map(_ => ())
-      case CryptoKeyFormat.Symbolic =>
-        Right(())
-    }
-
     // If the result is already in the cache it means the key has already been validated.
-    validatedPublicKeys
-      .getOrElseUpdate(publicKey, parseRes)
-      .leftMap(err => errFn(s"Failed to deserialize ${publicKey.format} public key: $err"))
+    val parseRes = validatedPublicKeys.getOrElseUpdate(
+      publicKey, {
+        publicKey.format match {
+          case CryptoKeyFormat.Tink =>
+            /* We check the cache first and if it's not there we:
+             * 1. deserialize handle (and consequently check the key format); 2. check fingerprint
+             */
+            parseAndValidateTinkKey(publicKey).map(_ => ())
+          case CryptoKeyFormat.Der | CryptoKeyFormat.Raw =>
+            /* We check the cache first and if it's not there we:
+             * 1. check fingerprint; 2. convert to Java Key (and consequently check the key format)
+             */
+            parseAndValidateDerOrRawKey(publicKey).map(_ => ())
+          case CryptoKeyFormat.Symbolic =>
+            Right(())
+        }
+      },
+    )
+
+    parseRes.leftMap(err => errFn(s"Failed to deserialize ${publicKey.format} public key: $err"))
   }
 
   private[crypto] def ensureFormat[E](

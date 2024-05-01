@@ -7,7 +7,7 @@ import com.digitalasset.canton.config.CommunityCryptoConfig
 import com.digitalasset.canton.config.CommunityCryptoProvider.{Jce, Tink}
 import com.digitalasset.canton.crypto.CryptoTestHelper.TestMessage
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.provider.tink.TinkJavaConverter
+import com.digitalasset.canton.crypto.provider.tink.{TinkJavaConverter, TinkOutputPrefixTypeTest}
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.tracing.NoReportingTracerProvider
@@ -24,7 +24,8 @@ class JceCryptoTest
     with HkdfTest
     with RandomTest
     with JavaPublicKeyConverterTest
-    with PublicKeyValidationTest {
+    with PublicKeyValidationTest
+    with TinkOutputPrefixTypeTest {
 
   "JceCrypto" can {
 
@@ -109,6 +110,13 @@ class JceCryptoTest
       Jce.signing.supported,
       Jce.encryption.supported,
       Jce.supportedCryptoKeyFormats,
+      jceCrypto(),
+    )
+
+    behave like handleTinkOutputPrefixType(
+      Jce.encryption.supported,
+      Jce.symmetric.supported,
+      Jce.signing.supported,
       jceCrypto(),
     )
 

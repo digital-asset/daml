@@ -40,6 +40,16 @@ class TinkPrivateCrypto private (
   override protected[crypto] def generateEncryptionKeypair(scheme: EncryptionKeyScheme)(implicit
       traceContext: TraceContext
   ): EitherT[Future, EncryptionKeyGenerationError, EncryptionKeyPair] =
+    generateEncryptionKeypairInternal(scheme)
+
+  /** @param outputPrefixType by default we use RAW key templates such that the
+    *                         ciphertexts are not prefixed with a Tink prefix.
+    *                         MUST ONLY BE CHANGED FOR TESTING PURPOSES.
+    */
+  protected[crypto] def generateEncryptionKeypairInternal(
+      scheme: EncryptionKeyScheme,
+      outputPrefixType: OutputPrefixType = OutputPrefixType.RAW,
+  ): EitherT[Future, EncryptionKeyGenerationError, EncryptionKeyPair] =
     for {
       keyTemplate <- scheme match {
         case EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm =>
@@ -60,8 +70,7 @@ class TinkPrivateCrypto private (
           val keyTemplate = KeyTemplate
             .newBuilder()
             .setTypeUrl("type.googleapis.com/google.crypto.tink.EciesAeadHkdfPrivateKey")
-            // Need to use RAW to allow conversion to/from java when we don't have the key id anymore
-            .setOutputPrefixType(OutputPrefixType.RAW)
+            .setOutputPrefixType(outputPrefixType)
             .setValue(format.toByteString)
             .build()
 
@@ -99,6 +108,16 @@ class TinkPrivateCrypto private (
 
   override protected[crypto] def generateSigningKeypair(scheme: SigningKeyScheme)(implicit
       traceContext: TraceContext
+  ): EitherT[Future, SigningKeyGenerationError, SigningKeyPair] =
+    generateSigningKeypairInternal(scheme)
+
+  /** @param outputPrefixType by default we use RAW key templates such that the
+    *                         signatures are not prefixed with a Tink prefix.
+    *                         MUST ONLY BE CHANGED FOR TESTING PURPOSES.
+    */
+  protected[crypto] def generateSigningKeypairInternal(
+      scheme: SigningKeyScheme,
+      outputPrefixType: OutputPrefixType = OutputPrefixType.RAW,
   ): EitherT[Future, SigningKeyGenerationError, SigningKeyPair] = {
     for {
       keyTemplate <- for {
@@ -114,15 +133,14 @@ class TinkPrivateCrypto private (
                 HashType.SHA384,
                 EllipticCurveType.NIST_P384,
                 EcdsaSignatureEncoding.DER,
-                OutputPrefixType.RAW,
+                outputPrefixType,
               )
             )
         }
       } yield {
-        // Uses RAW key templates such that the signatures are not prefixed with a Tink prefix.
         KeyTemplate
           .newBuilder(template)
-          .setOutputPrefixType(OutputPrefixType.RAW)
+          .setOutputPrefixType(outputPrefixType)
           .build()
       }
       keysetHandle <- generateKey[SigningKeyGenerationError](

@@ -6,6 +6,10 @@ package com.digitalasset.canton.crypto.provider.tink
 import cats.syntax.either.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.jce.JceSecurityProvider
+import com.digitalasset.canton.crypto.provider.tink.TinkKeyFormat.{
+  getFirstKey,
+  keyDataWithRawOutputPrefix,
+}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.google.crypto.tink.aead.AeadKeyTemplates
 import com.google.crypto.tink.hybrid.HybridKeyTemplates
@@ -13,7 +17,7 @@ import com.google.crypto.tink.proto.KeyData.KeyMaterialType
 import com.google.crypto.tink.proto.*
 import com.google.crypto.tink.subtle.EllipticCurves
 import com.google.crypto.tink.subtle.EllipticCurves.CurveType
-import com.google.crypto.tink.{KeysetHandle, proto as tinkproto}
+import com.google.crypto.tink.proto as tinkproto
 import com.google.protobuf.ByteString
 import org.bouncycastle.asn1.edec.EdECObjectIdentifiers
 import org.bouncycastle.asn1.x509.{AlgorithmIdentifier, SubjectPublicKeyInfo}
@@ -27,26 +31,6 @@ import java.security.{KeyFactory, NoSuchAlgorithmException, PublicKey as JPublic
 /** Converter methods from Tink to Java security keys and vice versa. */
 class TinkJavaConverter extends JavaKeyConverter {
   import com.digitalasset.canton.util.ShowUtil.*
-
-  /** Extract the first key from the keyset. In Canton we only deal with Tink keysets of size 1. */
-  private def getFirstKey(
-      keysetHandle: KeysetHandle
-  ): Either[JavaKeyConversionError, tinkproto.Keyset.Key] =
-    for {
-      // No other way to access the public key directly than going via protobuf
-      keysetProto <- ProtoConverter
-        .protoParser(tinkproto.Keyset.parseFrom)(TinkKeyFormat.serializeHandle(keysetHandle))
-        .leftMap(err =>
-          JavaKeyConversionError.InvalidKey(s"Failed to parser tink keyset proto: $err")
-        )
-      key <- Either.cond(
-        keysetProto.getKeyCount == 1,
-        keysetProto.getKey(0),
-        JavaKeyConversionError.InvalidKey(
-          s"Not exactly one key in the keyset, but ${keysetProto.getKeyCount} keys."
-        ),
-      )
-    } yield key
 
   /** Map EC-DSA public keys to the correct curves. */
   private def convertCurve(
@@ -347,21 +331,7 @@ class TinkJavaConverter extends JavaKeyConverter {
                 )
               )
           }
-
-          keyId = 0
-          key = tinkproto.Keyset.Key
-            .newBuilder()
-            .setKeyData(keydata)
-            .setStatus(KeyStatusType.ENABLED)
-            .setKeyId(keyId)
-            // Use RAW because we don't have the same key id prefix
-            .setOutputPrefixType(OutputPrefixType.RAW)
-            .build()
-
-          keyset = tinkproto.Keyset.newBuilder().setPrimaryKeyId(keyId).addKey(key).build()
-          keysetHandle <- TinkKeyFormat
-            .deserializeHandle(keyset.toByteString)
-            .leftMap(err => JavaKeyConversionError.InvalidKey(err.toString))
+          keysetHandle <- keyDataWithRawOutputPrefix(keydata)
         } yield new EncryptionPublicKey(
           fingerprint,
           CryptoKeyFormat.Tink,

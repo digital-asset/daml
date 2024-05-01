@@ -22,7 +22,8 @@ class TinkCryptoTest
     with HkdfTest
     with RandomTest
     with JavaPublicKeyConverterTest
-    with PublicKeyValidationTest {
+    with PublicKeyValidationTest
+    with TinkOutputPrefixTypeTest {
 
   "TinkCrypto" can {
 
@@ -72,6 +73,39 @@ class TinkCryptoTest
       Tink.signing.supported,
       Tink.encryption.supported,
       Tink.supportedCryptoKeyFormats,
+      tinkCrypto(),
+    )
+
+    // Test for output prefix type == TINK (since v2.7.0 default is RAW)
+    behave like javaPublicKeyConverterProvider(
+      Tink.signing.supported,
+      Tink.encryption.supported,
+      tinkCrypto(),
+      "Tink",
+      newSigningPublicKey =
+        (crypto, scheme) => generateSigningKeyWithTinkOutputPrefix(crypto, scheme).map(_.publicKey),
+      newEncryptionPublicKey = (crypto, scheme) =>
+        generateEncryptionKeyWithTinkOutputPrefix(crypto, scheme).map(_.publicKey),
+      "and with keys generated with TINK output prefix",
+    )
+
+    behave like javaPublicKeyConverterProviderOther(
+      Tink.signing.supported,
+      Tink.encryption.supported,
+      tinkCrypto(),
+      "JCE",
+      new JceJavaConverter(Jce.signing.supported, Jce.encryption.supported),
+      newSigningPublicKey =
+        (crypto, scheme) => generateSigningKeyWithTinkOutputPrefix(crypto, scheme).map(_.publicKey),
+      newEncryptionPublicKey = (crypto, scheme) =>
+        generateEncryptionKeyWithTinkOutputPrefix(crypto, scheme).map(_.publicKey),
+      "and with keys generated with TINK output prefix",
+    )
+
+    behave like handleTinkOutputPrefixType(
+      Tink.encryption.supported,
+      Tink.symmetric.supported,
+      Tink.signing.supported,
       tinkCrypto(),
     )
 
