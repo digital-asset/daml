@@ -12,20 +12,20 @@ object DefaultTestIdentities {
 
   private def createParticipantAndParty(counter: Int): (ParticipantId, PartyId) = {
     val namespace = Namespace(Fingerprint.tryCreate(s"participant$counter-identity"))
-    val id = ParticipantId(Identifier.tryCreate(s"participant$counter"), namespace)
-    val party = PartyId(UniqueIdentifier(Identifier.tryCreate(s"party$counter"), namespace))
+    val id = ParticipantId(UniqueIdentifier.tryCreate(s"participant$counter", namespace))
+    val party = PartyId(UniqueIdentifier.tryCreate(s"party$counter", namespace))
     (id, party)
   }
 
   val namespace = Namespace(Fingerprint.tryCreate("default"))
-  val uid = UniqueIdentifier(Identifier.tryCreate("da"), namespace)
+  val uid = UniqueIdentifier.tryCreate("da", namespace)
   val domainId = DomainId(uid)
 
   val daSequencerId = SequencerId(uid)
   val daMediator = MediatorId(uid)
 
-  val sequencerId = SequencerId(UniqueIdentifier(Identifier.tryCreate("sequencer"), namespace))
-  val mediatorId = MediatorId(UniqueIdentifier(Identifier.tryCreate("mediator"), namespace))
+  val sequencerId = SequencerId(UniqueIdentifier.tryCreate("sequencer", namespace))
+  val mediatorId = MediatorId(UniqueIdentifier.tryCreate("mediator", namespace))
 
   val (participant1, party1) = createParticipantAndParty(1)
   val (participant2, party2) = createParticipantAndParty(2)

@@ -21,7 +21,7 @@ import com.digitalasset.canton.sequencing.client.TestSubscriptionError.{
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, SequencedEvent, SignedContent}
 import com.digitalasset.canton.sequencing.{SequencerTestUtils, SerializedEventHandler}
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
-import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{DomainId, SequencerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import org.scalatest.Assertion
@@ -237,7 +237,7 @@ class ResilientSequencerSubscriptionTest
         }
 
       val resilientSequencerSubscription = new ResilientSequencerSubscription[TestHandlerError](
-        domainId,
+        SequencerId(domainId.uid),
         SequencerCounter(0),
         _ => Future.successful[Either[TestHandlerError, Unit]](Right(())),
         subscriptionFactory,
@@ -268,7 +268,7 @@ class ResilientSequencerSubscriptionTest
         }
 
       val resilientSequencerSubscription = new ResilientSequencerSubscription[TestHandlerError](
-        domainId,
+        SequencerId(domainId.uid),
         SequencerCounter(0),
         _ => Future.successful[Either[TestHandlerError, Unit]](Right(())),
         subscriptionFactory,
@@ -351,7 +351,7 @@ trait ResilientSequencerSubscriptionTestUtils {
       retryDelayRule: SubscriptionRetryDelayRule = retryDelay(),
   ): ResilientSequencerSubscription[TestHandlerError] = {
     val subscription = new ResilientSequencerSubscription(
-      domainId,
+      SequencerId(domainId.uid), // only used for logging
       SequencerCounter(0),
       _ => Future.successful[Either[TestHandlerError, Unit]](Right(())),
       subscriptionTestFactory,

@@ -59,10 +59,10 @@ class SequencedEventTestFixture(
     TestingIdentityFactory(loggerFactory).forOwnerAndDomain(sequencerAlice, defaultDomainId)
   lazy val updatedCounter: Long = 42L
   val sequencerBob: SequencerId = SequencerId(
-    UniqueIdentifier(Identifier.tryCreate("da2"), namespace)
+    UniqueIdentifier.tryCreate("da2", namespace)
   )
   val sequencerCarlos: SequencerId = SequencerId(
-    UniqueIdentifier(Identifier.tryCreate("da3"), namespace)
+    UniqueIdentifier.tryCreate("da3", namespace)
   )
   implicit val actorSystem: ActorSystem = ActorSystem(
     classOf[SequencedEventTestFixture].getSimpleName

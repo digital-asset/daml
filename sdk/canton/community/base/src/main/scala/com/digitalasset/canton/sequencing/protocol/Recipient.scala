@@ -15,7 +15,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{Member, PartyId, SafeSimpleString, UniqueIdentifier}
+import com.digitalasset.canton.topology.{Member, PartyId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -39,7 +39,7 @@ object Recipient {
       recipient: String,
       fieldName: String,
   ): ParsingResult[Recipient] = {
-    val dlen = SafeSimpleString.delimiter.length
+    val dlen = UniqueIdentifier.delimiter.length
     val (typ, rest) = {
       val (code, str) = recipient.splitAt(3)
       (code, str.drop(dlen))
@@ -59,11 +59,11 @@ object Recipient {
           ),
         )
         _ <- Either.cond(
-          recipient.substring(3, 3 + dlen) == SafeSimpleString.delimiter,
+          recipient.substring(3, 3 + dlen) == UniqueIdentifier.delimiter,
           (),
           ValueConversionError(
             fieldName,
-            s"Expected delimiter ${SafeSimpleString.delimiter} after three letter code of `$recipient`",
+            s"Expected delimiter ${UniqueIdentifier.delimiter} after three letter code of `$recipient`",
           ),
         )
         code <- codeE
@@ -126,7 +126,7 @@ sealed trait GroupRecipient extends Recipient {
 
   def toLengthLimitedString: String300 =
     String300.tryCreate(
-      s"${code.threeLetterId.unwrap}${SafeSimpleString.delimiter}$suffix"
+      s"${code.threeLetterId.unwrap}${UniqueIdentifier.delimiter}$suffix"
     )
 }
 

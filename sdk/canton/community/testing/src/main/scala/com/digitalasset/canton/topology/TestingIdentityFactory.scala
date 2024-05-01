@@ -525,7 +525,7 @@ class TestingIdentityFactory(
   private def keyFingerprintForOwner(owner: Member): Fingerprint =
     // We are converting an Identity (limit of 185 characters) to a Fingerprint (limit of 68 characters) - this would be
     // problematic if this function wasn't only used for testing
-    Fingerprint.tryCreate(owner.identifier.toLengthLimitedString.unwrap)
+    Fingerprint.tryCreate(owner.uid.identifier.unwrap)
 
   def newCrypto(
       owner: Member,
@@ -594,7 +594,7 @@ class TestingOwnerWithKeys(
   object TestingTransactions {
     import SigningKeys.*
     val namespaceKey = key1
-    val uid2 = uid.copy(identifier = Identifier.tryCreate("second"))
+    val uid2 = UniqueIdentifier.tryCreate("second", uid.namespace)
     val ts = CantonTimestamp.Epoch
     val ts1 = ts.plusSeconds(1)
     val ns1k1 = mkAdd(
@@ -613,8 +613,14 @@ class TestingOwnerWithKeys(
     )
     val id1k1 = mkAdd(IdentifierDelegation(uid, key1))
     val id2k2 = mkAdd(IdentifierDelegation(uid2, key2))
-    val seq_okm_k2 = mkAdd(OwnerToKeyMapping(sequencerId, None, NonEmpty(Seq, key2)))
-    val med_okm_k3 = mkAdd(OwnerToKeyMapping(mediatorId, None, NonEmpty(Seq, key3)))
+    val seq_okm_k2 = mkAddMultiKey(
+      OwnerToKeyMapping(sequencerId, None, NonEmpty(Seq, key2)),
+      NonEmpty(Set, namespaceKey, key2),
+    )
+    val med_okm_k3 = mkAddMultiKey(
+      OwnerToKeyMapping(mediatorId, None, NonEmpty(Seq, key3)),
+      NonEmpty(Set, namespaceKey, key3),
+    )
     val dtc1m =
       DomainTrustCertificate(
         participant1,
@@ -666,14 +672,17 @@ class TestingOwnerWithKeys(
     val p1_dtc = mkAdd(DomainTrustCertificate(participant1, domainId, false, Seq.empty))
     val p2_dtc = mkAdd(DomainTrustCertificate(participant2, domainId, false, Seq.empty))
     val p3_dtc = mkAdd(DomainTrustCertificate(participant3, domainId, false, Seq.empty))
-    val p1_otk = mkAdd(
-      OwnerToKeyMapping(participant1, None, NonEmpty(Seq, EncryptionKeys.key1, SigningKeys.key1))
+    val p1_otk = mkAddMultiKey(
+      OwnerToKeyMapping(participant1, None, NonEmpty(Seq, EncryptionKeys.key1, SigningKeys.key1)),
+      NonEmpty(Set, key1),
     )
-    val p2_otk = mkAdd(
-      OwnerToKeyMapping(participant2, None, NonEmpty(Seq, EncryptionKeys.key2, SigningKeys.key2))
+    val p2_otk = mkAddMultiKey(
+      OwnerToKeyMapping(participant2, None, NonEmpty(Seq, EncryptionKeys.key2, SigningKeys.key2)),
+      NonEmpty(Set, key2),
     )
-    val p3_otk = mkAdd(
-      OwnerToKeyMapping(participant3, None, NonEmpty(Seq, EncryptionKeys.key3, SigningKeys.key3))
+    val p3_otk = mkAddMultiKey(
+      OwnerToKeyMapping(participant3, None, NonEmpty(Seq, EncryptionKeys.key3, SigningKeys.key3)),
+      NonEmpty(Set, key3),
     )
 
     val p1_pdp_observation = mkAdd(
@@ -698,7 +707,7 @@ class TestingOwnerWithKeys(
 
     val p1p1 = mkAdd(
       PartyToParticipant(
-        PartyId(UniqueIdentifier(Identifier.tryCreate("one"), Namespace(key1.id))),
+        PartyId(UniqueIdentifier.tryCreate("one", key1.id)),
         None,
         PositiveInt.one,
         Seq(HostingParticipant(participant1, ParticipantPermission.Submission)),
@@ -882,6 +891,6 @@ object TestingIdentityFactory {
   private def keyFingerprintForOwner(owner: Member): Fingerprint =
     // We are converting an Identity (limit of 185 characters) to a Fingerprint (limit of 68 characters) - this would be
     // problematic if this function wasn't only used for testing
-    Fingerprint.tryCreate(owner.identifier.toLengthLimitedString.unwrap)
+    Fingerprint.tryCreate(owner.uid.identifier.str)
 
 }

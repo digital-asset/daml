@@ -65,14 +65,14 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
   private val bob: Member = ParticipantId("bob")
   private val ts0 = CantonTimestamp.Epoch
   private val domainId = DefaultTestIdentities.domainId
-  private val topologyClientMember = SequencerId(domainId)
+  private val topologyClientMember = SequencerId(domainId.uid)
   private val crypto = TestingTopology(sequencerGroup =
     SequencerGroup(
-      active = NonEmpty.mk(Seq, SequencerId(domainId)),
+      active = NonEmpty.mk(Seq, SequencerId(domainId.uid)),
       passive = Seq.empty,
       threshold = PositiveInt.one,
     )
-  ).build(loggerFactory).forOwner(SequencerId(domainId))
+  ).build(loggerFactory).forOwner(SequencerId(domainId.uid))
   private val cryptoD =
     valueOrFail(crypto.forDomain(domainId).toRight("no crypto api"))("domain crypto")
   private val instanceDiscriminator = new UUID(1L, 2L)

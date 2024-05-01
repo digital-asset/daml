@@ -303,11 +303,6 @@ private class ForwardingTopologySnapshotClient(
   )(implicit traceContext: TraceContext) =
     parent.loadBatchActiveParticipantsOf(parties, loadParticipantStates)
 
-  override def trafficControlStatus(
-      members: Seq[Member]
-  )(implicit traceContext: TraceContext): Future[Map[Member, Option[MemberTrafficControlState]]] =
-    parent.trafficControlStatus(members)
-
   /** Returns the Authority-Of delegations for consortium parties. Non-consortium parties delegate to themselves
     * with threshold one
     */
@@ -401,19 +396,6 @@ class CachingTopologySnapshot(
     new AtomicReference[
       Option[Future[Seq[DynamicDomainParametersWithValidity]]]
     ](None)
-
-  private val domainTrafficControlStateCache =
-    TracedScaffeine
-      .buildTracedAsyncFuture[Member, Option[MemberTrafficControlState]](
-        cache = cachingConfigs.trafficStatusCache.buildScaffeine(),
-        loader = traceContext =>
-          member =>
-            parent
-              .trafficControlStatus(Seq(member))(traceContext)
-              .map(_.get(member).flatten),
-        allLoader =
-          Some(traceContext => members => parent.trafficControlStatus(members.toSeq)(traceContext)),
-      )(logger)
 
   private val authorityOfCache =
     TracedScaffeine
@@ -536,10 +518,4 @@ class CachingTopologySnapshot(
       parties: Set[LfPartyId]
   )(implicit traceContext: TraceContext): Future[PartyTopologySnapshotClient.AuthorityOfResponse] =
     authorityOfCache.get(parties)
-
-  override def trafficControlStatus(
-      members: Seq[Member]
-  )(implicit traceContext: TraceContext): Future[Map[Member, Option[MemberTrafficControlState]]] = {
-    domainTrafficControlStateCache.getAll(members)
-  }
 }

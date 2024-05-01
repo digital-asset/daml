@@ -9,24 +9,18 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.{FieldNotSet, ProtoDeserializationFailure}
-import com.digitalasset.canton.crypto.{Crypto, Fingerprint, Hash}
+import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.protocol.v30.TopologyMapping.Mapping
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.admin.v30.AuthorizeRequest.{Proposal, Type}
 import com.digitalasset.canton.topology.admin.v30.ImportTopologySnapshotRequest
-import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
-import com.digitalasset.canton.topology.store.{
-  StoredTopologyTransactions,
-  TopologyStore,
-  TopologyStoreId,
-}
+import com.digitalasset.canton.topology.store.{StoredTopologyTransactions, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.topology.transaction.*
@@ -38,10 +32,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcTopologyManagerWriteService(
     managers: => Seq[TopologyManager[TopologyStoreId]],
-    topologyStore: TopologyStore[AuthorizedStore],
-    getId: => Option[UniqueIdentifier],
     crypto: Crypto,
-    clock: Clock,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends v30.TopologyManagerWriteServiceGrpc.TopologyManagerWriteService
@@ -116,8 +107,6 @@ class GrpcTopologyManagerWriteService(
               VettedPackages.fromProtoV30(mapping)
             case Mapping.ParticipantPermission(mapping) =>
               ParticipantDomainPermission.fromProtoV30(mapping)
-            case Mapping.TrafficControlState(mapping) =>
-              TrafficControlState.fromProtoV30(mapping)
             case Mapping.PartyHostingLimits(mapping) =>
               PartyHostingLimits.fromProtoV30(mapping)
             case Mapping.PurgeTopologyTxs(mapping) =>
@@ -227,7 +216,11 @@ class GrpcTopologyManagerWriteService(
       manager <- targetManagerET(store)
       // TODO(#12390) let the caller decide whether to expect full authorization or not?
       _ <- manager
-        .add(signedTxs, force = forceChange, expectFullAuthorization = false)
+        .add(
+          signedTxs,
+          force = forceChange,
+          expectFullAuthorization = false,
+        )
         .leftWiden[CantonError]
     } yield ()
 

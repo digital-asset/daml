@@ -24,7 +24,6 @@ final case class SequencerNodeParameterConfig(
     maxConfirmationRequestsBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.5),
     override val batching: BatchingConfig = BatchingConfig(),
     override val caching: CachingConfigs = CachingConfigs(),
-    override val useNewTrafficControl: Boolean = false,
     override val useUnifiedSequencer: Boolean = false,
 ) extends ProtocolConfig
     with LocalNodeParametersConfig

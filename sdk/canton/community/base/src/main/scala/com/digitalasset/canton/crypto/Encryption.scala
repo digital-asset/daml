@@ -9,7 +9,6 @@ import cats.instances.future.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.config.CantonRequireTypes.String68
 import com.digitalasset.canton.crypto.store.{
   CryptoPrivateStoreError,
   CryptoPrivateStoreExtended,
@@ -191,7 +190,7 @@ final case class AsymmetricEncrypted[+M](
 }
 
 object AsymmetricEncrypted {
-  val noEncryptionFingerprint = Fingerprint(String68.tryCreate("no-encryption"))
+  val noEncryptionFingerprint = Fingerprint.tryCreate("no-encryption")
 }
 
 /** Key schemes for asymmetric/hybrid encryption. */

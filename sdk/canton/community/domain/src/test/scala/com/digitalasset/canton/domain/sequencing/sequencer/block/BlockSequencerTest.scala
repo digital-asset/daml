@@ -112,7 +112,7 @@ class BlockSequencerTest
           topologyTransactionFactory.ns1k1_k1,
           topologyTransactionFactory.okmS1k7_k1,
           topologyTransactionFactory.dmp1_k1,
-          topologyTransactionFactory.okm1bk5_k1, // this one to allow verification of the sender's signature
+          topologyTransactionFactory.okm1bk5k1E_k1, // this one to allow verification of the sender's signature
         ).map(ValidatedTopologyTransaction(_, rejectionReason = None)),
       )
       .futureValue

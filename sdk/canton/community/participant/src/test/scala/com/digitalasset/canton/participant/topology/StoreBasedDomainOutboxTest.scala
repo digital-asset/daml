@@ -64,10 +64,10 @@ class StoreBasedDomainOutboxTest
   private val transactions =
     Seq[TopologyMapping](
       NamespaceDelegation.tryCreate(namespace, publicKey, isRootDelegation = true),
-      IdentifierDelegation(UniqueIdentifier(Identifier.tryCreate("alpha"), namespace), publicKey),
-      IdentifierDelegation(UniqueIdentifier(Identifier.tryCreate("beta"), namespace), publicKey),
-      IdentifierDelegation(UniqueIdentifier(Identifier.tryCreate("gamma"), namespace), publicKey),
-      IdentifierDelegation(UniqueIdentifier(Identifier.tryCreate("delta"), namespace), publicKey),
+      IdentifierDelegation(UniqueIdentifier.tryCreate("alpha", namespace), publicKey),
+      IdentifierDelegation(UniqueIdentifier.tryCreate("beta", namespace), publicKey),
+      IdentifierDelegation(UniqueIdentifier.tryCreate("gamma", namespace), publicKey),
+      IdentifierDelegation(UniqueIdentifier.tryCreate("delta", namespace), publicKey),
     ).map(txAddFromMapping)
   private val slice1 = transactions.slice(0, 2)
   private val slice2 = transactions.slice(slice1.length, transactions.length)
@@ -89,6 +89,7 @@ class StoreBasedDomainOutboxTest
       timeouts,
     )
     val manager = new AuthorizedTopologyManager(
+      participant1.uid,
       clock,
       crypto,
       source,
@@ -347,7 +348,7 @@ class StoreBasedDomainOutboxTest
       val another =
         txAddFromMapping(
           IdentifierDelegation(
-            UniqueIdentifier(Identifier.tryCreate("eta"), namespace),
+            UniqueIdentifier.tryCreate("eta", namespace),
             publicKey,
           )
         )

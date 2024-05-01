@@ -23,8 +23,6 @@ import com.digitalasset.canton.topology.admin.v30.{
   ListPartyHostingLimitsResponse,
   ListPurgeTopologyTransactionRequest,
   ListPurgeTopologyTransactionResponse,
-  ListTrafficStateRequest,
-  ListTrafficStateResponse,
 }
 import com.digitalasset.canton.topology.admin.v30 as adminProto
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
@@ -52,7 +50,6 @@ import com.digitalasset.canton.topology.transaction.{
   SignedTopologyTransaction,
   TopologyChangeOp,
   TopologyMapping,
-  TrafficControlState,
   VettedPackages,
 }
 import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
@@ -783,33 +780,6 @@ class GrpcTopologyManagerReadService(
         }
 
       adminProto.ListPurgeTopologyTransactionResponse(results = results)
-    }
-    CantonGrpcUtil.mapErrNew(ret)
-  }
-
-  override def listTrafficState(
-      request: ListTrafficStateRequest
-  ): Future[ListTrafficStateResponse] = {
-    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val (idFilter, namespaceFilter) = UniqueIdentifier.splitFilter(request.filterMember)
-    val ret = for {
-      res <- collectFromStores(
-        request.baseQuery,
-        TrafficControlState.code,
-        idFilter = Some(idFilter),
-        namespaceFilter = Some(namespaceFilter),
-      )
-    } yield {
-      val results = res
-        .collect { case (result, x: TrafficControlState) => (result, x) }
-        .map { case (context, elem) =>
-          new adminProto.ListTrafficStateResponse.Result(
-            context = Some(createBaseResult(context)),
-            item = Some(elem.toProto),
-          )
-        }
-
-      adminProto.ListTrafficStateResponse(results = results)
     }
     CantonGrpcUtil.mapErrNew(ret)
   }

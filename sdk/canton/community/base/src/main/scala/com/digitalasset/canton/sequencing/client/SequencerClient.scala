@@ -1100,7 +1100,7 @@ class RichSequencerClientImpl(
     )
 
     val subscription = ResilientSequencerSubscription[SequencerClientSubscriptionError](
-      domainId,
+      sequencerId,
       protocolVersion,
       member,
       sequencersTransportState.transport(sequencerId),

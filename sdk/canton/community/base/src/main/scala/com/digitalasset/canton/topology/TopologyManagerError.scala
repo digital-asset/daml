@@ -500,6 +500,29 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         with TopologyManagerError
   }
 
+  @Explanation(
+    """This error indicates that a participant is trying to rescind their domain trust certificate
+      |while still hosting parties."""
+  )
+  @Resolution(
+    """The participant should work with the owners of the parties mentioned in the ``parties`` field in the
+      |error details metadata to get itself removed from the list of hosting participants of those parties."""
+  )
+  object InvalidTopologyMapping
+      extends ErrorCode(
+        id = "INVALID_TOPOLOGY_MAPPING",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Reject(
+        description: String
+    )(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"The topology transaction was rejected due to an invalid mapping: $description"
+        )
+        with TopologyManagerError
+  }
+
   abstract class DomainErrorGroup extends ErrorGroup()
   abstract class ParticipantErrorGroup extends ErrorGroup()
 

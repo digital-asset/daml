@@ -121,8 +121,6 @@ trait InstanceReference
   private lazy val trafficControl_ =
     new TrafficControlAdministrationGroup(
       this,
-      topology,
-      this,
       consoleEnvironment,
       loggerFactory,
     )
@@ -800,8 +798,6 @@ abstract class SequencerNodeReference(
     )
 
   private lazy val sequencerTrafficControl = new TrafficControlSequencerAdministrationGroup(
-    this,
-    topology,
     this,
     consoleEnvironment,
     loggerFactory,

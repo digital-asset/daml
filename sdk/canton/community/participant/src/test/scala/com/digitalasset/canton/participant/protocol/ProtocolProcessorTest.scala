@@ -232,6 +232,7 @@ class ProtocolProcessorTest
     val clock = new WallClock(timeouts, loggerFactory)
     val persistentState =
       new InMemorySyncDomainPersistentState(
+        participant,
         clock,
         crypto.crypto,
         IndexedDomain.tryCreate(domain, 1),
