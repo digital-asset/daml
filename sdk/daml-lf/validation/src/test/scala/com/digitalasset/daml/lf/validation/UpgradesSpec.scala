@@ -492,8 +492,8 @@ trait LongTests { this: UpgradesSpec =>
 
     "Succeeds when a top-level enum changes" in {
       testPackagePair(
-        "test-common/upgrades-FailsWhenATopLevelEnumChanges-v1.dar",
-        "test-common/upgrades-FailsWhenATopLevelEnumChanges-v2.dar",
+        "test-common/upgrades-SucceedsWhenATopLevelEnumChanges-v1.dar",
+        "test-common/upgrades-SucceedsWhenATopLevelEnumChanges-v2.dar",
         assertPackageUpgradeCheck(None),
       )
     }

@@ -182,7 +182,6 @@ _daml_build = rule(
             doc = "The generated DAR file.",
         ),
         "stdout": attr.output(
-            mandatory = True,
             doc = "The standard output of the build command.",
         ),
         "ghc_options": attr.string_list(

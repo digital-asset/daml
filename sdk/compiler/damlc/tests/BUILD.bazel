@@ -454,7 +454,7 @@ da_haskell_test(
         "//test-common:upgrades-CannotUpgradeView-files",
         "//test-common:upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-files",
         "//test-common:upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-files",
-        "//test-common:upgrades-FailsWhenATopLevelEnumChanges-files",
+        "//test-common:upgrades-SucceedsWhenATopLevelEnumChanges-files",
         "//test-common:upgrades-FailsWhenATopLevelRecordAddsANonOptionalField-files",
         "//test-common:upgrades-FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd-files",
         "//test-common:upgrades-FailsWhenATopLevelVariantAddsAFieldToAVariantsType-files",
