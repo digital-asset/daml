@@ -8,16 +8,21 @@ import cats.syntax.foldable.*
 import com.digitalasset.canton.config.CommunityCryptoProvider.Tink
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.HkdfError.{HkdfHmacError, HkdfInternalError}
+import com.digitalasset.canton.crypto.SymmetricKeyScheme.Aes128Gcm
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.CryptoKeyConverter
+import com.digitalasset.canton.crypto.provider.tink.TinkKeyFormat.{
+  convertKeysetHandleToRawOutputPrefix,
+  retryIfTinkPrefix,
+}
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
 import com.google.crypto.tink
-import com.google.crypto.tink.aead.AeadKeyTemplates
 import com.google.crypto.tink.config.TinkConfig
+import com.google.crypto.tink.proto.{AesGcmKeyFormat, KeyTemplate, OutputPrefixType}
 import com.google.crypto.tink.subtle.{Hkdf, Random}
 import com.google.crypto.tink.{KeysetHandle, proto as tinkproto}
 import com.google.protobuf.ByteString
@@ -65,6 +70,8 @@ class TinkPureCrypto private (
                 .leftMap(KeyParseAndValidateError)
               handle <- TinkKeyFormat
                 .deserializeHandle(tinkPublicKey.key)
+                // we always make sure we use RAW key templates
+                .flatMap(convertKeysetHandleToRawOutputPrefix)
                 .leftMap(err => KeyParseAndValidateError(s"Deserialization error: $err"))
             } yield handle
           },
@@ -99,11 +106,14 @@ class TinkPureCrypto private (
               key.id,
               TinkKeyFormat
                 .deserializeHandle(privateKey.key)
+                // we always make sure we use RAW key templates
+                .flatMap(convertKeysetHandleToRawOutputPrefix)
                 .leftMap(err => KeyParseAndValidateError(s"Deserialization error: $err")),
             )
         case _: SymmetricKey =>
           TinkKeyFormat
             .deserializeHandle(privateKey.key)
+            .flatMap(convertKeysetHandleToRawOutputPrefix)
             .leftMap(err => KeyParseAndValidateError(s"Deserialization error: $err"))
         case _ => Left(KeyParseAndValidateError("Key is not a private or symmetric key"))
       }
@@ -147,31 +157,36 @@ class TinkPureCrypto private (
     )
 
   private def decryptWith[M](
-      encrypted: Encrypted[M],
-      decrypt: Array[Byte] => Array[Byte],
-      deserialize: ByteString => Either[DeserializationError, M],
-  ): Either[DecryptionError, M] = decryptWith(encrypted.ciphertext, decrypt, deserialize)
-
-  private def decryptWith[M](
       ciphertext: ByteString,
       decrypt: Array[Byte] => Array[Byte],
-      deserialize: ByteString => Either[DeserializationError, M],
-  ): Either[DecryptionError, M] =
+  ): Either[DecryptionError, Array[Byte]] =
     Either
       .catchOnly[GeneralSecurityException](decrypt(ciphertext.toByteArray))
       .leftMap(err => DecryptionError.FailedToDecrypt(ErrorUtil.messageWithStacktrace(err)))
-      .flatMap(plain =>
-        deserialize(ByteString.copyFrom(plain)).leftMap(DecryptionError.FailedToDeserialize)
-      )
 
   /** Generates a random symmetric key */
   override def generateSymmetricKey(
       scheme: SymmetricKeyScheme = defaultSymmetricKeyScheme
+  ): Either[EncryptionKeyGenerationError, SymmetricKey] =
+    generateSymmetricKeyInternal(scheme)
+
+  /** @param outputPrefixType by default we use RAW key templates such that the
+    *                         ciphertexts are not prefixed with a Tink prefix.
+    *                         MUST ONLY BE CHANGED FOR TESTING PURPOSES.
+    */
+  def generateSymmetricKeyInternal(
+      scheme: SymmetricKeyScheme = defaultSymmetricKeyScheme,
+      outputPrefixType: OutputPrefixType = OutputPrefixType.RAW,
   ): Either[EncryptionKeyGenerationError, SymmetricKey] = {
     val keyTemplate = scheme match {
-      case SymmetricKeyScheme.Aes128Gcm => AeadKeyTemplates.AES128_GCM
+      case SymmetricKeyScheme.Aes128Gcm =>
+        val format = AesGcmKeyFormat.newBuilder.setKeySize(Aes128Gcm.keySizeInBytes).build
+        KeyTemplate.newBuilder
+          .setValue(format.toByteString)
+          .setTypeUrl("type.googleapis.com/google.crypto.tink.AesGcmKey")
+          .setOutputPrefixType(outputPrefixType)
+          .build
     }
-
     Either
       .catchOnly[GeneralSecurityException](KeysetHandle.generateNew(keyTemplate))
       .bimap(
@@ -186,6 +201,17 @@ class TinkPureCrypto private (
   override def createSymmetricKey(
       bytes: SecureRandomness,
       scheme: SymmetricKeyScheme,
+  ): Either[EncryptionKeyCreationError, SymmetricKey] =
+    createSymmetricKeyInternal(bytes, scheme)
+
+  /** @param outputPrefixType by default we use RAW key templates such that the
+    *                         ciphertexts are not prefixed with a Tink prefix.
+    *                         MUST ONLY BE CHANGED FOR TESTING PURPOSES.
+    */
+  private def createSymmetricKeyInternal(
+      bytes: SecureRandomness,
+      scheme: SymmetricKeyScheme,
+      outputPrefixType: OutputPrefixType = OutputPrefixType.RAW,
   ): Either[EncryptionKeyCreationError, SymmetricKey] = {
     val keyData = scheme match {
       case SymmetricKeyScheme.Aes128Gcm =>
@@ -209,7 +235,7 @@ class TinkPureCrypto private (
       .setKeyData(keyData)
       .setStatus(tinkproto.KeyStatusType.ENABLED)
       .setKeyId(keyId)
-      .setOutputPrefixType(tinkproto.OutputPrefixType.RAW)
+      .setOutputPrefixType(outputPrefixType)
       .build()
 
     val keyset = tinkproto.Keyset.newBuilder().setPrimaryKeyId(keyId).addKey(key).build()
@@ -248,18 +274,33 @@ class TinkPureCrypto private (
   /** Decrypts a message encrypted using `encryptWith` */
   override def decryptWith[M](encrypted: Encrypted[M], symmetricKey: SymmetricKey)(
       deserialize: ByteString => Either[DeserializationError, M]
-  ): Either[DecryptionError, M] =
+  ): Either[DecryptionError, M] = {
+
+    def decryptFunc(keysetHandle: KeysetHandle, ciphertext: ByteString) =
+      for {
+        aead <- getPrimitive[tink.Aead, DecryptionError](
+          keysetHandle,
+          DecryptionError.InvalidSymmetricKey,
+        )
+        plaintext <- decryptWith(
+          ciphertext,
+          in => aead.decrypt(in, Array[Byte]()),
+        )
+      } yield plaintext
+
     for {
       keysetHandle <- parseAndGetPrivateKey(
         symmetricKey,
         DecryptionError.InvalidSymmetricKey,
       )
-      aead <- getPrimitive[tink.Aead, DecryptionError](
-        keysetHandle,
-        DecryptionError.InvalidSymmetricKey,
+      // we start by trying to decrypt the original ciphertext if it does not work we look for a TINK prefix and strip it
+      plaintext <- retryIfTinkPrefix(encrypted.ciphertext)(ciphertext =>
+        decryptFunc(keysetHandle, ciphertext)
       )
-      msg <- decryptWith(encrypted, in => aead.decrypt(in, Array[Byte]()), deserialize)
+      msg <- deserialize(ByteString.copyFrom(plaintext))
+        .leftMap(DecryptionError.FailedToDeserialize)
     } yield msg
+  }
 
   /** Encrypts the given message using the given public key. */
   override def encryptWith[M <: HasVersionedToByteString](
@@ -282,18 +323,33 @@ class TinkPureCrypto private (
       privateKey: EncryptionPrivateKey,
   )(
       deserialize: ByteString => Either[DeserializationError, M]
-  ): Either[DecryptionError, M] =
+  ): Either[DecryptionError, M] = {
+
+    def decryptFunc(keysetHandle: KeysetHandle, ciphertext: ByteString) =
+      for {
+        hybrid <- getPrimitive[tink.HybridDecrypt, DecryptionError](
+          keysetHandle,
+          DecryptionError.InvalidEncryptionKey,
+        )
+        plaintext <- decryptWith(
+          ciphertext,
+          in => hybrid.decrypt(in, Array[Byte]()),
+        )
+      } yield plaintext
+
     for {
       keysetHandle <- parseAndGetPrivateKey(
         privateKey,
         DecryptionError.InvalidEncryptionKey,
       )
-      hybrid <- getPrimitive[tink.HybridDecrypt, DecryptionError](
-        keysetHandle,
-        DecryptionError.InvalidEncryptionKey,
+      // we start by trying to decrypt the original ciphertext if it does not work we look for a TINK prefix and strip it
+      plaintext <- retryIfTinkPrefix(encrypted.ciphertext)(ciphertext =>
+        decryptFunc(keysetHandle, ciphertext)
       )
-      msg <- decryptWith(encrypted.ciphertext, in => hybrid.decrypt(in, Array[Byte]()), deserialize)
+      msg <- deserialize(ByteString.copyFrom(plaintext))
+        .leftMap(DecryptionError.FailedToDeserialize)
     } yield msg
+  }
 
   override protected[crypto] def sign(
       bytes: ByteString,
@@ -325,7 +381,24 @@ class TinkPureCrypto private (
       bytes: ByteString,
       publicKey: SigningPublicKey,
       signature: Signature,
-  ): Either[SignatureCheckError, Unit] =
+  ): Either[SignatureCheckError, Unit] = {
+
+    def verifySignatureFunc(keysetHandle: KeysetHandle, signatureBytes: ByteString) =
+      for {
+        verify <- getPrimitive[tink.PublicKeyVerify, SignatureCheckError](
+          keysetHandle,
+          SignatureCheckError.InvalidKeyError,
+        )
+        _ <- Either
+          .catchOnly[GeneralSecurityException](
+            verify.verify(signatureBytes.toByteArray, bytes.toByteArray)
+          )
+          .leftMap(err =>
+            SignatureCheckError
+              .InvalidSignature(signature, bytes, show"Failed to verify signature: $err")
+          )
+      } yield ()
+
     for {
       _ <- Either.cond(
         signature.signedBy == publicKey.id,
@@ -335,19 +408,12 @@ class TinkPureCrypto private (
         ),
       )
       keysetHandle <- parseAndGetPublicKey(publicKey, SignatureCheckError.InvalidKeyError)
-      verify <- getPrimitive[tink.PublicKeyVerify, SignatureCheckError](
-        keysetHandle,
-        SignatureCheckError.InvalidKeyError,
+      // we start by trying to verify the original signature if it does not work we look for a TINK prefix and strip it
+      _ <- retryIfTinkPrefix(signature.unwrap)(signatureBytes =>
+        verifySignatureFunc(keysetHandle, signatureBytes)
       )
-      _ <- Either
-        .catchOnly[GeneralSecurityException](
-          verify.verify(signature.unwrap.toByteArray, bytes.toByteArray)
-        )
-        .leftMap(err =>
-          SignatureCheckError
-            .InvalidSignature(signature, bytes, show"Failed to verify signature: $err")
-        )
     } yield ()
+  }
 
   override protected def computeHkdfInternal(
       keyMaterial: ByteString,

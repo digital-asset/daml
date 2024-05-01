@@ -12,6 +12,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.deterministic.encryption.DeterministicRandom
 import com.digitalasset.canton.crypto.provider.CryptoKeyConverter
 import com.digitalasset.canton.crypto.provider.tink.TinkJavaConverter
+import com.digitalasset.canton.crypto.provider.tink.TinkKeyFormat.retryIfTinkPrefix
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.{
   DefaultDeserializationError,
@@ -431,14 +432,20 @@ class JcePureCrypto(
   ): Either[SignatureCheckError, Unit] = {
 
     def verify(verifier: PublicKeyVerify): Either[SignatureCheckError, Unit] =
-      Either
-        .catchOnly[GeneralSecurityException](
-          verifier.verify(signature.unwrap.toByteArray, bytes.toByteArray)
-        )
-        .leftMap(err =>
-          SignatureCheckError
-            .InvalidSignature(signature, bytes, s"Failed to verify signature: $err")
-        )
+      retryIfTinkPrefix(signature.unwrap) { signatureBytes =>
+        Either
+          .catchOnly[GeneralSecurityException](
+            verifier.verify(signatureBytes.toByteArray, bytes.toByteArray)
+          )
+          .leftMap(err =>
+            SignatureCheckError
+              .InvalidSignature(
+                signature,
+                bytes,
+                s"Failed to verify signature: $err",
+              )
+          )
+      }
 
     for {
       _ <- Either.cond(
@@ -469,8 +476,10 @@ class JcePureCrypto(
             _ <- verify(verifier)
           } yield ()
 
-        case SigningKeyScheme.EcDsaP256 => ecDsaVerifier(publicKey, HashType.SHA256).flatMap(verify)
-        case SigningKeyScheme.EcDsaP384 => ecDsaVerifier(publicKey, HashType.SHA384).flatMap(verify)
+        case SigningKeyScheme.EcDsaP256 =>
+          ecDsaVerifier(publicKey, HashType.SHA256).flatMap(verify)
+        case SigningKeyScheme.EcDsaP384 =>
+          ecDsaVerifier(publicKey, HashType.SHA384).flatMap(verify)
       }
     } yield ()
   }
@@ -702,15 +711,52 @@ class JcePureCrypto(
               )
             )
             .leftMap(err => DecryptionError.InvalidEncryptionKey(err.toString))
-          plaintext <- Either
-            .catchOnly[GeneralSecurityException](
-              decrypter.decrypt(encrypted.ciphertext.toByteArray, Array[Byte]())
-            )
-            .leftMap(err => DecryptionError.FailedToDecrypt(err.toString))
+          plaintext <- retryIfTinkPrefix(encrypted.ciphertext) { ciphertext =>
+            Either
+              .catchOnly[GeneralSecurityException](
+                decrypter.decrypt(ciphertext.toByteArray, Array[Byte]())
+              )
+              .leftMap(err => DecryptionError.FailedToDecrypt(err.toString))
+          }
           message <- deserialize(ByteString.copyFrom(plaintext))
             .leftMap(DecryptionError.FailedToDeserialize)
         } yield message
       case EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc =>
+        def decryptEciesCbc(ecPrivateKey: ECPrivateKey, ciphertextNotSplitted: ByteString) = {
+          for {
+            /* we split at 'ivSizeForAesCbc' (=16) because that is the size of our iv (for AES-128-CBC)
+             * that gets  pre-appended to the ciphertext.
+             */
+            ciphertextSplit <- DeterministicEncoding
+              .splitAt(
+                EciesP256HmacSha256Aes128CbcParams.ivSizeForAesCbcInBytes,
+                ciphertextNotSplitted,
+              )
+              .leftMap(err =>
+                DecryptionError.FailedToDeserialize(DefaultDeserializationError(err.show))
+              )
+            (iv, ciphertext) = ciphertextSplit
+            decrypter <- Either
+              .catchOnly[GeneralSecurityException] {
+                val cipher = Cipher
+                  .getInstance(
+                    EciesP256HmacSha256Aes128CbcParams.jceInternalName,
+                    JceSecurityProvider.bouncyCastleProvider,
+                  )
+                cipher.init(
+                  Cipher.DECRYPT_MODE,
+                  ecPrivateKey,
+                  EciesP256HmacSha256Aes128CbcParams.parameterSpec(iv.toByteArray),
+                )
+                cipher
+              }
+              .leftMap(err => DecryptionError.InvalidEncryptionKey(err.toString))
+            plaintext <- Either
+              .catchOnly[GeneralSecurityException](decrypter.doFinal(ciphertext.toByteArray))
+              .leftMap(err => DecryptionError.FailedToDecrypt(err.toString))
+          } yield plaintext
+        }
+
         for {
           ecPrivateKey <- parseAndGetPrivateKey(
             privateKey,
@@ -721,42 +767,43 @@ class JcePureCrypto(
             },
             DecryptionError.InvalidEncryptionKey,
           )
-          /* we split at 'ivSizeForAesCbc' (=16) because that is the size of our iv (for AES-128-CBC)
-           * that gets  pre-appended to the ciphertext.
-           */
-          ciphertextSplit <- DeterministicEncoding
-            .splitAt(
-              EciesP256HmacSha256Aes128CbcParams.ivSizeForAesCbcInBytes,
-              encrypted.ciphertext,
-            )
-            .leftMap(err =>
-              DecryptionError.FailedToDeserialize(DefaultDeserializationError(err.show))
-            )
-          (iv, ciphertext) = ciphertextSplit
-          decrypter <- Either
-            .catchOnly[GeneralSecurityException] {
-              val cipher = Cipher
-                .getInstance(
-                  EciesP256HmacSha256Aes128CbcParams.jceInternalName,
-                  JceSecurityProvider.bouncyCastleProvider,
-                )
-              cipher.init(
-                Cipher.DECRYPT_MODE,
-                ecPrivateKey,
-                EciesP256HmacSha256Aes128CbcParams.parameterSpec(iv.toByteArray),
-              )
-              cipher
-            }
-            .leftMap(err => DecryptionError.InvalidEncryptionKey(err.toString))
-          plaintext <- Either
-            .catchOnly[GeneralSecurityException](
-              decrypter.doFinal(ciphertext.toByteArray)
-            )
-            .leftMap(err => DecryptionError.FailedToDecrypt(err.toString))
+          plaintext <- retryIfTinkPrefix(encrypted.ciphertext)(ciphertext =>
+            decryptEciesCbc(ecPrivateKey, ciphertext)
+          )
           message <- deserialize(ByteString.copyFrom(plaintext))
             .leftMap(DecryptionError.FailedToDeserialize)
         } yield message
       case EncryptionKeyScheme.Rsa2048OaepSha256 =>
+        def decryptRsa(rsaPrivateKey: RSAPrivateKey, ciphertext: ByteString) = {
+          for {
+            decrypter <- Either
+              .catchOnly[GeneralSecurityException] {
+                val cipher = Cipher
+                  .getInstance(
+                    RSA2048OaepSha256Params.jceInternalName,
+                    "BC",
+                  )
+                cipher.init(
+                  Cipher.DECRYPT_MODE,
+                  rsaPrivateKey,
+                )
+                cipher
+              }
+              .leftMap(err => DecryptionError.InvalidEncryptionKey(err.toString))
+            plaintext <- Try[Array[Byte]](
+              decrypter.doFinal(ciphertext.toByteArray)
+            ).toEither.leftMap {
+              case err: DataLengthException =>
+                DecryptionError
+                  .FailedToDecrypt(
+                    s"Most probably using a wrong secret key to decrypt the ciphertext: ${err.toString}"
+                  )
+              case err =>
+                DecryptionError.FailedToDecrypt(ErrorUtil.messageWithStacktrace(err))
+            }
+          } yield plaintext
+        }
+
         for {
           rsaPrivateKey <- parseAndGetPrivateKey(
             privateKey,
@@ -767,31 +814,9 @@ class JcePureCrypto(
             },
             DecryptionError.InvalidEncryptionKey,
           )
-          decrypter <- Either
-            .catchOnly[GeneralSecurityException] {
-              val cipher = Cipher
-                .getInstance(
-                  RSA2048OaepSha256Params.jceInternalName,
-                  "BC",
-                )
-              cipher.init(
-                Cipher.DECRYPT_MODE,
-                rsaPrivateKey,
-              )
-              cipher
-            }
-            .leftMap(err => DecryptionError.InvalidEncryptionKey(err.toString))
-          plaintext <- Try[Array[Byte]](
-            decrypter.doFinal(encrypted.ciphertext.toByteArray)
-          ).toEither.leftMap {
-            case err: DataLengthException =>
-              DecryptionError
-                .FailedToDecrypt(
-                  s"Most probably using a wrong secret key to decrypt the ciphertext: ${err.toString}"
-                )
-            case err =>
-              DecryptionError.FailedToDecrypt(ErrorUtil.messageWithStacktrace(err))
-          }
+          plaintext <- retryIfTinkPrefix(encrypted.ciphertext)(ciphertext =>
+            decryptRsa(rsaPrivateKey, ciphertext)
+          )
           message <- deserialize(ByteString.copyFrom(plaintext))
             .leftMap(DecryptionError.FailedToDeserialize)
         } yield message
@@ -830,8 +855,11 @@ class JcePureCrypto(
             Set(CryptoKeyFormat.Raw),
             DecryptionError.InvalidSymmetricKey,
           )
-          plaintext <- decryptAes128Gcm(encrypted.ciphertext, symmetricKey.key)
-          message <- deserialize(plaintext).leftMap(DecryptionError.FailedToDeserialize)
+          plaintext <- retryIfTinkPrefix(encrypted.ciphertext) { ciphertext =>
+            decryptAes128Gcm(ciphertext, symmetricKey.key)
+          }
+          message <- deserialize(plaintext)
+            .leftMap(DecryptionError.FailedToDeserialize)
         } yield message
     }
 
