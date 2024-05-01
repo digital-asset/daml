@@ -211,7 +211,6 @@ da_scala_test_suite(
             "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-v2.dar",
             "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
             "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
-
             "//test-common:upgrades-SucceedsWhenATopLevelVariantAddsAVariant-v1.dar",
             "//test-common:upgrades-SucceedsWhenATopLevelVariantAddsAVariant-v2.dar",
         ],
