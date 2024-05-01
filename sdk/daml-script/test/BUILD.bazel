@@ -364,7 +364,7 @@ da_scala_test_suite(
         ["src/main/scala/**/*.scala"],
         exclude = [
             "src/main/scala/**/*Dev*.scala",
-            "src/main/scala/com/digitalasset/daml/lf/engine/script/test/UpgradesIT.scala",
+            "src/main/scala/com/daml/lf/engine/script/test/UpgradesIT.scala",
         ],
     ),
     data = [
@@ -419,7 +419,7 @@ da_scala_test_suite(
 da_scala_test(
     name = "upgrade-test",
     size = "large",
-    srcs = ["src/main/scala/com/digitalasset/daml/lf/engine/script/test/UpgradesIT.scala"],
+    srcs = ["src/main/scala/com/daml/lf/engine/script/test/UpgradesIT.scala"],
     data = [
         ":upgrade-test-files",
         ":upgrade-test-lib.dar",
