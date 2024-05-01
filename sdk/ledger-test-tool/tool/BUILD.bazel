@@ -201,9 +201,9 @@ conformance_test(
         ",".join([
             "dev-mode=no",
             "_shared.participant_ledger-api_tls.minimum-server-protocol-version=TLSv1.3",
+            "canton.domains.test_domain.init.domain-parameters.protocol-version=5",
         ]),
     ],
-    tags = ["main-only"],
     test_tool_args = conformance_test_tool_args_base + [
         "--exclude=" + ",".join(conformance_test_excluded_test),
         "--additional=TLSOnePointThreeIT",
@@ -223,9 +223,9 @@ conformance_test(
         "-C",
         ",".join([
             "dev-mode=no",
+            "canton.domains.test_domain.init.domain-parameters.protocol-version=5",
         ]),
     ],
-    tags = ["main-only"],
     test_tool_args = conformance_test_tool_args_base + ["--include=TLSAtLeastOnePointTwoIT"],
 ) if not is_windows and is_intel else None
 
