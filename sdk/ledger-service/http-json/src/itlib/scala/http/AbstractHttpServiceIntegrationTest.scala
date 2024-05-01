@@ -1435,10 +1435,22 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             Future successful bob
           },
         ) { (bob, toDisclose, meta) =>
+          val meta1 : Option[domain.CommandMeta[domain.ContractTypeId.Template.RequiredPkg]] =
+            meta.map(cm =>
+              cm.copy(
+                disclosedContracts = cm.disclosedContracts.map(ds =>
+                  ds.map(d =>
+                    d.copy(
+                      templateId = d.templateId.map(_.get)
+                    )
+                  )
+                )
+              )
+            )
           fixture.encoder
             .encodeCreateAndExerciseCommand(
               domain.CreateAndExerciseCommand(
-                TpId.Disclosure.Viewport,
+                TpId.Disclosure.Viewport.map(_.get),
                 argToApi(viewportVA)(ShRecord(owner = bob)),
                 checkVisibilityChoice,
                 boxedRecord(
@@ -1450,7 +1462,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                   )
                 ),
                 None,
-                meta,
+                meta1,
               )
             )
             .valueOr(e => fail(e.shows))
@@ -1783,7 +1795,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       // The numContracts size should test for https://github.com/digital-asset/daml/issues/10339
       val numContracts: Long = 2000
-      val helperId = domain.ContractTypeId.Template(None, "Account", "Helper")
+      val helperId = TpId.Account.Helper.map(_.get)
       val payload = recordFromFields(ShRecord(owner = v.Value.Sum.Party(alice.unwrap)))
       val createCmd: domain.CreateAndExerciseCommand.LAVUnresolved =
         domain.CreateAndExerciseCommand(
@@ -2160,10 +2172,10 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
                 domain.Contract(-\/(archived0)),
                 domain.Contract(\/-(created1)),
               ) =>
-            assertTemplateId(created0.templateId, cmd.templateId)
-            assertTemplateId(archived0.templateId, cmd.templateId)
+            created0.templateId shouldBe cmd.templateId
+            archived0.templateId shouldBe cmd.templateId
             archived0.contractId shouldBe created0.contractId
-            assertTemplateId(created1.templateId, TpId.Iou.IouTransfer)
+            created1.templateId shouldBe TpId.Iou.IouTransfer.map(_.get)
             asContractId(result.exerciseResult) shouldBe created1.contractId
         }
       }

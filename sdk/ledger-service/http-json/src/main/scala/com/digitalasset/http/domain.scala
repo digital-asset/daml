@@ -695,7 +695,7 @@ package domain {
     type LAVUnresolved = CreateAndExerciseCommand[
       lav1.value.Record,
       lav1.value.Value,
-      domain.ContractTypeId.Template.OptionalPkg,
+      domain.ContractTypeId.Template.RequiredPkg,
       domain.ContractTypeId.OptionalPkg,
     ]
 

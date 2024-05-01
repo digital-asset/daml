@@ -90,14 +90,15 @@ object AbstractHttpServiceIntegrationTestFuns {
     object Account {
       val Account: TId = CtId.Template(pkgIdAccount, "Account", "Account")
       val PubSub: TId = CtId.Template(pkgIdAccount, "Account", "PubSub")
-      val KeyedByVariantAndRecord: TId with CtId.Ops[CtId.Template, Option[String]] = CtId.Template(pkgIdAccount, "Account", "KeyedByVariantAndRecord")
-      val KeyedByDecimal: TId with CtId.Ops[CtId.Template, Option[String]] = CtId.Template(pkgIdAccount, "Account", "KeyedByDecimal")
+      val KeyedByDecimal: TId = CtId.Template(pkgIdAccount, "Account", "KeyedByDecimal")
+      val KeyedByVariantAndRecord: TId = CtId.Template(pkgIdAccount, "Account", "KeyedByVariantAndRecord")
       val LongFieldNames: TId = CtId.Template(pkgIdAccount, "Account", "LongFieldNames")
+      val Helper: TId = CtId.Template(pkgIdAccount, "Account", "Helper")
     }
     object Disclosure {
       val AnotherToDisclose: TId = CtId.Template(pkgIdAccount, "Disclosure", "AnotherToDisclose")
-      val ToDisclose: TId = CtId.Template(pkgIdAccount, "Disclosure", "ToDisclose")
       val HasGarbage: IId = CtId.Interface(pkgIdAccount, "Disclosure", "HasGarbage")
+      val ToDisclose: TId = CtId.Template(pkgIdAccount, "Disclosure", "ToDisclose")
       val Viewport: TId = CtId.Template(pkgIdAccount, "Disclosure", "Viewport")
     }
     object User {
@@ -615,7 +616,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   ): domain.CreateAndExerciseCommand[
     v.Record,
     v.Value,
-    domain.ContractTypeId.Template.OptionalPkg,
+    domain.ContractTypeId.Template.RequiredPkg,
     domain.ContractTypeId.OptionalPkg,
   ] = {
     val targetParty = Ref.Party assertFromString target.unwrap
@@ -634,7 +635,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     val choice = lar.Choice("Iou_Transfer")
 
     domain.CreateAndExerciseCommand(
-      templateId = TpId.Iou.Iou,
+      templateId = TpId.Iou.Iou.map(_.get),
       payload = payload,
       choice = choice,
       argument = boxedRecord(arg),
@@ -819,15 +820,6 @@ trait AbstractHttpServiceIntegrationTestFuns
       jsPayload: JsValue
   ): Assertion = {
     (activeContract.payload: JsValue) shouldBe (jsPayload)
-  }
-
-  protected def assertTemplateId(
-      actual: domain.ContractTypeId.RequiredPkg,
-      expected: domain.ContractTypeId.OptionalPkg,
-  ): Future[Assertion] = Future {
-    expected.packageId.foreach(x => actual.packageId shouldBe x)
-    actual.moduleName shouldBe expected.moduleName
-    actual.entityName shouldBe expected.entityName
   }
 
   protected def getAllPackageIds(fixture: UriFixture): Future[domain.OkResponse[List[String]]] =

@@ -512,7 +512,7 @@ object JsonProtocol extends JsonProtocolLow {
     domain.CreateAndExerciseCommand[
       JsValue,
       JsValue,
-      domain.ContractTypeId.Template.OptionalPkg,
+      domain.ContractTypeId.Template.RequiredPkg,
       domain.ContractTypeId.OptionalPkg,
     ]
   ] =
@@ -520,7 +520,7 @@ object JsonProtocol extends JsonProtocolLow {
       domain.CreateAndExerciseCommand[
         JsValue,
         JsValue,
-        domain.ContractTypeId.Template.OptionalPkg,
+        domain.ContractTypeId.Template.RequiredPkg,
         domain.ContractTypeId.OptionalPkg,
       ]
     )
