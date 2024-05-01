@@ -169,7 +169,7 @@ steps:
                         ne(${{parameters.name_exp}}, 'm1')))
   - bash: |
       set -euo pipefail
-      eval "$(sdk/dev-env/bin/dade-assist)"
+      eval "$(cd sdk; dev-env/bin/dade-assist)"
       mkdir -p $(Build.StagingDirectory)/release
       ./ci/copy-unix-release-artifacts.sh ${{parameters.release_tag}} ${{parameters.name_str}} $(Build.StagingDirectory)/release
     env:
