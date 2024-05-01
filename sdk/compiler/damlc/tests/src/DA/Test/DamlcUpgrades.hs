@@ -289,6 +289,21 @@ tests damlc =
               (FailWithError "\ESC\\[0;91merror type checking data type Main.Struct:\n  The upgraded data type Struct has added new fields, but those fields are not Optional.")
               LF.versionDefault
               NoDependencies
+        , test
+              "FailsWithSynonymReturnTypeChange"
+              (FailWithError "\ESC\\[0;91merror type checking template Main.T choice C:\n  The upgraded choice C cannot change its return type.")
+              LF.versionDefault
+              NoDependencies
+        , test
+              "FailsWithSynonymReturnTypeChangeInSeparatePackage"
+              (FailWithError "\ESC\\[0;91merror type checking template Main.T choice C:\n  The upgraded choice C cannot change its return type.")
+              LF.versionDefault
+              SeparateDeps
+        , test
+              "SucceedsWhenUpgradingADependency"
+              Succeed
+              LF.versionDefault
+              SeparateDeps
         ]
   where
     contractKeysMinVersion :: LF.Version
@@ -327,15 +342,37 @@ tests damlc =
             (depV1Dar, depV2Dar) <- case sharedDep of
               SeparateDep -> do
                 depFilePaths <- listDirectory =<< testRunfile (name </> "dep")
-                let sharedDep = flip map depFilePaths $ \path ->
+                let sharedDepFiles = flip map depFilePaths $ \path ->
                       ( "daml" </> path
                       , readFile =<< testRunfile (name </> "dep" </> path)
                       )
                 let sharedDir = dir </> "shared"
                 let sharedDar = sharedDir </> "out.dar"
-                writeFiles sharedDir (projectFile lfVersion ("upgrades-example-" <> name <> "-dep") Nothing Nothing : sharedDep)
+                writeFiles sharedDir (projectFile lfVersion ("upgrades-example-" <> name <> "-dep") Nothing Nothing : sharedDepFiles)
                 callProcessSilent damlc ["build", "--project-root", sharedDir, "-o", sharedDar]
                 pure (Just sharedDar, Just sharedDar)
+              SeparateDeps -> do
+                depV1FilePaths <- listDirectory =<< testRunfile (name </> "dep-v1")
+                let depV1Files = flip map depV1FilePaths $ \path ->
+                      ( "daml" </> path
+                      , readFile =<< testRunfile (name </> "dep-v1" </> path)
+                      )
+                let depV1Dir = dir </> "shared-v1"
+                let depV1Dar = depV1Dir </> "out.dar"
+                writeFiles depV1Dir (projectFile lfVersion ("upgrades-example-" <> name <> "-dep-v1") Nothing Nothing : depV1Files)
+                callProcessSilent damlc ["build", "--project-root", depV1Dir, "-o", depV1Dar]
+
+                depV2FilePaths <- listDirectory =<< testRunfile (name </> "dep-v2")
+                let depV2Files = flip map depV2FilePaths $ \path ->
+                      ( "daml" </> path
+                      , readFile =<< testRunfile (name </> "dep-v2" </> path)
+                      )
+                let depV2Dir = dir </> "shared-v2"
+                let depV2Dar = depV2Dir </> "out.dar"
+                writeFiles depV2Dir (projectFile lfVersion ("upgrades-example-" <> name <> "-dep-v2") Nothing Nothing : depV2Files)
+                callProcessSilent damlc ["build", "--project-root", depV2Dir, "-o", depV2Dar]
+
+                pure (Just depV1Dar, Just depV2Dar)
               DependOnV1 ->
                 pure (Nothing, Just oldDar)
               _ ->
@@ -397,3 +434,4 @@ data Dependency
   = NoDependencies
   | DependOnV1
   | SeparateDep
+  | SeparateDeps

@@ -503,6 +503,9 @@ da_haskell_test(
         "//test-common:upgrades-WarnsWhenTemplateChangesKeyMaintainers-files",
         "//test-common:upgrades-WarnsWhenTemplateChangesObservers-files",
         "//test-common:upgrades-WarnsWhenTemplateChangesSignatories-files",
+        "//test-common:upgrades-FailsWithSynonymReturnTypeChange-files",
+        "//test-common:upgrades-FailsWithSynonymReturnTypeChangeInSeparatePackage-files",
+        "//test-common:upgrades-SucceedsWhenUpgradingADependency-files",
     ],
     hackage_deps = [
         "base",
