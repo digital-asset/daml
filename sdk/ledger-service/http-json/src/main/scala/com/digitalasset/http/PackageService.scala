@@ -409,11 +409,12 @@ object PackageService {
 
     private[http] def resolve(
         a: ContractTypeId[Option[String]]
-    )(implicit makeKey: ContractTypeId.Like[CtId]): Option[ContractTypeRef[ResolvedOf[CtId]]] =
+    )(implicit makeKey: ContractTypeId.Like[CtId]): Option[ContractTypeRef[ResolvedOf[CtId]]] = {
       (a.packageId match {
         case Some(p) => all get makeKey(p, a.moduleName, a.entityName)
         case None => unique get makeKey((), a.moduleName, a.entityName)
       }).flatMap(toContractTypeRef)
+    }
   }
 
   type TemplateIdMap = ContractTypeIdMap[ContractTypeId.Template]
@@ -436,6 +437,7 @@ object PackageService {
       private val mapView: MapView[String, (KeyPackageName, Ref.PackageVersion)]
   ) {
     def get(pkgId: String) = mapView.get(pkgId)
+    override def toString = mapView.toMap.toString
   }
   object PackageNameMap {
     val empty = PackageNameMap(MapView.empty)

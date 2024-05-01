@@ -55,6 +55,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
     with Inside
     with AbstractHttpServiceIntegrationTestFuns
     with BeforeAndAfterAll {
+  import AbstractHttpServiceIntegrationTestFuns.TpId
 
   // Guard tests which use features that are not available in Canton Community Edition
   private implicit final class EditionBranchingSupport(private val label: String) {
@@ -328,7 +329,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
           AccountQuery(event) <- readOne
         } yield {
           event.created.record should ===(record)
-          event.created.templateId.copy(packageId = None) should ===(TpId.IAccount.IAccount)
+          event.created.templateId should ===(TpId.IAccount.IAccount.map(_.get))
           event.matchedQueries should ===(mq)
           event
         }
@@ -384,9 +385,9 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
                         )
                       ) =>
                     archivedContractId should ===(createdAccountEvent1.created.contractId)
-                    archivedTemplateId.copy(packageId = None) should ===(TpId.IAccount.IAccount)
+                    archivedTemplateId should ===(TpId.IAccount.IAccount.map(_.get))
 
-                    createdTemplateId.copy(packageId = None) should ===(TpId.IAccount.IAccount)
+                    createdTemplateId should ===(TpId.IAccount.IAccount.map(_.get))
 
                     createdRecord should ===(AccountRecord("abcxx", true, false))
                     matchedQueries shouldBe Vector(0)
@@ -1259,7 +1260,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
       import json.JsonProtocol._
       domain
         .CreateCommand(
-          TpId.Iou.Iou,
+          TpId.Iou.Iou.map(_.get),
           Map(
             "observers" -> List[String]().toJson,
             "issuer" -> partyName.toJson,
@@ -1380,7 +1381,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
       (alice, headers) = aliceHeaders
       jwt <- jwtForParties(uri)(List(alice), List(), "participant0")
       createIouCommand = (currency: String) => s"""{
-           |  "templateId": "Iou:Iou",
+           |  "templateId": "${tidString(TpId.Iou.Iou)}",
            |  "payload": {
            |    "observers": [],
            |    "issuer": "$alice",

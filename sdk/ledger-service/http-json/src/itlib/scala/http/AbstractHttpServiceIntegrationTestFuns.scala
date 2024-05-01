@@ -65,6 +65,70 @@ object AbstractHttpServiceIntegrationTestFuns {
   private[http] val fooV1Dar = requiredResource("ledger-service/http-json/FooV1.dar")
   private[http] val fooV2Dar = requiredResource("ledger-service/http-json/FooV2.dar")
 
+  object TpId {
+    import domain.{ContractTypeId => CtId}
+    import CtId.Template.{OptionalPkg => TId}
+    import CtId.Interface.{OptionalPkg => IId}
+
+    val pkgIdModelTests = Some(packageIdOfDar(dar1))
+    val pkgIdAccount    = Some(packageIdOfDar(dar2))
+    val pkgIdUser       = Some(packageIdOfDar(userDar))
+    val pkgIdCiou       = Some(packageIdOfDar(ciouDar))
+    val pkgIdRiou       = Some(packageIdOfDar(riouDar))
+
+    object Iou {
+      val Dummy: TId = CtId.Template(pkgIdModelTests, "Iou", "Dummy")
+      val Iou: TId = CtId.Template(pkgIdModelTests, "Iou", "Iou")
+      val IouTransfer: TId = CtId.Template(pkgIdModelTests, "Iou", "IouTransfer")
+    }
+    object Test {
+      val MultiPartyContract: TId = CtId.Template(pkgIdModelTests, "Test", "MultiPartyContract")
+    }
+    object IAccount {
+      val IAccount: IId = CtId.Interface(pkgIdAccount, "IAccount", "IAccount")
+    }
+    object Account {
+      val Account: TId = CtId.Template(pkgIdAccount, "Account", "Account")
+      val PubSub: TId = CtId.Template(pkgIdAccount, "Account", "PubSub")
+      val KeyedByVariantAndRecord: TId with CtId.Ops[CtId.Template, Option[String]] = CtId.Template(pkgIdAccount, "Account", "KeyedByVariantAndRecord")
+      val KeyedByDecimal: TId with CtId.Ops[CtId.Template, Option[String]] = CtId.Template(pkgIdAccount, "Account", "KeyedByDecimal")
+      val LongFieldNames: TId = CtId.Template(pkgIdAccount, "Account", "LongFieldNames")
+    }
+    object Disclosure {
+      val AnotherToDisclose: TId = CtId.Template(pkgIdAccount, "Disclosure", "AnotherToDisclose")
+      val ToDisclose: TId = CtId.Template(pkgIdAccount, "Disclosure", "ToDisclose")
+      val HasGarbage: IId = CtId.Interface(pkgIdAccount, "Disclosure", "HasGarbage")
+      val Viewport: TId = CtId.Template(pkgIdAccount, "Disclosure", "Viewport")
+    }
+    object User {
+      val User: TId = CtId.Template(pkgIdUser, "User", "User")
+    }
+    object CIou {
+      val CIou: TId = CtId.Template(pkgIdCiou, "CIou", "CIou")
+    }
+    object IIou {
+      val IIou: IId = CtId.Interface(pkgIdCiou, "IIou", "IIou")
+      val TestIIou: TId = CtId.Template(pkgIdCiou, "IIou", "TestIIou")
+    }
+    object RIou {
+      val RIou: IId = CtId.Interface(pkgIdRiou, "RIou", "RIou")
+    }
+    object RIIou {
+      val RIIou: IId = CtId.Interface(pkgIdCiou, "RIIou", "RIIou")
+    }
+
+    def unsafeCoerce[Like[T] <: CtId[T], T](ctId: CtId[T])(implicit
+        Like: CtId.Like[Like]
+    ): Like[T] =
+      Like(ctId.packageId, ctId.moduleName, ctId.entityName)
+  }
+
+  def packageIdOfDar(darFile: java.io.File): String = {
+    import com.daml.lf.{archive, typesig}
+    val dar = archive.UniversalArchiveReader.assertReadFile(darFile)
+    typesig.PackageSignature.read(dar.main)._2.packageId
+  }
+
   def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
     import com.google.common.io.BaseEncoding
 
@@ -149,6 +213,8 @@ trait AbstractHttpServiceIntegrationTestFuns
   def useTls: UseTls
 
   def wsConfig: Option[WebsocketConfig]
+
+  protected def tidString(id: domain.ContractTypeId[Option[String]]) = s"${id.packageId.get}:${id.moduleName}:${id.entityName}"
 
   protected def testId: String = this.getClass.getSimpleName
 
@@ -333,7 +399,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def postCreateCommand(
-      cmd: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg],
+      cmd: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.RequiredPkg],
       fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
   ): Future[domain.SyncResponse[domain.ActiveContract.ResolvedCtTyId[JsValue]]] =
@@ -342,7 +408,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       .parseResponse[domain.ActiveContract.ResolvedCtTyId[JsValue]]
 
   protected def postCreateCommand(
-      cmd: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg],
+      cmd: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.RequiredPkg],
       fixture: UriFixture with EncoderFixture,
   ): Future[domain.SyncResponse[domain.ActiveContract.ResolvedCtTyId[JsValue]]] =
     fixture.headersWithAuth.flatMap(postCreateCommand(cmd, fixture, _))
@@ -380,7 +446,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected def lookupContractAndAssert(
       contractLocator: domain.ContractLocator[JsValue],
       contractId: ContractId,
-      create: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg],
+      create: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.RequiredPkg],
       fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
   ): Future[Assertion] =
@@ -439,54 +505,10 @@ trait AbstractHttpServiceIntegrationTestFuns
       amount = VA.numeric(Scale assertFromInt 10),
       observers = VA.list(VAx.partyDomain),
     )
-    VA.record(Ref.Identifier assertFromString "none:Iou:Iou", iouT)
+    VA.record(Ref.Identifier assertFromString "ignored:Iou:Iou", iouT)
   }
 
-  protected[this] object TpId {
-    import domain.{ContractTypeId => CtId}
-    import CtId.Template.{OptionalPkg => TId}
-    import CtId.Interface.{OptionalPkg => IId}
-
-    object Iou {
-      val Iou: TId = CtId.Template(None, "Iou", "Iou")
-      val IouTransfer: TId = CtId.Template(None, "Iou", "IouTransfer")
-    }
-    object Test {
-      val MultiPartyContract: TId = CtId.Template(None, "Test", "MultiPartyContract")
-    }
-    object IAccount {
-      val IAccount: IId = CtId.Interface(None, "IAccount", "IAccount")
-    }
-    object Account {
-      val Account: TId = CtId.Template(None, "Account", "Account")
-      val PubSub: TId = CtId.Template(None, "Account", "PubSub")
-      val KeyedByVariantAndRecord: TId = CtId.Template(None, "Account", "KeyedByVariantAndRecord")
-      val LongFieldNames: TId = CtId.Template(None, "Account", "LongFieldNames")
-    }
-    object Disclosure {
-      val AnotherToDisclose: TId = CtId.Template(None, "Disclosure", "AnotherToDisclose")
-      val ToDisclose: TId = CtId.Template(None, "Disclosure", "ToDisclose")
-      val HasGarbage: IId = CtId.Interface(None, "Disclosure", "HasGarbage")
-      val Viewport: TId = CtId.Template(None, "Disclosure", "Viewport")
-    }
-    object User {
-      val User: TId = CtId.Template(None, "User", "User")
-    }
-    object IIou {
-      val IIou: IId = CtId.Interface(None, "IIou", "IIou")
-    }
-    object RIou {
-      val RIou: IId = CtId.Interface(None, "RIou", "RIou")
-    }
-    object RIIou {
-      val RIIou: IId = CtId.Interface(None, "RIIou", "RIIou")
-    }
-
-    def unsafeCoerce[Like[T] <: CtId[T], T](ctId: CtId[T])(implicit
-        Like: CtId.Like[Like]
-    ): Like[T] =
-      Like(ctId.packageId, ctId.moduleName, ctId.entityName)
-  }
+  import AbstractHttpServiceIntegrationTestFuns.TpId
 
   protected def iouCreateCommand(
       party: domain.Party,
@@ -494,7 +516,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       currency: String = "USD",
       observers: Vector[domain.Party] = Vector.empty,
       meta: Option[domain.CommandMeta.NoDisclosed] = None,
-  ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
+  ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.RequiredPkg] = {
     val arg = argToApi(iouVA)(
       ShRecord(
         issuer = party,
@@ -505,17 +527,17 @@ trait AbstractHttpServiceIntegrationTestFuns
       )
     )
 
-    domain.CreateCommand(TpId.Iou.Iou, arg, meta)
+    domain.CreateCommand(TpId.Iou.Iou.map(_.get), arg, meta)
   }
 
   private[this] val (_, ciouVA) = {
     val iouT = ShRecord(issuer = VAx.partyDomain, owner = VAx.partyDomain, amount = VA.text)
-    VA.record(Ref.Identifier assertFromString "none:Iou:Iou", iouT)
+    VA.record(Ref.Identifier assertFromString "ignored:Iou:Iou", iouT)
   }
 
   protected def iouCommand(
       issuer: domain.Party,
-      templateId: domain.ContractTypeId.Template.OptionalPkg,
+      templateId: domain.ContractTypeId.Template.RequiredPkg,
   ) = {
     val iouT = argToApi(ciouVA)(
       ShRecord(
@@ -538,7 +560,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       )
     )
     domain.CreateCommand(
-      templateId = TpId.Account.PubSub,
+      templateId = TpId.Account.PubSub.map(_.get),
       payload = payload,
       meta = None,
     )
@@ -565,7 +587,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       )
     )
     domain.CreateCommand(
-      templateId = TpId.Account.LongFieldNames,
+      templateId = TpId.Account.LongFieldNames.map(_.get),
       payload = payload,
       meta = None,
     )
@@ -630,7 +652,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       )
     )
     domain.CreateCommand(
-      templateId = TpId.Test.MultiPartyContract,
+      templateId = TpId.Test.MultiPartyContract.map(_.get),
       payload = payload,
       meta = None,
     )
@@ -741,7 +763,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected def assertActiveContract(uri: Uri)(
       decoder: DomainJsonDecoder,
       actual: domain.ActiveContract.ResolvedCtTyId[JsValue],
-      create: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg],
+      create: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.RequiredPkg],
       exercise: domain.ExerciseCommand[Any, v.Value, _],
       ledgerId: LedgerId,
   ): Future[Assertion] = {
@@ -777,13 +799,13 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected def assertActiveContract(
       activeContract: domain.ActiveContract.ResolvedCtTyId[JsValue]
   )(
-      command: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg],
+      command: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.RequiredPkg],
       encoder: DomainJsonEncoder,
   ): Assertion = {
 
     import encoder.implicits._
 
-    val expected: domain.CreateCommand[JsValue, domain.ContractTypeId.Template.OptionalPkg] =
+    val expected: domain.CreateCommand[JsValue, domain.ContractTypeId.Template.RequiredPkg] =
       command
         .traversePayload(SprayJson.encode[v.Record](_))
         .getOrElse(fail(s"Failed to encode command: $command"))
@@ -839,7 +861,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     val payload =
       s"""
          |{
-         |  "templateId": "Iou:Iou",
+         |  "templateId": "${tidString(TpId.Iou.Iou)}",
          |  "payload": {
          |    "observers": [],
          |    "issuer": $partyJson,
@@ -876,7 +898,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def searchExpectOk(
-      commands: List[domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg]],
+      commands: List[domain.CreateCommand[v.Record, domain.ContractTypeId.Template.RequiredPkg]],
       query: JsObject,
       fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
@@ -885,14 +907,14 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def searchExpectOk(
-      commands: List[domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg]],
+      commands: List[domain.CreateCommand[v.Record, domain.ContractTypeId.Template.RequiredPkg]],
       query: JsObject,
       fixture: UriFixture with EncoderFixture,
   ): Future[List[domain.ActiveContract.ResolvedCtTyId[JsValue]]] =
     fixture.headersWithAuth.flatMap(searchExpectOk(commands, query, fixture, _))
 
   protected def search(
-      commands: List[domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg]],
+      commands: List[domain.CreateCommand[v.Record, domain.ContractTypeId.Template.RequiredPkg]],
       query: JsObject,
       fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
@@ -987,7 +1009,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       _ = kill.shutdown()
     } yield (betweenOffset, afterOffset)
 
-    val query = """[{"templateIds": ["Iou:Iou"]}]"""
+    val query = s"""[{"templateIds": ["${tidString(TpId.Iou.Iou)}"]}]"""
     for {
       jwt <- jwtForParties(uri)(List(party), List(), "participant0")
       (kill, source) =

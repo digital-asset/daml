@@ -39,7 +39,7 @@ class DomainJsonDecoder(
 
   def decodeCreateCommand(a: JsValue, jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(implicit
       ev1: JsonReader[
-        domain.CreateCommand[JsValue, ContractTypeId.Template.OptionalPkg]
+        domain.CreateCommand[JsValue, ContractTypeId.Template.RequiredPkg]
       ],
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
@@ -48,11 +48,11 @@ class DomainJsonDecoder(
     for {
       fj <- either(
         SprayJson
-          .decode[domain.CreateCommand[JsValue, ContractTypeId.Template.OptionalPkg]](a)
+          .decode[domain.CreateCommand[JsValue, ContractTypeId.Template.RequiredPkg]](a)
           .liftErrS(err)(JsonError)
       )
 
-      tmplId <- templateId_(fj.templateId, jwt, ledgerId)
+      tmplId <- templateId_(fj.templateId.map(Some(_)), jwt, ledgerId)
       payloadT <- either(templateRecordType(tmplId))
 
       fv <- either(
