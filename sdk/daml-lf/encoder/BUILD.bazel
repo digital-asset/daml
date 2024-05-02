@@ -94,49 +94,51 @@ da_scala_binary(
 )
 
 [
-    filegroup(
-        name = "lf_%s" % target,
-        srcs = glob([
-            "src/test/lf/*_all_*.lf",
-            "src/test/lf/*_%s_*.lf" % target,
-        ]),
-    )
-    for target in LF_VERSIONS
-]
-
-[
-    genrule(
-        name = "testing-dar-%s" % target,
-        srcs = [":lf_%s" % target],
-        outs = ["test-%s.dar" % target],
-        cmd = "$(location :encoder_binary) $(SRCS) --output $@ --target %s" % target,
-        tools = [":encoder_binary"],
-        visibility = ["//visibility:public"],
-    )
-    for target in LF_VERSIONS
-]
-
-[
-    sh_test(
-        name = "validate-dar-%s" % target,
-        srcs = ["src/validate.sh"],
-        args = [
-            "$(location //daml-lf/repl:repl)",
-            "$(location :testing-dar-%s)" % target,
-            "--v2" if version_in(
-                target,
-                v2_minor_version_range = ("0", "dev"),
-            ) else "",
-            "--dev" if (lf_version_is_dev(target) or target == lf_version_configuration.get("preview")) else "",
-        ],
-        data = [
-            "//daml-lf/repl",
-            "testing-dar-%s" % target,
-        ],
-        deps = [
-            "@bazel_tools//tools/bash/runfiles",
-        ],
-    )
+    [
+        filegroup(
+            name = "lf_%s" % target,
+            srcs = glob([
+                "src/test/lf/*_all_*.lf",
+                "src/test/lf/*_%s_*.lf" % target,
+            ]),
+        ),
+        genrule(
+            name = "metadata-%s" % target,
+            outs = ["metadata-%s.lf" % target],
+            cmd = """echo "metadata ( 'testing-dar-%s' : '0.0.0' )" > $@""" % mangle_for_java(target),
+        ),
+        genrule(
+            name = "testing-dar-%s" % target,
+            srcs = [
+                ":metadata-%s.lf" % target,  # needs to be first
+                ":lf_%s" % target,
+            ],
+            outs = ["test-%s.dar" % target],
+            cmd = "$(location :encoder_binary) $(SRCS) --output $@ --target %s" % target,
+            tools = [":encoder_binary"],
+            visibility = ["//visibility:public"],
+        ),
+        sh_test(
+            name = "validate-dar-%s" % target,
+            srcs = ["src/validate.sh"],
+            args = [
+                "$(location //daml-lf/repl:repl)",
+                "$(location :testing-dar-%s)" % target,
+                "--v2" if version_in(
+                    target,
+                    v2_minor_version_range = ("0", "dev"),
+                ) else "",
+                "--dev" if (lf_version_is_dev(target) or target == lf_version_configuration.get("preview")) else "",
+            ],
+            data = [
+                "//daml-lf/repl",
+                "testing-dar-%s" % target,
+            ],
+            deps = [
+                "@bazel_tools//tools/bash/runfiles",
+            ],
+        ),
+    ]
     for target in LF_VERSIONS
 ]
 

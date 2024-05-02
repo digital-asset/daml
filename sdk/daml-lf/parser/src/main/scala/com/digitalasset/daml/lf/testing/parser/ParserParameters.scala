@@ -7,12 +7,12 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 
-private[daml] case class ParserParameters[P](
+case class ParserParameters[P](
     defaultPackageId: PackageId,
     languageVersion: LanguageVersion,
 )
 
-private[daml] object ParserParameters {
+object ParserParameters {
 
   def defaultFor[P](majorLanguageVersion: LanguageMajorVersion): ParserParameters[P] =
     ParserParameters(

@@ -3,7 +3,7 @@
 
 package com.daml.lf.testing
 
-import com.daml.lf.language.Ast.{Expr, Kind, Module, Type}
+import com.daml.lf.language.Ast.{Expr, Kind, Module, Package, Type}
 
 /** The LF Parser library can be used to write Daml-LF Ast using a
   * human-friendly syntax.
@@ -39,5 +39,9 @@ package object parser {
       parserParameters: ParserParameters[P]
   ): Either[String, List[Module]] =
     safeParse(Parsers.rep(new ModParser[P](parserParameters).mod), s)
+  def parsePackage[P](s: String)(implicit
+      parserParameters: ParserParameters[P]
+  ): Either[String, Package] =
+    safeParse(new ModParser[P](parserParameters).pkg, s)
 
 }
