@@ -9,6 +9,7 @@ import com.daml.lf.language.Ast
 import scala.util.{Try, Success, Failure}
 import com.daml.lf.validation.AlphaEquiv
 import com.daml.lf.data.ImmArray
+import com.daml.lf.language.LanguageVersion
 
 case class Upgrading[A](past: A, present: A) {
   def map[B](f: A => B): Upgrading[B] = Upgrading(f(past), f(present))
@@ -158,6 +159,14 @@ object UpgradeError {
     override def message: String =
       s"The upgraded $origin has changed the order of its variants - any new variant must be added at the end of the enum."
   }
+
+  final case class DecreasingLfVersion(
+      pastVersion: LanguageVersion,
+      presentVersion: LanguageVersion,
+  ) extends Error {
+    override def message: String =
+      s"The upgraded package uses an older LF version (${presentVersion.pretty} < ${pastVersion.pretty})"
+  }
 }
 
 sealed abstract class UpgradedRecordOrigin
@@ -280,6 +289,16 @@ object TypecheckUpgrades {
     }
   }
 
+  private def checkLfVersions(
+      arg: Upgrading[LanguageVersion]
+  ): Try[Unit] = {
+    import Ordering.Implicits._
+    if (arg.past > arg.present)
+      fail(UpgradeError.DecreasingLfVersion(arg.past, arg.present))
+    else
+      Success(())
+  }
+
   private def tryAll[A, B](t: Iterable[A], f: A => Try[B]): Try[Seq[B]] =
     Try(t.map(f(_).get).toSeq)
 
@@ -305,6 +324,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
 
   private def check(): Try[Unit] = {
     for {
+      _ <- checkLfVersions(_package.map(_.languageVersion))
       (upgradedModules, newModules @ _) <-
         checkDeleted(
           _package.map(_.modules),
