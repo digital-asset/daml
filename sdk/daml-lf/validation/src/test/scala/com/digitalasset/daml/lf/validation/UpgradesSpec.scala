@@ -610,8 +610,12 @@ abstract class UpgradesSpec(val suffix: String)
       assert(in != null, s"Unable to load test package resource '$path'")
       in
     }
-    val bytes = ByteString.readFrom(testPackage)
-    testPackage.close()
+    val bytes =
+      try {
+        ByteString.readFrom(testPackage)
+      } finally {
+        testPackage.close()
+      }
     dar.main.pkgId -> bytes
   }
 

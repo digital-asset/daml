@@ -289,7 +289,7 @@ object TypecheckUpgrades {
     }
   }
 
-  private def checkVersions(
+  private def checkLfVersions(
       arg: Upgrading[LanguageVersion]
   ): Try[Unit] = {
     import Ordering.Implicits._
@@ -324,7 +324,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
 
   private def check(): Try[Unit] = {
     for {
-      _ <- checkVersions(_package.map(_.languageVersion))
+      _ <- checkLfVersions(_package.map(_.languageVersion))
       (upgradedModules, newModules @ _) <-
         checkDeleted(
           _package.map(_.modules),
