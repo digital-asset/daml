@@ -105,7 +105,7 @@ da_scala_binary(
         genrule(
             name = "testing-dar-%s" % target,
             srcs = [
-                "src/test/lf/MetaData.lf",
+                "src/test/lf/MetaData.lf", #  metadata should come first
                 ":lf_%s" % target,
             ],
             outs = ["test-%s.dar" % target],
