@@ -361,10 +361,10 @@ da_scala_test_suite(
     name = "test",
     size = "large",
     srcs = glob(
-        ["src/com/**/*.scala"],
+        ["src/main/scala/**/*.scala"],
         exclude = [
-            "src/com/**/*Dev*.scala",
-            "src/com/digitalasset/daml/lf/engine/script/test/UpgradesIT.scala",
+            "src/main/scala/**/*Dev*.scala",
+            "src/main/scala/com/daml/lf/engine/script/test/UpgradesIT.scala",
         ],
     ),
     data = [
@@ -419,7 +419,7 @@ da_scala_test_suite(
 da_scala_test(
     name = "upgrade-test",
     size = "large",
-    srcs = ["src/com/digitalasset/daml/lf/engine/script/test/UpgradesIT.scala"],
+    srcs = ["src/main/scala/com/daml/lf/engine/script/test/UpgradesIT.scala"],
     data = [
         ":upgrade-test-files",
         ":upgrade-test-lib.dar",
@@ -469,7 +469,7 @@ filegroup(
 da_scala_test_suite(
     name = "test-dev",
     srcs = glob(
-        ["src/com/**/*Dev*.scala"],
+        ["src/main/scala/com/**/*Dev*.scala"],
     ),
     data = [dep for deps in [[
         ":coin-upgrade-v1-v2-{}.dar".format(lf),

@@ -70,7 +70,7 @@ da_scala_library(
     ],
 )
 
-upgrade_test_file = "src/test/scala/com/digitalasset/daml/lf/validation/UpgradesSpec.scala"
+upgrade_test_file = "src/test/scala/com/daml/lf/validation/UpgradesSpec.scala"
 
 da_scala_test_suite(
     name = "tests",
