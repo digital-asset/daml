@@ -19,6 +19,7 @@ import Control.Concurrent.STM.TVar
 import Control.Concurrent.STM.TMVar
 import Control.Concurrent.MVar
 import Control.Monad.STM
+import DA.Daml.Project.Types (ProjectPath (..))
 import qualified Data.ByteString.Lazy as BSL
 import Data.Function (on)
 import qualified Data.IxMap as IM
@@ -33,17 +34,27 @@ import System.Process.Typed (Process)
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
 
+newtype PackageHome = PackageHome {unPackageHome :: FilePath} deriving (Show, Eq, Ord)
+
+toProjectPath :: PackageHome -> ProjectPath
+toProjectPath (PackageHome path) = ProjectPath path
+
+newtype DarFile = DarFile {unDarFile :: FilePath} deriving (Show, Eq, Ord)
+newtype DamlFile = DamlFile {unDamlFile :: FilePath} deriving (Show, Eq, Ord)
+
+newtype UnitId = UnitId {unUnitId :: String} deriving (Show, Eq, Ord)
+
 data TrackedMethod (m :: LSP.Method from 'LSP.Request) where
   TrackedSingleMethodFromClient
     :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
     .  LSP.SMethod m
     -> LSP.FromClientMessage -- | Store the whole message for re-transmission on subIDE restart
-    -> FilePath -- | Store the recipient subIDE for this message
+    -> PackageHome -- | Store the recipient subIDE for this message
     -> TrackedMethod m
   TrackedSingleMethodFromServer
     :: forall (m :: LSP.Method 'LSP.FromServer 'LSP.Request)
     .  LSP.SMethod m
-    -> Maybe FilePath -- | Store the IDE that sent the request (or don't, for requests sent by the coordinator)
+    -> Maybe PackageHome -- | Store the IDE that sent the request (or don't, for requests sent by the coordinator)
     -> TrackedMethod m
   TrackedAllMethod :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request).
     { tamMethod :: LSP.SMethod m
@@ -53,9 +64,9 @@ data TrackedMethod (m :: LSP.Method from 'LSP.Request) where
         -- ^ Store the whole message for re-transmission on subIDE restart
     , tamCombiner :: ResponseCombiner m
         -- ^ How to combine the results from each IDE
-    , tamRemainingResponseIDERoots :: [FilePath]
+    , tamRemainingResponsePackageHomes :: [PackageHome]
         -- ^ The IDES that have not yet replied to this message
-    , tamResponses :: [(FilePath, Either LSP.ResponseError (LSP.ResponseResult m))]
+    , tamResponses :: [(PackageHome, Either LSP.ResponseError (LSP.ResponseResult m))]
     } -> TrackedMethod m
 
 tmMethod
@@ -87,12 +98,12 @@ data SubIDEInstance = SubIDEInstance
   , ideErrText :: TVar T.Text
   , ideErrTextAsync :: Async ()
   , ideProcess :: Process Handle Handle Handle
-  , ideHome :: FilePath
+  , ideHome :: PackageHome
   , ideMessageIdPrefix :: T.Text
     -- ^ Some unique string used to prefix message ids created by the SubIDE, to avoid collisions with other SubIDEs
     -- We use the stringified process ID
     -- TODO[SW]: This isn't strictly safe since this data exists for a short time after subIDE shutdown, duplicates could be created.
-  , ideUnitId :: String
+  , ideUnitId :: UnitId
     -- ^ Unit ID of the package this SubIDE handles
     -- Of the form "daml-script-0.0.1"
   }
@@ -108,19 +119,19 @@ instance Ord SubIDEInstance where
 -- We store an optional main ide, the currently closing ides (kept only so they can reply to their shutdowns), and open files
 -- open files must outlive the main subide so we can re-send the TextDocumentDidOpen messages on new ide startup
 data SubIDEData = SubIDEData
-  { ideDataHome :: FilePath
+  { ideDataHome :: PackageHome
   , ideDataMain :: Maybe SubIDEInstance
   , ideDataClosing :: Set.Set SubIDEInstance
-  , ideDataOpenFiles :: Set.Set FilePath
+  , ideDataOpenFiles :: Set.Set DamlFile
   , ideDataFailTimes :: [UTCTime]
   , ideDataDisabled :: Bool
   , ideDataLastError :: Maybe String
   }
 
-defaultSubIDEData :: FilePath -> SubIDEData
+defaultSubIDEData :: PackageHome -> SubIDEData
 defaultSubIDEData home = SubIDEData home Nothing Set.empty Set.empty [] False Nothing
 
-lookupSubIde :: FilePath -> SubIDEs -> SubIDEData
+lookupSubIde :: PackageHome -> SubIDEs -> SubIDEData
 lookupSubIde home ides = fromMaybe (defaultSubIDEData home) $ Map.lookup home ides
 
 ideShouldDisableTimeout :: NominalDiffTime
@@ -136,7 +147,7 @@ ideShouldDisable _ = False
 --   We never attempt to send messages on a stale IDE. If we ever read SubIDEsVar with the intent to send a message on a SubIDE, we must hold the so a shutdown
 --     cannot be sent on that IDE until we are done. This ensures that when a shutdown does occur, it is impossible for non-shutdown messages to be added to the
 --     queue after the shutdown.
-type SubIDEs = Map.Map FilePath SubIDEData
+type SubIDEs = Map.Map PackageHome SubIDEData
 type SubIDEsVar = TMVar SubIDEs
 
 -- Stores the initialize messages sent by the client to be forwarded to SubIDEs when they are created.
@@ -145,17 +156,17 @@ type InitParamsVar = MVar InitParams
 
 -- Maps a packages unit id to its source location, using PackageOnDisk for all packages in multi-package.yaml
 -- and PackageInDar for all known dars (currently extracted from data-dependencies)
-data PackageSourceLocation = PackageOnDisk FilePath | PackageInDar FilePath deriving Show
-type MultiPackageYamlMapping = Map.Map String PackageSourceLocation
+data PackageSourceLocation = PackageOnDisk PackageHome | PackageInDar DarFile deriving Show
+type MultiPackageYamlMapping = Map.Map UnitId PackageSourceLocation
 type MultiPackageYamlMappingVar = TMVar MultiPackageYamlMapping
 
 -- Maps a dar path to the list of packages that directly depend on it
-type DarDependentPackages = Map.Map FilePath (Set.Set FilePath)
+type DarDependentPackages = Map.Map DarFile (Set.Set PackageHome)
 type DarDependentPackagesVar = TMVar DarDependentPackages
 
--- "Cache" for the home path of files
+-- "Cache" for the home path of files/directories
 -- Cleared on daml.yaml modification and file deletion
-type SourceFileHomes = Map.Map FilePath FilePath
+type SourceFileHomes = Map.Map FilePath PackageHome
 type SourceFileHomesVar = TMVar SourceFileHomes
 
 data MultiIdeState = MultiIdeState
@@ -170,7 +181,7 @@ data MultiIdeState = MultiIdeState
   , darDependentPackagesVar :: DarDependentPackagesVar
   , logger :: Logger.Handle IO
   , multiPackageHome :: FilePath
-  , defaultPackagePath :: FilePath
+  , defaultPackagePath :: PackageHome
   , sourceFileHomesVar :: SourceFileHomesVar
   , subIdeArgs :: [String]
   }
@@ -187,7 +198,7 @@ logInfo miState msg = Logger.logInfo (logger miState) (T.pack msg)
 logDebug :: MultiIdeState -> String -> IO ()
 logDebug miState msg = Logger.logDebug (logger miState) (T.pack msg)
 
-newMultiIdeState :: FilePath -> FilePath -> Logger.Priority -> [String] -> IO MultiIdeState
+newMultiIdeState :: FilePath -> PackageHome -> Logger.Priority -> [String] -> IO MultiIdeState
 newMultiIdeState multiPackageHome defaultPackagePath logThreshold subIdeArgs = do
   (fromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient) <- newTVarIO IM.emptyIxMap
   (fromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer) <- newTVarIO IM.emptyIxMap
@@ -257,9 +268,9 @@ data Forwarding (m :: LSP.Method 'LSP.FromClient t) where
     -> Forwarding (m :: LSP.Method 'LSP.FromClient t)
 
 type ResponseCombiner (m :: LSP.Method 'LSP.FromClient 'LSP.Request) =
-  [(FilePath, Either LSP.ResponseError (LSP.ResponseResult m))] -> Either LSP.ResponseError (LSP.ResponseResult m)
+  [(PackageHome, Either LSP.ResponseError (LSP.ResponseResult m))] -> Either LSP.ResponseError (LSP.ResponseResult m)
 
 data SMethodWithSender (m :: LSP.Method 'LSP.FromServer t) = SMethodWithSender
   { smsMethod :: LSP.SMethod m
-  , smsSender :: Maybe FilePath
+  , smsSender :: Maybe PackageHome
   }

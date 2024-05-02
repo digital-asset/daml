@@ -5,7 +5,7 @@ module DA.Cli.Damlc.Command.MultiIde.DarDependencies (resolveSourceLocation, unp
 
 import "zip-archive" Codec.Archive.Zip (Archive (..), Entry(..), toArchive, toEntry, fromArchive, fromEntry, findEntryByPath, deleteEntryFromArchive)
 import Control.Monad (forM_, void)
-import DA.Cli.Damlc.Command.MultiIde.Types (MultiIdeState (..), PackageSourceLocation (..), logDebug, logInfo)
+import DA.Cli.Damlc.Command.MultiIde.Types (MultiIdeState (..), PackageSourceLocation (..), PackageHome (..), DarFile (..), logDebug, logInfo)
 import DA.Daml.Compiler.Dar (breakAt72Bytes, mkConfFile)
 import qualified DA.Daml.LF.Ast.Base as LF
 import qualified DA.Daml.LF.Ast.Version as LF
@@ -34,8 +34,9 @@ import qualified Module as Ghc
 -- Given a dar, attempts to recreate the package structure for the IDE, with all files set to read-only.
 -- Note, this function deletes the previous folder for the same unit-id, ensure subIDE is not running in this directory
 -- before calling this function
-unpackDar :: MultiIdeState -> FilePath -> IO ()
-unpackDar miState darPath = do
+unpackDar :: MultiIdeState -> DarFile -> IO ()
+unpackDar miState darFile = do
+  let darPath = unDarFile darFile
   logInfo miState $ "Unpacking dar: " <> darPath
   archiveWithSource <- toArchive <$> BSL.readFile darPath
   manifest <- either fail pure $ readDalfManifest archiveWithSource
@@ -45,7 +46,7 @@ unpackDar miState darPath = do
   mainDalf <- maybe (fail "Couldn't find main dalf in dar") pure $ findEntryByPath (mainDalfPath manifest) archive
 
   let (mainPkgName, mainPkgVersion, mainPackageId) = extractPackageMetadataFromEntry mainDalf
-      darUnpackLocation = unpackedDarPath miState mainPkgName mainPkgVersion
+      darUnpackLocation = unPackageHome $ unpackedDarPath miState mainPkgName mainPkgVersion
 
   -- Clear the unpack location
   removePathForcibly darUnpackLocation
@@ -118,8 +119,8 @@ extractPackageMetadataFromDalfPath path =
 unpackedDarsLocation :: MultiIdeState -> FilePath
 unpackedDarsLocation miState = multiPackageHome miState </> ".daml" </> "unpacked-dars"
 
-unpackedDarPath :: MultiIdeState -> String -> String -> FilePath
-unpackedDarPath miState pkgName pkgVersion = unpackedDarsLocation miState </> pkgName <> "-" <> pkgVersion
+unpackedDarPath :: MultiIdeState -> String -> String -> PackageHome
+unpackedDarPath miState pkgName pkgVersion = PackageHome $ unpackedDarsLocation miState </> pkgName <> "-" <> pkgVersion
 
 -- Pull out every daml file into a mapping from path to content
 -- Return an archive without these files or any hi/hie files
@@ -183,15 +184,15 @@ rebuildDarFromDalfEntry archive rawManifest dalfPaths topDalfPath mainEntry = ar
         overwrites = Map.fromList overwrites'
 
 -- Resolves the source location of a package location to a path, alongside an optional path to a dar to unpack first
-resolveSourceLocation :: MultiIdeState -> PackageSourceLocation -> IO (FilePath, Maybe FilePath)
+resolveSourceLocation :: MultiIdeState -> PackageSourceLocation -> IO (PackageHome, Maybe DarFile)
 resolveSourceLocation _ (PackageOnDisk path) = pure (path, Nothing)
 resolveSourceLocation miState (PackageInDar darPath) = do
   logDebug miState "Looking for unpacked dar"
-  archive <- toArchive <$> BSL.readFile darPath
+  archive <- toArchive <$> BSL.readFile (unDarFile darPath)
   manifest <- either fail pure $ readDalfManifest archive
   let (pkgName, pkgVersion, pkgId) = extractPackageMetadataFromDalfPath $ mainDalfPath manifest
       pkgPath = unpackedDarPath miState pkgName pkgVersion
-      pkgIdTagPath = pkgPath </> ".daml" </> pkgId
+      pkgIdTagPath = unPackageHome pkgPath </> ".daml" </> pkgId
 
   pkgExists <- doesFileExist pkgIdTagPath
 

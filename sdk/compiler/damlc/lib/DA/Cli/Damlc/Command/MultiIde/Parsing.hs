@@ -79,7 +79,7 @@ putChunk handle payload = do
 
 putReqMethodSingleFromServer
   :: forall (m :: LSP.Method 'LSP.FromServer 'LSP.Request)
-  .  MethodTrackerVar 'LSP.FromServer -> FilePath -> LSP.LspId m -> LSP.SMethod m -> IO ()
+  .  MethodTrackerVar 'LSP.FromServer -> PackageHome -> LSP.LspId m -> LSP.SMethod m -> IO ()
 putReqMethodSingleFromServer tracker home id method = putReqMethod tracker id $ TrackedSingleMethodFromServer method $ Just home
 
 putReqMethodSingleFromServerCoordinator
@@ -88,7 +88,7 @@ putReqMethodSingleFromServerCoordinator
 putReqMethodSingleFromServerCoordinator tracker id method = putReqMethod tracker id $ TrackedSingleMethodFromServer method Nothing
 
 -- Takes a message from server and stores it if its a request, so that later messages from the client can deduce response context
-putFromServerMessage :: MultiIdeState -> FilePath -> LSP.FromServerMessage -> IO ()
+putFromServerMessage :: MultiIdeState -> PackageHome -> LSP.FromServerMessage -> IO ()
 putFromServerMessage miState home (LSP.FromServerMess method mess) =
   case (LSP.splitServerMethod method, mess) of
     (LSP.IsServerReq, _) -> putReqMethodSingleFromServer (fromServerMethodTrackerVar miState) home (mess ^. LSP.id) method
@@ -98,11 +98,11 @@ putFromServerMessage _ _ _ = pure ()
 
 putReqMethodSingleFromClient
   :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
-  .  MethodTrackerVar 'LSP.FromClient -> LSP.LspId m -> LSP.SMethod m -> LSP.FromClientMessage -> FilePath -> IO ()
+  .  MethodTrackerVar 'LSP.FromClient -> LSP.LspId m -> LSP.SMethod m -> LSP.FromClientMessage -> PackageHome -> IO ()
 putReqMethodSingleFromClient tracker id method message home = putReqMethod tracker id $ TrackedSingleMethodFromClient method message home
 
 -- Convenience wrapper around putReqMethodSingleFromClient
-putSingleFromClientMessage :: MultiIdeState -> FilePath -> LSP.FromClientMessage -> IO ()
+putSingleFromClientMessage :: MultiIdeState -> PackageHome -> LSP.FromClientMessage -> IO ()
 putSingleFromClientMessage miState home msg@(LSP.FromClientMess method mess) =
   case (LSP.splitClientMethod method, mess) of
     (LSP.IsClientReq, _) -> putReqMethodSingleFromClient (fromClientMethodTrackerVar miState) (mess ^. LSP.id) method msg home
@@ -116,7 +116,7 @@ putReqMethodAll
   -> LSP.LspId m
   -> LSP.SMethod m
   -> LSP.FromClientMessage
-  -> [FilePath]
+  -> [PackageHome]
   -> ResponseCombiner m
   -> IO ()
 putReqMethodAll tracker id method msg ides combine =
@@ -157,8 +157,8 @@ wrapParseMessageLookup (mayTM, newIM) =
 -- Parses a message from the server providing context about previous requests from client
 -- allowing the server parser to reconstruct typed responses to said requests
 -- Handles TrackedAllMethod by returning Nothing for messages that do not have enough replies yet.
-parseServerMessageWithTracker :: MethodTrackerVar 'LSP.FromClient -> FilePath -> Aeson.Value -> IO (Either String (Maybe LSP.FromServerMessage))
-parseServerMessageWithTracker tracker selfIde val = pickReqMethodTo tracker $ \extract ->
+parseServerMessageWithTracker :: MethodTrackerVar 'LSP.FromClient -> PackageHome -> Aeson.Value -> IO (Either String (Maybe LSP.FromServerMessage))
+parseServerMessageWithTracker tracker home val = pickReqMethodTo tracker $ \extract ->
   case Aeson.parseEither (LSP.parseServerMessage (wrapParseMessageLookup . extract)) val of
     Right (LSP.FromServerMess meth mess) -> (Right (Just $ LSP.FromServerMess meth mess), Nothing)
     Right (LSP.FromServerRsp (Pair (TrackedSingleMethodFromClient method _ _) (Const newIxMap)) rsp) -> (Right (Just (LSP.FromServerRsp method rsp)), Just newIxMap)
@@ -170,10 +170,10 @@ parseServerMessageWithTracker tracker selfIde val = pickReqMethodTo tracker $ \e
                   , tamLspId = tamLspId tm
                   , tamClientMessage = tamClientMessage tm
                   , tamCombiner = tamCombiner tm
-                  , tamResponses = (selfIde, LSP._result rsp) : tamResponses tm
-                  , tamRemainingResponseIDERoots = delete selfIde $ tamRemainingResponseIDERoots tm
+                  , tamResponses = (home, LSP._result rsp) : tamResponses tm
+                  , tamRemainingResponsePackageHomes = delete home $ tamRemainingResponsePackageHomes tm
                   }
-      if null $ tamRemainingResponseIDERoots tm'
+      if null $ tamRemainingResponsePackageHomes tm'
         then let msg = LSP.FromServerRsp (tamMethod tm) $ rsp {LSP._result = tamCombiner tm' (tamResponses tm')}
               in (Right $ Just msg, Just newIxMap)
         else let insertedIxMap = fromMaybe newIxMap $ IM.insertIxMap (tamLspId tm) tm' newIxMap
@@ -208,7 +208,7 @@ type SomeFromClientTrackedMethod = Some @(LSP.Method 'LSP.FromClient 'LSP.Reques
 adjustClientTrackers 
   :: forall a
   .  MultiIdeState
-  -> FilePath
+  -> PackageHome
   -> (  forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
      .  LSP.LspId m
      -> TrackedMethod m 
@@ -228,7 +228,7 @@ adjustClientTrackers miState home adjuster = atomically $ stateTVar (fromClientM
       adjust :: [a] -> LSP.SomeLspId -> SomeFromClientTrackedMethod -> ([a], Maybe SomeFromClientTrackedMethod)
       adjust accum someLspId someTracker = withSome someTracker $ \tracker -> case (tracker, someLspId) of
         (TrackedSingleMethodFromClient _ _ home', LSP.SomeLspId lspId) | home == home' -> doAdjust accum (unsafeCoerce lspId) tracker
-        (TrackedAllMethod {tamRemainingResponseIDERoots}, LSP.SomeLspId lspId) | home `elem` tamRemainingResponseIDERoots -> doAdjust accum (unsafeCoerce lspId) tracker
+        (TrackedAllMethod {tamRemainingResponsePackageHomes}, LSP.SomeLspId lspId) | home `elem` tamRemainingResponsePackageHomes -> doAdjust accum (unsafeCoerce lspId) tracker
         _ -> (accum, Just someTracker)
       -- We know that the fromClientMethodTrackerVar only contains Trackers for FromClient, but this information is lost in the `Some` inside the IxMap
       -- We define our `adjust` method safely, by having it know this `FromClient` constraint, then coerce it to bring said constraint into scope.
@@ -245,7 +245,7 @@ isClosingIdeInFlight _ _ _ = False
 
 -- Reads all unresponded messages for a given home, gives back the original messages. Ignores and deletes Initialize and Shutdown requests
 -- but only if no ideClosing ides are using them
-getUnrespondedRequestsToResend :: MultiIdeState -> SubIDEData -> FilePath -> IO [LSP.FromClientMessage]
+getUnrespondedRequestsToResend :: MultiIdeState -> SubIDEData -> PackageHome -> IO [LSP.FromClientMessage]
 getUnrespondedRequestsToResend miState ideData home = adjustClientTrackers miState home $ \lspId tracker -> case tmMethod tracker of
   -- Keep shutdown/initialize messages that are in use, but don't return them
   method | isClosingIdeInFlight ideData method lspId -> (Just tracker, Nothing)
@@ -256,12 +256,12 @@ getUnrespondedRequestsToResend miState ideData home = adjustClientTrackers miSta
 -- Gets fallback responses for all unresponded requests for a given home.
 -- For Single IDE requests, we return noIDEReply, and delete the request from the tracker
 -- For All IDE requests, we delete this home from the aggregate response, and if it is now complete, run the combiner and return the result
-getUnrespondedRequestsFallbackResponses :: MultiIdeState -> SubIDEData -> FilePath -> IO [LSP.FromServerMessage]
+getUnrespondedRequestsFallbackResponses :: MultiIdeState -> SubIDEData -> PackageHome -> IO [LSP.FromServerMessage]
 getUnrespondedRequestsFallbackResponses miState ideData home = adjustClientTrackers miState home $ \lspId tracker -> case tracker of
 -- Keep shutdown/initialize messages that are in use, but don't return them
   TrackedSingleMethodFromClient method _ _ | isClosingIdeInFlight ideData method lspId -> (Just tracker, Nothing)
   TrackedSingleMethodFromClient _ msg _ -> (Nothing, noIDEReply msg)
-  tm@TrackedAllMethod {tamRemainingResponseIDERoots = [home']} | home' == home ->
+  tm@TrackedAllMethod {tamRemainingResponsePackageHomes = [home']} | home' == home ->
     let reply = LSP.FromServerRsp (tamMethod tm) $ LSP.ResponseMessage "2.0" (Just $ tamLspId tm) (tamCombiner tm $ tamResponses tm)
      in (Nothing, Just reply)
   TrackedAllMethod {..} ->
@@ -271,6 +271,6 @@ getUnrespondedRequestsFallbackResponses miState ideData home = adjustClientTrack
               , tamClientMessage
               , tamCombiner
               , tamResponses
-              , tamRemainingResponseIDERoots = delete home tamRemainingResponseIDERoots
+              , tamRemainingResponsePackageHomes = delete home tamRemainingResponsePackageHomes
               }
      in (Just tm, Nothing)

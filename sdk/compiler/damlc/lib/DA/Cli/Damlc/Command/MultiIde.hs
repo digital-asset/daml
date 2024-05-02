@@ -90,7 +90,7 @@ import System.Process.Typed (
 -- Note that messages sent here should _already_ be in the fromClientMessage tracker
 addNewSubIDEAndSend
   :: MultiIdeState
-  -> FilePath
+  -> PackageHome
   -> Maybe LSP.FromClientMessage
   -> IO ()
 addNewSubIDEAndSend miState home mMsg = do
@@ -115,14 +115,14 @@ addNewSubIDEAndSend miState home mMsg = do
           -- Only add diagnostic messages for first fail to start.
           -- Diagnostic messages trigger the client to send a codeAction request, which would create an infinite loop if we sent
           -- diagnostics with its reply
-          messages = responses <> if ideShouldDisable ideData then disableIdeDiagnosticMessages ideData home else []
+          messages = responses <> if ideShouldDisable ideData then disableIdeDiagnosticMessages ideData else []
 
       atomically $ do
         traverse_ (sendClientSTM miState) messages
         putTMVar (subIDEsVar miState) $ Map.insert home ideData' ides
     Nothing -> do
-      logInfo miState $ "Creating new SubIDE for " <> home
-      traverse_ (sendClient miState) $ clearIdeDiagnosticMessages ideData home
+      logInfo miState $ "Creating new SubIDE for " <> unPackageHome home
+      traverse_ (sendClient miState) $ clearIdeDiagnosticMessages ideData
 
       unitId <- either (\cErr -> error $ "Failed to get unit ID from daml.yaml: " <> show cErr) fst <$> unitIdAndDepsFromDamlYaml home
 
@@ -196,7 +196,7 @@ addNewSubIDEAndSend miState home mMsg = do
       -- Send the open file notifications
       logDebug miState "Sending open files messages to SubIDE"
       forM_ (ideDataOpenFiles ideData') $ \path -> do
-        content <- TE.readFileUtf8 path
+        content <- TE.readFileUtf8 $ unDamlFile path
         unsafeSendSubIDE ide $ openFileNotification path content
       
 
@@ -216,19 +216,19 @@ addNewSubIDEAndSend miState home mMsg = do
 
       atomically $ putTMVar (subIDEsVar miState) $ Map.insert home ideData' ides
 
-disableIdeDiagnosticMessages :: SubIDEData -> FilePath -> [LSP.FromServerMessage]
-disableIdeDiagnosticMessages ideData home =
+disableIdeDiagnosticMessages :: SubIDEData -> [LSP.FromServerMessage]
+disableIdeDiagnosticMessages ideData =
   fullFileDiagnostic 
     ( "GHCIDE refuses to start with the follow error:\n"
     <> fromMaybe "No information" (ideDataLastError ideData)
     )
-    <$> ((home </> "daml.yaml") : Set.toList (ideDataOpenFiles ideData))
+    <$> ((unPackageHome (ideDataHome ideData) </> "daml.yaml") : fmap unDamlFile (Set.toList $ ideDataOpenFiles ideData))
 
-clearIdeDiagnosticMessages :: SubIDEData -> FilePath -> [LSP.FromServerMessage]
-clearIdeDiagnosticMessages ideData home =
-  clearDiagnostics <$> ((home </> "daml.yaml") : Set.toList (ideDataOpenFiles ideData))
+clearIdeDiagnosticMessages :: SubIDEData -> [LSP.FromServerMessage]
+clearIdeDiagnosticMessages ideData =
+  clearDiagnostics <$> ((unPackageHome (ideDataHome ideData) </> "daml.yaml") : fmap unDamlFile (Set.toList $ ideDataOpenFiles ideData))
 
-runSubProc :: MultiIdeState -> FilePath -> IO (Process Handle Handle Handle)
+runSubProc :: MultiIdeState -> PackageHome -> IO (Process Handle Handle Handle)
 runSubProc miState home = do
   assistantPath <- getEnv "DAML_ASSISTANT"
   -- Need to remove some variables so the sub-assistant will pick them up from the working dir/daml.yaml
@@ -239,25 +239,25 @@ runSubProc miState home = do
       setStdin createPipeNoClose &
       setStdout createPipeNoClose &
       setStderr createPipeNoClose &
-      setWorkingDir home &
+      setWorkingDir (unPackageHome home) &
       setEnv assistantEnv
   where
     createPipeNoClose :: StreamSpec streamType Handle
     createPipeNoClose = mkPipeStreamSpec $ \_ h -> pure (h, pure ())
 
 -- Spin-down logic
-rebootIdeByPath :: MultiIdeState -> FilePath -> IO ()
-rebootIdeByPath miState home = do
-  shutdownIdeByPath miState home
+rebootIdeByHome :: MultiIdeState -> PackageHome -> IO ()
+rebootIdeByHome miState home = do
+  shutdownIdeByHome miState home
   addNewSubIDEAndSend miState home Nothing
 
--- Version of rebootIdeByPath that only spins up IDEs that were either active, or disabled.
+-- Version of rebootIdeByHome that only spins up IDEs that were either active, or disabled.
 -- Does not spin up IDEs that were naturally shutdown/never started
-lenientRebootIdeByPath :: MultiIdeState -> FilePath -> IO ()
-lenientRebootIdeByPath miState home = do
+lenientRebootIdeByHome :: MultiIdeState -> PackageHome -> IO ()
+lenientRebootIdeByHome miState home = do
   ideData <- fmap (lookupSubIde home) $ atomically $ readTMVar $ subIDEsVar miState
   let shouldBoot = isJust (ideDataMain ideData) || ideDataDisabled ideData
-  shutdownIdeByPath miState home
+  shutdownIdeByHome miState home
   when shouldBoot $ addNewSubIDEAndSend miState home Nothing
 
 -- Checks if a shutdown message LspId originated from the multi-ide coordinator
@@ -267,8 +267,8 @@ isCoordinatorShutdownLspId _ = False
 
 -- Sends a shutdown message and moves SubIDEInstance to `ideDataClosing`, disallowing any further client messages to be sent to the subIDE
 -- given queue nature of TChan, all other pending messages will be sent first before handling shutdown
-shutdownIdeByPath :: MultiIdeState -> FilePath -> IO ()
-shutdownIdeByPath miState home = do
+shutdownIdeByHome :: MultiIdeState -> PackageHome -> IO ()
+shutdownIdeByHome miState home = do
   ides <- atomically $ takeTMVar (subIDEsVar miState)
   let ideData = lookupSubIde home ides
   ides' <- case ideDataMain ideData of
@@ -282,18 +282,18 @@ shutdownIdeByPath miState home = do
             , _jsonrpc = "2.0"
             }
       
-      logDebug miState $ "Sending shutdown message to " <> ideDataHome ideData
+      logDebug miState $ "Sending shutdown message to " <> unPackageHome (ideDataHome ideData)
 
-      putSingleFromClientMessage miState (ideDataHome ideData) shutdownMsg
+      putSingleFromClientMessage miState home shutdownMsg
       unsafeSendSubIDE ide shutdownMsg
       pure $ Map.adjust (\ideData' -> ideData' 
         { ideDataMain = Nothing
         , ideDataClosing = Set.insert ide $ ideDataClosing ideData
         , ideDataFailTimes = []
         , ideDataDisabled = False
-        }) (ideDataHome ideData) ides
+        }) home ides
     Nothing ->
-      pure $ Map.adjust (\ideData -> ideData {ideDataFailTimes = [], ideDataDisabled = False}) (ideDataHome ideData) ides
+      pure $ Map.adjust (\ideData -> ideData {ideDataFailTimes = [], ideDataDisabled = False}) home ides
   atomically $ putTMVar (subIDEsVar miState) ides'
 
 -- To be called once we receive the Shutdown response
@@ -304,7 +304,7 @@ handleExit miState ide =
     then do
       -- On windows, ghc-ide doesn't close correctly on exit messages (even terminating the process leaves subprocesses behind)
       -- Instead, we close the handle its listening on, and terminate the process.
-      logDebug miState $ "(windows) Closing handle and terminating " <> ideHome ide
+      logDebug miState $ "(windows) Closing handle and terminating " <> unPackageHome (ideHome ide)
       hTryClose $ ideInHandle ide
       terminateProcess $ unsafeProcessHandle $ ideProcess ide
     else do
@@ -313,7 +313,7 @@ handleExit miState ide =
             , _params = LSP.Empty
             , _jsonrpc = "2.0"
             }
-      logDebug miState $ "Sending exit message to " <> ideHome ide
+      logDebug miState $ "Sending exit message to " <> unPackageHome (ideHome ide)
       -- This will cause the subIDE process to exit
       -- Able to be unsafe as no other messages can use this IDE once it has been shutdown
       unsafeSendSubIDE ide exitMsg
@@ -337,7 +337,7 @@ sendClient miState = atomically . sendClientSTM miState
 sendClientFirst :: MultiIdeState -> LSP.FromServerMessage -> IO ()
 sendClientFirst miState = atomically . unGetTChan (toClientChan miState) . Aeson.encode
 
-sendAllSubIDEs :: MultiIdeState -> LSP.FromClientMessage -> IO [FilePath]
+sendAllSubIDEs :: MultiIdeState -> LSP.FromClientMessage -> IO [PackageHome]
 sendAllSubIDEs miState msg = atomically $ do
   ides <- takeTMVar (subIDEsVar miState)
   let ideInstances = mapMaybe ideDataMain $ Map.elems ides
@@ -348,7 +348,7 @@ sendAllSubIDEs miState msg = atomically $ do
 sendAllSubIDEs_ :: MultiIdeState -> LSP.FromClientMessage -> IO ()
 sendAllSubIDEs_ miState = void . sendAllSubIDEs miState
 
-getSourceFileHome :: MultiIdeState -> FilePath -> STM (Maybe FilePath)
+getSourceFileHome :: MultiIdeState -> FilePath -> STM (Maybe PackageHome)
 getSourceFileHome miState path = do
   sourceFileHomes <- takeTMVar (sourceFileHomesVar miState)
   case Map.lookup path sourceFileHomes of
@@ -361,7 +361,7 @@ getSourceFileHome miState path = do
       unsafeIOToSTM $ logDebug miState $ "No cached home for " <> path
       -- Read only operation, so safe within STM
       mHome <- unsafeIOToSTM $ findHome path
-      unsafeIOToSTM $ logDebug miState $ "File system yielded " <> show mHome
+      unsafeIOToSTM $ logDebug miState $ "File system yielded " <> show (unPackageHome <$> mHome)
       putTMVar (sourceFileHomesVar miState) $ maybe sourceFileHomes (\home -> Map.insert path home sourceFileHomes) mHome
       pure mHome
 
@@ -369,8 +369,8 @@ sourceFileHomeDeleted :: MultiIdeState -> FilePath -> IO ()
 sourceFileHomeDeleted miState path = atomically $ modifyTMVar (sourceFileHomesVar miState) $ Map.delete path
 
 -- When a daml.yaml changes, all files pointing to it are invalidated in the cache
-sourceFileHomeDamlYamlChanged :: MultiIdeState -> FilePath -> IO ()
-sourceFileHomeDamlYamlChanged miState packagePath = atomically $ modifyTMVar (sourceFileHomesVar miState) $ Map.filter (/=packagePath)
+sourceFileHomeDamlYamlChanged :: MultiIdeState -> PackageHome -> IO ()
+sourceFileHomeDamlYamlChanged miState home = atomically $ modifyTMVar (sourceFileHomesVar miState) $ Map.filter (/=home)
 
 sendSubIDEByPath :: MultiIdeState -> FilePath -> LSP.FromClientMessage -> IO ()
 sendSubIDEByPath miState path msg = do
@@ -384,7 +384,7 @@ sendSubIDEByPath miState path msg = do
     when shouldAdd $ addNewSubIDEAndSend miState home $ Just msg
   where
     -- Returns the path of the subIDE if one exists/can be created, as well as a flag on whether it should be created
-    sendSubIDEByPathAux :: FilePath -> LSP.FromClientMessage -> IO (Maybe FilePath, Bool)
+    sendSubIDEByPathAux :: FilePath -> LSP.FromClientMessage -> IO (Maybe PackageHome, Bool)
     sendSubIDEByPathAux path msg = atomically $ do
       mHome <- getSourceFileHome miState path
 
@@ -397,7 +397,7 @@ sendSubIDEByPath miState path msg = do
             Just ide -> do
               writeTChan (ideInHandleChannel ide) (Aeson.encode msg)
               -- Safe as repeat prints are acceptable
-              unsafeIOToSTM $ logDebug miState $ "Found relevant SubIDE: " <> ideDataHome ideData
+              unsafeIOToSTM $ logDebug miState $ "Found relevant SubIDE: " <> unPackageHome (ideDataHome ideData)
               putTMVar (subIDEsVar miState) ides
               pure (Just home, False)
             -- This path will create a new subIDE at the given home
@@ -426,31 +426,31 @@ parseCustomResult name =
   fmap $ either (\err -> error $ "Failed to parse response of " <> name <> ": " <> err) id 
     . Aeson.parseEither Aeson.parseJSON
 
-onOpenFiles :: MultiIdeState -> FilePath -> (Set.Set FilePath -> Set.Set FilePath) -> STM ()
+onOpenFiles :: MultiIdeState -> PackageHome -> (Set.Set DamlFile -> Set.Set DamlFile) -> STM ()
 onOpenFiles miState home f = modifyTMVarM (subIDEsVar miState) $ \subIdes -> do
   let ideData = lookupSubIde home subIdes
       ideData' = ideData {ideDataOpenFiles = f $ ideDataOpenFiles ideData}
-  when (ideDataDisabled ideData') $ traverse_ (sendClientSTM miState) $ disableIdeDiagnosticMessages ideData' home
+  when (ideDataDisabled ideData') $ traverse_ (sendClientSTM miState) $ disableIdeDiagnosticMessages ideData'
   pure $ Map.insert home ideData' subIdes
 
-addOpenFile :: MultiIdeState -> FilePath -> FilePath -> STM ()
+addOpenFile :: MultiIdeState -> PackageHome -> DamlFile -> STM ()
 addOpenFile miState home file = do
-  unsafeIOToSTM $ logInfo miState $ "Added open file " <> file <> " to " <> home
+  unsafeIOToSTM $ logInfo miState $ "Added open file " <> unDamlFile file <> " to " <> unPackageHome home
   onOpenFiles miState home $ Set.insert file
 
-removeOpenFile :: MultiIdeState -> FilePath -> FilePath -> STM ()
+removeOpenFile :: MultiIdeState -> PackageHome -> DamlFile -> STM ()
 removeOpenFile miState home file = do
-  unsafeIOToSTM $ logInfo miState $ "Removed open file " <> file <> " from " <> home
+  unsafeIOToSTM $ logInfo miState $ "Removed open file " <> unDamlFile file <> " from " <> unPackageHome home
   onOpenFiles miState home $ Set.delete file
 
-resolveAndUnpackSourceLocation :: MultiIdeState -> PackageSourceLocation -> IO FilePath
+resolveAndUnpackSourceLocation :: MultiIdeState -> PackageSourceLocation -> IO PackageHome
 resolveAndUnpackSourceLocation miState pkgSource = do
   (pkgPath, mDarPath) <- resolveSourceLocation miState pkgSource
   forM_ mDarPath $ \darPath -> do
     -- Must shutdown existing IDE first, since folder could be deleted
     -- If no IDE exists, shutdown is a no-op
-    logDebug miState $ "Shutting down existing unpacked dar at " <> pkgPath
-    shutdownIdeByPath miState pkgPath
+    logDebug miState $ "Shutting down existing unpacked dar at " <> unPackageHome pkgPath
+    shutdownIdeByHome miState pkgPath
     unpackDar miState darPath
   pure pkgPath
 
@@ -458,7 +458,7 @@ resolveAndUnpackSourceLocation miState pkgSource = do
 
 subIDEMessageHandler :: MultiIdeState -> IO () -> SubIDEInstance -> B.ByteString -> IO ()
 subIDEMessageHandler miState unblock ide bs = do
-  logInfo miState $ "Got new message from " <> ideHome ide
+  logInfo miState $ "Got new message from " <> unPackageHome (ideHome ide)
 
   -- Decode a value, parse
   let val :: Aeson.Value
@@ -508,7 +508,7 @@ subIDEMessageHandler miState unblock ide bs = do
           -- Send a new request to a new SubIDE to find the source of this name
           Right (Just (TryGetDefinitionResult loc (Just name))) -> do
             logDebug miState $ "Got name in result! Backup location is " <> show loc
-            mSourceLocation <- Map.lookup (tgdnPackageUnitId name) <$> atomically (readTMVar $ multiPackageMappingVar miState)
+            mSourceLocation <- Map.lookup (UnitId $ tgdnPackageUnitId name) <$> atomically (readTMVar $ multiPackageMappingVar miState)
             case mSourceLocation of
               -- Didn't find a home for this name, we do not know where this is defined, so give back the (known to be wrong)
               -- .daml data-dependency path
@@ -517,13 +517,13 @@ subIDEMessageHandler miState unblock ide bs = do
               -- We found a daml.yaml for this definition, send the getDefinitionByName request to its SubIDE
               Just sourceLocation -> do
                 home <- resolveAndUnpackSourceLocation miState sourceLocation
-                logDebug miState $ "Found unit ID in multi-package mapping, forwarding to " <> home
+                logDebug miState $ "Found unit ID in multi-package mapping, forwarding to " <> unPackageHome home
                 let method = LSP.SCustomMethod "daml/gotoDefinitionByName"
                     lspId = maybe (error "No LspId provided back from tryGetDefinition") castLspId _id
                     msg = LSP.FromClientMess method $ LSP.ReqMess $
                       LSP.RequestMessage "2.0" lspId method $ Aeson.toJSON $
                         GotoDefinitionByNameParams loc name
-                sendSubIDEByPath miState home msg
+                sendSubIDEByPath miState (unPackageHome home) msg
       
       -- See STextDocumentDefinition in client handle for description of this path
       LSP.FromServerRsp (LSP.SCustomMethod "daml/gotoDefinitionByName") LSP.ResponseMessage {_id, _result} -> do
@@ -551,8 +551,8 @@ handleOpenFilesNotification
   -> FilePath
   -> IO ()
 handleOpenFilesNotification miState mess path = atomically $ case (mess ^. LSP.method, takeExtension path) of
-  (LSP.STextDocumentDidOpen, ".daml") -> getSourceFileHome miState path >>= traverse_ (\home -> addOpenFile miState home path)
-  (LSP.STextDocumentDidClose, ".daml") -> getSourceFileHome miState path >>= traverse_ (\home -> removeOpenFile miState home path)
+  (LSP.STextDocumentDidOpen, ".daml") -> getSourceFileHome miState path >>= traverse_ (\home -> addOpenFile miState home $ DamlFile path)
+  (LSP.STextDocumentDidClose, ".daml") -> getSourceFileHome miState path >>= traverse_ (\home -> removeOpenFile miState home $ DamlFile path)
   _ -> pure ()
 
 clientMessageHandler :: MultiIdeState -> IO () -> B.ByteString -> IO ()
@@ -629,19 +629,20 @@ clientMessageHandler miState unblock bs = do
       forM_ changedPaths $ \(changedPath, changeType) ->
         case takeFileName changedPath of
           "daml.yaml" -> do
-            let packagePath = takeDirectory changedPath
-            logInfo miState $ "daml.yaml change in " <> packagePath <> ". Shutting down IDE"
-            sourceFileHomeDamlYamlChanged miState packagePath
-            rebootIdeByPath miState packagePath
+            let home = PackageHome $ takeDirectory changedPath
+            logInfo miState $ "daml.yaml change in " <> unPackageHome home <> ". Shutting down IDE"
+            sourceFileHomeDamlYamlChanged miState home
+            rebootIdeByHome miState home
             void $ updatePackageData miState
           "multi-package.yaml" -> do
             logInfo miState "multi-package.yaml change."
             void $ updatePackageData miState
           _ | takeExtension changedPath == ".dar" -> do
+            let darFile = DarFile changedPath
             logInfo miState $ ".dar file changed: " <> changedPath
-            idesToShutdown <- fromMaybe mempty . Map.lookup changedPath <$> atomically (readTMVar $ darDependentPackagesVar miState)
+            idesToShutdown <- fromMaybe mempty . Map.lookup darFile <$> atomically (readTMVar $ darDependentPackagesVar miState)
             logDebug miState $ "Shutting down following ides: " <> show idesToShutdown
-            traverse_ (lenientRebootIdeByPath miState) idesToShutdown
+            traverse_ (lenientRebootIdeByHome miState) idesToShutdown
 
             void $ updatePackageData miState
           -- for .daml, we remove entry from the sourceFileHome cache if the file is deleted (note that renames/moves are sent as delete then create)
@@ -692,7 +693,7 @@ clientMessageHandler miState unblock bs = do
     -- Responses to subIDEs
     LSP.FromClientRsp (SMethodWithSender method (Just home)) rMsg -> 
       -- If a response fails, failure is acceptable as the subIDE can't be expecting a response if its dead
-      sendSubIDEByPath miState home $ LSP.FromClientRsp method $ 
+      sendSubIDEByPath miState (unPackageHome home) $ LSP.FromClientRsp method $ 
         rMsg & LSP.id %~ fmap stripLspPrefix
     -- Responses to coordinator
     LSP.FromClientRsp (SMethodWithSender method Nothing) LSP.ResponseMessage {_id, _result} ->
@@ -712,7 +713,7 @@ If we do not get one, we continue as normal (no popups) until the user attempts 
 -}
 -- Updates the unit-id to package/dar mapping, as well as the dar to dependent packages mapping
 -- for any daml.yamls or dars that are invalid, the ide home paths are returned, and their data is not added to the mapping
-updatePackageData :: MultiIdeState -> IO [FilePath]
+updatePackageData :: MultiIdeState -> IO [PackageHome]
 updatePackageData miState = do
   logInfo miState "Updating package data"
   let ideRoot = multiPackageHome miState
@@ -731,15 +732,17 @@ updatePackageData miState = do
         then do
           logDebug miState "Found daml.yaml"
           -- Treat a workspace with only daml.yaml as a multi-package project with only one package
-          deriveAndWriteMappings [ideRoot] []
+          deriveAndWriteMappings [PackageHome ideRoot] []
         else do
           logDebug miState "No daml.yaml found either"
           -- Without a multi-package or daml.yaml, no mappings can be made. Passing empty lists here will give empty mappings
           deriveAndWriteMappings [] []
     Just path -> do
       logDebug miState "Found multi-package.yaml"
-      (eRes :: Either SomeException [FilePath]) <- try @SomeException $ withMultiPackageConfig path $ \multiPackage ->
-        deriveAndWriteMappings (toPosixFilePath <$> mpPackagePaths multiPackage) (toPosixFilePath <$> mpDars multiPackage)
+      (eRes :: Either SomeException [PackageHome]) <- try @SomeException $ withMultiPackageConfig path $ \multiPackage ->
+        deriveAndWriteMappings
+          (PackageHome . toPosixFilePath <$> mpPackagePaths multiPackage)
+          (DarFile . toPosixFilePath <$> mpDars multiPackage)
       let multiPackagePath = toPosixFilePath $ unwrapProjectPath path </> "multi-package.yaml"
       case eRes of
         Right paths -> do
@@ -757,20 +760,21 @@ updatePackageData miState = do
   where
     -- Gets the unit id of a dar if it can, caches result in stateT
     -- Returns Nothing (and stores) if anything goes wrong (dar doesn't exist, dar isn't archive, dar manifest malformed, etc.)
-    getDarUnitId :: FilePath -> StateT (Map.Map FilePath (Maybe String)) IO (Maybe String)
+    getDarUnitId :: DarFile -> StateT (Map.Map DarFile (Maybe UnitId)) IO (Maybe UnitId)
     getDarUnitId dep = do
       cachedResult <- gets (Map.lookup dep)
       case cachedResult of
         Just res -> pure res
         Nothing -> do
           mUnitId <- lift $ fmap eitherToMaybe $ try @SomeException $ do
-            archive <- Zip.toArchive <$> BSL.readFile dep
+            archive <- Zip.toArchive <$> BSL.readFile (unDarFile dep)
             manifest <- either fail pure $ readDalfManifest archive
-            maybe (fail $ "data-dependency " <> dep <> " missing a package name") pure $ packageName manifest
+            -- Manifest "packageName" is actually unit id
+            maybe (fail $ "data-dependency " <> unDarFile dep <> " missing a package name") (pure . UnitId) $ packageName manifest
           modify' $ Map.insert dep mUnitId
           pure mUnitId
 
-    deriveAndWriteMappings :: [FilePath] -> [FilePath] -> IO [FilePath]
+    deriveAndWriteMappings :: [PackageHome] -> [DarFile] -> IO [PackageHome]
     deriveAndWriteMappings packagePaths darPaths = do
       packedMappingData <- flip runStateT mempty $ do
         -- load cache with all multi-package dars, so they'll be present in darUnitIds
@@ -783,19 +787,19 @@ updatePackageData miState = do
               pure (if allDepsValid then Nothing else Just packagePath, Just (packagePath, unitId, deps))
             _ -> pure (Just packagePath, Nothing)
 
-      let invalidHomes :: [FilePath]
-          validPackageDatas :: [(FilePath, String, [FilePath])]
-          darUnitIds :: Map.Map FilePath (Maybe String)
+      let invalidHomes :: [PackageHome]
+          validPackageDatas :: [(PackageHome, UnitId, [DarFile])]
+          darUnitIds :: Map.Map DarFile (Maybe UnitId)
           ((invalidHomes, validPackageDatas), darUnitIds) = packedMappingData
-          packagesOnDisk :: Map.Map String PackageSourceLocation
+          packagesOnDisk :: Map.Map UnitId PackageSourceLocation
           packagesOnDisk =
             Map.fromList $ (\(packagePath, unitId, _) -> (unitId, PackageOnDisk packagePath)) <$> validPackageDatas
-          darMapping :: Map.Map String PackageSourceLocation
+          darMapping :: Map.Map UnitId PackageSourceLocation
           darMapping =
             Map.fromList $ fmap (\(packagePath, unitId) -> (unitId, PackageInDar packagePath)) $ Map.toList $ Map.mapMaybe id darUnitIds
-          multiPackageMapping :: Map.Map String PackageSourceLocation
+          multiPackageMapping :: Map.Map UnitId PackageSourceLocation
           multiPackageMapping = packagesOnDisk <> darMapping
-          darDependentPackages :: Map.Map FilePath (Set.Set FilePath)
+          darDependentPackages :: Map.Map DarFile (Set.Set PackageHome)
           darDependentPackages = foldr
             (\(packagePath, _, deps) -> Map.unionWith (<>) $ Map.fromList $ (,Set.singleton packagePath) <$> deps
             ) Map.empty validPackageDatas
@@ -810,7 +814,7 @@ updatePackageData miState = do
 
 -- Main loop logic
 
-createDefaultPackage :: SdkVersion.Class.SdkVersioned => IO (FilePath, IO ())
+createDefaultPackage :: SdkVersion.Class.SdkVersioned => IO (PackageHome, IO ())
 createDefaultPackage = do
   (toPosixFilePath -> defaultPackagePath, cleanup) <- newTempDir
   writeFile (defaultPackagePath </> "daml.yaml") $ unlines
@@ -822,7 +826,7 @@ createDefaultPackage = do
     , "  - daml-prim"
     , "  - daml-stdlib"
     ]
-  pure (defaultPackagePath, cleanup)
+  pure (PackageHome defaultPackagePath, cleanup)
 
 runMultiIde :: SdkVersion.Class.SdkVersioned => Logger.Priority -> [String] -> IO ()
 runMultiIde loggingThreshold args = do
@@ -853,11 +857,11 @@ runMultiIde loggingThreshold args = do
       killAll = do
         logDebug miState "Killing subIDEs"
         subIDEs <- atomically $ readTMVar $ subIDEsVar miState
-        forM_ (Map.keys subIDEs) (shutdownIdeByPath miState)
+        forM_ (Map.keys subIDEs) (shutdownIdeByHome miState)
         logInfo miState "MultiIde shutdown"
 
       -- Get all outcomes from a SubIDEInstance (process and async failures/completions)
-      subIdeInstanceOutcomes :: FilePath -> SubIDEInstance -> STM [(FilePath, SubIDEInstance, Either ExitCode SomeException)]
+      subIdeInstanceOutcomes :: PackageHome -> SubIDEInstance -> STM [(PackageHome, SubIDEInstance, Either ExitCode SomeException)]
       subIdeInstanceOutcomes home ide = do
         mExitCode <- getExitCodeSTM (ideProcess ide)
         errs <- lefts . catMaybes <$> traverse pollSTM [ideInhandleAsync ide, ideOutHandleAsync ide, ideErrTextAsync ide]
@@ -867,14 +871,14 @@ runMultiIde loggingThreshold args = do
 
       -- Function folded over outcomes to update SubIDEs, keep error list and list subIDEs to reboot
       handleOutcome
-        :: ([(FilePath, SomeException)], SubIDEs, [FilePath])
-        -> (FilePath, SubIDEInstance, Either ExitCode SomeException)
-        -> IO ([(FilePath, SomeException)], SubIDEs, [FilePath])
+        :: ([(PackageHome, SomeException)], SubIDEs, [PackageHome])
+        -> (PackageHome, SubIDEInstance, Either ExitCode SomeException)
+        -> IO ([(PackageHome, SomeException)], SubIDEs, [PackageHome])
       handleOutcome (errs, subIDEs, toRestart) (home, ide, outcomeType) =
         case outcomeType of
           -- subIDE process exits
           Left exitCode -> do
-            logDebug miState $ "SubIDE at " <> home <> " exited, cleaning up."
+            logDebug miState $ "SubIDE at " <> unPackageHome home <> " exited, cleaning up."
             traverse_ hTryClose [ideInHandle ide, ideOutHandle ide, ideErrHandle ide]
             traverse_ cancel [ideInhandleAsync ide, ideOutHandleAsync ide, ideErrTextAsync ide]
             stderrContent <- T.unpack <$> readTVarIO (ideErrText ide)
@@ -934,4 +938,4 @@ runMultiIde loggingThreshold args = do
       when (not $ null errs) $ do
         cleanupDefaultPackage
         killAll
-        error $ "SubIDE handlers failed with following errors:\n" <> unlines ((\(home, err) -> home <> " => " <> show err) <$> errs)
+        error $ "SubIDE handlers failed with following errors:\n" <> unlines ((\(home, err) -> unPackageHome home <> " => " <> show err) <$> errs)

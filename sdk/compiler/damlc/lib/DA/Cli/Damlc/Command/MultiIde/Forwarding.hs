@@ -51,7 +51,7 @@ pullMonadThroughTuple (a, mb) = (a,) <$> mb
 -- Takes a natural transformation of responses and lifts it to forward the first error
 assumeSuccessCombiner
   :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
-  .  ([(FilePath, LSP.ResponseResult m)] -> LSP.ResponseResult m)
+  .  ([(PackageHome, LSP.ResponseResult m)] -> LSP.ResponseResult m)
   -> ResponseCombiner m
 assumeSuccessCombiner f res = f <$> mapM pullMonadThroughTuple res
 
@@ -190,5 +190,5 @@ filePathFromURI miState uri =
           vr <- uriToVirtualResource parsedUri
           pure $ LSP.fromNormalizedFilePath $ vrScenarioFile vr
         "untitled:" ->
-          pure $ defaultPackagePath miState
+          pure $ unPackageHome $ defaultPackagePath miState
         _ -> Nothing

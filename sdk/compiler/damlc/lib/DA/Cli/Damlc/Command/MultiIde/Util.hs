@@ -24,7 +24,7 @@ import Control.Monad.Trans.Except
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Daml.Project.Config (readProjectConfig, queryProjectConfig, queryProjectConfigRequired)
 import DA.Daml.Project.Consts (projectConfigName)
-import DA.Daml.Project.Types (ConfigError, ProjectPath (..))
+import DA.Daml.Project.Types (ConfigError)
 import Data.Aeson (Value (Null))
 import Data.Bifunctor (first)
 import Data.List.Extra (lower, replace)
@@ -159,18 +159,18 @@ initializeRequest initParams ide = LSP.FromClientMess LSP.SInitialize LSP.Reques
   { _id = LSP.IdString $ ideMessageIdPrefix ide <> "-init"
   , _method = LSP.SInitialize
   , _params = initParams
-      { LSP._rootPath = Just $ T.pack $ ideHome ide
-      , LSP._rootUri = Just $ LSP.filePathToUri $ ideHome ide
+      { LSP._rootPath = Just $ T.pack $ unPackageHome $ ideHome ide
+      , LSP._rootUri = Just $ LSP.filePathToUri $ unPackageHome $ ideHome ide
       }
   , _jsonrpc = "2.0"
   }
 
-openFileNotification :: FilePath -> T.Text -> LSP.FromClientMessage
+openFileNotification :: DamlFile -> T.Text -> LSP.FromClientMessage
 openFileNotification path content = LSP.FromClientMess LSP.STextDocumentDidOpen LSP.NotificationMessage
   { _method = LSP.STextDocumentDidOpen
   , _params = LSP.DidOpenTextDocumentParams
     { _textDocument = LSP.TextDocumentItem
-      { _uri = LSP.filePathToUri path
+      { _uri = LSP.filePathToUri $ unDamlFile path
       , _languageId = "daml"
       , _version = 1
       , _text = content
@@ -195,33 +195,33 @@ castLspId (LSP.IdString s) = LSP.IdString s
 castLspId (LSP.IdInt i) = LSP.IdInt i
 
 -- Given a file path, move up directory until we find a daml.yaml and give its path (if it exists)
-findHome :: FilePath -> IO (Maybe FilePath)
+findHome :: FilePath -> IO (Maybe PackageHome)
 findHome path = do
   exists <- doesDirectoryExist path
   if exists then aux path else aux (takeDirectory path)
   where
-    aux :: FilePath -> IO (Maybe FilePath)
+    aux :: FilePath -> IO (Maybe PackageHome)
     aux path = do
       hasDamlYaml <- elem projectConfigName <$> listDirectory path
       if hasDamlYaml
-        then pure $ Just path
+        then pure $ Just $ PackageHome path
         else do
           let newPath = takeDirectory path
           if path == newPath
             then pure Nothing
             else aux newPath
 
-unitIdAndDepsFromDamlYaml :: FilePath -> IO (Either ConfigError (String, [FilePath]))
+unitIdAndDepsFromDamlYaml :: PackageHome -> IO (Either ConfigError (UnitId, [DarFile]))
 unitIdAndDepsFromDamlYaml path = do
   handle (\(e :: ConfigError) -> return $ Left e) $ runExceptT $ do
-    project <- lift $ readProjectConfig $ ProjectPath path
+    project <- lift $ readProjectConfig $ toProjectPath path
     dataDeps <- except $ fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
     directDeps <- except $ fromMaybe [] <$> queryProjectConfig ["dependencies"] project
     let directDarDeps = filter (\dep -> takeExtension dep == ".dar") directDeps
-    canonDeps <- lift $ withCurrentDirectory path $ traverse canonicalizePath $ dataDeps <> directDarDeps
+    canonDeps <- lift $ withCurrentDirectory (unPackageHome path) $ traverse canonicalizePath $ dataDeps <> directDarDeps
     name <- except $ queryProjectConfigRequired ["name"] project
     version <- except $ queryProjectConfigRequired ["version"] project
-    pure (name <> "-" <> version, toPosixFilePath <$> canonDeps)
+    pure (UnitId $ name <> "-" <> version, DarFile . toPosixFilePath <$> canonDeps)
 
 -- LSP requires all requests are replied to. When we don't have a working IDE (say the daml.yaml is malformed), we need to reply
 -- We don't want to reply with LSP errors, as there will be too many. Instead, we show our error in diagnostics, and send empty replies
