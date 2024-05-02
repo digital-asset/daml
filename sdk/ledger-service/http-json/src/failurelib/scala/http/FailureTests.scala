@@ -212,7 +212,7 @@ abstract class FailureTests
         )
       )
       _ = status shouldBe StatusCodes.OK
-      query = jsObject("""{"templateIds": ["Account:Account"]}""")
+      query = jsObject(s"""{"templateIds": ["$pkgIdAccount:Account:Account"]}""")
       (status, output) <- headersWithParties(List(p)).flatMap(
         postRequest(
           uri = uri.withPath(Uri.Path("/v1/query")),
@@ -276,7 +276,7 @@ abstract class FailureTests
           )
         )
         _ = status shouldBe StatusCodes.OK
-        query = jsObject("""{"templateIds": ["Account:Account"]}""")
+        query = jsObject(s"""{"templateIds": ["$pkgIdAccount:Account:Account"]}""")
         (status, output) <- headersWithParties(List(p)).flatMap(
           postRequest(
             uri = uri.withPath(Uri.Path("/v1/query")),
@@ -339,8 +339,8 @@ abstract class FailureTests
   "/v1/stream/query can reconnect" taggedAs availabilitySecurity in withHttpService {
     (uri, encoder, _, client) =>
       val query =
-        """[
-          {"templateIds": ["Account:Account"]}
+        s"""[
+          {"templateIds": ["$pkgIdAccount:Account:Account"]}
         ]"""
 
       val offset = Promise[Offset]()

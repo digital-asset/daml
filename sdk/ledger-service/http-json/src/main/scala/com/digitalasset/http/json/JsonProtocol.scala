@@ -185,32 +185,6 @@ object JsonProtocol extends JsonProtocolLow {
         deserializationError(s"Expected JsString(<packageId>:<module>:<entity>), got: $json")
     }
 
-  implicit def TemplateIdOptionalPkgFormat[CtId[T] <: domain.ContractTypeId[T]](implicit
-      CtId: domain.ContractTypeId.Like[CtId]
-  ): RootJsonFormat[CtId[Option[String]]] = {
-    import CtId.{OptionalPkg => IdO}
-    new RootJsonFormat[IdO] {
-
-      override def write(a: IdO): JsValue = a.packageId match {
-        case Some(p) => JsString(s"${p: String}:${a.moduleName: String}:${a.entityName: String}")
-        case None => JsString(s"${a.moduleName: String}:${a.entityName: String}")
-      }
-
-      override def read(json: JsValue): IdO = json match {
-        case JsString(str) =>
-          str.split(':') match {
-            case Array(p, m, e) => CtId(Some(p), m, e)
-            case Array(m, e) => CtId(None, m, e)
-            case _ => error(json)
-          }
-        case _ => error(json)
-      }
-
-      private def error(json: JsValue): Nothing =
-        deserializationError(s"Expected JsString([<packageId>:]<module>:<entity>), got: $json")
-    }
-  }
-
   private[this] def decodeContractRef(
       fields: Map[String, JsValue],
       what: String,

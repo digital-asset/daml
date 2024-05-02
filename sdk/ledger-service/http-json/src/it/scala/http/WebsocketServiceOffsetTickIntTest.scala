@@ -3,6 +3,7 @@
 
 package com.daml.http
 
+import com.daml.http.AbstractHttpServiceIntegrationTestFuns.TpId
 import com.daml.http.HttpServiceTestFixture.UseTls
 import com.daml.http.dbbackend.JdbcConfig
 import org.scalatest._
@@ -36,7 +37,7 @@ abstract class WebsocketServiceOffsetTickIntTest
   "Given empty ACS, JSON API should emit only offset ticks" in withHttpService { (uri, _, _, _) =>
     for {
       jwt <- jwt(uri)
-      msgs <- singleClientQueryStream(jwt, uri, """{"templateIds": ["Iou:Iou"]}""")
+      msgs <- singleClientQueryStream(jwt, uri, s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"]}""")
         .take(10)
         .runWith(collectResultsAsTextMessage)
     } yield {
@@ -55,7 +56,7 @@ abstract class WebsocketServiceOffsetTickIntTest
         (party, headers) = aliceHeaders
         _ <- initialIouCreate(uri, party, headers)
         jwt <- jwtForParties(uri)(List(party), List(), config.ledgerIds.headOption.value)
-        msgs <- singleClientQueryStream(jwt, uri, """{"templateIds": ["Iou:Iou"]}""")
+        msgs <- singleClientQueryStream(jwt, uri, s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"]}""")
           .take(10)
           .runWith(collectResultsAsTextMessage)
       } yield {
@@ -77,7 +78,7 @@ abstract class WebsocketServiceOffsetTickIntTest
         msgs <- singleClientQueryStream(
           jwt,
           uri,
-          """{"templateIds": ["Iou:Iou"]}""",
+          s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"]}""",
           offset = ledgerOffset,
         )
           .take(10)
@@ -100,7 +101,7 @@ abstract class WebsocketServiceOffsetTickIntTest
         msgs <- singleClientQueryStream(
           jwt,
           uri,
-          s"""[{"templateIds": ["Iou:Iou"], "offset": "${ledgerOffset.value}"}]""",
+          s"""[{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "offset": "${ledgerOffset.value}"}]""",
         )
           .take(10)
           .runWith(collectResultsAsTextMessage)

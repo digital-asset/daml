@@ -164,7 +164,7 @@ package domain {
   )
 
   final case class GetActiveContractsRequest(
-      templateIds: NonEmpty[Set[ContractTypeId.OptionalPkg]],
+      templateIds: NonEmpty[Set[ContractTypeId.RequiredPkg]],
       query: Map[String, JsValue],
       readAs: Option[NonEmptyList[Party]],
   )
@@ -178,7 +178,7 @@ package domain {
   )
 
   final case class SearchForeverQuery(
-      templateIds: NonEmpty[Set[ContractTypeId.OptionalPkg]],
+      templateIds: NonEmpty[Set[ContractTypeId.RequiredPkg]],
       query: Map[String, JsValue],
       offset: Option[domain.Offset],
   )
@@ -693,13 +693,6 @@ package domain {
   }
 
   object CreateAndExerciseCommand {
-    type LAVUnresolved = CreateAndExerciseCommand[
-      lav1.value.Record,
-      lav1.value.Value,
-      domain.ContractTypeId.Template.RequiredPkg,
-      domain.ContractTypeId.OptionalPkg,
-    ]
-
     type LAVResolved = CreateAndExerciseCommand[
       lav1.value.Record,
       lav1.value.Value,
@@ -838,7 +831,7 @@ package domain {
 
   sealed abstract class ServiceWarning extends Serializable with Product
 
-  final case class UnknownTemplateIds(unknownTemplateIds: List[ContractTypeId.OptionalPkg])
+  final case class UnknownTemplateIds(unknownTemplateIds: List[ContractTypeId.RequiredPkg])
       extends ServiceWarning
 
   final case class UnknownParties(unknownParties: List[domain.Party]) extends ServiceWarning

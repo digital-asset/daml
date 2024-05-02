@@ -384,7 +384,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         searchResp <- search(
           List.empty,
           Map(
-            "templateIds" -> Seq(TpId.IIou.IIou).toJson,
+            "templateIds" -> Seq(TpId.IIou.IIou.map(_.get)).toJson,
             "query" -> spray.json.JsObject(),
           ).toJson.asJsObject,
           fixture,
@@ -431,7 +431,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         }
         queryAsBoth <- queryHeaders(alice, aliceHeaders, exParties)
         queryAtCtId = {
-          (ctid: domain.ContractTypeId.OptionalPkg, amountKey: String, currencyKey: String) =>
+          (ctid: domain.ContractTypeId.RequiredPkg, amountKey: String, currencyKey: String) =>
             searchExpectOk(
               List.empty,
               Map("templateIds" -> List(ctid)).toJson.asJsObject,
@@ -459,11 +459,11 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         }
         // run (inserting when query store) on template ID; then interface ID
         // (thereby duplicating contract IDs)
-        _ <- queryAtCtId(TpId.Iou.Iou, "amount", "currency")
-        _ <- queryAtCtId(TpId.RIou.RIou, "iamount", "icurrency")
+        _ <- queryAtCtId(TpId.Iou.Iou.map(_.get), "amount", "currency")
+        _ <- queryAtCtId(TpId.RIou.RIou.map(_.get), "iamount", "icurrency")
         // then try template ID again, in case interface ID mangled the results
         // for template ID by way of stakeholder join or something even odder
-        _ <- queryAtCtId(TpId.Iou.Iou, "amount", "currency")
+        _ <- queryAtCtId(TpId.Iou.Iou.map(_.get), "amount", "currency")
       } yield succeed
 
       // multi-party and single-party are handled significantly differently
@@ -506,7 +506,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
               acl.size shouldBe 0
               warnings shouldBe Some(
                 domain.UnknownTemplateIds(
-                  List(domain.ContractTypeId(Some("UnknownPackage"), "UnknownModule", "UnknownEntity"))
+                  List(domain.ContractTypeId("UnknownPackage", "UnknownModule", "UnknownEntity"))
                 )
               )
             }
@@ -527,8 +527,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
               errors shouldBe List(ErrorMessages.cannotResolveAnyTemplateId)
               inside(warnings) { case Some(domain.UnknownTemplateIds(unknownTemplateIds)) =>
                 unknownTemplateIds.toSet shouldBe Set(
-                  domain.ContractTypeId(Some("ZZZ"), "AAA", "BBB"),
-                  domain.ContractTypeId(Some("ZZZ"), "XXX", "YYY"),
+                  domain.ContractTypeId("ZZZ", "AAA", "BBB"),
+                  domain.ContractTypeId("ZZZ", "XXX", "YYY"),
                 )
               }
           }

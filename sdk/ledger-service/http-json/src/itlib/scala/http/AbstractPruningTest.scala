@@ -16,7 +16,7 @@ abstract class AbstractPruningTest extends AbstractHttpServiceIntegrationTestFun
     import com.daml.timer.RetryStrategy
     for {
       (alice, aliceHeaders) <- fixture.getUniquePartyAndAuthHeaders("Alice")
-      query = jsObject(s"""{"templateIds": ["Iou:Iou"]}""")
+      query = jsObject(s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"]}""")
 
       // do query to populate cache
       _ <- searchExpectOk(List(), query, fixture, aliceHeaders)
@@ -99,7 +99,7 @@ abstract class AbstractPruningTest extends AbstractHttpServiceIntegrationTestFun
         // Query by Alice, to populate the contract into cache
         _ <- searchExpectOk(
           List.empty,
-          jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "HKD"}}"""),
+          jsObject(s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"currency": "HKD"}}"""),
           fixture,
           aliceHeaders,
         ).map { acl => acl.size shouldBe 1 }
@@ -119,7 +119,7 @@ abstract class AbstractPruningTest extends AbstractHttpServiceIntegrationTestFun
         // This should not get confused by the fact that the archival happened before this query.
         _ <- searchExpectOk(
           List.empty,
-          jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "HKD"}}"""),
+          jsObject(s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"currency": "HKD"}}"""),
           fixture,
           bobHeaders,
         ).map { acl => acl.size shouldBe 0 }

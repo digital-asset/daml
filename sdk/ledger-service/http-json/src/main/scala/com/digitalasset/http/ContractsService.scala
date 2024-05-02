@@ -690,7 +690,7 @@ class ContractsService(
       InternalError(Symbol("lfValueToJsValue"), e.description)
     )
 
-  private[http] def resolveContractTypeIds[Tid <: domain.ContractTypeId.OptionalPkg](
+  private[http] def resolveContractTypeIds[Tid <: domain.ContractTypeId.RequiredPkg](
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   )(
@@ -699,11 +699,12 @@ class ContractsService(
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[(Set[ContractTypeRef.Resolved], Set[Tid])] = {
     import scalaz.syntax.traverse._
-    import scalaz.std.list._, scalaz.std.scalaFuture._
+    import scalaz.std.list._ //, scalaz.syntax.functor._
 
     xs.toList.toNEF
       .traverse { x =>
-        resolveContractTypeId(jwt, ledgerId)(x)
+        val tid = x.copy(packageId = Some(x.packageId))
+        resolveContractTypeId(jwt, ledgerId)(tid)
           .map(_.toOption.flatten.toLeft(x))
       }
       .map(_.toSet.partitionMap(a => a))

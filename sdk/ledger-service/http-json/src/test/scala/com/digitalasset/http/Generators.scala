@@ -164,7 +164,7 @@ object Generators {
 
   def genUnknownTemplateIds: Gen[domain.UnknownTemplateIds] =
     Gen
-      .listOf(genDomainTemplateIdO: Gen[domain.ContractTypeId.OptionalPkg])
+      .listOf(genDomainTemplateIdO: Gen[domain.ContractTypeId.RequiredPkg])
       .map(domain.UnknownTemplateIds)
 
   def genUnknownParties: Gen[domain.UnknownParties] =

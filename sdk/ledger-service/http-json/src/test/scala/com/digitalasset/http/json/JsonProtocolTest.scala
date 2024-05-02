@@ -5,7 +5,6 @@ package com.daml.http.json
 
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import com.daml.http.Generators.{
-  OptionalPackageIdGen,
   contractGen,
   contractIdGen,
   contractLocatorGen,
@@ -29,7 +28,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, Succeeded}
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scalaz.syntax.functor._
-import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
 import scalaz.{\/, \/-, -\/}
 
@@ -55,24 +53,6 @@ class JsonProtocolTest
     }
     "roundtrips" in forAll(genDomainTemplateId) { a: domain.ContractTypeId.RequiredPkg =>
       val b = a.toJson.convertTo[domain.ContractTypeId.RequiredPkg]
-      b should ===(a)
-    }
-  }
-
-  "domain.ContractTypeId.OptionalPkg" - {
-    "can be serialized to JSON" in forAll(genDomainTemplateIdO) {
-      a: domain.ContractTypeId.OptionalPkg =>
-        val expectedStr: String = a.packageId.cata(
-          p => s"${p: String}:${a.moduleName}:${a.entityName}",
-          s"${a.moduleName}:${a.entityName}",
-        )
-
-        inside(a.toJson) { case JsString(str) =>
-          str should ===(expectedStr)
-        }
-    }
-    "roundtrips" in forAll(genDomainTemplateIdO) { a: domain.ContractTypeId.OptionalPkg =>
-      val b = a.toJson.convertTo[domain.ContractTypeId.OptionalPkg]
       b should ===(a)
     }
   }
@@ -167,8 +147,8 @@ class JsonProtocolTest
   }
 
   "domain.OkResponse" - {
-    "response with warnings" in forAll(listOf(genDomainTemplateIdO)) {
-      templateIds: List[domain.ContractTypeId.OptionalPkg] =>
+    "response with warnings" in forAll(listOf(genDomainTemplateIdO[domain.ContractTypeId.Template, String])) {
+      templateIds: List[domain.ContractTypeId.RequiredPkg] =>
         val response: domain.OkResponse[Int] =
           domain.OkResponse(result = 100, warnings = Some(domain.UnknownTemplateIds(templateIds)))
 
@@ -203,12 +183,12 @@ class JsonProtocolTest
       import SprayJson.decode1
 
       val str =
-        """{"warnings":{"unknownTemplateIds":["AAA:BBB"]},"result":[],"status":200}"""
+        """{"warnings":{"unknownTemplateIds":["ZZZ:AAA:BBB"]},"result":[],"status":200}"""
 
       inside(decode1[domain.SyncResponse, List[JsValue]](str)) {
         case \/-(domain.OkResponse(List(), Some(warning), StatusCodes.OK)) =>
           warning shouldBe domain.UnknownTemplateIds(
-            List(domain.ContractTypeId(Option.empty[String], "AAA", "BBB"))
+            List(domain.ContractTypeId("ZZZ", "AAA", "BBB"))
           )
       }
     }
@@ -293,18 +273,18 @@ class JsonProtocolTest
       val utf8 = java.nio.charset.Charset forName "UTF-8"
       val expected = DisclosedContract(
         contractId = domain.ContractId("abcd"),
-        templateId = domain.ContractTypeId.Template(Option.empty[String], "Mod", "Tmpl"),
+        templateId = domain.ContractTypeId.Template("Pkg", "Mod", "Tmpl"),
         createdEventBlob = domain.Base64(ByteString.copyFrom("some create event payload", utf8)),
       )
       val encoded =
         s"""{
           "contractId": "abcd",
-          "templateId": "Mod:Tmpl",
+          "templateId": "Pkg:Mod:Tmpl",
           "createdEventBlob": "c29tZSBjcmVhdGUgZXZlbnQgcGF5bG9hZA=="
           }""".parseJson
       val _ = expected.toJson should ===(encoded)
       val decoded =
-        encoded.convertTo[DisclosedContract[domain.ContractTypeId.Template.OptionalPkg]]
+        encoded.convertTo[DisclosedContract[domain.ContractTypeId.Template.RequiredPkg]]
       decoded should ===(expected)
     }
 
@@ -312,12 +292,12 @@ class JsonProtocolTest
       val encoded =
         s"""{
         "contractId": "abcd",
-        "templateId": "Mod:Tmpl",
+        "templateId": "Pkg:Mod:Tmpl",
         "createdEventBlob": ""
       }""".parseJson
 
       val result =
-        SprayJson.decode[DisclosedContract[domain.ContractTypeId.Template.OptionalPkg]](encoded)
+        SprayJson.decode[DisclosedContract[domain.ContractTypeId.Template.RequiredPkg]](encoded)
       inside(result) { case -\/(JsonReaderError(_, message)) =>
         message shouldBe "spray.json.DeserializationException: DisclosedContract.createdEventBlob must not be empty"
       }
