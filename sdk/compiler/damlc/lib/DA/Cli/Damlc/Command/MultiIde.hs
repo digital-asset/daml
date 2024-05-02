@@ -227,7 +227,7 @@ unsafeAddNewSubIDEAndSend miState ides home mMsg = do
 disableIdeDiagnosticMessages :: SubIDEData -> [LSP.FromServerMessage]
 disableIdeDiagnosticMessages ideData =
   fullFileDiagnostic 
-    ( "GHCIDE refuses to start with the follow error:\n"
+    ( "Daml IDE environment failed to start with the following error:\n"
     <> fromMaybe "No information" (ideDataLastError ideData)
     )
     <$> ((unPackageHome (ideDataHome ideData) </> "daml.yaml") : fmap unDamlFile (Set.toList $ ideDataOpenFiles ideData))
