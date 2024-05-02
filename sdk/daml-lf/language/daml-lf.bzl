@@ -76,7 +76,7 @@ lf_version_configuration = {
     "default": "1.15",
     "latest": lf_version_latest.get("1"),
     "preview": "1.16",
-    # "dev" is ambiguous, use either 1.dev or 2.dev explicitly
+    "dev": "1.dev",
 }
 
 # The Daml-LF version used by default by the compiler if it matches the

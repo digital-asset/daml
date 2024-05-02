@@ -44,7 +44,7 @@ import Test.Tasty.HUnit
 import Text.Regex.TDFA
 
 lfVersion :: LF.Version
-lfVersion = LF.version1_15
+lfVersion = LF.version1_16
 
 main :: IO ()
 main = withSdkVersions $ do
@@ -53,7 +53,7 @@ main = withSdkVersions $ do
       setEnv "TASTY_NUM_THREADS" "1" True
 
       -- Package DB setup, we only need to do this once so we do it at the beginning.
-      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml/daml-script-1.15.dar"
+      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml/daml-script-1.16.dar"
       writeFileUTF8 "daml.yaml" $
         unlines
           [ "sdk-version: " <> sdkVersion,
@@ -84,7 +84,7 @@ main = withSdkVersions $ do
       SS.withScenarioService lfVersion logger scenarioConfig $ \scriptService ->
         defaultMain $
           testGroup
-            "Script Service 1.15"
+            "Script Service 1.16"
             [
               testCase "query by interface" $ do
                 rs <-

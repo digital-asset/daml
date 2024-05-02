@@ -6,17 +6,9 @@ package com.daml.lf.engine.script.test
 import java.time.Duration
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.engine.script.ScriptTimeMode
-import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SValue.SRecord
 
-class FuncWallClockITV1 extends FuncWallClockIT(LanguageMajorVersion.V1)
-
-// TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
-//  at the bazel target level.
-//class FuncWallClockITV2 extends FuncWallClockIT(LanguageMajorVersion.V2)
-
-class FuncWallClockIT(override val majorLanguageVersion: LanguageMajorVersion)
-    extends AbstractFuncIT {
+class FuncWallClockIT extends AbstractFuncIT {
   protected override lazy val timeMode = ScriptTimeMode.WallClock
 
   "testSleep" should {
