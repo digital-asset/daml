@@ -103,9 +103,14 @@ da_scala_binary(
             ]),
         ),
         genrule(
+            name ="metadata-%s" % target,
+            outs = ["metadata-%s.lf" % target],
+            cmd = """echo "metadata ( 'testing-dar-%s' : '0.0.0' )" > $@""" % mangle_for_java(target)
+        ),
+        genrule(
             name = "testing-dar-%s" % target,
             srcs = [
-                "src/test/lf/MetaData.lf",  #  metadata should come first
+                ":metadata-%s.lf"  % target,  # needs to be first
                 ":lf_%s" % target,
             ],
             outs = ["test-%s.dar" % target],
