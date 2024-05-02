@@ -18,6 +18,7 @@ import Control.Concurrent.STM.TChan
 import Control.Concurrent.STM.TVar
 import Control.Concurrent.STM.TMVar
 import Control.Concurrent.MVar
+import Control.Monad (void)
 import Control.Monad.STM
 import DA.Daml.Project.Types (ProjectPath (..))
 import qualified Data.ByteString.Lazy as BSL
@@ -150,6 +151,30 @@ ideShouldDisable _ = False
 type SubIDEs = Map.Map PackageHome SubIDEData
 type SubIDEsVar = TMVar SubIDEs
 
+-- Helper functions for holding the subIDEs var
+withIDEsAtomic :: MultiIdeState -> (SubIDEs -> STM (SubIDEs, a)) -> IO a
+withIDEsAtomic miState f = atomically $ do
+  ides <- takeTMVar $ subIDEsVar miState
+  (ides', res) <- f ides
+  putTMVar (subIDEsVar miState) ides'
+  pure res
+
+holdingIDEsAtomic :: MultiIdeState -> (SubIDEs -> STM a) -> IO a
+holdingIDEsAtomic miState f = withIDEsAtomic miState $ \ides -> (ides,) <$> f ides
+
+withIDEs :: MultiIdeState -> (SubIDEs -> IO (SubIDEs, a)) -> IO a
+withIDEs miState f = do
+  ides <- atomically $ takeTMVar $ subIDEsVar miState
+  (ides', res) <- f ides
+  atomically $ putTMVar (subIDEsVar miState) ides'
+  pure res
+
+holdingIDEs :: MultiIdeState -> (SubIDEs -> IO a) -> IO a
+holdingIDEs miState f = withIDEs miState $ \ides -> (ides,) <$> f ides
+
+withIDEs_ :: MultiIdeState -> (SubIDEs -> IO SubIDEs) -> IO ()
+withIDEs_ miState f = void $ withIDEs miState $ fmap (, ()) . f
+
 -- Stores the initialize messages sent by the client to be forwarded to SubIDEs when they are created.
 type InitParams = LSP.InitializeParams
 type InitParamsVar = MVar InitParams
@@ -260,7 +285,7 @@ data Forwarding (m :: LSP.Method 'LSP.FromClient t) where
     .  LSP.NotificationMessage m
     -> ForwardingBehaviour m
     -> Forwarding m
-  ExplicitHandler 
+  ExplicitHandler
     :: (  (LSP.FromServerMessage -> IO ())
        -> (FilePath -> LSP.FromClientMessage -> IO ())
        -> IO ()

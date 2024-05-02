@@ -93,16 +93,25 @@ addNewSubIDEAndSend
   -> PackageHome
   -> Maybe LSP.FromClientMessage
   -> IO ()
-addNewSubIDEAndSend miState home mMsg = do
+addNewSubIDEAndSend miState home mMsg =
+  withIDEs_ miState $ \ides -> unsafeAddNewSubIDEAndSend miState ides home mMsg
+
+-- Unsafe as does not acquire SubIDEsVar, instead simply transforms it
+unsafeAddNewSubIDEAndSend
+  :: MultiIdeState
+  -> SubIDEs
+  -> PackageHome
+  -> Maybe LSP.FromClientMessage
+  -> IO SubIDEs
+unsafeAddNewSubIDEAndSend miState ides home mMsg = do
   logDebug miState "Trying to make a SubIDE"
-  ides <- atomically $ takeTMVar $ subIDEsVar miState
 
   let ideData = lookupSubIde home ides
   case ideDataMain ideData of
     Just ide -> do
       logDebug miState "SubIDE already exists"
       forM_ mMsg $ unsafeSendSubIDE ide
-      atomically $ putTMVar (subIDEsVar miState) ides
+      pure ides
     Nothing | ideShouldDisable ideData || ideDataDisabled ideData -> do
       when (ideShouldDisable ideData) $ logDebug miState $ "SubIDE failed twice within " <> show ideShouldDisableTimeout <> ", disabling SubIDE"
 
@@ -117,9 +126,8 @@ addNewSubIDEAndSend miState home mMsg = do
           -- diagnostics with its reply
           messages = responses <> if ideShouldDisable ideData then disableIdeDiagnosticMessages ideData else []
 
-      atomically $ do
-        traverse_ (sendClientSTM miState) messages
-        putTMVar (subIDEsVar miState) $ Map.insert home ideData' ides
+      atomically $ traverse_ (sendClientSTM miState) messages
+      pure $ Map.insert home ideData' ides
     Nothing -> do
       logInfo miState $ "Creating new SubIDE for " <> unPackageHome home
       traverse_ (sendClient miState) $ clearIdeDiagnosticMessages ideData
@@ -214,7 +222,7 @@ addNewSubIDEAndSend miState home mMsg = do
       -- Send the intended message
       forM_ mMsg $ unsafeSendSubIDE ide
 
-      atomically $ putTMVar (subIDEsVar miState) $ Map.insert home ideData' ides
+      pure $ Map.insert home ideData' ides
 
 disableIdeDiagnosticMessages :: SubIDEData -> [LSP.FromServerMessage]
 disableIdeDiagnosticMessages ideData =
@@ -247,18 +255,20 @@ runSubProc miState home = do
 
 -- Spin-down logic
 rebootIdeByHome :: MultiIdeState -> PackageHome -> IO ()
-rebootIdeByHome miState home = do
-  shutdownIdeByHome miState home
-  addNewSubIDEAndSend miState home Nothing
+rebootIdeByHome miState home = withIDEs_ miState $ \ides -> do
+  ides' <- unsafeShutdownIdeByHome miState ides home
+  unsafeAddNewSubIDEAndSend miState ides' home Nothing
 
 -- Version of rebootIdeByHome that only spins up IDEs that were either active, or disabled.
 -- Does not spin up IDEs that were naturally shutdown/never started
 lenientRebootIdeByHome :: MultiIdeState -> PackageHome -> IO ()
-lenientRebootIdeByHome miState home = do
-  ideData <- fmap (lookupSubIde home) $ atomically $ readTMVar $ subIDEsVar miState
-  let shouldBoot = isJust (ideDataMain ideData) || ideDataDisabled ideData
-  shutdownIdeByHome miState home
-  when shouldBoot $ addNewSubIDEAndSend miState home Nothing
+lenientRebootIdeByHome miState home = withIDEs_ miState $ \ides -> do
+  let ideData = lookupSubIde home ides
+      shouldBoot = isJust (ideDataMain ideData) || ideDataDisabled ideData
+  ides' <- unsafeShutdownIdeByHome miState ides home
+  if shouldBoot 
+    then unsafeAddNewSubIDEAndSend miState ides' home Nothing
+    else pure ides'
 
 -- Checks if a shutdown message LspId originated from the multi-ide coordinator
 isCoordinatorShutdownLspId :: LSP.LspId 'LSP.Shutdown -> Bool
@@ -268,10 +278,13 @@ isCoordinatorShutdownLspId _ = False
 -- Sends a shutdown message and moves SubIDEInstance to `ideDataClosing`, disallowing any further client messages to be sent to the subIDE
 -- given queue nature of TChan, all other pending messages will be sent first before handling shutdown
 shutdownIdeByHome :: MultiIdeState -> PackageHome -> IO ()
-shutdownIdeByHome miState home = do
-  ides <- atomically $ takeTMVar (subIDEsVar miState)
+shutdownIdeByHome miState home = withIDEs_ miState $ \ides -> unsafeShutdownIdeByHome miState ides home
+
+-- Unsafe as does not acquire SubIDEsVar, instead simply transforms it
+unsafeShutdownIdeByHome :: MultiIdeState -> SubIDEs -> PackageHome -> IO SubIDEs
+unsafeShutdownIdeByHome miState ides home = do
   let ideData = lookupSubIde home ides
-  ides' <- case ideDataMain ideData of
+  case ideDataMain ideData of
     Just ide -> do
       let shutdownId = LSP.IdString $ ideMessageIdPrefix ide <> "-shutdown"
           shutdownMsg :: LSP.FromClientMessage
@@ -294,7 +307,6 @@ shutdownIdeByHome miState home = do
         }) home ides
     Nothing ->
       pure $ Map.adjust (\ideData -> ideData {ideDataFailTimes = [], ideDataDisabled = False}) home ides
-  atomically $ putTMVar (subIDEsVar miState) ides'
 
 -- To be called once we receive the Shutdown response
 -- Safe to assume that the sending channel is empty, so we can end the thread and send the final notification directly on the handle
@@ -338,12 +350,9 @@ sendClientFirst :: MultiIdeState -> LSP.FromServerMessage -> IO ()
 sendClientFirst miState = atomically . unGetTChan (toClientChan miState) . Aeson.encode
 
 sendAllSubIDEs :: MultiIdeState -> LSP.FromClientMessage -> IO [PackageHome]
-sendAllSubIDEs miState msg = atomically $ do
-  ides <- takeTMVar (subIDEsVar miState)
+sendAllSubIDEs miState msg = holdingIDEsAtomic miState $ \ides ->
   let ideInstances = mapMaybe ideDataMain $ Map.elems ides
-  homes <- forM ideInstances $ \ide -> ideHome ide <$ writeTChan (ideInHandleChannel ide) (Aeson.encode msg)
-  putTMVar (subIDEsVar miState) ides
-  pure homes
+   in forM ideInstances $ \ide -> ideHome ide <$ unsafeSendSubIDESTM ide msg
 
 sendAllSubIDEs_ :: MultiIdeState -> LSP.FromClientMessage -> IO ()
 sendAllSubIDEs_ miState = void . sendAllSubIDEs miState
@@ -374,52 +383,39 @@ sourceFileHomeDamlYamlChanged miState home = atomically $ modifyTMVar (sourceFil
 
 sendSubIDEByPath :: MultiIdeState -> FilePath -> LSP.FromClientMessage -> IO ()
 sendSubIDEByPath miState path msg = do
-  (mHome, shouldAdd) <- sendSubIDEByPathAux path msg
-  -- Lock is dropped then regained here for new IDE. This is acceptable as it's impossible for a shutdown
-  -- of the new ide to be sent before its created.
-  -- Note that if sendSubIDEByPath is called multiple times concurrently for a new IDE, addNewSubIDEAndSend may be called twice for the same home
-  --   addNewSubIDEAndSend handles this internally with its own checks, so this is acceptable.
-  forM_ mHome $ \home -> do
-    putSingleFromClientMessage miState home msg
-    when shouldAdd $ addNewSubIDEAndSend miState home $ Just msg
-  where
-    -- Returns the path of the subIDE if one exists/can be created, as well as a flag on whether it should be created
-    sendSubIDEByPathAux :: FilePath -> LSP.FromClientMessage -> IO (Maybe PackageHome, Bool)
-    sendSubIDEByPathAux path msg = atomically $ do
-      mHome <- getSourceFileHome miState path
+  mHome <- atomically $ getSourceFileHome miState path
 
-      case mHome of
-        Just home -> do
-          ides <- takeTMVar (subIDEsVar miState)
-          let ideData = lookupSubIde home ides
-          case ideDataMain ideData of
-            -- Here we already have a subIDE, so we forward our message to it before dropping the lock
-            Just ide -> do
-              writeTChan (ideInHandleChannel ide) (Aeson.encode msg)
-              -- Safe as repeat prints are acceptable
-              unsafeIOToSTM $ logDebug miState $ "Found relevant SubIDE: " <> unPackageHome (ideDataHome ideData)
-              putTMVar (subIDEsVar miState) ides
-              pure (Just home, False)
-            -- This path will create a new subIDE at the given home
-            Nothing -> do
-              putTMVar (subIDEsVar miState) ides
-              pure (Just home, True)
-        Nothing -> do
-          -- We get here if we cannot find a daml.yaml file for a file mentioned in a request
-          -- if we're sending a response, ignore it, as this means the server that sent the request has been killed already.
-          -- if we're sending a request, respond to the client with an error.
-          -- if we're sending a notification, ignore it - theres nothing the protocol allows us to do to signify notification failures.
-          let replyError :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request). LSP.SMethod m -> LSP.LspId m -> STM ()
-              replyError method id =
-                sendClientSTM miState $ LSP.FromServerRsp method $ LSP.ResponseMessage "2.0" (Just id) $ Left 
-                  $ LSP.ResponseError LSP.InvalidParams ("Could not find daml.yaml for package containing " <> T.pack path) Nothing
-          (Nothing, False) <$ case msg of
-            LSP.FromClientMess method params ->
-              case (LSP.splitClientMethod method, params) of
-                (LSP.IsClientReq, LSP.RequestMessage {_id}) -> replyError method _id
-                (LSP.IsClientEither, LSP.ReqMess (LSP.RequestMessage {_id})) -> replyError method _id
-                _ -> pure ()
+  case mHome of
+    Just home -> do
+      putSingleFromClientMessage miState home msg
+
+      withIDEs_ miState $ \ides -> do
+        let ideData = lookupSubIde home ides
+        case ideDataMain ideData of
+          -- Here we already have a subIDE, so we forward our message to it before dropping the lock
+          Just ide -> do
+            unsafeSendSubIDE ide msg
+            logDebug miState $ "Found relevant SubIDE: " <> unPackageHome (ideDataHome ideData)
+            pure ides
+          -- This path will create a new subIDE at the given home
+          Nothing -> do
+            unsafeAddNewSubIDEAndSend miState ides home $ Just msg
+    Nothing -> do
+      -- We get here if we cannot find a daml.yaml file for a file mentioned in a request
+      -- if we're sending a response, ignore it, as this means the server that sent the request has been killed already.
+      -- if we're sending a request, respond to the client with an error.
+      -- if we're sending a notification, ignore it - theres nothing the protocol allows us to do to signify notification failures.
+      let replyError :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request). LSP.SMethod m -> LSP.LspId m -> IO ()
+          replyError method id =
+            sendClient miState $ LSP.FromServerRsp method $ LSP.ResponseMessage "2.0" (Just id) $ Left 
+              $ LSP.ResponseError LSP.InvalidParams ("Could not find daml.yaml for package containing " <> T.pack path) Nothing
+      case msg of
+        LSP.FromClientMess method params ->
+          case (LSP.splitClientMethod method, params) of
+            (LSP.IsClientReq, LSP.RequestMessage {_id}) -> replyError method _id
+            (LSP.IsClientEither, LSP.ReqMess (LSP.RequestMessage {_id})) -> replyError method _id
             _ -> pure ()
+        _ -> pure ()
 
 parseCustomResult :: Aeson.FromJSON a => String -> Either LSP.ResponseError Aeson.Value -> Either LSP.ResponseError a
 parseCustomResult name =
@@ -591,11 +587,9 @@ clientMessageHandler miState unblock bs = do
       -- Find IDE with the correct prefix, send to it if it exists. If it doesn't, the message can be thrown away.
       case mPrefix of
         Nothing -> void $ sendAllSubIDEs miState newMsg
-        Just prefix -> atomically $ do
-          ides <- takeTMVar $ subIDEsVar miState
+        Just prefix -> holdingIDEsAtomic miState $ \ides ->
           let mIde = find (\ideData -> (ideMessageIdPrefix <$> ideDataMain ideData) == Just prefix) ides
-          traverse_ (`unsafeSendSubIDESTM` newMsg) $ mIde >>= ideDataMain
-          putTMVar (subIDEsVar miState) ides
+           in traverse_ (`unsafeSendSubIDESTM` newMsg) $ mIde >>= ideDataMain
 
     -- Special handing for STextDocumentDefinition to ask multiple IDEs (the W approach)
     -- When a getDefinition is requested, we cast this request into a tryGetDefinition
@@ -856,8 +850,7 @@ runMultiIde loggingThreshold args = do
   let killAll :: IO ()
       killAll = do
         logDebug miState "Killing subIDEs"
-        subIDEs <- atomically $ readTMVar $ subIDEsVar miState
-        forM_ (Map.keys subIDEs) (shutdownIdeByHome miState)
+        holdingIDEs miState $ \ides -> foldM (unsafeShutdownIdeByHome miState) ides (Map.keys ides)
         logInfo miState "MultiIde shutdown"
 
       -- Get all outcomes from a SubIDEInstance (process and async failures/completions)
@@ -927,13 +920,10 @@ runMultiIde loggingThreshold args = do
         else error $ "1 or more client thread handlers failed: " <> show clientThreadExceptions
     
     unless (null outcomes) $ do
-      subIDEs <- atomically $ takeTMVar $ subIDEsVar miState
-
-      (errs, subIDEs', subIDEsToRestart) <- foldM handleOutcome ([], subIDEs, []) outcomes
-
-      atomically $ putTMVar (subIDEsVar miState) subIDEs'
-
-      traverse_ (\home -> addNewSubIDEAndSend miState home Nothing) subIDEsToRestart
+      errs <- withIDEs miState $ \ides -> do
+        (errs, ides', idesToRestart) <- foldM handleOutcome ([], ides, []) outcomes
+        ides'' <- foldM (\ides home -> unsafeAddNewSubIDEAndSend miState ides home Nothing) ides' idesToRestart
+        pure (ides'', errs)
 
       when (not $ null errs) $ do
         cleanupDefaultPackage
