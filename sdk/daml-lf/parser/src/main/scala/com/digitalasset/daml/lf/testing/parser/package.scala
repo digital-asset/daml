@@ -39,7 +39,7 @@ package object parser {
       parserParameters: ParserParameters[P]
   ): Either[String, List[Module]] =
     safeParse(Parsers.rep(new ModParser[P](parserParameters).mod), s)
-  def parserPackage[P](s: String)(implicit
+  def parsePackage[P](s: String)(implicit
       parserParameters: ParserParameters[P]
   ): Either[String, Package] =
     safeParse(new ModParser[P](parserParameters).pkg, s)

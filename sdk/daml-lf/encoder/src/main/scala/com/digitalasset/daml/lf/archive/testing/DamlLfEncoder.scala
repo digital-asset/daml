@@ -8,11 +8,12 @@ import java.nio.file.Paths
 import com.daml.lf.archive.{Dar, DarWriter}
 import com.daml.lf.data.Ref
 import com.daml.lf.language.{LanguageVersion, PackageInterface}
-import com.daml.lf.testing.parser.{ParserParameters, parserPackage}
+import com.daml.lf.testing.parser.{ParserParameters, parsePackage}
 import com.daml.lf.validation.Validation
 import com.daml.SdkVersion
 
 import scala.annotation.tailrec
+import scala.collection.immutable.Queue
 import scala.io.Source
 import scala.util.control.NonFatal
 
@@ -44,7 +45,7 @@ private[daml] object DamlLfEncoder extends App {
         )
 
       makeDar(
-        readSources(appArgs.inputFiles.reverse),
+        readSources(appArgs.inputFiles),
         Paths.get(appArgs.outputFile).toFile,
         validation = appArgs.validation,
       )
@@ -64,7 +65,7 @@ private[daml] object DamlLfEncoder extends App {
       validation: Boolean,
   )(implicit parserParameters: ParserParameters[this.type]) = {
 
-    val pkg = parserPackage[this.type](source).fold(error, identity)
+    val pkg = parsePackage[this.type](source).fold(error, identity)
     val pkgs = PackageInterface(Map(pkgId -> pkg))
 
     if (validation)
@@ -85,7 +86,7 @@ private[daml] object DamlLfEncoder extends App {
   }
 
   private case class Arguments(
-      inputFiles: List[String],
+      inputFiles: Queue[String],
       outputFile: String,
       languageVersion: LanguageVersion,
       validation: Boolean,
@@ -113,10 +114,10 @@ private[daml] object DamlLfEncoder extends App {
           else
             appArgs
         case x :: tail =>
-          go(appArgs.copy(inputFiles = x :: appArgs.inputFiles), tail)
+          go(appArgs.copy(inputFiles = appArgs.inputFiles.enqueue(x)), tail)
       }
 
-    go(Arguments(List.empty, "", LanguageVersion.default, true), args.toList)
+    go(Arguments(Queue.empty, "", LanguageVersion.default, true), args.toList)
   }
 
   main()
