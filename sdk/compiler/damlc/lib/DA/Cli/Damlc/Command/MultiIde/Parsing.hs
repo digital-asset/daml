@@ -204,6 +204,7 @@ type SomeFromClientTrackedMethod = Some @(LSP.Method 'LSP.FromClient 'LSP.Reques
 
 -- Sadly some coercions needed here, as IxMap doesn't expose methods to traverse the map safely
 -- Each usage is explained in comments nearby
+-- We disable the restricted `unsafeCoerce` warning below
 {-# ANN adjustClientTrackers ("HLint: ignore Avoid restricted function" :: String) #-}
 adjustClientTrackers 
   :: forall a

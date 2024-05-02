@@ -48,11 +48,6 @@ var isMultiIde: boolean;
 // and then `Toggle Developer Tools` in VSCode. This will show
 // output in the Console tab once the extension is activated.
 export async function activate(context: vscode.ExtensionContext) {
-  // Start the language clients
-  let config = vscode.workspace.getConfiguration("daml");
-  // Get telemetry consent
-  const consent = await getTelemetryConsent(config, context);
-
   // Add entry for multi-ide readonly directory
   let filesConfig = vscode.workspace.getConfiguration("files");
   let multiIdeReadOnlyPattern = "**/.daml/unpacked-dars/**";
@@ -138,6 +133,8 @@ export async function activate(context: vscode.ExtensionContext) {
     },
   );
 
+  const config = vscode.workspace.getConfiguration("daml");
+  const consent = await getTelemetryConsent(config, context);
   setupLanguageServer(config, consent);
 
   let d1 = vscode.commands.registerCommand("daml.showResource", (title, uri) =>
