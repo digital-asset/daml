@@ -20,7 +20,7 @@ import com.digitalasset.canton.participant.topology.{
   ParticipantTopologyManagerOps,
 }
 import com.digitalasset.canton.topology.TopologyManagerError.MappingAlreadyExists
-import com.digitalasset.canton.topology.{Identifier, ParticipantId, PartyId}
+import com.digitalasset.canton.topology.{ParticipantId, PartyId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.ProtocolVersion
@@ -75,11 +75,11 @@ private[sync] class PartyAllocation(
         _ <- EitherT
           .cond[Future](isActive(), (), SyncServiceError.Synchronous.PassiveNode)
           .leftWiden[SubmissionResult]
-        id <- Identifier
-          .create(partyName)
+        id <- UniqueIdentifier
+          .create(partyName, participantId.uid.namespace)
           .leftMap(SyncServiceError.Synchronous.internalError)
           .toEitherT[Future]
-        partyId = PartyId(id, participantId.namespace)
+        partyId = PartyId(id)
         validatedDisplayName <- displayName
           .traverse(n => String255.create(n, Some("DisplayName")))
           .leftMap(SyncServiceError.Synchronous.internalError)

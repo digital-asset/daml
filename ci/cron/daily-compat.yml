@@ -127,7 +127,7 @@ jobs:
           var_name: bash_lib
       - bash: |
           set -euo pipefail
-          eval "$(sdk/dev-env/bin/dade assist)"
+          eval "$(cd sdk; dev-env/bin/dade assist)"
           source $(bash_lib)
 
           export AUTH="$(get_gh_auth_header)"

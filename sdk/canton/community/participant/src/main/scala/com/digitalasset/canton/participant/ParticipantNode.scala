@@ -215,6 +215,7 @@ class ParticipantNodeBootstrap(
         indexedStringStore: IndexedStringStore,
     ): (SyncDomainPersistentStateManager, ParticipantTopologyDispatcher) = {
       val manager = new SyncDomainPersistentStateManager(
+        participantId,
         aliasResolution,
         storage,
         indexedStringStore,
@@ -258,7 +259,7 @@ class ParticipantNodeBootstrap(
         topologyManager = topologyManager,
         nodeId = nodeId,
         initialProtocolVersion = ProtocolVersion.latest,
-        loggerFactory = StartupNode.this.loggerFactory,
+        loggerFactory = ParticipantNodeBootstrap.this.loggerFactory,
         timeouts = timeouts,
       )
 

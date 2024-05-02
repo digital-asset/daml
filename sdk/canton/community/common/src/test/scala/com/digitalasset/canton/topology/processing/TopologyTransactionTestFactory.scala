@@ -31,10 +31,10 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
   val ns7 = Namespace(key7.fingerprint)
   val ns8 = Namespace(key8.fingerprint)
   val ns9 = Namespace(key9.fingerprint)
-  val domainId1 = DomainId(UniqueIdentifier(Identifier.tryCreate("domain"), ns1))
-  val uid1a = UniqueIdentifier(Identifier.tryCreate("one"), ns1)
-  val uid1b = UniqueIdentifier(Identifier.tryCreate("two"), ns1)
-  val uid6 = UniqueIdentifier(Identifier.tryCreate("other"), ns6)
+  val domainId1 = DomainId(UniqueIdentifier.tryCreate("domain", ns1))
+  val uid1a = UniqueIdentifier.tryCreate("one", ns1)
+  val uid1b = UniqueIdentifier.tryCreate("two", ns1)
+  val uid6 = UniqueIdentifier.tryCreate("other", ns6)
   val party1b = PartyId(uid1b)
   val party6 = PartyId(uid6)
   val participant1 = ParticipantId(uid1a)
@@ -54,22 +54,28 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
 
   val id6k4_k1 = mkAdd(IdentifierDelegation(uid6, key4), key1)
 
-  val okm1ak5_k3 =
-    mkAdd(OwnerToKeyMapping(participant1, Some(domainId1), NonEmpty(Seq, key5)), key3)
-  val okm1ak1E_k3 = mkAdd(
-    OwnerToKeyMapping(participant1, Some(domainId1), NonEmpty(Seq, EncryptionKeys.key1)),
-    key3,
-  )
-  val okm1ak5_k2 =
-    mkAdd(OwnerToKeyMapping(participant1, Some(domainId1), NonEmpty(Seq, key5)), key2)
-  val okm1bk5_k1 =
-    mkAdd(OwnerToKeyMapping(participant1, Some(domainId1), NonEmpty(Seq, key5)), key1)
-  val okm1bk5_k4 =
-    mkAdd(OwnerToKeyMapping(participant1, Some(domainId1), NonEmpty(Seq, key5)), key4)
+  val okm1ak5k1E_k2 =
+    mkAddMultiKey(
+      OwnerToKeyMapping(participant1, Some(domainId1), NonEmpty(Seq, key5, EncryptionKeys.key1)),
+      NonEmpty(Set, key2, key5),
+    )
+  val okm1bk5k1E_k1 =
+    mkAddMultiKey(
+      OwnerToKeyMapping(participant1, Some(domainId1), NonEmpty(Seq, key5, EncryptionKeys.key1)),
+      NonEmpty(Set, key1, key5),
+    )
+  val okm1bk5k1E_k4 =
+    mkAddMultiKey(
+      OwnerToKeyMapping(participant1, Some(domainId1), NonEmpty(Seq, key5, EncryptionKeys.key1)),
+      NonEmpty(Set, key4, key5),
+    )
 
-  val sequencer1 = SequencerId(UniqueIdentifier(Identifier.tryCreate("sequencer1"), ns1))
+  val sequencer1 = SequencerId(UniqueIdentifier.tryCreate("sequencer1", ns1))
   val okmS1k7_k1 =
-    mkAdd(OwnerToKeyMapping(sequencer1, Some(domainId1), NonEmpty(Seq, key7)), key1)
+    mkAddMultiKey(
+      OwnerToKeyMapping(sequencer1, Some(domainId1), NonEmpty(Seq, key7)),
+      NonEmpty(Set, key1, key7),
+    )
   val sdmS1_k1 =
     mkAdd(
       SequencerDomainState
@@ -78,7 +84,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
       key1,
     )
   def add_OkmS1k9_k1(otk: OwnerToKeyMapping, serial: PositiveInt) =
-    mkAdd(otk.copy(keys = otk.keys :+ key9), key1)
+    mkAddMultiKey(otk.copy(keys = otk.keys :+ key9), NonEmpty(Set, key1, key9))
   def remove_okmS1k7_k1(otk: OwnerToKeyMapping, serial: PositiveInt) = {
     NonEmpty
       .from(otk.keys.forgetNE.toSet - key7)

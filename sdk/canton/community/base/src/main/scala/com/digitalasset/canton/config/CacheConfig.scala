@@ -76,7 +76,6 @@ final case class CachingConfigs(
     sessionKeyCacheConfig: SessionKeyCacheConfig = CachingConfigs.defaultSessionKeyCacheConfig,
     packageVettingCache: CacheConfig = CachingConfigs.defaultPackageVettingCache,
     mySigningKeyCache: CacheConfig = CachingConfigs.defaultMySigningKeyCache,
-    trafficStatusCache: CacheConfig = CachingConfigs.defaultTrafficStatusCache,
     memberCache: CacheConfig = CachingConfigs.defaultMemberCache,
     kmsMetadataCache: CacheConfig = CachingConfigs.kmsMetadataCache,
     finalizedMediatorConfirmationRequests: CacheConfig =

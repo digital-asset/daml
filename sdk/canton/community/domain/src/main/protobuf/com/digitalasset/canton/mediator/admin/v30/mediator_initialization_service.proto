@@ -6,7 +6,6 @@ syntax = "proto3";
 package com.digitalasset.canton.mediator.admin.v30;
 
 import "com/digitalasset/canton/admin/domain/v30/sequencer_connection.proto";
-import "com/digitalasset/canton/protocol/v30/sequencing.proto";
 
 service MediatorInitializationService {
   // Initialize a Mediator service
@@ -20,14 +19,11 @@ message InitializeMediatorRequest {
   // the domain identifier
   string domain_id = 1;
 
-  // parameters for the domain, must match the parameters used by all other domain entities
-  com.digitalasset.canton.protocol.v30.StaticDomainParameters domain_parameters = 2;
-
   // how should the member connect to the domain sequencer
-  com.digitalasset.canton.admin.domain.v30.SequencerConnections sequencer_connections = 3; // required
+  com.digitalasset.canton.admin.domain.v30.SequencerConnections sequencer_connections = 2; // required
 
   // how strictly we should validate the connection to the sequencer
-  com.digitalasset.canton.admin.domain.v30.SequencerConnectionValidation sequencer_connection_validation = 4; // required
+  com.digitalasset.canton.admin.domain.v30.SequencerConnectionValidation sequencer_connection_validation = 3; // required
 }
 
 message InitializeMediatorResponse {}

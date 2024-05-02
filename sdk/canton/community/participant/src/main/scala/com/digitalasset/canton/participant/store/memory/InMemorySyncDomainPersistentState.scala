@@ -19,12 +19,13 @@ import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
-import com.digitalasset.canton.topology.{DomainOutboxQueue, DomainTopologyManager}
+import com.digitalasset.canton.topology.{DomainOutboxQueue, DomainTopologyManager, ParticipantId}
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
 class InMemorySyncDomainPersistentState(
+    participantId: ParticipantId,
     clock: Clock,
     crypto: Crypto,
     override val domainId: IndexedDomain,
@@ -63,6 +64,7 @@ class InMemorySyncDomainPersistentState(
 
   override val domainOutboxQueue = new DomainOutboxQueue(loggerFactory)
   override val topologyManager = new DomainTopologyManager(
+    participantId.uid,
     clock,
     crypto,
     topologyStore,

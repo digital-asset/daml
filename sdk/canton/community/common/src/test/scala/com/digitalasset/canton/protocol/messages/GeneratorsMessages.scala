@@ -24,7 +24,7 @@ import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.B
 import com.digitalasset.canton.protocol.{GeneratorsProtocol, RequestId, RootHash, ViewHash}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.transaction.GeneratorsTransaction
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{DomainId, GeneratorsTopology, ParticipantId}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{Generators, LfPartyId}
 import magnolify.scalacheck.auto.*
@@ -179,6 +179,13 @@ final class GeneratorsMessages(
       fullInformeeTree <- Arbitrary.arbitrary[FullInformeeTree]
       submittingParticipantSignature <- Arbitrary.arbitrary[Signature]
     } yield InformeeMessage(fullInformeeTree, submittingParticipantSignature)(protocolVersion)
+  )
+
+  implicit val asymmetricEncrypted: Arbitrary[AsymmetricEncrypted[SecureRandomness]] = Arbitrary(
+    for {
+      encrypted <- byteStringArb.arbitrary
+      fingerprint <- GeneratorsTopology.fingerprintArb.arbitrary
+    } yield AsymmetricEncrypted(encrypted, fingerprint)
   )
 
   val encryptedViewMessage: Arbitrary[EncryptedViewMessage[ViewType]] = Arbitrary(

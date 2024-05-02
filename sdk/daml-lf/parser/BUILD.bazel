@@ -20,7 +20,6 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-parser:__VERSION__"],
     visibility = [
         "//daml-lf:__subpackages__",
-        "//ledger:__subpackages__",
     ],
     deps = [
         "//daml-lf/data",

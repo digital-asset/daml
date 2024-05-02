@@ -590,8 +590,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       val mapping = signedTx.mapping
       val transactionType = mapping.code
       val namespace = mapping.namespace
-      val identifier =
-        mapping.maybeUid.map(_.identifier.toLengthLimitedString).getOrElse(String185.empty)
+      val identifier = mapping.maybeUid.map(_.identifier).getOrElse(String185.empty)
       val serial = signedTx.serial
       val mappingHash = mapping.uniqueKey.hash.toLengthLimitedHexString
       val reason = txEntry.rejectionReason.map(_.asString1GB)
@@ -742,7 +741,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     queryForTransactions(
       // Query for leading fields of `idx_common_topology_transactions` to enable use of this index
       sql" AND transaction_type = ${mapping.code} AND namespace = ${mapping.namespace} AND identifier = ${mapping.maybeUid
-          .fold(String185.empty)(_.identifier.toLengthLimitedString)}"
+          .fold(String185.empty)(_.identifier)}"
         ++ sql" AND valid_from < $asOfExclusive"
         ++ sql" AND mapping_key_hash = ${mapping.uniqueKey.hash.toLengthLimitedHexString}"
         ++ sql" AND serial_counter = ${transaction.serial}"

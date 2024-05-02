@@ -14,23 +14,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.admin.grpc.TopologyStore
 import com.digitalasset.canton.topology.admin.v30
-import com.digitalasset.canton.topology.transaction.{
-  AuthorityOf,
-  DecentralizedNamespaceDefinition,
-  DomainTrustCertificate,
-  IdentifierDelegation,
-  MediatorDomainState,
-  NamespaceDelegation,
-  OwnerToKeyMapping,
-  ParticipantDomainPermission,
-  PartyHostingLimits,
-  PartyToParticipant,
-  PurgeTopologyTransaction,
-  SequencerDomainState,
-  TopologyChangeOp,
-  TrafficControlState,
-  VettedPackages,
-}
+import com.digitalasset.canton.topology.transaction.*
 import com.google.protobuf.ByteString
 
 import java.time.Instant
@@ -318,19 +302,4 @@ object ListPurgeTopologyTransactionResult {
       itemProto <- ProtoConverter.required("item", value.item)
       item <- PurgeTopologyTransaction.fromProtoV30(itemProto)
     } yield ListPurgeTopologyTransactionResult(context, item)
-}
-
-final case class ListTrafficStateResult(
-    context: BaseResult,
-    item: TrafficControlState,
-)
-
-object ListTrafficStateResult {
-  def fromProtoV30(
-      value: v30.ListTrafficStateResponse.Result
-  ): ParsingResult[ListTrafficStateResult] =
-    for {
-      context <- ProtoConverter.parseRequired(BaseResult.fromProtoV30, "context", value.context)
-      item <- ProtoConverter.parseRequired(TrafficControlState.fromProtoV30, "item", value.item)
-    } yield ListTrafficStateResult(context, item)
 }

@@ -110,14 +110,14 @@ jobs:
     - bash: |
         set -euo pipefail
         # Note: this gets dev-env from the release commit, not the trigger commit
-        eval "$(sdk/dev-env/bin/dade-assist)"
+        eval "$(cd sdk; dev-env/bin/dade-assist)"
         ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag) split
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
     - bash: |
         set -euo pipefail
         # Note: this gets dev-env from the release commit, not the trigger commit
-        eval "$(sdk/dev-env/bin/dade-assist)"
+        eval "$(cd sdk; dev-env/bin/dade-assist)"
         source $(bash-lib)
         sha=$(release_sha)
         short_sha=${sha:0:8}

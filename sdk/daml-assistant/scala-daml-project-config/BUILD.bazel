@@ -10,7 +10,7 @@ load(
 da_scala_library(
     name = "scala-daml-project-config",
     srcs = glob([
-        "src/main/scala/com/digitalasset/assistant/**/*.scala",
+        "src/main/scala/**/*.scala",
     ]),
     scala_deps = [
         "@maven//:dev_optics_monocle_core",

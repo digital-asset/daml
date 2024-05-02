@@ -84,7 +84,7 @@ object GrpcParticipantRepairService {
     ): Either[String, ValidExportAcsRequest] = {
       for {
         parties <- request.parties.traverse(party =>
-          UniqueIdentifier.fromProtoPrimitive_(party).map(PartyId(_).toLf)
+          UniqueIdentifier.fromProtoPrimitive_(party).map(PartyId(_).toLf).leftMap(_.message)
         )
         timestamp <- request.timestamp
           .traverse(CantonTimestamp.fromProtoTimestamp)

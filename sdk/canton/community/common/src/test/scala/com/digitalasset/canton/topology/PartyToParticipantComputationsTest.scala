@@ -4,7 +4,6 @@
 package com.digitalasset.canton.topology
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Confirmation,
   Observation,
@@ -17,8 +16,7 @@ class PartyToParticipantComputationsTest extends AnyWordSpec with BaseTest {
   private lazy val computations = new PartyToParticipantComputations(loggerFactory)
 
   private def participantIdFor(idx: Int) = {
-    val namespace = Namespace(Fingerprint.tryCreate(s"participant$idx-identity"))
-    ParticipantId(Identifier.tryCreate(s"participant$idx"), namespace)
+    ParticipantId(UniqueIdentifier.tryCreate(s"participant$idx", s"participant$idx-identity"))
   }
 
   private val p1 = participantIdFor(1)

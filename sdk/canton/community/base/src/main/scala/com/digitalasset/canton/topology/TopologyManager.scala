@@ -17,6 +17,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.TopologyManagerError.IncreaseOfLedgerTimeRecordTimeTolerance
+import com.digitalasset.canton.topology.TopologyManagerError.InternalError.TopologySigningError
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, DomainStore}
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
@@ -40,6 +41,7 @@ trait TopologyManagerObserver {
 }
 
 class DomainTopologyManager(
+    nodeId: UniqueIdentifier,
     clock: Clock,
     crypto: Crypto,
     override val store: TopologyStore[DomainStore],
@@ -51,6 +53,7 @@ class DomainTopologyManager(
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends TopologyManager[DomainStore](
+      nodeId,
       clock,
       crypto,
       store,
@@ -76,6 +79,7 @@ class DomainTopologyManager(
 }
 
 class AuthorizedTopologyManager(
+    nodeId: UniqueIdentifier,
     clock: Clock,
     crypto: Crypto,
     store: TopologyStore[AuthorizedStore],
@@ -85,6 +89,7 @@ class AuthorizedTopologyManager(
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends TopologyManager[AuthorizedStore](
+      nodeId,
       clock,
       crypto,
       store,
@@ -109,6 +114,7 @@ class AuthorizedTopologyManager(
 }
 
 abstract class TopologyManager[+StoreID <: TopologyStoreId](
+    val nodeId: UniqueIdentifier,
     val clock: Clock,
     val crypto: Crypto,
     val store: TopologyStore[StoreID],
@@ -377,12 +383,40 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
     } yield transaction.addSignatures(signatures)
   }
 
+  // TODO(#18524): Remove this after CN has upgraded to 3.1. It will then be superseded by #12945
+  private def addMissingOtkSignaturesForSigningKeys(
+      signedTxs: Seq[GenericSignedTopologyTransaction]
+  )(implicit traceContext: TraceContext): EitherT[Future, TopologyManagerError, Seq[
+    SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]
+  ]] =
+    signedTxs
+      .parTraverse { signedTx =>
+        val modifiedSignedTxO =
+          signedTx
+            .select[TopologyChangeOp.Replace, OwnerToKeyMapping]
+            // only look at OTKs for this node
+            .filter(otk => nodeId == otk.mapping.member.uid)
+            .map { otk =>
+              val keysAlreadySigned = signedTx.signatures.map(_.signedBy)
+              val keysForAdditionalSignatures = otk.mapping.keys.collect {
+                case key: SigningPublicKey if !keysAlreadySigned(key.fingerprint) =>
+                  key.fingerprint
+              }
+              keysForAdditionalSignatures
+                .parTraverse(crypto.privateCrypto.sign(signedTx.hash.hash, _))
+                .map(signedTx.addSignatures)
+            }
+        // if there was nothing to modify, just return the transaction
+        modifiedSignedTxO.getOrElse(EitherT.rightT[Future, SigningError](signedTx))
+      }
+      .leftMap(TopologySigningError(_))
+
   /** sequential(!) adding of topology transactions
     *
     * @param force force a dangerous change (such as revoking the last key)
     */
   def add(
-      transactions: Seq[GenericSignedTopologyTransaction],
+      transactionsToAdd: Seq[GenericSignedTopologyTransaction],
       force: Boolean,
       expectFullAuthorization: Boolean,
   )(implicit
@@ -392,6 +426,8 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
       {
         val ts = timestampForValidation()
         for {
+          // TODO(#18524): Remove this after CN has upgraded to 3.1
+          transactions <- addMissingOtkSignaturesForSigningKeys(transactionsToAdd)
           _ <- MonadUtil.sequentialTraverse_(transactions)(transactionIsNotDangerous(_, force))
           transactionsInStore <- EitherT.liftF(
             store.findTransactionsByTxHash(

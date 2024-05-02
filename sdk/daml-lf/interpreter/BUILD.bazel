@@ -33,7 +33,6 @@ da_scala_library(
         "//compiler/scenario-service:__subpackages__",
         "//daml-lf:__subpackages__",
         "//daml-script:__subpackages__",
-        "//ledger:__subpackages__",
     ],
     deps = [
         "//daml-lf/data",
@@ -77,7 +76,7 @@ da_scala_test_suite(
         ["src/test/**/*.scala"],
         exclude = [
             "src/test/**/*Lib.scala",
-            "src/test/scala/com/digitalasset/daml/lf/speedy/SBuiltinBigNumericTest.scala",
+            "src/test/scala/com/daml/daml/lf/speedy/SBuiltinBigNumericTest.scala",
         ],
     ),
     scala_deps = [

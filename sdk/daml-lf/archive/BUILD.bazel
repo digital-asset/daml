@@ -178,7 +178,7 @@ daml_compile_with_dalf(
 # An ad-hoc tool for testing, benchmarking and profiling package decoding performance in isolation.
 da_scala_binary(
     name = "decode-tester",
-    srcs = ["src/test/scala/com/digitalasset/daml/lf/archive/DecodeMain.scala"],
+    srcs = ["src/test/scala/com/daml/lf/archive/DecodeMain.scala"],
     main_class = "com.daml.lf.archive.DecodeMain",
     deps = [
         ":daml_lf_archive_reader",

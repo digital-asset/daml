@@ -61,12 +61,12 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
     ) = {
       validated should have length (expectedOutcome.size.toLong)
       validated.zipWithIndex.zip(expectedOutcome).foreach {
-        case ((ValidatedTopologyTransaction(_, Some(err), _), _), Some(expected)) =>
-          assert(expected(err), (err, expected))
+        case ((ValidatedTopologyTransaction(tx, Some(err), _), _), Some(expected)) =>
+          assert(expected(err), s"Error $err was not expected for transaction: $tx")
         case ((ValidatedTopologyTransaction(transaction, rej, _), idx), expected) =>
           assertResult(expected, s"idx=$idx $transaction")(rej)
       }
-      assert(true)
+      succeed
     }
 
     "receiving transactions with signatures" should {
@@ -108,7 +108,32 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
           )
         }
       }
-//       TODO(#12390) resuscitate
+
+      "fail to add if the OwnerToKeyMapping misses the signature for newly added signing keys" in {
+        val validator = mk()
+        import Factory.*
+
+        val okmS1k7_k1_missing_k7 =
+          okmS1k7_k1.removeSignatures(Set(SigningKeys.key7.fingerprint)).value
+        for {
+          (_, validatedTopologyTransactions) <- validator.validateAndUpdateHeadAuthState(
+            ts(0),
+            List(ns1k1_k1, okmS1k7_k1_missing_k7),
+            Map.empty,
+            expectFullAuthorization = true,
+          )
+        } yield {
+          check(
+            validatedTopologyTransactions,
+            Seq(
+              None,
+              Some(_ == NotAuthorized),
+            ),
+          )
+        }
+      }
+
+      //       TODO(#12390) resuscitate
 //      "reject if the transaction is for the wrong domain" in {
 //        val validator = mk()
 //        import Factory.*
@@ -278,7 +303,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
         for {
           res <- validator.validateAndUpdateHeadAuthState(
             ts(0),
-            List(ns1k1_k1, ns1k2_k1, okm1ak5_k2, p1p1B_k2, id1ak4_k1, ns6k6_k6, p1p6_k2k6),
+            List(ns1k1_k1, ns1k2_k1, okm1ak5k1E_k2, p1p1B_k2, id1ak4_k1, ns6k6_k6, p1p6_k2k6),
             Map.empty,
             expectFullAuthorization = true,
           )
@@ -292,7 +317,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
         for {
           res <- validator.validateAndUpdateHeadAuthState(
             ts(0),
-            List(ns1k1_k1, okm1ak5_k2, p1p1B_k2),
+            List(ns1k1_k1, okm1ak5k1E_k2, p1p1B_k2),
             Map.empty,
             expectFullAuthorization = true,
           )
@@ -301,7 +326,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             res._2,
             Seq(
               None,
-              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
+              Some(_ == NotAuthorized),
               Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
             ),
           )
@@ -358,7 +383,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
         for {
           res <- validator.validateAndUpdateHeadAuthState(
             ts(0),
-            List(ns1k1_k1, ns1k2_k1, id1ak4_k1, Rns1k2_k1, Rid1ak4_k1, okm1ak5_k2, p1p6_k2),
+            List(ns1k1_k1, ns1k2_k1, id1ak4_k1, Rns1k2_k1, Rid1ak4_k1, okm1ak5k1E_k2, p1p6_k2),
             Map.empty,
             expectFullAuthorization = true,
           )
@@ -371,7 +396,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
               None,
               None,
               None,
-              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
+              Some(_ == NotAuthorized),
               Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
             ),
           )
@@ -396,7 +421,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
           )
           res <- validator.validateAndUpdateHeadAuthState(
             ts(1),
-            List(ns1k1_k1, okm1bk5_k1, p1p6_k6),
+            List(ns1k1_k1, okm1bk5k1E_k1, p1p6_k6),
             Map.empty,
             expectFullAuthorization = true,
           )
@@ -421,14 +446,14 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
           )
           res <- validator.validateAndUpdateHeadAuthState(
             ts(1),
-            List(Rns1k1_k1, okm1bk5_k1),
+            List(Rns1k1_k1, okm1bk5k1E_k1),
             Map(Rns1k1_k1.mapping.uniqueKey -> ns1k1_k1),
             expectFullAuthorization = true,
           )
         } yield {
           check(
             res._2,
-            Seq(None, Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key1.fingerprint)))),
+            Seq(None, Some(_ == NotAuthorized)),
           )
           res._1.cascadingNamespaces shouldBe Set(ns1)
         }
@@ -517,7 +542,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
         val validator = mk(store)
         import Factory.*
 
-        val pid2 = ParticipantId(UniqueIdentifier(Identifier.tryCreate("participant2"), ns2))
+        val pid2 = ParticipantId(UniqueIdentifier.tryCreate("participant2", ns2))
         val participant2HostsParty1 = mkAddMultiKey(
           PartyToParticipant(
             party1b, // lives in the namespace of p1, corresponding to `SigningKeys.key1`
@@ -720,7 +745,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
           TopologyChangeOp.Replace,
           serial = PositiveInt.one,
           VettedPackages(
-            ParticipantId(Identifier.tryCreate("consortium-participiant"), dns_id),
+            ParticipantId(UniqueIdentifier.tryCreate("consortium-participiant", dns_id)),
             None,
             Seq.empty,
           ),
@@ -789,7 +814,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
           TopologyChangeOp.Replace,
           serial = PositiveInt.one,
           VettedPackages(
-            ParticipantId(Identifier.tryCreate("consortium-participiant"), dns_id),
+            ParticipantId(UniqueIdentifier.tryCreate("consortium-participiant", dns_id)),
             None,
             Seq.empty,
           ),
@@ -852,7 +877,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
       val decentralizedNamespaceWithThreeOwners = List(ns1k1_k1, ns8k8_k8, ns9k9_k9, dns)
 
       val pkgMapping = VettedPackages(
-        ParticipantId(Identifier.tryCreate("consortium-participiant"), dns_id),
+        ParticipantId(UniqueIdentifier.tryCreate("consortium-participiant", dns_id)),
         None,
         Seq.empty,
       )

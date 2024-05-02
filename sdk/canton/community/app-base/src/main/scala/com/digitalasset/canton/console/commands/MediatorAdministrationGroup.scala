@@ -12,7 +12,6 @@ import com.digitalasset.canton.admin.api.client.commands.{
   DomainTimeCommands,
   PruningSchedulerCommands,
 }
-import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{
@@ -133,7 +132,6 @@ class MediatorSetupGroup(consoleCommandGroup: ConsoleCommandGroup)
   @Help.Summary("Assign a mediator to a domain")
   def assign(
       domainId: DomainId,
-      domainParameters: StaticDomainParameters,
       sequencerConnections: SequencerConnections,
       sequencerConnectionValidation: SequencerConnectionValidation =
         SequencerConnectionValidation.All,
@@ -141,7 +139,6 @@ class MediatorSetupGroup(consoleCommandGroup: ConsoleCommandGroup)
     runner.adminCommand(
       Initialize(
         domainId,
-        domainParameters.toInternal,
         sequencerConnections,
         sequencerConnectionValidation,
       )

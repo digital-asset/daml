@@ -16,7 +16,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
-import com.digitalasset.canton.topology.SafeSimpleString
+import com.digitalasset.canton.topology.UniqueIdentifier
 import com.digitalasset.canton.version.{
   HasVersionedMessageCompanion,
   HasVersionedWrapper,
@@ -33,7 +33,7 @@ trait CryptoKey extends Product with Serializable {
 }
 
 /** a human readable fingerprint of a key that serves as a unique identifier */
-final case class Fingerprint(protected val str: String68)
+final case class Fingerprint private (protected val str: String68)
     extends LengthLimitedStringWrapper
     with PrettyPrinting {
   def toLengthLimitedString: String68 = str
@@ -68,8 +68,8 @@ object Fingerprint {
 
   /** create fingerprint from a human readable string */
   def fromProtoPrimitive(str: String): ParsingResult[Fingerprint] =
-    SafeSimpleString
-      .fromProtoPrimitive(str)
+    UniqueIdentifier
+      .verifyValidString(str) // verify that we can represent the string as part of the UID.
       .leftMap(ProtoDeserializationError.StringConversionError)
       .flatMap(String68.fromProtoPrimitive(_, "Fingerprint"))
       .map(Fingerprint(_))
@@ -81,10 +81,17 @@ object Fingerprint {
     new Fingerprint(hash.toLengthLimitedHexString)
   }
 
+  def create(str: String): Either[String, Fingerprint] =
+    fromProtoPrimitive(str).leftMap(_.message)
+
   def tryCreate(str: String): Fingerprint =
-    fromProtoPrimitive(str).valueOr(err =>
+    create(str).valueOr(err =>
       throw new IllegalArgumentException(s"Invalid fingerprint $str: $err")
     )
+
+  def tryCreate(str68: String68): Fingerprint =
+    tryCreate(str68.unwrap)
+
 }
 
 trait CryptoKeyPairKey extends CryptoKey {

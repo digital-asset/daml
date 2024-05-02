@@ -17,7 +17,6 @@ import com.digitalasset.canton.domain.mediator.admin.gprc.{
   InitializeMediatorResponse,
 }
 import com.digitalasset.canton.mediator.admin.v30
-import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, SequencerConnections}
 import com.digitalasset.canton.topology.DomainId
 import io.grpc.ManagedChannel
@@ -45,7 +44,6 @@ object EnterpriseMediatorAdministrationCommands {
 
   final case class Initialize(
       domainId: DomainId,
-      domainParameters: StaticDomainParameters,
       sequencerConnections: SequencerConnections,
       validation: SequencerConnectionValidation,
   ) extends BaseMediatorInitializationCommand[
@@ -57,7 +55,6 @@ object EnterpriseMediatorAdministrationCommands {
       Right(
         InitializeMediatorRequest(
           domainId,
-          domainParameters,
           sequencerConnections,
           validation,
         ).toProtoV30

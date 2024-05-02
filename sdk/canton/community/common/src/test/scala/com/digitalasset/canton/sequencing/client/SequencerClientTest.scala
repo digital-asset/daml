@@ -831,7 +831,7 @@ class SequencerClientTest
       "fail to reassign sequencerId" in {
         val secondTransport = MockTransport()
         val secondSequencerId = SequencerId(
-          UniqueIdentifier(Identifier.tryCreate("da2"), Namespace(Fingerprint.tryCreate("default")))
+          UniqueIdentifier.tryCreate("da2", Namespace(Fingerprint.tryCreate("default")))
         )
 
         val env = RichEnvFactory.create()

@@ -836,6 +836,7 @@ class CantonSyncService(
         sequencerInfoLoader
           .loadAndAggregateSequencerEndpoints(
             target.domain,
+            target.domainId,
             target.sequencerConnections,
             SequencerConnectionValidation.Active,
           )(
@@ -1342,7 +1343,6 @@ class CantonSyncService(
               domainHandle.topologyClient,
               trafficStateController,
               ephemeral.recordOrderPublisher,
-              parameters.useNewTrafficControl,
             ),
           missingKeysAlerter,
           transferCoordination,

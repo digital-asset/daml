@@ -368,7 +368,7 @@ class DatabaseSequencer(
 
   // For the database sequencer, the SequencerId serves as the local sequencer identity/member
   // until the database and block sequencers are unified.
-  override protected def localSequencerMember: DomainMember = SequencerId(domainId)
+  override protected def localSequencerMember: DomainMember = SequencerId(domainId.uid)
 
   /** helper for performing operations that are expected to be called with a registered member so will just throw if we
     * find the member is unregistered.

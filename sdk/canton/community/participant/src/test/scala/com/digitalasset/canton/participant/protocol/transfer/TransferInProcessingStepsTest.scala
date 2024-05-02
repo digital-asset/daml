@@ -122,6 +122,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
     val multiDomainEventLog = mock[MultiDomainEventLog]
     val persistentState =
       new InMemorySyncDomainPersistentState(
+        participant,
         clock,
         crypto,
         IndexedDomain.tryCreate(targetDomain.unwrap, 1),

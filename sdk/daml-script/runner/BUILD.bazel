@@ -14,10 +14,6 @@ load("//rules_daml:daml.bzl", "daml_compile")
 load("//bazel_tools:proto.bzl", "proto_gen")
 load("@os_info//:os_info.bzl", "is_windows")
 
-test_script_sources = [
-    "src/main/scala/com/digitalasset/daml/lf/engine/script/TestMain.scala",
-]
-
 # Should match RunnerMainTestBase.DAR_COUNT
 test_dar_count = 5
 

@@ -117,7 +117,7 @@ object CommonMetadata
       v30.CommonMetadata(saltP, _confirmationPolicyP, domainIdP, uuidP, mediatorP) = metaDataP
       domainUid <- UniqueIdentifier
         .fromProtoPrimitive_(domainIdP)
-        .leftMap(ProtoDeserializationError.ValueDeserializationError("domainId", _))
+        .leftMap(e => ProtoDeserializationError.ValueDeserializationError("domainId", e.message))
       mediator <- MediatorGroupRecipient
         .fromProtoPrimitive(mediatorP, "CommonMetadata.mediator")
       salt <- ProtoConverter

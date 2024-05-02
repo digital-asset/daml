@@ -365,7 +365,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
 
 private[routing] object DomainSelectorTest {
   private def createDomainId(alias: String): DomainId = DomainId(
-    UniqueIdentifier(Identifier.tryCreate(alias), DefaultTestIdentities.namespace)
+    UniqueIdentifier.tryCreate(alias, DefaultTestIdentities.namespace)
   )
 
   private lazy val da = createDomainId("da")

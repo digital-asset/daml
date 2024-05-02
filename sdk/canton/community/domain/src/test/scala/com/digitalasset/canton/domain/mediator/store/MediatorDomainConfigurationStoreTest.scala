@@ -6,7 +6,6 @@ package com.digitalasset.canton.domain.mediator.store
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.Port
-import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
@@ -39,7 +38,6 @@ trait MediatorDomainConfigurationStoreTest {
         SequencerAlias.Default,
       )
       val originalConfig = MediatorDomainConfiguration(
-        Fingerprint.tryCreate("fingerprint"),
         DefaultTestIdentities.domainId,
         defaultStaticDomainParameters,
         SequencerConnections.single(connection),
@@ -65,7 +63,6 @@ trait MediatorDomainConfigurationStoreTest {
         SequencerAlias.Default,
       )
       val originalConfig = MediatorDomainConfiguration(
-        Fingerprint.tryCreate("fingerprint"),
         DefaultTestIdentities.domainId,
         defaultParams,
         SequencerConnections.single(connection),

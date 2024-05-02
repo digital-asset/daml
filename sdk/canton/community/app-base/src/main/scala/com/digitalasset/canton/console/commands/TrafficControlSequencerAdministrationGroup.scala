@@ -12,7 +12,6 @@ import com.digitalasset.canton.console.{
   FeatureFlagFilter,
   Help,
   Helpful,
-  InstanceReference,
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
@@ -20,14 +19,10 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.topology.*
 
 class TrafficControlSequencerAdministrationGroup(
-    instance: InstanceReference,
-    topology: TopologyAdministrationGroup,
     runner: AdminCommandRunner,
     override val consoleEnvironment: ConsoleEnvironment,
     override val loggerFactory: NamedLoggerFactory,
 ) extends TrafficControlAdministrationGroup(
-      instance,
-      topology,
       runner,
       consoleEnvironment,
       loggerFactory,

@@ -74,7 +74,7 @@ object TopologyStoreId {
     override def pretty: Pretty[this.type] = {
       if (discriminator.nonEmpty) {
         prettyOfString(storeId =>
-          show"${storeId.discriminator}${SafeSimpleString.delimiter}${storeId.domainId}"
+          show"${storeId.discriminator}${UniqueIdentifier.delimiter}${storeId.domainId}"
         )
       } else {
         prettyOfParam(_.domainId)

@@ -886,7 +886,6 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         .foreach(
           _.setup.assign(
             domainId,
-            staticDomainParameters,
             SequencerConnections.tryMany(
               sequencers
                 .map(s => s.sequencerConnection.withAlias(SequencerAlias.tryCreate(s.name))),
