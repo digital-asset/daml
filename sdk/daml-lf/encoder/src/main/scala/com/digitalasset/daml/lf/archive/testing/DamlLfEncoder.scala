@@ -5,16 +5,13 @@ package com.daml.lf.archive.testing
 
 import java.io.File
 import java.nio.file.Paths
-
 import com.daml.lf.archive.{Dar, DarWriter}
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.{Ast, PackageInterface, LanguageVersion}
-import com.daml.lf.testing.parser.{ParserParameters, parseModules}
+import com.daml.lf.language.{LanguageVersion, PackageInterface}
+import com.daml.lf.testing.parser.{ParserParameters, parserPackage}
 import com.daml.lf.validation.Validation
 import com.daml.SdkVersion
 
-import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
 import scala.io.Source
 import scala.util.control.NonFatal
@@ -47,7 +44,7 @@ private[daml] object DamlLfEncoder extends App {
         )
 
       makeDar(
-        readSources(appArgs.inputFiles),
+        readSources(appArgs.inputFiles.reverse),
         Paths.get(appArgs.outputFile).toFile,
         validation = appArgs.validation,
       )
@@ -67,21 +64,7 @@ private[daml] object DamlLfEncoder extends App {
       validation: Boolean,
   )(implicit parserParameters: ParserParameters[this.type]) = {
 
-    val modules = parseModules[this.type](source).fold(error, identity)
-
-    val metadata =
-      if (parserParameters.languageVersion >= LanguageVersion.Features.packageMetadata) {
-        Some(
-          Ast.PackageMetadata(
-            Ref.PackageName.assertFromString("encoder_binary"),
-            Ref.PackageVersion.assertFromString("1.0.0"),
-            None,
-          )
-        )
-      } else None
-
-    val pkg =
-      Ast.Package.build(modules, Set.empty[PackageId], parserParameters.languageVersion, metadata)
+    val pkg = parserPackage[this.type](source).fold(error, identity)
     val pkgs = PackageInterface(Map(pkgId -> pkg))
 
     if (validation)
