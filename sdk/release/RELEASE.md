@@ -295,7 +295,7 @@ Remember that these steps are for testing the SDK within a Daml release.
    Note that **the Standard-Change label must remain on the PR**, even if the
    release has failed.
 
-1. Announce the release on `#product-daml` on Slack. For a stable release,
+1. Announce the release on `#product-releases` on Slack. For a stable release,
    direct people to the release blog post. If there were any errors during testing,
    but we decided to keep the release anyway, report those on the PR and include a
    link to the PR in the announcement.
