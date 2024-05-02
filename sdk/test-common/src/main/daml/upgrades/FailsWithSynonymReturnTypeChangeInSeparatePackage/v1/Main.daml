@@ -1,0 +1,11 @@
+module Main where
+
+import Dep
+
+template T with
+    p: Party
+  where
+    signatory p
+    choice C : Synonym
+      controller p
+      do pure $ A { a = "a" }

@@ -1,0 +1,19 @@
+module Main where
+
+import qualified Dep
+
+data D = D { field1 : Text, field2 : Optional Dep.D }
+
+template T with
+    p: Party
+    t: ContractId Dep.T
+  where
+    signatory p
+    choice C1 : D
+      controller p
+      do
+        depD <- exercise t Dep.C1 -- only works when party is same
+        pure $ D "field1" (Some depD)
+    choice C2 : Dep.D
+      controller p
+      do exercise t Dep.C2 -- only works when party is same

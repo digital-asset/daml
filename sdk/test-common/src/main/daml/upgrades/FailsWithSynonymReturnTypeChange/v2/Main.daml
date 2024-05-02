@@ -1,0 +1,15 @@
+module Main where
+
+data A = A { a : Text }
+data B = B { b : Text }
+
+type Synonym = B
+
+template T with
+    p : Party
+  where
+    signatory p
+    choice C : Synonym
+      controller p
+      do pure B { b = "b" }
+
