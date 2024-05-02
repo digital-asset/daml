@@ -5,16 +5,15 @@ package com.daml.lf.archive.testing
 
 import java.io.File
 import java.nio.file.Paths
-
 import com.daml.lf.archive.{Dar, DarWriter}
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.{Ast, PackageInterface, LanguageVersion}
-import com.daml.lf.testing.parser.{ParserParameters, parseModules}
+import com.daml.lf.language.{LanguageVersion, PackageInterface}
+import com.daml.lf.testing.parser.{ParserParameters, parsePackage}
 import com.daml.lf.validation.Validation
 import com.daml.SdkVersion
 
 import scala.annotation.tailrec
+import scala.collection.immutable.Queue
 import scala.io.Source
 import scala.util.control.NonFatal
 
@@ -66,17 +65,7 @@ private[daml] object DamlLfEncoder extends App {
       validation: Boolean,
   )(implicit parserParameters: ParserParameters[this.type]) = {
 
-    val modules = parseModules[this.type](source).fold(error, identity)
-
-    val metadata =
-      Ast.PackageMetadata(
-        Ref.PackageName.assertFromString("encoder_binary"),
-        Ref.PackageVersion.assertFromString("1.0.0"),
-        None,
-      )
-
-    val pkg =
-      Ast.Package.build(modules, Set.empty[PackageId], parserParameters.languageVersion, metadata)
+    val pkg = parsePackage[this.type](source).fold(error, identity)
     val pkgs = PackageInterface(Map(pkgId -> pkg))
 
     if (validation)
@@ -97,7 +86,7 @@ private[daml] object DamlLfEncoder extends App {
   }
 
   private case class Arguments(
-      inputFiles: List[String],
+      inputFiles: Queue[String],
       outputFile: String,
       languageVersion: LanguageVersion,
       validation: Boolean,
@@ -125,10 +114,10 @@ private[daml] object DamlLfEncoder extends App {
           else
             appArgs
         case x :: tail =>
-          go(appArgs.copy(inputFiles = x :: appArgs.inputFiles), tail)
+          go(appArgs.copy(inputFiles = appArgs.inputFiles.enqueue(x)), tail)
       }
 
-    go(Arguments(List.empty, "", LanguageVersion.default, true), args.toList)
+    go(Arguments(Queue.empty, "", LanguageVersion.default, true), args.toList)
   }
 
   main()
