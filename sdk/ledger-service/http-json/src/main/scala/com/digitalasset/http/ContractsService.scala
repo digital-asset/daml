@@ -97,11 +97,11 @@ class ContractsService(
   ): Future[Option[domain.ResolvedContractRef[LfValue]]] =
     contractLocator match {
       case domain.EnrichedContractKey(templateId, key) =>
-        resolveContractTypeId(jwt, ledgerId)(templateId).map(
+        resolveContractTypeId(jwt, ledgerId)(templateId.map(Some(_))).map(
           _.toOption.flatten.map(x => -\/(x.original -> key))
         )
       case domain.EnrichedContractId(Some(templateId), contractId) =>
-        resolveContractTypeId(jwt, ledgerId)(templateId).map(
+        resolveContractTypeId(jwt, ledgerId)(templateId.map(Some(_))).map(
           _.toOption.flatten.map(x => \/-(x.original -> contractId))
         )
       case domain.EnrichedContractId(None, contractId) =>
@@ -121,12 +121,12 @@ class ContractsService(
     val readAs = req.readAs.cata(_.toSet1, jwtPayload.parties)
     req.locator match {
       case domain.EnrichedContractKey(templateId, contractKey) =>
-        findByContractKey(jwt, readAs, templateId, ledgerId, contractKey)
+        findByContractKey(jwt, readAs, templateId.map(Some(_)), ledgerId, contractKey)
       case domain.EnrichedContractId(templateId, contractId) =>
         findByContractId(
           jwt,
           readAs,
-          templateId,
+          templateId.map(id => id.map(Some(_))),
           ledgerId,
           contractId,
         )

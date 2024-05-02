@@ -179,7 +179,7 @@ abstract class HttpServiceIntegrationTest
     def createIouAndExerciseTransfer(
         fixture: UriFixture with EncoderFixture,
         initialTplId: domain.ContractTypeId.Template.RequiredPkg,
-        exerciseTid: domain.ContractTypeId.OptionalPkg,
+        exerciseTid: domain.ContractTypeId.RequiredPkg,
         choice: TExercise[_] = tExercise(choiceArgType = echoTextVA)(echoTextSample),
     ) = for {
       aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")
@@ -218,7 +218,7 @@ abstract class HttpServiceIntegrationTest
           fixture,
           initialTplId = TpId.IIou.TestIIou.map(_.get),
           // whether we can exercise by interface-ID
-          exerciseTid = TpId.IIou.IIou,
+          exerciseTid = TpId.IIou.IIou.map(_.get),
         ) map exerciseSucceeded
       } yield result should ===("Bob invoked IIou.Transfer")
     }
@@ -232,7 +232,7 @@ abstract class HttpServiceIntegrationTest
           fixture,
           initialTplId = TpId.CIou.CIou.map(_.get),
           // whether we can exercise inherited by concrete template ID
-          exerciseTid = TpId.CIou.CIou,
+          exerciseTid = TpId.CIou.CIou.map(_.get),
         ) map exerciseSucceeded
       } yield result should ===("Bob invoked IIou.Transfer")
     }
@@ -243,7 +243,7 @@ abstract class HttpServiceIntegrationTest
         result <- createIouAndExerciseTransfer(
           fixture,
           initialTplId = TpId.CIou.CIou.map(_.get),
-          exerciseTid = TpId.CIou.CIou,
+          exerciseTid = TpId.CIou.CIou.map(_.get),
           choice = tExercise(choiceInterfaceId = Some(TpId.IIou.IIou.map(_.get)), choiceArgType = echoTextVA)(
             echoTextSample
           ),
@@ -258,7 +258,7 @@ abstract class HttpServiceIntegrationTest
           result <- createIouAndExerciseTransfer(
             fixture,
             initialTplId = TpId.CIou.CIou.map(_.get),
-            exerciseTid = TpId.CIou.CIou,
+            exerciseTid = TpId.CIou.CIou.map(_.get),
             choice = tExercise(choiceName = "Overridden", choiceArgType = echoTextPairVA)(
               ShRecord(echo = ShRecord(_1 = "yes", _2 = "no"))
             ),
@@ -273,7 +273,7 @@ abstract class HttpServiceIntegrationTest
           result <- createIouAndExerciseTransfer(
             fixture,
             initialTplId = TpId.CIou.CIou.map(_.get),
-            exerciseTid = TpId.CIou.CIou,
+            exerciseTid = TpId.CIou.CIou.map(_.get),
             choice = tExercise(Some(TpId.Transferrable.Transferrable.map(_.get)), "Overridden", echoTextVA)(
               ShRecord(echo = "yesyes")
             ),
@@ -287,7 +287,7 @@ abstract class HttpServiceIntegrationTest
         response <- createIouAndExerciseTransfer(
           fixture,
           initialTplId = TpId.CIou.CIou.map(_.get),
-          exerciseTid = TpId.CIou.CIou,
+          exerciseTid = TpId.CIou.CIou.map(_.get),
           choice = tExercise(choiceName = "Ambiguous", choiceArgType = echoTextVA)(
             ShRecord(echo = "ambiguous-test")
           ),
@@ -305,7 +305,7 @@ abstract class HttpServiceIntegrationTest
         result <- createIouAndExerciseTransfer(
           fixture,
           initialTplId = TpId.CIou.CIou.map(_.get),
-          exerciseTid = TpId.CIou.CIou,
+          exerciseTid = TpId.CIou.CIou.map(_.get),
           choice = tExercise(choiceName = "TransferPlease", choiceArgType = echoTextVA)(
             echoTextSample
           ),
@@ -333,7 +333,7 @@ abstract class HttpServiceIntegrationTest
           encodeExercise(encoder)(
             iouTransfer(
               domain.EnrichedContractKey(
-                TpId.unsafeCoerce[domain.ContractTypeId.Template, Option[String]](TpId.IIou.IIou),
+                TpId.unsafeCoerce[domain.ContractTypeId.Template, String](TpId.IIou.IIou.map(_.get)),
                 v.Value(v.Value.Sum.Party(domain.Party unwrap alice)),
               ),
               tExercise()(ShRecord(echo = "bob")),

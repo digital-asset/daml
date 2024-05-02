@@ -84,10 +84,10 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
   override def wsConfig: Option[WebsocketConfig] = Some(WebsocketConfig())
 
   private val baseQueryInput: Source[Message, NotUsed] =
-    Source.single(TextMessage.Strict("""{"templateIds": ["Account:Account"]}"""))
+    Source.single(TextMessage.Strict(s"""{"templateIds": ["${tidString(TpId.Account.Account)}"]}"""))
 
   private val fetchRequest =
-    """[{"templateId": "Account:Account", "key": ["Alice", "abc123"]}]"""
+    s"""[{"templateId": "${tidString(TpId.Account.Account)}", "key": ["Alice", "abc123"]}]"""
 
   private val baseFetchInput: Source[Message, NotUsed] =
     Source.single(TextMessage.Strict(fetchRequest))
@@ -173,12 +173,12 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
     SimpleScenario(
       "query",
       Uri.Path("/v1/stream/query"),
-      Source.single(TextMessage.Strict("""{"templateIds": ["AA:BB"]}""")),
+      Source.single(TextMessage.Strict("""{"templateIds": ["ZZ:AA:BB"]}""")),
     ),
     SimpleScenario(
       "fetch",
       Uri.Path("/v1/stream/fetch"),
-      Source.single(TextMessage.Strict("""[{"templateId": "AA:BB", "key": ["k", "v"]}]""")),
+      Source.single(TextMessage.Strict("""[{"templateId": "ZZ:AA:BB", "key": ["k", "v"]}]""")),
     ),
   ).foreach { scenario =>
     s"${scenario.id} report error when cannot resolve any template ID" in withHttpService {
@@ -201,7 +201,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
     import AbstractHttpServiceIntegrationTestFuns.ciouDar
     val queryInput = Source.single(
       TextMessage.Strict(
-        """[{"templateIds": ["IAccount:IAccount"]}, {"templateIds": ["IIou:IIou"]}]"""
+        s"""[{"templateIds": ["${tidString(TpId.IAccount.IAccount)}"]}, {"templateIds": ["${tidString(TpId.IIou.IIou)}"]}]"""
       )
     )
     val scenario = SimpleScenario("", Uri.Path("/v1/stream/query"), queryInput)
@@ -221,7 +221,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
   "query error when queries with both template and interface id" in withHttpService { fixture =>
     val queryInput = Source.single(
       TextMessage.Strict(
-        """[{"templateIds": ["IAccount:IAccount"]}, {"templateIds": ["Account:Account"]}]"""
+        s"""[{"templateIds": ["${tidString(TpId.IAccount.IAccount)}"]}, {"templateIds": ["${tidString(TpId.Account.Account)}"]}]"""
       )
     )
     val scenario = SimpleScenario("", Uri.Path("/v1/stream/query"), queryInput)
@@ -248,7 +248,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
         clientMsg <- singleClientQueryStream(
           jwt,
           uri,
-          """{"templateIds": ["Iou:Iou"]}""",
+          s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"]}""",
         ).take(2)
           .runWith(collectResultsAsTextMessage)
       } yield inside(clientMsg) { case result +: heartbeats =>
@@ -265,7 +265,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
         (alice, headers) = aliceHeaders
         _ <- initialAccountCreate(fixture, alice, headers)
         jwt <- jwtForParties(uri)(List(alice), Nil, "participant0")
-        fetchRequest = s"""[{"templateId": "Account:Account", "key": ["$alice", "abc123"]}]"""
+        fetchRequest = s"""[{"templateId": "${tidString(TpId.Account.Account)}", "key": ["$alice", "abc123"]}]"""
         clientMsg <- singleClientFetchStream(jwt, uri, fetchRequest)
           .take(2)
           .runWith(collectResultsAsTextMessage)
@@ -282,9 +282,9 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
     "query endpoint" in withHttpService { fixture =>
       import fixture.uri
       val query =
-        """[
-        {"templateIds": ["IAccount:IAccount"], "query": {"isAbcPrefix": true}},
-        {"templateIds": ["IAccount:IAccount"], "query": {"is123Suffix": true}}
+        s"""[
+        {"templateIds": ["${tidString(TpId.IAccount.IAccount)}"], "query": {"isAbcPrefix": true}},
+        {"templateIds": ["${tidString(TpId.IAccount.IAccount)}"], "query": {"is123Suffix": true}}
       ]"""
 
       @nowarn("msg=pattern var evtsWrapper .* is never used")
@@ -306,7 +306,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
         def exerciseTransferPayload(cid: domain.ContractId) = {
           import json.JsonProtocol._
           val ecid: domain.ContractLocator[JsValue] =
-            domain.EnrichedContractId(Some(TpId.IAccount.IAccount), cid)
+            domain.EnrichedContractId(Some(TpId.IAccount.IAccount.map(_.get)), cid)
           domain
             .ExerciseCommand(
               ecid,
@@ -439,7 +439,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
             singleClientQueryStream(
               _,
               uri,
-              """{"templateIds": ["Iou:Iou", "Unknown:Template"]}""",
+              s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}", "UnknownPkg:Unknown:Template"]}""",
             )
               .take(3)
               .runWith(collectResultsAsTextMessage)
@@ -462,7 +462,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
           singleClientFetchStream(
             _,
             uri,
-            s"""[{"templateId": "Account:Account", "key": ["$alice", "abc123"]}, {"templateId": "Unknown:Template", "key": ["$alice", "abc123"]}]""",
+            s"""[{"templateId": "${tidString(TpId.Account.Account)}", "key": ["$alice", "abc123"]}, {"templateId": "UnknownPkg:Unknown:Template", "key": ["$alice", "abc123"]}]""",
           ).take(3)
             .runWith(collectResultsAsTextMessage)
         )
@@ -511,7 +511,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
     import json.JsonProtocol._
     domain
       .ExerciseCommand(
-        domain.EnrichedContractId(Some(TpId.Iou.Iou), cid): domain.ContractLocator[JsValue],
+        domain.EnrichedContractId(Some(TpId.Iou.Iou.map(_.get)), cid): domain.ContractLocator[JsValue],
         domain.Choice("Iou_Split"),
         Map("splitAmount" -> amount).toJson,
         Option.empty[domain.ContractTypeId.RequiredPkg],
@@ -561,8 +561,8 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
 
       // initial query without offset
       val query =
-        """[
-          {"templateIds": ["Iou:Iou"], "query": {"currency": "USD"}}
+        s"""[
+          {"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"currency": "USD"}}
         ]"""
 
       for {
@@ -578,8 +578,8 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
 
         // construct a new multiquery with one of them having an offset while the other doesn't
         multiquery = s"""[
-          {"templateIds": ["Iou:Iou"], "query": {"currency": "USD"}, "offset": "${lastSeen.unwrap}"},
-          {"templateIds": ["Iou:Iou"]}
+          {"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"currency": "USD"}, "offset": "${lastSeen.unwrap}"},
+          {"templateIds": ["${tidString(TpId.Iou.Iou)}"]}
         ]"""
 
         clientMsg <- singleClientQueryStream(jwt, uri, multiquery)
@@ -668,10 +668,10 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
       }
 
       val query =
-        """[
-          {"templateIds": ["Iou:Iou"], "query": {"amount": {"%lte": 50}}},
-          {"templateIds": ["Iou:Iou"], "query": {"amount": {"%gt": 50}}},
-          {"templateIds": ["Iou:Iou"]}
+        s"""[
+          {"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"amount": {"%lte": 50}}},
+          {"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"amount": {"%gt": 50}}},
+          {"templateIds": ["${tidString(TpId.Iou.Iou)}"]}
         ]"""
 
       for {
@@ -717,8 +717,8 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
           )
 
         query =
-          """[
-          {"templateIds": ["Account:Account"]}
+          s"""[
+          {"templateIds": ["${tidString(TpId.Account.Account)}"]}
         ]"""
         resp = (
             cid1: domain.ContractId,
@@ -812,12 +812,12 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
       for {
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, headers) = aliceHeaders
-        templateId = TpId.Account.Account
+        templateId = TpId.Account.Account.map(_.get)
         fetchRequest = (contractIdAtOffset: Option[Option[domain.ContractId]]) => {
           import json.JsonProtocol._
           List(
             Map(
-              "templateId" -> "Account:Account".toJson,
+              "templateId" -> tidString(TpId.Account.Account).toJson,
               "key" -> List(alice.unwrap, "abc123").toJson,
             )
               ++ contractIdAtOffset
@@ -928,7 +928,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
         (alice, aliceAuthHeaders) = aliceHeaders
         bobHeaders <- fixture.getUniquePartyAndAuthHeaders("Bob")
         (bob, bobAuthHeaders) = bobHeaders
-        templateId = TpId.Account.Account
+        templateId = TpId.Account.Account.map(_.get)
 
         f1 =
           postCreateCommand(
@@ -945,8 +945,8 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
 
         query =
           s"""[
-            {"templateId": "Account:Account", "key": ["$alice", "abc123"]},
-            {"templateId": "Account:Account", "key": ["$bob", "def456"]}
+            {"templateId": "${tidString(TpId.Account.Account)}", "key": ["$alice", "abc123"]},
+            {"templateId": "${tidString(TpId.Account.Account)}", "key": ["$bob", "def456"]}
           ]"""
 
         resp = (
@@ -1034,7 +1034,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
       archive = (id: domain.ContractId) =>
         for {
           r <- postArchiveCommand(
-            TpId.Account.Account,
+            TpId.Account.Account.map(_.get),
             id,
             fixture,
             headers,
@@ -1074,8 +1074,8 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
       }
       req =
         s"""
-               |[{"templateId": "Account:Account", "key": ["$alice", "abc123"]},
-               | {"templateId": "Account:Account", "key": ["$alice", "def456"]}]
+               |[{"templateId": "${tidString(TpId.Account.Account)}", "key": ["$alice", "abc123"]},
+               | {"templateId": "${tidString(TpId.Account.Account)}", "key": ["$alice", "def456"]}]
                |""".stripMargin
       (kill, source) = singleClientFetchStream(jwt, uri, req)
         .viaMat(KillSwitches.single)(Keep.right)
@@ -1177,7 +1177,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
 
         // now query again with a pruned offset
         jwt <- jwtForParties(uri)(List(alice), List(), "participant0")
-        query = s"""[{"templateIds": ["Iou:Iou"]}]"""
+        query = s"""[{"templateIds": ["${tidString(TpId.Iou.Iou)}"]}]"""
         results <- singleClientQueryStream(jwt, uri, query, Some(offsetBeforeArchive))
           .via(parseResp)
           .runWith(Sink.seq)
@@ -1200,8 +1200,8 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
         (alice, headers) = aliceHeaders
         splitSample = SplitSeq.gen.map(_ map (BigDecimal(_))).sample.get
         query =
-          """[
-            {"templateIds": ["Iou:Iou"]}
+          s"""[
+            {"templateIds": ["${tidString(TpId.Iou.Iou)}"]}
           ]"""
         jwt <- jwtForParties(uri)(List(alice), List(), "participant0")
         (kill, source) =
@@ -1358,7 +1358,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
         (killSwitch, source) = singleClientQueryStream(
           jwt = jwtForAliceAndBob,
           serviceUri = uri,
-          query = """{"templateIds": ["Account:SharedAccount"]}""",
+          query = s"""{"templateIds": ["${tidString(TpId.Account.SharedAccount)}"]}""",
         )
           .viaMat(KillSwitches.single)(Keep.right)
           .preMaterialize()
@@ -1399,9 +1399,9 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
           )
           .map(_._1 shouldBe a[StatusCodes.Success])
       contractsQuery = (currency: String) =>
-        s"""{"templateIds":["Iou:Iou"], "query":{"currency":"$currency"}}"""
+        s"""{"templateIds":["${tidString(TpId.Iou.Iou)}"], "query":{"currency":"$currency"}}"""
       contractsQueryWithOffset = (offset: domain.Offset, currency: String) =>
-        s"""{"templateIds":["Iou:Iou"], "query":{"currency":"$currency"}, "offset":"${offset.unwrap}"}"""
+        s"""{"templateIds":["${tidString(TpId.Iou.Iou)}"], "query":{"currency":"$currency"}, "offset":"${offset.unwrap}"}"""
       contracts = (currency: String, offset: Option[domain.Offset]) =>
         offset.fold(contractsQuery(currency))(contractsQueryWithOffset(_, currency))
       acsEnd = (expectedContracts: Int) => {
@@ -1415,7 +1415,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
             } yield offset
           )
         val (killSwitch, source) =
-          singleClientQueryStream(jwt, uri, """{"templateIds":["Iou:Iou"]}""")
+          singleClientQueryStream(jwt, uri, s"""{"templateIds":["${tidString(TpId.Iou.Iou)}"]}""")
             .viaMat(KillSwitches.single)(Keep.right)
             .preMaterialize()
         source.via(parseResp).runWith(go(killSwitch))
@@ -1541,7 +1541,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
     import json.JsonProtocol._
     val baseVal =
       domain.EnrichedContractKey(
-        domain.ContractTypeId.Template(Some("ab"), "cd", "ef"),
+        domain.ContractTypeId.Template("ab", "cd", "ef"),
         JsString("42"): JsValue,
       )
     val baseMap = baseVal.toJson.asJsObject.fields

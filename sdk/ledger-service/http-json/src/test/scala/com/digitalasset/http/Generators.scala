@@ -115,16 +115,14 @@ object Generators {
   def enrichedContractKeyGen: Gen[domain.EnrichedContractKey[JsObject]] =
     for {
       templateId <- genDomainTemplateIdO[domain.ContractTypeId.Template, String]
-      templateId2 = templateId.copy(packageId = Some(templateId.packageId))
       key <- genJsObj
-    } yield domain.EnrichedContractKey(templateId2, key)
+    } yield domain.EnrichedContractKey(templateId, key)
 
   def enrichedContractIdGen: Gen[domain.EnrichedContractId] =
     for {
       templateId <- Gen.option(genDomainTemplateIdO: Gen[domain.ContractTypeId.RequiredPkg])
-      templateId2 = templateId.map(tid => tid.copy(packageId = Some(tid.packageId)))
       contractId <- contractIdGen
-    } yield domain.EnrichedContractId(templateId2, contractId)
+    } yield domain.EnrichedContractId(templateId, contractId)
 
   def exerciseCmdGen
       : Gen[domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]] =

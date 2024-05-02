@@ -56,6 +56,7 @@ abstract class AbstractPruningTest extends AbstractHttpServiceIntegrationTestFun
       import com.daml.ledger.api.v1.admin.{participant_pruning_service => PruneGrpc}
       import com.daml.timer.RetryStrategy, scala.concurrent.duration._
       import org.apache.pekko.http.scaladsl.model._
+      import scalaz.syntax.functor._
       import spray.json._
       for {
         (alice, aliceHeaders) <- fixture.getUniquePartyAndAuthHeaders("Alice")
@@ -104,7 +105,7 @@ abstract class AbstractPruningTest extends AbstractHttpServiceIntegrationTestFun
         ).map { acl => acl.size shouldBe 1 }
 
         // Archive this contract on the ledger. The cache is not yet updated.
-        exercise = archiveCommand(domain.EnrichedContractId(Some(TpId.Iou.Iou), contractId))
+        exercise = archiveCommand(domain.EnrichedContractId(Some(TpId.Iou.Iou.map(_.get)), contractId))
         exerciseJson: JsValue = encodeExercise(fixture.encoder)(exercise)
 
         _ <- fixture

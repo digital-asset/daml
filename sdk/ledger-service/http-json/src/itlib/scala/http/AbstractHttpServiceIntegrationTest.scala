@@ -139,12 +139,13 @@ trait WithQueryStoreSetTest extends QueryStoreAndAuthDependentIntegrationTest {
   import HttpServiceTestFixture.archiveCommand
   import json.JsonProtocol._
   import AbstractHttpServiceIntegrationTestFuns.TpId
+  import scalaz.syntax.functor._
 
   "refresh cache endpoint" - {
     "should return latest offset when the cache is outdated" in withHttpService { fixture =>
       import fixture.encoder
       def archiveIou(headers: List[HttpHeader], contractId: domain.ContractId) = {
-        val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou), contractId)
+        val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou.map(_.get)), contractId)
         val exercise = archiveCommand(reference)
         val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
         fixture
@@ -1114,7 +1115,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         val create = iouCreateCommand(alice)
         postCreateCommand(create, fixture, headers)
           .flatMap(inside(_) { case domain.OkResponse(createResult, _, StatusCodes.OK) =>
-            val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou), createResult.contractId)
+            val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou.map(_.get)), createResult.contractId)
             val exercise = archiveCommand(reference)
             val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
 
@@ -1142,7 +1143,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           )
         )
         val locator = domain.EnrichedContractKey[v.Value](
-          TpId.Account.Account,
+          TpId.Account.Account.map(_.get),
           v.Value(v.Value.Sum.Record(keyRecord)),
         )
         val archive = archiveCommand(locator)
@@ -1422,7 +1423,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         ) { (viewportCid, toDisclose, meta) =>
           encodeExercise(fixture.encoder)(
             domain.ExerciseCommand(
-              domain.EnrichedContractId(Some(TpId.Disclosure.Viewport), viewportCid),
+              domain.EnrichedContractId(Some(TpId.Disclosure.Viewport.map(_.get)), viewportCid),
               checkVisibilityChoice,
               boxedRecord(
                 argToApi(checkVisibilityVA)(
@@ -1499,7 +1500,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           {
             exerciseResult.length should be > (0)
             val newContractLocator = domain.EnrichedContractId(
-              Some(TpId.Iou.IouTransfer),
+              Some(TpId.Iou.IouTransfer.map(_.get)),
               domain.ContractId(exerciseResult),
             )
             postContractsLookup(newContractLocator, uri, headers).map(inside(_) {
@@ -1590,7 +1591,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           postCreateCommand(command, fixture, headers).flatMap(inside(_) {
             case domain.OkResponse(result, _, StatusCodes.OK) =>
               val contractId: ContractId = result.contractId
-              val locator = domain.EnrichedContractId(Some(TpId.IIou.IIou), contractId)
+              val locator = domain.EnrichedContractId(Some(TpId.IIou.IIou.map(_.get)), contractId)
               postContractsLookup(locator, fixture.uri, headers).map(inside(_) {
                 case domain.OkResponse(Some(resultContract), _, StatusCodes.OK) =>
                   contractId shouldBe resultContract.contractId
@@ -1606,7 +1607,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         val accountNumber = "abc123"
         val locator = domain.EnrichedContractKey(
-          TpId.Account.Account,
+          TpId.Account.Account.map(_.get),
           JsArray(JsString(alice.unwrap), JsString(accountNumber)),
         )
         postContractsLookup(locator, uri.withPath(Uri.Path("/v1/fetch")), headers).map(inside(_) {
@@ -1661,7 +1662,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           case domain.OkResponse(result, _, StatusCodes.OK) =>
             val contractId: ContractId = result.contractId
             val locator = domain.EnrichedContractKey(
-              TpId.Account.Account,
+              TpId.Account.Account.map(_.get),
               JsArray(JsString(alice.unwrap), JsString(accountNumber)),
             )
             lookupContractAndAssert(locator, contractId, command, fixture, headers)
@@ -1903,7 +1904,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           contractId: lar.ContractId,
           toFollow: domain.Party,
       ): domain.ExerciseCommand[Nothing, v.Value, domain.EnrichedContractId] = {
-        val reference = domain.EnrichedContractId(Some(TpId.User.User), contractId)
+        val reference = domain.EnrichedContractId(Some(TpId.User.User.map(_.get)), contractId)
         val arg = recordFromFields(ShRecord(userToFollow = v.Value.Sum.Party(toFollow.unwrap)))
         val choice = lar.Choice("Follow")
 

@@ -89,6 +89,7 @@ object AbstractHttpServiceIntegrationTestFuns {
     }
     object Account {
       val Account: TId = CtId.Template(pkgIdAccount, "Account", "Account")
+      val SharedAccount: TId = CtId.Template(pkgIdAccount, "Account", "SharedAccount")
       val PubSub: TId = CtId.Template(pkgIdAccount, "Account", "PubSub")
       val KeyedByDecimal: TId = CtId.Template(pkgIdAccount, "Account", "KeyedByDecimal")
       val KeyedByVariantAndRecord: TId = CtId.Template(pkgIdAccount, "Account", "KeyedByVariantAndRecord")
@@ -425,7 +426,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     }
 
   protected def postArchiveCommand(
-      templateId: domain.ContractTypeId.OptionalPkg,
+      templateId: domain.ContractTypeId.RequiredPkg,
       contractId: domain.ContractId,
       fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
@@ -439,7 +440,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     )
 
   protected def postArchiveCommand(
-      templateId: domain.ContractTypeId.OptionalPkg,
+      templateId: domain.ContractTypeId.RequiredPkg,
       contractId: domain.ContractId,
       fixture: UriFixture with EncoderFixture,
   ): Future[(StatusCode, JsValue)] =
@@ -601,7 +602,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       contractId: lar.ContractId,
       partyName: domain.Party,
   ): domain.ExerciseCommand[Nothing, v.Value, domain.EnrichedContractId] = {
-    val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou), contractId)
+    val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou.map(_.get)), contractId)
     val party = Ref.Party assertFromString partyName.unwrap
     val arg =
       recordFromFields(ShRecord(newOwner = v.Value.Sum.Party(party)))
@@ -666,7 +667,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     val psv = lfToApi(VAx.seq(VAx.partyDomain).inj(ps)).sum
     val argument = boxedRecord(recordFromFields(ShRecord(newParties = psv)))
     domain.ExerciseCommand(
-      reference = domain.EnrichedContractId(Some(TpId.Test.MultiPartyContract), cid),
+      reference = domain.EnrichedContractId(Some(TpId.Test.MultiPartyContract.map(_.get)), cid),
       argument = argument,
       choiceInterfaceId = None,
       choice = lar.Choice("MPAddSignatories"),
@@ -690,7 +691,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       )
     )
     domain.ExerciseCommand(
-      reference = domain.EnrichedContractId(Some(TpId.Test.MultiPartyContract), cid),
+      reference = domain.EnrichedContractId(Some(TpId.Test.MultiPartyContract.map(_.get)), cid),
       argument = argument,
       choiceInterfaceId = None,
       choice = lar.Choice("MPFetchOther"),
@@ -989,7 +990,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       // make a contract and fetch the offset after it
       (cid, betweenOffset) <- offsetAfterCreate()
       // archive it
-      archive <- liftF(postArchiveCommand(TpId.Iou.Iou, cid, fixture, headers))
+      archive <- liftF(postArchiveCommand(TpId.Iou.Iou.map(_.get), cid, fixture, headers))
       _ = archive._1 shouldBe (StatusCodes.OK)
       // wait for the archival offset
       afterOffset <- readUntil[In] {

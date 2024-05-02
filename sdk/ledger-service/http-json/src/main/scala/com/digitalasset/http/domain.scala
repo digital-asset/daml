@@ -149,12 +149,12 @@ package domain {
   sealed abstract class ContractLocator[+LfV] extends Product with Serializable
 
   final case class EnrichedContractKey[+LfV](
-      templateId: ContractTypeId.Template.OptionalPkg,
+      templateId: ContractTypeId.Template.RequiredPkg,
       key: LfV,
   ) extends ContractLocator[LfV]
 
   final case class EnrichedContractId(
-      templateId: Option[ContractTypeId.OptionalPkg],
+      templateId: Option[ContractTypeId.RequiredPkg],
       contractId: domain.ContractId,
   ) extends ContractLocator[Nothing]
 
@@ -531,13 +531,13 @@ package domain {
     val structure: ContractLocator <~> InputContractRef =
       new IsoFunctorTemplate[ContractLocator, InputContractRef] {
         override def from[A](ga: InputContractRef[A]) = ga.fold(
-          { case (otid, cid) => EnrichedContractKey[A](otid.map(Some(_)), cid) },
-          { case (tid, key) => EnrichedContractId(tid.map(id => id.map(Some(_))), key) },
+          { case (otid, cid) => EnrichedContractKey[A](otid, cid) },
+          { case (tid, key) => EnrichedContractId(tid, key) },
         )
 
         override def to[A](fa: ContractLocator[A]) = fa match {
-          case EnrichedContractId(otid, cid) => \/-((otid.map(id => id.map(_.get)), cid))
-          case EnrichedContractKey(tid, key) => -\/((tid.map(_.get), key))
+          case EnrichedContractId(otid, cid) => \/-((otid, cid))
+          case EnrichedContractKey(tid, key) => -\/((tid, key))
         }
       }
   }
@@ -555,7 +555,7 @@ package domain {
       new HasTemplateId[EnrichedContractKey] {
 
         override def templateId(fa: EnrichedContractKey[_]): ContractTypeId.OptionalPkg =
-          fa.templateId
+          fa.templateId.map(Some(_))
 
         type TypeFromCtId = LfType
 
@@ -670,8 +670,8 @@ package domain {
       new HasTemplateId[RequiredPkg[+*, domain.ContractLocator[_]]] {
         override def templateId(fab: FHuh): ContractTypeId.OptionalPkg =
           fab.choiceInterfaceId.map(id => id.map(Some(_))) getOrElse (fab.reference match {
-            case EnrichedContractKey(templateId, _) => templateId
-            case EnrichedContractId(Some(templateId), _) => templateId
+            case EnrichedContractKey(templateId, _) => templateId.map(Some(_))
+            case EnrichedContractId(Some(templateId), _) => templateId.map(Some(_))
             case EnrichedContractId(None, _) =>
               throw new IllegalArgumentException(
                 "Please specify templateId, optional templateId is not supported yet!"

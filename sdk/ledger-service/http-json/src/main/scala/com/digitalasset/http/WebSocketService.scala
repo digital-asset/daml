@@ -610,8 +610,9 @@ object WebSocketService {
 
       request.toList
         .traverse { x: CKR[LfV] =>
-          resolveContractTypeId(jwt, ledgerId)(x.ekey.templateId)
-            .map(_.toOption.flatten.map(r => (r, x.ekey.key)).toLeft(x.ekey.templateId))
+          val tid = x.ekey.templateId.map(Some(_))
+          resolveContractTypeId(jwt, ledgerId)(tid)
+            .map(_.toOption.flatten.map(r => (r, x.ekey.key)).toLeft(tid))
         }
         .map { resolveTries =>
           val (resolvedWithKey, unresolved) = resolveTries
