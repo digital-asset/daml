@@ -1,3 +1,6 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 module Main where
 
 import qualified Dep
@@ -17,3 +20,4 @@ template T with
     choice C2 : Dep.D
       controller p
       do exercise t Dep.C2 -- only works when party is same
+
