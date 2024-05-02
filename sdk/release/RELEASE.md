@@ -432,7 +432,7 @@ This testing procedure starts once the release is listed on the [releases page].
    Note that **the Standard-Change label must remain on the PR**, even if the
    release has failed.
 
-1. Announce the release on `#product-daml` on Slack. For a stable release,
+1. Announce the release on `#product-releases` on Slack. For a stable release,
    direct people to the release blog post; for a prerelease, you can include
    the raw output of the `unreleased.sh` script in a thread after the
    announcement. If there were any errors during testing, but we decided to keep
