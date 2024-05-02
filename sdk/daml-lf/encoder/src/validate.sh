@@ -30,4 +30,5 @@ DAML_LF_REPL=$(rlocation "$TEST_WORKSPACE/$1")
 FILE=$(rlocation "$TEST_WORKSPACE/$2")
 shift 2
 
+echo $DAML_LF_REPL $* validate "$FILE" >> /tmp/titi
 $DAML_LF_REPL $* validate "$FILE"
