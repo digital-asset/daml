@@ -44,7 +44,7 @@ class SubscriptionPool[Subscription <: ManagedSubscription](
   // as the subscriptions are mutable, any access or modifications to this pool are expected to be synchronized
   private val pool = TrieMap[Member, mutable.Buffer[Subscription]]()
 
-  private val subscribersGauge = metrics.subscriptionsGauge
+  private val subscribersGauge = metrics.publicApi.subscriptionsGauge
 
   def activeSubscriptions(): Seq[Subscription] = pool.values.flatten.toSeq
 

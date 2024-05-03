@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.cache
 
+import cats.data.NonEmptyVector
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{Ref, Time}
@@ -114,7 +115,7 @@ private object MutableCacheBackedContractStoreRaceTests {
     // Use Future.delegate here to ensure immediate control handover to the next statement
     val keyLookupF = Future.delegate(contractStore.lookupContractKey(stakeholders, event.key))
     // Update the mutable contract state cache synchronously
-    contractStore.contractStateCaches.push(Vector(contractStateEvent))
+    contractStore.contractStateCaches.push(NonEmptyVector.of(contractStateEvent))
 
     for {
       // Lookup after synchronous update
@@ -138,7 +139,7 @@ private object MutableCacheBackedContractStoreRaceTests {
     val keyLookupF =
       Future.delegate(contractStore.lookupActiveContract(stakeholders, event.contractId))
     // Update the mutable contract state cache synchronously
-    contractStore.contractStateCaches.push(Vector(contractStateEvent))
+    contractStore.contractStateCaches.push(NonEmptyVector.of(contractStateEvent))
 
     for {
       // Lookup after synchronous update

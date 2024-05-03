@@ -196,17 +196,21 @@ da_scala_library(
 
 ### community/util-external ###
 
-scala_library(
+da_scala_library(
     name = "daml-common-staging_util-external",
     srcs = glob(["daml-common-staging/util-external/src/main/scala/**/*.scala"]),
     scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
+        # Disable unused variable in RequireTypes.scala, SubSource.scala, and KeyStoreConfig.scala
+        "-Wconf:cat=unused-params:s,cat=unused-privates:s,cat=unused-nowarn:s",
     ],
+    tags = ["maven_coordinates=com.daml:daml-common-staging-util-external:__VERSION__"],
     unused_dependency_checker_mode = "error",
     deps = [
         ":daml-common-staging_daml-errors",
         ":ledger_api_proto_scala",
+        ":pekko-stream-minus-patched-classes",
         "@maven//:com_chuusai_shapeless_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_github_pureconfig_pureconfig_generic_2_13",
@@ -214,6 +218,7 @@ scala_library(
         "@maven//:com_typesafe_config",
         "@maven//:com_typesafe_slick_slick_2_13",
         "@maven//:io_grpc_grpc_api",
+        "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_typelevel_cats_core_2_13",
     ],
@@ -268,6 +273,7 @@ da_scala_library(
     deps = [
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
+        ":daml-common-staging_util-external",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -791,7 +797,6 @@ scala_library(
         ":community_admin-api",
         ":community_base",
         ":community_common",
-        ":community_ledger_ledger-common",
         ":community_lib_slick_slick-fork",
         ":community_lib_wartremover",
         ":community_reference-driver",

@@ -220,7 +220,7 @@ class BlockSequencerStateManager(
           logger.debug(
             s"Processing block $height with ${blockEvents.events.size} block events.${blockEvents.events
                 .map(_.value)
-                .collectFirst { case LedgerBlockEvent.Send(timestamp, _) =>
+                .collectFirst { case LedgerBlockEvent.Send(timestamp, _, _) =>
                   s" First timestamp in block: $timestamp"
                 }
                 .getOrElse("")}"

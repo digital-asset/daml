@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.pekkostreams.dispatcher
 
-import com.digitalasset.canton.pekkostreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 import org.slf4j.LoggerFactory
@@ -17,6 +16,7 @@ final class DispatcherImpl[Index: Ordering](
     zeroIndex: Index,
     headAtInitialization: Index,
 ) extends Dispatcher[Index] {
+  import DispatcherImpl.DispatcherIsClosedException
   private type State = DispatcherImpl.State[Index]
   private type Closed = DispatcherImpl.Closed[Index]
   private val Running = DispatcherImpl.Running

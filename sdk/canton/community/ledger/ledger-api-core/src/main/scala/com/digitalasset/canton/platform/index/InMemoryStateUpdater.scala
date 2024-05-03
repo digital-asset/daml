@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.index
 
+import cats.data.NonEmptyVector
 import cats.implicits.{catsSyntaxSemigroup, toBifunctorOps}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.executors.InstrumentedExecutors
@@ -211,9 +212,9 @@ private[platform] object InMemoryStateUpdater {
         transaction => {
           inMemoryState.inMemoryFanoutBuffer.push(transaction.offset, tracedTransaction)
           val contractStateEventsBatch = convertToContractStateEvents(transaction)
-          if (contractStateEventsBatch.nonEmpty) {
-            inMemoryState.contractStateCaches.push(contractStateEventsBatch)
-          }
+          NonEmptyVector
+            .fromVector(contractStateEventsBatch)
+            .foreach(inMemoryState.contractStateCaches.push)
         }
       )
     }

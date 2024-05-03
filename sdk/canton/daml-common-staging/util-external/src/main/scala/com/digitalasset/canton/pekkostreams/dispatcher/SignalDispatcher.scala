@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.pekkostreams.dispatcher
 
-import com.daml.scalautil.Statement.discard
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.pekkostreams.dispatcher.SignalDispatcher.Signal
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.*
@@ -18,6 +18,7 @@ import scala.util.{Failure, Success}
   * Signals may be coalesced, but if a signal is sent, we guarantee that all consumers subscribed before
   * the signal is sent will eventually receive a signal.
   */
+@SuppressWarnings(Array("com.digitalasset.canton.GlobalExecutionContext"))
 class SignalDispatcher private () {
 
   val logger: Logger = LoggerFactory.getLogger(getClass)
@@ -31,7 +32,7 @@ class SignalDispatcher private () {
   /** Signal to this Dispatcher that there's a new head `Index`.
     * The Dispatcher will emit values on all streams until the new head is reached.
     */
-  def signal(): Unit = getRunningState.foreach(state => discard(state.offer(Signal)))
+  def signal(): Unit = getRunningState.foreach(state => state.offer(Signal).discard)
 
   /** Returns a Source that, when materialized, subscribes to this SignalDispatcher.
     *

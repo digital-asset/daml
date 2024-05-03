@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.pekkostreams
 
-import com.daml.scalautil.Statement.discard
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import org.apache.pekko.stream.scaladsl.Flow
 import org.apache.pekko.stream.stage.{
   GraphStageLogic,
@@ -37,7 +37,7 @@ class ExtractMaterializedValue[T, Mat](toMaterialized: T => Option[Mat])
             val input = grab(inlet)
             push(outlet, input)
             toMaterialized(input).foreach { materialized =>
-              discard(promise.trySuccess(materialized))
+              promise.trySuccess(materialized).discard
               setSimplerHandler()
             }
           }
@@ -53,17 +53,16 @@ class ExtractMaterializedValue[T, Mat](toMaterialized: T => Option[Mat])
           }
 
           override def onUpstreamFailure(ex: Throwable): Unit = {
-            discard(promise.tryFailure(ex))
+            promise.tryFailure(ex).discard
             super.onUpstreamFailure(ex)
           }
 
           override def onUpstreamFinish(): Unit = {
-            discard(
-              promise
-                .tryFailure(
-                  new RuntimeException("Upstream completed before matching element arrived.")
-                )
-            )
+            promise
+              .tryFailure(
+                new RuntimeException("Upstream completed before matching element arrived.")
+              )
+              .discard
             super.onUpstreamFinish()
           }
         },
@@ -75,12 +74,11 @@ class ExtractMaterializedValue[T, Mat](toMaterialized: T => Option[Mat])
           override def onPull(): Unit = pull(inlet)
 
           override def onDownstreamFinish(cause: Throwable): Unit = {
-            discard(
-              promise
-                .tryFailure(
-                  new RuntimeException("Downstream completed before matching element arrived.")
-                )
-            )
+            promise
+              .tryFailure(
+                new RuntimeException("Downstream completed before matching element arrived.")
+              )
+              .discard
             super.onDownstreamFinish(cause)
           }
         },

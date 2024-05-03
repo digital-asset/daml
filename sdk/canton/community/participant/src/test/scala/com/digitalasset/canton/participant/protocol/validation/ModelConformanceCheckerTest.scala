@@ -18,6 +18,10 @@ import com.digitalasset.canton.data.{
   TransactionView,
 }
 import com.digitalasset.canton.logging.pretty.Pretty
+import com.digitalasset.canton.participant.protocol.EngineController.{
+  EngineAbortStatus,
+  GetEngineAbortStatus,
+}
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactoryImpl
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.*
 import com.digitalasset.canton.participant.protocol.{
@@ -25,7 +29,7 @@ import com.digitalasset.canton.participant.protocol.{
   TransactionProcessingSteps,
 }
 import com.digitalasset.canton.participant.store.ContractLookup
-import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
+import com.digitalasset.canton.participant.util.DAMLe.{EngineError, PackageResolver}
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{lfHash, submittingParticipant}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -61,6 +65,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
 
   def validateContractOk(
       contract: SerializableContract,
+      getEngineAbortStatus: GetEngineAbortStatus,
       context: TraceContext,
   ): EitherT[Future, ContractValidationFailure, Unit] = EitherT.pure(())
 
@@ -75,7 +80,12 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       _viewHash: ViewHash,
       _traceContext: TraceContext,
       _packageResolution: Map[PackageName, PackageId],
-  ): EitherT[Future, DAMLeError, (LfVersionedTransaction, TransactionMetadata, LfKeyResolver)] = {
+      _getEngineAbortStatus: GetEngineAbortStatus,
+  ): EitherT[
+    Future,
+    DAMLeError,
+    (LfVersionedTransaction, TransactionMetadata, LfKeyResolver),
+  ] = {
 
     ledgerTime shouldEqual factory.ledgerTime
     submissionTime shouldEqual factory.submissionTime
@@ -101,7 +111,12 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       _viewHash: ViewHash,
       _traceContext: TraceContext,
       _packageResolution: Map[PackageName, PackageId],
-  ): EitherT[Future, DAMLeError, (LfVersionedTransaction, TransactionMetadata, LfKeyResolver)] =
+      _getEngineAbortStatus: GetEngineAbortStatus,
+  ): EitherT[
+    Future,
+    DAMLeError,
+    (LfVersionedTransaction, TransactionMetadata, LfKeyResolver),
+  ] =
     fail("Reinterpret should not be called by this test case.")
 
   def viewsWithNoInputKeys(
@@ -142,7 +157,14 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     val rootViewTrees = views.map(_._1)
     val commonData = TransactionProcessingSteps.tryCommonData(rootViewTrees)
     val keyResolvers = views.forgetNE.flatMap { case (_vt, resolvers) => resolvers }.toMap
-    mcc.check(rootViewTrees, keyResolvers, RequestCounter(0), ips, commonData)
+    mcc.check(
+      rootViewTrees,
+      keyResolvers,
+      RequestCounter(0),
+      ips,
+      commonData,
+      getEngineAbortStatus = () => EngineAbortStatus.notAborted,
+    )
   }
 
   val packageName: LfPackageName = PackageName.assertFromString("package-name")
@@ -246,10 +268,10 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         override def treeOf(t: ViewHash): Tree = Apply("[ViewHash]", Seq.empty.iterator)
       })
 
-      val error = DAMLeError(mock[engine.Error], mockViewHash)
+      val error = DAMLeError(EngineError(mock[engine.Error]), mockViewHash)
 
       val sut = new ModelConformanceChecker(
-        (_, _, _, _, _, _, _, _, _, _) =>
+        (_, _, _, _, _, _, _, _, _, _, _) =>
           EitherT.leftT[Future, (LfVersionedTransaction, TransactionMetadata, LfKeyResolver)](
             error
           ),
@@ -322,7 +344,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           ),
         )
         val sut = new ModelConformanceChecker(
-          (_, _, _, _, _, _, _, _, _, _) =>
+          (_, _, _, _, _, _, _, _, _, _, _) =>
             EitherT.pure[Future, DAMLeError](
               (reinterpreted, subviewMissing.metadata, subviewMissing.keyResolver)
             ),

@@ -389,11 +389,6 @@ object BaseTest {
     testCode // try one last time and throw exception, if assertion keeps failing
   }
 
-  def eventuallyNoException[T](
-      timeUntilSuccess: FiniteDuration = 20.seconds,
-      maxPollInterval: FiniteDuration = 5.seconds,
-  )(testCode: => T): T = BaseTest.eventually(timeUntilSuccess, maxPollInterval, false)(testCode)
-
   // Uses SymbolicCrypto for the configured crypto schemes
   lazy val defaultStaticDomainParameters: StaticDomainParameters =
     defaultStaticDomainParametersWith()

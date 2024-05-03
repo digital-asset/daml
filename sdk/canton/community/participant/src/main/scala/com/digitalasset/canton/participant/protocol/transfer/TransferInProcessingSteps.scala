@@ -16,6 +16,7 @@ import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.RequestOffset
+import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.PendingRequestData
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessCheck,
@@ -32,6 +33,7 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferInValidatio
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.{
   CanSubmitTransfer,
+  EngineController,
   ProcessingSteps,
   ProtocolProcessor,
 }
@@ -40,6 +42,7 @@ import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.messages.ConfirmationResponse.InvalidConfirmationResponse
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
@@ -349,6 +352,7 @@ private[transfer] class TransferInProcessingSteps(
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       mediator: MediatorGroupRecipient,
       freshOwnTimelyTx: Boolean,
+      engineController: EngineController,
   )(implicit
       traceContext: TraceContext
   ): EitherT[
@@ -366,11 +370,20 @@ private[transfer] class TransferInProcessingSteps(
       transferringParticipant,
     ) = pendingDataAndResponseArgs
 
+    val requestId = RequestId(ts)
     val transferId = txInRequest.transferOutResultEvent.transferId
 
-    for {
-      _ <- transferInValidation.checkStakeholders(txInRequest).mapK(FutureUnlessShutdown.outcomeK)
+    // We perform the stakeholders check asynchronously so that we can complete the pending request
+    // in the Phase37Synchronizer without waiting for it, thereby allowing us to concurrently receive a
+    // mediator verdict.
+    val stakeholdersCheckResultET = transferInValidation
+      .checkStakeholders(
+        txInRequest,
+        getEngineAbortStatus = () => engineController.abortStatus,
+      )
+      .mapK(FutureUnlessShutdown.outcomeK)
 
+    for {
       hostedStks <- EitherT.right[TransferProcessorError](
         FutureUnlessShutdown.outcomeF(
           hostedStakeholders(
@@ -396,76 +409,30 @@ private[transfer] class TransferInProcessingSteps(
         .mapK(FutureUnlessShutdown.outcomeK)
 
       activenessResult <- EitherT.right[TransferProcessorError](activenessResultFuture)
-      requestId = RequestId(ts)
-
-      responses <- validationResultO match {
-        case None =>
-          EitherT.rightT[FutureUnlessShutdown, TransferProcessorError](Seq.empty)
-        case Some(validationResult) =>
-          val contractResult = activenessResult.contracts
-
-          val localRejectErrorO =
-            if (activenessResult.isSuccessful)
-              None
-            else if (contractResult.notFree.nonEmpty) {
-              contractResult.notFree.toSeq match {
-                case Seq((coid, Archived)) =>
-                  Some(
-                    LocalRejectError.TransferInRejects.ContractAlreadyArchived
-                      .Reject(show"coid=$coid")
-                  )
-                case Seq((coid, _state)) =>
-                  Some(
-                    LocalRejectError.TransferInRejects.ContractAlreadyActive
-                      .Reject(show"coid=$coid")
-                  )
-                case coids =>
-                  throw new RuntimeException(
-                    s"Activeness result for a transfer-in fails for multiple contract IDs $coids"
-                  )
-              }
-            } else if (contractResult.alreadyLocked.nonEmpty)
-              Some(
-                LocalRejectError.TransferInRejects.ContractIsLocked
-                  .Reject("")
-              )
-            else if (activenessResult.inactiveTransfers.nonEmpty)
-              Some(
-                LocalRejectError.TransferInRejects.AlreadyCompleted
-                  .Reject("")
-              )
-            else
-              throw new RuntimeException(
-                withRequestId(requestId, s"Unexpected activeness result $activenessResult")
-              )
-
-          val localVerdict =
-            localRejectErrorO.fold[LocalVerdict](LocalApprove(targetProtocolVersion.v)) { err =>
-              err.logWithContext()
-              err.toLocalReject(targetProtocolVersion.v)
-            }
-
-          EitherT
-            .fromEither[FutureUnlessShutdown](
-              ConfirmationResponse
-                .create(
-                  requestId,
-                  participantId,
-                  Some(ViewPosition.root),
-                  localVerdict,
-                  txInRequest.rootHash,
-                  validationResult.confirmingParties,
-                  domainId.id,
-                  targetProtocolVersion.v,
-                )
-            )
-            .leftMap(e => FailedToCreateResponse(transferId, e): TransferProcessorError)
-            .map(transferResponse => Seq(transferResponse -> Recipients.cc(mediator)))
-      }
     } yield {
-      // We consider that we rejected if at least one of the responses is not "approve'
-      val locallyRejected = responses.exists { case (response, _) =>
-        !response.localVerdict.isApprove
+      val responsesET = for {
+        _ <- stakeholdersCheckResultET
+        transferResponses <- EitherT
+          .fromEither[FutureUnlessShutdown](
+            createConfirmationResponses(requestId, txInRequest, activenessResult, validationResultO)
+          )
+          .leftMap(e => FailedToCreateResponse(transferId, e): TransferProcessorError)
+      } yield {
+        transferResponses.map(_ -> Recipients.cc(mediator))
+      }
+
+      // We consider that we rejected if we fail to process or if at least one of the responses is not "approve'
+      val locallyRejectedF = responsesET.value.map(
+        _.fold(
+          _ => true,
+          _.exists { case (response, _) =>
+            !response.localVerdict.isApprove
+          },
+        )
+      )
+      val engineAbortStatusF = stakeholdersCheckResultET.value.map {
+        case Left(ReinterpretationAborted(_, reason)) => EngineAbortStatus.aborted(reason)
+        case _ => EngineAbortStatus.notAborted
       }
 
       // construct pending data and response
@@ -482,12 +449,14 @@ private[transfer] class TransferInProcessingSteps(
         transferId,
         hostedStks.toSet,
         mediator,
-        locallyRejected,
+        locallyRejectedF,
+        engineController.abort,
+        engineAbortStatusF,
       )
 
       StorePendingDataAndSendResponseAndCreateTimeout(
         entry,
-        responses,
+        responsesET,
         RejectionArgs(
           entry,
           LocalRejectError.TimeRejects.LocalTimeout.Reject().toLocalReject(targetProtocolVersion.v),
@@ -495,6 +464,76 @@ private[transfer] class TransferInProcessingSteps(
       )
     }
   }
+
+  private def createConfirmationResponses(
+      requestId: RequestId,
+      txInRequest: FullTransferInTree,
+      activenessResult: ActivenessResult,
+      validationResultO: Option[TransferInValidationResult],
+  )(implicit
+      traceContext: TraceContext
+  ): Either[InvalidConfirmationResponse, Seq[ConfirmationResponse]] =
+    validationResultO match {
+      case None => Right(Seq.empty[ConfirmationResponse])
+
+      case Some(validationResult) =>
+        val contractResult = activenessResult.contracts
+
+        val localRejectErrorO =
+          if (activenessResult.isSuccessful)
+            None
+          else if (contractResult.notFree.nonEmpty) {
+            contractResult.notFree.toSeq match {
+              case Seq((coid, Archived)) =>
+                Some(
+                  LocalRejectError.TransferInRejects.ContractAlreadyArchived
+                    .Reject(show"coid=$coid")
+                )
+              case Seq((coid, _state)) =>
+                Some(
+                  LocalRejectError.TransferInRejects.ContractAlreadyActive
+                    .Reject(show"coid=$coid")
+                )
+              case coids =>
+                throw new RuntimeException(
+                  s"Activeness result for a transfer-in fails for multiple contract IDs $coids"
+                )
+            }
+          } else if (contractResult.alreadyLocked.nonEmpty)
+            Some(
+              LocalRejectError.TransferInRejects.ContractIsLocked
+                .Reject("")
+            )
+          else if (activenessResult.inactiveTransfers.nonEmpty)
+            Some(
+              LocalRejectError.TransferInRejects.AlreadyCompleted
+                .Reject("")
+            )
+          else
+            throw new RuntimeException(
+              withRequestId(requestId, s"Unexpected activeness result $activenessResult")
+            )
+
+        val localVerdict =
+          localRejectErrorO.fold[LocalVerdict](LocalApprove(targetProtocolVersion.v)) { err =>
+            err.logWithContext()
+            err.toLocalReject(targetProtocolVersion.v)
+          }
+
+        ConfirmationResponse
+          .create(
+            requestId,
+            participantId,
+            Some(ViewPosition.root),
+            localVerdict,
+            txInRequest.rootHash,
+            validationResult.confirmingParties,
+            domainId.id,
+            targetProtocolVersion.v,
+          )
+          .map(transferResponse => Seq(transferResponse))
+
+    }
 
   private[this] def withRequestId(requestId: RequestId, message: String) =
     s"Transfer-in $requestId: $message"
@@ -521,7 +560,9 @@ private[transfer] class TransferInProcessingSteps(
       transferId,
       hostedStakeholders,
       _,
-      locallyRejected,
+      _locallyRejectedF,
+      _engineController,
+      _abortedF,
     ) = pendingRequestData
 
     def rejected(
@@ -682,7 +723,9 @@ object TransferInProcessingSteps {
       transferId: TransferId,
       hostedStakeholders: Set[LfPartyId],
       mediator: MediatorGroupRecipient,
-      override val locallyRejected: Boolean,
+      override val locallyRejectedF: FutureUnlessShutdown[Boolean],
+      override val abortEngine: String => Unit,
+      override val engineAbortStatusF: FutureUnlessShutdown[EngineAbortStatus],
   ) extends PendingTransfer
       with PendingRequestData {
 

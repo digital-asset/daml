@@ -144,11 +144,10 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     @Help.Summary("Wait until all topology changes have been effected on all accessible nodes")
     def synchronize_topology(
         timeoutO: Option[NonNegativeDuration] = None
-    )(implicit env: ConsoleEnvironment): Unit = {
+    )(implicit env: ConsoleEnvironment): Unit =
       ConsoleMacros.utils.retry_until_true(timeoutO.getOrElse(env.commandTimeouts.bounded)) {
         env.nodes.all.forall(_.topology.synchronisation.is_idle())
       }
-    }
 
     @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
     private object GenerateDamlScriptParticipantsConf {

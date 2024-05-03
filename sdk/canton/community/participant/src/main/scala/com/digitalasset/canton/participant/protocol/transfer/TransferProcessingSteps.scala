@@ -518,4 +518,10 @@ object TransferProcessingSteps {
       param("error", _.error.unquoted),
     )
   }
+
+  final case class ReinterpretationAborted(transferId: TransferId, reason: String)
+      extends TransferProcessorError {
+    override def message: String =
+      s"Cannot transfer `$transferId`: reinterpretation aborted for reason `$reason`"
+  }
 }

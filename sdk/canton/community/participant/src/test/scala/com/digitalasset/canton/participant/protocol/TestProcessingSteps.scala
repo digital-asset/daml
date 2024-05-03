@@ -20,6 +20,8 @@ import com.digitalasset.canton.data.{
 import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
+import com.digitalasset.canton.participant.protocol.EngineController
+import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
   PendingRequestData,
   RequestType,
@@ -238,6 +240,7 @@ class TestProcessingSteps(
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       mediator: MediatorGroupRecipient,
       freshOwnTimelyTx: Boolean,
+      engineController: EngineController,
   )(implicit
       traceContext: TraceContext
   ): EitherT[
@@ -251,10 +254,12 @@ class TestProcessingSteps(
           RequestCounter(0),
           SequencerCounter(0),
           mediator,
-          locallyRejected = false,
+          locallyRejectedF = FutureUnlessShutdown.pure(false),
+          abortEngine = _ => (),
+          engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
         )
       ),
-      Seq.empty,
+      EitherT.pure[FutureUnlessShutdown, RequestError](Seq.empty),
       (),
     )
     EitherT.rightT(res)
@@ -347,7 +352,9 @@ object TestProcessingSteps {
       override val requestCounter: RequestCounter,
       override val requestSequencerCounter: SequencerCounter,
       override val mediator: MediatorGroupRecipient,
-      override val locallyRejected: Boolean,
+      override val locallyRejectedF: FutureUnlessShutdown[Boolean],
+      override val abortEngine: String => Unit,
+      override val engineAbortStatusF: FutureUnlessShutdown[EngineAbortStatus],
   ) extends PendingRequestData {
 
     override def rootHashO: Option[RootHash] = None

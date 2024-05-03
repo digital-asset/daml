@@ -16,6 +16,7 @@ import com.digitalasset.canton.config.{
   CachingConfigs,
   DefaultProcessingTimeouts,
   ProcessingTimeout,
+  TestingConfigInternal,
 }
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
@@ -26,6 +27,7 @@ import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
+import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.Phase37Synchronizer.RequestOutcome
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.*
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState
@@ -352,6 +354,8 @@ class ProtocolProcessorTest
       )(
         directExecutionContext: ExecutionContext
       ) {
+        override def testingConfig: TestingConfigInternal = TestingConfigInternal()
+
         override def participantId: ParticipantId = participant
 
         override def timeouts: ProcessingTimeout = ProtocolProcessorTest.this.timeouts
@@ -516,7 +520,9 @@ class ProtocolProcessorTest
         rc,
         requestSc,
         MediatorGroupRecipient(MediatorGroupIndex.one),
-        locallyRejected = false,
+        locallyRejectedF = FutureUnlessShutdown.pure(false),
+        abortEngine = _ => (),
+        engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
       )
       val (sut, _persistent, ephemeral) =
         testProcessingSteps(overrideConstructedPendingRequestDataO = Some(pd))
@@ -542,7 +548,9 @@ class ProtocolProcessorTest
           rc,
           requestSc,
           MediatorGroupRecipient(MediatorGroupIndex.one),
-          locallyRejected = false,
+          locallyRejectedF = FutureUnlessShutdown.pure(false),
+          abortEngine = _ => (),
+          engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
         )
       val (sut, _persistent, ephemeral) =
         testProcessingSteps(
@@ -581,7 +589,9 @@ class ProtocolProcessorTest
         rc,
         requestSc,
         MediatorGroupRecipient(MediatorGroupIndex.one),
-        locallyRejected = false,
+        locallyRejectedF = FutureUnlessShutdown.pure(false),
+        abortEngine = _ => (),
+        engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
       )
       val (sut, _persistent, ephemeral) =
         testProcessingSteps(overrideConstructedPendingRequestDataO = Some(pd))
@@ -933,7 +943,9 @@ class ProtocolProcessorTest
                 rc,
                 requestSc,
                 MediatorGroupRecipient(MediatorGroupIndex.one),
-                locallyRejected = false,
+                locallyRejectedF = FutureUnlessShutdown.pure(false),
+                abortEngine = _ => (),
+                engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
               )
             )
           )
@@ -1061,7 +1073,9 @@ class ProtocolProcessorTest
               rc,
               requestSc,
               MediatorGroupRecipient(MediatorGroupIndex.one),
-              locallyRejected = false,
+              locallyRejectedF = FutureUnlessShutdown.pure(false),
+              abortEngine = _ => (),
+              engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
             )
           )
         )

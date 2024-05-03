@@ -36,6 +36,7 @@ import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.admin.repair.RepairService.ContractToAdd
 import com.digitalasset.canton.participant.domain.DomainAliasManager
 import com.digitalasset.canton.participant.event.RecordTime
+import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.{
@@ -221,6 +222,9 @@ final class RepairService(
         .contractWithMetadata(
           repairContract.contract.rawContractInstance.contractInstance,
           repairContract.contract.metadata.signatories,
+          // There is currently no mechanism in place through which another service command can ask to abort the
+          // engine computation for a previously sent contract. When therefore tell then engine to always continue.
+          getEngineAbortStatus = () => EngineAbortStatus.notAborted,
         )
         .leftMap(e =>
           log(s"Failed to compute contract ${repairContract.contract.contractId} metadata: $e")

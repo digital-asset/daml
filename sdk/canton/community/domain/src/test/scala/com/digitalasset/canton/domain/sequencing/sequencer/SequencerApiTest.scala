@@ -102,7 +102,7 @@ abstract class SequencerApiTest
       "send a batch to one recipient" in { env =>
         import env.*
         val messageContent = "hello"
-        val sender: MediatorId = mediatorId
+        val sender = p7.member
         val recipients = Recipients.cc(sender)
 
         val request: SubmissionRequest = createSendRequest(sender, messageContent, recipients)

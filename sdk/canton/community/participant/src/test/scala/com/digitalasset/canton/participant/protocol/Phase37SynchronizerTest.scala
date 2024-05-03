@@ -5,6 +5,8 @@ package com.digitalasset.canton.participant.protocol
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.Phase37Synchronizer.RequestOutcome
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.RequestType
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.WrappedPendingRequestData
@@ -38,7 +40,9 @@ class Phase37SynchronizerTest extends AnyWordSpec with BaseTest with HasExecutio
         RequestCounter(i),
         SequencerCounter(i),
         MediatorGroupRecipient(MediatorGroupIndex.one),
-        locallyRejected = false,
+        locallyRejectedF = FutureUnlessShutdown.pure(false),
+        abortEngine = _ => (),
+        engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
       )
     )
 

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.cache
 
+import cats.data.NonEmptyVector
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.{GlobalKey, TransactionVersion, Versioned}
@@ -50,7 +51,7 @@ class ContractStateCachesSpec
     val archive1 = archiveEvent(create1, offset(3), eventSequentialId = 4)
     val archivedPrevious = archiveEvent(previousCreate, offset(4), eventSequentialId = 5)
 
-    val batch = Vector(create1, create2, archive1, archivedPrevious)
+    val batch = NonEmptyVector.of(create1, create2, archive1, archivedPrevious)
 
     val expectedContractStateUpdates = Map(
       create1.contractId -> contractArchived(create1),
@@ -70,21 +71,12 @@ class ContractStateCachesSpec
   "push" should "not update the key state cache if no key updates" in new TestScope {
     val create1 = createEvent(offset = offset(2), eventSequentialId = 2, withKey = false)
 
-    val batch = Vector(create1)
+    val batch = NonEmptyVector.of(create1)
     val expectedContractStateUpdates = Map(create1.contractId -> contractActive(create1))
 
     contractStateCaches.push(batch)
     verify(contractStateCache).putBatch(offset(2), expectedContractStateUpdates)
     verifyZeroInteractions(keyStateCache)
-  }
-
-  "push" should "ignore empty batches" in new TestScope {
-    loggerFactory.assertLogs(
-      within = contractStateCaches.push(Vector.empty),
-      assertions = _.errorMessage should include("push triggered with empty events batch"),
-    )
-
-    verifyZeroInteractions(contractStateCache, keyStateCache)
   }
 
   "reset" should "reset the caches on `reset`" in new TestScope {

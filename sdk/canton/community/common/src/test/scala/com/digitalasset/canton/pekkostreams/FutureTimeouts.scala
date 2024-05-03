@@ -3,16 +3,18 @@
 
 package com.digitalasset.canton.pekkostreams
 
+import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.concurrent.DirectExecutionContext
 import org.apache.pekko.actor.ActorSystem
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future, Promise, TimeoutException}
+import scala.concurrent.{Future, Promise, TimeoutException}
 import scala.util.Try
 import scala.util.control.NoStackTrace
 
-trait FutureTimeouts { self: AsyncWordSpec =>
+trait FutureTimeouts { self: AsyncWordSpec & BaseTest =>
 
   protected def system: ActorSystem
 
@@ -28,10 +30,12 @@ trait FutureTimeouts { self: AsyncWordSpec =>
       runnable,
     )(system.dispatcher)
 
-    f.onComplete((_: Try[Any]) => cancellable.cancel())(ExecutionContext.parasitic)
+    f.onComplete((_: Try[Any]) => cancellable.cancel())(DirectExecutionContext(noTracingLogger))
 
     recoverToSucceededIf[TimeoutException](
-      Future.firstCompletedOf[Any](List[Future[Any]](f, promise.future))(ExecutionContext.parasitic)
+      Future.firstCompletedOf[Any](List[Future[Any]](f, promise.future))(
+        DirectExecutionContext(noTracingLogger)
+      )
     )
   }
 }

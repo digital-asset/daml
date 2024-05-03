@@ -426,9 +426,9 @@ class GrpcSequencerService(
       )
       _ <- request.aggregationRule.traverse_(validateAggregationRule(sender, messageId, _))
     } yield {
-      metrics.bytesProcessed.mark(requestSize.toLong)(MetricsContext.Empty)
-      metrics.messagesProcessed.mark()
-      if (TimeProof.isTimeProofSubmission(request)) metrics.timeRequests.mark()
+      metrics.publicApi.bytesProcessed.mark(requestSize.toLong)(MetricsContext.Empty)
+      metrics.publicApi.messagesProcessed.mark()
+      if (TimeProof.isTimeProofSubmission(request)) metrics.publicApi.timeRequests.mark()
 
       ()
     }

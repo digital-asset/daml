@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol.validation
 
+import cats.data.EitherT
 import com.digitalasset.canton.data.{SubmitterMetadata, ViewPosition}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.participant.protocol.conflictdetection.{ActivenessResult, CommitSet}
@@ -12,6 +13,8 @@ import com.digitalasset.canton.participant.protocol.validation.TimeValidator.Tim
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.{LfPartyId, WorkflowId}
 
+import scala.concurrent.Future
+
 final case class TransactionValidationResult(
     transactionId: TransactionId,
     confirmationPolicy: ConfirmationPolicy,
@@ -20,7 +23,8 @@ final case class TransactionValidationResult(
     contractConsistencyResultE: Either[List[ReferenceToFutureContractError], Unit],
     authenticationResult: Map[ViewPosition, String],
     authorizationResult: Map[ViewPosition, String],
-    modelConformanceResultE: Either[
+    modelConformanceResultET: EitherT[
+      Future,
       ModelConformanceChecker.ErrorWithSubTransaction,
       ModelConformanceChecker.Result,
     ],

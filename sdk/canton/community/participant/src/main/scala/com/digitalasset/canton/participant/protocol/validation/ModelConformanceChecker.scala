@@ -9,7 +9,6 @@ import cats.syntax.bifunctor.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.daml.lf.data.Ref.{Identifier, PackageId, PackageName}
-import com.daml.lf.engine
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.ViewParticipantData.RootAction
 import com.digitalasset.canton.data.{
@@ -20,6 +19,10 @@ import com.digitalasset.canton.data.{
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.protocol.EngineController.{
+  EngineAbortStatus,
+  GetEngineAbortStatus,
+}
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.participant.protocol.TransactionProcessingSteps.CommonData
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory
@@ -79,6 +82,7 @@ class ModelConformanceChecker(
         ViewHash,
         TraceContext,
         Map[PackageName, PackageId],
+        GetEngineAbortStatus,
     ) => EitherT[
       Future,
       DAMLeError,
@@ -86,6 +90,7 @@ class ModelConformanceChecker(
     ],
     val validateContract: (
         SerializableContract,
+        GetEngineAbortStatus,
         TraceContext,
     ) => EitherT[Future, ContractValidationFailure, Unit],
     val transactionTreeFactory: TransactionTreeFactory,
@@ -110,6 +115,7 @@ class ModelConformanceChecker(
       requestCounter: RequestCounter,
       topologySnapshot: TopologySnapshot,
       commonData: CommonData,
+      getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit traceContext: TraceContext): EitherT[Future, ErrorWithSubTransaction, Result] = {
     val CommonData(transactionId, ledgerTime, submissionTime, confirmationPolicy) = commonData
 
@@ -141,10 +147,15 @@ class ModelConformanceChecker(
             confirmationPolicy,
             submittingParticipantO,
             topologySnapshot,
+            getEngineAbortStatus,
           ).value
 
           errorsViewsTxs <- wfTxE match {
             case Right(wfTx) => Future.successful((Seq.empty, Seq((view, wfTx))))
+
+            // There is no point in checking subviews if we have aborted
+            case Left(error @ DAMLeError(DAMLe.EngineAborted(_), _)) =>
+              Future.successful((Seq(error), Seq.empty))
 
             case Left(error) =>
               val subviewsWithInfo = view.subviews.unblindedElementsWithIndex.map {
@@ -212,13 +223,14 @@ class ModelConformanceChecker(
   private def validateInputContracts(
       view: TransactionView,
       requestCounter: RequestCounter,
+      getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, Error, Map[LfContractId, StoredContract]] = {
     view.tryFlattenToParticipantViews
       .flatMap(_.viewParticipantData.coreInputs)
       .parTraverse { case (cid, InputContract(contract, _)) =>
-        validateContract(contract, traceContext)
+        validateContract(contract, getEngineAbortStatus, traceContext)
           .leftMap {
             case DAMLeFailure(error) =>
               DAMLeError(error, view.viewHash): Error
@@ -270,6 +282,7 @@ class ModelConformanceChecker(
       confirmationPolicy: ConfirmationPolicy,
       submittingParticipantO: Option[ParticipantId],
       topologySnapshot: TopologySnapshot,
+      getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, Error, WithRollbackScope[WellFormedTransaction[WithSuffixes]]] = {
@@ -281,7 +294,7 @@ class ModelConformanceChecker(
     val rbContext = viewParticipantData.rollbackContext
     val seed = viewParticipantData.actionDescription.seedOption
     for {
-      viewInputContracts <- validateInputContracts(view, requestCounter)
+      viewInputContracts <- validateInputContracts(view, requestCounter, getEngineAbortStatus)
       _ <- validatePackageVettings(view, topologySnapshot)
       contractLookupAndVerification =
         new ExtendedContractLookup(
@@ -305,12 +318,13 @@ class ModelConformanceChecker(
         view.viewHash,
         traceContext,
         packagePreference,
+        getEngineAbortStatus,
       )
         .leftWiden[Error]
       (lfTx, metadata, resolverFromReinterpretation) = lfTxAndMetadata
       // For transaction views of protocol version 3 or higher,
       // the `resolverFromReinterpretation` is the same as the `resolverFromView`.
-      // The `TransactionTreeFactoryImplV3` rebuilds the `resolverFromReinterpreation`
+      // The `TransactionTreeFactoryImplV3` rebuilds the `resolverFromReinterpretation`
       // again by re-running the `ContractStateMachine` and checks consistency
       // with the reconstructed view's global key inputs,
       // which by the view equality check is the same as the `resolverFromView`.
@@ -403,7 +417,12 @@ object ModelConformanceChecker {
         viewHash: ViewHash,
         traceContext: TraceContext,
         packageResolution: Map[PackageName, PackageId],
-    ): EitherT[Future, DAMLeError, (LfVersionedTransaction, TransactionMetadata, LfKeyResolver)] =
+        getEngineAbortStatus: GetEngineAbortStatus,
+    ): EitherT[
+      Future,
+      DAMLeError,
+      (LfVersionedTransaction, TransactionMetadata, LfKeyResolver),
+    ] =
       damle
         .reinterpret(
           contracts,
@@ -414,6 +433,7 @@ object ModelConformanceChecker {
           rootSeed,
           expectFailure,
           packageResolution,
+          getEngineAbortStatus,
         )(traceContext)
         .leftMap(DAMLeError(_, viewHash))
 
@@ -429,7 +449,7 @@ object ModelConformanceChecker {
   }
 
   private[validation] sealed trait ContractValidationFailure
-  private[validation] final case class DAMLeFailure(error: engine.Error)
+  private[validation] final case class DAMLeFailure(error: DAMLe.ReinterpretationError)
       extends ContractValidationFailure
   private[validation] final case class ContractMismatch(
       actual: LfNodeCreate,
@@ -438,6 +458,7 @@ object ModelConformanceChecker {
 
   private def validateSerializedContract(damle: DAMLe)(
       contract: SerializableContract,
+      getEngineAbortStatus: GetEngineAbortStatus,
       traceContext: TraceContext,
   )(implicit ec: ExecutionContext): EitherT[Future, ContractValidationFailure, Unit] = {
 
@@ -451,6 +472,7 @@ object ModelConformanceChecker {
           metadata.signatories,
           LfCreateCommand(unversioned.template, unversioned.arg),
           contract.ledgerCreateTime,
+          getEngineAbortStatus,
         )(traceContext)
         .leftMap(DAMLeFailure.apply)
       expected: LfNodeCreate = LfNodeCreate(
@@ -491,12 +513,29 @@ object ModelConformanceChecker {
       param("valid subtransaction", _.validSubTransactionO.toString.unquoted),
       param("valid subviews", _.validSubViews),
       param("errors", _.errors),
+      param("engine abort status", _.engineAbortStatus),
     )
+
+    // The request computation was aborted if any error is an abort
+    lazy val (engineAbortStatus, nonAbortErrors) = {
+      val (abortReasons, nonAbortErrors) = errors.partitionMap {
+        case DAMLeError(DAMLe.EngineAborted(reason), _) => Left(reason)
+        case error => Right(error)
+      }
+
+      val abortStatus = EngineAbortStatus(abortReasons.headOption) // Keep the first one as relevant
+
+      (abortStatus, nonAbortErrors)
+    }
   }
 
   /** Indicates that [[ModelConformanceChecker.reinterpret]] has failed. */
-  final case class DAMLeError(cause: engine.Error, viewHash: ViewHash) extends Error {
-    override def pretty: Pretty[DAMLeError] = adHocPrettyInstance
+  final case class DAMLeError(cause: DAMLe.ReinterpretationError, viewHash: ViewHash)
+      extends Error {
+    override def pretty: Pretty[DAMLeError] = prettyOfClass(
+      param("cause", _.cause),
+      param("view hash", _.viewHash),
+    )
   }
 
   final case class TransactionNotWellFormed(cause: String, viewHash: ViewHash) extends Error {
