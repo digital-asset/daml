@@ -10,11 +10,13 @@ module Options.Applicative.Extended
     , optionOnce
     , optionOnce'
     , strOptionOnce
+    , optionLast
     , lastOr
     ) where
 
 import GHC.Exts (IsString (..))
 import Options.Applicative
+import Safe (lastMay)
 
 import qualified Data.List.NonEmpty as NE
 
@@ -79,6 +81,9 @@ optionOnce' errMsg reader options = const <$> actualParser <*> errorIfTwiceParse
 
 strOptionOnce :: IsString a => Mod OptionFields a -> Parser a
 strOptionOnce = optionOnce str
+
+optionLast :: ReadM a -> Mod OptionFields a -> Parser (Maybe a)
+optionLast reader options = lastMay <$> many (option reader options)
 
 -- | @'lastOr' def one@ returns the value of the last succesful @one@, if any,
 -- otherwise returns @def@.
