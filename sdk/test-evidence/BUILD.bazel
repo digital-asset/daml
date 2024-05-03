@@ -39,7 +39,7 @@ write_scalatest_runpath(
         name = "generator",
         testonly = True,  # needed in order to depend on testonly targets
         data = [
-            "//ledger-service/http-json:integration-tests-ce", # For the dars files in data deps
+            "//ledger-service/http-json:integration-tests-ce",  # For the dars files in data deps
         ],
         main_class = "com.daml.test.evidence.generator.Main",
         tests = [

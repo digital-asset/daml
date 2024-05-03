@@ -300,9 +300,9 @@ object WebSocketService {
             sfq: domain.SearchForeverQuery
         ): Future[(Set[ContractTypeRef.Resolved], Set[domain.ContractTypeId.RequiredPkg])] =
           sfq.templateIds.toList.toNEF
-            .traverse { x =>
+            .traverse(x =>
               resolveContractTypeId(jwt, ledgerId)(x).map(_.toOption.flatten.toLeft(x))
-            }
+            )
             .map(
               _.toSet.partitionMap(
                 identity[
