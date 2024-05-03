@@ -139,13 +139,12 @@ trait WithQueryStoreSetTest extends QueryStoreAndAuthDependentIntegrationTest {
   import HttpServiceTestFixture.archiveCommand
   import json.JsonProtocol._
   import AbstractHttpServiceIntegrationTestFuns.TpId
-  import scalaz.syntax.functor._
 
   "refresh cache endpoint" - {
     "should return latest offset when the cache is outdated" in withHttpService { fixture =>
       import fixture.encoder
       def archiveIou(headers: List[HttpHeader], contractId: domain.ContractId) = {
-        val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou.map(_.get)), contractId)
+        val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou), contractId)
         val exercise = archiveCommand(reference)
         val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
         fixture
@@ -240,7 +239,6 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
   import HttpServiceTestFixture.{UseTls, accountCreateCommand, archiveCommand}
   import json.JsonProtocol._
   import AbstractHttpServiceIntegrationTestFuns.{ciouDar, riouDar, TpId}
-  import scalaz.syntax.functor._
 
   val authorizationSecurity: SecurityTest =
     SecurityTest(property = Authorization, asset = "HTTP JSON API Service")
@@ -376,7 +374,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, aliceHeaders) = aliceH
         _ <- postCreateCommand(
-          iouCommand(alice, TpId.CIou.CIou.map(_.get)),
+          iouCommand(alice, TpId.CIou.CIou),
           fixture,
           aliceHeaders,
         )
@@ -384,7 +382,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         searchResp <- search(
           List.empty,
           Map(
-            "templateIds" -> Seq(TpId.IIou.IIou.map(_.get)).toJson,
+            "templateIds" -> Seq(TpId.IIou.IIou).toJson,
             "query" -> spray.json.JsObject(),
           ).toJson.asJsObject,
           fixture,
@@ -459,11 +457,11 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         }
         // run (inserting when query store) on template ID; then interface ID
         // (thereby duplicating contract IDs)
-        _ <- queryAtCtId(TpId.Iou.Iou.map(_.get), "amount", "currency")
-        _ <- queryAtCtId(TpId.RIou.RIou.map(_.get), "iamount", "icurrency")
+        _ <- queryAtCtId(TpId.Iou.Iou, "amount", "currency")
+        _ <- queryAtCtId(TpId.RIou.RIou, "iamount", "icurrency")
         // then try template ID again, in case interface ID mangled the results
         // for template ID by way of stakeholder join or something even odder
-        _ <- queryAtCtId(TpId.Iou.Iou.map(_.get), "amount", "currency")
+        _ <- queryAtCtId(TpId.Iou.Iou, "amount", "currency")
       } yield succeed
 
       // multi-party and single-party are handled significantly differently
@@ -907,7 +905,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           bazRecord = ShRecord(baz = "another baz value"),
         )
 
-      val kbvarId = TpId.Account.KeyedByVariantAndRecord.map(_.get)
+      val kbvarId = TpId.Account.KeyedByVariantAndRecord
       import FilterDiscriminatorScenario.Scenario
       Seq(
         Scenario(
@@ -1115,7 +1113,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         val create = iouCreateCommand(alice)
         postCreateCommand(create, fixture, headers)
           .flatMap(inside(_) { case domain.OkResponse(createResult, _, StatusCodes.OK) =>
-            val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou.map(_.get)), createResult.contractId)
+            val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou), createResult.contractId)
             val exercise = archiveCommand(reference)
             val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
 
@@ -1143,7 +1141,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           )
         )
         val locator = domain.EnrichedContractKey[v.Value](
-          TpId.Account.Account.map(_.get),
+          TpId.Account.Account,
           v.Value(v.Value.Sum.Record(keyRecord)),
         )
         val archive = archiveCommand(locator)
@@ -1173,7 +1171,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       lazy val inferredPkgId = packageIdOfDar(dar2)
 
       def inDar2Main[CtId[P] <: domain.ContractTypeId.Ops[CtId, P]](
-          tid: CtId[Option[String]]
+          tid: CtId[String]
       ): CtId[String] =
         tid.copy(packageId = inferredPkgId)
 
@@ -1319,7 +1317,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           exerciseVaryingOnlyMeta: (
               Setup,
               ContractsToDisclose,
-              Option[domain.CommandMeta[domain.ContractTypeId.Template.OptionalPkg]],
+              Option[domain.CommandMeta[domain.ContractTypeId.Template.RequiredPkg]],
           ) => JsValue
       ): Future[Assertion] = {
         val junkMessage = s"some test junk ${uniqueId()}"
@@ -1340,7 +1338,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           setup <- setupBob(bob, bobHeaders)
 
           // exercise CheckVisibility with different disclosure options
-          checkVisibility = { disclosure: List[DC[domain.ContractTypeId.Template.OptionalPkg]] =>
+          checkVisibility = { disclosure: List[DC[domain.ContractTypeId.Template.RequiredPkg]] =>
             val meta = disclosure.nonEmpty option domain.CommandMeta(
               None,
               None,
@@ -1394,17 +1392,6 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
 
       val checkVisibilityChoice = domain.Choice("CheckVisibility")
 
-      def mapMeta[A, B, C[P] <: domain.ContractTypeId[P] with domain.ContractTypeId.Ops[C, P]](
-        meta: Option[domain.CommandMeta[C[A]]],
-        f: A => B
-      ): Option[domain.CommandMeta[C[B]]] =
-        meta.map(cm =>
-          cm.copy(
-            disclosedContracts = cm.disclosedContracts.map(ds =>
-              ds.map(d =>
-                d.copy(
-                  templateId = d.templateId.map(f))))))
-
       "exercise" in withHttpService { fixture =>
         runDisclosureTestCase(fixture)(
           Uri.Path("/v1/exercise"),
@@ -1412,7 +1399,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             postCreateCommand(
               domain
                 .CreateCommand(
-                  TpId.Disclosure.Viewport.map(_.get),
+                  TpId.Disclosure.Viewport,
                   argToApi(viewportVA)(ShRecord(owner = bob)),
                   None,
                 ),
@@ -1423,7 +1410,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         ) { (viewportCid, toDisclose, meta) =>
           encodeExercise(fixture.encoder)(
             domain.ExerciseCommand(
-              domain.EnrichedContractId(Some(TpId.Disclosure.Viewport.map(_.get)), viewportCid),
+              domain.EnrichedContractId(Some(TpId.Disclosure.Viewport), viewportCid),
               checkVisibilityChoice,
               boxedRecord(
                 argToApi(checkVisibilityVA)(
@@ -1434,7 +1421,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                 )
               ),
               None,
-              mapMeta(meta, (pkgId: Option[String]) => pkgId.get),
+              meta,
             )
           )
         }
@@ -1450,7 +1437,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           fixture.encoder
             .encodeCreateAndExerciseCommand(
               domain.CreateAndExerciseCommand(
-                TpId.Disclosure.Viewport.map(_.get),
+                TpId.Disclosure.Viewport,
                 argToApi(viewportVA)(ShRecord(owner = bob)),
                 checkVisibilityChoice,
                 boxedRecord(
@@ -1462,7 +1449,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                   )
                 ),
                 None,
-                mapMeta(meta, (p: Option[String]) => p.get),
+                meta,
               )
             )
             .valueOr(e => fail(e.shows))
@@ -1500,7 +1487,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           {
             exerciseResult.length should be > (0)
             val newContractLocator = domain.EnrichedContractId(
-              Some(TpId.Iou.IouTransfer.map(_.get)),
+              Some(TpId.Iou.IouTransfer),
               domain.ContractId(exerciseResult),
             )
             postContractsLookup(newContractLocator, uri, headers).map(inside(_) {
@@ -1587,11 +1574,11 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     "succeeds normally with an interface ID" in withHttpService { fixture =>
       uploadPackage(fixture)(ciouDar).flatMap { case _ =>
         fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-          val command = iouCommand(alice, TpId.CIou.CIou.map(_.get))
+          val command = iouCommand(alice, TpId.CIou.CIou)
           postCreateCommand(command, fixture, headers).flatMap(inside(_) {
             case domain.OkResponse(result, _, StatusCodes.OK) =>
               val contractId: ContractId = result.contractId
-              val locator = domain.EnrichedContractId(Some(TpId.IIou.IIou.map(_.get)), contractId)
+              val locator = domain.EnrichedContractId(Some(TpId.IIou.IIou), contractId)
               postContractsLookup(locator, fixture.uri, headers).map(inside(_) {
                 case domain.OkResponse(Some(resultContract), _, StatusCodes.OK) =>
                   contractId shouldBe resultContract.contractId
@@ -1607,7 +1594,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         val accountNumber = "abc123"
         val locator = domain.EnrichedContractKey(
-          TpId.Account.Account.map(_.get),
+          TpId.Account.Account,
           JsArray(JsString(alice.unwrap), JsString(accountNumber)),
         )
         postContractsLookup(locator, uri.withPath(Uri.Path("/v1/fetch")), headers).map(inside(_) {
@@ -1662,7 +1649,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           case domain.OkResponse(result, _, StatusCodes.OK) =>
             val contractId: ContractId = result.contractId
             val locator = domain.EnrichedContractKey(
-              TpId.Account.Account.map(_.get),
+              TpId.Account.Account,
               JsArray(JsString(alice.unwrap), JsString(accountNumber)),
             )
             lookupContractAndAssert(locator, contractId, command, fixture, headers)
@@ -1795,7 +1782,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       // The numContracts size should test for https://github.com/digital-asset/daml/issues/10339
       val numContracts: Long = 2000
-      val helperId = TpId.Account.Helper.map(_.get)
+      val helperId = TpId.Account.Helper
       val payload = recordFromFields(ShRecord(owner = v.Value.Sum.Party(alice.unwrap)))
       val createCmd: domain.CreateAndExerciseCommand.LAVResolved =
         domain.CreateAndExerciseCommand(
@@ -1897,14 +1884,14 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           )
         )
 
-        domain.CreateCommand(TpId.User.User.map(_.get), arg, None)
+        domain.CreateCommand(TpId.User.User, arg, None)
       }
 
       def userExerciseFollowCommand(
           contractId: lar.ContractId,
           toFollow: domain.Party,
       ): domain.ExerciseCommand[Nothing, v.Value, domain.EnrichedContractId] = {
-        val reference = domain.EnrichedContractId(Some(TpId.User.User.map(_.get)), contractId)
+        val reference = domain.EnrichedContractId(Some(TpId.User.User), contractId)
         val arg = recordFromFields(ShRecord(userToFollow = v.Value.Sum.Party(toFollow.unwrap)))
         val choice = lar.Choice("Follow")
 
@@ -2094,17 +2081,15 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         val command: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.RequiredPkg] =
           iouCreateCommand(alice)
-            .copy(templateId = TpId.Iou.Dummy.map(_.get))
+            .copy(templateId = TpId.Iou.Dummy)
         val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
         fixture
           .postJsonRequest(Uri.Path("/v1/create"), input, headers)
           .parseResponse[JsValue]
           .map(inside(_) { case domain.ErrorResponse(Seq(error), _, StatusCodes.BadRequest, _) =>
-            val unknownTemplateId: domain.ContractTypeId.Template.OptionalPkg =
-              command.templateId.map(Some(_))
             error should include(
-              s"Cannot resolve template ID, given: ${unknownTemplateId}"
+              s"Cannot resolve template ID, given: ${command.templateId}"
             )
           }): Future[Assertion]
       }
@@ -2175,7 +2160,7 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
             created0.templateId shouldBe cmd.templateId
             archived0.templateId shouldBe cmd.templateId
             archived0.contractId shouldBe created0.contractId
-            created1.templateId shouldBe TpId.Iou.IouTransfer.map(_.get)
+            created1.templateId shouldBe TpId.Iou.IouTransfer
             asContractId(result.exerciseResult) shouldBe created1.contractId
         }
       }

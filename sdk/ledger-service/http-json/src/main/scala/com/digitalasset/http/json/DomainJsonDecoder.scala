@@ -52,7 +52,7 @@ class DomainJsonDecoder(
           .liftErrS(err)(JsonError)
       )
 
-      tmplId <- templateId_(fj.templateId.map(Some(_)), jwt, ledgerId)
+      tmplId <- templateId_(fj.templateId, jwt, ledgerId)
       payloadT <- either(templateRecordType(tmplId))
 
       fv <- either(
@@ -146,7 +146,7 @@ class DomainJsonDecoder(
       choiceIfaceOverride <-
         if (oIfaceId.isDefined)
           (oIfaceId: Option[domain.ContractTypeId.Interface.RequiredPkg]).pure[ET]
-        else cmd0.choiceInterfaceId.traverse(id => templateId_(id.map(Some(_)), jwt, ledgerId))
+        else cmd0.choiceInterfaceId.traverse(id => templateId_(id, jwt, ledgerId))
 
       lfArgument <- either(jsValueToLfValue(argLfType, cmd0.argument))
       metaWithResolvedIds <- cmd0.meta.traverse(resolveMetaTemplateIds(_, jwt, ledgerId))
@@ -191,7 +191,7 @@ class DomainJsonDecoder(
             ContractTypeId.RequiredPkg,
           ]](a)
           .liftErrS(err)(JsonError)
-      ).flatMap(_.bitraverse(id => templateId_(id.map(Some(_)), jwt, ledgerId), id => templateId_(id.map(Some(_)), jwt, ledgerId)))
+      ).flatMap(_.bitraverse(templateId_(_, jwt, ledgerId), templateId_(_, jwt, ledgerId)))
 
       tId = fjj.templateId
       ciId = fjj.choiceInterfaceId
@@ -227,25 +227,24 @@ class DomainJsonDecoder(
       import scalaz.std.vector._
       val inputTpids = Foldable[domain.CommandMeta].toSet(meta)
       inputTpids.toVector
-        .traverse { ot => templateId_(ot.map(Some(_)), jwt, ledgerId) strengthL ot }
+        .traverse { ot => templateId_(ot, jwt, ledgerId) strengthL ot }
         .map(_.toMap)
     }
   } yield meta map tpidToResolved map (_.asInstanceOf[R])
 
-  private def templateId_[U, R <: ContractTypeId.Resolved](
-      id: U with domain.ContractTypeId.OptionalPkg,
+  private def templateId_[CtId[T] <: domain.ContractTypeId[T] with domain.ContractTypeId.Ops[CtId, T]](
+      id: CtId[String],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   )(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-      resolveOverload: PackageService.ResolveContractTypeId.Overload[U, R],
-  ): ET[R] =
+  ): ET[domain.ContractTypeId.ResolvedOf[CtId]] =
     eitherT(
       resolveContractTypeId(jwt, ledgerId)(id)
         .map(
           _.toOption.flatten
-            .map(_.original)
+            .map(_.original.asInstanceOf[ContractTypeId.ResolvedOf[CtId]])
             .toRightDisjunction(JsonError(cannotResolveTemplateId(id)))
         )
     )
@@ -257,7 +256,7 @@ class DomainJsonDecoder(
   ): JsonError \/ domain.LfType =
     resolveTemplateRecordType(id).liftErr(JsonError)
 
-  def keyType(id: domain.ContractTypeId.Template.OptionalPkg)(implicit
+  def keyType(id: domain.ContractTypeId.Template.RequiredPkg)(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
       jwt: Jwt,

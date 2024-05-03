@@ -240,9 +240,7 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
 
 /** A contract type ID companion. */
 sealed abstract class ContractTypeIdLike[CtId[T] <: ContractTypeId[T]] {
-  type OptionalPkg = CtId[Option[String]]
   type RequiredPkg = CtId[String]
-  type NoPkg = CtId[Unit]
   type Resolved = ContractTypeId.ResolvedOf[CtId]
 
   // treat the companion like a typeclass instance

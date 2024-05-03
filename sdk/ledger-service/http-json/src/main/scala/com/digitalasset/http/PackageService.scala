@@ -185,7 +185,7 @@ private class PackageService(
         jwt: Jwt,
         ledgerId: LedgerApiDomain.LedgerId,
     )(
-        x: U with ContractTypeId.OptionalPkg
+        x: U with ContractTypeId.RequiredPkg
     )(implicit
         lc: LoggingContextOf[InstanceUUID],
         overload: O[U, R],
@@ -200,17 +200,17 @@ private class PackageService(
             (tids resolve x)
           }
           case O.Top =>
-            (x: C.OptionalPkg) match {
+            (x: C.RequiredPkg) match {
               // only search the template or interface map, if that is the origin
               // class, since searching the other map would convert template IDs
               // to interface IDs and vice versa
-              case x: C.Template.OptionalPkg => { case (tids, _) =>
+              case x: C.Template.RequiredPkg => { case (tids, _) =>
                 (tids resolve x)
               }
-              case x: C.Interface.OptionalPkg => { case (_, iids) =>
+              case x: C.Interface.RequiredPkg => { case (_, iids) =>
                 (iids resolve x)
               }
-              case x: C.Unknown.OptionalPkg => { case (tids, iids) =>
+              case x: C.Unknown.RequiredPkg => { case (tids, iids) =>
                 (tids resolve x, iids resolve x) match {
                   case (tid @ Some(_), None) => tid
                   case (None, iid @ Some(_)) => iid
@@ -225,38 +225,39 @@ private class PackageService(
       for {
         result <- EitherT.pure(doSearch(latestMaps())): ET[ResultType]
         _ = logger.trace(s"Result: $result")
-        finalResult <- (x: C.OptionalPkg).packageId.fold {
+        finalResult <- if ((x: C.RequiredPkg).packageId.startsWith("#")) {
           if (result.isDefined)
-            // no package id and we do have the package, refresh if timeout
+            // used package name and we do have the package, refresh if timeout
             if (cache.packagesShouldBeFetchedAgain) {
               logger.trace(
-                "no package id and we do have the package, refresh because of timeout"
+                s"package name supplied and we do have the package, refresh because of timeout: $x"
               )
               doReloadAndSearchAgain()
             } else {
               logger.trace(
-                "no package id and we do have the package, -no timeout- no refresh"
+                s"package name supplied and we do have the package, -no timeout- no refresh: $x"
               )
               keep(result)
             }
-          // no package id and we don’t have the package, always refresh
+          // used package name and we don’t have the package, always refresh
           else {
-            logger.trace("no package id and we don’t have the package, always refresh")
+            logger.trace(s"package name supplied and we don’t have the package, always refresh: $x")
             doReloadAndSearchAgain()
           }
-        } { packageId =>
+        } else {
+          val packageId = (x: C.RequiredPkg).packageId
           if (result.isDefined) {
-            logger.trace("package id defined & template id found, no refresh necessary")
+            logger.trace(s"package id supplied & template id found, no refresh necessary: $x")
             keep(result)
           } else {
             // package id and we have the package, never refresh
             if (state.packageIds.contains(packageId)) {
-              logger.trace("package id and we have the package, never refresh")
+              logger.trace(s"package id supplied and we have the package, never refresh: $x")
               keep(result)
             }
             // package id and we don’t have the package, always refresh
             else {
-              logger.trace("package id and we don’t have the package, always refresh")
+              logger.trace("package id supplied and we don’t have the package, always refresh")
               doReloadAndSearchAgain()
             }
           }
@@ -324,7 +325,7 @@ object PackageService {
   sealed abstract class ResolveContractTypeId {
     import ResolveContractTypeId.Overload
     def apply[U, R <: ContractTypeId.Resolved](jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
-        x: U with ContractTypeId.OptionalPkg
+        x: U with ContractTypeId.RequiredPkg
     )(implicit lc: LoggingContextOf[InstanceUUID], overload: Overload[U, R]): Future[
       PackageService.Error \/ Option[ContractTypeRef[R]]
     ]
@@ -336,19 +337,15 @@ object PackageService {
     import domain.{ContractTypeId => C}
 
     object Overload extends LowPriority {
-      /* TODO #15293 see below note about Top
-      implicit case object Unknown
-          extends Overload[C.Unknown.OptionalPkg, C.ResolvedId[C.Definite[String]]]
-       */
-      implicit case object Template extends Overload[C.Template.OptionalPkg, C.Template.Resolved]
-      case object Top extends Overload[C.OptionalPkg, C.ResolvedId[C.Definite[String]]]
+      implicit case object Template extends Overload[C.Template.RequiredPkg, C.Template.Resolved]
+      case object Top extends Overload[C.RequiredPkg, C.ResolvedId[C.Definite[String]]]
     }
 
     // TODO #15293 if the request model has .Unknown included, then LowPriority and Top are
     // no longer needed and can be replaced with Overload.Unknown above
     sealed abstract class LowPriority { this: Overload.type =>
       // needs to be low priority so it doesn't win against Template
-      implicit def `fallback Top`: Overload[C.OptionalPkg, C.ResolvedId[C.Definite[String]]] = Top
+      implicit def `fallback Top`: Overload[C.RequiredPkg, C.ResolvedId[C.Definite[String]]] = Top
     }
   }
 
@@ -374,7 +371,6 @@ object PackageService {
 
   final case class ContractTypeIdMap[CtId[T] <: ContractTypeId[T]](
       all: Map[RequiredPkg[CtId], ResolvedOf[CtId]],
-      unique: Map[NoPkg[CtId], ResolvedOf[CtId]],
       nameIds: Map[Ref.PackageName, NonEmpty[Seq[String]]],
       idNames: PackageNameMap,
   ) {
@@ -408,13 +404,9 @@ object PackageService {
       }.toSet
 
     private[http] def resolve(
-        a: ContractTypeId[Option[String]]
-    )(implicit makeKey: ContractTypeId.Like[CtId]): Option[ContractTypeRef[ResolvedOf[CtId]]] = {
-      (a.packageId match {
-        case Some(p) => all get makeKey(p, a.moduleName, a.entityName)
-        case None => unique get makeKey((), a.moduleName, a.entityName)
-      }).flatMap(toContractTypeRef)
-    }
+        a: ContractTypeId[String]
+    )(implicit makeKey: ContractTypeId.Like[CtId]): Option[ContractTypeRef[ResolvedOf[CtId]]] =
+      (all get makeKey(a.packageId, a.moduleName, a.entityName)).flatMap(toContractTypeRef)
   }
 
   type TemplateIdMap = ContractTypeIdMap[ContractTypeId.Template]
@@ -422,7 +414,7 @@ object PackageService {
 
   object TemplateIdMap {
     def Empty[CtId[T] <: ContractTypeId[T]]: ContractTypeIdMap[CtId] =
-      ContractTypeIdMap(Map.empty, Map.empty, Map.empty, PackageNameMap.empty)
+      ContractTypeIdMap(Map.empty, Map.empty, PackageNameMap.empty)
   }
 
   private type ChoiceTypeMap = Map[ContractTypeId.Resolved, NonEmpty[
@@ -489,7 +481,6 @@ object PackageService {
   ): ContractTypeIdMap[CtId] = {
     import com.daml.nonempty.NonEmptyReturningOps._
     val all = ids.view.map(k => (k, k)).toMap
-    val unique = filterUniqueTemplateIs(ids)
 
     val idPkgNamePkgVer: Set[(RequiredPkg[CtId], Ref.PackageName, Ref.PackageVersion)] =
       ids
@@ -519,23 +510,10 @@ object PackageService {
       (idWithPkgName, idWithPkgName)
     }.toMap
 
-    ContractTypeIdMap(all ++ allByPkgName, unique, nameIds, idName)
+    ContractTypeIdMap(all ++ allByPkgName, nameIds, idName)
   }
 
   private type RequiredPkg[CtId[_]] = CtId[String]
-  private type NoPkg[CtId[_]] = CtId[Unit]
-
-  private[http] def key2[CtId[T] <: ContractTypeId.Ops[CtId, T]](
-      k: RequiredPkg[CtId]
-  ): NoPkg[CtId] =
-    k.copy(packageId = ())
-
-  private def filterUniqueTemplateIs[CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]](
-      all: Set[RequiredPkg[CtId]]
-  ): Map[NoPkg[CtId], RequiredPkg[CtId]] =
-    all
-      .groupBy(key2)
-      .collect { case (k, v) if v.sizeIs == 1 => (k, v.head) }
 
   private def resolveChoiceArgType(
       choiceIdMap: ChoiceTypeMap

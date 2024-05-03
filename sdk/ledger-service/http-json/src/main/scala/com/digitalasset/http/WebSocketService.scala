@@ -301,8 +301,7 @@ object WebSocketService {
         ): Future[(Set[ContractTypeRef.Resolved], Set[domain.ContractTypeId.RequiredPkg])] =
           sfq.templateIds.toList.toNEF
             .traverse{ x =>
-              val tid = x.map(Some(_))
-              resolveContractTypeId(jwt, ledgerId)(tid).map(_.toOption.flatten.toLeft(x))
+              resolveContractTypeId(jwt, ledgerId)(x).map(_.toOption.flatten.toLeft(x))
             }
             .map(
               _.toSet.partitionMap(
@@ -611,13 +610,12 @@ object WebSocketService {
 
       request.toList
         .traverse { x: CKR[LfV] =>
-          val tid = x.ekey.templateId.map(Some(_))
-          resolveContractTypeId(jwt, ledgerId)(tid)
-            .map(_.toOption.flatten.map(r => (r, x.ekey.key)).toLeft(tid))
+          resolveContractTypeId(jwt, ledgerId)(x.ekey.templateId)
+            .map(_.toOption.flatten.map(r => (r, x.ekey.key)).toLeft(x.ekey.templateId))
         }
         .map { resolveTries =>
           val (resolvedWithKey, unresolved) = resolveTries
-            .toSet[Either[(ContractTypeRef.Resolved, LfV), domain.ContractTypeId.OptionalPkg]]
+            .toSet[Either[(ContractTypeRef.Resolved, LfV), domain.ContractTypeId.RequiredPkg]]
             .partitionMap(identity)
           for {
             resolvedWithKey <- (NonEmpty from resolvedWithKey toRightDisjunction InvalidUserInput(
@@ -628,7 +626,7 @@ object WebSocketService {
               .ResolvedQuery(q.keySet)
               .leftMap(unsupported => InvalidUserInput(unsupported.errorMsg))
           } yield ResolvedQueryRequest(
-            ResolvedContractKeyStreamRequest(rq, request, q, unresolved.map(id => id.map(_.get))),
+            ResolvedContractKeyStreamRequest(rq, request, q, unresolved),
             this,
           )
         }

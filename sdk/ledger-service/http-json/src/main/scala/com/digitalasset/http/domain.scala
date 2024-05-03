@@ -450,8 +450,8 @@ package domain {
     // only used in integration tests
     implicit val `AcC hasTemplateId`: HasTemplateId.Compat[ActiveContract.ResolvedCtTyId] =
       new HasTemplateId[ActiveContract.ResolvedCtTyId] {
-        override def templateId(fa: ActiveContract.ResolvedCtTyId[_]): ContractTypeId.OptionalPkg =
-          (fa.templateId: ContractTypeId.RequiredPkg).map(Some(_))
+        override def templateId(fa: ActiveContract.ResolvedCtTyId[_]): ContractTypeId.RequiredPkg =
+          fa.templateId
 
         type TypeFromCtId = LfType
 
@@ -554,8 +554,8 @@ package domain {
     implicit val hasTemplateId: HasTemplateId.Compat[EnrichedContractKey] =
       new HasTemplateId[EnrichedContractKey] {
 
-        override def templateId(fa: EnrichedContractKey[_]): ContractTypeId.OptionalPkg =
-          fa.templateId.map(Some(_))
+        override def templateId(fa: EnrichedContractKey[_]): ContractTypeId.RequiredPkg =
+          fa.templateId
 
         type TypeFromCtId = LfType
 
@@ -594,7 +594,7 @@ package domain {
   trait HasTemplateId[-F[_]] {
     protected[this] type FHuh = F[_] // how to pronounce "F[?]" or "F huh?"
 
-    def templateId(fa: F[_]): ContractTypeId.OptionalPkg
+    def templateId(fa: F[_]): ContractTypeId.RequiredPkg
 
     type TypeFromCtId
 
@@ -668,10 +668,10 @@ package domain {
       domain.ContractLocator[_],
     ], (Option[domain.ContractTypeId.Interface.Resolved], LfType)] =
       new HasTemplateId[RequiredPkg[+*, domain.ContractLocator[_]]] {
-        override def templateId(fab: FHuh): ContractTypeId.OptionalPkg =
-          fab.choiceInterfaceId.map(id => id.map(Some(_))) getOrElse (fab.reference match {
-            case EnrichedContractKey(templateId, _) => templateId.map(Some(_))
-            case EnrichedContractId(Some(templateId), _) => templateId.map(Some(_))
+        override def templateId(fab: FHuh): ContractTypeId.RequiredPkg =
+          fab.choiceInterfaceId getOrElse (fab.reference match {
+            case EnrichedContractKey(templateId, _) => templateId
+            case EnrichedContractId(Some(templateId), _) => templateId
             case EnrichedContractId(None, _) =>
               throw new IllegalArgumentException(
                 "Please specify templateId, optional templateId is not supported yet!"

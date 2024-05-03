@@ -97,11 +97,11 @@ class ContractsService(
   ): Future[Option[domain.ResolvedContractRef[LfValue]]] =
     contractLocator match {
       case domain.EnrichedContractKey(templateId, key) =>
-        resolveContractTypeId(jwt, ledgerId)(templateId.map(Some(_))).map(
+        resolveContractTypeId(jwt, ledgerId)(templateId).map(
           _.toOption.flatten.map(x => -\/(x.original -> key))
         )
       case domain.EnrichedContractId(Some(templateId), contractId) =>
-        resolveContractTypeId(jwt, ledgerId)(templateId.map(Some(_))).map(
+        resolveContractTypeId(jwt, ledgerId)(templateId).map(
           _.toOption.flatten.map(x => \/-(x.original -> contractId))
         )
       case domain.EnrichedContractId(None, contractId) =>
@@ -121,12 +121,12 @@ class ContractsService(
     val readAs = req.readAs.cata(_.toSet1, jwtPayload.parties)
     req.locator match {
       case domain.EnrichedContractKey(templateId, contractKey) =>
-        findByContractKey(jwt, readAs, templateId.map(Some(_)), ledgerId, contractKey)
+        findByContractKey(jwt, readAs, templateId, ledgerId, contractKey)
       case domain.EnrichedContractId(templateId, contractId) =>
         findByContractId(
           jwt,
           readAs,
-          templateId.map(id => id.map(Some(_))),
+          templateId,
           ledgerId,
           contractId,
         )
@@ -136,7 +136,7 @@ class ContractsService(
   private[this] def findByContractKey(
       jwt: Jwt,
       parties: domain.PartySet,
-      templateId: domain.ContractTypeId.Template.OptionalPkg,
+      templateId: domain.ContractTypeId.Template.RequiredPkg,
       ledgerId: LedgerApiDomain.LedgerId,
       contractKey: LfValue,
   )(implicit
@@ -156,7 +156,7 @@ class ContractsService(
   private[this] def findByContractId(
       jwt: Jwt,
       parties: domain.PartySet,
-      templateId: Option[domain.ContractTypeId.OptionalPkg],
+      templateId: Option[domain.ContractTypeId.RequiredPkg],
       ledgerId: LedgerApiDomain.LedgerId,
       contractId: domain.ContractId,
   )(implicit
@@ -703,8 +703,7 @@ class ContractsService(
 
     xs.toList.toNEF
       .traverse { x =>
-        val tid = x.copy(packageId = Some(x.packageId))
-        resolveContractTypeId(jwt, ledgerId)(tid)
+        resolveContractTypeId(jwt, ledgerId)(x)
           .map(_.toOption.flatten.toLeft(x))
       }
       .map(_.toSet.partitionMap(a => a))
@@ -730,8 +729,8 @@ object ContractsService {
     type QueryLang = SearchContext[
       domain.ResolvedQuery
     ]
-    type ById = SearchContext[Option[domain.ContractTypeId.OptionalPkg]]
-    type Key = SearchContext[domain.ContractTypeId.Template.OptionalPkg]
+    type ById = SearchContext[Option[domain.ContractTypeId.RequiredPkg]]
+    type Key = SearchContext[domain.ContractTypeId.Template.RequiredPkg]
   }
 
   // A prototypical abstraction over the in-memory/in-DB split, accounting for

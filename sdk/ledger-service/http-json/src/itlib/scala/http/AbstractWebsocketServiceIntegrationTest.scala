@@ -306,7 +306,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
         def exerciseTransferPayload(cid: domain.ContractId) = {
           import json.JsonProtocol._
           val ecid: domain.ContractLocator[JsValue] =
-            domain.EnrichedContractId(Some(TpId.IAccount.IAccount.map(_.get)), cid)
+            domain.EnrichedContractId(Some(TpId.IAccount.IAccount), cid)
           domain
             .ExerciseCommand(
               ecid,
@@ -329,7 +329,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
           AccountQuery(event) <- readOne
         } yield {
           event.created.record should ===(record)
-          event.created.templateId should ===(TpId.IAccount.IAccount.map(_.get))
+          event.created.templateId should ===(TpId.IAccount.IAccount)
           event.matchedQueries should ===(mq)
           event
         }
@@ -385,9 +385,9 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
                         )
                       ) =>
                     archivedContractId should ===(createdAccountEvent1.created.contractId)
-                    archivedTemplateId should ===(TpId.IAccount.IAccount.map(_.get))
+                    archivedTemplateId should ===(TpId.IAccount.IAccount)
 
-                    createdTemplateId should ===(TpId.IAccount.IAccount.map(_.get))
+                    createdTemplateId should ===(TpId.IAccount.IAccount)
 
                     createdRecord should ===(AccountRecord("abcxx", true, false))
                     matchedQueries shouldBe Vector(0)
@@ -511,7 +511,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
     import json.JsonProtocol._
     domain
       .ExerciseCommand(
-        domain.EnrichedContractId(Some(TpId.Iou.Iou.map(_.get)), cid): domain.ContractLocator[JsValue],
+        domain.EnrichedContractId(Some(TpId.Iou.Iou), cid): domain.ContractLocator[JsValue],
         domain.Choice("Iou_Split"),
         Map("splitAmount" -> amount).toJson,
         Option.empty[domain.ContractTypeId.RequiredPkg],
@@ -812,7 +812,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
       for {
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, headers) = aliceHeaders
-        templateId = TpId.Account.Account.map(_.get)
+        templateId = TpId.Account.Account
         fetchRequest = (contractIdAtOffset: Option[Option[domain.ContractId]]) => {
           import json.JsonProtocol._
           List(
@@ -928,7 +928,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
         (alice, aliceAuthHeaders) = aliceHeaders
         bobHeaders <- fixture.getUniquePartyAndAuthHeaders("Bob")
         (bob, bobAuthHeaders) = bobHeaders
-        templateId = TpId.Account.Account.map(_.get)
+        templateId = TpId.Account.Account
 
         f1 =
           postCreateCommand(
@@ -1034,7 +1034,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
       archive = (id: domain.ContractId) =>
         for {
           r <- postArchiveCommand(
-            TpId.Account.Account.map(_.get),
+            TpId.Account.Account,
             id,
             fixture,
             headers,
@@ -1260,7 +1260,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
       import json.JsonProtocol._
       domain
         .CreateCommand(
-          TpId.Iou.Iou.map(_.get),
+          TpId.Iou.Iou,
           Map(
             "observers" -> List[String]().toJson,
             "issuer" -> partyName.toJson,
