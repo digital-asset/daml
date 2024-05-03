@@ -220,9 +220,6 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   def wsConfig: Option[WebsocketConfig]
 
-  protected def tidString(id: domain.ContractTypeId[String]) =
-    s"${id.packageId}:${id.moduleName}:${id.entityName}"
-
   protected def testId: String = this.getClass.getSimpleName
 
   lazy protected val metadata2: MetadataReader.LfMetadata =
@@ -854,7 +851,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     val payload =
       s"""
          |{
-         |  "templateId": "${tidString(TpId.Iou.Iou)}",
+         |  "templateId": "${TpId.Iou.Iou.fqn}",
          |  "payload": {
          |    "observers": [],
          |    "issuer": $partyJson,
@@ -1002,7 +999,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       _ = kill.shutdown()
     } yield (betweenOffset, afterOffset)
 
-    val query = s"""[{"templateIds": ["${tidString(TpId.Iou.Iou)}"]}]"""
+    val query = s"""[{"templateIds": ["${TpId.Iou.Iou.fqn}"]}]"""
     for {
       jwt <- jwtForParties(uri)(List(party), List(), "participant0")
       (kill, source) =

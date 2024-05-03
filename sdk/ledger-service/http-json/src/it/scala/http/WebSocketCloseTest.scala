@@ -47,7 +47,7 @@ class WebSocketCloseTest
           .subprotocols(subprotocols.head, subprotocols.tail: _*)
           .buildAsync(wsUri, listener)
           .asScala
-        _ <- ws.sendText(s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"]}""", true).asScala
+        _ <- ws.sendText(s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"]}""", true).asScala
         _ <- ws.sendClose(WebSocket.NORMAL_CLOSURE, "ok").asScala
         _ <- serverCloseReceived.future
       } yield {

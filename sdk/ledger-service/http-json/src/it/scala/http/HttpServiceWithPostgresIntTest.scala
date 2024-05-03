@@ -26,7 +26,7 @@ abstract class HttpServiceWithPostgresIntTest
       searchExpectOk(
         searchDataSet,
         jsObject(
-          s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"currency": "EUR"}}"""
+          s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"], "query": {"currency": "EUR"}}"""
         ),
         fixture,
         headers,

@@ -161,9 +161,7 @@ trait WithQueryStoreSetTest extends QueryStoreAndAuthDependentIntegrationTest {
         contractIds <- searchExpectOk(
           searchDataSet,
           jsObject(
-            s"""{"templateIds": ["${tidString(
-                TpId.Iou.Iou
-              )}"], "query": {"currency": "EUR", "amount": "111.11"}}"""
+            s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"], "query": {"currency": "EUR", "amount": "111.11"}}"""
           ),
           fixture,
           aliceHeaders,
@@ -196,9 +194,7 @@ trait WithQueryStoreSetTest extends QueryStoreAndAuthDependentIntegrationTest {
         _ <- searchExpectOk(
           searchDataSet,
           jsObject(
-            s"""{"templateIds": ["${tidString(
-                TpId.Iou.Iou
-              )}"], "query": {"currency": "EUR", "amount": "111.11"}}"""
+            s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"], "query": {"currency": "EUR", "amount": "111.11"}}"""
           ),
           fixture,
           aliceHeaders,
@@ -298,7 +294,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         val searchDataSet = genSearchDataSet(alice)
         searchExpectOk(
           searchDataSet,
-          jsObject(s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"]}"""),
+          jsObject(s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"]}"""),
           fixture,
           headers,
         ).map { acl: List[domain.ActiveContract.ResolvedCtTyId[JsValue]] =>
@@ -343,14 +339,14 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         _ = bobAccountResp.status shouldBe StatusCodes.OK
         _ <- searchExpectOk(
           List(),
-          jsObject(s"""{"templateIds": ["${tidString(TpId.Account.Account)}"]}"""),
+          jsObject(s"""{"templateIds": ["${TpId.Account.Account.fqn}"]}"""),
           fixture,
           aliceHeaders,
         )
           .map(acl => acl.size shouldBe 1)
         _ <- searchExpectOk(
           List(),
-          jsObject(s"""{"templateIds": ["${tidString(TpId.Account.Account)}"]}"""),
+          jsObject(s"""{"templateIds": ["${TpId.Account.Account.fqn}"]}"""),
           fixture,
           bobHeaders,
         )
@@ -360,7 +356,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           .flatMap(headers =>
             searchExpectOk(
               List(),
-              jsObject(s"""{"templateIds": ["${tidString(TpId.Account.Account)}"]}"""),
+              jsObject(s"""{"templateIds": ["${TpId.Account.Account.fqn}"]}"""),
               fixture,
               headers,
             )
@@ -498,9 +494,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     "warns if some are known" in withHttpService { fixture =>
       val query =
         jsObject(
-          s"""{"templateIds": ["${tidString(
-              TpId.Iou.Iou
-            )}", "UnknownPackage:UnknownModule:UnknownEntity"], "query": {"currency": "EUR"}}"""
+          s"""{"templateIds": ["${TpId.Iou.Iou.fqn}", "UnknownPackage:UnknownModule:UnknownEntity"], "query": {"currency": "EUR"}}"""
         )
       fixture
         .getUniquePartyAndAuthHeaders("UnknownParty")
@@ -651,9 +645,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             party = alice,
           ),
           jsObject(
-            s"""{"templateIds": ["${tidString(
-                TpId.Iou.Iou
-              )}"], "query": {"currency": ${testCurrency.toJson}}}"""
+            s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"], "query": {"currency": ${testCurrency.toJson}}}"""
           ),
           fixture,
           headers,
@@ -683,9 +675,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           found <- searchExpectOk(
             List(pubSubCreateCommand(publisher, subscriberParties)),
             jsObject(
-              s"""{"templateIds": ["${tidString(
-                  TpId.Account.PubSub
-                )}"], "query": {"publisher": "$publisher"}}"""
+              s"""{"templateIds": ["${TpId.Account.PubSub.fqn}"], "query": {"publisher": "$publisher"}}"""
             ),
             fixture,
             headers,
@@ -744,7 +734,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         List(createCommand(alice)),
         jsObject(
           s"""{
-              "templateIds": ["${tidString(TpId.Account.LongFieldNames)}"],
+              "templateIds": ["${TpId.Account.LongFieldNames.fqn}"],
               "query": {
                 "party": "$alice",
                 "$fieldName" : $jsonValue
@@ -766,7 +756,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         searchExpectOk(
           searchDataSet,
           jsObject(
-            s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"currency": "EUR"}}"""
+            s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"], "query": {"currency": "EUR"}}"""
           ),
           fixture,
           headers,
@@ -788,7 +778,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
 
             def queryAmountAs(s: String) =
               jsObject(
-                s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"amount": $s}}"""
+                s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"], "query": {"amount": $s}}"""
               )
 
             val queryAmountAsString = queryAmountAs("\"111.11\"")
@@ -820,9 +810,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         searchExpectOk(
           searchDataSet,
           jsObject(
-            s"""{"templateIds": ["${tidString(
-                TpId.Iou.Iou
-              )}"], "query": {"currency": "EUR", "amount": "111.11"}}"""
+            s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"], "query": {"currency": "EUR", "amount": "111.11"}}"""
           ),
           fixture,
           headers,
@@ -840,9 +828,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         searchExpectOk(
           searchDataSet,
           jsObject(
-            s"""{"templateIds": ["${tidString(
-                TpId.Iou.Iou
-              )}"], "query": {"currency": "RUB", "amount": "666.66"}}"""
+            s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"], "query": {"currency": "RUB", "amount": "666.66"}}"""
           ),
           fixture,
           headers,
@@ -1681,7 +1667,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           testFetchByCompositeKey(
             fixture,
             jsObject(s"""{
-            "templateId": "${tidString(TpId.Account.KeyedByVariantAndRecord)}",
+            "templateId": "${TpId.Account.KeyedByVariantAndRecord.fqn}",
             "key": [
               "$alice",
               {"tag": "Bar", "value": 42},
@@ -1699,7 +1685,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           testFetchByCompositeKey(
             fixture,
             jsObject(s"""{
-            "templateId": "${tidString(TpId.Account.KeyedByVariantAndRecord)}",
+            "templateId": "${TpId.Account.KeyedByVariantAndRecord.fqn}",
             "key": {
               "_1": "$alice",
               "_2": {"tag": "Bar", "value": "42"},
@@ -1736,11 +1722,11 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       headers: List[HttpHeader],
   ) = {
     val createCommand = jsObject(s"""{
-      "templateId": "${tidString(TpId.Account.KeyedByDecimal)}",
+      "templateId": "${TpId.Account.KeyedByDecimal.fqn}",
       "payload": { "party": "$party", "amount": "$decimal" }
     }""")
     val fetchRequest = jsObject(s"""{
-      "templateId": "${tidString(TpId.Account.KeyedByDecimal)}",
+      "templateId": "${TpId.Account.KeyedByDecimal.fqn}",
       "key": [ "$party", "$decimal" ]
     }""")
 
@@ -1766,7 +1752,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       headers: List[HttpHeader],
   ) = {
     val createCommand = jsObject(s"""{
-        "templateId": "${tidString(TpId.Account.KeyedByVariantAndRecord)}",
+        "templateId": "${TpId.Account.KeyedByVariantAndRecord.fqn}",
         "payload": {
           "name": "ABC DEF",
           "party": "${party.unwrap}",
@@ -1840,7 +1826,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       def queryN(n: Long): Future[Assertion] = fixture
         .postJsonRequest(
           Uri.Path("/v1/query"),
-          jsObject(s"""{"templateIds": ["${tidString(TpId.Account.Account)}"]}"""),
+          jsObject(s"""{"templateIds": ["${TpId.Account.Account.fqn}"]}"""),
           headers,
         )
         .parseResponse[Vector[JsValue]]

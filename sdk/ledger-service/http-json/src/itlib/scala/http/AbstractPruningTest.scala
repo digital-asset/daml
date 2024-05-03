@@ -17,7 +17,7 @@ abstract class AbstractPruningTest extends AbstractHttpServiceIntegrationTestFun
     import com.daml.timer.RetryStrategy
     for {
       (alice, aliceHeaders) <- fixture.getUniquePartyAndAuthHeaders("Alice")
-      query = jsObject(s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"]}""")
+      query = jsObject(s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"]}""")
 
       // do query to populate cache
       _ <- searchExpectOk(List(), query, fixture, aliceHeaders)
@@ -100,7 +100,7 @@ abstract class AbstractPruningTest extends AbstractHttpServiceIntegrationTestFun
         _ <- searchExpectOk(
           List.empty,
           jsObject(
-            s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"currency": "HKD"}}"""
+            s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"], "query": {"currency": "HKD"}}"""
           ),
           fixture,
           aliceHeaders,
@@ -122,7 +122,7 @@ abstract class AbstractPruningTest extends AbstractHttpServiceIntegrationTestFun
         _ <- searchExpectOk(
           List.empty,
           jsObject(
-            s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"currency": "HKD"}}"""
+            s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"], "query": {"currency": "HKD"}}"""
           ),
           fixture,
           bobHeaders,

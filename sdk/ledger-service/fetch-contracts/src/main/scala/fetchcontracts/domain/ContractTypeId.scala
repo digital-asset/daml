@@ -61,6 +61,8 @@ sealed abstract class ContractTypeId[+PkgId]
     import scala.util.hashing.{MurmurHash3 => H}
     H.productHash(this, H.productSeed, ignorePrefix = true)
   }
+
+  def fqn: String = s"${packageId.toString}:${moduleName}:${entityName}"
 }
 
 object ResolvedQuery {
