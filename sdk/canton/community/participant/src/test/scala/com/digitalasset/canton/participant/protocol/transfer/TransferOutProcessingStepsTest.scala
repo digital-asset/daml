@@ -227,6 +227,7 @@ final class TransferOutProcessingStepsTest
       damle,
       transferCoordination,
       seedGenerator,
+      defaultStaticDomainParameters,
       SourceProtocolVersion(testedProtocolVersion),
       loggerFactory,
     )(executorService)

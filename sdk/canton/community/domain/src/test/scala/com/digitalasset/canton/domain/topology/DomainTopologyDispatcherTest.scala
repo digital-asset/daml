@@ -257,6 +257,7 @@ class DomainTopologyDispatcherTest
       clock,
       false,
       parameters,
+      defaultStaticDomainParameters,
       FutureSupervisor.Noop,
       sender,
       loggerFactory,

@@ -12,9 +12,11 @@ import cats.syntax.flatMap.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.checked
 import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
 import com.digitalasset.canton.config.{CacheConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.crypto.SignatureCheckError.{
+  InvalidCryptoScheme,
   SignatureWithWrongKey,
   SignerHasNoValidKeys,
 }
@@ -27,7 +29,7 @@ import com.digitalasset.canton.lifecycle.{
   Lifecycle,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.protocol.DynamicDomainParameters
+import com.digitalasset.canton.protocol.{DynamicDomainParameters, StaticDomainParameters}
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
@@ -41,7 +43,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.LoggerUtil
 import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
-import com.digitalasset.canton.{DomainAlias, checked}
 import com.google.protobuf.ByteString
 import org.slf4j.event.Level
 
@@ -68,19 +69,26 @@ class SyncCryptoApiProvider(
 
   def pureCrypto: CryptoPureApi = crypto.pureCrypto
 
-  def tryForDomain(domain: DomainId, alias: Option[DomainAlias] = None): DomainSyncCryptoClient =
+  def tryForDomain(
+      domain: DomainId,
+      staticDomainParameters: StaticDomainParameters,
+  ): DomainSyncCryptoClient =
     new DomainSyncCryptoClient(
       owner,
       domain,
       ips.tryForDomain(domain),
       crypto,
       cachingConfigs,
+      staticDomainParameters,
       timeouts,
       futureSupervisor,
       loggerFactory.append("domainId", domain.toString),
     )
 
-  def forDomain(domain: DomainId): Option[DomainSyncCryptoClient] =
+  def forDomain(
+      domain: DomainId,
+      staticDomainParameters: StaticDomainParameters,
+  ): Option[DomainSyncCryptoClient] =
     for {
       dips <- ips.forDomain(domain)
     } yield new DomainSyncCryptoClient(
@@ -89,6 +97,7 @@ class SyncCryptoApiProvider(
       dips,
       crypto,
       cachingConfigs,
+      staticDomainParameters,
       timeouts,
       futureSupervisor,
       loggerFactory,
@@ -290,6 +299,7 @@ class DomainSyncCryptoClient(
     val ips: DomainTopologyClient,
     val crypto: Crypto,
     cacheConfigs: CachingConfigs,
+    val staticDomainParameters: StaticDomainParameters,
     override val timeouts: ProcessingTimeout,
     override protected val futureSupervisor: FutureSupervisor,
     override val loggerFactory: NamedLoggerFactory,
@@ -329,17 +339,17 @@ class DomainSyncCryptoClient(
   ): FutureUnlessShutdown[DomainSnapshotSyncCryptoApi] =
     ips.awaitSnapshotUS(timestamp).map(create)
 
-  private def create(snapshot: TopologySnapshot): DomainSnapshotSyncCryptoApi = {
+  private def create(snapshot: TopologySnapshot): DomainSnapshotSyncCryptoApi =
     new DomainSnapshotSyncCryptoApi(
       owner,
       domainId,
+      staticDomainParameters,
       snapshot,
       crypto,
       ts => EitherT(mySigningKeyCache.get(ts)),
       cacheConfigs.keyCache,
       loggerFactory,
     )
-  }
 
   private val mySigningKeyCache = cacheConfigs.mySigningKeyCache
     .buildScaffeine()
@@ -417,6 +427,7 @@ class DomainSyncCryptoClient(
 class DomainSnapshotSyncCryptoApi(
     val owner: KeyOwner,
     val domainId: DomainId,
+    staticDomainParameters: StaticDomainParameters,
     override val ipsSnapshot: TopologySnapshot,
     val crypto: Crypto,
     fetchSigningKey: CantonTimestamp => EitherT[Future, SyncCryptoError, Fingerprint],
@@ -460,18 +471,26 @@ class DomainSnapshotSyncCryptoApi(
       val error =
         if (validKeys.isEmpty)
           SignerHasNoValidKeys(
-            s"There are no valid keys for ${signerStr_} but received message signed with ${signature.signedBy}"
+            s"There are no valid keys for $signerStr_ but received message signed with ${signature.signedBy}"
           )
         else
           SignatureWithWrongKey(
-            s"Key ${signature.signedBy} used to generate signature is not a valid key for ${signerStr_}. Valid keys are ${validKeys.values
+            s"Key ${signature.signedBy} used to generate signature is not a valid key for $signerStr_. Valid keys are ${validKeys.values
                 .map(_.fingerprint.unwrap)}"
           )
       Left(error)
     }
     validKeys.get(signature.signedBy) match {
       case Some(key) =>
-        crypto.pureCrypto.verifySignature(hash, key, signature)
+        if (staticDomainParameters.requiredSigningKeySchemes.contains(key.scheme))
+          crypto.pureCrypto.verifySignature(hash, key, signature)
+        else
+          Left(
+            InvalidCryptoScheme(
+              s"The signing key scheme ${key.scheme} is not part of the " +
+                s"required schemes: ${staticDomainParameters.requiredSigningKeySchemes}"
+            )
+          )
       case None =>
         signatureCheckFailed()
     }
@@ -576,40 +595,12 @@ class DomainSnapshotSyncCryptoApi(
         EitherT.rightT(validKeys.nonEmpty)
     }
 
-  override def decrypt[M](encryptedMessage: Encrypted[M])(
-      deserialize: ByteString => Either[DeserializationError, M]
-  )(implicit traceContext: TraceContext): EitherT[Future, SyncCryptoError, M] = {
-    EitherT(
-      ipsSnapshot
-        .encryptionKey(owner)
-        .map { keyO =>
-          keyO
-            .toRight(
-              KeyNotAvailable(
-                owner,
-                KeyPurpose.Encryption,
-                ipsSnapshot.timestamp,
-                Seq.empty,
-              ): SyncCryptoError
-            )
-        }
-    )
-      .flatMap(key =>
-        crypto.privateCrypto
-          .decrypt(AsymmetricEncrypted(encryptedMessage.ciphertext, key.fingerprint))(
-            deserialize
-          )
-          .leftMap(err => SyncCryptoError.SyncCryptoDecryptionError(err))
-      )
-  }
-
   override def decrypt[M](encryptedMessage: AsymmetricEncrypted[M])(
       deserialize: ByteString => Either[DeserializationError, M]
-  )(implicit traceContext: TraceContext): EitherT[Future, SyncCryptoError, M] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SyncCryptoError, M] =
     crypto.privateCrypto
       .decrypt(encryptedMessage)(deserialize)
       .leftMap[SyncCryptoError](err => SyncCryptoError.SyncCryptoDecryptionError(err))
-  }
 
   /** Encrypts a message for the given key owner
     *

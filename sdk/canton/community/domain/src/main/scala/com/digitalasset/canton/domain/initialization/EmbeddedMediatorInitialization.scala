@@ -14,6 +14,7 @@ import com.digitalasset.canton.domain.DomainNodeParameters
 import com.digitalasset.canton.domain.mediator.{MediatorRuntime, MediatorRuntimeFactory}
 import com.digitalasset.canton.domain.metrics.DomainMetrics
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.sequencing.client.{RequestSigner, SequencerClientFactory}
@@ -40,6 +41,7 @@ object EmbeddedMediatorInitialization {
 
   def apply(
       id: DomainId,
+      staticDomainParameters: StaticDomainParameters,
       cantonParameterConfig: DomainNodeParameters,
       protocolVersion: ProtocolVersion,
       clock: Clock,
@@ -93,6 +95,7 @@ object EmbeddedMediatorInitialization {
           protocolVersion,
           crypto,
           Map(),
+          staticDomainParameters,
           cantonParameterConfig,
           clock,
           futureSupervisor,
@@ -107,6 +110,7 @@ object EmbeddedMediatorInitialization {
           topologyClient,
           crypto,
           cantonParameterConfig.cachingConfigs,
+          staticDomainParameters,
           timeouts,
           futureSupervisor,
           loggerFactory,

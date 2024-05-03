@@ -221,6 +221,7 @@ class TransferInValidationTest
 
     new TransferInValidation(
       domainId,
+      defaultStaticDomainParameters,
       submitterParticipant,
       damle,
       TestTransferCoordination.apply(

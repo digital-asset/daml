@@ -31,6 +31,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[transfer] class TransferInValidation(
     domainId: TargetDomainId,
+    staticDomainParameters: StaticDomainParameters,
     participantId: ParticipantId,
     engine: DAMLe,
     transferCoordination: TransferCoordination,
@@ -118,13 +119,18 @@ private[transfer] class TransferInValidation(
             )
             EitherT(
               transferCoordination
-                .awaitTransferOutTimestamp(sourceDomain, transferOutTimestamp)
+                .awaitTransferOutTimestamp(
+                  sourceDomain,
+                  staticDomainParameters,
+                  transferOutTimestamp,
+                )
                 .sequence
             )
           }
 
           sourceCrypto <- transferCoordination.cryptoSnapshot(
             sourceDomain.unwrap,
+            staticDomainParameters,
             transferOutTimestamp,
           )
           // TODO(i12926): Check the signatures of the mediator and the sequencer
@@ -151,7 +157,11 @@ private[transfer] class TransferInValidation(
 
           // TODO(i12926): Check that transferData.transferOutRequest.targetTimeProof.timestamp is in the past
           cryptoSnapshot <- transferCoordination
-            .cryptoSnapshot(transferData.targetDomain.unwrap, targetTimeProof)
+            .cryptoSnapshot(
+              transferData.targetDomain.unwrap,
+              staticDomainParameters,
+              targetTimeProof,
+            )
 
           exclusivityLimit <- ProcessingSteps
             .getTransferInExclusivity(

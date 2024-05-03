@@ -671,6 +671,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         loggerFactory,
       ),
       seedGenerator,
+      defaultStaticDomainParameters,
       TargetProtocolVersion(testedProtocolVersion),
       loggerFactory = loggerFactory,
     )

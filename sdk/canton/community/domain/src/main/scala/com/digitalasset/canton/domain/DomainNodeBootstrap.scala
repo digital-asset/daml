@@ -200,6 +200,10 @@ class DomainNodeBootstrap(
   ): EitherT[FutureUnlessShutdown, String, Unit] =
     withNewTraceContext { implicit traceContext =>
       for {
+        _ <- CryptoHandshakeValidator
+          .validate(staticDomainParametersFromConfig, cryptoConfig)
+          .toEitherT[FutureUnlessShutdown]
+
         initialized <- initializeTopologyManagerIdentity(
           name,
           DynamicDomainParameters.initialValues(clock, protocolVersion),
@@ -336,6 +340,10 @@ class DomainNodeBootstrap(
 
   override protected def initialize(id: NodeId): EitherT[FutureUnlessShutdown, String, Unit] = {
     for {
+      _ <- CryptoHandshakeValidator
+        .validate(staticDomainParametersFromConfig, cryptoConfig)
+        .toEitherT[FutureUnlessShutdown]
+
       // TODO(#11052) fix node initialization such that we don't store "inconsistent" init data
       //    domain nodes get first initialized with init_id and then subsequently they get initialized
       //    with another init call (which then writes to the node config store).
@@ -452,6 +460,7 @@ class DomainNodeBootstrap(
             protocolVersion,
             crypto.value,
             SigningPublicKey.collect(initialKeys),
+            staticDomainParameters,
             parameters,
             clock,
             futureSupervisor,
@@ -484,7 +493,7 @@ class DomainNodeBootstrap(
             futureSupervisor,
             loggerFactory,
           )
-            .tryForDomain(domainId)
+            .tryForDomain(domainId, staticDomainParameters)
         }
 
         // Setup the service agreement manager and its storage
@@ -589,6 +598,7 @@ class DomainNodeBootstrap(
         _ = domainTopologySenderHealth.set(topologyManagementArtefacts.dispatcher.sender)
         mediatorRuntime <- EmbeddedMediatorInitialization(
           domainId,
+          staticDomainParameters,
           parameters,
           staticDomainParameters.protocolVersion,
           clock,

@@ -203,7 +203,9 @@ abstract class ConfirmationResponseProcessorTestBase
     val participantCrypto = identityFactory.forOwner(participant)
     SignedProtocolMessage.trySignAndCreate(
       response,
-      participantCrypto.tryForDomain(domainId).currentSnapshotApproximation,
+      participantCrypto
+        .tryForDomain(domainId, defaultStaticDomainParameters)
+        .currentSnapshotApproximation,
       testedProtocolVersion,
     )
   }
@@ -336,6 +338,7 @@ abstract class ConfirmationResponseProcessorTestBase
         domainSyncCryptoApi.ips,
         domainSyncCryptoApi.crypto,
         CachingConfigs.testing,
+        defaultStaticDomainParameters,
         timeouts,
         FutureSupervisor.Noop,
         loggerFactory,
@@ -1013,7 +1016,9 @@ abstract class ConfirmationResponseProcessorTestBase
         val participantCrypto = identityFactory2.forOwner(participant)
         SignedProtocolMessage.trySignAndCreate(
           response,
-          participantCrypto.tryForDomain(domainId).currentSnapshotApproximation,
+          participantCrypto
+            .tryForDomain(domainId, defaultStaticDomainParameters)
+            .currentSnapshotApproximation,
           testedProtocolVersion,
         )
       }

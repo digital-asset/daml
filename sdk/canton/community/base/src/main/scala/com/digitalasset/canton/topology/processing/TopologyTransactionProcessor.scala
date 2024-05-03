@@ -22,6 +22,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext, Lifecycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.time.Clock
@@ -421,6 +422,7 @@ object TopologyTransactionProcessor {
       protocolVersion: ProtocolVersion,
       crypto: Crypto,
       initKeys: Map[KeyOwner, Seq[PublicKey]],
+      staticDomainParameters: StaticDomainParameters,
       parameters: CantonNodeParameters,
       clock: Clock,
       futureSupervisor: FutureSupervisor,
@@ -453,6 +455,7 @@ object TopologyTransactionProcessor {
         topologyClient,
         crypto,
         parameters.cachingConfigs,
+        staticDomainParameters,
         parameters.processingTimeouts,
         futureSupervisor,
         loggerFactory,

@@ -5,6 +5,7 @@ package com.digitalasset.canton.topology
 
 import cats.data.EitherT
 import com.daml.lf.data.Ref.PackageId
+import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.{
   DirectExecutionContext,
   FutureSupervisor,
@@ -53,7 +54,10 @@ trait TestingIdentityFactoryBase { self: NamedLogging =>
       domain: DomainId = DefaultTestIdentities.domainId,
       availableUpToInclusive: CantonTimestamp = CantonTimestamp.MaxValue,
   ): DomainSyncCryptoClient =
-    forOwner(owner, availableUpToInclusive).tryForDomain(domain)
+    forOwner(owner, availableUpToInclusive).tryForDomain(
+      domain,
+      BaseTest.defaultStaticDomainParameters,
+    )
 
   protected def domains: Set[DomainId]
 

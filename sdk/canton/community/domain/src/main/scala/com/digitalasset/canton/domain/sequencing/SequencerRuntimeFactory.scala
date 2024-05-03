@@ -125,6 +125,7 @@ object SequencerRuntimeFactory {
         topologyClient,
         crypto,
         localParameters.cachingConfigs,
+        staticDomainParameters,
         processingTimeout,
         futureSupervisor,
         loggerFactory,

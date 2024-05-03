@@ -1162,7 +1162,7 @@ class CantonSyncService(
 
         persistent = domainHandle.domainPersistentState
         domainId = domainHandle.domainId
-        domainCrypto = syncCrypto.tryForDomain(domainId, Some(domainAlias))
+        domainCrypto = syncCrypto.tryForDomain(domainId, domainHandle.staticParameters)
 
         ephemeral <- EitherT.right[SyncServiceError](
           FutureUnlessShutdown.outcomeF(

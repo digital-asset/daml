@@ -117,6 +117,7 @@ class TransactionProcessor(
       crypto,
       sequencerClient,
       domainId,
+      staticDomainParameters,
       staticDomainParameters.protocolVersion,
       loggerFactory,
       futureSupervisor,

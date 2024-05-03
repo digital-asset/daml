@@ -294,6 +294,7 @@ object TopologyManagementInitialization {
             clock,
             addressSequencerAsDomainMember,
             parameters,
+            syncCrypto.staticDomainParameters,
             futureSupervisor,
             dispatcherLoggerFactory,
             topologyManagerSequencerCounterTrackerStore,

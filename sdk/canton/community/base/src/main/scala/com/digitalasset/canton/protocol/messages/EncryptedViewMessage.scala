@@ -9,12 +9,14 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError.CryptoDeserializationError
-import com.digitalasset.canton.crypto.SyncCryptoError.SyncCryptoDecryptionError
+import com.digitalasset.canton.crypto.DecryptionError.{InvalidEncryptionKey, InvariantViolation}
+import com.digitalasset.canton.crypto.SyncCryptoError.{KeyNotAvailable, SyncCryptoDecryptionError}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError.FailedToReadKey
+import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPublicStore}
 import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.protocol.messages.EncryptedView.checkEncryptionKeyScheme
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessageError.{
   SessionKeyCreationError,
   SyncCryptoDecryptError,
@@ -144,6 +146,36 @@ object EncryptedView {
         .flatMap(deserialize)
         .map(CompressedView(_))
   }
+
+  // TODO(#12757): after we decouple crypto key scheme from encryption scheme we don't need to check the key but rather the AsymmetricEncrypted(<message>)
+  def checkEncryptionKeyScheme(
+      cryptoPublicStore: CryptoPublicStore,
+      keyId: Fingerprint,
+      allowedEncryptionKeySchemes: NonEmpty[Set[EncryptionKeyScheme]],
+  )(implicit
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[Future, InvalidEncryptionKey, Unit] =
+    for {
+      encryptionKey <- cryptoPublicStore
+        .findEncryptionKeyIdByName(keyId)
+        .leftMap(err => DecryptionError.InvalidEncryptionKey(err.show))
+      _ <- encryptionKey match {
+        case Some(encPubKey) =>
+          EitherT.cond[Future](
+            allowedEncryptionKeySchemes.contains(encPubKey.scheme),
+            (),
+            DecryptionError.InvalidEncryptionKey(
+              s"The encryption key scheme ${encPubKey.scheme} of key $keyId is not part of the " +
+                s"required schemes: $allowedEncryptionKeySchemes"
+            ),
+          )
+        case None =>
+          EitherT.leftT[Future, Unit](
+            DecryptionError.InvalidEncryptionKey(s"Encryption key $keyId not found")
+          )
+      }
+    } yield ()
 
 }
 
@@ -413,6 +445,7 @@ object EncryptedViewMessageV0 {
   }
 
   def decryptRandomness[VT <: ViewType](
+      allowedEncryptionKeySchemes: NonEmpty[Set[EncryptionKeyScheme]],
       snapshot: DomainSnapshotSyncCryptoApi,
       encrypted: EncryptedViewMessageV0[VT],
       participantId: ParticipantId,
@@ -430,10 +463,38 @@ object EncryptedViewMessageV0 {
             EncryptedViewMessageError.MissingParticipantKey(participantId)
           )
           .toEitherT[Future]
+      encryptionKey <- EitherT(
+        snapshot.ipsSnapshot
+          .encryptionKey(snapshot.owner)
+          .map { keyO =>
+            keyO
+              .toRight(
+                KeyNotAvailable(
+                  snapshot.owner,
+                  KeyPurpose.Encryption,
+                  snapshot.ipsSnapshot.timestamp,
+                  Seq.empty,
+                ): SyncCryptoError
+              )
+          }
+      ).leftMap(EncryptedViewMessageError.SyncCryptoDecryptError)
+      _ <- checkEncryptionKeyScheme(
+        snapshot.crypto.cryptoPublicStore,
+        encryptionKey.fingerprint,
+        allowedEncryptionKeySchemes,
+      )
+        .leftMap(err =>
+          EncryptedViewMessageError
+            .SyncCryptoDecryptError(
+              SyncCryptoDecryptionError(err)
+            )
+        )
       viewRandomness <- snapshot
-        .decrypt(encryptedRandomness)(SecureRandomness.fromByteString(randomnessLength))
+        .decrypt(AsymmetricEncrypted(encryptedRandomness.ciphertext, encryptionKey.id))(
+          SecureRandomness.fromByteString(randomnessLength)
+        )
         .leftMap[EncryptedViewMessageError](
-          EncryptedViewMessageError.SyncCryptoDecryptError(_)
+          EncryptedViewMessageError.SyncCryptoDecryptError
         )
     } yield viewRandomness
   }
@@ -501,6 +562,7 @@ object EncryptedViewMessageV1 {
   }
 
   def decryptRandomness[VT <: ViewType](
+      allowedEncryptionKeySchemes: NonEmpty[Set[EncryptionKeyScheme]],
       snapshot: DomainSnapshotSyncCryptoApi,
       encrypted: EncryptedViewMessageV1[VT],
       participantId: ParticipantId,
@@ -518,6 +580,17 @@ object EncryptedViewMessageV1 {
           EncryptedViewMessageError.MissingParticipantKey(participantId)
         )
         .toEitherT[Future]
+      _ <- checkEncryptionKeyScheme(
+        snapshot.crypto.cryptoPublicStore,
+        encryptedRandomnessForParticipant.encryptedFor,
+        allowedEncryptionKeySchemes,
+      )
+        .leftMap(err =>
+          EncryptedViewMessageError
+            .SyncCryptoDecryptError(
+              SyncCryptoDecryptionError(err)
+            )
+        )
       viewRandomness <- snapshot
         .decrypt(encryptedRandomnessForParticipant)(
           SecureRandomness.fromByteString(
@@ -597,6 +670,7 @@ object EncryptedViewMessageV2 {
   }
 
   def decryptRandomness[VT <: ViewType](
+      allowedEncryptionKeySchemes: NonEmpty[Set[EncryptionKeyScheme]],
       snapshot: DomainSnapshotSyncCryptoApi,
       sessionKeyStore: SessionKeyStore,
       encrypted: EncryptedViewMessageV2[VT],
@@ -672,6 +746,17 @@ object EncryptedViewMessageV2 {
                 ),
               )
             }
+          _ <- checkEncryptionKeyScheme(
+            snapshot.crypto.cryptoPublicStore,
+            encryptedSessionKeyForParticipant.encryptedFor,
+            allowedEncryptionKeySchemes,
+          )
+            .leftMap(err =>
+              EncryptedViewMessageError
+                .SyncCryptoDecryptError(
+                  SyncCryptoDecryptionError(err)
+                )
+            )
 
           // we get the randomness for the session key from the message or by searching the cache,
           // which means that a previous view with the same recipients has been received before.
@@ -779,6 +864,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
   }
 
   def decryptRandomness[VT <: ViewType](
+      allowedEncryptionKeySchemes: NonEmpty[Set[EncryptionKeyScheme]],
       snapshot: DomainSnapshotSyncCryptoApi,
       sessionKeyStore: SessionKeyStore,
       encrypted: EncryptedViewMessage[VT],
@@ -789,11 +875,22 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
   ): EitherT[Future, EncryptedViewMessageError, SecureRandomness] =
     encrypted match {
       case encryptedV0: EncryptedViewMessageV0[VT] =>
-        EncryptedViewMessageV0.decryptRandomness(snapshot, encryptedV0, participantId)
+        EncryptedViewMessageV0.decryptRandomness(
+          allowedEncryptionKeySchemes,
+          snapshot,
+          encryptedV0,
+          participantId,
+        )
       case encryptedV1: EncryptedViewMessageV1[VT] =>
-        EncryptedViewMessageV1.decryptRandomness(snapshot, encryptedV1, participantId)
+        EncryptedViewMessageV1.decryptRandomness(
+          allowedEncryptionKeySchemes,
+          snapshot,
+          encryptedV1,
+          participantId,
+        )
       case encryptedV2: EncryptedViewMessageV2[VT] =>
         EncryptedViewMessageV2.decryptRandomness(
+          allowedEncryptionKeySchemes,
           snapshot,
           sessionKeyStore,
           encryptedV2,
@@ -802,6 +899,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
     }
 
   def decryptFor[VT <: ViewType](
+      staticDomainParameters: StaticDomainParameters,
       snapshot: DomainSnapshotSyncCryptoApi,
       sessionKeyStore: SessionKeyStore,
       encrypted: EncryptedViewMessage[VT],
@@ -814,17 +912,38 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
       tc: TraceContext,
   ): EitherT[Future, EncryptedViewMessageError, VT#View] = {
 
-    val decryptedRandomness =
-      decryptRandomness(snapshot, sessionKeyStore, encrypted, participantId)
-
-    for {
-      viewRandomness <- optViewRandomness.fold(
-        decryptedRandomness
-      )(r => EitherT.pure(r))
-      decrypted <- decryptWithRandomness(snapshot, encrypted, viewRandomness, protocolVersion)(
-        deserialize
+    // verify that the view symmetric encryption scheme is part of the required schemes
+    if (
+      !staticDomainParameters.requiredSymmetricKeySchemes
+        .contains(encrypted.viewEncryptionScheme)
+    ) {
+      EitherT.leftT[Future, VT#View](
+        EncryptedViewMessageError.SymmetricDecryptError(
+          InvariantViolation(
+            s"The view symmetric encryption scheme ${encrypted.viewEncryptionScheme} is not " +
+              s"part of the required schemes: ${staticDomainParameters.requiredSymmetricKeySchemes}"
+          )
+        )
       )
-    } yield decrypted
+    } else {
+      val decryptedRandomness =
+        decryptRandomness(
+          staticDomainParameters.requiredEncryptionKeySchemes,
+          snapshot,
+          sessionKeyStore,
+          encrypted,
+          participantId,
+        )
+
+      for {
+        viewRandomness <- optViewRandomness.fold(
+          decryptedRandomness
+        )(r => EitherT.pure(r))
+        decrypted <- decryptWithRandomness(snapshot, encrypted, viewRandomness, protocolVersion)(
+          deserialize
+        )
+      } yield decrypted
+    }
   }
 
   implicit val encryptedViewMessageCast
