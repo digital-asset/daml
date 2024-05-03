@@ -145,7 +145,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
 
       domainCryptoApi <- EitherT.fromEither[FutureUnlessShutdown](
         cryptoApiProvider
-          .forDomain(domainId)
+          .forDomain(domainId, sequencerAggregatedInfo.staticDomainParameters)
           .toRight(
             DomainRegistryError.DomainRegistryInternalError
               .InvalidState("crypto api for domain is unavailable"): DomainRegistryError

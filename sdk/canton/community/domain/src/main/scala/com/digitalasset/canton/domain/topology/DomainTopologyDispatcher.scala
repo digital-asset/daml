@@ -34,6 +34,7 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
   TracedLogger,
 }
+import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.protocol.messages.DomainTopologyTransactionMessage
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.{
   RequestInvalid,
@@ -111,6 +112,7 @@ private[domain] class DomainTopologyDispatcher(
     clock: Clock,
     addressSequencerAsDomainMember: Boolean,
     parameters: CantonNodeParameters,
+    staticDomainParameters: StaticDomainParameters,
     futureSupervisor: FutureSupervisor,
     val sender: DomainTopologySender,
     protected val loggerFactory: NamedLoggerFactory,
@@ -143,6 +145,7 @@ private[domain] class DomainTopologyDispatcher(
     topologyClient,
     crypto,
     parameters.cachingConfigs,
+    staticDomainParameters,
     timeouts,
     futureSupervisor,
     loggerFactory,
@@ -698,6 +701,7 @@ private[domain] object DomainTopologyDispatcher {
       clock: Clock,
       addressSequencerAsDomainMember: Boolean,
       parameters: CantonNodeParameters,
+      staticDomainParameters: StaticDomainParameters,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
       topologyManagerSequencerCounterTrackerStore: SequencerCounterTrackerStore,
@@ -728,6 +732,7 @@ private[domain] object DomainTopologyDispatcher {
       clock,
       addressSequencerAsDomainMember,
       parameters,
+      staticDomainParameters,
       futureSupervisor,
       sender,
       loggerFactory,

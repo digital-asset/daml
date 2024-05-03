@@ -106,6 +106,7 @@ class DomainNodeSequencerClientFactory(
         topologyClient,
         crypto,
         cantonNodeParameters.cachingConfigs,
+        domainParameters,
         cantonNodeParameters.processingTimeouts,
         futureSupervisor,
         loggerFactory,

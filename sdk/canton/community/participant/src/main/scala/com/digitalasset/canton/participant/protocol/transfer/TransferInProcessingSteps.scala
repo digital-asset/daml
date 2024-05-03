@@ -62,6 +62,7 @@ private[transfer] class TransferInProcessingSteps(
     val engine: DAMLe,
     transferCoordination: TransferCoordination,
     seedGenerator: SeedGenerator,
+    staticDomainParameters: StaticDomainParameters,
     targetProtocolVersion: TargetProtocolVersion,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -94,6 +95,7 @@ private[transfer] class TransferInProcessingSteps(
 
   private val transferInValidation = new TransferInValidation(
     domainId,
+    staticDomainParameters,
     participantId,
     engine,
     transferCoordination,
@@ -257,6 +259,7 @@ private[transfer] class TransferInProcessingSteps(
   ]] =
     EncryptedViewMessage
       .decryptFor(
+        staticDomainParameters,
         snapshot,
         sessionKeyStore,
         envelope.protocolMessage,

@@ -65,7 +65,9 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
   private val topologyClientMember = SequencerId(domainId)
   private val crypto = TestingTopology().build(loggerFactory).forOwner(SequencerId(domainId))
   private val cryptoD =
-    valueOrFail(crypto.forDomain(domainId).toRight("no crypto api"))("domain crypto")
+    valueOrFail(crypto.forDomain(domainId, defaultStaticDomainParameters).toRight("no crypto api"))(
+      "domain crypto"
+    )
   private val instanceDiscriminator = new UUID(1L, 2L)
 
   class ManualEventSignaller(implicit materializer: Materializer)

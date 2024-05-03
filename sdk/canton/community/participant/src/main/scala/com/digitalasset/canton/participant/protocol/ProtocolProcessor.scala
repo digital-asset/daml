@@ -97,6 +97,7 @@ abstract class ProtocolProcessor[
     crypto: DomainSyncCryptoClient,
     sequencerClient: SequencerClient,
     domainId: DomainId,
+    staticDomainParameters: StaticDomainParameters,
     protocolVersion: ProtocolVersion,
     override protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
@@ -108,6 +109,7 @@ abstract class ProtocolProcessor[
       ephemeral,
       crypto,
       sequencerClient,
+      staticDomainParameters,
       protocolVersion,
     )
     with RequestProcessor[RequestViewType] {

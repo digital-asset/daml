@@ -76,7 +76,7 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
       TestingTopology()
         .build(loggerFactory)
         .forOwner(SequencerId(domainId))
-        .forDomain(domainId)
+        .forDomain(domainId, defaultStaticDomainParameters)
         .toRight("crypto error")
     )("building crypto")
     val metrics = SequencerMetrics.noop("sequencer-test")

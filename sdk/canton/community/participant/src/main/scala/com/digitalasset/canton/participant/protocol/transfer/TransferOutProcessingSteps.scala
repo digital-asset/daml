@@ -57,6 +57,7 @@ class TransferOutProcessingSteps(
     val engine: DAMLe,
     transferCoordination: TransferCoordination,
     seedGenerator: SeedGenerator,
+    staticDomainParameters: StaticDomainParameters,
     val sourceDomainProtocolVersion: SourceProtocolVersion,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -119,7 +120,10 @@ class TransferOutProcessingSteps(
       storedContract <- getStoredContract(ephemeralState.contractLookup, contractId)
       stakeholders = storedContract.contract.metadata.stakeholders
 
-      timeProofAndSnapshot <- transferCoordination.getTimeProofAndSnapshot(targetDomain)
+      timeProofAndSnapshot <- transferCoordination.getTimeProofAndSnapshot(
+        targetDomain,
+        staticDomainParameters,
+      )
       (timeProof, targetCrypto) = timeProofAndSnapshot
       _ = logger.debug(withDetails(s"Picked time proof ${timeProof.timestamp}"))
 
@@ -255,6 +259,7 @@ class TransferOutProcessingSteps(
   ]] = {
     EncryptedViewMessage
       .decryptFor(
+        staticDomainParameters,
         sourceSnapshot,
         sessionKeyStore,
         envelope.protocolMessage,
@@ -362,6 +367,7 @@ class TransferOutProcessingSteps(
         transferCoordination
           .awaitTimestampAndGetCryptoSnapshot(
             domainId.unwrap,
+            staticDomainParameters,
             timestamp,
             waitForEffectiveTime = true,
           )
@@ -679,6 +685,7 @@ class TransferOutProcessingSteps(
     AutomaticTransferIn.perform(
       pendingRequestData.transferId,
       targetDomain,
+      staticDomainParameters,
       transferCoordination,
       pendingRequestData.stakeholders,
       pendingRequestData.submitterMetadata,

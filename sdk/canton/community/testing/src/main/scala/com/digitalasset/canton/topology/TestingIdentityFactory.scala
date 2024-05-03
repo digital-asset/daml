@@ -6,7 +6,10 @@ package com.digitalasset.canton.topology
 import cats.data.EitherT
 import cats.syntax.functor.*
 import com.daml.lf.data.Ref.PackageId
-import com.digitalasset.canton.BaseTest.testedReleaseProtocolVersion
+import com.digitalasset.canton.BaseTest.{
+  defaultStaticDomainParameters,
+  testedReleaseProtocolVersion,
+}
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, SymbolicPureCrypto}
@@ -630,6 +633,7 @@ object TestingIdentityFactory {
       topologyClient,
       crypto = crypto,
       cacheConfigs = CachingConfigs.testing,
+      defaultStaticDomainParameters,
       timeouts = DefaultProcessingTimeouts.testing,
       futureSupervisor,
       loggerFactory,
