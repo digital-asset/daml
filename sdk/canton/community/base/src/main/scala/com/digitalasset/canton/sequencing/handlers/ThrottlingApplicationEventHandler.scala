@@ -4,6 +4,7 @@
 package com.digitalasset.canton.sequencing.handlers
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.metrics.SequencerClientMetrics
 import com.digitalasset.canton.sequencing.ApplicationHandler
 import com.digitalasset.canton.sequencing.protocol.Envelope

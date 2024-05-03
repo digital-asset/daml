@@ -22,9 +22,11 @@ import io.circe.Encoder
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
 /** Top level trait representing an identity within the system */
-sealed trait Identity extends Product with Serializable with PrettyPrinting {
-  def uid: UniqueIdentifier
-
+sealed trait Identity
+    extends HasUniqueIdentifier
+    with Product
+    with Serializable
+    with PrettyPrinting {
   def toProtoPrimitive: String = uid.toProtoPrimitive
 
   /** returns the string representation used in console filters (maps to the uid) */
@@ -81,12 +83,12 @@ sealed trait Member extends Identity with Product with Serializable {
 
   def toLengthLimitedString: String300 =
     String300.tryCreate(
-      s"${code.threeLetterId.unwrap}${SafeSimpleString.delimiter}${uid.toProtoPrimitive}"
+      s"${code.threeLetterId.unwrap}${UniqueIdentifier.delimiter}${uid.toProtoPrimitive}"
     )
 
   override def pretty: Pretty[Member] =
     prettyOfString(inst =>
-      inst.code.threeLetterId.unwrap + SafeSimpleString.delimiter + inst.uid.show
+      inst.code.threeLetterId.unwrap + UniqueIdentifier.delimiter + inst.uid.show
     )
 }
 
@@ -106,7 +108,7 @@ object Member {
     }
 
     // expecting COD::<uid>
-    val dlen = SafeSimpleString.delimiter.length
+    val dlen = UniqueIdentifier.delimiter.length
 
     for {
       _ <- Either.cond(
@@ -115,12 +117,12 @@ object Member {
         s"Invalid member `$member`, expecting <three-letter-code>::id::fingerprint.",
       )
       _ <- Either.cond(
-        member.substring(3, 3 + dlen) == SafeSimpleString.delimiter,
+        member.substring(3, 3 + dlen) == UniqueIdentifier.delimiter,
         (),
-        s"Expected delimiter ${SafeSimpleString.delimiter} after three letter code of `$member`",
+        s"Expected delimiter ${UniqueIdentifier.delimiter} after three letter code of `$member`",
       )
       code <- MemberCode.fromProtoPrimitive_(typ)
-      uid <- UniqueIdentifier.fromProtoPrimitive_(uidS.substring(dlen))
+      uid <- UniqueIdentifier.fromProtoPrimitive_(uidS.substring(dlen)).leftMap(_.message)
       member <- mapToType(code, uid)
     } yield member
   }
@@ -212,7 +214,7 @@ object DomainId {
   def tryFromString(str: String): DomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive(str))
 
   def fromString(str: String): Either[String, DomainId] =
-    UniqueIdentifier.fromProtoPrimitive_(str).map(DomainId(_))
+    UniqueIdentifier.fromProtoPrimitive_(str).map(DomainId(_)).leftMap(_.message)
 
 }
 
@@ -235,8 +237,8 @@ object ParticipantId {
   object Code extends AuthenticatedMemberCode {
     val threeLetterId: String3 = String3.tryCreate("PAR")
   }
-  def apply(identifier: Identifier, namespace: Namespace): ParticipantId =
-    ParticipantId(UniqueIdentifier(identifier, namespace))
+  def apply(identifier: String, namespace: Namespace): ParticipantId =
+    ParticipantId(UniqueIdentifier.tryCreate(identifier, namespace))
 
   /** create a participant from a string
     *
@@ -261,15 +263,6 @@ object ParticipantId {
             .ValueDeserializationError(fieldName, s"Value $y is not of type `ParticipantId`")
         )
     }
-
-  def fromLfParticipant(lfParticipant: LedgerParticipantId): Either[String, ParticipantId] =
-    UniqueIdentifier.fromProtoPrimitive_(lfParticipant).map(ParticipantId(_))
-
-  def tryFromLfParticipant(lfParticipant: LedgerParticipantId): ParticipantId =
-    fromLfParticipant(lfParticipant).fold(
-      e => throw new IllegalArgumentException(e),
-      Predef.identity,
-    )
 
   def tryFromProtoPrimitive(str: String): ParticipantId =
     fromProtoPrimitive(str, "").fold(
@@ -301,11 +294,11 @@ object PartyId {
   implicit val setParameterPartyId: SetParameter[PartyId] =
     (p: PartyId, pp: PositionedParameters) => pp >> p.uid.toLengthLimitedString
 
-  def apply(identifier: Identifier, namespace: Namespace): PartyId =
-    PartyId(UniqueIdentifier(identifier, namespace))
+  def tryCreate(identifier: String, namespace: Namespace): PartyId =
+    PartyId(UniqueIdentifier.tryCreate(identifier, namespace))
 
   def fromLfParty(lfParty: LfPartyId): Either[String, PartyId] =
-    UniqueIdentifier.fromProtoPrimitive_(lfParty).map(PartyId(_))
+    UniqueIdentifier.fromProtoPrimitive_(lfParty).map(PartyId(_)).leftMap(_.message)
 
   def tryFromLfParty(lfParty: LfPartyId): PartyId =
     fromLfParty(lfParty) match {
@@ -358,10 +351,8 @@ object MediatorId {
     val threeLetterId = String3.tryCreate("MED")
   }
 
-  def apply(identifier: Identifier, namespace: Namespace): MediatorId =
-    MediatorId(UniqueIdentifier(identifier, namespace))
-
-  def apply(domainId: DomainId): MediatorId = MediatorId(domainId.unwrap)
+  def tryCreate(identifier: String, namespace: Namespace): MediatorId =
+    MediatorId(UniqueIdentifier.tryCreate(identifier, namespace))
 
   def fromProtoPrimitive(
       mediatorId: String,
@@ -398,10 +389,8 @@ object SequencerId {
   implicit val sequencerIdOrdering: Ordering[SequencerId] =
     Ordering.by(_.toString)
 
-  def apply(identifier: Identifier, namespace: Namespace): SequencerId =
-    SequencerId(UniqueIdentifier(identifier, namespace))
-
-  def apply(domainId: DomainId): SequencerId = SequencerId(domainId.unwrap)
+  def tryCreate(identifier: String, namespace: Namespace): SequencerId =
+    SequencerId(UniqueIdentifier.tryCreate(identifier, namespace))
 
   def fromProtoPrimitive(
       proto: String,

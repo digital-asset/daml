@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.data
 
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 
 import scala.annotation.nowarn
 import scala.collection.concurrent

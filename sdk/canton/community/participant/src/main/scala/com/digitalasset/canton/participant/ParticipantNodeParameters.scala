@@ -65,7 +65,6 @@ object ParticipantNodeParameters {
       ),
       sequencerClient = SequencerClientConfig(),
       dbMigrateAndStart = false,
-      useNewTrafficControl = false,
       exitOnFatalFailures = true,
       useUnifiedSequencer = false,
     ),

@@ -597,18 +597,6 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
   def defaultValues(protocolVersion: ProtocolVersion): DynamicDomainParameters =
     initialValues(defaultTopologyChangeDelay, protocolVersion)
 
-  /** Default mediator-X dynamic parameters allowing to specify more generous mediator-x timeouts for BFT-distribution */
-  def defaultXValues(
-      protocolVersion: ProtocolVersion,
-      mediatorReactionTimeout: NonNegativeFiniteDuration = defaultMediatorReactionTimeout,
-  ): DynamicDomainParameters =
-    initialValues(
-      defaultTopologyChangeDelay,
-      protocolVersion,
-      mediatorReactionTimeout = mediatorReactionTimeout,
-    )
-
-  // TODO(#15161) Rework this when old nodes are killed
   def initialValues(
       topologyChangeDelay: NonNegativeFiniteDuration,
       protocolVersion: ProtocolVersion,

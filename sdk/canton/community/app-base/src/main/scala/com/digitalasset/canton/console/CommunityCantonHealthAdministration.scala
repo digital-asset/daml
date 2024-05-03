@@ -12,7 +12,7 @@ import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{NonNegativeDuration, Password}
 import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.FutureInstances.*
 import io.circe.{Encoder, Json, KeyEncoder, jawn}
@@ -49,6 +49,8 @@ object CantonHealthAdministrationEncoders {
       }
     }
 
+  implicit val uniqueIdEncoder: Encoder[UniqueIdentifier] =
+    Encoder.encodeString.contramap(_.toString)
   implicit val traceElemEncoder: Encoder[StackTraceElement] =
     Encoder.encodeString.contramap(_.toString)
   implicit val threadKeyEncoder: KeyEncoder[Thread] = (thread: Thread) => thread.getName

@@ -183,6 +183,7 @@ class SequencerInfoLoader(
 
   def loadAndAggregateSequencerEndpoints(
       domainAlias: DomainAlias,
+      expectedDomainId: Option[DomainId],
       sequencerConnections: SequencerConnections,
       sequencerConnectionValidation: SequencerConnectionValidation,
   )(implicit
@@ -199,6 +200,7 @@ class SequencerInfoLoader(
         sequencerTrustThreshold = sequencerConnections.sequencerTrustThreshold,
         submissionRequestAmplification = sequencerConnections.submissionRequestAmplification,
         sequencerConnectionValidation = sequencerConnectionValidation,
+        expectedDomainId = expectedDomainId,
       )
     )
   )
@@ -443,6 +445,7 @@ object SequencerInfoLoader {
       sequencerTrustThreshold: PositiveInt,
       submissionRequestAmplification: SubmissionRequestAmplification,
       sequencerConnectionValidation: SequencerConnectionValidation,
+      expectedDomainId: Option[DomainId],
   )(
       fullResult: Seq[LoadSequencerEndpointInformationResult]
   )(implicit
@@ -451,7 +454,7 @@ object SequencerInfoLoader {
 
     require(fullResult.nonEmpty, "Non-empty list of sequencerId-to-endpoint pair is expected")
 
-    validateNewSequencerConnectionResults(None, sequencerConnectionValidation, logger)(
+    validateNewSequencerConnectionResults(expectedDomainId, sequencerConnectionValidation, logger)(
       fullResult.toList
     ) match {
       case Right(()) =>

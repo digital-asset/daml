@@ -25,7 +25,7 @@ import com.digitalasset.canton.participant.store.{
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
 import com.digitalasset.canton.participant.topology.{
   LedgerServerPartyNotifier,
-  ParticipantTopologyDispatcherCommon,
+  ParticipantTopologyDispatcher,
   TopologyComponentFactory,
 }
 import com.digitalasset.canton.protocol.StaticDomainParameters
@@ -56,7 +56,7 @@ class GrpcDomainRegistry(
     val participantId: ParticipantId,
     syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
     participantSettings: Eval[ParticipantSettingsLookup],
-    topologyDispatcher: ParticipantTopologyDispatcherCommon,
+    topologyDispatcher: ParticipantTopologyDispatcher,
     cryptoApiProvider: SyncCryptoApiProvider,
     cryptoConfig: CryptoConfig,
     clock: Clock,
@@ -125,6 +125,7 @@ class GrpcDomainRegistry(
       info <- sequencerInfoLoader
         .loadAndAggregateSequencerEndpoints(
           config.domain,
+          config.domainId,
           sequencerConnections,
           SequencerConnectionValidation.Active, // only validate active sequencers (not all endpoints)
         )(

@@ -5,7 +5,7 @@ package com.digitalasset.canton.topology.store
 
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.processing.SequencedTime
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -16,18 +16,18 @@ trait TopologyStateForInitializationService {
   def initialSnapshot(member: Member)(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[GenericStoredTopologyTransactionsX]
+  ): Future[GenericStoredTopologyTransactions]
 }
 
 final class StoreBasedTopologyStateForInitializationService(
-    domainTopologyStore: TopologyStoreX[DomainStore],
+    domainTopologyStore: TopologyStore[DomainStore],
     val loggerFactory: NamedLoggerFactory,
 ) extends TopologyStateForInitializationService
     with NamedLogging {
 
   /** Downloading the initial topology snapshot works as follows:
     *
-    * 1. Determine the first MediatorDomainStateX or DomainTrustCertificateX that mentions the member to onboard.
+    * 1. Determine the first MediatorDomainState or DomainTrustCertificate that mentions the member to onboard.
     * 2. Take its effective time (here t0')
     * 3. Find all transactions with sequence time <= t0'
     * 4. Find the maximum effective time of the transactions returned in 3. (here ts1')
@@ -53,7 +53,7 @@ final class StoreBasedTopologyStateForInitializationService(
   override def initialSnapshot(member: Member)(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[GenericStoredTopologyTransactionsX] = {
+  ): Future[GenericStoredTopologyTransactions] = {
     val effectiveFromF = member match {
       case participant @ ParticipantId(_) =>
         domainTopologyStore
@@ -76,7 +76,7 @@ final class StoreBasedTopologyStateForInitializationService(
           domainTopologyStore.findEssentialStateAtSequencedTime(referenceSequencedTime)
         }
         // TODO(#12390) should this error out if nothing can be found?
-        .getOrElse(Future.successful(StoredTopologyTransactionsX.empty))
+        .getOrElse(Future.successful(StoredTopologyTransactions.empty))
     }
   }
 }

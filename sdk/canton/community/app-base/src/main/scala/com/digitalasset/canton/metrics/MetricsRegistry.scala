@@ -8,9 +8,9 @@ import com.daml.metrics.api.opentelemetry.{OpenTelemetryMetricsFactory, Slf4jMet
 import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.daml.metrics.grpc.DamlGrpcServerMetrics
 import com.daml.metrics.{HealthMetrics, HistogramDefinition, MetricsFilterConfig}
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.Port
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.metrics.{MediatorMetrics, SequencerMetrics}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.MetricsConfig.JvmMetrics
@@ -174,7 +174,7 @@ final case class MetricsRegistry(
       case MetricsFactoryType.External =>
         new OpenTelemetryMetricsFactory(
           meter,
-          Set(),
+          MetricsRegistry.KNOWN_METRICS,
           Some(logger.underlying),
           globalMetricsContext = extraContext,
         )
@@ -192,6 +192,14 @@ final case class MetricsRegistry(
 }
 
 object MetricsRegistry extends LazyLogging {
+
+  private lazy val KNOWN_METRICS = Set(
+    "daml.sequencer-client.handler.application-handle",
+    "daml.sequencer-client.submissions.sends",
+    "daml.sequencer-client.submissions.sequencing",
+    "daml.commitments.compute",
+    "daml.grpc.server",
+  ) ++ Metrics.KNOWN_METRICS
 
   val prefix: MetricName = MetricName.Daml
 

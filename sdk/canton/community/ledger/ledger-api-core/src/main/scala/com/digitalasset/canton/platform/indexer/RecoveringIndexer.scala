@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.indexer
 
 import com.daml.ledger.resources.{Resource, ResourceContext}
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, Healthy, ReportsHealth, Unhealthy}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext

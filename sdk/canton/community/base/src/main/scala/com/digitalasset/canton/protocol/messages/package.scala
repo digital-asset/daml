@@ -16,9 +16,9 @@ package object messages {
 
   type DefaultOpenEnvelope = OpenEnvelope[ProtocolMessage]
   object DefaultOpenEnvelopesFilter {
-    def containsTopologyX(envelopes: Seq[DefaultOpenEnvelope]): Boolean = envelopes.exists {
+    def containsTopology(envelopes: Seq[DefaultOpenEnvelope]): Boolean = envelopes.exists {
       envelope =>
-        val broadcastO = ProtocolMessage.select[TopologyTransactionsBroadcastX](envelope)
+        val broadcastO = ProtocolMessage.select[TopologyTransactionsBroadcast](envelope)
         val envelopeIsValidBroadcast =
           broadcastO.exists(_.recipients.allRecipients.contains(AllMembersOfDomain))
 

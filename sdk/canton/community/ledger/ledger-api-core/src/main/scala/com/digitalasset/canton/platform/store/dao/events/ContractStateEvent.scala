@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.lf.data.Time.Timestamp
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.*
 
 sealed trait ContractStateEvent extends Product with Serializable {

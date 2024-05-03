@@ -10,7 +10,7 @@ import com.digitalasset.canton.config.{
   CommunityDbConfig,
   CommunityStorageConfig,
 }
-import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeXConfig
+import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeConfig
 import com.digitalasset.canton.domain.sequencing.sequencer.CommunitySequencerConfig
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.{
   CommunityReferenceSequencerDriverFactory,
@@ -118,9 +118,9 @@ class UseCommunityReferenceBlockSequencer[S <: CommunityStorageConfig](
     val sequencersToConfig: Map[InstanceName, CommunitySequencerConfig] =
       driverConfigs(config, defaultDriverConfig, storageConfigMap)
 
-    def mapSequencerXConfigs(
-        kv: (InstanceName, CommunitySequencerNodeXConfig)
-    ): (InstanceName, CommunitySequencerNodeXConfig) = kv match {
+    def mapSequencerConfigs(
+        kv: (InstanceName, CommunitySequencerNodeConfig)
+    ): (InstanceName, CommunitySequencerNodeConfig) = kv match {
       case (name, config) =>
         (
           name,
@@ -130,6 +130,6 @@ class UseCommunityReferenceBlockSequencer[S <: CommunityStorageConfig](
 
     config
       .focus(_.sequencers)
-      .modify(_.map(mapSequencerXConfigs))
+      .modify(_.map(mapSequencerConfigs))
   }
 }

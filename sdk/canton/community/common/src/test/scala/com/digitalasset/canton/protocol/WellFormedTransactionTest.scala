@@ -7,7 +7,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.value.Value
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.{State, WithSuffixes, WithoutSuffixes}
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPartyId}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPackageName, LfPartyId}
 import org.scalatest.prop.{TableFor3, TableFor4}
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -271,7 +271,12 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
             signatories = Set(signatory),
             key = Some(
               LfGlobalKeyWithMaintainers
-                .assertBuild(templateId, contractInst.unversioned.arg, Set.empty)
+                .assertBuild(
+                  templateId,
+                  contractInst.unversioned.arg,
+                  Set.empty,
+                  LfPackageName.assertFromString("package-name"),
+                )
             ),
           ),
           ExampleTransactionFactory.exerciseNode(

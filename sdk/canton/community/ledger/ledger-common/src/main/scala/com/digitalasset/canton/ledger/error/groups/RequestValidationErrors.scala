@@ -250,8 +250,7 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
     final case class Reject(reason: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          // TODO(i12777): Update the cause to mention a 'request' instead of a 'command'
-          cause = s"The submitted command has invalid arguments: ${reason}"
+          cause = s"The submitted request has invalid arguments: ${reason}"
         )
   }
 

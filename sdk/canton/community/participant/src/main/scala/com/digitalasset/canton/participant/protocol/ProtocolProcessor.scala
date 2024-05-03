@@ -16,9 +16,15 @@ import com.digitalasset.canton.crypto.{
   DomainSyncCryptoClient,
   Signature,
 }
-import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition, ViewTree, ViewType}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  DeduplicationPeriod,
+  ViewPosition,
+  ViewTree,
+  ViewType,
+}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.TransactionError
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -50,7 +56,7 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DiscardOps, LfPartyId, RequestCounter, SequencerCounter, checked}
+import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter, checked}
 import com.google.common.annotations.VisibleForTesting
 
 import java.util.UUID
@@ -1776,8 +1782,8 @@ abstract class ProtocolProcessor[
 object ProtocolProcessor {
   private val approvalContradictionCheckIsEnabled = new AtomicReference[Boolean](true)
   private val testsAllowedToDisableApprovalContradictionCheck = Seq(
-    "LedgerAuthorizationReferenceXIntegrationTestDefault",
-    "LedgerAuthorizationBftOrderingXIntegrationTestDefault",
+    "LedgerAuthorizationReferenceIntegrationTestDefault",
+    "LedgerAuthorizationBftOrderingIntegrationTestDefault",
     "PackageVettingIntegrationTestDefault",
   )
 

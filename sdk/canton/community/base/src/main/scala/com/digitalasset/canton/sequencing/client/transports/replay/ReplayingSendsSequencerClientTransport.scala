@@ -7,9 +7,11 @@ import cats.data.EitherT
 import cats.syntax.traverse.*
 import com.daml.metrics.api.MetricsContext.withEmptyMetricsContext
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.{MetricValue, SequencerClientMetrics}
@@ -28,13 +30,12 @@ import com.digitalasset.canton.sequencing.{
   SerializedEventHandler,
 }
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, OptionUtil, PekkoUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DiscardOps, SequencerCounter}
 import io.opentelemetry.sdk.metrics.data.MetricData
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Materializer
@@ -393,7 +394,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
   override def downloadTopologyStateForInit(request: TopologyStateForInitRequest)(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, TopologyStateForInitResponse] =
-    EitherT.rightT(TopologyStateForInitResponse(Traced(StoredTopologyTransactionsX.empty)))
+    EitherT.rightT(TopologyStateForInitResponse(Traced(StoredTopologyTransactions.empty)))
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = Seq(
     SyncCloseable("underlying-transport", underlyingTransport.close())

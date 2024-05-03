@@ -8,25 +8,9 @@ import cats.implicits.showInterpolator
 import cats.instances.future.*
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.{
-  CommunityCryptoProvider,
-  CryptoConfig,
-  CryptoProvider,
-  CryptoProviderScheme,
-  CryptoSchemeConfig,
-  ProcessingTimeout,
-}
-import com.digitalasset.canton.crypto.CryptoFactory.{
-  CryptoStoresAndSchemes,
-  selectAllowedEncryptionKeyScheme,
-  selectAllowedSigningKeyScheme,
-  selectSchemes,
-}
-import com.digitalasset.canton.crypto.provider.jce.{
-  JceJavaConverter,
-  JcePrivateCrypto,
-  JcePureCrypto,
-}
+import com.digitalasset.canton.config.*
+import com.digitalasset.canton.crypto.CryptoFactory.{CryptoStoresAndSchemes, selectSchemes}
+import com.digitalasset.canton.crypto.provider.jce.{JcePrivateCrypto, JcePureCrypto}
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStore, CryptoPublicStore}
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -61,12 +45,6 @@ trait CryptoFactory {
       symmetricKeyScheme <- selectSchemes(config.symmetric, config.provider.symmetric)
         .map(_.default)
       hashAlgorithm <- selectSchemes(config.hash, config.provider.hash).map(_.default)
-      requiredSigningKeySchemes <- selectAllowedSigningKeyScheme(config)
-      requiredEncryptionKeySchemes <- selectAllowedEncryptionKeyScheme(config)
-      jceJavaConverter = new JceJavaConverter(
-        requiredSigningKeySchemes,
-        requiredEncryptionKeySchemes,
-      )
       crypto <- config.provider match {
         case _: CryptoProvider.JceCryptoProvider =>
           for {
@@ -75,7 +53,6 @@ trait CryptoFactory {
             )
             pbkdfScheme <- selectSchemes(config.pbkdf, pbkdfSchemes).map(_.default)
           } yield new JcePureCrypto(
-            jceJavaConverter,
             symmetricKeyScheme,
             hashAlgorithm,
             pbkdfScheme,
@@ -232,19 +209,15 @@ object JceCrypto {
         )
         .toEitherT[Future]
       _ = Security.addProvider(new BouncyCastleProvider)
-      requiredSigningKeySchemes <- selectAllowedSigningKeyScheme(config).toEitherT[Future]
-      requiredEncryptionKeySchemes <- selectAllowedEncryptionKeyScheme(config).toEitherT[Future]
-      javaKeyConverter = new JceJavaConverter(
-        requiredSigningKeySchemes,
-        requiredEncryptionKeySchemes,
-      )
+      // TODO(i18203): Ensure required/allowed schemes are enforced by private/pure crypto classes
+//      requiredSigningKeySchemes <- selectAllowedSigningKeyScheme(config).toEitherT[Future]
+//      requiredEncryptionKeySchemes <- selectAllowedEncryptionKeyScheme(config).toEitherT[Future]
       pbkdfSchemes <- config.provider.pbkdf
         .toRight("PBKDF schemes must be set for JCE provider")
         .toEitherT[Future]
       pbkdfScheme <- selectSchemes(config.pbkdf, pbkdfSchemes).map(_.default).toEitherT[Future]
       pureCrypto =
         new JcePureCrypto(
-          javaKeyConverter,
           storesAndSchemes.symmetricKeyScheme,
           storesAndSchemes.hashAlgorithm,
           pbkdfScheme,
@@ -262,7 +235,6 @@ object JceCrypto {
         privateCrypto,
         storesAndSchemes.cryptoPrivateStore,
         storesAndSchemes.cryptoPublicStore,
-        javaKeyConverter,
         timeouts,
         loggerFactory,
       )

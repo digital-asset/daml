@@ -18,8 +18,8 @@ import com.digitalasset.canton.store.memory.InMemorySendTrackerStore
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
-import com.digitalasset.canton.topology.store.db.DbTopologyStoreX
-import com.digitalasset.canton.topology.{DomainOutboxQueue, DomainTopologyManagerX}
+import com.digitalasset.canton.topology.store.db.DbTopologyStore
+import com.digitalasset.canton.topology.{DomainOutboxQueue, DomainTopologyManager, ParticipantId}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
@@ -27,6 +27,7 @@ import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
 import scala.concurrent.ExecutionContext
 
 class DbSyncDomainPersistentState(
+    participantId: ParticipantId,
     override val domainId: IndexedDomain,
     val protocolVersion: ProtocolVersion,
     clock: Clock,
@@ -133,7 +134,7 @@ class DbSyncDomainPersistentState(
     )
 
   override val topologyStore =
-    new DbTopologyStoreX(
+    new DbTopologyStore(
       storage,
       DomainStore(domainId.item),
       timeouts,
@@ -142,7 +143,8 @@ class DbSyncDomainPersistentState(
 
   override val domainOutboxQueue = new DomainOutboxQueue(loggerFactory)
 
-  override val topologyManager = new DomainTopologyManagerX(
+  override val topologyManager = new DomainTopologyManager(
+    participantId.uid,
     clock = clock,
     crypto = crypto,
     store = topologyStore,

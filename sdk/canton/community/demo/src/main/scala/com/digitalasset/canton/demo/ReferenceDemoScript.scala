@@ -8,6 +8,7 @@ import com.daml.ledger.javaapi.data.codegen.{Contract, ContractCompanion, Contra
 import com.daml.ledger.javaapi.data.{Template, TransactionTree}
 import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters
 import com.digitalasset.canton.concurrent.Threading
+import com.digitalasset.canton.config
 import com.digitalasset.canton.console.commands.DomainChoice
 import com.digitalasset.canton.console.{
   ConsoleEnvironment,
@@ -18,6 +19,7 @@ import com.digitalasset.canton.console.{
 import com.digitalasset.canton.demo.Step.{Action, Noop}
 import com.digitalasset.canton.demo.model.ai.java as ME
 import com.digitalasset.canton.demo.model.doctor.java as M
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.protocol.DynamicDomainParameters
@@ -26,7 +28,6 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DiscardOps, config}
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicReference

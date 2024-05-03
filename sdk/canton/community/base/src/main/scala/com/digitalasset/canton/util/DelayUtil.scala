@@ -4,8 +4,8 @@
 package com.digitalasset.canton.util
 
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.Threading
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{
   FutureUnlessShutdown,
   OnShutdownRunner,

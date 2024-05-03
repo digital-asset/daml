@@ -9,6 +9,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.{CantonTimestamp, TaskScheduler, TaskSchedulerMetrics}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.lifecycle.{
   AsyncOrSyncCloseable,
@@ -28,7 +29,7 @@ import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, SingleUseCell}
-import com.digitalasset.canton.{DiscardOps, RequestCounter, SequencerCounter}
+import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.google.common.annotations.VisibleForTesting
 
 import scala.annotation.nowarn

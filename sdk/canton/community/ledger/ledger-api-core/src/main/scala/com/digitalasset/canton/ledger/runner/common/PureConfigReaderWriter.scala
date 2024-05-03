@@ -6,8 +6,8 @@ package com.digitalasset.canton.ledger.runner.common
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.lf.data.Ref
 import com.daml.ports.Port
-import com.digitalasset.canton.ledger.api.tls.TlsVersion.TlsVersion
-import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsVersion}
+import com.daml.tls.TlsVersion.TlsVersion
+import com.daml.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.ledger.runner.common.OptConfigValue.{
   optConvertEnabled,
   optProductHint,
@@ -19,6 +19,7 @@ import com.digitalasset.canton.platform.config.{
   CommandServiceConfig,
   IdentityProviderManagementConfig,
   IndexServiceConfig,
+  PartyManagementServiceConfig,
   TransactionFlatStreamsConfig,
   TransactionTreeStreamsConfig,
   UserManagementServiceConfig,
@@ -114,6 +115,12 @@ class PureConfigReaderWriter(secure: Boolean = true) {
 
   implicit val userManagementServiceConfigConvert: ConfigConvert[UserManagementServiceConfig] =
     deriveConvert[UserManagementServiceConfig]
+
+  implicit val partyManagementServiceConfigHint: ProductHint[PartyManagementServiceConfig] =
+    ProductHint[PartyManagementServiceConfig](allowUnknownKeys = false)
+
+  implicit val partyManagementServiceConfigConvert: ConfigConvert[PartyManagementServiceConfig] =
+    deriveConvert[PartyManagementServiceConfig]
 
   implicit val identityProviderManagementConfigHint: ProductHint[IdentityProviderManagementConfig] =
     ProductHint[IdentityProviderManagementConfig](allowUnknownKeys = false)

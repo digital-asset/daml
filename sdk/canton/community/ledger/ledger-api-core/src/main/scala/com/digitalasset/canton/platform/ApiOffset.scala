@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform
 
 import com.daml.lf.data.Ref
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 
 import scala.util.{Failure, Success, Try}
 

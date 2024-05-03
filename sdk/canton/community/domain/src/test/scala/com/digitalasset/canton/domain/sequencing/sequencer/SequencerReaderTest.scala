@@ -10,6 +10,7 @@ import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.sequencing.sequencer.DomainSequencingTestUtils.*
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.domain.sequencing.sequencer.store.*
@@ -37,11 +38,11 @@ import com.digitalasset.canton.topology.{
   ParticipantId,
   SequencerGroup,
   SequencerId,
-  TestingTopologyX,
+  TestingTopology,
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.canton.{BaseTest, DiscardOps, SequencerCounter, config}
+import com.digitalasset.canton.{BaseTest, SequencerCounter, config}
 import com.google.protobuf.ByteString
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
@@ -64,14 +65,14 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
   private val bob: Member = ParticipantId("bob")
   private val ts0 = CantonTimestamp.Epoch
   private val domainId = DefaultTestIdentities.domainId
-  private val topologyClientMember = SequencerId(domainId)
-  private val crypto = TestingTopologyX(sequencerGroup =
+  private val topologyClientMember = SequencerId(domainId.uid)
+  private val crypto = TestingTopology(sequencerGroup =
     SequencerGroup(
-      active = NonEmpty.mk(Seq, SequencerId(domainId)),
+      active = NonEmpty.mk(Seq, SequencerId(domainId.uid)),
       passive = Seq.empty,
       threshold = PositiveInt.one,
     )
-  ).build(loggerFactory).forOwner(SequencerId(domainId))
+  ).build(loggerFactory).forOwner(SequencerId(domainId.uid))
   private val cryptoD =
     valueOrFail(crypto.forDomain(domainId).toRight("no crypto api"))("domain crypto")
   private val instanceDiscriminator = new UUID(1L, 2L)

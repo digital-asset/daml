@@ -5,7 +5,9 @@ package com.digitalasset.canton.participant.protocol.validation
 
 import com.daml.lf.transaction.Versioned
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.*
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.validation.ExtractUsedAndCreated.{
   CreatedContractPrep,
@@ -19,7 +21,6 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DiscardOps, LfPartyId}
 
 import scala.concurrent.{ExecutionContext, Future}
 

@@ -11,20 +11,17 @@ import com.daml.lf.data.Ref.HexString
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node.{Create, Exercise}
-import com.daml.lf.transaction.Transaction.ChildrenRecursion
-import com.daml.lf.transaction.{Node, NodeId}
+import com.daml.lf.transaction.NodeId
 import com.daml.metrics.Timed
 import com.daml.timer.FutureCheck.*
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{
-  DeduplicationDuration,
-  DeduplicationOffset,
-}
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{CompletionInfo, Reassignment, Update}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater.{PrepareResult, UpdaterFlow}
+import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils
 import com.digitalasset.canton.platform.store.CompletionFromTransaction
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
@@ -285,17 +282,8 @@ private[platform] object InMemoryStateUpdater {
       txAccepted: Update.TransactionAccepted,
       traceContext: TraceContext,
   ): TransactionLogUpdate.TransactionAccepted = {
-    // TODO(i12283) LLP: Extract in common functionality together with duplicated code in [[UpdateToDbDto]]
-    val rawEvents = txAccepted.transaction.transaction
-      .foldInExecutionOrder(List.empty[(NodeId, Node)])(
-        exerciseBegin = (acc, nid, node) => ((nid -> node) :: acc, ChildrenRecursion.DoRecurse),
-        // Rollback nodes are not indexed
-        rollbackBegin = (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
-        leaf = (acc, nid, node) => (nid -> node) :: acc,
-        exerciseEnd = (acc, _, _) => acc,
-        rollbackEnd = (acc, _, _) => acc,
-      )
-      .reverseIterator
+    val rawEvents =
+      TransactionTraversalUtils.preorderTraversalForIngestion(txAccepted.transaction.transaction)
 
     // TODO(i12283) LLP: Deduplicate blinding info computation with the work done in [[UpdateToDbDto]]
     val blinding = txAccepted.blindingInfoO.getOrElse(Blinding.blind(txAccepted.transaction))

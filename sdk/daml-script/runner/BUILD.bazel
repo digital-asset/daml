@@ -14,10 +14,6 @@ load("//rules_daml:daml.bzl", "daml_compile")
 load("//bazel_tools:proto.bzl", "proto_gen")
 load("@os_info//:os_info.bzl", "is_windows")
 
-test_script_sources = [
-    "src/main/scala/com/digitalasset/daml/lf/engine/script/TestMain.scala",
-]
-
 # Should match RunnerMainTestBase.DAR_COUNT
 test_dar_count = 5
 
@@ -61,6 +57,7 @@ da_scala_library(
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-logging",
         "//canton:daml-common-staging_daml-errors",
+        "//canton:daml-common-staging_daml-tls",
         "//canton:ledger_api_proto_scala",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",

@@ -23,7 +23,6 @@ class JceCryptoTest
     with HkdfTest
     with PasswordBasedEncryptionTest
     with RandomTest
-    with JavaPublicKeyConverterTest
     with PublicKeyValidationTest {
 
   "JceCrypto" can {
@@ -88,13 +87,6 @@ class JceCryptoTest
 
     behave like hkdfProvider(jceCrypto().map(_.pureCrypto))
     behave like randomnessProvider(jceCrypto().map(_.pureCrypto))
-    behave like javaPublicKeyConverterProvider(
-      Jce.signing.supported,
-      // TODO(i13896): Support conversion for ECIES public key with AES-128-CBC
-      Jce.encryption.supported.filterNot(_ == EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc),
-      jceCrypto(),
-      "JCE",
-    )
 
     behave like pbeProvider(
       Jce.pbkdf.valueOrFail("no PBKDF schemes configured").supported,

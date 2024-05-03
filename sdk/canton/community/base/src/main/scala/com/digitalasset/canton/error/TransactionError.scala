@@ -4,9 +4,6 @@
 package com.digitalasset.canton.error
 
 import com.daml.error.ErrorCode
-import com.digitalasset.canton.ledger.participant.state.v2.SubmissionResult
-import com.google.rpc.code.Code
-import com.google.rpc.status.Status as RpcStatus
 
 trait TransactionError extends BaseCantonError {
 
@@ -30,22 +27,3 @@ abstract class TransactionErrorImpl(
 trait TransactionParentError[T <: TransactionError]
     extends TransactionError
     with ParentCantonError[T]
-
-object TransactionError {
-  val NoErrorDetails = Seq.empty[com.google.protobuf.any.Any]
-  val NotSupported: SubmissionResult.SynchronousError = SubmissionResult.SynchronousError(
-    RpcStatus.of(Code.UNIMPLEMENTED.value, "Not supported", TransactionError.NoErrorDetails)
-  )
-  val PassiveNode: SubmissionResult.SynchronousError = SubmissionResult.SynchronousError(
-    RpcStatus.of(Code.UNAVAILABLE.value, "Node is passive", TransactionError.NoErrorDetails)
-  )
-
-  def internalError(reason: String): SubmissionResult.SynchronousError =
-    SubmissionResult.SynchronousError(RpcStatus.of(Code.INTERNAL.value, reason, NoErrorDetails))
-
-  val shutdownError: SubmissionResult.SynchronousError =
-    SubmissionResult.SynchronousError(
-      RpcStatus.of(Code.CANCELLED.value, "Node is shutting down", NoErrorDetails)
-    )
-
-}

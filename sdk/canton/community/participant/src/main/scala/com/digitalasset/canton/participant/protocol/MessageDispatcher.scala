@@ -14,6 +14,7 @@ import com.digitalasset.canton.data.ViewType.{
   TransferOutViewType,
 }
 import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -40,17 +41,14 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.topology.processing.{
-  SequencedTime,
-  TopologyTransactionProcessorCommon,
-}
+import com.digitalasset.canton.topology.processing.{SequencedTime, TopologyTransactionProcessor}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.traffic.TrafficControlProcessor
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{Checked, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DiscardOps, RequestCounter, SequencerCounter}
+import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.google.common.annotations.VisibleForTesting
 import com.google.rpc.status.Status
 import io.opentelemetry.api.trace.Tracer
@@ -292,13 +290,13 @@ trait MessageDispatcher { this: NamedLogging =>
           case (viewType, messages) => alarmIfNonEmptySigned(ResultKind(viewType), messages)
         }
 
-        val containsTopologyTransactionsX = DefaultOpenEnvelopesFilter.containsTopologyX(envelopes)
+        val containsTopologyTransactions = DefaultOpenEnvelopesFilter.containsTopology(envelopes)
 
         val isReceipt = event.event.content.messageIdO.isDefined
         processEncryptedViewsAndRootHashMessages(
           encryptedViews = encryptedViews,
           rootHashMessages = rootHashMessages,
-          containsTopologyTransactionsX = containsTopologyTransactionsX,
+          containsTopologyTransactions = containsTopologyTransactions,
           sc = sc,
           ts = ts,
           isReceipt = isReceipt,
@@ -309,7 +307,7 @@ trait MessageDispatcher { this: NamedLogging =>
   private def processEncryptedViewsAndRootHashMessages(
       encryptedViews: List[OpenEnvelope[EncryptedViewMessage[ViewType]]],
       rootHashMessages: List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
-      containsTopologyTransactionsX: Boolean,
+      containsTopologyTransactions: Boolean,
       sc: SequencerCounter,
       ts: CantonTimestamp,
       isReceipt: Boolean,
@@ -348,7 +346,7 @@ trait MessageDispatcher { this: NamedLogging =>
     for {
       result <- checkedRootHashMessagesC.toEither match {
         case Right(goodRequest) =>
-          if (!containsTopologyTransactionsX)
+          if (!containsTopologyTransactions)
             processRequest(goodRequest)
           else {
             /* A batch should not contain a request and a topology transaction.
@@ -359,7 +357,7 @@ trait MessageDispatcher { this: NamedLogging =>
           }
 
         case Left(DoNotExpectMediatorResult) =>
-          if (containsTopologyTransactionsX) {
+          if (containsTopologyTransactions) {
             // The topology processor will tick the record order publisher at the end of the processing
             doProcess(UnspecifiedMessageKind, FutureUnlessShutdown.pure(()))
           } else
@@ -792,7 +790,7 @@ private[participant] object MessageDispatcher {
         transferOutProcessor: TransferOutProcessor,
         transferInProcessor: TransferInProcessor,
         registerTopologyTransactionResponseProcessor: EnvelopeHandler,
-        topologyProcessor: TopologyTransactionProcessorCommon,
+        topologyProcessor: TopologyTransactionProcessor,
         trafficProcessor: TrafficControlProcessor,
         acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType,
         requestCounterAllocator: RequestCounterAllocator,

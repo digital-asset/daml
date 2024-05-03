@@ -5,10 +5,10 @@ package com.digitalasset.canton.domain.mediator.store
 
 import cats.data.OptionT
 import cats.instances.future.*
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{CacheConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.mediator.{
   FinalizedResponse,
   ResponseAggregation,

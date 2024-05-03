@@ -4,8 +4,8 @@
 package com.digitalasset.canton.util
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.BatchAggregatorConfig
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.logging.pretty.Pretty

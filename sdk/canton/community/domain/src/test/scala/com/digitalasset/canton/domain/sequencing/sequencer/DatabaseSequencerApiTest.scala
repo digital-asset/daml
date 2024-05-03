@@ -21,8 +21,8 @@ abstract class DatabaseSequencerApiTest extends NonBftDomainSequencerApiTest {
       crypto: DomainSyncCryptoClient
   )(implicit materializer: Materializer): CantonSequencer = {
     val clock = new SimClock(loggerFactory = loggerFactory)
-    val crypto = TestingIdentityFactoryX(
-      TestingTopologyX(),
+    val crypto = TestingIdentityFactory(
+      TestingTopology(),
       loggerFactory,
       DynamicDomainParameters.initialValues(clock, testedProtocolVersion),
     ).forOwnerAndDomain(owner = mediatorId, domainId)

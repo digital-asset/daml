@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   LoggingContextWithTrace,

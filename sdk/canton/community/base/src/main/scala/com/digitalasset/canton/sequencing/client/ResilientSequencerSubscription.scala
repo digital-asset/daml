@@ -7,7 +7,9 @@ import cats.syntax.functor.*
 import cats.syntax.option.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerSubscriptionErrorGroup
 import com.digitalasset.canton.health.{CloseableAtomicHealthComponent, ComponentHealthState}
@@ -22,12 +24,11 @@ import com.digitalasset.canton.sequencing.client.SequencerClientSubscriptionErro
 import com.digitalasset.canton.sequencing.client.transports.SequencerClientTransport
 import com.digitalasset.canton.sequencing.handlers.{CounterCapture, HasReceivedEvent}
 import com.digitalasset.canton.sequencing.protocol.SubscriptionRequest
-import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
+import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.util.{DelayUtil, FutureUtil, LoggerUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DiscardOps, SequencerCounter}
 import org.apache.pekko.stream.AbruptStageTerminationException
 
 import java.util.concurrent.atomic.AtomicReference
@@ -50,7 +51,7 @@ import scala.util.{Failure, Success, Try}
   * For this subscription [[ResilientSequencerSubscription.start]] must be called for the underlying subscriptions to begin.
   */
 class ResilientSequencerSubscription[HandlerError](
-    domainId: DomainId,
+    sequencerId: SequencerId,
     startingFrom: SequencerCounter,
     handler: SerializedEventHandler[HandlerError],
     subscriptionFactory: SequencerSubscriptionFactory[HandlerError],
@@ -170,7 +171,7 @@ class ResilientSequencerSubscription[HandlerError](
     } else if (!isClosing) {
       TraceContext.withNewTraceContext { tx =>
         this.failureOccurred(
-          LostSequencerSubscription.Warn(SequencerId(domainId))(this.errorLoggingContext(tx))
+          LostSequencerSubscription.Warn(sequencerId)(this.errorLoggingContext(tx))
         )
       }
     }
@@ -293,7 +294,7 @@ class ResilientSequencerSubscription[HandlerError](
 
 object ResilientSequencerSubscription extends SequencerSubscriptionErrorGroup {
   def apply[E](
-      domainId: DomainId,
+      sequencerId: SequencerId,
       protocolVersion: ProtocolVersion,
       member: Member,
       getTransport: => UnlessShutdown[SequencerClientTransport],
@@ -307,7 +308,7 @@ object ResilientSequencerSubscription extends SequencerSubscriptionErrorGroup {
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): ResilientSequencerSubscription[E] = {
     new ResilientSequencerSubscription[E](
-      domainId,
+      sequencerId,
       startingFrom,
       handler,
       createSubscription(member, getTransport, requiresAuthentication, protocolVersion),
@@ -358,8 +359,7 @@ object ResilientSequencerSubscription extends SequencerSubscriptionErrorGroup {
     final case class Warn(sequencer: SequencerId, _logOnCreation: Boolean = true)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause =
-            s"Lost subscription to sequencer ${sequencer.toString}. Will try to recover automatically."
+          cause = s"Lost subscription to sequencer ${sequencer}. Will try to recover automatically."
         ) {
       override def logOnCreation: Boolean = _logOnCreation
     }

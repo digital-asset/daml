@@ -22,6 +22,7 @@ import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.metrics.InstrumentedGraph.*
 import com.daml.tracing.{Event, SpanAttribute, Spans}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.{
   Filters,
   InclusiveFilters,
@@ -34,7 +35,6 @@ import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.api.{TraceIdentifiers, domain}
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2
 import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.digitalasset.canton.ledger.participant.state.index.v2.*
@@ -235,24 +235,6 @@ private[index] class IndexServiceImpl(
       }
       .buffered(metrics.index.completionsBufferSize, LedgerApiStreamsBufferSize)
 
-  override def getCompletions(
-      startExclusive: ParticipantOffset,
-      endInclusive: ParticipantOffset,
-      applicationId: Ref.ApplicationId,
-      parties: Set[Ref.Party],
-  )(implicit loggingContext: LoggingContextWithTrace): Source[CompletionStreamResponse, NotUsed] =
-    between(startExclusive, Some(endInclusive)) { (start, end) =>
-      dispatcher()
-        .startingAt(
-          start.getOrElse(Offset.beforeBegin),
-          RangeSource(commandCompletionsReader.getCommandCompletions(_, _, applicationId, parties)),
-          end,
-        )
-        .mapError(shutdownError)
-        .map(_._2)
-    }
-      .buffered(metrics.index.completionsBufferSize, LedgerApiStreamsBufferSize)
-
   override def getActiveContracts(
       transactionFilter: TransactionFilter,
       verbose: Boolean,
@@ -348,10 +330,13 @@ private[index] class IndexServiceImpl(
   ): Future[List[IndexerPartyDetails]] =
     ledgerDao.getParties(parties)
 
-  override def listKnownParties()(implicit
+  override def listKnownParties(
+      fromExcl: Option[Party],
+      maxResults: Int,
+  )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[List[IndexerPartyDetails]] =
-    ledgerDao.listKnownParties()
+    ledgerDao.listKnownParties(fromExcl, maxResults)
 
   override def partyEntries(
       startExclusive: Option[ParticipantOffset.Absolute]

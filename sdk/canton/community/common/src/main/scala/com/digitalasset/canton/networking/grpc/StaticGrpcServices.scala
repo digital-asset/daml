@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.networking.grpc
 
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import io.grpc.*

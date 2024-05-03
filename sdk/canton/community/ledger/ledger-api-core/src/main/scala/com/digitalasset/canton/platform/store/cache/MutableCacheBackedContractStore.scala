@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.cache
 
 import com.daml.lf.transaction.GlobalKey
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2
 import com.digitalasset.canton.ledger.participant.state.index.v2.ContractStore
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext

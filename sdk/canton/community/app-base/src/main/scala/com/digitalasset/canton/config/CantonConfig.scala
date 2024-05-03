@@ -44,7 +44,7 @@ import com.digitalasset.canton.domain.mediator.{
 import com.digitalasset.canton.domain.sequencing.config.{
   RemoteSequencerConfig,
   SequencerNodeConfigCommon,
-  SequencerNodeInitXConfig,
+  SequencerNodeInitConfig,
   SequencerNodeParameterConfig,
   SequencerNodeParameters,
 }
@@ -59,6 +59,7 @@ import com.digitalasset.canton.ledger.runner.common.PureConfigReaderWriter.Secur
   identityProviderManagementConfigConvert,
   indexServiceConfigConvert,
   indexerConfigConvert,
+  partyManagementServiceConfigConvert,
   userManagementServiceConfigConvert,
 }
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -283,8 +284,8 @@ trait CantonConfig {
     DefaultPorts,
     ParticipantConfigType,
   ]
-  type MediatorNodeXConfigType <: MediatorNodeConfigCommon
-  type SequencerNodeXConfigType <: SequencerNodeConfigCommon
+  type MediatorNodeConfigType <: MediatorNodeConfigCommon
+  type SequencerNodeConfigType <: SequencerNodeConfigCommon
 
   def allNodes: Map[InstanceName, LocalNodeConfig] =
     (participants: Map[InstanceName, LocalNodeConfig]) ++ sequencers ++ mediators
@@ -301,11 +302,11 @@ trait CantonConfig {
     n.unwrap -> c
   }
 
-  def sequencers: Map[InstanceName, SequencerNodeXConfigType]
+  def sequencers: Map[InstanceName, SequencerNodeConfigType]
 
   /** Use `sequencers` instead!
     */
-  def sequencersByString: Map[String, SequencerNodeXConfigType] = sequencers.map { case (n, c) =>
+  def sequencersByString: Map[String, SequencerNodeConfigType] = sequencers.map { case (n, c) =>
     n.unwrap -> c
   }
 
@@ -318,11 +319,11 @@ trait CantonConfig {
       n.unwrap -> c
   }
 
-  def mediators: Map[InstanceName, MediatorNodeXConfigType]
+  def mediators: Map[InstanceName, MediatorNodeConfigType]
 
   /** Use `mediators` instead!
     */
-  def mediatorsByString: Map[String, MediatorNodeXConfigType] = mediators.map { case (n, c) =>
+  def mediatorsByString: Map[String, MediatorNodeConfigType] = mediators.map { case (n, c) =>
     n.unwrap -> c
   }
 
@@ -399,22 +400,23 @@ trait CantonConfig {
     InstanceName.tryCreate(name)
   )
 
-  private lazy val sequencerNodeParametersX_ : Map[InstanceName, SequencerNodeParameters] =
-    sequencers.fmap { sequencerNodeXConfig =>
+  private lazy val sequencerNodeParameters_ : Map[InstanceName, SequencerNodeParameters] =
+    sequencers.fmap { sequencerNodeConfig =>
       SequencerNodeParameters(
-        general = CantonNodeParameterConverter.general(this, sequencerNodeXConfig),
-        protocol = CantonNodeParameterConverter.protocol(this, sequencerNodeXConfig.parameters),
-        maxBurstFactor = sequencerNodeXConfig.parameters.maxBurstFactor,
+        general = CantonNodeParameterConverter.general(this, sequencerNodeConfig),
+        protocol = CantonNodeParameterConverter.protocol(this, sequencerNodeConfig.parameters),
+        maxConfirmationRequestsBurstFactor =
+          sequencerNodeConfig.parameters.maxConfirmationRequestsBurstFactor,
       )
     }
 
-  private[canton] def sequencerNodeParametersX(name: InstanceName): SequencerNodeParameters =
-    nodeParametersFor(sequencerNodeParametersX_, "sequencer-x", name)
+  private[canton] def sequencerNodeParameters(name: InstanceName): SequencerNodeParameters =
+    nodeParametersFor(sequencerNodeParameters_, "sequencer", name)
 
-  private[canton] def sequencerNodeParametersByStringX(name: String): SequencerNodeParameters =
-    sequencerNodeParametersX(InstanceName.tryCreate(name))
+  private[canton] def sequencerNodeParametersByString(name: String): SequencerNodeParameters =
+    sequencerNodeParameters(InstanceName.tryCreate(name))
 
-  private lazy val mediatorNodeParametersX_ : Map[InstanceName, MediatorNodeParameters] =
+  private lazy val mediatorNodeParameters_ : Map[InstanceName, MediatorNodeParameters] =
     mediators.fmap { mediatorNodeConfig =>
       MediatorNodeParameters(
         general = CantonNodeParameterConverter.general(this, mediatorNodeConfig),
@@ -422,11 +424,11 @@ trait CantonConfig {
       )
     }
 
-  private[canton] def mediatorNodeParametersX(name: InstanceName): MediatorNodeParameters =
-    nodeParametersFor(mediatorNodeParametersX_, "mediator-x", name)
+  private[canton] def mediatorNodeParameters(name: InstanceName): MediatorNodeParameters =
+    nodeParametersFor(mediatorNodeParameters_, "mediator", name)
 
-  private[canton] def mediatorNodeParametersByStringX(name: String): MediatorNodeParameters =
-    mediatorNodeParametersX(InstanceName.tryCreate(name))
+  private[canton] def mediatorNodeParametersByString(name: String): MediatorNodeParameters =
+    mediatorNodeParameters(InstanceName.tryCreate(name))
 
   protected def nodeParametersFor[A](
       cachedNodeParameters: Map[InstanceName, A],
@@ -506,7 +508,6 @@ private[canton] object CantonNodeParameterConverter {
       batchingConfig = node.parameters.batching,
       nonStandardConfig = parent.parameters.nonStandardConfig,
       dbMigrateAndStart = node.storage.parameters.migrateAndStart,
-      useNewTrafficControl = node.parameters.useNewTrafficControl,
       exitOnFatalFailures = parent.parameters.exitOnFatalFailures,
       useUnifiedSequencer = node.parameters.useUnifiedSequencer,
     )
@@ -805,7 +806,7 @@ object CantonConfig {
       deriveReader[ActiveContractsServiceStreamsConfig]
     lazy implicit val packageMetadataViewConfigReader: ConfigReader[PackageMetadataViewConfig] =
       deriveReader[PackageMetadataViewConfig]
-    lazy implicit val topologyXConfigReader: ConfigReader[TopologyConfig] =
+    lazy implicit val topologyConfigReader: ConfigReader[TopologyConfig] =
       deriveReader[TopologyConfig]
     lazy implicit val sequencerConnectionConfigCertificateFileReader
         : ConfigReader[SequencerConnectionConfig.CertificateFile] =
@@ -840,8 +841,8 @@ object CantonConfig {
     lazy implicit val communityNewDatabaseSequencerWriterConfigLowLatencyReader
         : ConfigReader[SequencerWriterConfig.LowLatency] =
       deriveReader[SequencerWriterConfig.LowLatency]
-    lazy implicit val sequencerNodeInitXConfigReader: ConfigReader[SequencerNodeInitXConfig] =
-      deriveReader[SequencerNodeInitXConfig]
+    lazy implicit val sequencerNodeInitConfigReader: ConfigReader[SequencerNodeInitConfig] =
+      deriveReader[SequencerNodeInitConfig]
         .enableNestedOpt("auto-init", _.copy(identity = None))
 
     lazy implicit val communitySequencerConfigReader: ConfigReader[CommunitySequencerConfig] =
@@ -1190,7 +1191,7 @@ object CantonConfig {
       deriveWriter[ActiveContractsServiceStreamsConfig]
     lazy implicit val packageMetadataViewConfigWriter: ConfigWriter[PackageMetadataViewConfig] =
       deriveWriter[PackageMetadataViewConfig]
-    lazy implicit val topologyXConfigWriter: ConfigWriter[TopologyConfig] =
+    lazy implicit val topologyConfigWriter: ConfigWriter[TopologyConfig] =
       deriveWriter[TopologyConfig]
     lazy implicit val sequencerConnectionConfigCertificateFileWriter
         : ConfigWriter[SequencerConnectionConfig.CertificateFile] =
@@ -1223,8 +1224,8 @@ object CantonConfig {
     lazy implicit val communityDatabaseSequencerWriterConfigLowLatencyWriter
         : ConfigWriter[SequencerWriterConfig.LowLatency] =
       deriveWriter[SequencerWriterConfig.LowLatency]
-    lazy implicit val sequencerNodeInitXConfigWriter: ConfigWriter[SequencerNodeInitXConfig] =
-      InitConfigBase.writerForSubtype(deriveWriter[SequencerNodeInitXConfig])
+    lazy implicit val sequencerNodeInitConfigWriter: ConfigWriter[SequencerNodeInitConfig] =
+      InitConfigBase.writerForSubtype(deriveWriter[SequencerNodeInitConfig])
 
     implicit def communitySequencerConfigWriter[C]: ConfigWriter[CommunitySequencerConfig] = {
       case dbSequencerConfig: CommunitySequencerConfig.Database =>

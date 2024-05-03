@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform
 
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.TestEssentials
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd

@@ -16,8 +16,8 @@ import com.daml.lf.transaction.*
 import com.daml.lf.transaction.test.TreeTransactionBuilder.*
 import com.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder, TreeTransactionBuilder}
 import com.daml.lf.value.Value
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationDuration
+import com.digitalasset.canton.data.DeduplicationPeriod
+import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.util.TimeProvider

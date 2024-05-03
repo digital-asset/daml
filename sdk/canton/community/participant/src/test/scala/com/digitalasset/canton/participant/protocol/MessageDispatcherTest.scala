@@ -20,6 +20,7 @@ import com.digitalasset.canton.crypto.{
   TestHash,
 }
 import com.digitalasset.canton.data.*
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.PrettyUtil
@@ -35,7 +36,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.messages.EncryptedView.CompressedView
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX.Broadcast
+import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.Broadcast
 import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{
@@ -57,19 +58,13 @@ import com.digitalasset.canton.sequencing.{
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.processing.{SequencedTime, TopologyTransactionTestFactoryX}
+import com.digitalasset.canton.topology.processing.{SequencedTime, TopologyTransactionTestFactory}
 import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.traffic.TrafficControlProcessor
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{
-  BaseTest,
-  DiscardOps,
-  HasExecutorService,
-  RequestCounter,
-  SequencerCounter,
-}
+import com.digitalasset.canton.{BaseTest, HasExecutorService, RequestCounter, SequencerCounter}
 import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers.eq as isEq
 import org.scalatest.Assertion
@@ -386,14 +381,14 @@ trait MessageDispatcherTest {
     ): Fixture =
       Fixture.mk(mkMd, initRc, cleanReplaySequencerCounter)
 
-    val factoryX =
-      new TopologyTransactionTestFactoryX(loggerFactory, initEc = executionContext)
-    val idTx = TopologyTransactionsBroadcastX.create(
+    val factory =
+      new TopologyTransactionTestFactory(loggerFactory, initEc = executionContext)
+    val idTx = TopologyTransactionsBroadcast.create(
       domainId,
       Seq(
         Broadcast(
           String255.tryCreate("some request"),
-          List(factoryX.ns1k1_k1),
+          List(factory.ns1k1_k1),
         )
       ),
       testedProtocolVersion,

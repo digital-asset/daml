@@ -14,6 +14,7 @@ import com.digitalasset.canton.data.{
   TaskScheduler,
   TaskSchedulerMetrics,
 }
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{
   AsyncOrSyncCloseable,
   FlagCloseableAsync,

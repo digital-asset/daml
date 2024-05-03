@@ -4,9 +4,9 @@
 package com.digitalasset.canton.sequencing.client.transports.replay
 
 import cats.data.EitherT
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.SequencerClient.ReplayStatistics
@@ -28,7 +28,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   TopologyStateForInitResponse,
 }
 import com.digitalasset.canton.sequencing.{SequencerClientRecorder, SerializedEventHandler}
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil}
@@ -130,7 +130,7 @@ class ReplayingEventsSequencerClientTransport(
   ): EitherT[Future, String, TopologyStateForInitResponse] =
     EitherT.rightT[Future, String](
       TopologyStateForInitResponse(
-        topologyTransactions = Traced(StoredTopologyTransactionsX.empty)
+        topologyTransactions = Traced(StoredTopologyTransactions.empty)
       )
     )
 

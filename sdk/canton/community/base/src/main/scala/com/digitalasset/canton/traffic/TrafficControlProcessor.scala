@@ -10,6 +10,7 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, DomainSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.Alarm
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -61,7 +62,6 @@ class TrafficControlProcessor(
   ): FutureUnlessShutdown[Unit] = {
     import SubscriptionStart.*
 
-    logger.debug(s"subscriptionStartsAt called with start $start")
     val tsStart = start match {
       case FreshSubscription =>
         // Use the max timestamp from the store. If the store is empty, use a minimum value

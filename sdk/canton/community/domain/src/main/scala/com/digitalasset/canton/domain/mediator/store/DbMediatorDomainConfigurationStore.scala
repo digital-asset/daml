@@ -5,9 +5,8 @@ package com.digitalasset.canton.domain.mediator.store
 
 import cats.data.EitherT
 import cats.syntax.traverse.*
-import com.digitalasset.canton.config.CantonRequireTypes.{String1, String255, String68}
+import com.digitalasset.canton.config.CantonRequireTypes.{String1, String255}
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
@@ -27,7 +26,7 @@ class DbMediatorDomainConfigurationStore(
     extends MediatorDomainConfigurationStore
     with DbStore {
 
-  private type SerializedRow = (String68, String255, ByteString, ByteString)
+  private type SerializedRow = (String255, ByteString, ByteString)
   import DbStorage.Implicits.*
   import storage.api.*
 
@@ -42,7 +41,7 @@ class DbMediatorDomainConfigurationStore(
       rowO <- EitherT.right(
         storage
           .query(
-            sql"""select initial_key_context, domain_id, static_domain_parameters, sequencer_connection
+            sql"""select domain_id, static_domain_parameters, sequencer_connection
             from mediator_domain_configuration #${storage.limit(1)}""".as[SerializedRow].headOption,
             "fetch-configuration",
           )
@@ -57,7 +56,7 @@ class DbMediatorDomainConfigurationStore(
   override def saveConfiguration(configuration: MediatorDomainConfiguration)(implicit
       traceContext: TraceContext
   ): EitherT[Future, MediatorDomainConfigurationStoreError, Unit] = {
-    val (initialKeyContext, domainId, domainParameters, sequencerConnection) = serialize(
+    val (domainId, domainParameters, sequencerConnection) = serialize(
       configuration
     )
 
@@ -67,13 +66,13 @@ class DbMediatorDomainConfigurationStore(
           storage.profile match {
             case _: DbStorage.Profile.H2 =>
               sqlu"""merge into mediator_domain_configuration
-                   (lock, initial_key_context, domain_id, static_domain_parameters, sequencer_connection)
+                   (lock, domain_id, static_domain_parameters, sequencer_connection)
                    values
-                   ($singleRowLockValue, $initialKeyContext, $domainId, $domainParameters, $sequencerConnection)"""
+                   ($singleRowLockValue, $domainId, $domainParameters, $sequencerConnection)"""
             case _: DbStorage.Profile.Postgres =>
-              sqlu"""insert into mediator_domain_configuration (initial_key_context, domain_id, static_domain_parameters, sequencer_connection)
-              values ($initialKeyContext, $domainId, $domainParameters, $sequencerConnection)
-              on conflict (lock) do update set initial_key_context = excluded.initial_key_context,
+              sqlu"""insert into mediator_domain_configuration (domain_id, static_domain_parameters, sequencer_connection)
+              values ($domainId, $domainParameters, $sequencerConnection)
+              on conflict (lock) do update set
                 domain_id = excluded.domain_id,
                 static_domain_parameters = excluded.static_domain_parameters,
                 sequencer_connection = excluded.sequencer_connection"""
@@ -81,7 +80,6 @@ class DbMediatorDomainConfigurationStore(
               sqlu"""merge into mediator_domain_configuration mdc
                       using (
                         select
-                          $initialKeyContext initial_key_context,
                           $domainId domain_id,
                           $domainParameters static_domain_parameters,
                           $sequencerConnection sequencer_connection
@@ -89,13 +87,13 @@ class DbMediatorDomainConfigurationStore(
                           ) excluded
                       on (mdc."LOCK" = 'X')
                        when matched then
-                        update set mdc.initial_key_context = excluded.initial_key_context,
+                        update set
                           mdc.domain_id = excluded.domain_id,
                           mdc.static_domain_parameters = excluded.static_domain_parameters,
                           mdc.sequencer_connection = excluded.sequencer_connection
                        when not matched then
-                        insert (initial_key_context, domain_id, static_domain_parameters, sequencer_connection)
-                        values (excluded.initial_key_context, excluded.domain_id, excluded.static_domain_parameters, excluded.sequencer_connection)
+                        insert (domain_id, static_domain_parameters, sequencer_connection)
+                        values (excluded.domain_id, excluded.static_domain_parameters, excluded.sequencer_connection)
                      """
 
           },
@@ -106,13 +104,11 @@ class DbMediatorDomainConfigurationStore(
 
   private def serialize(config: MediatorDomainConfiguration): SerializedRow = {
     val MediatorDomainConfiguration(
-      initialKeyFingerprint,
       domainId,
       domainParameters,
       sequencerConnections,
     ) = config
     (
-      initialKeyFingerprint.toLengthLimitedString,
       domainId.toLengthLimitedString,
       domainParameters.toByteString,
       sequencerConnections.toByteString(domainParameters.protocolVersion),
@@ -123,14 +119,12 @@ class DbMediatorDomainConfigurationStore(
       row: SerializedRow
   ): ParsingResult[MediatorDomainConfiguration] = {
     for {
-      initialKeyFingerprint <- Fingerprint.fromProtoPrimitive(row._1.unwrap)
-      domainId <- DomainId.fromProtoPrimitive(row._2.unwrap, "domainId")
+      domainId <- DomainId.fromProtoPrimitive(row._1.unwrap, "domainId")
       domainParameters <- StaticDomainParameters.fromTrustedByteString(
-        row._3
+        row._2
       )
-      sequencerConnections <- SequencerConnections.fromTrustedByteString(row._4)
+      sequencerConnections <- SequencerConnections.fromTrustedByteString(row._3)
     } yield MediatorDomainConfiguration(
-      initialKeyFingerprint,
       domainId,
       domainParameters,
       sequencerConnections,

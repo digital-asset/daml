@@ -28,7 +28,7 @@ object SendCallback {
     * and cause a deadlock.
     */
   class CallbackFuture extends SendCallback {
-    import com.digitalasset.canton.DiscardOps
+    import com.digitalasset.canton.discard.Implicits.DiscardOps
 
     private val promise = Promise[UnlessShutdown[SendResult]]()
 

@@ -11,9 +11,9 @@ load(
 da_scala_library(
     name = "ports",
     srcs = [
-        "src/main/scala/com/digitalasset/ports/Port.scala",
-        "src/main/scala/com/digitalasset/ports/PortFiles.scala",
-        "src/main/scala/com/digitalasset/ports/PortLock.scala",
+        "src/main/scala/com/daml/ports/Port.scala",
+        "src/main/scala/com/daml/ports/PortFiles.scala",
+        "src/main/scala/com/daml/ports/PortLock.scala",
     ],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
@@ -27,8 +27,8 @@ da_scala_library(
 da_scala_library(
     name = "ports-testing",
     srcs = [
-        "src/main/scala/com/digitalasset/ports/FreePort.scala",
-        "src/main/scala/com/digitalasset/ports/LockedFreePort.scala",
+        "src/main/scala/com/daml/ports/FreePort.scala",
+        "src/main/scala/com/daml/ports/LockedFreePort.scala",
     ],
     data = ["@sysctl_nix//:bin/sysctl"] if is_darwin else [],
     visibility = [

@@ -10,8 +10,8 @@ import com.daml.lf.data.{Bytes, Ref}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.NodeId
 import com.daml.lf.value.Value.ContractId
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
-import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
@@ -75,6 +75,7 @@ private[store] object StorageBackendTestValues {
       party: String = someParty,
       isLocal: Boolean = true,
       displayNameOverride: Option[Option[String]] = None,
+      reject: Boolean = false,
   ): DbDto.PartyEntry = {
     val displayName = displayNameOverride.getOrElse(Some(party))
     DbDto.PartyEntry(
@@ -83,8 +84,8 @@ private[store] object StorageBackendTestValues {
       submission_id = Some("submission_id"),
       party = Some(party),
       display_name = displayName,
-      typ = JdbcLedgerDao.acceptType,
-      rejection_reason = None,
+      typ = if (reject) JdbcLedgerDao.rejectType else JdbcLedgerDao.acceptType,
+      rejection_reason = Option.when(reject)("some rejection reason"),
       is_local = Some(isLocal),
     )
   }

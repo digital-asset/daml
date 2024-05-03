@@ -6,8 +6,8 @@ package com.digitalasset.canton.ledger.localstore
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.metrics.DatabaseMetrics
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.IdentityProviderId
 import com.digitalasset.canton.ledger.api.util.TimeProvider

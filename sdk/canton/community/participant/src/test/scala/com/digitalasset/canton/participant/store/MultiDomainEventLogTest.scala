@@ -9,6 +9,7 @@ import cats.syntax.option.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.RequireTypes.NegativeLong
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.participant.event.RecordOrderPublisher.{
   PendingEventPublish,

@@ -6,8 +6,10 @@ package com.digitalasset.canton.util
 import cats.Eq
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.BaseTestWordSpec
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
@@ -16,7 +18,6 @@ import com.digitalasset.canton.util.PekkoUtil.{
   WithKillSwitch,
   noOpKillSwitch,
 }
-import com.digitalasset.canton.{BaseTestWordSpec, DiscardOps}
 import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
 import org.apache.pekko.stream.testkit.StreamSpec
 import org.apache.pekko.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped

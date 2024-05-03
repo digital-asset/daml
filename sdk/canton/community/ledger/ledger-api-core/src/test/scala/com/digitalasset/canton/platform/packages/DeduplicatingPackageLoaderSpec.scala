@@ -10,7 +10,8 @@ import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.ledger.resources.TestResourceContext
-import com.digitalasset.canton.testing.utils.{TestModels, TestResourceUtils}
+import com.digitalasset.canton.testing.utils.TestModels
+import com.digitalasset.canton.util.JarResourceUtils
 import org.apache.pekko.actor.{ActorSystem, Scheduler}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
@@ -34,7 +35,7 @@ class DeduplicatingPackageLoaderSpec
 
   private[this] val dar =
     TestModels.com_daml_ledger_test_ModelTestDar_path
-      .pipe(TestResourceUtils.resourceFile)
+      .pipe(JarResourceUtils.resourceFile)
       .pipe(DarParser.assertReadArchiveFromFile(_))
 
   private[this] def delayedLoad(duration: FiniteDuration): Future[Option[DamlLf.Archive]] = {

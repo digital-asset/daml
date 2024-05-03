@@ -22,11 +22,7 @@ import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerEr
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.{
-  AuthorizedTopologyManagerX,
-  ParticipantId,
-  UniqueIdentifier,
-}
+import com.digitalasset.canton.topology.{AuthorizedTopologyManager, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
@@ -59,13 +55,19 @@ trait PackageOps extends NamedLogging {
   ): EitherT[FutureUnlessShutdown, CantonError, Unit]
 }
 
-abstract class PackageOpsCommon(
-    participantId: ParticipantId,
-    headAuthorizedTopologySnapshot: TopologySnapshot,
+class PackageOpsImpl(
+    val participantId: ParticipantId,
+    val headAuthorizedTopologySnapshot: TopologySnapshot,
     stateManager: SyncDomainPersistentStateManager,
-)(implicit
-    val ec: ExecutionContext
-) extends PackageOps {
+    topologyManager: AuthorizedTopologyManager,
+    nodeId: UniqueIdentifier,
+    initialProtocolVersion: ProtocolVersion,
+    val loggerFactory: NamedLoggerFactory,
+    val timeouts: ProcessingTimeout,
+)(implicit val ec: ExecutionContext)
+    extends PackageOps
+    with FlagCloseable {
+
   override def checkPackageUnused(packageId: PackageId)(implicit
       tc: TraceContext
   ): EitherT[Future, PackageInUse, Unit] =
@@ -105,21 +107,6 @@ abstract class PackageOpsCommon(
 
     packageIsVettedOn.bimap(PackageMissingDependencies.Reject(packageId, _), _.contains(true))
   }
-}
-
-// TODO(#15161) collapse with PackageOpsCommon
-class PackageOpsX(
-    val participantId: ParticipantId,
-    val headAuthorizedTopologySnapshot: TopologySnapshot,
-    manager: SyncDomainPersistentStateManager,
-    topologyManager: AuthorizedTopologyManagerX,
-    nodeId: UniqueIdentifier,
-    initialProtocolVersion: ProtocolVersion,
-    val loggerFactory: NamedLoggerFactory,
-    val timeouts: ProcessingTimeout,
-)(implicit override val ec: ExecutionContext)
-    extends PackageOpsCommon(participantId, headAuthorizedTopologySnapshot, manager)
-    with FlagCloseable {
 
   override def vetPackages(packages: Seq[PackageId], synchronize: Boolean)(implicit
       traceContext: TraceContext
@@ -157,13 +144,13 @@ class PackageOpsX(
               asOf = CantonTimestamp.MaxValue,
               asOfInclusive = true,
               isProposal = false,
-              types = Seq(VettedPackagesX.code),
+              types = Seq(VettedPackages.code),
               filterUid = Some(Seq(nodeId)),
               filterNamespace = None,
             )
             .map { result =>
               result
-                .collectOfMapping[VettedPackagesX]
+                .collectOfMapping[VettedPackages]
                 .result
                 .lastOption
             }
@@ -178,15 +165,15 @@ class PackageOpsX(
         performUnlessClosingEitherUSF(functionFullName)(
           topologyManager
             .proposeAndAuthorize(
-              op = TopologyChangeOpX.Replace,
-              mapping = VettedPackagesX(
+              op = TopologyChangeOp.Replace,
+              mapping = VettedPackages(
                 participantId = participantId,
                 domainId = None,
                 newVettedPackagesState,
               ),
               serial = nextSerial,
               // TODO(#12390) auto-determine signing keys
-              signingKeys = Seq(participantId.uid.namespace.fingerprint),
+              signingKeys = Seq(participantId.fingerprint),
               protocolVersion = initialProtocolVersion,
               expectFullAuthorization = true,
             )

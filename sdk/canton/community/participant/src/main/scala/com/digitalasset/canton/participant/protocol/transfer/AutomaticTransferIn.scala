@@ -5,7 +5,9 @@ package com.digitalasset.canton.participant.protocol.transfer
 
 import cats.data.*
 import cats.syntax.bifunctor.*
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.{BaseCantonError, MediatorError}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.participant.protocol.transfer.TransferInValidation.NoTransferData
@@ -19,7 +21,6 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import com.digitalasset.canton.version.Transfer.SourceProtocolVersion
-import com.digitalasset.canton.{DiscardOps, LfPartyId}
 import org.slf4j.event.Level
 
 import scala.concurrent.{ExecutionContext, Future}

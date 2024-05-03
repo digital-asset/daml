@@ -189,7 +189,7 @@ jobs:
         targetPath: $(Build.StagingDirectory)/platform-independence/macos/
     - bash: |
         set -euo pipefail
-        eval "$(sdk/dev-env/bin/dade-assist)"
+        eval "$(cd sdk; dev-env/bin/dade-assist)"
 
         DIR1=$(mktemp -d)
         DIR2=$(mktemp -d)

@@ -15,9 +15,9 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.protocol.OnboardingRestriction
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.processing.EffectiveTime
-import com.digitalasset.canton.topology.store.ValidatedTopologyTransactionX.GenericValidatedTopologyTransactionX
-import com.digitalasset.canton.topology.transaction.TopologyTransactionX.{
-  GenericTopologyTransactionX,
+import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
+  GenericTopologyTransaction,
   TxHash,
 }
 import com.digitalasset.canton.topology.transaction.*
@@ -64,8 +64,8 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         )
         with TopologyManagerError
 
-    final case class IncompatibleOpMapping(op: TopologyChangeOpX, mapping: TopologyMappingX)(
-        implicit val loggingContext: ErrorLoggingContext
+    final case class IncompatibleOpMapping(op: TopologyChangeOp, mapping: TopologyMapping)(implicit
+        val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = "The operation is incompatible with the mapping"
         )
@@ -78,7 +78,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         )
         with TopologyManagerError
 
-    final case class ReplaceExistingFailed(invalid: GenericValidatedTopologyTransactionX)(implicit
+    final case class ReplaceExistingFailed(invalid: GenericValidatedTopologyTransaction)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = "Replacing existing transaction failed upon removal"
@@ -199,7 +199,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
       ) {
     final case class Failure(
-        transaction: GenericTopologyTransactionX,
+        transaction: GenericTopologyTransaction,
         authKey: Fingerprint,
     )(implicit
         val loggingContext: ErrorLoggingContext
@@ -224,7 +224,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         id = "TOPOLOGY_MAPPING_ALREADY_EXISTS",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
       ) {
-    final case class FailureX(existing: TopologyMappingX, keys: NonEmpty[Set[Fingerprint]])(implicit
+    final case class Failure(existing: TopologyMapping, keys: NonEmpty[Set[Fingerprint]])(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
@@ -277,7 +277,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         id = "NO_CORRESPONDING_ACTIVE_TX_TO_REVOKE",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
-    final case class Mapping(mapping: TopologyMappingX)(implicit
+    final case class Mapping(mapping: TopologyMapping)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
@@ -496,6 +496,29 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     ) extends CantonError.Impl(
           cause =
             s"The $participantId can not join the domain because onboarding restrictions are in place"
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
+    """This error indicates that a participant is trying to rescind their domain trust certificate
+      |while still hosting parties."""
+  )
+  @Resolution(
+    """The participant should work with the owners of the parties mentioned in the ``parties`` field in the
+      |error details metadata to get itself removed from the list of hosting participants of those parties."""
+  )
+  object InvalidTopologyMapping
+      extends ErrorCode(
+        id = "INVALID_TOPOLOGY_MAPPING",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Reject(
+        description: String
+    )(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"The topology transaction was rejected due to an invalid mapping: $description"
         )
         with TopologyManagerError
   }

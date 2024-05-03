@@ -7,8 +7,8 @@ import cats.data.{EitherT, OptionT}
 import cats.syntax.alternative.*
 import cats.syntax.either.*
 import cats.syntax.option.*
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.submission.*

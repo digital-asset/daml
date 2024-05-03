@@ -4,13 +4,20 @@
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory}
-import com.daml.metrics.api.MetricQualification.{Debug, Traffic}
-import com.daml.metrics.api.{MetricDoc, MetricHandle, MetricName, MetricsContext}
+import com.daml.metrics.api.{
+  MetricHandle,
+  MetricInfo,
+  MetricName,
+  MetricQualification,
+  MetricsContext,
+}
 
 class LAPIMetrics(
     val prefix: MetricName,
     val metricsFactory: LabeledMetricsFactory,
 ) {
+
+  import MetricsContext.Implicits.empty
 
   object threadpool {
     private val prefix: MetricName = LAPIMetrics.this.prefix :+ "threadpool"
@@ -29,66 +36,68 @@ class LAPIMetrics(
   object streams {
     private val prefix: MetricName = LAPIMetrics.this.prefix :+ "streams"
 
-    @MetricDoc.Tag(
-      summary = "The number of the transaction trees sent over the ledger api.",
-      description = """The total number of the transaction trees sent over the ledger api streams
+    val transactionTrees: Counter = metricsFactory.counter(
+      MetricInfo(
+        prefix :+ "transaction_trees_sent",
+        summary = "The number of the transaction trees sent over the ledger api.",
+        description = """The total number of the transaction trees sent over the ledger api streams
                       |to all clients.""",
-      qualification = Traffic,
+        qualification = MetricQualification.Traffic,
+      )
     )
-    val transactionTrees: Counter = metricsFactory.counter(prefix :+ "transaction_trees_sent")
 
-    @MetricDoc.Tag(
-      summary = "The number of the flat transactions sent over the ledger api.",
-      description = """The total number of the flat transaction sent over the ledger api streams to
+    val updates: Counter = metricsFactory.counter(
+      MetricInfo(
+        prefix :+ "updates_sent",
+        summary = "The number of the flat updates sent over the ledger api.",
+        description = """The total number of the flat updates sent over the ledger api streams to
                       |all clients.""",
-      qualification = Traffic,
+        qualification = MetricQualification.Traffic,
+      )
     )
-    val transactions: Counter = metricsFactory.counter(prefix :+ "transactions_sent")
 
-    @MetricDoc.Tag(
-      summary = "The number of the update trees sent over the ledger api.",
-      description = """The total number of the update trees sent over the ledger api streams
-                      |to all clients.""",
-      qualification = Traffic,
+    val updateTrees: Counter = metricsFactory.counter(
+      MetricInfo(
+        prefix :+ "update_trees_sent",
+        summary = "The number of the update trees sent over the ledger api.",
+        description = """The total number of the update trees sent over the ledger api streams to
+                        |all clients.""",
+        qualification = MetricQualification.Traffic,
+      )
     )
-    val updateTrees: Counter = metricsFactory.counter(prefix :+ "update_trees_sent")
 
-    @MetricDoc.Tag(
-      summary = "The number of the flat updates sent over the ledger api.",
-      description = """The total number of the flat updates sent over the ledger api streams to
-                      |all clients.""",
-      qualification = Traffic,
-    )
-    val updates: Counter = metricsFactory.counter(prefix :+ "transactions_sent")
-
-    @MetricDoc.Tag(
-      summary = "The number of the command completions sent by the ledger api.",
-      description = """The total number of completions sent over the ledger api streams to all
+    val completions: Counter = metricsFactory.counter(
+      MetricInfo(
+        prefix :+ "completions_sent",
+        summary = "The number of the command completions sent by the ledger api.",
+        description = """The total number of completions sent over the ledger api streams to all
                       |clients.""",
-      qualification = Traffic,
+        qualification = MetricQualification.Traffic,
+      )
     )
-    val completions: Counter = metricsFactory.counter(prefix :+ "completions_sent")
 
-    @MetricDoc.Tag(
-      summary = "The number of the active contracts sent by the ledger api.",
-      description = """The total number of active contracts sent over the ledger api streams to all
+    val acs: Counter = metricsFactory.counter(
+      MetricInfo(
+        prefix :+ "acs_sent",
+        summary = "The number of the active contracts sent by the ledger api.",
+        description =
+          """The total number of active contracts sent over the ledger api streams to all
                       |clients.""",
-      qualification = Traffic,
+        qualification = MetricQualification.Traffic,
+      )
     )
-    val acs: Counter = metricsFactory.counter(prefix :+ "acs_sent")
 
     val activeName: MetricName = prefix :+ "active"
 
-    @MetricDoc.Tag(
-      summary = "The number of the active streams served by the ledger api.",
-      description = "The number of ledger api streams currently being served to all clients.",
-      qualification = Debug,
-    )
     val active: MetricHandle.Gauge[Int] =
       metricsFactory.gauge(
-        activeName,
+        MetricInfo(
+          activeName,
+          summary = "The number of the active streams served by the ledger api.",
+          description = "The number of ledger api streams currently being served to all clients.",
+          qualification = MetricQualification.Debug,
+        ),
         0,
-        "The number of ledger api streams currently being served to all clients.",
-      )(MetricsContext.Empty)
+      )
   }
 }

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.console.commands
 
 import better.files.File
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.util.ResourceUtil
 import com.google.protobuf.ByteString
 import io.grpc.stub.StreamObserver

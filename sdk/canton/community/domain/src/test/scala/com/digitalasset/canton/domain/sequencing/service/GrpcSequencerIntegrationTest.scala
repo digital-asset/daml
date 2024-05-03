@@ -18,10 +18,11 @@ import com.digitalasset.canton.config.{
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{HashPurpose, Nonce}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationService
 import com.digitalasset.canton.domain.metrics.SequencerTestMetrics
-import com.digitalasset.canton.domain.sequencing.SequencerParameters
+import com.digitalasset.canton.domain.sequencing.config.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.lifecycle.{AsyncOrSyncCloseable, Lifecycle, SyncCloseable}
@@ -52,6 +53,7 @@ import com.digitalasset.canton.store.memory.{InMemorySendTrackerStore, InMemoryS
 import com.digitalasset.canton.time.{DomainTimeTracker, SimClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{DomainTopologyClient, TopologySnapshot}
+import com.digitalasset.canton.topology.store.TopologyStateForInitializationService
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.util.PekkoUtil
 import com.digitalasset.canton.version.{
@@ -88,9 +90,9 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
   val sequencer = mock[Sequencer]
   private val participant = ParticipantId("testing")
   private val domainId = DefaultTestIdentities.domainId
-  private val sequencerId = DefaultTestIdentities.sequencerId
+  private val sequencerId = DefaultTestIdentities.daSequencerId
   private val cryptoApi =
-    TestingTopologyX()
+    TestingTopology()
       .withSimpleParticipants(participant)
       .build()
       .forOwnerAndDomain(participant, domainId)
@@ -103,6 +105,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
   private val confirmationRequestsMaxRate =
     DynamicDomainParameters.defaultConfirmationRequestsMaxRate
   private val maxRequestSize = DynamicDomainParameters.defaultMaxRequestSize
+  private val topologyStateForInitializationService = mock[TopologyStateForInitializationService]
 
   when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
     .thenReturn(mockTopologySnapshot)
@@ -145,7 +148,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
     override def lookupCurrentMember(): Option[Member] = None
   }
   private val params = new SequencerParameters {
-    override def maxBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.1)
+    override def maxConfirmationRequestsBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.1)
     override def processingTimeouts: ProcessingTimeout = timeouts
   }
   private val service =
@@ -163,9 +166,8 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       sequencerSubscriptionFactory,
       domainParamsLookup,
       params,
-      None,
+      topologyStateForInitializationService,
       BaseTest.testedProtocolVersion,
-      enableBroadcastOfUnauthenticatedMessages = false,
     )
   private val connectService = new GrpcSequencerConnectService(
     domainId = domainId,

@@ -13,3 +13,10 @@ message ListUsersPageTokenPayload {
   // Users are ordered by ``user_id``, and the next page starts with users whose ``user_id`` is larger than ``user_id_lower_bound_excl``.
   string user_id_lower_bound_excl = 1;
 }
+
+// Describes the payload of a page token for listing parties.
+// Not intended to be handled directly by clients and should be presented to them as an opaque string.
+message ListPartiesPageTokenPayload {
+  // Parties are ordered by ``party_id``, and the next page starts with parties whose ``party_id`` is larger than ``party_id_lower_bound_excl``.
+  string party_id_lower_bound_excl = 1;
+}

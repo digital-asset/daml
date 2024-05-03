@@ -6,8 +6,8 @@ package com.digitalasset.canton.platform.indexer
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref.{Party, SubmissionId}
 import com.daml.lf.data.{Ref, Time}
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{
   InternalStateServiceProviderImpl,
   ReadService,
@@ -311,7 +311,9 @@ class RecoveringIndexerIntegrationSpec
           .executeSql(metrics.index.db.getLedgerEnd)(parameterStorageBackend.ledgerEnd)
         _ = ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
         knownParties <- dbDispatcher
-          .executeSql(metrics.index.db.loadAllParties)(partyStorageBacked.knownParties)
+          .executeSql(metrics.index.db.loadAllParties)(
+            partyStorageBacked.knownParties(None, 10)
+          )
       } yield {
         knownParties.map(_.displayName) shouldBe partyNames.map(Some(_))
         ()

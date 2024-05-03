@@ -18,7 +18,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   InternalSequencerPruningStatus,
   SequencerMemberStatus,
 }
-import com.digitalasset.canton.sequencing.protocol.{SequencerErrors, *}
+import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.{OrdinarySerializedEvent, SequencerTestUtils}
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.topology.{
@@ -26,7 +26,7 @@ import com.digitalasset.canton.topology.{
   Member,
   ParticipantId,
   SequencerGroup,
-  TestingTopologyX,
+  TestingTopology,
   UniqueIdentifier,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -56,16 +56,16 @@ trait SequencerStateManagerStoreTest
   private var materializer: Materializer = _
   private lazy val domainId = DefaultTestIdentities.domainId
   private lazy val syncCryptoApi =
-    TestingTopologyX(
+    TestingTopology(
       domains = Set(domainId),
       sequencerGroup = SequencerGroup(
-        active = NonEmpty.mk(Seq, DefaultTestIdentities.sequencerId),
+        active = NonEmpty.mk(Seq, DefaultTestIdentities.daSequencerId),
         passive = Seq.empty,
         threshold = PositiveInt.one,
       ),
     )
       .build()
-      .forOwnerAndDomain(DefaultTestIdentities.sequencerId, domainId)
+      .forOwnerAndDomain(DefaultTestIdentities.daSequencerId, domainId)
       .currentSnapshotApproximation
 
   // we don't do any signature verification in these tests so any signature that will deserialize with the testing crypto api is fine
@@ -233,19 +233,19 @@ trait SequencerStateManagerStoreTest
         )
         val signatureAlice1 = SymbolicCrypto.signature(
           ByteString.copyFromUtf8("signatureAlice1"),
-          alice.uid.namespace.fingerprint,
+          alice.fingerprint,
         )
         val signatureAlice2 = SymbolicCrypto.signature(
           ByteString.copyFromUtf8("signatureAlice2"),
-          alice.uid.namespace.fingerprint,
+          alice.fingerprint,
         )
         val signatureAlice3 = SymbolicCrypto.signature(
           ByteString.copyFromUtf8("signatureAlice3"),
-          alice.uid.namespace.fingerprint,
+          alice.fingerprint,
         )
         val signatureBob = SymbolicCrypto.signature(
           ByteString.copyFromUtf8("signatureBob"),
-          bob.uid.namespace.fingerprint,
+          bob.fingerprint,
         )
 
         val inFlightAggregation1 = InFlightAggregation(
@@ -618,19 +618,19 @@ trait SequencerStateManagerStoreTest
         )
         val signatureAlice1 = SymbolicCrypto.signature(
           ByteString.copyFromUtf8("signatureAlice1"),
-          alice.uid.namespace.fingerprint,
+          alice.fingerprint,
         )
         val signatureAlice2 = SymbolicCrypto.signature(
           ByteString.copyFromUtf8("signatureAlice2"),
-          alice.uid.namespace.fingerprint,
+          alice.fingerprint,
         )
         val signatureAlice3 = SymbolicCrypto.signature(
           ByteString.copyFromUtf8("signatureAlice3"),
-          alice.uid.namespace.fingerprint,
+          alice.fingerprint,
         )
         val signatureBob = SymbolicCrypto.signature(
           ByteString.copyFromUtf8("signatureBob"),
-          bob.uid.namespace.fingerprint,
+          bob.fingerprint,
         )
 
         val inFlightAggregation1 = InFlightAggregation(

@@ -47,7 +47,7 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
   private val alice: Member = ParticipantId("alice")
   private val bob: Member = ParticipantId("bob")
   private val carole: Member = ParticipantId("carole")
-  private val topologyClientMember = SequencerId(domainId)
+  private val topologyClientMember = SequencerId(domainId.uid)
 
   // Config to turn on Pekko logging
   private lazy val pekkoConfig = {
@@ -74,15 +74,15 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
     val store = new InMemorySequencerStore(testedProtocolVersion, loggerFactory)
     val clock = new WallClock(timeouts, loggerFactory = loggerFactory)
     val crypto: DomainSyncCryptoClient = valueOrFail(
-      TestingTopologyX(sequencerGroup =
+      TestingTopology(sequencerGroup =
         SequencerGroup(
-          active = NonEmpty.mk(Seq, SequencerId(domainId)),
+          active = NonEmpty.mk(Seq, SequencerId(domainId.uid)),
           passive = Seq.empty,
           threshold = PositiveInt.one,
         )
       )
         .build(loggerFactory)
-        .forOwner(SequencerId(domainId))
+        .forOwner(SequencerId(domainId.uid))
         .forDomain(domainId)
         .toRight("crypto error")
     )("building crypto")

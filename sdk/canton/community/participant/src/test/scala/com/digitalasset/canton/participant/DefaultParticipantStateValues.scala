@@ -6,14 +6,21 @@ package com.digitalasset.canton.participant
 import cats.syntax.option.*
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.DefaultDamlValues.*
-import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod
+import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.ledger.participant.state.v2.*
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.{ApplicationId, CommandId, DefaultDamlValues, WorkflowId}
+import com.digitalasset.canton.{ApplicationId, CommandId, DefaultDamlValues, LfPartyId, WorkflowId}
 
 /** Default values for participant state objects for unit testing */
 object DefaultParticipantStateValues {
+
+  def changeId(
+      actAs: Set[LfPartyId],
+      applicationId: ApplicationId = DefaultDamlValues.applicationId(),
+      commandId: CommandId = DefaultDamlValues.commandId(),
+  ): ChangeId =
+    ChangeId(applicationId.unwrap, commandId.unwrap, actAs)
+
   def submitterInfo(
       actAs: List[Ref.Party],
       applicationId: ApplicationId = DefaultDamlValues.applicationId(),

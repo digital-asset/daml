@@ -10,8 +10,8 @@ import com.digitalasset.canton.sequencing.protocol.RecipientsTest.*
 import com.digitalasset.canton.topology.{
   SequencerGroup,
   SequencerId,
-  TestingIdentityFactoryX,
-  TestingTopologyX,
+  TestingIdentityFactory,
+  TestingTopology,
 }
 
 abstract class BftDomainSequencerApiTest extends SequencerApiTest {
@@ -22,11 +22,11 @@ abstract class BftDomainSequencerApiTest extends SequencerApiTest {
       BftDomainSequencerApiTest.this.loggerFactory
 
     override lazy val topologyFactory =
-      new TestingIdentityFactoryX(
-        topology = TestingTopologyX()
+      new TestingIdentityFactory(
+        topology = TestingTopology()
           .withSequencerGroup(
             SequencerGroup(
-              active = NonEmpty.mk(Seq, SequencerId(domainId)),
+              active = NonEmpty.mk(Seq, SequencerId(domainId.uid)),
               passive = Seq.empty,
               threshold = PositiveInt.one,
             )

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.participant.state.v2
 
 import com.daml.lf.data.Ref
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 
 import java.util.concurrent.CompletionStage
 

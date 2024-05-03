@@ -16,14 +16,14 @@ import com.daml.ledger.api.v2.commands.{Command, Commands}
 import com.daml.lf.command.*
 import com.daml.lf.data.*
 import com.daml.lf.value.Value as Lf
+import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
+import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator.{
   Submitters,
   effectiveSubmitters,
 }
-import com.digitalasset.canton.ledger.api.{DeduplicationPeriod, domain}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.ledger.offset.Offset
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.*
 
@@ -222,8 +222,6 @@ final class CommandsValidator(
       _ <- actAsMustNotBeEmpty(actAs)
     } yield Submitters(actAs, readAs)
   }
-
-  // TODO(i12279): Address usage of deprecated class DeduplicationTime
 
   /** We validate only using current time because we set the currentTime as submitTime so no need to check both
     */

@@ -591,7 +591,6 @@ create table common_sequenced_event_store_pruning (
 create table mediator_domain_configuration (
   -- this lock column ensures that there can only ever be a single row: https://stackoverflow.com/questions/3967372/sql-server-how-to-constrain-a-table-to-contain-a-single-row
   lock char(1) not null default 'X' primary key check (lock = 'X'),
-  initial_key_context varchar(300) collate "C" not null,
   domain_id varchar(300) collate "C" not null,
   static_domain_parameters bytea not null,
   sequencer_connection bytea not null
@@ -763,10 +762,10 @@ create index idx_par_in_flight_submission_message_id on par_in_flight_submission
 
 create table par_settings(
   client integer primary key, -- dummy field to enforce at most one row
-  max_dirty_requests integer,
-  max_rate integer,
+  max_infight_validation_requests integer,
+  max_submission_rate integer,
   max_deduplication_duration bytea, -- non-negative finite duration
-  max_burst_factor double precision not null default 0.5
+  max_submission_burst_factor double precision not null default 0.5
 );
 
 create table par_command_deduplication (
@@ -863,7 +862,7 @@ CREATE TABLE common_topology_transactions (
   -- the timestamp at which the transaction is sequenced by the sequencer
   -- UTC timestamp in microseconds relative to EPOCH
   sequenced bigint not null,
-  -- type of transaction (refer to TopologyMappingX.Code)
+  -- type of transaction (refer to TopologyMapping.Code)
   transaction_type int not null,
   -- the namespace this transaction is operating on
   namespace varchar(300) collate "C" not null,
@@ -878,8 +877,8 @@ CREATE TABLE common_topology_transactions (
   -- (redundant also embedded in instance)
   serial_counter int not null,
   -- validity window, UTC timestamp in microseconds relative to EPOCH
-  -- so `TopologyChangeOpX.Replace` transactions have an effect for valid_from < t <= valid_until
-  -- a `TopologyChangeOpX.Remove` will have valid_from = valid_until
+  -- so `TopologyChangeOp.Replace` transactions have an effect for valid_from < t <= valid_until
+  -- a `TopologyChangeOp.Remove` will have valid_from = valid_until
   valid_from bigint not null,
   valid_until bigint null,
   -- operation

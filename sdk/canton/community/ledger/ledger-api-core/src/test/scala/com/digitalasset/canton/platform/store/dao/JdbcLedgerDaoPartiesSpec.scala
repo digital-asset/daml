@@ -5,10 +5,11 @@ package com.digitalasset.canton.platform.store.dao
 
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.IndexerPartyDetails
 import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry.AllocationAccepted
+import com.digitalasset.canton.util.MonadUtil
 import org.apache.pekko.stream.scaladsl.Sink
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -38,9 +39,35 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       _ = response should be(PersistenceResponse.Ok)
       response <- storePartyEntry(bob, nextOffset())
       _ = response should be(PersistenceResponse.Ok)
-      parties <- ledgerDao.listKnownParties()
+      parties <- ledgerDao.listKnownParties(None, 1000)
     } yield {
       parties should contain.allOf(alice, bob)
+    }
+  }
+
+  it should "retrieve all parties in two chunks" in {
+    val randomSuffix = UUID.randomUUID()
+    def genParty(name: String) = {
+      IndexerPartyDetails(
+        party = Ref.Party.assertFromString(s"$name-$randomSuffix"),
+        displayName = Some(s"$name ${name}son"),
+        isLocal = true,
+      )
+    }
+    val newParties = List("Wes", "Zeb", "Les", "Mel").map(genParty)
+
+    for {
+      partiesBefore <- ledgerDao.listKnownParties(None, 1000)
+      _ <- MonadUtil.sequentialTraverse_(newParties)(storePartyEntry(_, nextOffset()))
+      parties1 <- ledgerDao.listKnownParties(None, partiesBefore.size + 1)
+      parties2 <- ledgerDao.listKnownParties(
+        parties1.lastOption.map(_.party),
+        partiesBefore.size + newParties.size,
+      )
+    } yield {
+      parties1 ++ parties2 should contain.allElementsOf(newParties)
+      parties1 ++ parties2 should contain.allElementsOf(partiesBefore)
+      parties1.size + parties2.size should equal(newParties.size + partiesBefore.size)
     }
   }
 

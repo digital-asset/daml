@@ -4,7 +4,6 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.block
 
 import cats.data.EitherT
-import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor

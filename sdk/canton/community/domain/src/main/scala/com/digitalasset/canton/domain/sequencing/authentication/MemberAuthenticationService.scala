@@ -13,6 +13,7 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
@@ -23,7 +24,7 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.processing.*
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
@@ -300,31 +301,31 @@ class MemberAuthenticationServiceImpl(
       timeouts,
       loggerFactory,
     )
-    with TopologyTransactionProcessingSubscriberX {
+    with TopologyTransactionProcessingSubscriber {
 
   /** domain topology client subscriber used to remove member tokens if they get disabled */
   override def observed(
       sequencerTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,
       sc: SequencerCounter,
-      transactions: Seq[GenericSignedTopologyTransactionX],
+      transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.lift(performUnlessClosing(functionFullName) {
       transactions.map(_.transaction).foreach {
-        case TopologyTransactionX(
-              TopologyChangeOpX.Remove,
+        case TopologyTransaction(
+              TopologyChangeOp.Remove,
               _serial,
-              cert: DomainTrustCertificateX,
+              cert: DomainTrustCertificate,
             ) =>
           val participant = cert.participantId
           logger.info(
             s"Domain trust certificate of ${participant} was removed, forcefully disconnecting the participant."
           )
           invalidateAndExpire(isParticipantActive)(participant)
-        case TopologyTransactionX(
-              TopologyChangeOpX.Replace,
+        case TopologyTransaction(
+              TopologyChangeOp.Replace,
               _serial,
-              cert: ParticipantDomainPermissionX,
+              cert: ParticipantDomainPermission,
             ) if cert.loginAfter.exists(_ > clock.now) =>
           val participant = cert.participantId
           logger.info(
@@ -357,7 +358,7 @@ object MemberAuthenticationServiceFactory {
       useExponentialRandomTokenExpiration: Boolean,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
-      topologyTransactionProcessorX: TopologyTransactionProcessorX,
+      topologyTransactionProcessor: TopologyTransactionProcessor,
   ): MemberAuthenticationServiceFactory =
     new MemberAuthenticationServiceFactory {
       override def createAndSubscribe(
@@ -379,7 +380,7 @@ object MemberAuthenticationServiceFactory {
           timeouts,
           loggerFactory,
         )
-        topologyTransactionProcessorX.subscribe(service)
+        topologyTransactionProcessor.subscribe(service)
         service
       }
     }

@@ -5,6 +5,7 @@ package com.digitalasset.canton.sequencing.client
 
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.{AsyncOrSyncCloseable, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -20,9 +21,9 @@ import com.digitalasset.canton.sequencing.client.TestSubscriptionError.{
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, SequencedEvent, SignedContent}
 import com.digitalasset.canton.sequencing.{SequencerTestUtils, SerializedEventHandler}
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
-import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{DomainId, SequencerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, DiscardOps, HasExecutionContext, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.{AnyWordSpec, AsyncWordSpec}
 
@@ -236,7 +237,7 @@ class ResilientSequencerSubscriptionTest
         }
 
       val resilientSequencerSubscription = new ResilientSequencerSubscription[TestHandlerError](
-        domainId,
+        SequencerId(domainId.uid),
         SequencerCounter(0),
         _ => Future.successful[Either[TestHandlerError, Unit]](Right(())),
         subscriptionFactory,
@@ -267,7 +268,7 @@ class ResilientSequencerSubscriptionTest
         }
 
       val resilientSequencerSubscription = new ResilientSequencerSubscription[TestHandlerError](
-        domainId,
+        SequencerId(domainId.uid),
         SequencerCounter(0),
         _ => Future.successful[Either[TestHandlerError, Unit]](Right(())),
         subscriptionFactory,
@@ -350,7 +351,7 @@ trait ResilientSequencerSubscriptionTestUtils {
       retryDelayRule: SubscriptionRetryDelayRule = retryDelay(),
   ): ResilientSequencerSubscription[TestHandlerError] = {
     val subscription = new ResilientSequencerSubscription(
-      domainId,
+      SequencerId(domainId.uid), // only used for logging
       SequencerCounter(0),
       _ => Future.successful[Either[TestHandlerError, Unit]](Right(())),
       subscriptionTestFactory,

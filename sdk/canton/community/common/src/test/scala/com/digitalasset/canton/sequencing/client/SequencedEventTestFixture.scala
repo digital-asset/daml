@@ -52,17 +52,17 @@ class SequencedEventTestFixture(
 
   lazy val defaultDomainId: DomainId = DefaultTestIdentities.domainId
   lazy val subscriberId: ParticipantId = ParticipantId("participant1-id")
-  lazy val sequencerAlice: SequencerId = DefaultTestIdentities.sequencerIdX
+  lazy val sequencerAlice: SequencerId = DefaultTestIdentities.sequencerId
   lazy val subscriberCryptoApi: DomainSyncCryptoClient =
-    TestingIdentityFactoryX(loggerFactory).forOwnerAndDomain(subscriberId, defaultDomainId)
+    TestingIdentityFactory(loggerFactory).forOwnerAndDomain(subscriberId, defaultDomainId)
   private lazy val sequencerCryptoApi: DomainSyncCryptoClient =
-    TestingIdentityFactoryX(loggerFactory).forOwnerAndDomain(sequencerAlice, defaultDomainId)
+    TestingIdentityFactory(loggerFactory).forOwnerAndDomain(sequencerAlice, defaultDomainId)
   lazy val updatedCounter: Long = 42L
   val sequencerBob: SequencerId = SequencerId(
-    UniqueIdentifier(Identifier.tryCreate("da2"), namespace)
+    UniqueIdentifier.tryCreate("da2", namespace)
   )
   val sequencerCarlos: SequencerId = SequencerId(
-    UniqueIdentifier(Identifier.tryCreate("da3"), namespace)
+    UniqueIdentifier.tryCreate("da3", namespace)
   )
   implicit val actorSystem: ActorSystem = ActorSystem(
     classOf[SequencedEventTestFixture].getSimpleName
@@ -74,15 +74,15 @@ class SequencedEventTestFixture(
   private val carlos = ParticipantId(UniqueIdentifier.tryCreate("participant", "carlos"))
   private val signatureAlice = SymbolicCrypto.signature(
     ByteString.copyFromUtf8("signatureAlice1"),
-    alice.uid.namespace.fingerprint,
+    alice.fingerprint,
   )
   private val signatureBob = SymbolicCrypto.signature(
     ByteString.copyFromUtf8("signatureBob1"),
-    bob.uid.namespace.fingerprint,
+    bob.fingerprint,
   )
   private val signatureCarlos = SymbolicCrypto.signature(
     ByteString.copyFromUtf8("signatureCarlos1"),
-    carlos.uid.namespace.fingerprint,
+    carlos.fingerprint,
   )
   lazy val aliceEvents: Seq[OrdinarySerializedEvent] = (1 to 5).map(s =>
     createEvent(

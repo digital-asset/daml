@@ -8,8 +8,8 @@ import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.lf.data.Time.Timestamp
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion.fromInstant
-import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.platform.ApiOffset.ApiOffsetConverter
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.google.protobuf.duration.Duration

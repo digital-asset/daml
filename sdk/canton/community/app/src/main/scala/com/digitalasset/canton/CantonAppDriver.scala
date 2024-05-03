@@ -12,6 +12,7 @@ import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.cli.{Cli, Command, LogFileAppender}
 import com.digitalasset.canton.config.ConfigErrors.CantonConfigError
 import com.digitalasset.canton.config.{CantonConfig, ConfigErrors, Generate}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.{Environment, EnvironmentFactory}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing

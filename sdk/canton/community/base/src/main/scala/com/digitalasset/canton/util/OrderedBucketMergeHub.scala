@@ -6,9 +6,9 @@ package com.digitalasset.canton.util
 import cats.syntax.functor.*
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}

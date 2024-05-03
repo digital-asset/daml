@@ -10,6 +10,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.block.data.EphemeralState
 import com.digitalasset.canton.domain.sequencing.integrations.state.SequencerStateManagerStore.PruningResult
 import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.MemberSignedEvents

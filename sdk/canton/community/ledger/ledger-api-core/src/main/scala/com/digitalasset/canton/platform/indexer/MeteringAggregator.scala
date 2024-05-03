@@ -7,7 +7,7 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.ParticipantMetering
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics

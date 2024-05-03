@@ -5,8 +5,7 @@ package com.digitalasset.canton
 
 import cats.Id
 import com.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationDuration
-import com.digitalasset.canton.ledger.participant.state.v2.*
+import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.protocol.{
   LfCommittedTransaction,
   LfHash,
@@ -34,13 +33,6 @@ object DefaultDamlValues {
 
   def lfTransactionId(index: Int): Ref.TransactionId =
     Ref.TransactionId.assertFromString(s"lf-transaction-id-$index")
-
-  def changeId(
-      actAs: Set[LfPartyId],
-      applicationId: ApplicationId = DefaultDamlValues.applicationId(),
-      commandId: CommandId = DefaultDamlValues.commandId(),
-  ): ChangeId =
-    ChangeId(applicationId.unwrap, commandId.unwrap, actAs)
 
   def lfhash(index: Int = 0): LfHash = {
     val bytes = new Array[Byte](32)

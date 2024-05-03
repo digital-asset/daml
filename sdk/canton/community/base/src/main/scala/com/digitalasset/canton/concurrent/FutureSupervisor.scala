@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.concurrent
 
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.NonNegativeDuration
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.util.LoggerUtil

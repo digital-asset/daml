@@ -6,18 +6,15 @@ package com.digitalasset.canton.platform.store.backend
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricsContext.{withExtraMetricLabels, withOptionalMetricLabels}
 import com.daml.platform.v1.index.StatusDetails
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{
-  DeduplicationDuration,
-  DeduplicationOffset,
-}
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{CompletionInfo, Reassignment, Update}
 import com.digitalasset.canton.metrics.{IndexedUpdatesMetrics, Metrics}
 import com.digitalasset.canton.platform.*
+import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.platform.store.dao.events.*
 import com.digitalasset.canton.tracing.{SerializableTraceContext, Traced}
@@ -164,18 +161,8 @@ object UpdateToDbDto {
             )
           }
           val blinding = u.blindingInfoO.getOrElse(Blinding.blind(u.transaction))
-          // TODO(i12283) LLP: Extract in common functionality together with duplicated code in [[InMemoryStateUpdater]]
-          val preorderTraversal = u.transaction
-            .foldInExecutionOrder(List.empty[(NodeId, Node)])(
-              exerciseBegin =
-                (acc, nid, node) => ((nid -> node) :: acc, ChildrenRecursion.DoRecurse),
-              // Rollback nodes are not included in the indexer
-              rollbackBegin = (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
-              leaf = (acc, nid, node) => (nid -> node) :: acc,
-              exerciseEnd = (acc, _, _) => acc,
-              rollbackEnd = (acc, _, _) => acc,
-            )
-            .reverse
+          val preorderTraversal =
+            TransactionTraversalUtils.preorderTraversalForIngestion(u.transaction.transaction)
 
           val transactionMeta = DbDto.TransactionMeta(
             transaction_id = u.transactionId,

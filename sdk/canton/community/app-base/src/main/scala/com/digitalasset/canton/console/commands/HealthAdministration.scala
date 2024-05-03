@@ -4,9 +4,10 @@
 package com.digitalasset.canton.console.commands
 
 import better.files.File
+import ch.qos.logback.classic.Level
 import com.digitalasset.canton.admin.api.client.commands.{
   StatusAdminCommands,
-  TopologyAdminCommandsX,
+  TopologyAdminCommands,
 }
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.CommandErrors.{CommandError, GenericCommandError}
@@ -31,8 +32,7 @@ import io.grpc.StatusRuntimeException
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{Await, Promise, TimeoutException}
 
-// TODO(#15161): fold HealthAdministrationCommon into HealthAdministrationX
-abstract class HealthAdministrationCommon[S <: data.NodeStatus.Status](
+class HealthAdministration[S <: data.NodeStatus.Status](
     runner: AdminCommandRunner,
     consoleEnvironment: ConsoleEnvironment,
     deserialize: v30.StatusResponse.Status => ParsingResult[S],
@@ -51,7 +51,9 @@ abstract class HealthAdministrationCommon[S <: data.NodeStatus.Status](
   }
 
   @Help.Summary("Returns true if the node has an identity")
-  def has_identity(): Boolean
+  def has_identity(): Boolean = adminCommand(
+    TopologyAdminCommands.Init.GetId()
+  ).toEither.isRight
 
   @Help.Summary("Wait for the node to have an identity")
   @Help.Description(
@@ -65,7 +67,7 @@ abstract class HealthAdministrationCommon[S <: data.NodeStatus.Status](
   )
   def dump(
       outputFile: File = CantonHealthAdministration.defaultHealthDumpName,
-      timeout: NonNegativeDuration = timeouts.ledgerCommand,
+      timeout: NonNegativeDuration = timeouts.unbounded,
       chunkSize: Option[Int] = None,
   ): String = consoleEnvironment.run {
     val requestComplete = Promise[String]()
@@ -146,19 +148,35 @@ abstract class HealthAdministrationCommon[S <: data.NodeStatus.Status](
     // timeout
     utils.retry_until_true(timeout = consoleEnvironment.commandTimeouts.unbounded)(condition)
   }
-}
 
-class HealthAdministrationX[S <: data.NodeStatus.Status](
-    runner: AdminCommandRunner,
-    consoleEnvironment: ConsoleEnvironment,
-    deserialize: v30.StatusResponse.Status => ParsingResult[S],
-) extends HealthAdministrationCommon[S](runner, consoleEnvironment, deserialize) {
-
-  override def has_identity(): Boolean = runner
-    .adminCommand(
-      TopologyAdminCommandsX.Init.GetId()
+  @Help.Summary("Change the log level of the process")
+  @Help.Description(
+    "If the default logback configuration is used, this will change the log level of the process."
+  )
+  def set_log_level(level: Level): Unit = consoleEnvironment.run {
+    adminCommand(
+      new StatusAdminCommands.SetLogLevel(level)
     )
-    .toEither
-    .isRight
+  }
+
+  @Help.Summary("Show the last errors logged")
+  @Help.Description(
+    """Returns a map with the trace-id as key and the most recent error messages as value. Requires that --log-last-errors is enabled (and not turned off)."""
+  )
+  def last_errors(): Map[String, String] = consoleEnvironment.run {
+    adminCommand(
+      new StatusAdminCommands.GetLastErrors()
+    )
+  }
+
+  @Help.Summary("Show all messages logged with the given traceId in a recent interval")
+  @Help.Description(
+    "Returns a list of buffered log messages associated to a given trace-id. Usually, the trace-id is taken from last_errors()"
+  )
+  def last_error_trace(traceId: String): Seq[String] = consoleEnvironment.run {
+    adminCommand(
+      new StatusAdminCommands.GetLastErrorTrace(traceId)
+    )
+  }
 
 }

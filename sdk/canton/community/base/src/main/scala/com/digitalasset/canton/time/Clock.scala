@@ -9,6 +9,7 @@ import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.{ClientConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.ClockErrorGroup
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown

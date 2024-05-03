@@ -11,6 +11,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.TopologyConfig
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.{
   DomainTopologyInitializationCallback,
   StoreBasedDomainTopologyInitializationCallback,
@@ -20,10 +21,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.domain.{DomainAliasResolution, DomainRegistryError}
 import com.digitalasset.canton.participant.store.*
-import com.digitalasset.canton.participant.topology.{
-  TopologyComponentFactory,
-  TopologyComponentFactoryX,
-}
+import com.digitalasset.canton.participant.topology.TopologyComponentFactory
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore, SequencedEventStore}
@@ -47,71 +45,28 @@ trait SyncDomainPersistentStateLookup {
   * Factory for [[com.digitalasset.canton.participant.store.SyncDomainPersistentState]]. Tries to discover existing persistent states or create new ones
   * and checks consistency of domain parameters and unique contract key domains
   */
-trait SyncDomainPersistentStateManager extends AutoCloseable with SyncDomainPersistentStateLookup {
+class SyncDomainPersistentStateManager(
+    participantId: ParticipantId,
+    aliasResolution: DomainAliasResolution,
+    storage: Storage,
+    val indexedStringStore: IndexedStringStore,
+    parameters: ParticipantNodeParameters,
+    topologyConfig: TopologyConfig,
+    crypto: Crypto,
+    clock: Clock,
+    futureSupervisor: FutureSupervisor,
+    protected val loggerFactory: NamedLoggerFactory,
+)(implicit executionContext: ExecutionContext)
+    extends SyncDomainPersistentStateLookup
+    with AutoCloseable
+    with NamedLogging {
 
   /** Creates [[com.digitalasset.canton.participant.store.SyncDomainPersistentState]]s for all known domain aliases
     * provided that the domain parameters and a sequencer offset are known.
     * Does not check for unique contract key domain constraints.
     * Must not be called concurrently with itself or other methods of this class.
     */
-  def initializePersistentStates()(implicit traceContext: TraceContext): Future[Unit]
-
-  def indexedDomainId(domainId: DomainId): Future[IndexedDomain]
-
-  /** Retrieves the [[com.digitalasset.canton.participant.store.SyncDomainPersistentState]] from the [[com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager]]
-    * for the given domain if there is one. Otherwise creates a new [[com.digitalasset.canton.participant.store.SyncDomainPersistentState]] for the domain
-    * and registers it with the [[com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager]].
-    * Checks that the [[com.digitalasset.canton.protocol.StaticDomainParameters]] are the same as what has been persisted (if so)
-    * and enforces the unique contract key domain constraints.
-    *
-    * Must not be called concurrently with itself or other methods of this class.
-    */
-  def lookupOrCreatePersistentState(
-      domainAlias: DomainAlias,
-      domainId: IndexedDomain,
-      domainParameters: StaticDomainParameters,
-      participantSettings: Eval[ParticipantSettingsLookup],
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, DomainRegistryError, SyncDomainPersistentState]
-
-  def domainTopologyStateInitFor(
-      domainId: DomainId,
-      participantId: ParticipantId,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, DomainRegistryError, Option[DomainTopologyInitializationCallback]]
-
-  def protocolVersionFor(
-      domainId: DomainId
-  ): Option[ProtocolVersion]
-
-  def get(domainId: DomainId): Option[SyncDomainPersistentState]
-
-  def getStatusOf(domainId: DomainId): Option[DomainConnectionConfigStore.Status]
-
-  def getByAlias(domainAlias: DomainAlias): Option[SyncDomainPersistentState]
-
-  def domainIdForAlias(domainAlias: DomainAlias): Option[DomainId]
-
-  def aliasForDomainId(domainId: DomainId): Option[DomainAlias]
-
-  def topologyFactoryFor(domainId: DomainId): Option[TopologyComponentFactory]
-
-}
-
-// TODO(#15161) collapse with SyncDomainPersistentStateManager and SyncDomainPersistentStateManagerX
-abstract class SyncDomainPersistentStateManagerImpl[S <: SyncDomainPersistentState](
-    aliasResolution: DomainAliasResolution,
-    storage: Storage,
-    val indexedStringStore: IndexedStringStore,
-    parameters: ParticipantNodeParameters,
-    protected val loggerFactory: NamedLoggerFactory,
-)(implicit executionContext: ExecutionContext)
-    extends SyncDomainPersistentStateManager
-    with NamedLogging {
-
-  override def initializePersistentStates()(implicit traceContext: TraceContext): Future[Unit] = {
+  def initializePersistentStates()(implicit traceContext: TraceContext): Future[Unit] = {
     def getProtocolVersion(domainId: DomainId)(implicit
         traceContext: TraceContext
     ): EitherT[Future, String, ProtocolVersion] =
@@ -145,11 +100,19 @@ abstract class SyncDomainPersistentStateManagerImpl[S <: SyncDomainPersistentSta
     }
   }
 
-  override def indexedDomainId(domainId: DomainId): Future[IndexedDomain] = {
+  def indexedDomainId(domainId: DomainId): Future[IndexedDomain] = {
     IndexedDomain.indexed(this.indexedStringStore)(domainId)
   }
 
-  override def lookupOrCreatePersistentState(
+  /** Retrieves the [[com.digitalasset.canton.participant.store.SyncDomainPersistentState]] from the [[com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager]]
+    * for the given domain if there is one. Otherwise creates a new [[com.digitalasset.canton.participant.store.SyncDomainPersistentState]] for the domain
+    * and registers it with the [[com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager]].
+    * Checks that the [[com.digitalasset.canton.protocol.StaticDomainParameters]] are the same as what has been persisted (if so)
+    * and enforces the unique contract key domain constraints.
+    *
+    * Must not be called concurrently with itself or other methods of this class.
+    */
+  def lookupOrCreatePersistentState(
       domainAlias: DomainAlias,
       domainId: IndexedDomain,
       domainParameters: StaticDomainParameters,
@@ -177,17 +140,11 @@ abstract class SyncDomainPersistentStateManagerImpl[S <: SyncDomainPersistentSta
       alias: DomainAlias,
       domainId: IndexedDomain,
       protocolVersion: ProtocolVersion,
-  ): S =
+  ): SyncDomainPersistentState =
     get(domainId.item)
       .getOrElse(
         mkPersistentState(alias, domainId, protocolVersion)
       )
-
-  protected def mkPersistentState(
-      alias: DomainAlias,
-      domainId: IndexedDomain,
-      protocolVersion: ProtocolVersion,
-  ): S
 
   private def checkAndUpdateDomainParameters(
       alias: DomainAlias,
@@ -217,74 +174,49 @@ abstract class SyncDomainPersistentStateManagerImpl[S <: SyncDomainPersistentSta
   def protocolVersionFor(domainId: DomainId): Option[ProtocolVersion] =
     get(domainId).map(_.protocolVersion)
 
-  private val domainStates: concurrent.Map[DomainId, S] =
-    TrieMap[DomainId, S]()
+  private val domainStates: concurrent.Map[DomainId, SyncDomainPersistentState] =
+    TrieMap[DomainId, SyncDomainPersistentState]()
 
-  private def put(state: S): Unit = {
+  private def put(state: SyncDomainPersistentState): Unit = {
     val domainId = state.domainId
     val previous = domainStates.putIfAbsent(domainId.item, state)
     if (previous.isDefined)
       throw new IllegalArgumentException(s"domain state already exists for $domainId")
   }
 
-  private def putIfAbsent(state: S): Unit =
+  private def putIfAbsent(state: SyncDomainPersistentState): Unit =
     domainStates.putIfAbsent(state.domainId.item, state).discard
 
-  override def get(domainId: DomainId): Option[S] =
+  def get(domainId: DomainId): Option[SyncDomainPersistentState] =
     domainStates.get(domainId)
 
-  override def getAll: Map[DomainId, S] = domainStates.toMap
+  override def getAll: Map[DomainId, SyncDomainPersistentState] = domainStates.toMap
 
-  override def getStatusOf(domainId: DomainId): Option[DomainConnectionConfigStore.Status] =
-    this.aliasResolution.connectionStateForDomain(domainId)
-
-  override def getByAlias(domainAlias: DomainAlias): Option[S] =
+  def getByAlias(domainAlias: DomainAlias): Option[SyncDomainPersistentState] =
     for {
       domainId <- domainIdForAlias(domainAlias)
       res <- get(domainId)
     } yield res
 
-  override def domainIdForAlias(domainAlias: DomainAlias): Option[DomainId] =
+  def domainIdForAlias(domainAlias: DomainAlias): Option[DomainId] =
     aliasResolution.domainIdForAlias(domainAlias)
-  override def aliasForDomainId(domainId: DomainId): Option[DomainAlias] =
+  def aliasForDomainId(domainId: DomainId): Option[DomainAlias] =
     aliasResolution.aliasForDomainId(domainId)
 
-  override def close(): Unit =
-    Lifecycle.close(domainStates.values.toSeq :+ aliasResolution: _*)(logger)
-}
-
-class SyncDomainPersistentStateManagerX(
-    aliasResolution: DomainAliasResolution,
-    storage: Storage,
-    indexedStringStore: IndexedStringStore,
-    parameters: ParticipantNodeParameters,
-    topologyXConfig: TopologyConfig,
-    crypto: Crypto,
-    clock: Clock,
-    futureSupervisor: FutureSupervisor,
-    loggerFactory: NamedLoggerFactory,
-)(implicit executionContext: ExecutionContext)
-    extends SyncDomainPersistentStateManagerImpl[SyncDomainPersistentState](
-      aliasResolution,
-      storage,
-      indexedStringStore,
-      parameters,
-      loggerFactory,
-    ) {
-
-  override protected def mkPersistentState(
+  private def mkPersistentState(
       alias: DomainAlias,
       domainId: IndexedDomain,
       protocolVersion: ProtocolVersion,
   ): SyncDomainPersistentState = SyncDomainPersistentState
-    .createX(
+    .create(
+      participantId,
       storage,
       domainId,
       protocolVersion,
       clock,
       crypto,
       parameters.stores,
-      topologyXConfig,
+      topologyConfig,
       parameters.cachingConfigs,
       parameters.batchingConfig,
       parameters.processingTimeouts,
@@ -294,9 +226,9 @@ class SyncDomainPersistentStateManagerX(
       futureSupervisor,
     )
 
-  override def topologyFactoryFor(domainId: DomainId): Option[TopologyComponentFactory] = {
+  def topologyFactoryFor(domainId: DomainId): Option[TopologyComponentFactory] = {
     get(domainId).map(state =>
-      new TopologyComponentFactoryX(
+      new TopologyComponentFactory(
         domainId,
         crypto,
         clock,
@@ -304,14 +236,14 @@ class SyncDomainPersistentStateManagerX(
         futureSupervisor,
         parameters.cachingConfigs,
         parameters.batchingConfig,
-        topologyXConfig,
+        topologyConfig,
         state.topologyStore,
         loggerFactory.append("domainId", domainId.toString),
       )
     )
   }
 
-  override def domainTopologyStateInitFor(
+  def domainTopologyStateInitFor(
       domainId: DomainId,
       participantId: ParticipantId,
   )(implicit
@@ -343,4 +275,7 @@ class SyncDomainPersistentStateManagerX(
 
     }
   }
+
+  override def close(): Unit =
+    Lifecycle.close(domainStates.values.toSeq :+ aliasResolution: _*)(logger)
 }

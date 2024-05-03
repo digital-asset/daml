@@ -68,7 +68,7 @@ jobs:
       - bash: |
           set -euo pipefail
 
-          eval "$(sdk/dev-env/bin/dade-assist)"
+          eval "$(cd sdk; dev-env/bin/dade-assist)"
           cd sdk
 
           HEAD=$(git rev-parse HEAD)
@@ -126,7 +126,7 @@ jobs:
       - bash: |
           set -euo pipefail
 
-          eval "$(sdk/dev-env/bin/dade-assist)"
+          eval "$(cd sdk; dev-env/bin/dade-assist)"
 
           AUTH=$(echo -n "OAuth:${MARKETPLACE_TOKEN}" | base64 -w0)
           MARKET=$(curl -H "Authorization: Basic $AUTH" \
@@ -201,7 +201,7 @@ jobs:
       - bash: |
           set -euo pipefail
 
-          eval "$(sdk/dev-env/bin/dade-assist)"
+          eval "$(cd sdk; dev-env/bin/dade-assist)"
 
           STATS=$(mktemp)
           curl https://api.github.com/repos/digital-asset/daml/releases -sSfL | gzip -9 > $STATS

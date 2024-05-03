@@ -5,7 +5,7 @@ package com.digitalasset.canton.error
 
 import com.daml.error.{BaseError, ErrorCategory, ErrorClass, ErrorCode}
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.ledger.error.testpackage.SeriousError
+import com.digitalasset.canton.error.testpackage.SeriousError
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.freespec.AnyFreeSpec

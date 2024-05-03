@@ -7,6 +7,7 @@ import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
+import com.daml.tls.TlsConfiguration
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{NonNegativeDuration, NonNegativeFiniteDuration}
@@ -14,7 +15,6 @@ import com.digitalasset.canton.ledger.api.auth.*
 import com.digitalasset.canton.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.health.HealthChecks
-import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.localstore.api.{
   IdentityProviderConfigStore,
@@ -39,6 +39,7 @@ import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTr
 import com.digitalasset.canton.platform.config.{
   CommandServiceConfig,
   IdentityProviderManagementConfig,
+  PartyManagementServiceConfig,
   UserManagementServiceConfig,
 }
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadataStore
@@ -56,8 +57,6 @@ object ApiServiceOwner {
 
   def apply(
       // configuration parameters
-      apiStreamShutdownTimeout: NonNegativeFiniteDuration =
-        ApiServiceOwner.DefaultApiStreamShutdownTimeout,
       address: Option[String] = DefaultAddress, // This defaults to "localhost" when set to `None`.
       maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
       port: Port = DefaultPort,
@@ -97,6 +96,8 @@ object ApiServiceOwner {
       authService: AuthService,
       jwtVerifierLoader: JwtVerifierLoader,
       userManagement: UserManagementServiceConfig = ApiServiceOwner.DefaultUserManagement,
+      partyManagementServiceConfig: PartyManagementServiceConfig =
+        ApiServiceOwner.DefaultPartyManagementServiceConfig,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
       authenticateContract: AuthenticateContract,
@@ -166,7 +167,7 @@ object ApiServiceOwner {
         ledgerFeatures = ledgerFeatures,
         maxDeduplicationDuration = maxDeduplicationDuration,
         userManagementServiceConfig = userManagement,
-        apiStreamShutdownTimeout = apiStreamShutdownTimeout.underlying,
+        partyManagementServiceConfig = partyManagementServiceConfig,
         meteringReportKey = meteringReportKey,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
@@ -219,9 +220,9 @@ object ApiServiceOwner {
     NonNegativeFiniteDuration.ofMinutes(2)
   val DefaultUserManagement: UserManagementServiceConfig =
     UserManagementServiceConfig.default(enabled = false)
+  val DefaultPartyManagementServiceConfig: PartyManagementServiceConfig =
+    PartyManagementServiceConfig.default
   val DefaultIdentityProviderManagementConfig: IdentityProviderManagementConfig =
     IdentityProviderManagementConfig()
   val DefaultCommandServiceConfig: CommandServiceConfig = CommandServiceConfig.Default
-  val DefaultApiStreamShutdownTimeout: NonNegativeFiniteDuration =
-    NonNegativeFiniteDuration.ofSeconds(5)
 }

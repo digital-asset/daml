@@ -15,14 +15,17 @@ import com.digitalasset.canton.sequencing.protocol.{
   GeneratorsProtocol as GeneratorsProtocolSequencing,
   MaxRequestSizeToDeserialize,
   SubmissionRequest,
+  SubscriptionRequest,
+  TopologyStateForInitRequest,
 }
 import com.digitalasset.canton.topology.transaction.{
   GeneratorsTransaction,
-  SignedTopologyTransactionX,
-  TopologyTransactionX,
+  SignedTopologyTransaction,
+  TopologyTransaction,
 }
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{BaseTest, SerializationDeserializationTestHelpers}
+import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
@@ -46,15 +49,12 @@ class SerializationDeserializationTest
       generatorsProtocol,
       generatorsLocalVerdict,
       generatorsVerdict,
+      generatorsTransaction,
     )
     val generatorsProtocolSeq = new GeneratorsProtocolSequencing(
       version,
       generatorsMessages,
-    )
-    val generatorsTransferData = new GeneratorsTransferData(
-      version,
-      generatorsProtocol,
-      generatorsProtocolSeq,
+      generatorsData,
     )
     val generatorsTrafficData = new GeneratorsTrafficData(
       version
@@ -62,7 +62,6 @@ class SerializationDeserializationTest
 
     import generatorsData.*
     import generatorsMessages.*
-    import generatorsTransferData.*
     import generatorsTrafficData.*
     import generatorsVerdict.*
     import generatorsLocalVerdict.*
@@ -118,9 +117,9 @@ class SerializationDeserializationTest
           (TestHash, ConfirmationPolicy.Signatory),
         )
 
-        testMemoizedProtocolVersioned(TopologyTransactionX)
+        testMemoizedProtocolVersioned(TopologyTransaction)
         testProtocolVersionedWithCtx(
-          SignedTopologyTransactionX,
+          SignedTopologyTransaction,
           ProtocolVersionValidation(version),
         )
 
@@ -135,18 +134,41 @@ class SerializationDeserializationTest
           MaxRequestSizeToDeserialize.NoLimit,
         )
         testVersioned(com.digitalasset.canton.sequencing.SequencerConnections)
-      }
+        testProtocolVersioned(TopologyStateForInitRequest)
+        testProtocolVersioned(SubscriptionRequest)
+        testMemoizedProtocolVersioned2(
+          com.digitalasset.canton.sequencing.protocol.SequencedEvent
+        )
+        testMemoizedProtocolVersioned2(
+          com.digitalasset.canton.sequencing.protocol.SignedContent
+        )
+        testProtocolVersionedWithCtx(
+          com.digitalasset.canton.data.TransactionView,
+          (TestHash, ConfirmationPolicy.Signatory, version),
+        )
+        testProtocolVersionedWithCtxAndValidation(
+          com.digitalasset.canton.data.FullInformeeTree,
+          TestHash,
+          version,
+        )
+        // testing MerkleSeq structure with specific VersionedMerkleTree: SubmitterMetadata.
+        testProtocolVersionedWithCtxAndValidation(
+          com.digitalasset.canton.data.MerkleSeq,
+          (
+            TestHash,
+            (bytes: ByteString) => SubmitterMetadata.fromTrustedByteString(TestHash)(bytes),
+          ),
+          version,
+        )
 
+      }
     }
   }
 
   "be exhaustive" in {
-    val requiredTests = {
-      findHasProtocolVersionedWrapperSubClasses("com.digitalasset.canton.protocol")
-        ++ findHasProtocolVersionedWrapperSubClasses("com.digitalasset.canton.topology")
-    }
+    val requiredTests = findHasProtocolVersionedWrapperSubClasses("com.digitalasset.canton").toSet
 
-    val missingTests = requiredTests.diff(testedClasses.toList)
+    val missingTests = requiredTests.diff(testedClasses)
 
     /*
         If this test fails, it means that one class inheriting from HasProtocolVersionWrapper in the

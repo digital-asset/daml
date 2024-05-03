@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing.authentication
 
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.authentication.AuthenticationToken
 import com.digitalasset.canton.time.Clock

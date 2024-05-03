@@ -10,6 +10,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.Dis
 import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String255}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, ParticipantEventPublisher}
@@ -17,7 +18,7 @@ import com.digitalasset.canton.time.{Clock, PositiveFiniteDuration}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.*
 import com.digitalasset.canton.topology.store.{PartyMetadata, PartyMetadataStore}
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
@@ -47,7 +48,7 @@ class LedgerServerPartyNotifier(
 
   private val pendingAllocationData =
     TrieMap[(PartyId, ParticipantId), (String255, Option[DisplayName])]()
-  def expectPartyAllocationForXNodes(
+  def expectPartyAllocationForNodes(
       party: PartyId,
       onParticipant: ParticipantId,
       submissionId: String255,
@@ -60,7 +61,7 @@ class LedgerServerPartyNotifier(
   } else
     Right(())
 
-  def expireExpectedPartyAllocationForXNodes(
+  def expireExpectedPartyAllocationForNodes(
       party: PartyId,
       onParticipant: ParticipantId,
       submissionId: String255,
@@ -85,24 +86,24 @@ class LedgerServerPartyNotifier(
     }
   }
 
-  def attachToTopologyProcessorX(): TopologyTransactionProcessingSubscriberX =
-    new TopologyTransactionProcessingSubscriberX {
+  def attachToTopologyProcessor(): TopologyTransactionProcessingSubscriber =
+    new TopologyTransactionProcessingSubscriber {
 
       override def observed(
           sequencerTimestamp: SequencedTime,
           effectiveTimestamp: EffectiveTime,
           sequencerCounter: SequencerCounter,
-          transactions: Seq[GenericSignedTopologyTransactionX],
+          transactions: Seq[GenericSignedTopologyTransaction],
       )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
         observeTopologyTransactions(sequencerTimestamp, effectiveTimestamp, transactions)
       }
     }
 
-  def attachToIdentityManagerX(): TopologyManagerObserver =
+  def attachToIdentityManager(): TopologyManagerObserver =
     new TopologyManagerObserver {
       override def addedNewTransactions(
           timestamp: CantonTimestamp,
-          transactions: Seq[GenericSignedTopologyTransactionX],
+          transactions: Seq[GenericSignedTopologyTransaction],
       )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
         observeTopologyTransactions(
           SequencedTime(timestamp),
@@ -114,22 +115,22 @@ class LedgerServerPartyNotifier(
   def observeTopologyTransactions(
       sequencedTime: SequencedTime,
       effectiveTime: EffectiveTime,
-      transactions: Seq[GenericSignedTopologyTransactionX],
+      transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     transactions.parTraverse_(
-      extractTopologyProcessorXData(_)
+      extractTopologyProcessorData(_)
         .parTraverse_(observedF(sequencedTime, effectiveTime, _))
     )
   }
 
-  private def extractTopologyProcessorXData(
-      transaction: GenericSignedTopologyTransactionX
+  private def extractTopologyProcessorData(
+      transaction: GenericSignedTopologyTransaction
   ): Seq[(PartyId, ParticipantId, String255, Option[DisplayName])] = {
-    if (transaction.operation != TopologyChangeOpX.Replace || transaction.isProposal) {
+    if (transaction.operation != TopologyChangeOp.Replace || transaction.isProposal) {
       Seq.empty
     } else {
       transaction.mapping match {
-        case PartyToParticipantX(partyId, _, _, participants, _) =>
+        case PartyToParticipant(partyId, _, _, participants, _) =>
           participants
             .map { hostingParticipant =>
               // Note/CN-5291: Only remove pending submission-id once update persisted.
@@ -146,7 +147,7 @@ class LedgerServerPartyNotifier(
               )
             }
         // propagate admin parties
-        case DomainTrustCertificateX(participantId, _, _, _) =>
+        case DomainTrustCertificate(participantId, _, _, _) =>
           Seq(
             (
               participantId.adminParty,

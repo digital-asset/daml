@@ -11,7 +11,7 @@ load(
     "lf_scalacopts",
     "lf_scalacopts_stricter",
 )
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl", "is_intel", "is_windows")
 
 da_scala_library(
     name = "validation",
@@ -26,11 +26,6 @@ da_scala_library(
         "//canton-3x:__subpackages__",
         "//compiler/scenario-service:__subpackages__",
         "//daml-lf:__subpackages__",
-        # TODO https://github.com/digital-asset/daml/issues/15453
-        #      Extract the error types into a separate package
-        #      in order to decouple the error definitions
-        #      from unnecessary daml-lf/validation dependencies
-        "//ledger/ledger-api-errors:__subpackages__",
     ],
     deps = [
         "//daml-lf/data",
@@ -75,7 +70,7 @@ da_scala_library(
     ],
 )
 
-upgrade_test_file = "src/test/scala/com/digitalasset/daml/lf/validation/UpgradesSpec.scala"
+upgrade_test_file = "src/test/scala/com/daml/lf/validation/UpgradesSpec.scala"
 
 da_scala_test_suite(
     name = "tests",
@@ -197,6 +192,20 @@ da_scala_test_suite(
             "//test-common:upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-v2.dar",
             "//test-common:upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v1.dar",
             "//test-common:upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v2.dar",
+
+            # More more more tests ported from DamlcUpgrades.hs
+            "//test-common:upgrades-SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage-v1.dar",
+            "//test-common:upgrades-SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage-v2.dar",
+            "//test-common:upgrades-FailsWhenAnInstanceIsDropped-dep.dar",
+            "//test-common:upgrades-FailsWhenAnInstanceIsDropped-v1.dar",
+            "//test-common:upgrades-FailsWhenAnInstanceIsDropped-v2.dar",
+            "//test-common:upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
+            "//test-common:upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
+            "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-dep.dar",
+            "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-v1.dar",
+            "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-v2.dar",
+            "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
+            "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
         ],
         flaky = True,
         scala_deps = [
@@ -206,7 +215,6 @@ da_scala_test_suite(
         scalacopts = lf_scalacopts,
         deps = [
             ":upgrade-test-lib",
-            ":validation",
             "//bazel_tools/runfiles:scala_runfiles",
             "//canton:community_ledger_ledger-common",
             "//canton:ledger_api_proto_scala",
@@ -220,7 +228,7 @@ da_scala_test_suite(
             "//test-common/canton/it-lib",
         ],
     ),
-] if not is_windows else []
+] if is_intel and not is_windows else []
 
 da_scala_benchmark_jmh(
     name = "typechecking-benchmark",

@@ -16,7 +16,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.SequencerSnapshot
 import com.digitalasset.canton.topology.SequencerId
 import com.google.protobuf.ByteString
 
-class SequencerXSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGroup.Impl(parent) {
+class SequencerSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGroup.Impl(parent) {
 
   @Help.Summary(
     "Download sequencer snapshot at given point in time to bootstrap another sequencer"

@@ -12,7 +12,6 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.domain.mediator.{FinalizedResponse, MediatorVerdict}
 import com.digitalasset.canton.error.MediatorError
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.protocol.messages.InformeeMessage
 import com.digitalasset.canton.protocol.{ConfirmationPolicy, RequestId, RootHash}
@@ -20,7 +19,7 @@ import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
-import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingIdentityFactoryX}
+import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingIdentityFactory}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.HasTestCloseContext
@@ -174,7 +173,7 @@ trait DbFinalizedResponseStoreTest
     with FinalizedResponseStoreTest {
   this: DbTest =>
 
-  val pureCryptoApi: CryptoPureApi = TestingIdentityFactoryX.pureCrypto()
+  val pureCryptoApi: CryptoPureApi = TestingIdentityFactory.pureCrypto()
 
   def cleanDb(storage: DbStorage): Future[Int] = {
     import storage.api.*

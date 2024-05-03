@@ -10,7 +10,7 @@ import com.daml.lf.data.logging.*
 import com.daml.lf.data.{Bytes, ImmArray, Ref}
 import com.daml.lf.value.Value as Lf
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod
+import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.topology.DomainId
 import scalaz.@@

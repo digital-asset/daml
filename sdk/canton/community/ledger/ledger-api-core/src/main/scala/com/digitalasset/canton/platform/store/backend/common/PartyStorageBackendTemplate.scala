@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.{bool, flatten, str}
 import anorm.{RowParser, ~}
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.IndexerPartyDetails
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.backend.Conversions.{
@@ -109,42 +109,49 @@ class PartyStorageBackendTemplate(
   }
 
   private def queryParties(
-      parties: Option[Set[String]],
+      partyFilter: ComposableQuery.CompositeSql,
+      limitClause: ComposableQuery.CompositeSql,
       connection: Connection,
   ): Vector[IndexerPartyDetails] = {
     import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
-    val partyFilter = parties match {
-      case Some(requestedParties) => cSQL"lapi_party_entries.party in ($requestedParties) AND"
-      case None => cSQL""
-    }
     val ledgerEndOffset = ledgerEndCache()._1
     SQL"""
-        WITH relevant_offsets AS (
-          SELECT
-            party,
-            max(ledger_offset) ledger_offset,
-            #${queryStrategy.booleanOrAggregationFunction}(is_local) is_local
-          FROM lapi_party_entries
-          WHERE
-            ledger_offset <= $ledgerEndOffset AND
-            $partyFilter
-            typ = 'accept'
-          GROUP BY party
-        )
         SELECT
-          lapi_party_entries.party,
-          lapi_party_entries.display_name,
-          relevant_offsets.is_local
-        FROM lapi_party_entries INNER JOIN relevant_offsets ON
-          lapi_party_entries.party = relevant_offsets.party AND
-          lapi_party_entries.ledger_offset = relevant_offsets.ledger_offset
+          party,
+          #${queryStrategy.lastByProxyAggregateFuction(
+        "display_name",
+        "ledger_offset",
+      )} display_name,
+          #${queryStrategy.booleanOrAggregationFunction}(is_local) is_local
+        FROM lapi_party_entries
+        WHERE
+          ledger_offset <= $ledgerEndOffset AND
+          $partyFilter
+          typ = 'accept'
+        GROUP BY party
+        ORDER BY party
+        $limitClause
        """.asVectorOf(partyDetailsParser)(connection)
   }
 
-  override def parties(parties: Seq[Party])(connection: Connection): List[IndexerPartyDetails] =
-    queryParties(Some(parties.view.map(_.toString).toSet), connection).toList
+  override def parties(parties: Seq[Party])(connection: Connection): List[IndexerPartyDetails] = {
+    val requestedParties = parties.view.map(_.toString).toSet
+    val partyFilter = cSQL"lapi_party_entries.party in ($requestedParties) AND"
+    queryParties(partyFilter, cSQL"", connection).toList
+  }
 
-  override def knownParties(connection: Connection): List[IndexerPartyDetails] =
-    queryParties(None, connection).toList
+  override def knownParties(fromExcl: Option[Party], maxResults: Int)(
+      connection: Connection
+  ): List[IndexerPartyDetails] = {
+    val partyFilter = fromExcl match {
+      case Some(id: String) => cSQL"lapi_party_entries.party > $id AND"
+      case None => cSQL""
+    }
+    queryParties(
+      partyFilter,
+      cSQL"fetch next $maxResults rows only",
+      connection,
+    ).toList
+  }
 
 }

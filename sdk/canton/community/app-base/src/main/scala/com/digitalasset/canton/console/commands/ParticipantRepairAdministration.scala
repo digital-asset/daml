@@ -25,9 +25,10 @@ import com.digitalasset.canton.console.{
   Helpful,
 }
 import com.digitalasset.canton.data.RepairContract
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.GrpcError
-import com.digitalasset.canton.participant.ParticipantNodeCommon
+import com.digitalasset.canton.participant.ParticipantNode
 import com.digitalasset.canton.participant.admin.data.ActiveContract
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.protocol.LfContractId
@@ -35,7 +36,7 @@ import com.digitalasset.canton.topology.{DomainId, PartyId}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DiscardOps, DomainAlias, SequencerCounter}
+import com.digitalasset.canton.{DomainAlias, SequencerCounter}
 import com.google.protobuf.ByteString
 import io.grpc.Context.CancellableContext
 import io.grpc.StatusRuntimeException
@@ -246,7 +247,7 @@ class ParticipantRepairAdministration(
     }
   }
 
-  @Help.Summary("Add specified contracts to specific domain on local participant.")
+  @Help.Summary("Add specified contracts to a specific domain on the participant.")
   @Help.Description(
     """This is a last resort command to recover from data corruption, e.g. in scenarios in which participant
         |contracts have somehow gotten out of sync and need to be manually created. The participant needs to be
@@ -276,13 +277,11 @@ class ParticipantRepairAdministration(
     ResourceUtil.withResource(outputStream) { outputStream =>
       contracts
         .traverse_ { repairContract =>
-          val activeContractE = ActiveContract
+          val activeContract = ActiveContract
             .create(domainId, repairContract.contract, repairContract.transferCounter)(
               protocolVersion
             )
-            .leftMap(_.toString)
-
-          activeContractE.flatMap(_.writeDelimitedTo(outputStream).map(_ => outputStream.flush()))
+          activeContract.writeDelimitedTo(outputStream).map(_ => outputStream.flush())
         }
         .valueOr(err => throw new RuntimeException(s"Unable to add contract data to stream: $err"))
     }
@@ -315,7 +314,7 @@ abstract class LocalParticipantRepairAdministration(
       loggerFactory = loggerFactory,
     ) {
 
-  protected def access[T](handler: ParticipantNodeCommon => T): T
+  protected def access[T](handler: ParticipantNode => T): T
 
   private def runRepairCommand[T](command: TraceContext => Either[String, T]): T =
     check(FeatureFlag.Repair) {

@@ -15,6 +15,7 @@ import com.digitalasset.canton.config.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{CryptoPureApi, Fingerprint, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.HealthComponent.AlwaysHealthyComponent
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyInstances}
@@ -62,7 +63,7 @@ import com.digitalasset.canton.store.{
   SequencerCounterTrackerStore,
 }
 import com.digitalasset.canton.time.{DomainTimeTracker, MockTimeRequestSubmitter, SimClock}
-import com.digitalasset.canton.topology.DefaultTestIdentities.{participant1, sequencerId}
+import com.digitalasset.canton.topology.DefaultTestIdentities.{daSequencerId, participant1}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{DomainTopologyClient, TopologySnapshot}
 import com.digitalasset.canton.tracing.TraceContext
@@ -813,7 +814,7 @@ class SequencerClientTest
           _ <- env.changeTransport(
             SequencerTransports.single(
               SequencerAlias.tryCreate("somethingElse"),
-              sequencerId,
+              daSequencerId,
               secondTransport,
             )
           )
@@ -830,7 +831,7 @@ class SequencerClientTest
       "fail to reassign sequencerId" in {
         val secondTransport = MockTransport()
         val secondSequencerId = SequencerId(
-          UniqueIdentifier(Identifier.tryCreate("da2"), Namespace(Fingerprint.tryCreate("default")))
+          UniqueIdentifier.tryCreate("da2", Namespace(Fingerprint.tryCreate("default")))
         )
 
         val env = RichEnvFactory.create()
@@ -938,7 +939,7 @@ class SequencerClientTest
         newTransport: SequencerClientTransport & SequencerClientTransportPekko
     )(implicit ev: Client <:< RichSequencerClient): Future[Unit] = {
       changeTransport(
-        SequencerTransports.default(sequencerId, newTransport)
+        SequencerTransports.default(daSequencerId, newTransport)
       )
     }
 
@@ -1218,7 +1219,7 @@ class SequencerClientTest
       val client = new RichSequencerClientImpl(
         DefaultTestIdentities.domainId,
         participant1,
-        SequencerTransports.default(DefaultTestIdentities.sequencerId, transport),
+        SequencerTransports.default(DefaultTestIdentities.daSequencerId, transport),
         options,
         TestingConfigInternal(),
         BaseTest.defaultStaticDomainParameters.protocolVersion,
@@ -1274,7 +1275,7 @@ class SequencerClientTest
       val client = new SequencerClientImplPekko(
         DefaultTestIdentities.domainId,
         participant1,
-        SequencerTransports.default(DefaultTestIdentities.sequencerId, transport),
+        SequencerTransports.default(DefaultTestIdentities.daSequencerId, transport),
         options,
         TestingConfigInternal(),
         BaseTest.defaultStaticDomainParameters.protocolVersion,

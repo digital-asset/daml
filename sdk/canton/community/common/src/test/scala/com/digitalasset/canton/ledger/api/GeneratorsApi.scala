@@ -3,7 +3,8 @@
 
 package com.digitalasset.canton.ledger.api
 
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationDuration
+import com.digitalasset.canton.data.DeduplicationPeriod
+import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 

@@ -3,10 +3,11 @@
 
 package com.digitalasset.canton.participant.ledger.api
 
+import com.digitalasset.canton.LedgerParticipantId
 import com.digitalasset.canton.config.{DbConfig, MemoryStorageConfig, StorageConfig}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.LedgerApiServerError
 import com.digitalasset.canton.util.ResourceUtil.withResource
-import com.digitalasset.canton.{DiscardOps, LedgerParticipantId}
 
 import java.sql.DriverManager
 import java.util.UUID.randomUUID

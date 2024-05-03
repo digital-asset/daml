@@ -88,7 +88,7 @@ private[http] final class RouteSetup(
     inputJsVal(req).flatMap(x => withJwtPayload[JsValue, P](x).leftMap(it => it: Error))
 
   def withJwtPayload[A, P](fa: (Jwt, A))(implicit
-      createFromUserToken: CreateFromUserToken[P],
+      createFromUserToken: CreateFromUserToken[P]
   ): EitherT[Future, Error, (Jwt, P, A)] =
     decodeAndParsePayload[P](fa._1, decodeJwt, userManagementClient).map(t2 =>
       (t2._1, t2._2, fa._2)
@@ -155,10 +155,12 @@ private[http] final class RouteSetup(
         )
     }
 
+  private def isHttps(req: HttpRequest): Boolean = req.uri.scheme == "https"
+
   private[this] def ensureHttpsForwarded(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Unauthorized \/ Unit =
-    if (allowNonHttps || isForwardedForHttps(req.headers)) \/-(())
+    if (allowNonHttps || isForwardedForHttps(req.headers) || isHttps(req)) \/-(())
     else {
       logger.warn(s"$nonHttpsErrorMessage, ${lc.makeString}")
       \/-(())

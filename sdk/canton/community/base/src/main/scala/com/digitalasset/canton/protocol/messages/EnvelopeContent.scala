@@ -76,7 +76,7 @@ object EnvelopeContent
         case Content.RootHashMessage(messageP) =>
           RootHashMessage.fromProtoV30(SerializedRootHashMessagePayload.fromByteString)(messageP)
         case Content.TopologyTransactionsBroadcast(messageP) =>
-          TopologyTransactionsBroadcastX.fromProtoV30(expectedProtocolVersion, messageP)
+          TopologyTransactionsBroadcast.fromProtoV30(expectedProtocolVersion, messageP)
         case Content.Empty => Left(OtherError("Cannot deserialize an empty message content"))
       }): ParsingResult[UnsignedProtocolMessage]
     } yield EnvelopeContent(content)(rpv)

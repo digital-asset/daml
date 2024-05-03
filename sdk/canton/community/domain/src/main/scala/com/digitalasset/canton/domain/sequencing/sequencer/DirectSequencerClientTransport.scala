@@ -6,9 +6,9 @@ package com.digitalasset.canton.domain.sequencing.sequencer
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.domain.sequencing.service.DirectSequencerSubscriptionFactory
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}

@@ -20,10 +20,10 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Timed
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{ParticipantOffset, TransactionId}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2
 import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.digitalasset.canton.ledger.participant.state.index.v2.*
@@ -153,10 +153,16 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
   ): Future[List[IndexerPartyDetails]] =
     Timed.future(metrics.services.index.getParties, delegate.getParties(parties))
 
-  override def listKnownParties()(implicit
+  override def listKnownParties(
+      fromExcl: Option[Party],
+      maxResults: Int,
+  )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[List[IndexerPartyDetails]] =
-    Timed.future(metrics.services.index.listKnownParties, delegate.listKnownParties())
+    Timed.future(
+      metrics.services.index.listKnownParties,
+      delegate.listKnownParties(fromExcl, maxResults),
+    )
 
   override def partyEntries(
       startExclusive: Option[ParticipantOffset.Absolute]
@@ -171,17 +177,6 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
     Timed.future(
       metrics.services.index.prune,
       delegate.prune(pruneUpToInclusive, pruneAllDivulgedContracts, incompletReassignmentOffsets),
-    )
-
-  override def getCompletions(
-      startExclusive: ParticipantOffset,
-      endInclusive: ParticipantOffset,
-      applicationId: Ref.ApplicationId,
-      parties: Set[Party],
-  )(implicit loggingContext: LoggingContextWithTrace): Source[CompletionStreamResponse, NotUsed] =
-    Timed.source(
-      metrics.services.index.getCompletionsLimited,
-      delegate.getCompletions(startExclusive, endInclusive, applicationId, parties),
     )
 
   override def currentHealth(): HealthStatus =

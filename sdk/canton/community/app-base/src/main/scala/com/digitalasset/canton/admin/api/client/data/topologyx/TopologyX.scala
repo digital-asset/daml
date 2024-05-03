@@ -14,23 +14,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.admin.grpc.TopologyStore
 import com.digitalasset.canton.topology.admin.v30
-import com.digitalasset.canton.topology.transaction.{
-  AuthorityOfX,
-  DecentralizedNamespaceDefinitionX,
-  DomainTrustCertificateX,
-  IdentifierDelegationX,
-  MediatorDomainStateX,
-  NamespaceDelegationX,
-  OwnerToKeyMappingX,
-  ParticipantDomainPermissionX,
-  PartyHostingLimitsX,
-  PartyToParticipantX,
-  PurgeTopologyTransactionX,
-  SequencerDomainStateX,
-  TopologyChangeOpX,
-  TrafficControlStateX,
-  VettedPackagesX,
-}
+import com.digitalasset.canton.topology.transaction.*
 import com.google.protobuf.ByteString
 
 import java.time.Instant
@@ -40,7 +24,7 @@ final case class BaseResult(
     validFrom: Instant,
     validUntil: Option[Instant],
     sequenced: Instant,
-    operation: TopologyChangeOpX,
+    operation: TopologyChangeOp,
     transactionHash: ByteString,
     serial: PositiveInt,
     signedBy: NonEmpty[Seq[Fingerprint]],
@@ -54,7 +38,7 @@ object BaseResult {
       validUntil <- value.validUntil.traverse(ProtoConverter.InstantConverter.fromProtoPrimitive)
       protoSequenced <- ProtoConverter.required("sequencer", value.sequenced)
       sequenced <- ProtoConverter.InstantConverter.fromProtoPrimitive(protoSequenced)
-      operation <- TopologyChangeOpX.fromProtoV30(value.operation)
+      operation <- TopologyChangeOp.fromProtoV30(value.operation)
       serial <- PositiveInt
         .create(value.serial)
         .leftMap(e => RefinedDurationConversionError("serial", e.message))
@@ -84,7 +68,7 @@ object BaseResult {
 
 final case class ListNamespaceDelegationResult(
     context: BaseResult,
-    item: NamespaceDelegationX,
+    item: NamespaceDelegation,
 )
 
 object ListNamespaceDelegationResult {
@@ -95,13 +79,13 @@ object ListNamespaceDelegationResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- NamespaceDelegationX.fromProtoV30(itemProto)
+      item <- NamespaceDelegation.fromProtoV30(itemProto)
     } yield ListNamespaceDelegationResult(context, item)
 }
 
 final case class ListDecentralizedNamespaceDefinitionResult(
     context: BaseResult,
-    item: DecentralizedNamespaceDefinitionX,
+    item: DecentralizedNamespaceDefinition,
 )
 
 object ListDecentralizedNamespaceDefinitionResult {
@@ -112,13 +96,13 @@ object ListDecentralizedNamespaceDefinitionResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- DecentralizedNamespaceDefinitionX.fromProtoV30(itemProto)
+      item <- DecentralizedNamespaceDefinition.fromProtoV30(itemProto)
     } yield ListDecentralizedNamespaceDefinitionResult(context, item)
 }
 
 final case class ListIdentifierDelegationResult(
     context: BaseResult,
-    item: IdentifierDelegationX,
+    item: IdentifierDelegation,
 )
 
 object ListIdentifierDelegationResult {
@@ -129,13 +113,13 @@ object ListIdentifierDelegationResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- IdentifierDelegationX.fromProtoV30(itemProto)
+      item <- IdentifierDelegation.fromProtoV30(itemProto)
     } yield ListIdentifierDelegationResult(context, item)
 }
 
 final case class ListOwnerToKeyMappingResult(
     context: BaseResult,
-    item: OwnerToKeyMappingX,
+    item: OwnerToKeyMapping,
 )
 
 object ListOwnerToKeyMappingResult {
@@ -146,13 +130,13 @@ object ListOwnerToKeyMappingResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- OwnerToKeyMappingX.fromProtoV30(itemProto)
+      item <- OwnerToKeyMapping.fromProtoV30(itemProto)
     } yield ListOwnerToKeyMappingResult(context, item)
 }
 
 final case class ListDomainTrustCertificateResult(
     context: BaseResult,
-    item: DomainTrustCertificateX,
+    item: DomainTrustCertificate,
 )
 
 object ListDomainTrustCertificateResult {
@@ -163,13 +147,13 @@ object ListDomainTrustCertificateResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- DomainTrustCertificateX.fromProtoV30(itemProto)
+      item <- DomainTrustCertificate.fromProtoV30(itemProto)
     } yield ListDomainTrustCertificateResult(context, item)
 }
 
 final case class ListParticipantDomainPermissionResult(
     context: BaseResult,
-    item: ParticipantDomainPermissionX,
+    item: ParticipantDomainPermission,
 )
 
 object ListParticipantDomainPermissionResult {
@@ -180,13 +164,13 @@ object ListParticipantDomainPermissionResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- ParticipantDomainPermissionX.fromProtoV30(itemProto)
+      item <- ParticipantDomainPermission.fromProtoV30(itemProto)
     } yield ListParticipantDomainPermissionResult(context, item)
 }
 
 final case class ListPartyHostingLimitsResult(
     context: BaseResult,
-    item: PartyHostingLimitsX,
+    item: PartyHostingLimits,
 )
 
 object ListPartyHostingLimitsResult {
@@ -197,13 +181,13 @@ object ListPartyHostingLimitsResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- PartyHostingLimitsX.fromProtoV30(itemProto)
+      item <- PartyHostingLimits.fromProtoV30(itemProto)
     } yield ListPartyHostingLimitsResult(context, item)
 }
 
 final case class ListVettedPackagesResult(
     context: BaseResult,
-    item: VettedPackagesX,
+    item: VettedPackages,
 )
 
 object ListVettedPackagesResult {
@@ -214,13 +198,13 @@ object ListVettedPackagesResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- VettedPackagesX.fromProtoV30(itemProto)
+      item <- VettedPackages.fromProtoV30(itemProto)
     } yield ListVettedPackagesResult(context, item)
 }
 
 final case class ListPartyToParticipantResult(
     context: BaseResult,
-    item: PartyToParticipantX,
+    item: PartyToParticipant,
 )
 
 object ListPartyToParticipantResult {
@@ -231,13 +215,13 @@ object ListPartyToParticipantResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- PartyToParticipantX.fromProtoV30(itemProto)
+      item <- PartyToParticipant.fromProtoV30(itemProto)
     } yield ListPartyToParticipantResult(context, item)
 }
 
 final case class ListAuthorityOfResult(
     context: BaseResult,
-    item: AuthorityOfX,
+    item: AuthorityOf,
 )
 
 object ListAuthorityOfResult {
@@ -248,7 +232,7 @@ object ListAuthorityOfResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- AuthorityOfX.fromProtoV30(itemProto)
+      item <- AuthorityOf.fromProtoV30(itemProto)
     } yield ListAuthorityOfResult(context, item)
 }
 
@@ -271,7 +255,7 @@ object ListDomainParametersStateResult {
 
 final case class ListMediatorDomainStateResult(
     context: BaseResult,
-    item: MediatorDomainStateX,
+    item: MediatorDomainState,
 )
 
 object ListMediatorDomainStateResult {
@@ -282,13 +266,13 @@ object ListMediatorDomainStateResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- MediatorDomainStateX.fromProtoV30(itemProto)
+      item <- MediatorDomainState.fromProtoV30(itemProto)
     } yield ListMediatorDomainStateResult(context, item)
 }
 
 final case class ListSequencerDomainStateResult(
     context: BaseResult,
-    item: SequencerDomainStateX,
+    item: SequencerDomainState,
 )
 
 object ListSequencerDomainStateResult {
@@ -299,13 +283,13 @@ object ListSequencerDomainStateResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- SequencerDomainStateX.fromProtoV30(itemProto)
+      item <- SequencerDomainState.fromProtoV30(itemProto)
     } yield ListSequencerDomainStateResult(context, item)
 }
 
 final case class ListPurgeTopologyTransactionResult(
     context: BaseResult,
-    item: PurgeTopologyTransactionX,
+    item: PurgeTopologyTransaction,
 )
 
 object ListPurgeTopologyTransactionResult {
@@ -316,21 +300,6 @@ object ListPurgeTopologyTransactionResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- PurgeTopologyTransactionX.fromProtoV30(itemProto)
+      item <- PurgeTopologyTransaction.fromProtoV30(itemProto)
     } yield ListPurgeTopologyTransactionResult(context, item)
-}
-
-final case class ListTrafficStateResult(
-    context: BaseResult,
-    item: TrafficControlStateX,
-)
-
-object ListTrafficStateResult {
-  def fromProtoV30(
-      value: v30.ListTrafficStateResponse.Result
-  ): ParsingResult[ListTrafficStateResult] =
-    for {
-      context <- ProtoConverter.parseRequired(BaseResult.fromProtoV30, "context", value.context)
-      item <- ProtoConverter.parseRequired(TrafficControlStateX.fromProtoV30, "item", value.item)
-    } yield ListTrafficStateResult(context, item)
 }

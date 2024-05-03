@@ -23,6 +23,9 @@ service PackageService {
   // Upload a DAR file and all packages inside to the participant node
   rpc UploadDar(UploadDarRequest) returns (UploadDarResponse);
 
+  // Upload a DAR file and all packages inside to the participant node
+  rpc ValidateDar(ValidateDarRequest) returns (ValidateDarResponse);
+
   // Remove a package that is not vetted
   rpc RemovePackage(RemovePackageRequest) returns (RemovePackageResponse);
 
@@ -137,6 +140,17 @@ message UploadDarResponse {
   message Failure {
     string reason = 1;
   }
+}
+
+// Performs the same checks that UploadDarRequest would perform, but doesn't
+// upload the DAR.
+message ValidateDarRequest {
+  bytes data = 1;
+  string filename = 2;
+}
+
+message ValidateDarResponse {
+  string hash = 1;
 }
 
 message GetDarRequest {

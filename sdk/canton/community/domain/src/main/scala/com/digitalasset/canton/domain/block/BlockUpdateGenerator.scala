@@ -22,6 +22,7 @@ import com.digitalasset.canton.crypto.{
   SyncCryptoClient,
 }
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.block.LedgerBlockEvent.*
 import com.digitalasset.canton.domain.block.data.{
   BlockEphemeralState,
@@ -197,12 +198,13 @@ class BlockUpdateGeneratorImpl(
         )
         FutureUnlessShutdown.pure(newState -> update)
       case NextChunk(height, index, events) =>
-        processChunk(height, state, events)
+        processChunk(height, index, state, events)
     }
   }
 
   private def processChunk(
       height: Long,
+      index: Int,
       state: State,
       chunk: NonEmpty[Seq[Traced[LedgerBlockEvent]]],
   )(implicit
@@ -220,11 +222,13 @@ class BlockUpdateGeneratorImpl(
           case send: LedgerBlockEvent.Send =>
             val ts = ensureStrictlyIncreasingTimestamp(lastTs, send.timestamp)
             logger.info(
-              show"Observed Send with messageId ${send.signedSubmissionRequest.content.messageId.singleQuoted} in block $height and assigned it timestamp $ts"
+              show"Observed Send with messageId ${send.signedSubmissionRequest.content.messageId.singleQuoted} in block $height, chunk $index and assigned it timestamp $ts"
             )(event.traceContext)
             (ts, (ts, event) +: events)
           case _ =>
-            logger.info(s"Observed ${event.value} in block $height at timestamp $lastTs")(
+            logger.info(
+              s"Observed ${event.value} in block $height, chunk $index at timestamp $lastTs"
+            )(
               event.traceContext
             )
             (lastTs, (lastTs, event) +: events)
@@ -302,7 +306,7 @@ class BlockUpdateGeneratorImpl(
                 .get(member)
                 .fold {
                   logger.debug(
-                    s"Ack at $timestamp for $member being ignored because the member has not yet been registered."
+                    s"Ack at $timestamp for $member (block $height, chunk $index) being ignored because the member has not yet been registered."
                   )
                   membersMap
                 } { memberStatus =>
@@ -1457,7 +1461,7 @@ class BlockUpdateGeneratorImpl(
         // "soon" after initial sequencer onboarding. See #13609
         events.toSeq.parTraverse { case (member, event) =>
           logger.info(
-            s"Sequencing tombstone for ${member.uid.id} at ${event.timestamp} and ${event.counter}. Sequencer signing key at $signingTimestamp not available before the bound $bound."
+            s"Sequencing tombstone for ${member.identifier} at ${event.timestamp} and ${event.counter}. Sequencer signing key at $signingTimestamp not available before the bound $bound."
           )
           // sign tombstones using key valid at sequencing timestamp as event timestamp has no signing key and we
           // are not sequencing the event anyway, but the tombstone

@@ -4,9 +4,10 @@
 package com.digitalasset.canton.platform.apiserver.services.tracking
 
 import com.daml.ledger.resources.ResourceOwner
+import com.digitalasset.canton.config
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{DiscardOps, config}
 
 import java.util.{Timer, TimerTask}
 import scala.concurrent.Promise

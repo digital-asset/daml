@@ -17,6 +17,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Salt, SyncCryptoApiProvider}
 import com.digitalasset.canton.data.{CantonTimestamp, RepairContract}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.canton.ledger.api.validation.StricterValueValidator as LedgerApiValueValidator
 import com.digitalasset.canton.lifecycle.{
@@ -251,7 +252,7 @@ final class RepairService(
   // This is needed for causality tracking, which cannot use a tie breaker on timestamps.
   //
   // If this repair request succeeds, it will advance the clean request prehead to this time of change.
-  // That's why it is important that there are no dirty requests before the repair request.
+  // That's why it is important that there are no inflight validation requests before the repair request.
   private def readDomainData(
       domainId: DomainId
   )(implicit traceContext: TraceContext): EitherT[Future, String, RepairRequest.DomainData] =
@@ -1121,7 +1122,7 @@ final class RepairService(
           s"""Cannot apply a repair command as events have been published up to
              |${domain.startingPoints.lastPublishedRequestOffset} offset inclusive
              |and the repair command would be assigned the offset ${domain.startingPoints.processing.nextRequestCounter}.
-             |Reconnect to the domain to reprocess the dirty requests and retry repair afterwards.""".stripMargin
+             |Reconnect to the domain to reprocess the inflight validation requests and retry repair afterwards.""".stripMargin
         ),
       )
       _ <- EitherTUtil.fromFuture(
@@ -1139,7 +1140,7 @@ final class RepairService(
         log(
           s"""Cannot apply a repair command as the incremental acs snapshot is already at $incrementalAcsSnapshotWatermark
              |and the repair command would be assigned a record time of $rtRepair.
-             |Reconnect to the domain to reprocess dirty requests and retry repair afterwards.""".stripMargin
+             |Reconnect to the domain to reprocess inflight validation requests and retry repair afterwards.""".stripMargin
         ),
       )
       // Make sure that the topology state for the repair timestamp is available.

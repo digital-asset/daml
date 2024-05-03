@@ -162,7 +162,7 @@ class ValidateDisclosedContractsTest
       ),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        s"INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Mismatch between DisclosedContract.contract_id ($otherContractId) and contract_id from decoded DisclosedContract.created_event_blob (${lf.lfContractId.coid})",
+        s"INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Mismatch between DisclosedContract.contract_id ($otherContractId) and contract_id from decoded DisclosedContract.created_event_blob (${lf.lfContractId.coid})",
       metadata = Map.empty,
     )
   }
@@ -184,7 +184,7 @@ class ValidateDisclosedContractsTest
       ),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Mismatch between DisclosedContract.template_id (otherPkgId:otherModule:otherEntity) and template_id from decoded DisclosedContract.created_event_blob (package:module:entity)",
+        "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Mismatch between DisclosedContract.template_id (otherPkgId:otherModule:otherEntity) and template_id from decoded DisclosedContract.created_event_blob (package:module:entity)",
       metadata = Map.empty,
     )
   }
@@ -203,7 +203,7 @@ class ValidateDisclosedContractsTest
       ),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Unable to decode disclosed contract event payload: DecodeError(exception com.google.protobuf.InvalidProtocolBufferException: Protocol message contained an invalid tag (zero). while decoding the versioned object)",
+        "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Unable to decode disclosed contract event payload: DecodeError(exception com.google.protobuf.InvalidProtocolBufferException: Protocol message contained an invalid tag (zero). while decoding the versioned object)",
       metadata = Map.empty,
     )
   }

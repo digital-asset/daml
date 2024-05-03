@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.utils
 
 import com.daml.tracing.SpanAttribute
-import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.data.Offset
 import io.opentelemetry.api.trace.{Span, Tracer}
 
 object Telemetry {

@@ -14,7 +14,7 @@ import com.daml.ledger.api.v2.checkpoint.Checkpoint
 import com.daml.ledger.api.v2.commands.{Command, DisclosedContract}
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.event.CreatedEvent
-import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse as GetEventsByContractIdResponse
+import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.reassignment.Reassignment as ReassignmentProto
 import com.daml.ledger.api.v2.state_service.{
@@ -41,8 +41,7 @@ import com.daml.ledger.javaapi.data.{
 import com.daml.ledger.javaapi as javab
 import com.daml.lf.data.Ref
 import com.daml.metrics.api.MetricHandle.{Histogram, Meter}
-import com.daml.metrics.api.MetricsContext.Implicits.empty
-import com.daml.metrics.api.{MetricName, MetricsContext}
+import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.CompletionWrapper
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.*
@@ -73,14 +72,14 @@ import com.digitalasset.canton.console.{
   ParticipantReference,
   RemoteParticipantReference,
 }
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.ledger.api.auth.{AuthServiceJWTCodec, StandardJWTPayload}
+import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{
   IdentityProviderConfig,
   IdentityProviderId,
   JwksUrl,
 }
-import com.digitalasset.canton.ledger.api.{DeduplicationPeriod, domain}
 import com.digitalasset.canton.ledger.client.services.admin.IdentityProviderConfigClient
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.networking.grpc.{GrpcError, RecordingStreamObserver}
@@ -349,11 +348,18 @@ trait BaseLedgerApiAdministration extends NoTracing {
               .forParticipant(name)
               .openTelemetryMetricsFactory
 
-            val metric: Meter = metricsFactory.meter(wrappedMetricName)
+            val metric: Meter =
+              metricsFactory.meter(MetricInfo(wrappedMetricName, "", MetricQualification.Debug))(
+                MetricsContext.Empty
+              )
             val nodeCount: Histogram =
-              metricsFactory.histogram(wrappedMetricName :+ "tx-node-count")
+              metricsFactory.histogram(
+                MetricInfo(wrappedMetricName :+ "tx-node-count", "", MetricQualification.Debug)
+              )
             val transactionSize: Histogram =
-              metricsFactory.histogram(wrappedMetricName :+ "tx-size")
+              metricsFactory.histogram(
+                MetricInfo(wrappedMetricName :+ "tx-size", "", MetricQualification.Debug)
+              )
 
             override def onNext(tree: UpdateTreeWrapper): Unit = {
               val (s, serializedSize) = tree match {

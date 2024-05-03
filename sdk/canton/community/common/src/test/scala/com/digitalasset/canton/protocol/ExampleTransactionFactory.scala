@@ -25,7 +25,6 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.TransactionViewDecomposition.{NewView, SameView}
 import com.digitalasset.canton.data.ViewPosition.MerklePathElement
 import com.digitalasset.canton.data.*
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
@@ -40,8 +39,8 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
 import com.digitalasset.canton.topology.{
   DomainId,
   ParticipantId,
-  TestingIdentityFactoryX,
-  TestingTopologyX,
+  TestingIdentityFactory,
+  TestingTopology,
   UniqueIdentifier,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -61,6 +60,8 @@ import scala.collection.immutable.HashMap
 import scala.concurrent.duration.*
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Random
+
+import DeduplicationPeriod.DeduplicationDuration
 
 /** Provides convenience methods for creating [[ExampleTransaction]]s and parts thereof.
   */
@@ -338,8 +339,8 @@ object ExampleTransactionFactory {
   val commandId: CommandId = DefaultDamlValues.commandId()
   val workflowId: WorkflowId = WorkflowId.assertFromString("testWorkflowId")
 
-  val defaultTestingTopology: TestingTopologyX =
-    TestingTopologyX(
+  val defaultTestingTopology: TestingTopology =
+    TestingTopology(
       topology = Map(
         submitter -> Map(submittingParticipant -> Submission),
         signatory -> Map(
@@ -357,7 +358,7 @@ object ExampleTransactionFactory {
         .toMap,
     )
 
-  def defaultTestingIdentityFactory: TestingIdentityFactoryX =
+  def defaultTestingIdentityFactory: TestingIdentityFactory =
     defaultTestingTopology.build()
 
   // Topology

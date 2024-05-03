@@ -44,9 +44,10 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.admin.data.ParticipantStatus
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
-import com.digitalasset.canton.participant.ParticipantNodeCommon
+import com.digitalasset.canton.participant.ParticipantNode
 import com.digitalasset.canton.participant.admin.ResourceLimits
 import com.digitalasset.canton.participant.admin.grpc.TransferSearchResult
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
@@ -71,7 +72,7 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
-import com.digitalasset.canton.{DiscardOps, DomainAlias, SequencerAlias, config}
+import com.digitalasset.canton.{DomainAlias, SequencerAlias, config}
 
 import java.time.Instant
 import scala.concurrent.duration.Duration
@@ -96,6 +97,16 @@ private[console] object ParticipantCommands {
       runner.adminCommand(
         ParticipantAdminCommands.Package
           .UploadDar(Some(path), vetAllPackages, synchronizeVetting, logger)
+      )
+
+    def validate(
+        runner: AdminCommandRunner,
+        path: String,
+        logger: TracedLogger,
+    ): ConsoleCommandResult[String] =
+      runner.adminCommand(
+        ParticipantAdminCommands.Package
+          .ValidateDar(Some(path), logger)
       )
 
   }
@@ -329,7 +340,7 @@ class ParticipantTestingGroup(
 }
 
 class LocalParticipantTestingGroup(
-    participantRef: ParticipantReference with BaseInspection[ParticipantNodeCommon],
+    participantRef: ParticipantReference with BaseInspection[ParticipantNode],
     consoleEnvironment: ConsoleEnvironment,
     loggerFactory: NamedLoggerFactory,
 ) extends ParticipantTestingGroup(participantRef, consoleEnvironment, loggerFactory)
@@ -666,7 +677,7 @@ class ParticipantPruningAdministrationGroup(
 }
 
 class LocalCommitmentsAdministrationGroup(
-    runner: AdminCommandRunner with BaseInspection[ParticipantNodeCommon],
+    runner: AdminCommandRunner with BaseInspection[ParticipantNode],
     val consoleEnvironment: ConsoleEnvironment,
     val loggerFactory: NamedLoggerFactory,
 ) extends FeatureFlagFilter
@@ -1024,7 +1035,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     def active(domainAlias: DomainAlias): Boolean = {
       list_connected().exists(r => {
         // TODO(#14053): Filter out participants that are not permissioned on the domain. The TODO is because the daml 2.x
-        //  also asks the domain whether the participant is permissioned, i.e. do we need to for a ParticipantDomainPermissionX?
+        //  also asks the domain whether the participant is permissioned, i.e. do we need to for a ParticipantDomainPermission?
         r.domainAlias == domainAlias &&
         r.healthy &&
         participantIsActiveOnDomain(r.domainId, id)
@@ -1498,26 +1509,26 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       """While a resource limit is attained or exceeded, the participant will reject any additional submission with GRPC status ABORTED.
         |Most importantly, a submission will be rejected **before** it consumes a significant amount of resources.
         |
-        |There are three kinds of limits: `maxDirtyRequests`,  `maxRate` and `maxBurstFactor`.
-        |The number of dirty requests of a participant P covers (1) requests initiated by P as well as
+        |There are three kinds of limits: `maxInflightValidationRequests`,  `maxSubmissionRate` and `maxSubmissionBurstFactor`.
+        |The number of inflight validation requests of a participant P covers (1) requests initiated by P as well as
         |(2) requests initiated by participants other than P that need to be validated by P.
-        |Compared to the maximum rate, the maximum number of dirty requests reflects the load on the participant more accurately.
-        |However, the maximum number of dirty requests alone does not protect the system from "bursts":
-        |If an application submits a huge number of commands at once, the maximum number of dirty requests will likely
-        |be exceeded, as the system is registering dirty requests only during validation and not already during
+        |Compared to the maximum rate, the maximum number of inflight validation requests reflects the load on the participant more accurately.
+        |However, the maximum number of inflight validation requests alone does not protect the system from "bursts":
+        |If an application submits a huge number of commands at once, the maximum number of inflight validation requests will likely
+        |be exceeded, as the system is registering inflight validation requests only during validation and not already during
         |submission.
         |
-        |The maximum rate is a hard limit on the rate of commands submitted to this participant through the ledger API.
+        |The maximum rate is a hard limit on the rate of commands submitted to this participant through the Ledger API.
         |As the rate of commands is checked and updated immediately after receiving a new command submission,
         |an application cannot exceed the maximum rate.
         |
-        |The `maxBurstFactor` parameter (positive, default 0.5) allows to configure how permissive the rate limitation should be
-        |with respect to bursts. The rate limiting will be enforced strictly after having observed `max_burst` * `max_rate` commands.
+        |The `maxSubmissionBurstFactor` parameter (positive, default 0.5) allows to configure how permissive the rate limitation should be
+        |with respect to bursts. The rate limiting will be enforced strictly after having observed `max_burst` * `max_submission_rate` commands.
         |
         |For the sake of illustration, let's assume the configured rate limit is ``100 commands/s`` with a burst ratio of 0.5.
         |If an application submits 100 commands within a single second, waiting exactly 10 milliseconds between consecutive commands,
         |then the participant will accept all commands.
-        |With a `maxBurstFactor` of 0.5, the participant will accept the first 50 commands and reject the remaining 50.
+        |With a `maxSubmissionBurstFactor` of 0.5, the participant will accept the first 50 commands and reject the remaining 50.
         |If the application then waits another 500 ms, it may submit another burst of 50 commands. If it waits 250 ms,
         |it may submit only a burst of 25 commands.
         |
@@ -1536,7 +1547,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
 }
 
 trait ParticipantHealthAdministrationCommon extends FeatureFlagFilter {
-  this: HealthAdministrationCommon[ParticipantStatus] =>
+  this: HealthAdministration[ParticipantStatus] =>
 
   protected def runner: AdminCommandRunner
 
@@ -1599,11 +1610,11 @@ trait ParticipantHealthAdministrationCommon extends FeatureFlagFilter {
   }
 }
 
-class ParticipantHealthAdministrationX(
+class ParticipantHealthAdministration(
     val runner: AdminCommandRunner,
     val consoleEnvironment: ConsoleEnvironment,
     override val loggerFactory: NamedLoggerFactory,
-) extends HealthAdministrationX(
+) extends HealthAdministration(
       runner,
       consoleEnvironment,
       ParticipantStatus.fromProtoV30,

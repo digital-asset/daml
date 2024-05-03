@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.reference
 
-import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.noop.NoOpMetricsFactory
+import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.digitalasset.canton.config.{
   BatchAggregatorConfig,
   BatchingConfig,
@@ -16,6 +16,7 @@ import com.digitalasset.canton.config.{
   QueryCostMonitoringConfig,
   StorageConfig,
 }
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.block.{BlockOrderer, BlockOrdererFactory}
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}
@@ -134,6 +135,7 @@ object CommunityReferenceBlockOrdererFactory {
     val clock = new TimeProviderClock(timeProvider, lFactory)
     implicit val traceContext: TraceContext = TraceContext.empty
     implicit val closeContext: CloseContext = new CloseContext(closeable)
+    implicit val metricContext: MetricsContext = MetricsContext.Empty
     val storageConfig = setMigrationsPath(config.storage)
     storageConfig match {
       case communityStorageConfig: CommunityStorageConfig =>

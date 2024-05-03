@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.config
 
-import com.digitalasset.canton.ledger.api.tls.TlsVersion
-import com.digitalasset.canton.ledger.api.tls.TlsVersion.TlsVersion
+import com.daml.tls.TlsVersion
+import com.daml.tls.TlsVersion.TlsVersion
 import io.netty.handler.ssl.ClientAuth
 import scopt.Read
 

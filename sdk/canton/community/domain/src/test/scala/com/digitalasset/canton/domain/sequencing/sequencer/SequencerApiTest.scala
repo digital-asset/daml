@@ -9,6 +9,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.ExceededMaxSequencingTime
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer as CantonSequencer
 import com.digitalasset.canton.lifecycle.Lifecycle
@@ -51,7 +52,7 @@ abstract class SequencerApiTest
         topologyFactory.forOwnerAndDomain(owner = mediatorId, domainId)
       )
 
-    def topologyFactory: TestingIdentityFactoryBase
+    def topologyFactory: TestingIdentityFactory
 
     def close(): Unit = {
       sequencer.close()
@@ -87,8 +88,8 @@ abstract class SequencerApiTest
     }
   }
   def domainId: DomainId = DefaultTestIdentities.domainId
-  def mediatorId: MediatorId = DefaultTestIdentities.mediatorIdX
-  def sequencerId: SequencerId = DefaultTestIdentities.sequencerId
+  def mediatorId: MediatorId = DefaultTestIdentities.mediatorId
+  def sequencerId: SequencerId = DefaultTestIdentities.daSequencerId
 
   def createSequencer(crypto: DomainSyncCryptoClient)(implicit
       materializer: Materializer

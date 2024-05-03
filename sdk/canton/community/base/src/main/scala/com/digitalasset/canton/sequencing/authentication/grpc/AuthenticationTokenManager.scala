@@ -5,8 +5,8 @@ package com.digitalasset.canton.sequencing.authentication.grpc
 
 import cats.data.EitherT
 import cats.implicits.*
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.authentication.{
   AuthenticationToken,

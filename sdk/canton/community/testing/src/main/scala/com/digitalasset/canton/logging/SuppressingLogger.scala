@@ -6,6 +6,7 @@ package com.digitalasset.canton.logging
 import cats.data.{EitherT, OptionT}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, ExecutionContextMonitor}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
