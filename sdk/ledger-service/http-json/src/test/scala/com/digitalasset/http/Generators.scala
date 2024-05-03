@@ -52,10 +52,6 @@ object Generators {
   final case class PackageIdGen[A](gen: Gen[A])
 
   implicit val RequiredPackageIdGen: PackageIdGen[String] = PackageIdGen(Gen.identifier)
-  implicit val NoPackageIdGen: PackageIdGen[Unit] = PackageIdGen(Gen.const(()))
-  implicit val OptionalPackageIdGen: PackageIdGen[Option[String]] = PackageIdGen(
-    Gen.option(RequiredPackageIdGen.gen)
-  )
 
   def contractIdGen: Gen[domain.ContractId] = domain.ContractId subst Gen.identifier
   def partyGen: Gen[domain.Party] = domain.Party subst Gen.identifier

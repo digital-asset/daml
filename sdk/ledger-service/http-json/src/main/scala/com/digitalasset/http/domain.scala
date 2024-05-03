@@ -530,10 +530,8 @@ package domain {
 
     val structure: ContractLocator <~> InputContractRef =
       new IsoFunctorTemplate[ContractLocator, InputContractRef] {
-        override def from[A](ga: InputContractRef[A]) = ga.fold(
-          { case (otid, cid) => EnrichedContractKey[A](otid, cid) },
-          { case (tid, key) => EnrichedContractId(tid, key) },
-        )
+        override def from[A](ga: InputContractRef[A]) =
+          ga.fold((EnrichedContractKey[A] _).tupled, EnrichedContractId.tupled)
 
         override def to[A](fa: ContractLocator[A]) = fa match {
           case EnrichedContractId(otid, cid) => \/-((otid, cid))

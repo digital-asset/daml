@@ -226,41 +226,38 @@ private class PackageService(
         result <- EitherT.pure(doSearch(latestMaps())): ET[ResultType]
         _ = logger.trace(s"Result: $result")
         finalResult <-
-          if ((x: C.RequiredPkg).packageId.startsWith("#")) {
+          if (x.packageId.startsWith("#")) { // Used package name, not package id
             if (result.isDefined)
-              // used package name and we do have the package, refresh if timeout
+              // no package id and we do have the package, refresh if timeout
               if (cache.packagesShouldBeFetchedAgain) {
                 logger.trace(
-                  s"package name supplied and we do have the package, refresh because of timeout: $x"
+                  "no package id and we do have the package, refresh because of timeout"
                 )
                 doReloadAndSearchAgain()
               } else {
                 logger.trace(
-                  s"package name supplied and we do have the package, -no timeout- no refresh: $x"
+                  "no package id and we do have the package, -no timeout- no refresh"
                 )
                 keep(result)
               }
-            // used package name and we don’t have the package, always refresh
+            // no package id and we don’t have the package, always refresh
             else {
-              logger.trace(
-                s"package name supplied and we don’t have the package, always refresh: $x"
-              )
+              logger.trace("no package id and we don’t have the package, always refresh")
               doReloadAndSearchAgain()
             }
           } else {
-            val packageId = (x: C.RequiredPkg).packageId
             if (result.isDefined) {
-              logger.trace(s"package id supplied & template id found, no refresh necessary: $x")
+              logger.trace("package id defined & template id found, no refresh necessary")
               keep(result)
             } else {
               // package id and we have the package, never refresh
-              if (state.packageIds.contains(packageId)) {
-                logger.trace(s"package id supplied and we have the package, never refresh: $x")
+              if (state.packageIds.contains(x.packageId)) {
+                logger.trace("package id and we have the package, never refresh")
                 keep(result)
               }
               // package id and we don’t have the package, always refresh
               else {
-                logger.trace("package id supplied and we don’t have the package, always refresh")
+                logger.trace("package id and we don’t have the package, always refresh")
                 doReloadAndSearchAgain()
               }
             }
