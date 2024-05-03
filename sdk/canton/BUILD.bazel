@@ -196,13 +196,16 @@ da_scala_library(
 
 ### community/util-external ###
 
-scala_library(
+da_scala_library(
     name = "daml-common-staging_util-external",
     srcs = glob(["daml-common-staging/util-external/src/main/scala/**/*.scala"]),
     scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
+        # Disable unused variable in RequireTypes.scala, SubSource.scala, and KeyStoreConfig.scala
+        "-Wconf:cat=unused-params:s,cat=unused-privates:s,cat=unused-nowarn:s",
     ],
+    tags = ["maven_coordinates=com.daml:daml-common-staging-util-external:__VERSION__"],
     unused_dependency_checker_mode = "error",
     deps = [
         ":daml-common-staging_daml-errors",
