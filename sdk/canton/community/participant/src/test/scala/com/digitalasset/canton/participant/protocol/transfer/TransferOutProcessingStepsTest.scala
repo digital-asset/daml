@@ -18,7 +18,7 @@ import com.digitalasset.canton.data.{
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
-import com.digitalasset.canton.participant.protocol.ProcessingStartingPoints
+import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetectionHelpers.{
   mkActivenessResult,
   mkActivenessSet,
@@ -34,6 +34,7 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingS
   NoTransferSubmissionPermission,
   TransferProcessorError,
 }
+import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingStartingPoints}
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{MultiDomainEventLog, SyncDomainEphemeralState}
 import com.digitalasset.canton.participant.util.TimeOfChange
@@ -748,6 +749,8 @@ final class TransferOutProcessingStepsTest
           FutureUnlessShutdown.pure(mkActivenessResult()),
           sourceMediator,
           freshOwnTimelyTx = true,
+          engineController =
+            EngineController(submittingParticipant, RequestId(CantonTimestamp.Epoch), loggerFactory),
         )
         .value
         .onShutdown(fail("unexpected shutdown during a test"))
@@ -846,7 +849,9 @@ final class TransferOutProcessingStepsTest
           timeEvent,
           Some(transferInExclusivity),
           MediatorGroupRecipient(MediatorGroupIndex.one),
-          locallyRejected = false,
+          locallyRejectedF = FutureUnlessShutdown.pure(false),
+          abortEngine = _ => (),
+          engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
         )
         _ <- valueOrFail(
           outProcessingSteps

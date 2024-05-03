@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.protocol.transfer
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.ViewType.TransferOutViewType
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -37,6 +37,7 @@ class TransferOutProcessor(
     sourceProtocolVersion: SourceProtocolVersion,
     loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
+    override val testingConfig: TestingConfigInternal,
 )(implicit ec: ExecutionContext)
     extends ProtocolProcessor[
       TransferOutProcessingSteps.SubmissionParam,

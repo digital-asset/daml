@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.domain.metrics
 
-import com.daml.metrics.api.MetricHandle.{Counter, Gauge, LabeledMetricsFactory, Meter}
+import com.daml.metrics.api.MetricHandle.*
 import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
 import com.daml.metrics.grpc.{DamlGrpcServerMetrics, GrpcServerMetrics}
@@ -22,55 +22,61 @@ class SequencerMetrics(
   private implicit val mc: MetricsContext = MetricsContext.Empty
   override def storageMetrics: DbStorageMetrics = dbStorage
 
+  object block extends BlockMetrics(prefix, openTelemetryMetricsFactory)
+
   object sequencerClient extends SequencerClientMetrics(parent, openTelemetryMetricsFactory)
 
-  val subscriptionsGauge: Gauge[Int] =
-    openTelemetryMetricsFactory.gauge[Int](
+  object publicApi {
+    private val prefix = SequencerMetrics.this.prefix :+ "public-api"
+    val subscriptionsGauge: Gauge[Int] =
+      openTelemetryMetricsFactory.gauge[Int](
+        MetricInfo(
+          prefix :+ "subscriptions",
+          summary = "Number of active sequencer subscriptions",
+          description =
+            """This metric indicates the number of active subscriptions currently open and actively
+            |served subscriptions at the sequencer.""",
+          qualification = MetricQualification.Traffic,
+        ),
+        0,
+      )
+
+    val messagesProcessed: Meter = openTelemetryMetricsFactory.meter(
       MetricInfo(
-        prefix :+ "subscriptions",
-        summary = "Number of active sequencer subscriptions",
+        prefix :+ "processed",
+        summary = "Number of messages processed by the sequencer",
         description =
-          """This metric indicates the number of active subscriptions currently open and actively
-          |served subscriptions at the sequencer.""",
+          """This metric measures the number of successfully validated messages processed
+          |by the sequencer since the start of this process.""",
         qualification = MetricQualification.Traffic,
-      ),
-      0,
+      )
     )
 
-  val messagesProcessed: Meter = openTelemetryMetricsFactory.meter(
-    MetricInfo(
-      prefix :+ "processed",
-      summary = "Number of messages processed by the sequencer",
-      description = """This metric measures the number of successfully validated messages processed
-                    |by the sequencer since the start of this process.""",
-      qualification = MetricQualification.Traffic,
+    val bytesProcessed: Meter = openTelemetryMetricsFactory.meter(
+      MetricInfo(
+        prefix :+ s"processed-${Histogram.Bytes}",
+        summary = "Number of message bytes processed by the sequencer",
+        description =
+          """This metric measures the total number of message bytes processed by the sequencer.
+          |If the message received by the sequencer contains duplicate or irrelevant fields,
+          |the contents of these fields do not contribute to this metric.""",
+        qualification = MetricQualification.Traffic,
+      )
     )
-  )
 
-  val bytesProcessed: Meter = openTelemetryMetricsFactory.meter(
-    MetricInfo(
-      prefix :+ "processed-bytes",
-      summary = "Number of message bytes processed by the sequencer",
-      description =
-        """This metric measures the total number of message bytes processed by the sequencer.
-        |If the message received by the sequencer contains duplicate or irrelevant fields,
-        |the contents of these fields do not contribute to this metric.""",
-      qualification = MetricQualification.Traffic,
+    val timeRequests: Meter = openTelemetryMetricsFactory.meter(
+      MetricInfo(
+        prefix :+ "time-requests",
+        summary = "Number of time requests received by the sequencer",
+        description =
+          """When a Participant needs to know the domain time it will make a request for a time proof to be sequenced.
+          |It would be normal to see a small number of these being sequenced, however if this number becomes a significant
+          |portion of the total requests to the sequencer it could indicate that the strategy for requesting times may
+          |need to be revised to deal with different clock skews and latencies between the sequencer and participants.""",
+        qualification = MetricQualification.Debug,
+      )
     )
-  )
-
-  val timeRequests: Meter = openTelemetryMetricsFactory.meter(
-    MetricInfo(
-      prefix :+ "time-requests",
-      summary = "Number of time requests received by the sequencer",
-      description =
-        """When a Participant needs to know the domain time it will make a request for a time proof to be sequenced.
-        |It would be normal to see a small number of these being sequenced, however if this number becomes a significant
-        |portion of the total requests to the sequencer it could indicate that the strategy for requesting times may
-        |need to be revised to deal with different clock skews and latencies between the sequencer and participants.""",
-      qualification = MetricQualification.Debug,
-    )
-  )
+  }
 
   val maxEventAge: Gauge[Long] =
     openTelemetryMetricsFactory.gauge[Long](
@@ -79,7 +85,7 @@ class SequencerMetrics(
         summary = "Age of oldest unpruned sequencer event.",
         description =
           """This gauge exposes the age of the oldest, unpruned sequencer event in hours as a way to quantify the
-          |pruning backlog.""",
+            |pruning backlog.""",
         qualification = MetricQualification.Debug,
       ),
       0L,

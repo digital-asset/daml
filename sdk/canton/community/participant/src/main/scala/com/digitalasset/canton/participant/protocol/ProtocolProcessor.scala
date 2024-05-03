@@ -11,6 +11,7 @@ import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.config.TestingConfigInternal
 import com.digitalasset.canton.crypto.{
   DomainSnapshotSyncCryptoApi,
   DomainSyncCryptoClient,
@@ -28,6 +29,8 @@ import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.participant.protocol.EngineController
+import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.Phase37Synchronizer.RequestOutcome
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
   PendingRequestData,
@@ -105,6 +108,8 @@ abstract class ProtocolProcessor[
 
   import ProtocolProcessor.*
   import com.digitalasset.canton.util.ShowUtil.*
+
+  def testingConfig: TestingConfigInternal
 
   def participantId: ParticipantId
 
@@ -1021,6 +1026,12 @@ abstract class ProtocolProcessor[
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, steps.RequestError, Unit] = {
     val requestId = RequestId(ts)
+    val engineController = EngineController(
+      participantId,
+      requestId,
+      loggerFactory,
+      testingConfig.reinterpretationTestHookFor,
+    )
 
     val steps.CheckActivenessAndWritePendingContracts(
       activenessSet,
@@ -1041,8 +1052,18 @@ abstract class ProtocolProcessor[
 
       pendingDataAndResponsesAndTimeoutEvent <-
         if (isCleanReplay(rc)) {
-          val pendingData = CleanReplayData(rc, sc, mediator, locallyRejected = false)
-          val responses = Seq.empty[(ConfirmationResponse, Recipients)]
+          val pendingData =
+            CleanReplayData(
+              rc,
+              sc,
+              mediator,
+              locallyRejectedF = FutureUnlessShutdown.pure(false),
+              abortEngine = _ => (), // No need to abort
+              engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
+            )
+          val responses = EitherT.pure[FutureUnlessShutdown, steps.RequestError](
+            Seq.empty[(ConfirmationResponse, Recipients)]
+          )
           val timeoutEvent = Either.right(Option.empty[TimestampedEvent])
           EitherT.pure[FutureUnlessShutdown, steps.RequestError](
             (pendingData, responses, () => timeoutEvent)
@@ -1059,11 +1080,12 @@ abstract class ProtocolProcessor[
               requestFuturesF.flatMap(_.activenessResult),
               mediator,
               freshOwnTimelyTx,
+              engineController,
             )
 
             steps.StorePendingDataAndSendResponseAndCreateTimeout(
               pendingData,
-              responses,
+              responsesF,
               rejectionArgs,
             ) = pendingDataAndResponses
             PendingRequestData(
@@ -1080,14 +1102,14 @@ abstract class ProtocolProcessor[
 
           } yield (
             WrappedPendingRequestData(pendingData),
-            responses,
+            responsesF,
             () => steps.createRejectionEvent(rejectionArgs),
           )
         }
 
       (
         pendingData,
-        responsesTo,
+        responsesToET,
         timeoutEvent,
       ) =
         pendingDataAndResponsesAndTimeoutEvent
@@ -1097,6 +1119,8 @@ abstract class ProtocolProcessor[
       _activenessResult <- EitherT.right[steps.RequestError](requestFutures.activenessResult)
 
       _ = handleRequestData.complete(Some(pendingData))
+      // Request to observe a timestamp >= the decision time, so that the timeout can be triggered
+      _ = ephemeral.timeTracker.requestTick(decisionTime)
       timeoutET = EitherT
         .right(requestFutures.timeoutResult)
         .flatMap(
@@ -1110,13 +1134,21 @@ abstract class ProtocolProcessor[
         )
       _ = EitherTUtil.doNotAwaitUS(timeoutET, "Handling timeout failed")
 
+      responsesTo <- responsesToET
       signedResponsesTo <- EitherT.right(responsesTo.parTraverse { case (response, recipients) =>
         FutureUnlessShutdown.outcomeF(
           signResponse(snapshot, response).map(_ -> recipients)
         )
       })
+      engineAbortStatus <- EitherT.right(pendingData.engineAbortStatusF)
       _ <-
-        if (signedResponsesTo.nonEmpty) {
+        if (engineAbortStatus.isAborted) {
+          // There is no point in sending a response if we have aborted
+          logger.info(
+            s"Phase 4: Finished validation for request=${requestId.unwrap} with abort."
+          )
+          EitherTUtil.unitUS[steps.RequestError]
+        } else if (signedResponsesTo.nonEmpty) {
           val messageId = sequencerClient.generateMessageId
           logger.info(
             s"Phase 4: Sending for request=${requestId.unwrap} with msgId=${messageId} ${val (approved, rejected) =
@@ -1452,15 +1484,21 @@ abstract class ProtocolProcessor[
         steps.requestType.PendingRequestData
       ],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, steps.ResultError, Unit] = {
-    val PendingRequestData(requestCounter, requestSequencerCounter, _, locallyRejected) =
+    // If we have received a negative verdict, we will not need the result of the engine computation, and
+    // we can therefore abort. If the computation has already completed, this will have no effect.
+    if (!verdict.isApprove)
+      pendingRequestDataOrReplayData.abortEngine(s"received negative mediator verdict $verdict")
+
+    val PendingRequestData(requestCounter, requestSequencerCounter, _, locallyRejectedF) =
       pendingRequestDataOrReplayData
     val cleanReplay = isCleanReplay(requestCounter, pendingRequestDataOrReplayData)
     val pendingSubmissionDataO = pendingSubmissionDataForRequest(pendingRequestDataOrReplayData)
 
-    // TODO(i15395): handle this more gracefully
-    checkContradictoryMediatorApprove(locallyRejected, verdict)
-
     for {
+      // TODO(i15395): handle this more gracefully
+      locallyRejected <- EitherT.right(locallyRejectedF)
+      _ = checkContradictoryMediatorApprove(locallyRejected, verdict)
+
       commitAndEvent <- pendingRequestDataOrReplayData match {
         case WrappedPendingRequestData(pendingRequestData) =>
           for {
@@ -1744,7 +1782,11 @@ abstract class ProtocolProcessor[
           ephemeral.phase37Synchronizer
             .awaitConfirmed(steps.requestType)(requestId)
             .map {
-              case RequestOutcome.Success(pendingRequestData) => pendingRequestData
+              case RequestOutcome.Success(pendingRequestData) =>
+                // If the request has timed out (past its decision time), we will not need the result of the engine
+                // computation, and we can therefore abort. If the computation has already completed, this will have no effect.
+                pendingRequestData.abortEngine(s"request $requestId has timed out")
+                pendingRequestData
               case RequestOutcome.AlreadyServedOrTimeout =>
                 throw new IllegalStateException(s"Unknown pending request $requestId at timeout.")
               case RequestOutcome.Invalid =>
@@ -1834,7 +1876,10 @@ object ProtocolProcessor {
     override def isCleanReplay: Boolean = false
     override def mediator: MediatorGroupRecipient = unwrap.mediator
 
-    override def locallyRejected: Boolean = unwrap.locallyRejected
+    override def locallyRejectedF: FutureUnlessShutdown[Boolean] = unwrap.locallyRejectedF
+    override def abortEngine: String => Unit = unwrap.abortEngine
+    override val engineAbortStatusF: FutureUnlessShutdown[EngineAbortStatus] =
+      unwrap.engineAbortStatusF
 
     override def rootHashO: Option[RootHash] = unwrap.rootHashO
   }
@@ -1843,7 +1888,9 @@ object ProtocolProcessor {
       override val requestCounter: RequestCounter,
       override val requestSequencerCounter: SequencerCounter,
       override val mediator: MediatorGroupRecipient,
-      override val locallyRejected: Boolean,
+      override val locallyRejectedF: FutureUnlessShutdown[Boolean],
+      override val abortEngine: String => Unit,
+      override val engineAbortStatusF: FutureUnlessShutdown[EngineAbortStatus],
   ) extends PendingRequestDataOrReplayData[Nothing] {
     override def isCleanReplay: Boolean = true
 

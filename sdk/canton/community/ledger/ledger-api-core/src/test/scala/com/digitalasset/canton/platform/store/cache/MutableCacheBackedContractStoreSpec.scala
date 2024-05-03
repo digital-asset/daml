@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.cache
 
+import cats.data.NonEmptyVector
 import com.daml.ledger.resources.Resource
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.IdString
@@ -56,7 +57,7 @@ class MutableCacheBackedContractStoreSpec
         eventSequentialId = 1L,
       )
       val event2 = event1.copy(eventSequentialId = 2L)
-      val updateBatch = Vector(event1, event2)
+      val updateBatch = NonEmptyVector.of(event1, event2)
 
       contractStore.contractStateCaches.push(updateBatch)
       verify(contractStateCaches).push(updateBatch)

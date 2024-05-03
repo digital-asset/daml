@@ -11,6 +11,7 @@ import com.daml.lf.interpretation.Error as LfInterpretationError
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, SyncCryptoError}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.protocol.EngineController.GetEngineAbortStatus
 import com.digitalasset.canton.participant.protocol.ProcessingSteps
 import com.digitalasset.canton.participant.protocol.transfer.TransferInValidation.*
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
@@ -36,7 +37,8 @@ private[transfer] class TransferInValidation(
     extends NamedLogging {
 
   def checkStakeholders(
-      transferInRequest: FullTransferInTree
+      transferInRequest: FullTransferInTree,
+      getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit traceContext: TraceContext): EitherT[Future, TransferProcessorError, Unit] = {
     val transferId = transferInRequest.transferOutResultEvent.transferId
 
@@ -48,13 +50,16 @@ private[transfer] class TransferInValidation(
         .contractMetadata(
           transferInRequest.contract.contractInstance,
           declaredContractStakeholders,
+          getEngineAbortStatus,
         )
         .leftMap {
-          case LfError.Interpretation(
-                e @ LfError.Interpretation.DamlException(
-                  LfInterpretationError.FailedAuthorization(_, _)
-                ),
-                _,
+          case DAMLe.EngineError(
+                LfError.Interpretation(
+                  e @ LfError.Interpretation.DamlException(
+                    LfInterpretationError.FailedAuthorization(_, _)
+                  ),
+                  _,
+                )
               ) =>
             StakeholdersMismatch(
               Some(transferId),
@@ -62,7 +67,10 @@ private[transfer] class TransferInValidation(
               declaredContractStakeholders = Some(declaredContractStakeholders),
               expectedStakeholders = Left(e.message),
             )
-          case error => MetadataNotFound(error)
+          case DAMLe.EngineError(error) => MetadataNotFound(error)
+          case DAMLe.EngineAborted(reason) =>
+            ReinterpretationAborted(transferId, reason)
+
         }
       recomputedStakeholders = metadata.stakeholders
       _ <- condUnitET[Future](

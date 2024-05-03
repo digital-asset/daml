@@ -40,6 +40,8 @@ object LedgerBlockEvent extends HasLoggerName {
   final case class Send(
       timestamp: CantonTimestamp,
       signedOrderingRequest: SignedOrderingRequest,
+      originalPayloadSize: Int =
+        0, // default is 0 for testing as this value is only used for metrics
   ) extends LedgerBlockEvent {
     lazy val signedSubmissionRequest = signedOrderingRequest.signedSubmissionRequest
   }
@@ -57,7 +59,7 @@ object LedgerBlockEvent extends HasLoggerName {
           timestamp <- LfTimestamp
             .fromLong(microsecondsSinceEpoch)
             .leftMap(e => ProtoDeserializationError.TimestampConversionError(e))
-        } yield LedgerBlockEvent.Send(CantonTimestamp(timestamp), deserializedRequest)
+        } yield LedgerBlockEvent.Send(CantonTimestamp(timestamp), deserializedRequest, request.size)
       case RawBlockEvent.AddMember(memberString) =>
         Member
           .fromProtoPrimitive_(memberString)

@@ -14,6 +14,7 @@ import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.RequestOffset
+import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.PendingRequestData
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessCheck,
@@ -32,7 +33,11 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferOutProcesso
   UnexpectedDomain,
 }
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
-import com.digitalasset.canton.participant.protocol.{ProcessingSteps, ProtocolProcessor}
+import com.digitalasset.canton.participant.protocol.{
+  EngineController,
+  ProcessingSteps,
+  ProtocolProcessor,
+}
 import com.digitalasset.canton.participant.store.ActiveContractStore.{
   Active,
   Archived,
@@ -400,6 +405,7 @@ class TransferOutProcessingSteps(
       activenessF: FutureUnlessShutdown[ActivenessResult],
       mediator: MediatorGroupRecipient,
       freshOwnTimelyTx: Boolean,
+      engineController: EngineController,
   )(implicit
       traceContext: TraceContext
   ): EitherT[
@@ -495,7 +501,9 @@ class TransferOutProcessingSteps(
       )
     } yield {
       // We consider that we rejected if at least one of the responses is not "approve'
-      val locallyRejected = responseOpt.exists { response => !response.localVerdict.isApprove }
+      val locallyRejectedF = FutureUnlessShutdown.pure(responseOpt.exists { response =>
+        !response.localVerdict.isApprove
+      })
 
       val entry = PendingTransferOut(
         requestId,
@@ -515,12 +523,16 @@ class TransferOutProcessingSteps(
         fullTree.targetTimeProof,
         transferInExclusivity,
         mediator,
-        locallyRejected,
+        locallyRejectedF,
+        engineController.abort,
+        engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
       )
 
       StorePendingDataAndSendResponseAndCreateTimeout(
         entry,
-        responseOpt.map(_ -> Recipients.cc(mediator)).toList,
+        EitherT.pure[FutureUnlessShutdown, RequestError](
+          responseOpt.map(_ -> Recipients.cc(mediator)).toList
+        ),
         RejectionArgs(
           entry,
           LocalRejectError.TimeRejects.LocalTimeout
@@ -572,7 +584,9 @@ class TransferOutProcessingSteps(
       _targetTimeProof,
       transferInExclusivity,
       _mediatorId,
-      locallyRejected,
+      _locallyRejected,
+      _engineController,
+      _abortedF,
     ) = pendingRequestData
 
     val pendingSubmissionData = pendingSubmissionMap.get(rootHash)
@@ -801,7 +815,9 @@ object TransferOutProcessingSteps {
       targetTimeProof: TimeProof,
       transferInExclusivity: Option[CantonTimestamp],
       mediator: MediatorGroupRecipient,
-      override val locallyRejected: Boolean,
+      override val locallyRejectedF: FutureUnlessShutdown[Boolean],
+      override val abortEngine: String => Unit,
+      override val engineAbortStatusF: FutureUnlessShutdown[EngineAbortStatus],
   ) extends PendingTransfer
       with PendingRequestData {
 

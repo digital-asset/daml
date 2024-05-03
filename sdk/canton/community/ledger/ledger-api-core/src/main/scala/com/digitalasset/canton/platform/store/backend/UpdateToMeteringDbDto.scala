@@ -25,7 +25,6 @@ object UpdateToMeteringDbDto {
 
     if (input.nonEmpty) {
 
-      // TODO(i11665): Replace with NonEmpty after sorting out the dependencies
       @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
       val ledgerOffset = input.last._1.toHexString
 

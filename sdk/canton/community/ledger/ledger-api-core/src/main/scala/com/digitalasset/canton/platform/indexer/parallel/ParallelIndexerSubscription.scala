@@ -179,7 +179,6 @@ object ParallelIndexerSubscription {
 
     val batch = mainBatch ++ meteringBatch
 
-    // TODO(i11665): Replace with NonEmpty after sorting out the dependencies
     @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
     val last = input.last
 

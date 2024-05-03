@@ -4,7 +4,9 @@
 package com.digitalasset.canton.pekkostreams.dispatcher
 
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.daml.scalautil.Statement.discard
+import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.concurrent.Threading
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.pekkostreams.FutureTimeouts
 import com.digitalasset.canton.pekkostreams.dispatcher.SubSource.RangeSource
 import org.apache.pekko.stream.DelayOverflowStrategy
@@ -32,7 +34,8 @@ class DispatcherSpec
     with Matchers
     with FutureTimeouts
     with ScaledTimeSpans
-    with AsyncTimeLimitedTests {
+    with AsyncTimeLimitedTests
+    with BaseTest {
 
   // Newtype wrappers to avoid type mistakes
   case class Value(v: Int)
@@ -91,7 +94,7 @@ class DispatcherSpec
         publishTo foreach { d =>
           d.signalNewHead(i)
         }
-        blocking(Thread.sleep(r.nextInt(meanDelayMs + 1).toLong * 2))
+        blocking(Threading.sleep(r.nextInt(meanDelayMs + 1).toLong * 2))
         LazyList.cons((i, v), genManyHelper(next, count - 1))
       }
     }
@@ -103,7 +106,7 @@ class DispatcherSpec
     publishedHead.set(head)
     dispatcher.signalNewHead(head)
     blocking(
-      Thread.sleep(r.nextInt(meanDelayMs + 1).toLong * 2)
+      Threading.sleep(r.nextInt(meanDelayMs + 1).toLong * 2)
     )
   }
 
@@ -170,7 +173,7 @@ class DispatcherSpec
       forAllSteppingModes() { subSrc =>
         val dispatcher = newDispatcher()
 
-        discard(dispatcher.shutdown())
+        dispatcher.shutdown().discard
 
         dispatcher.signalNewHead(Index(1)) // should not throw
         dispatcher
@@ -203,7 +206,7 @@ class DispatcherSpec
         val out = collect(i50, i100, dispatcher, subSrc)
         publish(i100, dispatcher)
 
-        discard(dispatcher.shutdown())
+        dispatcher.shutdown().discard
 
         out.map(_ shouldEqual pairs100)
       }
@@ -291,7 +294,7 @@ class DispatcherSpec
         val out75F = collect(i75, i100, dispatcher, subSrc)
         publish(i100, dispatcher)
 
-        discard(dispatcher.shutdown())
+        dispatcher.shutdown().discard
 
         validate4Sections(pairs25, pairs50, pairs75, pairs100, outF, out25F, out50F, out75F)
       }
@@ -319,7 +322,7 @@ class DispatcherSpec
         val out75F = collect(i75, i100, dispatcher, subSrc, delayMs = 10)
         publish(i100, dispatcher)
 
-        discard(dispatcher.shutdown())
+        dispatcher.shutdown().discard
 
         validate4Sections(pairs25, pairs50, pairs75, pairs100, outF, out25F, out50F, out75F)
       }
@@ -338,7 +341,7 @@ class DispatcherSpec
         for {
           results <- resultsF
         } yield {
-          discard(dispatcher.shutdown())
+          dispatcher.shutdown().discard
           results shouldEqual pairs25
         }
       }

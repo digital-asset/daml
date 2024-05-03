@@ -4,7 +4,9 @@
 package com.digitalasset.canton.pekkostreams.dispatcher
 
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.daml.scalautil.Statement.discard
+import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.concurrent.{DirectExecutionContext, Threading}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.pekkostreams.dispatcher.SubSource.RangeSource
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
@@ -14,14 +16,15 @@ import org.scalatest.time.{Milliseconds, Seconds, Span}
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future, blocking}
+import scala.concurrent.{ExecutionContextExecutor, Future, blocking}
 
 // Consider merging/reviewing the tests we have around the Dispatcher!
-class DispatcherTest
+class DispatcherRaceSpec
     extends AnyWordSpec
     with PekkoBeforeAndAfterAll
     with Matchers
-    with ScalaFutures {
+    with ScalaFutures
+    with BaseTest {
 
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(scaled(Span(10, Seconds)), scaled(Span(250, Milliseconds)))
@@ -36,7 +39,7 @@ class DispatcherTest
       val elements = new AtomicReference(Map.empty[Int, Int])
       def readElement(i: Int): Future[Int] = Future {
         blocking(
-          Thread.sleep(10)
+          Threading.sleep(10)
         ) // In a previous version of Dispatcher, this sleep caused a race condition.
         elements.get()(i)
       }
@@ -60,7 +63,7 @@ class DispatcherTest
                     readElement(index).map { t =>
                       val nextIndex = readSuccessor(index)
                       Some((nextIndex, (index, t)))
-                    }(ExecutionContext.parasitic)
+                    }(DirectExecutionContext(noTracingLogger))
                   }
                 }
             ),
@@ -68,7 +71,7 @@ class DispatcherTest
             .run()
         }
 
-        discard(d.shutdown())
+        d.shutdown().discard
 
         subscriptions.zip(1 until 10) foreach { case (f, i) =>
           whenReady(f) { vals =>

@@ -11,6 +11,8 @@ import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod, ViewT
 import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.participant.protocol.EngineController
+import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.WrapsProcessorError
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.*
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
@@ -456,6 +458,7 @@ trait ProcessingSteps[
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       mediator: MediatorGroupRecipient,
       freshOwnTimelyTx: Boolean,
+      engineController: EngineController,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, RequestError, StorePendingDataAndSendResponseAndCreateTimeout]
@@ -474,12 +477,14 @@ trait ProcessingSteps[
   /** Phase 3:
     *
     * @param pendingData   The `requestType.PendingRequestData` to be stored until Phase 7
-    * @param confirmationResponses     The responses to be sent to the mediator
+    * @param confirmationResponsesF     The responses to be sent to the mediator
     * @param rejectionArgs The implementation-specific arguments needed to create a rejection event on timeout
     */
   case class StorePendingDataAndSendResponseAndCreateTimeout(
       pendingData: requestType.PendingRequestData,
-      confirmationResponses: Seq[(ConfirmationResponse, Recipients)],
+      confirmationResponsesF: EitherT[FutureUnlessShutdown, RequestError, Seq[
+        (ConfirmationResponse, Recipients)
+      ]],
       rejectionArgs: RejectionArgs,
   )
 
@@ -609,7 +614,13 @@ object ProcessingSteps {
     def requestCounter: RequestCounter
     def requestSequencerCounter: SequencerCounter
     def mediator: MediatorGroupRecipient
-    def locallyRejected: Boolean
+    def locallyRejectedF: FutureUnlessShutdown[Boolean]
+
+    /** Function to call to abort the engine execution for this request */
+    def abortEngine: String => Unit
+
+    /** Future whose completion indicates whether this request's processing terminated due to an engine abort */
+    def engineAbortStatusF: FutureUnlessShutdown[EngineAbortStatus]
 
     def rootHashO: Option[RootHash]
   }
@@ -617,8 +628,10 @@ object ProcessingSteps {
   object PendingRequestData {
     def unapply(
         arg: PendingRequestData
-    ): Some[(RequestCounter, SequencerCounter, MediatorGroupRecipient, Boolean)] = {
-      Some((arg.requestCounter, arg.requestSequencerCounter, arg.mediator, arg.locallyRejected))
+    ): Some[
+      (RequestCounter, SequencerCounter, MediatorGroupRecipient, FutureUnlessShutdown[Boolean])
+    ] = {
+      Some((arg.requestCounter, arg.requestSequencerCounter, arg.mediator, arg.locallyRejectedF))
     }
   }
 }

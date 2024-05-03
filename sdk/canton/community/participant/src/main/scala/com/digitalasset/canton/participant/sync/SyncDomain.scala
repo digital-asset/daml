@@ -195,6 +195,7 @@ class SyncDomain(
     loggerFactory,
     futureSupervisor,
     packageResolver = packageResolver,
+    testingConfig = testingConfig,
   )
 
   private val transferOutProcessor: TransferOutProcessor = new TransferOutProcessor(
@@ -211,6 +212,7 @@ class SyncDomain(
     SourceProtocolVersion(staticDomainParameters.protocolVersion),
     loggerFactory,
     futureSupervisor,
+    testingConfig = testingConfig,
   )
 
   private val transferInProcessor: TransferInProcessor = new TransferInProcessor(
@@ -227,6 +229,7 @@ class SyncDomain(
     TargetProtocolVersion(staticDomainParameters.protocolVersion),
     loggerFactory,
     futureSupervisor,
+    testingConfig = testingConfig,
   )
 
   private val sortedReconciliationIntervalsProvider = new SortedReconciliationIntervalsProvider(

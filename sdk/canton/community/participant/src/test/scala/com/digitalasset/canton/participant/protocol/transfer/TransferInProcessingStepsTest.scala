@@ -15,7 +15,7 @@ import com.digitalasset.canton.data.ViewType.TransferInViewType
 import com.digitalasset.canton.data.{CantonTimestamp, FullTransferInTree, TransferSubmitterMetadata}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
-import com.digitalasset.canton.participant.protocol.ProcessingStartingPoints
+import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetectionHelpers.{
   mkActivenessResult,
   mkActivenessSet,
@@ -33,6 +33,7 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingS
   StakeholdersMismatch,
   SubmittingPartyMustBeStakeholderIn,
 }
+import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingStartingPoints}
 import com.digitalasset.canton.participant.store.TransferStoreTest.{contract, transactionId1}
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
@@ -574,7 +575,10 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
               FutureUnlessShutdown.pure(mkActivenessResult()),
               targetMediator,
               freshOwnTimelyTx = true,
+              engineController =
+                EngineController(participant, RequestId(CantonTimestamp.Epoch), loggerFactory),
             )
+            .flatMap(_.confirmationResponsesF)
         )("construction of pending data and response did not return a left").failOnShutdown
       } yield {
         result should matchPattern { case StakeholdersMismatch(_, _, _, _) =>
@@ -617,6 +621,8 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
               FutureUnlessShutdown.pure(mkActivenessResult()),
               targetMediator,
               freshOwnTimelyTx = true,
+              engineController =
+                EngineController(participant, RequestId(CantonTimestamp.Epoch), loggerFactory),
             )
         )("construction of pending data and response failed").failOnShutdown
       } yield {
@@ -653,7 +659,9 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         transferId,
         contract.metadata.stakeholders,
         MediatorGroupRecipient(MediatorGroupIndex.one),
-        locallyRejected = false,
+        locallyRejectedF = FutureUnlessShutdown.pure(false),
+        abortEngine = _ => (),
+        engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
       )
 
       for {

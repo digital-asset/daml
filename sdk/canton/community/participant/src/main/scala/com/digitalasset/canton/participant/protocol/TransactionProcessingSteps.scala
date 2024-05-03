@@ -28,6 +28,8 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NamedL
 import com.digitalasset.canton.metrics.*
 import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.metrics.TransactionProcessingMetrics
+import com.digitalasset.canton.participant.protocol.EngineController
+import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
   MalformedPayload,
   NoMediatorError,
@@ -803,6 +805,7 @@ class TransactionProcessingSteps(
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       mediator: MediatorGroupRecipient,
       freshOwnTimelyTx: Boolean,
+      engineController: EngineController,
   )(implicit
       traceContext: TraceContext
   ): EitherT[
@@ -871,15 +874,18 @@ class TransactionProcessingSteps(
           ipsSnapshot,
         )
 
-        conformanceResultE <- modelConformanceChecker
+        // We run the model conformance check asynchronously so that we can complete the pending request
+        // in the Phase37Synchronizer without waiting for it, thereby allowing us to concurrently receive a
+        // mediator verdict.
+        conformanceResultET = modelConformanceChecker
           .check(
             rootViewTrees,
             keyResolverFor(_),
             pendingDataAndResponseArgs.rc,
             ipsSnapshot,
             commonData,
+            getEngineAbortStatus = () => engineController.abortStatus,
           )
-          .value
 
         globalKeyHostedParties <- InternalConsistencyChecker.hostedGlobalKeyParties(
           rootViewTrees,
@@ -896,7 +902,7 @@ class TransactionProcessingSteps(
         authenticationResult,
         consistencyResultE,
         authorizationResult,
-        conformanceResultE,
+        conformanceResultET,
         internalConsistencyResultE,
         timeValidationE,
         replayCheckResult,
@@ -971,7 +977,7 @@ class TransactionProcessingSteps(
         contractConsistencyResultE = parallelChecksResult.consistencyResultE,
         authenticationResult = parallelChecksResult.authenticationResult,
         authorizationResult = parallelChecksResult.authorizationResult,
-        modelConformanceResultE = parallelChecksResult.conformanceResultE,
+        modelConformanceResultET = parallelChecksResult.conformanceResultET,
         internalConsistencyResultE = parallelChecksResult.internalConsistencyResultE,
         consumedInputsOfHostedParties = usedAndCreated.contracts.consumedInputsOfHostedStakeholders,
         witnessedAndDivulged = usedAndCreated.contracts.witnessedAndDivulged,
@@ -991,12 +997,14 @@ class TransactionProcessingSteps(
       for {
         parallelChecksResult <- FutureUnlessShutdown.outcomeF(doParallelChecks(enrichedTransaction))
         activenessResult <- awaitActivenessResult
-        transactionValidationResult = computeValidationResult(
+      } yield {
+        val transactionValidationResult = computeValidationResult(
           enrichedTransaction,
           parallelChecksResult,
           activenessResult,
         )
-        responses <- FutureUnlessShutdown.outcomeF(
+        // The responses depend on the result of the model conformance check, and are therefore also delayed.
+        val responsesF = FutureUnlessShutdown.outcomeF(
           confirmationResponseFactory.createConfirmationResponses(
             requestId,
             malformedPayloads,
@@ -1004,21 +1012,21 @@ class TransactionProcessingSteps(
             ipsSnapshot,
           )
         )
-      } yield {
 
         val pendingTransaction =
           createPendingTransaction(
             requestId,
-            responses,
+            responsesF,
             transactionValidationResult,
             rc,
             sc,
             mediator,
             freshOwnTimelyTx,
+            engineController,
           )
         StorePendingDataAndSendResponseAndCreateTimeout(
           pendingTransaction,
-          responses.map(_ -> mediatorRecipients),
+          EitherT.right(responsesF.map(_.map(_ -> mediatorRecipients))),
           RejectionArgs(
             pendingTransaction,
             LocalRejectError.TimeRejects.LocalTimeout.Reject(),
@@ -1092,6 +1100,8 @@ class TransactionProcessingSteps(
       transactionValidationResult,
       _,
       _locallyRejected,
+      _engineController,
+      _abortedF,
     ) =
       pendingTransaction
     val submitterMetaO = transactionValidationResult.submitterMetadataO
@@ -1154,15 +1164,23 @@ class TransactionProcessingSteps(
 
   private[this] def createPendingTransaction(
       id: RequestId,
-      responses: Seq[ConfirmationResponse],
+      responsesF: FutureUnlessShutdown[Seq[ConfirmationResponse]],
       transactionValidationResult: TransactionValidationResult,
       rc: RequestCounter,
       sc: SequencerCounter,
       mediator: MediatorGroupRecipient,
       freshOwnTimelyTx: Boolean,
-  ): PendingTransaction = {
+      engineController: EngineController,
+  )(implicit traceContext: TraceContext): PendingTransaction = {
     // We consider that we rejected if at least one of the responses is not "approve'
-    val locallyRejected = responses.exists { response => !response.localVerdict.isApprove }
+    val locallyRejectedF = responsesF.map(_.exists { response => !response.localVerdict.isApprove })
+
+    // The request was aborted if the model conformance check ended with an abort error, due to either a timeout
+    // or a negative mediator verdict concurrently received in Phase 7
+    val engineAbortStatusF = transactionValidationResult.modelConformanceResultET.value.map {
+      case Left(error) => error.engineAbortStatus
+      case _ => EngineAbortStatus.notAborted
+    }
 
     validation.PendingTransaction(
       freshOwnTimelyTx,
@@ -1171,7 +1189,9 @@ class TransactionProcessingSteps(
       sc,
       transactionValidationResult,
       mediator,
-      locallyRejected,
+      locallyRejectedF,
+      engineController.abort,
+      FutureUnlessShutdown.outcomeF(engineAbortStatusF),
     )
   }
 
@@ -1341,51 +1361,68 @@ class TransactionProcessingSteps(
     def getCommitSetAndContractsToBeStoredAndEvent(
         topologySnapshot: TopologySnapshot
     ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
-      (
-        verdict,
-        pendingRequestData.transactionValidationResult.modelConformanceResultE,
-      ) match {
-        case (_: Verdict.Approve, _) => handleApprovedVerdict(topologySnapshot)
-        case (_, Left(error)) => rejectedWithModelConformanceError(error)
-        case (reasons: Verdict.ParticipantReject, _) =>
-          rejected(reasons.keyEvent)
-        case (reject: Verdict.MediatorReject, _) =>
-          rejected(reject)
-      }
+      val resultFE = for {
+        modelConformanceResultE <-
+          pendingRequestData.transactionValidationResult.modelConformanceResultET.value
+
+        resultET = (verdict, modelConformanceResultE) match {
+          // Positive verdict: we commit
+          case (_: Verdict.Approve, _) => handleApprovedVerdict(topologySnapshot)
+
+          // Model conformance check error:
+          // - if the error is an abort, it means the model conformance check was still running while we received
+          //   a negative verdict; we then reject with the verdict, as it is the best information we have
+          // - otherwise, we reject with the actual error
+          case (reasons: Verdict.ParticipantReject, Left(error)) =>
+            if (error.engineAbortStatus.isAborted) rejected(reasons.keyEvent)
+            else rejectedWithModelConformanceError(error)
+          case (reject: Verdict.MediatorReject, Left(error)) =>
+            if (error.engineAbortStatus.isAborted) rejected(reject)
+            else rejectedWithModelConformanceError(error)
+
+          // No model conformance check error: we reject with the verdict
+          case (reasons: Verdict.ParticipantReject, _) =>
+            rejected(reasons.keyEvent)
+          case (reject: Verdict.MediatorReject, _) =>
+            rejected(reject)
+        }
+        result <- resultET.value
+      } yield result
+
+      EitherT(resultFE)
     }
 
     def handleApprovedVerdict(topologySnapshot: TopologySnapshot)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
-      pendingRequestData.transactionValidationResult.modelConformanceResultE match {
-        case Right(modelConformanceResult) =>
+    ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] =
+      pendingRequestData.transactionValidationResult.modelConformanceResultET.biflatMap(
+        {
+          case ErrorWithSubTransaction(
+                _errors,
+                Some(validSubTransaction),
+                NonEmpty(validSubViewsNE),
+              ) =>
+            getCommitSetAndContractsToBeStoredAndEventApprovePartlyConform(
+              pendingRequestData,
+              completionInfoO,
+              validSubTransaction,
+              validSubViewsNE,
+              topologySnapshot,
+            )
+
+          case error =>
+            // There is no valid subview
+            //   -> we can reject as no participant will commit a subtransaction and violate transparency.
+            rejectedWithModelConformanceError(error)
+        },
+        { modelConformanceResult =>
           getCommitSetAndContractsToBeStoredAndEventApproveConform(
             pendingRequestData,
             completionInfoO,
             modelConformanceResult,
           )
-
-        case Left(
-              ErrorWithSubTransaction(
-                _errors,
-                Some(validSubTransaction),
-                NonEmpty(validSubViewsNE),
-              )
-            ) =>
-          getCommitSetAndContractsToBeStoredAndEventApprovePartlyConform(
-            pendingRequestData,
-            completionInfoO,
-            validSubTransaction,
-            validSubViewsNE,
-            topologySnapshot,
-          )
-
-        case Left(error) =>
-          // There is no valid subview
-          //   -> we can reject as no participant will commit a subtransaction and violate transparency.
-          rejectedWithModelConformanceError(error)
-      }
-    }
+        },
+      )
 
     def rejectedWithModelConformanceError(error: ErrorWithSubTransaction) =
       rejected(
@@ -1487,7 +1524,8 @@ object TransactionProcessingSteps {
       authenticationResult: Map[ViewPosition, String],
       consistencyResultE: Either[List[ReferenceToFutureContractError], Unit],
       authorizationResult: Map[ViewPosition, String],
-      conformanceResultE: Either[
+      conformanceResultET: EitherT[
+        Future,
         ModelConformanceChecker.ErrorWithSubTransaction,
         ModelConformanceChecker.Result,
       ],

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.pekkostreams.dispatcher
 
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.daml.scalautil.Statement.discard
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.stream.testkit.scaladsl.TestSink
 import org.awaitility.Awaitility.await
@@ -69,7 +69,7 @@ class SignalDispatcherTest
       s.request(1L)
       s.expectNext(SignalDispatcher.Signal)
       sut.getRunningState should have size 1L
-      discard(sut.shutdown())
+      sut.shutdown().discard
       assertThrows[IllegalStateException](sut.getRunningState)
       assertThrows[IllegalStateException](sut.signal())
       s.expectComplete()
