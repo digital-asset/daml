@@ -699,7 +699,7 @@ class ContractsService(
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[(Set[ContractTypeRef.Resolved], Set[Tid])] = {
     import scalaz.syntax.traverse._
-    import scalaz.std.list._ //, scalaz.syntax.functor._
+    import scalaz.std.list._ // , scalaz.syntax.functor._
 
     xs.toList.toNEF
       .traverse { x =>

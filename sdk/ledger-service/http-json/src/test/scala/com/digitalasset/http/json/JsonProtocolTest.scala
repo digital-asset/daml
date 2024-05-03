@@ -147,20 +147,21 @@ class JsonProtocolTest
   }
 
   "domain.OkResponse" - {
-    "response with warnings" in forAll(listOf(genDomainTemplateIdO[domain.ContractTypeId.Template, String])) {
-      templateIds: List[domain.ContractTypeId.RequiredPkg] =>
-        val response: domain.OkResponse[Int] =
-          domain.OkResponse(result = 100, warnings = Some(domain.UnknownTemplateIds(templateIds)))
+    "response with warnings" in forAll(
+      listOf(genDomainTemplateIdO[domain.ContractTypeId.Template, String])
+    ) { templateIds: List[domain.ContractTypeId.RequiredPkg] =>
+      val response: domain.OkResponse[Int] =
+        domain.OkResponse(result = 100, warnings = Some(domain.UnknownTemplateIds(templateIds)))
 
-        val responseJsVal: domain.OkResponse[JsValue] = response.map(_.toJson)
+      val responseJsVal: domain.OkResponse[JsValue] = response.map(_.toJson)
 
-        discard {
-          responseJsVal.toJson shouldBe JsObject(
-            "result" -> JsNumber(100),
-            "warnings" -> JsObject("unknownTemplateIds" -> templateIds.toJson),
-            "status" -> JsNumber(200),
-          )
-        }
+      discard {
+        responseJsVal.toJson shouldBe JsObject(
+          "result" -> JsNumber(100),
+          "warnings" -> JsObject("unknownTemplateIds" -> templateIds.toJson),
+          "status" -> JsNumber(200),
+        )
+      }
     }
 
     "response without warnings" in forAll(identifier) { str =>

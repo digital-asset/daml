@@ -161,7 +161,9 @@ trait WithQueryStoreSetTest extends QueryStoreAndAuthDependentIntegrationTest {
         contractIds <- searchExpectOk(
           searchDataSet,
           jsObject(
-            s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"currency": "EUR", "amount": "111.11"}}"""
+            s"""{"templateIds": ["${tidString(
+                TpId.Iou.Iou
+              )}"], "query": {"currency": "EUR", "amount": "111.11"}}"""
           ),
           fixture,
           aliceHeaders,
@@ -194,7 +196,9 @@ trait WithQueryStoreSetTest extends QueryStoreAndAuthDependentIntegrationTest {
         _ <- searchExpectOk(
           searchDataSet,
           jsObject(
-            s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"currency": "EUR", "amount": "111.11"}}"""
+            s"""{"templateIds": ["${tidString(
+                TpId.Iou.Iou
+              )}"], "query": {"currency": "EUR", "amount": "111.11"}}"""
           ),
           fixture,
           aliceHeaders,
@@ -494,7 +498,9 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     "warns if some are known" in withHttpService { fixture =>
       val query =
         jsObject(
-          s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}", "UnknownPackage:UnknownModule:UnknownEntity"], "query": {"currency": "EUR"}}"""
+          s"""{"templateIds": ["${tidString(
+              TpId.Iou.Iou
+            )}", "UnknownPackage:UnknownModule:UnknownEntity"], "query": {"currency": "EUR"}}"""
         )
       fixture
         .getUniquePartyAndAuthHeaders("UnknownParty")
@@ -645,7 +651,9 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             party = alice,
           ),
           jsObject(
-            s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"currency": ${testCurrency.toJson}}}"""
+            s"""{"templateIds": ["${tidString(
+                TpId.Iou.Iou
+              )}"], "query": {"currency": ${testCurrency.toJson}}}"""
           ),
           fixture,
           headers,
@@ -675,7 +683,9 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           found <- searchExpectOk(
             List(pubSubCreateCommand(publisher, subscriberParties)),
             jsObject(
-              s"""{"templateIds": ["${tidString(TpId.Account.PubSub)}"], "query": {"publisher": "$publisher"}}"""
+              s"""{"templateIds": ["${tidString(
+                  TpId.Account.PubSub
+                )}"], "query": {"publisher": "$publisher"}}"""
             ),
             fixture,
             headers,
@@ -755,7 +765,9 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         val searchDataSet = genSearchDataSet(alice)
         searchExpectOk(
           searchDataSet,
-          jsObject(s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"currency": "EUR"}}"""),
+          jsObject(
+            s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"currency": "EUR"}}"""
+          ),
           fixture,
           headers,
         ).map { acl: List[domain.ActiveContract.ResolvedCtTyId[JsValue]] =>
@@ -775,7 +787,9 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             rs.map(_.status) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
 
             def queryAmountAs(s: String) =
-              jsObject(s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"amount": $s}}""")
+              jsObject(
+                s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"amount": $s}}"""
+              )
 
             val queryAmountAsString = queryAmountAs("\"111.11\"")
             val queryAmountAsNumber = queryAmountAs("111.11")
@@ -806,7 +820,9 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         searchExpectOk(
           searchDataSet,
           jsObject(
-            s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"currency": "EUR", "amount": "111.11"}}"""
+            s"""{"templateIds": ["${tidString(
+                TpId.Iou.Iou
+              )}"], "query": {"currency": "EUR", "amount": "111.11"}}"""
           ),
           fixture,
           headers,
@@ -824,7 +840,9 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         searchExpectOk(
           searchDataSet,
           jsObject(
-            s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"currency": "RUB", "amount": "666.66"}}"""
+            s"""{"templateIds": ["${tidString(
+                TpId.Iou.Iou
+              )}"], "query": {"currency": "RUB", "amount": "666.66"}}"""
           ),
           fixture,
           headers,

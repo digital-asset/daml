@@ -225,43 +225,46 @@ private class PackageService(
       for {
         result <- EitherT.pure(doSearch(latestMaps())): ET[ResultType]
         _ = logger.trace(s"Result: $result")
-        finalResult <- if ((x: C.RequiredPkg).packageId.startsWith("#")) {
-          if (result.isDefined)
-            // used package name and we do have the package, refresh if timeout
-            if (cache.packagesShouldBeFetchedAgain) {
-              logger.trace(
-                s"package name supplied and we do have the package, refresh because of timeout: $x"
-              )
-              doReloadAndSearchAgain()
-            } else {
-              logger.trace(
-                s"package name supplied and we do have the package, -no timeout- no refresh: $x"
-              )
-              keep(result)
-            }
-          // used package name and we don’t have the package, always refresh
-          else {
-            logger.trace(s"package name supplied and we don’t have the package, always refresh: $x")
-            doReloadAndSearchAgain()
-          }
-        } else {
-          val packageId = (x: C.RequiredPkg).packageId
-          if (result.isDefined) {
-            logger.trace(s"package id supplied & template id found, no refresh necessary: $x")
-            keep(result)
-          } else {
-            // package id and we have the package, never refresh
-            if (state.packageIds.contains(packageId)) {
-              logger.trace(s"package id supplied and we have the package, never refresh: $x")
-              keep(result)
-            }
-            // package id and we don’t have the package, always refresh
+        finalResult <-
+          if ((x: C.RequiredPkg).packageId.startsWith("#")) {
+            if (result.isDefined)
+              // used package name and we do have the package, refresh if timeout
+              if (cache.packagesShouldBeFetchedAgain) {
+                logger.trace(
+                  s"package name supplied and we do have the package, refresh because of timeout: $x"
+                )
+                doReloadAndSearchAgain()
+              } else {
+                logger.trace(
+                  s"package name supplied and we do have the package, -no timeout- no refresh: $x"
+                )
+                keep(result)
+              }
+            // used package name and we don’t have the package, always refresh
             else {
-              logger.trace("package id supplied and we don’t have the package, always refresh")
+              logger.trace(
+                s"package name supplied and we don’t have the package, always refresh: $x"
+              )
               doReloadAndSearchAgain()
             }
-          }
-        }: ET[ResultType]
+          } else {
+            val packageId = (x: C.RequiredPkg).packageId
+            if (result.isDefined) {
+              logger.trace(s"package id supplied & template id found, no refresh necessary: $x")
+              keep(result)
+            } else {
+              // package id and we have the package, never refresh
+              if (state.packageIds.contains(packageId)) {
+                logger.trace(s"package id supplied and we have the package, never refresh: $x")
+                keep(result)
+              }
+              // package id and we don’t have the package, always refresh
+              else {
+                logger.trace("package id supplied and we don’t have the package, always refresh")
+                doReloadAndSearchAgain()
+              }
+            }
+          }: ET[ResultType]
         _ = logger.trace(s"Final result: $finalResult")
       } yield finalResult
     }.run

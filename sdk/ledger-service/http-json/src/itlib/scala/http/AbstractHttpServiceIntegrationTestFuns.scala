@@ -71,10 +71,10 @@ object AbstractHttpServiceIntegrationTestFuns {
     import CtId.Interface.{RequiredPkg => IId}
 
     val pkgIdModelTests = packageIdOfDar(dar1)
-    val pkgIdAccount    = packageIdOfDar(dar2)
-    val pkgIdUser       = packageIdOfDar(userDar)
-    val pkgIdCiou       = packageIdOfDar(ciouDar)
-    val pkgIdRiou       = packageIdOfDar(riouDar)
+    val pkgIdAccount = packageIdOfDar(dar2)
+    val pkgIdUser = packageIdOfDar(userDar)
+    val pkgIdCiou = packageIdOfDar(ciouDar)
+    val pkgIdRiou = packageIdOfDar(riouDar)
 
     object Iou {
       val Dummy: TId = CtId.Template(pkgIdModelTests, "Iou", "Dummy")
@@ -92,7 +92,8 @@ object AbstractHttpServiceIntegrationTestFuns {
       val SharedAccount: TId = CtId.Template(pkgIdAccount, "Account", "SharedAccount")
       val PubSub: TId = CtId.Template(pkgIdAccount, "Account", "PubSub")
       val KeyedByDecimal: TId = CtId.Template(pkgIdAccount, "Account", "KeyedByDecimal")
-      val KeyedByVariantAndRecord: TId = CtId.Template(pkgIdAccount, "Account", "KeyedByVariantAndRecord")
+      val KeyedByVariantAndRecord: TId =
+        CtId.Template(pkgIdAccount, "Account", "KeyedByVariantAndRecord")
       val LongFieldNames: TId = CtId.Template(pkgIdAccount, "Account", "LongFieldNames")
       val Helper: TId = CtId.Template(pkgIdAccount, "Account", "Helper")
     }
@@ -219,7 +220,8 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   def wsConfig: Option[WebsocketConfig]
 
-  protected def tidString(id: domain.ContractTypeId[String]) = s"${id.packageId}:${id.moduleName}:${id.entityName}"
+  protected def tidString(id: domain.ContractTypeId[String]) =
+    s"${id.packageId}:${id.moduleName}:${id.entityName}"
 
   protected def testId: String = this.getClass.getSimpleName
 

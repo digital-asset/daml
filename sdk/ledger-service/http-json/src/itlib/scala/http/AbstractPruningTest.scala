@@ -11,6 +11,7 @@ abstract class AbstractPruningTest extends AbstractHttpServiceIntegrationTestFun
 
   import AbstractHttpServiceIntegrationTestFuns.TpId
   import com.daml.ledger.api.v1.admin.{participant_pruning_service => PruneGrpc}
+
   "fail querying after pruned offset" in withHttpService { fixture =>
     import scala.concurrent.duration._
     import com.daml.timer.RetryStrategy
@@ -98,7 +99,9 @@ abstract class AbstractPruningTest extends AbstractHttpServiceIntegrationTestFun
         // Query by Alice, to populate the contract into cache
         _ <- searchExpectOk(
           List.empty,
-          jsObject(s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"currency": "HKD"}}"""),
+          jsObject(
+            s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"currency": "HKD"}}"""
+          ),
           fixture,
           aliceHeaders,
         ).map { acl => acl.size shouldBe 1 }
@@ -118,7 +121,9 @@ abstract class AbstractPruningTest extends AbstractHttpServiceIntegrationTestFun
         // This should not get confused by the fact that the archival happened before this query.
         _ <- searchExpectOk(
           List.empty,
-          jsObject(s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"currency": "HKD"}}"""),
+          jsObject(
+            s"""{"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"currency": "HKD"}}"""
+          ),
           fixture,
           bobHeaders,
         ).map { acl => acl.size shouldBe 0 }

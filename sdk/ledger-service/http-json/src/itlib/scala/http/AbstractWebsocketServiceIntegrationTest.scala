@@ -84,7 +84,9 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
   override def wsConfig: Option[WebsocketConfig] = Some(WebsocketConfig())
 
   private val baseQueryInput: Source[Message, NotUsed] =
-    Source.single(TextMessage.Strict(s"""{"templateIds": ["${tidString(TpId.Account.Account)}"]}"""))
+    Source.single(
+      TextMessage.Strict(s"""{"templateIds": ["${tidString(TpId.Account.Account)}"]}""")
+    )
 
   private val fetchRequest =
     s"""[{"templateId": "${tidString(TpId.Account.Account)}", "key": ["Alice", "abc123"]}]"""
@@ -201,7 +203,9 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
     import AbstractHttpServiceIntegrationTestFuns.ciouDar
     val queryInput = Source.single(
       TextMessage.Strict(
-        s"""[{"templateIds": ["${tidString(TpId.IAccount.IAccount)}"]}, {"templateIds": ["${tidString(TpId.IIou.IIou)}"]}]"""
+        s"""[{"templateIds": ["${tidString(
+            TpId.IAccount.IAccount
+          )}"]}, {"templateIds": ["${tidString(TpId.IIou.IIou)}"]}]"""
       )
     )
     val scenario = SimpleScenario("", Uri.Path("/v1/stream/query"), queryInput)
@@ -221,7 +225,9 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
   "query error when queries with both template and interface id" in withHttpService { fixture =>
     val queryInput = Source.single(
       TextMessage.Strict(
-        s"""[{"templateIds": ["${tidString(TpId.IAccount.IAccount)}"]}, {"templateIds": ["${tidString(TpId.Account.Account)}"]}]"""
+        s"""[{"templateIds": ["${tidString(
+            TpId.IAccount.IAccount
+          )}"]}, {"templateIds": ["${tidString(TpId.Account.Account)}"]}]"""
       )
     )
     val scenario = SimpleScenario("", Uri.Path("/v1/stream/query"), queryInput)
@@ -265,7 +271,9 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
         (alice, headers) = aliceHeaders
         _ <- initialAccountCreate(fixture, alice, headers)
         jwt <- jwtForParties(uri)(List(alice), Nil, "participant0")
-        fetchRequest = s"""[{"templateId": "${tidString(TpId.Account.Account)}", "key": ["$alice", "abc123"]}]"""
+        fetchRequest = s"""[{"templateId": "${tidString(
+            TpId.Account.Account
+          )}", "key": ["$alice", "abc123"]}]"""
         clientMsg <- singleClientFetchStream(jwt, uri, fetchRequest)
           .take(2)
           .runWith(collectResultsAsTextMessage)
@@ -462,7 +470,9 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
           singleClientFetchStream(
             _,
             uri,
-            s"""[{"templateId": "${tidString(TpId.Account.Account)}", "key": ["$alice", "abc123"]}, {"templateId": "UnknownPkg:Unknown:Template", "key": ["$alice", "abc123"]}]""",
+            s"""[{"templateId": "${tidString(
+                TpId.Account.Account
+              )}", "key": ["$alice", "abc123"]}, {"templateId": "UnknownPkg:Unknown:Template", "key": ["$alice", "abc123"]}]""",
           ).take(3)
             .runWith(collectResultsAsTextMessage)
         )
@@ -578,7 +588,9 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
 
         // construct a new multiquery with one of them having an offset while the other doesn't
         multiquery = s"""[
-          {"templateIds": ["${tidString(TpId.Iou.Iou)}"], "query": {"currency": "USD"}, "offset": "${lastSeen.unwrap}"},
+          {"templateIds": ["${tidString(
+            TpId.Iou.Iou
+          )}"], "query": {"currency": "USD"}, "offset": "${lastSeen.unwrap}"},
           {"templateIds": ["${tidString(TpId.Iou.Iou)}"]}
         ]"""
 
@@ -1401,7 +1413,9 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
       contractsQuery = (currency: String) =>
         s"""{"templateIds":["${tidString(TpId.Iou.Iou)}"], "query":{"currency":"$currency"}}"""
       contractsQueryWithOffset = (offset: domain.Offset, currency: String) =>
-        s"""{"templateIds":["${tidString(TpId.Iou.Iou)}"], "query":{"currency":"$currency"}, "offset":"${offset.unwrap}"}"""
+        s"""{"templateIds":["${tidString(
+            TpId.Iou.Iou
+          )}"], "query":{"currency":"$currency"}, "offset":"${offset.unwrap}"}"""
       contracts = (currency: String, offset: Option[domain.Offset]) =>
         offset.fold(contractsQuery(currency))(contractsQueryWithOffset(_, currency))
       acsEnd = (expectedContracts: Int) => {

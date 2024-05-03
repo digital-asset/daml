@@ -232,7 +232,9 @@ class DomainJsonDecoder(
     }
   } yield meta map tpidToResolved map (_.asInstanceOf[R])
 
-  private def templateId_[CtId[T] <: domain.ContractTypeId[T] with domain.ContractTypeId.Ops[CtId, T]](
+  private def templateId_[
+      CtId[T] <: domain.ContractTypeId[T] with domain.ContractTypeId.Ops[CtId, T]
+  ](
       id: CtId[String],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
