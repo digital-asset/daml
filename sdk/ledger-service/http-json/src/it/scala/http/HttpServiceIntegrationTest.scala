@@ -40,7 +40,7 @@ abstract class HttpServiceIntegrationTest
     with BeforeAndAfterAll {
   import HttpServiceIntegrationTest._
   import json.JsonProtocol._
-  import AbstractHttpServiceIntegrationTestFuns.{ciouDar, TpId}
+  import AbstractHttpServiceIntegrationTestFuns.ciouDar
 
   private val staticContent: String = "static"
 

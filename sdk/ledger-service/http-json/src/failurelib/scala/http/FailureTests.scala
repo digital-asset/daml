@@ -212,7 +212,7 @@ abstract class FailureTests
         )
       )
       _ = status shouldBe StatusCodes.OK
-      query = jsObject(s"""{"templateIds": ["$pkgIdAccount:Account:Account"]}""")
+      query = jsObject(s"""{"templateIds": ["$staticPkgIdAccount:Account:Account"]}""")
       (status, output) <- headersWithParties(List(p)).flatMap(
         postRequest(
           uri = uri.withPath(Uri.Path("/v1/query")),
@@ -276,7 +276,7 @@ abstract class FailureTests
           )
         )
         _ = status shouldBe StatusCodes.OK
-        query = jsObject(s"""{"templateIds": ["$pkgIdAccount:Account:Account"]}""")
+        query = jsObject(s"""{"templateIds": ["$staticPkgIdAccount:Account:Account"]}""")
         (status, output) <- headersWithParties(List(p)).flatMap(
           postRequest(
             uri = uri.withPath(Uri.Path("/v1/query")),
@@ -340,7 +340,7 @@ abstract class FailureTests
     (uri, encoder, _, client) =>
       val query =
         s"""[
-          {"templateIds": ["$pkgIdAccount:Account:Account"]}
+          {"templateIds": ["$staticPkgIdAccount:Account:Account"]}
         ]"""
 
       val offset = Promise[Offset]()

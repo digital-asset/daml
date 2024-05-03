@@ -225,8 +225,9 @@ private class PackageService(
       for {
         result <- EitherT.pure(doSearch(latestMaps())): ET[ResultType]
         _ = logger.trace(s"Result: $result")
-        finalResult <-
-          if (x.packageId.startsWith("#")) { // Used package name, not package id
+        finalResult <- {
+          val packageId = (x: C.RequiredPkg).packageId
+          if (packageId.startsWith("#")) { // Used package name, not package id
             if (result.isDefined)
               // no package id and we do have the package, refresh if timeout
               if (cache.packagesShouldBeFetchedAgain) {
@@ -251,7 +252,7 @@ private class PackageService(
               keep(result)
             } else {
               // package id and we have the package, never refresh
-              if (state.packageIds.contains(x.packageId)) {
+              if (state.packageIds.contains(packageId)) {
                 logger.trace("package id and we have the package, never refresh")
                 keep(result)
               }
@@ -262,6 +263,7 @@ private class PackageService(
               }
             }
           }: ET[ResultType]
+        }
         _ = logger.trace(s"Final result: $finalResult")
       } yield finalResult
     }.run

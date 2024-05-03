@@ -138,7 +138,6 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
 trait WithQueryStoreSetTest extends QueryStoreAndAuthDependentIntegrationTest {
   import HttpServiceTestFixture.archiveCommand
   import json.JsonProtocol._
-  import AbstractHttpServiceIntegrationTestFuns.TpId
 
   "refresh cache endpoint" - {
     "should return latest offset when the cache is outdated" in withHttpService { fixture =>
@@ -238,7 +237,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
   }
   import HttpServiceTestFixture.{UseTls, accountCreateCommand, archiveCommand}
   import json.JsonProtocol._
-  import AbstractHttpServiceIntegrationTestFuns.{ciouDar, riouDar, TpId}
+  import AbstractHttpServiceIntegrationTestFuns.{ciouDar, riouDar}
 
   val authorizationSecurity: SecurityTest =
     SecurityTest(property = Authorization, asset = "HTTP JSON API Service")
@@ -304,13 +303,12 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     }
 
     "single party with package id" in withHttpService { fixture =>
-      import AbstractHttpServiceIntegrationTestFuns.{dar1, packageIdOfDar}
-      val pkgId = packageIdOfDar(dar1)
+      import AbstractHttpServiceIntegrationTestFuns.pkgIdModelTests
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         val searchDataSet = genSearchDataSet(alice)
         searchExpectOk(
           searchDataSet,
-          jsObject(s"""{"templateIds": ["$pkgId:Iou:Iou"]}"""),
+          jsObject(s"""{"templateIds": ["$pkgIdModelTests:Iou:Iou"]}"""),
           fixture,
           headers,
         ).map { acl: List[domain.ActiveContract.ResolvedCtTyId[JsValue]] =>
@@ -547,21 +545,18 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
   }
 
   "should handle multiple package ids with the same name" in withHttpService { fixture =>
-    import AbstractHttpServiceIntegrationTestFuns.{fooV1Dar, fooV2Dar, packageIdOfDar}
+    import AbstractHttpServiceIntegrationTestFuns.{fooV1Dar, fooV2Dar, pkgIdFooV1, pkgIdFooV2}
 
     for {
       _ <- uploadPackage(fixture)(fooV1Dar)
       _ <- uploadPackage(fixture)(fooV2Dar)
-
-      pkgIdV1 = packageIdOfDar(fooV1Dar)
-      pkgIdV2 = packageIdOfDar(fooV2Dar)
 
       (alice, hdrs) <- fixture.getUniquePartyAndAuthHeaders("Alice")
 
       // create v1 and v2 versions of contract, using the package name and package id.
       cidV1PkgId <- postCreate(
         fixture,
-        jsObject(s"""{"templateId": "$pkgIdV1:Foo:Bar", "payload": {"owner": "$alice"}}"""),
+        jsObject(s"""{"templateId": "$pkgIdFooV1:Foo:Bar", "payload": {"owner": "$alice"}}"""),
         hdrs,
       )
       cidV1PkgNm <- postCreate(
@@ -573,7 +568,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       cidV2PkgId <- postCreate(
         fixture,
         jsObject(
-          s"""{"templateId": "$pkgIdV2:Foo:Bar", "payload": {"owner": "$alice", "extra":42}}"""
+          s"""{"templateId": "$pkgIdFooV2:Foo:Bar", "payload": {"owner": "$alice", "extra":42}}"""
         ),
         hdrs,
       )
@@ -586,7 +581,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       // query using both package ids and package name.
       _ <- searchExpectOk(
         Nil,
-        jsObject(s"""{"templateIds": ["${pkgIdV1}:Foo:Bar"]}"""),
+        jsObject(s"""{"templateIds": ["$pkgIdFooV1:Foo:Bar"]}"""),
         fixture,
         hdrs,
       ) map { results =>
@@ -595,7 +590,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
 
       _ <- searchExpectOk(
         Nil,
-        jsObject(s"""{"templateIds": ["${pkgIdV2}:Foo:Bar"]}"""),
+        jsObject(s"""{"templateIds": ["$pkgIdFooV2:Foo:Bar"]}"""),
         fixture,
         hdrs,
       ) map { results =>
@@ -1169,10 +1164,9 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       import lav1.command_service.SubmitAndWaitRequest
       import lav1.commands.{Commands, Command}
       import domain.{DisclosedContract => DC}
-      import AbstractHttpServiceIntegrationTestFuns.{dar2, packageIdOfDar}
 
       // we assume Disclosed is in the main dalf
-      lazy val inferredPkgId = packageIdOfDar(dar2)
+      lazy val inferredPkgId = AbstractHttpServiceIntegrationTestFuns.pkgIdAccount
 
       def inDar2Main[CtId[P] <: domain.ContractTypeId.Ops[CtId, P]](
           tid: CtId[String]
@@ -1969,7 +1963,6 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
     extends QueryStoreAndAuthDependentIntegrationTest {
   import HttpServiceTestFixture.accountCreateCommand
   import json.JsonProtocol._
-  import AbstractHttpServiceIntegrationTestFuns.TpId
   import scalaz.syntax.functor._
 
   "query GET" - {

@@ -4,7 +4,6 @@
 package com.daml.http
 
 import org.apache.pekko.http.scaladsl.model.Uri
-import com.daml.http.AbstractHttpServiceIntegrationTestFuns.TpId
 import com.daml.http.HttpServiceTestFixture.UseTls
 import com.daml.http.dbbackend.JdbcConfig
 import java.net.http.{HttpClient, WebSocket}

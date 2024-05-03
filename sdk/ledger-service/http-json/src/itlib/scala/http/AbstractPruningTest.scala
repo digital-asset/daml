@@ -9,7 +9,6 @@ abstract class AbstractPruningTest extends AbstractHttpServiceIntegrationTestFun
   override def useTls = HttpServiceTestFixture.UseTls.Tls
   override def wsConfig: Option[WebsocketConfig] = None
 
-  import AbstractHttpServiceIntegrationTestFuns.TpId
   import com.daml.ledger.api.v1.admin.{participant_pruning_service => PruneGrpc}
 
   "fail querying after pruned offset" in withHttpService { fixture =>

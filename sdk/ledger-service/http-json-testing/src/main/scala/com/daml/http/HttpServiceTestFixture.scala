@@ -67,7 +67,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   private val doNotReloadPackages = FiniteDuration(100, DAYS)
 
   // This may need to be updated if the Account.daml is updated.
-  val pkgIdAccount = "b3c9564bb7334bfd0f82099893eba518afc3b68a4d5c66cb2835498252db93e9"
+  val staticPkgIdAccount = "b3c9564bb7334bfd0f82099893eba518afc3b68a4d5c66cb2835498252db93e9"
 
   def withHttpService[A](
       testName: String,
@@ -488,7 +488,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       number: String,
       time: v.Value.Sum.Timestamp = TimestampConversion.roundInstantToMicros(Instant.now),
   ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.RequiredPkg] = {
-    val templateId = domain.ContractTypeId.Template(pkgIdAccount, "Account", "Account")
+    val templateId = domain.ContractTypeId.Template(staticPkgIdAccount, "Account", "Account")
     val timeValue = v.Value(time)
     val enabledVariantValue =
       v.Value(v.Value.Sum.Variant(v.Variant(None, "Enabled", Some(timeValue))))
@@ -508,7 +508,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       number: String,
       time: v.Value.Sum.Timestamp = TimestampConversion.roundInstantToMicros(Instant.now),
   ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.RequiredPkg] = {
-    val templateId = domain.ContractTypeId.Template(pkgIdAccount, "Account", "SharedAccount")
+    val templateId = domain.ContractTypeId.Template(staticPkgIdAccount, "Account", "SharedAccount")
     val timeValue = v.Value(time)
     val ownersEnc = v.Value(
       v.Value.Sum.List(v.List(domain.Party.unsubst(owners).map(o => v.Value(v.Value.Sum.Party(o)))))

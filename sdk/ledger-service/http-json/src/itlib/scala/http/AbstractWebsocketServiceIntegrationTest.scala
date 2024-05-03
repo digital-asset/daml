@@ -55,7 +55,6 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
     with Inside
     with AbstractHttpServiceIntegrationTestFuns
     with BeforeAndAfterAll {
-  import AbstractHttpServiceIntegrationTestFuns.TpId
 
   // Guard tests which use features that are not available in Canton Community Edition
   private implicit final class EditionBranchingSupport(private val label: String) {

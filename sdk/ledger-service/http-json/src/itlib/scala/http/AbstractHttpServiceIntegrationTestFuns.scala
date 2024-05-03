@@ -65,75 +65,27 @@ object AbstractHttpServiceIntegrationTestFuns {
   private[http] val fooV1Dar = requiredResource("ledger-service/http-json/FooV1.dar")
   private[http] val fooV2Dar = requiredResource("ledger-service/http-json/FooV2.dar")
 
-  object TpId {
-    import domain.{ContractTypeId => CtId}
-    import CtId.Template.{RequiredPkg => TId}
-    import CtId.Interface.{RequiredPkg => IId}
-
-    val pkgIdModelTests = packageIdOfDar(dar1)
-    val pkgIdAccount = packageIdOfDar(dar2)
-    val pkgIdUser = packageIdOfDar(userDar)
-    val pkgIdCiou = packageIdOfDar(ciouDar)
-    val pkgIdRiou = packageIdOfDar(riouDar)
-
-    object Iou {
-      val Dummy: TId = CtId.Template(pkgIdModelTests, "Iou", "Dummy")
-      val Iou: TId = CtId.Template(pkgIdModelTests, "Iou", "Iou")
-      val IouTransfer: TId = CtId.Template(pkgIdModelTests, "Iou", "IouTransfer")
-    }
-    object Test {
-      val MultiPartyContract: TId = CtId.Template(pkgIdModelTests, "Test", "MultiPartyContract")
-    }
-    object IAccount {
-      val IAccount: IId = CtId.Interface(pkgIdAccount, "IAccount", "IAccount")
-    }
-    object Account {
-      val Account: TId = CtId.Template(pkgIdAccount, "Account", "Account")
-      val SharedAccount: TId = CtId.Template(pkgIdAccount, "Account", "SharedAccount")
-      val PubSub: TId = CtId.Template(pkgIdAccount, "Account", "PubSub")
-      val KeyedByDecimal: TId = CtId.Template(pkgIdAccount, "Account", "KeyedByDecimal")
-      val KeyedByVariantAndRecord: TId =
-        CtId.Template(pkgIdAccount, "Account", "KeyedByVariantAndRecord")
-      val LongFieldNames: TId = CtId.Template(pkgIdAccount, "Account", "LongFieldNames")
-      val Helper: TId = CtId.Template(pkgIdAccount, "Account", "Helper")
-    }
-    object Disclosure {
-      val AnotherToDisclose: TId = CtId.Template(pkgIdAccount, "Disclosure", "AnotherToDisclose")
-      val HasGarbage: IId = CtId.Interface(pkgIdAccount, "Disclosure", "HasGarbage")
-      val ToDisclose: TId = CtId.Template(pkgIdAccount, "Disclosure", "ToDisclose")
-      val Viewport: TId = CtId.Template(pkgIdAccount, "Disclosure", "Viewport")
-    }
-    object User {
-      val User: TId = CtId.Template(pkgIdUser, "User", "User")
-    }
-    object CIou {
-      val CIou: TId = CtId.Template(pkgIdCiou, "CIou", "CIou")
-    }
-    object IIou {
-      val IIou: IId = CtId.Interface(pkgIdCiou, "IIou", "IIou")
-      val TestIIou: TId = CtId.Template(pkgIdCiou, "IIou", "TestIIou")
-    }
-    object RIou {
-      val RIou: IId = CtId.Interface(pkgIdRiou, "RIou", "RIou")
-    }
-    object RIIou {
-      val RIIou: IId = CtId.Interface(pkgIdCiou, "RIIou", "RIIou")
-    }
-    object Transferrable {
-      val Transferrable: IId = CtId.Interface(pkgIdCiou, "Transferrable", "Transferrable")
-    }
-
-    def unsafeCoerce[Like[T] <: CtId[T], T](ctId: CtId[T])(implicit
-        Like: CtId.Like[Like]
-    ): Like[T] =
-      Like(ctId.packageId, ctId.moduleName, ctId.entityName)
-  }
-
-  def packageIdOfDar(darFile: java.io.File): String = {
+  private[this] def packageIdOfDar(darFile: java.io.File): String = {
     import com.daml.lf.{archive, typesig}
     val dar = archive.UniversalArchiveReader.assertReadFile(darFile)
     typesig.PackageSignature.read(dar.main)._2.packageId
   }
+
+  val pkgIdAccount = {
+    val pkgId = packageIdOfDar(dar2)
+    assert(
+      pkgId == HttpServiceTestFixture.staticPkgIdAccount,
+      s"""Please update HttpServiceTestFixture.staticPkgIdAccount to "$pkgId"""",
+    )
+    pkgId
+  }
+
+  lazy val pkgIdCiou = packageIdOfDar(ciouDar)
+  lazy val pkgIdModelTests = packageIdOfDar(dar1)
+  lazy val pkgIdRiou = packageIdOfDar(riouDar)
+  lazy val pkgIdUser = packageIdOfDar(userDar)
+  lazy val pkgIdFooV1 = packageIdOfDar(fooV1Dar)
+  lazy val pkgIdFooV2 = packageIdOfDar(fooV2Dar)
 
   def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
     import com.google.common.io.BaseEncoding
@@ -507,7 +459,63 @@ trait AbstractHttpServiceIntegrationTestFuns
     VA.record(Ref.Identifier assertFromString "ignored:Iou:Iou", iouT)
   }
 
-  import AbstractHttpServiceIntegrationTestFuns.TpId
+  protected[this] object TpId {
+    import domain.{ContractTypeId => CtId}
+    import CtId.Template.{RequiredPkg => TId}
+    import CtId.Interface.{RequiredPkg => IId}
+
+    object Iou {
+      val Dummy: TId = CtId.Template(pkgIdModelTests, "Iou", "Dummy")
+      val Iou: TId = CtId.Template(pkgIdModelTests, "Iou", "Iou")
+      val IouTransfer: TId = CtId.Template(pkgIdModelTests, "Iou", "IouTransfer")
+    }
+    object Test {
+      val MultiPartyContract: TId = CtId.Template(pkgIdModelTests, "Test", "MultiPartyContract")
+    }
+    object IAccount {
+      val IAccount: IId = CtId.Interface(pkgIdAccount, "IAccount", "IAccount")
+    }
+    object Account {
+      val Account: TId = CtId.Template(pkgIdAccount, "Account", "Account")
+      val Helper: TId = CtId.Template(pkgIdAccount, "Account", "Helper")
+      val KeyedByDecimal: TId = CtId.Template(pkgIdAccount, "Account", "KeyedByDecimal")
+      val KeyedByVariantAndRecord: TId =
+        CtId.Template(pkgIdAccount, "Account", "KeyedByVariantAndRecord")
+      val LongFieldNames: TId = CtId.Template(pkgIdAccount, "Account", "LongFieldNames")
+      val PubSub: TId = CtId.Template(pkgIdAccount, "Account", "PubSub")
+      val SharedAccount: TId = CtId.Template(pkgIdAccount, "Account", "SharedAccount")
+    }
+    object Disclosure {
+      val AnotherToDisclose: TId = CtId.Template(pkgIdAccount, "Disclosure", "AnotherToDisclose")
+      val HasGarbage: IId = CtId.Interface(pkgIdAccount, "Disclosure", "HasGarbage")
+      val ToDisclose: TId = CtId.Template(pkgIdAccount, "Disclosure", "ToDisclose")
+      val Viewport: TId = CtId.Template(pkgIdAccount, "Disclosure", "Viewport")
+    }
+    object User {
+      val User: TId = CtId.Template(pkgIdUser, "User", "User")
+    }
+    object CIou {
+      val CIou: TId = CtId.Template(pkgIdCiou, "CIou", "CIou")
+    }
+    object IIou {
+      val IIou: IId = CtId.Interface(pkgIdCiou, "IIou", "IIou")
+      val TestIIou: TId = CtId.Template(pkgIdCiou, "IIou", "TestIIou")
+    }
+    object RIou {
+      val RIou: IId = CtId.Interface(pkgIdRiou, "RIou", "RIou")
+    }
+    object RIIou {
+      val RIIou: IId = CtId.Interface(pkgIdCiou, "RIIou", "RIIou")
+    }
+    object Transferrable {
+      val Transferrable: IId = CtId.Interface(pkgIdCiou, "Transferrable", "Transferrable")
+    }
+
+    def unsafeCoerce[Like[T] <: CtId[T], T](ctId: CtId[T])(implicit
+        Like: CtId.Like[Like]
+    ): Like[T] =
+      Like(ctId.packageId, ctId.moduleName, ctId.entityName)
+  }
 
   protected def iouCreateCommand(
       party: domain.Party,

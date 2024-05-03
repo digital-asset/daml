@@ -3,7 +3,6 @@
 
 package com.daml.http
 
-import com.daml.http.AbstractHttpServiceIntegrationTestFuns.TpId
 import com.daml.http.HttpServiceTestFixture.UseTls
 import com.daml.http.dbbackend.JdbcConfig
 import org.scalatest._
