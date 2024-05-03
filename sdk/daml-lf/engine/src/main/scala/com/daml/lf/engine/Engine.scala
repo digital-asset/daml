@@ -34,9 +34,7 @@ import com.daml.scalautil.Statement.discard
 // TODO once the ContextualizedLogger is replaced with the NamedLogger and Speedy doesn't use its
 //   own logger, we can remove this import
 trait EngineLogger {
-  def add(message: String, optLocation: Option[com.daml.lf.data.Ref.Location])(implicit
-      loggingContext: LoggingContext
-  ): Unit
+  def add(message: String)(implicit loggingContext: LoggingContext): Unit
 }
 
 object EngineLogger {
@@ -45,7 +43,7 @@ object EngineLogger {
       new TraceLog {
         override def add(message: String, optLocation: Option[com.daml.lf.data.Ref.Location])(
             implicit loggingContext: LoggingContext
-        ): Unit = value.add(message, optLocation)
+        ): Unit = value.add(message)
         override def iterator: Iterator[(String, Option[com.daml.lf.data.Ref.Location])] =
           Iterator.empty
       }
