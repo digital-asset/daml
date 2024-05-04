@@ -55,8 +55,8 @@ trait CryptoPrivateStoreTest extends BaseTest { this: AsyncWordSpec =>
       for {
         _ <- storePrivateKey(store, sigKey1, sigKey1.id, sigKey1WithName.name)
         _ <- storePrivateKey(store, encKey1, encKey1.id, encKey1WithName.name)
-        signRes <- store.existsSigningKey(sigKey1.id)
-        encRes <- store.existsDecryptionKey(encKey1.id)
+        signRes <- store.existsSigningKey(sigKey1.id).failOnShutdown
+        encRes <- store.existsDecryptionKey(encKey1.id).failOnShutdown
       } yield {
         signRes shouldBe true
         encRes shouldBe true
@@ -68,8 +68,8 @@ trait CryptoPrivateStoreTest extends BaseTest { this: AsyncWordSpec =>
       val store = newStore
       for {
         _ <- storePrivateKey(store, sigKey1, sigKey1.id, sigKey1WithName.name)
-        _ <- store.removePrivateKey(sigKey1.id)
-        res <- store.existsSigningKey(sigKey1.id)
+        _ <- store.removePrivateKey(sigKey1.id).failOnShutdown
+        res <- store.existsSigningKey(sigKey1.id).failOnShutdown
       } yield res shouldBe false
     }
 

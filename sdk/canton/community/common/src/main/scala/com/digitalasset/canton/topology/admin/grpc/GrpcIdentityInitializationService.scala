@@ -15,13 +15,13 @@ import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class GrpcIdentityInitializationServiceX(
+class GrpcIdentityInitializationService(
     clock: Clock,
-    bootstrap: GrpcIdentityInitializationServiceX.Callback,
+    bootstrap: GrpcIdentityInitializationService.Callback,
     cryptoPublicStore: CryptoPublicStore,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends adminProto.IdentityInitializationXServiceGrpc.IdentityInitializationXService
+    extends adminProto.IdentityInitializationServiceGrpc.IdentityInitializationService
     with NamedLogging {
 
   override def initId(request: adminProto.InitIdRequest): Future[adminProto.InitIdResponse] = {
@@ -63,7 +63,7 @@ class GrpcIdentityInitializationServiceX(
     Future.successful(adminProto.CurrentTimeResponse(Some(clock.now.toProtoTimestamp)))
 }
 
-object GrpcIdentityInitializationServiceX {
+object GrpcIdentityInitializationService {
   trait Callback {
     def initializeWithProvidedId(uid: UniqueIdentifier): EitherT[Future, String, Unit]
     def getId: Option[UniqueIdentifier]

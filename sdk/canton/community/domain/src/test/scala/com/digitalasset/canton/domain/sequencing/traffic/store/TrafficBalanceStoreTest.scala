@@ -6,20 +6,20 @@ package com.digitalasset.canton.domain.sequencing.traffic.store
 import cats.syntax.parallel.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalance
+import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.{BaseTest, ProtocolVersionChecksAsyncWordSpec}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.wordspec.AsyncWordSpec
 
-trait TrafficBalanceStoreTest
+trait TrafficPurchasedStoreTest
     extends BeforeAndAfterAll
     with BaseTest
     with ProtocolVersionChecksAsyncWordSpec {
   this: AsyncWordSpec =>
 
-  def trafficBalanceStore(mk: () => TrafficBalanceStore): Unit = {
+  def trafficPurchasedStore(mk: () => TrafficPurchasedStore): Unit = {
     val alice = ParticipantId("alice")
     val bob = ParticipantId("bob")
     val t0 = CantonTimestamp.Epoch
@@ -28,15 +28,20 @@ trait TrafficBalanceStoreTest
     val t3 = t2.plusSeconds(1)
     val t4 = t3.plusSeconds(1)
 
-    "trafficBalanceStore" should {
+    "trafficPurchasedStore" should {
       "store and lookup balances" in {
         val store = mk()
         val balanceAlice1 =
-          TrafficBalance(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
+          TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
         val balanceAlice2 =
-          TrafficBalance(alice.member, PositiveInt.tryCreate(2), NonNegativeLong.tryCreate(10L), t2)
+          TrafficPurchased(
+            alice.member,
+            PositiveInt.tryCreate(2),
+            NonNegativeLong.tryCreate(10L),
+            t2,
+          )
         val balanceBob =
-          TrafficBalance(bob.member, PositiveInt.one, NonNegativeLong.tryCreate(8L), t1)
+          TrafficPurchased(bob.member, PositiveInt.one, NonNegativeLong.tryCreate(8L), t1)
         for {
           _ <- store.store(balanceAlice1)
           _ <- store.store(balanceAlice2)
@@ -55,7 +60,7 @@ trait TrafficBalanceStoreTest
       "be idempotent if inserting the same balance twice" in {
         val store = mk()
         val balanceAlice1 =
-          TrafficBalance(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
+          TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
         for {
           _ <- store.store(balanceAlice1)
           _ <- store.store(balanceAlice1)
@@ -70,9 +75,14 @@ trait TrafficBalanceStoreTest
       "update if the serial is higher than the previous one for the same timestamp" in {
         val store = mk()
         val balanceAlice1 =
-          TrafficBalance(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
+          TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
         val balanceAlice2 =
-          TrafficBalance(alice.member, PositiveInt.tryCreate(2), NonNegativeLong.tryCreate(10L), t1)
+          TrafficPurchased(
+            alice.member,
+            PositiveInt.tryCreate(2),
+            NonNegativeLong.tryCreate(10L),
+            t1,
+          )
         for {
           _ <- store.store(balanceAlice1)
           _ <- store.store(balanceAlice2)
@@ -87,9 +97,14 @@ trait TrafficBalanceStoreTest
       "not update if the serial is lower or equal to the previous one for the same timestamp" in {
         val store = mk()
         val balanceAlice1 =
-          TrafficBalance(alice.member, PositiveInt.tryCreate(2), NonNegativeLong.tryCreate(5L), t1)
+          TrafficPurchased(
+            alice.member,
+            PositiveInt.tryCreate(2),
+            NonNegativeLong.tryCreate(5L),
+            t1,
+          )
         val balanceAlice2 =
-          TrafficBalance(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(10L), t1)
+          TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(10L), t1)
         for {
           _ <- store.store(balanceAlice1)
           _ <- store.store(balanceAlice2)
@@ -106,11 +121,21 @@ trait TrafficBalanceStoreTest
         // Between t2 and t3
         val t2point5 = t2.plusMillis(500)
         val balanceAlice1 =
-          TrafficBalance(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
+          TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
         val balanceAlice2 =
-          TrafficBalance(alice.member, PositiveInt.tryCreate(2), NonNegativeLong.tryCreate(10L), t2)
+          TrafficPurchased(
+            alice.member,
+            PositiveInt.tryCreate(2),
+            NonNegativeLong.tryCreate(10L),
+            t2,
+          )
         val balanceAlice3 =
-          TrafficBalance(alice.member, PositiveInt.tryCreate(3), NonNegativeLong.tryCreate(20L), t3)
+          TrafficPurchased(
+            alice.member,
+            PositiveInt.tryCreate(3),
+            NonNegativeLong.tryCreate(20L),
+            t3,
+          )
         for {
           _ <- store.store(balanceAlice1)
           _ <- store.store(balanceAlice2)
@@ -125,11 +150,21 @@ trait TrafficBalanceStoreTest
       "remove all balances below a given timestamp for which there is an update" in {
         val store = mk()
         val balanceAlice1 =
-          TrafficBalance(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
+          TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
         val balanceAlice2 =
-          TrafficBalance(alice.member, PositiveInt.tryCreate(2), NonNegativeLong.tryCreate(10L), t2)
+          TrafficPurchased(
+            alice.member,
+            PositiveInt.tryCreate(2),
+            NonNegativeLong.tryCreate(10L),
+            t2,
+          )
         val balanceAlice3 =
-          TrafficBalance(alice.member, PositiveInt.tryCreate(3), NonNegativeLong.tryCreate(20L), t3)
+          TrafficPurchased(
+            alice.member,
+            PositiveInt.tryCreate(3),
+            NonNegativeLong.tryCreate(20L),
+            t3,
+          )
         for {
           _ <- store.store(balanceAlice1)
           _ <- store.store(balanceAlice2)
@@ -144,11 +179,21 @@ trait TrafficBalanceStoreTest
       "keep the latest balance if they're all in the pruning window" in {
         val store = mk()
         val balanceAlice1 =
-          TrafficBalance(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
+          TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
         val balanceAlice2 =
-          TrafficBalance(alice.member, PositiveInt.tryCreate(2), NonNegativeLong.tryCreate(10L), t2)
+          TrafficPurchased(
+            alice.member,
+            PositiveInt.tryCreate(2),
+            NonNegativeLong.tryCreate(10L),
+            t2,
+          )
         val balanceAlice3 =
-          TrafficBalance(alice.member, PositiveInt.tryCreate(3), NonNegativeLong.tryCreate(20L), t3)
+          TrafficPurchased(
+            alice.member,
+            PositiveInt.tryCreate(3),
+            NonNegativeLong.tryCreate(20L),
+            t3,
+          )
         for {
           _ <- store.store(balanceAlice1)
           _ <- store.store(balanceAlice2)
@@ -163,9 +208,9 @@ trait TrafficBalanceStoreTest
       "return the correct max timestamp" in {
         val store = mk()
         val balance1 =
-          TrafficBalance(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
+          TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
         val balance2 =
-          TrafficBalance(bob.member, PositiveInt.tryCreate(2), NonNegativeLong.tryCreate(10L), t2)
+          TrafficPurchased(bob.member, PositiveInt.tryCreate(2), NonNegativeLong.tryCreate(10L), t2)
 
         for {
           max0 <- store.maxTsO
@@ -198,12 +243,22 @@ trait TrafficBalanceStoreTest
         val store = mk()
 
         val aliceBalances = Seq(
-          TrafficBalance(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1),
-          TrafficBalance(alice.member, PositiveInt.tryCreate(2), NonNegativeLong.tryCreate(55L), t3),
+          TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1),
+          TrafficPurchased(
+            alice.member,
+            PositiveInt.tryCreate(2),
+            NonNegativeLong.tryCreate(55L),
+            t3,
+          ),
         )
         val bobBalances = Seq(
-          TrafficBalance(bob.member, PositiveInt.one, NonNegativeLong.tryCreate(10L), t2),
-          TrafficBalance(bob.member, PositiveInt.tryCreate(2), NonNegativeLong.tryCreate(100L), t4),
+          TrafficPurchased(bob.member, PositiveInt.one, NonNegativeLong.tryCreate(10L), t2),
+          TrafficPurchased(
+            bob.member,
+            PositiveInt.tryCreate(2),
+            NonNegativeLong.tryCreate(100L),
+            t4,
+          ),
         )
 
         val expectedBalancesAtT1 = Seq(aliceBalances(0))

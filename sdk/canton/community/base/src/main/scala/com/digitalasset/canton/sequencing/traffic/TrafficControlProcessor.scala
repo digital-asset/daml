@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.traffic
+package com.digitalasset.canton.sequencing.traffic
 
 import cats.Monoid
 import cats.data.EitherT
@@ -17,7 +17,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
   ProtocolMessage,
-  SetTrafficBalanceMessage,
+  SetTrafficPurchasedMessage,
   SignedProtocolMessage,
 }
 import com.digitalasset.canton.sequencing.SubscriptionStart
@@ -29,19 +29,20 @@ import com.digitalasset.canton.sequencing.protocol.{
   SequencedEvent,
   SequencersOfDomain,
 }
+import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.{
+  InvalidTrafficPurchasedMessage,
+  TrafficControlError,
+}
 import com.digitalasset.canton.time.DomainTimeTracker
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.traffic.TrafficControlErrors.{
-  InvalidTrafficControlBalanceMessage,
-  TrafficControlError,
-}
-import com.digitalasset.canton.traffic.TrafficControlProcessor.TrafficControlSubscriber
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.MonadUtil
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
+
+import TrafficControlProcessor.TrafficControlSubscriber
 
 class TrafficControlProcessor(
     cryptoApi: DomainSyncCryptoClient,
@@ -98,12 +99,12 @@ class TrafficControlProcessor(
             (wrongMessages: List[DefaultOpenEnvelope]) => {
               val wrongDomainIds = wrongMessages.map(_.protocolMessage.domainId)
               logger.error(
-                s"Received traffic balance messages with wrong domain ids: $wrongDomainIds"
+                s"Received traffic purchased entry messages with wrong domain ids: $wrongDomainIds"
               )
             },
           )
 
-          processSetTrafficBalanceEnvelopes(ts, topologyTimestampO, domainEnvelopes)
+          processSetTrafficPurchasedEnvelopes(ts, topologyTimestampO, domainEnvelopes)
 
         case DeliverError(_sc, ts, _domainId, _messageId, _status) =>
           notifyListenersOfTimestamp(ts)
@@ -120,16 +121,16 @@ class TrafficControlProcessor(
   }
 
   private def notifyListenersOfBalanceUpdate(
-      update: SetTrafficBalanceMessage,
+      update: SetTrafficPurchasedMessage,
       sequencingTimestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
   ): Future[Unit] = {
     logger.debug(s"Notifying listeners that balance update $update was observed")
-    listeners.get().parTraverse_ { _.balanceUpdate(update, sequencingTimestamp) }
+    listeners.get().parTraverse_ { _.trafficPurchasedUpdate(update, sequencingTimestamp) }
   }
 
-  def processSetTrafficBalanceEnvelopes(
+  def processSetTrafficPurchasedEnvelopes(
       ts: CantonTimestamp,
       topologyTimestampO: Option[CantonTimestamp],
       envelopes: Seq[OpenEnvelope[ProtocolMessage]],
@@ -137,7 +138,7 @@ class TrafficControlProcessor(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
     val trafficEnvelopes = envelopes
-      .mapFilter(ProtocolMessage.select[SignedProtocolMessage[SetTrafficBalanceMessage]])
+      .mapFilter(ProtocolMessage.select[SignedProtocolMessage[SetTrafficPurchasedMessage]])
 
     val listenersNotifiedF = NonEmpty.from(trafficEnvelopes) match {
       case Some(trafficEnvelopesNE) =>
@@ -160,11 +161,11 @@ class TrafficControlProcessor(
             snapshot <- FutureUnlessShutdown.outcomeF(cryptoApi.awaitSnapshot(ts))
 
             listenersNotified <- MonadUtil.sequentialTraverseMonoid(trafficEnvelopesNE) { env =>
-              processSetTrafficBalance(env, snapshot, ts)
+              processSetTrafficPurchased(env, snapshot, ts)
             }
           } yield listenersNotified
         } else {
-          InvalidTrafficControlBalanceMessage
+          InvalidTrafficPurchasedMessage
             .Error(
               s"Discarding traffic control event because the timestamp of the topology ($topologyTimestampO) " +
                 s"is not set to the event timestamp ($ts)"
@@ -186,15 +187,15 @@ class TrafficControlProcessor(
 
   /** @return `true` if the message was a valid update and the listeners have been notified, `false` otherwise
     */
-  private def processSetTrafficBalance(
-      envelope: OpenEnvelope[SignedProtocolMessage[SetTrafficBalanceMessage]],
+  private def processSetTrafficPurchased(
+      envelope: OpenEnvelope[SignedProtocolMessage[SetTrafficPurchasedMessage]],
       snapshot: DomainSnapshotSyncCryptoApi,
       sequencingTimestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Boolean] = {
     val result = for {
-      _ <- validateSetTrafficBalance(envelope, snapshot)
+      _ <- validateSetTrafficPurchased(envelope, snapshot)
 
       signedMessage = envelope.protocolMessage
       message = signedMessage.message
@@ -208,14 +209,14 @@ class TrafficControlProcessor(
     result.valueOr { err =>
       err match {
         case _: Alarm => // already logged
-        case err => logger.warn(s"Error during processing of traffic balance message: $err")
+        case err => logger.warn(s"Error during processing of traffic purchased entry message: $err")
       }
       false
     }
   }
 
-  private def validateSetTrafficBalance(
-      envelope: OpenEnvelope[SignedProtocolMessage[SetTrafficBalanceMessage]],
+  private def validateSetTrafficPurchased(
+      envelope: OpenEnvelope[SignedProtocolMessage[SetTrafficPurchasedMessage]],
       snapshot: DomainSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
@@ -236,8 +237,8 @@ class TrafficControlProcessor(
       _ <- EitherT.cond[FutureUnlessShutdown](
         expectedRecipients.subsetOf(actualRecipients),
         (),
-        TrafficControlErrors.InvalidTrafficControlBalanceMessage.Error(
-          s"""A SetTrafficBalance message should be addressed to all the sequencers of a domain.
+        TrafficControlErrors.InvalidTrafficPurchasedMessage.Error(
+          s"""A SetTrafficPurchased message should be addressed to all the sequencers of a domain.
            |Instead, it was addressed to: $actualRecipients. Skipping it.""".stripMargin
         ): TrafficControlError,
       )
@@ -247,7 +248,7 @@ class TrafficControlProcessor(
         .verifySequencerSignatures(snapshot)
         .mapK(FutureUnlessShutdown.outcomeK)
         .leftMap(err =>
-          TrafficControlErrors.InvalidTrafficControlBalanceMessage
+          TrafficControlErrors.InvalidTrafficPurchasedMessage
             .Error(err.show): TrafficControlError
         )
     } yield ()
@@ -260,8 +261,11 @@ object TrafficControlProcessor {
         traceContext: TraceContext
     ): Unit
 
-    def balanceUpdate(update: SetTrafficBalanceMessage, sequencingTimestamp: CantonTimestamp)(
-        implicit traceContext: TraceContext
+    def trafficPurchasedUpdate(
+        update: SetTrafficPurchasedMessage,
+        sequencingTimestamp: CantonTimestamp,
+    )(implicit
+        traceContext: TraceContext
     ): Future[Unit]
   }
 }

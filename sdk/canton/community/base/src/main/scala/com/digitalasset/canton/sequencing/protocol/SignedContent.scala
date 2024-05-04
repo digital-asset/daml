@@ -10,6 +10,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.protocol.v30
@@ -182,7 +183,7 @@ object SignedContent
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, SyncCryptoError, SignedContent[A]] = {
+  ): EitherT[FutureUnlessShutdown, SyncCryptoError, SignedContent[A]] = {
     // as deliverEvent implements MemoizedEvidence repeated calls to serialize will return the same bytes
     // so fine to call once for the hash here and then again when serializing to protobuf
     val hash = hashContent(cryptoApi, content, purpose)
@@ -208,7 +209,7 @@ object SignedContent
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): Future[SignedContent[A]] =
+  ): FutureUnlessShutdown[SignedContent[A]] =
     create(cryptoApi, cryptoPrivateApi, content, timestampOfSigningKey, purpose, protocolVersion)
       .valueOr(err => throw new IllegalStateException(s"Failed to create signed content: $err"))
 

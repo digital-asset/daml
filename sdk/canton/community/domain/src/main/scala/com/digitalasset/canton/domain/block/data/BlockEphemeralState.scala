@@ -9,8 +9,8 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerInitialState,
   SequencerSnapshot,
 }
-import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalance
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
+import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
@@ -62,7 +62,7 @@ final case class BlockEphemeralState(
 ) extends HasLoggerName {
   def toSequencerSnapshot(
       protocolVersion: ProtocolVersion,
-      trafficBalances: Seq[TrafficBalance],
+      trafficPurchaseds: Seq[TrafficPurchased],
   ): SequencerSnapshot =
     state.toSequencerSnapshot(
       latestBlock.lastTs,
@@ -73,7 +73,7 @@ final case class BlockEphemeralState(
         )
       ),
       protocolVersion,
-      trafficBalances,
+      trafficPurchaseds,
     )
 
   /** Checks that the class invariant holds:

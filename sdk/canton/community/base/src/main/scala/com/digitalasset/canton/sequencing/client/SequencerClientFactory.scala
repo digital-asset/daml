@@ -10,6 +10,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.crypto.{Crypto, SyncCryptoApi, SyncCryptoClient}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLoggingContext}
 import com.digitalasset.canton.metrics.SequencerClientMetrics
 import com.digitalasset.canton.networking.Endpoint
@@ -26,6 +27,8 @@ import com.digitalasset.canton.sequencing.client.transports.replay.{
   ReplayingSendsSequencerClientTransportPekko,
 }
 import com.digitalasset.canton.sequencing.handshake.SequencerHandshake
+import com.digitalasset.canton.sequencing.protocol.TrafficState
+import com.digitalasset.canton.sequencing.traffic.{EventCostCalculator, TrafficStateController}
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
@@ -154,6 +157,16 @@ object SequencerClientFactory {
                 )
               }
           }
+          trafficStateController = new TrafficStateController(
+            member,
+            loggerFactory,
+            syncCryptoApi,
+            TrafficState.empty(CantonTimestamp.Epoch),
+            domainParameters.protocolVersion,
+            new EventCostCalculator(loggerFactory),
+            futureSupervisor,
+            processingTimeout,
+          )
         } yield new RichSequencerClientImpl(
           domainId,
           member,
@@ -171,8 +184,9 @@ object SequencerClientFactory {
           metrics,
           recorderO,
           replayConfigForMember(member).isDefined,
-          syncCryptoApi.pureCrypto,
+          syncCryptoApi,
           loggingConfig,
+          trafficStateController,
           loggerFactory,
           futureSupervisor,
           SequencerCounter.Genesis,
@@ -293,6 +307,7 @@ object SequencerClientFactory {
           supportedProtocolVersions,
           config.authToken,
           clock,
+          futureSupervisor,
           processingTimeout,
           loggerFactory,
         )

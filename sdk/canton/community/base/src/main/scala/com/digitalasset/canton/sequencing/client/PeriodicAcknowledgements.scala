@@ -34,7 +34,7 @@ class PeriodicAcknowledgements(
     isHealthy: => Boolean,
     interval: FiniteDuration,
     fetchLatestCleanTimestamp: TraceContext => Future[Option[CantonTimestamp]],
-    acknowledge: Traced[CantonTimestamp] => EitherT[Future, String, Boolean],
+    acknowledge: Traced[CantonTimestamp] => EitherT[FutureUnlessShutdown, String, Boolean],
     clock: Clock,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -46,7 +46,9 @@ class PeriodicAcknowledgements(
 
   private def update(): Unit =
     withNewTraceContext { implicit traceContext =>
-      def ackIfChanged(timestamp: CantonTimestamp): EitherT[Future, String, Boolean] = {
+      def ackIfChanged(
+          timestamp: CantonTimestamp
+      ): EitherT[FutureUnlessShutdown, String, Boolean] = {
         val priorAck = priorAckRef.getAndSet(Some(timestamp))
         val changed = !priorAck.contains(timestamp)
         if (changed) {
@@ -57,10 +59,14 @@ class PeriodicAcknowledgements(
 
       if (isHealthy) {
         val updateET: EitherT[Future, String, Boolean] =
-          performUnlessClosingEitherU(functionFullName) {
+          performUnlessClosingEitherUSF(functionFullName) {
             for {
-              latestClean <- EitherT.right(fetchLatestCleanTimestamp(traceContext))
-              result <- latestClean.fold(EitherT.rightT[Future, String](true))(ackIfChanged)
+              latestClean <- EitherT
+                .right(fetchLatestCleanTimestamp(traceContext))
+                .mapK(FutureUnlessShutdown.outcomeK)
+              result <- latestClean.fold(EitherT.rightT[FutureUnlessShutdown, String](true))(
+                ackIfChanged
+              )
             } yield result
           }.onShutdown {
             logger.debug("Acknowledging sequencer timestamp skipped due to shutdown")

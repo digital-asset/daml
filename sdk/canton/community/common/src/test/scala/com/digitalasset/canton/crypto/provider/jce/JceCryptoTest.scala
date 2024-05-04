@@ -38,7 +38,7 @@ class JceCryptoTest
           loggerFactory,
           NoReportingTracerProvider,
         )
-        .valueOr(err => throw new RuntimeException(s"failed to create crypto: $err"))
+        .valueOrFailShutdown("failed to create crypto")
 
     behave like signingProvider(Jce.signing.supported, jceCrypto())
     behave like encryptionProvider(

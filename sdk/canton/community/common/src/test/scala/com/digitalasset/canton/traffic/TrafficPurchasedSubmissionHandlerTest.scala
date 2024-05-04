@@ -10,7 +10,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.UnlessShutdown
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
-  SetTrafficBalanceMessage,
+  SetTrafficPurchasedMessage,
   SignedProtocolMessage,
 }
 import com.digitalasset.canton.protocol.{DomainParameters, DynamicDomainParameters}
@@ -23,6 +23,10 @@ import com.digitalasset.canton.sequencing.client.{
   SequencerClientSend,
 }
 import com.digitalasset.canton.sequencing.protocol.{SequencersOfDomain, *}
+import com.digitalasset.canton.sequencing.traffic.{
+  TrafficControlErrors,
+  TrafficPurchasedSubmissionHandler,
+}
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
@@ -41,7 +45,7 @@ import java.time.{LocalDateTime, ZoneOffset}
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 import scala.util.Try
 
-class TrafficBalanceSubmissionHandlerTest
+class TrafficPurchasedSubmissionHandlerTest
     extends AnyWordSpec
     with BaseTest
     with HasExecutionContext
@@ -53,7 +57,7 @@ class TrafficBalanceSubmissionHandlerTest
   private val domainId = DomainId.tryFromString("da::default")
   private val clock = new SimClock(loggerFactory = loggerFactory)
   private val trafficParams = TrafficControlParameters()
-  private val handler = new TrafficBalanceSubmissionHandler(clock, loggerFactory)
+  private val handler = new TrafficPurchasedSubmissionHandler(clock, loggerFactory)
   val crypto = new TestingIdentityFactory(
     TestingTopology(),
     loggerFactory,
@@ -96,7 +100,7 @@ class TrafficBalanceSubmissionHandlerTest
     ).thenReturn(EitherT.pure(()))
 
     val resultF = handler
-      .sendTrafficBalanceRequest(
+      .sendTrafficPurchasedRequest(
         recipient1,
         domainId,
         testedProtocolVersion,
@@ -141,12 +145,12 @@ class TrafficBalanceSubmissionHandlerTest
     batch.envelopes.foreach { envelope =>
       envelope.protocolMessage shouldBe a[SignedProtocolMessage[_]]
       val topUpMessage = envelope.protocolMessage
-        .asInstanceOf[SignedProtocolMessage[SetTrafficBalanceMessage]]
+        .asInstanceOf[SignedProtocolMessage[SetTrafficPurchasedMessage]]
         .message
       topUpMessage.domainId shouldBe domainId
       topUpMessage.serial.value shouldBe 5
       topUpMessage.member shouldBe recipient1
-      topUpMessage.totalTrafficBalance.value shouldBe 1000
+      topUpMessage.totalTrafficPurchased.value shouldBe 1000
     }
   }
 
@@ -180,7 +184,7 @@ class TrafficBalanceSubmissionHandlerTest
     ).thenReturn(EitherT.pure(()))
 
     val resultF = handler
-      .sendTrafficBalanceRequest(
+      .sendTrafficPurchasedRequest(
         recipient1,
         domainId,
         testedProtocolVersion,
@@ -236,7 +240,7 @@ class TrafficBalanceSubmissionHandlerTest
       .thenReturn(EitherT.leftT(SendAsyncClientError.RequestFailed("failed")))
 
     handler
-      .sendTrafficBalanceRequest(
+      .sendTrafficPurchasedRequest(
         recipient1,
         domainId,
         testedProtocolVersion,
@@ -248,7 +252,7 @@ class TrafficBalanceSubmissionHandlerTest
       .value
       .failOnShutdown
       .futureValue shouldBe Left(
-      TrafficControlErrors.TrafficBalanceRequestAsyncSendFailed.Error(
+      TrafficControlErrors.TrafficPurchasedRequestAsyncSendFailed.Error(
         "RequestFailed(failed)"
       )
     )
@@ -272,7 +276,7 @@ class TrafficBalanceSubmissionHandlerTest
       .thenReturn(EitherT.pure(()))
 
     val resultF = handler
-      .sendTrafficBalanceRequest(
+      .sendTrafficPurchasedRequest(
         recipient1,
         domainId,
         testedProtocolVersion,
@@ -300,7 +304,7 @@ class TrafficBalanceSubmissionHandlerTest
     )
 
     resultF.failOnShutdown.futureValue shouldBe Left(
-      TrafficControlErrors.TrafficBalanceRequestAsyncSendFailed.Error(
+      TrafficControlErrors.TrafficPurchasedRequestAsyncSendFailed.Error(
         s"DeliverError(counter = 0, timestamp = 1970-01-01T00:00:00Z, domain id = da::default, message id = $messageId, reason = Status(OK, BOOM))"
       )
     )
@@ -324,7 +328,7 @@ class TrafficBalanceSubmissionHandlerTest
       .thenReturn(EitherT.pure(()))
 
     val resultF = handler
-      .sendTrafficBalanceRequest(
+      .sendTrafficPurchasedRequest(
         recipient1,
         domainId,
         testedProtocolVersion,
@@ -343,7 +347,7 @@ class TrafficBalanceSubmissionHandlerTest
     )
 
     resultF.failOnShutdown.futureValue shouldBe Left(
-      TrafficControlErrors.TrafficBalanceRequestAsyncSendFailed.Error(
+      TrafficControlErrors.TrafficPurchasedRequestAsyncSendFailed.Error(
         s"Submission timed out after sequencing time ${CantonTimestamp.Epoch} has elapsed"
       )
     )

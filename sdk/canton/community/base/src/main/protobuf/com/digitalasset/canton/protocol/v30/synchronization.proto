@@ -20,7 +20,7 @@ message TypedSignedProtocolMessageContent {
     bytes confirmation_response = 2;
     bytes confirmation_result = 3;
     bytes acs_commitment = 4;
-    bytes set_traffic_balance = 5;
+    bytes set_traffic_purchased = 5;
   }
 }
 

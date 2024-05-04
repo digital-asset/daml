@@ -20,7 +20,7 @@ import com.digitalasset.canton.domain.sequencing.config.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
 import com.digitalasset.canton.domain.sequencing.sequencer.{Sequencer, SequencerValidations}
 import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerService.*
-import com.digitalasset.canton.lifecycle.FlagCloseable
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
@@ -159,7 +159,7 @@ object GrpcSequencerService {
     /** Call the appropriate send method on the [[Sequencer]] */
     def send(request: ValueClass, sequencer: Sequencer)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, SendAsyncError, Unit]
+    ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit]
   }
 
   private object VersionedSignedSubmissionRequestProcessing
@@ -190,7 +190,7 @@ object GrpcSequencerService {
 
     override def send(request: SignedContent[SubmissionRequest], sequencer: Sequencer)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, SendAsyncError, Unit] = sequencer.sendAsyncSigned(request)
+    ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] = sequencer.sendAsyncSigned(request)
   }
 
   private object VersionedUnsignedSubmissionRequestProcessing
@@ -213,7 +213,8 @@ object GrpcSequencerService {
 
     override def send(request: SubmissionRequest, sequencer: Sequencer)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, SendAsyncError, Unit] = sequencer.sendAsync(request)
+    ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] =
+      sequencer.sendAsync(request)
   }
 
   private sealed trait WrappedAcknowledgeRequest extends Product with Serializable {
@@ -305,15 +306,19 @@ class GrpcSequencerService(
     } yield request
 
     lazy val sendET = for {
-      domainParameters <- EitherT.right[SendAsyncError](
-        domainParamsLookup.getApproximateOrDefaultValue(warnOnUsingDefaults(senderFromMetadata))
+      domainParameters <- EitherT
+        .right[SendAsyncError](
+          domainParamsLookup.getApproximateOrDefaultValue(warnOnUsingDefaults(senderFromMetadata))
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
+      request <- EitherT.fromEither[FutureUnlessShutdown](
+        parseAndValidate(domainParameters.maxRequestSize)
       )
-      request <- EitherT.fromEither[Future](parseAndValidate(domainParameters.maxRequestSize))
-      _ <- checkRate(processing.unwrap(request))
+      _ <- checkRate(processing.unwrap(request)).mapK(FutureUnlessShutdown.outcomeK)
       _ <- processing.send(request, sequencer)
     } yield ()
 
-    performUnlessClosingF(functionFullName)(sendET.value.map { res =>
+    performUnlessClosingUSF(functionFullName)(sendET.value.map { res =>
       res.left.foreach { err =>
         logger.info(s"Rejecting submission request by $senderFromMetadata with $err")
       }

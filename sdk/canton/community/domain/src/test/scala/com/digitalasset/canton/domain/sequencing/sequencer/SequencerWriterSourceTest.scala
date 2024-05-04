@@ -340,6 +340,7 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
               maxSequencingTime = CantonTimestamp.MaxValue,
               topologyTimestamp = None,
               aggregationRule = None,
+              submissionCost = None,
               protocolVersion = testedProtocolVersion,
             )
           )

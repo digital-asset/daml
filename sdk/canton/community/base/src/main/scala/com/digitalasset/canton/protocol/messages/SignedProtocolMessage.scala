@@ -13,6 +13,7 @@ import com.digitalasset.canton.crypto.{
   SyncCryptoApi,
   SyncCryptoError,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
 import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
@@ -157,7 +158,7 @@ object SignedProtocolMessage
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, SyncCryptoError, SignedProtocolMessage[M]] = {
+  ): EitherT[FutureUnlessShutdown, SyncCryptoError, SignedProtocolMessage[M]] = {
     val typedMessage = TypedSignedProtocolMessageContent(message, protocolVersion)
     for {
       signature <- mkSignature(typedMessage, cryptoApi)
@@ -172,7 +173,7 @@ object SignedProtocolMessage
       cryptoApi: SyncCryptoApi,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SyncCryptoError, Signature] = {
+  ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature] = {
     val hashPurpose = HashPurpose.SignedProtocolMessageSignature
     val serialization = typedMessage.getCryptographicEvidence
 
@@ -184,7 +185,10 @@ object SignedProtocolMessage
       message: M,
       cryptoApi: SyncCryptoApi,
       protocolVersion: ProtocolVersion,
-  )(implicit traceContext: TraceContext, ec: ExecutionContext): Future[SignedProtocolMessage[M]] =
+  )(implicit
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[SignedProtocolMessage[M]] =
     signAndCreate(message, cryptoApi, protocolVersion)
       .valueOr(err =>
         throw new IllegalStateException(s"Failed to create signed protocol message: $err")

@@ -87,8 +87,8 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
       )(implicit
           traceContext: TraceContext,
           callerCloseContext: CloseContext,
-      ): Future[(Seq[DefaultOpenEnvelope], Future[Unit])] =
-        Future.successful(envelopes -> Future.unit)
+      ): Future[(Seq[DefaultOpenEnvelope], FutureUnlessShutdown[Unit])] =
+        Future.successful(envelopes -> FutureUnlessShutdown.unit)
     }
 
     val processor = new MediatorEventsProcessor(

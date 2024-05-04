@@ -14,6 +14,7 @@ import com.digitalasset.canton.crypto.store.{
   CryptoPublicStoreError,
 }
 import com.digitalasset.canton.error.{BaseCantonError, CantonErrorGroups}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{DefaultDeserializationError, ProtoConverter}
@@ -70,14 +71,14 @@ trait SigningPrivateOps {
   /** Signs the given hash using the referenced private signing key. */
   def sign(hash: Hash, signingKeyId: Fingerprint)(implicit
       tc: TraceContext
-  ): EitherT[Future, SigningError, Signature] =
+  ): EitherT[FutureUnlessShutdown, SigningError, Signature] =
     sign(hash.getCryptographicEvidence, signingKeyId)
 
   /** Signs the byte string directly, however it is encouraged to sign a hash. */
   protected[crypto] def sign(
       bytes: ByteString,
       signingKeyId: Fingerprint,
-  )(implicit tc: TraceContext): EitherT[Future, SigningError, Signature]
+  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, SigningError, Signature]
 
   /** Generates a new signing key pair with the given scheme and optional name, stores the private key and returns the public key. */
   def generateSigningKey(
@@ -85,7 +86,7 @@ trait SigningPrivateOps {
       name: Option[KeyName] = None,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SigningKeyGenerationError, SigningPublicKey]
+  ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningPublicKey]
 
 }
 
@@ -98,10 +99,10 @@ trait SigningPrivateStoreOps extends SigningPrivateOps {
 
   protected val signingOps: SigningOps
 
-  protected[crypto] def sign(
+  override protected[crypto] def sign(
       bytes: ByteString,
       signingKeyId: Fingerprint,
-  )(implicit tc: TraceContext): EitherT[Future, SigningError, Signature] =
+  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, SigningError, Signature] =
     store
       .signingKey(signingKeyId)
       .leftMap(storeError => SigningError.KeyStoreError(storeError.show))
@@ -113,14 +114,14 @@ trait SigningPrivateStoreOps extends SigningPrivateOps {
       traceContext: TraceContext
   ): EitherT[Future, SigningKeyGenerationError, SigningKeyPair]
 
-  def generateSigningKey(
+  override def generateSigningKey(
       scheme: SigningKeyScheme,
       name: Option[KeyName],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SigningKeyGenerationError, SigningPublicKey] =
+  ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningPublicKey] =
     for {
-      keypair <- generateSigningKeypair(scheme)
+      keypair <- generateSigningKeypair(scheme).mapK(FutureUnlessShutdown.outcomeK)
       _ <- store
         .storeSigningKey(keypair.privateKey, name)
         .leftMap[SigningKeyGenerationError](SigningKeyGenerationError.SigningPrivateStoreError)

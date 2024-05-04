@@ -1,80 +1,80 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.domain.sequencing.traffic
+package com.digitalasset.canton.sequencing.traffic
 
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.sequencer.admin.v30.SequencerSnapshot.TrafficBalance as TrafficBalanceP
+import com.digitalasset.canton.protocol.v30.TrafficPurchased as TrafficPurchasedP
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.Member
 import slick.jdbc.{GetResult, SetParameter}
 
-/** Traffic balance for a member valid at a specific timestamp
+/** Total traffic purchased for a member valid at a specific timestamp
   *
   * @param member              Member to which the balance belongs
   * @param serial              Serial number of the balance
-  * @param balance             Balance value
-  * @param sequencingTimestamp Timestamp at which the balance was sequenced
+  * @param extraTrafficPurchased             Traffic purchased value
+  * @param sequencingTimestamp Timestamp at which the purchase event was sequenced
   */
-final case class TrafficBalance(
+final case class TrafficPurchased(
     member: Member,
     serial: PositiveInt,
-    balance: NonNegativeLong,
+    extraTrafficPurchased: NonNegativeLong,
     sequencingTimestamp: CantonTimestamp,
 ) extends PrettyPrinting {
-  override def pretty: Pretty[TrafficBalance] =
+  override def pretty: Pretty[TrafficPurchased] =
     prettyOfClass(
       param("member", _.member),
       param("sequencingTimestamp", _.sequencingTimestamp),
-      param("balance", _.balance),
+      param("extraTrafficPurchased", _.extraTrafficPurchased),
       param("serial", _.serial),
     )
 
-  def toProtoV30: TrafficBalanceP = {
-    TrafficBalanceP(
+  def toProtoV30: TrafficPurchasedP = {
+    TrafficPurchasedP(
       member = member.toProtoPrimitive,
       serial = serial.value,
-      balance = balance.value,
+      extraTrafficPurchased = extraTrafficPurchased.value,
       sequencingTimestamp = sequencingTimestamp.toProtoPrimitive,
     )
   }
 }
 
-object TrafficBalance {
+object TrafficPurchased {
   import com.digitalasset.canton.store.db.RequiredTypesCodec.*
   import com.digitalasset.canton.topology.Member.DbStorageImplicits.*
 
-  implicit val trafficBalanceOrdering: Ordering[TrafficBalance] =
+  implicit val trafficPurchasedOrdering: Ordering[TrafficPurchased] =
     Ordering.by(_.sequencingTimestamp)
 
-  implicit val trafficBalanceGetResult: GetResult[TrafficBalance] =
+  implicit val trafficPurchasedGetResult: GetResult[TrafficPurchased] =
     GetResult.createGetTuple4[Member, CantonTimestamp, NonNegativeLong, PositiveInt].andThen {
-      case (member, ts, balance, serial) => TrafficBalance(member, serial, balance, ts)
+      case (member, ts, balance, serial) => TrafficPurchased(member, serial, balance, ts)
     }
 
-  implicit val trafficBalanceSetParameter: SetParameter[TrafficBalance] =
-    SetParameter[TrafficBalance] { (balance, pp) =>
+  implicit val trafficPurchasedSetParameter: SetParameter[TrafficPurchased] =
+    SetParameter[TrafficPurchased] { (balance, pp) =>
       pp >> balance.member
       pp >> balance.sequencingTimestamp
-      pp >> balance.balance
+      pp >> balance.extraTrafficPurchased
       pp >> balance.serial
     }
 
-  def fromProtoV30(trafficBalanceP: TrafficBalanceP): ParsingResult[TrafficBalance] =
+  def fromProtoV30(trafficPurchasedP: TrafficPurchasedP): ParsingResult[TrafficPurchased] =
     for {
-      member <- Member.fromProtoPrimitive(trafficBalanceP.member, "member")
-      serial <- ProtoConverter.parsePositiveInt(trafficBalanceP.serial)
-      balance <- ProtoConverter.parseNonNegativeLong(trafficBalanceP.balance)
+      member <- Member.fromProtoPrimitive(trafficPurchasedP.member, "member")
+      serial <- ProtoConverter.parsePositiveInt(trafficPurchasedP.serial)
+      balance <- ProtoConverter.parseNonNegativeLong(trafficPurchasedP.extraTrafficPurchased)
       sequencingTimestamp <- CantonTimestamp.fromProtoPrimitive(
-        trafficBalanceP.sequencingTimestamp
+        trafficPurchasedP.sequencingTimestamp
       )
-    } yield TrafficBalance(
+    } yield TrafficPurchased(
       member = member,
       serial = serial,
-      balance = balance,
+      extraTrafficPurchased = balance,
       sequencingTimestamp = sequencingTimestamp,
     )
 }

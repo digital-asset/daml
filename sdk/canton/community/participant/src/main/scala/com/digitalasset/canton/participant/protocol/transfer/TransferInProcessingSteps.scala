@@ -145,11 +145,12 @@ private[transfer] class TransferInProcessingSteps(
       }
     )
 
-    val result = for {
+    for {
       transferData <- ephemeralState.transferLookup
         .lookup(transferId)
         .leftMap(err => NoTransferData(transferId, err))
-      transferOutResult <- EitherT.fromEither[Future](
+        .mapK(FutureUnlessShutdown.outcomeK)
+      transferOutResult <- EitherT.fromEither[FutureUnlessShutdown](
         transferData.transferOutResult.toRight(TransferOutIncomplete(transferId, participantId))
       )
 
@@ -160,17 +161,19 @@ private[transfer] class TransferInProcessingSteps(
         )
 
       stakeholders = transferData.transferOutRequest.stakeholders
-      _ <- condUnitET[Future](
+      _ <- condUnitET[FutureUnlessShutdown](
         stakeholders.contains(submitter),
         SubmittingPartyMustBeStakeholderIn(transferId, submitter, stakeholders),
       )
 
-      _ <- CanSubmitTransfer.transferIn(transferId, topologySnapshot, submitter, participantId)
+      _ <- CanSubmitTransfer
+        .transferIn(transferId, topologySnapshot, submitter, participantId)
+        .mapK(FutureUnlessShutdown.outcomeK)
 
       transferInUuid = seedGenerator.generateUuid()
       seed = seedGenerator.generateSaltSeed()
 
-      fullTree <- EitherT.fromEither[Future](
+      fullTree <- EitherT.fromEither[FutureUnlessShutdown](
         makeFullTransferInTree(
           pureCrypto,
           seed,
@@ -193,8 +196,10 @@ private[transfer] class TransferInProcessingSteps(
         .sign(rootHash.unwrap)
         .leftMap(TransferSigningError)
       mediatorMessage = fullTree.mediatorMessage(submittingParticipantSignature)
-      recipientsSet <- activeParticipantsOfParty(stakeholders.toSeq)
-      recipients <- EitherT.fromEither[Future](
+      recipientsSet <- activeParticipantsOfParty(stakeholders.toSeq).mapK(
+        FutureUnlessShutdown.outcomeK
+      )
+      recipients <- EitherT.fromEither[FutureUnlessShutdown](
         Recipients
           .ofSet(recipientsSet)
           .toRight(NoStakeholders.logAndCreate(transferData.contract.contractId, logger))
@@ -234,8 +239,6 @@ private[transfer] class TransferInProcessingSteps(
       )
       TransferSubmission(Batch.of(targetProtocolVersion.v, messages*), rootHash)
     }
-
-    result.mapK(FutureUnlessShutdown.outcomeK).widen[Submission]
   }
 
   override def updatePendingSubmissions(
@@ -264,7 +267,7 @@ private[transfer] class TransferInProcessingSteps(
       envelope: OpenEnvelope[EncryptedViewMessage[TransferInViewType]]
   )(implicit
       tc: TraceContext
-  ): EitherT[Future, EncryptedViewMessageError, WithRecipients[
+  ): EitherT[FutureUnlessShutdown, EncryptedViewMessageError, WithRecipients[
     FullTransferInTree
   ]] =
     EncryptedViewMessage

@@ -27,6 +27,7 @@ import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
   Lifecycle,
+  UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DynamicDomainParameters
@@ -370,24 +371,28 @@ class DomainSyncCryptoClient(
       domainId,
       snapshot,
       crypto,
-      implicit tc => ts => EitherT(mySigningKeyCache.get(ts)),
+      implicit tc => ts => EitherT(FutureUnlessShutdown(mySigningKeyCache.get(ts))),
       cacheConfigs.keyCache,
       loggerFactory,
     )
   }
 
   private val mySigningKeyCache =
-    TracedScaffeine.buildTracedAsyncFuture[CantonTimestamp, Either[SyncCryptoError, Fingerprint]](
+    TracedScaffeine.buildTracedAsyncFuture[CantonTimestamp, UnlessShutdown[
+      Either[SyncCryptoError, Fingerprint]
+    ]](
       cache = cacheConfigs.mySigningKeyCache.buildScaffeine(),
-      loader = traceContext => timestamp => findSigningKey(timestamp)(traceContext).value,
+      loader = traceContext => timestamp => findSigningKey(timestamp)(traceContext).value.unwrap,
     )(logger)
 
   private def findSigningKey(
       referenceTime: CantonTimestamp
-  )(implicit traceContext: TraceContext): EitherT[Future, SyncCryptoError, Fingerprint] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SyncCryptoError, Fingerprint] = {
     for {
-      snapshot <- EitherT.right(ipsSnapshot(referenceTime))
-      signingKeys <- EitherT.right(snapshot.signingKeys(member))
+      snapshot <- EitherT.right(ipsSnapshot(referenceTime)).mapK(FutureUnlessShutdown.outcomeK)
+      signingKeys <- EitherT.right(snapshot.signingKeys(member)).mapK(FutureUnlessShutdown.outcomeK)
       existingKeys <- signingKeys.toList
         .parFilterA(pk => crypto.cryptoPrivateStore.existsSigningKey(pk.fingerprint))
         .leftMap[SyncCryptoError](SyncCryptoError.StoreError)
@@ -401,7 +406,7 @@ class DomainSyncCryptoClient(
               signingKeys.map(_.fingerprint),
             )
         )
-        .toEitherT[Future]
+        .toEitherT[FutureUnlessShutdown]
     } yield kk.fingerprint
 
   }
@@ -454,7 +459,7 @@ class DomainSnapshotSyncCryptoApi(
     override val ipsSnapshot: TopologySnapshot,
     val crypto: Crypto,
     fetchSigningKey: TraceContext => CantonTimestamp => EitherT[
-      Future,
+      FutureUnlessShutdown,
       SyncCryptoError,
       Fingerprint,
     ],
@@ -497,7 +502,9 @@ class DomainSnapshotSyncCryptoApi(
     */
   override def sign(
       hash: Hash
-  )(implicit traceContext: TraceContext): EitherT[Future, SyncCryptoError, Signature] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature] =
     for {
       fingerprint <- fetchSigningKey(traceContext)(ipsSnapshot.referenceTime)
       signature <- crypto.privateCrypto
@@ -669,7 +676,7 @@ class DomainSnapshotSyncCryptoApi(
 
   override def decrypt[M](encryptedMessage: AsymmetricEncrypted[M])(
       deserialize: ByteString => Either[DeserializationError, M]
-  )(implicit traceContext: TraceContext): EitherT[Future, SyncCryptoError, M] = {
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SyncCryptoError, M] = {
     crypto.privateCrypto
       .decrypt(encryptedMessage)(deserialize)
       .leftMap[SyncCryptoError](err => SyncCryptoError.SyncCryptoDecryptionError(err))

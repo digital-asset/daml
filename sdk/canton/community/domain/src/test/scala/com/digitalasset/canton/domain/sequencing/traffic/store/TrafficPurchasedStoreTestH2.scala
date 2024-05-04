@@ -5,4 +5,4 @@ package com.digitalasset.canton.domain.sequencing.traffic.store
 
 import com.digitalasset.canton.store.db.H2Test
 
-class TrafficBalanceStoreTestH2 extends DbTrafficBalanceStoreTest with H2Test
+class TrafficPurchasedStoreTestH2 extends DbTrafficPurchasedStoreTest with H2Test

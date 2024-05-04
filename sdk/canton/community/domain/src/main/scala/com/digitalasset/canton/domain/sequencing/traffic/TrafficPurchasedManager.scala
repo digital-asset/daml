@@ -15,14 +15,16 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficConfig
-import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalanceManager.*
-import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
+import com.digitalasset.canton.domain.sequencing.traffic.TrafficPurchasedManager.*
+import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficPurchasedStore
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.github.benmanes.caffeine.cache as caffeine
 
 import java.util.concurrent.atomic.AtomicReference
@@ -32,20 +34,21 @@ import scala.collection.mutable
 import scala.compat.java8.FutureConverters.*
 import scala.concurrent.{ExecutionContext, Future, blocking}
 
-/** Manages traffic balances for sequencer members.
+/** Manages traffic purchased entries for sequencer members.
   * This borrows concepts from topology management, in a simplified way.
-  * There is no "change delay", which has the direct consequence that traffic balance updates need to be processed sequentially
+  * There is no "change delay", which has the direct consequence that traffic purchased entry updates need to be processed sequentially
   * before subsequent messages read in the BlockUpdateGenerator can be processed.
   * We also only here keep track of the latest *few* balance updates for each member in memory.
-  * Older balance states will have to be fetched from the database.
-  * Balances can be automatically pruned from the cache AND the store according to pruningRetentionWindow.
+  * Older traffic states will have to be fetched from the database.
+  * Traffic purchased entries can be automatically pruned from the cache AND the store according to pruningRetentionWindow.
   */
-class TrafficBalanceManager(
-    val store: TrafficBalanceStore,
+class TrafficPurchasedManager(
+    val store: TrafficPurchasedStore,
     clock: Clock,
     trafficConfig: SequencerTrafficConfig,
     futureSupervisor: FutureSupervisor,
     sequencerMetrics: SequencerMetrics,
+    protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -58,7 +61,7 @@ class TrafficBalanceManager(
     // Reverse because higher timestamp means "younger", and we want to dequeue from oldest to youngest
     Ordering.by[PendingBalanceUpdate, CantonTimestamp](_.lastSeen).reverse
   )
-  // Holds a timestamp, signalled externally, before which it is safe to prune traffic balances.
+  // Holds a timestamp, signalled externally, before which it is safe to prune traffic purchased entries.
   // If empty, we cannot prune.
   private val safeToPruneBeforeExclusive = new AtomicReference[Option[CantonTimestamp]](None)
 
@@ -66,21 +69,21 @@ class TrafficBalanceManager(
   private val autoPruningPromise = new AtomicReference[Option[PromiseUnlessShutdown[Unit]]](None)
 
   // Async caffeine cache holding the last few balance updates for each member
-  private val trafficBalances
-      : CaffeineCache.AsyncLoadingCaffeineCache[Member, BalancesForMember] = {
+  private val trafficPurchased
+      : CaffeineCache.AsyncLoadingCaffeineCache[Member, TrafficPurchasedForMember] = {
     import TraceContext.Implicits.Empty.emptyTraceContext
     new CaffeineCache.AsyncLoadingCaffeineCache(
       caffeine.Caffeine
         .newBuilder()
         // Automatically cleans up inactive members from the cache
         .expireAfterAccess(trafficConfig.pruningRetentionWindow.asJava)
-        .maximumSize(trafficConfig.maximumTrafficBalanceCacheSize.value.toLong)
+        .maximumSize(trafficConfig.maximumTrafficPurchasedCacheSize.value.toLong)
         .buildAsync(
-          new FutureAsyncCacheLoader[Member, BalancesForMember](
+          new FutureAsyncCacheLoader[Member, TrafficPurchasedForMember](
             store
               .lookup(_)
               .map(balances =>
-                BalancesForMember(SortedMap(balances.map(b => b.sequencingTimestamp -> b)*))
+                TrafficPurchasedForMember(SortedMap(balances.map(b => b.sequencingTimestamp -> b)*))
               )
           )
         ),
@@ -104,7 +107,7 @@ class TrafficBalanceManager(
         else
           ErrorUtil.invalidState("Manager was initialized more than once.")
       case _ =>
-        logger.debug("No initial timestamp found in traffic balance store")
+        logger.debug("No initial timestamp found in traffic purchased entry store")
     }
   }
 
@@ -113,7 +116,7 @@ class TrafficBalanceManager(
   def maxTsO = lastUpdateAt.get()
 
   /** Notify this class that the provided timestamp has been observed by the sequencer client.
-    * Together with [[addTrafficBalance]], this method is expected to be called sequentially with increasing timestamps.
+    * Together with [[addTrafficPurchased]], this method is expected to be called sequentially with increasing timestamps.
     */
   def tick(
       timestamp: CantonTimestamp
@@ -121,38 +124,39 @@ class TrafficBalanceManager(
     updateAndCompletePendingUpdates(timestamp)
   }
 
-  /** Add a new traffic balance to the store and the cache.
-    * Balances with a serial less or equal to the most recent one will be ignored.
+  /** Add a new traffic purchased entry to the store and the cache.
+    * TrafficPurchased with a serial less or equal to the most recent one will be ignored.
     * Together with [[tick]], this method expects to be called sequentially with balances in increasing order of sequencingTimestamp.
     * This method MUST NOT be called concurrently.
     */
-  def addTrafficBalance(
-      balance: TrafficBalance
+  def addTrafficPurchased(
+      balance: TrafficPurchased
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    logger.debug(s"Updating traffic balance: $balance")
-    trafficBalances.underlying
+    logger.debug(s"Updating traffic purchased entry: $balance")
+    trafficPurchased.underlying
       .asMap()
       .compute(
         balance.member,
-        (_, existingBalancesO) =>
-          Option(existingBalancesO) match {
-            case Some(existingBalancesF) =>
-              existingBalancesF.toScala
+        (_, existingTrafficPurchasedO) =>
+          Option(existingTrafficPurchasedO) match {
+            case Some(existingTrafficPurchasedF) =>
+              existingTrafficPurchasedF.toScala
                 .map {
-                  case balanceForMember @ BalancesForMember(existingBalances, _)
-                      if existingBalances.values.maxOption.forall(_.serial < balance.serial) =>
+                  case balanceForMember @ TrafficPurchasedForMember(existingTrafficPurchased, _)
+                      if existingTrafficPurchased.values.maxOption
+                        .forall(_.serial < balance.serial) =>
                     logger.trace(s"Updating with new balance: $balance")
                     balanceForMember.copy(
-                      trafficBalances = existingBalances
+                      trafficPurchasedMap = existingTrafficPurchased
                         // Limit how many balances we keep in memory
-                        // trafficBalanceCacheSizePerMember is a PositiveInt so this will be 0 at the lowest
+                        // trafficPurchasedCacheSizePerMember is a PositiveInt so this will be 0 at the lowest
                         .takeRight(
-                          checked(trafficConfig.trafficBalanceCacheSizePerMember.value - 1)
+                          checked(trafficConfig.trafficPurchasedCacheSizePerMember.value - 1)
                         ) + (balance.sequencingTimestamp -> balance)
                     )
-                  case balanceForMember @ BalancesForMember(existingBalances, _) =>
+                  case balanceForMember @ TrafficPurchasedForMember(existingTrafficPurchased, _) =>
                     logger.debug(
-                      s"Ignoring outdated traffic balance update: $balance, existing balances are ${existingBalances.values}"
+                      s"Ignoring outdated traffic purchased entry update: $balance, existing balances are ${existingTrafficPurchased.values}"
                     )
                     balanceForMember
                 }
@@ -160,7 +164,7 @@ class TrafficBalanceManager(
                 .toCompletableFuture
             case _ =>
               Future(
-                BalancesForMember(SortedMap(balance.sequencingTimestamp -> balance))
+                TrafficPurchasedForMember(SortedMap(balance.sequencingTimestamp -> balance))
               ).toJava.toCompletableFuture
           },
       )
@@ -168,7 +172,7 @@ class TrafficBalanceManager(
       .flatMap {
         // Only insert in the store if the last balance in the cache is indeed the new one - this allows to reuse whatever
         // checks the cache logic above performed
-        case balances if balances.trafficBalances.lastOption.forall({ case (_, cachedBalance) =>
+        case balances if balances.trafficPurchasedMap.lastOption.forall({ case (_, cachedBalance) =>
               cachedBalance == balance
             }) =>
           store
@@ -184,20 +188,22 @@ class TrafficBalanceManager(
         // end up piling up these futures.
         FutureUtil.doNotAwait(
           pruneMemberIfEligible(balance.member, balances),
-          s"Failed to prune traffic balances for member ${balance.member}",
+          s"Failed to prune traffic purchased entries for member ${balance.member}",
         )
         updateAndCompletePendingUpdates(balance.sequencingTimestamp)
       }
   }
 
-  private def pruneMemberIfEligible(member: Member, balances: BalancesForMember)(implicit
+  private def pruneMemberIfEligible(member: Member, balances: TrafficPurchasedForMember)(implicit
       traceContext: TraceContext
   ): Future[Unit] = {
     balances match {
-      case BalancesForMember(_, eligibleForPruningBefore) =>
+      case TrafficPurchasedForMember(_, eligibleForPruningBefore) =>
         eligibleForPruningBefore.getAndSet(None) match {
           case Some(pruningTimestamp) =>
-            logger.debug(s"Pruning traffic balances for $member below $eligibleForPruningBefore")
+            logger.debug(
+              s"Pruning traffic purchased entries for $member below $eligibleForPruningBefore"
+            )
             store
               .pruneBelowExclusive(member, pruningTimestamp)
               .map { _ =>
@@ -214,9 +220,9 @@ class TrafficBalanceManager(
   /** Get the balance valid at the given timestamp from the provided sorted map
     */
   private def balanceValidAt(
-      balances: SortedMap[CantonTimestamp, TrafficBalance],
+      balances: SortedMap[CantonTimestamp, TrafficPurchased],
       timestamp: CantonTimestamp,
-  ): Option[TrafficBalance] = {
+  ): Option[TrafficPurchased] = {
     // maxBefore is exclusive with the upper bound, therefore we consider balances effective
     // at the timestamp immediately following the sequencing timestamp
     balances.maxBefore(timestamp).map(_._2)
@@ -225,9 +231,9 @@ class TrafficBalanceManager(
   /** Get the balance valid at the given timestamp from the provided seq
     */
   private def balanceValidAt(
-      balances: Seq[TrafficBalance],
+      balances: Seq[TrafficPurchased],
       timestamp: CantonTimestamp,
-  ): Option[TrafficBalance] = {
+  ): Option[TrafficPurchased] = {
     balanceValidAt(SortedMap.from(balances.map(b => b.sequencingTimestamp -> b)), timestamp)
   }
 
@@ -237,25 +243,27 @@ class TrafficBalanceManager(
     */
   private def getBalanceAt(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TrafficBalanceManagerError, Option[TrafficBalance]] = {
+  ): EitherT[FutureUnlessShutdown, TrafficPurchasedManagerError, Option[TrafficPurchased]] = {
     EitherT
-      .liftF[Future, TrafficBalanceManagerError, BalancesForMember](trafficBalances.get(member))
+      .liftF[Future, TrafficPurchasedManagerError, TrafficPurchasedForMember](
+        trafficPurchased.get(member)
+      )
       .flatMap {
         // We've got *some* balance in the cache
-        case BalancesForMember(balances, _) =>
+        case TrafficPurchasedForMember(balances, _) =>
           // See if we have the requested timestamp
           balanceValidAt(balances, timestamp) match {
             case Some(value) =>
-              EitherT.rightT[Future, TrafficBalanceManagerError](Option(value))
+              EitherT.rightT[Future, TrafficPurchasedManagerError](Option(value))
             // If not, load balances from the DB
             // Note that the caffeine cache would have loaded the balances if the cache was empty for that member.
             // But because we don't keep all balances in the cache, if the cacne is not empty, we won't reload from the DB,
             // and we might not have all the values in the cache. So to be sure, we explicitly get all balances from the DB.
-            // If this happen too frequently, one should consider increasing the trafficBalanceCacheSizePerMember config value.
+            // If this happen too frequently, one should consider increasing the trafficPurchasedCacheSizePerMember config value.
             case _ =>
               sequencerMetrics.trafficControl.balanceCacheMissesForTimestamp.inc()
               EitherT
-                .liftF[Future, TrafficBalanceManagerError, Seq[TrafficBalance]](
+                .liftF[Future, TrafficPurchasedManagerError, Seq[TrafficPurchased]](
                   store.lookup(member)
                 )
                 .map(balanceValidAt(_, timestamp))
@@ -264,13 +272,13 @@ class TrafficBalanceManager(
                   // return an error, because the balance may have been pruned.
                   case None if safeToPruneBeforeExclusive.get().exists(timestamp < _) =>
                     EitherT
-                      .leftT[Future, Option[TrafficBalance]](
-                        TrafficBalanceAlreadyPruned(member, timestamp)
+                      .leftT[Future, Option[TrafficPurchased]](
+                        TrafficPurchasedAlreadyPruned(member, timestamp)
                       )
-                      .leftWiden[TrafficBalanceManagerError]
+                      .leftWiden[TrafficPurchasedManagerError]
                   // Otherwise return the balance as is
                   case balance =>
-                    EitherT.rightT[Future, TrafficBalanceManagerError](balance)
+                    EitherT.rightT[Future, TrafficPurchasedManagerError](balance)
 
                 }
           }
@@ -318,14 +326,14 @@ class TrafficBalanceManager(
 
   /** Return the latest known balance for the given member.
     */
-  def getLatestKnownBalance(member: Member): FutureUnlessShutdown[Option[TrafficBalance]] = {
+  def getLatestKnownBalance(member: Member): FutureUnlessShutdown[Option[TrafficPurchased]] = {
     FutureUnlessShutdown.outcomeF(
-      trafficBalances.get(member).map(_.trafficBalances.values.lastOption)
+      trafficPurchased.get(member).map(_.trafficPurchasedMap.values.lastOption)
     )
   }
 
-  /** Return the traffic balance valid at the given timestamp for the given member.
-    * Balances are cached in this class, according to the cache size defined in trafficConfig.
+  /** Return the traffic purchased entry valid at the given timestamp for the given member.
+    * TrafficPurchased are cached in this class, according to the cache size defined in trafficConfig.
     * Requesting balances for timestamps outside of the cache will trigger a lookup in the database.
     * The balances in this class are updated after they've been processed and validated by the sequencer client,
     * however they can be queried on the sequencer read path. To avoid providing incorrect balance values while
@@ -333,21 +341,21 @@ class TrafficBalanceManager(
     * provided. This parameter indicates to the function the youngest timestamp for which the caller thinks a balance update might have been sequenced.
     * This allows this function to compare this timestamp with the internal state, and if necessary, wait for the potential update before
     * providing the balance.
-    * Note that if requesting a traffic balance at a timestamp that has already been pruned, the function will return an error.
-    * @param member member to request the traffic balance for
+    * Note that if requesting a traffic purchased entry at a timestamp that has already been pruned, the function will return an error.
+    * @param member member to request the traffic purchased entry for
     * @param desired the timestamp for which the balance is requested
     * @param lastSeenO the youngest timestamp for which the caller thinks a balance update might have been sequenced
     * @param warnIfApproximate if no lastSeen0 is provided, and the desired timestamp is more recent than the last update, a warning will be logged if this is true
-    * @return the traffic balance valid at the given timestamp for the given member, or empty if no balance exists for that member
+    * @return the traffic purchased entry valid at the given timestamp for the given member, or empty if no balance exists for that member
     */
-  def getTrafficBalanceAt(
+  def getTrafficPurchasedAt(
       member: Member,
       desired: CantonTimestamp,
       lastSeenO: Option[CantonTimestamp] = None,
       warnIfApproximate: Boolean = true,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TrafficBalanceManagerError, Option[TrafficBalance]] = {
+  ): EitherT[FutureUnlessShutdown, TrafficPurchasedManagerError, Option[TrafficPurchased]] = {
     val lastUpdate = lastUpdateAt.get()
     val result = (lastUpdate, lastSeenO) match {
       // Desired timestamp is before or equal the timestamp just after last update, so the balance is correct and we can provide it immediately
@@ -386,7 +394,9 @@ class TrafficBalanceManager(
       lastSeen: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): Option[PromiseUnlessShutdown[Either[TrafficBalanceManagerError, Option[TrafficBalance]]]] = {
+  ): Option[
+    PromiseUnlessShutdown[Either[TrafficPurchasedManagerError, Option[TrafficPurchased]]]
+  ] = {
     blocking {
       pendingBalanceUpdates.synchronized {
         // We need to check again here (specifically inside the synchronized block on pendingBalanceUpdates) if we haven't received an update between the beginning of the function and now.
@@ -396,15 +406,15 @@ class TrafficBalanceManager(
         if (possiblyNewLastUpdate.exists(_ >= lastSeen)) {
           // We got the update in the meantime, so respond with the balance
           logger.trace(
-            s"Got an update during getTrafficBalanceAt that satisfies the requested timestamp. Desired = $desired, lastSeen = $lastSeen, lastUpdatedAt = $possiblyNewLastUpdate. Responding with the balance."
+            s"Got an update during getTrafficPurchasedAt that satisfies the requested timestamp. Desired = $desired, lastSeen = $lastSeen, lastUpdatedAt = $possiblyNewLastUpdate. Responding with the balance."
           )
           None
         } else {
           logger.trace(
             s"Balance for $member at $desired is not available yet. Waiting to observe an event at $lastSeen. Last update: $possiblyNewLastUpdate"
           )
-          val promise = mkPromise[Either[TrafficBalanceManagerError, Option[TrafficBalance]]](
-            s"waiting for traffic balance for $member at $lastSeen, requested timestamp: $desired, last update: $possiblyNewLastUpdate",
+          val promise = mkPromise[Either[TrafficPurchasedManagerError, Option[TrafficPurchased]]](
+            s"waiting for traffic purchased entry for $member at $lastSeen, requested timestamp: $desired, last update: $possiblyNewLastUpdate",
             futureSupervisor,
           )
           val pendingUpdate = PendingBalanceUpdate(desired, lastSeen, member, promise)
@@ -435,7 +445,7 @@ class TrafficBalanceManager(
         safeToPruneBeforeExclusive.get().foreach { safeToPruneTs =>
           val threshold = ts.minus(trafficConfig.pruningRetentionWindow.asJava).min(safeToPruneTs)
           logger.debug(s"Traffic balances older than $threshold are now eligible for pruning")
-          trafficBalances.underlying
+          trafficPurchased.underlying
             .synchronous()
             .asMap()
             .forEach((_, balances) => balances.eligibleForPruningBefore.set(Some(threshold)))
@@ -453,7 +463,7 @@ class TrafficBalanceManager(
       }
   }
 
-  /** Starts auto pruning of traffic balances according to the pruning configuration.
+  /** Starts auto pruning of traffic purchased entries according to the pruning configuration.
     */
   def startAutoPruning(implicit
       traceContext: TraceContext
@@ -471,7 +481,7 @@ class TrafficBalanceManager(
     }
   }
 
-  /** Stop auto pruning of traffic balances.
+  /** Stop auto pruning of traffic purchased entries.
     */
   def stopAutoPruning(): Unit = {
     autoPruningPromise.getAndSet(None).foreach(_.trySuccess(UnlessShutdown.unit))
@@ -482,18 +492,18 @@ class TrafficBalanceManager(
   }
 }
 
-object TrafficBalanceManager {
-  sealed trait TrafficBalanceManagerError extends Product with Serializable
-  final case class TrafficBalanceAlreadyPruned(member: Member, timestamp: CantonTimestamp)
-      extends TrafficBalanceManagerError
+object TrafficPurchasedManager {
+  sealed trait TrafficPurchasedManagerError extends Product with Serializable
+  final case class TrafficPurchasedAlreadyPruned(member: Member, timestamp: CantonTimestamp)
+      extends TrafficPurchasedManagerError
 
-  /** Internal class to store traffic balances per member in an in memory cache
-    * @param trafficBalances balances, sorted by timestamp in a sorted map
+  /** Internal class to store traffic purchased entries per member in an in memory cache
+    * @param trafficPurchasedMap traffic purchased entries, sorted by timestamp in a sorted map
     *                        This allows to easily find the correct balance for a given timestamp
     * @param eligibleForPruningBefore If set, this member is eligible to be pruned for balances older than this timestamp
     */
-  private final case class BalancesForMember(
-      trafficBalances: SortedMap[CantonTimestamp, TrafficBalance],
+  private final case class TrafficPurchasedForMember(
+      trafficPurchasedMap: SortedMap[CantonTimestamp, TrafficPurchased],
       eligibleForPruningBefore: AtomicReference[Option[CantonTimestamp]] = new AtomicReference(None),
   )
 
@@ -507,6 +517,6 @@ object TrafficBalanceManager {
       desired: CantonTimestamp,
       lastSeen: CantonTimestamp,
       member: Member,
-      promise: PromiseUnlessShutdown[Either[TrafficBalanceManagerError, Option[TrafficBalance]]],
+      promise: PromiseUnlessShutdown[Either[TrafficPurchasedManagerError, Option[TrafficPurchased]]],
   )
 }

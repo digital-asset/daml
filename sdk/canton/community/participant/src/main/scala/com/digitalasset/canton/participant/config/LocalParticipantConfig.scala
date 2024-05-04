@@ -330,8 +330,6 @@ object TestingTimeServiceConfig {
   * @param dontWarnOnDeprecatedPV If true, then this participant will not emit a warning when connecting to a sequencer using a deprecated protocol version (such as 2.0.0).
   * @param warnIfOverloadedFor If all incoming commands have been rejected due to PARTICIPANT_BACKPRESSURE during this interval, the participant will log a warning.
   * @param excludeInfrastructureTransactions If set, infrastructure transactions (i.e. ping, bong and dar distribution) will be excluded from participant metering.
-  * @param enableEngineStackTraces If true, DAMLe stack traces will be enabled
-  * @param iterationsBetweenInterruptions Number of engine iterations between forced interruptions (outside needs of information).
   * @param journalGarbageCollectionDelay How much time to delay the canton journal garbage collection
   * @param disableUpgradeValidation Disable the package upgrade verification on DAR upload
   * @param allowForUnauthenticatedContractIds Skip contract id authentication check, if the contract id scheme does not support authentication.
@@ -360,9 +358,7 @@ final case class ParticipantNodeParameterConfig(
     ),
     ledgerApiServer: LedgerApiServerParametersConfig = LedgerApiServerParametersConfig(),
     excludeInfrastructureTransactions: Boolean = true,
-    enableEngineStackTraces: Boolean = false,
-    iterationsBetweenInterruptions: Long =
-      10000, // 10000 is the default value in the engine configuration
+    engine: CantonEngineConfig = CantonEngineConfig(),
     journalGarbageCollectionDelay: config.NonNegativeFiniteDuration =
       config.NonNegativeFiniteDuration.ofSeconds(0),
     disableUpgradeValidation: Boolean = false,

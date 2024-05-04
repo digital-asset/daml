@@ -69,7 +69,10 @@ import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
 import com.digitalasset.canton.participant.config.ParticipantInitConfig.ParticipantLedgerApiInitConfig
 import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
-import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
+import com.digitalasset.canton.platform.apiserver.configuration.{
+  EngineLoggingConfig,
+  RateLimitingConfig,
+}
 import com.digitalasset.canton.platform.config.ActiveContractsServiceStreamsConfig
 import com.digitalasset.canton.platform.indexer.PackageMetadataViewConfig
 import com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig
@@ -379,8 +382,7 @@ trait CantonConfig {
         ),
         ledgerApiServerParameters = participantParameters.ledgerApiServer,
         excludeInfrastructureTransactions = participantParameters.excludeInfrastructureTransactions,
-        enableEngineStackTrace = participantParameters.enableEngineStackTraces,
-        iterationsBetweenInterruptions = participantParameters.iterationsBetweenInterruptions,
+        engine = participantParameters.engine,
         journalGarbageCollectionDelay =
           participantParameters.journalGarbageCollectionDelay.toInternal,
         disableUpgradeValidation = participantParameters.disableUpgradeValidation,
@@ -940,6 +942,11 @@ object CantonConfig {
     lazy implicit val ledgerApiServerParametersConfigReader
         : ConfigReader[LedgerApiServerParametersConfig] =
       deriveReader[LedgerApiServerParametersConfig]
+
+    lazy implicit val engineLoggingConfigReader: ConfigReader[EngineLoggingConfig] =
+      deriveReader[EngineLoggingConfig]
+    lazy implicit val cantonEngineConfigReader: ConfigReader[CantonEngineConfig] =
+      deriveReader[CantonEngineConfig]
     lazy implicit val participantNodeParameterConfigReader
         : ConfigReader[ParticipantNodeParameterConfig] =
       deriveReader[ParticipantNodeParameterConfig]
@@ -1330,6 +1337,10 @@ object CantonConfig {
     lazy implicit val ledgerApiServerParametersConfigWriter
         : ConfigWriter[LedgerApiServerParametersConfig] =
       deriveWriter[LedgerApiServerParametersConfig]
+    lazy implicit val engineLoggingConfigWriter: ConfigWriter[EngineLoggingConfig] =
+      deriveWriter[EngineLoggingConfig]
+    lazy implicit val cantonEngineConfigWriter: ConfigWriter[CantonEngineConfig] =
+      deriveWriter[CantonEngineConfig]
     lazy implicit val participantNodeParameterConfigWriter
         : ConfigWriter[ParticipantNodeParameterConfig] =
       deriveWriter[ParticipantNodeParameterConfig]

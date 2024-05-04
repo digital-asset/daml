@@ -7,37 +7,37 @@ import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalance
-import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
+import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficPurchasedStore
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.resource.DbStorage.Profile
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
+import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.BatchAggregator
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class DbTrafficBalanceStore(
+class DbTrafficPurchasedStore(
     batchAggregatorConfig: BatchAggregatorConfig,
     override protected val storage: DbStorage,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
-    extends TrafficBalanceStore
+    extends TrafficPurchasedStore
     with DbStore {
 
   import Member.DbStorageImplicits.*
   import storage.api.*
 
-  // Batch aggregator to improve efficiency of storing traffic balance updates
+  // Batch aggregator to improve efficiency of storing traffic purchased entry updates
   private val batchAggregator = {
-    val processor = new BatchAggregator.Processor[TrafficBalance, Unit] {
-      override val kind: String = "traffic balance updates"
-      override val logger: TracedLogger = DbTrafficBalanceStore.this.logger
-      override def executeBatch(items: NonEmpty[Seq[Traced[TrafficBalance]]])(implicit
+    val processor = new BatchAggregator.Processor[TrafficPurchased, Unit] {
+      override val kind: String = "traffic purchased entry updates"
+      override val logger: TracedLogger = DbTrafficPurchasedStore.this.logger
+      override def executeBatch(items: NonEmpty[Seq[Traced[TrafficPurchased]]])(implicit
           traceContext: TraceContext,
           callerCloseContext: CloseContext,
       ): Future[Iterable[Unit]] = {
@@ -58,36 +58,36 @@ class DbTrafficBalanceStore(
             DbStorage.bulkOperation_(insertSql, items, storage.profile) { pp => balance =>
               pp >> balance.value.member
               pp >> balance.value.sequencingTimestamp
-              pp >> balance.value.balance
+              pp >> balance.value.extraTrafficPurchased
               pp >> balance.value.serial
             },
             functionFullName,
           )(traceContext, callerCloseContext)
           .map(_ => Seq.fill(items.size)(()))
       }
-      override def prettyItem: Pretty[TrafficBalance] = implicitly
+      override def prettyItem: Pretty[TrafficPurchased] = implicitly
     }
 
     BatchAggregator(processor, batchAggregatorConfig)
   }
 
   override def store(
-      trafficBalance: TrafficBalance
+      trafficPurchased: TrafficPurchased
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    batchAggregator.run(trafficBalance)
+    batchAggregator.run(trafficPurchased)
   }
 
   override def lookup(
       member: Member
-  )(implicit traceContext: TraceContext): Future[Seq[TrafficBalance]] = {
+  )(implicit traceContext: TraceContext): Future[Seq[TrafficPurchased]] = {
     val query =
       sql"select member, sequencing_timestamp, balance, serial from seq_traffic_control_balance_updates where member = $member order by sequencing_timestamp asc"
-    storage.query(query.as[TrafficBalance], functionFullName)
+    storage.query(query.as[TrafficPurchased], functionFullName)
   }
 
   override def lookupLatestBeforeInclusive(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Seq[TrafficBalance]] = {
+  ): Future[Seq[TrafficPurchased]] = {
     val query =
       sql"""select member, sequencing_timestamp, balance, serial
             from
@@ -99,7 +99,7 @@ class DbTrafficBalanceStore(
             where pos = 1
            """
 
-    storage.query(query.as[TrafficBalance], functionFullName)
+    storage.query(query.as[TrafficPurchased], functionFullName)
   }
 
   override def pruneBelowExclusive(

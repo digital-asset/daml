@@ -75,7 +75,10 @@ trait SequencerStateManagerStoreTest
         HashPurpose.SequencedEventSignature,
         ByteString.copyFromUtf8("signature"),
       )
-    Await.result(syncCryptoApi.sign(hash).value, 10.seconds).valueOr(err => fail(err.toString))
+    Await
+      .result(syncCryptoApi.sign(hash).value, 10.seconds)
+      .failOnShutdown
+      .valueOr(err => fail(err.toString))
   }
 
   override def beforeAll(): Unit = {

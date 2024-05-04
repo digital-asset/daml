@@ -10,6 +10,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.ViewType
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.RecipientsInfo
 import com.digitalasset.canton.protocol.messages.{EncryptedView, EncryptedViewMessage}
@@ -18,7 +19,6 @@ import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
 import com.google.protobuf.ByteString
 
@@ -35,7 +35,7 @@ object EncryptedViewMessageFactory {
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, EncryptedViewMessageCreationError, EncryptedViewMessage[VT]] = {
+  ): EitherT[FutureUnlessShutdown, EncryptedViewMessageCreationError, EncryptedViewMessage[VT]] = {
 
     val cryptoPureApi = cryptoSnapshot.pureCrypto
 
@@ -51,6 +51,11 @@ object EncryptedViewMessageFactory {
         value: Either[EncryptedViewMessageCreationError, B]
     ): EitherT[Future, EncryptedViewMessageCreationError, B] =
       EitherT.fromEither[Future](value)
+
+    def eitherTUS[B](
+        value: Either[EncryptedViewMessageCreationError, B]
+    ): EitherT[FutureUnlessShutdown, EncryptedViewMessageCreationError, B] =
+      EitherT.fromEither[FutureUnlessShutdown](value)
 
     def getRecipientInfo: EitherT[Future, UnableToDetermineParticipant, RecipientsInfo] = {
       for {
@@ -215,7 +220,9 @@ object EncryptedViewMessageFactory {
 
     def encryptRandomnessWithSessionKey(
         sessionKey: SymmetricKey
-    ): EitherT[Future, EncryptedViewMessageCreationError, Encrypted[SecureRandomness]] =
+    ): EitherT[Future, EncryptedViewMessageCreationError, Encrypted[
+      SecureRandomness
+    ]] =
       eitherT(
         cryptoPureApi
           .encryptWith(randomness, sessionKey, protocolVersion)
@@ -223,27 +230,29 @@ object EncryptedViewMessageFactory {
       )
 
     for {
-      symmetricViewKeyRandomness <- eitherT(
+      symmetricViewKeyRandomness <- eitherTUS(
         cryptoPureApi
           .computeHkdf(randomness.unwrap, viewKeyLength, HkdfInfo.ViewKey)
           .leftMap(FailedToExpandKey)
       )
-      symmetricViewKey <- eitherT(
+      symmetricViewKey <- eitherTUS(
         cryptoPureApi
           .createSymmetricKey(symmetricViewKeyRandomness, viewEncryptionScheme)
           .leftMap(FailedToCreateEncryptionKey)
       )
-      recipientsInfo <- getRecipientInfo
+      recipientsInfo <- getRecipientInfo.mapK(FutureUnlessShutdown.outcomeK)
       signature <- viewTree.toBeSigned
         .parTraverse(rootHash =>
           cryptoSnapshot.sign(rootHash.unwrap).leftMap(FailedToSignViewMessage)
         )
-      encryptedView <- eitherT(
+      encryptedView <- eitherTUS(
         EncryptedView
           .compressed[VT](cryptoPureApi, symmetricViewKey, viewType, protocolVersion)(viewTree)
           .leftMap(FailedToEncryptViewMessage)
       )
-      message <- createEncryptedViewMessage(recipientsInfo, signature, encryptedView)
+      message <- createEncryptedViewMessage(recipientsInfo, signature, encryptedView).mapK(
+        FutureUnlessShutdown.outcomeK
+      )
     } yield message
   }
 

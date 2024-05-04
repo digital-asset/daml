@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.traffic
+package com.digitalasset.canton.sequencing.traffic
 
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.error.CantonErrorGroups.TrafficControlErrorGroup
@@ -57,7 +57,7 @@ object TrafficControlErrors extends TrafficControlErrorGroup {
   @Resolution(
     """Re-submit the top up request with an exponential backoff strategy."""
   )
-  object TrafficBalanceRequestAsyncSendFailed
+  object TrafficPurchasedRequestAsyncSendFailed
       extends ErrorCode(
         id = "TRAFFIC_CONTROL_TOP_UP_SUBMISSION_FAILED",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
@@ -72,12 +72,12 @@ object TrafficControlErrors extends TrafficControlErrorGroup {
 
   @Explanation(
     """The member received an invalid traffic control message. This may occur due to a bug at the sender of the message.
-      |The message will be discarded. As a consequence, the underlying traffic control balance update will not take effect.
+      |The message will be discarded. As a consequence, the underlying traffic purchased update will not take effect.
       |"""
   )
   @Resolution("Contact support")
-  object InvalidTrafficControlBalanceMessage
-      extends AlarmErrorCode("INVALID_TRAFFIC_CONTROL_BALANCE_MESSAGE") {
+  object InvalidTrafficPurchasedMessage
+      extends AlarmErrorCode("INVALID_TRAFFIC_CONTROL_PURCHASED_MESSAGE") {
     final case class Error(override val cause: String)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends Alarm(cause)

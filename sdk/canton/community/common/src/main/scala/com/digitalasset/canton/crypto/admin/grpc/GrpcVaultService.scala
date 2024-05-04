@@ -13,8 +13,11 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.admin.v30
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPublicStoreError}
 import com.digitalasset.canton.crypto.{v30 as cryptoproto, *}
+import com.digitalasset.canton.error.BaseCantonError
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.StaticGrpcServices
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
+import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, StaticGrpcServices}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{
   DefaultDeserializationError,
@@ -23,8 +26,7 @@ import com.digitalasset.canton.serialization.{
 }
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherUtil.RichEither
-import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.OptionUtil
+import com.digitalasset.canton.util.{EitherTUtil, OptionUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import io.grpc.Status
@@ -56,21 +58,21 @@ class GrpcVaultService(
   // returns public keys of which we have private keys
   override def listMyKeys(request: v30.ListMyKeysRequest): Future[v30.ListMyKeysResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    for {
-      keys <- crypto.cryptoPublicStore.publicKeysWithName.valueOr(err =>
-        throw CryptoPublicStoreError.ErrorCode
-          .WrapStr(s"Failed to retrieve public keys: $err")
-          .asGrpcError
-      )
+    val result = for {
+      keys <- crypto.cryptoPublicStore.publicKeysWithName
+        .leftMap[BaseCantonError] { err =>
+          CryptoPublicStoreError.ErrorCode
+            .WrapStr(s"Failed to retrieve public keys: $err")
+        }
+        .mapK(FutureUnlessShutdown.outcomeK)
       publicKeys <-
         keys.toList.parFilterA(pk =>
           crypto.cryptoPrivateStore
             .existsPrivateKey(pk.publicKey.id, pk.publicKey.purpose)
-            .valueOr(err =>
-              throw CryptoPrivateStoreError.ErrorCode
+            .leftMap { err =>
+              CryptoPrivateStoreError.ErrorCode
                 .WrapStr(s"Failed to check key ${pk.publicKey.id}'s existence: $err")
-                .asGrpcError
-            )
+            }
         )
       filteredPublicKeys = listPublicKeys(request.filters, publicKeys)
       keysMetadata <-
@@ -79,17 +81,17 @@ class GrpcVaultService(
             case Some(extended) =>
               extended
                 .encrypted(pk.publicKey.id)
-                .valueOr(err =>
-                  throw CryptoPrivateStoreError.ErrorCode
-                    .WrapStr(
-                      s"Failed to retrieve encrypted status for key ${pk.publicKey.id}: $err"
-                    )
-                    .asGrpcError
-                )
-            case None => Future.successful(None)
+                .leftMap[BaseCantonError] { err =>
+                  CryptoPrivateStoreError.ErrorCode.WrapStr(
+                    s"Failed to retrieve encrypted status for key ${pk.publicKey.id}: $err"
+                  )
+                }
+            case None => EitherT.rightT[FutureUnlessShutdown, BaseCantonError](None)
           }).map(encrypted => PrivateKeyMetadata(pk, encrypted).toProtoV30)
         }
     } yield v30.ListMyKeysResponse(keysMetadata)
+
+    CantonGrpcUtil.mapErrNewEUS(result)
   }
 
   // allows to import public keys into the key store
@@ -153,9 +155,11 @@ class GrpcVaultService(
           .fromProtoPrimitive(request.name)
           .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
       )
-      key <- crypto
-        .generateSigningKey(scheme, name.emptyStringAsNone)
-        .valueOr(err => throw SigningKeyGenerationError.ErrorCode.Wrap(err).asGrpcError)
+      key <- CantonGrpcUtil.mapErrNewEUS(
+        crypto
+          .generateSigningKey(scheme, name.emptyStringAsNone)
+          .leftMap(err => SigningKeyGenerationError.ErrorCode.Wrap(err))
+      )
     } yield v30.GenerateSigningKeyResponse(publicKey = Some(key.toProtoV30))
   }
 
@@ -178,9 +182,11 @@ class GrpcVaultService(
           .fromProtoPrimitive(request.name)
           .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
       )
-      key <- crypto
-        .generateEncryptionKey(scheme, name.emptyStringAsNone)
-        .valueOr(err => throw EncryptionKeyGenerationError.ErrorCode.Wrap(err).asGrpcError)
+      key <- CantonGrpcUtil.mapErrNewEUS(
+        crypto
+          .generateEncryptionKey(scheme, name.emptyStringAsNone)
+          .leftMap(err => EncryptionKeyGenerationError.ErrorCode.Wrap(err))
+      )
     } yield v30.GenerateEncryptionKeyResponse(publicKey = Some(key.toProtoV30))
   }
 
@@ -257,24 +263,29 @@ class GrpcVaultService(
             )
         )
       privateKey <-
-        cryptoPrivateStore
-          .exportPrivateKey(fingerprint)
+        EitherTUtil.toFuture(
+          cryptoPrivateStore
+            .exportPrivateKey(fingerprint)
+            .leftMap(_.toString)
+            .subflatMap(_.toRight(s"no private key found for [$fingerprint]"))
+            .leftMap(err =>
+              Status.FAILED_PRECONDITION
+                .withDescription(s"Error retrieving private key [$fingerprint] $err")
+                .asRuntimeException()
+            )
+            .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError))
+        )
+      publicKey <- EitherTUtil.toFuture(
+        crypto.cryptoPublicStore
+          .publicKey(fingerprint)
           .leftMap(_.toString)
-          .subflatMap(_.toRight(s"no private key found for [$fingerprint]"))
-          .valueOr(err =>
-            throw Status.FAILED_PRECONDITION
-              .withDescription(s"Error retrieving private key [$fingerprint] $err")
+          .subflatMap(_.toRight(s"no public key found for [$fingerprint]"))
+          .leftMap(err =>
+            Status.FAILED_PRECONDITION
+              .withDescription(s"Error retrieving public key [$fingerprint] $err")
               .asRuntimeException()
           )
-      publicKey <- crypto.cryptoPublicStore
-        .publicKey(fingerprint)
-        .leftMap(_.toString)
-        .subflatMap(_.toRight(s"no public key found for [$fingerprint]"))
-        .valueOr(err =>
-          throw Status.FAILED_PRECONDITION
-            .withDescription(s"Error retrieving public key [$fingerprint] $err")
-            .asRuntimeException()
-        )
+      )
       keyPair <- (publicKey, privateKey) match {
         case (pub: SigningPublicKey, pkey: SigningPrivateKey) =>
           Future.successful(new SigningKeyPair(pub, pkey))
@@ -366,9 +377,11 @@ class GrpcVaultService(
           }
           .valueOr(err => throw CryptoPublicStoreError.ErrorCode.Wrap(err).asGrpcError)
         _ = logger.info(s"Uploading key ${validatedName}")
-        _ <- cryptoPrivateStore
-          .storePrivateKey(keyPair.privateKey, validatedName)
-          .valueOr(err => throw CryptoPrivateStoreError.ErrorCode.Wrap(err).asGrpcError)
+        _ <- CantonGrpcUtil.mapErrNewEUS(
+          cryptoPrivateStore
+            .storePrivateKey(keyPair.privateKey, validatedName)
+            .leftMap(err => CryptoPrivateStoreError.ErrorCode.Wrap(err))
+        )
       } yield ()
 
     for {
@@ -422,14 +435,13 @@ class GrpcVaultService(
               .asGrpcError
           )
       )
-      _ <-
+      _ <- CantonGrpcUtil.mapErrNewEUS {
         crypto.cryptoPrivateStore
           .removePrivateKey(fingerprint)
-          .valueOr(err =>
-            throw ProtoDeserializationFailure
-              .WrapNoLoggingStr(s"Failed to remove private key: $err")
-              .asGrpcError
+          .leftMap(err =>
+            ProtoDeserializationFailure.WrapNoLoggingStr(s"Failed to remove private key: $err")
           )
+      }
     } yield v30.DeleteKeyPairResponse()
   }
 }

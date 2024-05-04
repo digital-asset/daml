@@ -15,32 +15,32 @@ import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
-final case class SetTrafficBalanceMessage private (
+final case class SetTrafficPurchasedMessage private (
     member: Member,
     serial: PositiveInt,
-    totalTrafficBalance: NonNegativeLong,
+    totalTrafficPurchased: NonNegativeLong,
     domainId: DomainId,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      SetTrafficBalanceMessage.type
+      SetTrafficPurchasedMessage.type
     ],
     override val deserializedFrom: Option[ByteString],
 ) extends ProtocolVersionedMemoizedEvidence
-    with HasProtocolVersionedWrapper[SetTrafficBalanceMessage]
+    with HasProtocolVersionedWrapper[SetTrafficPurchasedMessage]
     with PrettyPrinting
     with SignedProtocolMessageContent {
 
   // Only used in security tests, this is not part of the protobuf payload
   override val signingTimestamp: Option[CantonTimestamp] = None
 
-  @transient override protected lazy val companionObj: SetTrafficBalanceMessage.type =
-    SetTrafficBalanceMessage
+  @transient override protected lazy val companionObj: SetTrafficPurchasedMessage.type =
+    SetTrafficPurchasedMessage
 
-  def toProtoV30: v30.SetTrafficBalanceMessage = {
-    v30.SetTrafficBalanceMessage(
+  def toProtoV30: v30.SetTrafficPurchasedMessage = {
+    v30.SetTrafficPurchasedMessage(
       member = member.toProtoPrimitive,
       serial = serial.value,
-      totalTrafficBalance = totalTrafficBalance.value,
+      totalTrafficPurchased = totalTrafficPurchased.value,
       domainId = domainId.toProtoPrimitive,
     )
   }
@@ -50,27 +50,27 @@ final case class SetTrafficBalanceMessage private (
 
   override protected[messages] def toProtoTypedSomeSignedProtocolMessage
       : TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
-    v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.SetTrafficBalance(
+    v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.SetTrafficPurchased(
       getCryptographicEvidence
     )
 
-  override def pretty: Pretty[SetTrafficBalanceMessage] = prettyOfClass(
+  override def pretty: Pretty[SetTrafficPurchasedMessage] = prettyOfClass(
     param("member", _.member),
     param("serial", _.serial),
-    param("totalTrafficBalance", _.totalTrafficBalance),
+    param("totalTrafficPurchased", _.totalTrafficPurchased),
     param("domainId", _.domainId),
   )
 }
 
-object SetTrafficBalanceMessage
+object SetTrafficPurchasedMessage
     extends HasMemoizedProtocolVersionedWrapperCompanion[
-      SetTrafficBalanceMessage,
+      SetTrafficPurchasedMessage,
     ] {
-  override val name: String = "SetTrafficBalanceMessage"
+  override val name: String = "SetTrafficPurchasedMessage"
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v31)(
-      v30.SetTrafficBalanceMessage
+      v30.SetTrafficPurchasedMessage
     )(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
@@ -80,28 +80,28 @@ object SetTrafficBalanceMessage
   def apply(
       member: Member,
       serial: PositiveInt,
-      totalTrafficBalance: NonNegativeLong,
+      totalTrafficPurchased: NonNegativeLong,
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
-  ): SetTrafficBalanceMessage =
-    SetTrafficBalanceMessage(member, serial, totalTrafficBalance, domainId)(
+  ): SetTrafficPurchasedMessage =
+    SetTrafficPurchasedMessage(member, serial, totalTrafficPurchased, domainId)(
       protocolVersionRepresentativeFor(protocolVersion),
       None,
     )
 
   def fromProtoV30(
-      proto: v30.SetTrafficBalanceMessage
-  )(bytes: ByteString): ParsingResult[SetTrafficBalanceMessage] = {
+      proto: v30.SetTrafficPurchasedMessage
+  )(bytes: ByteString): ParsingResult[SetTrafficPurchasedMessage] = {
     for {
       member <- Member.fromProtoPrimitive(proto.member, "member")
       serial <- ProtoConverter.parsePositiveInt(proto.serial)
-      totalTrafficBalance <- ProtoConverter.parseNonNegativeLong(proto.totalTrafficBalance)
+      totalTrafficPurchased <- ProtoConverter.parseNonNegativeLong(proto.totalTrafficPurchased)
       domainId <- DomainId.fromProtoPrimitive(proto.domainId, "domain_id")
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))
-    } yield SetTrafficBalanceMessage(
+    } yield SetTrafficPurchasedMessage(
       member,
       serial,
-      totalTrafficBalance,
+      totalTrafficPurchased,
       domainId,
     )(
       rpv,
@@ -109,11 +109,11 @@ object SetTrafficBalanceMessage
     )
   }
 
-  implicit val setTrafficBalanceCast: SignedMessageContentCast[SetTrafficBalanceMessage] =
-    SignedMessageContentCast.create[SetTrafficBalanceMessage](
-      "SetTrafficBalanceMessage"
+  implicit val setTrafficPurchasedCast: SignedMessageContentCast[SetTrafficPurchasedMessage] =
+    SignedMessageContentCast.create[SetTrafficPurchasedMessage](
+      "SetTrafficPurchasedMessage"
     ) {
-      case m: SetTrafficBalanceMessage => Some(m)
+      case m: SetTrafficPurchasedMessage => Some(m)
       case _ => None
     }
 }

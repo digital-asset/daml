@@ -907,7 +907,9 @@ class AcsCommitmentProcessorTest
       AcsCommitment.create(domainId, remote, localId, period, cmt, testedProtocolVersion)
 
     snapshotF.flatMap { snapshot =>
-      SignedProtocolMessage.trySignAndCreate(payload, snapshot, testedProtocolVersion)
+      SignedProtocolMessage
+        .trySignAndCreate(payload, snapshot, testedProtocolVersion)
+        .failOnShutdown
     }
   }
 

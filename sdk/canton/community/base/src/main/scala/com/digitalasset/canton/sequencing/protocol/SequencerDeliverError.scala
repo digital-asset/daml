@@ -175,7 +175,7 @@ object SequencerErrors extends SequencerErrorGroup {
       )
 
   @Explanation(
-    """Sequencer has refused a submission request due to insufficient credits in the sender's traffic balance."""
+    """Sequencer has refused a submission request due to insufficient credits in the sender's traffic purchased entry."""
   )
   @Resolution(
     """Acquire more traffic credits with the system by topping up traffic credits for the sender."""

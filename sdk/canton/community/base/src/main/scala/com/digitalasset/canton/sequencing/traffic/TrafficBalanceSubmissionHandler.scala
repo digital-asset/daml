@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.traffic
+package com.digitalasset.canton.sequencing.traffic
 
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
@@ -14,7 +14,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
-  SetTrafficBalanceMessage,
+  SetTrafficPurchasedMessage,
   SignedProtocolMessage,
 }
 import com.digitalasset.canton.sequencing.TrafficControlParameters
@@ -23,36 +23,37 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.traffic.TrafficControlErrors.TrafficControlError
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 import scala.math.Ordered.orderingToOrdered
 
-/** Utility class to send traffic balance requests protocol messages to be sequenced.
+import TrafficControlErrors.TrafficControlError
+
+/** Utility class to send traffic purchased entry requests protocol messages to be sequenced.
   * This is abstracted out so that it can be re-used in any node's Admin API.
   */
-class TrafficBalanceSubmissionHandler(
+class TrafficPurchasedSubmissionHandler(
     clock: Clock,
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
-  /** Send a signed traffic balance request.
+  /** Send a signed traffic purchased entry request.
     * @param member recipient of the new balance
     * @param domainId domainId of the domain where the top up is being sent to
     * @param protocolVersion protocol version used
     * @param serial monotonically increasing serial number for the request
-    * @param totalTrafficBalance new total traffic balance
+    * @param totalTrafficPurchased new total traffic purchased entry
     * @param sequencerClient sequencer client to use to send the balance request
     * @param cryptoApi crypto api used to access topology
     */
-  def sendTrafficBalanceRequest(
+  def sendTrafficPurchasedRequest(
       member: Member,
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
       serial: PositiveInt,
-      totalTrafficBalance: NonNegativeLong,
+      totalTrafficPurchased: NonNegativeLong,
       sequencerClient: SequencerClientSend,
       cryptoApi: DomainSyncCryptoClient,
   )(implicit
@@ -86,26 +87,25 @@ class TrafficBalanceSubmissionHandler(
         threshold = sequencerGroup.threshold,
         protocolVersion,
       )
-      setTrafficBalanceMessage = SetTrafficBalanceMessage(
+      setTrafficPurchasedMessage = SetTrafficPurchasedMessage(
         member,
         serial,
-        totalTrafficBalance,
+        totalTrafficPurchased,
         domainId,
         protocolVersion,
       )
-      signedTrafficBalanceMessage <- EitherT
+      signedTrafficPurchasedMessage <- EitherT
         .liftF(
           SignedProtocolMessage.trySignAndCreate(
-            setTrafficBalanceMessage,
+            setTrafficPurchasedMessage,
             topology,
             protocolVersion,
           )
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
       batch = Batch.of(
         protocolVersion = protocolVersion,
         // This recipient tree structure allows the recipient of the top up to verify that the sequencers were also addressed
-        signedTrafficBalanceMessage -> Recipients(
+        signedTrafficPurchasedMessage -> Recipients(
           NonEmpty.mk(
             Seq,
             RecipientsTree.ofMembers(
@@ -125,7 +125,7 @@ class TrafficBalanceSubmissionHandler(
       maxSequencingTimes = computeMaxSequencingTimes(trafficParams)
       _ <- maxSequencingTimes.forgetNE.parTraverse_ { maxSequencingTime =>
         logger.debug(
-          s"Submitting traffic balance request for $member with balance ${totalTrafficBalance.value}, serial ${serial.value} and max sequencing time $maxSequencingTime"
+          s"Submitting traffic purchased entry request for $member with balance ${totalTrafficPurchased.value}, serial ${serial.value} and max sequencing time $maxSequencingTime"
         )
         sendRequest(sequencerClient, batch, aggregationRule, maxSequencingTime)
       }
@@ -150,7 +150,7 @@ class TrafficBalanceSubmissionHandler(
           maxSequencingTime = maxSequencingTime,
           callback = callback,
         )
-        .leftMap(err => TrafficControlErrors.TrafficBalanceRequestAsyncSendFailed.Error(err.show))
+        .leftMap(err => TrafficControlErrors.TrafficPurchasedRequestAsyncSendFailed.Error(err.show))
         .leftWiden[TrafficControlError]
       _ <- EitherT(
         callback.future
@@ -166,10 +166,10 @@ class TrafficBalanceSubmissionHandler(
               logger.info(s"The top-up request was already sent: $message")
               Right(())
             case SendResult.Error(err) =>
-              Left(TrafficControlErrors.TrafficBalanceRequestAsyncSendFailed.Error(err.show))
+              Left(TrafficControlErrors.TrafficPurchasedRequestAsyncSendFailed.Error(err.show))
             case SendResult.Timeout(time) =>
               Left(
-                TrafficControlErrors.TrafficBalanceRequestAsyncSendFailed.Error(
+                TrafficControlErrors.TrafficPurchasedRequestAsyncSendFailed.Error(
                   s"Submission timed out after sequencing time $time has elapsed"
                 )
               )

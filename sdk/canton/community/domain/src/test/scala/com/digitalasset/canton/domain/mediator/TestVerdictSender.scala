@@ -16,7 +16,7 @@ import com.digitalasset.canton.topology.MediatorId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters.*
 
 class TestVerdictSender(
@@ -55,7 +55,7 @@ class TestVerdictSender(
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       rejectionReason: Verdict.MediatorReject,
       decisionTime: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     sentResultsQueue.add(Result(requestId, decisionTime, requestO, Some(rejectionReason)))
     super.sendReject(requestId, requestO, rootHashMessages, rejectionReason, decisionTime)
   }

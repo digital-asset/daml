@@ -10,7 +10,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.mediator.store.MediatorDeduplicationStore
 import com.digitalasset.canton.error.MediatorError
-import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{DynamicDomainParametersWithValidity, RequestId}
@@ -46,7 +46,7 @@ private[mediator] trait MediatorEventDeduplicator {
   )(implicit
       executionContext: ExecutionContext,
       callerCloseContext: CloseContext,
-  ): Future[(Seq[(TracedProtocolEvent, Seq[DefaultOpenEnvelope])], Future[Unit])] =
+  ): Future[(Seq[(TracedProtocolEvent, Seq[DefaultOpenEnvelope])], FutureUnlessShutdown[Unit])] =
     MonadUtil
       .sequentialTraverse(envelopesByEvent) { case (tracedProtocolEvent, envelopes) =>
         implicit val traceContext: TraceContext = tracedProtocolEvent.traceContext
@@ -71,7 +71,7 @@ private[mediator] trait MediatorEventDeduplicator {
   )(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[(Seq[DefaultOpenEnvelope], Future[Unit])]
+  ): Future[(Seq[DefaultOpenEnvelope], FutureUnlessShutdown[Unit])]
 }
 
 private[mediator] object MediatorEventDeduplicator {
@@ -129,7 +129,7 @@ class DefaultMediatorEventDeduplicator(
   )(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[(Seq[DefaultOpenEnvelope], Future[Unit])] =
+  ): Future[(Seq[DefaultOpenEnvelope], FutureUnlessShutdown[Unit])] =
     MonadUtil
       .sequentialTraverse(envelopes) { envelope =>
         envelope.protocolMessage match {
@@ -137,7 +137,7 @@ class DefaultMediatorEventDeduplicator(
             processUuid(requestTimestamp, request, envelopes).map { case (hasUniqueUuid, storeF) =>
               Option.when(hasUniqueUuid)(envelope) -> storeF
             }
-          case _: ProtocolMessage => Future.successful(Some(envelope) -> Future.unit)
+          case _: ProtocolMessage => Future.successful(Some(envelope) -> FutureUnlessShutdown.unit)
         }
       }
       .map(_.separate)
@@ -152,7 +152,7 @@ class DefaultMediatorEventDeduplicator(
   )(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[(Boolean, Future[Unit])] = {
+  ): Future[(Boolean, FutureUnlessShutdown[Unit])] = {
     val uuid = request.requestUuid
     val previousUsages = store.findUuid(uuid, requestTimestamp)
     NonEmpty.from(previousUsages) match {
@@ -164,7 +164,7 @@ class DefaultMediatorEventDeduplicator(
           logger.debug(
             s"Storing requestUuid=$uuid, requestTimestamp=$requestTimestamp, expireAt=$expireAt"
           )
-          val storeF = store.store(uuid, requestTimestamp, expireAt)
+          val storeF = FutureUnlessShutdown.outcomeF(store.store(uuid, requestTimestamp, expireAt))
           (true, storeF)
         }
       case Some(previousUsagesNE) =>

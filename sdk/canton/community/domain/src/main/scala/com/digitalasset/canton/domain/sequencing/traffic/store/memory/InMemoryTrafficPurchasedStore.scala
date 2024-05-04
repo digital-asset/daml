@@ -6,9 +6,9 @@ package com.digitalasset.canton.domain.sequencing.traffic.store.memory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalance
-import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
+import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficPurchasedStore
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -17,31 +17,31 @@ import scala.collection.concurrent.TrieMap
 import scala.collection.immutable.SortedSet
 import scala.concurrent.Future
 
-/** In memory implementation of the traffic balance store
+/** In memory implementation of the traffic purchased entry store
   */
-class InMemoryTrafficBalanceStore(override protected val loggerFactory: NamedLoggerFactory)
-    extends TrafficBalanceStore
+class InMemoryTrafficPurchasedStore(override protected val loggerFactory: NamedLoggerFactory)
+    extends TrafficPurchasedStore
     with NamedLogging {
-  implicit private val trafficBalanceOrdering: Ordering[TrafficBalance] =
+  implicit private val trafficPurchasedOrdering: Ordering[TrafficPurchased] =
     Ordering.by(_.sequencingTimestamp)
-  private val trafficBalances = TrieMap.empty[Member, NonEmpty[SortedSet[TrafficBalance]]]
+  private val trafficPurchaseds = TrieMap.empty[Member, NonEmpty[SortedSet[TrafficPurchased]]]
   private val initTimestamp: AtomicReference[Option[CantonTimestamp]] = new AtomicReference(None)
   // Clearing the table can prevent memory leaks
-  override def close(): Unit = trafficBalances.clear()
-  override def store(trafficBalance: TrafficBalance)(implicit
+  override def close(): Unit = trafficPurchaseds.clear()
+  override def store(trafficPurchased: TrafficPurchased)(implicit
       traceContext: TraceContext
   ): Future[Unit] = Future.successful {
-    logger.debug(s"Storing traffic balance $trafficBalance")
-    this.trafficBalances
-      .updateWith(trafficBalance.member) {
+    logger.debug(s"Storing traffic purchased entry $trafficPurchased")
+    this.trafficPurchaseds
+      .updateWith(trafficPurchased.member) {
         // If the update has the same timestamp than the last one, we keep the one with the highest serial
         case Some(old)
             if old.lastOption.exists(b =>
-              b.sequencingTimestamp == trafficBalance.sequencingTimestamp && b.serial < trafficBalance.serial
+              b.sequencingTimestamp == trafficPurchased.sequencingTimestamp && b.serial < trafficPurchased.serial
             ) =>
-          Some(NonEmpty.mk(SortedSet, trafficBalance, old.dropRight(1).toSeq*))
-        case Some(old) => Some(old.incl(trafficBalance))
-        case None => Some(NonEmpty.mk(SortedSet, trafficBalance))
+          Some(NonEmpty.mk(SortedSet, trafficPurchased, old.dropRight(1).toSeq*))
+        case Some(old) => Some(old.incl(trafficPurchased))
+        case None => Some(NonEmpty.mk(SortedSet, trafficPurchased))
       }
       .discard
   }
@@ -49,17 +49,17 @@ class InMemoryTrafficBalanceStore(override protected val loggerFactory: NamedLog
   override def lookup(member: Member)(implicit
       traceContext: TraceContext
   ): Future[Seq[
-    TrafficBalance
+    TrafficPurchased
   ]] = {
-    Future.successful(this.trafficBalances.get(member).toList.flatMap(_.toList).sorted)
+    Future.successful(this.trafficPurchaseds.get(member).toList.flatMap(_.toList).sorted)
   }
 
   override def lookupLatestBeforeInclusive(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Seq[TrafficBalance]] = {
+  ): Future[Seq[TrafficPurchased]] = {
     import cats.syntax.functorFilter.*
 
-    val latestBalances = trafficBalances.toSeq.mapFilter { case (member, balances) =>
+    val latestBalances = trafficPurchaseds.toSeq.mapFilter { case (member, balances) =>
       val balancesByTs = balances.map(balance => balance.sequencingTimestamp -> balance).toMap
       val tsBeforeO =
         balances.forgetNE.map(_.sequencingTimestamp).maxBefore(timestamp.immediateSuccessor)
@@ -75,7 +75,7 @@ class InMemoryTrafficBalanceStore(override protected val loggerFactory: NamedLog
   )(implicit
       traceContext: TraceContext
   ): Future[Unit] = Future.successful {
-    this.trafficBalances
+    this.trafficPurchaseds
       .updateWith(member) {
         case Some(balances) =>
           val maxBelowTimestamp =
@@ -93,7 +93,7 @@ class InMemoryTrafficBalanceStore(override protected val loggerFactory: NamedLog
   }
 
   override def maxTsO(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] = {
-    val maxTsO = trafficBalances.map { case (_, balances) =>
+    val maxTsO = trafficPurchaseds.map { case (_, balances) =>
       balances.max1.sequencingTimestamp
     }.maxOption
 

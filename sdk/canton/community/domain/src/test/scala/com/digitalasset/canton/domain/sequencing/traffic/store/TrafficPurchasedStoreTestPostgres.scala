@@ -5,4 +5,4 @@ package com.digitalasset.canton.domain.sequencing.traffic.store
 
 import com.digitalasset.canton.store.db.PostgresTest
 
-class TrafficBalanceStoreTestPostgres extends DbTrafficBalanceStoreTest with PostgresTest
+class TrafficPurchasedStoreTestPostgres extends DbTrafficPurchasedStoreTest with PostgresTest

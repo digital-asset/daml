@@ -10,13 +10,14 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.db.DbCryptoPrivateStore
 import com.digitalasset.canton.crypto.store.memory.InMemoryCryptoPrivateStore
 import com.digitalasset.canton.error.{BaseCantonError, CantonErrorGroups}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.tracing.{TraceContext, TracerProvider}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 sealed trait PrivateKeyWithName extends Product with Serializable {
   type K <: PrivateKey
@@ -47,20 +48,24 @@ trait CryptoPrivateStore extends AutoCloseable {
 
   def removePrivateKey(
       keyId: Fingerprint
-  )(implicit traceContext: TraceContext): EitherT[Future, CryptoPrivateStoreError, Unit]
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit]
 
   def existsPrivateKey(
       keyId: Fingerprint,
       purpose: KeyPurpose,
-  )(implicit traceContext: TraceContext): EitherT[Future, CryptoPrivateStoreError, Boolean]
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Boolean]
 
   def existsSigningKey(signingKeyId: Fingerprint)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPrivateStoreError, Boolean]
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Boolean]
 
   def existsDecryptionKey(decryptionKeyId: Fingerprint)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPrivateStoreError, Boolean]
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Boolean]
 
   def toExtended: Option[CryptoPrivateStoreExtended] = this match {
     case extended: CryptoPrivateStoreExtended => Some(extended)
@@ -79,7 +84,7 @@ object CryptoPrivateStore {
     )(implicit
         ec: ExecutionContext,
         traceContext: TraceContext,
-    ): EitherT[Future, CryptoPrivateStoreError, CryptoPrivateStore]
+    ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, CryptoPrivateStore]
   }
 
   class CommunityCryptoPrivateStoreFactory extends CryptoPrivateStoreFactory {
@@ -92,14 +97,14 @@ object CryptoPrivateStore {
     )(implicit
         ec: ExecutionContext,
         traceContext: TraceContext,
-    ): EitherT[Future, CryptoPrivateStoreError, CryptoPrivateStore] =
+    ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, CryptoPrivateStore] =
       storage match {
         case _: MemoryStorage =>
-          EitherT.rightT[Future, CryptoPrivateStoreError](
+          EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError](
             new InMemoryCryptoPrivateStore(releaseProtocolVersion, loggerFactory)
           )
         case jdbc: DbStorage =>
-          EitherT.rightT[Future, CryptoPrivateStoreError](
+          EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError](
             new DbCryptoPrivateStore(jdbc, releaseProtocolVersion, timeouts, loggerFactory)
           )
       }

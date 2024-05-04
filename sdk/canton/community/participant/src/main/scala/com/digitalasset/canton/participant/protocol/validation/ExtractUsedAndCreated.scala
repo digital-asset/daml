@@ -283,7 +283,8 @@ private[validation] class ExtractUsedAndCreated(
       inputContracts.consumedOfHostedStakeholders -- maybeCreated.keySet
 
     UsedAndCreatedContracts(
-      witnessedAndDivulged = inputContracts.divulged ++ createdContracts.witnessed,
+      witnessed = createdContracts.witnessed,
+      divulged = inputContracts.divulged,
       checkActivenessTxInputs = checkActivenessTxInputs,
       consumedInputsOfHostedStakeholders = consumedInputsOfHostedStakeholders,
       maybeCreated = maybeCreated,

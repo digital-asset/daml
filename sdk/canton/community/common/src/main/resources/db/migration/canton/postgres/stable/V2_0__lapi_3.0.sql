@@ -661,5 +661,3 @@ CREATE TABLE lapi_string_interning (
     internal_id integer primary key not null,
     external_string text
 );
-
-

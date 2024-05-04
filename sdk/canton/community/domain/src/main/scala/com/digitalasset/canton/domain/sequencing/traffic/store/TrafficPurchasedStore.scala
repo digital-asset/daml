@@ -5,59 +5,59 @@ package com.digitalasset.canton.domain.sequencing.traffic.store
 
 import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalance
-import com.digitalasset.canton.domain.sequencing.traffic.store.db.DbTrafficBalanceStore
-import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficBalanceStore
+import com.digitalasset.canton.domain.sequencing.traffic.store.db.DbTrafficPurchasedStore
+import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficPurchasedStore
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
+import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
-object TrafficBalanceStore {
+object TrafficPurchasedStore {
   def apply(
       storage: Storage,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
       batchAggregatorConfig: BatchAggregatorConfig,
-  )(implicit executionContext: ExecutionContext): TrafficBalanceStore =
+  )(implicit executionContext: ExecutionContext): TrafficPurchasedStore =
     storage match {
       case _: MemoryStorage =>
-        new InMemoryTrafficBalanceStore(loggerFactory)
+        new InMemoryTrafficPurchasedStore(loggerFactory)
       case dbStorage: DbStorage =>
-        new DbTrafficBalanceStore(batchAggregatorConfig, dbStorage, timeouts, loggerFactory)
+        new DbTrafficPurchasedStore(batchAggregatorConfig, dbStorage, timeouts, loggerFactory)
     }
 
 }
 
-/** Maintains the history of traffic balances of sequencer members.
+/** Maintains the history of traffic purchased entries of sequencer members.
   */
-trait TrafficBalanceStore extends AutoCloseable {
+trait TrafficPurchasedStore extends AutoCloseable {
 
-  /** Stores the traffic balance.
+  /** Stores the traffic purchased entry.
     * Updates for which there is already a balance for that member with the same sequencing timestamp are ignored.
     */
   def store(
-      trafficBalance: TrafficBalance
+      trafficPurchased: TrafficPurchased
   )(implicit
       traceContext: TraceContext
   ): Future[Unit]
 
-  /** Looks up the traffic balances for a member.
+  /** Looks up the traffic purchased entries for a member.
     */
   def lookup(
       member: Member
   )(implicit
       traceContext: TraceContext
-  ): Future[Seq[TrafficBalance]]
+  ): Future[Seq[TrafficPurchased]]
 
-  /** Looks up the latest traffic balance for all members, that were sequenced before
+  /** Looks up the latest traffic purchased entry for all members, that were sequenced before
     * the given timestamp (inclusive).
     */
   def lookupLatestBeforeInclusive(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Seq[TrafficBalance]]
+  ): Future[Seq[TrafficPurchased]]
 
   /** Deletes all balances for a given member, if their timestamp is strictly lower than the maximum existing timestamp
     * for that member that is lower or equal to the provided timestamp.

@@ -4,14 +4,14 @@
 package com.digitalasset.canton.domain.sequencing.traffic.store
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficBalanceStore
+import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficPurchasedStore
 import org.scalatest.wordspec.AsyncWordSpec
 
-class TrafficBalanceStoreTestInMemory
+class TrafficPurchasedStoreTestInMemory
     extends AsyncWordSpec
     with BaseTest
-    with TrafficBalanceStoreTest {
-  "InMemoryTrafficBalanceStore" should {
-    behave like trafficBalanceStore(() => new InMemoryTrafficBalanceStore(loggerFactory))
+    with TrafficPurchasedStoreTest {
+  "InMemoryTrafficPurchasedStore" should {
+    behave like trafficPurchasedStore(() => new InMemoryTrafficPurchasedStore(loggerFactory))
   }
 }

@@ -9,9 +9,10 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficConfig
-import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalanceManager.TrafficBalanceAlreadyPruned
-import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficBalanceStore
+import com.digitalasset.canton.domain.sequencing.traffic.TrafficPurchasedManager.TrafficPurchasedAlreadyPruned
+import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficPurchasedStore
 import com.digitalasset.canton.lifecycle.PromiseUnlessShutdown
+import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.{DefaultTestIdentities, Member}
 import com.digitalasset.canton.tracing.TraceContext
@@ -23,23 +24,24 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.util.concurrent.CountDownLatch
 import scala.concurrent.Future
 
-class TrafficBalanceManagerTest
+class TrafficPurchasedManagerTest
     extends AnyWordSpec
     with BaseTest
     with HasExecutionContext
     with BeforeAndAfterEach {
-  private val store = new InMemoryTrafficBalanceStore(loggerFactory)
+  private val store = new InMemoryTrafficPurchasedStore(loggerFactory)
   private val member = DefaultTestIdentities.participant1.member
 
   private val clock = new SimClock(loggerFactory = loggerFactory)
   private val timestamp = clock.now
 
-  private def mkManager = new TrafficBalanceManager(
+  private def mkManager = new TrafficPurchasedManager(
     store,
     clock,
     SequencerTrafficConfig(pruningRetentionWindow = NonNegativeFiniteDuration.ofSeconds(2)),
     futureSupervisor,
     SequencerMetrics.noop("traffic-balance-manager"),
+    protocolVersion = testedProtocolVersion,
     timeouts,
     loggerFactory,
   )
@@ -51,28 +53,30 @@ class TrafficBalanceManagerTest
   }
 
   private def assertBalance(
-      manager: TrafficBalanceManager,
+      manager: TrafficPurchasedManager,
       timestamp: CantonTimestamp,
-      balance: TrafficBalance,
+      balance: TrafficPurchased,
   ) = {
-    manager.getTrafficBalanceAt(member, timestamp).value.futureValueUS shouldBe Right(Some(balance))
+    manager.getTrafficPurchasedAt(member, timestamp).value.futureValueUS shouldBe Right(
+      Some(balance)
+    )
   }
 
   private def assertEmptyBalance(
-      manager: TrafficBalanceManager,
+      manager: TrafficPurchasedManager,
       timestamp: CantonTimestamp,
   ) = {
-    manager.getTrafficBalanceAt(member, timestamp).value.futureValueUS shouldBe Right(None)
+    manager.getTrafficPurchasedAt(member, timestamp).value.futureValueUS shouldBe Right(None)
   }
 
-  private def assertFailed(manager: TrafficBalanceManager, timestamp: CantonTimestamp) = {
-    manager.getTrafficBalanceAt(member, timestamp).value.futureValueUS shouldBe Left(
-      TrafficBalanceAlreadyPruned(member, timestamp)
+  private def assertFailed(manager: TrafficPurchasedManager, timestamp: CantonTimestamp) = {
+    manager.getTrafficPurchasedAt(member, timestamp).value.futureValueUS shouldBe Left(
+      TrafficPurchasedAlreadyPruned(member, timestamp)
     )
   }
 
   private def mkBalance(serial: Int, balance: Long, timestamp: CantonTimestamp = timestamp) =
-    TrafficBalance(
+    TrafficPurchased(
       member,
       PositiveInt.tryCreate(serial),
       NonNegativeLong.tryCreate(balance),
@@ -81,12 +85,12 @@ class TrafficBalanceManagerTest
 
   private val balance = mkBalance(1, 100)
 
-  "TrafficBalanceManager" should {
+  "TrafficPurchasedManager" should {
     "add and retrieve balances" in {
       val manager = mkManager
       val balance2 = mkBalance(2, 200, timestamp.plusSeconds(1))
-      manager.addTrafficBalance(balance).futureValue
-      manager.addTrafficBalance(balance2).futureValue
+      manager.addTrafficPurchased(balance).futureValue
+      manager.addTrafficPurchased(balance2).futureValue
       // Avoids a warning when getting the balance at timestamp.plusSeconds(1).immediateSuccessor
       assertBalance(manager, timestamp.immediateSuccessor, balance)
       assertBalance(manager, timestamp.plusSeconds(1).immediateSuccessor, balance2)
@@ -95,17 +99,17 @@ class TrafficBalanceManagerTest
     "not fail if requesting a balance before the first buy" in {
       val manager = mkManager
       val balance2 = mkBalance(1, 200, timestamp.plusSeconds(1))
-      manager.addTrafficBalance(balance2).futureValue
+      manager.addTrafficPurchased(balance2).futureValue
       assertEmptyBalance(manager, timestamp.immediateSuccessor)
     }
 
     "update a balance with a new serial and same timestamp" in {
       val manager = mkManager
       val balance2 = mkBalance(2, 200, timestamp)
-      manager.addTrafficBalance(balance).futureValue
-      manager.addTrafficBalance(balance2).futureValue
+      manager.addTrafficPurchased(balance).futureValue
+      manager.addTrafficPurchased(balance2).futureValue
       manager
-        .getTrafficBalanceAt(member, timestamp.immediateSuccessor)
+        .getTrafficPurchasedAt(member, timestamp.immediateSuccessor)
         .value
         .futureValueUS shouldBe Right(Some(balance2))
       store.lookup(member).futureValue.find(_.sequencingTimestamp == timestamp) shouldBe Some(
@@ -116,12 +120,13 @@ class TrafficBalanceManagerTest
     "properly sync between getting a balance and receiving an update for the same timestamp" in {
       val countDownLatch = new CountDownLatch(1)
       var reachedMakePromiseForBalance = false
-      val manager = new TrafficBalanceManager(
+      val manager = new TrafficPurchasedManager(
         store,
         clock,
         SequencerTrafficConfig(pruningRetentionWindow = NonNegativeFiniteDuration.ofSeconds(2)),
         futureSupervisor,
         SequencerMetrics.noop("traffic-balance-manager"),
+        testedProtocolVersion,
         timeouts,
         loggerFactory,
       ) {
@@ -130,16 +135,16 @@ class TrafficBalanceManagerTest
             desired: CantonTimestamp,
             lastSeen: CantonTimestamp,
         )(implicit traceContext: TraceContext): Option[PromiseUnlessShutdown[
-          Either[TrafficBalanceManager.TrafficBalanceManagerError, Option[TrafficBalance]]
+          Either[TrafficPurchasedManager.TrafficPurchasedManagerError, Option[TrafficPurchased]]
         ]] = {
           reachedMakePromiseForBalance = true
           countDownLatch.await()
           super.makePromiseForBalance(member, desired, lastSeen)
         }
       }
-      manager.addTrafficBalance(balance).futureValue
+      manager.addTrafficPurchased(balance).futureValue
       val getBalanceF = Future(
-        manager.getTrafficBalanceAt(
+        manager.getTrafficPurchasedAt(
           member,
           timestamp.plusSeconds(1),
           lastSeenO = Some(timestamp.plusSeconds(1)),
@@ -151,7 +156,7 @@ class TrafficBalanceManagerTest
       val balance2 = mkBalance(2, 200, timestamp.plusSeconds(1))
       // Await on the future, this ensures that we've dequeued pending updates up to timestamp.plusSeconds(1),
       // but we haven't created the promise for it yet
-      manager.addTrafficBalance(balance2).futureValue
+      manager.addTrafficPurchased(balance2).futureValue
       countDownLatch.countDown()
       getBalanceF.futureValue.valueOrFailShutdown("getting balance").futureValue shouldBe Some(
         balance
@@ -162,8 +167,8 @@ class TrafficBalanceManagerTest
       val manager = mkManager
       manager.setSafeToPruneBeforeExclusive(timestamp.plusSeconds(1))
       loggerFactory.suppressWarnings(
-        manager.getTrafficBalanceAt(member, timestamp).value.futureValueUS shouldBe Left(
-          TrafficBalanceAlreadyPruned(member, timestamp)
+        manager.getTrafficPurchasedAt(member, timestamp).value.futureValueUS shouldBe Left(
+          TrafficPurchasedAlreadyPruned(member, timestamp)
         )
       )
     }
@@ -172,20 +177,20 @@ class TrafficBalanceManagerTest
       val manager = mkManager
       val balance1 = mkBalance(2, 100)
       val balance2 = mkBalance(1, 300, timestamp.plusSeconds(1))
-      manager.addTrafficBalance(balance1).futureValue
-      manager.addTrafficBalance(balance2).futureValue
+      manager.addTrafficPurchased(balance1).futureValue
+      manager.addTrafficPurchased(balance2).futureValue
 
       assertBalance(manager, timestamp.plusSeconds(1), balance1)
     }
 
     "return a balance even if the requested timestamp is after the last update, but no updates are in flight" in {
       val manager = mkManager
-      manager.addTrafficBalance(balance).futureValue
+      manager.addTrafficPurchased(balance).futureValue
 
       val desiredTimestamp = timestamp.plusSeconds(5)
       val lastSeen = timestamp
       manager
-        .getTrafficBalanceAt(member, desiredTimestamp, Some(lastSeen))
+        .getTrafficPurchasedAt(member, desiredTimestamp, Some(lastSeen))
         .value
         .futureValueUS shouldBe Right(
         Some(
@@ -196,12 +201,12 @@ class TrafficBalanceManagerTest
 
     "log a warning if returning a balance when no lastSeen was provided and the desired timestamp is after the last update" in {
       val manager = mkManager
-      manager.addTrafficBalance(balance).futureValue
+      manager.addTrafficPurchased(balance).futureValue
 
       val desiredTimestamp = timestamp.plusSeconds(5)
 
       val balanceF = loggerFactory.assertLogs(
-        manager.getTrafficBalanceAt(member, desiredTimestamp).value,
+        manager.getTrafficPurchasedAt(member, desiredTimestamp).value,
         _.warningMessage should include(
           s"The desired timestamp $desiredTimestamp is more recent than the last update $timestamp, and no 'lastSeen' timestamp was provided. The provided balance may not be up to date if a balance update is being processed."
         ),
@@ -213,20 +218,20 @@ class TrafficBalanceManagerTest
 
     "wait to see the relevant update before returning the balance if there is an update in flight" in {
       val manager = mkManager
-      manager.addTrafficBalance(balance).futureValue
+      manager.addTrafficPurchased(balance).futureValue
 
       val desiredTimestamp = timestamp.plusSeconds(5)
       val lastSeen = timestamp.plusSeconds(1)
 
       // We should be waiting, so make sure the future does not complete
-      val resultF = manager.getTrafficBalanceAt(member, desiredTimestamp, Some(lastSeen)).value
+      val resultF = manager.getTrafficPurchasedAt(member, desiredTimestamp, Some(lastSeen)).value
       always() {
         resultF.isCompleted shouldBe false
       }
 
       // Update the balance just before lastSeen
       val balance2 = mkBalance(2, 100, lastSeen.immediatePredecessor)
-      manager.addTrafficBalance(balance2).futureValue
+      manager.addTrafficPurchased(balance2).futureValue
       manager.tick(lastSeen)
 
       // balance2 just became active before last seen, so it should be the one returned
@@ -242,9 +247,9 @@ class TrafficBalanceManagerTest
       val balance2 = mkBalance(2, 200, t0.plusSeconds(1))
       val balance3 = mkBalance(3, 300, t0.plusSeconds(3))
 
-      manager.addTrafficBalance(balance).futureValue
-      manager.addTrafficBalance(balance2).futureValue
-      manager.addTrafficBalance(balance3).futureValue
+      manager.addTrafficPurchased(balance).futureValue
+      manager.addTrafficPurchased(balance2).futureValue
+      manager.addTrafficPurchased(balance3).futureValue
 
       // Set the clock at t0 + 1, this way, the first pruning will run at t0 + 3 (pruning window is 2s),
       // which means everything < t0 + 1 will be prunable
@@ -257,7 +262,7 @@ class TrafficBalanceManagerTest
 
       // Run an update to trigger pruning
       val balance4 = mkBalance(4, 400, t0.plusSeconds(5))
-      manager.addTrafficBalance(balance4).futureValue
+      manager.addTrafficPurchased(balance4).futureValue
       manager.tick(t0.plusSeconds(5).immediateSuccessor)
 
       eventually() {
@@ -274,7 +279,7 @@ class TrafficBalanceManagerTest
       clock.advanceTo(t0.plusSeconds(8)) // t0 + 8
       // Force a prune by adding a balance
       val balance5 = mkBalance(5, 500, t0.plusSeconds(20))
-      manager.addTrafficBalance(balance5).futureValue
+      manager.addTrafficPurchased(balance5).futureValue
 
       eventually() {
         assertFailed(manager, t0.immediateSuccessor)
@@ -299,11 +304,11 @@ class TrafficBalanceManagerTest
 
       // Write a bunch of updates - sequentially because otherwise we could have updates be skipped because serials
       // arrive out of order. But don't wait on the future here
-      val writeF = MonadUtil.sequentialTraverse_(updates.toList)(manager.addTrafficBalance)
+      val writeF = MonadUtil.sequentialTraverse_(updates.toList)(manager.addTrafficPurchased)
 
       // In the meantime, start reading the updates concurrently
       val reads = updates.toList.parTraverse { u =>
-        manager.getTrafficBalanceAt(
+        manager.getTrafficPurchasedAt(
           member,
           u.sequencingTimestamp.immediateSuccessor,
           lastSeenO = Some(u.sequencingTimestamp),

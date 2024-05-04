@@ -8,7 +8,9 @@ import com.digitalasset.canton.config.RequireTypes
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveLong}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.sequencing.traffic.{TrafficConsumed, TrafficPurchased}
 import com.digitalasset.canton.store.db.RequiredTypesCodec.nonNegativeLongOptionGetResult
+import com.digitalasset.canton.topology.Member
 import slick.jdbc.{GetResult, SetParameter}
 
 /** Traffic state stored in the sequencer per event needed for enforcing traffic control */
@@ -38,6 +40,15 @@ final case class TrafficState(
     extraTrafficRemainder = extraTrafficRemainder,
     extraTrafficConsumed = extraTrafficConsumed,
   )
+
+  def toTrafficConsumed(member: Member): TrafficConsumed = TrafficConsumed(
+    member = member,
+    sequencingTimestamp = timestamp,
+    extraTrafficConsumed = extraTrafficConsumed,
+    baseTrafficRemainder = baseTrafficRemainder,
+  )
+
+  def toTrafficPurchased(member: Member): Option[TrafficPurchased] = None
 
   override def pretty: Pretty[TrafficState] = prettyOfClass(
     param("timestamp", _.timestamp),

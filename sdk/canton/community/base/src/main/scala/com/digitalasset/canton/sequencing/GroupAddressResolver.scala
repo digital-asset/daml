@@ -1,23 +1,16 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.domain.sequencing.sequencer
+package com.digitalasset.canton.sequencing
 
-import com.digitalasset.canton.crypto.{SyncCryptoApi, SyncCryptoClient}
-import com.digitalasset.canton.sequencing.protocol.{
-  AllMembersOfDomain,
-  GroupRecipient,
-  MediatorGroupRecipient,
-  ParticipantsOfParty,
-  SequencersOfDomain,
-}
+import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{MediatorGroup, Member, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class GroupAddressResolver(cryptoApi: SyncCryptoClient[SyncCryptoApi]) {
+object GroupAddressResolver {
   def resolveGroupsToMembers(
       groupRecipients: Set[GroupRecipient],
       topologySnapshot: TopologySnapshot,

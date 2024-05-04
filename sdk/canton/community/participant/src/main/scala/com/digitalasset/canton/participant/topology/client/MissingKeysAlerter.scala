@@ -8,6 +8,7 @@ import com.digitalasset.canton.crypto.store.CryptoPrivateStore
 import com.digitalasset.canton.crypto.{Fingerprint, KeyPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.processing.*
@@ -83,11 +84,12 @@ class MissingKeysAlerter(
     lazy val errorMsg =
       s"Error checking if key $fingerprint associated with this participant node on domain $domainId is present in the public crypto store"
     cryptoPrivateStore.existsPrivateKey(fingerprint, purpose).value.onComplete {
-      case Success(Right(false)) =>
+      case Success(Outcome(Right(false))) =>
         logger.error(
           s"On domain $domainId, the key $fingerprint for $purpose is associated with this participant node, but this key is not present in the private crypto store."
         )
-      case Success(Left(storeError)) => logger.error(errorMsg, storeError)
+      case Success(Outcome(Left(storeError))) => logger.error(errorMsg, storeError)
+      case Success(AbortedDueToShutdown) => ()
       case Failure(exception) => logger.error(errorMsg, exception)
       case _ => ()
     }

@@ -16,6 +16,7 @@ import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissio
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
 import com.digitalasset.canton.sequencing.{
   AsyncResult,
   HandlerResult,
@@ -29,7 +30,6 @@ import com.digitalasset.canton.store.SequencedEventStore.{
 import com.digitalasset.canton.topology.processing.SequencedTime
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
-import com.digitalasset.canton.traffic.TrafficControlProcessor
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.version.ProtocolVersion
