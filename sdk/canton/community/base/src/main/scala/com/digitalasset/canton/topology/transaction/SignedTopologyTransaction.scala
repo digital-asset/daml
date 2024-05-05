@@ -11,6 +11,7 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -18,13 +19,12 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbSerializationException
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.*
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.reflect.ClassTag
 
 /** A signed topology transaction
@@ -160,7 +160,7 @@ object SignedTopologyTransaction
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[Future, SigningError, SignedTopologyTransaction[Op, M]] =
+  ): EitherT[FutureUnlessShutdown, SigningError, SignedTopologyTransaction[Op, M]] =
     for {
       signaturesNE <- signingKeys.toSeq.toNEF.parTraverse(
         crypto.sign(transaction.hash.hash, _)
@@ -180,7 +180,7 @@ object SignedTopologyTransaction
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[Future, String, SignedTopologyTransaction[Op, M]] = {
+  ): EitherT[FutureUnlessShutdown, String, SignedTopologyTransaction[Op, M]] = {
     val originTx = signedTx.transaction
 
     // Convert and resign the transaction if the topology transaction version does not match the expected version

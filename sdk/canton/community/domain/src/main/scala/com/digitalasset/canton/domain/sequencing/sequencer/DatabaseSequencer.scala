@@ -33,6 +33,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SubmissionRequest,
   TrafficState,
 }
+import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.{
@@ -45,7 +46,6 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
-import com.digitalasset.canton.traffic.TrafficControlErrors
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.FutureUtil.doNotAwait
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -259,10 +259,10 @@ class DatabaseSequencer(
 
   override protected def sendAsyncInternal(submission: SubmissionRequest)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SendAsyncError, Unit] =
+  ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] =
     for {
       // TODO(#12405) Support aggregatable submissions in the DB sequencer
-      _ <- EitherT.cond[Future](
+      _ <- EitherT.cond[FutureUnlessShutdown](
         submission.aggregationRule.isEmpty,
         (),
         SendAsyncError.RequestRefused(
@@ -270,7 +270,7 @@ class DatabaseSequencer(
         ),
       )
       // TODO(#12363) Support group addresses in the DB Sequencer
-      _ <- EitherT.cond[Future](
+      _ <- EitherT.cond[FutureUnlessShutdown](
         !submission.batch.allRecipients.exists {
           case _: MemberRecipient => false
           case _ => true
@@ -280,7 +280,7 @@ class DatabaseSequencer(
           "Group addresses are not yet supported by this database sequencer"
         ),
       )
-      _ <- writer.send(submission)
+      _ <- writer.send(submission).mapK(FutureUnlessShutdown.outcomeK)
     } yield ()
 
   protected def blockSequencerWriteInternal(
@@ -292,7 +292,7 @@ class DatabaseSequencer(
 
   override protected def sendAsyncSignedInternal(
       signedSubmission: SignedContent[SubmissionRequest]
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] =
     sendAsyncInternal(signedSubmission.content)
 
   override def readInternal(member: Member, offset: SequencerCounter)(implicit
@@ -449,10 +449,10 @@ class DatabaseSequencer(
       traceContext: TraceContext
   ): FutureUnlessShutdown[SequencerTrafficStatus] =
     FutureUnlessShutdown.pure(SequencerTrafficStatus(Seq.empty))
-  override def setTrafficBalance(
+  override def setTrafficPurchased(
       member: Member,
       serial: PositiveInt,
-      totalTrafficBalance: NonNegativeLong,
+      totalTrafficPurchased: NonNegativeLong,
       sequencerClient: SequencerClient,
   )(implicit
       traceContext: TraceContext

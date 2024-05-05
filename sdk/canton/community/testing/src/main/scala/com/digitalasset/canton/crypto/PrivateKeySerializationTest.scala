@@ -27,11 +27,13 @@ trait PrivateKeySerializationTest extends BaseTest { this: AsyncWordSpec =>
             publicKey <- crypto.privateCrypto
               .generateEncryptionKey(encryptionKeyScheme)
               .valueOrFail("generate enc key")
+              .failOnShutdown
             privateKey <- cryptoPrivateStore
               .decryptionKey(publicKey.id)
               .leftMap(_.toString)
               .subflatMap(_.toRight("Private key not found"))
               .valueOrFail("get key")
+              .failOnShutdown
             keyP = privateKey.toProtoVersioned(testedProtocolVersion)
             key2 = EncryptionPrivateKey.fromProtoVersioned(keyP).valueOrFail("serialize key")
           } yield privateKey shouldEqual key2
@@ -47,11 +49,13 @@ trait PrivateKeySerializationTest extends BaseTest { this: AsyncWordSpec =>
             publicKey <- crypto.privateCrypto
               .generateSigningKey(signingKeyScheme)
               .valueOrFail("generate signing key")
+              .failOnShutdown
             privateKey <- cryptoPrivateStore
               .signingKey(publicKey.id)
               .leftMap(_.toString)
               .subflatMap(_.toRight("Private key not found"))
               .valueOrFail("get key")
+              .failOnShutdown
             privateKeyP = privateKey.toProtoVersioned(testedProtocolVersion)
             privateKey2 = SigningPrivateKey
               .fromProtoVersioned(privateKeyP)

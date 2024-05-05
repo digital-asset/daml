@@ -28,6 +28,7 @@ trait CryptoTestHelper extends BaseTest {
     crypto
       .generateEncryptionKey(scheme)
       .valueOrFail("generate encryption key")
+      .failOnShutdown
 
   /** Helper method to get two different encryption public keys.
     */
@@ -54,6 +55,7 @@ trait CryptoTestHelper extends BaseTest {
     crypto
       .generateSigningKey(scheme)
       .valueOrFail("generate signing key")
+      .failOnShutdown
   }
 
   /** Helper method to get two different signing public keys.

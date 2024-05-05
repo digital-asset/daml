@@ -233,7 +233,7 @@ class QueueBasedDomainOutbox(
 
           _ = lastDispatched.set(notPresent.lastOption)
           // Try to convert if necessary the topology transactions for the required protocol version of the domain
-          convertedTxs <- performUnlessClosingEitherU(functionFullName) {
+          convertedTxs <- performUnlessClosingEitherUSF(functionFullName) {
             convertTransactions(notPresent)
           }
           // dispatch to domain

@@ -57,12 +57,12 @@ class TrafficControlSequencerAdministrationGroup(
       )
     )
   }
-  @Help.Summary("Set the traffic balance of a member")
+  @Help.Summary("Set the traffic purchased entry of a member")
   @Help.Description(
-    """Use this command to set the new traffic balance of a member.
-      | member: member for which the traffic balance is to be set
+    """Use this command to set the new traffic purchased entry of a member.
+      | member: member for which the traffic purchased entry is to be set
       | serial: serial number of the request, must be strictly greater than the latest update made for that member
-      | newBalance: new traffic balance to be set
+      | newBalance: new traffic purchased entry to be set
       |
       | returns: the max sequencing time used for the update
       | After and only after that time, if the new balance still does not appear in the traffic state,
@@ -77,7 +77,7 @@ class TrafficControlSequencerAdministrationGroup(
     check(FeatureFlag.Preview)(
       consoleEnvironment.run(
         runner.adminCommand(
-          SequencerAdminCommands.SetTrafficBalance(member, serial, newBalance)
+          SequencerAdminCommands.SetTrafficPurchased(member, serial, newBalance)
         )
       )
     )

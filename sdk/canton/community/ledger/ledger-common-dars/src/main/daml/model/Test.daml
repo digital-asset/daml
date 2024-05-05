@@ -444,3 +444,16 @@ template MultiPartyContract
         actualContract <- fetch cid
         return ()
 
+template DiscloseCreate
+  with
+    owner: Party
+  where
+    signatory owner
+
+    choice DiscloseCreate_To: ()
+      with disclosee: Party
+      observer disclosee
+      controller owner
+      do
+        create Dummy with operator = owner
+        return ()

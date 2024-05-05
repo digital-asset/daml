@@ -170,6 +170,7 @@ trait EncryptionTest extends BaseTest with CryptoTestHelper { this: AsyncWordSpe
         message2 <- crypto.privateCrypto
           .decrypt(encrypted)(TestMessage.fromByteString)
           .valueOrFail("decrypt")
+          .failOnShutdown
       } yield message shouldEqual message2
     }
 
@@ -189,7 +190,8 @@ trait EncryptionTest extends BaseTest with CryptoTestHelper { this: AsyncWordSpe
         message2 <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
           crypto.privateCrypto
             .decrypt(encrypted2)(TestMessage.fromByteString)
-            .value,
+            .value
+            .failOnShutdown,
           LogEntry.assertLogSeq(
             Seq.empty,
             Seq(

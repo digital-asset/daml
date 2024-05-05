@@ -12,7 +12,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.domain.sequencing.service.DirectSequencerSubscriptionFactory
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
-import com.digitalasset.canton.lifecycle.{OnShutdownRunner, SyncCloseable}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, OnShutdownRunner, SyncCloseable}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.sequencing.SerializedEventHandler
@@ -66,7 +66,9 @@ class DirectSequencerClientTransport(
   override def sendAsyncSigned(
       request: SignedContent[SubmissionRequest],
       timeout: Duration,
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientResponseError, Unit] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] =
     sequencer
       .sendAsyncSigned(request)
       .leftMap(SendAsyncClientError.RequestRefused)

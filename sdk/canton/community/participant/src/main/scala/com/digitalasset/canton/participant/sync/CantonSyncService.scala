@@ -345,6 +345,7 @@ class CantonSyncService(
       CantonAuthorityResolver.topologyUnawareAuthorityResolver,
       None,
       engine,
+      parameters.engine.validationPhaseLogging,
       loggerFactory,
     )
 

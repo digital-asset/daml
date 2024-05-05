@@ -22,7 +22,8 @@ final case class UsedAndCreated(
 }
 
 final case class UsedAndCreatedContracts(
-    witnessedAndDivulged: Map[LfContractId, SerializableContract],
+    witnessed: Map[LfContractId, SerializableContract],
+    divulged: Map[LfContractId, SerializableContract],
     checkActivenessTxInputs: Set[LfContractId],
     consumedInputsOfHostedStakeholders: Map[LfContractId, WithContractHash[Set[LfPartyId]]],
     used: Map[LfContractId, SerializableContract],

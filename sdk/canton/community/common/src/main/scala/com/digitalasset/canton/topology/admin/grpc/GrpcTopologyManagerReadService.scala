@@ -11,9 +11,10 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Crypto, Fingerprint}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonError
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.wrapErr
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.{wrapErr, wrapErrUS}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.admin.v30.{
@@ -228,23 +229,26 @@ class GrpcTopologyManagerReadService(
       namespaceFilter: Option[String],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CantonError, Seq[(TransactionSearchResult, TopologyMapping)]] = {
+  ): EitherT[FutureUnlessShutdown, CantonError, Seq[(TransactionSearchResult, TopologyMapping)]] = {
 
     def fromStore(
         baseQuery: BaseQuery,
         store: topology.store.TopologyStore[TopologyStoreId],
-    ): Future[Seq[(TransactionSearchResult, TopologyMapping)]] = {
+    ): FutureUnlessShutdown[Seq[(TransactionSearchResult, TopologyMapping)]] = {
       val storeId = store.storeId
 
-      store
-        .inspect(
-          proposals = baseQuery.proposals,
-          timeQuery = baseQuery.timeQuery,
-          recentTimestampO = getApproximateTimestamp(storeId),
-          op = baseQuery.ops,
-          types = Seq(typ),
-          idFilter = idFilter,
-          namespaceFilter = namespaceFilter,
+      FutureUnlessShutdown
+        .outcomeF(
+          store
+            .inspect(
+              proposals = baseQuery.proposals,
+              timeQuery = baseQuery.timeQuery,
+              recentTimestampO = getApproximateTimestamp(storeId),
+              op = baseQuery.ops,
+              types = Seq(typ),
+              idFilter = idFilter,
+              namespaceFilter = namespaceFilter,
+            )
         )
         .flatMap { col =>
           col.result
@@ -265,7 +269,7 @@ class GrpcTopologyManagerReadService(
                   }
                   .getOrElse {
                     // Keep the original transaction in its existing protocol version if no desired protocol version is specified
-                    EitherT.rightT[Future, Throwable](tx.transaction)
+                    EitherT.rightT[FutureUnlessShutdown, Throwable](tx.transaction)
                   }
 
                 result = TransactionSearchResult(
@@ -280,14 +284,14 @@ class GrpcTopologyManagerReadService(
                 )
               } yield (result, tx.transaction.transaction.mapping)
 
-              EitherTUtil.toFuture(resultE)
+              EitherTUtil.toFutureUnlessShutdown(resultE)
             }
         }
     }
 
     for {
-      baseQuery <- wrapErr(BaseQuery.fromProto(baseQueryProto))
-      stores <- collectStores(baseQuery.filterStore)
+      baseQuery <- wrapErrUS(BaseQuery.fromProto(baseQueryProto))
+      stores <- collectStores(baseQuery.filterStore).mapK(FutureUnlessShutdown.outcomeK)
       results <- EitherT.right(stores.parTraverse { store =>
         fromStore(baseQuery, store)
       })
@@ -326,7 +330,7 @@ class GrpcTopologyManagerReadService(
 
       adminProto.ListNamespaceDelegationResponse(results = results)
     }
-    CantonGrpcUtil.mapErrNew(ret)
+    CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
   override def listDecentralizedNamespaceDefinition(
@@ -352,7 +356,7 @@ class GrpcTopologyManagerReadService(
 
       adminProto.ListDecentralizedNamespaceDefinitionResponse(results = results)
     }
-    CantonGrpcUtil.mapErrNew(ret)
+    CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
   override def listIdentifierDelegation(
@@ -383,7 +387,7 @@ class GrpcTopologyManagerReadService(
 
       adminProto.ListIdentifierDelegationResponse(results = results)
     }
-    CantonGrpcUtil.mapErrNew(ret)
+    CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
   override def listOwnerToKeyMapping(
@@ -414,7 +418,7 @@ class GrpcTopologyManagerReadService(
         }
       adminProto.ListOwnerToKeyMappingResponse(results = results)
     }
-    CantonGrpcUtil.mapErrNew(ret)
+    CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
   override def listDomainTrustCertificate(
@@ -441,7 +445,7 @@ class GrpcTopologyManagerReadService(
 
       adminProto.ListDomainTrustCertificateResponse(results = results)
     }
-    CantonGrpcUtil.mapErrNew(ret)
+    CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
   override def listPartyHostingLimits(
@@ -468,7 +472,7 @@ class GrpcTopologyManagerReadService(
 
       adminProto.ListPartyHostingLimitsResponse(results = results)
     }
-    CantonGrpcUtil.mapErrNew(ret)
+    CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
   override def listParticipantDomainPermission(
@@ -495,7 +499,7 @@ class GrpcTopologyManagerReadService(
 
       adminProto.ListParticipantDomainPermissionResponse(results = results)
     }
-    CantonGrpcUtil.mapErrNew(ret)
+    CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
   override def listVettedPackages(
@@ -522,7 +526,7 @@ class GrpcTopologyManagerReadService(
 
       adminProto.ListVettedPackagesResponse(results = results)
     }
-    CantonGrpcUtil.mapErrNew(ret)
+    CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
   override def listPartyToParticipant(
@@ -557,7 +561,7 @@ class GrpcTopologyManagerReadService(
 
       adminProto.ListPartyToParticipantResponse(results = results)
     }
-    CantonGrpcUtil.mapErrNew(ret)
+    CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
   override def listAuthorityOf(
@@ -584,7 +588,7 @@ class GrpcTopologyManagerReadService(
 
       adminProto.ListAuthorityOfResponse(results = results)
     }
-    CantonGrpcUtil.mapErrNew(ret)
+    CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
   override def listDomainParametersState(
@@ -611,7 +615,7 @@ class GrpcTopologyManagerReadService(
 
       adminProto.ListDomainParametersStateResponse(results = results)
     }
-    CantonGrpcUtil.mapErrNew(ret)
+    CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
   override def listMediatorDomainState(
@@ -638,7 +642,7 @@ class GrpcTopologyManagerReadService(
 
       adminProto.ListMediatorDomainStateResponse(results = results)
     }
-    CantonGrpcUtil.mapErrNew(ret)
+    CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
   override def listSequencerDomainState(
@@ -665,7 +669,7 @@ class GrpcTopologyManagerReadService(
 
       adminProto.ListSequencerDomainStateResponse(results = results)
     }
-    CantonGrpcUtil.mapErrNew(ret)
+    CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
   override def listAvailableStores(
@@ -781,6 +785,6 @@ class GrpcTopologyManagerReadService(
 
       adminProto.ListPurgeTopologyTransactionResponse(results = results)
     }
-    CantonGrpcUtil.mapErrNew(ret)
+    CantonGrpcUtil.mapErrNewEUS(ret)
   }
 }

@@ -12,6 +12,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.{MetricValue, SequencerClientMetrics}
@@ -75,21 +76,31 @@ trait ReplayingSendsSequencerClientTransport extends SequencerClientTransportCom
 }
 
 object ReplayingSendsSequencerClientTransport {
-  final case class SendReplayReport(successful: Int = 0, overloaded: Int = 0, errors: Int = 0)(
+  final case class SendReplayReport(
+      successful: Int = 0,
+      overloaded: Int = 0,
+      errors: Int = 0,
+      shutdowns: Int = 0,
+  )(
       sendDuration: => Option[java.time.Duration]
   ) {
-    def update(result: Either[SendAsyncClientError, Unit]): SendReplayReport = result match {
-      case Left(SendAsyncClientError.RequestRefused(_: SendAsyncError.Overloaded)) =>
-        copy(overloaded = overloaded + 1)
-      case Left(_) => copy(errors = errors + 1)
-      case Right(_) => copy(successful = successful + 1)
-    }
+    def update(
+        result: UnlessShutdown[Either[SendAsyncClientError, Unit]]
+    ): SendReplayReport =
+      result match {
+        case Outcome(Left(SendAsyncClientError.RequestRefused(_: SendAsyncError.Overloaded))) =>
+          copy(overloaded = overloaded + 1)
+        case Outcome(Left(_)) => copy(errors = errors + 1)
+        case Outcome(Right(_)) => copy(successful = successful + 1)
+        case AbortedDueToShutdown => copy(shutdowns = shutdowns + 1)
+      }
 
     def copy(
         successful: Int = this.successful,
         overloaded: Int = this.overloaded,
         errors: Int = this.errors,
-    ): SendReplayReport = SendReplayReport(successful, overloaded, errors)(sendDuration)
+        shutdowns: Int = this.shutdowns,
+    ): SendReplayReport = SendReplayReport(successful, overloaded, errors, shutdowns)(sendDuration)
 
     lazy val total: Int = successful + overloaded + errors
 
@@ -151,7 +162,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
 
   private def replaySubmit(
       submission: SubmissionRequest
-  ): Future[Either[SendAsyncClientError, Unit]] = {
+  ): FutureUnlessShutdown[Either[SendAsyncClientError, Unit]] = {
     val startedAt = CantonTimestamp.now()
     // we'll correlate received events by looking at their message-id and calculate the
     // latency of the send by comparing now to the time the event eventually arrives
@@ -195,22 +206,20 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
       item
     }
 
-    TraceContext.withNewTraceContext { traceContext =>
+    TraceContext.withNewTraceContext { implicit traceContext =>
       val withExtendedMst = extendMaxSequencingTime(submission)
       val sendET = for {
         // We need a new signature because we've modified the max sequencing time.
         signedRequest <- requestSigner
-          .signRequest(withExtendedMst, HashPurpose.SubmissionRequestSignature)(
-            implicitly,
-            traceContext,
-          )
+          .signRequest(withExtendedMst, HashPurpose.SubmissionRequestSignature)
           .leftMap(error =>
             SendAsyncClientError.RequestRefused(SendAsyncError.RequestRefused(error))
           )
-        _ <- underlyingTransport.sendAsyncSigned(
-          signedRequest,
-          replaySendsConfig.sendTimeout.toScala,
-        )(traceContext)
+        _ <- underlyingTransport
+          .sendAsyncSigned(
+            signedRequest,
+            replaySendsConfig.sendTimeout.toScala,
+          )
       } yield ()
 
       sendET.value
@@ -219,16 +228,16 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
     }
   }
 
-  override def replay(sendParallelism: Int): Future[SendReplayReport] = withNewTraceContext {
-    implicit traceContext =>
+  override def replay(sendParallelism: Int): Future[SendReplayReport] =
+    withNewTraceContext { implicit traceContext =>
       logger.info(s"Replaying ${submissionRequests.size} sends")
 
       val submissionReplay = Source(submissionRequests)
-        .mapAsyncUnordered(sendParallelism)(replaySubmit)
+        .mapAsyncUnordered(sendParallelism)(replaySubmit(_).unwrap)
         .toMat(Sink.fold(SendReplayReport()(sendDuration))(_.update(_)))(Keep.right)
 
       PekkoUtil.runSupervised(logger.error("Failed to run submission replay", _), submissionReplay)
-  }
+    }
 
   override def waitForIdle(
       duration: FiniteDuration,
@@ -370,7 +379,9 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
   override def sendAsyncSigned(
       request: SignedContent[SubmissionRequest],
       timeout: Duration,
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientResponseError, Unit] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] =
     EitherT.rightT(())
 
   /** We're replaying sends so shouldn't allow the app to send any new ones */

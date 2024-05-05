@@ -7,22 +7,22 @@ import cats.data.EitherT
 import com.digitalasset.canton.util.Thereafter.syntax.*
 
 import java.util.concurrent.locks.StampedLock
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.concurrent.blocking
 
 trait HasReadWriteLock {
 
   protected val lock = new StampedLock()
 
-  def withReadLock[A, E](
-      fn: => EitherT[Future, E, A]
-  )(implicit ec: ExecutionContext): EitherT[Future, E, A] = {
+  def withReadLock[A, E, F[_]: Thereafter](
+      fn: => EitherT[F, E, A]
+  ): EitherT[F, E, A] = {
     val stamp = blocking(lock.readLock())
     fn.thereafter(_ => lock.unlockRead(stamp))
   }
 
-  def withWriteLock[A, E](
-      fn: => EitherT[Future, E, A]
-  )(implicit ec: ExecutionContext): EitherT[Future, E, A] = {
+  def withWriteLock[A, E, F[_]: Thereafter](
+      fn: => EitherT[F, E, A]
+  ): EitherT[F, E, A] = {
     val stamp = blocking(lock.writeLock())
     fn.thereafter(_ => lock.unlockWrite(stamp))
   }

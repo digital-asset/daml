@@ -23,9 +23,9 @@ service SequencerAdministrationService {
    */
   rpc TrafficControlState(TrafficControlStateRequest) returns (TrafficControlStateResponse);
 
-  // Update the traffic balance of a member
+  // Update the traffic purchased entry of a member
   // The new balance will only become valid once authorized by a quorum of sequencers of the domain
-  rpc SetTrafficBalance(SetTrafficBalanceRequest) returns (SetTrafficBalanceResponse);
+  rpc SetTrafficPurchased(SetTrafficPurchasedRequest) returns (SetTrafficPurchasedResponse);
 
   // fetch a snapshot of the sequencer state based on the given timestamp
   rpc Snapshot(SnapshotRequest) returns (SnapshotResponse);
@@ -50,14 +50,14 @@ message TrafficControlStateResponse {
   repeated com.digitalasset.canton.admin.traffic.v30.MemberTrafficStatus traffic_states = 1;
 }
 
-message SetTrafficBalanceRequest {
+message SetTrafficPurchasedRequest {
   string member = 1; // Member to top up
   uint32 serial = 2; // Serial number of the request, will be used for idempotency
-  int64 total_traffic_balance = 3; // Amount of traffic to top up
+  int64 total_traffic_purchased = 3; // Amount of traffic to purchase
 }
 
-message SetTrafficBalanceResponse {
-  // Max sequencing timestamp used to send the request. If the new balance is not visible after this timestamp,
+message SetTrafficPurchasedResponse {
+  // Max sequencing timestamp used to send the request. If the new purchased traffic is not visible after this timestamp,
   // the caller should retry it.
   google.protobuf.Timestamp max_sequencing_timestamp = 1;
 }

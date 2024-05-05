@@ -15,6 +15,7 @@ import com.digitalasset.canton.config.{
   TestingConfigInternal,
 }
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.config.PublicServerConfig
@@ -71,7 +72,12 @@ import com.digitalasset.canton.sequencing.handlers.{
   EnvelopeOpener,
   StripSignature,
 }
-import com.digitalasset.canton.sequencing.protocol.SequencedEvent
+import com.digitalasset.canton.sequencing.protocol.{SequencedEvent, TrafficState}
+import com.digitalasset.canton.sequencing.traffic.{
+  EventCostCalculator,
+  TrafficControlProcessor,
+  TrafficStateController,
+}
 import com.digitalasset.canton.sequencing.{
   BoxedEnvelope,
   HandlerResult,
@@ -92,7 +98,6 @@ import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{TopologyStateForInitializationService, TopologyStore}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.traffic.TrafficControlProcessor
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.FutureUtil
 import io.grpc.{ServerInterceptors, ServerServiceDefinition}
@@ -366,6 +371,17 @@ class SequencerRuntime(
       loggerFactory,
     )
 
+  private val trafficStateController = new TrafficStateController(
+    sequencerId,
+    loggerFactory,
+    syncCrypto,
+    TrafficState.empty(CantonTimestamp.Epoch),
+    staticDomainParameters.protocolVersion,
+    new EventCostCalculator(loggerFactory),
+    futureSupervisor,
+    timeouts,
+  )
+
   private val client: SequencerClient =
     new SequencerClientImplPekko[DirectSequencerClientTransport.SubscriptionError](
       domainId,
@@ -398,8 +414,9 @@ class SequencerRuntime(
       metrics.sequencerClient,
       None,
       replayEnabled = false,
-      syncCrypto.pureCrypto,
+      syncCrypto,
       localNodeParameters.loggingConfig,
+      trafficStateController,
       loggerFactory,
       futureSupervisor,
       sequencer.firstSequencerCounterServeableForSequencer,

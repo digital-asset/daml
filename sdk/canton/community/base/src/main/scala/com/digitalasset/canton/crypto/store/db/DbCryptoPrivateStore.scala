@@ -11,6 +11,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.KeyPurpose.{Encryption, Signing}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.*
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.DbStorage.DbAction
 import com.digitalasset.canton.resource.DbStorage.Implicits.*
@@ -148,35 +149,38 @@ class DbCryptoPrivateStore(
       purpose: KeyPurpose,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPrivateStoreError, Option[StoredPrivateKey]] =
-    EitherTUtil.fromFuture(
-      storage
-        .querySingle(
-          queryKey(keyId, purpose),
-          functionFullName,
-        )
-        .value,
-      err => CryptoPrivateStoreError.FailedToReadKey(keyId, err.toString),
-    )
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[StoredPrivateKey]] =
+    EitherTUtil
+      .fromFuture[CryptoPrivateStoreError, Option[StoredPrivateKey]](
+        storage
+          .querySingle(
+            queryKey(keyId, purpose),
+            functionFullName,
+          )
+          .value,
+        err => CryptoPrivateStoreError.FailedToReadKey(keyId, err.toString),
+      )
+      .mapK(FutureUnlessShutdown.outcomeK)
 
   private[crypto] def writePrivateKey(
       key: StoredPrivateKey
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPrivateStoreError, Unit] =
-    insertKey(key)
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] =
+    insertKey(key).mapK(FutureUnlessShutdown.outcomeK)
 
   @VisibleForTesting
   private[canton] def listPrivateKeys(purpose: KeyPurpose, encrypted: Boolean)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
     EitherTUtil
-      .fromFuture(
+      .fromFuture[CryptoPrivateStoreError, Set[StoredPrivateKey]](
         storage
           .query(queryKeys(purpose), functionFullName)
           .map(keys => keys.filter(_.isEncrypted == encrypted)),
         err => CryptoPrivateStoreError.FailedToListKeys(err.toString),
       )
+      .mapK(FutureUnlessShutdown.outcomeK)
 
   private def deleteKey(keyId: Fingerprint): SqlAction[Int, NoStream, Effect.Write] =
     sqlu"delete from common_crypto_private_keys where key_id = $keyId"
@@ -186,19 +190,21 @@ class DbCryptoPrivateStore(
     */
   private[crypto] def replaceStoredPrivateKeys(newKeys: Seq[StoredPrivateKey])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPrivateStoreError, Unit] =
-    EitherTUtil.fromFuture(
-      storage
-        .update_(
-          DBIOAction
-            .sequence(
-              newKeys.map(key => deleteKey(key.id).andThen(insertKeyUpdate(key)))
-            )
-            .transactionally,
-          functionFullName,
-        ),
-      err => CryptoPrivateStoreError.FailedToReplaceKeys(newKeys.map(_.id), err.toString),
-    )
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] =
+    EitherTUtil
+      .fromFuture[CryptoPrivateStoreError, Unit](
+        storage
+          .update_(
+            DBIOAction
+              .sequence(
+                newKeys.map(key => deleteKey(key.id).andThen(insertKeyUpdate(key)))
+              )
+              .transactionally,
+            functionFullName,
+          ),
+        err => CryptoPrivateStoreError.FailedToReplaceKeys(newKeys.map(_.id), err.toString),
+      )
+      .mapK(FutureUnlessShutdown.outcomeK)
 
   private[crypto] def deletePrivateKey(keyId: Fingerprint)(implicit
       traceContext: TraceContext
@@ -213,7 +219,7 @@ class DbCryptoPrivateStore(
       keyId: Fingerprint
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPrivateStoreError, Option[String300]] =
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[String300]] =
     (for {
       sigStoreKey <- readPrivateKey(keyId, Signing)
       storedKey <- sigStoreKey.fold(readPrivateKey(keyId, Encryption))(key =>

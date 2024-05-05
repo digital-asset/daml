@@ -9,9 +9,9 @@ import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregation.AggregationBySender
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.MemberTrafficSnapshot
-import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalance
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.sequencing.protocol.{AggregationId, AggregationRule}
+import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, Member}
@@ -28,7 +28,7 @@ final case class SequencerSnapshot(
     inFlightAggregations: InFlightAggregations,
     additional: Option[SequencerSnapshot.ImplementationSpecificInfo],
     trafficSnapshots: Map[Member, MemberTrafficSnapshot],
-    trafficBalances: Seq[TrafficBalance],
+    trafficPurchased: Seq[TrafficPurchased],
 )(override val representativeProtocolVersion: RepresentativeProtocolVersion[SequencerSnapshot.type])
     extends HasProtocolVersionedWrapper[SequencerSnapshot] {
 
@@ -71,7 +71,7 @@ final case class SequencerSnapshot(
       trafficSnapshots = trafficSnapshots.toList.map { case (_member, snapshot) =>
         snapshot.toProtoV30
       },
-      trafficBalances = trafficBalances.map(_.toProtoV30),
+      trafficPurchased = trafficPurchased.map(_.toProtoV30),
     )
   }
 }
@@ -94,7 +94,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
       additional: Option[SequencerSnapshot.ImplementationSpecificInfo],
       protocolVersion: ProtocolVersion,
       trafficState: Map[Member, MemberTrafficSnapshot],
-      trafficBalances: Seq[TrafficBalance],
+      trafficPurchased: Seq[TrafficPurchased],
   ): SequencerSnapshot =
     SequencerSnapshot(
       lastTs,
@@ -103,7 +103,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
       inFlightAggregations,
       additional,
       trafficState,
-      trafficBalances,
+      trafficPurchased,
     )(protocolVersionRepresentativeFor(protocolVersion))
 
   def unimplemented(protocolVersion: ProtocolVersion): SequencerSnapshot = SequencerSnapshot(
@@ -186,7 +186,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
         .traverse(parseInFlightAggregationWithId)
         .map(_.toMap)
       trafficSnapshots <- request.trafficSnapshots.traverse(MemberTrafficSnapshot.fromProtoV30)
-      trafficBalances <- request.trafficBalances.traverse(TrafficBalance.fromProtoV30)
+      trafficPurchased <- request.trafficPurchased.traverse(TrafficPurchased.fromProtoV30)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield SequencerSnapshot(
       lastTs,
@@ -195,7 +195,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
       inFlightAggregations,
       request.additional.map(a => ImplementationSpecificInfo(a.implementationName, a.info)),
       trafficSnapshots = trafficSnapshots.map(s => s.member -> s).toMap,
-      trafficBalances = trafficBalances,
+      trafficPurchased = trafficPurchased,
     )(rpv)
   }
 }

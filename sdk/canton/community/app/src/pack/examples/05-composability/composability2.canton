@@ -75,7 +75,7 @@ import com.digitalasset.canton.BigDecimalImplicits._
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
 import com.digitalasset.canton.examples.java.paint.{OfferToPaintHouseByOwner, PaintHouse}
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil.decodeAllCreated
-import com.digitalasset.canton.protocol.ContractIdSyntax._
+import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
 
 import scala.jdk.CollectionConverters._
 

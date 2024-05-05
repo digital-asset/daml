@@ -4,7 +4,7 @@
 package com.digitalasset.canton.sequencing.client.transports
 
 import cats.data.EitherT
-import com.digitalasset.canton.lifecycle.FlagCloseable
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.sequencing.SerializedEventHandler
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.{
@@ -30,7 +30,7 @@ trait SequencerClientTransportCommon extends FlagCloseable with SupportsHandshak
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SendAsyncClientResponseError, Unit]
+  ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit]
 
   def sendAsyncUnauthenticatedVersioned(
       request: SubmissionRequest,

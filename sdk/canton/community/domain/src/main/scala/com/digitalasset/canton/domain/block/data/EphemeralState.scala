@@ -13,9 +13,9 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   InternalSequencerPruningStatus,
   SequencerSnapshot,
 }
-import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalance
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.protocol.TrafficState
+import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -51,7 +51,7 @@ final case class EphemeralState(
       lastTs: CantonTimestamp,
       additional: Option[SequencerSnapshot.ImplementationSpecificInfo],
       protocolVersion: ProtocolVersion,
-      trafficBalances: Seq[TrafficBalance],
+      trafficPurchaseds: Seq[TrafficPurchased],
   ): SequencerSnapshot =
     SequencerSnapshot(
       lastTs,
@@ -66,7 +66,7 @@ final case class EphemeralState(
           state = state,
         )
       },
-      trafficBalances,
+      trafficPurchaseds,
     )
 
   def evictExpiredInFlightAggregations(upToInclusive: CantonTimestamp): EphemeralState =

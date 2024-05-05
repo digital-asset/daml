@@ -3,8 +3,11 @@
 
 package com.digitalasset.canton.domain.metrics
 
+import cats.Eval
 import com.daml.metrics.api.MetricHandle.{Gauge, Histogram, LabeledMetricsFactory, Meter}
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
+
+import scala.collection.concurrent.TrieMap
 
 /** Metrics produced by the block update generator */
 class BlockMetrics(
@@ -52,5 +55,21 @@ class BlockMetrics(
         labelsWithDescription = labels,
       )
     )(MetricsContext.Empty)
+
+  def updateAcknowledgementGauge(sender: String, value: Long): Unit =
+    acknowledgments
+      .getOrElseUpdate(
+        sender, {
+          Eval.later(
+            openTelemetryMetricsFactory.gauge(prefix :+ "acknowledgments_micros", value)(
+              MetricsContext("sender" -> sender)
+            )
+          )
+        },
+      )
+      .value
+      .updateValue(value)
+
+  private val acknowledgments = new TrieMap[String, Eval[Gauge[Long]]]()
 
 }

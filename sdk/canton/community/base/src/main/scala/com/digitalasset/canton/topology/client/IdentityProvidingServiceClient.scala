@@ -481,10 +481,11 @@ trait DomainGovernanceSnapshotClient {
   this: BaseTopologySnapshotClient with NamedLogging =>
 
   def trafficControlParameters[A](
-      protocolVersion: ProtocolVersion
+      protocolVersion: ProtocolVersion,
+      warnOnUsingDefault: Boolean = true,
   )(implicit tc: TraceContext): FutureUnlessShutdown[Option[TrafficControlParameters]] =
     FutureUnlessShutdown.outcomeF {
-      findDynamicDomainParametersOrDefault(protocolVersion)
+      findDynamicDomainParametersOrDefault(protocolVersion, warnOnUsingDefault = warnOnUsingDefault)
         .map(_.trafficControlParameters)
     }
 

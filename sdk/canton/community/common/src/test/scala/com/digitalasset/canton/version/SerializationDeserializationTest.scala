@@ -14,6 +14,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   ClosedEnvelope,
   GeneratorsProtocol as GeneratorsProtocolSequencing,
   MaxRequestSizeToDeserialize,
+  SequencingSubmissionCost,
   SubmissionRequest,
   SubscriptionRequest,
   TopologyStateForInitRequest,
@@ -87,6 +88,7 @@ class SerializationDeserializationTest
         testProtocolVersioned(AcknowledgeRequest)
         testProtocolVersioned(AggregationRule)
         testProtocolVersioned(ClosedEnvelope)
+        testProtocolVersioned(SequencingSubmissionCost)
 
         testVersioned(ContractMetadata)(
           generatorsProtocol.contractMetadataArb(canHaveEmptyKey = true)
@@ -128,7 +130,7 @@ class SerializationDeserializationTest
           TestHash,
         )
         testProtocolVersioned(Batch)
-        testProtocolVersioned(SetTrafficBalanceMessage)
+        testProtocolVersioned(SetTrafficPurchasedMessage)
         testMemoizedProtocolVersionedWithCtx(
           SubmissionRequest,
           MaxRequestSizeToDeserialize.NoLimit,

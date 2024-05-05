@@ -55,7 +55,6 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
 import com.digitalasset.canton.util.EitherUtil.RichEither
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.ProtocolVersion
@@ -396,11 +395,13 @@ abstract class ProtocolProcessor[
               maxSequencingTime,
               ephemeral.sessionKeyStore,
             )
-            _ <- EitherT.right[SubmissionTrackingData](
-              inFlightSubmissionTracker.updateRegistration(inFlightSubmission, batch.rootHash)
-            )
+            _ <- EitherT
+              .right[SubmissionTrackingData](
+                inFlightSubmissionTracker.updateRegistration(inFlightSubmission, batch.rootHash)
+              )
+              .mapK(FutureUnlessShutdown.outcomeK)
           } yield batch
-          unlessError(batchF.mapK(FutureUnlessShutdown.outcomeK))(sendBatch)
+          unlessError(batchF)(sendBatch)
         }
     }
 
@@ -703,7 +704,6 @@ abstract class ProtocolProcessor[
         )
         decryptedViews <- steps
           .decryptViews(viewMessages, snapshot, ephemeral.sessionKeyStore)
-          .mapK(FutureUnlessShutdown.outcomeK)
       } yield (snapshot, decisionTime, decryptedViews)
 
       for {
@@ -1136,9 +1136,7 @@ abstract class ProtocolProcessor[
 
       responsesTo <- responsesToET
       signedResponsesTo <- EitherT.right(responsesTo.parTraverse { case (response, recipients) =>
-        FutureUnlessShutdown.outcomeF(
-          signResponse(snapshot, response).map(_ -> recipients)
-        )
+        signResponse(snapshot, response).map(_ -> recipients)
       })
       engineAbortStatus <- EitherT.right(pendingData.engineAbortStatusF)
       _ <-
@@ -1212,7 +1210,6 @@ abstract class ProtocolProcessor[
           .right(responses.parTraverse { response =>
             signResponse(snapshot, response).map(_ -> recipients)
           })
-          .mapK(FutureUnlessShutdown.outcomeK)
 
         _ <- sendResponses(requestId, messages)
           .leftMap(err => steps.embedRequestError(SequencerRequestError(err)))

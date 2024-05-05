@@ -15,6 +15,7 @@ import com.digitalasset.canton.data.ViewType.TransferViewType
 import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata, ViewType}
 import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
 import com.digitalasset.canton.participant.RequestOffset
@@ -48,7 +49,6 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter}
 
@@ -154,7 +154,7 @@ trait TransferProcessingSteps[
       envelope: OpenEnvelope[EncryptedViewMessage[RequestViewType]]
   )(implicit
       tc: TraceContext
-  ): EitherT[Future, EncryptedViewMessageError, WithRecipients[
+  ): EitherT[FutureUnlessShutdown, EncryptedViewMessageError, WithRecipients[
     DecryptedView
   ]]
 
@@ -164,7 +164,7 @@ trait TransferProcessingSteps[
       sessionKeyStore: SessionKeyStore,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, DecryptedViews] = {
+  ): EitherT[FutureUnlessShutdown, TransferProcessorError, DecryptedViews] = {
     val result = for {
       decryptedEitherList <- batch.toNEF.parTraverse(
         decryptTree(snapshot, sessionKeyStore)(_).value

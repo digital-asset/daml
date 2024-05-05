@@ -54,6 +54,7 @@ class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecu
       val signature =
         Await
           .result(p1.currentSnapshotApproximation.sign(hash).value, 10.seconds)
+          .failOnShutdown
           .valueOr(err => fail(s"Failed to sign: $err"))
 
       "signature of participant1 is verifiable by participant1" in {
@@ -96,6 +97,7 @@ class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecu
       "participant2 can't sign messages without appropriate keys" in {
         Await
           .result(p2.currentSnapshotApproximation.sign(hash).value, 10.seconds)
+          .failOnShutdown
           .left
           .value shouldBe a[SyncCryptoError]
       }
@@ -194,6 +196,7 @@ class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecu
       val signature =
         Await
           .result(p2.currentSnapshotApproximation.sign(hash).value, 10.seconds)
+          .failOnShutdown
           .valueOr(err => fail(s"Failed to sign: $err"))
 
       "participant2 signatures are valid" in {

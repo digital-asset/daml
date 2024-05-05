@@ -2113,7 +2113,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             FeatureFlag.Testing,
           )
           @Help.Description(
-            """This function can be used for contracts with a code-generated Scala model.
+            """This function can be used for contracts with a code-generated Java model.
               |You can refine your search using the `filter` function argument.
               |The command will wait until the contract appears or throw an exception once it times out."""
           )

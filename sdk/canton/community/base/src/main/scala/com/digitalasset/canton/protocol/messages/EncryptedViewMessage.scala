@@ -13,6 +13,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError.FailedToReadKey
 import com.digitalasset.canton.data.ViewType
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessageError.{
   SessionKeyCreationError,
@@ -329,7 +330,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[Future, EncryptedViewMessageError, SecureRandomness] = {
+  ): EitherT[FutureUnlessShutdown, EncryptedViewMessageError, SecureRandomness] = {
     val pureCrypto = snapshot.pureCrypto
 
     val randomnessLength = EncryptedViewMessage.computeRandomnessLength(pureCrypto)
@@ -364,7 +365,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
             .leftMap[EncryptedViewMessageError](_ =>
               WrongRandomnessLength(ciphertext.size(), randomnessLength)
             )
-            .toEitherT[Future]
+            .toEitherT[FutureUnlessShutdown]
       }
       .getOrElse {
         for {
@@ -376,12 +377,13 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
           encryptionKeys <- EitherT
             .right(snapshot.ipsSnapshot.encryptionKeys(participantId))
             .map(_.map(_.id).toSet)
+            .mapK(FutureUnlessShutdown.outcomeK)
           encryptedSessionKeyForParticipant <- encrypted.sessionKey
             .find(e => encryptionKeys.contains(e.encryptedFor))
             .toRight(
               EncryptedViewMessageError.MissingParticipantKey(participantId)
             )
-            .toEitherT[Future]
+            .toEitherT[FutureUnlessShutdown]
           _ <- snapshot.crypto.cryptoPrivateStore
             .existsDecryptionKey(encryptedSessionKeyForParticipant.encryptedFor)
             .leftMap(err => EncryptedViewMessageError.PrivateKeyStoreVerificationError(err))
@@ -416,7 +418,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
                   SyncCryptoDecryptionError(err)
                 )
               )
-          viewRandomness <- decryptViewRandomness(skRandom)
+          viewRandomness <- decryptViewRandomness(skRandom).mapK(FutureUnlessShutdown.outcomeK)
         } yield viewRandomness
       }
   }
@@ -498,7 +500,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
       implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[Future, EncryptedViewMessageError, VT#View] = {
+  ): EitherT[FutureUnlessShutdown, EncryptedViewMessageError, VT#View] = {
 
     val decryptedRandomness =
       decryptRandomness(snapshot, sessionKeyStore, encrypted, participantId)
@@ -509,7 +511,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
       )(r => EitherT.pure(r))
       decrypted <- decryptWithRandomness(snapshot, encrypted, viewRandomness)(
         deserialize
-      )
+      ).mapK(FutureUnlessShutdown.outcomeK)
     } yield decrypted
   }
 
