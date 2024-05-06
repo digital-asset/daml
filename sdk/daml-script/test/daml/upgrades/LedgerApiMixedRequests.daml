@@ -1,0 +1,52 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ApplicativeDo #-}
+
+module LedgerApiMixedRequests (main) where
+
+import UpgradeTestLib
+import qualified V1.Mixed as V1
+import qualified V2.Mixed as V2
+
+{- PACKAGE
+name: ledger-api-mixed-requests
+versions: 2
+-}
+
+{- MODULE
+package: ledger-api-mixed-requests
+contents: |
+  module Mixed where
+
+  template MixedTemplate
+    with
+      party : Party
+      someOtherData : Optional Text -- @V  2
+    where
+      signatory party
+
+      nonconsuming choice MixedChoice : () with
+        controller party
+        do
+          pure ()
+-}
+
+main : Script ()
+main = tests
+  [ ("Implicitly call V1 choice, then explicitly V2 choice.", implicitThenExplicit)
+  ]
+
+implicitThenExplicit : Script ()
+implicitThenExplicit = do
+    a <- allocatePartyOn "alice" participant0
+    cid <- a `submit` createCmd (V1.MixedTemplate a)
+    let cidV2 = coerceContractId @V1.MixedTemplate @V2.MixedTemplate cid
+    res <- a `trySubmit` do
+        exerciseCmd cid V1.MixedChoice
+        exerciseExactCmd cidV2 V2.MixedChoice
+        pure ()
+    case res of
+        Right returnValue -> returnValue === ()
+        Left err -> assertFail $ "Error during submission: " <> show err

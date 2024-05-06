@@ -300,6 +300,7 @@ class GrpcLedgerClient(
         commandId = UUID.randomUUID.toString,
         disclosedContracts = ledgerDisclosures,
       )
+      _ = println(apiCommands.toProtoString)
       eResp <- grpcClient.v2.commandService
         .submitAndWaitForTransactionTree(apiCommands)
 
