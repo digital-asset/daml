@@ -94,7 +94,6 @@ da_scala_binary(
     main_class = "com.daml.lf.model.test.Demo",
     resources = ["//daml-script/runner:src/main/resources/logback.xml"],
     scala_deps = [
-        "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scala_lang_modules_scala_parser_combinators",
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",

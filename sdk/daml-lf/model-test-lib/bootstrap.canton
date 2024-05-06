@@ -1,0 +1,16 @@
+import com.digitalasset.canton.version.ProtocolVersion
+
+val staticDomainParameters = StaticDomainParameters.defaults(sequencer1.config.crypto, ProtocolVersion.dev)
+
+// Bootstrap the domain
+bootstrap.domain(
+  domainName = "da",
+  sequencers = Seq(sequencer1),
+  mediators = Seq(mediator1),
+  domainOwners = Seq(sequencer1, mediator1),
+  staticDomainParameters = staticDomainParameters,
+)
+
+participant1.domains.connect_local(sequencer1, alias = "da")
+participant2.domains.connect_local(sequencer1, alias = "da")
+participant3.domains.connect_local(sequencer1, alias = "da")
