@@ -860,8 +860,9 @@ object ParticipantNodeBootstrap {
     override protected def createEngine(arguments: Arguments): Engine =
       DAMLe.newEngine(
         enableLfDev = arguments.parameterConfig.devVersionSupport,
-        enableStackTraces = arguments.parameterConfig.enableEngineStackTrace,
-        iterationsBetweenInterruptions = arguments.parameterConfig.iterationsBetweenInterruptions,
+        enableStackTraces = arguments.parameterConfig.engine.enableEngineStackTraces,
+        iterationsBetweenInterruptions =
+          arguments.parameterConfig.engine.iterationsBetweenInterruptions,
       )
 
     override protected def createResourceService(

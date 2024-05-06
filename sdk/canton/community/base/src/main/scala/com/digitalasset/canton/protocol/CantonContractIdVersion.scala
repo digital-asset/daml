@@ -4,7 +4,6 @@
 package com.digitalasset.canton.protocol
 
 import cats.syntax.either.*
-import com.daml.ledger.javaapi.data.codegen.ContractId
 import com.daml.lf.data.Bytes
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.CantonRequireTypes.String255
@@ -81,10 +80,6 @@ case object AuthenticatedContractIdVersionV10
 }
 
 object ContractIdSyntax {
-  implicit class JavaCodegenContractIdSyntax[T](contractId: ContractId[?]) {
-    def toLf: LfContractId = LfContractId.assertFromString(contractId.contractId)
-  }
-
   implicit class LfContractIdSyntax(private val contractId: LfContractId) extends AnyVal {
     def toProtoPrimitive: String = contractId.coid
 
@@ -97,13 +92,6 @@ object ContractIdSyntax {
       */
     def toLengthLimitedString: String255 = checked(String255.tryCreate(contractId.coid))
     def encodeDeterministically: ByteString = ByteString.copyFromUtf8(toProtoPrimitive)
-
-    /** Converts an [[LfContractId]] into a contract ID bound to a template usable with the Java codegen API.
-      * `Unchecked` means that we do not check that the contract ID actually refers to a contract of
-      * the template `T`.
-      */
-    def toContractIdUnchecked[T]: ContractId[T] =
-      new ContractId(contractId.coid)
   }
 
   implicit val orderingLfContractId: Ordering[LfContractId] =

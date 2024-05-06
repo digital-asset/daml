@@ -5,6 +5,7 @@ package com.digitalasset.canton.traffic
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.sequencing.protocol.{AllMembersOfDomain, ClosedEnvelope, Recipients}
+import com.digitalasset.canton.sequencing.traffic.EventCostCalculator
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.{BaseTest, ProtocolVersionChecksAnyWordSpec}
 import com.google.protobuf.ByteString

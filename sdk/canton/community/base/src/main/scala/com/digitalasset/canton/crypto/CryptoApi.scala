@@ -12,7 +12,7 @@ import com.digitalasset.canton.crypto.store.{
   CryptoPublicStore,
 }
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.DeserializationError
@@ -43,12 +43,13 @@ class Crypto(
       name: Option[KeyName] = None,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SigningKeyGenerationError, SigningPublicKey] =
+  ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningPublicKey] =
     for {
       publicKey <- privateCrypto.generateSigningKey(scheme, name)
       _ <- cryptoPublicStore
         .storeSigningKey(publicKey, name)
         .leftMap[SigningKeyGenerationError](SigningKeyGenerationError.SigningPublicStoreError)
+        .mapK(FutureUnlessShutdown.outcomeK)
     } yield publicKey
 
   /** Helper method to generate a new encryption key pair and store the public key in the public store as well. */
@@ -57,7 +58,7 @@ class Crypto(
       name: Option[KeyName] = None,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, EncryptionKeyGenerationError, EncryptionPublicKey] =
+  ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionPublicKey] =
     for {
       publicKey <- privateCrypto.generateEncryptionKey(scheme, name)
       _ <- cryptoPublicStore
@@ -65,6 +66,7 @@ class Crypto(
         .leftMap[EncryptionKeyGenerationError](
           EncryptionKeyGenerationError.EncryptionPublicStoreError
         )
+        .mapK(FutureUnlessShutdown.outcomeK)
     } yield publicKey
 
   override def onClosed(): Unit =
@@ -144,12 +146,12 @@ trait SyncCryptoApi {
   /** Signs the given hash using the private signing key. */
   def sign(hash: Hash)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SyncCryptoError, Signature]
+  ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature]
 
   /** Decrypts a message using the private key of the public key given as the fingerprint. */
   def decrypt[M](encryptedMessage: AsymmetricEncrypted[M])(
       deserialize: ByteString => Either[DeserializationError, M]
-  )(implicit traceContext: TraceContext): EitherT[Future, SyncCryptoError, M]
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SyncCryptoError, M]
 
   /** Verify signature of a given owner
     *

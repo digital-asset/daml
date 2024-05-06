@@ -23,13 +23,13 @@ import com.digitalasset.canton.lifecycle.{
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
-import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.client.SequencerSubscriptionError.SequencedEventError
 import com.digitalasset.canton.sequencing.client.{
   SequencedEventValidator,
   SequencerSubscriptionError,
 }
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.{GroupAddressResolver, OrdinarySerializedEvent}
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -259,7 +259,7 @@ class SequencerReader(
         _ = logger.debug(
           s"Signing event with counter ${event.counter} / timestamp ${event.timestamp} for $member"
         )
-        signed <- performUnlessClosingF("sign-event")(
+        signed <- performUnlessClosingUSF("sign-event")(
           signEvent(event, signingSnapshot).value
         )
       } yield signed
@@ -488,13 +488,11 @@ class SequencerReader(
       }
     }
 
-    private val groupAddressResolver = new GroupAddressResolver(syncCryptoApi)
-
     private def signEvent(
         event: SequencedEvent[ClosedEnvelope],
         topologySnapshot: SyncCryptoApi,
     )(implicit traceContext: TraceContext): EitherT[
-      Future,
+      FutureUnlessShutdown,
       SequencerSubscriptionError.TombstoneEncountered.Error,
       OrdinarySerializedEvent,
     ] = {
@@ -581,7 +579,7 @@ class SequencerReader(
                         )
                         .map(_.ipsSnapshot)
                     )(x => Future.successful(x))
-                    resolvedGroupAddresses <- groupAddressResolver.resolveGroupsToMembers(
+                    resolvedGroupAddresses <- GroupAddressResolver.resolveGroupsToMembers(
                       groupRecipients,
                       topologySnapshot,
                     )

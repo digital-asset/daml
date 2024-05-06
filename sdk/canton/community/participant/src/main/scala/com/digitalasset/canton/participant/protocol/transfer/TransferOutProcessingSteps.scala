@@ -196,7 +196,6 @@ class TransferOutProcessingSteps(
       submittingParticipantSignature <- sourceRecentSnapshot
         .sign(rootHash.unwrap)
         .leftMap(TransferSigningError)
-        .mapK(FutureUnlessShutdown.outcomeK)
       mediatorMessage = fullTree.mediatorMessage(submittingParticipantSignature)
       viewMessage <- EncryptedViewMessageFactory
         .create(TransferOutViewType)(
@@ -206,7 +205,6 @@ class TransferOutProcessingSteps(
           sourceDomainProtocolVersion.v,
         )
         .leftMap[TransferProcessorError](EncryptionError(contractId, _))
-        .mapK(FutureUnlessShutdown.outcomeK)
       maybeRecipients = Recipients.ofSet(validated.recipients)
       recipientsT <- EitherT
         .fromOption[FutureUnlessShutdown](
@@ -282,7 +280,7 @@ class TransferOutProcessingSteps(
       envelope: OpenEnvelope[EncryptedViewMessage[TransferOutViewType]]
   )(implicit
       tc: TraceContext
-  ): EitherT[Future, EncryptedViewMessageError, WithRecipients[
+  ): EitherT[FutureUnlessShutdown, EncryptedViewMessageError, WithRecipients[
     FullTransferOutTree
   ]] = {
     EncryptedViewMessage

@@ -50,7 +50,6 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherUtil.RichEither
-import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.util.FutureUtil
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
@@ -263,16 +262,20 @@ private[mediator] class Mediator(
           rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
           timestamp: CantonTimestamp,
           verdict: MediatorVerdict.MediatorReject,
-      )(implicit tc: TraceContext): Future[Unit] = {
+      )(implicit tc: TraceContext): FutureUnlessShutdown[Unit] = {
         val requestId = RequestId(timestamp)
 
         for {
-          snapshot <- syncCrypto.awaitSnapshot(timestamp)
-          domainParameters <- snapshot.ipsSnapshot
-            .findDynamicDomainParameters()
-            .flatMap(_.toFuture(new RuntimeException(_)))
+          snapshot <- syncCrypto.awaitSnapshotUS(timestamp)
+          domainParameters <- FutureUnlessShutdown.outcomeF(
+            snapshot.ipsSnapshot
+              .findDynamicDomainParameters()
+              .flatMap(_.toFuture(new RuntimeException(_)))
+          )
 
-          decisionTime <- domainParameters.decisionTimeForF(timestamp)
+          decisionTime <- FutureUnlessShutdown.outcomeF(
+            domainParameters.decisionTimeForF(timestamp)
+          )
           _ <- verdictSender.sendReject(
             requestId,
             None,
@@ -312,7 +315,7 @@ private[mediator] class Mediator(
                   closedEvent.timestamp,
                   MediatorVerdict.MediatorReject(alarm),
                 )
-              } else Future.unit
+              } else FutureUnlessShutdown.unit
             }
 
             (
@@ -333,7 +336,8 @@ private[mediator] class Mediator(
             "Failed to handle Mediator events",
             closeContext = Some(closeContext),
           )
-          FutureUnlessShutdown.outcomeF(rejectionsF.sequence_).flatMap { case () => result }
+
+          rejectionsF.sequence_.flatMap { case () => result }
         }
       }
     }

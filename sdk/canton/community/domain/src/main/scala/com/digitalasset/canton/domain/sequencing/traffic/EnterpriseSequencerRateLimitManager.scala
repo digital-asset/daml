@@ -26,9 +26,10 @@ import com.digitalasset.canton.sequencing.protocol.{
   GroupRecipient,
   TrafficState,
 }
+import com.digitalasset.canton.sequencing.traffic.{EventCostCalculator, TrafficPurchased}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.traffic.EventCostCalculator
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.concurrent.TrieMap
@@ -36,7 +37,7 @@ import scala.concurrent.ExecutionContext
 
 class EnterpriseSequencerRateLimitManager(
     @VisibleForTesting
-    private[canton] val trafficBalanceManager: TrafficBalanceManager,
+    private[canton] val trafficPurchasedManager: TrafficPurchasedManager,
     override protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
     override val timeouts: ProcessingTimeout,
@@ -44,6 +45,7 @@ class EnterpriseSequencerRateLimitManager(
     sequencerMemberRateLimiterFactory: SequencerMemberRateLimiterFactory =
       DefaultSequencerMemberRateLimiterFactory,
     eventCostCalculator: EventCostCalculator,
+    protocolVersion: ProtocolVersion,
 ) extends SequencerRateLimitManager
     with NamedLogging
     with FlagCloseable {
@@ -107,14 +109,14 @@ class EnterpriseSequencerRateLimitManager(
   ] = {
     logger.debug(s"Consuming event for $sender at $sequencingTimestamp with state $trafficState")
     for {
-      currentBalance <- trafficBalanceManager
-        .getTrafficBalanceAt(
+      currentBalance <- trafficPurchasedManager
+        .getTrafficPurchasedAt(
           sender,
           sequencingTimestamp,
           lastBalanceUpdateTimestamp,
           warnIfApproximate,
         )
-        .leftMap { case TrafficBalanceManager.TrafficBalanceAlreadyPruned(member, timestamp) =>
+        .leftMap { case TrafficPurchasedManager.TrafficPurchasedAlreadyPruned(member, timestamp) =>
           SequencerRateLimitError.UnknownBalance(member, timestamp)
         }
       newTrafficState <- EitherT
@@ -126,7 +128,8 @@ class EnterpriseSequencerRateLimitManager(
               trafficControlParameters,
               trafficState,
               groupToMembers,
-              currentBalance.map(_.balance).getOrElse(NonNegativeLong.zero),
+              currentBalance.map(_.extraTrafficPurchased).getOrElse(NonNegativeLong.zero),
+              protocolVersion,
             )
         )
     } yield {
@@ -142,21 +145,21 @@ class EnterpriseSequencerRateLimitManager(
   )(member: Member)(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): FutureUnlessShutdown[Option[TrafficBalance]] = {
-    trafficBalanceManager
-      .getTrafficBalanceAt(member, timestamp, lastBalanceUpdateTimestamp, warnIfApproximate)
-      .leftMap { case TrafficBalanceManager.TrafficBalanceAlreadyPruned(member, timestamp) =>
+  ): FutureUnlessShutdown[Option[TrafficPurchased]] = {
+    trafficPurchasedManager
+      .getTrafficPurchasedAt(member, timestamp, lastBalanceUpdateTimestamp, warnIfApproximate)
+      .leftMap { case TrafficPurchasedManager.TrafficPurchasedAlreadyPruned(member, timestamp) =>
         SequencerRateLimitError.UnknownBalance(member, timestamp)
       }
       .valueOr { err =>
-        logger.warn(s"Failed to obtain the traffic balance for $member at $timestamp", err)
+        logger.warn(s"Failed to obtain the traffic purchased entry for $member at $timestamp", err)
         None
       }
   }
 
   private def getUpdatedTrafficStates(
       partialTrafficStates: Map[Member, TrafficState],
-      getBalance: Member => FutureUnlessShutdown[Option[TrafficBalance]],
+      getBalance: Member => FutureUnlessShutdown[Option[TrafficPurchased]],
       trafficControlParameters: TrafficControlParameters,
       requestedTimestamp: Option[CantonTimestamp],
   )(implicit
@@ -182,7 +185,7 @@ class EnterpriseSequencerRateLimitManager(
                   trafficControlParameters,
                   NonNegativeLong.zero,
                   originalState,
-                  balanceO.map(_.balance).getOrElse(NonNegativeLong.zero),
+                  balanceO.map(_.extraTrafficPurchased).getOrElse(NonNegativeLong.zero),
                 )
                 ._1
               member -> TrafficStateUpdateResult(state, balanceO.map(_.serial))
@@ -203,7 +206,7 @@ class EnterpriseSequencerRateLimitManager(
   ): FutureUnlessShutdown[Map[Member, TrafficStateUpdateResult]] = {
     getUpdatedTrafficStates(
       partialTrafficStates,
-      trafficBalanceManager.getLatestKnownBalance,
+      trafficPurchasedManager.getLatestKnownBalance,
       trafficControlParameters,
       None,
     )
@@ -229,21 +232,21 @@ class EnterpriseSequencerRateLimitManager(
 
   override def lastKnownBalanceFor(member: Member)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[TrafficBalance]] =
-    trafficBalanceManager.getLatestKnownBalance(member)
+  ): FutureUnlessShutdown[Option[TrafficPurchased]] =
+    trafficPurchasedManager.getLatestKnownBalance(member)
 
   override def onClosed(): Unit = {
-    Lifecycle.close(trafficBalanceManager)(logger)
+    Lifecycle.close(trafficPurchasedManager)(logger)
   }
   override def balanceUpdateSubscriber: SequencerTrafficControlSubscriber =
-    trafficBalanceManager.subscription
+    trafficPurchasedManager.subscription
 
   override def safeForPruning(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Unit =
-    trafficBalanceManager.setSafeToPruneBeforeExclusive(timestamp)
+    trafficPurchasedManager.setSafeToPruneBeforeExclusive(timestamp)
 
-  override def balanceKnownUntil: Option[CantonTimestamp] = trafficBalanceManager.maxTsO
+  override def balanceKnownUntil: Option[CantonTimestamp] = trafficPurchasedManager.maxTsO
 }
 
 object EnterpriseSequencerRateLimitManager {

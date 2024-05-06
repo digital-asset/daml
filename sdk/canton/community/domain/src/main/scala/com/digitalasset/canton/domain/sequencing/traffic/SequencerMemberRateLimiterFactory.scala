@@ -5,8 +5,8 @@ package com.digitalasset.canton.domain.sequencing.traffic
 
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.sequencing.traffic.EventCostCalculator
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.traffic.EventCostCalculator
 
 trait SequencerMemberRateLimiterFactory {
   def create(

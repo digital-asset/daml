@@ -124,6 +124,21 @@ final case class TestingTopology(
     */
   def withDomains(domains: DomainId*): TestingTopology = this.copy(domains = domains.toSet)
 
+  def withDynamicDomainParameters(
+      dynamicDomainParameters: DynamicDomainParameters,
+      validFrom: CantonTimestamp = CantonTimestamp.Epoch,
+  ) = {
+    copy(
+      domainParameters = List(
+        DomainParameters.WithValidity(
+          validFrom = validFrom,
+          validUntil = None,
+          parameter = dynamicDomainParameters,
+        )
+      )
+    )
+  }
+
   /** Overwrites the `sequencerGroup` field.
     */
   def withSequencerGroup(
@@ -737,6 +752,7 @@ class TestingOwnerWithKeys(
           .value,
         10.seconds,
       )
+      .onShutdown(sys.error("aborted due to shutdown"))
       .getOrElse(sys.error("failed to create signed topology transaction"))
 
   def setSerial(
@@ -818,6 +834,7 @@ class TestingOwnerWithKeys(
           .value,
         30.seconds,
       )
+      .onShutdown(sys.error("aborted due to shutdown"))
       .getOrElse(sys.error("key should be there"))
 
   def genEncKey(name: String): EncryptionPublicKey =
@@ -828,6 +845,7 @@ class TestingOwnerWithKeys(
           .value,
         30.seconds,
       )
+      .onShutdown(sys.error("aborted due to shutdown"))
       .getOrElse(sys.error("key should be there"))
 
 }

@@ -120,8 +120,7 @@ private[mediator] class MediatorEventsProcessor(
 
       resultIdentity <- identityF
     } yield {
-      resultIdentity
-        .andThenF(_ => FutureUnlessShutdown.outcomeF(storeF))
+      resultIdentity.andThenF(_ => storeF)
     }
   }
 

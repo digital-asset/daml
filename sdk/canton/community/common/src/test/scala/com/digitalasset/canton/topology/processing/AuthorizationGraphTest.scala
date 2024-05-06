@@ -51,6 +51,7 @@ class AuthorizationGraphTest
       val signature = factory.cryptoApi.crypto.privateCrypto
         .sign(authTx.hash.hash, key.fingerprint)
         .value
+        .failOnShutdown
         .futureValue
         .getOrElse(sys.error(s"Error when signing ${authTx}with $key"))
       authTx.copy(transaction = authTx.transaction.copy(signatures = NonEmpty(Set, signature)))

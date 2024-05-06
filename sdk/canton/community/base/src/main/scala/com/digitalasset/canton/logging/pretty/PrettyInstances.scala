@@ -232,13 +232,6 @@ trait PrettyInstances {
         s"(offset=${dedupOffset.offset})"
     }
 
-  implicit def prettyCompletionV2: Pretty[com.daml.ledger.api.v2.completion.Completion] =
-    prettyOfClass(
-      unnamedParamIfDefined(_.status),
-      param("commandId", _.commandId.singleQuoted),
-      param("updateId", _.updateId.singleQuoted, _.updateId.nonEmpty),
-    )
-
   implicit def prettyDecodedCantonError: Pretty[DecodedCantonError] = prettyOfClass(
     param("code", _.code.id.singleQuoted),
     param("category", _.code.category.toString.unquoted),

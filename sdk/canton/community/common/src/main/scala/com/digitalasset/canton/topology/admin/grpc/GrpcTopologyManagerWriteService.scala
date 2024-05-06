@@ -25,7 +25,6 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.ProtocolVersionValidation
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -164,7 +163,6 @@ class GrpcTopologyManagerWriteService(
           .parTraverse(key => crypto.privateCrypto.sign(tx.hash.hash, key))
           .leftMap(TopologyManagerError.InternalError.TopologySigningError(_): CantonError)
           .map(tx.addSignatures)
-          .mapK(FutureUnlessShutdown.outcomeK)
       )
     } yield extendedTransactions
 

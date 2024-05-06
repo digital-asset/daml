@@ -146,7 +146,7 @@ class SequencerMetrics(
           summary = "Counts cache misses when trying to retrieve a balance for a given timestamp.",
           description = """The per member cache only keeps in memory a subset of all the non-pruned balance updates persisted in the database.
                         |If the cache contains *some* balances for a member but not the one requested, a DB call will be made to try to retrieve it.
-                        |When that happens, this metric is incremented. If this occurs too frequently, consider increasing the config value of trafficBalanceCacheSizePerMember.""",
+                        |When that happens, this metric is incremented. If this occurs too frequently, consider increasing the config value of trafficPurchasedCacheSizePerMember.""",
           qualification = MetricQualification.Debug,
         )
       )

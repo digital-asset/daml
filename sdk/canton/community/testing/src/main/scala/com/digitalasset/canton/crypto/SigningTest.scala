@@ -38,7 +38,7 @@ trait SigningTest extends BaseTest with CryptoTestHelper {
             crypto <- newCrypto
             publicKey <- getSigningPublicKey(crypto, signingKeyScheme)
             hash = TestHash.digest("foobar")
-            sig <- crypto.privateCrypto.sign(hash, publicKey.id).valueOrFail("sign")
+            sig <- crypto.privateCrypto.sign(hash, publicKey.id).valueOrFail("sign").failOnShutdown
             sigP = sig.toProtoVersioned(testedProtocolVersion)
             sig2 = Signature.fromProtoVersioned(sigP).valueOrFail("serialize signature")
           } yield sig shouldEqual sig2
@@ -49,7 +49,7 @@ trait SigningTest extends BaseTest with CryptoTestHelper {
             crypto <- newCrypto
             publicKey <- getSigningPublicKey(crypto, signingKeyScheme)
             hash = TestHash.digest("foobar")
-            sig <- crypto.privateCrypto.sign(hash, publicKey.id).valueOrFail("sign")
+            sig <- crypto.privateCrypto.sign(hash, publicKey.id).valueOrFail("sign").failOnShutdown
             res = crypto.pureCrypto.verifySignature(hash, publicKey, sig)
           } yield res shouldEqual Right(())
         }
@@ -59,7 +59,7 @@ trait SigningTest extends BaseTest with CryptoTestHelper {
             crypto <- newCrypto
             unknownKeyId = Fingerprint.create(ByteString.copyFromUtf8("foobar"))
             hash = TestHash.digest("foobar")
-            sig <- crypto.privateCrypto.sign(hash, unknownKeyId).value
+            sig <- crypto.privateCrypto.sign(hash, unknownKeyId).value.failOnShutdown
           } yield sig.left.value shouldBe a[UnknownSigningKey]
         }
 
@@ -68,7 +68,10 @@ trait SigningTest extends BaseTest with CryptoTestHelper {
             crypto <- newCrypto
             publicKey <- getSigningPublicKey(crypto, signingKeyScheme)
             hash = TestHash.digest("foobar")
-            realSig <- crypto.privateCrypto.sign(hash, publicKey.id).valueOrFail("sign")
+            realSig <- crypto.privateCrypto
+              .sign(hash, publicKey.id)
+              .valueOrFail("sign")
+              .failOnShutdown
             randomBytes = ByteString.copyFromUtf8(PseudoRandom.randomAlphaNumericString(16))
             fakeSig = new Signature(realSig.format, randomBytes, realSig.signedBy)
             res = crypto.pureCrypto.verifySignature(hash, publicKey, fakeSig)
@@ -81,7 +84,7 @@ trait SigningTest extends BaseTest with CryptoTestHelper {
             (publicKey, publicKey2) <- getTwoSigningPublicKeys(crypto, signingKeyScheme)
             _ = assert(publicKey != publicKey2)
             hash = TestHash.digest("foobar")
-            sig <- crypto.privateCrypto.sign(hash, publicKey.id).valueOrFail("sign")
+            sig <- crypto.privateCrypto.sign(hash, publicKey.id).valueOrFail("sign").failOnShutdown
             res = crypto.pureCrypto.verifySignature(hash, publicKey2, sig)
           } yield res.left.value shouldBe a[SignatureWithWrongKey]
         }

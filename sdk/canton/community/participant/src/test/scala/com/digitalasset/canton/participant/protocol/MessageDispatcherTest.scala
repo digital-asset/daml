@@ -49,6 +49,7 @@ import com.digitalasset.canton.protocol.{
   v30 as protocolv30,
 }
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
 import com.digitalasset.canton.sequencing.{
   HandlerResult,
   PossiblyIgnoredProtocolEvent,
@@ -60,7 +61,6 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{SequencedTime, TopologyTransactionTestFactory}
 import com.digitalasset.canton.tracing.Traced
-import com.digitalasset.canton.traffic.TrafficControlProcessor
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.*
@@ -180,7 +180,7 @@ trait MessageDispatcherTest {
 
       val trafficProcessor = mock[TrafficControlProcessor]
       when(
-        trafficProcessor.processSetTrafficBalanceEnvelopes(
+        trafficProcessor.processSetTrafficPurchasedEnvelopes(
           any[CantonTimestamp],
           any[Option[CantonTimestamp]],
           any[List[DefaultOpenEnvelope]],
@@ -566,8 +566,8 @@ trait MessageDispatcherTest {
       }
 
       "call the topology processor before calling the traffic control processor" in {
-        val setTrafficBalanceMsg = SignedProtocolMessage.from(
-          SetTrafficBalanceMessage(
+        val setTrafficPurchasedMsg = SignedProtocolMessage.from(
+          SetTrafficPurchasedMessage(
             participantId,
             PositiveInt.one,
             NonNegativeLong.tryCreate(1000),
@@ -584,13 +584,13 @@ trait MessageDispatcherTest {
 
         val event =
           mkDeliver(
-            Batch.of(testedProtocolVersion, setTrafficBalanceMsg -> Recipients.cc(participantId)),
+            Batch.of(testedProtocolVersion, setTrafficPurchasedMsg -> Recipients.cc(participantId)),
             sc,
             ts,
           )
 
         when(
-          sut.trafficProcessor.processSetTrafficBalanceEnvelopes(
+          sut.trafficProcessor.processSetTrafficPurchasedEnvelopes(
             any[CantonTimestamp],
             any[Option[CantonTimestamp]],
             any[Seq[DefaultOpenEnvelope]],
@@ -601,7 +601,7 @@ trait MessageDispatcherTest {
         }
 
         handle(sut, event) {
-          verify(sut.trafficProcessor).processSetTrafficBalanceEnvelopes(
+          verify(sut.trafficProcessor).processSetTrafficPurchasedEnvelopes(
             isEq(ts),
             isEq(None),
             any[Seq[DefaultOpenEnvelope]],

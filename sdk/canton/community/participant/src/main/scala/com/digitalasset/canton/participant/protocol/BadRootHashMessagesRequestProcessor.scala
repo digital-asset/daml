@@ -66,7 +66,7 @@ class BadRootHashMessagesRequestProcessor(
             protocolVersion = protocolVersion,
           )
         )
-        signedRejection <- FutureUnlessShutdown.outcomeF(signResponse(snapshot, rejection))
+        signedRejection <- signResponse(snapshot, rejection)
         _ <- sendResponses(
           requestId,
           Seq(signedRejection -> Recipients.cc(mediator)),

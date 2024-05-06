@@ -37,7 +37,10 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
 
   def sign(str: String): Signature =
     DefaultProcessingTimeouts.default
-      .await("event signing")(crypto.privateCrypto.sign(TestHash.digest(str), sequencerKey).value)
+      .await("event signing")(
+        crypto.privateCrypto.sign(TestHash.digest(str), sequencerKey).value.unwrap
+      )
+      .failOnShutdown
       .valueOrFail("failed to create signature")
 
   val domainId: DomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("da::default"))

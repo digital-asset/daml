@@ -220,6 +220,7 @@ class SequencedEventTestFixture(
       signature <- cryptoApi
         .sign(hash(bytes))
         .value
+        .onShutdown(fail("aborted due to shutdown"))
         .map(_.valueOr(err => fail(s"Failed to sign: $err")))(executionContext)
     } yield signature
 

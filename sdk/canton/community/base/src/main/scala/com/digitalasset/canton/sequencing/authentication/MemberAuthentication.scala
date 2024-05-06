@@ -7,12 +7,12 @@ import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.AuthenticationError
 import com.digitalasset.canton.topology.{DomainId, *}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait MemberAuthentication {
 
@@ -33,7 +33,7 @@ trait MemberAuthentication {
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[Future, AuthenticationError, Signature]
+  ): EitherT[FutureUnlessShutdown, AuthenticationError, Signature]
 
 }
 
@@ -120,7 +120,7 @@ object MemberAuthentication extends MemberAuthentication {
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[Future, AuthenticationError, Signature] = {
+  ): EitherT[FutureUnlessShutdown, AuthenticationError, Signature] = {
     val hash = hashDomainNonce(nonce, domainId, crypto.pureCrypto)
 
     for {

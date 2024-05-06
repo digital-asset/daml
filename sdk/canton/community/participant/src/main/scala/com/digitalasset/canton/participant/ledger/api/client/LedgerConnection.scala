@@ -8,7 +8,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
   Filters,
   InclusiveFilters,
   TemplateFilter,
-  TransactionFilter as TransactionFilterV2,
+  TransactionFilter,
 }
 import com.daml.ledger.api.v2.value.Identifier
 import com.daml.ledger.javaapi
@@ -62,11 +62,11 @@ object LedgerConnection {
     LedgerClient.withoutToken(builder.build(), clientConfig, loggerFactory)
   }
 
-  def transactionFilterByPartyV2(filter: Map[PartyId, Seq[Identifier]]): TransactionFilterV2 =
-    TransactionFilterV2(filter.map {
-      case (p, Nil) => p.toParty.getValue -> Filters.defaultInstance
+  def transactionFilterByParty(filter: Map[PartyId, Seq[Identifier]]): TransactionFilter =
+    TransactionFilter(filter.map {
+      case (p, Nil) => p.toProtoPrimitive -> Filters.defaultInstance
       case (p, ts) =>
-        p.toParty.getValue -> Filters(
+        p.toProtoPrimitive -> Filters(
           Some(
             InclusiveFilters(
               templateFilters = ts.map(tf => TemplateFilter(Some(tf), false))

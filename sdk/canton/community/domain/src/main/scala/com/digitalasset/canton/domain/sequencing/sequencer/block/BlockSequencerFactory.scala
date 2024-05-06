@@ -23,19 +23,19 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerHealthConfig,
   SequencerInitialState,
 }
-import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
+import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficPurchasedStore
 import com.digitalasset.canton.domain.sequencing.traffic.{
   EnterpriseSequencerRateLimitManager,
-  TrafficBalanceManager,
+  TrafficPurchasedManager,
 }
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
+import com.digitalasset.canton.sequencing.traffic.EventCostCalculator
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{DomainId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.traffic.EventCostCalculator
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.FutureUtil
 import com.digitalasset.canton.version.ProtocolVersion
@@ -70,7 +70,7 @@ abstract class BlockSequencerFactory(
     loggerFactory,
   )
 
-  private val balanceStore = TrafficBalanceStore(
+  private val balanceStore = TrafficPurchasedStore(
     storage,
     nodeParameters.processingTimeouts,
     loggerFactory,
@@ -87,7 +87,7 @@ abstract class BlockSequencerFactory(
       cryptoApi: DomainSyncCryptoClient,
       stateManager: BlockSequencerStateManager,
       store: SequencerBlockStore,
-      balanceStore: TrafficBalanceStore,
+      balanceStore: TrafficPurchasedStore,
       storage: Storage,
       futureSupervisor: FutureSupervisor,
       health: Option[SequencerHealthConfig],
@@ -121,9 +121,9 @@ abstract class BlockSequencerFactory(
       _ <- EitherT.right(
         store.setInitialState(initialBlockState, snapshot.initialTopologyEffectiveTimestamp)
       )
-      _ <- EitherT.right(snapshot.snapshot.trafficBalances.parTraverse_(balanceStore.store))
+      _ <- EitherT.right(snapshot.snapshot.trafficPurchased.parTraverse_(balanceStore.store))
       _ = logger.debug(
-        s"from snapshot: ticking traffic balance manager with ${snapshot.latestSequencerEventTimestamp}"
+        s"from snapshot: ticking traffic purchased entry manager with ${snapshot.latestSequencerEventTimestamp}"
       )
       _ <- EitherT.right(
         snapshot.latestSequencerEventTimestamp
@@ -134,16 +134,17 @@ abstract class BlockSequencerFactory(
 
   @VisibleForTesting
   protected def makeRateLimitManager(
-      trafficBalanceManager: TrafficBalanceManager,
+      trafficPurchasedManager: TrafficPurchasedManager,
       futureSupervisor: FutureSupervisor,
   ): SequencerRateLimitManager = {
     new EnterpriseSequencerRateLimitManager(
-      trafficBalanceManager,
+      trafficPurchasedManager,
       loggerFactory,
       futureSupervisor,
       nodeParameters.processingTimeouts,
       metrics,
       eventCostCalculator = new EventCostCalculator(loggerFactory),
+      protocolVersion = protocolVersion,
     )
   }
 
@@ -178,20 +179,21 @@ abstract class BlockSequencerFactory(
       s"Creating $name sequencer at block height $initialBlockHeight"
     )
 
-    val balanceManager = new TrafficBalanceManager(
+    val balanceManager = new TrafficPurchasedManager(
       balanceStore,
       clock,
       trafficConfig,
       futureSupervisor,
       metrics,
+      protocolVersion,
       nodeParameters.processingTimeouts,
       loggerFactory,
     )
 
-    //  Start auto pruning of traffic balances
+    //  Start auto pruning of traffic purchased entries
     FutureUtil.doNotAwaitUnlessShutdown(
       balanceManager.startAutoPruning,
-      "Auto pruning of traffic balances",
+      "Auto pruning of traffic purchased entries",
     )
 
     val rateLimitManager = makeRateLimitManager(

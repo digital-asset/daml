@@ -72,6 +72,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest {
         (nonce, fingerprints) = challenge
         signature <- getMemberAuthentication(p1)
           .signDomainNonce(p1, nonce, domainId, fingerprints, syncCrypto.crypto)
+          .failOnShutdown
         tokenAndExpiry <- sut.validateSignature(p1, signature, nonce)
       } yield tokenAndExpiry
 

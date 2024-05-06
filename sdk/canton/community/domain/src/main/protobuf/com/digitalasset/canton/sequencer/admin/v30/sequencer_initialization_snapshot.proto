@@ -7,6 +7,7 @@ package com.digitalasset.canton.sequencer.admin.v30;
 
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/protocol/v30/common_stable.proto";
+import "com/digitalasset/canton/protocol/v30/traffic_control_parameters.proto";
 import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
 
@@ -19,7 +20,7 @@ message SequencerSnapshot {
   ImplementationSpecificInfo additional = 4;
   repeated InFlightAggregationWithId in_flight_aggregations = 5;
   repeated MemberTrafficSnapshot traffic_snapshots = 6;
-  repeated TrafficBalance traffic_balances = 7;
+  repeated com.digitalasset.canton.protocol.v30.TrafficPurchased traffic_purchased = 7;
 
   message MemberCounter {
     string member = 1;
@@ -51,7 +52,7 @@ message SequencerSnapshot {
     int64 sequencing_timestamp = 5; // in microseconds of UTC time since Unix epoch
   }
 
-  message TrafficBalance {
+  message TrafficPurchased {
     string member = 1;
     uint32 serial = 2;
     uint64 balance = 3;

@@ -274,15 +274,17 @@ class DefaultVerdictSenderTest
     }
 
     def sendReject(): Future[Unit] = {
-      verdictSender.sendReject(
-        requestId,
-        Some(informeeMessage),
-        Seq(rhmEnvelope),
-        MediatorVerdict
-          .MediatorReject(MalformedMessage.Reject("Test failure"))
-          .toVerdict(testedProtocolVersion),
-        decisionTime,
-      )
+      verdictSender
+        .sendReject(
+          requestId,
+          Some(informeeMessage),
+          Seq(rhmEnvelope),
+          MediatorVerdict
+            .MediatorReject(MalformedMessage.Reject("Test failure"))
+            .toVerdict(testedProtocolVersion),
+          decisionTime,
+        )
+        .failOnShutdown
     }
   }
 

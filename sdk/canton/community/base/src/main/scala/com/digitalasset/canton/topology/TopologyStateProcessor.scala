@@ -167,8 +167,9 @@ class TopologyStateProcessor(
       ln = validatedTx.size
       _ = validatedTx.zipWithIndex.foreach {
         case (ValidatedTopologyTransaction(tx, None, _), idx) =>
+          val enqueuingOrStoring = if (outboxQueue.nonEmpty) "Enqueuing" else "Storing"
           logger.info(
-            s"Storing topology transaction ${idx + 1}/$ln ${tx.operation} ${tx.mapping} with ts=$effective (epsilon=${epsilon} ms)"
+            s"${enqueuingOrStoring} topology transaction ${idx + 1}/$ln ${tx.operation} ${tx.mapping} with ts=$effective (epsilon=${epsilon} ms)"
           )
         case (ValidatedTopologyTransaction(tx, Some(r), _), idx) =>
           logger.info(

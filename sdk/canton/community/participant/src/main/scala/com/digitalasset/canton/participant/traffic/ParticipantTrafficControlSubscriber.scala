@@ -5,11 +5,11 @@ package com.digitalasset.canton.participant.traffic
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.protocol.messages.SetTrafficBalanceMessage
+import com.digitalasset.canton.protocol.messages.SetTrafficPurchasedMessage
+import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.InvalidTrafficPurchasedMessage
+import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor.TrafficControlSubscriber
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.traffic.TrafficControlErrors.InvalidTrafficControlBalanceMessage
-import com.digitalasset.canton.traffic.TrafficControlProcessor.TrafficControlSubscriber
 
 import scala.concurrent.Future
 
@@ -26,8 +26,8 @@ class ParticipantTrafficControlSubscriber(
     // Nothing to do here for the participant, only interested in balance updates
   }
 
-  override def balanceUpdate(
-      update: SetTrafficBalanceMessage,
+  override def trafficPurchasedUpdate(
+      update: SetTrafficPurchasedMessage,
       sequencingTimestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
@@ -36,13 +36,13 @@ class ParticipantTrafficControlSubscriber(
       logger.debug(s"Received balance update from traffic control processor: $update")
 
       trafficStateController.updateBalance(
-        update.totalTrafficBalance,
+        update.totalTrafficPurchased,
         update.serial,
         sequencingTimestamp,
       )
     } else {
-      InvalidTrafficControlBalanceMessage
-        .Error(s"Received a traffic balance update for another member: $update")
+      InvalidTrafficPurchasedMessage
+        .Error(s"Received a traffic purchased entry update for another member: $update")
         .report()
     }
   }

@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.option.*
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AsyncWordSpec
@@ -24,7 +25,7 @@ class PeriodicAcknowledgementsTest extends AsyncWordSpec with BaseTest with HasE
   ) extends AutoCloseable {
     val clock = new SimClock(loggerFactory = PeriodicAcknowledgementsTest.this.loggerFactory)
     var latestCleanTimestamp: Option[CantonTimestamp] = initialCleanTimestamp
-    var nextResult: EitherT[Future, String, Boolean] = EitherT.rightT(true)
+    var nextResult: EitherT[FutureUnlessShutdown, String, Boolean] = EitherT.rightT(true)
     val acknowledgements = mutable.Buffer[CantonTimestamp]()
     val interval = 10.seconds
 

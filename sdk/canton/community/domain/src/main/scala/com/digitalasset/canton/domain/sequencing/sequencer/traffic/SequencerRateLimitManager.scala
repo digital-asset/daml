@@ -7,10 +7,7 @@ import cats.data.EitherT
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.traffic.EnterpriseSequencerRateLimitManager.TrafficStateUpdateResult
-import com.digitalasset.canton.domain.sequencing.traffic.{
-  SequencerTrafficControlSubscriber,
-  TrafficBalance,
-}
+import com.digitalasset.canton.domain.sequencing.traffic.SequencerTrafficControlSubscriber
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.{
@@ -19,6 +16,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   GroupRecipient,
   TrafficState,
 }
+import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -74,8 +72,8 @@ trait SequencerRateLimitManager extends AutoCloseable {
 
   /** Returns the provided states updated at updateTimestamp.
     * Note that if updateTimestamp is older than the timestamp of the traffic state of a member, the state for that member will not be updated.
-    *  If updateTimestamp is not provided, the latest timestamp at which the traffic balance is known will be used.
-    * Specifically, the remaining base traffic and the traffic balance may have changed since the provided traffic state.
+    *  If updateTimestamp is not provided, the latest timestamp at which the traffic purchased entry is known will be used.
+    * Specifically, the remaining base traffic and the traffic purchased entry may have changed since the provided traffic state.
     * @param partialTrafficStates the traffic states to update
     * @param updateTimestamp the timestamp at which the traffic states should be updated
     * @param trafficControlParameters the traffic control parameters
@@ -97,7 +95,7 @@ trait SequencerRateLimitManager extends AutoCloseable {
     */
   def lastKnownBalanceFor(member: Member)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[TrafficBalance]]
+  ): FutureUnlessShutdown[Option[TrafficPurchased]]
 
   /** Optional subscriber to the traffic control processor, only used for the new top up implementation
     */
@@ -109,7 +107,7 @@ trait SequencerRateLimitManager extends AutoCloseable {
     */
   def safeForPruning(timestamp: CantonTimestamp)(implicit traceContext: TraceContext): Unit
 
-  /** Timestamp of the latest known state of traffic balances.
+  /** Timestamp of the latest known state of traffic purchased entries.
     */
   def balanceKnownUntil: Option[CantonTimestamp]
 }

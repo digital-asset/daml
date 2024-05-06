@@ -145,7 +145,7 @@ class MediatorEventDeduplicatorTest
 
       store.allData() shouldBe deduplicationData(requestTime, 0, 1, 2)
 
-      storeF.futureValue
+      storeF.failOnShutdown.futureValue
       verdictSender.sentResults shouldBe empty
     }
 
@@ -159,7 +159,7 @@ class MediatorEventDeduplicatorTest
 
       store.allData() shouldBe empty
 
-      storeF.futureValue
+      storeF.failOnShutdown.futureValue
       verdictSender.sentResults shouldBe empty
     }
 
@@ -179,7 +179,7 @@ class MediatorEventDeduplicatorTest
 
       store.allData() shouldBe deduplicationData(requestTime, 0, 1)
 
-      storeF.futureValue
+      storeF.failOnShutdown.futureValue
       assertNextSentVerdict(verdictSender, request(0))
       verdictSender.sentResults shouldBe empty
     }
@@ -193,7 +193,7 @@ class MediatorEventDeduplicatorTest
       uniqueEvents shouldBe requests(0, 1)
       store.allData() shouldBe deduplicationData(requestTime, 0, 1)
 
-      storeF1.futureValue
+      storeF1.failOnShutdown.futureValue
       verdictSender.sentResults shouldBe empty
 
       // submit same event with same requestTime
@@ -207,7 +207,7 @@ class MediatorEventDeduplicatorTest
 
       store.allData() shouldBe deduplicationData(requestTime, 0, 1)
 
-      storeF2.futureValue
+      storeF2.failOnShutdown.futureValue
       assertNextSentVerdict(verdictSender, request(0))
       verdictSender.sentResults shouldBe empty
 
@@ -220,7 +220,7 @@ class MediatorEventDeduplicatorTest
 
       store.allData() shouldBe deduplicationData(requestTime, 0, 1)
 
-      storeF3.futureValue
+      storeF3.failOnShutdown.futureValue
       assertNextSentVerdict(verdictSender, request(0), requestTime2)
       verdictSender.sentResults shouldBe empty
     }
@@ -233,7 +233,7 @@ class MediatorEventDeduplicatorTest
       uniqueEvents shouldBe requests(0, 1)
       store.allData() shouldBe deduplicationData(requestTime, 0, 1)
 
-      storeF1.futureValue
+      storeF1.failOnShutdown.futureValue
       verdictSender.sentResults shouldBe empty
 
       val (uniqueEvents2, storeF2) = loggerFactory.assertLogs(
@@ -258,7 +258,7 @@ class MediatorEventDeduplicatorTest
       store
         .allData() shouldBe deduplicationData(0 -> requestTime, 1 -> requestTime, 2 -> requestTime2)
 
-      storeF2.futureValue
+      storeF2.failOnShutdown.futureValue
 
       assertNextSentVerdict(verdictSender, request(0), requestTime2)
       assertNextSentVerdict(verdictSender, request(0), requestTime2)
@@ -274,7 +274,7 @@ class MediatorEventDeduplicatorTest
       uniqueEvents shouldBe requests(0, 1)
       store.allData() shouldBe deduplicationData(requestTime, 0, 1)
 
-      storeF1.futureValue
+      storeF1.failOnShutdown.futureValue
       verdictSender.sentResults shouldBe empty
 
       val expireAfter = requestTime.plus(deduplicationTimeout).immediateSuccessor
@@ -291,7 +291,7 @@ class MediatorEventDeduplicatorTest
         0 -> expireAfter,
       )
 
-      storeF2.futureValue
+      storeF2.failOnShutdown.futureValue
       verdictSender.sentResults shouldBe empty
     }
 
@@ -310,8 +310,8 @@ class MediatorEventDeduplicatorTest
 
         store.findUuid(uuids(i), requestTime) shouldBe deduplicationData(requestTime, i)
 
-        storeF1.futureValue
-        storeF2.futureValue
+        storeF1.failOnShutdown.futureValue
+        storeF2.failOnShutdown.futureValue
         assertNextSentVerdict(verdictSender, request(i), requestTime = requestTime2)
       }
     }
@@ -386,8 +386,8 @@ class MediatorEventDeduplicatorTest
           rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
           rejectionReason: Verdict.MediatorReject,
           decisionTime: CantonTimestamp,
-      )(implicit traceContext: TraceContext): Future[Unit] =
-        Future.never
+      )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+        FutureUnlessShutdown.never
     }
 
     new DefaultMediatorEventDeduplicator(

@@ -56,7 +56,7 @@ import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.{
-  GrpcIdentityInitializationServiceX,
+  GrpcIdentityInitializationService,
   GrpcTopologyAggregationService,
   GrpcTopologyManagerReadService,
   GrpcTopologyManagerWriteService,
@@ -378,7 +378,7 @@ abstract class CantonNodeBootstrapImpl[
     ): EitherT[FutureUnlessShutdown, String, Option[SetupNodeId]] = {
       // crypto factory doesn't write to the db during startup, hence,
       // we won't have "isPassive" issues here
-      performUnlessClosingEitherU("create-crypto")(
+      performUnlessClosingEitherUSF("create-crypto")(
         arguments.cryptoFactory
           .create(
             cryptoConfig,
@@ -421,7 +421,7 @@ abstract class CantonNodeBootstrapImpl[
         config.init.autoInit,
       )
       with HasCloseContext
-      with GrpcIdentityInitializationServiceX.Callback {
+      with GrpcIdentityInitializationService.Callback {
 
     private val initializationStore = InitializationStore(
       storage,
@@ -440,9 +440,9 @@ abstract class CantonNodeBootstrapImpl[
 
     adminServerRegistry
       .addServiceU(
-        adminV30.IdentityInitializationXServiceGrpc
+        adminV30.IdentityInitializationServiceGrpc
           .bindService(
-            new GrpcIdentityInitializationServiceX(
+            new GrpcIdentityInitializationService(
               clock,
               this,
               crypto.cryptoPublicStore,
@@ -476,14 +476,16 @@ abstract class CantonNodeBootstrapImpl[
           .flatMap(_.nodeIdentifier.identifierName)
           .getOrElse(name.unwrap)
         uid <- EitherT
-          .fromEither[Future](
+          .fromEither[FutureUnlessShutdown](
             UniqueIdentifier
               .create(identifierName, namespaceKey.fingerprint)
           )
           .leftMap(err => s"Failed to convert name to identifier: $err")
-        _ <- EitherT.right[String](initializationStore.setUid(uid))
+        _ <- EitherT
+          .right[String](initializationStore.setUid(uid))
+          .mapK(FutureUnlessShutdown.outcomeK)
       } yield Option(uid)
-    }.mapK(FutureUnlessShutdown.outcomeK)
+    }
 
     override def initializeWithProvidedId(uid: UniqueIdentifier): EitherT[Future, String, Unit] =
       completeWithExternal(
@@ -650,7 +652,6 @@ abstract class CantonNodeBootstrapImpl[
         // all nodes need a signing key
         signingKey <- CantonNodeBootstrapImpl
           .getOrCreateSigningKey(crypto)(s"$name-signing")
-          .mapK(FutureUnlessShutdown.outcomeK)
         // key owner id depends on the type of node
         ownerId = member(nodeId)
         // participants need also an encryption key
@@ -661,7 +662,6 @@ abstract class CantonNodeBootstrapImpl[
                 .getOrCreateEncryptionKey(crypto)(
                   s"$name-encryption"
                 )
-                .mapK(FutureUnlessShutdown.outcomeK)
             } yield NonEmpty.mk(Seq, signingKey, encryptionKey)
           } else {
             EitherT.rightT[FutureUnlessShutdown, String](NonEmpty.mk(Seq, signingKey))
@@ -714,11 +714,14 @@ object CantonNodeBootstrapImpl {
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, String, SigningPublicKey] =
+  ): EitherT[FutureUnlessShutdown, String, SigningPublicKey] =
     getOrCreateKey(
       "signing",
       crypto.cryptoPublicStore.findSigningKeyIdByName,
-      name => crypto.generateSigningKey(name = name).leftMap(_.toString),
+      name =>
+        crypto
+          .generateSigningKey(name = name)
+          .leftMap(_.toString),
       crypto.cryptoPrivateStore.existsSigningKey,
       name,
     )
@@ -728,7 +731,7 @@ object CantonNodeBootstrapImpl {
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, String, SigningPublicKey] =
+  ): EitherT[FutureUnlessShutdown, String, SigningPublicKey] =
     getKeyByFingerprint(
       "signing",
       crypto.cryptoPublicStore.findSigningKeyIdByFingerprint,
@@ -741,7 +744,7 @@ object CantonNodeBootstrapImpl {
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, String, EncryptionPublicKey] =
+  ): EitherT[FutureUnlessShutdown, String, EncryptionPublicKey] =
     getOrCreateKey(
       "encryption",
       crypto.cryptoPublicStore.findEncryptionKeyIdByName,
@@ -753,15 +756,22 @@ object CantonNodeBootstrapImpl {
   private def getKeyByFingerprint[P <: PublicKey](
       typ: String,
       findPubKeyIdByFingerprint: Fingerprint => EitherT[Future, CryptoPublicStoreError, Option[P]],
-      existPrivateKeyByFp: Fingerprint => EitherT[Future, CryptoPrivateStoreError, Boolean],
+      existPrivateKeyByFp: Fingerprint => EitherT[
+        FutureUnlessShutdown,
+        CryptoPrivateStoreError,
+        Boolean,
+      ],
       fingerprint: Fingerprint,
-  )(implicit ec: ExecutionContext): EitherT[Future, String, P] = for {
+  )(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, String, P] = for {
     keyIdO <- findPubKeyIdByFingerprint(fingerprint)
       .leftMap(err =>
         s"Failure while looking for $typ fingerprint $fingerprint in public store: $err"
       )
+      .mapK(FutureUnlessShutdown.outcomeK)
     pubKey <- keyIdO.fold(
-      EitherT.leftT[Future, P](s"$typ key with fingerprint $fingerprint does not exist")
+      EitherT.leftT[FutureUnlessShutdown, P](
+        s"$typ key with fingerprint $fingerprint does not exist"
+      )
     ) { keyWithFingerprint =>
       val fingerprint = keyWithFingerprint.fingerprint
       existPrivateKeyByFp(fingerprint)
@@ -780,13 +790,18 @@ object CantonNodeBootstrapImpl {
   private def getOrCreateKey[P <: PublicKey](
       typ: String,
       findPubKeyIdByName: KeyName => EitherT[Future, CryptoPublicStoreError, Option[P]],
-      generateKey: Option[KeyName] => EitherT[Future, String, P],
-      existPrivateKeyByFp: Fingerprint => EitherT[Future, CryptoPrivateStoreError, Boolean],
+      generateKey: Option[KeyName] => EitherT[FutureUnlessShutdown, String, P],
+      existPrivateKeyByFp: Fingerprint => EitherT[
+        FutureUnlessShutdown,
+        CryptoPrivateStoreError,
+        Boolean,
+      ],
       name: String,
-  )(implicit ec: ExecutionContext): EitherT[Future, String, P] = for {
-    keyName <- EitherT.fromEither[Future](KeyName.create(name))
+  )(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, String, P] = for {
+    keyName <- EitherT.fromEither[FutureUnlessShutdown](KeyName.create(name))
     keyIdO <- findPubKeyIdByName(keyName)
       .leftMap(err => s"Failure while looking for $typ key $name in public store: $err")
+      .mapK(FutureUnlessShutdown.outcomeK)
     pubKey <- keyIdO.fold(
       generateKey(Some(keyName))
         .leftMap(err => s"Failure while generating $typ key for $name: $err")

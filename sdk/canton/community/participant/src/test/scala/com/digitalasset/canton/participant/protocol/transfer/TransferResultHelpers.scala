@@ -42,10 +42,12 @@ object TransferResultHelpers {
         protocolVersion,
       )
     val signedResult: SignedProtocolMessage[ConfirmationResultMessage] =
-      Await.result(
-        SignedProtocolMessage.trySignAndCreate(result, cryptoSnapshot, protocolVersion),
-        10.seconds,
-      )
+      Await
+        .result(
+          SignedProtocolMessage.trySignAndCreate(result, cryptoSnapshot, protocolVersion),
+          10.seconds,
+        )
+        .onShutdown(sys.error("aborted due to shutdown"))
     val batch: Batch[OpenEnvelope[SignedProtocolMessage[ConfirmationResultMessage]]] =
       Batch.of(protocolVersion, (signedResult, Recipients.cc(participantId)))
     val deliver: Deliver[OpenEnvelope[SignedProtocolMessage[ConfirmationResultMessage]]] =
@@ -61,6 +63,7 @@ object TransferResultHelpers {
     val signature =
       Await
         .result(cryptoSnapshot.sign(TestHash.digest("dummySignature")).value, 10.seconds)
+        .onShutdown(sys.error("aborted due to shutdown"))
         .valueOr(err => throw new RuntimeException(err.toString))
     val signedContent = SignedContent(
       deliver,

@@ -14,8 +14,8 @@ import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.api.v30.SequencerConnect
 import com.digitalasset.canton.domain.api.v30.SequencerConnectServiceGrpc.SequencerConnectServiceStub
 import com.digitalasset.canton.domain.api.v30.SequencerServiceGrpc.SequencerServiceStub
-import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.lifecycle.Lifecycle.CloseableChannel
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.SequencerClientMetrics
 import com.digitalasset.canton.networking.grpc.GrpcError.{
@@ -113,7 +113,9 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
   override def sendAsyncSigned(
       request: SignedContent[SubmissionRequest],
       timeout: Duration,
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientResponseError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] = {
     sendInternal(
       stub =>
         stub.sendAsyncVersioned(
@@ -123,7 +125,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       request.content.messageId,
       timeout,
       SendAsyncUnauthenticatedVersionedResponse.fromSendAsyncVersionedResponseProto,
-    )
+    ).mapK(FutureUnlessShutdown.outcomeK)
   }
 
   override def sendAsyncUnauthenticatedVersioned(request: SubmissionRequest, timeout: Duration)(

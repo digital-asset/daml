@@ -89,7 +89,7 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
         _ <- valueOrFail(sequencer.registerMember(sender))("Register mediator")
         _ <- valueOrFail(sequencer.registerMember(sequencerId))("Register sequencer")
 
-        _ <- valueOrFail(sequencer.sendAsync(request))("Sent async")
+        _ <- sequencer.sendAsync(request).valueOrFailShutdown("Sent async")
         messages <- readForMembers(List(sender), sequencer)
         _ = {
           val details = EventDetails(
@@ -120,7 +120,7 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
           // need to advance clock so that the new event doesn't get the same timestamp as the previous one,
           // which would then cause it to be ignored on the read path
           simClockOrFail(clock).advance(Duration.ofSeconds(1))
-          valueOrFail(secondSequencer.sendAsync(request2))("Sent async")
+          secondSequencer.sendAsync(request2).valueOrFailShutdown("Sent async")
         }
 
         messages2 <- readForMembers(

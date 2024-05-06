@@ -41,10 +41,10 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
 import com.digitalasset.canton.topology.processing.{SequencedTime, TopologyTransactionProcessor}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.traffic.TrafficControlProcessor
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{Checked, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -245,7 +245,7 @@ trait MessageDispatcher { this: NamedLogging =>
   ): FutureUnlessShutdown[ProcessingResult] =
     doProcess(
       TrafficControlTransaction,
-      trafficProcessor.processSetTrafficBalanceEnvelopes(ts, timestampOfSigningKeyO, envelopes),
+      trafficProcessor.processSetTrafficPurchasedEnvelopes(ts, timestampOfSigningKeyO, envelopes),
     )
 
   private def processTransactionAndTransferMessages(

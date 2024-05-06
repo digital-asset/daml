@@ -6,47 +6,50 @@ package com.digitalasset.canton.domain.sequencing.traffic
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficConfig
-import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
-import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficBalanceStore
+import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficPurchasedStore
+import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficPurchasedStore
+import com.digitalasset.canton.sequencing.traffic.EventCostCalculator
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.traffic.EventCostCalculator
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 
 trait RateLimitManagerTesting { this: BaseTest with HasExecutionContext =>
-  lazy val trafficBalanceStore = new InMemoryTrafficBalanceStore(loggerFactory)
-  def mkTrafficBalanceManager(store: TrafficBalanceStore) = new TrafficBalanceManager(
+  lazy val trafficPurchasedStore = new InMemoryTrafficPurchasedStore(loggerFactory)
+  def mkTrafficPurchasedManager(store: TrafficPurchasedStore) = new TrafficPurchasedManager(
     store,
     new SimClock(CantonTimestamp.Epoch, loggerFactory),
     SequencerTrafficConfig(),
     futureSupervisor,
     SequencerMetrics.noop("sequencer-rate-limit-manager-test"),
+    testedProtocolVersion,
     timeouts,
     loggerFactory,
   )
-  lazy val defaultTrafficBalanceManager = mkTrafficBalanceManager(trafficBalanceStore)
+  lazy val defaultTrafficPurchasedManager = mkTrafficPurchasedManager(trafficPurchasedStore)
 
-  lazy val defaultRateLimiter = mkRateLimiter(trafficBalanceStore)
+  lazy val defaultRateLimiter = mkRateLimiter(trafficPurchasedStore)
   def defaultRateLimiterWithEventCostCalculator(eventCostCalculator: EventCostCalculator) =
     new EnterpriseSequencerRateLimitManager(
-      defaultTrafficBalanceManager,
+      defaultTrafficPurchasedManager,
       loggerFactory,
       futureSupervisor,
       timeouts,
       SequencerMetrics.noop("sequencer-rate-limit-manager-test"),
       eventCostCalculator = eventCostCalculator,
+      protocolVersion = testedProtocolVersion,
     )
 
-  def mkRateLimiter(store: TrafficBalanceStore) =
+  def mkRateLimiter(store: TrafficPurchasedStore) =
     new EnterpriseSequencerRateLimitManager(
-      mkTrafficBalanceManager(store),
+      mkTrafficPurchasedManager(store),
       loggerFactory,
       futureSupervisor,
       timeouts,
       SequencerMetrics.noop("sequencer-rate-limit-manager-test"),
       eventCostCalculator = new EventCostCalculator(loggerFactory),
+      protocolVersion = testedProtocolVersion,
     )
 
-  def mkRateLimiter(manager: TrafficBalanceManager) =
+  def mkRateLimiter(manager: TrafficPurchasedManager) =
     new EnterpriseSequencerRateLimitManager(
       manager,
       loggerFactory,
@@ -54,5 +57,6 @@ trait RateLimitManagerTesting { this: BaseTest with HasExecutionContext =>
       timeouts,
       SequencerMetrics.noop("sequencer-rate-limit-manager-test"),
       eventCostCalculator = new EventCostCalculator(loggerFactory),
+      protocolVersion = testedProtocolVersion,
     )
 }

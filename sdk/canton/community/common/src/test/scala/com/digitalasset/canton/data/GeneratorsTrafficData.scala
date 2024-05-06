@@ -4,7 +4,7 @@
 package com.digitalasset.canton.data
 
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
-import com.digitalasset.canton.protocol.messages.SetTrafficBalanceMessage
+import com.digitalasset.canton.protocol.messages.SetTrafficPurchasedMessage
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalacheck.Arbitrary
@@ -15,16 +15,16 @@ final class GeneratorsTrafficData(
   import com.digitalasset.canton.config.GeneratorsConfig.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
 
-  implicit val setTrafficBalanceArb: Arbitrary[SetTrafficBalanceMessage] = Arbitrary(
+  implicit val setTrafficPurchasedArb: Arbitrary[SetTrafficPurchasedMessage] = Arbitrary(
     for {
       member <- Arbitrary.arbitrary[Member]
       serial <- Arbitrary.arbitrary[PositiveInt]
-      trafficBalance <- Arbitrary.arbitrary[NonNegativeLong]
+      trafficPurchased <- Arbitrary.arbitrary[NonNegativeLong]
       domainId <- Arbitrary.arbitrary[DomainId]
-    } yield SetTrafficBalanceMessage.apply(
+    } yield SetTrafficPurchasedMessage.apply(
       member,
       serial,
-      trafficBalance,
+      trafficPurchased,
       domainId,
       protocolVersion,
     )

@@ -281,6 +281,9 @@ trait BaseTest
 
     def leftOrFailShutdown(clue: String)(implicit ec: ExecutionContext, pos: Position): Future[E] =
       self.leftOrFail(eitherT)(clue).onShutdown(fail(s"Shutdown during $clue"))
+
+    def failOnShutdown(implicit ec: ExecutionContext, pos: Position): EitherT[Future, E, A] =
+      eitherT.onShutdown(fail("Unexpected shutdown"))
   }
 
   implicit class EitherTUnlessShutdownSyntax[E, A](
@@ -300,6 +303,13 @@ trait BaseTest
       fut.onShutdown(fail(s"Unexpected shutdown"))
     def futureValueUS(implicit ec: ExecutionContext, pos: Position): A =
       fut.failOnShutdown.futureValue
+  }
+
+  implicit class UnlessShutdownSyntax[A](us: UnlessShutdown[A]) {
+    def failOnShutdown(clue: String)(implicit pos: Position): A =
+      us.onShutdown(fail(s"Shutdown during $clue"))
+    def failOnShutdown(implicit pos: Position): A =
+      us.onShutdown(fail(s"Unexpected shutdown"))
   }
 
   def forEveryParallel[A](inputs: Seq[A])(

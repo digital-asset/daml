@@ -26,10 +26,10 @@ import com.digitalasset.canton.scheduler.PruningScheduler
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.TrafficControlError
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.traffic.TrafficControlErrors.TrafficControlError
 import com.digitalasset.canton.util.EitherTUtil
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.Done
@@ -86,11 +86,11 @@ trait Sequencer
 
   def sendAsyncSigned(signedSubmission: SignedContent[SubmissionRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SendAsyncError, Unit]
+  ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit]
 
   def sendAsync(submission: SubmissionRequest)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SendAsyncError, Unit]
+  ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit]
 
   def read(member: Member, offset: SequencerCounter)(implicit
       traceContext: TraceContext
@@ -144,10 +144,10 @@ trait Sequencer
       traceContext: TraceContext
   ): FutureUnlessShutdown[SequencerTrafficStatus]
 
-  def setTrafficBalance(
+  def setTrafficPurchased(
       member: Member,
       serial: PositiveInt,
-      totalTrafficBalance: NonNegativeLong,
+      totalTrafficPurchased: NonNegativeLong,
       sequencerClient: SequencerClient,
   )(implicit
       traceContext: TraceContext
@@ -264,7 +264,7 @@ object Sequencer extends HasLoggerName {
 
   /** Type alias for a content that is signed by the sender (as in, whoever sent the SubmissionRequest to the sequencer).
     * Note that the sequencer itself can be the "sender": for instance when processing balance updates for traffic control,
-    * the sequencer will craft a SetTrafficBalance protocol message and sign it as the "sender".
+    * the sequencer will craft a SetTrafficPurchased protocol message and sign it as the "sender".
     */
   type SenderSigned[A <: HasCryptographicEvidence] = SignedContent[A]
 

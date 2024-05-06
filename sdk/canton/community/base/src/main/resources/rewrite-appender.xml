@@ -212,7 +212,7 @@
         </rewrite>
 
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.integration.tests.LoggingIntegrationTestDefault</logger>
+            <logger>com.digitalasset.canton.integration.tests.logging.LoggingIntegrationTestDefault</logger>
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>

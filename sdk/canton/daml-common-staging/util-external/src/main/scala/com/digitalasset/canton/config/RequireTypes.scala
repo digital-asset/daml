@@ -4,6 +4,7 @@
 package com.digitalasset.canton.config
 
 import cats.syntax.either.*
+import com.digitalasset.canton.config.RequireTypes.NonNegativeNumeric.SubtractionResult
 import pureconfig.error.{CannotConvert, FailureReason}
 import pureconfig.{ConfigReader, ConfigWriter}
 import slick.jdbc.{GetResult, SetParameter}
@@ -92,9 +93,31 @@ object RequireTypes {
     def *(other: NonNegativeNumeric[T]): NonNegativeNumeric[T] =
       NonNegativeNumeric.tryCreate(value * other.value)
     def tryAdd(other: T): NonNegativeNumeric[T] = NonNegativeNumeric.tryCreate(value + other)
+
+    /** Subtract other from this.
+      * Subtracts as much as possible of "other" from "this" such that "this" stays >= 0.
+      * Any remaining amount will be the remainder.
+      * e.g:
+      *   NonNegativeNumeric(5).subtract(NonNegativeNumeric(3)) == SubtractionResult(NonNegativeNumeric(2), NonNegativeNumeric(0))
+      *   NonNegativeNumeric(2).subtract(NonNegativeNumeric(3)) == SubtractionResult(NonNegativeNumeric(0), NonNegativeNumeric(1))
+      * @param other value to subtract to this
+      */
+    def subtract(other: NonNegativeNumeric[T]): SubtractionResult[T] = {
+      val difference = value - other.value
+      if (difference < num.zero) {
+        SubtractionResult(NonNegativeNumeric(num.zero), NonNegativeNumeric(-difference))
+      } else {
+        SubtractionResult(NonNegativeNumeric.tryCreate(difference), NonNegativeNumeric(num.zero))
+      }
+    }
   }
 
   object NonNegativeNumeric {
+
+    final case class SubtractionResult[T](
+        result: NonNegativeNumeric[T],
+        remainder: NonNegativeNumeric[T],
+    )
     def tryCreate[T](t: T)(implicit num: Numeric[T]): NonNegativeNumeric[T] =
       create(t).valueOr(err => throw new IllegalArgumentException(err.message))
 

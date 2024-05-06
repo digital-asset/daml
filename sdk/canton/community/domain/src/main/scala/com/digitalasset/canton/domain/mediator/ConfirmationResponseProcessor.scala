@@ -122,14 +122,18 @@ private[mediator] class ConfirmationResponseProcessor(
 
     val future = for {
       // FIXME(i12903): do not block if requestId is far in the future
-      snapshot <- crypto.ips.awaitSnapshot(requestId.unwrap)(callerTraceContext)
+      snapshot <- crypto.ips.awaitSnapshotUS(requestId.unwrap)(callerTraceContext)
 
-      domainParameters <- snapshot
-        .findDynamicDomainParameters()(callerTraceContext)
-        .flatMap(_.toFuture(new IllegalStateException(_)))
+      domainParameters <- FutureUnlessShutdown.outcomeF(
+        snapshot
+          .findDynamicDomainParameters()(callerTraceContext)
+          .flatMap(_.toFuture(new IllegalStateException(_)))
+      )
 
-      participantResponseDeadline <- domainParameters.participantResponseDeadlineForF(requestTs)
-      decisionTime <- domainParameters.decisionTimeForF(requestTs)
+      participantResponseDeadline <- FutureUnlessShutdown.outcomeF(
+        domainParameters.participantResponseDeadlineForF(requestTs)
+      )
+      decisionTime <- FutureUnlessShutdown.outcomeF(domainParameters.decisionTimeForF(requestTs))
 
       _ <- MonadUtil.sequentialTraverse_(events) {
         _.withTraceContext { implicit traceContext =>
@@ -157,22 +161,24 @@ private[mediator] class ConfirmationResponseProcessor(
                   topologyTimestamp,
                   recipients,
                 ) =>
-              processResponse(
-                timestamp,
-                counter,
-                participantResponseDeadline,
-                decisionTime,
-                response,
-                topologyTimestamp,
-                recipients,
-              )
+              FutureUnlessShutdown.outcomeF {
+                processResponse(
+                  timestamp,
+                  counter,
+                  participantResponseDeadline,
+                  decisionTime,
+                  response,
+                  topologyTimestamp,
+                  recipients,
+                )
+              }
             case MediatorEvent.Timeout(_counter, timestamp, requestId) =>
-              handleTimeout(requestId, timestamp, decisionTime)
+              FutureUnlessShutdown.outcomeF(handleTimeout(requestId, timestamp, decisionTime))
           }
         }
       }
     } yield ()
-    HandlerResult.synchronous(FutureUnlessShutdown.outcomeF(future))
+    HandlerResult.synchronous(future)
   }
 
   @VisibleForTesting
@@ -221,22 +227,24 @@ private[mediator] class ConfirmationResponseProcessor(
       request: MediatorConfirmationRequest,
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       batchAlsoContainsTopologyTransaction: Boolean,
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     withSpan("TransactionConfirmationResponseProcessor.processRequest") {
       implicit traceContext => span =>
         span.setAttribute("request_id", requestId.toString)
         span.setAttribute("counter", counter.toString)
 
         for {
-          snapshot <- crypto.awaitSnapshot(requestId.unwrap)
+          snapshot <- crypto.awaitSnapshotUS(requestId.unwrap)
 
-          unitOrVerdictO <- validateRequest(
-            requestId,
-            request,
-            rootHashMessages,
-            snapshot,
-            batchAlsoContainsTopologyTransaction,
-          )
+          unitOrVerdictO <- FutureUnlessShutdown.outcomeF {
+            validateRequest(
+              requestId,
+              request,
+              rootHashMessages,
+              snapshot,
+              batchAlsoContainsTopologyTransaction,
+            )
+          }
 
           // Take appropriate actions based on unitOrVerdictO
           _ <- unitOrVerdictO match {
@@ -248,14 +256,16 @@ private[mediator] class ConfirmationResponseProcessor(
                 snapshot.ipsSnapshot,
               )
 
-              for {
-                aggregation <- aggregationF
-                _ <- mediatorState.add(aggregation)
-              } yield {
-                timeTracker.requestTick(participantResponseDeadline)
-                logger.info(
-                  show"Phase 2: Registered request=${requestId.unwrap} with ${request.informeesAndThresholdByViewPosition.size} view(s). Initial state: ${aggregation.showMergedState}"
-                )
+              FutureUnlessShutdown.outcomeF {
+                for {
+                  aggregation <- aggregationF
+                  _ <- mediatorState.add(aggregation)
+                } yield {
+                  timeTracker.requestTick(participantResponseDeadline)
+                  logger.info(
+                    show"Phase 2: Registered request=${requestId.unwrap} with ${request.informeesAndThresholdByViewPosition.size} view(s). Initial state: ${aggregation.showMergedState}"
+                  )
+                }
               }
 
             // Request is finalized, approve / reject immediately
@@ -270,15 +280,17 @@ private[mediator] class ConfirmationResponseProcessor(
                   verdict,
                   decisionTime,
                 )
-                _ <- mediatorState.add(
-                  FinalizedResponse(requestId, request, requestId.unwrap, verdict)(traceContext)
+                _ <- FutureUnlessShutdown.outcomeF(
+                  mediatorState.add(
+                    FinalizedResponse(requestId, request, requestId.unwrap, verdict)(traceContext)
+                  )
                 )
               } yield ()
 
             // Discard request
             case Left(None) =>
               logger.debug(show"$requestId: discarding request...")
-              Future.successful(None)
+              FutureUnlessShutdown.pure(None)
           }
         } yield ()
     }

@@ -557,6 +557,7 @@ class LocalSecretKeyAdministration(
           .leftMap(_.toString)
           .subflatMap(_.toRight(s"no private key found for [$fingerprint]"))
           .leftMap(err => s"Error retrieving private key [$fingerprint] $err")
+          .onShutdown(sys.error("aborted due to shutdown"))
         publicKey <- crypto.cryptoPublicStore
           .publicKey(fingerprint)
           .leftMap(_.toString)
