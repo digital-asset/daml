@@ -214,14 +214,16 @@ class DomainJsonDecoder(
   private[this] def jsValueToApiRecord(t: domain.LfType, v: JsValue) =
     jsValueToApiValue(t, v) flatMap mustBeApiRecord
 
-  private[this] def resolveMetaTemplateIds[U, R <: ContractTypeId.Resolved, LfV](
-      meta: domain.CommandMeta[U with ContractTypeId.RequiredPkg],
+  private[this] def resolveMetaTemplateIds[
+      CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]
+  ](
+      meta: domain.CommandMeta[CtId[String]],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   )(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): ET[domain.CommandMeta[R]] = for {
+  ): ET[domain.CommandMeta[ContractTypeId.ResolvedOf[CtId]]] = for {
     // resolve as few template IDs as possible
     tpidToResolved <- {
       import scalaz.std.vector._
@@ -230,10 +232,10 @@ class DomainJsonDecoder(
         .traverse { ot => templateId_(ot, jwt, ledgerId) strengthL ot }
         .map(_.toMap)
     }
-  } yield meta map tpidToResolved map (_.asInstanceOf[R])
+  } yield meta map tpidToResolved
 
   private def templateId_[
-      CtId[T] <: domain.ContractTypeId[T] with domain.ContractTypeId.Ops[CtId, T]
+      CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]
   ](
       id: CtId[String],
       jwt: Jwt,

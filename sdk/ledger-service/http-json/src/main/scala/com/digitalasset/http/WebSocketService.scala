@@ -615,7 +615,7 @@ object WebSocketService {
         }
         .map { resolveTries =>
           val (resolvedWithKey, unresolved) = resolveTries
-            .toSet[Either[(ContractTypeRef.Resolved, LfV), domain.ContractTypeId.RequiredPkg]]
+            .toSet[Either[(ContractTypeRef.Resolved, LfV), RequiredPkg]]
             .partitionMap(identity)
           for {
             resolvedWithKey <- (NonEmpty from resolvedWithKey toRightDisjunction InvalidUserInput(

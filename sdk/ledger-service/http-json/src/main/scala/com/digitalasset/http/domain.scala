@@ -632,6 +632,8 @@ package domain {
   }
 
   object CreateCommand {
+    type RequiredPkg[+LfV] = CreateCommand[LfV, ContractTypeId.Template.RequiredPkg]
+
     implicit val bitraverseInstance: Bitraverse[CreateCommand] = new Bitraverse[CreateCommand] {
       override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
           fab: CreateCommand[A, B]

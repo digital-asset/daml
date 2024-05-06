@@ -36,14 +36,14 @@ class DomainJsonEncoder(
     } yield y
 
   def encodeCreateCommand(
-      cmd: domain.CreateCommand[lav1.value.Record, domain.ContractTypeId.Template.RequiredPkg]
+      cmd: domain.CreateCommand.RequiredPkg[lav1.value.Record]
   )(implicit
-      ev: JsonWriter[domain.CreateCommand[JsValue, domain.ContractTypeId.Template.RequiredPkg]]
+      ev: JsonWriter[domain.CreateCommand.RequiredPkg[JsValue]]
   ): JsonError \/ JsValue =
     for {
       x <- cmd.traversePayload(
         apiRecordToJsObject(_)
-      ): JsonError \/ domain.CreateCommand[JsValue, domain.ContractTypeId.Template.RequiredPkg]
+      ): JsonError \/ domain.CreateCommand.RequiredPkg[JsValue]
       y <- SprayJson.encode(x).liftErr(JsonError)
 
     } yield y

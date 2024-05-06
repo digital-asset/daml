@@ -1985,7 +1985,6 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
     extends QueryStoreAndAuthDependentIntegrationTest {
   import HttpServiceTestFixture.accountCreateCommand
   import json.JsonProtocol._
-  import scalaz.syntax.functor._
 
   "query GET" - {
     "empty results" in withHttpService { fixture =>

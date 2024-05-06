@@ -406,7 +406,7 @@ object PackageService {
       }.toSet
 
     private[http] def resolve(
-        a: ContractTypeId[String]
+        a: ContractTypeId.RequiredPkg
     )(implicit makeKey: ContractTypeId.Like[CtId]): Option[ContractTypeRef[ResolvedOf[CtId]]] =
       (all get makeKey(a.packageId, a.moduleName, a.entityName)).flatMap(toContractTypeRef)
   }
@@ -431,7 +431,6 @@ object PackageService {
       private val mapView: MapView[String, (KeyPackageName, Ref.PackageVersion)]
   ) {
     def get(pkgId: String) = mapView.get(pkgId)
-    override def toString = mapView.toMap.toString
   }
   object PackageNameMap {
     val empty = PackageNameMap(MapView.empty)
