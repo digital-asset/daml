@@ -14,10 +14,7 @@ import com.daml.ledger.rxjava.DamlLedgerClient
 import com.daml.lf.archive.{Dar, UniversalArchiveDecoder}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
-import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.{
-  AdminLedgerClient,
-  GrpcLedgerClient,
-}
+import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.{AdminLedgerClient, GrpcLedgerClient}
 import com.daml.lf.engine.script.v2.ledgerinteraction.{IdeLedgerClient, ScriptLedgerClient}
 import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.model.test.LedgerImplicits._
@@ -27,18 +24,14 @@ import com.daml.lf.model.test.Projections.{PartyId, Projection}
 import com.daml.lf.model.test.ToProjection.{ContractIdReverseMapping, PartyIdReverseMapping}
 import com.daml.lf.speedy.{Compiler, RingBufferTraceLog, WarningLog}
 import com.daml.logging.ContextualizedLogger
-import com.digitalasset.canton.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientChannelConfiguration,
-  LedgerClientConfiguration,
-}
+import com.digitalasset.canton.ledger.client.configuration.{CommandClientConfiguration, LedgerClientChannelConfiguration, LedgerClientConfiguration}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.google.protobuf.ByteString
 import org.apache.pekko.stream.Materializer
 
 import java.io.{File, FileInputStream}
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future, blocking}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
 
 trait LedgerRunner {
@@ -182,10 +175,11 @@ private class CantonLedgerRunner(
         )
       _ <- Future.sequence(
         for (darPath <- universalDarPaths) yield {
-          grpcClient.packageManagementClient
+          val res = grpcClient.packageManagementClient
             .uploadDarFile(ByteString.readFrom(new FileInputStream(darPath)))
-            // Uploading many dars to the same participant in quick succession can cause race conditions.
-            .flatMap(_ => Future { blocking { Thread.sleep(500) } })
+          // Uploading many dars to the same participant in quick succession can cause race conditions.
+          Thread.sleep(500)
+          res
         }
       )
     } yield {
