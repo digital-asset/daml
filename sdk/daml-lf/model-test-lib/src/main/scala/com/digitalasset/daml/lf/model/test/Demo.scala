@@ -20,8 +20,8 @@ object Demo {
 
   private val languageVersion = LanguageVersion.v2_dev
   private val alsoRunOnCanton = true
-  private val numParticipants = 3
-  private val numParties = 5
+  private val numParticipants = 2
+  private val numParties = 2
   private val numPackages = 3
 
   private val universalDarPaths: List[String] = for {
@@ -36,7 +36,7 @@ object Demo {
   def main(args: Array[String]): Unit = {
 
     val scenarios =
-      new Enumerations(languageVersion).scenarios(numParticipants, numCommands = 4)(50)
+      new Enumerations(languageVersion).scenarios(numParticipants)(20)
 
     def randomBigIntLessThan(n: BigInt): BigInt = {
       var res: BigInt = BigInt(0)
@@ -90,11 +90,12 @@ object Demo {
         |Scenario
         |  Topology
         |    Participant 0 parties={1}
-        |    Participant 1 parties={1}
-        |    Participant 2 parties={1}
         |  Ledger
         |    Commands participant=0 actAs={1} disclosures={}
-        |      Create 0 pkg=1 sigs={1} obs={}
+        |      Create 0 sigs={1} obs={}
+        |    Commands participant=0 actAs={1} disclosures={}
+        |      Exercise NonConsuming 0 ctl={1} cobs={}
+        |      Exercise NonConsuming 0 pkg=1 ctl={1} cobs={}
         |""".stripMargin)
 
     validSymScenarios
@@ -104,7 +105,8 @@ object Demo {
         if (scenario.ledger.nonEmpty) {
           println("\n==== ledger ====")
           println(Pretty.prettyScenario(scenario))
-          ideLedgerRunner.runAndProject(scenario) match {
+          assert(SymbolicSolver.valid(scenario, numPackages, numParties))
+          cantonLedgerRunner.runAndProject(scenario) match {
             case Left(error) =>
               println("INVALID LEDGER!")
               println(Pretty.prettyScenario(scenario))

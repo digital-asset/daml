@@ -38,7 +38,7 @@ import org.apache.pekko.stream.Materializer
 
 import java.io.{File, FileInputStream}
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 import scala.jdk.CollectionConverters._
 
 trait LedgerRunner {
@@ -180,12 +180,12 @@ private class CantonLedgerRunner(
           clientChannelConfig,
           NamedLoggerFactory("model.test", ""),
         )
-      _ <- Future.successful(
-        for (darPath <- universalDarPaths) {
-          val _ = grpcClient.packageManagementClient
+      _ <- Future.sequence(
+        for (darPath <- universalDarPaths) yield {
+          grpcClient.packageManagementClient
             .uploadDarFile(ByteString.readFrom(new FileInputStream(darPath)))
-          // Uploading many dars to the same participant in quick succession can cause race conditions.
-          Thread.sleep(500)
+            // Uploading many dars to the same participant in quick succession can cause race conditions.
+            .flatMap(_ => Future { blocking { Thread.sleep(500) } })
         }
       )
     } yield {

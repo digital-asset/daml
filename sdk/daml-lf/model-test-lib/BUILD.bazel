@@ -36,6 +36,7 @@ PKG_VERSIONS = [
         ],
         project_name = "universal",
         target = lf_version,
+        version = "{}.0.0".format(pkg_version),
     )
     for lf_version in ENGINE_LF_VERSIONS
     for pkg_version in PKG_VERSIONS
