@@ -533,6 +533,28 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     }
   }
 
+  "query with package reference missing from Template IDs" - {
+    "fails if any have package reference missing" in withHttpService { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        search(
+          genSearchDataSet(alice),
+          jsObject(
+            s"""{"templateIds": ["${TpId.Account.Account.fqn}", "Iou:Iou"], "query": {"currency": "EUR"}}"""
+          ),
+          fixture,
+          headers,
+        ).map { response =>
+          inside(response) {
+            case domain.ErrorResponse(List(error), None, StatusCodes.BadRequest, _) =>
+              error should include(
+                "Expected JsString(<packageId>:<module>:<entity>), got: \"Iou:Iou\""
+              )
+          }
+        }
+      }
+    }
+  }
+
   private def postCreate(
       fixture: HttpServiceTestFixtureData,
       payload: JsValue,

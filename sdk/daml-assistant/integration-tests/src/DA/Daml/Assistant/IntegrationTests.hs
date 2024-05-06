@@ -162,7 +162,7 @@ damlStart tmpDir _disableUpgradeValidation = do
         (authorizationHeaders "Alice") -- dummy party here, not important
     scriptOutput <- readFileUTF8 (projDir </> scriptOutputFile)
     let alice = (read scriptOutput :: String)
-    -- TODO(raphael-speyer-da): Use a package name once fully supported.
+    -- TODO(raphael-speyer-da): Use a package name once supported by canton out of the box.
     let packageRef = "6310b9aa3d506211b592dd657afb167d63637453f31eae986fad5aa1b6d61401"
     pure $
         DamlStartResource
