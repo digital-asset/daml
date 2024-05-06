@@ -139,7 +139,6 @@ final class TransferOutProcessingStepsTest
       IndexedDomain.tryCreate(sourceDomain.unwrap, 1),
       testedProtocolVersion,
       enableAdditionalConsistencyChecks = true,
-      enableTopologyTransactionValidation = false,
       indexedStringStore = indexedStringStore,
       loggerFactory,
       timeouts,
@@ -673,11 +672,12 @@ final class TransferOutProcessingStepsTest
             Seq,
             OpenEnvelope(encryptedOutRequest, RecipientsTest.testInstance)(testedProtocolVersion),
           )
-        decrypted <- valueOrFail(
-          outProcessingSteps.decryptViews(envelopes, cryptoSnapshot, sessionKeyStore)
-        )(
-          "decrypt request failed"
-        )
+        decrypted <-
+          outProcessingSteps
+            .decryptViews(envelopes, cryptoSnapshot, sessionKeyStore)
+            .valueOrFailShutdown(
+              "decrypt request failed"
+            )
         result <- valueOrFail(
           outProcessingSteps.computeActivenessSetAndPendingContracts(
             CantonTimestamp.Epoch,
@@ -804,11 +804,13 @@ final class TransferOutProcessingStepsTest
       )
 
       for {
-        signedResult <- SignedProtocolMessage.trySignAndCreate(
-          transferResult,
-          cryptoSnapshot,
-          testedProtocolVersion,
-        )
+        signedResult <- SignedProtocolMessage
+          .trySignAndCreate(
+            transferResult,
+            cryptoSnapshot,
+            testedProtocolVersion,
+          )
+          .failOnShutdown
         deliver: Deliver[OpenEnvelope[SignedProtocolMessage[ConfirmationResultMessage]]] = {
           val batch: Batch[OpenEnvelope[SignedProtocolMessage[ConfirmationResultMessage]]] =
             Batch.of(testedProtocolVersion, (signedResult, Recipients.cc(submittingParticipant)))
@@ -884,7 +886,7 @@ final class TransferOutProcessingStepsTest
         implicitly[TraceContext],
         executorService,
       )
-      .fold(error => fail(s"Failed to encrypt transfer-out request: $error"), Predef.identity)
+      .valueOrFailShutdown("failed to encrypt transfer-out request")
 
   def makeRootHashMessage(
       request: FullTransferOutTree

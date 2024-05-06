@@ -12,7 +12,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.DatabaseSequencerConf
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerHealthConfig
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
-import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
+import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficPurchasedStore
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.Storage
@@ -62,7 +62,7 @@ class DriverBlockSequencerFactory[C](
       cryptoApi: DomainSyncCryptoClient,
       stateManager: BlockSequencerStateManager,
       store: SequencerBlockStore,
-      balanceStore: TrafficBalanceStore,
+      balanceStore: TrafficPurchasedStore,
       storage: Storage,
       futureSupervisor: FutureSupervisor,
       health: Option[SequencerHealthConfig],

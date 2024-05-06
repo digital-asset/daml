@@ -25,7 +25,6 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{MonadUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
@@ -46,7 +45,6 @@ class DomainTopologyManager(
     crypto: Crypto,
     override val store: TopologyStore[DomainStore],
     val outboxQueue: DomainOutboxQueue,
-    enableTopologyTransactionValidation: Boolean,
     protocolVersion: ProtocolVersion,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
@@ -66,7 +64,6 @@ class DomainTopologyManager(
     new TopologyStateProcessor(
       store,
       Some(outboxQueue),
-      enableTopologyTransactionValidation,
       new ValidatingTopologyMappingChecks(store, loggerFactory),
       crypto.pureCrypto,
       loggerFactory,
@@ -83,7 +80,6 @@ class AuthorizedTopologyManager(
     clock: Clock,
     crypto: Crypto,
     store: TopologyStore[AuthorizedStore],
-    enableTopologyTransactionValidation: Boolean,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
@@ -102,7 +98,6 @@ class AuthorizedTopologyManager(
     new TopologyStateProcessor(
       store,
       None,
-      enableTopologyTransactionValidation,
       NoopTopologyMappingChecks,
       crypto.pureCrypto,
       loggerFactory,
@@ -177,7 +172,6 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
         FutureUnlessShutdown.outcomeK
       )
       signedTx <- signTransaction(tx, signingKeys, isProposal = !expectFullAuthorization)
-        .mapK(FutureUnlessShutdown.outcomeK)
       _ <- add(Seq(signedTx), force = force, expectFullAuthorization)
     } yield signedTx
   }
@@ -226,9 +220,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
               )
             )
         })
-      extendedTransaction <- extendSignature(existingTransaction, signingKeys).mapK(
-        FutureUnlessShutdown.outcomeK
-      )
+      extendedTransaction <- extendSignature(existingTransaction, signingKeys)
       _ <- add(
         Seq(extendedTransaction),
         force = force,
@@ -320,7 +312,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
       isProposal: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TopologyManagerError, SignedTopologyTransaction[Op, M]] = {
+  ): EitherT[FutureUnlessShutdown, TopologyManagerError, SignedTopologyTransaction[Op, M]] = {
     for {
       // find signing keys.
       keys <- (signingKeys match {
@@ -334,7 +326,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
               "Automatic signing key lookup not yet implemented. Please specify a signing key explicitly."
             )
           )
-      }): EitherT[Future, TopologyManagerError, NonEmpty[Set[Fingerprint]]]
+      }): EitherT[FutureUnlessShutdown, TopologyManagerError, NonEmpty[Set[Fingerprint]]]
       // create signed transaction
       signed <- SignedTopologyTransaction
         .create(
@@ -349,7 +341,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
           case SigningError.UnknownSigningKey(keyId) =>
             TopologyManagerError.SecretKeyNotInStore.Failure(keyId)
           case err => TopologyManagerError.InternalError.TopologySigningError(err)
-        }: EitherT[Future, TopologyManagerError, SignedTopologyTransaction[Op, M]]
+        }: EitherT[FutureUnlessShutdown, TopologyManagerError, SignedTopologyTransaction[Op, M]]
     } yield signed
   }
 
@@ -358,7 +350,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
       signingKey: Seq[Fingerprint],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TopologyManagerError, SignedTopologyTransaction[Op, M]] = {
+  ): EitherT[FutureUnlessShutdown, TopologyManagerError, SignedTopologyTransaction[Op, M]] = {
     for {
       // find signing keys
       keys <- (signingKey match {
@@ -372,7 +364,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
               "Automatic signing key lookup not yet implemented. Please specify a signing explicitly."
             )
           )
-      }): EitherT[Future, TopologyManagerError, Set[Fingerprint]]
+      }): EitherT[FutureUnlessShutdown, TopologyManagerError, Set[Fingerprint]]
       signatures <- keys.toSeq.parTraverse(
         crypto.privateCrypto
           .sign(transaction.hash.hash, _)
@@ -386,7 +378,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
   // TODO(#18524): Remove this after CN has upgraded to 3.1. It will then be superseded by #12945
   private def addMissingOtkSignaturesForSigningKeys(
       signedTxs: Seq[GenericSignedTopologyTransaction]
-  )(implicit traceContext: TraceContext): EitherT[Future, TopologyManagerError, Seq[
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, TopologyManagerError, Seq[
     SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]
   ]] =
     signedTxs
@@ -407,7 +399,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
                 .map(signedTx.addSignatures)
             }
         // if there was nothing to modify, just return the transaction
-        modifiedSignedTxO.getOrElse(EitherT.rightT[Future, SigningError](signedTx))
+        modifiedSignedTxO.getOrElse(EitherT.rightT[FutureUnlessShutdown, SigningError](signedTx))
       }
       .leftMap(TopologySigningError(_))
 
@@ -422,19 +414,23 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
-    sequentialQueue.executeE(
+    sequentialQueue.executeEUS(
       {
         val ts = timestampForValidation()
         for {
           // TODO(#18524): Remove this after CN has upgraded to 3.1
           transactions <- addMissingOtkSignaturesForSigningKeys(transactionsToAdd)
-          _ <- MonadUtil.sequentialTraverse_(transactions)(transactionIsNotDangerous(_, force))
-          transactionsInStore <- EitherT.liftF(
-            store.findTransactionsByTxHash(
-              EffectiveTime.MaxValue,
-              transactions.map(_.hash).toSet,
+          _ <- MonadUtil
+            .sequentialTraverse_(transactions)(transactionIsNotDangerous(_, force))
+            .mapK(FutureUnlessShutdown.outcomeK)
+          transactionsInStore <- EitherT
+            .liftF(
+              store.findTransactionsByTxHash(
+                EffectiveTime.MaxValue,
+                transactions.map(_.hash).toSet,
+              )
             )
-          )
+            .mapK(FutureUnlessShutdown.outcomeK)
           existingHashes = transactionsInStore
             .map(tx => tx.hash -> tx.hashOfSignatures)
             .toMap
@@ -452,7 +448,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
 
           _ <-
             if (newTransactionsOrAdditionalSignatures.isEmpty)
-              EitherT.pure[Future, TopologyManagerError](())
+              EitherT.pure[FutureUnlessShutdown, TopologyManagerError](())
             else {
               // validate incrementally and apply to in-memory state
               processor
@@ -480,6 +476,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
                 .map { acceptedTransactions =>
                   notifyObservers(ts, acceptedTransactions.map(_.transaction))
                 }
+                .mapK(FutureUnlessShutdown.outcomeK)
             }
         } yield ()
       },

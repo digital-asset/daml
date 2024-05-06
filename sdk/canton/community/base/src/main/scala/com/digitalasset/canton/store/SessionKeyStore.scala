@@ -7,12 +7,13 @@ import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.SessionKeyCacheConfig
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 import com.github.blemale.scaffeine.Cache
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 //TODO(#15057) Add stats on cache hits/misses
 sealed trait SessionKeyStore {
@@ -37,7 +38,7 @@ sealed trait SessionKeyStore {
   )(implicit
       tc: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, DecryptionError, SecureRandomness]
+  ): EitherT[FutureUnlessShutdown, DecryptionError, SecureRandomness]
 
 }
 
@@ -56,14 +57,14 @@ object SessionKeyStoreDisabled extends SessionKeyStore {
       encryptedRandomness: AsymmetricEncrypted[SecureRandomness]
   ): Option[SecureRandomness] = None
 
-  def getSessionKeyRandomness(
+  override def getSessionKeyRandomness(
       privateCrypto: CryptoPrivateApi,
       keySizeInBytes: Int,
       encryptedRandomness: AsymmetricEncrypted[SecureRandomness],
   )(implicit
       tc: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, DecryptionError, SecureRandomness] =
+  ): EitherT[FutureUnlessShutdown, DecryptionError, SecureRandomness] =
     privateCrypto
       .decrypt(encryptedRandomness)(
         SecureRandomness.fromByteString(keySizeInBytes)
@@ -98,12 +99,12 @@ final class SessionKeyStoreWithInMemoryCache(sessionKeysCacheConfig: SessionKeyC
       .buildScaffeine()
       .build()
 
-  protected[canton] def getSessionKeyInfoIfPresent(
+  override protected[canton] def getSessionKeyInfoIfPresent(
       recipients: RecipientGroup
   ): Option[SessionKeyInfo] =
     sessionKeysCacheSender.getIfPresent(recipients)
 
-  protected[canton] def saveSessionKeyInfo(
+  override protected[canton] def saveSessionKeyInfo(
       recipients: RecipientGroup,
       sessionKeyInfo: SessionKeyInfo,
   ): Unit =
@@ -118,21 +119,21 @@ final class SessionKeyStoreWithInMemoryCache(sessionKeysCacheConfig: SessionKeyC
       .buildScaffeine()
       .build()
 
-  protected[canton] def getSessionKeyRandomnessIfPresent(
+  override protected[canton] def getSessionKeyRandomnessIfPresent(
       encryptedRandomness: AsymmetricEncrypted[SecureRandomness]
   ): Option[SecureRandomness] =
     sessionKeysCacheReceiver.getIfPresent(encryptedRandomness)
 
-  def getSessionKeyRandomness(
+  override def getSessionKeyRandomness(
       privateCrypto: CryptoPrivateApi,
       keySizeInBytes: Int,
       encryptedRandomness: AsymmetricEncrypted[SecureRandomness],
   )(implicit
       tc: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, DecryptionError, SecureRandomness] =
+  ): EitherT[FutureUnlessShutdown, DecryptionError, SecureRandomness] =
     sessionKeysCacheReceiver.getIfPresent(encryptedRandomness) match {
-      case Some(randomness) => EitherT.rightT[Future, DecryptionError](randomness)
+      case Some(randomness) => EitherT.rightT[FutureUnlessShutdown, DecryptionError](randomness)
       case None =>
         privateCrypto
           .decrypt(encryptedRandomness)(

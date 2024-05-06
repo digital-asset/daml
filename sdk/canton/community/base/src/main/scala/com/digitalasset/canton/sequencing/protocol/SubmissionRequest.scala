@@ -45,6 +45,7 @@ final case class SubmissionRequest private (
     maxSequencingTime: CantonTimestamp,
     topologyTimestamp: Option[CantonTimestamp],
     aggregationRule: Option[AggregationRule],
+    submissionCost: Option[SequencingSubmissionCost],
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       SubmissionRequest.type
@@ -66,6 +67,7 @@ final case class SubmissionRequest private (
     maxSequencingTime = maxSequencingTime.toProtoPrimitive,
     topologyTimestamp = topologyTimestamp.map(_.toProtoPrimitive),
     aggregationRule = aggregationRule.map(_.toProtoV30),
+    submissionCost = submissionCost.map(_.toProtoV30),
   )
 
   @VisibleForTesting
@@ -77,6 +79,7 @@ final case class SubmissionRequest private (
       maxSequencingTime: CantonTimestamp = this.maxSequencingTime,
       topologyTimestamp: Option[CantonTimestamp] = this.topologyTimestamp,
       aggregationRule: Option[AggregationRule] = this.aggregationRule,
+      submissionCost: Option[SequencingSubmissionCost] = this.submissionCost,
   ) = SubmissionRequest
     .create(
       sender,
@@ -86,6 +89,7 @@ final case class SubmissionRequest private (
       maxSequencingTime,
       topologyTimestamp,
       aggregationRule,
+      submissionCost,
       representativeProtocolVersion,
     )
     .valueOr(err => throw new IllegalArgumentException(err.message))
@@ -155,6 +159,7 @@ object SubmissionRequest
       SubmissionRequest,
       MaxRequestSizeToDeserialize,
     ] {
+
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(
       ProtocolVersion.v31
@@ -163,6 +168,15 @@ object SubmissionRequest
       _.toProtoV30.toByteString,
     )
   )
+
+  lazy val submissionCostDefaultValue
+      : SubmissionRequest.DefaultValueUntilExclusive[Option[SequencingSubmissionCost]] =
+    DefaultValueUntilExclusive(
+      _.submissionCost,
+      "submissionCost",
+      protocolVersionRepresentativeFor(ProtocolVersion.dev),
+      None,
+    )
 
   override def name: String = "submission request"
 
@@ -179,6 +193,7 @@ object SubmissionRequest
       maxSequencingTime: CantonTimestamp,
       topologyTimestamp: Option[CantonTimestamp],
       aggregationRule: Option[AggregationRule],
+      submissionCost: Option[SequencingSubmissionCost],
       representativeProtocolVersion: RepresentativeProtocolVersion[SubmissionRequest.type],
   ): Either[InvariantViolation, SubmissionRequest] =
     Either
@@ -191,6 +206,7 @@ object SubmissionRequest
           maxSequencingTime,
           topologyTimestamp,
           aggregationRule,
+          submissionCost,
         )(representativeProtocolVersion, deserializedFrom = None)
       )
       .leftMap(error => InvariantViolation(error.getMessage))
@@ -203,6 +219,7 @@ object SubmissionRequest
       maxSequencingTime: CantonTimestamp,
       topologyTimestamp: Option[CantonTimestamp],
       aggregationRule: Option[AggregationRule],
+      submissionCost: Option[SequencingSubmissionCost],
       protocolVersion: ProtocolVersion,
   ): SubmissionRequest =
     create(
@@ -213,6 +230,7 @@ object SubmissionRequest
       maxSequencingTime,
       topologyTimestamp,
       aggregationRule,
+      submissionCost,
       protocolVersionRepresentativeFor(protocolVersion),
     ).valueOr(err => throw new IllegalArgumentException(err.message))
 
@@ -228,6 +246,7 @@ object SubmissionRequest
       maxSequencingTimeP,
       topologyTimestamp,
       aggregationRuleP,
+      submissionCostP,
     ) = requestP
 
     for {
@@ -242,6 +261,7 @@ object SubmissionRequest
       ts <- topologyTimestamp.traverse(CantonTimestamp.fromProtoPrimitive)
       aggregationRule <- aggregationRuleP.traverse(AggregationRule.fromProtoV30)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+      submissionCost <- submissionCostP.traverse(SequencingSubmissionCost.fromProtoV30)
     } yield new SubmissionRequest(
       sender,
       messageId,
@@ -250,6 +270,7 @@ object SubmissionRequest
       maxSequencingTime,
       ts,
       aggregationRule,
+      submissionCost,
     )(rpv, Some(bytes))
   }
 }

@@ -1330,7 +1330,8 @@ object TransferStoreTest extends EitherValues with NoTracing {
     Await.result(
       privateCrypto
         .sign(hash, sequencerKey)
-        .valueOr(err => throw new RuntimeException(err.toString)),
+        .valueOr(err => throw new RuntimeException(err.toString))
+        .onShutdown(sys.error("aborted due to shutdown")),
       10.seconds,
     )
   }

@@ -71,22 +71,25 @@ object SequencerAdminCommands {
         .map(SequencerTrafficStatus)
   }
 
-  final case class SetTrafficBalance(member: Member, serial: PositiveInt, balance: NonNegativeLong)
-      extends BaseSequencerAdministrationCommands[
-        admin.v30.SetTrafficBalanceRequest,
-        admin.v30.SetTrafficBalanceResponse,
+  final case class SetTrafficPurchased(
+      member: Member,
+      serial: PositiveInt,
+      balance: NonNegativeLong,
+  ) extends BaseSequencerAdministrationCommands[
+        admin.v30.SetTrafficPurchasedRequest,
+        admin.v30.SetTrafficPurchasedResponse,
         Option[CantonTimestamp],
       ] {
-    override def createRequest(): Either[String, admin.v30.SetTrafficBalanceRequest] = Right(
-      admin.v30.SetTrafficBalanceRequest(member.toProtoPrimitive, serial.value, balance.value)
+    override def createRequest(): Either[String, admin.v30.SetTrafficPurchasedRequest] = Right(
+      admin.v30.SetTrafficPurchasedRequest(member.toProtoPrimitive, serial.value, balance.value)
     )
     override def submitRequest(
         service: admin.v30.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
-        request: admin.v30.SetTrafficBalanceRequest,
-    ): Future[admin.v30.SetTrafficBalanceResponse] =
-      service.setTrafficBalance(request)
+        request: admin.v30.SetTrafficPurchasedRequest,
+    ): Future[admin.v30.SetTrafficPurchasedResponse] =
+      service.setTrafficPurchased(request)
     override def handleResponse(
-        response: admin.v30.SetTrafficBalanceResponse
+        response: admin.v30.SetTrafficPurchasedResponse
     ): Either[String, Option[CantonTimestamp]] = {
       response.maxSequencingTimestamp
         .traverse(CantonTimestamp.fromProtoTimestamp)

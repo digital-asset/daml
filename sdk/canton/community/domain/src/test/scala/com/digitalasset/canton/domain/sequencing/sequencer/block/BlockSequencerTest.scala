@@ -36,7 +36,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   SequencerWriteError,
 }
 import com.digitalasset.canton.domain.sequencing.traffic.RateLimitManagerTesting
-import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficBalanceStore
+import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficPurchasedStore
 import com.digitalasset.canton.lifecycle.AsyncOrSyncCloseable
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
@@ -147,7 +147,7 @@ class BlockSequencerTest
     private val store =
       new InMemorySequencerBlockStore(None, loggerFactory)
 
-    private val balanceStore = new InMemoryTrafficBalanceStore(loggerFactory)
+    private val balanceStore = new InMemoryTrafficPurchasedStore(loggerFactory)
 
     val fakeBlockSequencerOps = new FakeBlockSequencerOps(N)
     private val fakeBlockSequencerStateManager = new FakeBlockSequencerStateManager

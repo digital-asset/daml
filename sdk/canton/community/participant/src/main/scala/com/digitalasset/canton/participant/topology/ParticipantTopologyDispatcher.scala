@@ -406,7 +406,7 @@ private class DomainOnboardingOutbox(
         performUnlessClosingF(functionFullName)(notAlreadyPresent(applicablePossiblyPresent))
       )
       // Try to convert if necessary the topology transactions for the required protocol version of the domain
-      convertedTxs <- performUnlessClosingEitherU(functionFullName) {
+      convertedTxs <- performUnlessClosingEitherUSF(functionFullName) {
         convertTransactions(applicable).leftMap[DomainRegistryError](
           DomainRegistryError.TopologyConversionError.Error(_)
         )

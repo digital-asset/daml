@@ -71,13 +71,13 @@ class AuthenticationTokenProvider(
     // this should be called by a grpc client interceptor
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     performUnlessClosingEitherT(functionFullName, shutdownStatus) {
-      def generateTokenET: Future[Either[Status, AuthenticationTokenWithExpiry]] =
+      def generateTokenET: FutureUnlessShutdown[Either[Status, AuthenticationTokenWithExpiry]] =
         (for {
-          challenge <- getChallenge(authenticationClient)
+          challenge <- getChallenge(authenticationClient).mapK(FutureUnlessShutdown.outcomeK)
           nonce <- Nonce
             .fromProtoPrimitive(challenge.nonce)
             .leftMap(err => Status.INVALID_ARGUMENT.withDescription(s"Invalid nonce: $err"))
-            .toEitherT[Future]
+            .toEitherT[FutureUnlessShutdown]
           token <- authenticate(authenticationClient, nonce, challenge.fingerprints)
         } yield token).value
 
@@ -88,7 +88,7 @@ class AuthenticationTokenProvider(
           maxRetries = config.retries.value,
           delay = config.pauseRetries.underlying,
           operationName = "generate sequencer authentication token",
-        ).unlessShutdown(FutureUnlessShutdown.outcomeF(generateTokenET), NoExnRetryable)
+        ).unlessShutdown(generateTokenET, NoExnRetryable)
           .onShutdown(Left(shutdownStatus))
       }
     }
@@ -122,19 +122,21 @@ class AuthenticationTokenProvider(
       authenticationClient: SequencerAuthenticationServiceStub,
       nonce: Nonce,
       fingerprintsP: Seq[String],
-  )(implicit tc: TraceContext): EitherT[Future, Status, AuthenticationTokenWithExpiry] =
+  )(implicit
+      tc: TraceContext
+  ): EitherT[FutureUnlessShutdown, Status, AuthenticationTokenWithExpiry] =
     for {
       fingerprintsValid <- fingerprintsP
         .traverse(Fingerprint.fromProtoPrimitive)
         .leftMap(err => Status.INVALID_ARGUMENT.withDescription(err.toString))
-        .toEitherT[Future]
+        .toEitherT[FutureUnlessShutdown]
       fingerprintsNel <- NonEmpty
         .from(fingerprintsValid)
         .toRight(
           Status.INVALID_ARGUMENT
             .withDescription(s"Failed to deserialize fingerprints $fingerprintsP")
         )
-        .toEitherT[Future]
+        .toEitherT[FutureUnlessShutdown]
       signature <- MemberAuthentication
         .signDomainNonce(
           member,
@@ -175,7 +177,7 @@ class AuthenticationTokenProvider(
                 )
               )
           }
-      }
+      }.mapK(FutureUnlessShutdown.outcomeK)
     } yield token
 
 }

@@ -246,11 +246,13 @@ class ConfirmationResponseProcessorTest
       testedProtocolVersion,
     )
     val participantCrypto = identityFactory.forOwner(participant)
-    SignedProtocolMessage.trySignAndCreate(
-      response,
-      participantCrypto.tryForDomain(domainId).currentSnapshotApproximation,
-      testedProtocolVersion,
-    )
+    SignedProtocolMessage
+      .trySignAndCreate(
+        response,
+        participantCrypto.tryForDomain(domainId).currentSnapshotApproximation,
+        testedProtocolVersion,
+      )
+      .failOnShutdown
   }
 
   def sign(tree: FullInformeeTree): Signature = identityFactory
@@ -258,6 +260,7 @@ class ConfirmationResponseProcessorTest
     .awaitSnapshot(CantonTimestamp.Epoch)
     .futureValue
     .sign(tree.tree.rootHash.unwrap)
+    .failOnShutdown
     .futureValue
 
   "TransactionConfirmationResponseProcessor" should {
@@ -301,15 +304,17 @@ class ConfirmationResponseProcessorTest
       val requestTimestamp = CantonTimestamp.Epoch.plusSeconds(120)
       for {
         _ <- loggerFactory.assertLogs(
-          sut.processor.processRequest(
-            RequestId(requestTimestamp),
-            SequencerCounter(0),
-            requestTimestamp.plusSeconds(60),
-            requestTimestamp.plusSeconds(120),
-            testMediatorRequest,
-            rootHashMessages,
-            batchAlsoContainsTopologyTransaction = false,
-          ),
+          sut.processor
+            .processRequest(
+              RequestId(requestTimestamp),
+              SequencerCounter(0),
+              requestTimestamp.plusSeconds(60),
+              requestTimestamp.plusSeconds(120),
+              testMediatorRequest,
+              rootHashMessages,
+              batchAlsoContainsTopologyTransaction = false,
+            )
+            .failOnShutdown,
           shouldBeViewThresholdBelowMinimumAlarm(
             RequestId(requestTimestamp),
             testMediatorRequest.firstFaultyViewPosition,
@@ -330,15 +335,17 @@ class ConfirmationResponseProcessorTest
 
       for {
         _ <- loggerFactory.assertLogs(
-          sut.processor.processRequest(
-            requestId,
-            notSignificantCounter,
-            participantResponseDeadline,
-            decisionTime,
-            informeeMessage,
-            rootHashMessages,
-            batchAlsoContainsTopologyTransaction = false,
-          ),
+          sut.processor
+            .processRequest(
+              requestId,
+              notSignificantCounter,
+              participantResponseDeadline,
+              decisionTime,
+              informeeMessage,
+              rootHashMessages,
+              batchAlsoContainsTopologyTransaction = false,
+            )
+            .failOnShutdown,
           _.shouldBeCantonError(
             MediatorError.MalformedMessage,
             _ should startWith(
@@ -366,15 +373,17 @@ class ConfirmationResponseProcessorTest
       val reqId = RequestId(requestTimestamp)
 
       for {
-        _ <- sut.processor.processRequest(
-          reqId,
-          notSignificantCounter,
-          requestTimestamp.plusSeconds(60),
-          requestTimestamp.plusSeconds(120),
-          informeeMessage,
-          rootHashMessages,
-          batchAlsoContainsTopologyTransaction = false,
-        )
+        _ <- sut.processor
+          .processRequest(
+            reqId,
+            notSignificantCounter,
+            requestTimestamp.plusSeconds(60),
+            requestTimestamp.plusSeconds(120),
+            informeeMessage,
+            rootHashMessages,
+            batchAlsoContainsTopologyTransaction = false,
+          )
+          .failOnShutdown
         response = ConfirmationResponse.tryCreate(
           reqId,
           participant,
@@ -466,15 +475,17 @@ class ConfirmationResponseProcessorTest
           val rootHashMessages =
             recipients.map(r => OpenEnvelope(rootHashMessage, r)(testedProtocolVersion))
           val ts = CantonTimestamp.ofEpochSecond(i.toLong)
-          sut.processor.processRequest(
-            RequestId(ts),
-            notSignificantCounter,
-            ts.plusSeconds(60),
-            ts.plusSeconds(120),
-            informeeMessage,
-            rootHashMessages,
-            batchAlsoContainsTopologyTransaction = false,
-          )
+          sut.processor
+            .processRequest(
+              RequestId(ts),
+              notSignificantCounter,
+              ts.plusSeconds(60),
+              ts.plusSeconds(120),
+              informeeMessage,
+              rootHashMessages,
+              batchAlsoContainsTopologyTransaction = false,
+            )
+            .failOnShutdown
         }
       }.map(_ => succeed)
     }
@@ -630,15 +641,17 @@ class ConfirmationResponseProcessorTest
             for {
               _ <- loggerFactory.assertLogs(
                 // This will not send a result message because there are no root hash messages in the batch.
-                sut.processor.processRequest(
-                  RequestId(ts),
-                  notSignificantCounter,
-                  ts.plusSeconds(60),
-                  ts.plusSeconds(120),
-                  req,
-                  rootHashMessages,
-                  batchAlsoContainsTopologyTransaction = false,
-                ),
+                sut.processor
+                  .processRequest(
+                    RequestId(ts),
+                    notSignificantCounter,
+                    ts.plusSeconds(60),
+                    ts.plusSeconds(120),
+                    req,
+                    rootHashMessages,
+                    batchAlsoContainsTopologyTransaction = false,
+                  )
+                  .failOnShutdown,
                 _.shouldBeCantonError(
                   MediatorError.MalformedMessage,
                   _ shouldBe s"Received a mediator confirmation request with id ${RequestId(ts)} with invalid root hash messages. Rejecting... Reason: $msg",
@@ -693,20 +706,22 @@ class ConfirmationResponseProcessorTest
       val ts = CantonTimestamp.ofEpochSecond(sc)
       for {
         _ <- loggerFactory.assertLogs(
-          sut.processor.processRequest(
-            RequestId(ts),
-            notSignificantCounter,
-            ts.plusSeconds(60),
-            ts.plusSeconds(120),
-            mediatorRequest,
-            List(
-              OpenEnvelope(
-                rootHashMessage,
-                Recipients.cc(mediatorGroupRecipient, MemberRecipient(participant)),
-              )(testedProtocolVersion)
-            ),
-            batchAlsoContainsTopologyTransaction = false,
-          ),
+          sut.processor
+            .processRequest(
+              RequestId(ts),
+              notSignificantCounter,
+              ts.plusSeconds(60),
+              ts.plusSeconds(120),
+              mediatorRequest,
+              List(
+                OpenEnvelope(
+                  rootHashMessage,
+                  Recipients.cc(mediatorGroupRecipient, MemberRecipient(participant)),
+                )(testedProtocolVersion)
+              ),
+              batchAlsoContainsTopologyTransaction = false,
+            )
+            .failOnShutdown,
           _.shouldBeCantonError(
             MediatorError.MalformedMessage,
             message => {
@@ -747,22 +762,24 @@ class ConfirmationResponseProcessorTest
         }
 
       for {
-        _ <- sut.processor.processRequest(
-          requestId,
-          notSignificantCounter,
-          requestIdTs.plusSeconds(60),
-          decisionTime,
-          informeeMessage,
-          List(
-            OpenEnvelope(
-              rootHashMessage,
-              Recipients.cc(mediatorGroupRecipient, MemberRecipient(participant)),
-            )(
-              testedProtocolVersion
-            )
-          ),
-          batchAlsoContainsTopologyTransaction = false,
-        )
+        _ <- sut.processor
+          .processRequest(
+            requestId,
+            notSignificantCounter,
+            requestIdTs.plusSeconds(60),
+            decisionTime,
+            informeeMessage,
+            List(
+              OpenEnvelope(
+                rootHashMessage,
+                Recipients.cc(mediatorGroupRecipient, MemberRecipient(participant)),
+              )(
+                testedProtocolVersion
+              )
+            ),
+            batchAlsoContainsTopologyTransaction = false,
+          )
+          .failOnShutdown
         // should record the request
         requestState <- sut.mediatorState.fetch(requestId).value.map(_.value)
         responseAggregation <-
@@ -982,37 +999,41 @@ class ConfirmationResponseProcessorTest
           testedProtocolVersion,
         )
         val participantCrypto = identityFactory2.forOwner(participant)
-        SignedProtocolMessage.trySignAndCreate(
-          response,
-          participantCrypto.tryForDomain(domainId).currentSnapshotApproximation,
-          testedProtocolVersion,
-        )
+        SignedProtocolMessage
+          .trySignAndCreate(
+            response,
+            participantCrypto.tryForDomain(domainId).currentSnapshotApproximation,
+            testedProtocolVersion,
+          )
+          .failOnShutdown
       }
 
       for {
-        _ <- sut.processor.processRequest(
-          requestId,
-          notSignificantCounter,
-          requestIdTs.plusSeconds(60),
-          requestIdTs.plusSeconds(120),
-          informeeMessage,
-          List(
-            OpenEnvelope(
-              rootHashMessage,
-              Recipients.recipientGroups(
-                NonEmpty(
-                  Seq,
-                  NonEmpty(Set, mediatorGroupRecipient, MemberRecipient(participant1)),
-                  NonEmpty(Set, mediatorGroupRecipient, MemberRecipient(participant2)),
-                  NonEmpty(Set, mediatorGroupRecipient, MemberRecipient(participant3)),
-                )
-              ),
-            )(
-              testedProtocolVersion
-            )
-          ),
-          batchAlsoContainsTopologyTransaction = false,
-        )
+        _ <- sut.processor
+          .processRequest(
+            requestId,
+            notSignificantCounter,
+            requestIdTs.plusSeconds(60),
+            requestIdTs.plusSeconds(120),
+            informeeMessage,
+            List(
+              OpenEnvelope(
+                rootHashMessage,
+                Recipients.recipientGroups(
+                  NonEmpty(
+                    Seq,
+                    NonEmpty(Set, mediatorGroupRecipient, MemberRecipient(participant1)),
+                    NonEmpty(Set, mediatorGroupRecipient, MemberRecipient(participant2)),
+                    NonEmpty(Set, mediatorGroupRecipient, MemberRecipient(participant3)),
+                  )
+                ),
+              )(
+                testedProtocolVersion
+              )
+            ),
+            batchAlsoContainsTopologyTransaction = false,
+          )
+          .failOnShutdown
 
         // receiving a confirmation response
         ts1 = CantonTimestamp.Epoch.plusMillis(1L)
@@ -1082,22 +1103,24 @@ class ConfirmationResponseProcessorTest
       )
 
       for {
-        _ <- sut.processor.processRequest(
-          requestId,
-          notSignificantCounter,
-          requestIdTs.plus(confirmationResponseTimeout.unwrap),
-          requestIdTs.plusSeconds(120),
-          informeeMessage,
-          List(
-            OpenEnvelope(
-              rootHashMessage,
-              Recipients.cc(mediatorGroupRecipient, MemberRecipient(participant)),
-            )(
-              testedProtocolVersion
-            )
-          ),
-          batchAlsoContainsTopologyTransaction = false,
-        )
+        _ <- sut.processor
+          .processRequest(
+            requestId,
+            notSignificantCounter,
+            requestIdTs.plus(confirmationResponseTimeout.unwrap),
+            requestIdTs.plusSeconds(120),
+            informeeMessage,
+            List(
+              OpenEnvelope(
+                rootHashMessage,
+                Recipients.cc(mediatorGroupRecipient, MemberRecipient(participant)),
+              )(
+                testedProtocolVersion
+              )
+            ),
+            batchAlsoContainsTopologyTransaction = false,
+          )
+          .failOnShutdown
         response <- signedResponse(
           Set(submitter),
           ViewPosition.root,
@@ -1137,22 +1160,24 @@ class ConfirmationResponseProcessorTest
       val ts = CantonTimestamp.ofEpochSecond(sc)
       for {
         _ <- loggerFactory.assertLogs(
-          sut.processor.processRequest(
-            RequestId(ts),
-            notSignificantCounter,
-            ts.plusSeconds(60),
-            ts.plusSeconds(120),
-            mediatorRequest,
-            List(
-              OpenEnvelope(
-                rootHashMessage,
-                Recipients.cc(mediatorGroupRecipient, MemberRecipient(participant)),
-              )(
-                testedProtocolVersion
-              )
-            ),
-            batchAlsoContainsTopologyTransaction = true,
-          ),
+          sut.processor
+            .processRequest(
+              RequestId(ts),
+              notSignificantCounter,
+              ts.plusSeconds(60),
+              ts.plusSeconds(120),
+              mediatorRequest,
+              List(
+                OpenEnvelope(
+                  rootHashMessage,
+                  Recipients.cc(mediatorGroupRecipient, MemberRecipient(participant)),
+                )(
+                  testedProtocolVersion
+                )
+              ),
+              batchAlsoContainsTopologyTransaction = true,
+            )
+            .failOnShutdown,
           _.shouldBeCantonError(
             MediatorError.MalformedMessage,
             message => {
@@ -1189,15 +1214,17 @@ class ConfirmationResponseProcessorTest
 
       for {
         _ <- loggerFactory.assertLogs(
-          sut.processor.processRequest(
-            requestId,
-            notSignificantCounter,
-            requestIdTs.plusSeconds(20),
-            decisionTime,
-            request,
-            rootHashMessages,
-            batchAlsoContainsTopologyTransaction = false,
-          ),
+          sut.processor
+            .processRequest(
+              requestId,
+              notSignificantCounter,
+              requestIdTs.plusSeconds(20),
+              decisionTime,
+              request,
+              rootHashMessages,
+              batchAlsoContainsTopologyTransaction = false,
+            )
+            .failOnShutdown,
           _.shouldBeCantonError(
             MediatorError.InvalidMessage,
             _ shouldBe s"Received a mediator confirmation request with id $requestId with some informees not being hosted by an active participant: ${Set(observer, signatory)}. Rejecting request...",
@@ -1224,22 +1251,24 @@ class ConfirmationResponseProcessorTest
       val ts = CantonTimestamp.ofEpochSecond(sc.v)
       val requestId = RequestId(ts)
       for {
-        _ <- sut.processor.processRequest(
-          RequestId(ts),
-          notSignificantCounter,
-          ts.plusSeconds(60),
-          ts.plusSeconds(120),
-          mediatorRequest,
-          List(
-            OpenEnvelope(
-              rootHashMessage,
-              Recipients.cc(mediatorGroupRecipient, MemberRecipient(participant)),
-            )(
-              testedProtocolVersion
-            )
-          ),
-          batchAlsoContainsTopologyTransaction = false,
-        )
+        _ <- sut.processor
+          .processRequest(
+            RequestId(ts),
+            notSignificantCounter,
+            ts.plusSeconds(60),
+            ts.plusSeconds(120),
+            mediatorRequest,
+            List(
+              OpenEnvelope(
+                rootHashMessage,
+                Recipients.cc(mediatorGroupRecipient, MemberRecipient(participant)),
+              )(
+                testedProtocolVersion
+              )
+            ),
+            batchAlsoContainsTopologyTransaction = false,
+          )
+          .failOnShutdown
         _ = sut.verdictSender.sentResults shouldBe empty
 
         // If it nevertheless gets a response, it will complain about the request not being known

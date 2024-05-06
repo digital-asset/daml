@@ -129,7 +129,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         IndexedDomain.tryCreate(targetDomain.unwrap, 1),
         testedProtocolVersion,
         enableAdditionalConsistencyChecks = true,
-        enableTopologyTransactionValidation = false,
         indexedStringStore = indexedStringStore,
         loggerFactory = loggerFactory,
         timeouts = timeouts,
@@ -443,11 +442,12 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
           Seq,
           OpenEnvelope(inRequest, RecipientsTest.testInstance)(testedProtocolVersion),
         )
-        decrypted <- valueOrFail(
-          transferInProcessingSteps.decryptViews(envelopes, cryptoSnapshot, sessionKeyStore)
-        )(
-          "decrypt request failed"
-        )
+        decrypted <-
+          transferInProcessingSteps
+            .decryptViews(envelopes, cryptoSnapshot, sessionKeyStore)
+            .valueOrFailShutdown(
+              "decrypt request failed"
+            )
         result <- valueOrFail(
           transferInProcessingSteps.computeActivenessSetAndPendingContracts(
             CantonTimestamp.Epoch,
@@ -754,8 +754,5 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
   ): Future[EncryptedViewMessage[TransferInViewType]] =
     EncryptedViewMessageFactory
       .create(TransferInViewType)(tree, cryptoSnapshot, sessionKeyStore, testedProtocolVersion)
-      .fold(
-        error => throw new IllegalArgumentException(s"Cannot encrypt transfer-in request: $error"),
-        Predef.identity,
-      )
+      .valueOrFailShutdown("cannot encrypt transfer-in request")
 }

@@ -45,10 +45,10 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
 import com.digitalasset.canton.error.BaseAlarm
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
-import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.client.SequencedEventValidator
 import com.digitalasset.canton.sequencing.client.SequencedEventValidator.TopologyTimestampVerificationError
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.{GroupAddressResolver, OrdinarySerializedEvent}
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -411,12 +411,19 @@ class BlockUpdateGeneratorImpl(
         case LedgerBlockEvent.AddMember(_) =>
           metrics.blockEvents.mark()(MetricsContext("type" -> "add-member"))
         case LedgerBlockEvent.Acknowledgment(request) =>
+          // record the event
           metrics.blockEvents
             .mark()(
               MetricsContext(
                 "sender" -> request.content.member.toString,
                 "type" -> "ack",
               )
+            )
+          // record the timestamp of the acknowledgment
+          metrics
+            .updateAcknowledgementGauge(
+              request.content.member.toString,
+              request.content.timestamp.underlying.micros,
             )
       }
     })
@@ -487,7 +494,7 @@ class BlockUpdateGeneratorImpl(
         import event.content.sender
         for {
           groupToMembers <- FutureUnlessShutdown.outcomeF(
-            groupAddressResolver.resolveGroupsToMembers(
+            GroupAddressResolver.resolveGroupsToMembers(
               event.content.batch.allRecipients.collect { case groupRecipient: GroupRecipient =>
                 groupRecipient
               },
@@ -1337,8 +1344,6 @@ class BlockUpdateGeneratorImpl(
     } yield fullInFlightAggregationUpdate
   }
 
-  private val groupAddressResolver = new GroupAddressResolver(domainSyncCryptoApi)
-
   // TODO(#18401): This method should be harmonized with the GroupAddressResolver
   private def computeGroupAddressesToMembers(
       submissionRequest: SubmissionRequest,
@@ -1525,7 +1530,7 @@ class BlockUpdateGeneratorImpl(
             protocolVersion,
           )
           for {
-            signedContent <- FutureUnlessShutdown.outcomeF(
+            signedContent <-
               SignedContent
                 .create(
                   sequencingSnapshot.pureCrypto,
@@ -1535,49 +1540,46 @@ class BlockUpdateGeneratorImpl(
                   HashPurpose.SequencedEventSignature,
                   protocolVersion,
                 )
-                .valueOr(syncCryptoError =>
+                .valueOr { syncCryptoError =>
                   ErrorUtil.internalError(
                     new RuntimeException(
                       s"Error signing tombstone deliver error: $syncCryptoError"
                     )
                   )
-                )
-            )
+                }
           } yield {
             member -> OrdinarySequencedEvent(signedContent, None)(traceContext)
           }
         }
       case _ =>
-        FutureUnlessShutdown.outcomeF(
-          events.toSeq
-            .parTraverse { case (member, event) =>
-              SignedContent
-                .create(
-                  signingSnapshot.pureCrypto,
-                  signingSnapshot,
-                  event,
-                  None,
-                  HashPurpose.SequencedEventSignature,
-                  protocolVersion,
+        events.toSeq
+          .parTraverse { case (member, event) =>
+            SignedContent
+              .create(
+                signingSnapshot.pureCrypto,
+                signingSnapshot,
+                event,
+                None,
+                HashPurpose.SequencedEventSignature,
+                protocolVersion,
+              )
+              .valueOr(syncCryptoError =>
+                ErrorUtil.internalError(
+                  new RuntimeException(s"Error signing events: $syncCryptoError")
                 )
-                .valueOr(syncCryptoError =>
-                  ErrorUtil.internalError(
-                    new RuntimeException(s"Error signing events: $syncCryptoError")
+              )
+              .map { signedContent =>
+                // only include traffic state for the sender
+                val trafficStateO = Option.when(!unifiedSequencer || member == sender) {
+                  trafficStates.getOrElse(
+                    member,
+                    ErrorUtil.invalidState(s"Sender $member unknown by rate limiter."),
                   )
-                )
-                .map { signedContent =>
-                  // only include traffic state for the sender
-                  val trafficStateO = Option.when(!unifiedSequencer || member == sender) {
-                    trafficStates.getOrElse(
-                      member,
-                      ErrorUtil.invalidState(s"Sender $member unknown by rate limiter."),
-                    )
-                  }
-                  member ->
-                    OrdinarySequencedEvent(signedContent, trafficStateO)(traceContext)
                 }
-            }
-        )
+                member ->
+                  OrdinarySequencedEvent(signedContent, trafficStateO)(traceContext)
+              }
+          }
     }
     signedEventsF.map(signedEvents => SignedChunkEvents(signedEvents.toMap))
   }
@@ -1588,7 +1590,7 @@ class BlockUpdateGeneratorImpl(
       sequencerError: SequencerDeliverError,
       nextCounter: SequencerCounter,
   )(implicit traceContext: TraceContext): SubmissionRequestOutcome = {
-    val SubmissionRequest(sender, messageId, _, _, _, _, _) = request
+    val SubmissionRequest(sender, messageId, _, _, _, _, _, _) = request
     logger.debug(
       show"Rejecting submission request $messageId from $sender with error ${sequencerError.code
           .toMsg(sequencerError.cause, correlationId = None, limit = None)}"

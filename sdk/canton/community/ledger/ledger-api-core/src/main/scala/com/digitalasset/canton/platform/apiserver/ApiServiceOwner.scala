@@ -27,6 +27,7 @@ import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
+import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
 import com.digitalasset.canton.platform.apiserver.execution.{
   AuthorityResolver,
@@ -98,6 +99,7 @@ object ApiServiceOwner {
       userManagement: UserManagementServiceConfig = ApiServiceOwner.DefaultUserManagement,
       partyManagementServiceConfig: PartyManagementServiceConfig =
         ApiServiceOwner.DefaultPartyManagementServiceConfig,
+      engineLoggingConfig: EngineLoggingConfig,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
       authenticateContract: AuthenticateContract,
@@ -168,6 +170,7 @@ object ApiServiceOwner {
         maxDeduplicationDuration = maxDeduplicationDuration,
         userManagementServiceConfig = userManagement,
         partyManagementServiceConfig = partyManagementServiceConfig,
+        engineLoggingConfig = engineLoggingConfig,
         meteringReportKey = meteringReportKey,
         telemetry = telemetry,
         loggerFactory = loggerFactory,

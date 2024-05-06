@@ -51,7 +51,6 @@ abstract class TopologyTransactionProcessorTest
       store,
       _ => (),
       TerminateProcessing.NoOpTerminateTopologyProcessing,
-      true,
       futureSupervisor,
       DefaultProcessingTimeouts.testing,
       loggerFactory,
@@ -78,7 +77,7 @@ abstract class TopologyTransactionProcessorTest
         asOf = timestamp,
         asOfInclusive = false,
         isProposal = isProposal,
-        types = TopologyMapping.Code.all.toSeq,
+        types = TopologyMapping.Code.all,
         None,
         None,
       )

@@ -5,7 +5,6 @@ package com.digitalasset.canton.crypto
 
 import cats.Order
 import cats.data.EitherT
-import cats.instances.future.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
@@ -15,6 +14,7 @@ import com.digitalasset.canton.crypto.store.{
   CryptoPublicStoreError,
 }
 import com.digitalasset.canton.error.{BaseCantonError, CantonErrorGroups}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{
@@ -117,7 +117,7 @@ trait EncryptionPrivateOps {
       deserialize: ByteString => Either[DeserializationError, M]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, DecryptionError, M]
+  ): EitherT[FutureUnlessShutdown, DecryptionError, M]
 
   /** Generates a new encryption key pair with the given scheme and optional name, stores the private key and returns the public key. */
   def generateEncryptionKey(
@@ -125,7 +125,7 @@ trait EncryptionPrivateOps {
       name: Option[KeyName] = None,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, EncryptionKeyGenerationError, EncryptionPublicKey]
+  ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionPublicKey]
 }
 
 /** A default implementation with a private key store */
@@ -138,9 +138,9 @@ trait EncryptionPrivateStoreOps extends EncryptionPrivateOps {
   protected val encryptionOps: EncryptionOps
 
   /** Decrypts an encrypted message using the referenced private encryption key */
-  def decrypt[M](encryptedMessage: AsymmetricEncrypted[M])(
+  override def decrypt[M](encryptedMessage: AsymmetricEncrypted[M])(
       deserialize: ByteString => Either[DeserializationError, M]
-  )(implicit tc: TraceContext): EitherT[Future, DecryptionError, M] =
+  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, DecryptionError, M] =
     store
       .decryptionKey(encryptedMessage.encryptedFor)
       .leftMap(storeError => DecryptionError.KeyStoreError(storeError.show))
@@ -154,14 +154,14 @@ trait EncryptionPrivateStoreOps extends EncryptionPrivateOps {
       traceContext: TraceContext
   ): EitherT[Future, EncryptionKeyGenerationError, EncryptionKeyPair]
 
-  def generateEncryptionKey(
+  override def generateEncryptionKey(
       scheme: EncryptionKeyScheme = defaultEncryptionKeyScheme,
       name: Option[KeyName] = None,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, EncryptionKeyGenerationError, EncryptionPublicKey] =
+  ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionPublicKey] =
     for {
-      keypair <- generateEncryptionKeypair(scheme)
+      keypair <- generateEncryptionKeypair(scheme).mapK(FutureUnlessShutdown.outcomeK)
       _ <- store
         .storeDecryptionKey(keypair.privateKey, name)
         .leftMap[EncryptionKeyGenerationError](

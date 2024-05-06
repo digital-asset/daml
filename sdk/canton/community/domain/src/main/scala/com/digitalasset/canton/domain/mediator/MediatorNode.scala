@@ -8,6 +8,7 @@ import cats.data.EitherT
 import cats.instances.future.*
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
@@ -325,7 +326,6 @@ class MediatorNodeBootstrap(
           crypto = crypto,
           store = domainTopologyStore,
           outboxQueue = outboxQueue,
-          enableTopologyTransactionValidation = config.topology.enableTopologyTransactionValidation,
           protocolVersion = protocolVersion,
           timeouts = timeouts,
           futureSupervisor = futureSupervisor,
@@ -416,7 +416,13 @@ class MediatorNodeBootstrap(
     new SequencerInfoLoader(
       timeouts = timeouts,
       traceContextPropagation = parameters.tracing.propagation,
-      clientProtocolVersions = ProtocolVersion.supported,
+      clientProtocolVersions =
+        if (parameterConfig.devVersionSupport) ProtocolVersion.supported
+        else
+          // TODO(#15561) Remove NonEmpty construct once stableAndSupported is NonEmpty again
+          NonEmpty
+            .from(ProtocolVersion.stableAndSupported)
+            .getOrElse(sys.error("no protocol version is considered stable in this release")),
       minimumProtocolVersion = Some(ProtocolVersion.minimum),
       dontWarnOnDeprecatedPV = parameterConfig.dontWarnOnDeprecatedPV,
       loggerFactory = loggerFactory,
@@ -470,7 +476,6 @@ class MediatorNodeBootstrap(
             domainConfig.domainParameters.protocolVersion,
             crypto.pureCrypto,
             arguments.parameterConfig,
-            config.topology.enableTopologyTransactionValidation,
             arguments.clock,
             arguments.futureSupervisor,
             domainLoggerFactory,

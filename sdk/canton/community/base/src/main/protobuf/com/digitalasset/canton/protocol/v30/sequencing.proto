@@ -72,6 +72,13 @@ message Handshake {
 
 // Messages used for synchronization between sequencer nodes
 
+// Submission cost computed by the sender for a SubmissionRequest
+message SequencingSubmissionCost {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  // Computed cost
+  int64 cost = 1;
+}
+
 message StaticDomainParameters {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
@@ -192,4 +199,7 @@ message SubmissionRequest {
 
   // Optional rule used to aggregate requests.
   v30.AggregationRule aggregation_rule = 7;
+
+  // Optional submission cost computed by the sender. Must be provided if traffic control is enabled on the receiving domain.
+  v30.SequencingSubmissionCost submission_cost = 8;
 }

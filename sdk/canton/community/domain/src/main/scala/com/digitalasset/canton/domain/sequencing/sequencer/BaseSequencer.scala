@@ -9,7 +9,7 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.*
 import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
-import com.digitalasset.canton.lifecycle.Lifecycle
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
@@ -74,7 +74,7 @@ abstract class BaseSequencer(
 
   override def sendAsyncSigned(signedSubmission: SignedContent[SubmissionRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SendAsyncError, Unit] = withSpan("Sequencer.sendAsyncSigned") {
+  ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] = withSpan("Sequencer.sendAsyncSigned") {
     implicit traceContext => span =>
       val submission = signedSubmission.content
       span.setAttribute("sender", submission.sender.toString)
@@ -87,7 +87,8 @@ abstract class BaseSequencer(
             _.sender,
           )
           .leftMap(e => SendAsyncError.RequestRefused(e))
-        _ <- checkMemberRegistration(submission)
+          .mapK(FutureUnlessShutdown.outcomeK)
+        _ <- checkMemberRegistration(submission).mapK(FutureUnlessShutdown.outcomeK)
         _ <- sendAsyncSignedInternal(signedSubmissionWithFixedTs)
       } yield ()
   }
@@ -112,11 +113,11 @@ abstract class BaseSequencer(
 
   override def sendAsync(
       submission: SubmissionRequest
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] =
     withSpan("Sequencer.sendAsync") { implicit traceContext => span =>
       setSpanAttributes(span, submission)
       for {
-        _ <- checkMemberRegistration(submission)
+        _ <- checkMemberRegistration(submission).mapK(FutureUnlessShutdown.outcomeK)
         _ <- sendAsyncInternal(submission)
       } yield ()
     }
@@ -169,11 +170,11 @@ abstract class BaseSequencer(
 
   protected def sendAsyncInternal(submission: SubmissionRequest)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SendAsyncError, Unit]
+  ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit]
 
   protected def sendAsyncSignedInternal(signedSubmission: SignedContent[SubmissionRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SendAsyncError, Unit]
+  ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit]
 
   override def read(member: Member, offset: SequencerCounter)(implicit
       traceContext: TraceContext

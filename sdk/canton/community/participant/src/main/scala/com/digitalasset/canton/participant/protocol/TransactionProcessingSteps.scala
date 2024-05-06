@@ -16,14 +16,15 @@ import com.daml.lf.data.ImmArray
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
-import com.digitalasset.canton.concurrent.{FutureSupervisor, SupervisedPromise}
+import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.ViewType.TransactionViewType
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.ledger.participant.state.v2.*
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, PromiseUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NamedLoggingContext}
 import com.digitalasset.canton.metrics.*
 import com.digitalasset.canton.participant.RequestOffset
@@ -80,7 +81,6 @@ import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, IterableUtil}
 import com.digitalasset.canton.{
@@ -98,7 +98,7 @@ import monocle.PLens
 
 import scala.annotation.nowarn
 import scala.collection.immutable.SortedMap
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 /** The transaction processor that coordinates the Canton transaction protocol.
@@ -307,7 +307,7 @@ class TransactionProcessingSteps(
         actualDeduplicationOffset: DeduplicationPeriod.DeduplicationOffset,
         maxSequencingTime: CantonTimestamp,
         sessionKeyStore: SessionKeyStore,
-    ): EitherT[Future, SubmissionTrackingData, PreparedBatch] = {
+    ): EitherT[FutureUnlessShutdown, SubmissionTrackingData, PreparedBatch] = {
       logger.debug("Preparing batch for transaction submission")
       val submitterInfoWithDedupPeriod =
         submitterInfo.copy(deduplicationPeriod = actualDeduplicationOffset)
@@ -332,12 +332,12 @@ class TransactionProcessingSteps(
                   )
                 )
             )
-        )
+        ).mapK(FutureUnlessShutdown.outcomeK)
 
         _submitters <- submitterInfo.actAs
           .parTraverse(rawSubmitter =>
             EitherT
-              .fromEither[Future](LfPartyId.fromString(rawSubmitter))
+              .fromEither[FutureUnlessShutdown](LfPartyId.fromString(rawSubmitter))
               .leftMap[TransactionSubmissionTrackingData.RejectionCause](msg =>
                 causeWithTemplate(msg, MalformedSubmitter(rawSubmitter))
               )
@@ -359,7 +359,7 @@ class TransactionProcessingSteps(
 
         confirmationRequestTimer = metrics.protocolMessages.confirmationRequestCreation
         // Perform phase 1 of the protocol that produces a transaction confirmation request
-        request <- confirmationRequestTimer.timeEitherT(
+        request <- confirmationRequestTimer.timeEitherFUS(
           confirmationRequestFactory
             .createConfirmationRequest(
               wfTransaction,
@@ -387,9 +387,11 @@ class TransactionProcessingSteps(
             }
         )
         _ = logger.debug(s"Generated requestUuid=${request.informeeMessage.requestUuid}")
-        batch <- EitherT.right[TransactionSubmissionTrackingData.RejectionCause](
-          request.asBatch(recentSnapshot.ipsSnapshot)
-        )
+        batch <- EitherT
+          .right[TransactionSubmissionTrackingData.RejectionCause](
+            request.asBatch(recentSnapshot.ipsSnapshot)
+          )
+          .mapK(FutureUnlessShutdown.outcomeK)
       } yield {
         val batchSize = batch.toProtoVersioned.serializedSize
         metrics.protocolMessages.confirmationRequestSize.update(batchSize)(MetricsContext.Empty)
@@ -405,20 +407,21 @@ class TransactionProcessingSteps(
 
       def mkError(
           rejectionCause: TransactionSubmissionTrackingData.RejectionCause
-      ): Success[Either[SubmissionTrackingData, PreparedBatch]] = {
+      ): Success[Outcome[Either[SubmissionTrackingData, PreparedBatch]]] = {
         val trackingData = TransactionSubmissionTrackingData(
           submitterInfoWithDedupPeriod.toCompletionInfo(),
           rejectionCause,
           domainId,
           protocolVersion,
         )
-        Success(Left(trackingData))
+        Success(Outcome(Left(trackingData)))
       }
 
       // Make sure that we don't throw an error
       EitherT(result.value.transform {
-        case Success(Right(preparedBatch)) => Success(Right(preparedBatch))
-        case Success(Left(rejectionCause)) => mkError(rejectionCause)
+        case Success(Outcome(Right(preparedBatch))) => Success(Outcome(Right(preparedBatch)))
+        case Success(Outcome(Left(rejectionCause))) => mkError(rejectionCause)
+        case Success(AbortedDueToShutdown) => Success(AbortedDueToShutdown)
         case Failure(PassiveInstanceException(_reason)) =>
           val rejectionCause = TransactionSubmissionTrackingData.CauseWithTemplate(
             SyncServiceInjectionError.PassiveReplica.Error(
@@ -520,8 +523,8 @@ class TransactionProcessingSteps(
       sessionKeyStore: SessionKeyStore,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionProcessorError, DecryptedViews] =
-    metrics.protocolMessages.transactionMessageReceipt.timeEitherT {
+  ): EitherT[FutureUnlessShutdown, TransactionProcessorError, DecryptedViews] =
+    metrics.protocolMessages.transactionMessageReceipt.timeEitherFUS {
       // even if we encounter errors, we process the good views as normal
       // such that the validation is available if the transaction confirmation request gets approved nevertheless.
 
@@ -539,7 +542,7 @@ class TransactionProcessingSteps(
       def decryptTree(
           vt: TransactionViewMessage,
           optRandomness: Option[SecureRandomness],
-      ): EitherT[Future, EncryptedViewMessageError, LightTransactionViewTree] =
+      ): EitherT[FutureUnlessShutdown, EncryptedViewMessageError, LightTransactionViewTree] =
         EncryptedViewMessage.decryptFor(
           snapshot,
           sessionKeyStore,
@@ -558,11 +561,12 @@ class TransactionProcessingSteps(
       // TODO(i12911): a malicious submitter can send a bogus view whose randomness cannot be decrypted/derived,
       //  crashing the SyncDomain
       val randomnessMap =
-        batch.foldLeft(Map.empty[ViewHash, Promise[SecureRandomness]]) { case (m, evt) =>
-          m + (evt.protocolMessage.viewHash -> new SupervisedPromise[SecureRandomness](
-            "secure-randomness",
-            futureSupervisor,
-          ))
+        batch.foldLeft(Map.empty[ViewHash, PromiseUnlessShutdown[SecureRandomness]]) {
+          case (m, evt) =>
+            m + (evt.protocolMessage.viewHash -> new PromiseUnlessShutdown[SecureRandomness](
+              "secure-randomness",
+              futureSupervisor,
+            ))
         }
 
       def extractRandomnessFromView(
@@ -587,7 +591,7 @@ class TransactionProcessingSteps(
             }
           checked(randomnessMap(transactionViewEnvelope.protocolMessage.viewHash))
             .completeWith(randomnessF)
-            .discard[Promise[SecureRandomness]]
+            .discard
         }
 
         if (
@@ -631,7 +635,7 @@ class TransactionProcessingSteps(
         } yield {
           randomnessMap.get(subviewHash) match {
             case Some(promise) =>
-              promise.tryComplete(Success(subviewRandomness)).discard
+              promise.outcome(subviewRandomness)
             case None =>
               // TODO(i12911): make sure to not approve the request
               SyncServiceAlarm
@@ -647,10 +651,14 @@ class TransactionProcessingSteps(
       def decryptViewWithRandomness(
           viewMessage: TransactionViewMessage,
           randomness: SecureRandomness,
-      ): EitherT[Future, EncryptedViewMessageError, (DecryptedView, Option[Signature])] =
+      ): EitherT[
+        FutureUnlessShutdown,
+        EncryptedViewMessageError,
+        (DecryptedView, Option[Signature]),
+      ] =
         for {
           ltvt <- decryptTree(viewMessage, Some(randomness))
-          _ <- EitherT.fromEither[Future](
+          _ <- EitherT.fromEither[FutureUnlessShutdown](
             ltvt.subviewHashes
               .zip(TransactionSubviews.indices(ltvt.subviewHashes.length))
               .traverse(
@@ -661,12 +669,13 @@ class TransactionProcessingSteps(
 
       def decryptView(
           transactionViewEnvelope: OpenEnvelope[TransactionViewMessage]
-      ): Future[
-        Either[EncryptedViewMessageError, (WithRecipients[DecryptedView], Option[Signature])]
-      ] = {
+      ): FutureUnlessShutdown[Either[
+        EncryptedViewMessageError,
+        (WithRecipients[DecryptedView], Option[Signature]),
+      ]] = {
         for {
-          _ <- extractRandomnessFromView(transactionViewEnvelope)
-          randomness <- randomnessMap(transactionViewEnvelope.protocolMessage.viewHash).future
+          _ <- FutureUnlessShutdown.outcomeF(extractRandomnessFromView(transactionViewEnvelope))
+          randomness <- randomnessMap(transactionViewEnvelope.protocolMessage.viewHash).futureUS
           lightViewTreeE <- decryptViewWithRandomness(
             transactionViewEnvelope.protocolMessage,
             randomness,
@@ -674,12 +683,14 @@ class TransactionProcessingSteps(
         } yield lightViewTreeE.map { case (view, signature) =>
           (WithRecipients(view, transactionViewEnvelope.recipients), signature)
         }
+
       }
 
-      val result = for {
-        decryptionResult <- batch.toNEF.parTraverse(decryptView)
-      } yield DecryptedViews(decryptionResult)
-      EitherT.right(result)
+      EitherT.right {
+        for {
+          decryptionResult <- batch.toNEF.parTraverse(decryptView)
+        } yield DecryptedViews(decryptionResult)
+      }
     }
 
   override def computeFullViews(
@@ -980,7 +991,8 @@ class TransactionProcessingSteps(
         modelConformanceResultET = parallelChecksResult.conformanceResultET,
         internalConsistencyResultE = parallelChecksResult.internalConsistencyResultE,
         consumedInputsOfHostedParties = usedAndCreated.contracts.consumedInputsOfHostedStakeholders,
-        witnessedAndDivulged = usedAndCreated.contracts.witnessedAndDivulged,
+        witnessed = usedAndCreated.contracts.witnessed,
+        divulged = usedAndCreated.contracts.divulged,
         createdContracts = usedAndCreated.contracts.created,
         transient = usedAndCreated.contracts.transient,
         activenessResult = activenessResult,
@@ -1213,7 +1225,8 @@ class TransactionProcessingSteps(
       requestSequencerCounter = pendingRequestData.requestSequencerCounter,
       commitSet = commitSet,
       createdContracts = txValidationResult.createdContracts,
-      witnessedAndDivulged = txValidationResult.witnessedAndDivulged,
+      witnessed = txValidationResult.witnessed,
+      divulged = txValidationResult.divulged,
       hostedWitnesses = txValidationResult.hostedWitnesses,
       completionInfoO = completionInfoO,
       lfTx = modelConformanceResult.suffixedTransaction,
@@ -1228,7 +1241,8 @@ class TransactionProcessingSteps(
       requestSequencerCounter: SequencerCounter,
       commitSet: CommitSet,
       createdContracts: Map[LfContractId, SerializableContract],
-      witnessedAndDivulged: Map[LfContractId, SerializableContract],
+      witnessed: Map[LfContractId, SerializableContract],
+      divulged: Map[LfContractId, SerializableContract],
       hostedWitnesses: Set[LfPartyId],
       completionInfoO: Option[CompletionInfo],
       lfTx: WellFormedTransaction[WithSuffixesAndMerged],
@@ -1238,6 +1252,7 @@ class TransactionProcessingSteps(
     val commitSetF = Future.successful(commitSet)
     val contractsToBeStored = createdContracts.values.toSeq.map(WithTransactionId(_, txId))
 
+    val witnessedAndDivulged = witnessed ++ divulged
     def storeDivulgedContracts: Future[Unit] =
       contractStore
         .storeDivulgedContracts(
@@ -1254,8 +1269,9 @@ class TransactionProcessingSteps(
         .leftMap[TransactionProcessorError](FieldConversionError("Transaction Id", _))
 
       contractMetadata =
-        // TODO(#11047): Forward driver contract metadata also for divulged contracts
-        createdContracts.view.collect {
+        // We deliberately do not forward the driver metadata
+        // for divulged contracts since they are not visible on the Ledger API
+        (createdContracts ++ witnessed).view.collect {
           case (contractId, SerializableContract(_, _, _, _, Some(salt))) =>
             contractId -> DriverContractMetadata(salt).toLfBytes(protocolVersion)
         }.toMap
@@ -1335,7 +1351,8 @@ class TransactionProcessingSteps(
         requestSequencerCounter = pendingRequestData.requestSequencerCounter,
         commitSet = commitSet,
         createdContracts = createdContracts,
-        witnessedAndDivulged = usedAndCreated.contracts.witnessedAndDivulged,
+        witnessed = usedAndCreated.contracts.witnessed,
+        divulged = usedAndCreated.contracts.divulged,
         hostedWitnesses = usedAndCreated.hostedWitnesses,
         completionInfoO = completionInfoO,
         lfTx = validSubTransaction,

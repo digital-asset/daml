@@ -87,6 +87,6 @@ object HashPurpose {
   val SignedProtocolMessageSignature = HashPurpose(38, "SignedProtocolMessageSignature")
   val AggregationId = HashPurpose(39, "AggregationId")
   val BftOrderingPbftBlock = HashPurpose(40, "BftOrderingPbftBlock")
-  val _SetTrafficBalance = HashPurpose(41, "SetTrafficBalance")
+  val _SetTrafficPurchased = HashPurpose(41, "SetTrafficPurchased")
   val OrderingRequestSignature = HashPurpose(42, "OrderingRequestSignature")
 }

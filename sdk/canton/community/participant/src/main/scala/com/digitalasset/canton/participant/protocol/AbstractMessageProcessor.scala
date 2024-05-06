@@ -78,7 +78,7 @@ abstract class AbstractMessageProcessor(
 
   protected def signResponse(ips: DomainSnapshotSyncCryptoApi, response: ConfirmationResponse)(
       implicit traceContext: TraceContext
-  ): Future[SignedProtocolMessage[ConfirmationResponse]] =
+  ): FutureUnlessShutdown[SignedProtocolMessage[ConfirmationResponse]] =
     SignedProtocolMessage.trySignAndCreate(response, ips, protocolVersion)
 
   // Assumes that we are not closing (i.e., that this is synchronized with shutdown somewhere higher up the call stack)

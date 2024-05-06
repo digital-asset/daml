@@ -219,7 +219,7 @@ object PingService {
 
     override private[admin] def filters: TransactionFilter = {
       // we can't filter by template id as we don't know when the admin workflow package is loaded
-      LedgerConnection.transactionFilterByPartyV2(Map(adminPartyId -> Seq.empty))
+      LedgerConnection.transactionFilterByParty(Map(adminPartyId -> Seq.empty))
     }
 
     private[admin] abstract class ContractWithExpiry(

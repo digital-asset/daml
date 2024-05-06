@@ -34,6 +34,7 @@ import com.digitalasset.canton.ledger.participant.state.index.v2.{
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.PackageName
+import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause.InterpretationTimeExceeded
 import com.digitalasset.canton.protocol.{DriverContractMetadata, LfContractId, LfTransactionVersion}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -125,6 +126,7 @@ class StoreBackedCommandExecutorSpec
       AuthorityResolver(),
       authenticateContract = _ => Right(()),
       metrics = Metrics.ForTesting,
+      EngineLoggingConfig(),
       loggerFactory = loggerFactory,
       dynParamGetter = new TestDynamicDomainParameterGetter(tolerance),
       TimeProvider.UTC,
@@ -332,6 +334,7 @@ class StoreBackedCommandExecutorSpec
         AuthorityResolver(),
         authenticateContract = _ => authenticationResult,
         metrics = Metrics.ForTesting,
+        EngineLoggingConfig(),
         loggerFactory = loggerFactory,
         dynParamGetter = new TestDynamicDomainParameterGetter(NonNegativeFiniteDuration.Zero),
         TimeProvider.UTC,

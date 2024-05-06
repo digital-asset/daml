@@ -37,6 +37,7 @@ class SubmissionRequestTest extends BaseTestWordSpec {
       maxSequencingTime = CantonTimestamp.MaxValue,
       topologyTimestamp = defaultTopologyTimestamp,
       Some(defaultAggregationRule),
+      Option.empty[SequencingSubmissionCost],
       testedProtocolVersion,
     )
 

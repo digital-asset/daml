@@ -12,6 +12,7 @@ import com.digitalasset.canton.crypto.store.memory.{
   InMemoryCryptoPrivateStore,
   InMemoryCryptoPublicStore,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import com.google.protobuf.ByteString
@@ -114,6 +115,12 @@ object SymbolicCrypto {
       .getOrElse(
         throw new RuntimeException(s"Crypto private store does not implement all necessary methods")
       )
+    def runStorageUS[A](op: EitherT[FutureUnlessShutdown, _, A], description: String): A =
+      timeouts.io
+        .await(s"storing $description")(op.value.unwrap)
+        .onShutdown(sys.error("aborted due to shutdown"))
+        .valueOr(err => throw new RuntimeException(s"Failed to store $description: $err"))
+
     def runStorage[A](op: EitherT[Future, _, A], description: String): A =
       timeouts.io
         .await(s"storing $description")(op.value)
@@ -123,7 +130,7 @@ object SymbolicCrypto {
     signingFingerprints.foreach { k =>
       val sigPrivKey = SymbolicCrypto.signingPrivateKey(k)
       val sigPubKey = SymbolicCrypto.signingPublicKey(k)
-      runStorage(
+      runStorageUS(
         cryptoPrivateStore.storeSigningKey(sigPrivKey, None),
         s"private signing key for $k",
       )
@@ -143,7 +150,7 @@ object SymbolicCrypto {
       val encPrivKey = SymbolicCrypto.encryptionPrivateKey(encKeyId)
       val encPubKey = SymbolicCrypto.encryptionPublicKey(encKeyId)
 
-      runStorage(
+      runStorageUS(
         cryptoPrivateStore.storeSigningKey(sigPrivKey, None),
         s"private signing key for $k",
       )
@@ -151,7 +158,7 @@ object SymbolicCrypto {
         crypto.cryptoPublicStore.storeSigningKey(sigPubKey),
         s"public signign key for $k",
       )
-      runStorage(
+      runStorageUS(
         cryptoPrivateStore.storeDecryptionKey(encPrivKey, None),
         s"decryption key for $k",
       )

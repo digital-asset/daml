@@ -13,6 +13,7 @@ import com.digitalasset.canton.crypto.CryptoFactory.{CryptoStoresAndSchemes, sel
 import com.digitalasset.canton.crypto.provider.jce.{JcePrivateCrypto, JcePureCrypto}
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStore, CryptoPublicStore}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.tracing.{TraceContext, TracerProvider}
@@ -35,7 +36,7 @@ trait CryptoFactory {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, Crypto]
+  ): EitherT[FutureUnlessShutdown, String, Crypto]
 
   def createPureCrypto(
       config: CryptoConfig,
@@ -74,9 +75,9 @@ trait CryptoFactory {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, CryptoStoresAndSchemes] =
+  ): EitherT[FutureUnlessShutdown, String, CryptoStoresAndSchemes] =
     for {
-      cryptoPublicStore <- EitherT.rightT[Future, String](
+      cryptoPublicStore <- EitherT.rightT[FutureUnlessShutdown, String](
         CryptoPublicStore.create(storage, releaseProtocolVersion, timeouts, loggerFactory)
       )
       cryptoPrivateStore <- cryptoPrivateStoreFactory
@@ -84,14 +85,16 @@ trait CryptoFactory {
         .leftMap(err => show"Failed to create crypto private store: $err")
       symmetricKeyScheme <- selectSchemes(config.symmetric, config.provider.symmetric)
         .map(_.default)
-        .toEitherT
-      hashAlgorithm <- selectSchemes(config.hash, config.provider.hash).map(_.default).toEitherT
+        .toEitherT[FutureUnlessShutdown]
+      hashAlgorithm <- selectSchemes(config.hash, config.provider.hash)
+        .map(_.default)
+        .toEitherT[FutureUnlessShutdown]
       signingKeyScheme <- selectSchemes(config.signing, config.provider.signing)
         .map(_.default)
-        .toEitherT
+        .toEitherT[FutureUnlessShutdown]
       encryptionKeyScheme <- selectSchemes(config.encryption, config.provider.encryption)
         .map(_.default)
-        .toEitherT
+        .toEitherT[FutureUnlessShutdown]
     } yield CryptoStoresAndSchemes(
       cryptoPublicStore,
       cryptoPrivateStore,
@@ -172,7 +175,7 @@ class CommunityCryptoFactory extends CryptoFactory {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, Crypto] =
+  ): EitherT[FutureUnlessShutdown, String, Crypto] =
     for {
       storesAndSchemes <- initStoresAndSelectSchemes(
         config,
@@ -185,9 +188,11 @@ class CommunityCryptoFactory extends CryptoFactory {
       )
       crypto <- config.provider match {
         case CommunityCryptoProvider.Jce =>
-          JceCrypto.create(config, storesAndSchemes, timeouts, loggerFactory)
+          JceCrypto
+            .create(config, storesAndSchemes, timeouts, loggerFactory)
+            .mapK(FutureUnlessShutdown.outcomeK)
         case prov =>
-          EitherT.leftT[Future, Crypto](s"Unsupported crypto provider: $prov")
+          EitherT.leftT[FutureUnlessShutdown, Crypto](s"Unsupported crypto provider: $prov")
       }
     } yield crypto
 }
@@ -209,9 +214,9 @@ object JceCrypto {
         )
         .toEitherT[Future]
       _ = Security.addProvider(new BouncyCastleProvider)
-      // TODO(i18203): Ensure required/allowed schemes are enforced by private/pure crypto classes
-//      requiredSigningKeySchemes <- selectAllowedSigningKeyScheme(config).toEitherT[Future]
-//      requiredEncryptionKeySchemes <- selectAllowedEncryptionKeyScheme(config).toEitherT[Future]
+      // TODO(#18934): Ensure required/allowed schemes are enforced by private/pure crypto classes
+      // requiredSigningKeySchemes <- selectAllowedSigningKeyScheme(config).toEitherT[Future]
+      // requiredEncryptionKeySchemes <- selectAllowedEncryptionKeyScheme(config).toEitherT[Future]
       pbkdfSchemes <- config.provider.pbkdf
         .toRight("PBKDF schemes must be set for JCE provider")
         .toEitherT[Future]

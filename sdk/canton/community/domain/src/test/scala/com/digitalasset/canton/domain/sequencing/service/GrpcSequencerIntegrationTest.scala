@@ -16,7 +16,7 @@ import com.digitalasset.canton.config.{
   TestingConfigInternal,
 }
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.crypto.{HashPurpose, Nonce}
+import com.digitalasset.canton.crypto.{HashPurpose, Nonce, SyncCryptoApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.api.v30
@@ -25,7 +25,12 @@ import com.digitalasset.canton.domain.metrics.SequencerTestMetrics
 import com.digitalasset.canton.domain.sequencing.config.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
-import com.digitalasset.canton.lifecycle.{AsyncOrSyncCloseable, Lifecycle, SyncCloseable}
+import com.digitalasset.canton.lifecycle.{
+  AsyncOrSyncCloseable,
+  FutureUnlessShutdown,
+  Lifecycle,
+  SyncCloseable,
+}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.CommonMockMetrics
 import com.digitalasset.canton.networking.Endpoint
@@ -109,6 +114,24 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
 
   when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
     .thenReturn(mockTopologySnapshot)
+  when(topologyClient.headSnapshot(any[TraceContext]))
+    .thenReturn(mockTopologySnapshot)
+  when(
+    mockTopologySnapshot.timestamp
+  ).thenReturn(
+    CantonTimestamp.Epoch
+  )
+  when(
+    mockTopologySnapshot.trafficControlParameters(
+      any[ProtocolVersion],
+      anyBoolean,
+    )(any[TraceContext])
+  )
+    .thenReturn(
+      FutureUnlessShutdown.pure(
+        None
+      )
+    )
   when(
     mockTopologySnapshot.findDynamicDomainParametersOrDefault(
       any[ProtocolVersion],
@@ -264,8 +287,9 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
           override def signRequest[A <: HasCryptographicEvidence](
               request: A,
               hashPurpose: HashPurpose,
+              snapshot: Option[SyncCryptoApi],
           )(implicit ec: ExecutionContext, traceContext: TraceContext)
-              : EitherT[Future, String, SignedContent[A]] =
+              : EitherT[FutureUnlessShutdown, String, SignedContent[A]] =
             EitherT.rightT(
               SignedContent(
                 request,
@@ -371,14 +395,12 @@ class GrpcSequencerIntegrationTest
     }
 
     "send from the client gets a message to the sequencer" in { env =>
-      import cats.implicits.*
-
       val anotherParticipant = ParticipantId("another")
 
       when(env.sequencer.sendAsync(any[SubmissionRequest])(anyTraceContext))
-        .thenReturn(EitherT.pure[Future, SendAsyncError](()))
+        .thenReturn(EitherT.pure[FutureUnlessShutdown, SendAsyncError](()))
       when(env.sequencer.sendAsyncSigned(any[SignedContent[SubmissionRequest]])(anyTraceContext))
-        .thenReturn(EitherT.pure[Future, SendAsyncError](()))
+        .thenReturn(EitherT.pure[FutureUnlessShutdown, SendAsyncError](()))
 
       val result = for {
         response <- env.client

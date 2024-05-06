@@ -74,6 +74,7 @@ import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.{PeriodicAcknowledgements, RichSequencerClient}
 import com.digitalasset.canton.sequencing.handlers.CleanSequencerCounterTracker
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Envelope}
+import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
@@ -86,7 +87,7 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.traffic.{MemberTrafficStatus, TrafficControlProcessor}
+import com.digitalasset.canton.traffic.MemberTrafficStatus
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil}
@@ -176,6 +177,7 @@ class SyncDomain(
       authorityResolver,
       Some(domainId),
       engine,
+      parameters.engine.validationPhaseLogging,
       loggerFactory,
     )
 

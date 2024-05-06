@@ -240,7 +240,6 @@ class ProtocolProcessorTest
         IndexedDomain.tryCreate(domain, 1),
         testedProtocolVersion,
         enableAdditionalConsistencyChecks = true,
-        enableTopologyTransactionValidation = false,
         new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1), // only one domain needed
         loggerFactory,
         timeouts,

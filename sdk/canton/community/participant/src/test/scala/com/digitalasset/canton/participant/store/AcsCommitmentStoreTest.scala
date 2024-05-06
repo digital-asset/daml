@@ -27,7 +27,13 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.store.PrunableByTimeTest
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
-import com.digitalasset.canton.{BaseTest, LfPartyId, ProtocolVersionChecksAsyncWordSpec, config}
+import com.digitalasset.canton.{
+  BaseTest,
+  HasExecutionContext,
+  LfPartyId,
+  ProtocolVersionChecksAsyncWordSpec,
+  config,
+}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -35,7 +41,7 @@ import scala.collection.immutable.SortedSet
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 
-trait CommitmentStoreBaseTest extends AsyncWordSpec with BaseTest {
+trait CommitmentStoreBaseTest extends AsyncWordSpec with BaseTest with HasExecutionContext {
   val domainId: DomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::domain"))
   val cryptoApi: CryptoPureApi = new SymbolicPureCrypto
 
@@ -115,6 +121,7 @@ trait CommitmentStoreBaseTest extends AsyncWordSpec with BaseTest {
           Fingerprint.tryCreate("test"),
         )
         .value
+        .failOnShutdown
     )
     .valueOrFail("failed to create dummy signature")
 

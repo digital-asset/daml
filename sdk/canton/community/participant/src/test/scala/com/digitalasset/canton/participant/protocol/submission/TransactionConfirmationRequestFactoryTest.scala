@@ -255,6 +255,7 @@ class TransactionConfirmationRequestFactoryTest
             Some(
               Await
                 .result(cryptoSnapshot.sign(tree.transactionId.unwrap).value, 10.seconds)
+                .failOnShutdown
                 .valueOr(err => fail(err.toString))
             )
           } else None
@@ -346,7 +347,8 @@ class TransactionConfirmationRequestFactoryTest
         OpenEnvelope(encryptedViewMessage, recipients)(testedProtocolVersion)
     }
 
-    val signature = cryptoSnapshot.sign(example.fullInformeeTree.transactionId.unwrap).futureValue
+    val signature =
+      cryptoSnapshot.sign(example.fullInformeeTree.transactionId.unwrap).failOnShutdown.futureValue
 
     TransactionConfirmationRequest(
       InformeeMessage(example.fullInformeeTree, signature)(testedProtocolVersion),
@@ -404,6 +406,7 @@ class TransactionConfirmationRequestFactoryTest
               testedProtocolVersion,
             )
             .value
+            .failOnShutdown
             .map { res =>
               val expected = expectedConfirmationRequest(example, newCryptoSnapshot)
               stripSignatureAndOrderMap(res.value) shouldBe stripSignatureAndOrderMap(expected)
@@ -437,6 +440,7 @@ class TransactionConfirmationRequestFactoryTest
               maxSequencingTime,
               testedProtocolVersion,
             )
+            .failOnShutdown
             .map(_ =>
               store
                 .getSessionKeyInfoIfPresent(recipientGroup)
@@ -479,6 +483,7 @@ class TransactionConfirmationRequestFactoryTest
             maxSequencingTime,
             testedProtocolVersion,
           )
+          .failOnShutdown
           .value
           .map(
             _ should equal(
@@ -515,6 +520,7 @@ class TransactionConfirmationRequestFactoryTest
             maxSequencingTime,
             testedProtocolVersion,
           )
+          .failOnShutdown
           .value
           .map(
             _ should equal(
@@ -548,6 +554,7 @@ class TransactionConfirmationRequestFactoryTest
             maxSequencingTime,
             testedProtocolVersion,
           )
+          .failOnShutdown
           .value
           .map(_ should equal(Left(TransactionTreeFactoryError(error))))
       }
@@ -578,6 +585,7 @@ class TransactionConfirmationRequestFactoryTest
             maxSequencingTime,
             testedProtocolVersion,
           )
+          .failOnShutdown
           .value
           .map(
             _ should equal(
@@ -616,6 +624,7 @@ class TransactionConfirmationRequestFactoryTest
                   testedProtocolVersion,
                 )
                 .value
+                .failOnShutdown
                 .map {
                   case Left(ParticipantAuthorizationError(message)) =>
                     message shouldBe s"$submittingParticipant does not host $submitter or is not active."

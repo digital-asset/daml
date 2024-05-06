@@ -10,14 +10,14 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   TimeoutType,
 }
 import com.digitalasset.canton.admin.api.client.data.*
-import com.digitalasset.canton.admin.api.client.data.topologyx.*
+import com.digitalasset.canton.admin.api.client.data.topology.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.BaseQuery
 import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.admin.v30.AuthorizeRequest.Type.{Proposal, TransactionHash}
-import com.digitalasset.canton.topology.admin.v30.IdentityInitializationXServiceGrpc.IdentityInitializationXServiceStub
+import com.digitalasset.canton.topology.admin.v30.IdentityInitializationServiceGrpc.IdentityInitializationServiceStub
 import com.digitalasset.canton.topology.admin.v30.TopologyAggregationServiceGrpc.TopologyAggregationServiceStub
 import com.digitalasset.canton.topology.admin.v30.TopologyManagerReadServiceGrpc.TopologyManagerReadServiceStub
 import com.digitalasset.canton.topology.admin.v30.TopologyManagerWriteServiceGrpc.TopologyManagerWriteServiceStub
@@ -852,9 +852,9 @@ object TopologyAdminCommands {
 
     abstract class BaseInitializationService[Req, Resp, Res]
         extends GrpcAdminCommand[Req, Resp, Res] {
-      override type Svc = IdentityInitializationXServiceStub
-      override def createService(channel: ManagedChannel): IdentityInitializationXServiceStub =
-        v30.IdentityInitializationXServiceGrpc.stub(channel)
+      override type Svc = IdentityInitializationServiceStub
+      override def createService(channel: ManagedChannel): IdentityInitializationServiceStub =
+        v30.IdentityInitializationServiceGrpc.stub(channel)
     }
 
     final case class InitId(identifier: String)
@@ -864,7 +864,7 @@ object TopologyAdminCommands {
         Right(v30.InitIdRequest(identifier))
 
       override def submitRequest(
-          service: IdentityInitializationXServiceStub,
+          service: IdentityInitializationServiceStub,
           request: v30.InitIdRequest,
       ): Future[v30.InitIdResponse] =
         service.initId(request)
@@ -879,7 +879,7 @@ object TopologyAdminCommands {
         Right(v30.GetIdRequest())
 
       override def submitRequest(
-          service: IdentityInitializationXServiceStub,
+          service: IdentityInitializationServiceStub,
           request: v30.GetIdRequest,
       ): Future[v30.GetIdResponse] =
         service.getId(request)
