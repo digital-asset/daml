@@ -5,11 +5,11 @@ package com.digitalasset.canton.participant.protocol.transfer
 
 import cats.Eval
 import cats.implicits.*
-import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, TestHash}
+import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, Signature, TestHash}
 import com.digitalasset.canton.data.ViewType.TransferOutViewType
 import com.digitalasset.canton.data.{
   CantonTimestamp,
@@ -32,6 +32,7 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferOutProcessi
 import com.digitalasset.canton.participant.protocol.transfer.TransferOutProcessorError.*
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.{
   NoTransferSubmissionPermission,
+  ParsedTransferRequest,
   TransferProcessorError,
 }
 import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingStartingPoints}
@@ -68,7 +69,6 @@ import com.digitalasset.canton.{
   SequencerCounter,
   TransferCounter,
 }
-import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
@@ -139,7 +139,6 @@ final class TransferOutProcessingStepsTest
       IndexedDomain.tryCreate(sourceDomain.unwrap, 1),
       testedProtocolVersion,
       enableAdditionalConsistencyChecks = true,
-      enableTopologyTransactionValidation = false,
       indexedStringStore = indexedStringStore,
       loggerFactory,
       timeouts,
@@ -265,6 +264,26 @@ final class TransferOutProcessingStepsTest
     ),
   )
   private lazy val creatingTransactionId = ExampleTransactionFactory.transactionId(0)
+
+  def mkParsedRequest(
+      view: FullTransferOutTree,
+      recipients: Recipients = RecipientsTest.testInstance,
+      signatureO: Option[Signature] = None,
+  ): ParsedTransferRequest[FullTransferOutTree] = ParsedTransferRequest(
+    RequestCounter(1),
+    CantonTimestamp.Epoch,
+    SequencerCounter(1),
+    view,
+    recipients,
+    signatureO,
+    None,
+    isFreshOwnTimelyRequest = true,
+    transferringParticipant = true,
+    Seq.empty,
+    sourceMediator,
+    cryptoSnapshot,
+    cryptoSnapshot.ipsSnapshot.findDynamicDomainParameters().futureValue.value,
+  )
 
   "TransferOutRequest.validated" should {
     val testingTopology = createTestingTopologySnapshot(
@@ -591,7 +610,7 @@ final class TransferOutProcessingStepsTest
           .value
         _ <-
           outProcessingSteps
-            .prepareSubmission(
+            .createSubmission(
               submissionParam,
               sourceMediator,
               state,
@@ -622,7 +641,7 @@ final class TransferOutProcessingStepsTest
           contract,
         )
         submissionResult <- leftOrFailShutdown(
-          outProcessingSteps.prepareSubmission(
+          outProcessingSteps.createSubmission(
             submissionParam,
             sourceMediator,
             state,
@@ -652,18 +671,6 @@ final class TransferOutProcessingStepsTest
     )
     val outTree = makeFullTransferOutTree(outRequest)
 
-    def checkSuccessful(
-        result: outProcessingSteps.CheckActivenessAndWritePendingContracts
-    ): Assertion =
-      result match {
-        case outProcessingSteps.CheckActivenessAndWritePendingContracts(
-              activenessSet,
-              _,
-            ) =>
-          activenessSet shouldBe mkActivenessSet(deact = Set(contractId), prior = Set(contractId))
-        case _ => fail()
-      }
-
     "succeed without errors" in {
       val sessionKeyStore = SessionKeyStore(CachingConfigs.defaultSessionKeyCacheConfig)
       for {
@@ -679,21 +686,15 @@ final class TransferOutProcessingStepsTest
             .valueOrFailShutdown(
               "decrypt request failed"
             )
-        result <- valueOrFail(
-          outProcessingSteps.computeActivenessSetAndPendingContracts(
-            CantonTimestamp.Epoch,
-            RequestCounter(1),
-            SequencerCounter(1),
-            NonEmptyUtil.fromUnsafe(decrypted.views),
-            Seq.empty,
-            cryptoSnapshot,
-            MediatorGroupRecipient(MediatorGroupIndex.one),
-            None,
-          )
-        )("compute activeness set failed")
+        activenessSet =
+          outProcessingSteps
+            .computeActivenessSet(
+              mkParsedRequest(outTree, RecipientsTest.testInstance, None)
+            )
+            .value
       } yield {
         decrypted.decryptionErrors shouldBe Seq.empty
-        checkSuccessful(result)
+        activenessSet shouldBe mkActivenessSet(deact = Set(contractId), prior = Set(contractId))
       }
     }
   }
@@ -726,14 +727,6 @@ final class TransferOutProcessingStepsTest
         transferCounter = initialTransferCounter,
       )
       val fullTransferOutTree = makeFullTransferOutTree(outRequest)
-      val dataAndResponseArgs = TransferOutProcessingSteps.PendingDataAndResponseArgs(
-        fullTransferOutTree,
-        Recipients.cc(submittingParticipant),
-        CantonTimestamp.Epoch,
-        RequestCounter(1),
-        SequencerCounter(1),
-        cryptoSnapshot,
-      )
 
       state.contractStore
         .storeCreatedContract(
@@ -745,11 +738,9 @@ final class TransferOutProcessingStepsTest
 
       transferOutProcessingSteps
         .constructPendingDataAndResponse(
-          dataAndResponseArgs,
+          mkParsedRequest(fullTransferOutTree, Recipients.cc(submittingParticipant)),
           state.transferCache,
           FutureUnlessShutdown.pure(mkActivenessResult()),
-          sourceMediator,
-          freshOwnTimelyTx = true,
           engineController =
             EngineController(submittingParticipant, RequestId(CantonTimestamp.Epoch), loggerFactory),
         )

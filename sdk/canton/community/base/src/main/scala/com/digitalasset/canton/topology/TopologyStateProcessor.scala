@@ -43,13 +43,10 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** @param outboxQueue If a [[DomainOutboxQueue]] is provided, the processed transactions are not directly stored,
   *                    but rather sent to the domain via an ephemeral queue (i.e. no persistence).
-  * @param enableTopologyTransactionValidation If disabled, all of the authorization validation logic in
-  *                                            IncomingTopologyTransactionAuthorizationValidator is skipped.
   */
 class TopologyStateProcessor(
     val store: TopologyStore[TopologyStoreId],
     outboxQueue: Option[DomainOutboxQueue],
-    enableTopologyTransactionValidation: Boolean,
     topologyMappingChecks: TopologyMappingChecks,
     pureCrypto: CryptoPureApi,
     loggerFactoryParent: NamedLoggerFactory,
@@ -296,28 +293,24 @@ class TopologyStateProcessor(
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TopologyTransactionRejection, GenericSignedTopologyTransaction] = {
-    if (enableTopologyTransactionValidation) {
-      EitherT
-        .right(
-          authValidator
-            .validateAndUpdateHeadAuthState(
-              effective.value,
-              Seq(toValidate),
-              inStore.map(tx => tx.mapping.uniqueKey -> tx).toList.toMap,
-              expectFullAuthorization,
-            )
-        )
-        .subflatMap { case (_, txs) =>
-          // TODO(#12390) proper error
-          txs.headOption
-            .toRight[TopologyTransactionRejection](
-              TopologyTransactionRejection.Other("expected validation result doesn't exist")
-            )
-            .flatMap(tx => tx.rejectionReason.toLeft(tx.transaction))
-        }
-    } else {
-      EitherT.rightT(toValidate.copy(isProposal = false))
-    }
+    EitherT
+      .right(
+        authValidator
+          .validateAndUpdateHeadAuthState(
+            effective.value,
+            Seq(toValidate),
+            inStore.map(tx => tx.mapping.uniqueKey -> tx).toList.toMap,
+            expectFullAuthorization,
+          )
+      )
+      .subflatMap { case (_, txs) =>
+        // TODO(#12390) proper error
+        txs.headOption
+          .toRight[TopologyTransactionRejection](
+            TopologyTransactionRejection.Other("expected validation result doesn't exist")
+          )
+          .flatMap(tx => tx.rejectionReason.toLeft(tx.transaction))
+      }
   }
 
   private def mergeSignatures(

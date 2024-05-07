@@ -31,7 +31,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Sends result messages to the informee participants of a request.
+/** Sends confirmation result messages to the informee participants of a request.
   * The result message contains only one envelope addressed to a given informee participant.
   * If the underlying request has several root hashes and is therefore rejected,
   * the VerdictSender will send several batches (one per root hash).

@@ -21,6 +21,9 @@ import monocle.Lens
 import java.util.UUID
 
 /** Wraps a [[GenTransactionTree]] that is also a full informee tree.
+  *
+  * The `CommonMetadata` is unblinded, the `ParticipantMetadata` and `SubmitterMetadata` are blinded.
+  * Every `TransactionView` and `ViewCommonData` is unblinded, but every `ViewParticipantData` is blinded.
   */
 // private constructor, because object invariants are checked by factory methods
 final case class FullInformeeTree private (tree: GenTransactionTree)(

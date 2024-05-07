@@ -516,7 +516,6 @@ abstract class CantonNodeBootstrapImpl[
         clock,
         crypto,
         authorizedStore,
-        config.topology.enableTopologyTransactionValidation,
         bootstrapStageCallback.timeouts,
         futureSupervisor,
         bootstrapStageCallback.loggerFactory,

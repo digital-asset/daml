@@ -7,7 +7,7 @@ import cats.data.*
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
-import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashOps, Signature}
+import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashOps}
 import com.digitalasset.canton.data.ViewType.TransferOutViewType
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
@@ -15,7 +15,6 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
-import com.digitalasset.canton.participant.protocol.ProcessingSteps.PendingRequestData
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessCheck,
   ActivenessResult,
@@ -33,11 +32,7 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferOutProcesso
   UnexpectedDomain,
 }
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
-import com.digitalasset.canton.participant.protocol.{
-  EngineController,
-  ProcessingSteps,
-  ProtocolProcessor,
-}
+import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingSteps}
 import com.digitalasset.canton.participant.store.ActiveContractStore.{
   Active,
   Archived,
@@ -88,8 +83,6 @@ class TransferOutProcessingSteps(
 
   override type SubmissionResultArgs = PendingTransferSubmission
 
-  override type PendingDataAndResponseArgs = TransferOutProcessingSteps.PendingDataAndResponseArgs
-
   override type RequestType = ProcessingSteps.RequestType.TransferOut
   override val requestType: RequestType = ProcessingSteps.RequestType.TransferOut
 
@@ -113,8 +106,8 @@ class TransferOutProcessingSteps(
       TargetDomainIsSourceDomain(domainId.unwrap, contractId),
     )
 
-  override def prepareSubmission(
-      param: SubmissionParam,
+  override def createSubmission(
+      submissionParam: SubmissionParam,
       mediator: MediatorGroupRecipient,
       ephemeralState: SyncDomainEphemeralStateLookup,
       sourceRecentSnapshot: DomainSnapshotSyncCryptoApi,
@@ -126,7 +119,7 @@ class TransferOutProcessingSteps(
       contractId,
       targetDomain,
       targetProtocolVersion,
-    ) = param
+    ) = submissionParam
     val pureCrypto = sourceRecentSnapshot.pureCrypto
 
     def withDetails(message: String) = s"Transfer-out $contractId to $targetDomain: $message"
@@ -297,63 +290,34 @@ class TransferOutProcessingSteps(
       .map(WithRecipients(_, envelope.recipients))
   }
 
-  private def expectedDomainId(
-      fromRequest: SourceDomainId,
-      timestamp: CantonTimestamp,
-  )(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
-    condUnitET[FutureUnlessShutdown](
-      fromRequest == domainId,
-      UnexpectedDomain(
-        TransferId(fromRequest, timestamp),
-        domainId.unwrap,
-      ),
-    )
-
-  override def computeActivenessSetAndPendingContracts(
-      ts: CantonTimestamp,
-      rc: RequestCounter,
-      sc: SequencerCounter,
-      fullViewsWithSignatures: NonEmpty[
-        Seq[(WithRecipients[FullTransferOutTree], Option[Signature])]
-      ],
-      malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
-      sourceSnapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorGroupRecipient,
-      // not actually used here, because it's available in the only fully unblinded view
-      submitterMetadataO: Option[ViewSubmitterMetadata],
+  override def computeActivenessSet(
+      parsedRequest: ParsedTransferRequest[FullTransferOutTree]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, CheckActivenessAndWritePendingContracts] = {
-    val correctRootHashes = fullViewsWithSignatures.map { case (rootHashes, _) => rootHashes }
+  ): Either[TransferProcessorError, ActivenessSet] =
     // TODO(i12926): Send a rejection if malformedPayloads is non-empty
-    for {
-      txOutRequestAndRecipients <- EitherT.cond[Future](
-        correctRootHashes.toList.sizeCompare(1) == 0,
-        correctRootHashes.head1,
-        ReceivedMultipleRequests(correctRootHashes.map(_.unwrap.viewHash)): TransferProcessorError,
-      )
-      WithRecipients(txOutRequest, recipients) = txOutRequestAndRecipients
-      contractId = txOutRequest.contractId
-      _ <- expectedDomainId(txOutRequest.sourceDomain, ts).onShutdown(
-        Left(TransferOutProcessorError.AbortedDueToShutdownOut(txOutRequest.contractId))
-      )
-      contractIdS = Set(contractId)
-      contractsCheck = ActivenessCheck.tryCreate(
+    if (parsedRequest.fullViewTree.sourceDomain == domainId) {
+      val contractId = parsedRequest.fullViewTree.contractId
+      val contractIdS = Set(contractId)
+      val contractsCheck = ActivenessCheck.tryCreate(
         checkFresh = Set.empty,
         checkFree = Set.empty,
         checkActive = contractIdS,
         lock = contractIdS,
         needPriorState = contractIdS,
       )
-      activenessSet = ActivenessSet(
+      val activenessSet = ActivenessSet(
         contracts = contractsCheck,
         transferIds = Set.empty,
       )
-    } yield CheckActivenessAndWritePendingContracts(
-      activenessSet,
-      PendingDataAndResponseArgs(txOutRequest, recipients, ts, rc, sc, sourceSnapshot),
-    )
-  }
+      Right(activenessSet)
+    } else
+      Left(
+        UnexpectedDomain(
+          TransferId(parsedRequest.fullViewTree.sourceDomain, parsedRequest.requestTimestamp),
+          domainId.unwrap,
+        )
+      )
 
   /** Wait until the participant has received and processed all topology transactions on the target domain
     * up to the target-domain time proof timestamp.
@@ -398,11 +362,9 @@ class TransferOutProcessingSteps(
       .traverse(_.map(_.ipsSnapshot))
 
   override def constructPendingDataAndResponse(
-      pendingDataAndResponseArgs: PendingDataAndResponseArgs,
+      parsedRequestType: ParsedTransferRequest[FullTransferOutTree],
       transferLookup: TransferLookup,
       activenessF: FutureUnlessShutdown[ActivenessResult],
-      mediator: MediatorGroupRecipient,
-      freshOwnTimelyTx: Boolean,
       engineController: EngineController,
   )(implicit
       traceContext: TraceContext
@@ -411,8 +373,22 @@ class TransferOutProcessingSteps(
     TransferProcessorError,
     StorePendingDataAndSendResponseAndCreateTimeout,
   ] = {
-    val PendingDataAndResponseArgs(fullTree, recipients, ts, rc, sc, sourceSnapshot) =
-      pendingDataAndResponseArgs
+    val ParsedTransferRequest(
+      rc,
+      ts,
+      sc,
+      fullTree,
+      recipients,
+      _,
+      _,
+      _,
+      _,
+      _,
+      mediator,
+      sourceSnapshot,
+      _,
+    ) =
+      parsedRequestType
 
     val transferId: TransferId = TransferId(fullTree.sourceDomain, ts)
     val view = fullTree.tree.view.tryUnwrap
@@ -816,19 +792,8 @@ object TransferOutProcessingSteps {
       override val locallyRejectedF: FutureUnlessShutdown[Boolean],
       override val abortEngine: String => Unit,
       override val engineAbortStatusF: FutureUnlessShutdown[EngineAbortStatus],
-  ) extends PendingTransfer
-      with PendingRequestData {
+  ) extends PendingTransfer {
 
     override def rootHashO: Option[RootHash] = Some(rootHash)
   }
-
-  final case class PendingDataAndResponseArgs(
-      txOutRequest: FullTransferOutTree,
-      recipients: Recipients,
-      ts: CantonTimestamp,
-      rc: RequestCounter,
-      sc: SequencerCounter,
-      sourceSnapshot: DomainSnapshotSyncCryptoApi,
-  )
-
 }

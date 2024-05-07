@@ -5,15 +5,18 @@ package com.digitalasset.canton.participant.protocol
 
 import cats.data.{EitherT, OptionT}
 import cats.syntax.alternative.*
+import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashOps, Signature}
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod, ViewType}
 import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.participant.protocol.EngineController
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
-import com.digitalasset.canton.participant.protocol.ProcessingSteps.WrapsProcessorError
+import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
+  ParsedRequest,
+  WrapsProcessorError,
+}
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.*
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessResult,
@@ -45,7 +48,7 @@ import com.digitalasset.canton.{LedgerSubmissionId, RequestCounter, SequencerCou
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Interface for processing steps that are specific to request types.
+/** Interface for processing steps that are specific to request types (transaction / transfer).
   * The [[ProtocolProcessor]] wires up these steps with the necessary synchronization and state management,
   * including common processing steps.
   *
@@ -87,14 +90,13 @@ trait ProcessingSteps[
   /** The type of decrypted view trees */
   type DecryptedView = RequestViewType#View
 
+  /** The type of full view trees, i.e., after decomposing light views. */
   type FullView = RequestViewType#FullView
 
   type ViewSubmitterMetadata = RequestViewType#ViewSubmitterMetadata
 
-  /** The type of data needed to generate the pending data and response in [[constructPendingDataAndResponse]].
-    * The data is created by [[decryptViews]]
-    */
-  type PendingDataAndResponseArgs
+  /** Type of a request that has been parsed and contains at least one well-formed view. */
+  type ParsedRequestType <: ParsedRequest[ViewSubmitterMetadata]
 
   /** The type of data needed to create a rejection event in [[createRejectionEvent]].
     * Created by [[constructPendingDataAndResponse]]
@@ -133,37 +135,26 @@ trait ProcessingSteps[
 
   /** Phase 1, step 1:
     *
-    * @param param          The parameter object encapsulating the parameters of the submit method
-    * @param mediator       The mediator ID to use for this submission
-    * @param ephemeralState Read-only access to the [[com.digitalasset.canton.participant.store.SyncDomainEphemeralState]]
-    * @param recentSnapshot A recent snapshot of the topology state to be used for submission
+    * @param submissionParam The parameter object encapsulating the parameters of the submit method
+    * @param mediator        The mediator ID to use for this submission
+    * @param ephemeralState  Read-only access to the [[com.digitalasset.canton.participant.store.SyncDomainEphemeralState]]
+    * @param recentSnapshot  A recent snapshot of the topology state to be used for submission
     */
-  def prepareSubmission(
-      param: SubmissionParam,
+  def createSubmission(
+      submissionParam: SubmissionParam,
       mediator: MediatorGroupRecipient,
       ephemeralState: SyncDomainEphemeralStateLookup,
       recentSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SubmissionError, Submission]
 
-  /** Convert [[com.digitalasset.canton.participant.protocol.ProtocolProcessor.NoMediatorError]] into a submission error */
   def embedNoMediatorError(error: NoMediatorError): SubmissionError
 
-  def decisionTimeFor(
-      parameters: DynamicDomainParametersWithValidity,
-      requestTs: CantonTimestamp,
-  ): Either[RequestError with ResultError, CantonTimestamp]
-
   /** Return the submitter metadata along with the submission data needed by the SubmissionTracker
-    *  to decide on transaction validity
+    * to decide on transaction validity
     */
   def getSubmitterInformation(
       views: Seq[DecryptedView]
   ): (Option[ViewSubmitterMetadata], Option[SubmissionTracker.SubmissionData])
-
-  def participantResponseDeadlineFor(
-      parameters: DynamicDomainParametersWithValidity,
-      requestTs: CantonTimestamp,
-  ): Either[RequestError with ResultError, CantonTimestamp]
 
   sealed trait Submission {
 
@@ -186,7 +177,6 @@ trait ProcessingSteps[
     /** Wrap an error during submission from the generic request processor */
     def embedSubmissionError(err: SubmissionProcessingError): SubmissionSendError
 
-    /** Convert a `SubmissionSendError` to a `SubmissionError` */
     def toSubmissionError(err: SubmissionSendError): SubmissionError
   }
 
@@ -295,7 +285,7 @@ trait ProcessingSteps[
   /** Phase 1, step 3:
     */
   def createSubmissionResult(
-      deliver: Deliver[Envelope[_]],
+      deliver: Deliver[Envelope[?]],
       submissionResultArgs: SubmissionResultArgs,
   ): SubmissionResult
 
@@ -325,7 +315,7 @@ trait ProcessingSteps[
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, RequestError, DecryptedViews]
 
-  /** Phase 3:
+  /** Phase 3, step 1a:
     *
     * @param views The successfully decrypted views and their signatures. Signatures are only present for
     *              top-level views (where the submitter metadata is not blinded)
@@ -347,42 +337,38 @@ trait ProcessingSteps[
     }
   }
 
-  /** Converts the decrypted (possible light-weight) view trees to the corresponding full view trees.
+  /** Phase 3, step 1b
+    *
+    * Converts the decrypted (possible light-weight) view trees to the corresponding full view trees.
     * Views that cannot be converted are mapped to [[ProtocolProcessor.MalformedPayload]] errors.
     */
   def computeFullViews(
       decryptedViewsWithSignatures: Seq[(WithRecipients[DecryptedView], Option[Signature])]
   ): (Seq[(WithRecipients[FullView], Option[Signature])], Seq[MalformedPayload])
 
-  /** Phase 3, step 2 (some good views):
+  /** Phase 3, step 1c
     *
-    * @param ts         The timestamp of the request
-    * @param rc         The [[com.digitalasset.canton.RequestCounter]] of the request
-    * @param sc         The [[com.digitalasset.canton.SequencerCounter]] of the request
-    * @param fullViewsWithSignatures The decrypted views from step 1 with the right root hash
-    *                                     and their respective signatures
-    * @param malformedPayloads The decryption errors and decrypted views with a wrong root hash
-    * @param snapshot Snapshot of the topology state at the request timestamp
-    * @param submitterMetadataO Optional ViewSubmitterMetadata, in case fullViewsWithSignatures
-    *                           might not contain unblinded ViewSubmitterMetadata
-    * @return The activeness set and
-    *         the contracts to store with the [[com.digitalasset.canton.participant.store.ContractStore]] in Phase 7,
-    *         and the arguments for step 2.
+    * Create a ParsedRequest out of the data computed so far.
     */
-  def computeActivenessSetAndPendingContracts(
-      ts: CantonTimestamp,
+  def computeParsedRequest(
       rc: RequestCounter,
+      ts: CantonTimestamp,
       sc: SequencerCounter,
-      fullViewsWithSignatures: NonEmpty[
+      rootViewsWithMetadata: NonEmpty[
         Seq[(WithRecipients[FullView], Option[Signature])]
       ],
-      malformedPayloads: Seq[MalformedPayload],
-      snapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorGroupRecipient,
       submitterMetadataO: Option[ViewSubmitterMetadata],
-  )(implicit
+      isFreshOwnTimelyRequest: Boolean,
+      malformedPayloads: Seq[MalformedPayload],
+      mediator: MediatorGroupRecipient,
+      snapshot: DomainSnapshotSyncCryptoApi,
+      domainParameters: DynamicDomainParametersWithValidity,
+  )(implicit traceContext: TraceContext): Future[ParsedRequestType]
+
+  /** Phase 3, step 2 (some good views) */
+  def computeActivenessSet(parsedRequest: ParsedRequestType)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, RequestError, CheckActivenessAndWritePendingContracts]
+  ): Either[RequestError, ActivenessSet]
 
   /** Phase 3, step 2:
     * Some good views, but we are rejecting (e.g. because the chosen mediator
@@ -427,37 +413,21 @@ trait ProcessingSteps[
       traceContext: TraceContext
   ): Unit
 
-  /** Phase 3
-    *
-    * @param activenessSet              The activeness set for the activeness check
-    * @param pendingDataAndResponseArgs The implementation-specific arguments needed to create the pending data and response
-    */
-  case class CheckActivenessAndWritePendingContracts(
-      activenessSet: ActivenessSet,
-      pendingDataAndResponseArgs: PendingDataAndResponseArgs,
-  )
-
-  def authenticateInputContracts(
-      pendingDataAndResponseArgs: PendingDataAndResponseArgs
-  )(implicit
+  def authenticateInputContracts(parsedRequest: ParsedRequestType)(implicit
       traceContext: TraceContext
   ): EitherT[Future, RequestError, Unit]
 
   /** Phase 3, step 3:
     * Yields the pending data and confirmation responses for the case that at least one payload is well-formed.
     *
-    * @param pendingDataAndResponseArgs Implementation-specific data passed from [[decryptViews]]
     * @param transferLookup             Read-only interface of the [[com.digitalasset.canton.participant.store.memory.TransferCache]]
-    * @param activenessResultFuture     Future of the result of the activeness check<
-    * @param mediator                   The mediator that handles this request
+    * @param activenessResultFuture     Future of the result of the activeness check
     * @return Returns the `requestType.PendingRequestData` to be stored until Phase 7 and the responses to be sent to the mediator.
     */
   def constructPendingDataAndResponse(
-      pendingDataAndResponseArgs: PendingDataAndResponseArgs,
+      parsedRequest: ParsedRequestType,
       transferLookup: TransferLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
-      mediator: MediatorGroupRecipient,
-      freshOwnTimelyTx: Boolean,
       engineController: EngineController,
   )(implicit
       traceContext: TraceContext
@@ -500,9 +470,9 @@ trait ProcessingSteps[
 
   /** Phase 7, step 2:
     *
-    * @param event             The signed [[com.digitalasset.canton.sequencing.protocol.Deliver]] event containing the confirmation result.
+    * @param event              The signed [[com.digitalasset.canton.sequencing.protocol.Deliver]] event containing the confirmation result.
     *                           It is ensured that the `event` contains exactly one [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]]
-    * @param result            The unpacked confirmation result that is contained in the `event`
+    * @param verdict            The verdict that is contained in the `event`
     * @param pendingRequestData The `requestType.PendingRequestData` produced in Phase 3
     * @param pendingSubmissions The data stored on submissions in the [[PendingSubmissions]]
     * @return The [[com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet]],
@@ -524,7 +494,6 @@ trait ProcessingSteps[
     * @param commitSet           [[scala.None$]] if the request should be rejected
     *                            [[scala.Some$]] a future that will produce the commit set for updating the active contract store
     * @param contractsToBeStored The contracts to be persisted to the contract store.
-    *                            Must be a subset of the contracts produced in Phase 3, step 2 in [[CheckActivenessAndWritePendingContracts]].
     * @param maybeEvent          The event to be published via the [[com.digitalasset.canton.participant.event.RecordOrderPublisher]]
     */
   case class CommitAndStoreContractsAndPublishEvent(
@@ -584,6 +553,7 @@ object ProcessingSteps {
 
     case object Transaction extends Values {
       override type PendingRequestData = PendingTransaction
+
       override def pretty: Pretty[Transaction] = prettyOfObject[Transaction]
     }
     type Transaction = Transaction.type
@@ -592,6 +562,7 @@ object ProcessingSteps {
 
     case object TransferOut extends Transfer {
       override type PendingRequestData = PendingTransferOut
+
       override def pretty: Pretty[TransferOut] = prettyOfObject[TransferOut]
     }
 
@@ -599,6 +570,7 @@ object ProcessingSteps {
 
     case object TransferIn extends Transfer {
       override type PendingRequestData = PendingTransferIn
+
       override def pretty: Pretty[TransferIn] = prettyOfObject[TransferIn]
 
     }
@@ -609,8 +581,29 @@ object ProcessingSteps {
     def underlyingProcessorError(): Option[ProcessorError]
   }
 
-  /** Generic parts that must be passed from Phase 3 to Phase 7. */
-  trait PendingRequestData {
+  /** Request enriched with metadata after parsing.
+    * Contains at least one wellformed view tree.
+    */
+  trait ParsedRequest[ViewSubmitterMetadata] {
+    def rc: RequestCounter
+    def requestTimestamp: CantonTimestamp
+    def requestId: RequestId = RequestId(requestTimestamp)
+    def sc: SequencerCounter
+    def submitterMetadataO: Option[ViewSubmitterMetadata]
+    def malformedPayloads: Seq[MalformedPayload]
+    def snapshot: DomainSnapshotSyncCryptoApi
+    def mediator: MediatorGroupRecipient
+    def isFreshOwnTimelyRequest: Boolean
+    def domainParameters: DynamicDomainParametersWithValidity
+    def rootHash: RootHash
+
+    def decisionTime: CantonTimestamp = domainParameters
+      .decisionTimeFor(requestTimestamp)
+      .valueOr(err => throw new IllegalStateException(err))
+  }
+
+  /** Data related to the request that is computed in Phase 3 and passed to Phase 7. */
+  trait PendingRequestData extends Product with Serializable {
     def requestCounter: RequestCounter
     def requestSequencerCounter: SequencerCounter
     def mediator: MediatorGroupRecipient
@@ -623,6 +616,8 @@ object ProcessingSteps {
     def engineAbortStatusF: FutureUnlessShutdown[EngineAbortStatus]
 
     def rootHashO: Option[RootHash]
+
+    def isCleanReplay: Boolean
   }
 
   object PendingRequestData {
@@ -633,5 +628,45 @@ object ProcessingSteps {
     ] = {
       Some((arg.requestCounter, arg.requestSequencerCounter, arg.mediator, arg.locallyRejectedF))
     }
+  }
+
+  /** For better type safety, this is either a [[CleanReplayData]] or an `A`. */
+  sealed trait ReplayDataOr[+A <: PendingRequestData] extends PendingRequestData {
+    def toOption: Option[A]
+  }
+
+  /** This is effectively an `A`.
+    * Wrapper type for technical reasons.
+    */
+  final case class Wrapped[+A <: PendingRequestData](unwrap: A) extends ReplayDataOr[A] {
+    override def requestCounter: RequestCounter = unwrap.requestCounter
+    override def requestSequencerCounter: SequencerCounter = unwrap.requestSequencerCounter
+    override def isCleanReplay: Boolean = false
+    override def mediator: MediatorGroupRecipient = unwrap.mediator
+
+    override def locallyRejectedF: FutureUnlessShutdown[Boolean] = unwrap.locallyRejectedF
+    override def abortEngine: String => Unit = unwrap.abortEngine
+    override val engineAbortStatusF: FutureUnlessShutdown[EngineAbortStatus] =
+      unwrap.engineAbortStatusF
+
+    override def rootHashO: Option[RootHash] = unwrap.rootHashO
+
+    override def toOption: Option[A] = Some(unwrap)
+  }
+
+  /** Minimal implementation of [[PendingRequestData]] to be used in case of a clean replay. */
+  final case class CleanReplayData(
+      override val requestCounter: RequestCounter,
+      override val requestSequencerCounter: SequencerCounter,
+      override val mediator: MediatorGroupRecipient,
+      override val locallyRejectedF: FutureUnlessShutdown[Boolean],
+      override val abortEngine: String => Unit,
+      override val engineAbortStatusF: FutureUnlessShutdown[EngineAbortStatus],
+  ) extends ReplayDataOr[Nothing] {
+    override def isCleanReplay: Boolean = true
+
+    override def rootHashO: Option[RootHash] = None
+
+    override def toOption: Option[Nothing] = None
   }
 }

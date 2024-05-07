@@ -231,8 +231,6 @@ class SequencerNodeBootstrap(
                   crypto,
                   store = createDomainTopologyStore(existing.domainId),
                   outboxQueue = new DomainOutboxQueue(loggerFactory),
-                  enableTopologyTransactionValidation =
-                    config.topology.enableTopologyTransactionValidation,
                   protocolVersion = existing.domainParameters.protocolVersion,
                   timeouts,
                   futureSupervisor,
@@ -342,8 +340,6 @@ class SequencerNodeBootstrap(
               crypto,
               store,
               outboxQueue,
-              enableTopologyTransactionValidation =
-                config.topology.enableTopologyTransactionValidation,
               request.domainParameters.protocolVersion,
               timeouts,
               futureSupervisor,
@@ -435,7 +431,6 @@ class SequencerNodeBootstrap(
               staticDomainParameters.protocolVersion,
               crypto.pureCrypto,
               parameters,
-              config.topology.enableTopologyTransactionValidation,
               clock,
               futureSupervisor,
               domainLoggerFactory,
@@ -460,7 +455,11 @@ class SequencerNodeBootstrap(
                   .getOrElse(tsInit)
                   .immediateSuccessor
               )
-              topologyClient.updateHead(tsNext, tsNext.toApproximate, false)
+              topologyClient.updateHead(
+                tsNext,
+                tsNext.toApproximate,
+                potentialTopologyChange = false,
+              )
               // this sequencer node was started for the first time an initialized with a topology state.
               // therefore we fetch all members who have registered a key (OwnerToKeyMapping) and pass them
               // to the underlying sequencer driver to register them as known members

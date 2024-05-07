@@ -32,8 +32,7 @@ import com.google.protobuf.ByteString
 
 import java.util.UUID
 
-/** A blindable Merkle tree for transfer-in requests */
-
+/** A transfer-in request embedded in a Merkle tree. The view may or may not be blinded. */
 final case class TransferInViewTree(
     commonData: MerkleTreeLeaf[TransferInCommonData],
     view: MerkleTree[TransferInView],
@@ -440,6 +439,9 @@ final case class FullTransferInTree(tree: TransferInViewTree)
   override def toBeSigned: Option[RootHash] = Some(tree.rootHash)
 
   override def viewHash: ViewHash = tree.viewHash
+
+  override def isTransferringParticipant(participantId: ParticipantId): Boolean =
+    transferOutResultEvent.unwrap.informees.contains(participantId.adminParty.toLf)
 
   override def toByteString(version: ProtocolVersion): ByteString = tree.toByteString(version)
 

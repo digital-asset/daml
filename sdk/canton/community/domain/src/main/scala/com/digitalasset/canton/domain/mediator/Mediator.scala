@@ -58,7 +58,10 @@ import io.opentelemetry.api.trace.Tracer
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** The Mediator that acts as transaction coordinator. */
+/** Responsible for events processing.
+  * Reads mediator confirmation requests and confirmation responses from a sequencer and produces ConfirmationResultMessages.
+  * For scaling / high-availability, several instances need to be created.
+  */
 private[mediator] class Mediator(
     val domain: DomainId,
     val mediatorId: MediatorId,

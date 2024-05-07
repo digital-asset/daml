@@ -23,7 +23,7 @@ import com.google.protobuf.ByteString
 
 import java.util.UUID
 
-/** A blindable Merkle tree for transfer-out requests */
+/** A transfer-out request embedded in a Merkle tree. The view may or may not be blinded. */
 final case class TransferOutViewTree private (
     commonData: MerkleTreeLeaf[TransferOutCommonData],
     view: MerkleTree[TransferOutView],
@@ -447,6 +447,9 @@ final case class FullTransferOutTree(tree: TransferOutViewTree)
   override def viewHash: ViewHash = tree.viewHash
 
   override def rootHash: RootHash = tree.rootHash
+
+  override def isTransferringParticipant(participantId: ParticipantId): Boolean =
+    adminParties.contains(participantId.adminParty.toLf)
 
   override def pretty: Pretty[FullTransferOutTree] = prettyOfClass(unnamedParam(_.tree))
 
