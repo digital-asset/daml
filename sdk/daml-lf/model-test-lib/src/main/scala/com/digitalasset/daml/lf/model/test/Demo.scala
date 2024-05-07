@@ -90,11 +90,12 @@ object Demo {
         |Scenario
         |  Topology
         |    Participant 0 parties={1}
-        |    Participant 1 parties={1}
-        |    Participant 2 parties={1}
         |  Ledger
         |    Commands participant=0 actAs={1} disclosures={}
-        |      Create 0 pkg=1 sigs={1} obs={}
+        |      Create 0 sigs={1} obs={}
+        |    Commands participant=0 actAs={1} disclosures={}
+        |      Exercise NonConsuming 0 ctl={1} cobs={}
+        |      Exercise NonConsuming 0 pkg=1 ctl={1} cobs={}
         |""".stripMargin)
 
     validSymScenarios
@@ -104,6 +105,7 @@ object Demo {
         if (scenario.ledger.nonEmpty) {
           println("\n==== ledger ====")
           println(Pretty.prettyScenario(scenario))
+          assert(SymbolicSolver.valid(scenario, numPackages, numParties))
           ideLedgerRunner.runAndProject(scenario) match {
             case Left(error) =>
               println("INVALID LEDGER!")
