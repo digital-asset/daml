@@ -18,7 +18,8 @@ import com.google.common.annotations.VisibleForTesting
 import monocle.Lens
 import monocle.macros.GenLens
 
-/** Encapsulates a subaction of the underlying transaction.
+/** A single view of a transaction, embedded in a Merkle tree.
+  * Nodes of the Merkle tree may or may not be blinded.
   *
   * @param subviews the top-most subviews of this view
   * @throws TransactionView$.InvalidView if the `viewCommonData` is unblinded and equals the `viewCommonData` of a direct subview

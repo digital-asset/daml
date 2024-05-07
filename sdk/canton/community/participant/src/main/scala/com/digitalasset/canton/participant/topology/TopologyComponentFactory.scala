@@ -65,7 +65,6 @@ class TopologyComponentFactory(
         topologyStore,
         acsCommitmentScheduleEffectiveTime,
         terminateTopologyProcessing,
-        topologyConfig.enableTopologyTransactionValidation,
         futureSupervisor,
         timeouts,
         loggerFactory,

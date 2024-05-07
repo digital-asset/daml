@@ -45,7 +45,6 @@ class DomainTopologyManager(
     crypto: Crypto,
     override val store: TopologyStore[DomainStore],
     val outboxQueue: DomainOutboxQueue,
-    enableTopologyTransactionValidation: Boolean,
     protocolVersion: ProtocolVersion,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
@@ -65,7 +64,6 @@ class DomainTopologyManager(
     new TopologyStateProcessor(
       store,
       Some(outboxQueue),
-      enableTopologyTransactionValidation,
       new ValidatingTopologyMappingChecks(store, loggerFactory),
       crypto.pureCrypto,
       loggerFactory,
@@ -82,7 +80,6 @@ class AuthorizedTopologyManager(
     clock: Clock,
     crypto: Crypto,
     store: TopologyStore[AuthorizedStore],
-    enableTopologyTransactionValidation: Boolean,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
@@ -101,7 +98,6 @@ class AuthorizedTopologyManager(
     new TopologyStateProcessor(
       store,
       None,
-      enableTopologyTransactionValidation,
       NoopTopologyMappingChecks,
       crypto.pureCrypto,
       loggerFactory,

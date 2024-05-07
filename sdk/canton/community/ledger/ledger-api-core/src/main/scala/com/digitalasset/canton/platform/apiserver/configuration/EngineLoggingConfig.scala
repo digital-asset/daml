@@ -43,7 +43,7 @@ final case class EngineLoggingConfig(
     else {
       val logger = loggerFactory.getTracedLogger(EngineLogger.getClass)
       (new EngineLogger {
-        override def add(message: String)(
+        override def add(message: String, optLocation: Option[com.daml.lf.data.Ref.Location])(
             implicit loggingContext: LoggingContext
         ): Unit = {
           if (matcher(message)) {

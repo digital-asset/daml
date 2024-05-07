@@ -28,4 +28,6 @@ final case class PendingTransaction(
   override def rootHashO: Option[RootHash] = Some(
     transactionValidationResult.transactionId.toRootHash
   )
+
+  override def isCleanReplay: Boolean = false
 }

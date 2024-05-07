@@ -66,8 +66,8 @@ private[mediator] final case class MediatorResultLog(
 
 }
 
-/** Scalable service to check the received Stakeholder Trees and Confirmation Responses, derive a verdict and post
-  * result messages to stakeholders.
+/** Scalable service to validate the received MediatorConfirmationRequests and ConfirmationResponses,
+  * derive a verdict, and send ConfirmationResultMessages to informee participants.
   */
 private[mediator] class ConfirmationResponseProcessor(
     domainId: DomainId,
