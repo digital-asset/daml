@@ -6,4 +6,4 @@
 set -e
 
 bazel build canton:community_app_deploy.jar
-java -jar bazel-bin/canton/community_app_deploy.jar daemon -c daml-lf/model-test-lib/canton.conf --bootstrap daml-lf/model-test-lib/bootstrap.canton --debug --log-file-name=/tmp/canton.log
+java -jar -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 bazel-bin/canton/community_app_deploy.jar daemon -c daml-lf/model-test-lib/canton.conf --bootstrap daml-lf/model-test-lib/bootstrap.canton --debug --log-file-name=/tmp/canton.log

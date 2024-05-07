@@ -2211,7 +2211,7 @@ private[lf] object SBuiltinFun {
               language.Reference.Template(dstTmplId),
             ) { () =>
               importValue(machine, dstTmplId, coinstArg) { templateArg =>
-                getContractInfo(machine, coid, dstTmplId, templateArg, keyOpt) { contract =>
+                computeContractInfo(machine, dstTmplId, templateArg, keyOpt) { contract =>
                   ensureContractActive(machine, coid, contract.templateId) {
 
                     machine.checkContractVisibility(coid, contract)
