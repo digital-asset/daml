@@ -180,12 +180,13 @@ private class CantonLedgerRunner(
           clientChannelConfig,
           NamedLoggerFactory("model.test", ""),
         )
-      _ <- Future.successful(
-        for (darPath <- universalDarPaths) {
-          val _ = grpcClient.packageManagementClient
+      _ <- Future.sequence(
+        for (darPath <- universalDarPaths) yield {
+          val res = grpcClient.packageManagementClient
             .uploadDarFile(ByteString.readFrom(new FileInputStream(darPath)))
           // Uploading many dars to the same participant in quick succession can cause race conditions.
           Thread.sleep(500)
+          res
         }
       )
     } yield {
