@@ -19,9 +19,9 @@ load(
 )
 
 PKG_VERSIONS = [
-    1,
-    2,
-    3,
+    (1, None),
+    (2, 1),
+    (3, 2),
 ]
 
 [
@@ -36,10 +36,15 @@ PKG_VERSIONS = [
         ],
         project_name = "universal",
         target = lf_version,
+        typecheck_upgrades = True,
+        upgrades = "//daml-lf/model-test-lib:universal-pkgv{pkg_version}-lf{lf_version}.dar".format(
+            lf_version = mangle_for_damlc(lf_version),
+            pkg_version = upgraded,
+        ) if upgraded != None else None,
         version = "{}.0.0".format(pkg_version),
     )
     for lf_version in ENGINE_LF_VERSIONS
-    for pkg_version in PKG_VERSIONS
+    for (pkg_version, upgraded) in PKG_VERSIONS
 ]
 
 da_scala_library(
@@ -90,7 +95,7 @@ da_scala_binary(
     data = [":universal-pkgv{pkg_version}-lf{lf_version}.dar".format(
         lf_version = mangle_for_damlc(lf_version),
         pkg_version = pkg_version,
-    ) for lf_version in ENGINE_LF_VERSIONS for pkg_version in PKG_VERSIONS],
+    ) for lf_version in ENGINE_LF_VERSIONS for (pkg_version, _) in PKG_VERSIONS],
     main_class = "com.daml.lf.model.test.Demo",
     resources = ["//daml-script/runner:src/main/resources/logback.xml"],
     scala_deps = [
