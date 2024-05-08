@@ -14,6 +14,7 @@ da_scala_library(
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
     ],
+    tags = ["maven_coordinates=com.daml:daml-lf-archive-encoder:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
