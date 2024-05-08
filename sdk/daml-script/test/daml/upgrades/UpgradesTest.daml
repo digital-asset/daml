@@ -8,6 +8,7 @@ module UpgradesTest where
 import DA.Assert
 import DA.Exception
 import DA.Foldable
+import DA.Optional
 import DA.Text
 import DA.Time
 import Daml.Script
@@ -154,6 +155,9 @@ tests = mconcat
     , ("ExerciseByKey command an unchanged old key for a new contract", exerciseCmdKeyUnchanged)
     , ("Fetching an unchanged old key for a new contract", fetchKeyUnchanged)
     , ("ExerciseByKey in Update an unchanged old key for a new contract", exerciseUpdateKeyUnchanged)
+
+    , -- Disclosures
+      ("Disclosure retrieved with an upgraded template ID are valid disclosures" , queriedDisclosuresAreValid)
   
     , -- Edge behaviour
       -- https://github.com/DACH-NY/canton/issues/14718
@@ -642,6 +646,16 @@ exerciseUpdateKeyUnchanged = do
   _ <- a `submit` createCmd (V1.UnchangedKey a 1)
   res <- a `submit` createAndExerciseCmd (V2.UnchangedKeyHelper a) (V2.UnchangedKeyExercise $ V2.UnchangedKeyKey a 1)
   res === "V2"
+
+queriedDisclosuresAreValid : Script ()
+queriedDisclosuresAreValid = do
+  a <- allocatePartyOn "alice" participant0
+  b <- allocatePartyOn "bob" participant0
+
+  cid <- a `submit` createExactCmd V1.ValidUpgrade with party = a
+  let v2Cid = coerceContractId @V1.ValidUpgrade @V2.ValidUpgrade cid
+  disclosure <- fromSome <$> queryDisclosure a v2Cid
+  submitWithDisclosures b [disclosure] $ exerciseCmd v2Cid (V2.Noop b)
 
 packageSelectionChoosesUnvettedPackages : Script ()
 packageSelectionChoosesUnvettedPackages = do
