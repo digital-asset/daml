@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.indexer
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
-import com.digitalasset.canton.ledger.participant.state.v2.ReadService
+import com.digitalasset.canton.ledger.participant.state.ReadService
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.InMemoryState

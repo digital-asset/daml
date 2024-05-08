@@ -30,7 +30,7 @@ import scala.concurrent.{ExecutionContext, Future}
   *
   * All method calls should be coordinated by the [[InFlightSubmissionTracker]].
   * In particular, `checkDeduplication` must not be called concurrently with
-  * `processPublications` for the same [[com.digitalasset.canton.ledger.participant.state.v2.ChangeId]]s.
+  * `processPublications` for the same [[com.digitalasset.canton.ledger.participant.state.ChangeId]]s.
   */
 trait CommandDeduplicator {
 
@@ -47,7 +47,7 @@ trait CommandDeduplicator {
     * @param changeIdHash The change ID hash of the submission to be deduplicated
     * @param deduplicationPeriod The deduplication period specified with the submission
     * @return The [[canton.data.DeduplicationPeriod.DeduplicationOffset]]
-    *         to be included in the command completion's [[com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo]].
+    *         to be included in the command completion's [[com.digitalasset.canton.ledger.participant.state.CompletionInfo]].
     *         Canton always returns a [[com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationOffset]]
     *         because it cannot meet the record time requirements for the other kinds of
     *         [[com.digitalasset.canton.data.DeduplicationPeriod]]s.

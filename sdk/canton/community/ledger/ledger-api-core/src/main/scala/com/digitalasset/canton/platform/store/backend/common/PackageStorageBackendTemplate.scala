@@ -7,7 +7,7 @@ import anorm.SqlParser.{flatten, str}
 import anorm.{Macro, RowParser, SqlParser}
 import com.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.participant.state.index.v2.PackageDetails
+import com.digitalasset.canton.ledger.participant.state.index.PackageDetails
 import com.digitalasset.canton.platform.PackageId
 import com.digitalasset.canton.platform.store.backend.Conversions.{
   ledgerString,

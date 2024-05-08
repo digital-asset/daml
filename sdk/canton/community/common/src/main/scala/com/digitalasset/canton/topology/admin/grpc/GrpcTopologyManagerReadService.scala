@@ -26,6 +26,7 @@ import com.digitalasset.canton.topology.admin.v30.{
   ListPurgeTopologyTransactionResponse,
 }
 import com.digitalasset.canton.topology.admin.v30 as adminProto
+import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
@@ -164,6 +165,7 @@ object TopologyStore {
 class GrpcTopologyManagerReadService(
     stores: => Seq[topology.store.TopologyStore[TopologyStoreId]],
     crypto: Crypto,
+    topologyClientLookup: TopologyStoreId => Option[DomainTopologyClient],
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends adminProto.TopologyManagerReadServiceGrpc.TopologyManagerReadService
@@ -216,7 +218,7 @@ class GrpcTopologyManagerReadService(
   // to avoid race conditions, we want to use the approximateTimestamp of the topology client.
   // otherwise, we might read stuff from the database that isn't yet known to the node
   private def getApproximateTimestamp(storeId: TopologyStoreId): Option[CantonTimestamp] =
-    None // TODO(#14048): Address when the topology client / processor pipeline is up and running
+    topologyClientLookup(storeId).map(_.approximateTimestamp)
 
   /** Collects mappings of specified type from stores specified in baseQueryProto satisfying the
     * filters specified in baseQueryProto as well as separately specified filter either by

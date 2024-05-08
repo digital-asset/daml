@@ -36,6 +36,7 @@ import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.admin.grpc.TopologyStore.Authorized
 import com.digitalasset.canton.topology.admin.grpc.{BaseQuery, TopologyStore}
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.{
@@ -1022,7 +1023,18 @@ class TopologyAdministrationGroup(
           nodeInstance = nodeInstance,
           synchronize = synchronize,
         )
+      }
+      // retry until we observe the change in the respective store
+      ConsoleMacros.utils.retry_until_true(
+        nodeInstance.topology.owner_to_key_mappings
+          .list(
+            filterKeyOwnerUid = nodeInstance.uid.toProtoPrimitive
+          )
+          .filter(_.context.store != Authorized)
+          .forall(_.item.keys.contains(newKey))
+      )(consoleEnvironment)
 
+      domainIds.foreach { maybeDomainId =>
         // Remove the old key by sending the matching `Remove` transaction
         update(
           currentKey.fingerprint,

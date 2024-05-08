@@ -16,7 +16,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.TestingConfigInternal
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.v2.ChangeId
+import com.digitalasset.canton.ledger.participant.state.ChangeId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.participant.admin.workflows.java.PackageID

@@ -7,7 +7,7 @@ import cats.syntax.option.*
 import com.digitalasset.canton.ProtoDeserializationError.FieldNotSet
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.TransactionError
-import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
+import com.digitalasset.canton.ledger.participant.state.CompletionInfo
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.participant.protocol.{ProcessingSteps, TransactionProcessor, v30}

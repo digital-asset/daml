@@ -12,11 +12,11 @@ import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.grpc.{GrpcApiService, StreamingServiceLifecycleManagement}
 import com.digitalasset.canton.ledger.api.validation.{FieldValidator, TransactionFilterValidator}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.ledger.participant.state.index.v2.{
+import com.digitalasset.canton.ledger.participant.state.ReadService
+import com.digitalasset.canton.ledger.participant.state.index.{
   IndexActiveContractsService as ACSBackend,
   IndexTransactionsService,
 }
-import com.digitalasset.canton.ledger.participant.state.v2.ReadService
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
   withEnrichedLoggingContext,

@@ -5,7 +5,7 @@ package com.digitalasset.canton.domain.mediator
 
 import cats.data.EitherT
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{DomainTimeTrackerConfig, ProcessingTimeout}
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.domain.mediator.store.{
   FinalizedResponseStore,
@@ -22,7 +22,7 @@ import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.client.RichSequencerClient
 import com.digitalasset.canton.store.{SequencedEventStore, SequencerCounterTrackerStore}
 import com.digitalasset.canton.time.admin.v30.DomainTimeServiceGrpc
-import com.digitalasset.canton.time.{Clock, GrpcDomainTimeService}
+import com.digitalasset.canton.time.{Clock, DomainTimeTracker, GrpcDomainTimeService}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
@@ -94,7 +94,7 @@ trait MediatorRuntimeFactory {
       topologyTransactionProcessor: TopologyTransactionProcessor,
       topologyManagerStatus: TopologyManagerStatus,
       domainOutboxFactory: DomainOutboxFactory,
-      timeTrackerConfig: DomainTimeTrackerConfig,
+      timeTracker: DomainTimeTracker,
       nodeParameters: CantonNodeParameters,
       protocolVersion: ProtocolVersion,
       clock: Clock,
@@ -121,7 +121,7 @@ object CommunityMediatorRuntimeFactory extends MediatorRuntimeFactory {
       topologyTransactionProcessor: TopologyTransactionProcessor,
       topologyManagerStatus: TopologyManagerStatus,
       domainOutboxFactory: DomainOutboxFactory,
-      timeTrackerConfig: DomainTimeTrackerConfig,
+      timeTracker: DomainTimeTracker,
       nodeParameters: CantonNodeParameters,
       protocolVersion: ProtocolVersion,
       clock: Clock,
@@ -177,7 +177,7 @@ object CommunityMediatorRuntimeFactory extends MediatorRuntimeFactory {
           topologyTransactionProcessor,
           topologyManagerStatus,
           outbox,
-          timeTrackerConfig,
+          timeTracker,
           state,
           sequencerCounterTrackerStore,
           sequencedEventStore,

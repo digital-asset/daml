@@ -17,7 +17,7 @@ import com.digitalasset.canton.error.{
   ParentCantonError,
   TransactionErrorImpl,
 }
-import com.digitalasset.canton.ledger.participant.state.v2.SubmissionResult
+import com.digitalasset.canton.ledger.participant.state.SubmissionResult
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.participant.domain.DomainRegistryError
 import com.digitalasset.canton.participant.store.DomainConnectionConfigStore

@@ -133,7 +133,7 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
         )
       register(config)
       synchronize.foreach { timeout =>
-        ConsoleMacros.utils.synchronize_topology(Some(timeout))(consoleEnvironment)
+        ConsoleMacros.utils.synchronize_topology(Some(timeout))
       }
     }
   }

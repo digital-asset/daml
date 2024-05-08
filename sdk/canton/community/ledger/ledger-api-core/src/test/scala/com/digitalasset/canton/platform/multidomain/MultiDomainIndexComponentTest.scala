@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.multidomain
 import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.value.Value
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.v2.{Reassignment, ReassignmentInfo, Update}
+import com.digitalasset.canton.ledger.participant.state.{Reassignment, ReassignmentInfo, Update}
 import com.digitalasset.canton.platform.IndexComponentTest
 import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
 import com.digitalasset.canton.topology.DomainId

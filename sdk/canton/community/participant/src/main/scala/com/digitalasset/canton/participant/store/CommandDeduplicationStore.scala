@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.option.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.v2.ChangeId
+import com.digitalasset.canton.ledger.participant.state.ChangeId
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.GlobalOffset
@@ -39,7 +39,7 @@ trait CommandDeduplicationStore extends AutoCloseable {
   ): OptionT[Future, CommandDeduplicationData]
 
   /** Updates the [[com.digitalasset.canton.participant.protocol.submission.ChangeIdHash]]'s for the given
-    * [[com.digitalasset.canton.ledger.participant.state.v2.ChangeId]]s with the given [[DefiniteAnswerEvent]]s.
+    * [[com.digitalasset.canton.ledger.participant.state.ChangeId]]s with the given [[DefiniteAnswerEvent]]s.
     * The [[scala.Boolean]] specifies whether the definite answer is an acceptance (or rejection) of the command.
     *
     * Does not overwrite the data if the existing data has a higher [[DefiniteAnswerEvent.offset]]. This should never
@@ -50,7 +50,7 @@ trait CommandDeduplicationStore extends AutoCloseable {
   ): Future[Unit]
 
   /** Updates the [[com.digitalasset.canton.participant.protocol.submission.ChangeIdHash]]'s for the given
-    * [[com.digitalasset.canton.ledger.participant.state.v2.ChangeId]] with the given [[DefiniteAnswerEvent]].
+    * [[com.digitalasset.canton.ledger.participant.state.ChangeId]] with the given [[DefiniteAnswerEvent]].
     *
     * Does not overwrite the data if the existing data has a higher [[DefiniteAnswerEvent.offset]]. This should never
     * happen in practice.
@@ -114,7 +114,7 @@ object CommandDeduplicationStore {
   }
 }
 
-/** The command deduplication data associated with a [[com.digitalasset.canton.ledger.participant.state.v2.ChangeId]].
+/** The command deduplication data associated with a [[com.digitalasset.canton.ledger.participant.state.ChangeId]].
   *
   * @param changeId The change ID this command deduplication data is associated with
   * @param latestDefiniteAnswer The latest definite answer for the change ID

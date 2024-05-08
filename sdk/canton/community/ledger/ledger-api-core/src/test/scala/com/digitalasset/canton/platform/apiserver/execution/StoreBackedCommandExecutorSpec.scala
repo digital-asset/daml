@@ -26,7 +26,7 @@ import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
-import com.digitalasset.canton.ledger.participant.state.index.v2.{
+import com.digitalasset.canton.ledger.participant.state.index.{
   ContractState,
   ContractStore,
   IndexPackagesService,

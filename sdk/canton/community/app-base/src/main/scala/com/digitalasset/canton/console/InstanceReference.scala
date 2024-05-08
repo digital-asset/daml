@@ -560,14 +560,11 @@ abstract class ParticipantReference(
             ConsoleMacros.utils.retry_until_true(timeout)(
               {
                 // ensure that vetted packages on the domain match the ones in the authorized store
-                val timeQuery =
-                  if (consoleEnvironment.environment.simClock.isDefined) TimeQuery.HeadState
-                  else TimeQuery.Snapshot(consoleEnvironment.environment.clock.now)
                 val onDomain = participant.topology.vetted_packages
                   .list(
                     filterStore = item.domainId.filterString,
                     filterParticipant = id.filterString,
-                    timeQuery = timeQuery,
+                    timeQuery = TimeQuery.HeadState,
                   )
                   .flatMap(_.item.packageIds)
                   .toSet

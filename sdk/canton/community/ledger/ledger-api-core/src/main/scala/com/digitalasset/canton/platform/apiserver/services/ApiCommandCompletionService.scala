@@ -18,7 +18,7 @@ import com.digitalasset.canton.ledger.api.validation.{
   CompletionServiceRequestValidator,
   PartyNameChecker,
 }
-import com.digitalasset.canton.ledger.participant.state.index.v2.IndexCompletionsService
+import com.digitalasset.canton.ledger.participant.state.index.IndexCompletionsService
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{

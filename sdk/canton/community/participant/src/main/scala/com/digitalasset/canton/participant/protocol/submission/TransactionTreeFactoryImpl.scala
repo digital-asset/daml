@@ -12,7 +12,7 @@ import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
 import com.digitalasset.canton.data.*
-import com.digitalasset.canton.ledger.participant.state.v2.SubmitterInfo
+import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.*
 import com.digitalasset.canton.protocol.ContractIdSyntax.*

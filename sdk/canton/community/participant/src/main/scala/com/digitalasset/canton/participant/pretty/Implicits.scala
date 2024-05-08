@@ -8,7 +8,7 @@ import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary
 import com.daml.ledger.javaapi.data.codegen.ContractId
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.participant.state.v2.ChangeId
+import com.digitalasset.canton.ledger.participant.state.ChangeId
 import com.digitalasset.canton.logging.pretty.Pretty
 import pprint.Tree
 

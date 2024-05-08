@@ -21,9 +21,9 @@ import com.digitalasset.canton.ledger.localstore.api.{
   PartyRecordStore,
   UserManagementStore,
 }
-import com.digitalasset.canton.ledger.participant.state.index.v2.IndexService
-import com.digitalasset.canton.ledger.participant.state.v2.ReadService
-import com.digitalasset.canton.ledger.participant.state.v2 as state
+import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.ReadService
+import com.digitalasset.canton.ledger.participant.state.index.IndexService
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.SeedService.Seeding

@@ -16,7 +16,7 @@ import com.digitalasset.canton.ledger.api.validation.{
   ValidationErrors,
 }
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.ledger.participant.state.index.v2.IndexTransactionsService
+import com.digitalasset.canton.ledger.participant.state.index.IndexTransactionsService
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{

@@ -194,7 +194,7 @@ trait ProcessingSteps[
     /** The submission ID of the submission, optional. */
     def submissionId: Option[LedgerSubmissionId]
 
-    /** The deduplication period for the submission as specified in the [[com.digitalasset.canton.ledger.participant.state.v2.SubmitterInfo]]
+    /** The deduplication period for the submission as specified in the [[com.digitalasset.canton.ledger.participant.state.SubmitterInfo]]
       */
     def specifiedDeduplicationPeriod: DeduplicationPeriod
 

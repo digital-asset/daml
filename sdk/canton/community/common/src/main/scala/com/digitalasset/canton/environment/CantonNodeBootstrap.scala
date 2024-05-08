@@ -62,7 +62,10 @@ import com.digitalasset.canton.topology.admin.grpc.{
   GrpcTopologyManagerWriteService,
 }
 import com.digitalasset.canton.topology.admin.v30 as adminV30
-import com.digitalasset.canton.topology.client.IdentityProvidingServiceClient
+import com.digitalasset.canton.topology.client.{
+  DomainTopologyClient,
+  IdentityProvidingServiceClient,
+}
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{InitializationStore, TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.{
@@ -325,6 +328,8 @@ abstract class CantonNodeBootstrapImpl[
     override def ec: ExecutionContext = CantonNodeBootstrapImpl.this.executionContext
   }
 
+  protected def lookupTopologyClient(storeId: TopologyStoreId): Option[DomainTopologyClient]
+
   private val startupStage =
     new BootstrapStage[T, SetupCrypto](
       description = "Initialise storage",
@@ -528,6 +533,7 @@ abstract class CantonNodeBootstrapImpl[
             new GrpcTopologyManagerReadService(
               sequencedTopologyStores :+ authorizedStore,
               crypto,
+              lookupTopologyClient,
               bootstrapStageCallback.loggerFactory,
             ),
             executionContext,

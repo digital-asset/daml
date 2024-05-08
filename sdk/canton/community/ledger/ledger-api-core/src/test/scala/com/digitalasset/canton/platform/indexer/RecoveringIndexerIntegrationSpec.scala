@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref.{Party, SubmissionId}
 import com.daml.lf.data.{Ref, Time}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.participant.state.v2.{
+import com.digitalasset.canton.ledger.participant.state.{
   InternalStateServiceProviderImpl,
   ReadService,
   SubmissionResult,

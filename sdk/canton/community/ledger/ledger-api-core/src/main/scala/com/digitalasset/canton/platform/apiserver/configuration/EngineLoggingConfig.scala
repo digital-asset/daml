@@ -43,8 +43,8 @@ final case class EngineLoggingConfig(
     else {
       val logger = loggerFactory.getTracedLogger(EngineLogger.getClass)
       (new EngineLogger {
-        override def add(message: String)(
-            implicit loggingContext: LoggingContext
+        override def add(message: String)(implicit
+            loggingContext: LoggingContext
         ): Unit = {
           if (matcher(message)) {
             logLevel match {

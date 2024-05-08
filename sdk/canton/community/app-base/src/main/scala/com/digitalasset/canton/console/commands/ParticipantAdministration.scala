@@ -885,9 +885,6 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       }
       if (synchronizeVetting && vetAllPackages) {
         packages.synchronize_vetting()
-        synchronize.foreach { timeout =>
-          ConsoleMacros.utils.synchronize_topology(Some(timeout))(consoleEnvironment)
-        }
       }
       res
     }

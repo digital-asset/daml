@@ -63,6 +63,7 @@ abstract class BlockSequencerFactory(
     storage,
     protocolVersion,
     nodeParameters.processingTimeouts,
+    nodeParameters.enableAdditionalConsistencyChecks,
     // Block sequencer invariant checks will fail in unified sequencer mode
     checkedInvariant = Option.when(
       nodeParameters.enableAdditionalConsistencyChecks && !nodeParameters.useUnifiedSequencer

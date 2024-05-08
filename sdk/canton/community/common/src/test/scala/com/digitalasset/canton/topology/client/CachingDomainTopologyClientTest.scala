@@ -13,7 +13,6 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.{DefaultTestIdentities, KeyCollection, TestingOwnerWithKeys}
@@ -59,7 +58,6 @@ class CachingDomainTopologyClientTest extends AsyncWordSpecLike with BaseTest {
 
     val cc =
       new CachingDomainTopologyClient(
-        mock[Clock],
         mockParent,
         CachingConfigs(
           topologySnapshot = CacheConfig(

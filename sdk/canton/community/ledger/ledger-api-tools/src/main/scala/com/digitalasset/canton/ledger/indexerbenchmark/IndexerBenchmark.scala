@@ -11,7 +11,7 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, Healthy}
-import com.digitalasset.canton.ledger.participant.state.v2.{
+import com.digitalasset.canton.ledger.participant.state.{
   InternalStateServiceProviderImpl,
   ReadService,
   Update,

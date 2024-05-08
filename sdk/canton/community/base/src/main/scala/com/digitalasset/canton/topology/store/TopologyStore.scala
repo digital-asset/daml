@@ -299,7 +299,6 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
   def inspect(
       proposals: Boolean,
       timeQuery: TimeQuery,
-      // TODO(#14048) - consider removing `recentTimestampO` and moving callers to TimeQuery.Snapshot
       recentTimestampO: Option[CantonTimestamp],
       op: Option[TopologyChangeOp],
       types: Seq[TopologyMapping.Code],
@@ -518,7 +517,7 @@ sealed trait TimeQuery {
 }
 
 object TimeQuery {
-  object HeadState extends TimeQuery {
+  case object HeadState extends TimeQuery {
     override def toProtoV30: topoV30.BaseQuery.TimeQuery =
       topoV30.BaseQuery.TimeQuery.HeadState(com.google.protobuf.empty.Empty())
   }

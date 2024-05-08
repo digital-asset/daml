@@ -12,7 +12,7 @@ import com.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.ProcessedDisclosedContract
-import com.digitalasset.canton.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
+import com.digitalasset.canton.ledger.participant.state.{SubmitterInfo, TransactionMeta}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters

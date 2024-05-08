@@ -26,9 +26,9 @@ import java.util.UUID
   *
   * @param changeIdHash The identifier for the intended ledger change.
   *                     We only include the hash instead of the
-  *                     [[com.digitalasset.canton.ledger.participant.state.v2.ChangeId]] so that
+  *                     [[com.digitalasset.canton.ledger.participant.state.ChangeId]] so that
   *                     we do not need to persist and reconstruct the actual contents
-  *                     of the [[com.digitalasset.canton.ledger.participant.state.v2.ChangeId]] when
+  *                     of the [[com.digitalasset.canton.ledger.participant.state.ChangeId]] when
   *                     we read an [[InFlightSubmission]] from the store.
   * @param submissionId Optional submission id.
   * @param submissionDomain The domain to which the submission is supposed to be/was sent.

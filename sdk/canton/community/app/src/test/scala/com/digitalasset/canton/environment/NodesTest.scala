@@ -36,6 +36,8 @@ import com.digitalasset.canton.resource.{
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.SimClock
+import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
+import com.digitalasset.canton.topology.store.TopologyStoreId
 import com.digitalasset.canton.topology.{AuthorizedTopologyManager, Member, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.util.FutureInstances.*
@@ -164,6 +166,9 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
     override def start(): EitherT[Future, String, Unit] = {
       EitherT.pure[Future, String](())
     }
+    override protected def lookupTopologyClient(
+        storeId: TopologyStoreId
+    ): Option[DomainTopologyClientWithInit] = ???
   }
 
   class TestNodeFactory {

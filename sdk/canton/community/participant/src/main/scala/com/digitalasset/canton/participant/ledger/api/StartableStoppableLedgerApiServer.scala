@@ -24,8 +24,8 @@ import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.localstore.*
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
-import com.digitalasset.canton.ledger.participant.state.v2.InternalStateService
-import com.digitalasset.canton.ledger.participant.state.v2.metrics.{
+import com.digitalasset.canton.ledger.participant.state.InternalStateService
+import com.digitalasset.canton.ledger.participant.state.metrics.{
   TimedReadService,
   TimedWriteService,
 }

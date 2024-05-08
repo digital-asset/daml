@@ -18,7 +18,7 @@ import com.digitalasset.canton.data.{
   ViewType,
 }
 import com.digitalasset.canton.error.TransactionError
-import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
+import com.digitalasset.canton.ledger.participant.state.CompletionInfo
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
