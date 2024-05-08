@@ -6,42 +6,33 @@ package engine
 package script
 package v2
 
-import java.time.Clock
-import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.canton.ledger.api.domain.{User, UserRight}
-import com.daml.lf.data.FrontStack
 import com.daml.lf.CompiledPackages
-import com.daml.lf.data.Ref.{
-  Identifier,
-  Location,
-  Name,
-  PackageId,
-  PackageName,
-  PackageVersion,
-  Party,
-  UserId,
-}
+import com.daml.lf.data.FrontStack
+import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
+import com.daml.lf.interpretation.{Error => IE}
+import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.language.{Ast, LanguageVersion}
-import com.daml.lf.speedy.{ArrayList, SError, SValue}
-import com.daml.lf.speedy.SBuiltinFun.SBVariantCon
+import com.daml.lf.speedy.SBuiltinFun.{SBToAny, SBVariantCon}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.stablepackages.StablePackagesV2
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import scalaz.{Foldable, OneAnd}
-import scalaz.syntax.traverse._
+import com.daml.script.converter.Converter.{record, toContractId, toText}
+import com.digitalasset.canton.ledger.api.domain.{User, UserRight}
+import org.apache.pekko.stream.Materializer
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.std.option._
-import com.daml.script.converter.Converter.{toContractId, toText}
-import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.speedy.SBuiltinFun.SBToAny
+import scalaz.syntax.traverse._
+import scalaz.{Foldable, OneAnd}
 
+import java.time.Clock
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -270,7 +261,7 @@ object ScriptF {
             .to(FrontStack)
             .traverse(
               Converter
-                .fromCreated(env.valueTranslator, _, client.enableContractUpgrading)
+                .fromCreated(env.valueTranslator, _, tplId, client.enableContractUpgrading)
             )
         )
       } yield SEValue(SList(res))
@@ -290,11 +281,20 @@ object ScriptF {
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
         optR <- client.queryContractId(parties, tplId, cid)
         optR <- Converter.toFuture(
-          optR.traverse(c =>
+          optR.traverse(c => {
+            val templateTypeRep = record(
+              StablePackagesV2.TemplateTypeRep,
+              ("getTemplateTypeRep", STypeRep(TTyCon(c.templateId))),
+            )
             Converter
-              .fromContract(env.valueTranslator, c, client.enableContractUpgrading)
-              .map(makePair(_, SText(c.blob.toHexString)))
-          )
+              .fromAnyTemplate(
+                env.valueTranslator,
+                tplId,
+                c.argument,
+                client.enableContractUpgrading,
+              )
+              .map(makeTriplet(_, templateTypeRep, SText(c.blob.toHexString)))
+          })
         )
       } yield SEValue(SOptional(optR))
   }
@@ -302,6 +302,11 @@ object ScriptF {
   private[this] def makePair(v1: SValue, v2: SValue): SValue = {
     import com.daml.script.converter.Converter.record
     record(StablePackagesV2.Tuple2, ("_1", v1), ("_2", v2))
+  }
+
+  private[this] def makeTriplet(v1: SValue, v2: SValue, v3: SValue): SValue = {
+    import com.daml.script.converter.Converter.record
+    record(StablePackagesV2.Tuple3, ("_1", v1), ("_2", v2), ("_3", v3))
   }
 
   final case class QueryInterface(
@@ -398,7 +403,7 @@ object ScriptF {
         )
         optR <- Converter.toFuture(
           optR.traverse(
-            Converter.fromCreated(env.valueTranslator, _, client.enableContractUpgrading)
+            Converter.fromCreated(env.valueTranslator, _, tplId, client.enableContractUpgrading)
           )
         )
       } yield SEValue(SOptional(optR))
@@ -776,7 +781,7 @@ object ScriptF {
         case Failure(
               Script.FailedCmd(cmdName, _, err)
             ) =>
-          import com.daml.lf.scenario.{Pretty, Error}
+          import com.daml.lf.scenario.{Error, Pretty}
           val msg = err match {
             case e: Error => Pretty.prettyError(e).render(10000)
             case e => e.getMessage

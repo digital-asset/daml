@@ -221,22 +221,20 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       )
       .map { xs => SList(xs.to(FrontStack)) }
 
-  // Convert an active contract to AnyTemplate
-  def fromContract(
-      translator: preprocessing.ValueTranslator,
-      contract: ScriptLedgerClient.ActiveContract,
-      enableContractUpgrading: Boolean = false,
-  ): Either[String, SValue] =
-    fromAnyTemplate(translator, contract.templateId, contract.argument, enableContractUpgrading)
-
   // Convert a Created event to a pair of (ContractId (), AnyTemplate)
   def fromCreated(
       translator: preprocessing.ValueTranslator,
       contract: ScriptLedgerClient.ActiveContract,
+      targetTemplateId: Identifier,
       enableContractUpgrading: Boolean = false,
   ): Either[String, SValue] = {
     for {
-      anyTpl <- fromContract(translator, contract, enableContractUpgrading)
+      anyTpl <- fromAnyTemplate(
+        translator,
+        targetTemplateId,
+        contract.argument,
+        enableContractUpgrading,
+      )
     } yield record(
       StablePackagesV2.Tuple2,
       ("_1", SContractId(contract.contractId)),

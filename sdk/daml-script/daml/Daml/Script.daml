@@ -302,7 +302,7 @@ data QueryDisclosurePayload a = QueryDisclosurePayload
   { parties : [Party]
   , tplId : TemplateTypeRep
   , cid : ContractId ()
-  , continue : Optional Text -> a
+  , continue : Optional (TemplateTypeRep, Text) -> a
   , locations : [(Text, SrcLoc)]
   } deriving Functor
 
@@ -317,7 +317,7 @@ queryDisclosure p c = lift $ Free $ QueryDisclosure QueryDisclosurePayload with
     parties = toParties p
     tplId = templateTypeRep @t
     cid = cid
-    continue = pure . fmap \blob -> Disclosure tplId cid blob
+    continue = pure . fmap \(actualTplId, blob) -> Disclosure actualTplId cid blob
     locations = getCallStack callStack
   where
     tplId = templateTypeRep @t

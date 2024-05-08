@@ -1,0 +1,47 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module QueryDisclosure (main) where
+
+import UpgradeTestLib
+import qualified V1.QueryDisclosure as V1
+import qualified V2.QueryDisclosure as V2
+import DA.Optional (fromSome)
+
+{- PACKAGE
+name: query-disclosure
+versions: 2
+-}
+
+{- MODULE
+package: query-disclosure
+contents: |
+  module QueryDisclosure where
+
+  template QueryDisclosureTemplate
+    with
+      party: Party
+      newField : Optional Text -- @V 2
+    where
+      signatory party
+
+      choice QueryDisclosureChoice : ()
+          controller party
+          do pure ()
+-}
+
+main : Script ()
+main = tests
+  [ ( "Disclosure retrieved with an upgraded template ID are valid disclosures"
+    , queriedDisclosuresAreValid
+    )
+  ]
+
+queriedDisclosuresAreValid : Script ()
+queriedDisclosuresAreValid = do
+  a <- allocatePartyOn "alice" participant0
+
+  cid <- a `submit` createExactCmd V1.QueryDisclosureTemplate with party = a
+  let v2Cid = coerceContractId @V1.QueryDisclosureTemplate @V2.QueryDisclosureTemplate cid
+  disclosure <- fromSome <$> queryDisclosure a v2Cid
+  submitWithDisclosures a [disclosure] $ exerciseCmd v2Cid V2.QueryDisclosureChoice
