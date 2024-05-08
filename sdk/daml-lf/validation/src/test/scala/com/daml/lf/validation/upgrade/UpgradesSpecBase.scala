@@ -4,77 +4,72 @@
 package com.daml.lf.validation
 package upgrade
 
+import com.daml.SdkVersion
+import com.daml.bazeltools.BazelRunfiles
+import com.daml.crypto.MessageDigestPrototype
 import com.daml.integrationtest.CantonFixture
-import org.scalatest.Inside
+import com.daml.lf.archive.{Dar, DarReader, DarWriter}
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.language.LanguageVersion
+import com.google.protobuf.ByteString
+import org.scalatest.{Assertion, Inside}
+import org.scalatest.Inspectors.forEvery
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
-import com.google.protobuf.ByteString
-import com.daml.bazeltools.BazelRunfiles
-
 import java.io.File
 import java.io.FileInputStream
-import org.scalatest.compatible.Assertion
-
-import scala.io.Source
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.archive.DarReader
-
-import scala.util.{Success, Failure}
-import org.scalatest.Inspectors.forEvery
-import scala.util.Using
+import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 abstract class UpgradesSpecAdminAPI(override val suffix: String) extends UpgradesSpec(suffix) {
-  override def uploadPackage(
-      path: String,
+  override def uploadPackageRaw(
+      entry: (PackageId, ByteString),
       dryRun: Boolean,
   ): Future[(PackageId, Option[Throwable])] = {
+    val (pkgId, archive) = entry
     val client = AdminLedgerClient.singleHost(
       ledgerPorts(0).adminPort,
       config,
     )
-    for {
-      (testPackageId, testPackageBS) <- loadPackageIdAndBS(path)
-      uploadResult <-
-        (
-          if (dryRun)
-            client.validateDar(testPackageBS, path)
-          else
-            client.uploadDar(testPackageBS, path)
-        ).transform({
-          case Failure(err) => Success(Some(err));
-          case Success(_) => Success(None);
-        })
-    } yield (testPackageId, uploadResult)
+    val result =
+      if (dryRun)
+        client.validateDar(archive, "-archive-")
+      else
+        client.uploadDar(archive, "-archive-")
+    result.transform {
+      case Failure(err) => Success(pkgId -> Some(err))
+      case Success(_) => Success(pkgId -> None)
+    }
   }
 }
 
 class UpgradesSpecLedgerAPI(override val suffix: String = "Ledger API")
     extends UpgradesSpec(suffix) {
-  override def uploadPackage(
-      path: String,
+
+  final override def uploadPackageRaw(
+      entry: (PackageId, ByteString),
       dryRun: Boolean,
   ): Future[(PackageId, Option[Throwable])] = {
+    val (pkgId, archive) = entry
     for {
       client <- defaultLedgerClient()
-      (testPackageId, testPackageBS) <- loadPackageIdAndBS(path)
       uploadResult <-
         (
           if (dryRun)
-            client.packageManagementClient.validateDarFile(testPackageBS)
+            client.packageManagementClient.validateDarFile(archive)
           else
-            client.packageManagementClient.uploadDarFile(testPackageBS)
-        ).transform({
+            client.packageManagementClient.uploadDarFile(archive)
+        ).transform {
           case Failure(err) => Success(Some(err));
           case Success(_) => Success(None);
-        })
-    } yield (testPackageId, uploadResult)
+        }
+    } yield pkgId -> uploadResult
   }
 }
 
 trait ShortTests { this: UpgradesSpec =>
-  s"Upload-time Upgradeability Checks ($suffix)" should {
+  s"Short upload-time Upgradeability Checks ($suffix)" should {
     s"report no upgrade errors for valid upgrade ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-ValidUpgrade-v1.dar",
@@ -97,7 +92,7 @@ trait ShortTests { this: UpgradesSpec =>
 }
 
 trait LongTests { this: UpgradesSpec =>
-  s"Upload-time Upgradeability Checks ($suffix)" should {
+  s"Long upload-time Upgradeability Checks ($suffix)" should {
     s"uploading the same package multiple times succeeds ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-ValidUpgrade-v1.dar",
@@ -105,6 +100,7 @@ trait LongTests { this: UpgradesSpec =>
         assertDuplicatePackageUpload(),
       )
     }
+
     s"uploads against the same package name must be version unique ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-CommonVersionFailure-v1a.dar",
@@ -304,31 +300,27 @@ trait LongTests { this: UpgradesSpec =>
     }
 
     s"Succeeds when v1 upgrades to v2 and then v3 ($suffix)" in {
+      val offset = currentLogOffset()
       for {
         v1Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV2ThenV3-v1.dar")
         v2Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV2ThenV3-v2.dar")
         v3Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV2ThenV3-v3.dar")
-        rawCantonLog <- Future.fromTry(
-          Using(Source.fromFile(s"$cantonTmpDir/canton.log"))(_.mkString)
+        rawCantonLog = cantonLog(offset)
+      } yield forEvery(
+        List(
+          assertPackageUpgradeCheck(None)(v1Upload, v2Upload)(rawCantonLog),
+          assertPackageUpgradeCheck(None)(v2Upload, v3Upload)(rawCantonLog),
         )
-      } yield {
-        forEvery(
-          List(
-            assertPackageUpgradeCheck(None)(v1Upload, v2Upload)(rawCantonLog),
-            assertPackageUpgradeCheck(None)(v2Upload, v3Upload)(rawCantonLog),
-          )
-        )(Predef.identity)
-      }
+      )(identity)
     }
 
     s"Succeeds when v1 upgrades to v3 and then v2 ($suffix)" in {
+      val offset = currentLogOffset()
       for {
         v1Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV3ThenV2-v1.dar")
         v3Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV3ThenV2-v3.dar")
         v2Upload <- uploadPackage("test-common/upgrades-SuccessUpgradingV3ThenV2-v2.dar")
-        rawCantonLog <- Future.fromTry(
-          Using(Source.fromFile(s"$cantonTmpDir/canton.log"))(_.mkString)
-        )
+        rawCantonLog = cantonLog(offset)
       } yield {
         forEvery(
           List(
@@ -340,13 +332,12 @@ trait LongTests { this: UpgradesSpec =>
     }
 
     s"Fails when v1 upgrades to v2, but v3 does not upgrade v2 ($suffix)" in {
+      val offset = currentLogOffset()
       for {
         v1Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV2ThenV3-v1.dar")
         v2Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV2ThenV3-v2.dar")
         v3Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV2ThenV3-v3.dar")
-        rawCantonLog <- Future.fromTry(
-          Using(Source.fromFile(s"$cantonTmpDir/canton.log"))(_.mkString)
-        )
+        rawCantonLog = cantonLog(offset)
       } yield {
         forEvery(
           List(
@@ -360,13 +351,12 @@ trait LongTests { this: UpgradesSpec =>
     }
 
     s"Fails when v1 upgrades to v3, but v3 does not upgrade v2 ($suffix)" in {
+      val offset = currentLogOffset()
       for {
         v1Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV3ThenV2-v1.dar")
         v3Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV3ThenV2-v3.dar")
         v2Upload <- uploadPackage("test-common/upgrades-FailsWhenUpgradingV3ThenV2-v2.dar")
-        rawCantonLog <- Future.fromTry(
-          Using(Source.fromFile(s"$cantonTmpDir/canton.log"))(_.mkString)
-        )
+        rawCantonLog = cantonLog(offset)
       } yield forEvery(
         List(
           assertPackageUpgradeCheck(None)(v1Upload, v3Upload)(rawCantonLog),
@@ -569,6 +559,61 @@ trait LongTests { this: UpgradesSpec =>
         ),
       )
     }
+
+    def mkTrivialPkg(pkgName: String, pkgVersion: String, lfVersion: LanguageVersion) = {
+      import com.daml.lf.testing.parser._
+      import com.daml.lf.testing.parser.Implicits._
+      import com.daml.lf.archive.testing.Encode
+
+      val selfPkgId = PackageId.assertFromString("-self-")
+
+      implicit val parserParameters: ParserParameters[this.type] =
+        ParserParameters(
+          defaultPackageId = selfPkgId,
+          languageVersion = lfVersion,
+        )
+
+      val pkg =
+        p""" metadata ( '$pkgName' : '$pkgVersion' )
+        module Mod {
+          record @serializable T = { sig: Party };
+          template (this: T) = {
+             precondition True;
+             signatories Cons @Party [Mod:T {sig} this] (Nil @Party);
+             observers Nil @Party;
+          };
+        }"""
+
+      val archive = Encode.encodeArchive(selfPkgId -> pkg, lfVersion)
+      val pkgId = PackageId.assertFromString(
+        MessageDigestPrototype.Sha256.newDigest
+          .digest(archive.getPayload.toByteArray)
+          .map("%02x" format _)
+          .mkString
+      )
+      val os = ByteString.newOutput()
+      DarWriter.encode(
+        SdkVersion.sdkVersion,
+        Dar(("archive.dalf", archive.toByteArray), List()),
+        os,
+      )
+
+      pkgId -> os.toByteString
+    }
+
+    "report no upgrade errors when the upgrade use a newer version of LF" in
+      testPackagePair(
+        mkTrivialPkg("-increasing-lf-version-", "1.0.0", LanguageVersion.v2_1),
+        mkTrivialPkg("-increasing-lf-version-", "2.0.0", LanguageVersion.v2_dev),
+        assertPackageUpgradeCheck(None),
+      )
+
+    "report upgrade errors when the upgrade use a older version of LF" in
+      testPackagePair(
+        mkTrivialPkg("-decreasing-lf-version-", "1.0.0", LanguageVersion.v2_dev),
+        mkTrivialPkg("-decreasing-lf-version-", "2.0.0", LanguageVersion.v2_1),
+        assertPackageUpgradeCheck(Some("The upgraded package uses an older LF version")),
+      )
   }
 }
 
@@ -577,28 +622,40 @@ abstract class UpgradesSpec(val suffix: String)
     with Matchers
     with Inside
     with CantonFixture {
-  override lazy val devMode = true;
-  override val cantonFixtureDebugMode = CantonFixtureDebugRemoveTmpFiles;
+  override lazy val devMode = true
+  override val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles
   val uploadSecondPackageDryRun: Boolean = false;
 
-  protected def loadPackageIdAndBS(path: String): Future[(PackageId, ByteString)] = {
+  protected def loadPackageIdAndBS(path: String): (PackageId, ByteString) = {
     val dar = DarReader.assertReadArchiveFromFile(new File(BazelRunfiles.rlocation(path)))
     assert(dar != null, s"Unable to load test package resource '$path'")
 
-    val testPackage = Future {
+    val testPackage = {
       val in = new FileInputStream(new File(BazelRunfiles.rlocation(path)))
       assert(in != null, s"Unable to load test package resource '$path'")
       in
     }
-    val bytes = testPackage.map(ByteString.readFrom)
-    bytes.onComplete(_ => testPackage.map(_.close()))
-    bytes.map((dar.main.pkgId, _))
+    val bytes =
+      try {
+        ByteString.readFrom(testPackage)
+      } finally {
+        testPackage.close()
+      }
+    dar.main.pkgId -> bytes
   }
+
+  def uploadPackageRaw(
+      entry: (PackageId, ByteString),
+      dryRun: Boolean,
+  ): Future[(PackageId, Option[Throwable])]
 
   def uploadPackage(
       path: String,
       dryRun: Boolean = false,
-  ): Future[(PackageId, Option[Throwable])]
+  ): Future[(PackageId, Option[Throwable])] = {
+    val (pkgId, archive) = loadPackageIdAndBS(path)
+    uploadPackageRaw((pkgId, archive), dryRun)
+  }
 
   def assertPackageUpgradeCheckSecondOnly(
       failureMessage: Option[String]
@@ -624,9 +681,13 @@ abstract class UpgradesSpec(val suffix: String)
     val (testPackageV1Id, uploadV1Result) = v1
     val (testPackageV2Id, uploadV2Result) = v2
     if (disableUpgradeValidation) {
-      cantonLogSrc should include(s"Skipping upgrade validation for package $testPackageV1Id")
-      cantonLogSrc should include(s"Skipping upgrade validation for package $testPackageV2Id")
-      cantonLogSrc should not include regex(
+      filterLog(cantonLogSrc, testPackageV1Id) should include(
+        s"Skipping upgrade validation for package $testPackageV1Id"
+      )
+      filterLog(cantonLogSrc, testPackageV2Id) should include(
+        s"Skipping upgrade validation for package $testPackageV2Id"
+      )
+      filterLog(cantonLogSrc, testPackageV2Id) should not include regex(
         s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade."
       )
       cantonLogSrc should not include (s"Typechecking upgrades for $testPackageV2Id succeeded.")
@@ -645,10 +706,13 @@ abstract class UpgradesSpec(val suffix: String)
 
       failureMessage match {
         // If a failure message is expected, look for it in the canton logs
-        case Some(additionalInfo) => {
-          cantonLogSrc should include regex (
-            s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade..*Reason: $additionalInfo"
-          )
+        case Some(additionalInfo) =>
+          if (
+            s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade.+Reason: $additionalInfo".r
+              .findFirstIn(cantonLogSrc)
+              .isEmpty
+          ) fail("did not find upgrade failure in canton log")
+
           uploadV2Result match {
             case None =>
               fail(s"Uploading second package $testPackageV2Id should fail but didn't.");
@@ -660,20 +724,19 @@ abstract class UpgradesSpec(val suffix: String)
               )
             }
           }
-        }
 
         // If a failure is not expected, look for a success message
-        case None => {
-          cantonLogSrc should include(s"Typechecking upgrades for $testPackageV2Id succeeded.")
+        case None =>
+          filterLog(cantonLogSrc, testPackageV2Id) should include(
+            s"Typechecking upgrades for $testPackageV2Id succeeded."
+          )
           uploadV2Result match {
             case None => succeed;
-            case Some(err) => {
+            case Some(err) =>
               fail(
                 s"Uploading second package $testPackageV2Id shouldn't fail but did, with message: $err"
               );
-            }
           }
-        }
       }
     }
   }
@@ -686,9 +749,10 @@ abstract class UpgradesSpec(val suffix: String)
     val (testPackageV1Id, uploadV1Result) = v1
     val (testPackageV2Id, uploadV2Result) = v2
     uploadV1Result should be(empty)
-    cantonLogSrc should include(
+    filterLog(cantonLogSrc, testPackageV2Id) should include(
       s"Ignoring upload of package $testPackageV2Id as it has been previously uploaded"
     )
+    uploadV2Result should be(empty)
     uploadV2Result should be(empty)
   }
 
@@ -722,6 +786,39 @@ abstract class UpgradesSpec(val suffix: String)
     }
   }
 
+  private[this] val cantonLogPath = java.nio.file.Paths.get(s"$cantonTmpDir/canton.log")
+  protected def currentLogOffset() = java.nio.file.Files.size(cantonLogPath)
+
+  protected def cantonLog(beginOffset: Long): String = {
+    import java.nio._
+    val endOffset = currentLogOffset()
+    val ch = file.Files.newByteChannel(cantonLogPath)
+    try {
+      val size = math.toIntExact(endOffset - beginOffset)
+      ch.position(beginOffset)
+      val buff = ByteBuffer.allocate(size)
+      assert(size == ch.read(buff))
+      buff.flip()
+      charset.StandardCharsets.UTF_8.decode(buff).toString
+    } finally ch.close()
+  }
+
+  def testPackagePair(
+      upgraded: (PackageId, ByteString),
+      upgrading: (PackageId, ByteString),
+      uploadAssertion: (
+          (PackageId, Option[Throwable]),
+          (PackageId, Option[Throwable]),
+      ) => String => Assertion,
+  ): Future[Assertion] = {
+    val logOffset = currentLogOffset()
+    for {
+      v1Upload <- uploadPackageRaw(upgraded, dryRun = false)
+      v2Upload <- uploadPackageRaw(upgrading, dryRun = uploadSecondPackageDryRun)
+      log = cantonLog(logOffset)
+    } yield uploadAssertion(v1Upload, v2Upload)(log)
+  }
+
   def testPackagePair(
       upgraded: String,
       upgrading: String,
@@ -730,19 +827,9 @@ abstract class UpgradesSpec(val suffix: String)
           (PackageId, Option[Throwable]),
       ) => String => Assertion,
   ): Future[Assertion] = {
-    for {
-      v1Upload <- uploadPackage(upgraded)
-      v2Upload <- uploadPackage(upgrading, uploadSecondPackageDryRun)
-    } yield {
-      val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
-      try {
-        uploadAssertion(v1Upload, v2Upload)(
-          cantonLog.mkString
-        )
-      } finally {
-        cantonLog.close()
-      }
-    }
+    val v1Upload = loadPackageIdAndBS(upgraded)
+    val v2Upload = loadPackageIdAndBS(upgrading)
+    testPackagePair(v1Upload, v2Upload, uploadAssertion)
   }
 
   def testPackageTriple(
@@ -762,24 +849,21 @@ abstract class UpgradesSpec(val suffix: String)
           (PackageId, Option[Throwable]),
       ) => String => Assertion,
   ): Future[Assertion] = {
+    val offset = currentLogOffset()
     for {
       firstUpload <- uploadPackage(first)
       secondUpload <- uploadPackage(second)
       thirdUpload <- uploadPackage(third)
-    } yield {
-      val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
-      try {
-        val rawCantonLog = cantonLog.mkString
-        forEvery(
-          List(
-            assertFirstToSecond(firstUpload, secondUpload)(rawCantonLog),
-            assertSecondToThird(secondUpload, thirdUpload)(rawCantonLog),
-            assertFirstToThird(firstUpload, thirdUpload)(rawCantonLog),
-          )
-        ) { a => a }
-      } finally {
-        cantonLog.close()
-      }
-    }
+      rawCantonLog = cantonLog(offset)
+    } yield forEvery(
+      List(
+        assertFirstToSecond(firstUpload, secondUpload)(rawCantonLog),
+        assertSecondToThird(secondUpload, thirdUpload)(rawCantonLog),
+        assertFirstToThird(firstUpload, thirdUpload)(rawCantonLog),
+      )
+    ) { a => a }
   }
+
+  def filterLog(log: String, str: String): String =
+    log.split("\n").view.filter(_.contains(str)).mkString("\n")
 }
