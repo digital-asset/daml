@@ -3,6 +3,7 @@
 
 package com.daml.metrics.api
 
+import com.daml.metrics.{MetricsFilter, MetricsFilterConfig}
 import com.daml.metrics.api.MetricQualification
 
 import java.time.Duration
@@ -36,6 +37,21 @@ object MetricInfo {
     MetricInfo(name, "", MetricQualification.Debug)
 }
 
+// TODO(#17917) move to daml repository and adapt QualificationFilteringMetricsFactory
+//   and ensure we add a MetricQualification.All variable
+class MetricsInfoFilter(
+    val filters: Seq[MetricsFilterConfig], // move back to non val when moved to daml repository
+    val qualifications: Set[MetricQualification],
+) {
+
+  private val nameFilter = new MetricsFilter(filters)
+
+  def includeMetric(info: MetricInfo): Boolean = {
+    nameFilter.includeMetric(info.name.toString()) && qualifications.contains(info.qualification)
+  }
+
+}
+
 trait MetricHandle {
   def info: MetricInfo
   def metricType: String // type string used for documentation purposes
@@ -62,7 +78,7 @@ object MetricHandle {
     ): Gauge[T]
 
     // TODO(#17917) remove once migration to MetricInfo is completed
-    def gauge[T](name: MetricName, initial: T, description: String)(implicit
+    private[api] def gauge[T](name: MetricName, initial: T, description: String)(implicit
         context: MetricsContext
     ): Gauge[T] = gauge(MetricInfo(name, "", MetricQualification.Debug, description), initial)
 
@@ -76,7 +92,7 @@ object MetricHandle {
     ): CloseableGauge
 
     // TODO(#17917) remove once migration to MetricInfo is completed
-    def gaugeWithSupplier[T](
+    private[api] def gaugeWithSupplier[T](
         name: MetricName,
         gaugeSupplier: () => T,
         description: String,
@@ -94,7 +110,7 @@ object MetricHandle {
     ): Meter
 
     // TODO(#17917) remove once migration to MetricInfo is completed
-    def meter(name: MetricName, description: String)(implicit
+    private[api] def meter(name: MetricName, description: String)(implicit
         context: MetricsContext = MetricsContext.Empty
     ): Meter = meter(MetricInfo(name, "", MetricQualification.Debug, description))
 

@@ -3,6 +3,7 @@
 
 package com.daml.metrics
 
+import com.daml.metrics.HistogramDefinition.AggregationType
 import com.daml.metrics.api.MetricName
 
 import scala.collection.concurrent.TrieMap
@@ -10,9 +11,13 @@ import scala.collection.concurrent.TrieMap
 /** Bucket boundary definitions for histograms
   *
   * @param name Instrument name that may contain the wildcard characters * and ?
-  * @param bucketBoundaries The boundaries of the histogram buckets
+  * @param aggregation The aggregation type for the boundaries of the histogram buckets
   */
-final case class HistogramDefinition(name: String, bucketBoundaries: Seq[Double]) {
+final case class HistogramDefinition(
+    name: String,
+    aggregation: AggregationType,
+    viewName: Option[String] = None,
+) {
 
   private lazy val hasWildcards = name.contains("*") || name.contains("?")
   private lazy val asRegex = name.replace("*", ".*").replace("?", ".")
@@ -22,6 +27,12 @@ final case class HistogramDefinition(name: String, bucketBoundaries: Seq[Double]
       metric.matches(asRegex)
     } else { metric.toString == name }
   }
+}
+
+object HistogramDefinition {
+  sealed trait AggregationType
+  final case class Buckets(boundaries: Seq[Double]) extends AggregationType
+  final case class Exponential(maxBuckets: Int, maxScale: Int) extends AggregationType
 }
 
 /** Metrics filter */

@@ -38,6 +38,7 @@ import org.slf4j.Logger
 
 import java.util.concurrent.atomic.AtomicReference
 
+/** Filtering metrics factory to ensure that we only build the metrics that matter */
 class QualificationFilteringMetricsFactory(
     parent: LabeledMetricsFactory,
     qualifications: Set[MetricQualification],
@@ -113,7 +114,7 @@ class OpenTelemetryMetricsFactory(
       otelMeter
         .histogramBuilder(nameWithSuffix)
         .setUnit(TimerUnit)
-        .setDescription(info.description)
+        .setDescription(info.summary)
         .build(),
       globalMetricsContext.merge(context),
     )
@@ -129,7 +130,7 @@ class OpenTelemetryMetricsFactory(
         otelMeter
           .gaugeBuilder(info.name)
           .ofLongs()
-          .setDescription(info.description)
+          .setDescription(info.summary)
           .buildWithCallback { consumer =>
             consumer.record(gauge.getValue.asInstanceOf[Int].toLong, attributes)
           }
@@ -137,12 +138,12 @@ class OpenTelemetryMetricsFactory(
         otelMeter
           .gaugeBuilder(info.name)
           .ofLongs()
-          .setDescription(info.description)
+          .setDescription(info.summary)
           .buildWithCallback { consumer =>
             consumer.record(gauge.getValue.asInstanceOf[Long], attributes)
           }
       case _: Double =>
-        otelMeter.gaugeBuilder(info.name).setDescription(info.description).buildWithCallback {
+        otelMeter.gaugeBuilder(info.name).setDescription(info.summary).buildWithCallback {
           consumer =>
             consumer.record(gauge.getValue.asInstanceOf[Double], attributes)
         }
@@ -166,7 +167,7 @@ class OpenTelemetryMetricsFactory(
         val gaugeHandle = otelMeter
           .gaugeBuilder(info.name)
           .ofLongs()
-          .setDescription(info.description)
+          .setDescription(info.summary)
           .buildWithCallback { consumer =>
             val value = valueSupplier()
             consumer.record(value.asInstanceOf[Int].toLong, attributes)
@@ -176,7 +177,7 @@ class OpenTelemetryMetricsFactory(
         val gaugeHandle = otelMeter
           .gaugeBuilder(info.name)
           .ofLongs()
-          .setDescription(info.description)
+          .setDescription(info.summary)
           .buildWithCallback { consumer =>
             val value = valueSupplier()
             consumer.record(value.asInstanceOf[Long], attributes)
@@ -185,7 +186,7 @@ class OpenTelemetryMetricsFactory(
       case _: Double =>
         val gaugeHandle = otelMeter
           .gaugeBuilder(info.name)
-          .setDescription(info.description)
+          .setDescription(info.summary)
           .buildWithCallback { consumer =>
             val value = valueSupplier()
             consumer.record(value.asInstanceOf[Double], attributes)
@@ -200,7 +201,7 @@ class OpenTelemetryMetricsFactory(
       context: MetricsContext
   ): Meter = OpenTelemetryMeter(
     info,
-    otelMeter.counterBuilder(info.name).setDescription(info.description).build(),
+    otelMeter.counterBuilder(info.name).setDescription(info.summary).build(),
     globalMetricsContext.merge(context),
   )
 
@@ -208,7 +209,7 @@ class OpenTelemetryMetricsFactory(
       context: MetricsContext
   ): MetricHandle.Counter = OpenTelemetryCounter(
     info,
-    otelMeter.upDownCounterBuilder(info.name).setDescription(info.description).build(),
+    otelMeter.upDownCounterBuilder(info.name).setDescription(info.summary).build(),
     globalMetricsContext.merge(context),
   )
 
@@ -216,7 +217,7 @@ class OpenTelemetryMetricsFactory(
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Histogram = OpenTelemetryHistogram(
     info,
-    otelMeter.histogramBuilder(info.name).ofLongs().setDescription(info.description).build(),
+    otelMeter.histogramBuilder(info.name).ofLongs().setDescription(info.summary).build(),
     globalMetricsContext.merge(context),
   )
 

@@ -7,9 +7,10 @@ import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory, Timer}
 import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification}
-import com.daml.metrics.http.{DamlHttpMetrics, DamlWebSocketMetrics}
-import com.digitalasset.canton.metrics.HistogramInventory
-import com.digitalasset.canton.metrics.HistogramInventory.Item
+import com.daml.metrics.http.{DamlHttpHistograms, DamlHttpMetrics, DamlWebSocketMetrics, DamlWebSocketsHistograms}
+import com.daml.metrics.api.HistogramInventory
+import com.daml.metrics.api.HistogramInventory.Item
+import com.digitalasset.canton.http.metrics.HttpApiMetrics.ComponentName
 
 object HttpApiMetrics {
   lazy val ForTesting =
@@ -24,6 +25,10 @@ object HttpApiMetrics {
 class HttpApiHistograms(parent: MetricName)(implicit
     inventory: HistogramInventory
 ) {
+
+  private val _http: DamlHttpHistograms = new DamlHttpHistograms()
+  private val _webSockets: DamlWebSocketsHistograms = new DamlWebSocketsHistograms()
+
   val prefix: MetricName = parent :+ "http_json_api"
 
   // Meters how long parsing and decoding of an incoming json payload takes
