@@ -26,7 +26,7 @@ import scala.concurrent.{ExecutionContext, Future}
 /** Backing store for [[com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker]].
   *
   * An in-flight submission is uniquely identified by its
-  * [[com.digitalasset.canton.ledger.participant.state.v2.ChangeId]].
+  * [[com.digitalasset.canton.ledger.participant.state.ChangeId]].
   * [[com.digitalasset.canton.sequencing.protocol.MessageId]]s should be unique too,
   * but this is not enforced by the store.
   *
@@ -37,7 +37,7 @@ import scala.concurrent.{ExecutionContext, Future}
 trait InFlightSubmissionStore extends AutoCloseable {
 
   /** Retrieves the in-flight submission for the given
-    * [[com.digitalasset.canton.ledger.participant.state.v2.ChangeId]] if one exists.
+    * [[com.digitalasset.canton.ledger.participant.state.ChangeId]] if one exists.
     */
   def lookup(changeIdHash: ChangeIdHash)(implicit
       traceContext: TraceContext

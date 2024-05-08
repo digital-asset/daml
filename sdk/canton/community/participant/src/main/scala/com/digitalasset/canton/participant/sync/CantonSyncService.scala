@@ -36,8 +36,8 @@ import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.error.{CommonErrors, PackageServiceErrors}
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.v2.ReadService.ConnectedDomainResponse
-import com.digitalasset.canton.ledger.participant.state.v2.*
+import com.digitalasset.canton.ledger.participant.state.ReadService.ConnectedDomainResponse
+import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
@@ -157,9 +157,9 @@ class CantonSyncService(
     protected val loggerFactory: NamedLoggerFactory,
     testingConfig: TestingConfigInternal,
 )(implicit ec: ExecutionContextExecutor, mat: Materializer, val tracer: Tracer)
-    extends state.v2.WriteService
+    extends state.WriteService
     with WriteParticipantPruningService
-    with state.v2.ReadService
+    with state.ReadService
     with FlagCloseable
     with Spanning
     with NamedLogging
@@ -240,6 +240,7 @@ class CantonSyncService(
     parameters,
     isActive,
     connectedDomainsLookup,
+    timeouts,
     loggerFactory,
   )
 
@@ -1563,7 +1564,7 @@ class CantonSyncService(
   private val emitWarningOnDetailLoggingAndHighLoad =
     (parameters.general.loggingConfig.eventDetails || parameters.general.loggingConfig.api.messagePayloads) && parameters.general.loggingConfig.api.warnBeyondLoad.nonEmpty
 
-  def checkOverloaded(traceContext: TraceContext): Option[state.v2.SubmissionResult] = {
+  def checkOverloaded(traceContext: TraceContext): Option[state.SubmissionResult] = {
     implicit val errorLogger: ErrorLoggingContext =
       ErrorLoggingContext.fromTracedLogger(logger)(traceContext)
     val load = computeTotalLoad

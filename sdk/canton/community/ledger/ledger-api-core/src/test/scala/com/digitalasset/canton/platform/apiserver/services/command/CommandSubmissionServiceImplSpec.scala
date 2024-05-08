@@ -21,12 +21,12 @@ import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.util.TimeProvider
-import com.digitalasset.canton.ledger.participant.state.v2.{
+import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.{
   SubmissionResult,
   SubmitterInfo,
   TransactionMeta,
 }
-import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.SeedService

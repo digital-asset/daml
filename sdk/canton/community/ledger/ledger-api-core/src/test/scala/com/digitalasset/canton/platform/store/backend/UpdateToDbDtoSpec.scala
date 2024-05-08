@@ -16,8 +16,8 @@ import com.daml.metrics.api.MetricsContext
 import com.daml.platform.v1.index.StatusDetails
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
-import com.digitalasset.canton.ledger.participant.state.v2.{Reassignment, ReassignmentInfo, Update}
-import com.digitalasset.canton.ledger.participant.state.v2 as state
+import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.{Reassignment, ReassignmentInfo, Update}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.store.dao.events.Raw.TreeEvent

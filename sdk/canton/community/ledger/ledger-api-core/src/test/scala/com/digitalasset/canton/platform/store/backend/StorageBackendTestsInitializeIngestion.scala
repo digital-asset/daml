@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.backend
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
+import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.TransactionMetering
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.platform.store.backend.common.EventIdSourceForInformees
 import org.scalatest.Inside

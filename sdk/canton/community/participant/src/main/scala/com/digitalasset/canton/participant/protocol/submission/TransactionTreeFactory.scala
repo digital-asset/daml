@@ -13,7 +13,7 @@ import com.digitalasset.canton.data.{
   TransactionView,
   ViewPosition,
 }
-import com.digitalasset.canton.ledger.participant.state.v2.SubmitterInfo
+import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.{
   SerializableContractOfId,

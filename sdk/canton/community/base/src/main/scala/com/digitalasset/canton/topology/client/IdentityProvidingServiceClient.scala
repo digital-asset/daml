@@ -13,6 +13,7 @@ import com.digitalasset.canton.concurrent.HasFutureSupervision
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{EncryptionPublicKey, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.protocol.{
@@ -32,10 +33,10 @@ import com.digitalasset.canton.topology.processing.TopologyTransactionProcessing
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.SingleUseCell
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, checked}
 
-import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable
 import scala.concurrent.duration.*
@@ -551,12 +552,10 @@ trait DomainTopologyClientWithInit
 
   implicit override protected def executionContext: ExecutionContext
 
-  protected val domainTimeTracker: AtomicReference[Option[DomainTimeTracker]] = new AtomicReference(
-    None
-  )
+  protected val domainTimeTracker: SingleUseCell[DomainTimeTracker] = new SingleUseCell()
 
   def setDomainTimeTracker(tracker: DomainTimeTracker): Unit =
-    domainTimeTracker.set(Some(tracker))
+    domainTimeTracker.putIfAbsent(tracker).discard
 
   /** current number of changes waiting to become effective */
   def numPendingChanges: Int

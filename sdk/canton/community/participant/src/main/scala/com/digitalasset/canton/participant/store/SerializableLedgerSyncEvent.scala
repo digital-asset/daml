@@ -13,7 +13,7 @@ import com.daml.lf.transaction.{BlindingInfo, TransactionOuterClass}
 import com.daml.lf.value.ValueCoder.DecodeError
 import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.v2.*
+import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.participant.protocol.{ProcessingSteps, v30}
 import com.digitalasset.canton.participant.store.DamlLfSerializers.*
 import com.digitalasset.canton.participant.sync.LedgerSyncEvent

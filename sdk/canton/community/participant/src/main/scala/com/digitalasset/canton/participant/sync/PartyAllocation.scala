@@ -7,9 +7,12 @@ import cats.data.EitherT
 import cats.implicits.showInterpolator
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
+import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.ledger.participant.state.v2.*
+import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.ledger.participant.state.*
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.parallelInstanceFutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.config.PartyNotificationConfig
@@ -41,6 +44,7 @@ private[sync] class PartyAllocation(
     parameters: ParticipantNodeParameters,
     isActive: () => Boolean,
     connectedDomainsLookup: ConnectedDomainsLookup,
+    timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext, val tracer: Tracer)
     extends Spanning
@@ -130,6 +134,25 @@ private[sync] class PartyAllocation(
             x
           }
           .onShutdown(Left(SyncServiceError.Synchronous.shutdownError))
+
+        // wait for parties to be available on the currently connected domains
+        waitingSuccessful <- EitherT
+          .right[SubmissionResult](
+            connectedDomainsLookup.snapshot.toSeq.parTraverse { case (domainId, syncDomain) =>
+              syncDomain.topologyClient
+                .await(
+                  _.inspectKnownParties(partyId.filterString, participantId.filterString, 1)
+                    .map(_.nonEmpty),
+                  timeouts.network.duration,
+                )
+                .map(domainId -> _)
+            }
+          )
+          .onShutdown(Left(SyncServiceError.Synchronous.shutdownError))
+        _ = waitingSuccessful.foreach { case (domainId, successful) =>
+          if (!successful)
+            logger.warn(s"Waiting for allocation of $partyId on domain $domainId timed out.")
+        }
 
       } yield SubmissionResult.Acknowledged
 

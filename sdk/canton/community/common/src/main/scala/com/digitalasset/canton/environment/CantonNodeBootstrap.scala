@@ -63,7 +63,7 @@ import com.digitalasset.canton.topology.admin.grpc.{
 }
 import com.digitalasset.canton.topology.admin.v30 as adminV30
 import com.digitalasset.canton.topology.client.{
-  DomainTopologyClientWithInit,
+  DomainTopologyClient,
   IdentityProvidingServiceClient,
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
@@ -328,7 +328,7 @@ abstract class CantonNodeBootstrapImpl[
     override def ec: ExecutionContext = CantonNodeBootstrapImpl.this.executionContext
   }
 
-  protected def lookupTopologyClient(storeId: TopologyStoreId): Option[DomainTopologyClientWithInit]
+  protected def lookupTopologyClient(storeId: TopologyStoreId): Option[DomainTopologyClient]
 
   private val startupStage =
     new BootstrapStage[T, SetupCrypto](

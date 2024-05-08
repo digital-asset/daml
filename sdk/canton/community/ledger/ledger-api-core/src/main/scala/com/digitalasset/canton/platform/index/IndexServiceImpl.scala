@@ -35,9 +35,9 @@ import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.api.{TraceIdentifiers, domain}
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.ledger.participant.state.index.v2
-import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.ReportData
-import com.digitalasset.canton.ledger.participant.state.index.v2.*
+import com.digitalasset.canton.ledger.participant.state.index
+import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
+import com.digitalasset.canton.ledger.participant.state.index.*
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   LoggingContextWithTrace,
@@ -355,7 +355,7 @@ private[index] class IndexServiceImpl(
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Map[Ref.PackageId, v2.PackageDetails]] =
+  ): Future[Map[Ref.PackageId, index.PackageDetails]] =
     ledgerDao.listLfPackages()
 
   override def getLfArchive(packageId: Ref.PackageId)(implicit

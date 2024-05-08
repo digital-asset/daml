@@ -10,7 +10,7 @@ import com.daml.lf.data.{Bytes, ImmArray}
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.v2.{
+import com.digitalasset.canton.ledger.participant.state.{
   CompletionInfo,
   DivulgedContract,
   Reassignment,
@@ -49,8 +49,8 @@ import io.scalaland.chimney.Transformer
 import io.scalaland.chimney.dsl.*
 import monocle.macros.syntax.lens.*
 
-/** This a copy of [[com.digitalasset.canton.ledger.participant.state.v2.Update]].
-  * Refer to [[com.digitalasset.canton.ledger.participant.state.v2.Update]] documentation for more information.
+/** This a copy of [[com.digitalasset.canton.ledger.participant.state.Update]].
+  * Refer to [[com.digitalasset.canton.ledger.participant.state.Update]] documentation for more information.
   */
 sealed trait LedgerSyncEvent extends Product with Serializable with PrettyPrinting {
   def description: String

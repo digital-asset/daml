@@ -7,7 +7,7 @@ import com.daml.lf.crypto
 import com.daml.lf.data.Time
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.domain.Commands
-import com.digitalasset.canton.ledger.participant.state.index.v2.MaximumLedgerTime
+import com.digitalasset.canton.ledger.participant.state.index.MaximumLedgerTime
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics

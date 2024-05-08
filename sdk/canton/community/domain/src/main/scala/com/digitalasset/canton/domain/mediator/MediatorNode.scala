@@ -48,7 +48,7 @@ import com.digitalasset.canton.sequencing.client.{
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker, HasUptime}
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
+import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
@@ -168,6 +168,7 @@ class MediatorNodeBootstrap(
   override protected def member(uid: UniqueIdentifier): Member = MediatorId(uid)
 
   private val domainTopologyManager = new SingleUseCell[DomainTopologyManager]()
+  private val topologyClient = new SingleUseCell[DomainTopologyClient]()
 
   override protected def sequencedTopologyStores: Seq[TopologyStore[DomainStore]] =
     domainTopologyManager.get.map(_.store).toList
@@ -175,10 +176,14 @@ class MediatorNodeBootstrap(
   override protected def sequencedTopologyManagers: Seq[DomainTopologyManager] =
     domainTopologyManager.get.toList
 
-  // TODO(#14048): Align the semantics with the participant.
   override protected def lookupTopologyClient(
       storeId: TopologyStoreId
-  ): Option[DomainTopologyClientWithInit] = None
+  ): Option[DomainTopologyClient] =
+    storeId match {
+      case DomainStore(domainId, _) =>
+        topologyClient.get.filter(_.domainId == domainId)
+      case _ => None
+    }
 
   private lazy val deferredSequencerClientHealth =
     MutableHealthComponent(loggerFactory, SequencerClient.healthName, timeouts)
@@ -489,6 +494,10 @@ class MediatorNodeBootstrap(
         )
       (topologyProcessor, topologyClient) = topologyProcessorAndClient
       _ = ips.add(topologyClient)
+      _ = if (MediatorNodeBootstrap.this.topologyClient.putIfAbsent(topologyClient).nonEmpty) {
+        // TODO(#14048) how to handle this error properly?
+        throw new IllegalStateException("topology client shouldn't have been set before")
+      }
       syncCryptoApi = new DomainSyncCryptoClient(
         mediatorId,
         domainId,

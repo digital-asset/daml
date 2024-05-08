@@ -12,8 +12,8 @@ import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.participant.state.index.v2.IndexService
-import com.digitalasset.canton.ledger.participant.state.v2.{
+import com.digitalasset.canton.ledger.participant.state.index.IndexService
+import com.digitalasset.canton.ledger.participant.state.{
   InternalStateServiceProviderImpl,
   ReadService,
   Update,

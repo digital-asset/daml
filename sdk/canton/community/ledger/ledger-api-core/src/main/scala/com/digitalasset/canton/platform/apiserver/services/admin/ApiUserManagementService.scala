@@ -29,7 +29,7 @@ import com.digitalasset.canton.ledger.error.groups.{
   UserManagementServiceErrors,
 }
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
-import com.digitalasset.canton.ledger.participant.state.index.v2.IndexPartyManagementService
+import com.digitalasset.canton.ledger.participant.state.index.IndexPartyManagementService
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
 import com.digitalasset.canton.logging.LoggingContextWithTrace.withEnrichedLoggingContext
 import com.digitalasset.canton.logging.{

@@ -11,7 +11,7 @@ import com.daml.metrics.api.MetricsContext.{withExtraMetricLabels, withOptionalM
 import com.daml.platform.v1.index.StatusDetails
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.participant.state.v2.{CompletionInfo, Reassignment, Update}
+import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Reassignment, Update}
 import com.digitalasset.canton.metrics.{IndexedUpdatesMetrics, Metrics}
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils

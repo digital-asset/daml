@@ -11,7 +11,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DynamicDomainParametersWithValidity
-import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.processing.*
@@ -164,11 +164,13 @@ final class CachingDomainTopologyClient(
       // if we haven't seen any snapshot yet, we use the sequencer time to seed the first snapshot
       appendSnapshot(sequencedTimestamp.value)
     }
-    // make sure the inner client gets the tracker as well
-    domainTimeTracker.get.foreach(delegate.setDomainTimeTracker)
     delegate.observed(sequencedTimestamp, effectiveTimestamp, sequencerCounter, transactions)
   }
 
+  override def setDomainTimeTracker(tracker: DomainTimeTracker): Unit = {
+    delegate.setDomainTimeTracker(tracker)
+    super.setDomainTimeTracker(tracker)
+  }
 }
 
 object CachingDomainTopologyClient {

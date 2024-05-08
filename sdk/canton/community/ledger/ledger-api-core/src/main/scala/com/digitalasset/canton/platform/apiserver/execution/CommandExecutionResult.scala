@@ -7,7 +7,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.digitalasset.canton.data.ProcessedDisclosedContract
-import com.digitalasset.canton.ledger.participant.state.v2 as state
+import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.topology.DomainId
 
 /** The result of command execution.

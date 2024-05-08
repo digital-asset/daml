@@ -8,7 +8,7 @@ import com.daml.metrics.InstrumentedGraph.*
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.participant.state.v2.Update
+import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
   LoggingContextWithTrace,

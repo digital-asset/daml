@@ -26,7 +26,7 @@ import com.digitalasset.canton.topology.admin.v30.{
   ListPurgeTopologyTransactionResponse,
 }
 import com.digitalasset.canton.topology.admin.v30 as adminProto
-import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
+import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
@@ -165,7 +165,7 @@ object TopologyStore {
 class GrpcTopologyManagerReadService(
     stores: => Seq[topology.store.TopologyStore[TopologyStoreId]],
     crypto: Crypto,
-    topologyClientLookup: TopologyStoreId => Option[DomainTopologyClientWithInit],
+    topologyClientLookup: TopologyStoreId => Option[DomainTopologyClient],
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends adminProto.TopologyManagerReadServiceGrpc.TopologyManagerReadService

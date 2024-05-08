@@ -12,7 +12,7 @@ import com.daml.lf.transaction.NodeId
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
-import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
+import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.TransactionMetering
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}

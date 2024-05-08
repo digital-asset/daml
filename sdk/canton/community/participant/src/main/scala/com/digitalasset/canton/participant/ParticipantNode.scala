@@ -95,7 +95,7 @@ import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.time.admin.v30.DomainTimeServiceGrpc
 import com.digitalasset.canton.topology.client.{
-  DomainTopologyClientWithInit,
+  DomainTopologyClient,
   IdentityProvidingServiceClient,
   StoreBasedDomainTopologyClient,
   StoreBasedTopologySnapshot,
@@ -177,7 +177,7 @@ class ParticipantNodeBootstrap(
 
   override protected def lookupTopologyClient(
       storeId: TopologyStoreId
-  ): Option[DomainTopologyClientWithInit] =
+  ): Option[DomainTopologyClient] =
     storeId match {
       case DomainStore(domainId, _) =>
         cantonSyncService.get.flatMap(_.lookupTopologyClient(domainId))

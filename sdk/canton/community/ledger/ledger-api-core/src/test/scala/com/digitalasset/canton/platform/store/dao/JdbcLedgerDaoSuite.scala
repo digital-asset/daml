@@ -16,8 +16,8 @@ import com.daml.lf.value.Value.{ContractId, ContractInstance, ValueText, Version
 import com.daml.lf.value.Value as LfValue
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.TemplateFilter
-import com.digitalasset.canton.ledger.participant.state.index.v2
-import com.digitalasset.canton.ledger.participant.state.v2 as state
+import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.index
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
 import com.digitalasset.canton.testing.utils.TestModels
@@ -59,8 +59,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
 
   private val now = Timestamp.now()
 
-  protected final val packages: List[(DamlLf.Archive, v2.PackageDetails)] =
-    dar.all.map(dar => dar -> v2.PackageDetails(dar.getSerializedSize.toLong, now, None))
+  protected final val packages: List[(DamlLf.Archive, index.PackageDetails)] =
+    dar.all.map(dar => dar -> index.PackageDetails(dar.getSerializedSize.toLong, now, None))
   private val testPackageId: Ref.PackageId = Ref.PackageId.assertFromString(dar.main.getHash)
   protected val testLanguageVersion: LanguageVersion =
     Decode.assertDecodeArchive(dar.main)._2.languageVersion

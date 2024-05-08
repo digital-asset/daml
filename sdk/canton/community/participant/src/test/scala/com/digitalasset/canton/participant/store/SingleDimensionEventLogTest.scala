@@ -8,7 +8,7 @@ import com.daml.lf.data.{ImmArray, Time}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.NegativeLong
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.v2.TransactionMeta
+import com.digitalasset.canton.ledger.participant.state.TransactionMeta
 import com.digitalasset.canton.participant.store.db.DbEventLogTestResources
 import com.digitalasset.canton.participant.sync.LedgerSyncEvent.PublicPackageUploadRejected
 import com.digitalasset.canton.participant.sync.TimestampedEvent.TimelyRejectionEventId

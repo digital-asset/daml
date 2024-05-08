@@ -9,7 +9,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.ledger.participant.state.index.v2.{
+import com.digitalasset.canton.ledger.participant.state.index.{
   ContractState,
   ContractStore,
   MaximumLedgerTime,
@@ -28,7 +28,7 @@ class ContractStoreBasedMaximumLedgerTimeServiceSpec
     with BaseTest {
 
   import ContractState.*
-  import com.digitalasset.canton.ledger.participant.state.index.v2.MaximumLedgerTime.*
+  import com.digitalasset.canton.ledger.participant.state.index.MaximumLedgerTime.*
 
   private implicit val loggingContext: LoggingContextWithTrace = LoggingContextWithTrace.ForTesting
 

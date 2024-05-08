@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.store
 
 import cats.syntax.option.*
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.v2.ChangeId
+import com.digitalasset.canton.ledger.participant.state.ChangeId
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.submission.ChangeIdHash

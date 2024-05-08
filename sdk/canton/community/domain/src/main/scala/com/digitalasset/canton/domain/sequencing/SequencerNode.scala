@@ -64,7 +64,7 @@ import com.digitalasset.canton.store.{
 }
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
+import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, TopologyTransactionProcessor}
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{
@@ -144,6 +144,7 @@ class SequencerNodeBootstrap(
   }
 
   private val domainTopologyManager = new SingleUseCell[DomainTopologyManager]()
+  private val topologyClient = new SingleUseCell[DomainTopologyClient]()
 
   override protected def sequencedTopologyStores: Seq[TopologyStore[DomainStore]] =
     domainTopologyManager.get.map(_.store).toList
@@ -151,10 +152,14 @@ class SequencerNodeBootstrap(
   override protected def sequencedTopologyManagers: Seq[DomainTopologyManager] =
     domainTopologyManager.get.toList
 
-  // TODO(#14048): Align the semantics with the participant.
   override protected def lookupTopologyClient(
       storeId: TopologyStoreId
-  ): Option[DomainTopologyClientWithInit] = None
+  ): Option[DomainTopologyClient] =
+    storeId match {
+      case DomainStore(domainId, _) =>
+        topologyClient.get.filter(_.domainId == domainId)
+      case _ => None
+    }
 
   private class WaitForSequencerToDomainInit(
       storage: Storage,
@@ -463,6 +468,10 @@ class SequencerNodeBootstrap(
           maxStoreTimestamp <- EitherT.right(domainTopologyStore.maxTimestamp())
           membersToRegister <- {
             ips.add(topologyClient)
+            if (SequencerNodeBootstrap.this.topologyClient.putIfAbsent(topologyClient).nonEmpty) {
+              // TODO(#14048) how to handle this error properly?
+              throw new IllegalStateException("topology client shouldn't have been set before")
+            }
             addCloseable(topologyProcessor)
             addCloseable(topologyClient)
             // TODO(#14073) more robust initialization: if we upload the genesis state, we need to poke

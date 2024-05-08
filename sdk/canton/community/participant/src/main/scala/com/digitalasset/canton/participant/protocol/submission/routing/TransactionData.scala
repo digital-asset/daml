@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.engine.Blinding
-import com.digitalasset.canton.ledger.participant.state.v2.SubmitterInfo
+import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
 import com.digitalasset.canton.participant.sync.TransactionRoutingError
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.MalformedInputErrors
 import com.digitalasset.canton.protocol.{LfContractId, LfVersionedTransaction}

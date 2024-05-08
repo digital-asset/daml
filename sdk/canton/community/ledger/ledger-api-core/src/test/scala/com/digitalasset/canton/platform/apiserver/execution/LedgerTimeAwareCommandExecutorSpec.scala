@@ -14,8 +14,8 @@ import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.{DeduplicationPeriod, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
-import com.digitalasset.canton.ledger.participant.state.index.v2.MaximumLedgerTime
-import com.digitalasset.canton.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
+import com.digitalasset.canton.ledger.participant.state.index.MaximumLedgerTime
+import com.digitalasset.canton.ledger.participant.state.{SubmitterInfo, TransactionMeta}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause

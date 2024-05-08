@@ -123,6 +123,7 @@ object TopologyMapping {
       OwnerToKeyMapping,
       DomainTrustCertificate,
       ParticipantDomainPermission,
+      PartyHostingLimits,
       VettedPackages,
       PartyToParticipant,
       AuthorityOf,
