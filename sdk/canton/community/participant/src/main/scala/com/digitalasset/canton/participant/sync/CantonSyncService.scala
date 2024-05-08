@@ -96,7 +96,7 @@ import com.digitalasset.canton.sequencing.client.SequencerClient.CloseReason
 import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.client.{DomainTopologyClientWithInit, TopologySnapshot}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.util.OptionUtils.OptionExtension
@@ -772,6 +772,9 @@ class CantonSyncService(
   def lookupDomainTimeTracker(domainId: DomainId): Option[DomainTimeTracker] =
     connectedDomainsMap.get(domainId).map(_.timeTracker)
 
+  def lookupTopologyClient(domainId: DomainId): Option[DomainTopologyClientWithInit] =
+    connectedDomainsMap.get(domainId).map(_.topologyClient)
+
   /** Adds a new domain to the sync service's configuration.
     *
     * NOTE: Does not automatically connect the sync service to the new domain.
@@ -1293,15 +1296,18 @@ class CantonSyncService(
                 persistent,
                 participantNodePersistentState.map(_.multiDomainEventLog),
                 inFlightSubmissionTracker,
-                (loggerFactory: NamedLoggerFactory) =>
-                  DomainTimeTracker(
+                (loggerFactory: NamedLoggerFactory) => {
+                  val tracker = DomainTimeTracker(
                     domainConnectionConfig.config.timeTracker,
                     clock,
                     domainHandle.sequencerClient,
                     domainHandle.staticParameters.protocolVersion,
                     timeouts,
                     loggerFactory,
-                  ),
+                  )
+                  domainHandle.topologyClient.setDomainTimeTracker(tracker)
+                  tracker
+                },
                 domainMetrics,
                 parameters.cachingConfigs.sessionKeyCacheConfig,
                 participantId,

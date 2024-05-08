@@ -299,7 +299,6 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
   def inspect(
       proposals: Boolean,
       timeQuery: TimeQuery,
-      // TODO(#14048) - consider removing `recentTimestampO` and moving callers to TimeQuery.Snapshot
       recentTimestampO: Option[CantonTimestamp],
       op: Option[TopologyChangeOp],
       types: Seq[TopologyMapping.Code],

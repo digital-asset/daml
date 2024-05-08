@@ -9,8 +9,8 @@ import cats.instances.future.*
 import cats.syntax.bifunctor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.config.{DomainTimeTrackerConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.mediator.Mediator.PruningError
@@ -72,7 +72,7 @@ private[mediator] class Mediator(
     topologyTransactionProcessor: TopologyTransactionProcessor,
     val topologyManagerStatus: TopologyManagerStatus,
     val domainOutboxHandle: DomainOutboxHandle,
-    timeTrackerConfig: DomainTimeTrackerConfig,
+    val timeTracker: DomainTimeTracker,
     state: MediatorState,
     private[canton] val sequencerCounterTrackerStore: SequencerCounterTrackerStore,
     sequencedEventStore: SequencedEventStore,
@@ -95,15 +95,6 @@ private[mediator] class Mediator(
       parameters.delayLoggingThreshold,
       metrics.sequencerClient.handler.delay,
     )
-
-  val timeTracker = DomainTimeTracker(
-    timeTrackerConfig,
-    clock,
-    sequencerClient,
-    protocolVersion,
-    timeouts,
-    loggerFactory,
-  )
 
   private val verdictSender =
     VerdictSender(sequencerClient, syncCrypto, mediatorId, protocolVersion, loggerFactory)

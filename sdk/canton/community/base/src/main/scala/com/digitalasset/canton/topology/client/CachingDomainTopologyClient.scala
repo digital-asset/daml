@@ -29,8 +29,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 final class CachingDomainTopologyClient(
-    clock: Clock,
-    parent: DomainTopologyClientWithInit,
+    delegate: DomainTopologyClientWithInit,
     cachingConfigs: CachingConfigs,
     batchingConfig: BatchingConfig,
     val timeouts: ProcessingTimeout,
@@ -50,7 +49,7 @@ final class CachingDomainTopologyClient(
     }
     if (potentialTopologyChange)
       appendSnapshot(effectiveTimestamp.value)
-    parent.updateHead(effectiveTimestamp, approximateTimestamp, potentialTopologyChange)
+    delegate.updateHead(effectiveTimestamp, approximateTimestamp, potentialTopologyChange)
   }
 
   // snapshot caching entry
@@ -69,7 +68,7 @@ final class CachingDomainTopologyClient(
     .buildScaffeine()
     .build[CantonTimestamp, CachingTopologySnapshot] { (ts: CantonTimestamp) =>
       new CachingTopologySnapshot(
-        parent.trySnapshot(ts)(TraceContext.empty),
+        delegate.trySnapshot(ts)(TraceContext.empty),
         cachingConfigs,
         batchingConfig,
         loggerFactory,
@@ -112,45 +111,45 @@ final class CachingDomainTopologyClient(
 
   }
 
-  override def domainId: DomainId = parent.domainId
+  override def domainId: DomainId = delegate.domainId
 
   override def snapshotAvailable(timestamp: CantonTimestamp): Boolean =
-    parent.snapshotAvailable(timestamp)
+    delegate.snapshotAvailable(timestamp)
   override def awaitTimestamp(
       timestamp: CantonTimestamp,
       waitForEffectiveTime: Boolean,
   )(implicit traceContext: TraceContext): Option[Future[Unit]] =
-    parent.awaitTimestamp(timestamp, waitForEffectiveTime)
+    delegate.awaitTimestamp(timestamp, waitForEffectiveTime)
 
   override def awaitTimestampUS(
       timestamp: CantonTimestamp,
       waitForEffectiveTime: Boolean,
   )(implicit traceContext: TraceContext): Option[FutureUnlessShutdown[Unit]] =
-    parent.awaitTimestampUS(timestamp, waitForEffectiveTime)
+    delegate.awaitTimestampUS(timestamp, waitForEffectiveTime)
 
-  override def approximateTimestamp: CantonTimestamp = parent.approximateTimestamp
+  override def approximateTimestamp: CantonTimestamp = delegate.approximateTimestamp
 
   override def currentSnapshotApproximation(implicit
       traceContext: TraceContext
   ): TopologySnapshotLoader = trySnapshot(approximateTimestamp)
 
-  override def topologyKnownUntilTimestamp: CantonTimestamp = parent.topologyKnownUntilTimestamp
+  override def topologyKnownUntilTimestamp: CantonTimestamp = delegate.topologyKnownUntilTimestamp
 
   override def await(condition: TopologySnapshot => Future[Boolean], timeout: Duration)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[
     Boolean
   ] = // we use our implementation such that we can benefit from cached data
-    parent.scheduleAwait(condition(currentSnapshotApproximation), timeout)
+    delegate.scheduleAwait(condition(currentSnapshotApproximation), timeout)
 
   override private[topology] def scheduleAwait(condition: => Future[Boolean], timeout: Duration) =
-    parent.scheduleAwait(condition, timeout)
+    delegate.scheduleAwait(condition, timeout)
 
   override def close(): Unit = {
-    parent.close()
+    delegate.close()
   }
 
-  override def numPendingChanges: Int = parent.numPendingChanges
+  override def numPendingChanges: Int = delegate.numPendingChanges
 
   override def observed(
       sequencedTimestamp: SequencedTime,
@@ -165,7 +164,9 @@ final class CachingDomainTopologyClient(
       // if we haven't seen any snapshot yet, we use the sequencer time to seed the first snapshot
       appendSnapshot(sequencedTimestamp.value)
     }
-    parent.observed(sequencedTimestamp, effectiveTimestamp, sequencerCounter, transactions)
+    // make sure the inner client gets the tracker as well
+    domainTimeTracker.get.foreach(delegate.setDomainTimeTracker)
+    delegate.observed(sequencedTimestamp, effectiveTimestamp, sequencerCounter, transactions)
   }
 
 }
@@ -200,7 +201,6 @@ object CachingDomainTopologyClient {
       )
     val caching =
       new CachingDomainTopologyClient(
-        clock,
         dbClient,
         cachingConfigs,
         batchingConfig,

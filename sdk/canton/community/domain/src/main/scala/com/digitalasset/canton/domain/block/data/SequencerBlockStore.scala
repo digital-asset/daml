@@ -309,6 +309,7 @@ object SequencerBlockStore {
       storage: Storage,
       protocolVersion: ProtocolVersion,
       timeouts: ProcessingTimeout,
+      enableAdditionalConsistencyChecks: Boolean,
       checkedInvariant: Option[Member],
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -322,6 +323,7 @@ object SequencerBlockStore {
           dbStorage,
           protocolVersion,
           timeouts,
+          enableAdditionalConsistencyChecks,
           checkedInvariant,
           loggerFactory,
         )

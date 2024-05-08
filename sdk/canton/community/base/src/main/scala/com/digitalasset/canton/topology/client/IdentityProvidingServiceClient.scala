@@ -21,6 +21,7 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
+import com.digitalasset.canton.time.DomainTimeTracker
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.{
@@ -34,6 +35,7 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, checked}
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable
 import scala.concurrent.duration.*
@@ -548,6 +550,13 @@ trait DomainTopologyClientWithInit
     with NamedLogging {
 
   implicit override protected def executionContext: ExecutionContext
+
+  protected val domainTimeTracker: AtomicReference[Option[DomainTimeTracker]] = new AtomicReference(
+    None
+  )
+
+  def setDomainTimeTracker(tracker: DomainTimeTracker): Unit =
+    domainTimeTracker.set(Some(tracker))
 
   /** current number of changes waiting to become effective */
   def numPendingChanges: Int
