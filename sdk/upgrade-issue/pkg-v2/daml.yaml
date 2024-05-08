@@ -1,0 +1,18 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# for config file options, refer to
+# https://docs.daml.com/tools/assistant.html#project-config-file-daml-yaml
+
+sdk-version: 0.0.0
+name: pkg
+source: daml
+init-script: Main:setup
+version: 0.0.2
+build-options:
+   - --target=1.dev
+dependencies:
+  - daml-prim
+  - daml-stdlib
+upgrades: ../pkg-v1/.daml/dist/pkg-0.0.1.dar
+typecheck-upgrades: yes

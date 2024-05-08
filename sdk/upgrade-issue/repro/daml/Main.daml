@@ -1,0 +1,22 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+
+module Main where
+
+import Daml.Script
+import qualified V1.Main as V1
+import qualified V2.Main as V2
+import DA.Time
+
+setup : Script ()
+setup = script do
+  a <- allocateParty "Alice" 
+
+  v1Cid <- a `submit` createExactCmd V1.Asset with issuer = a
+  let v2Cid = coerceContractId @V1.Asset @V2.Asset v1Cid
+  submit a $ do
+    exerciseExactCmd v1Cid V1.AssetChoice
+    exerciseExactCmd v2Cid V2.AssetChoice
+    pure ()
