@@ -16,6 +16,7 @@ import com.digitalasset.canton.config.{
 import com.digitalasset.canton.environment.{CantonNodeParameters, HasGeneralCantonNodeParameters}
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
 import com.digitalasset.canton.participant.config.{
+  CantonEngineConfig,
   LedgerApiServerParametersConfig,
   ParticipantProtocolConfig,
   ParticipantStoreConfig,
@@ -37,8 +38,7 @@ final case class ParticipantNodeParameters(
     uniqueContractKeys: Boolean,
     ledgerApiServerParameters: LedgerApiServerParametersConfig,
     excludeInfrastructureTransactions: Boolean,
-    enableEngineStackTrace: Boolean,
-    iterationsBetweenInterruptions: Long,
+    engine: CantonEngineConfig,
     allowForUnauthenticatedContractIds: Boolean,
     disableUpgradeValidation: Boolean,
 ) extends CantonNodeParameters
@@ -89,8 +89,7 @@ object ParticipantNodeParameters {
     uniqueContractKeys = false,
     ledgerApiServerParameters = LedgerApiServerParametersConfig(),
     excludeInfrastructureTransactions = true,
-    enableEngineStackTrace = false,
-    iterationsBetweenInterruptions = 10000,
+    engine = CantonEngineConfig(),
     allowForUnauthenticatedContractIds = false,
     disableUpgradeValidation = true,
   )

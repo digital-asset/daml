@@ -167,6 +167,7 @@ class SyncDomain(
       authorityResolver,
       Some(domainId),
       engine,
+      parameters.engine.validationPhaseLogging,
       loggerFactory,
     )
 

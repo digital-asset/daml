@@ -480,8 +480,6 @@ object TestingTimeServiceConfig {
   * @param dontWarnOnDeprecatedPV If true, then this participant will not emit a warning when connecting to a sequencer using a deprecated protocol version (such as 2.0.0).
   * @param warnIfOverloadedFor If all incoming commands have been rejected due to PARTICIPANT_BACKPRESSURE during this interval, the participant will log a warning.
   * @param excludeInfrastructureTransactions If set, infrastructure transactions (i.e. ping, bong and dar distribution) will be excluded from participant metering.
-  * @param enableEngineStackTraces If true, DAMLe stack traces will be enabled
-  * @param iterationsBetweenInterruptions Number of engine iterations between forced interruptions (outside needs of information).
   * @param allowForUnauthenticatedContractIds Skip contract id authentication check, if the contract id scheme does not support authentication.
   *                                           You should enable this only if all participants on a domain mutually trust each other.
   *                                           Otherwise, an attacker may compromise integrity of the ledger.
@@ -509,8 +507,7 @@ final case class ParticipantNodeParameterConfig(
     ),
     ledgerApiServerParameters: LedgerApiServerParametersConfig = LedgerApiServerParametersConfig(),
     excludeInfrastructureTransactions: Boolean = true,
-    enableEngineStackTraces: Boolean = false,
-    iterationsBetweenInterruptions: Long = 10000,
+    engine: CantonEngineConfig = CantonEngineConfig(),
     allowForUnauthenticatedContractIds: Boolean = false,
     disableUpgradeValidation: Boolean = false,
 ) extends LocalNodeParametersConfig

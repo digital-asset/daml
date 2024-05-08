@@ -43,6 +43,7 @@ import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateUpgradableContract
 import com.digitalasset.canton.platform.apiserver.execution.UpgradeVerificationResult.MissingDriverMetadata
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
@@ -72,6 +73,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
     authorityResolver: AuthorityResolver,
     authenticateUpgradableContract: AuthenticateUpgradableContract,
     metrics: Metrics,
+    config: EngineLoggingConfig,
     val loggerFactory: NamedLoggerFactory,
     dynParamGetter: DynamicDomainParameterGetter,
     timeProvider: TimeProvider,
@@ -210,6 +212,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           disclosures = commands.disclosedContracts.map(_.toLf),
           participantId = participant,
           submissionSeed = submissionSeed,
+          config.toEngineLogger(loggerFactory.append("phase", "submission")),
         )
       }),
     )
