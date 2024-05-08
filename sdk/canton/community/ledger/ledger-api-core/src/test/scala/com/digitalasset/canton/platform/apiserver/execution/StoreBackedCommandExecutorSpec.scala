@@ -11,6 +11,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.{
   Engine,
+  EngineLogger,
   Result,
   ResultDone,
   ResultInterruption,
@@ -41,6 +42,7 @@ import com.digitalasset.canton.ledger.participant.state.index.v2.{
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause.InterpretationTimeExceeded
 import com.digitalasset.canton.protocol.{DriverContractMetadata, LfContractId, LfTransactionVersion}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -97,6 +99,7 @@ class StoreBackedCommandExecutorSpec
         disclosures = any[ImmArray[LfDisclosedContract]],
         packageMap = any[Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]],
         packagePreference = any[Set[Ref.PackageId]],
+        engineLogger = any[Option[EngineLogger]],
       )(any[LoggingContext])
     )
       .thenReturn(result)
@@ -141,6 +144,7 @@ class StoreBackedCommandExecutorSpec
       AuthorityResolver(),
       authenticateUpgradableContract = _ => Right(()),
       metrics = Metrics.ForTesting,
+      EngineLoggingConfig(),
       loggerFactory = loggerFactory,
       dynParamGetter = new TestDynamicDomainParameterGetter(tolerance),
       TimeProvider.UTC,
@@ -307,6 +311,7 @@ class StoreBackedCommandExecutorSpec
           disclosures = any[ImmArray[LfDisclosedContract]],
           packageMap = any[Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]],
           packagePreference = any[Set[Ref.PackageId]],
+          engineLogger = any[Option[EngineLogger]],
         )(any[LoggingContext])
       ).thenReturn(engineResult)
 
@@ -365,6 +370,7 @@ class StoreBackedCommandExecutorSpec
         AuthorityResolver(),
         authenticateUpgradableContract = _ => authenticationResult,
         metrics = Metrics.ForTesting,
+        EngineLoggingConfig(),
         loggerFactory = loggerFactory,
         dynParamGetter = new TestDynamicDomainParameterGetter(NonNegativeFiniteDuration.Zero),
         TimeProvider.UTC,

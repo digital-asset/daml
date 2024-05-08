@@ -20,6 +20,7 @@ import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.sync.ParticipantEventPublisher
 import com.digitalasset.canton.participant.util.DAMLe
+import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.*
@@ -60,6 +61,7 @@ object DAMLeTestInstance {
       AuthorityResolver(),
       None,
       engine,
+      EngineLoggingConfig(),
       loggerFactory,
     ) {
       override def contractMetadata(

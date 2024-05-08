@@ -17,6 +17,7 @@ import com.digitalasset.canton.logging.{LoggingContextUtil, NamedLoggerFactory, 
 import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.store.ContractLookupAndVerification
 import com.digitalasset.canton.participant.util.DAMLe.{ContractWithMetadata, PackageResolver}
+import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.*
@@ -102,6 +103,7 @@ class DAMLe(
     authorityResolver: AuthorityResolver,
     domainId: Option[DomainId],
     engine: Engine,
+    engineLoggingConfig: EngineLoggingConfig,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
@@ -176,6 +178,8 @@ class DAMLe(
         submissionTime = submissionTime.toLf,
         ledgerEffectiveTime = ledgerTime.toLf,
         packageResolution = packageResolution,
+        engineLogger =
+          engineLoggingConfig.toEngineLogger(loggerFactory.append("phase", "validation")),
       )
     }
 

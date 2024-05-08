@@ -26,6 +26,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.page_tokens.ListPartiesPageTokenPayload
+import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.ledger.api.domain
@@ -81,7 +82,6 @@ import java.nio.charset.StandardCharsets
 import java.util.{Base64, UUID}
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.FutureConverters.CompletionStageOps
 import scala.util.Try
 
 private[apiserver] final class ApiPartyManagementService private (
@@ -676,7 +676,7 @@ private[apiserver] object ApiPartyManagementService {
         loggingContext: LoggingContextWithTrace
     ): Future[state.SubmissionResult] = {
       val (party, displayName) = input
-      writeService.allocateParty(party, displayName, submissionId).asScala
+      writeService.allocateParty(party, displayName, submissionId).toScalaUnwrapped
     }
 
     override def entries(offset: Option[LedgerOffset.Absolute])(implicit

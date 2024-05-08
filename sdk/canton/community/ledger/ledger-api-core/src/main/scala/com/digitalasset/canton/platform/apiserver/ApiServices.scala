@@ -22,6 +22,7 @@ import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.configuration.{
+  EngineLoggingConfig,
   LedgerConfigurationInitializer,
   LedgerConfigurationSubscription,
 }
@@ -107,6 +108,7 @@ object ApiServices {
       userManagementServiceConfig: UserManagementServiceConfig,
       partyManagementServiceConfig: PartyManagementServiceConfig,
       apiStreamShutdownTimeout: FiniteDuration,
+      engineLoggingConfig: EngineLoggingConfig,
       meteringReportKey: MeteringReportKey,
       enableExplicitDisclosure: Boolean,
       authenticateUpgradableContract: AuthenticateUpgradableContract,
@@ -388,6 +390,7 @@ object ApiServices {
               authorityResolver,
               authenticateUpgradableContract,
               metrics,
+              engineLoggingConfig,
               loggerFactory,
               dynParamGetter,
               timeProvider,
