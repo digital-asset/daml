@@ -35,7 +35,7 @@ import com.digitalasset.canton.participant.event.{
   ContractMetadataAndTransferCounter,
   RecordTime,
 }
-import com.digitalasset.canton.participant.metrics.PruningMetrics
+import com.digitalasset.canton.participant.metrics.CommitmentMetrics
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors.DegradationError
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors.MismatchError.AcsCommitmentAlarm
 import com.digitalasset.canton.participant.store.*
@@ -165,7 +165,7 @@ class AcsCommitmentProcessor(
     sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
     store: AcsCommitmentStore,
     pruningObserver: TraceContext => Unit,
-    metrics: PruningMetrics,
+    metrics: CommitmentMetrics,
     protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
@@ -533,7 +533,7 @@ class AcsCommitmentProcessor(
         )
 
         _ = if (catchingUpInProgress && healthComponent.isOk) {
-          metrics.commitments.catchupModeEnabled.mark()
+          metrics.catchupModeEnabled.mark()
           logger.debug(s"Entered catch-up mode with config ${config.toString}")
           if (config.exists(cfg => cfg.catchUpIntervalSkip.value == 1))
             healthComponent.degradationOccurred(
@@ -1769,7 +1769,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       runningCommitments: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
       domainCrypto: SyncCryptoClient[SyncCryptoApi],
       timestamp: CantonTimestampSecond,
-      pruningMetrics: Option[PruningMetrics],
+      pruningMetrics: Option[CommitmentMetrics],
       parallelism: PositiveNumeric[Int],
       cachedCommitments: CachedCommitments,
       // compute commitments just for includeCounterParticipantIds, if non-empty, otherwise for all counter-participants
@@ -1780,7 +1780,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): Future[Map[ParticipantId, AcsCommitment.CommitmentType]] = {
-    val commitmentTimer = pruningMetrics.map(_.commitments.compute.startAsync())
+    val commitmentTimer = pruningMetrics.map(_.compute.startAsync())
 
     for {
       byParticipant <- stakeholderCommitmentsPerParticipant(

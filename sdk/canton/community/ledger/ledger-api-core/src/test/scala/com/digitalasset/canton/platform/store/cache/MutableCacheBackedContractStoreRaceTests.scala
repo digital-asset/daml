@@ -14,7 +14,7 @@ import com.digitalasset.canton.TestEssentials
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStoreRaceTests.{
   IndexViewContractsReader,
   assert_sync_vs_async_race_contract,
@@ -315,7 +315,7 @@ private object MutableCacheBackedContractStoreRaceTests {
       ec: ExecutionContext,
       loggerFactory: NamedLoggerFactory,
   ) = {
-    val metrics = Metrics.ForTesting
+    val metrics = LedgerApiServerMetrics.ForTesting
     new MutableCacheBackedContractStore(
       contractsReader = indexViewContractsReader,
       metrics = metrics,

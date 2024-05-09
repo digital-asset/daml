@@ -9,22 +9,27 @@ import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.pretty.Pretty.*
 import io.grpc.health.v1.HealthCheckResponse.ServingStatus
 
-/** A [[HealthService]] aggregates [[CloseableHealthComponent]]s under critical and soft dependencies.
+trait HealthService
+    extends CloseableHealthElement
+    with CompositeHealthElement[String, HealthQuasiComponent] {
+  override type State = ServingStatus
+}
+
+/** A [[DependenciesHealthService]] aggregates [[CloseableHealthComponent]]s under critical and soft dependencies.
   * Services are queryable through their name in the gRPC Health Check service.
   * Both critical and soft dependencies are reported under their names too.
   *
-  * The state of the [[HealthService]] is [[io.grpc.health.v1.HealthCheckResponse.ServingStatus.SERVING]]
+  * The state of the [[DependenciesHealthService]] is [[io.grpc.health.v1.HealthCheckResponse.ServingStatus.SERVING]]
   * if and only if none of the critical dependencies have failed. Soft dependencies are merely reported
-  * as dependencies, but do not influence the status of the [[HealthService]] itself.
+  * as dependencies, but do not influence the status of the [[DependenciesHealthService]] itself.
   */
-final class HealthService(
+final class DependenciesHealthService(
     override val name: String,
     override protected val logger: TracedLogger,
     override protected val timeouts: ProcessingTimeout,
     private val criticalDependencies: Seq[HealthQuasiComponent],
     private val softDependencies: Seq[HealthQuasiComponent],
-) extends CloseableHealthElement
-    with CompositeHealthElement[String, HealthQuasiComponent] {
+) extends HealthService {
 
   alterDependencies(
     remove = Set.empty,
@@ -33,7 +38,6 @@ final class HealthService(
 
   override protected def closingState: ServingStatus = ServingStatus.NOT_SERVING
 
-  override type State = ServingStatus
   override protected def prettyState: Pretty[ServingStatus] = Pretty[ServingStatus]
 
   override protected def combineDependentStates: ServingStatus = {
@@ -47,17 +51,17 @@ final class HealthService(
   def dependencies: Seq[HealthQuasiComponent] = criticalDependencies ++ softDependencies
 }
 
-object HealthService {
+object DependenciesHealthService {
   def apply(
       name: String,
       logger: TracedLogger,
       timeouts: ProcessingTimeout,
       criticalDependencies: Seq[HealthQuasiComponent] = Seq.empty,
       softDependencies: Seq[HealthQuasiComponent] = Seq.empty,
-  ): HealthService =
-    new HealthService(name, logger, timeouts, criticalDependencies, softDependencies)
+  ): DependenciesHealthService =
+    new DependenciesHealthService(name, logger, timeouts, criticalDependencies, softDependencies)
 
-  implicit val prettyServiceHealth: Pretty[HealthService] = prettyOfClass(
+  implicit val prettyServiceHealth: Pretty[DependenciesHealthService] = prettyOfClass(
     param("name", _.name.unquoted),
     param("state", _.getState),
   )

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.health
 
 import com.daml.error.BaseError
-import com.digitalasset.canton.health.ComponentHealthState.{Degraded, Failed, Ok}
+import com.digitalasset.canton.health.ComponentHealthState.{Degraded, Failed, Fatal, Ok}
 import com.digitalasset.canton.health.admin.v30 as proto
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting, PrettyUtil}
@@ -29,6 +29,11 @@ sealed trait ComponentHealthState extends ToComponentHealthState with PrettyPrin
   }
   def isFailed: Boolean = this match {
     case ComponentHealthState.Failed(_) => true
+    case ComponentHealthState.Fatal(_) => true
+    case _ => false
+  }
+  def isFatal: Boolean = this match {
+    case ComponentHealthState.Fatal(_) => true
     case _ => false
   }
   override def toComponentHealthState: ComponentHealthState = this
@@ -43,6 +48,8 @@ sealed trait ComponentHealthState extends ToComponentHealthState with PrettyPrin
       proto.StatusResponse.ComponentStatus.Status.Degraded(degraded.toComponentStatusDataV0)
     case Failed(failed) =>
       proto.StatusResponse.ComponentStatus.Status.Failed(failed.toComponentStatusDataV0)
+    case Fatal(fatal) =>
+      proto.StatusResponse.ComponentStatus.Status.Fatal(fatal.toComponentStatusDataV0)
   }
 }
 
@@ -80,6 +87,8 @@ object ComponentHealthState extends ShowUtil {
 
   def degraded(description: String): Degraded = Degraded(UnhealthyState(Some(description)))
 
+  def fatal(description: String): Fatal = Fatal(UnhealthyState(Some(description)))
+
   /** Degraded state, as in not fully but still functional. A degraded component will NOT cause a service
     * to report NOT_SERVING
     *
@@ -106,6 +115,13 @@ object ComponentHealthState extends ShowUtil {
     @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
     implicit val failedEncoder: Encoder[Failed] = deriveEncoder[Failed]
   }
+
+  /** Used to indicate liveness problem, when the node should be restarted externally
+    * @param state data
+    */
+  final case class Fatal(state: UnhealthyState = UnhealthyState())
+      extends ComponentHealthState
+      with HasUnhealthyState
 
   /** Unhealthy state data
     *
@@ -139,6 +155,7 @@ object ComponentHealthState extends ShowUtil {
       case _: Ok => None
       case Degraded(degraded) => Some(degraded)
       case Failed(failed) => Some(failed)
+      case Fatal(fatal) => Some(fatal)
     }
   }
 

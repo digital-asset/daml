@@ -7,7 +7,7 @@ import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.*
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -31,7 +31,7 @@ import scala.concurrent.blocking
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class InMemoryFanoutBuffer(
     maxBufferSize: Int,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     maxBufferedChunkSize: Int,
     val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {

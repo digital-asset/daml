@@ -7,7 +7,7 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, TracedLogger}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.InMemoryState
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
@@ -43,7 +43,7 @@ object JdbcIndexer {
       participantDataSourceConfig: ParticipantDataSourceConfig,
       config: IndexerConfig,
       readService: state.ReadService,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       inMemoryState: InMemoryState,
       apiUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
       executionContext: ExecutionContext,
@@ -159,7 +159,7 @@ object JdbcIndexer {
 
   private def updateStringInterningView(
       stringInterningStorageBackend: StringInterningStorageBackend,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       dbDispatcher: DbDispatcher,
       updatingStringInterningView: UpdatingStringInterningView,
       ledgerEnd: ParameterStorageBackend.LedgerEnd,

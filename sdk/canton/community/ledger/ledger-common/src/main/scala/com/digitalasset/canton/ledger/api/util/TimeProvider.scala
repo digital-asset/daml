@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.ledger.api.util
 
-import com.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.ledger.api.util.TimeProvider.MappedTimeProvider
 
 import java.time.{Clock, Instant}
@@ -11,8 +10,6 @@ import java.time.{Clock, Instant}
 trait TimeProvider { self =>
 
   def getCurrentTime: Instant
-
-  def getCurrentTimestamp: Timestamp = Timestamp.assertFromInstant(getCurrentTime)
 
   def map(transform: Instant => Instant): TimeProvider = MappedTimeProvider(this, transform)
 }

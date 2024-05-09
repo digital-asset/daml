@@ -190,7 +190,7 @@ object DbStorageSingle {
       db <- DbStorage.createDatabase(
         config,
         numCombined,
-        Some(metrics.queue),
+        Some(metrics.general),
         logQueryCost,
         scheduler,
         retryConfig = retryConfig,

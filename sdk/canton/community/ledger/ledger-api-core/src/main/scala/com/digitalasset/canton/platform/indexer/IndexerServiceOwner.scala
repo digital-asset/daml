@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.ledger.participant.state.ReadService
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.InMemoryState
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
@@ -29,7 +29,7 @@ final class IndexerServiceOwner(
     participantDataSourceConfig: ParticipantDataSourceConfig,
     readService: ReadService,
     config: IndexerConfig,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     inMemoryState: InMemoryState,
     inMemoryStateUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
     executionContext: ExecutionContext,

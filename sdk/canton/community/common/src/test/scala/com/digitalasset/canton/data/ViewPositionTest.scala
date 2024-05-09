@@ -8,7 +8,6 @@ import cats.instances.order.*
 import com.digitalasset.canton.BaseTestWordSpec
 import com.digitalasset.canton.data.ViewPosition.MerkleSeqIndex.Direction
 import com.digitalasset.canton.data.ViewPosition.{
-  ListIndex,
   MerklePathElement,
   MerkleSeqIndex,
   MerkleSeqIndexFromRoot,
@@ -64,15 +63,6 @@ class ViewPositionTest extends BaseTestWordSpec {
       MerkleSeqIndexFromRoot(List(Left, Right)),
       MerkleSeqIndex(List(Right, Left)),
     ) shouldBe 0
-
-    an[UnsupportedOperationException] shouldBe thrownBy {
-      MerklePathElement.orderMerklePathElement.compare(
-        ListIndex(2),
-        MerkleSeqIndex(List(Left, Right)),
-      )
-    }
-
-    ListIndex(1) should be < (ListIndex(2): MerklePathElement)
 
     ViewPosition(List(MerkleSeqIndex(List(Right)), MerkleSeqIndex(List(Left)))) should be
       < ViewPosition(List(MerkleSeqIndex(List(Left)), MerkleSeqIndex(List(Left, Left))))

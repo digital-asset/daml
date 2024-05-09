@@ -11,7 +11,7 @@ import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, User}
 import com.digitalasset.canton.ledger.localstore.api.{UserManagementStore, UserUpdate}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.github.benmanes.caffeine.cache as caffeine
 
 import java.time.Duration
@@ -25,7 +25,7 @@ class CachedUserManagementStore(
     delegate: UserManagementStore,
     expiryAfterWriteInSeconds: Int,
     maximumCacheSize: Int,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val executionContext: ExecutionContext, loggingContext: LoggingContextWithTrace)
     extends UserManagementStore

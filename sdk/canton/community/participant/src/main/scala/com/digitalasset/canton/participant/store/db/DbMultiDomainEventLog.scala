@@ -789,7 +789,7 @@ class DbMultiDomainEventLog private[db] (
   override def reportMaxEventAgeMetric(oldestEventTimestamp: Option[CantonTimestamp]): Unit =
     MetricsHelper.updateAgeInHoursGauge(
       clock,
-      metrics.pruning.prune.maxEventAge,
+      metrics.pruning.maxEventAge,
       oldestEventTimestamp,
     )
 

@@ -9,7 +9,7 @@ import com.daml.ledger.api.v2.update_service.{GetTransactionResponse, GetTransac
 import com.daml.lf.data.Ref
 import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.Entry
@@ -28,7 +28,7 @@ sealed trait TransactionPointwiseReader {
   def dbDispatcher: DbDispatcher
   def eventStorageBackend: EventStorageBackend
   def lfValueTranslation: LfValueTranslation
-  val metrics: Metrics
+  val metrics: LedgerApiServerMetrics
   val dbMetric: DatabaseMetrics
   implicit def ec: ExecutionContext
 
@@ -94,7 +94,7 @@ sealed trait TransactionPointwiseReader {
 final class TransactionTreePointwiseReader(
     override val dbDispatcher: DbDispatcher,
     override val eventStorageBackend: EventStorageBackend,
-    override val metrics: Metrics,
+    override val metrics: LedgerApiServerMetrics,
     override val lfValueTranslation: LfValueTranslation,
 )(implicit val ec: ExecutionContext)
     extends TransactionPointwiseReader {
@@ -126,7 +126,7 @@ final class TransactionTreePointwiseReader(
 final class TransactionFlatPointwiseReader(
     override val dbDispatcher: DbDispatcher,
     override val eventStorageBackend: EventStorageBackend,
-    override val metrics: Metrics,
+    override val metrics: LedgerApiServerMetrics,
     override val lfValueTranslation: LfValueTranslation,
 )(implicit val ec: ExecutionContext)
     extends TransactionPointwiseReader {

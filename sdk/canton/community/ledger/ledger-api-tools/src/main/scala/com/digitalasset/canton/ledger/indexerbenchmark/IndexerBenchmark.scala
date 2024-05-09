@@ -17,7 +17,11 @@ import com.digitalasset.canton.ledger.participant.state.{
   Update,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.{
+  HistogramInventory,
+  LedgerApiServerHistograms,
+  LedgerApiServerMetrics,
+}
 import com.digitalasset.canton.platform.LedgerApiServer
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
 import com.digitalasset.canton.platform.indexer.{Indexer, IndexerServiceOwner, JdbcIndexer}
@@ -62,7 +66,10 @@ class IndexerBenchmark extends NamedLogging {
 
       println("Creating read service and indexer...")
       val readService = createReadService(updates)
-      val metrics = new Metrics(MetricName("noop"), NoOpMetricsFactory)
+      val metrics = new LedgerApiServerMetrics(
+        new LedgerApiServerHistograms(MetricName("noop"))(new HistogramInventory),
+        NoOpMetricsFactory,
+      )
       val resource = for {
         servicesExecutionContext <- ResourceOwner
           .forExecutorService(() => Executors.newWorkStealingPool())

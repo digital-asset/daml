@@ -19,7 +19,7 @@ import com.digitalasset.canton.ledger.participant.state.{
   Update,
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.IndexComponentTest.{TestReadService, TestServices}
 import com.digitalasset.canton.platform.config.{IndexServiceConfig, ServerRole}
 import com.digitalasset.canton.platform.index.IndexServiceOwner
@@ -93,7 +93,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
         (inMemoryState, updaterFlow) <- LedgerApiServer.createInMemoryStateAndUpdater(
           indexServiceConfig = IndexServiceConfig(),
           maxCommandsInFlight = 1, // not used
-          metrics = Metrics.ForTesting,
+          metrics = LedgerApiServerMetrics.ForTesting,
           executionContext = ec,
           tracer = NoReportingTracerProvider.tracer,
           loggerFactory = loggerFactory,
@@ -101,7 +101,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
         dbSupport <- DbSupport
           .owner(
             serverRole = ServerRole.ApiServer,
-            metrics = Metrics.ForTesting,
+            metrics = LedgerApiServerMetrics.ForTesting,
             dbConfig = DbConfig(
               jdbcUrl = jdbcUrl,
               connectionPool = ConnectionPoolConfig(
@@ -116,7 +116,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
           participantDataSourceConfig = ParticipantDataSourceConfig(jdbcUrl),
           readService = testReadService,
           config = indexerConfig,
-          metrics = Metrics.ForTesting,
+          metrics = LedgerApiServerMetrics.ForTesting,
           inMemoryState = inMemoryState,
           inMemoryStateUpdaterFlow = updaterFlow,
           executionContext = ec,
@@ -135,7 +135,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
             inMemoryState.stringInterningView,
           ),
           dbDispatcher = dbSupport.dbDispatcher,
-          metrics = Metrics.ForTesting,
+          metrics = LedgerApiServerMetrics.ForTesting,
           maxQueueSize = 10000,
           maxBatchSize = 50,
           parallelism = 5,
@@ -145,7 +145,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
           dbSupport = dbSupport,
           config = IndexServiceConfig(),
           participantId = Ref.ParticipantId.assertFromString(IndexComponentTest.TestParticipantId),
-          metrics = Metrics.ForTesting,
+          metrics = LedgerApiServerMetrics.ForTesting,
           servicesExecutionContext = ec,
           engine = new Engine(
             EngineConfig(LanguageVersion.StableVersions(LanguageMajorVersion.V2))

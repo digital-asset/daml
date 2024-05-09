@@ -143,7 +143,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         Eval.now(multiDomainEventLog),
         mock[InFlightSubmissionTracker],
         ProcessingStartingPoints.default,
-        _ => mock[DomainTimeTracker],
+        () => mock[DomainTimeTracker],
         ParticipantTestMetrics.domain,
         CachingConfigs.defaultSessionKeyCacheConfig,
         DefaultProcessingTimeouts.testing,

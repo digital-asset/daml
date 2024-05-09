@@ -9,6 +9,7 @@ import com.digitalasset.canton.config.{
   CachingConfigs,
   LocalNodeParametersConfig,
   ProtocolConfig,
+  WatchdogConfig,
 }
 
 /** Various parameters for non-standard sequencer settings
@@ -25,5 +26,6 @@ final case class SequencerNodeParameterConfig(
     override val batching: BatchingConfig = BatchingConfig(),
     override val caching: CachingConfigs = CachingConfigs(),
     override val useUnifiedSequencer: Boolean = false,
+    override val watchdog: Option[WatchdogConfig] = None,
 ) extends ProtocolConfig
     with LocalNodeParametersConfig

@@ -6,19 +6,44 @@ package com.digitalasset.canton.metrics
 import com.daml.metrics.DatabaseMetrics
 import com.daml.metrics.api.MetricHandle.*
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
+import com.digitalasset.canton.metrics.HistogramInventory.Item
+
+class ParallelIndexerHistograms(val prefix: MetricName)(implicit
+    inventory: HistogramInventory
+) {
+
+  private[metrics] val inputMappingPrefix: MetricName = prefix :+ "inputmapping"
+
+  private[metrics] val inputMappingBatchSize: Item = Item(
+    inputMappingPrefix :+ "batch_size",
+    summary = "The batch sizes in the indexer.",
+    description = """The number of state updates contained in a batch used in the indexer for
+                      |database submission.""",
+    qualification = MetricQualification.Debug,
+  )
+
+  private[metrics] val seqMappingDuration: Item = Item(
+    prefix :+ "seqmapping" :+ "duration",
+    summary = "The duration of the seq-mapping stage.",
+    description = """The time that a batch of updates spends in the seq-mapping stage of the
+                      |indexer.""",
+    qualification = MetricQualification.Debug,
+  )
+
+}
 
 class ParallelIndexerMetrics(
-    prefix: MetricName,
+    histograms: ParallelIndexerHistograms,
     openTelemetryMetricsFactory: LabeledMetricsFactory,
 ) {
   import MetricsContext.Implicits.empty
+  private val prefix = histograms.prefix
 
   val initialization = new DatabaseMetrics(prefix :+ "initialization", openTelemetryMetricsFactory)
 
   // Number of state updates persisted to the database
   // (after the effect of the corresponding Update is persisted into the database,
   // and before this effect is visible via moving the ledger end forward)
-
   val updates: Counter = openTelemetryMetricsFactory.counter(
     MetricInfo(
       prefix :+ "updates",
@@ -58,20 +83,12 @@ class ParallelIndexerMetrics(
   // Input mapping stage
   // Translating state updates to data objects corresponding to individual SQL insert statements
   object inputMapping {
-    private val prefix: MetricName = ParallelIndexerMetrics.this.prefix :+ "inputmapping"
 
     // Bundle of metrics coming from instrumentation of the underlying thread-pool
-    val executor: MetricName = prefix :+ "executor"
+    val executor: MetricName = histograms.inputMappingPrefix :+ "executor"
 
-    val batchSize: Histogram = openTelemetryMetricsFactory.histogram(
-      MetricInfo(
-        prefix :+ "batch_size",
-        summary = "The batch sizes in the indexer.",
-        description = """The number of state updates contained in a batch used in the indexer for
-                      |database submission.""",
-        qualification = MetricQualification.Debug,
-      )
-    )
+    val batchSize: Histogram =
+      openTelemetryMetricsFactory.histogram(histograms.inputMappingBatchSize.info)
   }
 
   // Batching stage
@@ -85,16 +102,8 @@ class ParallelIndexerMetrics(
 
   // Sequence Mapping stage
   object seqMapping {
-    private val prefix: MetricName = ParallelIndexerMetrics.this.prefix :+ "seqmapping"
-    val duration: Timer = openTelemetryMetricsFactory.timer(
-      MetricInfo(
-        prefix :+ "duration",
-        summary = "The duration of the seq-mapping stage.",
-        description = """The time that a batch of updates spends in the seq-mapping stage of the
-                      |indexer.""",
-        qualification = MetricQualification.Debug,
-      )
-    )
+
+    val duration: Timer = openTelemetryMetricsFactory.timer(histograms.seqMappingDuration.info)
   }
 
   // Ingestion stage

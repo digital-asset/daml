@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store
 import com.daml.ledger.resources.ResourceOwner
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.config.ServerRole
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.digitalasset.canton.platform.store.backend.{
@@ -60,7 +60,7 @@ object DbSupport {
   def owner(
       dbConfig: DbConfig,
       serverRole: ServerRole,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       traceContext: TraceContext,

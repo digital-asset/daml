@@ -10,7 +10,7 @@ import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle.Timer
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.{
   RawArchivedContract,
@@ -30,7 +30,7 @@ private[dao] sealed class ContractsReader(
     contractLoader: ContractLoader,
     storageBackend: ContractStorageBackend,
     dispatcher: DbDispatcher,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends LedgerDaoContractsReader
@@ -111,7 +111,7 @@ private[dao] object ContractsReader {
   private[dao] def apply(
       contractLoader: ContractLoader,
       dispatcher: DbDispatcher,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       storageBackend: ContractStorageBackend,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): ContractsReader = {

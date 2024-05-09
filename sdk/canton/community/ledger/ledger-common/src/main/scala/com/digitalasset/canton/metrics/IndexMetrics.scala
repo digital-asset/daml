@@ -5,13 +5,52 @@ package com.digitalasset.canton.metrics
 
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, LabeledMetricsFactory, Timer}
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
+import com.digitalasset.canton.metrics.HistogramInventory.Item
+
+class IndexHistograms(val prefix: MetricName)(implicit
+    inventory: HistogramInventory
+) {
+
+  private val lfValuePrefix = prefix :+ "lf_value"
+  private[metrics] val db = new IndexDBHistograms(prefix :+ "db")
+
+  private[metrics] val computeInterfaceView: Item = Item(
+    lfValuePrefix :+ "compute_interface_view",
+    summary = "The time to compute an interface view while serving transaction streams.",
+    description = """Transaction API allows clients to request events by interface-id. When an
+                          |event matches the interface - an interface view is computed, which adds to
+                          |the latency. This metric represents the time for each such computation.""",
+    qualification = MetricQualification.Debug,
+  )
+
+  private val packageMetadataPrefix = prefix :+ "package_metadata"
+
+  private[metrics] val decodeArchive: Item = Item(
+    packageMetadataPrefix :+ "decode_archive",
+    summary = "The time to decode a package archive to extract metadata information.",
+    description = """This metric represents the time spent scanning each uploaded package for new
+            |interfaces and corresponding templates.""",
+    qualification = MetricQualification.Debug,
+  )
+
+  private[metrics] val viewInitialisation: Item = Item(
+    packageMetadataPrefix :+ "view_init",
+    summary = "The time to initialize package metadata view.",
+    description = """As the mapping between interfaces and templates is not persistent - it is
+                        |computed for each Indexer restart by loading all packages which were ever
+                        |uploaded and scanning them to extract metadata information.""",
+    qualification = MetricQualification.Debug,
+  )
+
+}
 
 class IndexMetrics(
-    prefix: MetricName,
+    inventory: IndexHistograms,
     openTelemetryMetricsFactory: LabeledMetricsFactory,
 ) {
 
   import MetricsContext.Implicits.empty
+  private val prefix = inventory.prefix
 
   val transactionTreesBufferSize: Counter =
     openTelemetryMetricsFactory.counter(
@@ -74,7 +113,7 @@ class IndexMetrics(
 
   object db
       extends IndexDBMetrics(
-        prefix :+ "db",
+        inventory.db,
         openTelemetryMetricsFactory,
       )
 
@@ -97,44 +136,16 @@ class IndexMetrics(
     )
 
   object lfValue {
-    private val prefix = IndexMetrics.this.prefix :+ "lf_value"
 
     val computeInterfaceView: Timer =
-      openTelemetryMetricsFactory.timer(
-        MetricInfo(
-          prefix :+ "compute_interface_view",
-          summary = "The time to compute an interface view while serving transaction streams.",
-          description = """Transaction API allows clients to request events by interface-id. When an
-                        |event matches the interface - an interface view is computed, which adds to
-                        |the latency. This metric represents the time for each such computation.""",
-          qualification = MetricQualification.Debug,
-        )
-      )
+      openTelemetryMetricsFactory.timer(inventory.computeInterfaceView.info)
   }
 
   object packageMetadata {
-    private val prefix = IndexMetrics.this.prefix :+ "package_metadata"
 
-    val decodeArchive: Timer = openTelemetryMetricsFactory.timer(
-      MetricInfo(
-        prefix :+ "decode_archive",
-        summary = "The time to decode a package archive to extract metadata information.",
-        description =
-          """This metric represents the time spent scanning each uploaded package for new
-                      |interfaces and corresponding templates.""",
-        qualification = MetricQualification.Debug,
-      )
-    )
+    val decodeArchive: Timer = openTelemetryMetricsFactory.timer(inventory.decodeArchive.info)
 
-    val viewInitialisation: Timer = openTelemetryMetricsFactory.timer(
-      MetricInfo(
-        prefix :+ "view_init",
-        summary = "The time to initialize package metadata view.",
-        description = """As the mapping between interfaces and templates is not persistent - it is
-                      |computed for each Indexer restart by loading all packages which were ever
-                      |uploaded and scanning them to extract metadata information.""",
-        qualification = MetricQualification.Debug,
-      )
-    )
+    val viewInitialisation: Timer =
+      openTelemetryMetricsFactory.timer(inventory.viewInitialisation.info)
   }
 }

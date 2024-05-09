@@ -7,7 +7,7 @@ import cats.data.NonEmptyVector
 import com.daml.lf.transaction.GlobalKey
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.ContractKeyStateValue.{Assigned, Unassigned}
 import com.digitalasset.canton.platform.store.cache.ContractStateValue.{
   Active,
@@ -90,7 +90,7 @@ object ContractStateCaches {
       initialCacheIndex: Offset,
       maxContractsCacheSize: Long,
       maxKeyCacheSize: Long,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext

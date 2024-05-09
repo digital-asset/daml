@@ -11,7 +11,7 @@ import com.digitalasset.canton.ledger.localstore.api.{
   IdentityProviderConfigUpdate,
 }
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.github.benmanes.caffeine.cache as caffeine
 
 import scala.concurrent.duration.FiniteDuration
@@ -25,7 +25,7 @@ class CachedIdentityProviderConfigStore(
     delegate: IdentityProviderConfigStore,
     cacheExpiryAfterWrite: FiniteDuration,
     maximumCacheSize: Int,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit val executionContext: ExecutionContext, loggingContext: LoggingContextWithTrace)
     extends IdentityProviderConfigStore

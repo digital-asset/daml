@@ -67,6 +67,7 @@ object ParticipantNodeParameters {
       dbMigrateAndStart = false,
       exitOnFatalFailures = true,
       useUnifiedSequencer = false,
+      watchdog = None,
     ),
     partyChangeNotification = PartyNotificationConfig.Eager,
     adminWorkflow = AdminWorkflowConfig(

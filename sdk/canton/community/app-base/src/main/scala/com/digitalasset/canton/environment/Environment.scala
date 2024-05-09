@@ -26,10 +26,14 @@ import com.digitalasset.canton.environment.Environment.*
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.MetricsConfig.JvmMetrics
-import com.digitalasset.canton.metrics.MetricsRegistry
+import com.digitalasset.canton.metrics.{CantonHistograms, HistogramInventory, MetricsRegistry}
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.resource.DbMigrationsFactory
-import com.digitalasset.canton.telemetry.{ConfiguredOpenTelemetry, OpenTelemetryFactory}
+import com.digitalasset.canton.telemetry.{
+  ConfiguredOpenTelemetry,
+  MetricsInfoFilter,
+  OpenTelemetryFactory,
+}
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
@@ -64,14 +68,23 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
       noTracingLogger,
     )
 
+  private val histogramInventory = new HistogramInventory()
+  private val histograms = new CantonHistograms()(histogramInventory)
+  private val baseFilter = new MetricsInfoFilter(
+    config.monitoring.metrics.globalFilters,
+    config.monitoring.metrics.qualifiers.toSet,
+  )
   lazy val configuredOpenTelemetry: ConfiguredOpenTelemetry = {
     OpenTelemetryFactory.initializeOpenTelemetry(
-      testingConfig.initializeGlobalOpenTelemetry,
-      config.monitoring.metrics.reporters.nonEmpty,
-      MetricsRegistry
+      initializeGlobalOpenTelemetry = testingConfig.initializeGlobalOpenTelemetry,
+      testingSupportAdhocMetrics = testingConfig.supportAdhocMetrics,
+      metricsEnabled = config.monitoring.metrics.reporters.nonEmpty,
+      attachReporters = MetricsRegistry
         .registerReporters(config.monitoring.metrics, loggerFactory),
-      config.monitoring.tracing.tracer,
-      config.monitoring.metrics.histograms,
+      config = config.monitoring.tracing.tracer,
+      histogramInventory = histogramInventory,
+      histogramFilter = baseFilter,
+      histogramConfigs = config.monitoring.metrics.histograms,
       loggerFactory,
     )
   }
@@ -79,11 +92,12 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   config.monitoring.metrics.jvmMetrics
     .foreach(JvmMetrics.setup(_, configuredOpenTelemetry.openTelemetry))
 
-  // public for buildDocs task to be able to construct a fake participant and domain to document available metrics via reflection
-
   lazy val metricsRegistry: MetricsRegistry = new MetricsRegistry(
     configuredOpenTelemetry.openTelemetry.meterBuilder("canton").build(),
     testingConfig.metricsFactoryType,
+    testingConfig.supportAdhocMetrics,
+    histograms,
+    baseFilter,
     loggerFactory,
   )
 

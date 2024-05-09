@@ -7,11 +7,9 @@ import cats.Monad
 import cats.data.OptionT
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
-import com.daml.metrics.api.testing.InMemoryMetricsFactory
-import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.*
 import com.digitalasset.canton.participant.protocol.RequestJournal.{
   RequestData,
@@ -43,12 +41,7 @@ class RequestJournalTest extends AsyncWordSpec with BaseTest with HasTestCloseCo
     new RequestJournal(store, mkSyncDomainMetrics, loggerFactory, initRc, FutureSupervisor.Noop)
   }
 
-  private def mkSyncDomainMetrics = {
-    new SyncDomainMetrics(
-      MetricName(getClass.getSimpleName),
-      new InMemoryMetricsFactory,
-    )(MetricsContext.Empty)
-  }
+  private def mkSyncDomainMetrics = ParticipantTestMetrics.domain
 
   def insertWithCursor(
       rj: RequestJournal,

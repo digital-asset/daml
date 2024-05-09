@@ -319,7 +319,7 @@ class ProtocolProcessorTest
         Eval.now(multiDomainEventLog),
         inFlightSubmissionTracker,
         startingPoints,
-        _ => timeTracker,
+        () => timeTracker,
         ParticipantTestMetrics.domain,
         CachingConfigs.defaultSessionKeyCacheConfig,
         timeouts,

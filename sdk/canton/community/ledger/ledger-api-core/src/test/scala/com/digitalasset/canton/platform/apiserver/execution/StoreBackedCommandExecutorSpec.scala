@@ -32,7 +32,7 @@ import com.digitalasset.canton.ledger.participant.state.index.{
   IndexPackagesService,
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.PackageName
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause.InterpretationTimeExceeded
@@ -125,7 +125,7 @@ class StoreBackedCommandExecutorSpec
       mock[ContractStore],
       AuthorityResolver(),
       authenticateContract = _ => Right(()),
-      metrics = Metrics.ForTesting,
+      metrics = LedgerApiServerMetrics.ForTesting,
       EngineLoggingConfig(),
       loggerFactory = loggerFactory,
       dynParamGetter = new TestDynamicDomainParameterGetter(tolerance),
@@ -333,7 +333,7 @@ class StoreBackedCommandExecutorSpec
         store,
         AuthorityResolver(),
         authenticateContract = _ => authenticationResult,
-        metrics = Metrics.ForTesting,
+        metrics = LedgerApiServerMetrics.ForTesting,
         EngineLoggingConfig(),
         loggerFactory = loggerFactory,
         dynParamGetter = new TestDynamicDomainParameterGetter(NonNegativeFiniteDuration.Zero),

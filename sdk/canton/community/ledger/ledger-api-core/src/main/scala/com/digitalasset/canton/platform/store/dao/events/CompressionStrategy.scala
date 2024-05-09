@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.serialization.Compression
 
 import java.io.ByteArrayOutputStream
@@ -18,13 +18,16 @@ final case class CompressionStrategy(
 
 object CompressionStrategy {
 
-  def none(metrics: Metrics): CompressionStrategy =
+  def none(metrics: LedgerApiServerMetrics): CompressionStrategy =
     buildUniform(Compression.Algorithm.None, metrics)
 
-  def allGZIP(metrics: Metrics): CompressionStrategy =
+  def allGZIP(metrics: LedgerApiServerMetrics): CompressionStrategy =
     buildUniform(Compression.Algorithm.GZIP, metrics)
 
-  def buildUniform(algorithm: Compression.Algorithm, metrics: Metrics): CompressionStrategy =
+  def buildUniform(
+      algorithm: Compression.Algorithm,
+      metrics: LedgerApiServerMetrics,
+  ): CompressionStrategy =
     build(algorithm, algorithm, algorithm, algorithm, metrics)
 
   def build(
@@ -32,7 +35,7 @@ object CompressionStrategy {
       createKeyValueAlgorithm: Compression.Algorithm,
       exerciseArgumentAlgorithm: Compression.Algorithm,
       exerciseResultAlgorithm: Compression.Algorithm,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
   ): CompressionStrategy = CompressionStrategy(
     createArgumentCompression =
       FieldCompressionStrategy(createArgumentAlgorithm, CompressionMetrics.createArgument(metrics)),

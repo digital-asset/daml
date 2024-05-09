@@ -31,8 +31,9 @@ import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.admin.data.{SequencerHealthStatus, SequencerNodeStatus}
 import com.digitalasset.canton.health.{
   ComponentStatus,
+  DependenciesHealthService,
   GrpcHealthReporter,
-  HealthService,
+  LivenessHealthService,
   MutableHealthQuasiComponent,
 }
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext, Lifecycle}
@@ -131,7 +132,7 @@ class SequencerNodeBootstrap(
       nodeId: UniqueIdentifier,
       manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
-      healthService: HealthService,
+      healthService: DependenciesHealthService,
   ): BootstrapStageOrLeaf[SequencerNode] = {
     new WaitForSequencerToDomainInit(
       storage,
@@ -167,7 +168,7 @@ class SequencerNodeBootstrap(
       sequencerId: SequencerId,
       manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
-      healthService: HealthService,
+      healthService: DependenciesHealthService,
   ) extends BootstrapStageWithStorage[
         SequencerNode,
         StartupNode,
@@ -411,7 +412,7 @@ class SequencerNodeBootstrap(
       domainTopologyManager: DomainTopologyManager,
       preinitializedServer: Option[DynamicDomainGrpcServer],
       healthReporter: GrpcHealthReporter,
-      healthService: HealthService,
+      healthService: DependenciesHealthService,
   ) extends BootstrapStage[SequencerNode, RunningNode[SequencerNode]](
         description = "Startup sequencer node",
         bootstrapStageCallback,
@@ -699,20 +700,25 @@ class SequencerNodeBootstrap(
 
   // The service exposed by the gRPC health endpoint of sequencer public API
   // This will be used by sequencer clients who perform client-side load balancing to determine sequencer health
-  private lazy val sequencerPublicApiHealthService = HealthService(
+  private lazy val sequencerPublicApiHealthService = DependenciesHealthService(
     CantonGrpcUtil.sequencerHealthCheckServiceName,
     logger,
     timeouts,
     criticalDependencies = Seq(sequencerHealth),
   )
 
-  override protected def mkNodeHealthService(storage: Storage): HealthService =
-    HealthService(
+  override protected def mkNodeHealthService(
+      storage: Storage
+  ): (DependenciesHealthService, LivenessHealthService) = {
+    val readiness = DependenciesHealthService(
       "sequencer",
       logger,
       timeouts,
       Seq(storage),
     )
+    val liveness = LivenessHealthService.alwaysAlive(logger, timeouts)
+    (readiness, liveness)
+  }
 
   // Creates a dynamic domain server that initially only exposes a health endpoint, and can later be
   // setup with the sequencer runtime to provide the full sequencer domain API
