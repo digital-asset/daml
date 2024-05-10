@@ -58,17 +58,77 @@ runGammaUnderUpgrades Upgrading{ _past = pastAction, _present = presentAction } 
     presentResult <- withReaderT _present presentAction
     pure Upgrading { _past = pastResult, _present = presentResult }
 
-checkUpgrade :: Version -> Upgrading LF.Package -> [Diagnostic]
-checkUpgrade version package =
-    let upgradingWorld = fmap (\package -> emptyGamma (initWorldSelf [] package) version) package
-        result =
-            runGammaF
-                upgradingWorld
-                (checkUpgradeM package)
+checkUpgradeDependencies
+    :: Version
+    -> Bool
+    -> LF.Package
+    -> [LF.DalfPackage]
+    -> Maybe ((LF.PackageId, LF.Package), [(LF.PackageId, LF.Package)])
+    -> [Diagnostic]
+checkUpgradeDependencies _ _ _ _ Nothing = []
+checkUpgradeDependencies version shouldTypecheckUpgrades presentPkg presentDeps (Just ((_pastPkgId, pastPkg), pastDeps)) =
+    let package = Upgrading { _past = pastPkg, _present = presentPkg }
+        upgradingWorld = fmap (\package -> emptyGamma (initWorldSelf [] package) version) package
     in
+    extractDiagnostics $
+        runGammaF upgradingWorld $
+            when shouldTypecheckUpgrades (checkUpgradeDependenciesM presentPkg presentDeps pastPkg pastDeps)
+
+checkUpgradeDependenciesM
+    :: LF.Package
+    -> [LF.DalfPackage]
+    -> LF.Package
+    -> [(LF.PackageId, LF.Package)]
+    -> TcUpgradeM ()
+checkUpgradeDependenciesM _presentPkg presentDeps _pastPkg pastDeps = do
+    let packageToNameVersion :: LF.Package -> Maybe (LF.PackageName, LF.PackageVersion)
+        packageToNameVersion LF.Package{packageMetadata = Nothing} = Nothing
+        packageToNameVersion LF.Package{packageMetadata = Just LF.PackageMetadata{packageName, packageVersion}} =
+            Just (packageName, packageVersion)
+        mPresentDepsMap =
+            HMS.fromList <$> traverse (packageToNameVersion . extPackagePkg . dalfPackagePkg) presentDeps
+        mPastDepsMap =
+            HMS.fromList <$> traverse (packageToNameVersion . snd) pastDeps
+    case (mPresentDepsMap, mPastDepsMap) of
+        (Just presentDepsMap, Just pastDepsMap) -> do
+          let (_del, existingDeps, _new) = extractDelExistNew Upgrading { _past = pastDepsMap, _present = presentDepsMap }
+          forM_ (HMS.toList existingDeps) $ \(depName, depVersions) -> do
+              case LF.comparePackageVersion (_present depVersions) (_past depVersions) of
+                Left (FirstVersionUnparseable presentVersion) ->
+                  warnWithContextF present $
+                    WPresentDependencyHasUnparseableVersion depName presentVersion
+                Left (SecondVersionUnparseable pastVersion) ->
+                  warnWithContextF present $
+                    WPastDependencyHasUnparseableVersion depName pastVersion
+                Right LT ->
+                  throwWithContextF present $ EUpgradeError $
+                    DependencyHasLowerVersionDespiteUpgrade depName (_present depVersions) (_past depVersions)
+                _ -> pure () -- if it's greater than or equal, the dependency is a valid upgrade
+        _ ->
+            -- at least one of the one of the packages has no metadata
+            pure ()
+      
+extractDiagnostics :: Either Error ((), [Warning]) -> [Diagnostic]
+extractDiagnostics result =
     case result of
       Left err -> [toDiagnostic err]
       Right ((), warnings) -> map toDiagnostic warnings
+
+checkUpgrade :: Version -> Bool -> LF.Package -> Maybe (LF.PackageId, LF.Package) -> [Diagnostic]
+checkUpgrade version shouldTypecheckUpgrades presentPkg mbUpgradedPackage =
+    let bothPkgDiagnostics :: Either Error ((), [Warning])
+        bothPkgDiagnostics =
+            case mbUpgradedPackage of
+                Nothing ->
+                    Right ((), [])
+                Just (_, pastPkg) ->
+                    let package = Upgrading { _past = pastPkg, _present = presentPkg }
+                        upgradingWorld = fmap (\package -> emptyGamma (initWorldSelf [] package) version) package
+                    in
+                    runGammaF upgradingWorld $ do
+                        when shouldTypecheckUpgrades (checkUpgradeM package)
+    in
+    extractDiagnostics bothPkgDiagnostics 
 
 checkUpgradeM :: Upgrading LF.Package -> TcUpgradeM ()
 checkUpgradeM package = do

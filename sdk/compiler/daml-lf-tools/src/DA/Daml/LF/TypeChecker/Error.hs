@@ -190,6 +190,7 @@ data UpgradeError
   | ChoiceChangedReturnType !ChoiceName
   | TemplateRemovedKey !TypeConName !TemplateKey
   | TemplateAddedKey !TypeConName !TemplateKey
+  | DependencyHasLowerVersionDespiteUpgrade !PackageName !PackageVersion !PackageVersion
   deriving (Eq, Ord, Show)
 
 data UpgradedRecordOrigin
@@ -592,6 +593,11 @@ instance Pretty UpgradeError where
     TemplateChangedKeyType templateName -> "The upgraded template " <> pPrint templateName <> " cannot change its key type."
     TemplateRemovedKey templateName _key -> "The upgraded template " <> pPrint templateName <> " cannot remove its key."
     TemplateAddedKey template _key -> "The upgraded template " <> pPrint template <> " cannot add a key where it didn't have one previously."
+    DependencyHasLowerVersionDespiteUpgrade pkgName presentVersion pastVersion ->
+      vcat
+        [ "Dependency " <> pPrint pkgName <> " has version " <> pPrint presentVersion <> " on the upgrading package, which is older than version " <> pPrint pastVersion <> " on the upgraded package."
+        , "Dependency versions of upgrading packages must always be greater or equal to the dependency versions on upgraded packages."
+        ]
 
 instance Pretty UpgradedRecordOrigin where
   pPrint = \case
@@ -646,6 +652,8 @@ data Warning
     -- ^ When upgrading, we extract relevant expressions for things like
     -- signatories. If the expression changes shape so that we can't get the
     -- underlying expression that has changed, this warning is emitted.
+  | WPastDependencyHasUnparseableVersion !PackageName !PackageVersion
+  | WPresentDependencyHasUnparseableVersion !PackageName !PackageVersion
   deriving (Show)
 
 warningLocation :: Warning -> Maybe SourceLoc
@@ -670,6 +678,10 @@ instance Pretty Warning where
     WTemplateChangedKeyExpression template -> "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
     WTemplateChangedKeyMaintainers template -> "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
     WCouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
+    WPastDependencyHasUnparseableVersion pkgName version ->
+      "Dependency " <> pPrint pkgName <> " of upgrading package has a version which cannot be parsed: '" <> pPrint version <> "'"
+    WPresentDependencyHasUnparseableVersion pkgName version ->
+      "Dependency " <> pPrint pkgName <> " of upgraded package has a version which cannot be parsed: '" <> pPrint version <> "'"
 
 instance ToDiagnostic Warning where
   toDiagnostic warning = Diagnostic

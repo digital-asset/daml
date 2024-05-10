@@ -236,6 +236,11 @@ da_scala_test_suite(
             "//test-common:upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-v2.dar",
             "//test-common:upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v1.dar",
             "//test-common:upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v2.dar",
+            # Test for dependency upgrades
+            "//test-common:upgrades-FailsWhenDepsDowngradeVersions-dep-v1.dar",
+            "//test-common:upgrades-FailsWhenDepsDowngradeVersions-dep-v2.dar",
+            "//test-common:upgrades-FailsWhenDepsDowngradeVersions-v1.dar",
+            "//test-common:upgrades-FailsWhenDepsDowngradeVersions-v2.dar",
         ],
         flaky = False,
         scala_deps = [
