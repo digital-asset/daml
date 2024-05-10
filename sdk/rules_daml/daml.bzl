@@ -119,7 +119,7 @@ def _daml_build_impl(ctx):
     ctx.actions.run_shell(
         tools = [damlc],
         inputs = [daml_yaml] + srcs + input_dars,
-        outputs = [output_dar, output_stdout],
+        outputs = [output_dar] + ([output_stdout] if output_stdout != None else []),
         progress_message = "Building Daml project %s" % name,
         command = """
             set -eou pipefail
@@ -132,7 +132,7 @@ def _daml_build_impl(ctx):
             {sed} -i 's/daml-script$/daml-script.dar/;s/daml3-script$/daml3-script.dar/;s/daml-trigger$/daml-trigger.dar/' $tmpdir/daml.yaml
             {cp_srcs}
             {cp_dars}
-            {damlc} build --project-root $tmpdir {ghc_opts} -o $PWD/{output_dar} 2>&1 | tee $PWD/{output_stdout}
+            {damlc} build --project-root $tmpdir {ghc_opts} -o $PWD/{output_dar} 2>&1 | {output_stdout_command}
         """.format(
             config = daml_yaml.path,
             cp_srcs = "\n".join([
@@ -153,7 +153,7 @@ def _daml_build_impl(ctx):
             sed = posix.commands["sed"],
             damlc = damlc.path,
             output_dar = output_dar.path,
-            output_stdout = output_stdout.path,
+            output_stdout_command = "tee " + output_stdout.path if output_stdout != None else "cat",
             sdk_version = sdk_version,
             ghc_opts = " ".join(ghc_opts),
         ),
