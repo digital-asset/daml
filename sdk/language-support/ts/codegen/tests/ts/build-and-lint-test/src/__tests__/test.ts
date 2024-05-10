@@ -917,7 +917,7 @@ describe("interfaces", () => {
     // meaningful we *must not* codegen or load Hidden
     type NotVisibleInTs = { owner: Party };
     const NotVisibleInTs: Pick<Template<{ owner: Party }>, "templateId"> = {
-      templateId: "Hidden:NotVisibleInTs",
+      templateId: "#hidden:Hidden:NotVisibleInTs",
     };
     const initialPayload: NotVisibleInTs = { owner: ALICE_PARTY };
 

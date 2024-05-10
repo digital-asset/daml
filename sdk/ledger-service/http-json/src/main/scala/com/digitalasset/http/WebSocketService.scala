@@ -48,7 +48,7 @@ import Liskov.<~<
 import com.daml.fetchcontracts.domain.ContractTypeRef
 import com.daml.fetchcontracts.domain.ResolvedQuery
 import ResolvedQuery.Unsupported
-import com.daml.fetchcontracts.domain.ContractTypeId.{OptionalPkg, toLedgerApiValue}
+import com.daml.fetchcontracts.domain.ContractTypeId.{RequiredPkg, toLedgerApiValue}
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
@@ -71,7 +71,7 @@ object WebSocketService {
 
   final case class StreamPredicate[+Positive](
       resolvedQuery: domain.ResolvedQuery,
-      unresolved: Set[domain.ContractTypeId.OptionalPkg],
+      unresolved: Set[domain.ContractTypeId.RequiredPkg],
       fn: (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Positive],
       dbQuery: (domain.PartySet, dbbackend.ContractDao) => ConnectionIO[
         _ <: Vector[(domain.ActiveContract.ResolvedCtTyId[JsValue], Positive)]
@@ -251,7 +251,7 @@ object WebSocketService {
   final case class ResolvedSearchForeverRequest(
       resolvedQuery: ResolvedQuery,
       queriesWithPos: NonEmpty[List[(ResolvedSearchForeverQuery, Int)]],
-      unresolved: Set[domain.ContractTypeId.OptionalPkg],
+      unresolved: Set[domain.ContractTypeId.RequiredPkg],
   )
 
   final case class ResolvedSearchForeverQuery(
@@ -298,7 +298,7 @@ object WebSocketService {
 
         def resolveIds(
             sfq: domain.SearchForeverQuery
-        ): Future[(Set[ContractTypeRef.Resolved], Set[domain.ContractTypeId.OptionalPkg])] =
+        ): Future[(Set[ContractTypeRef.Resolved], Set[domain.ContractTypeId.RequiredPkg])] =
           sfq.templateIds.toList.toNEF
             .traverse(x =>
               resolveContractTypeId(jwt, ledgerId)(x).map(_.toOption.flatten.toLeft(x))
@@ -306,7 +306,7 @@ object WebSocketService {
             .map(
               _.toSet.partitionMap(
                 identity[
-                  Either[ContractTypeRef.Resolved, domain.ContractTypeId.OptionalPkg]
+                  Either[ContractTypeRef.Resolved, domain.ContractTypeId.RequiredPkg]
                 ]
               )
             )
@@ -318,7 +318,7 @@ object WebSocketService {
           Unsupported \/ (
               ResolvedSearchForeverQuery,
               Int,
-              Set[domain.ContractTypeId.OptionalPkg],
+              Set[domain.ContractTypeId.RequiredPkg],
           )
         ] = {
           (for {
@@ -351,7 +351,7 @@ object WebSocketService {
                 (
                     ResolvedSearchForeverQuery,
                     Int,
-                    Set[domain.ContractTypeId.OptionalPkg],
+                    Set[domain.ContractTypeId.RequiredPkg],
                 )
               ],
             ) =
@@ -537,7 +537,7 @@ object WebSocketService {
       resolvedQuery: ResolvedQuery,
       list: NonEmptyList[domain.ContractKeyStreamRequest[C, V]],
       q: NonEmpty[Map[ContractTypeRef.Resolved, NonEmpty[Set[V]]]],
-      unresolved: Set[domain.ContractTypeId.OptionalPkg],
+      unresolved: Set[domain.ContractTypeId.RequiredPkg],
   )
 
   implicit def EnrichedContractKeyWithStreamQuery(implicit
@@ -615,7 +615,7 @@ object WebSocketService {
         }
         .map { resolveTries =>
           val (resolvedWithKey, unresolved) = resolveTries
-            .toSet[Either[(ContractTypeRef.Resolved, LfV), OptionalPkg]]
+            .toSet[Either[(ContractTypeRef.Resolved, LfV), RequiredPkg]]
             .partitionMap(identity)
           for {
             resolvedWithKey <- (NonEmpty from resolvedWithKey toRightDisjunction InvalidUserInput(
@@ -1012,7 +1012,7 @@ class WebSocketService(
 
     def processResolved(
         resolvedQuery: ResolvedQuery,
-        unresolved: Set[OptionalPkg],
+        unresolved: Set[RequiredPkg],
         fn: (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Q.Positive],
     ) =
       acsPred
@@ -1178,7 +1178,7 @@ class WebSocketService(
       .map(_ mapLfv lfValueToJsValue)
 
   private def reportUnresolvedTemplateIds(
-      unresolved: Set[domain.ContractTypeId.OptionalPkg]
+      unresolved: Set[domain.ContractTypeId.RequiredPkg]
   ): Source[JsValue, NotUsed] =
     if (unresolved.isEmpty) Source.empty
     else {

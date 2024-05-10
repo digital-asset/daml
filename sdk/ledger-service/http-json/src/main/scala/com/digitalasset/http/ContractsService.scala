@@ -136,7 +136,7 @@ class ContractsService(
   private[this] def findByContractKey(
       jwt: Jwt,
       parties: domain.PartySet,
-      templateId: domain.ContractTypeId.Template.OptionalPkg,
+      templateId: domain.ContractTypeId.Template.RequiredPkg,
       ledgerId: LedgerApiDomain.LedgerId,
       contractKey: LfValue,
   )(implicit
@@ -156,7 +156,7 @@ class ContractsService(
   private[this] def findByContractId(
       jwt: Jwt,
       parties: domain.PartySet,
-      templateId: Option[domain.ContractTypeId.OptionalPkg],
+      templateId: Option[domain.ContractTypeId.RequiredPkg],
       ledgerId: LedgerApiDomain.LedgerId,
       contractId: domain.ContractId,
   )(implicit
@@ -690,7 +690,7 @@ class ContractsService(
       InternalError(Symbol("lfValueToJsValue"), e.description)
     )
 
-  private[http] def resolveContractTypeIds[Tid <: domain.ContractTypeId.OptionalPkg](
+  private[http] def resolveContractTypeIds[Tid <: domain.ContractTypeId.RequiredPkg](
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   )(
@@ -699,7 +699,7 @@ class ContractsService(
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[(Set[ContractTypeRef.Resolved], Set[Tid])] = {
     import scalaz.syntax.traverse._
-    import scalaz.std.list._, scalaz.std.scalaFuture._
+    import scalaz.std.list._
 
     xs.toList.toNEF
       .traverse { x =>
@@ -729,8 +729,8 @@ object ContractsService {
     type QueryLang = SearchContext[
       domain.ResolvedQuery
     ]
-    type ById = SearchContext[Option[domain.ContractTypeId.OptionalPkg]]
-    type Key = SearchContext[domain.ContractTypeId.Template.OptionalPkg]
+    type ById = SearchContext[Option[domain.ContractTypeId.RequiredPkg]]
+    type Key = SearchContext[domain.ContractTypeId.Template.RequiredPkg]
   }
 
   // A prototypical abstraction over the in-memory/in-DB split, accounting for

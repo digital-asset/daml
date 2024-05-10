@@ -19,31 +19,31 @@ class DomainJsonEncoder(
   import com.daml.http.util.ErrorOps._
 
   def encodeExerciseCommand(
-      cmd: domain.ExerciseCommand.OptionalPkg[lav1.value.Value, domain.ContractLocator[
+      cmd: domain.ExerciseCommand.RequiredPkg[lav1.value.Value, domain.ContractLocator[
         lav1.value.Value
       ]]
   )(implicit
-      ev: JsonWriter[domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]]
+      ev: JsonWriter[domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]]
   ): JsonError \/ JsValue =
     for {
       x <- cmd.bitraverse(
         arg => apiValueToJsValue(arg),
         ref => ref.traverse(a => apiValueToJsValue(a)),
-      ): JsonError \/ domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]
+      ): JsonError \/ domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]
 
       y <- SprayJson.encode(x).liftErr(JsonError)
 
     } yield y
 
-  def encodeCreateCommand[CtId](
-      cmd: domain.CreateCommand[lav1.value.Record, CtId]
+  def encodeCreateCommand(
+      cmd: domain.CreateCommand.RequiredPkg[lav1.value.Record]
   )(implicit
-      ev: JsonWriter[domain.CreateCommand[JsValue, CtId]]
+      ev: JsonWriter[domain.CreateCommand.RequiredPkg[JsValue]]
   ): JsonError \/ JsValue =
     for {
       x <- cmd.traversePayload(
         apiRecordToJsObject(_)
-      ): JsonError \/ domain.CreateCommand[JsValue, CtId]
+      ): JsonError \/ domain.CreateCommand.RequiredPkg[JsValue]
       y <- SprayJson.encode(x).liftErr(JsonError)
 
     } yield y

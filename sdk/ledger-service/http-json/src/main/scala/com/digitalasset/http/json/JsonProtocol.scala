@@ -185,41 +185,15 @@ object JsonProtocol extends JsonProtocolLow {
         deserializationError(s"Expected JsString(<packageId>:<module>:<entity>), got: $json")
     }
 
-  implicit def TemplateIdOptionalPkgFormat[CtId[T] <: domain.ContractTypeId[T]](implicit
-      CtId: domain.ContractTypeId.Like[CtId]
-  ): RootJsonFormat[CtId[Option[String]]] = {
-    import CtId.{OptionalPkg => IdO}
-    new RootJsonFormat[IdO] {
-
-      override def write(a: IdO): JsValue = a.packageId match {
-        case Some(p) => JsString(s"${p: String}:${a.moduleName: String}:${a.entityName: String}")
-        case None => JsString(s"${a.moduleName: String}:${a.entityName: String}")
-      }
-
-      override def read(json: JsValue): IdO = json match {
-        case JsString(str) =>
-          str.split(':') match {
-            case Array(p, m, e) => CtId(Some(p), m, e)
-            case Array(m, e) => CtId(None, m, e)
-            case _ => error(json)
-          }
-        case _ => error(json)
-      }
-
-      private def error(json: JsValue): Nothing =
-        deserializationError(s"Expected JsString([<packageId>:]<module>:<entity>), got: $json")
-    }
-  }
-
   private[this] def decodeContractRef(
       fields: Map[String, JsValue],
       what: String,
   ): domain.InputContractRef[JsValue] =
     (fields get "templateId", fields get "key", fields get "contractId") match {
       case (Some(templateId), Some(key), None) =>
-        -\/((templateId.convertTo[domain.ContractTypeId.Template.OptionalPkg], key))
+        -\/((templateId.convertTo[domain.ContractTypeId.Template.RequiredPkg], key))
       case (otid, None, Some(contractId)) =>
-        val a = otid map (_.convertTo[domain.ContractTypeId.OptionalPkg])
+        val a = otid map (_.convertTo[domain.ContractTypeId.RequiredPkg])
         val b = contractId.convertTo[domain.ContractId]
         \/-((a, b))
       case (None, Some(_), None) =>
@@ -455,20 +429,20 @@ object JsonProtocol extends JsonProtocolLow {
   }
 
   implicit val CreateCommandFormat: RootJsonFormat[
-    domain.CreateCommand[JsValue, domain.ContractTypeId.Template.OptionalPkg]
+    domain.CreateCommand[JsValue, domain.ContractTypeId.Template.RequiredPkg]
   ] =
     jsonFormat3(
-      domain.CreateCommand[JsValue, domain.ContractTypeId.Template.OptionalPkg]
+      domain.CreateCommand[JsValue, domain.ContractTypeId.Template.RequiredPkg]
     )
 
   implicit val ExerciseCommandFormat: RootJsonFormat[
-    domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]
+    domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]
   ] =
     new RootJsonFormat[
-      domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]
+      domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]
     ] {
       override def write(
-          obj: domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]
+          obj: domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]
       ): JsValue = {
 
         val reference: JsObject =
@@ -487,12 +461,12 @@ object JsonProtocol extends JsonProtocolLow {
 
       override def read(
           json: JsValue
-      ): domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]] = {
+      ): domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]] = {
         val reference = ContractLocatorFormat.read(json)
         val choice = fromField[domain.Choice](json, "choice")
         val argument = fromField[JsValue](json, "argument")
         val meta =
-          fromField[Option[domain.CommandMeta[ContractTypeId.Template.OptionalPkg]]](
+          fromField[Option[domain.CommandMeta[ContractTypeId.Template.RequiredPkg]]](
             json,
             "meta",
           )
@@ -502,7 +476,7 @@ object JsonProtocol extends JsonProtocolLow {
           choice = choice,
           argument = argument,
           choiceInterfaceId =
-            fromField[Option[domain.ContractTypeId.OptionalPkg]](json, "choiceInterfaceId"),
+            fromField[Option[domain.ContractTypeId.RequiredPkg]](json, "choiceInterfaceId"),
           meta = meta,
         )
       }
@@ -512,16 +486,16 @@ object JsonProtocol extends JsonProtocolLow {
     domain.CreateAndExerciseCommand[
       JsValue,
       JsValue,
-      domain.ContractTypeId.Template.OptionalPkg,
-      domain.ContractTypeId.OptionalPkg,
+      domain.ContractTypeId.Template.RequiredPkg,
+      domain.ContractTypeId.RequiredPkg,
     ]
   ] =
     jsonFormat6(
       domain.CreateAndExerciseCommand[
         JsValue,
         JsValue,
-        domain.ContractTypeId.Template.OptionalPkg,
-        domain.ContractTypeId.OptionalPkg,
+        domain.ContractTypeId.Template.RequiredPkg,
+        domain.ContractTypeId.RequiredPkg,
       ]
     )
 

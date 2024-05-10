@@ -160,7 +160,7 @@ trait WithQueryStoreSetTest extends QueryStoreAndAuthDependentIntegrationTest {
         contractIds <- searchExpectOk(
           searchDataSet,
           jsObject(
-            """{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR", "amount": "111.11"}}"""
+            s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"], "query": {"currency": "EUR", "amount": "111.11"}}"""
           ),
           fixture,
           aliceHeaders,
@@ -193,7 +193,7 @@ trait WithQueryStoreSetTest extends QueryStoreAndAuthDependentIntegrationTest {
         _ <- searchExpectOk(
           searchDataSet,
           jsObject(
-            """{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR", "amount": "111.11"}}"""
+            s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"], "query": {"currency": "EUR", "amount": "111.11"}}"""
           ),
           fixture,
           aliceHeaders,
@@ -245,16 +245,11 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
   val availabilitySecurity: SecurityTest =
     SecurityTest(property = Availability, asset = "HTTP JSON API Service")
 
-  object CIou {
-    val CIou: domain.ContractTypeId.Template.OptionalPkg =
-      domain.ContractTypeId.Template(None, "CIou", "CIou")
-  }
-
   override def useTls = UseTls.NoTls
 
   protected def genSearchDataSet(
       party: domain.Party
-  ): List[domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg]] =
+  ): List[domain.CreateCommand[v.Record, domain.ContractTypeId.Template.RequiredPkg]] =
     List(
       iouCreateCommand(
         amount = "111.11",
@@ -298,7 +293,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         val searchDataSet = genSearchDataSet(alice)
         searchExpectOk(
           searchDataSet,
-          jsObject("""{"templateIds": ["Iou:Iou"]}"""),
+          jsObject(s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"]}"""),
           fixture,
           headers,
         ).map { acl: List[domain.ActiveContract.ResolvedCtTyId[JsValue]] =>
@@ -308,12 +303,12 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     }
 
     "single party with package id" in withHttpService { fixture =>
-      val pkgId = packageIdOfDar(AbstractHttpServiceIntegrationTestFuns.dar1)
+      import AbstractHttpServiceIntegrationTestFuns.pkgIdModelTests
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         val searchDataSet = genSearchDataSet(alice)
         searchExpectOk(
           searchDataSet,
-          jsObject(s"""{"templateIds": ["$pkgId:Iou:Iou"]}"""),
+          jsObject(s"""{"templateIds": ["$pkgIdModelTests:Iou:Iou"]}"""),
           fixture,
           headers,
         ).map { acl: List[domain.ActiveContract.ResolvedCtTyId[JsValue]] =>
@@ -342,14 +337,14 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         _ = bobAccountResp.status shouldBe StatusCodes.OK
         _ <- searchExpectOk(
           List(),
-          jsObject("""{"templateIds": ["Account:Account"]}"""),
+          jsObject(s"""{"templateIds": ["${TpId.Account.Account.fqn}"]}"""),
           fixture,
           aliceHeaders,
         )
           .map(acl => acl.size shouldBe 1)
         _ <- searchExpectOk(
           List(),
-          jsObject("""{"templateIds": ["Account:Account"]}"""),
+          jsObject(s"""{"templateIds": ["${TpId.Account.Account.fqn}"]}"""),
           fixture,
           bobHeaders,
         )
@@ -359,7 +354,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           .flatMap(headers =>
             searchExpectOk(
               List(),
-              jsObject("""{"templateIds": ["Account:Account"]}"""),
+              jsObject(s"""{"templateIds": ["${TpId.Account.Account.fqn}"]}"""),
               fixture,
               headers,
             )
@@ -377,7 +372,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, aliceHeaders) = aliceH
         _ <- postCreateCommand(
-          iouCommand(alice, CIou.CIou),
+          iouCommand(alice, TpId.CIou.CIou),
           fixture,
           aliceHeaders,
         )
@@ -432,7 +427,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         }
         queryAsBoth <- queryHeaders(alice, aliceHeaders, exParties)
         queryAtCtId = {
-          (ctid: domain.ContractTypeId.OptionalPkg, amountKey: String, currencyKey: String) =>
+          (ctid: domain.ContractTypeId.RequiredPkg, amountKey: String, currencyKey: String) =>
             searchExpectOk(
               List.empty,
               Map("templateIds" -> List(ctid)).toJson.asJsObject,
@@ -497,7 +492,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     "warns if some are known" in withHttpService { fixture =>
       val query =
         jsObject(
-          """{"templateIds": ["Iou:Iou", "UnknownModule:UnknownEntity"], "query": {"currency": "EUR"}}"""
+          s"""{"templateIds": ["${TpId.Iou.Iou.fqn}", "UnknownPackage:UnknownModule:UnknownEntity"], "query": {"currency": "EUR"}}"""
         )
       fixture
         .getUniquePartyAndAuthHeaders("UnknownParty")
@@ -507,7 +502,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
               acl.size shouldBe 0
               warnings shouldBe Some(
                 domain.UnknownTemplateIds(
-                  List(domain.ContractTypeId(None, "UnknownModule", "UnknownEntity"))
+                  List(domain.ContractTypeId("UnknownPackage", "UnknownModule", "UnknownEntity"))
                 )
               )
             }
@@ -519,7 +514,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         search(
           genSearchDataSet(alice),
-          jsObject("""{"templateIds": ["AAA:BBB", "XXX:YYY"]}"""),
+          jsObject("""{"templateIds": ["ZZZ:AAA:BBB", "ZZZ:XXX:YYY"]}"""),
           fixture,
           headers,
         ).map { response =>
@@ -528,8 +523,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
               errors shouldBe List(ErrorMessages.cannotResolveAnyTemplateId)
               inside(warnings) { case Some(domain.UnknownTemplateIds(unknownTemplateIds)) =>
                 unknownTemplateIds.toSet shouldBe Set(
-                  domain.ContractTypeId(None, "AAA", "BBB"),
-                  domain.ContractTypeId(None, "XXX", "YYY"),
+                  domain.ContractTypeId("ZZZ", "AAA", "BBB"),
+                  domain.ContractTypeId("ZZZ", "XXX", "YYY"),
                 )
               }
           }
@@ -538,10 +533,26 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     }
   }
 
-  def packageIdOfDar(darFile: java.io.File): String = {
-    import com.daml.lf.{archive, typesig}
-    val dar = archive.UniversalArchiveReader.assertReadFile(darFile)
-    typesig.PackageSignature.read(dar.main)._2.packageId
+  "query with package reference missing from Template IDs" - {
+    "fails if any have package reference missing" in withHttpService { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        search(
+          genSearchDataSet(alice),
+          jsObject(
+            s"""{"templateIds": ["${TpId.Account.Account.fqn}", "Iou:Iou"], "query": {"currency": "EUR"}}"""
+          ),
+          fixture,
+          headers,
+        ).map { response =>
+          inside(response) {
+            case domain.ErrorResponse(List(error), None, StatusCodes.BadRequest, _) =>
+              error should include(
+                "Expected JsString(<packageId>:<module>:<entity>), got: \"Iou:Iou\""
+              )
+          }
+        }
+      }
+    }
   }
 
   private def postCreate(
@@ -556,21 +567,18 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
   }
 
   "should handle multiple package ids with the same name" in withHttpService { fixture =>
-    import AbstractHttpServiceIntegrationTestFuns.{fooV1Dar, fooV2Dar}
+    import AbstractHttpServiceIntegrationTestFuns.{fooV1Dar, fooV2Dar, pkgIdFooV1, pkgIdFooV2}
 
     for {
       _ <- uploadPackage(fixture)(fooV1Dar)
       _ <- uploadPackage(fixture)(fooV2Dar)
-
-      pkgIdV1 = packageIdOfDar(fooV1Dar)
-      pkgIdV2 = packageIdOfDar(fooV2Dar)
 
       (alice, hdrs) <- fixture.getUniquePartyAndAuthHeaders("Alice")
 
       // create v1 and v2 versions of contract, using the package name and package id.
       cidV1PkgId <- postCreate(
         fixture,
-        jsObject(s"""{"templateId": "$pkgIdV1:Foo:Bar", "payload": {"owner": "$alice"}}"""),
+        jsObject(s"""{"templateId": "$pkgIdFooV1:Foo:Bar", "payload": {"owner": "$alice"}}"""),
         hdrs,
       )
       cidV1PkgNm <- postCreate(
@@ -582,7 +590,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       cidV2PkgId <- postCreate(
         fixture,
         jsObject(
-          s"""{"templateId": "$pkgIdV2:Foo:Bar", "payload": {"owner": "$alice", "extra":42}}"""
+          s"""{"templateId": "$pkgIdFooV2:Foo:Bar", "payload": {"owner": "$alice", "extra":42}}"""
         ),
         hdrs,
       )
@@ -595,7 +603,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       // query using both package ids and package name.
       _ <- searchExpectOk(
         Nil,
-        jsObject(s"""{"templateIds": ["${pkgIdV1}:Foo:Bar"]}"""),
+        jsObject(s"""{"templateIds": ["$pkgIdFooV1:Foo:Bar"]}"""),
         fixture,
         hdrs,
       ) map { results =>
@@ -604,7 +612,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
 
       _ <- searchExpectOk(
         Nil,
-        jsObject(s"""{"templateIds": ["${pkgIdV2}:Foo:Bar"]}"""),
+        jsObject(s"""{"templateIds": ["$pkgIdFooV2:Foo:Bar"]}"""),
         fixture,
         hdrs,
       ) map { results =>
@@ -654,7 +662,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             party = alice,
           ),
           jsObject(
-            s"""{"templateIds": ["Iou:Iou"], "query": {"currency": ${testCurrency.toJson}}}"""
+            s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"], "query": {"currency": ${testCurrency.toJson}}}"""
           ),
           fixture,
           headers,
@@ -684,7 +692,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           found <- searchExpectOk(
             List(pubSubCreateCommand(publisher, subscriberParties)),
             jsObject(
-              s"""{"templateIds": ["Account:PubSub"], "query": {"publisher": "$publisher"}}"""
+              s"""{"templateIds": ["${TpId.Account.PubSub.fqn}"], "query": {"publisher": "$publisher"}}"""
             ),
             fixture,
             headers,
@@ -732,7 +740,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
 
   def createAndFindWithLongFieldName(
       createCommand: (
-          domain.Party => domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg]
+          domain.Party => domain.CreateCommand[v.Record, domain.ContractTypeId.Template.RequiredPkg]
       ),
       fieldName: String,
       jsonValue: String,
@@ -743,7 +751,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         List(createCommand(alice)),
         jsObject(
           s"""{
-              "templateIds": ["Account:LongFieldNames"],
+              "templateIds": ["${TpId.Account.LongFieldNames.fqn}"],
               "query": {
                 "party": "$alice",
                 "$fieldName" : $jsonValue
@@ -764,7 +772,9 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         val searchDataSet = genSearchDataSet(alice)
         searchExpectOk(
           searchDataSet,
-          jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
+          jsObject(
+            s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"], "query": {"currency": "EUR"}}"""
+          ),
           fixture,
           headers,
         ).map { acl: List[domain.ActiveContract.ResolvedCtTyId[JsValue]] =>
@@ -784,7 +794,9 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             rs.map(_.status) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
 
             def queryAmountAs(s: String) =
-              jsObject(s"""{"templateIds": ["Iou:Iou"], "query": {"amount": $s}}""")
+              jsObject(
+                s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"], "query": {"amount": $s}}"""
+              )
 
             val queryAmountAsString = queryAmountAs("\"111.11\"")
             val queryAmountAsNumber = queryAmountAs("111.11")
@@ -815,7 +827,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         searchExpectOk(
           searchDataSet,
           jsObject(
-            """{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR", "amount": "111.11"}}"""
+            s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"], "query": {"currency": "EUR", "amount": "111.11"}}"""
           ),
           fixture,
           headers,
@@ -833,7 +845,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         searchExpectOk(
           searchDataSet,
           jsObject(
-            """{"templateIds": ["Iou:Iou"], "query": {"currency": "RUB", "amount": "666.66"}}"""
+            s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"], "query": {"currency": "RUB", "amount": "666.66"}}"""
           ),
           fixture,
           headers,
@@ -1140,7 +1152,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       import fixture.encoder
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         val accountNumber = "abc123"
-        val create: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] =
+        val create: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.RequiredPkg] =
           accountCreateCommand(alice, accountNumber)
 
         val keyRecord = v.Record(
@@ -1176,10 +1188,10 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       import domain.{DisclosedContract => DC}
 
       // we assume Disclosed is in the main dalf
-      lazy val inferredPkgId = packageIdOfDar(AbstractHttpServiceIntegrationTestFuns.dar2)
+      lazy val inferredPkgId = AbstractHttpServiceIntegrationTestFuns.pkgIdAccount
 
       def inDar2Main[CtId[P] <: domain.ContractTypeId.Ops[CtId, P]](
-          tid: CtId[Option[String]]
+          tid: CtId[String]
       ): CtId[String] =
         tid.copy(packageId = inferredPkgId)
 
@@ -1325,7 +1337,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           exerciseVaryingOnlyMeta: (
               Setup,
               ContractsToDisclose,
-              Option[domain.CommandMeta[domain.ContractTypeId.Template.OptionalPkg]],
+              Option[domain.CommandMeta[domain.ContractTypeId.Template.RequiredPkg]],
           ) => JsValue
       ): Future[Assertion] = {
         val junkMessage = s"some test junk ${uniqueId()}"
@@ -1346,7 +1358,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           setup <- setupBob(bob, bobHeaders)
 
           // exercise CheckVisibility with different disclosure options
-          checkVisibility = { disclosure: List[DC[domain.ContractTypeId.Template.OptionalPkg]] =>
+          checkVisibility = { disclosure: List[DC[domain.ContractTypeId.Template.RequiredPkg]] =>
             val meta = disclosure.nonEmpty option domain.CommandMeta(
               None,
               None,
@@ -1468,7 +1480,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
 
   private def assertExerciseResponseNewActiveContract(
       exerciseResponse: domain.ExerciseResponse[JsValue],
-      createCmd: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg],
+      createCmd: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.RequiredPkg],
       exerciseCmd: domain.ExerciseCommand[Any, v.Value, domain.EnrichedContractId],
       fixture: HttpServiceTestFixtureData,
       headers: List[HttpHeader],
@@ -1582,7 +1594,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     "succeeds normally with an interface ID" in withHttpService { fixture =>
       uploadPackage(fixture)(ciouDar).flatMap { case _ =>
         fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-          val command = iouCommand(alice, CIou.CIou)
+          val command = iouCommand(alice, TpId.CIou.CIou)
           postCreateCommand(command, fixture, headers).flatMap(inside(_) {
             case domain.OkResponse(result, _, StatusCodes.OK) =>
               val contractId: ContractId = result.contractId
@@ -1671,7 +1683,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           testFetchByCompositeKey(
             fixture,
             jsObject(s"""{
-            "templateId": "Account:KeyedByVariantAndRecord",
+            "templateId": "${TpId.Account.KeyedByVariantAndRecord.fqn}",
             "key": [
               "$alice",
               {"tag": "Bar", "value": 42},
@@ -1689,7 +1701,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           testFetchByCompositeKey(
             fixture,
             jsObject(s"""{
-            "templateId": "Account:KeyedByVariantAndRecord",
+            "templateId": "${TpId.Account.KeyedByVariantAndRecord.fqn}",
             "key": {
               "_1": "$alice",
               "_2": {"tag": "Bar", "value": "42"},
@@ -1726,11 +1738,11 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       headers: List[HttpHeader],
   ) = {
     val createCommand = jsObject(s"""{
-      "templateId": "Account:KeyedByDecimal",
+      "templateId": "${TpId.Account.KeyedByDecimal.fqn}",
       "payload": { "party": "$party", "amount": "$decimal" }
     }""")
     val fetchRequest = jsObject(s"""{
-      "templateId": "Account:KeyedByDecimal",
+      "templateId": "${TpId.Account.KeyedByDecimal.fqn}",
       "key": [ "$party", "$decimal" ]
     }""")
 
@@ -1756,7 +1768,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       headers: List[HttpHeader],
   ) = {
     val createCommand = jsObject(s"""{
-        "templateId": "Account:KeyedByVariantAndRecord",
+        "templateId": "${TpId.Account.KeyedByVariantAndRecord.fqn}",
         "payload": {
           "name": "ABC DEF",
           "party": "${party.unwrap}",
@@ -1790,9 +1802,9 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       // The numContracts size should test for https://github.com/digital-asset/daml/issues/10339
       val numContracts: Long = 2000
-      val helperId = domain.ContractTypeId.Template(None, "Account", "Helper")
+      val helperId = TpId.Account.Helper
       val payload = recordFromFields(ShRecord(owner = v.Value.Sum.Party(alice.unwrap)))
-      val createCmd: domain.CreateAndExerciseCommand.LAVUnresolved =
+      val createCmd: domain.CreateAndExerciseCommand.LAVResolved =
         domain.CreateAndExerciseCommand(
           templateId = helperId,
           payload = payload,
@@ -1803,7 +1815,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         )
 
       def encode(
-          cmd: domain.CreateAndExerciseCommand.LAVUnresolved
+          cmd: domain.CreateAndExerciseCommand.LAVResolved
       ): JsValue =
         encoder.encodeCreateAndExerciseCommand(cmd).valueOr(e => fail(e.shows))
 
@@ -1830,7 +1842,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       def queryN(n: Long): Future[Assertion] = fixture
         .postJsonRequest(
           Uri.Path("/v1/query"),
-          jsObject("""{"templateIds": ["Account:Account"]}"""),
+          jsObject(s"""{"templateIds": ["${TpId.Account.Account.fqn}"]}"""),
           headers,
         )
         .parseResponse[Vector[JsValue]]
@@ -1881,7 +1893,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       def userCreateCommand(
           username: domain.Party,
           following: Seq[domain.Party] = Seq.empty,
-      ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
+      ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.RequiredPkg] = {
         val followingList = lfToApi(
           VAx.seq(VAx.partyDomain).inj(following)
         ).sum
@@ -2085,19 +2097,17 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
     "with unsupported templateId should return proper error" in withHttpService { fixture =>
       import fixture.encoder
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        val command: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] =
+        val command: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.RequiredPkg] =
           iouCreateCommand(alice)
-            .copy(templateId = domain.ContractTypeId.Template(None, "Iou", "Dummy"))
+            .copy(templateId = TpId.Iou.Dummy)
         val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
         fixture
           .postJsonRequest(Uri.Path("/v1/create"), input, headers)
           .parseResponse[JsValue]
           .map(inside(_) { case domain.ErrorResponse(Seq(error), _, StatusCodes.BadRequest, _) =>
-            val unknownTemplateId: domain.ContractTypeId.Template.OptionalPkg =
-              command.templateId.copy(packageId = None)
             error should include(
-              s"Cannot resolve template ID, given: ${unknownTemplateId}"
+              s"Cannot resolve template ID, given: ${command.templateId}"
             )
           }): Future[Assertion]
       }
@@ -2165,10 +2175,10 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
                 domain.Contract(-\/(archived0)),
                 domain.Contract(\/-(created1)),
               ) =>
-            assertTemplateId(created0.templateId, cmd.templateId)
-            assertTemplateId(archived0.templateId, cmd.templateId)
+            created0.templateId shouldBe cmd.templateId
+            archived0.templateId shouldBe cmd.templateId
             archived0.contractId shouldBe created0.contractId
-            assertTemplateId(created1.templateId, TpId.Iou.IouTransfer)
+            created1.templateId shouldBe TpId.Iou.IouTransfer
             asContractId(result.exerciseResult) shouldBe created1.contractId
         }
       }

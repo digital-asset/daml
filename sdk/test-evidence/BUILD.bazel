@@ -3,6 +3,7 @@
 
 load("@os_info//:os_info.bzl", "is_linux_intel")
 load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library")
+load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration")
 load(":test_evidence.bzl", "test_evidence_binary", "write_scalatest_runpath")
 
 write_scalatest_runpath(
@@ -37,6 +38,9 @@ write_scalatest_runpath(
     test_evidence_binary(
         name = "generator",
         testonly = True,  # needed in order to depend on testonly targets
+        data = [
+            "//ledger-service/http-json:integration-tests-ce",  # For the dars files in data deps
+        ],
         main_class = "com.daml.test.evidence.generator.Main",
         tests = [
             "//ledger-service/http-json:failure-tests",

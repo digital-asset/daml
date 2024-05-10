@@ -23,6 +23,7 @@ daml_compile(
     name = "hidden",
     srcs = ["daml/Hidden.daml"],
     data_dependencies = ["//language-support/ts/codegen/tests:build-and-lint.dar"],
+    project_name = "hidden",
     target = "1.dev",
 )
 

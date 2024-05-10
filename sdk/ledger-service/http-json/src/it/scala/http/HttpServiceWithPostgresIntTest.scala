@@ -24,7 +24,9 @@ abstract class HttpServiceWithPostgresIntTest
       val searchDataSet = genSearchDataSet(party)
       searchExpectOk(
         searchDataSet,
-        jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
+        jsObject(
+          s"""{"templateIds": ["${TpId.Iou.Iou.fqn}"], "query": {"currency": "EUR"}}"""
+        ),
         fixture,
         headers,
       ).flatMap { searchResult =>

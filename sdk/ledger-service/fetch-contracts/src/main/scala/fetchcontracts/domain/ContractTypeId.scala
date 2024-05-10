@@ -61,6 +61,8 @@ sealed abstract class ContractTypeId[+PkgId]
     import scala.util.hashing.{MurmurHash3 => H}
     H.productHash(this, H.productSeed, ignorePrefix = true)
   }
+
+  def fqn: String = s"${packageId.toString}:${moduleName}:${entityName}"
 }
 
 object ResolvedQuery {
@@ -240,9 +242,7 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
 
 /** A contract type ID companion. */
 sealed abstract class ContractTypeIdLike[CtId[T] <: ContractTypeId[T]] {
-  type OptionalPkg = CtId[Option[String]]
   type RequiredPkg = CtId[String]
-  type NoPkg = CtId[Unit]
   type Resolved = ContractTypeId.ResolvedOf[CtId]
 
   // treat the companion like a typeclass instance

@@ -39,7 +39,7 @@ class DomainJsonDecoder(
 
   def decodeCreateCommand(a: JsValue, jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(implicit
       ev1: JsonReader[
-        domain.CreateCommand[JsValue, ContractTypeId.Template.OptionalPkg]
+        domain.CreateCommand[JsValue, ContractTypeId.Template.RequiredPkg]
       ],
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
@@ -48,7 +48,7 @@ class DomainJsonDecoder(
     for {
       fj <- either(
         SprayJson
-          .decode[domain.CreateCommand[JsValue, ContractTypeId.Template.OptionalPkg]](a)
+          .decode[domain.CreateCommand[JsValue, ContractTypeId.Template.RequiredPkg]](a)
           .liftErrS(err)(JsonError)
       )
 
@@ -121,7 +121,7 @@ class DomainJsonDecoder(
     }
 
   def decodeExerciseCommand(a: JsValue, jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(implicit
-      ev1: JsonReader[domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]],
+      ev1: JsonReader[domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]],
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
   ): ET[
@@ -130,12 +130,12 @@ class DomainJsonDecoder(
     for {
       cmd0 <- either(
         SprayJson
-          .decode[domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]](a)
+          .decode[domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]](a)
           .liftErrS("DomainJsonDecoder_decodeExerciseCommand")(JsonError)
       )
 
       ifIdlfType <- lookupLfType[
-        domain.ExerciseCommand.OptionalPkg[+*, domain.ContractLocator[_]]
+        domain.ExerciseCommand.RequiredPkg[+*, domain.ContractLocator[_]]
       ](
         cmd0,
         jwt,
@@ -146,7 +146,7 @@ class DomainJsonDecoder(
       choiceIfaceOverride <-
         if (oIfaceId.isDefined)
           (oIfaceId: Option[domain.ContractTypeId.Interface.RequiredPkg]).pure[ET]
-        else cmd0.choiceInterfaceId.traverse(templateId_(_, jwt, ledgerId))
+        else cmd0.choiceInterfaceId.traverse(id => templateId_(id, jwt, ledgerId))
 
       lfArgument <- either(jsValueToLfValue(argLfType, cmd0.argument))
       metaWithResolvedIds <- cmd0.meta.traverse(resolveMetaTemplateIds(_, jwt, ledgerId))
@@ -173,8 +173,8 @@ class DomainJsonDecoder(
         domain.CreateAndExerciseCommand[
           JsValue,
           JsValue,
-          ContractTypeId.Template.OptionalPkg,
-          ContractTypeId.OptionalPkg,
+          ContractTypeId.Template.RequiredPkg,
+          ContractTypeId.RequiredPkg,
         ]
       ],
       ec: ExecutionContext,
@@ -187,8 +187,8 @@ class DomainJsonDecoder(
           .decode[domain.CreateAndExerciseCommand[
             JsValue,
             JsValue,
-            ContractTypeId.Template.OptionalPkg,
-            ContractTypeId.OptionalPkg,
+            ContractTypeId.Template.RequiredPkg,
+            ContractTypeId.RequiredPkg,
           ]](a)
           .liftErrS(err)(JsonError)
       ).flatMap(_.bitraverse(templateId_(_, jwt, ledgerId), templateId_(_, jwt, ledgerId)))
@@ -214,15 +214,16 @@ class DomainJsonDecoder(
   private[this] def jsValueToApiRecord(t: domain.LfType, v: JsValue) =
     jsValueToApiValue(t, v) flatMap mustBeApiRecord
 
-  private[this] def resolveMetaTemplateIds[U, R <: ContractTypeId.Resolved, LfV](
-      meta: domain.CommandMeta[U with ContractTypeId.OptionalPkg],
+  private[this] def resolveMetaTemplateIds[
+      CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]
+  ](
+      meta: domain.CommandMeta[CtId[String]],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   )(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-      resolveOverload: PackageService.ResolveContractTypeId.Overload[U, R],
-  ): ET[domain.CommandMeta[R]] = for {
+  ): ET[domain.CommandMeta[ContractTypeId.ResolvedOf[CtId]]] = for {
     // resolve as few template IDs as possible
     tpidToResolved <- {
       import scalaz.std.vector._
@@ -233,20 +234,21 @@ class DomainJsonDecoder(
     }
   } yield meta map tpidToResolved
 
-  private def templateId_[U, R <: ContractTypeId.Resolved](
-      id: U with domain.ContractTypeId.OptionalPkg,
+  private def templateId_[
+      CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]
+  ](
+      id: CtId[String],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   )(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-      resolveOverload: PackageService.ResolveContractTypeId.Overload[U, R],
-  ): ET[R] =
+  ): ET[domain.ContractTypeId.ResolvedOf[CtId]] =
     eitherT(
       resolveContractTypeId(jwt, ledgerId)(id)
         .map(
           _.toOption.flatten
-            .map(_.original)
+            .map(_.original.asInstanceOf[ContractTypeId.ResolvedOf[CtId]])
             .toRightDisjunction(JsonError(cannotResolveTemplateId(id)))
         )
     )
@@ -258,7 +260,7 @@ class DomainJsonDecoder(
   ): JsonError \/ domain.LfType =
     resolveTemplateRecordType(id).liftErr(JsonError)
 
-  def keyType(id: domain.ContractTypeId.Template.OptionalPkg)(implicit
+  def keyType(id: domain.ContractTypeId.Template.RequiredPkg)(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
       jwt: Jwt,
