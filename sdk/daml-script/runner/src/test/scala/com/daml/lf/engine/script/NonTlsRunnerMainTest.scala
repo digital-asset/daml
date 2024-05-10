@@ -140,7 +140,7 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBaseCa
           dars(4),
           Seq(
             "--ledger-host",
-            "localhost",
+            "http://localhost",
             "--ledger-port",
             jsonApiPort.toString,
             "--access-token-file",
@@ -156,7 +156,7 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBaseCa
           dars(4),
           Seq(
             "--ledger-host",
-            "localhost",
+            "http://localhost",
             "--ledger-port",
             jsonApiPort.toString,
             "--access-token-file",
@@ -176,7 +176,7 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBaseCa
           dars(4),
           Seq(
             "--ledger-host",
-            "localhost",
+            "http://localhost",
             "--ledger-port",
             jsonApiPort.toString,
             "--access-token-file",
@@ -187,6 +187,22 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBaseCa
             "TestScript:myScript",
           ),
           Left(Seq("Cannot upload dar via JSON API")),
+        )
+      "Fails when missing ledger-host protocol" in
+        testDamlScriptCanton(
+          dars(4),
+          Seq(
+            "--ledger-host",
+            "localhost",
+            "--ledger-port",
+            jsonApiPort.toString,
+            "--access-token-file",
+            jwt.toString,
+            "--json-api",
+            "--script-name",
+            "TestScript:myScript",
+          ),
+          Left(Seq("The argument of --ledger-host must include the protocol")),
         )
       "Succeeds using --participant-config" in
         withJsonParticipantConfig { path =>
@@ -209,7 +225,7 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBaseCa
           failingDar,
           Seq(
             "--ledger-host",
-            "localhost",
+            "http://localhost",
             "--ledger-port",
             jsonApiPort.toString,
             "--access-token-file",
@@ -225,7 +241,7 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBaseCa
           failingDar,
           Seq(
             "--ledger-host",
-            "localhost",
+            "http://localhost",
             "--ledger-port",
             jsonApiPort.toString,
             "--access-token-file",
