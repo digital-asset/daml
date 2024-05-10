@@ -145,7 +145,7 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBaseCanto
           dars(4),
           Seq(
             "--ledger-host",
-            "localhost",
+            "http://localhost",
             "--ledger-port",
             jsonApiPort.toString,
             "--access-token-file",
@@ -161,7 +161,7 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBaseCanto
           dars(4),
           Seq(
             "--ledger-host",
-            "localhost",
+            "http://localhost",
             "--ledger-port",
             jsonApiPort.toString,
             "--access-token-file",
@@ -181,7 +181,7 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBaseCanto
           dars(4),
           Seq(
             "--ledger-host",
-            "localhost",
+            "http://localhost",
             "--ledger-port",
             jsonApiPort.toString,
             "--access-token-file",
@@ -194,7 +194,7 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBaseCanto
           Left(Seq("Cannot upload dar via JSON API")),
         )
       "Succeeds using --participant-config" in
-        withGrpcParticipantConfig { path =>
+        withJsonParticipantConfig { path =>
           testDamlScriptCanton(
             dars(4),
             Seq(
