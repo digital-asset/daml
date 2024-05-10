@@ -145,7 +145,6 @@ da_scala_dar_resources_library(
         # More more more tests ported from DamlcUpgrades.hs
         "FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage",
         "SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage",
-        "CannotUpgradeView",
         "SucceedWhenATopLevelEnumAddsAField",
         "SucceedsWhenATopLevelVariantAddsAVariant",
         "SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType",
@@ -202,6 +201,19 @@ da_scala_dar_resources_library(
     for identifier in [
         # More more more tests ported from DamlcUpgrades.hs
         "SucceedsWhenAnInstanceIsAddedUpgradedPackage",
+    ]
+]
+
+[
+    [
+        filegroup(
+            name = "upgrades-{}-files".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/*/*.daml".format(identifier)]),
+            visibility = ["//visibility:public"],
+        ),
+    ]
+    for identifier in [
+        "CannotUpgradeView",
     ]
 ]
 
