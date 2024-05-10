@@ -96,12 +96,17 @@ trait RunnerMainTestBaseCanton extends CantonFixtureWithResource[Port] with Runn
   def withJsonParticipantConfig[A](f: Path => Future[A]): Future[A] =
     withParticipantConfig(Some("http"), jsonApiPort, f)
 
-  def withParticipantConfig[A](protocol: Option[String], port: Port, f: Path => Future[A]): Future[A] = {
+  def withParticipantConfig[A](
+      protocol: Option[String],
+      port: Port,
+      f: Path => Future[A],
+  ): Future[A] = {
     implicit val ec: ExecutionContext = ExecutionContext.global
     val path = Files.createTempFile("participantConfig", ".json")
+    val schema = protocol.fold("")(_ + "://")
     val content =
       s"""{
-         |  "default_participant": {"host": "${protocol.fold("")(_ + "://")}localhost", "port": ${port.toString}},
+         |  "default_participant": {"host": "${schema}localhost", "port": ${port.toString}},
          |  "participants": {},
          |  "party_participants": {}
          |}
