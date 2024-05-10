@@ -16,6 +16,7 @@ import Data.List.Extra (nubSort, stripInfixEnd)
 import qualified Data.NameMap as NM
 import Module (UnitId, unitIdString, stringToUnitId)
 import System.FilePath
+import Text.Read (readMaybe)
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.TypeLevelNat
@@ -323,3 +324,30 @@ splitUnitId (unitIdString -> unitId) = fromMaybe (PackageName (T.pack unitId), N
     (name, ver) <- stripInfixEnd "-" unitId
     guard $ all (`elem` '.' : ['0' .. '9']) ver
     pure (PackageName (T.pack name), Just (PackageVersion (T.pack ver)))
+
+-- | Take a package version of regex "(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*" into
+-- a list of integers [Integer]
+splitPackageVersion :: PackageVersion -> Maybe [Integer]
+splitPackageVersion (PackageVersion raw) =
+  let pieces = T.split (== '.') raw
+  in
+  traverse (readMaybe . T.unpack) pieces
+
+data ComparePackageVersionError
+  = FirstVersionUnparseable PackageVersion
+  | SecondVersionUnparseable PackageVersion
+  deriving (Show, Eq, Ord)
+
+comparePackageVersion :: PackageVersion -> PackageVersion -> Either ComparePackageVersionError Ordering
+comparePackageVersion v1 v2 =
+  case splitPackageVersion v1 of
+    Nothing -> Left $ FirstVersionUnparseable v1
+    Just v1Pieces ->
+      case splitPackageVersion v2 of
+        Nothing -> Left $ SecondVersionUnparseable v2
+        Just v2Pieces ->
+          let pad xs target
+                | length xs < length target = xs ++ replicate (length target - length xs) 0
+                | otherwise = xs
+          in
+          pure $ compare (pad v1Pieces v2Pieces) (pad v2Pieces v1Pieces)
