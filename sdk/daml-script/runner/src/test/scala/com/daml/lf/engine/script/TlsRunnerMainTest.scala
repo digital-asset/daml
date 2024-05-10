@@ -193,6 +193,22 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBaseCanto
           ) ++ tlsArgs,
           Left(Seq("Cannot upload dar via JSON API")),
         )
+      "Fails when missing ledger-host protocol" in
+        testDamlScriptCanton(
+          dars(4),
+          Seq(
+            "--ledger-host",
+            "localhost",
+            "--ledger-port",
+            jsonApiPort.toString,
+            "--access-token-file",
+            jwt.toString,
+            "--json-api",
+            "--script-name",
+            "TestScript:myScript",
+          ) ++ tlsArgs,
+          Left(Seq("The argument of --ledger-host must include the protocol")),
+        )
       "Succeeds using --participant-config" in
         withJsonParticipantConfig { path =>
           testDamlScriptCanton(
