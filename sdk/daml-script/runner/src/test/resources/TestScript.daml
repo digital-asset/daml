@@ -5,18 +5,18 @@ module TestScript where
 
 import Daml.Script
 
--- Each script gets the time to ensure the ledger is called
+-- Each script lists the known parties to ensure the ledger is called
 myScript : Script ()
 myScript = do
-  _ <- getTime
+  _ <- listKnownParties
   debug "Ran myScript"
 
 myOtherScript : Script ()
 myOtherScript = do
-  _ <- getTime
+  _ <- listKnownParties
   debug "Ran myOtherScript"
 
 inputScript : Int -> Script ()
 inputScript i = do
-  _ <- getTime
+  _ <- listKnownParties
   debug $ "Got " <> show i
