@@ -17,7 +17,7 @@ import com.digitalasset.canton.ledger.api.health.HealthChecks.ComponentName
 import com.digitalasset.canton.ledger.api.health.{HealthChecks, ReportsHealth}
 import com.digitalasset.canton.ledger.resources.TestResourceContext
 import com.digitalasset.canton.logging.SuppressingLogger
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.ActiveStreamMetricsInterceptor
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
 import com.digitalasset.canton.platform.apiserver.ratelimiting.LimitResult.LimitResultCheck
@@ -378,7 +378,7 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
   private val logger = loggerFactory.getLogger(getClass)
   private val healthChecks = new HealthChecks(Map.empty[ComponentName, ReportsHealth])
 
-  private def metrics = Metrics.ForTesting
+  private def metrics = LedgerApiServerMetrics.ForTesting
 
   // For tests that do not involve memory
   private def underLimitMemoryPoolMXBean(): MemoryPoolMXBean = {
@@ -391,7 +391,7 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
   }
 
   def withChannel(
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       service: BindableService,
       config: RateLimitingConfig,
       pool: List[MemoryPoolMXBean] = List(underLimitMemoryPoolMXBean()),

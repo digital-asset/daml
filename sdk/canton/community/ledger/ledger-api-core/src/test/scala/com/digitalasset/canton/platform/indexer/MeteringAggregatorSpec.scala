@@ -15,7 +15,7 @@ import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.{
   TransactionMetering,
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.backend.{
@@ -41,7 +41,7 @@ final class MeteringAggregatorSpec
     with Matchers
     with TestEssentials {
 
-  private val metrics = Metrics.ForTesting
+  private val metrics = LedgerApiServerMetrics.ForTesting
   private def toTS(t: OffsetDateTime): Timestamp = Timestamp.assertFromInstant(t.toInstant)
 
   "MeteringAggregator" should {

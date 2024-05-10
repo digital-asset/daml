@@ -28,13 +28,14 @@ import com.digitalasset.canton.ledger.participant.state.index
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.ledger.participant.state.index.*
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.Future
 
-final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends IndexService {
+final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMetrics)
+    extends IndexService {
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContextWithTrace

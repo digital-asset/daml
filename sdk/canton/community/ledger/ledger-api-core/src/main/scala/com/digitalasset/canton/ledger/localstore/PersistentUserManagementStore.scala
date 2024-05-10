@@ -22,7 +22,7 @@ import com.digitalasset.canton.ledger.localstore.api.{UserManagementStore, UserU
 import com.digitalasset.canton.ledger.localstore.utils.LocalAnnotationsUtils
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.backend.localstore.UserManagementStorageBackend
 import com.digitalasset.canton.tracing.TraceContext
@@ -32,7 +32,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class PersistentUserManagementStore(
     dbSupport: DbSupport,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     timeProvider: TimeProvider,
     maxRightsPerUser: Int,
     val loggerFactory: NamedLoggerFactory,
@@ -415,7 +415,7 @@ object PersistentUserManagementStore {
 
   def cached(
       dbSupport: DbSupport,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       timeProvider: TimeProvider,
       cacheExpiryAfterWriteInSeconds: Int,
       maxCacheSize: Int,

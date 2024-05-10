@@ -22,7 +22,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   withEnrichedLoggingContext,
 }
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.config.{
   ActiveContractsServiceStreamsConfig,
@@ -49,7 +49,7 @@ import scala.util.{Failure, Success}
 private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher & ReportsHealth,
     servicesExecutionContext: ExecutionContext,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     engine: Option[Engine],
     sequentialIndexer: SequentialWriteDao,
     participantId: Ref.ParticipantId,
@@ -633,7 +633,7 @@ private[platform] object JdbcLedgerDao {
   def read(
       dbSupport: DbSupport,
       servicesExecutionContext: ExecutionContext,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       engine: Option[Engine],
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,
@@ -676,7 +676,7 @@ private[platform] object JdbcLedgerDao {
       dbSupport: DbSupport,
       sequentialWriteDao: SequentialWriteDao,
       servicesExecutionContext: ExecutionContext,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       engine: Option[Engine],
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,

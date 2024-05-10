@@ -21,7 +21,7 @@ import com.digitalasset.canton.domain.block.{BlockOrderer, BlockOrdererFactory}
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.DbStorageMetrics
+import com.digitalasset.canton.metrics.{DbStorageHistograms, DbStorageMetrics, HistogramInventory}
 import com.digitalasset.canton.resource.{CommunityDbMigrations, CommunityStorageFactory, Storage}
 import com.digitalasset.canton.time.{TimeProvider, TimeProviderClock}
 import com.digitalasset.canton.tracing.TraceContext
@@ -159,7 +159,10 @@ object CommunityReferenceBlockOrdererFactory {
             logQueryCost = config.logQueryCost,
             clock = clock,
             scheduler = None,
-            metrics = new DbStorageMetrics(MetricName("none"), NoOpMetricsFactory),
+            metrics = new DbStorageMetrics(
+              new DbStorageHistograms(MetricName("none"))(new HistogramInventory),
+              NoOpMetricsFactory,
+            ),
             timeouts = processingTimeout,
             loggerFactory = lFactory,
           )

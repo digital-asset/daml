@@ -27,6 +27,11 @@ sealed trait MetricValue extends PrettyPrinting {
 
 object MetricValue {
 
+  def allFromMetricData(items: Iterable[MetricData]): Seq[(MetricValue, MetricData)] = {
+    items.flatMap { data =>
+      MetricValue.fromMetricData(data).map { value => (value, data) }
+    }.toSeq
+  }
   def fromMetricData(item: MetricData): Seq[MetricValue] = {
     item.getType match {
       case MetricDataType.LONG_GAUGE =>

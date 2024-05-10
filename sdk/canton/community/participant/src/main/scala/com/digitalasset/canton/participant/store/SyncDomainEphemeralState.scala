@@ -57,7 +57,7 @@ class SyncDomainEphemeralState(
     multiDomainEventLog: Eval[MultiDomainEventLog],
     val inFlightSubmissionTracker: InFlightSubmissionTracker,
     val startingPoints: ProcessingStartingPoints,
-    createTimeTracker: NamedLoggerFactory => DomainTimeTracker,
+    createTimeTracker: () => DomainTimeTracker,
     metrics: SyncDomainMetrics,
     sessionKeyCacheConfig: SessionKeyCacheConfig,
     override val timeouts: ProcessingTimeout,
@@ -155,8 +155,8 @@ class SyncDomainEphemeralState(
   )
 
   // the time tracker, note, must be shutdown in sync domain as it is using the sequencer client to
-  // request time proofs
-  val timeTracker: DomainTimeTracker = createTimeTracker(loggerFactory)
+  // request time proofs.
+  val timeTracker: DomainTimeTracker = createTimeTracker()
 
   val submissionTracker: SubmissionTracker =
     SubmissionTracker(persistentState.protocolVersion)(

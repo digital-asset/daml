@@ -9,22 +9,38 @@ import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, Metric
 import com.daml.metrics.grpc.{DamlGrpcServerMetrics, GrpcServerMetrics}
 import com.daml.metrics.{CacheMetrics, HealthMetrics}
 import com.digitalasset.canton.environment.BaseMetrics
-import com.digitalasset.canton.metrics.{DbStorageMetrics, SequencerClientMetrics}
+import com.digitalasset.canton.metrics.{
+  DbStorageHistograms,
+  DbStorageMetrics,
+  HistogramInventory,
+  SequencerClientHistograms,
+  SequencerClientMetrics,
+}
 import com.google.common.annotations.VisibleForTesting
 
+class SequencerHistograms(val parent: MetricName)(implicit
+    inventory: HistogramInventory
+) {
+
+  private[metrics] val prefix = parent :+ "sequencer"
+  private[metrics] val sequencerClient = new SequencerClientHistograms(parent)
+  private[metrics] val dbStorage = new DbStorageHistograms(parent)
+}
+
 class SequencerMetrics(
-    parent: MetricName,
+    histograms: SequencerHistograms,
     val openTelemetryMetricsFactory: LabeledMetricsFactory,
     val grpcMetrics: GrpcServerMetrics,
     val healthMetrics: HealthMetrics,
 ) extends BaseMetrics {
-  override val prefix: MetricName = parent :+ "sequencer"
+  override val prefix: MetricName = histograms.prefix
   private implicit val mc: MetricsContext = MetricsContext.Empty
   override def storageMetrics: DbStorageMetrics = dbStorage
 
   object block extends BlockMetrics(prefix, openTelemetryMetricsFactory)
 
-  object sequencerClient extends SequencerClientMetrics(parent, openTelemetryMetricsFactory)
+  object sequencerClient
+      extends SequencerClientMetrics(histograms.sequencerClient, openTelemetryMetricsFactory)
 
   object publicApi {
     private val prefix = SequencerMetrics.this.prefix :+ "public-api"
@@ -91,7 +107,7 @@ class SequencerMetrics(
       0L,
     )
 
-  object dbStorage extends DbStorageMetrics(parent, openTelemetryMetricsFactory)
+  object dbStorage extends DbStorageMetrics(histograms.dbStorage, openTelemetryMetricsFactory)
 
   // TODO(i14580): add testing
   object trafficControl {
@@ -157,7 +173,7 @@ object SequencerMetrics {
 
   @VisibleForTesting
   def noop(testName: String) = new SequencerMetrics(
-    MetricName(testName),
+    new SequencerHistograms(MetricName(testName))(new HistogramInventory),
     NoOpMetricsFactory,
     new DamlGrpcServerMetrics(NoOpMetricsFactory, "sequencer"),
     new HealthMetrics(NoOpMetricsFactory),
@@ -165,21 +181,31 @@ object SequencerMetrics {
 
 }
 
+class MediatorHistograms(val parent: MetricName)(implicit
+    inventory: HistogramInventory
+) {
+
+  private[metrics] val prefix = parent :+ "mediator"
+  private[metrics] val sequencerClient = new SequencerClientHistograms(parent)
+  private[metrics] val dbStorage = new DbStorageHistograms(parent)
+
+}
 class MediatorMetrics(
-    parent: MetricName,
+    histograms: MediatorHistograms,
     val openTelemetryMetricsFactory: LabeledMetricsFactory,
     val grpcMetrics: GrpcServerMetrics,
     val healthMetrics: HealthMetrics,
 ) extends BaseMetrics {
 
-  val prefix: MetricName = parent :+ "mediator"
+  override val prefix: MetricName = histograms.prefix
   private implicit val mc: MetricsContext = MetricsContext.Empty
 
   override def storageMetrics: DbStorageMetrics = dbStorage
 
-  object dbStorage extends DbStorageMetrics(parent, openTelemetryMetricsFactory)
+  object dbStorage extends DbStorageMetrics(histograms.dbStorage, openTelemetryMetricsFactory)
 
-  object sequencerClient extends SequencerClientMetrics(parent, openTelemetryMetricsFactory)
+  object sequencerClient
+      extends SequencerClientMetrics(histograms.sequencerClient, openTelemetryMetricsFactory)
 
   val outstanding: Gauge[Int] =
     openTelemetryMetricsFactory.gauge(

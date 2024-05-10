@@ -18,13 +18,14 @@ import com.digitalasset.canton.ledger.participant.state.{
   TransactionMeta,
   WriteService,
 }
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.CompletionStage
 
-final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends WriteService {
+final class TimedWriteService(delegate: WriteService, metrics: LedgerApiServerMetrics)
+    extends WriteService {
 
   override def submitTransaction(
       submitterInfo: SubmitterInfo,

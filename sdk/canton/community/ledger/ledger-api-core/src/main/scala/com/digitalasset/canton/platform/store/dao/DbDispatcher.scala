@@ -26,7 +26,7 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLogging,
 }
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.ResourceOwnerOps
 import com.digitalasset.canton.platform.config.ServerRole
 import com.digitalasset.canton.tracing.TraceContext
@@ -129,7 +129,7 @@ object DbDispatcher {
       serverRole: ServerRole,
       connectionPoolSize: Int,
       connectionTimeout: FiniteDuration,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       loggerFactory: NamedLoggerFactory,
   ): ResourceOwner[DbDispatcher with ReportsHealth] = {
     val logger = loggerFactory.getTracedLogger(getClass)

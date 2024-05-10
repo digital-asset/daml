@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.localstore
 
 import com.digitalasset.canton.ledger.localstore.PersistentIdentityProviderConfigStore
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.StorageBackendProvider
 import org.scalatest.freespec.AsyncFreeSpec
 
@@ -15,7 +15,7 @@ trait PersistentIdentityProviderConfigStoreTests
 
   override def newStore() = new PersistentIdentityProviderConfigStore(
     dbSupport = dbSupport,
-    metrics = Metrics.ForTesting,
+    metrics = LedgerApiServerMetrics.ForTesting,
     maxIdentityProviders = MaxIdentityProviderConfigs,
     loggerFactory = loggerFactory,
   )

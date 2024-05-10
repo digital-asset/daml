@@ -1286,8 +1286,10 @@ class CantonSyncService(
         )
         domainHandle <- connect(domainConnectionConfig.config)
 
-        persistent = domainHandle.domainPersistentState
         domainId = domainHandle.domainId
+        domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
+        persistent = domainHandle.domainPersistentState
+
         domainCrypto = syncCrypto.tryForDomain(domainId, Some(domainAlias))
 
         ephemeral <- EitherT.right[SyncServiceError](
@@ -1297,14 +1299,14 @@ class CantonSyncService(
                 persistent,
                 participantNodePersistentState.map(_.multiDomainEventLog),
                 inFlightSubmissionTracker,
-                (loggerFactory: NamedLoggerFactory) => {
+                () => {
                   val tracker = DomainTimeTracker(
                     domainConnectionConfig.config.timeTracker,
                     clock,
                     domainHandle.sequencerClient,
                     domainHandle.staticParameters.protocolVersion,
                     timeouts,
-                    loggerFactory,
+                    domainLoggerFactory,
                   )
                   domainHandle.topologyClient.setDomainTimeTracker(tracker)
                   tracker
@@ -1315,19 +1317,18 @@ class CantonSyncService(
               )
           )
         )
-        domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
 
         missingKeysAlerter = new MissingKeysAlerter(
           participantId,
           domainId,
           domainHandle.topologyClient,
           domainCrypto.crypto.cryptoPrivateStore,
-          loggerFactory,
+          domainLoggerFactory,
         )
 
         trafficStateController = new TrafficStateController(
           participantId,
-          loggerFactory,
+          domainLoggerFactory,
           metrics.domainMetrics(domainAlias),
         )
 
@@ -1356,7 +1357,6 @@ class CantonSyncService(
           transferCoordination,
           inFlightSubmissionTracker,
           clock,
-          metrics.pruning,
           domainMetrics,
           trafficStateController,
           futureSupervisor,

@@ -11,8 +11,8 @@ import com.digitalasset.canton.domain.config.PublicServerConfig
 import com.digitalasset.canton.domain.sequencing.SequencerRuntime
 import com.digitalasset.canton.environment.HasGeneralCantonNodeParameters
 import com.digitalasset.canton.health.{
+  DependenciesHealthService,
   GrpcHealthReporter,
-  HealthService,
   ServiceHealthStatusManager,
 }
 import com.digitalasset.canton.lifecycle.Lifecycle.{CloseableServer, toCloseableServer}
@@ -36,7 +36,7 @@ class DynamicDomainGrpcServer(
     metrics: LabeledMetricsFactory,
     grpcMetrics: GrpcServerMetrics,
     grpcHealthReporter: GrpcHealthReporter,
-    domainHealthService: HealthService,
+    domainHealthService: DependenciesHealthService,
 )(implicit executionContext: ExecutionContextExecutorService)
     extends NamedLogging {
   private lazy val grpcDomainHealthManager =

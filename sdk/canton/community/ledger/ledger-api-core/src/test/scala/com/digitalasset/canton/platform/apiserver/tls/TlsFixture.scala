@@ -11,7 +11,7 @@ import com.digitalasset.canton.grpc.sampleservice.HelloServiceReferenceImplement
 import com.digitalasset.canton.ledger.client.GrpcChannel
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.{ApiService, ApiServices, LedgerApiService}
 import io.grpc.{BindableService, ManagedChannel}
 import io.netty.handler.ssl.ClientAuth
@@ -79,7 +79,7 @@ final case class TlsFixture(
           address = None,
           tlsConfiguration = Some(serverTlsConfiguration),
           servicesExecutor = servicesExecutor,
-          metrics = Metrics.ForTesting,
+          metrics = LedgerApiServerMetrics.ForTesting,
           loggerFactory = loggerFactory,
         )
       )

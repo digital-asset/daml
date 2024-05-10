@@ -28,8 +28,9 @@ import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.admin.data.ParticipantStatus
 import com.digitalasset.canton.health.{
   ComponentStatus,
+  DependenciesHealthService,
   GrpcHealthReporter,
-  HealthService,
+  LivenessHealthService,
   MutableHealthComponent,
 }
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
@@ -190,7 +191,7 @@ class ParticipantNodeBootstrap(
       nodeId: UniqueIdentifier,
       manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
-      healthService: HealthService,
+      healthService: DependenciesHealthService,
   ): BootstrapStageOrLeaf[ParticipantNode] =
     new StartupNode(storage, crypto, nodeId, manager, healthReporter, healthService)
 
@@ -200,7 +201,7 @@ class ParticipantNodeBootstrap(
       nodeId: UniqueIdentifier,
       topologyManager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
-      healthService: HealthService,
+      healthService: DependenciesHealthService,
   ) extends BootstrapStage[ParticipantNode, RunningNode[ParticipantNode]](
         description = "Startup participant node",
         bootstrapStageCallback,
@@ -415,8 +416,10 @@ class ParticipantNodeBootstrap(
 
   override protected def member(uid: UniqueIdentifier): Member = ParticipantId(uid)
 
-  override protected def mkNodeHealthService(storage: Storage): HealthService =
-    HealthService(
+  override protected def mkNodeHealthService(
+      storage: Storage
+  ): (DependenciesHealthService, LivenessHealthService) = {
+    val readiness = DependenciesHealthService(
       "participant",
       logger,
       timeouts,
@@ -430,6 +433,9 @@ class ParticipantNodeBootstrap(
         syncDomainAcsCommitmentProcessorHealth,
       ),
     )
+    val liveness = LivenessHealthService.alwaysAlive(logger, timeouts)
+    (readiness, liveness)
+  }
 
   private def setPostInitCallbacks(
       sync: CantonSyncService

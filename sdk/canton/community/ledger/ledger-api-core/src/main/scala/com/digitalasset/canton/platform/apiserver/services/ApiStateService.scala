@@ -23,7 +23,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.{
 }
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.topology.transaction.ParticipantPermission as TopologyParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
@@ -38,7 +38,7 @@ final class ApiStateService(
     acsService: ACSBackend,
     readService: ReadService,
     txService: IndexTransactionsService,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
 )(implicit

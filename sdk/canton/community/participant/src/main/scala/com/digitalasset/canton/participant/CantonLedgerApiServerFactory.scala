@@ -17,7 +17,7 @@ import com.digitalasset.canton.config.{DbConfig, H2DbConfig}
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics as LedgerApiServerMetrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.participant.admin.MutablePackageNameMapResolver
 import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.IndexerLockIds

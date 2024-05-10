@@ -11,14 +11,14 @@ import com.daml.metrics.api.testing.InMemoryMetricsFactory.{
   InMemoryTimer,
 }
 import com.daml.metrics.api.testing.MetricValues
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.DurationDouble
 
 class IndexerBenchmarkResult(
     config: Config,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     startTimeInNano: Long,
     stopTimeInNano: Long,
 ) extends MetricValues {

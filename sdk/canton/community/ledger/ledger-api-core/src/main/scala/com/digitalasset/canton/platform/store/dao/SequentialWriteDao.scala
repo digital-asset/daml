@@ -8,7 +8,7 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.{
   DbDto,
   DbDtoToStringsForInterning,
@@ -36,7 +36,7 @@ trait SequentialWriteDao {
 object SequentialWriteDao {
   def apply(
       participantId: Ref.ParticipantId,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       compressionStrategy: CompressionStrategy,
       ledgerEndCache: MutableLedgerEndCache,
       stringInterningView: StringInterning with InternizingStringInterningView,

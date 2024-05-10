@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.apiserver.ratelimiting
 
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
 import com.digitalasset.canton.platform.apiserver.ratelimiting.LimitResult.{
   LimitResultCheck,
@@ -61,7 +61,7 @@ object RateLimitingInterceptor {
 
   def apply(
       loggerFactory: NamedLoggerFactory,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       config: RateLimitingConfig,
       additionalChecks: List[LimitResultCheck] = List.empty,
   ): RateLimitingInterceptor = {
@@ -77,7 +77,7 @@ object RateLimitingInterceptor {
 
   def apply(
       loggerFactory: NamedLoggerFactory,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       config: RateLimitingConfig,
       tenuredMemoryPools: List[MemoryPoolMXBean],
       memoryMxBean: MemoryMXBean,

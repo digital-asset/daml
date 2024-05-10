@@ -10,7 +10,7 @@ import com.digitalasset.canton.ledger.localstore.{
   PersistentIdentityProviderConfigStore,
   PersistentUserManagementStore,
 }
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.StorageBackendProvider
 import org.scalatest.freespec.AsyncFreeSpec
 
@@ -22,14 +22,19 @@ trait PersistentUserStoreTests extends PersistentStoreSpecBase with UserStoreTes
   override def newStore(): UserManagementStore =
     new PersistentUserManagementStore(
       dbSupport = dbSupport,
-      metrics = Metrics.ForTesting,
+      metrics = LedgerApiServerMetrics.ForTesting,
       timeProvider = TimeProvider.UTC,
       maxRightsPerUser = 100,
       loggerFactory = loggerFactory,
     )
 
   def createIdentityProviderConfig(identityProviderConfig: IdentityProviderConfig): Future[Unit] = {
-    new PersistentIdentityProviderConfigStore(dbSupport, Metrics.ForTesting, 10, loggerFactory)
+    new PersistentIdentityProviderConfigStore(
+      dbSupport,
+      LedgerApiServerMetrics.ForTesting,
+      10,
+      loggerFactory,
+    )
       .createIdentityProviderConfig(identityProviderConfig)(loggingContext)
       .flatMap {
         case Left(error) => Future.failed(new Exception(error.toString))

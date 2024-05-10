@@ -15,7 +15,7 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLogging,
 }
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.{
   RawArchivedContract,
@@ -126,7 +126,7 @@ object ContractLoader {
   def create(
       contractStorageBackend: ContractStorageBackend,
       dbDispatcher: DbDispatcher,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       maxQueueSize: Int,
       maxBatchSize: Int,
       parallelism: Int,

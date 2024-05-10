@@ -8,14 +8,15 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.participant.state.{InternalStateService, ReadService, Update}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.Future
 
-final class TimedReadService(delegate: ReadService, metrics: Metrics) extends ReadService {
+final class TimedReadService(delegate: ReadService, metrics: LedgerApiServerMetrics)
+    extends ReadService {
 
   override def stateUpdates(
       beginAfter: Option[Offset]

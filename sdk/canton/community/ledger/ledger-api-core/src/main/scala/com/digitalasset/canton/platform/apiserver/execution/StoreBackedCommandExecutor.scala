@@ -7,18 +7,7 @@ import cats.data.*
 import cats.syntax.all.*
 import com.daml.lf.crypto
 import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.engine.{
-  Engine,
-  Result,
-  ResultDone,
-  ResultError,
-  ResultInterruption,
-  ResultNeedAuthority,
-  ResultNeedContract,
-  ResultNeedKey,
-  ResultNeedPackage,
-  ResultNeedUpgradeVerification,
-}
+import com.daml.lf.engine.*
 import com.daml.lf.transaction.*
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance}
@@ -34,7 +23,7 @@ import com.digitalasset.canton.ledger.participant.state.index.{
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
 import com.digitalasset.canton.platform.apiserver.execution.UpgradeVerificationResult.MissingDriverMetadata
@@ -63,7 +52,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
     contractStore: ContractStore,
     authorityResolver: AuthorityResolver,
     authenticateContract: AuthenticateContract,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     config: EngineLoggingConfig,
     val loggerFactory: NamedLoggerFactory,
     dynParamGetter: DynamicDomainParameterGetter,

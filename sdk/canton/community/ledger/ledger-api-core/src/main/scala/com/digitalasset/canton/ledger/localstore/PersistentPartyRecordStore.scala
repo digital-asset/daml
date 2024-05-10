@@ -29,7 +29,7 @@ import com.digitalasset.canton.ledger.localstore.api.{
 import com.digitalasset.canton.ledger.localstore.utils.LocalAnnotationsUtils
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.backend.localstore.PartyRecordStorageBackend
 
@@ -46,7 +46,7 @@ object PersistentPartyRecordStore {
 
 class PersistentPartyRecordStore(
     dbSupport: DbSupport,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     timeProvider: TimeProvider,
     executionContext: ExecutionContext,
     val loggerFactory: NamedLoggerFactory,

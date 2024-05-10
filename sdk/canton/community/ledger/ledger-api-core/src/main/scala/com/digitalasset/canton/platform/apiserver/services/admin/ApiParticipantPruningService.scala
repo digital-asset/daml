@@ -36,7 +36,7 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLogging,
 }
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.ApiOffset.ApiOffsetConverter
 import com.digitalasset.canton.platform.apiserver.ApiException
@@ -52,7 +52,7 @@ final class ApiParticipantPruningService private (
     readBackend: IndexParticipantPruningService with LedgerEndService,
     writeBackend: state.WriteParticipantPruningService,
     readService: ReadService,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -243,7 +243,7 @@ object ApiParticipantPruningService {
       readBackend: IndexParticipantPruningService with LedgerEndService,
       writeBackend: state.WriteParticipantPruningService,
       readService: state.ReadService,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
   )(implicit

@@ -16,7 +16,7 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
   TracedLogger,
 }
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater
 import com.digitalasset.canton.platform.indexer.ha.Handle
 import com.digitalasset.canton.platform.indexer.parallel.AsyncSupport.*
@@ -51,7 +51,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
     submissionBatchSize: Long,
     maxOutputBatchedBufferSize: Int,
     maxTailerBatchSize: Int,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     inMemoryStateUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
     stringInterningView: StringInterning & InternizingStringInterningView,
     tracer: Tracer,
@@ -59,6 +59,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
 ) extends NamedLogging
     with Spanning {
   import ParallelIndexerSubscription.*
+
   private def mapInSpan(
       mapper: Offset => Traced[Update] => Iterator[DbDto]
   )(offset: Offset)(update: Traced[Update]): Iterator[DbDto] = {
@@ -156,7 +157,7 @@ object ParallelIndexerSubscription {
   )
 
   def inputMapper(
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       toDbDto: Offset => Traced[Update] => Iterator[DbDto],
       toMeteringDbDto: Iterable[(Offset, Traced[Update])] => Vector[DbDto.TransactionMetering],
       logger: TracedLogger,
@@ -213,7 +214,7 @@ object ParallelIndexerSubscription {
 
   def seqMapper(
       internize: Iterable[DbDto] => Iterable[(Int, String)],
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
   )(
       previous: Batch[Vector[DbDto]],
       current: Batch[Vector[DbDto]],
@@ -303,7 +304,7 @@ object ParallelIndexerSubscription {
       ingestFunction: (Connection, DB_BATCH) => Unit,
       zeroDbBatch: DB_BATCH,
       dbDispatcher: DbDispatcher,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
   )(implicit traceContext: TraceContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
     batch =>
       LoggingContextWithTrace.withNewLoggingContext(
@@ -326,7 +327,7 @@ object ParallelIndexerSubscription {
   def ingestTail[DB_BATCH](
       ingestTailFunction: LedgerEnd => Connection => Unit,
       dbDispatcher: DbDispatcher,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       logger: TracedLogger,
   )(implicit
       traceContext: TraceContext
