@@ -311,7 +311,7 @@ private[script] object RunnerMainConfigIntermediate {
         failure("Cannot specify --json-api with --ide-ledger, as ide-ledger is run locally.")
       } else if (c.jsonApi && c.ledgerHost.exists(host => Uri(host).scheme == "")) {
         failure(
-          "The argument of --ledger-host must include the protocol (e.g. `http://` or `https://`) because --json-api was specified."
+          "The argument of --ledger-host must include the protocol (e.g. \"http://\" or \"https://\") because --json-api was specified."
         )
       } else {
         success
