@@ -304,6 +304,11 @@ tests damlc =
               Succeed
               LF.versionDefault
               SeparateDeps
+        , test
+              "FailsOnlyInModuleNotInReexports"
+              (FailWithError "\ESC\\[0;91merror type checking data type Other.A:\n  The upgraded data type A has added new fields, but those fields are not Optional.")
+              LF.versionDefault
+              NoDependencies
         ]
   where
     contractKeysMinVersion :: LF.Version

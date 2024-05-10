@@ -1,0 +1,6 @@
+module Other where
+
+data A = A
+  { field1 : Text
+  , field2 : Text
+  }

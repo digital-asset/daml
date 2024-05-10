@@ -160,6 +160,7 @@ da_scala_dar_resources_library(
         "WarnsWhenTemplateChangesObservers",
         "WarnsWhenTemplateChangesSignatories",
         "FailsWithSynonymReturnTypeChange",
+        "FailsOnlyInModuleNotInReexports",
     ]
 ]
 

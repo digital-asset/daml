@@ -506,6 +506,7 @@ da_haskell_test(
         "//test-common:upgrades-FailsWithSynonymReturnTypeChange-files",
         "//test-common:upgrades-FailsWithSynonymReturnTypeChangeInSeparatePackage-files",
         "//test-common:upgrades-SucceedsWhenUpgradingADependency-files",
+        "//test-common:upgrades-FailsOnlyInModuleNotInReexports-files",
     ],
     hackage_deps = [
         "base",
