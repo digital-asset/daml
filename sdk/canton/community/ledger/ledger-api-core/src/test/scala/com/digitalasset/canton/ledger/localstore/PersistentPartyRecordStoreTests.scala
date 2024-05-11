@@ -9,7 +9,7 @@ import com.digitalasset.canton.ledger.localstore.{
   PersistentIdentityProviderConfigStore,
   PersistentPartyRecordStore,
 }
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.StorageBackendProvider
 import org.scalatest.freespec.AsyncFreeSpec
 
@@ -21,14 +21,19 @@ trait PersistentPartyRecordStoreTests extends PersistentStoreSpecBase with Party
   override def newStore(): PersistentPartyRecordStore =
     new PersistentPartyRecordStore(
       dbSupport = dbSupport,
-      metrics = Metrics.ForTesting,
+      metrics = LedgerApiServerMetrics.ForTesting,
       timeProvider = TimeProvider.UTC,
       executionContext = executionContext,
       loggerFactory = loggerFactory,
     )
 
   def createIdentityProviderConfig(identityProviderConfig: IdentityProviderConfig): Future[Unit] =
-    new PersistentIdentityProviderConfigStore(dbSupport, Metrics.ForTesting, 10, loggerFactory)(
+    new PersistentIdentityProviderConfigStore(
+      dbSupport,
+      LedgerApiServerMetrics.ForTesting,
+      10,
+      loggerFactory,
+    )(
       executionContext
     )
       .createIdentityProviderConfig(identityProviderConfig)(loggingContext)

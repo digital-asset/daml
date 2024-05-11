@@ -33,6 +33,7 @@ trait LocalNodeParametersConfig {
   def caching: CachingConfigs
   def useUnifiedSequencer: Boolean
   def devVersionSupport: Boolean
+  def watchdog: Option[WatchdogConfig]
 }
 
 trait CommunityLocalNodeConfig extends LocalNodeConfig {

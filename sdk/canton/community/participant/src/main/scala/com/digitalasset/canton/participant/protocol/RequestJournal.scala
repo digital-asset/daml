@@ -157,12 +157,12 @@ class RequestJournal(
 
   private def incrementNumDirtyRequests(): Unit = {
     numDirtyRequests.incrementAndGet().discard
-    metrics.numDirtyRequests.inc()
+    metrics.numInflightValidations.inc()
   }
 
   private def decrementNumDirtyRequests(): Unit = {
     numDirtyRequests.decrementAndGet().discard
-    metrics.numDirtyRequests.dec()
+    metrics.numInflightValidations.dec()
   }
 
   /** Moves the given request to [[RequestJournal.RequestState.Clean]] and sets the commit time.

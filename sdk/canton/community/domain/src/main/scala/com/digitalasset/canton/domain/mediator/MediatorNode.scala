@@ -30,8 +30,9 @@ import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.admin.data.MediatorNodeStatus
 import com.digitalasset.canton.health.{
   ComponentStatus,
+  DependenciesHealthService,
   GrpcHealthReporter,
-  HealthService,
+  LivenessHealthService,
   MutableHealthComponent,
 }
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext, Lifecycle}
@@ -92,6 +93,7 @@ final case class MediatorNodeParameterConfig(
     override val batching: BatchingConfig = BatchingConfig(),
     override val caching: CachingConfigs = CachingConfigs(),
     override val useUnifiedSequencer: Boolean = false,
+    override val watchdog: Option[WatchdogConfig] = None,
 ) extends ProtocolConfig
     with LocalNodeParametersConfig
 
@@ -187,21 +189,33 @@ class MediatorNodeBootstrap(
 
   private lazy val deferredSequencerClientHealth =
     MutableHealthComponent(loggerFactory, SequencerClient.healthName, timeouts)
-  override protected def mkNodeHealthService(storage: Storage): HealthService =
-    HealthService(
-      "mediator",
+
+  override protected def mkNodeHealthService(
+      storage: Storage
+  ): (DependenciesHealthService, LivenessHealthService) = {
+    val readiness =
+      DependenciesHealthService(
+        "mediator",
+        logger,
+        timeouts,
+        Seq(storage),
+        softDependencies = Seq(deferredSequencerClientHealth),
+      )
+
+    val liveness = LivenessHealthService(
       logger,
       timeouts,
-      Seq(storage),
-      softDependencies = Seq(deferredSequencerClientHealth),
+      fatalDependencies = Seq(deferredSequencerClientHealth),
     )
+    (readiness, liveness)
+  }
 
   private class WaitForMediatorToDomainInit(
       storage: Storage,
       crypto: Crypto,
       mediatorId: MediatorId,
       authorizedTopologyManager: AuthorizedTopologyManager,
-      healthService: HealthService,
+      healthService: DependenciesHealthService,
   ) extends BootstrapStageWithStorage[MediatorNode, StartupNode, DomainId](
         "wait-for-mediator-to-domain-init",
         bootstrapStageCallback,
@@ -300,7 +314,7 @@ class MediatorNodeBootstrap(
       domainId: DomainId,
       domainConfigurationStore: MediatorDomainConfigurationStore,
       domainTopologyStore: TopologyStore[DomainStore],
-      healthService: HealthService,
+      healthService: DependenciesHealthService,
   ) extends BootstrapStage[MediatorNode, RunningNode[MediatorNode]](
         description = "Startup mediator node",
         bootstrapStageCallback,
@@ -633,7 +647,7 @@ class MediatorNodeBootstrap(
       nodeId: UniqueIdentifier,
       authorizedTopologyManager: AuthorizedTopologyManager,
       healthServer: GrpcHealthReporter,
-      healthService: HealthService,
+      healthService: DependenciesHealthService,
   ): BootstrapStageOrLeaf[MediatorNode] = {
     new WaitForMediatorToDomainInit(
       storage,

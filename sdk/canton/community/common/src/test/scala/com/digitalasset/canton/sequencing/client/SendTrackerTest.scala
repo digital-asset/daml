@@ -3,15 +3,13 @@
 
 package com.digitalasset.canton.sequencing.client
 
-import com.daml.metrics.api.noop.NoOpMetricsFactory
-import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.SequencerClientMetrics
-import com.digitalasset.canton.sequencing.protocol.{MessageId, *}
+import com.digitalasset.canton.metrics.{CommonMockMetrics, SequencerClientMetrics}
+import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.{
   OrdinaryProtocolEvent,
   RawProtocolEvent,
@@ -29,10 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class SendTrackerTest extends AsyncWordSpec with BaseTest {
-  val metrics = new SequencerClientMetrics(
-    MetricName("SendTrackerTest"),
-    NoOpMetricsFactory,
-  )(MetricsContext.Empty)
+  val metrics = CommonMockMetrics.sequencerClient
   val msgId1 = MessageId.tryCreate("msgId1")
   val msgId2 = MessageId.tryCreate("msgId2")
 

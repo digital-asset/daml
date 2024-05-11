@@ -6,7 +6,7 @@ package com.digitalasset.canton.health
 import io.grpc.protobuf.services.HealthStatusManager
 
 /** Combines a [[io.grpc.protobuf.services.HealthStatusManager]] (exposed as a gRPC health service)
-  * with the set of [[HealthService]]s it needs to report on.
+  * with the set of [[DependenciesHealthService]]s it needs to report on.
   */
 final case class ServiceHealthStatusManager(
     name: String,

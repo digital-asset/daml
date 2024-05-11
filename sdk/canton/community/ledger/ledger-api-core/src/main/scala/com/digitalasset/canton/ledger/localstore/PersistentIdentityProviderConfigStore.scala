@@ -15,7 +15,7 @@ import com.digitalasset.canton.ledger.localstore.api.{
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -25,7 +25,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class PersistentIdentityProviderConfigStore(
     dbSupport: DbSupport,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     maxIdentityProviders: Int,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -221,7 +221,7 @@ class PersistentIdentityProviderConfigStore(
 object PersistentIdentityProviderConfigStore {
   def cached(
       dbSupport: DbSupport,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       cacheExpiryAfterWrite: FiniteDuration,
       maxIdentityProviders: Int,
       loggerFactory: NamedLoggerFactory,

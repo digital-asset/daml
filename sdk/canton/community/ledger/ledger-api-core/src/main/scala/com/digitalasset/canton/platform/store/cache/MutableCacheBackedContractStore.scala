@@ -9,7 +9,7 @@ import com.digitalasset.canton.ledger.participant.state.index
 import com.digitalasset.canton.ledger.participant.state.index.ContractStore
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.ContractKeyStateValue.*
 import com.digitalasset.canton.platform.store.cache.ContractStateValue.*
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
@@ -24,7 +24,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
 
 private[platform] class MutableCacheBackedContractStore(
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     contractsReader: LedgerDaoContractsReader,
     val loggerFactory: NamedLoggerFactory,
     private[cache] val contractStateCaches: ContractStateCaches,

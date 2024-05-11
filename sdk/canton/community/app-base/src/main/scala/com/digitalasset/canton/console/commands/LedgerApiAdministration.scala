@@ -40,8 +40,7 @@ import com.daml.ledger.javaapi.data.{
 }
 import com.daml.ledger.javaapi as javab
 import com.daml.lf.data.Ref
-import com.daml.metrics.api.MetricHandle.{Histogram, Meter}
-import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
+import com.daml.metrics.api.MetricsContext
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.CompletionWrapper
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.*
@@ -340,26 +339,14 @@ trait BaseLedgerApiAdministration extends NoTracing {
       )(implicit consoleEnvironment: ConsoleEnvironment): AutoCloseable =
         check(FeatureFlag.Testing) {
 
-          val wrappedMetricName = MetricName(metricName)
-
           val observer: StreamObserver[UpdateTreeWrapper] = new StreamObserver[UpdateTreeWrapper] {
 
-            val metricsFactory = consoleEnvironment.environment.metricsRegistry
-              .forParticipant(name)
-              .openTelemetryMetricsFactory
+            implicit val metricsContext: MetricsContext =
+              MetricsContext("measurement" -> metricName)
 
-            val metric: Meter =
-              metricsFactory.meter(MetricInfo(wrappedMetricName, "", MetricQualification.Debug))(
-                MetricsContext.Empty
-              )
-            val nodeCount: Histogram =
-              metricsFactory.histogram(
-                MetricInfo(wrappedMetricName :+ "tx-node-count", "", MetricQualification.Debug)
-              )
-            val transactionSize: Histogram =
-              metricsFactory.histogram(
-                MetricInfo(wrappedMetricName :+ "tx-size", "", MetricQualification.Debug)
-              )
+            val consoleMetrics = consoleEnvironment.environment.metricsRegistry
+              .forParticipant(name)
+              .consoleThroughput
 
             override def onNext(tree: UpdateTreeWrapper): Unit = {
               val (s, serializedSize) = tree match {
@@ -368,9 +355,9 @@ trait BaseLedgerApiAdministration extends NoTracing {
                 case reassignmentWrapper: ReassignmentWrapper =>
                   1L -> reassignmentWrapper.reassignment.serializedSize
               }
-              metric.mark(s)(MetricsContext.Empty)
-              nodeCount.update(s)
-              transactionSize.update(serializedSize)(MetricsContext.Empty)
+              consoleMetrics.metric.mark(s)
+              consoleMetrics.nodeCount.update(s)
+              consoleMetrics.transactionSize.update(serializedSize)
               onUpdate(tree)
             }
 

@@ -1034,9 +1034,8 @@ class BlockUpdateGeneratorImpl(
       // `latestSequencerEventTimestamp` should be part of a "safe-to-prune" timestamp calculation.
       //
       // See https://github.com/DACH-NY/canton/pull/17676#discussion_r1515926774
-      val sequencerIsAddressed =
-        groupToMembers.contains(AllMembersOfDomain) || groupToMembers.contains(SequencersOfDomain)
-      val sequencerEventTimestampO = Option.when(sequencerIsAddressed)(sequencingTimestamp)
+      val sequencerEventTimestampO =
+        Option.when(isSequencerAddressed(groupToMembers))(sequencingTimestamp)
 
       (
         stateAfterTrafficConsume,
@@ -1070,6 +1069,18 @@ class BlockUpdateGeneratorImpl(
       }
       .merge
   }
+
+  // Off-boarded sequencers may still receive blocks (e.g., BFT sequencers still contribute to ordering for a while
+  //  after being deactivated in the Canton topology, specifically until the underlying consensus algorithm
+  //  allows them to be also removed from the BFT ordering topology), but they should not be considered addressed,
+  //  since they are not active in the Canton topology anymore (i.e., group recipients don't include them).
+  private def isSequencerAddressed(groupToMembers: Map[GroupRecipient, Set[Member]]) =
+    groupToMembers
+      .get(AllMembersOfDomain)
+      .exists(_.contains(sequencerId)) ||
+      groupToMembers
+        .get(SequencersOfDomain)
+        .exists(_.contains(sequencerId))
 
   private def checkRecipientsAreKnown(
       submissionRequest: SubmissionRequest,

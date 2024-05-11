@@ -19,7 +19,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.directives.DebuggingDirectives
 
 class HttpHealthServer(
-    service: HealthService,
+    service: DependenciesHealthService,
     address: String,
     port: Port,
     protected override val timeouts: ProcessingTimeout,
@@ -53,7 +53,7 @@ object HttpHealthServer {
     *     500 if the check fails
     */
   @VisibleForTesting
-  private[health] def route(service: HealthService): Route = {
+  private[health] def route(service: DependenciesHealthService): Route = {
     def renderStatus(status: Seq[ComponentStatus]): ResponseEntity = HttpEntity(
       status.map(_.toString).mkString("\n")
     )

@@ -28,7 +28,7 @@ import com.digitalasset.canton.ledger.participant.state.{
   TransactionMeta,
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.SeedService
 import com.digitalasset.canton.platform.apiserver.execution.{
   CommandExecutionResult,
@@ -205,7 +205,7 @@ class CommandSubmissionServiceImplSpec
     val timeProviderType = TimeProviderType.Static
     val seedService = SeedService.WeakRandom
     val commandExecutor = mock[CommandExecutor]
-    val metrics = Metrics.ForTesting
+    val metrics = LedgerApiServerMetrics.ForTesting
 
     val disclosedContract =
       com.digitalasset.canton.ledger.api.domain.DisclosedContract(

@@ -29,7 +29,7 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLogging,
 }
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.util.OptionUtil
 
@@ -45,7 +45,7 @@ final class ApiCommandSubmissionService(
     currentUtcTime: () => Instant,
     maxDeduplicationDuration: Duration,
     submissionIdGenerator: SubmissionIdGenerator,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)

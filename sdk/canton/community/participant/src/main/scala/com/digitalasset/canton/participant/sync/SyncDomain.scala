@@ -34,7 +34,7 @@ import com.digitalasset.canton.participant.event.{
   ContractStakeholdersAndTransferCounter,
   RecordTime,
 }
-import com.digitalasset.canton.participant.metrics.{PruningMetrics, SyncDomainMetrics}
+import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.SubmissionDuringShutdown
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmissionError,
@@ -126,7 +126,6 @@ class SyncDomain(
     inFlightSubmissionTracker: InFlightSubmissionTracker,
     messageDispatcherFactory: MessageDispatcher.Factory[MessageDispatcher],
     clock: Clock,
-    pruningMetrics: PruningMetrics,
     metrics: SyncDomainMetrics,
     trafficStateController: TrafficStateController,
     futureSupervisor: FutureSupervisor,
@@ -263,7 +262,7 @@ class SyncDomain(
       sortedReconciliationIntervalsProvider,
       persistent.acsCommitmentStore,
       journalGarbageCollector.observer,
-      pruningMetrics,
+      metrics.commitments,
       staticDomainParameters.protocolVersion,
       timeouts,
       futureSupervisor,
@@ -990,7 +989,6 @@ object SyncDomain {
         transferCoordination: TransferCoordination,
         inFlightSubmissionTracker: InFlightSubmissionTracker,
         clock: Clock,
-        pruningMetrics: PruningMetrics,
         syncDomainMetrics: SyncDomainMetrics,
         trafficStateController: TrafficStateController,
         futureSupervisor: FutureSupervisor,
@@ -1018,7 +1016,6 @@ object SyncDomain {
         transferCoordination: TransferCoordination,
         inFlightSubmissionTracker: InFlightSubmissionTracker,
         clock: Clock,
-        pruningMetrics: PruningMetrics,
         syncDomainMetrics: SyncDomainMetrics,
         trafficStateController: TrafficStateController,
         futureSupervisor: FutureSupervisor,
@@ -1044,7 +1041,6 @@ object SyncDomain {
         inFlightSubmissionTracker,
         MessageDispatcher.DefaultFactory,
         clock,
-        pruningMetrics,
         syncDomainMetrics,
         trafficStateController,
         futureSupervisor,

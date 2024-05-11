@@ -18,7 +18,7 @@ import com.daml.lf.transaction.NodeId
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawAssignEvent,
@@ -59,7 +59,7 @@ private[dao] final class TransactionsReader(
     dispatcher: DbDispatcher,
     queryValidRange: QueryValidRange,
     eventStorageBackend: EventStorageBackend,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     acsReader: ACSReader,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {

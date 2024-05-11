@@ -9,7 +9,7 @@ import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.{GlobalKey, TransactionVersion, Versioned}
 import com.daml.lf.value.Value.{ContractInstance, ValueInt64, ValueRecord}
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.{HasExecutionContext, TestEssentials}
 import org.mockito.MockitoSugar
@@ -35,7 +35,7 @@ class ContractStateCachesSpec
       cacheInitializationOffset,
       maxContractsCacheSize = 1L,
       maxKeyCacheSize = 1L,
-      metrics = Metrics.ForTesting,
+      metrics = LedgerApiServerMetrics.ForTesting,
       loggerFactory,
     )
 

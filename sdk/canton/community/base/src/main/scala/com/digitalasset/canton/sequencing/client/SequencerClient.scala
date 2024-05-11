@@ -938,10 +938,10 @@ class RichSequencerClientImpl(
       futureSupervisor,
     )
 
-  sequencersTransportState.completion.onComplete { _ =>
-    logger.debug(
-      "The sequencer subscriptions have been closed. Closing sequencer client."
-    )(TraceContext.empty)
+  sequencersTransportState.completion.onComplete { closeReason =>
+    noTracingLogger.debug(
+      s"The sequencer subscriptions have been closed. Closing sequencer client. Close reason: $closeReason"
+    )
     close()
   }
 

@@ -51,8 +51,6 @@ object ViewPosition {
     prettyOfClass(unnamedParam(_.position))
   }
 
-  /** Will fail with an exception, if used to compare `ListIndex` with `MerkleSeqIndex` or `MerkleSeqIndexFromRoot`.
-    */
   private[canton] val orderViewPosition: Order[ViewPosition] =
     Order.by((_: ViewPosition).position.reverse)(
       catsKernelStdOrderForList(MerklePathElement.orderMerklePathElement)
@@ -72,33 +70,12 @@ object ViewPosition {
     def toProtoV30: v30.MerkleSeqIndex
   }
 
-  /** For [[MerkleTreeInnerNode]]s which branch to a list of subviews,
-    * the subtree is identified by the index in the list of subviews.
-    */
-  final case class ListIndex(index: Int) extends MerklePathElement {
-    override def encodeDeterministically: ByteString =
-      DeterministicEncoding
-        .encodeByte(MerklePathElement.ListIndexPrefix)
-        .concat(DeterministicEncoding.encodeInt(index))
-
-    override def pretty: Pretty[ListIndex] = prettyOfString(_.index.toString)
-
-    override lazy val reverse: ListIndex = this
-
-    override def toProtoV30: v30.MerkleSeqIndex =
-      throw new UnsupportedOperationException(
-        "ListIndex is for legacy use only and should not be serialized"
-      )
-  }
-
   /** A leaf position in a [[MerkleSeq]], encodes as a path of directions from the leaf to the root.
     * The path is directed from the leaf to the root such that common subpaths can be shared.
     */
   final case class MerkleSeqIndex(index: List[Direction]) extends MerklePathElement {
     override def encodeDeterministically: ByteString =
-      DeterministicEncoding
-        .encodeByte(MerklePathElement.MerkleSeqIndexPrefix)
-        .concat(DeterministicEncoding.encodeSeqWith(index)(_.encodeDeterministically))
+      DeterministicEncoding.encodeSeqWith(index)(_.encodeDeterministically)
 
     override def pretty: Pretty[MerkleSeqIndex] =
       prettyOfString(_ => index.reverse.map(_.show).mkString(""))
@@ -127,17 +104,7 @@ object ViewPosition {
   }
 
   object MerklePathElement {
-    // Prefixes for the deterministic encoding of Merkle child indices.
-    // Must be unique to prevent collisions of view position encodings
-    private[ViewPosition] val ListIndexPrefix: Byte = 1
-    private[ViewPosition] val MerkleSeqIndexPrefix: Byte = 2
-
-    /** Will throw if used to compare `ListIndex` with `MerkleSeqIndex` or `MerkleSeqIndexFromRoot`.
-      */
     private[data] val orderMerklePathElement: Order[MerklePathElement] = Order.from {
-      case (ListIndex(index1), ListIndex(index2)) =>
-        implicitly[Order[Int]].compare(index1, index2)
-
       case (MerkleSeqIndexFromRoot(index1), MerkleSeqIndexFromRoot(index2)) =>
         implicitly[Order[List[Direction]]].compare(index1, index2)
 
@@ -146,11 +113,6 @@ object ViewPosition {
 
       case (element1, MerkleSeqIndex(index2)) =>
         orderMerklePathElement.compare(element1, MerkleSeqIndexFromRoot(index2.reverse))
-
-      case (element1, element2) =>
-        throw new UnsupportedOperationException(
-          s"Unable to compare ${element1.getClass.getSimpleName} with ${element2.getClass.getSimpleName}."
-        )
     }
   }
 

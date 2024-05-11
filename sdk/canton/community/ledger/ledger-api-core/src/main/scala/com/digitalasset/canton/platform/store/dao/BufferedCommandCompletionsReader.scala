@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.dao
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer
 import com.digitalasset.canton.platform.store.dao.BufferedCommandCompletionsReader.CompletionsFilter
 import com.digitalasset.canton.platform.store.dao.BufferedStreamsReader.FetchFromPersistence
@@ -86,7 +86,7 @@ object BufferedCommandCompletionsReader {
   def apply(
       delegate: LedgerDaoCommandCompletionsReader,
       inMemoryFanoutBuffer: InMemoryFanoutBuffer,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): BufferedCommandCompletionsReader = {
     val fetchCompletions = new FetchFromPersistence[CompletionsFilter, CompletionStreamResponse] {

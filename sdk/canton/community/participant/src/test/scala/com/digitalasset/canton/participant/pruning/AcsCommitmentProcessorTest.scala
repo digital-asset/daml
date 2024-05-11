@@ -327,7 +327,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       sortedReconciliationIntervalsProvider,
       store,
       _ => (),
-      ParticipantTestMetrics.pruning,
+      ParticipantTestMetrics.domain.commitments,
       testedProtocolVersion,
       DefaultProcessingTimeouts.testing
         .copy(storageMaxRetryInterval = NonNegativeDuration.tryFromDuration(1.millisecond)),

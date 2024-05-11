@@ -9,7 +9,7 @@ import com.daml.ledger.api.v2.completion.Completion
 import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors
 import com.digitalasset.canton.ledger.error.{CommonErrors, LedgerApiErrors}
 import com.digitalasset.canton.logging.LedgerErrorLoggingContext
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker.{
   SubmissionKey,
   SubmissionTrackerImpl,
@@ -328,7 +328,7 @@ class SubmissionTrackerSpec
       submissionTracker = new SubmissionTrackerImpl(
         timeoutSupport,
         maxCommandsInFlight = 100,
-        Metrics.ForTesting,
+        LedgerApiServerMetrics.ForTesting,
         loggerFactory,
       )
       // Track concurrent submissions
@@ -381,7 +381,7 @@ class SubmissionTrackerSpec
       new SubmissionTrackerImpl(
         timeoutSupport,
         maxCommandsInFlight = 3,
-        Metrics.ForTesting,
+        LedgerApiServerMetrics.ForTesting,
         loggerFactory,
       )
 

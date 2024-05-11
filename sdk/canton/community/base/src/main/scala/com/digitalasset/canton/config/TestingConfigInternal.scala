@@ -10,6 +10,7 @@ import com.digitalasset.canton.metrics.MetricsFactoryType.External
   *
   * @param testSequencerClientFor: members that should use a
   * [[com.digitalasset.canton.sequencing.client.DelayedSequencerClient]] for testing
+  * @param supportAdhocMetrics  if true, then creating adhoc metrics is supported (conflicts with histogram redefinitions)
   * @param initializeGlobalOpenTelemetry Determines whether the OpenTelemetry instance we build is set as the global OpenTelemetry instance. This is set to false during tests to
   *                                      prevent failures as the global OpenTelemetry instance can be initialized just once.
   * @param doNotUseCommitmentCachingFor A participant whose participant.uid.identifier that matches one of these strings will be excluded from the commitment caching.
@@ -33,6 +34,7 @@ import com.digitalasset.canton.metrics.MetricsFactoryType.External
 final case class TestingConfigInternal(
     testSequencerClientFor: Set[TestSequencerClientFor] = Set.empty,
     metricsFactoryType: MetricsFactoryType = External,
+    supportAdhocMetrics: Boolean = false,
     initializeGlobalOpenTelemetry: Boolean = true,
     doNotUseCommitmentCachingFor: Set[String] = Set.empty,
     reinterpretationTestHookFor: String => () => Unit = _ => () => (),

@@ -21,7 +21,7 @@ import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.SuppressionRule.{FullSuppression, LoggerNameContains}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.{ApiServiceOwner, GrpcServer}
 import com.digitalasset.canton.{BaseTest, UniquePortGenerator}
 import io.grpc.*
@@ -289,7 +289,7 @@ class StreamAuthorizationComponentSpec
       maxInboundMessageSize = ApiServiceOwner.DefaultMaxInboundMessageSize,
       sslContext = None,
       interceptors = List(authorizationClaimSetFixtureInterceptor),
-      metrics = Metrics.ForTesting,
+      metrics = LedgerApiServerMetrics.ForTesting,
       servicesExecutor = ec,
       services = List(bindableService),
       loggerFactory = loggerFactory,
