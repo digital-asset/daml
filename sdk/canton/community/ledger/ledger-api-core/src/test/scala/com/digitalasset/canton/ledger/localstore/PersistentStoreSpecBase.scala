@@ -9,7 +9,7 @@ import com.daml.resources.Resource
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, SuppressingLogger}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.config.ServerRole
 import com.digitalasset.canton.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.digitalasset.canton.platform.store.backend.StorageBackendProvider
@@ -89,7 +89,7 @@ trait PersistentStoreSpecBase extends BaseTest with BeforeAndAfterEach with Befo
           ),
         ),
         serverRole = ServerRole.Testing(getClass),
-        metrics = Metrics.ForTesting,
+        metrics = LedgerApiServerMetrics.ForTesting,
         loggerFactory = loggerFactory,
       )
       .acquire()

@@ -13,7 +13,7 @@ import com.daml.ledger.api.v2.update_service.{
 import com.daml.lf.data.Ref.TransactionId
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer
 import com.digitalasset.canton.platform.store.dao.BufferedStreamsReader.FetchFromPersistence
@@ -139,7 +139,7 @@ private[platform] object BufferedTransactionsReader {
       transactionsBuffer: InMemoryFanoutBuffer,
       eventProcessingParallelism: Int,
       lfValueTranslation: LfValueTranslation,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext

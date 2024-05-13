@@ -50,5 +50,7 @@ object MockedNodeParameters {
     override def exitOnFatalFailures: Boolean = ???
 
     override def useUnifiedSequencer: Boolean = _useUnifiedSequencer
+
+    override def watchdog: Option[WatchdogConfig] = None
   }
 }

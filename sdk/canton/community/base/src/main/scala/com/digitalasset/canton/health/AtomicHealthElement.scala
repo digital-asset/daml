@@ -48,8 +48,14 @@ trait AtomicHealthComponent extends AtomicHealthElement with HealthComponent {
 
   /** Report that the component is now failed
     */
-  def failureOccurred(error: String)(implicit tc: TraceContext): Unit =
+  def failureOccurred(error: String)(implicit tc: TraceContext): Unit = {
     reportHealthState(ComponentHealthState.failed(error))
+  }
+
+  /** Report that the component is now fatally failed and the system should be restarted.
+    */
+  def fatalOccurred(error: String)(implicit tc: TraceContext): Unit =
+    reportHealthState(ComponentHealthState.fatal(error))
 }
 
 trait CloseableAtomicHealthComponent extends CloseableHealthComponent with AtomicHealthComponent

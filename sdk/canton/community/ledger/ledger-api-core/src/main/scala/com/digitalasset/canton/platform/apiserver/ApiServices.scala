@@ -23,20 +23,9 @@ import com.digitalasset.canton.ledger.localstore.api.{
 }
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.ReadService
-import com.digitalasset.canton.ledger.participant.state.index.{
-  ContractStore,
-  IndexActiveContractsService,
-  IndexCompletionsService,
-  IndexEventQueryService,
-  IndexPackagesService,
-  IndexPartyManagementService,
-  IndexService,
-  IndexTransactionsService,
-  MaximumLedgerTimeService,
-  MeteringStore,
-}
+import com.digitalasset.canton.ledger.participant.state.index.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.configuration.{
   EngineLoggingConfig,
   LedgerEndObserverFromIndex,
@@ -103,7 +92,7 @@ object ApiServices {
       commandConfig: CommandServiceConfig,
       optTimeServiceBackend: Option[TimeServiceBackend],
       servicesExecutionContext: ExecutionContext,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       healthChecks: HealthChecks,
       seedService: SeedService,
       managementServiceTimeout: FiniteDuration,

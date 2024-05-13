@@ -7,18 +7,56 @@ import cats.Eval
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, LabeledMetricsFactory, Timer}
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
 import com.digitalasset.canton.SequencerAlias
+import com.digitalasset.canton.metrics.HistogramInventory.Item
 
 import scala.collection.concurrent.TrieMap
 
+class SequencerClientHistograms(basePrefix: MetricName)(implicit
+    inventory: HistogramInventory
+) {
+
+  private[metrics] val prefix: MetricName = basePrefix :+ "sequencer-client"
+  private[metrics] val handlerPrefix: MetricName = prefix :+ "handler"
+
+  private[metrics] val applicationHandle: Item = Item(
+    handlerPrefix :+ "application-handle",
+    summary = "Timer monitoring time and rate of sequentially handling the event application logic",
+    description = """All events are received sequentially. This handler records the
+                      |the rate and time it takes the application (participant or domain) to handle the events.""",
+    qualification = MetricQualification.Debug,
+  )
+
+  private[metrics] val submissionPrefix: MetricName = prefix :+ "submissions"
+
+  private[metrics] val submissionSends: Item = Item(
+    submissionPrefix :+ "sends",
+    summary = "Rate and timings of send requests to the sequencer",
+    description = """Provides a rate and time of how long it takes for send requests to be accepted by the sequencer.
+          |Note that this is just for the request to be made and not for the requested event to actually be sequenced.
+          |""",
+    qualification = MetricQualification.Debug,
+  )
+
+  private[metrics] val submissionSequencingTime: Item = Item(
+    submissionPrefix :+ "sequencing",
+    summary = "Rate and timings of sequencing requests",
+    description =
+      """This timer is started when a submission is made to the sequencer and then completed when a corresponding event
+          |is witnessed from the sequencer, so will encompass the entire duration for the sequencer to sequence the
+          |request. If the request does not result in an event no timing will be recorded.
+          |""",
+    qualification = MetricQualification.Latency,
+  )
+
+}
+
 class SequencerClientMetrics(
-    basePrefix: MetricName,
+    histograms: SequencerClientHistograms,
     val metricsFactory: LabeledMetricsFactory,
 )(implicit context: MetricsContext) {
-  val prefix: MetricName = basePrefix :+ "sequencer-client"
 
   object handler {
-    val prefix: MetricName = SequencerClientMetrics.this.prefix :+ "handler"
-
+    private val prefix = histograms.handlerPrefix
     val numEvents: Counter = metricsFactory.counter(
       MetricInfo(
         prefix :+ "sequencer-events",
@@ -29,17 +67,7 @@ class SequencerClientMetrics(
       )
     )
 
-    val applicationHandle: Timer = metricsFactory.timer(
-      MetricInfo(
-        prefix :+ "application-handle",
-        summary =
-          "Timer monitoring time and rate of sequentially handling the event application logic",
-        description = """All events are received sequentially. This handler records the
-                      |the rate and time it takes the application (participant or domain) to handle the events.""",
-        qualification = MetricQualification.Debug,
-      )
-    )
-
+    val applicationHandle: Timer = metricsFactory.timer(histograms.applicationHandle.info)
     val delay: Gauge[Long] = metricsFactory.gauge(
       MetricInfo(
         prefix :+ "delay",
@@ -141,7 +169,7 @@ class SequencerClientMetrics(
   }
 
   object submissions {
-    val prefix: MetricName = SequencerClientMetrics.this.prefix :+ "submissions"
+    val prefix: MetricName = histograms.submissionPrefix
 
     val inFlight: Counter = metricsFactory.counter(
       MetricInfo(
@@ -154,30 +182,9 @@ class SequencerClientMetrics(
       )
     )
 
-    val sends: Timer = metricsFactory.timer(
-      MetricInfo(
-        prefix :+ "sends",
-        summary = "Rate and timings of send requests to the sequencer",
-        description =
-          """Provides a rate and time of how long it takes for send requests to be accepted by the sequencer.
-          |Note that this is just for the request to be made and not for the requested event to actually be sequenced.
-          |""",
-        qualification = MetricQualification.Debug,
-      )
-    )
+    val sends: Timer = metricsFactory.timer(histograms.submissionSends.info)
 
-    val sequencingTime: Timer = metricsFactory.timer(
-      MetricInfo(
-        prefix :+ "sequencing",
-        summary = "Rate and timings of sequencing requests",
-        description =
-          """This timer is started when a submission is made to the sequencer and then completed when a corresponding event
-          |is witnessed from the sequencer, so will encompass the entire duration for the sequencer to sequence the
-          |request. If the request does not result in an event no timing will be recorded.
-          |""",
-        qualification = MetricQualification.Latency,
-      )
-    )
+    val sequencingTime: Timer = metricsFactory.timer(histograms.submissionSequencingTime.info)
 
     val overloaded: Counter = metricsFactory.counter(
       MetricInfo(

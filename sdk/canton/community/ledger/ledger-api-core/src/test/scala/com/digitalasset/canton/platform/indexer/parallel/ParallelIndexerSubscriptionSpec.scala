@@ -19,7 +19,7 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLogging, SuppressingLogger}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.indexer.ha.TestConnection
 import com.digitalasset.canton.platform.indexer.parallel.ParallelIndexerSubscription.Batch
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
@@ -63,7 +63,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
 
   private def offset(s: String): Offset = Offset.fromHexString(Ref.HexString.assertFromString(s))
 
-  private val metrics = Metrics.ForTesting
+  private val metrics = LedgerApiServerMetrics.ForTesting
 
   private val someEventCreated = DbDto.EventCreate(
     event_offset = "",

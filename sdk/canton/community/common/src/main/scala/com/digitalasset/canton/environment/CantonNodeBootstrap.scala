@@ -36,10 +36,11 @@ import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.health.admin.grpc.GrpcStatusService
 import com.digitalasset.canton.health.admin.v30.StatusServiceGrpc
 import com.digitalasset.canton.health.{
+  DependenciesHealthService,
   GrpcHealthReporter,
   GrpcHealthServer,
-  HealthService,
   HttpHealthServer,
+  LivenessHealthService,
   ServiceHealthStatusManager,
 }
 import com.digitalasset.canton.lifecycle.{
@@ -78,6 +79,7 @@ import com.digitalasset.canton.topology.transaction.{
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracerProvider}
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
+import com.digitalasset.canton.watchdog.WatchdogService
 import io.grpc.protobuf.services.ProtoReflectionService
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
@@ -241,12 +243,13 @@ abstract class CantonNodeBootstrapImpl[
     (Lifecycle.toCloseableServer(server, logger, "AdminServer"), registry)
   }
 
-  protected def mkNodeHealthService(storage: Storage): HealthService
+  protected def mkNodeHealthService(
+      storage: Storage
+  ): (DependenciesHealthService, LivenessHealthService)
   protected def mkHealthComponents(
-      nodeHealthService: HealthService
-  ): (GrpcHealthReporter, Option[GrpcHealthServer], Option[HttpHealthServer], HealthService) = {
-    // Service that will always return `SERVING`. Useful to be targeted by k8s liveness probes.
-    val livenessService = HealthService("liveness", logger, timeouts)
+      nodeHealthService: DependenciesHealthService,
+      livenessService: LivenessHealthService,
+  ): (GrpcHealthReporter, Option[GrpcHealthServer], Option[HttpHealthServer]) = {
     val healthReporter: GrpcHealthReporter = new GrpcHealthReporter(loggerFactory)
     val grpcNodeHealthManager =
       ServiceHealthStatusManager(
@@ -280,7 +283,7 @@ abstract class CantonNodeBootstrapImpl[
         loggerFactory,
       )
     }
-    (healthReporter, grpcHealthServer, httpHealthServer, livenessService)
+    (healthReporter, grpcHealthServer, httpHealthServer)
   }
 
   protected def customNodeStages(
@@ -289,7 +292,7 @@ abstract class CantonNodeBootstrapImpl[
       nodeId: UniqueIdentifier,
       manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
-      healthService: HealthService,
+      healthService: DependenciesHealthService,
   ): BootstrapStageOrLeaf[T]
 
   /** member depends on node type */
@@ -355,11 +358,24 @@ abstract class CantonNodeBootstrapImpl[
         ).map { storage =>
           registerHealthGauge()
           // init health services once
-          val healthService = mkNodeHealthService(storage)
+          val (healthService, livenessService) = mkNodeHealthService(storage)
           addCloseable(healthService)
-          val (healthReporter, grpcHealthServer, httpHealthServer, livenessHealthService) =
-            mkHealthComponents(healthService)
-          addCloseable(livenessHealthService)
+          addCloseable(livenessService)
+          val (healthReporter, grpcHealthServer, httpHealthServer) = {
+            mkHealthComponents(healthService, livenessService)
+          }
+          arguments.parameterConfig.watchdog
+            .filter(_.enabled)
+            .foreach(watchdogConfig => {
+              val watchdog = WatchdogService.SysExitOnNotServing(
+                watchdogConfig.checkInterval,
+                watchdogConfig.killDelay,
+                livenessService,
+                bootstrap.loggerFactory,
+                bootstrap.timeouts,
+              )
+              addCloseable(watchdog)
+            })
           grpcHealthServer.foreach(addCloseable)
           httpHealthServer.foreach(addCloseable)
           addCloseable(storage)
@@ -371,7 +387,7 @@ abstract class CantonNodeBootstrapImpl[
   private class SetupCrypto(
       val storage: Storage,
       val healthReporter: GrpcHealthReporter,
-      healthService: HealthService,
+      healthService: DependenciesHealthService,
   ) extends BootstrapStage[T, SetupNodeId](
         description = "Init crypto module",
         bootstrapStageCallback,
@@ -418,7 +434,7 @@ abstract class CantonNodeBootstrapImpl[
       storage: Storage,
       val crypto: Crypto,
       healthReporter: GrpcHealthReporter,
-      healthService: HealthService,
+      healthService: DependenciesHealthService,
   ) extends BootstrapStageWithStorage[T, GenerateOrAwaitNodeTopologyTx, UniqueIdentifier](
         description = "Init node id",
         bootstrapStageCallback,
@@ -507,7 +523,7 @@ abstract class CantonNodeBootstrapImpl[
       storage: Storage,
       crypto: Crypto,
       healthReporter: GrpcHealthReporter,
-      healthService: HealthService,
+      healthService: DependenciesHealthService,
   ) extends BootstrapStageWithStorage[T, BootstrapStageOrLeaf[T], Unit](
         description = "generate-or-await-node-topology-tx",
         bootstrapStageCallback,

@@ -15,7 +15,11 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.logging.LoggingContextWithTrace.withNewLoggingContext
 import com.digitalasset.canton.logging.SuppressingLogger
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.{
+  HistogramInventory,
+  LedgerApiServerHistograms,
+  LedgerApiServerMetrics,
+}
 import com.digitalasset.canton.platform.config.{
   ActiveContractsServiceStreamsConfig,
   ServerRole,
@@ -66,8 +70,8 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
     val loggerFactory: SuppressingLogger = SuppressingLogger(getClass)
     implicit val traceContext: TraceContext = TraceContext.empty
     val metrics = {
-      new Metrics(
-        MetricName("test"),
+      new LedgerApiServerMetrics(
+        new LedgerApiServerHistograms(MetricName("test"))(new HistogramInventory()),
         NoOpMetricsFactory,
       )
     }

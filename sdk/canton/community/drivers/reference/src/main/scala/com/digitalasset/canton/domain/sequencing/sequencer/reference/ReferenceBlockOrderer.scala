@@ -231,7 +231,10 @@ object ReferenceBlockOrderer {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Source[BlockOrderer.Block, KillSwitch] =
+  ): Source[BlockOrderer.Block, KillSwitch] = {
+    logger.debug(
+      s"Subscription started from height $fromHeight, current max height in DB is ${store.maxBlockHeight()}"
+    )
     Source
       .tick(
         initialDelay = 0.milli,
@@ -269,4 +272,5 @@ object ReferenceBlockOrderer {
         }
       }
       .mapConcat(_._2)
+  }
 }

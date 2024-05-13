@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver
 
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.util.TryUtil.ForFailedOps
 import io.grpc.ForwardingServerCallListener.SimpleForwardingServerCallListener
 import io.grpc.{Metadata, ServerCall, ServerCallHandler, ServerInterceptor}
@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import scala.util.Try
 
 final class ActiveStreamMetricsInterceptor(
-    metrics: Metrics
+    metrics: LedgerApiServerMetrics
 ) extends ServerInterceptor {
 
   private val activeStreamsGauge = metrics.lapi.streams.active

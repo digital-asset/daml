@@ -19,7 +19,7 @@ import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, 
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Reassignment, Update}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater.{PrepareResult, UpdaterFlow}
 import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils
@@ -50,7 +50,7 @@ private[platform] object InMemoryStateUpdaterFlow {
       prepareUpdatesExecutionContext: ExecutionContext,
       updateCachesExecutionContext: ExecutionContext,
       preparePackageMetadataTimeOutWarning: FiniteDuration,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       logger: TracedLogger,
   )(
       prepare: (Vector[(Offset, Traced[Update])], Long) => PrepareResult,
@@ -90,7 +90,7 @@ private[platform] object InMemoryStateUpdater {
       inMemoryState: InMemoryState,
       prepareUpdatesParallelism: Int,
       preparePackageMetadataTimeOutWarning: FiniteDuration,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       loggerFactory: NamedLoggerFactory,
   )(implicit traceContext: TraceContext): ResourceOwner[UpdaterFlow] = for {
     prepareUpdatesExecutor <- ResourceOwner.forExecutorService(() =>

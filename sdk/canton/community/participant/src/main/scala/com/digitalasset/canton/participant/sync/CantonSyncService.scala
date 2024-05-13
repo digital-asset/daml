@@ -353,6 +353,13 @@ class CantonSyncService(
   val cantonAuthorityResolver: AuthorityResolver =
     new CantonAuthorityResolver(connectedDomainsLookup, loggerFactory)
 
+  private val connectQueue = new SimpleExecutionQueue(
+    "sync-service-connect-and-repair-queue",
+    futureSupervisor,
+    timeouts,
+    loggerFactory,
+  )
+
   val repairService: RepairService = new RepairService(
     participantId,
     syncCrypto,
@@ -365,6 +372,9 @@ class CantonSyncService(
     Storage.threadsAvailableForWriting(storage),
     indexedStringStore,
     connectedDomainsLookup.isConnected,
+    // Share the sync service queue with the repair service, so that repair operations cannot run concurrently with
+    // domain connections.
+    connectQueue,
     futureSupervisor,
     loggerFactory,
   )
@@ -1174,13 +1184,6 @@ class CantonSyncService(
   ): EitherT[Future, MissingConfigForAlias, StoredDomainConnectionConfig] =
     EitherT.fromEither[Future](domainConnectionConfigStore.get(domainAlias))
 
-  private val connectQueue = new SimpleExecutionQueue(
-    "sync-service-connect-queue",
-    futureSupervisor,
-    timeouts,
-    loggerFactory,
-  )
-
   private def performDomainConnectionOrHandshake(
       domainAlias: DomainAlias,
       connectDomain: ConnectDomain,
@@ -1286,8 +1289,10 @@ class CantonSyncService(
         )
         domainHandle <- connect(domainConnectionConfig.config)
 
-        persistent = domainHandle.domainPersistentState
         domainId = domainHandle.domainId
+        domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
+        persistent = domainHandle.domainPersistentState
+
         domainCrypto = syncCrypto.tryForDomain(domainId, Some(domainAlias))
 
         ephemeral <- EitherT.right[SyncServiceError](
@@ -1297,14 +1302,14 @@ class CantonSyncService(
                 persistent,
                 participantNodePersistentState.map(_.multiDomainEventLog),
                 inFlightSubmissionTracker,
-                (loggerFactory: NamedLoggerFactory) => {
+                () => {
                   val tracker = DomainTimeTracker(
                     domainConnectionConfig.config.timeTracker,
                     clock,
                     domainHandle.sequencerClient,
                     domainHandle.staticParameters.protocolVersion,
                     timeouts,
-                    loggerFactory,
+                    domainLoggerFactory,
                   )
                   domainHandle.topologyClient.setDomainTimeTracker(tracker)
                   tracker
@@ -1315,19 +1320,18 @@ class CantonSyncService(
               )
           )
         )
-        domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
 
         missingKeysAlerter = new MissingKeysAlerter(
           participantId,
           domainId,
           domainHandle.topologyClient,
           domainCrypto.crypto.cryptoPrivateStore,
-          loggerFactory,
+          domainLoggerFactory,
         )
 
         trafficStateController = new TrafficStateController(
           participantId,
-          loggerFactory,
+          domainLoggerFactory,
           metrics.domainMetrics(domainAlias),
         )
 
@@ -1356,7 +1360,6 @@ class CantonSyncService(
           transferCoordination,
           inFlightSubmissionTracker,
           clock,
-          metrics.pruning,
           domainMetrics,
           trafficStateController,
           futureSupervisor,

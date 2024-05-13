@@ -14,7 +14,7 @@ import com.daml.lf.value.Value.{ContractInstance, ValueRecord, ValueText}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.ContractState
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStoreSpec.*
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
@@ -43,7 +43,7 @@ class MutableCacheBackedContractStoreSpec
     "update the contract state caches" in {
       val contractStateCaches = mock[ContractStateCaches]
       val contractStore = new MutableCacheBackedContractStore(
-        metrics = Metrics.ForTesting,
+        metrics = LedgerApiServerMetrics.ForTesting,
         contractsReader = mock[LedgerDaoContractsReader],
         contractStateCaches = contractStateCaches,
         loggerFactory = loggerFactory,
@@ -301,7 +301,7 @@ object MutableCacheBackedContractStoreSpec {
       loggerFactory: NamedLoggerFactory,
       readerFixture: LedgerDaoContractsReader = ContractsReaderFixture(),
   )(implicit ec: ExecutionContext) = {
-    val metrics = Metrics.ForTesting
+    val metrics = LedgerApiServerMetrics.ForTesting
     val startIndexExclusive: Offset = offset0
     val contractStore = new MutableCacheBackedContractStore(
       metrics,

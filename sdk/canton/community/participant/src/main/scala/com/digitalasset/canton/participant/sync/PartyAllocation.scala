@@ -135,6 +135,7 @@ private[sync] class PartyAllocation(
           }
           .onShutdown(Left(SyncServiceError.Synchronous.shutdownError))
 
+        // TODO(#15087) remove this waiting logic once topology events are published on the ledger api
         // wait for parties to be available on the currently connected domains
         waitingSuccessful <- EitherT
           .right[SubmissionResult](

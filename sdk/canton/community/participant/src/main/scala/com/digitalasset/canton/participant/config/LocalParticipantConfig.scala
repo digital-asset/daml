@@ -364,6 +364,7 @@ final case class ParticipantNodeParameterConfig(
     disableUpgradeValidation: Boolean = false,
     override val useUnifiedSequencer: Boolean = false,
     allowForUnauthenticatedContractIds: Boolean = false,
+    watchdog: Option[WatchdogConfig] = None,
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

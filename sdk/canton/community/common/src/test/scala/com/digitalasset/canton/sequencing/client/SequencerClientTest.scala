@@ -6,8 +6,6 @@ package com.digitalasset.canton.sequencing.client
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.foldable.*
-import com.daml.metrics.api.noop.NoOpMetricsFactory
-import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
@@ -25,7 +23,7 @@ import com.digitalasset.canton.health.HealthComponent.AlwaysHealthyComponent
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyInstances}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NamedLoggingContext}
-import com.digitalasset.canton.metrics.{CommonMockMetrics, SequencerClientMetrics}
+import com.digitalasset.canton.metrics.CommonMockMetrics
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
   ProtocolMessage,
@@ -106,11 +104,7 @@ class SequencerClientTest
     with CloseableTest
     with BeforeAndAfterAll {
 
-  private lazy val metrics =
-    new SequencerClientMetrics(
-      MetricName("SequencerClientTest"),
-      NoOpMetricsFactory,
-    )(MetricsContext.Empty)
+  private lazy val metrics = CommonMockMetrics.sequencerClient
   private lazy val firstSequencerCounter = SequencerCounter(42L)
   private lazy val deliver: Deliver[Nothing] =
     SequencerTestUtils.mockDeliver(
@@ -467,8 +461,8 @@ class SequencerClientTest
               )
               logEntry.throwable shouldBe Some(error)
             },
-            _.warningMessage should include(
-              s"Closing resilient sequencer subscription due to error: HandlerError($syncError)"
+            _.errorMessage should include(
+              s"Sequencer subscription is being closed due to handler exception (this indicates a bug): $syncError"
             ),
           )
 
@@ -541,8 +535,8 @@ class SequencerClientTest
               )
               logEntry.throwable shouldBe Some(error)
             },
-            _.warningMessage should include(
-              s"Closing resilient sequencer subscription due to error: HandlerError($asyncException)"
+            _.errorMessage should include(
+              s"Sequencer subscription is being closed due to handler exception (this indicates a bug): $asyncException"
             ),
           )
         } yield closeReason
