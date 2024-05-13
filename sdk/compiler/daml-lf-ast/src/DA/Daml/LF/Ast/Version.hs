@@ -273,7 +273,9 @@ featureDynamicExercise = Feature
 featurePackageUpgrades :: Feature
 featurePackageUpgrades = Feature
     { featureName = "Package upgrades POC"
-    , featureVersionReq = devOnly
+    , featureVersionReq = VersionReq \case
+        V1 ->  allMinorVersionsAfter (PointStable 16)
+        V2 -> allMinorVersions
     , featureCppFlag = Just "DAML_PACKAGE_UPGRADES"
     }
 
