@@ -9,6 +9,8 @@ import java.io.File
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 
+import org.apache.pekko.http.scaladsl.model.Uri
+
 case class RunnerMainConfig(
     darPath: File,
     runMode: RunnerMainConfig.RunMode,
@@ -301,6 +303,10 @@ private[script] object RunnerMainConfigIntermediate {
         )
       } else if (c.isIdeLedger && c.jsonApi) {
         failure("Cannot specify --json-api with --ide-ledger, as ide-ledger is run locally.")
+      } else if (c.jsonApi && c.ledgerHost.exists(host => Uri(host).scheme == "")) {
+        failure(
+          "The argument of --ledger-host must include the protocol (e.g. \"http://\" or \"https://\") because --json-api was specified."
+        )
       } else {
         success
       }
