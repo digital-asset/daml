@@ -328,11 +328,9 @@ tests damlc =
         -> LF.Version
         -> Dependency
         -> TestTree
-    test name expectation lfVersion sharedDep = testCase name $ do
-            (dir, _) <- newTempDir
-        --withTempDir $ \dir -> do
-            putStrLn "TEMPORARY DIRECTORY"
-            putStrLn dir
+    test name expectation lfVersion sharedDep =
+        testCase name $
+        withTempDir $ \dir -> do
             let newDir = dir </> "newVersion"
             let oldDir = dir </> "oldVersion"
             let newDar = newDir </> "out.dar"
