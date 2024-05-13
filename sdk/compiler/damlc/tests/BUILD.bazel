@@ -446,7 +446,6 @@ da_haskell_test(
 da_haskell_test(
     name = "upgrades",
     srcs = ["src/DA/Test/DamlcUpgrades.hs"],
-    compiler_flags = ["-Wno-unused-local-binds", "-Wno-unused-top-binds"],
     data = [
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
