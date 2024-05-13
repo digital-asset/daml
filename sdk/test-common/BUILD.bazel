@@ -149,7 +149,6 @@ da_scala_dar_resources_library(
         "SucceedsWhenATopLevelVariantAddsAVariant",
         "SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType",
         "WarnsWhenAnInterfaceAndATemplateAreDefinedInTheSamePackage",
-        "WarnsWhenAnInterfaceIsDefinedAndThenUsedInAPackageThatUpgradesIt",
         "WarnsWhenAnInterfaceIsUsedInThePackageThatItsDefinedIn",
         "WarnsWhenControllersOfTemplateChoiceAreChanged",
         "WarnsWhenObserversOfTemplateChoiceAreChanged",
@@ -201,6 +200,7 @@ da_scala_dar_resources_library(
     for identifier in [
         # More more more tests ported from DamlcUpgrades.hs
         "SucceedsWhenAnInstanceIsAddedUpgradedPackage",
+        "WarnsWhenAnInterfaceIsDefinedAndThenUsedInAPackageThatUpgradesIt",
     ]
 ]
 
@@ -241,7 +241,7 @@ da_scala_dar_resources_library(
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
             enable_interfaces = True,
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
-            project_name = "upgrades-example-{}".format(identifier),
+            project_name = "upgrades-example-{}-dep".format(identifier),
             target = "2.dev",
             # We want to check the validity of this upgrade on the ledger
             # client, not during compilation
