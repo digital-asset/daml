@@ -26,7 +26,10 @@ contents: |
       signatory party
 
       choice QueryDisclosureChoice : ()
-          controller party
+        with
+          ctl: Party
+        where
+          controller ctl
           do pure ()
 -}
 
@@ -40,8 +43,9 @@ main = tests
 queriedDisclosuresAreValid : Script ()
 queriedDisclosuresAreValid = do
   a <- allocatePartyOn "alice" participant0
+  b <- allocatePartyOn "bob" participant0
 
   cid <- a `submit` createExactCmd V1.QueryDisclosureTemplate with party = a
   let v2Cid = coerceContractId @V1.QueryDisclosureTemplate @V2.QueryDisclosureTemplate cid
   disclosure <- fromSome <$> queryDisclosure a v2Cid
-  submitWithDisclosures a [disclosure] $ exerciseCmd v2Cid V2.QueryDisclosureChoice
+  submitWithDisclosures b [disclosure] $ exerciseCmd v2Cid (V2.QueryDisclosureChoice b)
