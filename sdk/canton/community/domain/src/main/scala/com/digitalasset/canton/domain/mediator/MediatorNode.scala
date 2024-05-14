@@ -54,7 +54,7 @@ import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{ResourceUtil, SingleUseCell}
+import com.digitalasset.canton.util.{EitherTUtil, ResourceUtil, SingleUseCell}
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionCompatibility}
 import monocle.Lens
 import monocle.macros.syntax.lens.*
@@ -245,20 +245,24 @@ class MediatorNodeBootstrap(
       case None => None
     }.value
 
-    override protected def buildNextStage(domainId: DomainId): StartupNode = {
+    override protected def buildNextStage(
+        domainId: DomainId
+    ): EitherT[FutureUnlessShutdown, String, StartupNode] = {
       val domainTopologyStore =
         TopologyStore(DomainStore(domainId), storage, timeouts, loggerFactory)
       addCloseable(domainTopologyStore)
 
-      new StartupNode(
-        storage,
-        crypto,
-        mediatorId,
-        authorizedTopologyManager,
-        domainId,
-        domainConfigurationStore,
-        domainTopologyStore,
-        healthService,
+      EitherT.rightT(
+        new StartupNode(
+          storage,
+          crypto,
+          mediatorId,
+          authorizedTopologyManager,
+          domainId,
+          domainConfigurationStore,
+          domainTopologyStore,
+          healthService,
+        )
       )
     }
 
@@ -508,10 +512,10 @@ class MediatorNodeBootstrap(
         )
       (topologyProcessor, topologyClient) = topologyProcessorAndClient
       _ = ips.add(topologyClient)
-      _ = if (MediatorNodeBootstrap.this.topologyClient.putIfAbsent(topologyClient).nonEmpty) {
-        // TODO(#14048) how to handle this error properly?
-        throw new IllegalStateException("topology client shouldn't have been set before")
-      }
+      _ <- EitherTUtil.condUnitET(
+        MediatorNodeBootstrap.this.topologyClient.putIfAbsent(topologyClient).isEmpty,
+        "Unexpected state during initialization: topology client shouldn't have been set before",
+      )
       syncCryptoApi = new DomainSyncCryptoClient(
         mediatorId,
         domainId,

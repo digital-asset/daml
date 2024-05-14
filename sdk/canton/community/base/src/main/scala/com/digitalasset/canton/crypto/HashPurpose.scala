@@ -66,7 +66,7 @@ object HashPurpose {
   val _TransactionResultSignature = HashPurpose(17, "TransactionResultSignature")
   val _TransferResultSignature = HashPurpose(19, "TransferResultSignature")
   val _ParticipantStateSignature = HashPurpose(20, "ParticipantStateSignature")
-  val DomainTopologyTransactionMessageSignature =
+  val _DomainTopologyTransactionMessageSignature =
     HashPurpose(21, "DomainTopologyTransactionMessageSignature")
   val _AcsCommitment = HashPurpose(22, "AcsCommitment")
   val Stakeholders = HashPurpose(23, "Stakeholders")
@@ -89,4 +89,5 @@ object HashPurpose {
   val BftOrderingPbftBlock = HashPurpose(40, "BftOrderingPbftBlock")
   val _SetTrafficPurchased = HashPurpose(41, "SetTrafficPurchased")
   val OrderingRequestSignature = HashPurpose(42, "OrderingRequestSignature")
+  val TopologyMappingUniqueKey = HashPurpose(43, "TopologyMappingUniqueKey")
 }

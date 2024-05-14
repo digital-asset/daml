@@ -289,24 +289,27 @@ class SequencerNodeBootstrap(
             SequencerFactory,
             DomainTopologyManager,
         )
-    ): StartupNode = {
+    ): EitherT[FutureUnlessShutdown, String, StartupNode] = {
       val (domainParameters, sequencerFactory, domainTopologyMgr) = result
-      if (domainTopologyManager.putIfAbsent(domainTopologyMgr).nonEmpty) {
-        // TODO(#14048) how to handle this error properly?
-        throw new IllegalStateException("domainTopologyManager shouldn't have been set before")
+      for {
+        _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+          domainTopologyManager.putIfAbsent(domainTopologyMgr).isEmpty,
+          "Unexpected state during initialization: domain topology manager shouldn't have been set before",
+        )
+      } yield {
+        new StartupNode(
+          storage,
+          crypto,
+          sequencerId,
+          sequencerFactory,
+          domainParameters,
+          manager,
+          domainTopologyMgr,
+          nonInitializedSequencerNodeServer.getAndSet(None),
+          healthReporter,
+          healthService,
+        )
       }
-      new StartupNode(
-        storage,
-        crypto,
-        sequencerId,
-        sequencerFactory,
-        domainParameters,
-        manager,
-        domainTopologyMgr,
-        nonInitializedSequencerNodeServer.getAndSet(None),
-        healthReporter,
-        healthService,
-      )
     }
 
     override protected def autoCompleteStage(): EitherT[FutureUnlessShutdown, String, Option[
@@ -467,12 +470,12 @@ class SequencerNodeBootstrap(
           )
           (topologyProcessor, topologyClient) = processorAndClient
           maxStoreTimestamp <- EitherT.right(domainTopologyStore.maxTimestamp())
+          _ = ips.add(topologyClient)
+          _ <- EitherTUtil.condUnitET[Future](
+            SequencerNodeBootstrap.this.topologyClient.putIfAbsent(topologyClient).isEmpty,
+            "Unexpected state during initialization: topology client shouldn't have been set before",
+          )
           membersToRegister <- {
-            ips.add(topologyClient)
-            if (SequencerNodeBootstrap.this.topologyClient.putIfAbsent(topologyClient).nonEmpty) {
-              // TODO(#14048) how to handle this error properly?
-              throw new IllegalStateException("topology client shouldn't have been set before")
-            }
             addCloseable(topologyProcessor)
             addCloseable(topologyClient)
             // TODO(#14073) more robust initialization: if we upload the genesis state, we need to poke

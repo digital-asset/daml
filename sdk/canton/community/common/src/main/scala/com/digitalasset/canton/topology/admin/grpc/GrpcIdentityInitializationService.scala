@@ -65,7 +65,9 @@ class GrpcIdentityInitializationService(
 
 object GrpcIdentityInitializationService {
   trait Callback {
-    def initializeWithProvidedId(uid: UniqueIdentifier): EitherT[Future, String, Unit]
+    def initializeWithProvidedId(uid: UniqueIdentifier)(implicit
+        traceContext: TraceContext
+    ): EitherT[Future, String, Unit]
     def getId: Option[UniqueIdentifier]
     def isInitialized: Boolean
   }
