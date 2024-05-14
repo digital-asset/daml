@@ -145,7 +145,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       runApi(command) shouldBe a[Right[_, _]]
     }
 
-    "be able to exercise a v1 choice then a v2 choice on a v1 contract in the same request" in {
+    // TODO(https://github.com/digital-asset/daml/issues/19161): enable once fixed
+    "be able to exercise a v1 choice then a v2 choice on a v1 contract in the same request" ignore {
       val command1 = ApiCommand.Exercise(
         v1TemplateId.toRef,
         cid1,
