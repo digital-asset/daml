@@ -653,9 +653,16 @@ private class SymbolicSolver(ctx: Context, numPackages: Int, numParties: Int) {
   }
 
   private def hashConstraint(chunkSize: Int, scenario: Scenario): BoolExpr = {
+
+    val numBitsContractId = {
+      1.max((scala.math.log(scenario.ledger.numContracts.toDouble) / scala.math.log(2)).ceil.toInt)
+    }
+
+    val numBitsPackageId = (scala.math.log(numPackages.toDouble) / scala.math.log(2)).ceil.toInt
+
     def contractIdToBits(contractId: ContractId): Seq[BoolExpr] = {
-      val bitVector = ctx.mkInt2BV(5, contractId)
-      (0 until 5).map(i => ctx.mkEq(ctx.mkExtract(i, i, bitVector), ctx.mkBV(1, 1)))
+      val bitVector = ctx.mkInt2BV(numBitsContractId, contractId)
+      (0 until numBitsContractId).map(i => ctx.mkEq(ctx.mkExtract(i, i, bitVector), ctx.mkBV(1, 1)))
     }
 
     def partySetToBits(partySet: PartySet): Seq[BoolExpr] = {
@@ -669,18 +676,18 @@ private class SymbolicSolver(ctx: Context, numPackages: Int, numParties: Int) {
     }
 
     def packageIdToBits(packageId: PackageId): Seq[BoolExpr] = {
-      val numBits = (scala.math.log(numPackages.toDouble) / scala.math.log(2)).ceil.toInt
-      val bitVector = ctx.mkInt2BV(numBits, packageId)
-      (0 until numBits).map(i => ctx.mkEq(ctx.mkExtract(i, i, bitVector), ctx.mkBV(1, 1)))
+      val bitVector = ctx.mkInt2BV(numBitsPackageId, packageId)
+      (0 until numBitsPackageId).map(i => ctx.mkEq(ctx.mkExtract(i, i, bitVector), ctx.mkBV(1, 1)))
     }
 
-    def ledgerToBits(ledger: Ledger): Seq[BoolExpr] =
+    def ledgerToBits(ledger: Ledger): Seq[BoolExpr] = {
       Seq.concat(
         collectReferences(ledger).toSeq.flatMap(contractIdToBits),
         collectPartySets(ledger).flatMap(partySetToBits),
         collectDisclosures(ledger).flatMap(contractIdSetToBits),
         collectPackageIds(ledger).flatMap(packageIdToBits),
       )
+    }
 
     def participantToBits(participant: Participant): Seq[BoolExpr] =
       partySetToBits(participant.parties)
