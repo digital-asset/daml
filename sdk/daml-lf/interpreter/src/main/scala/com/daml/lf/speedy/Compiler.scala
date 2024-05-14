@@ -369,10 +369,8 @@ private[lf] final class Compiler(
     module.templates.foreach { case (tmplName, tmpl) =>
       val tmplId = Identifier(pkgId, QualifiedName(module.name, tmplName))
 
-      val targetTemplateId = Some(tmplId)
-
       addDef(compileCreate(tmplId, tmpl))
-      addDef(compileFetchTemplate(tmplId, targetTemplateId))
+      addDef(compileFetchTemplate(tmplId))
       addDef(compileTemplatePreCondition(tmplId, tmpl))
       addDef(compileSignatories(tmplId, tmpl))
       addDef(compileObservers(tmplId, tmpl))
@@ -388,17 +386,17 @@ private[lf] final class Compiler(
       }
 
       tmpl.choices.values.foreach { choice =>
-        addDef(compileTemplateChoice(tmplId, tmpl, choice, targetTemplateId))
+        addDef(compileTemplateChoice(tmplId, tmpl, choice))
         addDef(compileChoiceController(tmplId, tmpl.param, choice))
         addDef(compileChoiceObserver(tmplId, tmpl.param, choice))
       }
 
       tmpl.key.foreach { tmplKey =>
         addDef(compileContractKeyWithMaintainers(tmplId, tmpl, tmplKey))
-        addDef(compileFetchByKey(tmplId, tmplKey, targetTemplateId))
-        addDef(compileLookupByKey(tmplId, tmplKey, targetTemplateId))
+        addDef(compileFetchByKey(tmplId, tmplKey))
+        addDef(compileLookupByKey(tmplId, tmplKey))
         tmpl.choices.values.foreach { x =>
-          addDef(compileChoiceByKey(tmplId, tmpl, tmplKey, x, targetTemplateId))
+          addDef(compileChoiceByKey(tmplId, tmpl, tmplKey, x))
         }
       }
     }
@@ -482,7 +480,6 @@ private[lf] final class Compiler(
   private[this] def translateChoiceBody(
       env: Env,
       tmplId: TypeConName,
-      optTargetTemplateId: Option[TypeConName],
       tmpl: Template,
       choice: TemplateChoice,
   )(
@@ -495,7 +492,7 @@ private[lf] final class Compiler(
       env,
       SBCastAnyContract(tmplId)(
         env.toSEVar(cidPos),
-        SBFetchAny(optTargetTemplateId)(
+        SBFetchAny(Some(tmplId))(
           env.toSEVar(cidPos),
           mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
         ),
@@ -645,11 +642,10 @@ private[lf] final class Compiler(
       tmplId: TypeConName,
       tmpl: Template,
       choice: TemplateChoice,
-      optTargetTemplateId: Option[TypeConName],
   ): (t.SDefinitionRef, SDefinition) =
     topLevelFunction3(t.TemplateChoiceDefRef(tmplId, choice.name)) {
       (cidPos, choiceArgPos, tokenPos, env) =>
-        translateChoiceBody(env, tmplId, optTargetTemplateId, tmpl, choice)(
+        translateChoiceBody(env, tmplId, tmpl, choice)(
           choiceArgPos,
           cidPos,
           None,
@@ -701,7 +697,6 @@ private[lf] final class Compiler(
       tmpl: Template,
       tmplKey: TemplateKey,
       choice: TemplateChoice,
-      optTargetTemplateId: Option[TypeConName],
   ): (t.SDefinitionRef, SDefinition) =
     // Compiles a choice into:
     // ChoiceByKeyDefRef(SomeTemplate, SomeChoice) = \ <actors> <key> <choiceArg> <token> ->
@@ -715,14 +710,13 @@ private[lf] final class Compiler(
     topLevelFunction3(t.ChoiceByKeyDefRef(tmplId, choice.name)) {
       (keyPos, choiceArgPos, tokenPos, env) =>
         let(env, translateKeyWithMaintainers(env, keyPos, tmplKey)) { (keyWithMPos, env) =>
-          let(env, SBUFetchKey(tmplId, optTargetTemplateId)(env.toSEVar(keyWithMPos))) {
-            (cidPos, env) =>
-              translateChoiceBody(env, tmplId, optTargetTemplateId, tmpl, choice)(
-                choiceArgPos,
-                cidPos,
-                Some(keyWithMPos),
-                tokenPos,
-              )
+          let(env, SBUFetchKey(tmplId)(env.toSEVar(keyWithMPos))) { (cidPos, env) =>
+            translateChoiceBody(env, tmplId, tmpl, choice)(
+              choiceArgPos,
+              cidPos,
+              Some(keyWithMPos),
+              tokenPos,
+            )
           }
         }
     }
@@ -731,7 +725,6 @@ private[lf] final class Compiler(
   private[this] def translateFetchTemplateBody(
       env: Env,
       tmplId: Identifier,
-      optTargetTemplateId: Option[TypeConName],
   )(
       cidPos: Position,
       mbKey: Option[Position], // defined for byKey operation
@@ -739,7 +732,6 @@ private[lf] final class Compiler(
   ): s.SExpr = {
     SBUInsertFetchNode(
       tmplId,
-      optTargetTemplateId,
       byKey = mbKey.isDefined,
     )(
       env.toSEVar(cidPos),
@@ -749,11 +741,10 @@ private[lf] final class Compiler(
   }
 
   private[this] def compileFetchTemplate(
-      tmplId: Identifier,
-      optTargetTemplateId: Option[TypeConName],
+      tmplId: Identifier
   ): (t.SDefinitionRef, SDefinition) =
     topLevelFunction2(t.FetchTemplateDefRef(tmplId)) { (cidPos, tokenPos, env) =>
-      translateFetchTemplateBody(env, tmplId, optTargetTemplateId)(
+      translateFetchTemplateBody(env, tmplId)(
         cidPos,
         None,
         tokenPos,
@@ -984,7 +975,6 @@ private[lf] final class Compiler(
   private[this] def compileLookupByKey(
       tmplId: Identifier,
       tmplKey: TemplateKey,
-      optTargetTemplateId: Option[TypeConName],
   ): (t.SDefinitionRef, SDefinition) =
     // compile a template with key into
     // LookupByKeyDefRef(tmplId) = \ <key> <token> ->
@@ -994,14 +984,13 @@ private[lf] final class Compiler(
     //    in <mbCid>
     topLevelFunction2(t.LookupByKeyDefRef(tmplId)) { (keyPos, _, env) =>
       let(env, translateKeyWithMaintainers(env, keyPos, tmplKey)) { (keyWithMPos, env) =>
-        let(env, SBULookupKey(tmplId, optTargetTemplateId)(env.toSEVar(keyWithMPos))) {
-          (maybeCidPos, env) =>
-            let(
-              env,
-              SBUInsertLookupNode(tmplId)(env.toSEVar(keyWithMPos), env.toSEVar(maybeCidPos)),
-            ) { (_, env) =>
-              env.toSEVar(maybeCidPos)
-            }
+        let(env, SBULookupKey(tmplId)(env.toSEVar(keyWithMPos))) { (maybeCidPos, env) =>
+          let(
+            env,
+            SBUInsertLookupNode(tmplId)(env.toSEVar(keyWithMPos), env.toSEVar(maybeCidPos)),
+          ) { (_, env) =>
+            env.toSEVar(maybeCidPos)
+          }
         }
       }
     }
@@ -1013,7 +1002,6 @@ private[lf] final class Compiler(
   private[this] def compileFetchByKey(
       tmplId: TypeConName,
       tmplKey: TemplateKey,
-      optTargetTemplateId: Option[TypeConName],
   ): (t.SDefinitionRef, SDefinition) =
     // compile a template with key into
     // FetchByKeyDefRef(tmplId) = \ <key> <token> ->
@@ -1024,18 +1012,17 @@ private[lf] final class Compiler(
     //    in { contractId: ContractId Foo, contract: Foo }
     topLevelFunction2(t.FetchByKeyDefRef(tmplId)) { (keyPos, tokenPos, env) =>
       let(env, translateKeyWithMaintainers(env, keyPos, tmplKey)) { (keyWithMPos, env) =>
-        let(env, SBUFetchKey(tmplId, optTargetTemplateId)(env.toSEVar(keyWithMPos))) {
-          (cidPos, env) =>
-            let(
-              env,
-              translateFetchTemplateBody(env, tmplId, optTargetTemplateId)(
-                cidPos,
-                Some(keyWithMPos),
-                tokenPos,
-              ),
-            ) { (contractPos, env) =>
-              FetchByKeyResult(env.toSEVar(cidPos), env.toSEVar(contractPos))
-            }
+        let(env, SBUFetchKey(tmplId)(env.toSEVar(keyWithMPos))) { (cidPos, env) =>
+          let(
+            env,
+            translateFetchTemplateBody(env, tmplId)(
+              cidPos,
+              Some(keyWithMPos),
+              tokenPos,
+            ),
+          ) { (contractPos, env) =>
+            FetchByKeyResult(env.toSEVar(cidPos), env.toSEVar(contractPos))
+          }
         }
       }
     }
