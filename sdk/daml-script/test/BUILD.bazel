@@ -174,8 +174,10 @@ da_scala_library(
     unused_dependency_checker_mode = "warn",
     visibility = ["//visibility:public"],
     deps = [
+        "//:sdk-version-scala-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
@@ -193,6 +195,7 @@ da_scala_library(
         "//test-common/canton/it-lib",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
