@@ -104,8 +104,14 @@ abstract class ConverterMethods(stablePackages: StablePackages) {
     )
   }
 
+  private[lf] def fromTemplateTypeRep(templateId: SValue): SValue =
+    record(stablePackages.TemplateTypeRep, ("getTemplateTypeRep", templateId))
+
   private[lf] def fromTemplateTypeRep(templateId: value.Identifier): SValue =
-    record(stablePackages.TemplateTypeRep, ("getTemplateTypeRep", fromIdentifier(templateId)))
+    fromTemplateTypeRep(fromIdentifier(templateId))
+
+  private[lf] def fromTemplateTypeRep(templateId: Identifier): SValue =
+    fromTemplateTypeRep(STypeRep(TTyCon(templateId)))
 
   private[lf] def fromAnyContractId(
       scriptIds: ScriptIds,
@@ -246,10 +252,7 @@ abstract class ConverterMethods(stablePackages: StablePackages) {
       ("getAnyContractKey", SAny(key.ty, key.key)),
       (
         "getAnyContractKeyTemplateTypeRep",
-        record(
-          stablePackages.TemplateTypeRep,
-          ("getTemplateTypeRep", STypeRep(TTyCon(key.templateId))),
-        ),
+        fromTemplateTypeRep(key.templateId),
       ),
     )
 
