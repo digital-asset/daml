@@ -68,12 +68,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     val v1Choice = Identifier(upgradesV1PkgId, "Upgrades:AssetChoice")
     val v2Choice = Identifier(upgradesV2PkgId, "Upgrades:AssetChoice")
 
-    val let = Time.Timestamp.now()
-    val submissionSeed = hash("upgrades")
-    val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid1 = toContractId("Upgrades:Asset:1")
     val cid2 = toContractId("Upgrades:Asset:2")
-
     val contracts = Map(
       cid1 ->
         assertAsVersionedContract(
@@ -104,6 +100,10 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     val allPkgs = allUpgradesV1Pkgs ++ allUpgradesV2Pkgs
 
     def consume[X](x: Result[X]) = x.consume(contracts, allPkgs, grantUpgradeVerification = None)
+
+    val let = Time.Timestamp.now()
+    val submissionSeed = hash("upgrades")
+    val seeding = Engine.initialSeeding(submissionSeed, participant, let)
 
     def run(cmds: IterableOnce[ApiCommand]) =
       for {
