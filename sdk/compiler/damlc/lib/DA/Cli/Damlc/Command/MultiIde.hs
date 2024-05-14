@@ -44,7 +44,7 @@ import qualified DA.Service.Logger as Logger
 import Data.Either (lefts)
 import Data.Either.Extra (eitherToMaybe)
 import Data.Foldable (traverse_)
-import Data.List (find, isInfixOf)
+import Data.List (find, isInfixOf, isPrefixOf)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes, fromMaybe, isJust, mapMaybe, maybeToList)
 import qualified Data.Set as Set
@@ -357,65 +357,55 @@ sendAllSubIDEs miState msg = holdingIDEsAtomic miState $ \ides ->
 sendAllSubIDEs_ :: MultiIdeState -> LSP.FromClientMessage -> IO ()
 sendAllSubIDEs_ miState = void . sendAllSubIDEs miState
 
-getSourceFileHome :: MultiIdeState -> FilePath -> STM (Maybe PackageHome)
+getDirectoryIfFile :: FilePath -> IO FilePath
+getDirectoryIfFile path = do
+  isFile <- doesFileExist path
+  pure $ if isFile then takeDirectory path else path
+
+getSourceFileHome :: MultiIdeState -> FilePath -> STM PackageHome
 getSourceFileHome miState path = do
+  -- If the path is a file, we only care about the directory, as all files in the same directory share the same home
+  dirPath <- unsafeIOToSTM $ getDirectoryIfFile path
   sourceFileHomes <- takeTMVar (sourceFileHomesVar miState)
-  case Map.lookup path sourceFileHomes of
+  case Map.lookup dirPath sourceFileHomes of
     Just home -> do
       putTMVar (sourceFileHomesVar miState) sourceFileHomes
       unsafeIOToSTM $ logDebug miState $ "Found cached home for " <> path
-      pure $ Just home
+      pure home
     Nothing -> do
       -- Safe as repeat prints are acceptable
       unsafeIOToSTM $ logDebug miState $ "No cached home for " <> path
       -- Read only operation, so safe within STM
-      mHome <- unsafeIOToSTM $ findHome path
-      unsafeIOToSTM $ logDebug miState $ "File system yielded " <> show (unPackageHome <$> mHome)
-      putTMVar (sourceFileHomesVar miState) $ maybe sourceFileHomes (\home -> Map.insert path home sourceFileHomes) mHome
-      pure mHome
+      home <- unsafeIOToSTM $ fromMaybe (defaultPackagePath miState) <$> findHome dirPath
+      unsafeIOToSTM $ logDebug miState $ "File system yielded " <> unPackageHome home
+      putTMVar (sourceFileHomesVar miState) $ Map.insert dirPath home sourceFileHomes
+      pure home
 
-sourceFileHomeDeleted :: MultiIdeState -> FilePath -> IO ()
-sourceFileHomeDeleted miState path = atomically $ modifyTMVar (sourceFileHomesVar miState) $ Map.delete path
+sourceFileHomeDeleted :: MultiIdeState -> FilePath -> STM ()
+sourceFileHomeDeleted miState path = do
+  dirPath <- unsafeIOToSTM $ getDirectoryIfFile path
+  modifyTMVar (sourceFileHomesVar miState) $ Map.delete dirPath
 
 -- When a daml.yaml changes, all files pointing to it are invalidated in the cache
-sourceFileHomeDamlYamlChanged :: MultiIdeState -> PackageHome -> IO ()
-sourceFileHomeDamlYamlChanged miState home = atomically $ modifyTMVar (sourceFileHomesVar miState) $ Map.filter (/=home)
+sourceFileHomeDamlYamlChanged :: MultiIdeState -> PackageHome -> STM ()
+sourceFileHomeDamlYamlChanged miState home = modifyTMVar (sourceFileHomesVar miState) $ Map.filter (/=home)
 
 sendSubIDEByPath :: MultiIdeState -> FilePath -> LSP.FromClientMessage -> IO ()
 sendSubIDEByPath miState path msg = do
-  mHome <- atomically $ getSourceFileHome miState path
+  home <- atomically $ getSourceFileHome miState path
+  putSingleFromClientMessage miState home msg
 
-  case mHome of
-    Just home -> do
-      putSingleFromClientMessage miState home msg
-
-      withIDEs_ miState $ \ides -> do
-        let ideData = lookupSubIde home ides
-        case ideDataMain ideData of
-          -- Here we already have a subIDE, so we forward our message to it before dropping the lock
-          Just ide -> do
-            unsafeSendSubIDE ide msg
-            logDebug miState $ "Found relevant SubIDE: " <> unPackageHome (ideDataHome ideData)
-            pure ides
-          -- This path will create a new subIDE at the given home
-          Nothing -> do
-            unsafeAddNewSubIDEAndSend miState ides home $ Just msg
-    Nothing -> do
-      -- We get here if we cannot find a daml.yaml file for a file mentioned in a request
-      -- if we're sending a response, ignore it, as this means the server that sent the request has been killed already.
-      -- if we're sending a request, respond to the client with an error.
-      -- if we're sending a notification, ignore it - theres nothing the protocol allows us to do to signify notification failures.
-      let replyError :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request). LSP.SMethod m -> LSP.LspId m -> IO ()
-          replyError method id =
-            sendClient miState $ LSP.FromServerRsp method $ LSP.ResponseMessage "2.0" (Just id) $ Left 
-              $ LSP.ResponseError LSP.InvalidParams ("Could not find daml.yaml for package containing " <> T.pack path) Nothing
-      case msg of
-        LSP.FromClientMess method params ->
-          case (LSP.splitClientMethod method, params) of
-            (LSP.IsClientReq, LSP.RequestMessage {_id}) -> replyError method _id
-            (LSP.IsClientEither, LSP.ReqMess (LSP.RequestMessage {_id})) -> replyError method _id
-            _ -> pure ()
-        _ -> pure ()
+  withIDEs_ miState $ \ides -> do
+    let ideData = lookupSubIde home ides
+    case ideDataMain ideData of
+      -- Here we already have a subIDE, so we forward our message to it before dropping the lock
+      Just ide -> do
+        unsafeSendSubIDE ide msg
+        logDebug miState $ "Found relevant SubIDE: " <> unPackageHome (ideDataHome ideData)
+        pure ides
+      -- This path will create a new subIDE at the given home
+      Nothing -> do
+        unsafeAddNewSubIDEAndSend miState ides home $ Just msg
 
 parseCustomResult :: Aeson.FromJSON a => String -> Either LSP.ResponseError Aeson.Value -> Either LSP.ResponseError a
 parseCustomResult name =
@@ -438,6 +428,61 @@ removeOpenFile :: MultiIdeState -> PackageHome -> DamlFile -> STM ()
 removeOpenFile miState home file = do
   unsafeIOToSTM $ logInfo miState $ "Removed open file " <> unDamlFile file <> " from " <> unPackageHome home
   onOpenFiles miState home $ Set.delete file
+
+-- Logic for moving open files between subIDEs when packages are created/destroyed
+
+-- When a daml.yaml is removed, its openFiles need to be distributed to another SubIDE, else we'll forget that the client opened them
+-- We handle this by finding a new home (using getSourceFileHome) for each open file of the current subIDE, and assigning to that
+-- We also send the open file notification to the new subIDE(s) if they're already running
+handleRemovedPackageOpenFiles :: MultiIdeState -> PackageHome -> IO ()
+handleRemovedPackageOpenFiles miState home = withIDEsAtomic_ miState $ \ides -> do
+  let ideData = lookupSubIde home ides
+      moveOpenFile :: SubIDEs -> DamlFile -> STM SubIDEs
+      moveOpenFile ides openFile = do
+        -- getSourceFileHome caches on a directory level, so won't do that many filesystem operations
+        newHome <- getSourceFileHome miState $ unDamlFile openFile
+        let newHomeIdeData = lookupSubIde newHome ides
+            newHomeIdeData' = newHomeIdeData {ideDataOpenFiles = Set.insert openFile $ ideDataOpenFiles newHomeIdeData}
+        -- If we're moving the file to a disabled IDE, it should get the new warning
+        when (ideDataDisabled newHomeIdeData') $ traverse_ (sendClientSTM miState) $ disableIdeDiagnosticMessages newHomeIdeData'
+        forM_ (ideDataMain newHomeIdeData) $ \ide -> do
+          -- Acceptable IO as read only operation
+          content <- unsafeIOToSTM $ TE.readFileUtf8 $ unDamlFile openFile
+          unsafeSendSubIDESTM ide $ openFileNotification openFile content
+        pure $ Map.insert newHome newHomeIdeData' ides
+  ides' <- foldM moveOpenFile ides $ ideDataOpenFiles ideData
+  pure $ Map.insert home (ideData {ideDataOpenFiles = mempty}) ides'
+
+-- When a daml.yaml is created, we potentially move openFiles from other subIDEs to this one
+-- We do this by finding all SubIDEs that sit above this package in the directory
+--   (plus the default package, which is said to sit above all other packages)
+-- We iterate their open files for any that sit below this package
+--   i.e. this package sits between a daml file and its daml.yaml
+-- We move these open files to the new package, sending Closed file messages to their former IDE
+--   We also assume no subIDE for this package existed already, as its daml.yaml was just created
+--   so there is no need to send Open file messages to it
+handleCreatedPackageOpenFiles :: MultiIdeState -> PackageHome -> IO ()
+handleCreatedPackageOpenFiles miState home = withIDEsAtomic_ miState $ \ides -> do
+  -- Iterate ides, return a list of open files, update ides and run monadically
+  let shouldConsiderIde :: PackageHome -> Bool
+      shouldConsiderIde oldHome = 
+        oldHome == defaultPackagePath miState ||
+          unPackageHome oldHome `isPrefixOf` unPackageHome home && oldHome /= home
+      shouldMoveFile :: DamlFile -> Bool
+      shouldMoveFile (DamlFile damlFilePath) = unPackageHome home `isPrefixOf` damlFilePath
+      handleIde :: (SubIDEs, Set.Set DamlFile) -> (PackageHome, SubIDEData) -> STM (SubIDEs, Set.Set DamlFile)
+      handleIde (ides, damlFiles) (oldHome, oldIdeData) | shouldConsiderIde oldHome = do
+        let openFilesToMove = Set.filter shouldMoveFile $ ideDataOpenFiles oldIdeData
+            updatedOldIdeData = oldIdeData {ideDataOpenFiles = ideDataOpenFiles oldIdeData Set.\\ openFilesToMove}
+        forM_ (ideDataMain oldIdeData) $ \ide -> forM_ openFilesToMove $ unsafeSendSubIDESTM ide . closeFileNotification
+        pure (Map.insert oldHome updatedOldIdeData ides, openFilesToMove <> damlFiles)
+      handleIde (ides, damlFiles) (oldHome, oldIdeData) =
+        pure (Map.insert oldHome oldIdeData ides, damlFiles)
+  (ides', movedFiles) <- foldM handleIde mempty $ Map.toList ides
+  let ideData = lookupSubIde home ides
+  -- Invalidate the home cache for every moved file
+  traverse_ (sourceFileHomeDeleted miState . unDamlFile) movedFiles
+  pure $ Map.insert home (ideData {ideDataOpenFiles = movedFiles <> ideDataOpenFiles ideData}) ides'
 
 resolveAndUnpackSourceLocation :: MultiIdeState -> PackageSourceLocation -> IO PackageHome
 resolveAndUnpackSourceLocation miState pkgSource = do
@@ -547,8 +592,14 @@ handleOpenFilesNotification
   -> FilePath
   -> IO ()
 handleOpenFilesNotification miState mess path = atomically $ case (mess ^. LSP.method, takeExtension path) of
-  (LSP.STextDocumentDidOpen, ".daml") -> getSourceFileHome miState path >>= traverse_ (\home -> addOpenFile miState home $ DamlFile path)
-  (LSP.STextDocumentDidClose, ".daml") -> getSourceFileHome miState path >>= traverse_ (\home -> removeOpenFile miState home $ DamlFile path)
+  (LSP.STextDocumentDidOpen, ".daml") -> do
+    home <- getSourceFileHome miState path
+    addOpenFile miState home $ DamlFile path
+  (LSP.STextDocumentDidClose, ".daml") -> do
+    home <- getSourceFileHome miState path
+    removeOpenFile miState home $ DamlFile path
+    -- Also remove from the source mapping, in case project structure changes while we're not tracking the file
+    sourceFileHomeDeleted miState path
   _ -> pure ()
 
 clientMessageHandler :: MultiIdeState -> IO () -> B.ByteString -> IO ()
@@ -625,9 +676,17 @@ clientMessageHandler miState unblock bs = do
           "daml.yaml" -> do
             let home = PackageHome $ takeDirectory changedPath
             logInfo miState $ "daml.yaml change in " <> unPackageHome home <> ". Shutting down IDE"
-            sourceFileHomeDamlYamlChanged miState home
-            rebootIdeByHome miState home
+            atomically $ sourceFileHomeDamlYamlChanged miState home
+            case changeType of
+              LSP.FcDeleted -> do
+                shutdownIdeByHome miState home
+                handleRemovedPackageOpenFiles miState home
+              LSP.FcCreated -> do
+                handleCreatedPackageOpenFiles miState home
+                rebootIdeByHome miState home    
+              LSP.FcChanged -> rebootIdeByHome miState home
             void $ updatePackageData miState
+
           "multi-package.yaml" -> do
             logInfo miState "multi-package.yaml change."
             void $ updatePackageData miState
@@ -640,7 +699,7 @@ clientMessageHandler miState unblock bs = do
 
             void $ updatePackageData miState
           -- for .daml, we remove entry from the sourceFileHome cache if the file is deleted (note that renames/moves are sent as delete then create)
-          _ | takeExtension changedPath == ".daml" && changeType == LSP.FcDeleted -> sourceFileHomeDeleted miState changedPath
+          _ | takeExtension changedPath == ".daml" && changeType == LSP.FcDeleted -> atomically $ sourceFileHomeDeleted miState changedPath
           _ -> pure ()
       logDebug miState "all not on filtered DidChangeWatchedFilesParams"
       -- Filter down to only daml files and send those

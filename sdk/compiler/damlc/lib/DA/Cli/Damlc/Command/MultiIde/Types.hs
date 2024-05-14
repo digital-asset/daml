@@ -162,6 +162,9 @@ withIDEsAtomic miState f = atomically $ do
 holdingIDEsAtomic :: MultiIdeState -> (SubIDEs -> STM a) -> IO a
 holdingIDEsAtomic miState f = withIDEsAtomic miState $ \ides -> (ides,) <$> f ides
 
+withIDEsAtomic_ :: MultiIdeState -> (SubIDEs -> STM SubIDEs) -> IO ()
+withIDEsAtomic_ miState f = void $ withIDEsAtomic miState $ fmap (, ()) . f
+
 withIDEs :: MultiIdeState -> (SubIDEs -> IO (SubIDEs, a)) -> IO a
 withIDEs miState f = do
   ides <- atomically $ takeTMVar $ subIDEsVar miState
