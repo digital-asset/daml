@@ -3,19 +3,19 @@
 
 package com.digitalasset.canton.http.json
 
-import org.apache.pekko.http.scaladsl.model.StatusCodes
 import com.daml.lf.data.Ref
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.http.Generators.{OptionalPackageIdGen, contractGen, contractIdGen, contractLocatorGen, exerciseCmdGen, genDomainTemplateId, genDomainTemplateIdO, genServiceWarning, genUnknownParties, genUnknownTemplateIds, genWarningsWrapper}
 import com.digitalasset.canton.http.domain
 import com.digitalasset.canton.http.json.SprayJson.JsonReaderError
 import com.digitalasset.canton.topology.DomainId
-import org.scalacheck.Arbitrary.arbitrary
+import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.scalacheck.Arbitrary
+import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Gen.{identifier, listOf}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{Inside, Succeeded}
+import org.scalatest.{Assertion, Inside, Succeeded}
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scalaz.syntax.functor.*
 import scalaz.syntax.std.option.*
@@ -232,6 +232,27 @@ class JsonProtocolTest
     }
   }
 
+  "UserRight" - {
+    def testIsomorphic[T <: domain.UserRight: JsonFormat](original: T): Assertion =
+      (original: domain.UserRight).toJson.convertTo[domain.UserRight] shouldBe original
+
+    "Encoding and decoding ParticipantAdmin should result in the same object" in {
+      testIsomorphic(domain.ParticipantAdmin)
+    }
+    "Encoding and decoding IdentityProviderAdmin should result in the same object" in {
+      testIsomorphic(domain.IdentityProviderAdmin)
+    }
+    "Encoding and decoding CanActAs should result in the same object" in {
+      testIsomorphic(domain.CanActAs(domain.Party("canActAs")))
+    }
+    "Encoding and decoding CanReadAs should result in the same object" in {
+      testIsomorphic(domain.CanReadAs(domain.Party("canReadAs")))
+    }
+    "Encoding and decoding CanReadAsAnyParty should result in the same object" in {
+      testIsomorphic(domain.CanReadAsAnyParty)
+    }
+  }
+
   "domain.ExerciseCommand" - {
     "should serialize to a JSON object with flattened reference fields" in forAll(exerciseCmdGen) {
       cmd =>
@@ -270,7 +291,16 @@ class JsonProtocolTest
 
     "successfully parsed with domainId" in {
       """{"domainId":"x::domain"}""".parseJson.convertTo[domain.CommandMeta[JsValue]] should ===(
-        domain.CommandMeta(None, None, None, None, None, None, None, Some(DomainId.tryFromString("x::domain")))
+        domain.CommandMeta(
+          None,
+          None,
+          None,
+          None,
+          None,
+          None,
+          None,
+          Some(DomainId.tryFromString("x::domain")),
+        )
       )
     }
   }

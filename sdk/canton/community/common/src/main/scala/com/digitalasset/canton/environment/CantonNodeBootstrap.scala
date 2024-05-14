@@ -477,14 +477,18 @@ abstract class CantonNodeBootstrapImpl[
         traceContext: TraceContext
     ): Future[Option[UniqueIdentifier]] = initializationStore.uid
 
-    override protected def buildNextStage(uid: UniqueIdentifier): GenerateOrAwaitNodeTopologyTx =
-      new GenerateOrAwaitNodeTopologyTx(
-        uid,
-        authorizedStore,
-        storage,
-        crypto,
-        healthReporter,
-        healthService,
+    override protected def buildNextStage(
+        uid: UniqueIdentifier
+    ): EitherT[FutureUnlessShutdown, String, GenerateOrAwaitNodeTopologyTx] =
+      EitherT.rightT(
+        new GenerateOrAwaitNodeTopologyTx(
+          uid,
+          authorizedStore,
+          storage,
+          crypto,
+          healthReporter,
+          healthService,
+        )
       )
 
     override protected def autoCompleteStage()
@@ -508,7 +512,9 @@ abstract class CantonNodeBootstrapImpl[
       } yield Option(uid)
     }
 
-    override def initializeWithProvidedId(uid: UniqueIdentifier): EitherT[Future, String, Unit] =
+    override def initializeWithProvidedId(uid: UniqueIdentifier)(implicit
+        traceContext: TraceContext
+    ): EitherT[Future, String, Unit] =
       completeWithExternal(
         EitherT.right(initializationStore.setUid(uid).map(_ => uid))
       ).onShutdown(Left("Node has been shutdown"))
@@ -637,15 +643,19 @@ abstract class CantonNodeBootstrapImpl[
         }
     }
 
-    override protected def buildNextStage(result: Unit): BootstrapStageOrLeaf[T] = {
+    override protected def buildNextStage(
+        result: Unit
+    ): EitherT[FutureUnlessShutdown, String, BootstrapStageOrLeaf[T]] = {
       topologyManager.removeObserver(topologyManagerObserver)
-      customNodeStages(
-        storage,
-        crypto,
-        nodeId,
-        topologyManager,
-        healthReporter,
-        healthService,
+      EitherT.rightT(
+        customNodeStages(
+          storage,
+          crypto,
+          nodeId,
+          topologyManager,
+          healthReporter,
+          healthService,
+        )
       )
     }
 

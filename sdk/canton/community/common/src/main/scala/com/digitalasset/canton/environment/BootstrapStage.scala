@@ -4,6 +4,7 @@
 package com.digitalasset.canton.environment
 
 import cats.data.EitherT
+import cats.syntax.traverse.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
@@ -227,7 +228,7 @@ abstract class BootstrapStageWithStorage[
   ): Future[Option[M]]
 
   /** given the result of this stage, create the next stage */
-  protected def buildNextStage(result: M): StageResult
+  protected def buildNextStage(result: M): EitherT[FutureUnlessShutdown, String, StageResult]
 
   /** if the stage didn't complete yet, the node is active and auto-init is set to true, perform
     * the steps necessary. note, this invocation will be thread safe and only run once
@@ -247,27 +248,30 @@ abstract class BootstrapStageWithStorage[
   protected def resumeIfCompleteStage()(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
-    val synchronousCheck = bootstrap.queue.executeUS(
+    val synchronousCheck = bootstrap.queue.executeEUS(
       if (stageResult.get().nonEmpty) {
         logger.debug(s"Stage $description is already initialized. Skipping check.")
-        FutureUnlessShutdown.pure(None)
+        EitherT.pure[FutureUnlessShutdown, String][Option[StageResult]](None)
       } else {
-        performUnlessClosingF("check-already-init")(stageCompleted).map {
-          case Some(result) =>
-            logger.info(
-              s"Stage ${description} completed in the background. Continuing with the initialization"
-            )
-            val nextStage = Some(buildNextStage(result))
-            stageResult.set(nextStage)
-            nextStage
-          case None =>
-            logger.debug(s"Continue awaiting external trigger for start-up stage $description")
-            None
-        }
+        EitherT
+          .right[String](performUnlessClosingF("check-already-init")(stageCompleted))
+          .flatMap[String, Option[StageResult]] {
+            case Some(result) =>
+              logger.info(
+                s"Stage ${description} completed in the background. Continuing with the initialization"
+              )
+              buildNextStage(result).map { nextStage =>
+                stageResult.set(Some(nextStage))
+                Some(nextStage)
+              }
+            case None =>
+              logger.debug(s"Continue awaiting external trigger for start-up stage $description")
+              EitherT.rightT[FutureUnlessShutdown, String](None)
+          }
       },
       s"resume-if-complete-stage-$description",
     )
-    EitherT.right[String](synchronousCheck).flatMap {
+    synchronousCheck.flatMap {
       case Some(nextStage) => nextStage.start()
       case None => EitherT.rightT(())
     }
@@ -295,13 +299,13 @@ abstract class BootstrapStageWithStorage[
               item <- performUnlessClosingEitherUSF(s"complete-grab-result-$description")(
                 storeAndPassResult
               ): EitherT[FutureUnlessShutdown, String, M]
-              stage <- EitherT.right(
-                FutureUnlessShutdown.lift(performUnlessClosing(s"store-stage-$description") {
-                  val stage = buildNextStage(item)
-                  stageResult.set(Some(stage))
-                  stage
-                })
-              )
+              stage <-
+                performUnlessClosingEitherUSF(s"store-stage-$description") {
+                  buildNextStage(item).map { stage =>
+                    stageResult.set(Some(stage))
+                    stage
+                  }
+                }
             } yield stage
           }: EitherT[FutureUnlessShutdown, String, StageResult],
         s"complete-with-external-$description",
@@ -323,7 +327,7 @@ abstract class BootstrapStageWithStorage[
         result <- EitherT.right(stageCompleted).mapK(FutureUnlessShutdown.outcomeK)
         stageO <- result match {
           case Some(result) =>
-            EitherT.rightT[FutureUnlessShutdown, String](Some(buildNextStage(result)))
+            buildNextStage(result).map(Some(_))
           case None =>
             // if stage is not completed, but we can auto-init this stage, proceed
             val isActive = storage.isActive
@@ -345,7 +349,7 @@ abstract class BootstrapStageWithStorage[
                     // start procedure and move the waiting to the back
                     UnlessShutdown.Outcome(Right(None))
                   }
-              ).map(_.map(buildNextStage))
+              ).flatMap(_.traverse(buildNextStage))
             } else {
               // otherwise, finish the startup here and wait for an external trigger
               EitherT.rightT[FutureUnlessShutdown, String](None)

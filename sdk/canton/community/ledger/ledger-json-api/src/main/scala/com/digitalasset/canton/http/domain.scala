@@ -188,6 +188,7 @@ package domain {
 
   final case class PartyDetails(identifier: Party, displayName: Option[String], isLocal: Boolean)
 
+  // Important note: when changing this ADT, adapt the custom associated JsonFormat codec in JsonProtocol
   sealed abstract class UserRight extends Product with Serializable
   final case object ParticipantAdmin extends UserRight
   final case object IdentityProviderAdmin extends UserRight
@@ -256,6 +257,7 @@ package domain {
 
   final case class AllocatePartyRequest(identifierHint: Option[Party], displayName: Option[String])
 
+  // Important note: when changing this ADT, adapt the custom associated JsonFormat codec in JsonProtocol
   sealed abstract class DeduplicationPeriod extends Product with Serializable {
     def toProto: Commands.DeduplicationPeriod =
       this match {
@@ -781,6 +783,7 @@ package domain {
 
   sealed trait RetryInfoDetailDurationTag
 
+  // Important note: when changing this ADT, adapt the custom associated JsonFormat codec in JsonProtocol
   sealed trait ErrorDetail extends Product with Serializable
   final case class ResourceInfoDetail(name: String, typ: String) extends ErrorDetail
   final case class ErrorInfoDetail(errorCodeId: String, metadata: Map[String, String])
