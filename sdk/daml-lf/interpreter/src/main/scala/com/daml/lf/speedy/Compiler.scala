@@ -403,9 +403,9 @@ private[lf] final class Compiler(
 
     module.interfaces.foreach { case (ifaceName, iface) =>
       val ifaceId = Identifier(pkgId, QualifiedName(module.name, ifaceName))
-      addDef(compileFetchInterface(ifaceId, soft = true))
+      addDef(compileFetchInterface(ifaceId))
       iface.choices.values.foreach { choice =>
-        addDef(compileInterfaceChoice(ifaceId, iface.param, choice, soft = true))
+        addDef(compileInterfaceChoice(ifaceId, iface.param, choice))
         addDef(compileChoiceController(ifaceId, iface.param, choice))
         addDef(compileChoiceObserver(ifaceId, iface.param, choice))
       }
@@ -490,12 +490,9 @@ private[lf] final class Compiler(
   ): s.SExpr = {
     let(
       env,
-      SBCastAnyContract(tmplId)(
+      SBFetchTemplate(tmplId)(
         env.toSEVar(cidPos),
-        SBFetchAny(Some(tmplId))(
-          env.toSEVar(cidPos),
-          mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
-        ),
+        mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
       ),
     ) { (tmplArgPos, _env) =>
       val env =
@@ -548,7 +545,6 @@ private[lf] final class Compiler(
       ifaceId: TypeConName,
       param: ExprVarName,
       choice: TemplateChoice,
-      soft: Boolean,
   )(
       guardPos: Position,
       cidPos: Position,
@@ -557,7 +553,7 @@ private[lf] final class Compiler(
   ): s.SExpr =
     let(
       env,
-      (if (soft) SBSoftFetchInterface else SBFetchAny(None))(
+      SBSoftFetchInterface(
         env.toSEVar(cidPos),
         s.SEValue.None,
       ),
@@ -626,11 +622,10 @@ private[lf] final class Compiler(
       ifaceId: TypeConName,
       param: ExprVarName,
       choice: TemplateChoice,
-      soft: Boolean,
   ): (t.SDefinitionRef, SDefinition) =
     topLevelFunction4(t.InterfaceChoiceDefRef(ifaceId, choice.name)) {
       (guardPos, cidPos, choiceArgPos, tokenPos, env) =>
-        translateInterfaceChoiceBody(env, ifaceId, param, choice, soft)(
+        translateInterfaceChoiceBody(env, ifaceId, param, choice)(
           guardPos,
           cidPos,
           choiceArgPos,
@@ -752,13 +747,12 @@ private[lf] final class Compiler(
     }
 
   private[this] def compileFetchInterface(
-      ifaceId: Identifier,
-      soft: Boolean,
+      ifaceId: Identifier
   ): (t.SDefinitionRef, SDefinition) =
     topLevelFunction2(t.FetchInterfaceDefRef(ifaceId)) { (cidPos, _, env) =>
       let(
         env,
-        (if (soft) SBSoftFetchInterface else SBFetchAny(None))(
+        SBSoftFetchInterface(
           env.toSEVar(cidPos),
           s.SEValue.None,
         ),
