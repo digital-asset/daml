@@ -32,7 +32,7 @@ import System.FilePath.Posix
 import qualified Module as Ghc
 
 -- Given a dar, attempts to recreate the package structure for the IDE, with all files set to read-only.
--- Note, this function deletes the previous folder for the same unit-id, ensure subIDE is not running in this directory
+-- Note, this function deletes the previous folder for the same unit-id, ensure subIde is not running in this directory
 -- before calling this function
 unpackDar :: MultiIdeState -> DarFile -> IO ()
 unpackDar miState darFile = do
@@ -117,7 +117,7 @@ extractPackageMetadataFromDalfPath path =
     _ -> ("", "", "")
 
 unpackedDarsLocation :: MultiIdeState -> FilePath
-unpackedDarsLocation miState = multiPackageHome miState </> ".daml" </> "unpacked-dars"
+unpackedDarsLocation miState = misMultiPackageHome miState </> ".daml" </> "unpacked-dars"
 
 unpackedDarPath :: MultiIdeState -> String -> String -> PackageHome
 unpackedDarPath miState pkgName pkgVersion = PackageHome $ unpackedDarsLocation miState </> pkgName <> "-" <> pkgVersion

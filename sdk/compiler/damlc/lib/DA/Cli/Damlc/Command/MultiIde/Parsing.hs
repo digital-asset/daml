@@ -1,12 +1,9 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE PolyKinds           #-}
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE ApplicativeDo       #-}
-{-# LANGUAGE RankNTypes       #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE GADTs #-}
 
 module DA.Cli.Damlc.Command.MultiIde.Parsing (
@@ -91,8 +88,8 @@ putReqMethodSingleFromServerCoordinator tracker id method = putReqMethod tracker
 putFromServerMessage :: MultiIdeState -> PackageHome -> LSP.FromServerMessage -> IO ()
 putFromServerMessage miState home (LSP.FromServerMess method mess) =
   case (LSP.splitServerMethod method, mess) of
-    (LSP.IsServerReq, _) -> putReqMethodSingleFromServer (fromServerMethodTrackerVar miState) home (mess ^. LSP.id) method
-    (LSP.IsServerEither, LSP.ReqMess mess) -> putReqMethodSingleFromServer (fromServerMethodTrackerVar miState) home (mess ^. LSP.id) method
+    (LSP.IsServerReq, _) -> putReqMethodSingleFromServer (misFromServerMethodTrackerVar miState) home (mess ^. LSP.id) method
+    (LSP.IsServerEither, LSP.ReqMess mess) -> putReqMethodSingleFromServer (misFromServerMethodTrackerVar miState) home (mess ^. LSP.id) method
     _ -> pure ()
 putFromServerMessage _ _ _ = pure ()
 
@@ -105,8 +102,8 @@ putReqMethodSingleFromClient tracker id method message home = putReqMethod track
 putSingleFromClientMessage :: MultiIdeState -> PackageHome -> LSP.FromClientMessage -> IO ()
 putSingleFromClientMessage miState home msg@(LSP.FromClientMess method mess) =
   case (LSP.splitClientMethod method, mess) of
-    (LSP.IsClientReq, _) -> putReqMethodSingleFromClient (fromClientMethodTrackerVar miState) (mess ^. LSP.id) method msg home
-    (LSP.IsClientEither, LSP.ReqMess mess) -> putReqMethodSingleFromClient (fromClientMethodTrackerVar miState) (mess ^. LSP.id) method msg home
+    (LSP.IsClientReq, _) -> putReqMethodSingleFromClient (misFromClientMethodTrackerVar miState) (mess ^. LSP.id) method msg home
+    (LSP.IsClientEither, LSP.ReqMess mess) -> putReqMethodSingleFromClient (misFromClientMethodTrackerVar miState) (mess ^. LSP.id) method msg home
     _ -> pure ()
 putSingleFromClientMessage _ _ _ = pure ()
 
@@ -216,7 +213,7 @@ adjustClientTrackers
      -> (Maybe (TrackedMethod m), Maybe a)
      )
   -> IO [a]
-adjustClientTrackers miState home adjuster = atomically $ stateTVar (fromClientMethodTrackerVar miState) $ \tracker ->
+adjustClientTrackers miState home adjuster = atomically $ stateTVar (misFromClientMethodTrackerVar miState) $ \tracker ->
   let doAdjust 
         :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
         .  [a]
@@ -231,7 +228,7 @@ adjustClientTrackers miState home adjuster = atomically $ stateTVar (fromClientM
         (TrackedSingleMethodFromClient _ _ home', LSP.SomeLspId lspId) | home == home' -> doAdjust accum (unsafeCoerce lspId) tracker
         (TrackedAllMethod {tamRemainingResponsePackageHomes}, LSP.SomeLspId lspId) | home `elem` tamRemainingResponsePackageHomes -> doAdjust accum (unsafeCoerce lspId) tracker
         _ -> (accum, Just someTracker)
-      -- We know that the fromClientMethodTrackerVar only contains Trackers for FromClient, but this information is lost in the `Some` inside the IxMap
+      -- We know that the misFromClientMethodTrackerVar only contains Trackers for FromClient, but this information is lost in the `Some` inside the IxMap
       -- We define our `adjust` method safely, by having it know this `FromClient` constraint, then coerce it to bring said constraint into scope.
       -- (trackerMap :: forall (from :: LSP.From). Map.Map SomeLspId (Some @(Lsp.Method from @LSP.Request) TrackedMethod))
       -- where `from` is constrained outside the IxMap and as such, enforced weakly (using unsafeCoerce)
@@ -239,14 +236,14 @@ adjustClientTrackers miState home adjuster = atomically $ stateTVar (fromClientM
    in (accum, IM.IxMap trackerMap)
 
 -- Checks if a given Shutdown or Initialize lspId is for an IDE that is still closing, and as such, should not be removed
-isClosingIdeInFlight :: SubIDEData -> LSP.SMethod m -> LSP.LspId m -> Bool
+isClosingIdeInFlight :: SubIdeData -> LSP.SMethod m -> LSP.LspId m -> Bool
 isClosingIdeInFlight ideData LSP.SShutdown (LSP.IdString str) = any (\ide -> str == ideMessageIdPrefix ide <> "-shutdown") $ ideDataClosing ideData
 isClosingIdeInFlight ideData LSP.SInitialize (LSP.IdString str) = any (\ide -> str == ideMessageIdPrefix ide <> "-init") $ ideDataClosing ideData
 isClosingIdeInFlight _ _ _ = False
 
 -- Reads all unresponded messages for a given home, gives back the original messages. Ignores and deletes Initialize and Shutdown requests
 -- but only if no ideClosing ides are using them
-getUnrespondedRequestsToResend :: MultiIdeState -> SubIDEData -> PackageHome -> IO [LSP.FromClientMessage]
+getUnrespondedRequestsToResend :: MultiIdeState -> SubIdeData -> PackageHome -> IO [LSP.FromClientMessage]
 getUnrespondedRequestsToResend miState ideData home = adjustClientTrackers miState home $ \lspId tracker -> case tmMethod tracker of
   -- Keep shutdown/initialize messages that are in use, but don't return them
   method | isClosingIdeInFlight ideData method lspId -> (Just tracker, Nothing)
@@ -257,7 +254,7 @@ getUnrespondedRequestsToResend miState ideData home = adjustClientTrackers miSta
 -- Gets fallback responses for all unresponded requests for a given home.
 -- For Single IDE requests, we return noIDEReply, and delete the request from the tracker
 -- For All IDE requests, we delete this home from the aggregate response, and if it is now complete, run the combiner and return the result
-getUnrespondedRequestsFallbackResponses :: MultiIdeState -> SubIDEData -> PackageHome -> IO [LSP.FromServerMessage]
+getUnrespondedRequestsFallbackResponses :: MultiIdeState -> SubIdeData -> PackageHome -> IO [LSP.FromServerMessage]
 getUnrespondedRequestsFallbackResponses miState ideData home = adjustClientTrackers miState home $ \lspId tracker -> case tracker of
 -- Keep shutdown/initialize messages that are in use, but don't return them
   TrackedSingleMethodFromClient method _ _ | isClosingIdeInFlight ideData method lspId -> (Just tracker, Nothing)

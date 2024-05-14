@@ -1,12 +1,9 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE PolyKinds           #-}
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE ApplicativeDo       #-}
-{-# LANGUAGE RankNTypes       #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE GADTs #-}
 
 module DA.Cli.Damlc.Command.MultiIde.Types (
@@ -21,6 +18,7 @@ import Control.Concurrent.MVar
 import Control.Monad (void)
 import Control.Monad.STM
 import DA.Daml.Project.Types (ProjectPath (..))
+import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BSL
 import Data.Function (on)
 import qualified Data.IxMap as IM
@@ -49,8 +47,8 @@ data TrackedMethod (m :: LSP.Method from 'LSP.Request) where
   TrackedSingleMethodFromClient
     :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
     .  LSP.SMethod m
-    -> LSP.FromClientMessage -- | Store the whole message for re-transmission on subIDE restart
-    -> PackageHome -- | Store the recipient subIDE for this message
+    -> LSP.FromClientMessage -- | Store the whole message for re-transmission on subIde restart
+    -> PackageHome -- | Store the recipient subIde for this message
     -> TrackedMethod m
   TrackedSingleMethodFromServer
     :: forall (m :: LSP.Method 'LSP.FromServer 'LSP.Request)
@@ -62,7 +60,7 @@ data TrackedMethod (m :: LSP.Method from 'LSP.Request) where
         -- ^ The method of the initial request
     , tamLspId :: LSP.LspId m
     , tamClientMessage :: LSP.FromClientMessage
-        -- ^ Store the whole message for re-transmission on subIDE restart
+        -- ^ Store the whole message for re-transmission on subIde restart
     , tamCombiner :: ResponseCombiner m
         -- ^ How to combine the results from each IDE
     , tamRemainingResponsePackageHomes :: [PackageHome]
@@ -88,97 +86,97 @@ tmClientMessage (TrackedAllMethod {tamClientMessage}) = tamClientMessage
 type MethodTracker (from :: LSP.From) = IM.IxMap @(LSP.Method from 'LSP.Request) LSP.LspId TrackedMethod
 type MethodTrackerVar (from :: LSP.From) = TVar (MethodTracker from)
 
-data SubIDEInstance = SubIDEInstance
+data SubIdeInstance = SubIdeInstance
   { ideInhandleAsync :: Async ()
   , ideInHandle :: Handle
   , ideInHandleChannel :: TChan BSL.ByteString
   , ideOutHandle :: Handle
   , ideOutHandleAsync :: Async ()
-    -- ^ For sending messages to that SubIDE
+    -- ^ For sending messages to that SubIde
   , ideErrHandle :: Handle
   , ideErrText :: TVar T.Text
   , ideErrTextAsync :: Async ()
   , ideProcess :: Process Handle Handle Handle
   , ideHome :: PackageHome
   , ideMessageIdPrefix :: T.Text
-    -- ^ Some unique string used to prefix message ids created by the SubIDE, to avoid collisions with other SubIDEs
+    -- ^ Some unique string used to prefix message ids created by the SubIde, to avoid collisions with other SubIdes
     -- We use the stringified process ID
-    -- TODO[SW]: This isn't strictly safe since this data exists for a short time after subIDE shutdown, duplicates could be created.
+    -- TODO[SW]: This isn't strictly safe since this data exists for a short time after subIde shutdown, duplicates could be created.
   , ideUnitId :: UnitId
-    -- ^ Unit ID of the package this SubIDE handles
+    -- ^ Unit ID of the package this SubIde handles
     -- Of the form "daml-script-0.0.1"
   }
 
-instance Eq SubIDEInstance where
+instance Eq SubIdeInstance where
   -- ideMessageIdPrefix is derived from process id, so this equality is of the process.
   (==) = (==) `on` ideMessageIdPrefix
 
-instance Ord SubIDEInstance where
+instance Ord SubIdeInstance where
   -- ideMessageIdPrefix is derived from process id, so this ordering is of the process.
   compare = compare `on` ideMessageIdPrefix
 
 -- We store an optional main ide, the currently closing ides (kept only so they can reply to their shutdowns), and open files
 -- open files must outlive the main subide so we can re-send the TextDocumentDidOpen messages on new ide startup
-data SubIDEData = SubIDEData
+data SubIdeData = SubIdeData
   { ideDataHome :: PackageHome
-  , ideDataMain :: Maybe SubIDEInstance
-  , ideDataClosing :: Set.Set SubIDEInstance
+  , ideDataMain :: Maybe SubIdeInstance
+  , ideDataClosing :: Set.Set SubIdeInstance
   , ideDataOpenFiles :: Set.Set DamlFile
   , ideDataFailTimes :: [UTCTime]
   , ideDataDisabled :: Bool
   , ideDataLastError :: Maybe String
   }
 
-defaultSubIDEData :: PackageHome -> SubIDEData
-defaultSubIDEData home = SubIDEData home Nothing Set.empty Set.empty [] False Nothing
+defaultSubIdeData :: PackageHome -> SubIdeData
+defaultSubIdeData home = SubIdeData home Nothing Set.empty Set.empty [] False Nothing
 
-lookupSubIde :: PackageHome -> SubIDEs -> SubIDEData
-lookupSubIde home ides = fromMaybe (defaultSubIDEData home) $ Map.lookup home ides
+lookupSubIde :: PackageHome -> SubIdes -> SubIdeData
+lookupSubIde home ides = fromMaybe (defaultSubIdeData home) $ Map.lookup home ides
 
 ideShouldDisableTimeout :: NominalDiffTime
 ideShouldDisableTimeout = 5
 
-ideShouldDisable :: SubIDEData -> Bool
+ideShouldDisable :: SubIdeData -> Bool
 ideShouldDisable (ideDataFailTimes -> (t1:t2:_)) = t1 `diffUTCTime` t2 < ideShouldDisableTimeout
 ideShouldDisable _ = False
 
--- SubIDEs placed in a TMVar. The emptyness representents a modification lock.
+-- SubIdes placed in a TMVar. The emptyness representents a modification lock.
 -- The lock unsures the following properties:
 --   If multiple messages are sent to a new IDE at the same time, the first will create and hold a lock, while the rest wait on that lock (avoid multiple create)
---   We never attempt to send messages on a stale IDE. If we ever read SubIDEsVar with the intent to send a message on a SubIDE, we must hold the so a shutdown
+--   We never attempt to send messages on a stale IDE. If we ever read SubIdesVar with the intent to send a message on a SubIde, we must hold the so a shutdown
 --     cannot be sent on that IDE until we are done. This ensures that when a shutdown does occur, it is impossible for non-shutdown messages to be added to the
 --     queue after the shutdown.
-type SubIDEs = Map.Map PackageHome SubIDEData
-type SubIDEsVar = TMVar SubIDEs
+type SubIdes = Map.Map PackageHome SubIdeData
+type SubIdesVar = TMVar SubIdes
 
--- Helper functions for holding the subIDEs var
-withIDEsAtomic :: MultiIdeState -> (SubIDEs -> STM (SubIDEs, a)) -> IO a
+-- Helper functions for holding the subIdes var
+withIDEsAtomic :: MultiIdeState -> (SubIdes -> STM (SubIdes, a)) -> IO a
 withIDEsAtomic miState f = atomically $ do
-  ides <- takeTMVar $ subIDEsVar miState
+  ides <- takeTMVar $ misSubIdesVar miState
   (ides', res) <- f ides
-  putTMVar (subIDEsVar miState) ides'
+  putTMVar (misSubIdesVar miState) ides'
   pure res
 
-holdingIDEsAtomic :: MultiIdeState -> (SubIDEs -> STM a) -> IO a
+holdingIDEsAtomic :: MultiIdeState -> (SubIdes -> STM a) -> IO a
 holdingIDEsAtomic miState f = withIDEsAtomic miState $ \ides -> (ides,) <$> f ides
 
-withIDEsAtomic_ :: MultiIdeState -> (SubIDEs -> STM SubIDEs) -> IO ()
+withIDEsAtomic_ :: MultiIdeState -> (SubIdes -> STM SubIdes) -> IO ()
 withIDEsAtomic_ miState f = void $ withIDEsAtomic miState $ fmap (, ()) . f
 
-withIDEs :: MultiIdeState -> (SubIDEs -> IO (SubIDEs, a)) -> IO a
+withIDEs :: MultiIdeState -> (SubIdes -> IO (SubIdes, a)) -> IO a
 withIDEs miState f = do
-  ides <- atomically $ takeTMVar $ subIDEsVar miState
+  ides <- atomically $ takeTMVar $ misSubIdesVar miState
   (ides', res) <- f ides
-  atomically $ putTMVar (subIDEsVar miState) ides'
+  atomically $ putTMVar (misSubIdesVar miState) ides'
   pure res
 
-holdingIDEs :: MultiIdeState -> (SubIDEs -> IO a) -> IO a
+holdingIDEs :: MultiIdeState -> (SubIdes -> IO a) -> IO a
 holdingIDEs miState f = withIDEs miState $ \ides -> (ides,) <$> f ides
 
-withIDEs_ :: MultiIdeState -> (SubIDEs -> IO SubIDEs) -> IO ()
+withIDEs_ :: MultiIdeState -> (SubIdes -> IO SubIdes) -> IO ()
 withIDEs_ miState f = void $ withIDEs miState $ fmap (, ()) . f
 
--- Stores the initialize messages sent by the client to be forwarded to SubIDEs when they are created.
+-- Stores the initialize messages sent by the client to be forwarded to SubIdes when they are created.
 type InitParams = LSP.InitializeParams
 type InitParamsVar = MVar InitParams
 
@@ -197,47 +195,53 @@ type DarDependentPackagesVar = TMVar DarDependentPackages
 type SourceFileHomes = Map.Map FilePath PackageHome
 type SourceFileHomesVar = TMVar SourceFileHomes
 
+-- Takes unblock messages IO, subIde itself and message bytestring
+-- Extracted to types to resolve cycles in dependencies
+type SubIdeMessageHandler = IO () -> SubIdeInstance -> B.ByteString -> IO ()
+
 data MultiIdeState = MultiIdeState
-  { fromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient
+  { misFromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient
     -- ^ The client will track its own IDs to ensure they're unique, so no worries about collisions
-  , fromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer
-    -- ^ We will prefix LspIds before they get here based on their SubIDE messageIdPrefix, to avoid collisions
-  , subIDEsVar :: SubIDEsVar
-  , initParamsVar :: InitParamsVar
-  , toClientChan :: TChan BSL.ByteString
-  , multiPackageMappingVar :: MultiPackageYamlMappingVar
-  , darDependentPackagesVar :: DarDependentPackagesVar
-  , logger :: Logger.Handle IO
-  , multiPackageHome :: FilePath
-  , defaultPackagePath :: PackageHome
-  , sourceFileHomesVar :: SourceFileHomesVar
-  , subIdeArgs :: [String]
+  , misFromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer
+    -- ^ We will prefix LspIds before they get here based on their SubIde messageIdPrefix, to avoid collisions
+  , misSubIdesVar :: SubIdesVar
+  , misInitParamsVar :: InitParamsVar
+  , misToClientChan :: TChan BSL.ByteString
+  , misMultiPackageMappingVar :: MultiPackageYamlMappingVar
+  , misDarDependentPackagesVar :: DarDependentPackagesVar
+  , misLogger :: Logger.Handle IO
+  , misMultiPackageHome :: FilePath
+  , misDefaultPackagePath :: PackageHome
+  , misSourceFileHomesVar :: SourceFileHomesVar
+  , misSubIdeArgs :: [String]
+  , misSubIdeMessageHandler :: SubIdeMessageHandler
   }
 
 logError :: MultiIdeState -> String -> IO ()
-logError miState msg = Logger.logError (logger miState) (T.pack msg)
+logError miState msg = Logger.logError (misLogger miState) (T.pack msg)
 
 logWarning :: MultiIdeState -> String -> IO ()
-logWarning miState msg = Logger.logWarning (logger miState) (T.pack msg)
+logWarning miState msg = Logger.logWarning (misLogger miState) (T.pack msg)
 
 logInfo :: MultiIdeState -> String -> IO ()
-logInfo miState msg = Logger.logInfo (logger miState) (T.pack msg)
+logInfo miState msg = Logger.logInfo (misLogger miState) (T.pack msg)
 
 logDebug :: MultiIdeState -> String -> IO ()
-logDebug miState msg = Logger.logDebug (logger miState) (T.pack msg)
+logDebug miState msg = Logger.logDebug (misLogger miState) (T.pack msg)
 
-newMultiIdeState :: FilePath -> PackageHome -> Logger.Priority -> [String] -> IO MultiIdeState
-newMultiIdeState multiPackageHome defaultPackagePath logThreshold subIdeArgs = do
-  (fromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient) <- newTVarIO IM.emptyIxMap
-  (fromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer) <- newTVarIO IM.emptyIxMap
-  subIDEsVar <- newTMVarIO @SubIDEs mempty
-  initParamsVar <- newEmptyMVar @InitParams
-  toClientChan <- atomically newTChan
-  multiPackageMappingVar <- newTMVarIO @MultiPackageYamlMapping mempty
-  darDependentPackagesVar <- newTMVarIO @DarDependentPackages mempty
-  sourceFileHomesVar <- newTMVarIO @SourceFileHomes mempty
-  logger <- Logger.newStderrLogger logThreshold "Multi-IDE"
-  pure MultiIdeState {..}
+newMultiIdeState :: FilePath -> PackageHome -> Logger.Priority -> [String] -> (MultiIdeState -> SubIdeMessageHandler) -> IO MultiIdeState
+newMultiIdeState misMultiPackageHome misDefaultPackagePath logThreshold misSubIdeArgs subIdeMessageHandler = do
+  (misFromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient) <- newTVarIO IM.emptyIxMap
+  (misFromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer) <- newTVarIO IM.emptyIxMap
+  misSubIdesVar <- newTMVarIO @SubIdes mempty
+  misInitParamsVar <- newEmptyMVar @InitParams
+  misToClientChan <- atomically newTChan
+  misMultiPackageMappingVar <- newTMVarIO @MultiPackageYamlMapping mempty
+  misDarDependentPackagesVar <- newTMVarIO @DarDependentPackages mempty
+  misSourceFileHomesVar <- newTMVarIO @SourceFileHomes mempty
+  misLogger <- Logger.newStderrLogger logThreshold "Multi-IDE"
+  let miState = MultiIdeState {misSubIdeMessageHandler = subIdeMessageHandler miState, ..}
+  pure miState
 
 -- Forwarding
 
