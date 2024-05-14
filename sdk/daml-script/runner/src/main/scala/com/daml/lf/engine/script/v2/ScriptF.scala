@@ -14,7 +14,6 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.speedy.SBuiltinFun.{SBToAny, SBVariantCon}
 import com.daml.lf.speedy.SExpr._
@@ -23,7 +22,7 @@ import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.stablepackages.StablePackagesV2
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.script.converter.Converter.{record, toContractId, toText}
+import com.daml.script.converter.Converter.{toContractId, toText}
 import com.digitalasset.canton.ledger.api.domain.{User, UserRight}
 import org.apache.pekko.stream.Materializer
 import scalaz.std.either._
@@ -281,11 +280,7 @@ object ScriptF {
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
         optR <- client.queryContractId(parties, tplId, cid)
         optR <- Converter.toFuture(
-          optR.traverse(c => {
-            val templateTypeRep = record(
-              StablePackagesV2.TemplateTypeRep,
-              ("getTemplateTypeRep", STypeRep(TTyCon(c.templateId))),
-            )
+          optR.traverse(c =>
             Converter
               .fromAnyTemplate(
                 env.valueTranslator,
@@ -293,8 +288,14 @@ object ScriptF {
                 c.argument,
                 client.enableContractUpgrading,
               )
-              .map(makeTriplet(_, templateTypeRep, SText(c.blob.toHexString)))
-          })
+              .map(
+                makeTriplet(
+                  _,
+                  Converter.fromTemplateTypeRep(c.templateId),
+                  SText(c.blob.toHexString),
+                )
+              )
+          )
         )
       } yield SEValue(SOptional(optR))
   }

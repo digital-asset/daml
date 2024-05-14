@@ -12,7 +12,6 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.language.Ast
-import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.speedy.SExpr.{SEAppAtomic, SEValue, SExpr}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy.PureMachine
@@ -21,7 +20,7 @@ import com.daml.lf.stablepackages.StablePackagesV2
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.{CompiledPackages, command}
-import com.daml.script.converter.Converter.{record, toContractId, toText}
+import com.daml.script.converter.Converter.{toContractId, toText}
 import com.digitalasset.canton.ledger.api.domain.{User, UserRight}
 import org.apache.pekko.stream.Materializer
 import scalaz.std.either._
@@ -260,10 +259,7 @@ object ScriptF {
             Right(
               optR.map(c =>
                 makePair(
-                  record(
-                    StablePackagesV2.TemplateTypeRep,
-                    ("getTemplateTypeRep", STypeRep(TTyCon(c.templateId))),
-                  ),
+                  Converter.fromTemplateTypeRep(c.templateId),
                   SValue.SText(c.blob.toHexString),
                 )
               )
