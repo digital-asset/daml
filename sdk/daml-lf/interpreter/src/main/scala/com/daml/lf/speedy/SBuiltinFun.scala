@@ -1537,7 +1537,7 @@ private[lf] object SBuiltinFun {
   }
 
   private[speedy] sealed abstract class SBUKeyBuiltin(
-      operation: KeyOperation,
+      operation: KeyOperation
   ) extends UpdateBuiltin(1)
       with Product {
     override protected def executeUpdate(
@@ -1568,11 +1568,10 @@ private[lf] object SBuiltinFun {
             machine.ptx = machine.ptx.copy(contractState = next)
             keyMapping match {
               case ContractStateMachine.KeyActive(coid) =>
-                fetchContract(machine, templateId, coid, keyOpt) {
-                  templateArg =>
-                    getContractInfo(machine, coid, templateId, templateArg, keyOpt)(_ =>
-                      operation.handleKeyFound(coid)
-                    )
+                fetchContract(machine, templateId, coid, keyOpt) { templateArg =>
+                  getContractInfo(machine, coid, templateId, templateArg, keyOpt)(_ =>
+                    operation.handleKeyFound(coid)
+                  )
                 }
 
               case ContractStateMachine.KeyInactive =>
@@ -1586,11 +1585,10 @@ private[lf] object SBuiltinFun {
               keyMapping match {
                 case ContractStateMachine.KeyActive(coid) =>
                   val c =
-                    fetchContract(machine, templateId, coid, keyOpt) {
-                      templateArg =>
-                        getContractInfo(machine, coid, templateId, templateArg, keyOpt)(_ =>
-                          operation.handleKeyFound(coid)
-                        )
+                    fetchContract(machine, templateId, coid, keyOpt) { templateArg =>
+                      getContractInfo(machine, coid, templateId, templateArg, keyOpt)(_ =>
+                        operation.handleKeyFound(coid)
+                      )
                     }
                   (c, true)
                 case ContractStateMachine.KeyInactive =>
@@ -1619,7 +1617,7 @@ private[lf] object SBuiltinFun {
     *   -> ContractId T
     */
   final case class SBUFetchKey(
-      templateId: TypeConName,
+      templateId: TypeConName
   ) extends SBUKeyBuiltin(new KeyOperation.Fetch(templateId))
 
   /** $lookupKey[T]
@@ -1627,7 +1625,7 @@ private[lf] object SBuiltinFun {
     *   -> Maybe (ContractId T)
     */
   final case class SBULookupKey(
-      templateId: TypeConName,
+      templateId: TypeConName
   ) extends SBUKeyBuiltin(new KeyOperation.Lookup(templateId))
 
   /** $getTime :: Token -> Timestamp */
