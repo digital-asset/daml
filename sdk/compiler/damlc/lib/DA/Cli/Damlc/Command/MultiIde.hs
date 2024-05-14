@@ -1,57 +1,79 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE PolyKinds           #-}
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE ApplicativeDo       #-}
-{-# LANGUAGE RankNTypes       #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE GADTs #-}
 
 module DA.Cli.Damlc.Command.MultiIde (runMultiIde) where
 
+import qualified "zip-archive" Codec.Archive.Zip as Zip
+import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async (async, cancel, pollSTM)
 import Control.Concurrent.STM.TChan
 import Control.Concurrent.STM.TMVar
+import Control.Concurrent.STM.TVar
 import Control.Concurrent.MVar
-import Control.Exception(AsyncException, handle, throwIO)
+import Control.Exception(SomeException, displayException, fromException, try)
 import Control.Lens
 import Control.Monad
 import Control.Monad.STM
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.State.Strict (StateT, runStateT, gets, modify')
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy.Char8 as BSLC
 import DA.Cli.Damlc.Command.MultiIde.Forwarding
 import DA.Cli.Damlc.Command.MultiIde.Prefixing
 import DA.Cli.Damlc.Command.MultiIde.Util
 import DA.Cli.Damlc.Command.MultiIde.Parsing
 import DA.Cli.Damlc.Command.MultiIde.Types
-import DA.Cli.Options (MultiIdeVerbose (..))
+import DA.Cli.Damlc.Command.MultiIde.DarDependencies (resolveSourceLocation, unpackDar, unpackedDarsLocation)
 import DA.Daml.LanguageServer.SplitGotoDefinition
+import DA.Daml.LF.Reader (DalfManifest(..), readDalfManifest)
 import DA.Daml.Package.Config (MultiPackageConfigFields(..), findMultiPackageConfig, withMultiPackageConfig)
+import DA.Daml.Project.Consts (projectConfigName)
 import DA.Daml.Project.Types (ProjectPath (..))
+import qualified DA.Service.Logger as Logger
 import Data.Either (lefts)
+import Data.Either.Extra (eitherToMaybe)
 import Data.Foldable (traverse_)
-import Data.Functor.Product
-import Data.List (find, isPrefixOf)
+import Data.List (find, isInfixOf)
 import qualified Data.Map as Map
-import Data.Maybe (catMaybes, fromMaybe)
+import Data.Maybe (catMaybes, fromMaybe, isJust, mapMaybe, maybeToList)
+import qualified Data.Set as Set
 import qualified Data.Text as T
+import qualified Data.Text.Extended as TE
+import qualified Data.Text.IO as T
+import Data.Time.Clock (getCurrentTime)
 import GHC.Conc (unsafeIOToSTM)
 import qualified Language.LSP.Types as LSP
 import qualified Language.LSP.Types.Lens as LSP
-import System.Environment (getEnv)
+import qualified SdkVersion.Class
+import System.Directory (doesFileExist, getCurrentDirectory)
+import System.Environment (getEnv, getEnvironment)
+import System.Exit (exitSuccess)
+import System.FilePath.Posix (takeDirectory, takeExtension, takeFileName, (</>))
 import System.IO.Extra
-import System.Process (getPid)
+import System.Info.Extra (isWindows)
+import System.Process (getPid, terminateProcess)
 import System.Process.Typed (
+  ExitCode (..),
   Process,
-  createPipe,
+  StreamSpec,
   getExitCodeSTM,
+  getStderr,
   getStdin,
   getStdout,
-  nullStream,
+  mkPipeStreamSpec,
   proc,
+  setEnv,
   setStderr,
   setStdin,
   setStdout,
@@ -65,222 +87,379 @@ import System.Process.Typed (
 -- add IDE, send initialize, do not send further messages until we get the initialize response and have sent initialized
 -- we can do this by locking the sending thread, but still allowing the channel to be pushed
 -- we also atomically send a message to the channel, without dropping the lock on the subIDEs var
+-- Note that messages sent here should _already_ be in the fromClientMessage tracker
 addNewSubIDEAndSend
   :: MultiIdeState
-  -> FilePath
-  -> LSP.FromClientMessage
-  -> IO SubIDE
-addNewSubIDEAndSend miState home msg = do
-  debugPrint miState "Trying to make a SubIDE"
-  ides <- atomically $ takeTMVar $ subIDEsVar miState
+  -> PackageHome
+  -> Maybe LSP.FromClientMessage
+  -> IO ()
+addNewSubIDEAndSend miState home mMsg =
+  withIDEs_ miState $ \ides -> unsafeAddNewSubIDEAndSend miState ides home mMsg
 
-  let mExistingIde = Map.lookup home $ onlyActiveSubIdes ides
-  case mExistingIde of
+-- Unsafe as does not acquire SubIDEsVar, instead simply transforms it
+unsafeAddNewSubIDEAndSend
+  :: MultiIdeState
+  -> SubIDEs
+  -> PackageHome
+  -> Maybe LSP.FromClientMessage
+  -> IO SubIDEs
+unsafeAddNewSubIDEAndSend miState ides home mMsg = do
+  logDebug miState "Trying to make a SubIDE"
+
+  let ideData = lookupSubIde home ides
+  case ideDataMain ideData of
     Just ide -> do
-      debugPrint miState "SubIDE already exists"
-      unsafeSendSubIDE ide msg
-      atomically $ putTMVar (subIDEsVar miState) ides
-      pure ide
+      logDebug miState "SubIDE already exists"
+      forM_ mMsg $ unsafeSendSubIDE ide
+      pure ides
+    Nothing | ideShouldDisable ideData || ideDataDisabled ideData -> do
+      when (ideShouldDisable ideData) $ logDebug miState $ "SubIDE failed twice within " <> show ideShouldDisableTimeout <> ", disabling SubIDE"
+
+      responses <- getUnrespondedRequestsFallbackResponses miState ideData home
+      logDebug miState $ "Found " <> show (length responses) <> " unresponded messages, sending empty replies."
+      
+      -- Doesn't include mMsg, as if it was request, it'll already be in the tracker, so a reply for it will be in `responses`
+      -- As such, we cannot send this on every failed message, 
+      let ideData' = ideData {ideDataDisabled = True, ideDataFailTimes = []}
+          -- Only add diagnostic messages for first fail to start.
+          -- Diagnostic messages trigger the client to send a codeAction request, which would create an infinite loop if we sent
+          -- diagnostics with its reply
+          messages = responses <> if ideShouldDisable ideData then disableIdeDiagnosticMessages ideData else []
+
+      atomically $ traverse_ (sendClientSTM miState) messages
+      pure $ Map.insert home ideData' ides
     Nothing -> do
-      debugPrint miState "Making a SubIDE"
+      logInfo miState $ "Creating new SubIDE for " <> unPackageHome home
+      traverse_ (sendClient miState) $ clearIdeDiagnosticMessages ideData
 
-      unitId <- either (\cErr -> error $ "Failed to get unit ID from daml.yaml: " <> show cErr) id <$> unitIdFromDamlYaml home
+      unitId <- either (\cErr -> error $ "Failed to get unit ID from daml.yaml: " <> show cErr) fst <$> unitIdAndDepsFromDamlYaml home
 
-      subIdeProcess <- runSubProc home
+      subIdeProcess <- runSubProc miState home
       let inHandle = getStdin subIdeProcess
           outHandle = getStdout subIdeProcess
+          errHandle = getStderr subIdeProcess
+
+      ideErrText <- newTVarIO @T.Text ""
 
       -- Handles blocking the sender thread until the IDE is initialized.
-      sendBlocker <- newEmptyMVar @()
-      let unblock = putMVar sendBlocker ()
-          onceUnblocked = (readMVar sendBlocker >>)
+      (onceUnblocked, unblock) <- makeIOBlocker
 
       --           ***** -> SubIDE
       toSubIDEChan <- atomically newTChan
-      toSubIDE <- async $ onceUnblocked $ forever $ do
-        msg <- atomically $ readTChan toSubIDEChan
-        debugPrint miState "Pushing message to subIDE"
-        putChunk inHandle msg
+      let pushMessageToSubIDE :: IO ()
+          pushMessageToSubIDE = do
+            msg <- atomically $ readTChan toSubIDEChan
+            logDebug miState "Pushing message to subIDE"
+            putChunk inHandle msg
+      toSubIDE <- async $ do
+        -- Allow first message (init) to be sent before unblocked
+        pushMessageToSubIDE
+        onceUnblocked $ forever pushMessageToSubIDE
 
       --           Coord <- SubIDE
       subIDEToCoord <- async $ do
         -- Wait until our own IDE exists then pass it forward
-        ide <- atomically $ fromMaybe (error "Failed to get own IDE") . Map.lookup home . onlyActiveSubIdes <$> readTMVar (subIDEsVar miState)
+        ide <- atomically $ fromMaybe (error "Failed to get own IDE") . ideDataMain . lookupSubIde home <$> readTMVar (subIDEsVar miState)
         onChunks outHandle $ subIDEMessageHandler miState unblock ide
 
       pid <- fromMaybe (error "SubIDE has no PID") <$> getPid (unsafeProcessHandle subIdeProcess)
 
+      ideErrTextAsync <- async $
+        let go = do
+              text <- T.hGetChunk errHandle
+              unless (text == "") $ do
+                atomically $ modifyTVar' ideErrText (<> text)
+                logDebug miState $ "[SubIDE " <> show pid <> "] " <> T.unpack text
+                go
+         in go
+
       mInitParams <- tryReadMVar (initParamsVar miState)
-      let !initParams = fromMaybe (error "Attempted to create a SubIDE before initialization!") mInitParams
-          initId = LSP.IdString $ T.pack $ show pid
-          (initMsg :: LSP.FromClientMessage) = LSP.FromClientMess LSP.SInitialize LSP.RequestMessage 
-            { _id = initId
-            , _method = LSP.SInitialize
-            , _params = initParams
-                { LSP._rootPath = Just $ T.pack home
-                , LSP._rootUri = Just $ LSP.filePathToUri home
-                }
-            , _jsonrpc = "2.0"
-            }
-          ide = 
-            SubIDE
+      let ide = 
+            SubIDEInstance
               { ideInhandleAsync = toSubIDE
               , ideInHandle = inHandle
               , ideInHandleChannel = toSubIDEChan
+              , ideOutHandle = outHandle
               , ideOutHandleAsync = subIDEToCoord
+              , ideErrHandle = errHandle
+              , ideErrText = ideErrText
+              , ideErrTextAsync = ideErrTextAsync
               , ideProcess = subIdeProcess
-              , ideHomeDirectory = home
+              , ideHome = home
               , ideMessageIdPrefix = T.pack $ show pid
-              , ideActive = True
               , ideUnitId = unitId
               }
+          ideData' = ideData {ideDataMain = Just ide}
+          !initParams = fromMaybe (error "Attempted to create a SubIDE before initialization!") mInitParams
+          initMsg = initializeRequest initParams ide
 
+      -- Must happen before the initialize message is added, else it'll delete that
+      unrespondedRequests <- getUnrespondedRequestsToResend miState ideData home
 
-      putReqMethodSingleFromClient (fromClientMethodTrackerVar miState) initId LSP.SInitialize
-      putChunk inHandle $ Aeson.encode initMsg
-      -- Dangerous call is okay here because we're already holding the subIDEsVar lock
-      unsafeSendSubIDE ide msg
+      logDebug miState "Sending init message to SubIDE"
+      putSingleFromClientMessage miState home initMsg
+      unsafeSendSubIDE ide initMsg
 
-      atomically $ putTMVar (subIDEsVar miState) $ Map.insert home ide ides
+      -- Dangerous calls are okay here because we're already holding the subIDEsVar lock
+      -- Send the open file notifications
+      logDebug miState "Sending open files messages to SubIDE"
+      forM_ (ideDataOpenFiles ideData') $ \path -> do
+        content <- TE.readFileUtf8 $ unDamlFile path
+        unsafeSendSubIDE ide $ openFileNotification path content
+      
 
-      pure ide
+      -- Resend all pending requests
+      -- No need for re-prefixing or anything like that, messages are stored with the prefixes they need
+      -- Note that we want to remove the message we're sending from this list, to not send it twice
+      let mMsgLspId = mMsg >>= fromClientRequestLspId
+          requestsToResend = filter (\req -> fromClientRequestLspId req /= mMsgLspId) unrespondedRequests
+      logDebug miState $ "Found " <> show (length requestsToResend) <> " unresponded messages, resending:\n"
+        <> show (fmap (\r -> (fromClientRequestMethod r, fromClientRequestLspId r)) requestsToResend)
 
-runSubProc :: FilePath -> IO (Process Handle Handle ())
-runSubProc home = do
+      traverse_ (unsafeSendSubIDE ide) requestsToResend
+
+      logDebug miState $ "Sending intended message to SubIDE: " <> show ((\r -> (fromClientRequestMethod r, fromClientRequestLspId r)) <$> mMsg)
+      -- Send the intended message
+      forM_ mMsg $ unsafeSendSubIDE ide
+
+      pure $ Map.insert home ideData' ides
+
+disableIdeDiagnosticMessages :: SubIDEData -> [LSP.FromServerMessage]
+disableIdeDiagnosticMessages ideData =
+  fullFileDiagnostic 
+    ( "Daml IDE environment failed to start with the following error:\n"
+    <> fromMaybe "No information" (ideDataLastError ideData)
+    )
+    <$> ((unPackageHome (ideDataHome ideData) </> "daml.yaml") : fmap unDamlFile (Set.toList $ ideDataOpenFiles ideData))
+
+clearIdeDiagnosticMessages :: SubIDEData -> [LSP.FromServerMessage]
+clearIdeDiagnosticMessages ideData =
+  clearDiagnostics <$> ((unPackageHome (ideDataHome ideData) </> "daml.yaml") : fmap unDamlFile (Set.toList $ ideDataOpenFiles ideData))
+
+runSubProc :: MultiIdeState -> PackageHome -> IO (Process Handle Handle Handle)
+runSubProc miState home = do
   assistantPath <- getEnv "DAML_ASSISTANT"
+  -- Need to remove some variables so the sub-assistant will pick them up from the working dir/daml.yaml
+  assistantEnv <- filter (flip notElem ["DAML_PROJECT", "DAML_SDK_VERSION", "DAML_SDK"] . fst) <$> getEnvironment
 
   startProcess $
-    proc assistantPath ["ide"] &
-      setStdin createPipe &
-      setStdout createPipe &
-      -- setStderr (useHandleOpen stderr) &
-      setStderr nullStream &
-      setWorkingDir home
+    proc assistantPath ("ide" : subIdeArgs miState) &
+      setStdin createPipeNoClose &
+      setStdout createPipeNoClose &
+      setStderr createPipeNoClose &
+      setWorkingDir (unPackageHome home) &
+      setEnv assistantEnv
+  where
+    createPipeNoClose :: StreamSpec streamType Handle
+    createPipeNoClose = mkPipeStreamSpec $ \_ h -> pure (h, pure ())
 
 -- Spin-down logic
+rebootIdeByHome :: MultiIdeState -> PackageHome -> IO ()
+rebootIdeByHome miState home = withIDEs_ miState $ \ides -> do
+  ides' <- unsafeShutdownIdeByHome miState ides home
+  unsafeAddNewSubIDEAndSend miState ides' home Nothing
 
--- Sends a shutdown message and sets active to false, disallowing any further messages to be sent to the subIDE
+-- Version of rebootIdeByHome that only spins up IDEs that were either active, or disabled.
+-- Does not spin up IDEs that were naturally shutdown/never started
+lenientRebootIdeByHome :: MultiIdeState -> PackageHome -> IO ()
+lenientRebootIdeByHome miState home = withIDEs_ miState $ \ides -> do
+  let ideData = lookupSubIde home ides
+      shouldBoot = isJust (ideDataMain ideData) || ideDataDisabled ideData
+  ides' <- unsafeShutdownIdeByHome miState ides home
+  if shouldBoot 
+    then unsafeAddNewSubIDEAndSend miState ides' home Nothing
+    else pure ides'
+
+-- Checks if a shutdown message LspId originated from the multi-ide coordinator
+isCoordinatorShutdownLspId :: LSP.LspId 'LSP.Shutdown -> Bool
+isCoordinatorShutdownLspId (LSP.IdString str) = "-shutdown" `T.isSuffixOf` str
+isCoordinatorShutdownLspId _ = False
+
+-- Sends a shutdown message and moves SubIDEInstance to `ideDataClosing`, disallowing any further client messages to be sent to the subIDE
 -- given queue nature of TChan, all other pending messages will be sent first before handling shutdown
-shutdownIde :: MultiIdeState -> SubIDE -> IO ()
-shutdownIde miState ide = do
-  ides <- atomically $ takeTMVar (subIDEsVar miState)
-  let shutdownId = LSP.IdString $ ideMessageIdPrefix ide <> "-shutdown"
-      (shutdownMsg :: LSP.FromClientMessage) = LSP.FromClientMess LSP.SShutdown LSP.RequestMessage 
-        { _id = shutdownId
-        , _method = LSP.SShutdown
-        , _params = LSP.Empty
-        , _jsonrpc = "2.0"
-        }
-  
-  putReqMethodSingleFromClient (fromClientMethodTrackerVar miState) shutdownId LSP.SShutdown
-  unsafeSendSubIDE ide shutdownMsg
+shutdownIdeByHome :: MultiIdeState -> PackageHome -> IO ()
+shutdownIdeByHome miState home = withIDEs_ miState $ \ides -> unsafeShutdownIdeByHome miState ides home
 
-  atomically $ putTMVar (subIDEsVar miState) $ Map.adjust (\ide' -> ide' {ideActive = False}) (ideHomeDirectory ide) ides
+-- Unsafe as does not acquire SubIDEsVar, instead simply transforms it
+unsafeShutdownIdeByHome :: MultiIdeState -> SubIDEs -> PackageHome -> IO SubIDEs
+unsafeShutdownIdeByHome miState ides home = do
+  let ideData = lookupSubIde home ides
+  case ideDataMain ideData of
+    Just ide -> do
+      let shutdownId = LSP.IdString $ ideMessageIdPrefix ide <> "-shutdown"
+          shutdownMsg :: LSP.FromClientMessage
+          shutdownMsg = LSP.FromClientMess LSP.SShutdown LSP.RequestMessage 
+            { _id = shutdownId
+            , _method = LSP.SShutdown
+            , _params = LSP.Empty
+            , _jsonrpc = "2.0"
+            }
+      
+      logDebug miState $ "Sending shutdown message to " <> unPackageHome (ideDataHome ideData)
+
+      putSingleFromClientMessage miState home shutdownMsg
+      unsafeSendSubIDE ide shutdownMsg
+      pure $ Map.adjust (\ideData' -> ideData' 
+        { ideDataMain = Nothing
+        , ideDataClosing = Set.insert ide $ ideDataClosing ideData
+        , ideDataFailTimes = []
+        , ideDataDisabled = False
+        }) home ides
+    Nothing ->
+      pure $ Map.adjust (\ideData -> ideData {ideDataFailTimes = [], ideDataDisabled = False}) home ides
 
 -- To be called once we receive the Shutdown response
 -- Safe to assume that the sending channel is empty, so we can end the thread and send the final notification directly on the handle
-handleExit :: MultiIdeState -> SubIDE -> IO ()
-handleExit miState ide = do
-  let (exitMsg :: LSP.FromClientMessage) = LSP.FromClientMess LSP.SExit LSP.NotificationMessage
-        { _method = LSP.SExit
-        , _params = LSP.Empty
-        , _jsonrpc = "2.0"
-        }
-  -- This will cause the subIDE process to exit
-  putChunk (ideInHandle ide) $ Aeson.encode exitMsg
-  atomically $ modifyTMVar (subIDEsVar miState) $ Map.delete (ideHomeDirectory ide)
-  cancel $ ideInhandleAsync ide
-  cancel $ ideOutHandleAsync ide
+handleExit :: MultiIdeState -> SubIDEInstance -> IO ()
+handleExit miState ide =
+  if isWindows
+    then do
+      -- On windows, ghc-ide doesn't close correctly on exit messages (even terminating the process leaves subprocesses behind)
+      -- Instead, we close the handle its listening on, and terminate the process.
+      logDebug miState $ "(windows) Closing handle and terminating " <> unPackageHome (ideHome ide)
+      hTryClose $ ideInHandle ide
+      terminateProcess $ unsafeProcessHandle $ ideProcess ide
+    else do
+      let (exitMsg :: LSP.FromClientMessage) = LSP.FromClientMess LSP.SExit LSP.NotificationMessage
+            { _method = LSP.SExit
+            , _params = LSP.Empty
+            , _jsonrpc = "2.0"
+            }
+      logDebug miState $ "Sending exit message to " <> unPackageHome (ideHome ide)
+      -- This will cause the subIDE process to exit
+      -- Able to be unsafe as no other messages can use this IDE once it has been shutdown
+      unsafeSendSubIDE ide exitMsg
 
 -- Communication logic
 
 -- Dangerous as does not hold the subIDEsVar lock. If a shutdown is called whiled this is running, the message may not be sent.
-unsafeSendSubIDE :: SubIDE -> LSP.FromClientMessage -> IO ()
+unsafeSendSubIDE :: SubIDEInstance -> LSP.FromClientMessage -> IO ()
 unsafeSendSubIDE ide = atomically . unsafeSendSubIDESTM ide
 
-unsafeSendSubIDESTM :: SubIDE -> LSP.FromClientMessage -> STM ()
+unsafeSendSubIDESTM :: SubIDEInstance -> LSP.FromClientMessage -> STM ()
 unsafeSendSubIDESTM ide = writeTChan (ideInHandleChannel ide) . Aeson.encode
 
-sendClient :: MultiIdeState -> LSP.FromServerMessage -> IO ()
-sendClient miState = atomically . writeTChan (toClientChan miState) . Aeson.encode
+sendClientSTM :: MultiIdeState -> LSP.FromServerMessage -> STM ()
+sendClientSTM miState = writeTChan (toClientChan miState) . Aeson.encode
 
-sendAllSubIDEs :: MultiIdeState -> LSP.FromClientMessage -> IO [FilePath]
-sendAllSubIDEs miState msg = atomically $ do
-  idesUnfiltered <- takeTMVar (subIDEsVar miState)
-  let ides = onlyActiveSubIdes idesUnfiltered
-  when (null ides) $ error "Got a broadcast to nothing :("
-  homes <- forM (Map.elems ides) $ \ide -> ideHomeDirectory ide <$ writeTChan (ideInHandleChannel ide) (Aeson.encode msg)
-  putTMVar (subIDEsVar miState) idesUnfiltered
-  pure homes
+sendClient :: MultiIdeState -> LSP.FromServerMessage -> IO ()
+sendClient miState = atomically . sendClientSTM miState
+
+-- Sends a message to the client, putting it at the start of the queue to be sent first
+sendClientFirst :: MultiIdeState -> LSP.FromServerMessage -> IO ()
+sendClientFirst miState = atomically . unGetTChan (toClientChan miState) . Aeson.encode
+
+sendAllSubIDEs :: MultiIdeState -> LSP.FromClientMessage -> IO [PackageHome]
+sendAllSubIDEs miState msg = holdingIDEsAtomic miState $ \ides ->
+  let ideInstances = mapMaybe ideDataMain $ Map.elems ides
+   in forM ideInstances $ \ide -> ideHome ide <$ unsafeSendSubIDESTM ide msg
 
 sendAllSubIDEs_ :: MultiIdeState -> LSP.FromClientMessage -> IO ()
 sendAllSubIDEs_ miState = void . sendAllSubIDEs miState
 
+getSourceFileHome :: MultiIdeState -> FilePath -> STM (Maybe PackageHome)
+getSourceFileHome miState path = do
+  sourceFileHomes <- takeTMVar (sourceFileHomesVar miState)
+  case Map.lookup path sourceFileHomes of
+    Just home -> do
+      putTMVar (sourceFileHomesVar miState) sourceFileHomes
+      unsafeIOToSTM $ logDebug miState $ "Found cached home for " <> path
+      pure $ Just home
+    Nothing -> do
+      -- Safe as repeat prints are acceptable
+      unsafeIOToSTM $ logDebug miState $ "No cached home for " <> path
+      -- Read only operation, so safe within STM
+      mHome <- unsafeIOToSTM $ findHome path
+      unsafeIOToSTM $ logDebug miState $ "File system yielded " <> show (unPackageHome <$> mHome)
+      putTMVar (sourceFileHomesVar miState) $ maybe sourceFileHomes (\home -> Map.insert path home sourceFileHomes) mHome
+      pure mHome
+
+sourceFileHomeDeleted :: MultiIdeState -> FilePath -> IO ()
+sourceFileHomeDeleted miState path = atomically $ modifyTMVar (sourceFileHomesVar miState) $ Map.delete path
+
+-- When a daml.yaml changes, all files pointing to it are invalidated in the cache
+sourceFileHomeDamlYamlChanged :: MultiIdeState -> PackageHome -> IO ()
+sourceFileHomeDamlYamlChanged miState home = atomically $ modifyTMVar (sourceFileHomesVar miState) $ Map.filter (/=home)
+
 sendSubIDEByPath :: MultiIdeState -> FilePath -> LSP.FromClientMessage -> IO ()
 sendSubIDEByPath miState path msg = do
-  mHome <- sendSubIDEByPath_ path msg
-  -- Lock is dropped then regained here for new IDE. This is acceptable as it's impossible for a shutdown
-  -- of the new ide to be sent before its created.
-  -- Note that if sendSubIDEByPath is called multiple times concurrently for a new IDE, addNewSubIDEAndSend may be called twice for the same home
-  --   addNewSubIDEAndSend handles this internally with its own checks, so this is acceptable.
-  forM_ mHome $ \home -> addNewSubIDEAndSend miState home msg
-  where
-    -- If a SubIDE is needed, returns the path out of the STM transaction
-    sendSubIDEByPath_ :: FilePath -> LSP.FromClientMessage -> IO (Maybe FilePath)
-    sendSubIDEByPath_ path msg = atomically $ do
-      idesUnfiltered <- takeTMVar (subIDEsVar miState)
-      let ides = onlyActiveSubIdes idesUnfiltered
-          -- Map.keys gives keys in ascending order, so first match will be the shortest.
-          -- No possibility to accidentally pick a nested package.
-          mHome = find (`isPrefixOf` path) $ Map.keys ides
-          mIde = mHome >>= flip Map.lookup ides
+  mHome <- atomically $ getSourceFileHome miState path
 
-      case mIde of
-        Just ide -> do
-          writeTChan (ideInHandleChannel ide) (Aeson.encode msg)
-          unsafeIOToSTM $ debugPrint miState $ "Found relevant SubIDE: " <> ideHomeDirectory ide
-          putTMVar (subIDEsVar miState) idesUnfiltered
-          pure Nothing
-        Nothing -> do
-          putTMVar (subIDEsVar miState) idesUnfiltered
-          -- Safe as findHome only does reads
-          mHome <- unsafeIOToSTM $ findHome path
-          case mHome of
-            -- Returned out of the transaction to be handled in IO
-            Just home -> pure $ Just home
-            Nothing -> do
-              -- We get here if we cannot find a daml.yaml file for a file mentioned in a request
-              -- if we're sending a response, ignore it, as this means the server that sent the request has been killed already.
-              -- if we're sending a request, respond to the client with an error.
-              -- if we're sending a notification, ignore it - theres nothing the protocol allows us to do to signify notification failures.
-              let replyError :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request). LSP.SMethod m -> LSP.LspId m -> STM ()
-                  replyError method id =
-                    writeTChan (toClientChan miState) $ Aeson.encode $
-                      LSP.FromServerRsp method $ LSP.ResponseMessage "2.0" (Just id) $ Left $
-                        LSP.ResponseError LSP.InvalidParams ("Could not find daml.yaml for package containing " <> T.pack path) Nothing
-              case msg of
-                LSP.FromClientMess method params ->
-                  case (LSP.splitClientMethod method, params) of
-                    (LSP.IsClientReq, LSP.RequestMessage {_id}) -> Nothing <$ replyError method _id
-                    (LSP.IsClientEither, LSP.ReqMess (LSP.RequestMessage {_id})) -> Nothing <$ replyError method _id
-                    _ -> pure Nothing
-                _ -> pure Nothing
+  case mHome of
+    Just home -> do
+      putSingleFromClientMessage miState home msg
+
+      withIDEs_ miState $ \ides -> do
+        let ideData = lookupSubIde home ides
+        case ideDataMain ideData of
+          -- Here we already have a subIDE, so we forward our message to it before dropping the lock
+          Just ide -> do
+            unsafeSendSubIDE ide msg
+            logDebug miState $ "Found relevant SubIDE: " <> unPackageHome (ideDataHome ideData)
+            pure ides
+          -- This path will create a new subIDE at the given home
+          Nothing -> do
+            unsafeAddNewSubIDEAndSend miState ides home $ Just msg
+    Nothing -> do
+      -- We get here if we cannot find a daml.yaml file for a file mentioned in a request
+      -- if we're sending a response, ignore it, as this means the server that sent the request has been killed already.
+      -- if we're sending a request, respond to the client with an error.
+      -- if we're sending a notification, ignore it - theres nothing the protocol allows us to do to signify notification failures.
+      let replyError :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request). LSP.SMethod m -> LSP.LspId m -> IO ()
+          replyError method id =
+            sendClient miState $ LSP.FromServerRsp method $ LSP.ResponseMessage "2.0" (Just id) $ Left 
+              $ LSP.ResponseError LSP.InvalidParams ("Could not find daml.yaml for package containing " <> T.pack path) Nothing
+      case msg of
+        LSP.FromClientMess method params ->
+          case (LSP.splitClientMethod method, params) of
+            (LSP.IsClientReq, LSP.RequestMessage {_id}) -> replyError method _id
+            (LSP.IsClientEither, LSP.ReqMess (LSP.RequestMessage {_id})) -> replyError method _id
+            _ -> pure ()
+        _ -> pure ()
 
 parseCustomResult :: Aeson.FromJSON a => String -> Either LSP.ResponseError Aeson.Value -> Either LSP.ResponseError a
 parseCustomResult name =
   fmap $ either (\err -> error $ "Failed to parse response of " <> name <> ": " <> err) id 
-    . Aeson.parseEither Aeson.parseJSON 
+    . Aeson.parseEither Aeson.parseJSON
+
+onOpenFiles :: MultiIdeState -> PackageHome -> (Set.Set DamlFile -> Set.Set DamlFile) -> STM ()
+onOpenFiles miState home f = modifyTMVarM (subIDEsVar miState) $ \subIdes -> do
+  let ideData = lookupSubIde home subIdes
+      ideData' = ideData {ideDataOpenFiles = f $ ideDataOpenFiles ideData}
+  when (ideDataDisabled ideData') $ traverse_ (sendClientSTM miState) $ disableIdeDiagnosticMessages ideData'
+  pure $ Map.insert home ideData' subIdes
+
+addOpenFile :: MultiIdeState -> PackageHome -> DamlFile -> STM ()
+addOpenFile miState home file = do
+  unsafeIOToSTM $ logInfo miState $ "Added open file " <> unDamlFile file <> " to " <> unPackageHome home
+  onOpenFiles miState home $ Set.insert file
+
+removeOpenFile :: MultiIdeState -> PackageHome -> DamlFile -> STM ()
+removeOpenFile miState home file = do
+  unsafeIOToSTM $ logInfo miState $ "Removed open file " <> unDamlFile file <> " from " <> unPackageHome home
+  onOpenFiles miState home $ Set.delete file
+
+resolveAndUnpackSourceLocation :: MultiIdeState -> PackageSourceLocation -> IO PackageHome
+resolveAndUnpackSourceLocation miState pkgSource = do
+  (pkgPath, mDarPath) <- resolveSourceLocation miState pkgSource
+  forM_ mDarPath $ \darPath -> do
+    -- Must shutdown existing IDE first, since folder could be deleted
+    -- If no IDE exists, shutdown is a no-op
+    logDebug miState $ "Shutting down existing unpacked dar at " <> unPackageHome pkgPath
+    shutdownIdeByHome miState pkgPath
+    unpackDar miState darPath
+  pure pkgPath
 
 -- Handlers
 
-subIDEMessageHandler :: MultiIdeState -> IO () -> SubIDE -> B.ByteString -> IO ()
+subIDEMessageHandler :: MultiIdeState -> IO () -> SubIDEInstance -> B.ByteString -> IO ()
 subIDEMessageHandler miState unblock ide bs = do
-  debugPrint miState "Called subIDEMessageHandler"
+  logInfo miState $ "Got new message from " <> unPackageHome (ideHome ide)
 
   -- Decode a value, parse
   let val :: Aeson.Value
       val = er "eitherDecode" $ Aeson.eitherDecodeStrict bs
-  mMsg <- either error id <$> parseServerMessageWithTracker (fromClientMethodTrackerVar miState) (ideHomeDirectory ide) val
+  mMsg <- either error id <$> parseServerMessageWithTracker (fromClientMethodTrackerVar miState) (ideHome ide) val
 
   -- Adds the various prefixes needed for from server messages to not clash with those from other IDEs
   let prefixer :: LSP.FromServerMessage -> LSP.FromServerMessage
@@ -292,29 +471,29 @@ subIDEMessageHandler miState unblock ide bs = do
 
   forM_ mPrefixedMsg $ \msg -> do
     -- If its a request (builtin or custom), save it for response handling.
-    putServerReq (fromServerMethodTrackerVar miState) (ideHomeDirectory ide) msg
+    putFromServerMessage miState (ideHome ide) msg
 
-    debugPrint miState "Message successfully parsed and prefixed."
+    logDebug miState "Message successfully parsed and prefixed."
     case msg of
       LSP.FromServerRsp LSP.SInitialize LSP.ResponseMessage {_result} -> do
-        debugPrint miState "Got initialization reply, sending initialized and unblocking"
+        logDebug miState "Got initialization reply, sending initialized and unblocking"
         -- Dangerous call here is acceptable as this only happens while the ide is booting, before unblocking
         unsafeSendSubIDE ide $ LSP.FromClientMess LSP.SInitialized $ LSP.NotificationMessage "2.0" LSP.SInitialized (Just LSP.InitializedParams)
         unblock
-      LSP.FromServerRsp LSP.SShutdown _ -> handleExit miState ide
+      LSP.FromServerRsp LSP.SShutdown (LSP.ResponseMessage {_id}) | maybe False isCoordinatorShutdownLspId _id -> handleExit miState ide
 
       -- See STextDocumentDefinition in client handle for description of this path
       LSP.FromServerRsp (LSP.SCustomMethod "daml/tryGetDefinition") LSP.ResponseMessage {_id, _result} -> do
-        debugPrint miState "Got tryGetDefinition response, handling..."
+        logInfo miState "Got tryGetDefinition response, handling..."
         let parsedResult = parseCustomResult @(Maybe TryGetDefinitionResult) "daml/tryGetDefinition" _result
             reply :: Either LSP.ResponseError (LSP.ResponseResult 'LSP.TextDocumentDefinition) -> IO ()
             reply rsp = do
-              debugPrint miState $ "Replying directly to client with " <> show rsp
+              logDebug miState $ "Replying directly to client with " <> show rsp
               sendClient miState $ LSP.FromServerRsp LSP.STextDocumentDefinition $ LSP.ResponseMessage "2.0" (castLspId <$> _id) rsp
             replyLocations :: [LSP.Location] -> IO ()
             replyLocations = reply . Right . LSP.InR . LSP.InL . LSP.List
         case parsedResult of
-          -- Request failed, forwrd error
+          -- Request failed, forward error
           Left err -> reply $ Left err
           -- Request didn't find any location information, forward "nothing"
           Right Nothing -> replyLocations []
@@ -324,51 +503,63 @@ subIDEMessageHandler miState unblock ide bs = do
           -- SubIDE containing the reference did not contain the definition, it returns a fake location in .daml and the name
           -- Send a new request to a new SubIDE to find the source of this name
           Right (Just (TryGetDefinitionResult loc (Just name))) -> do
-            debugPrint miState $ "Got name in result! Backup location is " <> show loc
-            let mHome = Map.lookup (tgdnPackageUnitId name) $ multiPackageMapping miState
-            case mHome of
+            logDebug miState $ "Got name in result! Backup location is " <> show loc
+            mSourceLocation <- Map.lookup (UnitId $ tgdnPackageUnitId name) <$> atomically (readTMVar $ multiPackageMappingVar miState)
+            case mSourceLocation of
               -- Didn't find a home for this name, we do not know where this is defined, so give back the (known to be wrong)
               -- .daml data-dependency path
               -- This is the worst case, we'll later add logic here to unpack and spinup an SubIDE for the read-only dependency
               Nothing -> replyLocations [loc]
               -- We found a daml.yaml for this definition, send the getDefinitionByName request to its SubIDE
-              Just home -> do
-                debugPrint miState $ "Found unit ID in multi-package mapping, forwarding to " <> home
+              Just sourceLocation -> do
+                home <- resolveAndUnpackSourceLocation miState sourceLocation
+                logDebug miState $ "Found unit ID in multi-package mapping, forwarding to " <> unPackageHome home
                 let method = LSP.SCustomMethod "daml/gotoDefinitionByName"
                     lspId = maybe (error "No LspId provided back from tryGetDefinition") castLspId _id
-                putReqMethodSingleFromClient (fromClientMethodTrackerVar miState) lspId method
-                sendSubIDEByPath miState home $ LSP.FromClientMess method $ LSP.ReqMess $
-                  LSP.RequestMessage "2.0" lspId method $ Aeson.toJSON $
-                    GotoDefinitionByNameParams loc name
+                    msg = LSP.FromClientMess method $ LSP.ReqMess $
+                      LSP.RequestMessage "2.0" lspId method $ Aeson.toJSON $
+                        GotoDefinitionByNameParams loc name
+                sendSubIDEByPath miState (unPackageHome home) msg
       
       -- See STextDocumentDefinition in client handle for description of this path
       LSP.FromServerRsp (LSP.SCustomMethod "daml/gotoDefinitionByName") LSP.ResponseMessage {_id, _result} -> do
-        debugPrint miState "Got gotoDefinitionByName response, handling..."
+        logDebug miState "Got gotoDefinitionByName response, handling..."
         let parsedResult = parseCustomResult @GotoDefinitionByNameResult "daml/gotoDefinitionByName" _result
             reply :: Either LSP.ResponseError (LSP.ResponseResult 'LSP.TextDocumentDefinition) -> IO ()
             reply rsp = do
-              debugPrint miState $ "Replying directly to client with " <> show rsp
+              logDebug miState $ "Replying directly to client with " <> show rsp
               sendClient miState $ LSP.FromServerRsp LSP.STextDocumentDefinition $ LSP.ResponseMessage "2.0" (castLspId <$> _id) rsp
         case parsedResult of
           Left err -> reply $ Left err
           Right loc -> reply $ Right $ LSP.InR $ LSP.InL $ LSP.List [loc]
 
       LSP.FromServerMess method _ -> do
-        debugPrint miState $ "Backwarding request " <> show method
+        logDebug miState $ "Backwarding request " <> show method <> ":\n" <> show msg
         sendClient miState msg
       LSP.FromServerRsp method _ -> do
-        debugPrint miState $ "Backwarding response to " <> show method
+        logDebug miState $ "Backwarding response to " <> show method <> ":\n" <> show msg
         sendClient miState msg
 
-clientMessageHandler :: MultiIdeState -> B.ByteString -> IO ()
-clientMessageHandler miState bs = do
-  debugPrint miState "Called clientMessageHandler"
+handleOpenFilesNotification 
+  :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Notification)
+  .  MultiIdeState
+  -> LSP.NotificationMessage m
+  -> FilePath
+  -> IO ()
+handleOpenFilesNotification miState mess path = atomically $ case (mess ^. LSP.method, takeExtension path) of
+  (LSP.STextDocumentDidOpen, ".daml") -> getSourceFileHome miState path >>= traverse_ (\home -> addOpenFile miState home $ DamlFile path)
+  (LSP.STextDocumentDidClose, ".daml") -> getSourceFileHome miState path >>= traverse_ (\home -> removeOpenFile miState home $ DamlFile path)
+  _ -> pure ()
+
+clientMessageHandler :: MultiIdeState -> IO () -> B.ByteString -> IO ()
+clientMessageHandler miState unblock bs = do
+  logInfo miState "Got new message from client"
 
   -- Decode a value, parse
-  let castFromClientMessage :: LSP.FromClientMessage' (Product LSP.SMethod (Const FilePath)) -> LSP.FromClientMessage
+  let castFromClientMessage :: LSP.FromClientMessage' SMethodWithSender -> LSP.FromClientMessage
       castFromClientMessage = \case
         LSP.FromClientMess method params -> LSP.FromClientMess method params
-        LSP.FromClientRsp (Pair method _) params -> LSP.FromClientRsp method params
+        LSP.FromClientRsp (SMethodWithSender method _) params -> LSP.FromClientRsp method params
 
       val :: Aeson.Value
       val = er "eitherDecode" $ Aeson.eitherDecodeStrict bs
@@ -380,18 +571,25 @@ clientMessageHandler miState bs = do
     -- Store the initialize params for starting subIDEs, respond statically with what ghc-ide usually sends.
     LSP.FromClientMess LSP.SInitialize LSP.RequestMessage {_id, _method, _params} -> do
       putMVar (initParamsVar miState) _params
-      sendClient miState $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) (Right initializeResult)
+      -- Send initialized out first (skipping the queue), then unblock for other messages
+      sendClientFirst miState $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) (Right initializeResult)
+      unblock
+
+      -- Register watchers for daml.yaml, multi-package.yaml and *.dar files
+      let LSP.RequestMessage {_id, _method} = registerFileWatchersMessage
+      putReqMethodSingleFromServerCoordinator (fromServerMethodTrackerVar miState) _id _method
+
+      sendClient miState $ LSP.FromServerMess _method registerFileWatchersMessage
+
     LSP.FromClientMess LSP.SWindowWorkDoneProgressCancel notif -> do
       let (newNotif, mPrefix) = stripWorkDoneProgressCancelTokenPrefix notif
           newMsg = LSP.FromClientMess LSP.SWindowWorkDoneProgressCancel newNotif
       -- Find IDE with the correct prefix, send to it if it exists. If it doesn't, the message can be thrown away.
       case mPrefix of
         Nothing -> void $ sendAllSubIDEs miState newMsg
-        Just prefix -> atomically $ do
-          ides <- takeTMVar $ subIDEsVar miState
-          let mIde = find (\ide -> ideMessageIdPrefix ide == prefix) $ onlyActiveSubIdes ides
-          traverse_ (`unsafeSendSubIDESTM` newMsg) mIde
-          putTMVar (subIDEsVar miState) ides
+        Just prefix -> holdingIDEsAtomic miState $ \ides ->
+          let mIde = find (\ideData -> (ideMessageIdPrefix <$> ideDataMain ideData) == Just prefix) ides
+           in traverse_ (`unsafeSendSubIDESTM` newMsg) $ mIde >>= ideDataMain
 
     -- Special handing for STextDocumentDefinition to ask multiple IDEs (the W approach)
     -- When a getDefinition is requested, we cast this request into a tryGetDefinition
@@ -404,58 +602,102 @@ clientMessageHandler miState bs = do
     -- can't find the definition, it'll fall back to the known incorrect location.
     -- Once we have this, we return it as a response to the original STextDocumentDefinition request.
     LSP.FromClientMess LSP.STextDocumentDefinition req@LSP.RequestMessage {_id, _method, _params} -> do
-      let path = filePathFromParamsWithTextDocument req
+      let path = filePathFromParamsWithTextDocument miState req
           lspId = castLspId _id
           method = LSP.SCustomMethod "daml/tryGetDefinition"
-      putReqMethodSingleFromClient (fromClientMethodTrackerVar miState) lspId method
-      sendSubIDEByPath miState path $ LSP.FromClientMess method $ LSP.ReqMess $
-        LSP.RequestMessage "2.0" lspId method $ Aeson.toJSON $
-          TryGetDefinitionParams (_params ^. LSP.textDocument) (_params ^. LSP.position)
+          msg = LSP.FromClientMess method $ LSP.ReqMess $
+            LSP.RequestMessage "2.0" lspId method $ Aeson.toJSON $
+              TryGetDefinitionParams (_params ^. LSP.textDocument) (_params ^. LSP.position)
+      logDebug miState "forwarding STextDocumentDefinition as daml/tryGetDefinition"
+      sendSubIDEByPath miState path msg
+
+    -- Watched file changes, used for restarting subIDEs and changing coordinator state
+    LSP.FromClientMess LSP.SWorkspaceDidChangeWatchedFiles msg@LSP.NotificationMessage {_params = LSP.DidChangeWatchedFilesParams (LSP.List changes)} -> do
+      let changedPaths =
+            mapMaybe (\event -> do
+              path <- LSP.uriToFilePath $ event ^. LSP.uri
+              -- Filter out any changes to unpacked dars, no reloading logic should happen there
+              guard $ not $ unpackedDarsLocation miState `isInfixOf` path
+              pure (path ,event ^. LSP.xtype)
+            ) changes
+      forM_ changedPaths $ \(changedPath, changeType) ->
+        case takeFileName changedPath of
+          "daml.yaml" -> do
+            let home = PackageHome $ takeDirectory changedPath
+            logInfo miState $ "daml.yaml change in " <> unPackageHome home <> ". Shutting down IDE"
+            sourceFileHomeDamlYamlChanged miState home
+            rebootIdeByHome miState home
+            void $ updatePackageData miState
+          "multi-package.yaml" -> do
+            logInfo miState "multi-package.yaml change."
+            void $ updatePackageData miState
+          _ | takeExtension changedPath == ".dar" -> do
+            let darFile = DarFile changedPath
+            logInfo miState $ ".dar file changed: " <> changedPath
+            idesToShutdown <- fromMaybe mempty . Map.lookup darFile <$> atomically (readTMVar $ darDependentPackagesVar miState)
+            logDebug miState $ "Shutting down following ides: " <> show idesToShutdown
+            traverse_ (lenientRebootIdeByHome miState) idesToShutdown
+
+            void $ updatePackageData miState
+          -- for .daml, we remove entry from the sourceFileHome cache if the file is deleted (note that renames/moves are sent as delete then create)
+          _ | takeExtension changedPath == ".daml" && changeType == LSP.FcDeleted -> sourceFileHomeDeleted miState changedPath
+          _ -> pure ()
+      logDebug miState "all not on filtered DidChangeWatchedFilesParams"
+      -- Filter down to only daml files and send those
+      let damlOnlyChanges = filter (maybe False (\path -> takeExtension path == ".daml") . LSP.uriToFilePath . view LSP.uri) changes
+      sendAllSubIDEs_ miState $ LSP.FromClientMess LSP.SWorkspaceDidChangeWatchedFiles $ LSP.params .~ LSP.DidChangeWatchedFilesParams (LSP.List damlOnlyChanges) $ msg
+
+    LSP.FromClientMess LSP.SExit _ -> do
+      ides <- atomically $ readTMVar $ subIDEsVar miState
+      traverse_ (handleExit miState) $ Map.mapMaybe ideDataMain ides
+      -- Wait half a second for all the exit messages to be sent
+      threadDelay 500_000
+      exitSuccess
 
     LSP.FromClientMess meth params ->
-      case getMessageForwardingBehaviour meth params of
+      case getMessageForwardingBehaviour miState meth params of
         ForwardRequest mess (Single path) -> do
-          debugPrint miState $ "single req on method " <> show meth <> " over path " <> path
+          logDebug miState $ "single req on method " <> show meth <> " over path " <> path
           let LSP.RequestMessage {_id, _method} = mess
-          putReqMethodSingleFromClient (fromClientMethodTrackerVar miState) _id _method
-          sendSubIDEByPath miState path (castFromClientMessage msg)
+              msg' = castFromClientMessage msg
+          sendSubIDEByPath miState path msg'
 
         ForwardRequest mess (AllRequest combine) -> do
-          debugPrint miState $ "all req on method " <> show meth
+          logDebug miState $ "all req on method " <> show meth
           let LSP.RequestMessage {_id, _method} = mess
-          ides <- sendAllSubIDEs miState (castFromClientMessage msg)
-          putReqMethodAll (fromClientMethodTrackerVar miState) _id _method ides combine
+              msg' = castFromClientMessage msg
+          ides <- sendAllSubIDEs miState msg'
+          if null ides 
+            then sendClient miState $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) $ combine []
+            else putReqMethodAll (fromClientMethodTrackerVar miState) _id _method msg' ides combine
 
-        ForwardNotification _ (Single path) -> do
-          debugPrint miState $ "single not on method " <> show meth <> " over path " <> path
+        ForwardNotification mess (Single path) -> do
+          logDebug miState $ "single not on method " <> show meth <> " over path " <> path
+          handleOpenFilesNotification miState mess path
+          -- Notifications aren't stored, so failure to send can be ignored
           sendSubIDEByPath miState path (castFromClientMessage msg)
 
         ForwardNotification _ AllNotification -> do
-          debugPrint miState $ "all not on method " <> show meth
+          logDebug miState $ "all not on method " <> show meth
           sendAllSubIDEs_ miState (castFromClientMessage msg)
 
         ExplicitHandler handler -> do
+          logDebug miState "calling explicit handler"
           handler (sendClient miState) (sendSubIDEByPath miState)
-    LSP.FromClientRsp (Pair method (Const home)) rMsg -> 
-      sendSubIDEByPath miState home $ LSP.FromClientRsp method $ 
+    -- Responses to subIDEs
+    LSP.FromClientRsp (SMethodWithSender method (Just home)) rMsg -> 
+      -- If a response fails, failure is acceptable as the subIDE can't be expecting a response if its dead
+      sendSubIDEByPath miState (unPackageHome home) $ LSP.FromClientRsp method $ 
         rMsg & LSP.id %~ fmap stripLspPrefix
-
-getMultiPackageYamlMapping :: (String -> IO ()) -> IO MultiPackageYamlMapping
-getMultiPackageYamlMapping debugPrint = do
-  -- TODO: this will find the "closest" multi-package.yaml, but in a case where we have multiple referring to each other, we'll not see the outer one
-  -- in that case, code jump won't work. Its unclear which the user would want, so we may want to prompt them with either closest or furthest (that links up)
-  mPkgConfig <- findMultiPackageConfig $ ProjectPath "."
-  case mPkgConfig of
-    Nothing ->
-      Map.empty <$ debugPrint "No multi-package.yaml found"
-    Just path -> do
-      debugPrint "Found multi-package.yaml"
-      withMultiPackageConfig path $ \multiPackage -> do
-        eUnitIds <- traverse unitIdFromDamlYaml (mpPackagePaths multiPackage)
-        let eMapping = Map.fromList . flip zip (mpPackagePaths multiPackage) <$> sequence eUnitIds
-        either throwIO pure eMapping
+    -- Responses to coordinator
+    LSP.FromClientRsp (SMethodWithSender method Nothing) LSP.ResponseMessage {_id, _result} ->
+      case (method, _id) of
+        (LSP.SClientRegisterCapability, Just (LSP.IdString "MultiIdeWatchedFiles")) ->
+          either (\err -> logError miState $ "Watched file registration failed with " <> show err) (const $ logDebug miState "Successfully registered watched files") _result
+        _ -> pure ()
 
 {-
+TODO: refactor multi-package.yaml discovery logic
 Expect a multi-package.yaml at the workspace root
 If we do not get one, we continue as normal (no popups) until the user attempts to open/use files in a different package to the first one
   When this occurs, this send a popup:
@@ -463,50 +705,227 @@ If we do not get one, we continue as normal (no popups) until the user attempts 
     OR tell me where the multi-package.yaml(s) is
       if the user provides multiple, we union that lookup, allowing "cross project boundary" jumps
 -}
+-- Updates the unit-id to package/dar mapping, as well as the dar to dependent packages mapping
+-- for any daml.yamls or dars that are invalid, the ide home paths are returned, and their data is not added to the mapping
+updatePackageData :: MultiIdeState -> IO [PackageHome]
+updatePackageData miState = do
+  logInfo miState "Updating package data"
+  let ideRoot = multiPackageHome miState
+
+  -- Take locks, throw away current data
+  atomically $ do
+    void $ takeTMVar (multiPackageMappingVar miState)
+    void $ takeTMVar (darDependentPackagesVar miState)
+  
+  mPkgConfig <- findMultiPackageConfig $ ProjectPath ideRoot
+  case mPkgConfig of
+    Nothing -> do
+      logDebug miState "No multi-package.yaml found"
+      damlYamlExists <- doesFileExist $ ideRoot </> projectConfigName
+      if damlYamlExists
+        then do
+          logDebug miState "Found daml.yaml"
+          -- Treat a workspace with only daml.yaml as a multi-package project with only one package
+          deriveAndWriteMappings [PackageHome ideRoot] []
+        else do
+          logDebug miState "No daml.yaml found either"
+          -- Without a multi-package or daml.yaml, no mappings can be made. Passing empty lists here will give empty mappings
+          deriveAndWriteMappings [] []
+    Just path -> do
+      logDebug miState "Found multi-package.yaml"
+      (eRes :: Either SomeException [PackageHome]) <- try @SomeException $ withMultiPackageConfig path $ \multiPackage ->
+        deriveAndWriteMappings
+          (PackageHome . toPosixFilePath <$> mpPackagePaths multiPackage)
+          (DarFile . toPosixFilePath <$> mpDars multiPackage)
+      let multiPackagePath = toPosixFilePath $ unwrapProjectPath path </> "multi-package.yaml"
+      case eRes of
+        Right paths -> do
+          -- On success, clear any diagnostics on the multi-package.yaml
+          sendClient miState $ clearDiagnostics multiPackagePath
+          pure paths
+        Left err -> do
+          -- If the computation fails, the mappings may be empty, so ensure the TMVars have values
+          atomically $ do
+            void $ tryPutTMVar (multiPackageMappingVar miState) Map.empty
+            void $ tryPutTMVar (darDependentPackagesVar miState) Map.empty
+          -- Show the failure as a diagnostic on the multi-package.yaml
+          sendClient miState $ fullFileDiagnostic ("Error reading multi-package.yaml:\n" <> displayException err) multiPackagePath
+          pure []
+  where
+    -- Gets the unit id of a dar if it can, caches result in stateT
+    -- Returns Nothing (and stores) if anything goes wrong (dar doesn't exist, dar isn't archive, dar manifest malformed, etc.)
+    getDarUnitId :: DarFile -> StateT (Map.Map DarFile (Maybe UnitId)) IO (Maybe UnitId)
+    getDarUnitId dep = do
+      cachedResult <- gets (Map.lookup dep)
+      case cachedResult of
+        Just res -> pure res
+        Nothing -> do
+          mUnitId <- lift $ fmap eitherToMaybe $ try @SomeException $ do
+            archive <- Zip.toArchive <$> BSL.readFile (unDarFile dep)
+            manifest <- either fail pure $ readDalfManifest archive
+            -- Manifest "packageName" is actually unit id
+            maybe (fail $ "data-dependency " <> unDarFile dep <> " missing a package name") (pure . UnitId) $ packageName manifest
+          modify' $ Map.insert dep mUnitId
+          pure mUnitId
+
+    deriveAndWriteMappings :: [PackageHome] -> [DarFile] -> IO [PackageHome]
+    deriveAndWriteMappings packagePaths darPaths = do
+      packedMappingData <- flip runStateT mempty $ do
+        -- load cache with all multi-package dars, so they'll be present in darUnitIds
+        traverse_ getDarUnitId darPaths
+        fmap (bimap catMaybes catMaybes . unzip) $ forM packagePaths $ \packagePath -> do
+          mUnitIdAndDeps <- lift $ fmap eitherToMaybe $ unitIdAndDepsFromDamlYaml packagePath
+          case mUnitIdAndDeps of
+            Just (unitId, deps) -> do
+              allDepsValid <- isJust . sequence <$> traverse getDarUnitId deps
+              pure (if allDepsValid then Nothing else Just packagePath, Just (packagePath, unitId, deps))
+            _ -> pure (Just packagePath, Nothing)
+
+      let invalidHomes :: [PackageHome]
+          validPackageDatas :: [(PackageHome, UnitId, [DarFile])]
+          darUnitIds :: Map.Map DarFile (Maybe UnitId)
+          ((invalidHomes, validPackageDatas), darUnitIds) = packedMappingData
+          packagesOnDisk :: Map.Map UnitId PackageSourceLocation
+          packagesOnDisk =
+            Map.fromList $ (\(packagePath, unitId, _) -> (unitId, PackageOnDisk packagePath)) <$> validPackageDatas
+          darMapping :: Map.Map UnitId PackageSourceLocation
+          darMapping =
+            Map.fromList $ fmap (\(packagePath, unitId) -> (unitId, PackageInDar packagePath)) $ Map.toList $ Map.mapMaybe id darUnitIds
+          multiPackageMapping :: Map.Map UnitId PackageSourceLocation
+          multiPackageMapping = packagesOnDisk <> darMapping
+          darDependentPackages :: Map.Map DarFile (Set.Set PackageHome)
+          darDependentPackages = foldr
+            (\(packagePath, _, deps) -> Map.unionWith (<>) $ Map.fromList $ (,Set.singleton packagePath) <$> deps
+            ) Map.empty validPackageDatas
+
+      logDebug miState $ "Setting multi package mapping to:\n" <> show multiPackageMapping
+      logDebug miState $ "Setting dar dependent packages to:\n" <> show darDependentPackages
+      atomically $ do
+        putTMVar (multiPackageMappingVar miState) multiPackageMapping
+        putTMVar (darDependentPackagesVar miState) darDependentPackages
+
+      pure invalidHomes
 
 -- Main loop logic
 
-runMultiIde :: MultiIdeVerbose -> IO ()
-runMultiIde multiIdeVerbose = do
-  let debugPrinter = makeDebugPrint $ getMultiIdeVerbose multiIdeVerbose
-  multiPackageMapping <- getMultiPackageYamlMapping debugPrinter
-  miState <- newMultiIdeState multiPackageMapping debugPrinter
+createDefaultPackage :: SdkVersion.Class.SdkVersioned => IO (PackageHome, IO ())
+createDefaultPackage = do
+  (toPosixFilePath -> defaultPackagePath, cleanup) <- newTempDir
+  writeFile (defaultPackagePath </> "daml.yaml") $ unlines
+    [ "sdk-version: " <> SdkVersion.Class.sdkVersion
+    , "name: daml-ide-default-environment"
+    , "version: 1.0.0"
+    , "source: ."
+    , "dependencies:"
+    , "  - daml-prim"
+    , "  - daml-stdlib"
+    ]
+  pure (PackageHome defaultPackagePath, cleanup)
 
-  infoPrint $ "Running " <> (if getMultiIdeVerbose multiIdeVerbose then "with" else "without") <> " verbose flag."
-  debugPrint miState "Listening for bytes"
+runMultiIde :: SdkVersion.Class.SdkVersioned => Logger.Priority -> [String] -> IO ()
+runMultiIde loggingThreshold args = do
+  homePath <- toPosixFilePath <$> getCurrentDirectory
+  (defaultPackagePath, cleanupDefaultPackage) <- createDefaultPackage
+  let subIdeArgs = if loggingThreshold <= Logger.Debug then "--debug" : args else args
+  miState <- newMultiIdeState homePath defaultPackagePath loggingThreshold subIdeArgs
+  invalidPackageHomes <- updatePackageData miState
+
+  -- Ensure we don't send messages to the client until it finishes initializing
+  (onceUnblocked, unblock) <- makeIOBlocker
+
+  logInfo miState $ "Running with logging threshold of " <> show loggingThreshold
   -- Client <- *****
-  toClientThread <- async $ forever $ do
+  toClientThread <- async $ onceUnblocked $ forever $ do
     msg <- atomically $ readTChan $ toClientChan miState
-    debugPrint miState "Pushing message to client"
-    -- BSLC.hPutStrLn stderr msg
+    logDebug miState $ "Pushing message to client:\n" <> BSLC.unpack msg 
     putChunk stdout msg
 
   -- Client -> Coord
   clientToCoordThread <- async $
-    onChunks stdin $ clientMessageHandler miState
+    onChunks stdin $ clientMessageHandler miState unblock
+
+  -- All invalid packages get spun up, so their errors are shown
+  traverse_ (\home -> addNewSubIDEAndSend miState home Nothing) invalidPackageHomes
 
   let killAll :: IO ()
       killAll = do
-        debugPrint miState "Killing subIDEs"
-        subIDEs <- atomically $ onlyActiveSubIdes <$> readTMVar (subIDEsVar miState)
-        forM_ subIDEs (shutdownIde miState)
-        infoPrint "MultiIde shutdown"
+        logDebug miState "Killing subIDEs"
+        holdingIDEs miState $ \ides -> foldM (unsafeShutdownIdeByHome miState) ides (Map.keys ides)
+        logInfo miState "MultiIde shutdown"
 
-  handle (\(_ :: AsyncException) -> killAll) $ do
-    atomically $ do
-      unsafeIOToSTM $ debugPrint miState "Running main loop"
+      -- Get all outcomes from a SubIDEInstance (process and async failures/completions)
+      subIdeInstanceOutcomes :: PackageHome -> SubIDEInstance -> STM [(PackageHome, SubIDEInstance, Either ExitCode SomeException)]
+      subIdeInstanceOutcomes home ide = do
+        mExitCode <- getExitCodeSTM (ideProcess ide)
+        errs <- lefts . catMaybes <$> traverse pollSTM [ideInhandleAsync ide, ideOutHandleAsync ide, ideErrTextAsync ide]
+        let mExitOutcome = (home, ide, ) . Left <$> mExitCode
+            errorOutcomes = (home, ide, ) . Right <$> errs
+        pure $ errorOutcomes <> maybeToList mExitOutcome
+
+      -- Function folded over outcomes to update SubIDEs, keep error list and list subIDEs to reboot
+      handleOutcome
+        :: ([(PackageHome, SomeException)], SubIDEs, [PackageHome])
+        -> (PackageHome, SubIDEInstance, Either ExitCode SomeException)
+        -> IO ([(PackageHome, SomeException)], SubIDEs, [PackageHome])
+      handleOutcome (errs, subIDEs, toRestart) (home, ide, outcomeType) =
+        case outcomeType of
+          -- subIDE process exits
+          Left exitCode -> do
+            logDebug miState $ "SubIDE at " <> unPackageHome home <> " exited, cleaning up."
+            traverse_ hTryClose [ideInHandle ide, ideOutHandle ide, ideErrHandle ide]
+            traverse_ cancel [ideInhandleAsync ide, ideOutHandleAsync ide, ideErrTextAsync ide]
+            stderrContent <- T.unpack <$> readTVarIO (ideErrText ide)
+            currentTime <- getCurrentTime
+            let ideData = lookupSubIde home subIDEs
+                isMainIde = ideDataMain ideData == Just ide
+                isCrash = exitCode /= ExitSuccess
+                ideData' = ideData
+                  { ideDataClosing = Set.delete ide $ ideDataClosing ideData
+                  , ideDataMain = if isMainIde then Nothing else ideDataMain ideData
+                  , ideDataFailTimes = 
+                      if isCrash && isMainIde
+                        then take 2 $ currentTime : ideDataFailTimes ideData
+                        else ideDataFailTimes ideData
+                  , ideDataLastError = if isCrash && isMainIde then Just stderrContent else Nothing
+                  }
+                toRestart' = if isCrash && isMainIde then home : toRestart else toRestart
+            when (isCrash && isMainIde) $
+              logWarning miState $ "Proccess failed, stderr content:\n" <> stderrContent
+              
+            pure (errs, Map.insert home ideData' subIDEs, toRestart')
+          -- handler thread errors
+          Right exception -> pure ((home, exception) : errs, subIDEs, toRestart)
+
+  forever $ do
+    (outcomes, clientThreadExceptions) <- atomically $ do
       subIDEs <- readTMVar $ subIDEsVar miState
-      let asyncs = concatMap (\subIDE -> [ideInhandleAsync subIDE, ideOutHandleAsync subIDE]) subIDEs
-      errs <- lefts . catMaybes <$> traverse pollSTM (asyncs ++ [toClientThread, clientToCoordThread])
-      when (not $ null errs) $
-        unsafeIOToSTM $ warnPrint $ "A thread handler errored with: " <> show (head errs)
+      
+      outcomes <- fmap concat $ forM (Map.toList subIDEs) $ \(home, subIdeData) -> do
+        mainSubIdeOutcomes <- maybe (pure []) (subIdeInstanceOutcomes home) $ ideDataMain subIdeData
+        closingSubIdesOutcomes <- concat <$> traverse (subIdeInstanceOutcomes home) (Set.toList $ ideDataClosing subIdeData)
+        pure $ mainSubIdeOutcomes <> closingSubIdesOutcomes
+      
+      clientThreadExceptions <- lefts . catMaybes <$> traverse pollSTM [toClientThread, clientToCoordThread]
+      
+      when (null outcomes && null clientThreadExceptions) retry
 
-      let procs = ideProcess <$> subIDEs
-      exits <- catMaybes <$> traverse getExitCodeSTM (Map.elems procs)
-      when (not $ null exits) $
-        unsafeIOToSTM $ warnPrint $ "A subIDE finished with code: " <> show (head exits)
+      pure (outcomes, clientThreadExceptions)
 
-      when (null exits && null errs) retry
+    unless (null clientThreadExceptions) $
+      if any (\e -> fromException @ExitCode e == Just ExitSuccess) clientThreadExceptions
+        then do
+          logWarning miState "Exiting!"
+          cleanupDefaultPackage
+          exitSuccess
+        else error $ "1 or more client thread handlers failed: " <> show clientThreadExceptions
+    
+    unless (null outcomes) $ do
+      errs <- withIDEs miState $ \ides -> do
+        (errs, ides', idesToRestart) <- foldM handleOutcome ([], ides, []) outcomes
+        ides'' <- foldM (\ides home -> unsafeAddNewSubIDEAndSend miState ides home Nothing) ides' idesToRestart
+        pure (ides'', errs)
 
-    -- If we get here, something failed/stopped, so stop everything
-    killAll
+      when (not $ null errs) $ do
+        cleanupDefaultPackage
+        killAll
+        error $ "SubIDE handlers failed with following errors:\n" <> unlines ((\(home, err) -> unPackageHome home <> " => " <> show err) <$> errs)

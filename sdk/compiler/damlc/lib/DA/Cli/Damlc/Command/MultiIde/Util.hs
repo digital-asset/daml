@@ -15,43 +15,48 @@ module DA.Cli.Damlc.Command.MultiIde.Util (
 
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TMVar
-import Control.Exception (handle)
+import Control.Exception (SomeException, handle, try)
+import Control.Lens ((^.))
+import Control.Monad (void)
 import Control.Monad.STM
-import DA.Daml.Project.Config (readProjectConfig, queryProjectConfigRequired)
-import DA.Daml.Project.Types (ConfigError, ProjectPath (..))
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Except
+import DA.Cli.Damlc.Command.MultiIde.Types
+import DA.Daml.Project.Config (readProjectConfig, queryProjectConfig, queryProjectConfigRequired)
+import DA.Daml.Project.Consts (projectConfigName)
+import DA.Daml.Project.Types (ConfigError)
+import Data.Aeson (Value (Null))
+import Data.Bifunctor (first)
+import Data.List.Extra (lower, replace)
+import Data.Maybe (fromMaybe)
+import qualified Data.Text as T
 import qualified Language.LSP.Types as LSP
+import qualified Language.LSP.Types.Lens as LSP
 import qualified Language.LSP.Types.Capabilities as LSP
-import System.Directory (doesDirectoryExist, listDirectory)
-import System.FilePath (takeDirectory)
-import System.IO.Extra
-import System.IO.Unsafe (unsafePerformIO)
-
--- Stop mangling my prints! >:(
-{-# ANN printLock ("HLint: ignore Avoid restricted function" :: String) #-}
-{-# NOINLINE printLock #-}
-printLock :: MVar ()
-printLock = unsafePerformIO $ newMVar ()
-
-makeDebugPrint :: Bool -> String -> IO ()
-makeDebugPrint True msg = withMVar printLock $ \_ -> do
-  hPutStrLn stderr msg
-  hFlush stderr
-makeDebugPrint False _ = pure ()
-
-infoPrint :: String -> IO ()
-infoPrint = makeDebugPrint True
-
-warnPrint :: String -> IO ()
-warnPrint msg = infoPrint $ "Warning: " <> msg
+import System.Directory (doesDirectoryExist, listDirectory, withCurrentDirectory, canonicalizePath)
+import qualified System.FilePath as NativeFilePath
+import System.FilePath.Posix (joinDrive, takeDirectory, takeExtension)
+import System.IO (Handle, hClose, hFlush)
 
 er :: Show x => String -> Either x a -> a
 er _msg (Right a) = a
 er msg (Left e) = error $ msg <> ": " <> show e
 
+makeIOBlocker :: IO (IO a -> IO a, IO ())
+makeIOBlocker = do
+  sendBlocker <- newEmptyMVar @()
+  let unblock = putMVar sendBlocker ()
+      onceUnblocked = (readMVar sendBlocker >>)
+  pure (onceUnblocked, unblock)
+
 modifyTMVar :: TMVar a -> (a -> a) -> STM ()
-modifyTMVar var f = do
+modifyTMVar var f = modifyTMVarM var (pure . f)
+
+modifyTMVarM :: TMVar a -> (a -> STM a) -> STM ()
+modifyTMVarM var f = do
   x <- takeTMVar var
-  putTMVar var (f x)
+  x' <- f x
+  putTMVar var x'
 
 -- Taken directly from the Initialize response
 initializeResult :: LSP.InitializeResult
@@ -149,32 +154,146 @@ initializeResult = LSP.InitializeResult
     true = Just (LSP.InL True)
     false = Just (LSP.InL False)
 
+initializeRequest :: InitParams -> SubIDEInstance -> LSP.FromClientMessage
+initializeRequest initParams ide = LSP.FromClientMess LSP.SInitialize LSP.RequestMessage 
+  { _id = LSP.IdString $ ideMessageIdPrefix ide <> "-init"
+  , _method = LSP.SInitialize
+  , _params = initParams
+      { LSP._rootPath = Just $ T.pack $ unPackageHome $ ideHome ide
+      , LSP._rootUri = Just $ LSP.filePathToUri $ unPackageHome $ ideHome ide
+      }
+  , _jsonrpc = "2.0"
+  }
+
+openFileNotification :: DamlFile -> T.Text -> LSP.FromClientMessage
+openFileNotification path content = LSP.FromClientMess LSP.STextDocumentDidOpen LSP.NotificationMessage
+  { _method = LSP.STextDocumentDidOpen
+  , _params = LSP.DidOpenTextDocumentParams
+    { _textDocument = LSP.TextDocumentItem
+      { _uri = LSP.filePathToUri $ unDamlFile path
+      , _languageId = "daml"
+      , _version = 1
+      , _text = content
+      }
+    }
+  , _jsonrpc = "2.0"
+  } 
+
+registerFileWatchersMessage :: LSP.RequestMessage 'LSP.ClientRegisterCapability
+registerFileWatchersMessage =
+  LSP.RequestMessage "2.0" (LSP.IdString "MultiIdeWatchedFiles") LSP.SClientRegisterCapability $ LSP.RegistrationParams $ LSP.List
+    [ LSP.SomeRegistration $ LSP.Registration "MultiIdeWatchedFiles" LSP.SWorkspaceDidChangeWatchedFiles $ LSP.DidChangeWatchedFilesRegistrationOptions $ LSP.List
+      [ LSP.FileSystemWatcher "**/multi-package.yaml" Nothing
+      , LSP.FileSystemWatcher "**/daml.yaml" Nothing
+      , LSP.FileSystemWatcher "**/*.dar" Nothing
+      , LSP.FileSystemWatcher "**/*.daml" Nothing
+      ]
+    ]
+
 castLspId :: LSP.LspId m -> LSP.LspId m'
 castLspId (LSP.IdString s) = LSP.IdString s
 castLspId (LSP.IdInt i) = LSP.IdInt i
 
 -- Given a file path, move up directory until we find a daml.yaml and give its path (if it exists)
-findHome :: FilePath -> IO (Maybe FilePath)
+findHome :: FilePath -> IO (Maybe PackageHome)
 findHome path = do
   exists <- doesDirectoryExist path
   if exists then aux path else aux (takeDirectory path)
   where
-    aux :: FilePath -> IO (Maybe FilePath)
+    aux :: FilePath -> IO (Maybe PackageHome)
     aux path = do
-      hasDamlYaml <- elem "daml.yaml" <$> listDirectory path
+      hasDamlYaml <- elem projectConfigName <$> listDirectory path
       if hasDamlYaml
-        then pure $ Just path
+        then pure $ Just $ PackageHome path
         else do
           let newPath = takeDirectory path
           if path == newPath
             then pure Nothing
             else aux newPath
 
-unitIdFromDamlYaml :: FilePath -> IO (Either ConfigError String)
-unitIdFromDamlYaml path = do
-  handle (\(e :: ConfigError) -> return $ Left e) $ do
-    project <- readProjectConfig $ ProjectPath path
-    pure $ do
-      name <- queryProjectConfigRequired ["name"] project
-      version <- queryProjectConfigRequired ["version"] project
-      pure $ name <> "-" <> version
+unitIdAndDepsFromDamlYaml :: PackageHome -> IO (Either ConfigError (UnitId, [DarFile]))
+unitIdAndDepsFromDamlYaml path = do
+  handle (\(e :: ConfigError) -> return $ Left e) $ runExceptT $ do
+    project <- lift $ readProjectConfig $ toProjectPath path
+    dataDeps <- except $ fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
+    directDeps <- except $ fromMaybe [] <$> queryProjectConfig ["dependencies"] project
+    let directDarDeps = filter (\dep -> takeExtension dep == ".dar") directDeps
+    canonDeps <- lift $ withCurrentDirectory (unPackageHome path) $ traverse canonicalizePath $ dataDeps <> directDarDeps
+    name <- except $ queryProjectConfigRequired ["name"] project
+    version <- except $ queryProjectConfigRequired ["version"] project
+    pure (UnitId $ name <> "-" <> version, DarFile . toPosixFilePath <$> canonDeps)
+
+-- LSP requires all requests are replied to. When we don't have a working IDE (say the daml.yaml is malformed), we need to reply
+-- We don't want to reply with LSP errors, as there will be too many. Instead, we show our error in diagnostics, and send empty replies
+noIDEReply :: LSP.FromClientMessage -> Maybe LSP.FromServerMessage
+noIDEReply (LSP.FromClientMess method params) =
+  case (method, params) of
+    (LSP.STextDocumentWillSaveWaitUntil, _) -> makeRes params $ LSP.List []
+    (LSP.STextDocumentCompletion, _) -> makeRes params $ LSP.InL $ LSP.List []
+    (LSP.STextDocumentHover, _) -> makeRes params Nothing
+    (LSP.STextDocumentSignatureHelp, _) -> makeRes params $ LSP.SignatureHelp (LSP.List []) Nothing Nothing
+    (LSP.STextDocumentDeclaration, _) -> makeRes params $ LSP.InR $ LSP.InL $ LSP.List []
+    (LSP.STextDocumentDefinition, _) -> makeRes params $ LSP.InR $ LSP.InL $ LSP.List []
+    (LSP.STextDocumentDocumentSymbol, _) -> makeRes params $ LSP.InL $ LSP.List []
+    (LSP.STextDocumentCodeAction, _) -> makeRes params $ LSP.List []
+    (LSP.STextDocumentCodeLens, _) -> makeRes params $ LSP.List []
+    (LSP.STextDocumentDocumentLink, _) -> makeRes params $ LSP.List []
+    (LSP.STextDocumentColorPresentation, _) -> makeRes params $ LSP.List []
+    (LSP.STextDocumentOnTypeFormatting, _) -> makeRes params $ LSP.List []
+    (LSP.SWorkspaceExecuteCommand, _) -> makeRes params Null
+    (LSP.SCustomMethod "daml/tryGetDefinition", LSP.ReqMess params) -> noDefinitionRes params
+    (LSP.SCustomMethod "daml/gotoDefinitionByName", LSP.ReqMess params) -> noDefinitionRes params
+    _ -> Nothing
+  where
+    makeRes :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request). LSP.RequestMessage m -> LSP.ResponseResult m -> Maybe LSP.FromServerMessage
+    makeRes params result = Just $ LSP.FromServerRsp (params ^. LSP.method) $ LSP.ResponseMessage "2.0" (Just $ params ^. LSP.id) (Right result)
+    noDefinitionRes :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request). LSP.RequestMessage m -> Maybe LSP.FromServerMessage
+    noDefinitionRes params = Just $ LSP.FromServerRsp LSP.STextDocumentDefinition $ LSP.ResponseMessage "2.0" (Just $ castLspId $ params ^. LSP.id) $
+      Right $ LSP.InR $ LSP.InL $ LSP.List []
+noIDEReply _ = Nothing
+
+-- | Publishes an error diagnostic for a file containing the given message
+fullFileDiagnostic :: String -> FilePath -> LSP.FromServerMessage
+fullFileDiagnostic message path = LSP.FromServerMess LSP.STextDocumentPublishDiagnostics $ LSP.NotificationMessage "2.0" LSP.STextDocumentPublishDiagnostics 
+  $ LSP.PublishDiagnosticsParams (LSP.filePathToUri path) Nothing $ LSP.List [LSP.Diagnostic 
+    { _range = LSP.Range (LSP.Position 0 0) (LSP.Position 0 1000)
+    , _severity = Just LSP.DsError
+    , _code = Nothing
+    , _source = Just "Daml Multi-IDE"
+    , _message = T.pack message
+    , _tags = Nothing
+    , _relatedInformation = Nothing
+    }]
+
+-- | Clears diagnostics for a given file
+clearDiagnostics :: FilePath -> LSP.FromServerMessage
+clearDiagnostics path = LSP.FromServerMess LSP.STextDocumentPublishDiagnostics $ LSP.NotificationMessage "2.0" LSP.STextDocumentPublishDiagnostics 
+  $ LSP.PublishDiagnosticsParams (LSP.filePathToUri path) Nothing $ LSP.List []
+
+fromClientRequestLspId :: LSP.FromClientMessage -> Maybe LSP.SomeLspId
+fromClientRequestLspId (LSP.FromClientMess method params) =
+  case (LSP.splitClientMethod method, params) of
+    (LSP.IsClientReq, _) -> Just $ LSP.SomeLspId $ params ^. LSP.id
+    (LSP.IsClientEither, LSP.ReqMess params) -> Just $ LSP.SomeLspId $ params ^. LSP.id
+    _ -> Nothing
+fromClientRequestLspId _ = Nothing
+
+fromClientRequestMethod :: LSP.FromClientMessage -> LSP.SomeMethod
+fromClientRequestMethod (LSP.FromClientMess method _) = LSP.SomeMethod method
+fromClientRequestMethod (LSP.FromClientRsp method _) = LSP.SomeMethod method
+
+-- Windows can throw errors like `resource vanished` on dead handles, instead of being a no-op
+-- In those cases, we're already convinced the handle is closed, so we simply "try" to close handles
+-- and accept whatever happens
+hTryClose :: Handle -> IO ()
+hTryClose handle = void $ try @SomeException $ hClose handle
+
+-- hFlush will error if the handle closes while its blocked on flushing
+-- We don't care what happens in this event, so we ignore the error as with tryClose
+hTryFlush :: Handle -> IO ()
+hTryFlush handle = void $ try @SomeException $ hFlush handle
+
+-- Changes backslashes to forward slashes, lowercases the drive
+-- Need native filepath for splitDrive, as Posix version just takes first n `/`s
+toPosixFilePath :: FilePath -> FilePath
+toPosixFilePath = uncurry joinDrive . first lower . NativeFilePath.splitDrive . replace "\\" "/"
