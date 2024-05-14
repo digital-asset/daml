@@ -91,7 +91,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
               Some(Identifier(upgradesV2PkgId, "Upgrades:Asset")),
               ImmArray(
                 Some[Name]("issuer") -> ValueParty(party),
-                Some[Name]("newField") -> ValueOptional.apply(None),
+                Some[Name]("v2Field") -> ValueOptional.apply(None),
               ),
             ),
           )
