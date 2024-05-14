@@ -671,10 +671,9 @@ object Transaction {
     *                         If undefined no seed has been used (the legacy contract ID scheme
     *                         have been used) or it is unknown (output of partial reinterpretation).
     * @param submissionTime   : the submission time
-    * @param usedPackages     The set of packages used during command processing.
-    *                         This is a hint for what packages are required to validate
-    *                         the transaction using the current interpreter.
-    *                         If set to `empty` the package dependency have not be computed.
+    * @param usedPackages     : the set of all packages that are needed for the interpretation of the
+    *                         command (irrespective of whether the package needed to be loaded into
+    *                         cache via a [[com.daml.lf.engine.ResultNeedPackage]] callback.
     * @param dependsOnTime    : indicate the transaction computation depends on ledger
     *                         time.
     * @param nodeSeeds        : An association list that maps to each ID of create and exercise

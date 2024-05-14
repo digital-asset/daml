@@ -110,6 +110,10 @@ object ResultError {
   * The caller of `resume` has to ensure that the contract instance passed to `resume` is a contract instance that
   * has previously been associated with `acoid` by the engine.
   * The engine does not validate the given contract instance.
+  *
+  * The target template type for the contract is established by the calling context. Specifically the template
+  * reference returned as part of any contract instance MUST NOT be used to establish the contract template type
+  * or result in a [[ResultNeedPackage]] callback
   */
 final case class ResultNeedContract[A](
     acoid: ContractId,
