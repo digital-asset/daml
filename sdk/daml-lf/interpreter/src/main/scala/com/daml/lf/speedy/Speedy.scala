@@ -347,23 +347,21 @@ private[lf] object Speedy {
 
     private[speedy] def lookupContract(coid: V.ContractId)(
         f: V.ContractInstance => Control[Question.Update]
-    ): Control[Question.Update] = {
-
-      disclosedContracts.get(coid) match {
-        case Some(contractInfo) =>
-          markDisclosedcontractAsUsed(coid)
-          f(
-            V.ContractInstance(
-              contractInfo.packageName,
-              contractInfo.templateId,
-              contractInfo.value.toUnnormalizedValue,
-            )
-          )
-
+    ): Control[Question.Update] =
+      contractsCache.get(coid) match {
+        case Some(res) =>
+          f(res)
         case None =>
-          contractsCache.get(coid) match {
-            case Some(res) =>
-              f(res)
+          disclosedContracts.get(coid) match {
+            case Some(contractInfo) =>
+              markDisclosedcontractAsUsed(coid)
+              f(
+                V.ContractInstance(
+                  contractInfo.packageName,
+                  contractInfo.templateId,
+                  contractInfo.value.toUnnormalizedValue,
+                )
+              )
             case None =>
               needContract(
                 NameOf.qualifiedNameOfCurrentFunc,
@@ -375,7 +373,6 @@ private[lf] object Speedy {
               )
           }
       }
-    }
 
     private[speedy] override def asUpdateMachine(location: String)(
         f: UpdateMachine => Control[Question.Update]
