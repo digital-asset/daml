@@ -16,11 +16,10 @@ import com.daml.lf.speedy.SExpr.{SEAppAtomic, SEValue, SExpr}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy.PureMachine
 import com.daml.lf.speedy.{ArrayList, SError, SValue}
-import com.daml.lf.stablepackages.StablePackagesV2
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.{CompiledPackages, command}
-import com.daml.script.converter.Converter.{toContractId, toText}
+import com.daml.script.converter.Converter.{makeTuple, toContractId, toText}
 import com.digitalasset.canton.ledger.api.domain.{User, UserRight}
 import org.apache.pekko.stream.Materializer
 import scalaz.std.either._
@@ -231,11 +230,6 @@ object ScriptF {
 
   }
 
-  def makePair(v1: SValue, v2: SValue): SValue = {
-    import com.daml.script.converter.Converter.record
-    record(StablePackagesV2.Tuple2, ("_1", v1), ("_2", v2))
-  }
-
   final case class QueryContractId(
       parties: OneAnd[Set, Party],
       tplId: Identifier,
@@ -258,7 +252,7 @@ object ScriptF {
           if (asDisclosure)
             Right(
               optR.map(c =>
-                makePair(
+                makeTuple(
                   Converter.fromTemplateTypeRep(c.templateId),
                   SValue.SText(c.blob.toHexString),
                 )
@@ -294,7 +288,7 @@ object ScriptF {
             .traverse { case (cid, optView) =>
               optView match {
                 case None =>
-                  Right(makePair(SContractId(cid), SOptional(None)))
+                  Right(makeTuple(SContractId(cid), SOptional(None)))
                 case Some(view) =>
                   for {
                     view <- Converter.fromInterfaceView(
@@ -303,7 +297,7 @@ object ScriptF {
                       view,
                     )
                   } yield {
-                    makePair(SContractId(cid), SOptional(Some(view)))
+                    makeTuple(SContractId(cid), SOptional(Some(view)))
                   }
               }
             }

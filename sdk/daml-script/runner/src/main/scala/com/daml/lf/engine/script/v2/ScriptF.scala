@@ -22,7 +22,7 @@ import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.stablepackages.StablePackagesV2
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.script.converter.Converter.{toContractId, toText}
+import com.daml.script.converter.Converter.{makeTuple, toContractId, toText}
 import com.digitalasset.canton.ledger.api.domain.{User, UserRight}
 import org.apache.pekko.stream.Materializer
 import scalaz.std.either._
@@ -224,7 +224,7 @@ object ScriptF {
                     StablePackagesV2.Either,
                     Name.assertFromString("Right"),
                     1,
-                    makePair(SList(rs), tree),
+                    makeTuple(SList(rs), tree),
                   )
                 }
             )
@@ -289,7 +289,7 @@ object ScriptF {
                 client.enableContractUpgrading,
               )
               .map(
-                makeTriplet(
+                makeTuple(
                   _,
                   Converter.fromTemplateTypeRep(c.templateId),
                   SText(c.blob.toHexString),
@@ -298,16 +298,6 @@ object ScriptF {
           )
         )
       } yield SEValue(SOptional(optR))
-  }
-
-  private[this] def makePair(v1: SValue, v2: SValue): SValue = {
-    import com.daml.script.converter.Converter.record
-    record(StablePackagesV2.Tuple2, ("_1", v1), ("_2", v2))
-  }
-
-  private[this] def makeTriplet(v1: SValue, v2: SValue, v3: SValue): SValue = {
-    import com.daml.script.converter.Converter.record
-    record(StablePackagesV2.Tuple3, ("_1", v1), ("_2", v2), ("_3", v3))
   }
 
   final case class QueryInterface(
@@ -330,7 +320,7 @@ object ScriptF {
             .traverse { case (cid, optView) =>
               optView match {
                 case None =>
-                  Right(makePair(SContractId(cid), SOptional(None)))
+                  Right(makeTuple(SContractId(cid), SOptional(None)))
                 case Some(view) =>
                   for {
                     view <- Converter.fromInterfaceView(
@@ -339,7 +329,7 @@ object ScriptF {
                       view,
                     )
                   } yield {
-                    makePair(SContractId(cid), SOptional(Some(view)))
+                    makeTuple(SContractId(cid), SOptional(Some(view)))
                   }
               }
             }
