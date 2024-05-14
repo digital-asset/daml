@@ -39,6 +39,7 @@ import DA.Cli.Options (Debug(..),
                        Style(..),
                        Telemetry(..),
                        cliOptDetailLevel,
+                       cliOptLogLevel,
                        debugOpt,
                        disabledDlintUsageParser,
                        enabledDlintUsageParser,
@@ -50,7 +51,6 @@ import DA.Cli.Options (Debug(..),
                        inputDarOpt,
                        inputFileOpt,
                        inputFileOptWithExt,
-                       multiIdeVerboseOpt,
                        multiPackageBuildAllOpt,
                        multiPackageCleanAllOpt,
                        multiPackageLocationOpt,
@@ -239,6 +239,7 @@ import Options.Applicative ((<|>),
                             execParserPure,
                             flag,
                             flag',
+                            forwardOptions,
                             fullDesc,
                             handleParseResult,
                             headerDoc,
@@ -325,15 +326,17 @@ data CommandName =
   deriving (Ord, Show, Eq)
 data Command = Command CommandName (Maybe ProjectOpts) (IO ())
 
-cmdMultiIde :: Int -> Mod CommandFields Command
+cmdMultiIde :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdMultiIde _numProcessors =
     command "multi-ide" $ info (helper <*> cmd) $
        progDesc
         "Start the Daml Multi-IDE language server on standard input/output."
     <> fullDesc
+    <> forwardOptions
   where
     cmd = fmap (Command MultiIde Nothing) $ runMultiIde
-        <$> multiIdeVerboseOpt
+        <$> cliOptLogLevel
+        <*> many (strArgument mempty)
 
 cmdIde :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdIde numProcessors =

@@ -13,6 +13,7 @@ import {
   LanguageClientOptions,
   RequestType,
   NotificationType,
+  Executable,
   ExecuteCommandRequest,
 } from "vscode-languageclient/node";
 import {
@@ -39,21 +40,29 @@ type WebviewFiles = {
 };
 
 var damlLanguageClient: LanguageClient;
+var virtualResourceManager: VirtualResourceManager;
+var isMultiIde: boolean;
+
 // Extension activation
 // Note: You can log debug information by using `console.log()`
 // and then `Toggle Developer Tools` in VSCode. This will show
 // output in the Console tab once the extension is activated.
 export async function activate(context: vscode.ExtensionContext) {
-  // Start the language clients
-  let config = vscode.workspace.getConfiguration("daml");
-  // Get telemetry consent
-  const consent = getTelemetryConsent(config, context);
+  // Add entry for multi-ide readonly directory
+  let filesConfig = vscode.workspace.getConfiguration("files");
+  let multiIdeReadOnlyPattern = "**/.daml/unpacked-dars/**";
+  // Explicit any type as typescript gets angry, its a map from pattern (string) to boolean
+  let readOnlyInclude: any =
+    filesConfig.inspect("readonlyInclude")?.workspaceValue || {};
+  if (!readOnlyInclude[multiIdeReadOnlyPattern])
+    filesConfig.update(
+      "readonlyInclude",
+      { ...readOnlyInclude, [multiIdeReadOnlyPattern]: true },
+      vscode.ConfigurationTarget.Workspace,
+    );
 
   // Display release notes on updates
   showReleaseNotesIfNewVersion(context);
-
-  damlLanguageClient = createLanguageClient(config, await consent);
-  damlLanguageClient.registerProposedFeatures();
 
   const webviewFiles: WebviewFiles = {
     src: vscode.Uri.file(path.join(context.extensionPath, "src", "webview.js")),
@@ -61,63 +70,72 @@ export async function activate(context: vscode.ExtensionContext) {
       path.join(context.extensionPath, "src", "webview.css"),
     ),
   };
-  let virtualResourceManager = new VirtualResourceManager(
-    damlLanguageClient,
-    webviewFiles,
-    context,
+
+  async function shutdownLanguageServer() {
+    // Stop the Language server
+    stopKeepAliveWatchdog();
+    await damlLanguageClient.stop();
+    virtualResourceManager.dispose();
+    const index = context.subscriptions.indexOf(virtualResourceManager, 0);
+    if (index > -1) {
+      context.subscriptions.splice(index, 1);
+    }
+  }
+
+  async function setupLanguageServer(
+    config: vscode.WorkspaceConfiguration,
+    consent: boolean | undefined,
+  ) {
+    damlLanguageClient = createLanguageClient(config, consent);
+    damlLanguageClient.registerProposedFeatures();
+
+    virtualResourceManager = new VirtualResourceManager(
+      damlLanguageClient,
+      webviewFiles,
+      context,
+    );
+    context.subscriptions.push(virtualResourceManager);
+
+    let _unused = damlLanguageClient.onReady().then(() => {
+      startKeepAliveWatchdog();
+      damlLanguageClient.onNotification(
+        DamlVirtualResourceDidChangeNotification.type,
+        params =>
+          virtualResourceManager.setContent(params.uri, params.contents),
+      );
+      damlLanguageClient.onNotification(
+        DamlVirtualResourceNoteNotification.type,
+        params => virtualResourceManager.setNote(params.uri, params.note),
+      );
+      damlLanguageClient.onNotification(
+        DamlVirtualResourceDidProgressNotification.type,
+        params =>
+          virtualResourceManager.setProgress(
+            params.uri,
+            params.millisecondsPassed,
+            params.startedAt,
+          ),
+      );
+    });
+
+    damlLanguageClient.start();
+  }
+
+  vscode.workspace.onDidChangeConfiguration(
+    async (event: vscode.ConfigurationChangeEvent) => {
+      if (event.affectsConfiguration("daml")) {
+        await shutdownLanguageServer();
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const config = vscode.workspace.getConfiguration("daml");
+        const consent = await getTelemetryConsent(config, context);
+        setupLanguageServer(config, consent);
+      }
+    },
   );
-  context.subscriptions.push(virtualResourceManager);
 
-  let _unused = damlLanguageClient.onReady().then(() => {
-    startKeepAliveWatchdog();
-    damlLanguageClient.onNotification(
-      DamlVirtualResourceDidChangeNotification.type,
-      params => virtualResourceManager.setContent(params.uri, params.contents),
-    );
-    damlLanguageClient.onNotification(
-      DamlVirtualResourceNoteNotification.type,
-      params => virtualResourceManager.setNote(params.uri, params.note),
-    );
-    damlLanguageClient.onNotification(
-      DamlVirtualResourceDidProgressNotification.type,
-      params =>
-        virtualResourceManager.setProgress(
-          params.uri,
-          params.millisecondsPassed,
-          params.startedAt,
-        ),
-    );
-    vscode.workspace.onDidChangeConfiguration(
-      (event: vscode.ConfigurationChangeEvent) => {
-        if (event.affectsConfiguration("daml.multiPackageIdeSupport")) {
-          const enabled = vscode.workspace
-            .getConfiguration("daml")
-            .get("multiPackageIdeSupport");
-          let msg = "VSCode must be reloaded for this change to take effect.";
-          if (enabled)
-            msg =
-              msg +
-              "\nWARNING - The Multi-IDE support is experimental, has bugs, and will likely change without warning. Use at your own risk.";
-          window
-            .showInformationMessage(msg, { modal: true }, "Reload now")
-            .then((option: string | undefined) => {
-              if (option == "Reload now")
-                vscode.commands.executeCommand("workbench.action.reloadWindow");
-            });
-        } else if (event.affectsConfiguration("daml.multiPackageIdeVerbose")) {
-          let msg = "VSCode must be reloaded for this change to take effect.";
-          window
-            .showInformationMessage(msg, { modal: true }, "Reload now")
-            .then((option: string | undefined) => {
-              if (option == "Reload now")
-                vscode.commands.executeCommand("workbench.action.reloadWindow");
-            });
-        }
-      },
-    );
-  });
-
-  damlLanguageClient.start();
+  const config = vscode.workspace.getConfiguration("daml");
+  const consent = await getTelemetryConsent(config, context);
+  setupLanguageServer(config, consent);
 
   let d1 = vscode.commands.registerCommand("daml.showResource", (title, uri) =>
     virtualResourceManager.createOrShow(title, uri),
@@ -260,6 +278,42 @@ function addIfInConfig(
   return [].concat.apply([], <any>addedArgs);
 }
 
+function getLanguageServerArgs(
+  config: vscode.WorkspaceConfiguration,
+  telemetryConsent: boolean | undefined,
+): string[] {
+  const multiIDESupport = config.get("multiPackageIdeSupport");
+  isMultiIde = !!multiIDESupport;
+  const logLevel = config.get("logLevel");
+  const isDebug = logLevel == "Debug" || logLevel == "Telemetry";
+
+  let args: string[] = [multiIDESupport ? "multi-ide" : "ide", "--"];
+
+  if (telemetryConsent === true) {
+    args.push("--telemetry");
+  } else if (telemetryConsent === false) {
+    args.push("--optOutTelemetry");
+  } else if (telemetryConsent == undefined) {
+    // The user has not made an explicit choice.
+    args.push("--telemetry-ignored");
+  }
+  if (multiIDESupport === true) {
+    args.push("--log-level=" + logLevel);
+  } else {
+    if (isDebug) args.push("--debug");
+  }
+  const extraArgsString = config.get("extraArguments", "").trim();
+  // split on an empty string returns an array with a single empty string
+  const extraArgs = extraArgsString === "" ? [] : extraArgsString.split(" ");
+  args = args.concat(extraArgs);
+  const serverArgs: string[] = addIfInConfig(config, args, [
+    ["profile", ["+RTS", "-h", "-RTS"]],
+    ["autorunAllTests", ["--studio-auto-run-all-scenarios=yes"]],
+  ]);
+
+  return serverArgs;
+}
+
 export function createLanguageClient(
   config: vscode.WorkspaceConfiguration,
   telemetryConsent: boolean | undefined,
@@ -270,11 +324,7 @@ export function createLanguageClient(
     documentSelector: ["daml"],
   };
 
-  const multiIDESupport = config.get("multiPackageIdeSupport");
-  const multiIDEVerbose = config.get("multiPackageIdeVerbose");
-
   let command: string;
-  let args: string[] = [multiIDESupport ? "multi-ide" : "ide", "--"];
 
   try {
     command = which.sync("daml");
@@ -290,35 +340,9 @@ export function createLanguageClient(
     }
   }
 
-  if (telemetryConsent === true) {
-    args.push("--telemetry");
-  } else if (telemetryConsent === false) {
-    args.push("--optOutTelemetry");
-  } else if (telemetryConsent == undefined) {
-    // The user has not made an explicit choice.
-    args.push("--telemetry-ignored");
-  }
-  if (multiIDEVerbose === true) {
-    args.push("--verbose=yes");
-  }
-  const extraArgsString = config.get("extraArguments", "").trim();
-  // split on an empty string returns an array with a single empty string
-  const extraArgs = extraArgsString === "" ? [] : extraArgsString.split(" ");
-  args = args.concat(extraArgs);
-  const serverArgs: string[] = addIfInConfig(config, args, [
-    ["debug", ["--debug"]],
-    ["experimental", ["--experimental"]],
-    ["profile", ["+RTS", "-h", "-RTS"]],
-    ["autorunAllTests", ["--studio-auto-run-all-scenarios=yes"]],
-  ]);
+  const serverArgs = getLanguageServerArgs(config, telemetryConsent);
 
-  if (config.get("experimental")) {
-    vscode.window.showWarningMessage(
-      "Daml's Experimental feature flag is enabled, this may cause instability",
-    );
-  }
-
-  return new LanguageClient(
+  const languageClient = new LanguageClient(
     "daml-language-server",
     "Daml Language Server",
     {
@@ -329,14 +353,16 @@ export function createLanguageClient(
     clientOptions,
     true,
   );
+  return languageClient;
 }
 
 // this method is called when your extension is deactivated
-export function deactivate() {
+export async function deactivate() {
   // unLinkSyntax();
   // Stop keep-alive watchdog and terminate language server.
   stopKeepAliveWatchdog();
-  (<any>damlLanguageClient)._childProcess.kill("SIGTERM");
+  if (isMultiIde) await damlLanguageClient.stop();
+  else (<any>damlLanguageClient)._serverProcess.kill("SIGTERM");
 }
 
 // Keep alive timer for periodically checking that the server is responding
