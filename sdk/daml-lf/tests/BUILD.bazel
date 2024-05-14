@@ -5,11 +5,13 @@ load(
     "//rules_daml:daml.bzl",
     "daml_build_test",
     "daml_compile",
+    "default_damlc_opts",
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
     "ENGINE_LF_DEV_VERSIONS",
+    "ENGINE_LF_VERSIONS",
     "lf_version_default_or_latest",
     "mangle_for_damlc",
 )
@@ -36,6 +38,33 @@ load("@os_info//:os_info.bzl", "is_intel")
         visibility = ["//daml-lf:__subpackages__"],
     )
     for version in ENGINE_LF_DEV_VERSIONS
+]
+
+[
+    daml_compile(
+        name = "Upgrades-pkgv{pkg_version}-{lf_version}".format(
+            lf_version = mangle_for_damlc(lf_version),
+            pkg_version = pkg_version,
+        ),
+        srcs = ["Upgrades.daml"],
+        ghc_options = default_damlc_opts + [
+            "--ghc-option=-DPACKAGE_VERSION={}".format(pkg_version),
+        ],
+        project_name = "upgrades",
+        target = lf_version,
+        typecheck_upgrades = True,
+        upgrades = "//daml-lf/tests:Upgrades-pkgv{pkg_version}-{lf_version}.dar".format(
+            lf_version = mangle_for_damlc(lf_version),
+            pkg_version = upgraded,
+        ) if upgraded != None else None,
+        version = "{}.0.0".format(pkg_version),
+        visibility = ["//daml-lf:__subpackages__"],
+    )
+    for lf_version in ENGINE_LF_VERSIONS
+    for (pkg_version, upgraded) in [
+        (1, None),
+        (2, 1),
+    ]
 ]
 
 [

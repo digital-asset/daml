@@ -1,0 +1,19 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+
+module Upgrades where
+
+template Asset
+  with
+    issuer : Party
+#if PACKAGE_VERSION >= 2
+    v2Field: Optional ()
+#endif
+  where
+    signatory issuer
+
+    nonconsuming choice AssetChoice : ()
+      controller issuer
+      do pure ()

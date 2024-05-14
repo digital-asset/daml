@@ -121,6 +121,8 @@ da_scala_test_suite(
             ":Demonstrator",
             "//daml-lf/tests:MultiKeys",
             "//daml-lf/tests:Exceptions",
+            "//daml-lf/tests:Upgrades-pkgv1",
+            "//daml-lf/tests:Upgrades-pkgv2",
         ]
         for version in ENGINE_LF_DEV_VERSIONS
     ],
