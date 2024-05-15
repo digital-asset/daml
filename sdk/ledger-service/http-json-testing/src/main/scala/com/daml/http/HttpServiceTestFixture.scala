@@ -11,6 +11,7 @@ import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2Bearer
 import org.apache.pekko.stream.Materializer
 import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.http.HttpService.doLoad
 import com.daml.http.dbbackend.{ContractDao, JdbcConfig}
@@ -66,8 +67,13 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
 
   private val doNotReloadPackages = FiniteDuration(100, DAYS)
 
-  // This may need to be updated if the Account.daml is updated.
-  val staticPkgIdAccount = "b3c9564bb7334bfd0f82099893eba518afc3b68a4d5c66cb2835498252db93e9"
+  // TODO(paulbrauner-da): Use a package name once supported by canton out of the box.
+  lazy val staticPkgIdAccount = {
+    import com.daml.lf.{archive, typesig}
+    val darFile = requiredResource("ledger-service/http-json/Account.dar")
+    val dar = archive.UniversalArchiveReader.assertReadFile(darFile)
+    typesig.PackageSignature.read(dar.main)._2.packageId
+  }
 
   def withHttpService[A](
       testName: String,

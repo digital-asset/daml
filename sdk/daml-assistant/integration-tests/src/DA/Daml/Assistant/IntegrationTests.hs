@@ -496,6 +496,7 @@ damlStartTestsWithoutValidation getDamlStart =
         untilM_ (pure ()) $ do
             line <- atomically $ readTChan stdoutReadChan
             pure ("Rebuild complete" `isInfixOf` line)
+        -- TODO(paulbrauner-da): Use a package name once supported by canton out of the box.
         newPackageRef <- extractPackageRefFromDar projDir
         initialRequest <-
             parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"

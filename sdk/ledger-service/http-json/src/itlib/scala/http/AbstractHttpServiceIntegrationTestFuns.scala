@@ -71,21 +71,13 @@ object AbstractHttpServiceIntegrationTestFuns {
     typesig.PackageSignature.read(dar.main)._2.packageId
   }
 
-  val pkgIdAccount = {
-    val pkgId = packageIdOfDar(dar2)
-    assert(
-      pkgId == HttpServiceTestFixture.staticPkgIdAccount,
-      s"""Please update HttpServiceTestFixture.staticPkgIdAccount to "$pkgId"""",
-    )
-    pkgId
-  }
-
   lazy val pkgIdCiou = packageIdOfDar(ciouDar)
   lazy val pkgIdModelTests = packageIdOfDar(dar1)
   lazy val pkgIdRiou = packageIdOfDar(riouDar)
   lazy val pkgIdUser = packageIdOfDar(userDar)
   lazy val pkgIdFooV1 = packageIdOfDar(fooV1Dar)
   lazy val pkgIdFooV2 = packageIdOfDar(fooV2Dar)
+  lazy val pkgIdAccount = packageIdOfDar(dar2)
 
   def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
     import com.google.common.io.BaseEncoding

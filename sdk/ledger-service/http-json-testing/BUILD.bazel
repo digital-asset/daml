@@ -39,6 +39,9 @@ load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
         ],
         deps = [
             "//bazel_tools/runfiles:scala_runfiles",
+            "//daml-lf/api-type-signature",
+            "//daml-lf/archive:daml_lf_archive_reader",
+            "//daml-lf/archive:daml_lf_dev_archive_proto_java",
             "//daml-lf/transaction",
             "//language-support/scala/bindings-pekko",
             "//ledger-service/fetch-contracts",
