@@ -8,7 +8,7 @@ import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref.{IdString, PackageId, Party, TypeConName}
 import com.daml.lf.language.LanguageMajorVersion.V2
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
-import com.daml.lf.speedy.SBuiltinFun.{SBCastAnyContract, SBFetchAny}
+import com.daml.lf.speedy.SBuiltinFun.SBFetchTemplate
 import com.daml.lf.speedy.SExpr.{SEMakeClo, SEValue}
 import com.daml.lf.testing.parser
 import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Versioned}
@@ -287,29 +287,23 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
           Array(),
           1,
           SExpr.SELet1General(
-            SBFetchAny(optTargetTemplateId = None)(speedyContractId, SEValue.None),
-            SExpr.SELet1General(
-              SBCastAnyContract(templateId)(
+            SBFetchTemplate(templateId)(speedyContractId, SEValue.None),
+            SExpr.SEScopeExercise(
+              SBuiltinFun.SBUBeginExercise(
+                templateId,
+                interfaceId,
+                choiceName,
+                consuming = true,
+                byKey = false,
+                explicitChoiceAuthority = false,
+              )(
+                choiceArg,
                 speedyContractId,
-                SExpr.SELocS(1), // result of SBFetchAny
-              ),
-              SExpr.SEScopeExercise(
-                SBuiltinFun.SBUBeginExercise(
-                  templateId,
-                  interfaceId,
-                  choiceName,
-                  consuming = true,
-                  byKey = false,
-                  explicitChoiceAuthority = false,
-                )(
-                  choiceArg,
-                  speedyContractId,
-                  speedyControllers,
-                  speedyObservers,
-                  speedyAuthorizers,
-                  SExpr.SELocS(1), // result of SBCastAnyContract
-                )
-              ),
+                speedyControllers,
+                speedyObservers,
+                speedyAuthorizers,
+                SExpr.SELocS(1), // result of SBCastAnyContract
+              )
             ),
           ),
         ),
