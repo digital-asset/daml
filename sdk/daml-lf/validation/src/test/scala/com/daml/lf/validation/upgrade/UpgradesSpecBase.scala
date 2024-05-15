@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
+package upgrade
 
 import com.daml.integrationtest.CantonFixture
 import org.scalatest.Inside
@@ -23,38 +24,6 @@ import com.daml.lf.archive.DarReader
 import scala.util.{Success, Failure}
 import org.scalatest.Inspectors.forEvery
 import scala.util.Using
-
-class UpgradesSpecAdminAPIWithoutValidation
-    extends UpgradesSpecAdminAPI("Admin API without validation")
-    with ShortTests {
-  override val disableUpgradeValidation = true;
-}
-
-class UpgradesSpecLedgerAPIWithoutValidation
-    extends UpgradesSpecLedgerAPI("Ledger API without validation")
-    with ShortTests {
-  override val disableUpgradeValidation = true;
-}
-
-class UpgradesSpecAdminAPIDryRun
-    extends UpgradesSpecAdminAPI("Admin API with dry run")
-    with LongTests {
-  override val uploadSecondPackageDryRun = true;
-}
-
-class UpgradesSpecLedgerAPIDryRun
-    extends UpgradesSpecLedgerAPI("Ledger API with dry run")
-    with LongTests {
-  override val uploadSecondPackageDryRun = true;
-}
-
-class UpgradesSpecAdminAPIWithValidation
-    extends UpgradesSpecAdminAPI("Admin API with validation")
-    with LongTests
-
-class UpgradesSpecLedgerAPIWithValidation
-    extends UpgradesSpecLedgerAPI("Ledger API with validation")
-    with LongTests
 
 abstract class UpgradesSpecAdminAPI(override val suffix: String) extends UpgradesSpec(suffix) {
   override def uploadPackage(
