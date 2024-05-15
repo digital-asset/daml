@@ -104,7 +104,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       template (this: T) = {
         precondition True;
         signatories '-pkg1-':M:mkList (M:T {sig} this) (M:T {optSig} this);
-         observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
+        observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
         key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
@@ -118,7 +118,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   val pkgId4: Ref.PackageId = Ref.PackageId.assertFromString("-pkg4-")
   private lazy val pkg4 = {
-    // add an optional additional signatory
+    // swap signatories and observers with respect to pkg2
     implicit def pkgId: Ref.PackageId = pkgId4
     p""" metadata ( '-upgrade-test-' : '4.0.0' )
       module M {
@@ -359,7 +359,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   "upgrade" - {
     "be able to fetch a same contract using different versions" in {
-      // The following code is not properly type, but emulate two commands that fetch a same contract using different versions.
+      // The following code is not properly typed, but emulates two commands that fetch a same contract using different versions.
       val res = go(
         e"""\(cid: ContractId '-pkg1-':M:T) ->
                ubind
@@ -372,7 +372,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       res shouldBe a[Right[_, _]]
     }
     "do recompute and check immutability of meta data when using different versions" in {
-      // The following code is not properly type, but emulate two commands that fetch a same contract using different versions.
+      // The following code is not properly typed, but emulates two commands that fetch a same contract using different versions.
       val res: Either[SError, (Value, List[UpgradeVerificationRequest])] = go(
         e"""\(cid: ContractId '-pkg1-':M:T) ->
                ubind
