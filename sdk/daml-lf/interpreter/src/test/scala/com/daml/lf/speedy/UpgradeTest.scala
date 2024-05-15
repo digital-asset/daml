@@ -25,9 +25,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import java.util
 
-class UpgradeTestV2 extends UpgradeTest(LanguageMajorVersion.V2)
-
-class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
+class UpgradeTest
     extends AnyFreeSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -40,7 +38,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   private[this] implicit def parserParameters(implicit
       pkgId: Ref.PackageId
   ): ParserParameters[this.type] =
-    ParserParameters(pkgId, languageVersion = majorLanguageVersion.dev)
+    ParserParameters(pkgId, languageVersion = LanguageMajorVersion.V2.dev)
 
   val pkgId1 = Ref.PackageId.assertFromString("-pkg1-")
   private lazy val pkg1 = {
@@ -48,7 +46,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     p""" metadata ( '-upgrade-test-' : '1.0.0' )
     module M {
 
-      record @serializable T = { sig: Party, aNumber: Int64 };
+      record @serializable T = { sig: Party, obs: Party, aNumber: Int64 };
       template (this: T) = {
         precondition True;
         signatories M:sigs (M:T {sig} this) (None @Party);
@@ -77,7 +75,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     p""" metadata ( '-upgrade-test-' : '2.0.0' )
       module M {
 
-      record @serializable T = { sig: Party, aNumber: Int64 };
+      record @serializable T = { sig: Party, obs: Party, aNumber: Int64 };
       template (this: T) = {
         precondition True;
         signatories '-pkg1-':M:sigs (M:T {sig} this) (None @Party);
@@ -98,7 +96,29 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     p""" metadata ( '-upgrade-test-' : '3.0.0' )
       module M {
 
-      record @serializable T = { sig: Party, aNumber: Int64, optSig: Option Party };
+      record @serializable T = { sig: Party, obs: Party, aNumber: Int64, optSig: Option Party };
+      template (this: T) = {
+        precondition True;
+        signatories '-pkg1-':M:sigs (M:T {sig} this) (M:T {optSig} this);
+        observers Nil @Party;
+      };
+
+      val do_fetch: ContractId M:T -> Update M:T =
+        \(cId: ContractId M:T) ->
+          fetch_template @M:T cId;
+
+      }
+    """
+  }
+
+  val pkgId4: Ref.PackageId = Ref.PackageId.assertFromString("-pkg4-")
+   lazy val pkg4 = {
+    // add an optional additional signatory
+    implicit def pkgId: Ref.PackageId = pkgId4
+    p""" metadata ( '-upgrade-test-' : '4.0.0' )
+      module M {
+
+      record @serializable T = { sig: Party, obs: Party, aNumber: Int64, optSig: Option Party };
       template (this: T) = {
         precondition True;
         signatories '-pkg1-':M:sigs (M:T {sig} this) (M:T {optSig} this);
@@ -121,7 +141,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   private lazy val pkgs =
     PureCompiledPackages.assertBuild(
       Map(pkgId1 -> pkg1, pkgId2 -> pkg2, pkgId3 -> pkg3),
-      Compiler.Config.Dev(majorLanguageVersion),
+      Compiler.Config.Dev(LanguageMajorVersion.V2),
     )
 
   private val alice = Ref.Party.assertFromString("alice")
@@ -192,6 +212,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   val v1_base =
     makeRecord(
       ValueParty(alice),
+      ValueParty(bob),
       ValueInt64(100),
     )
 
@@ -202,12 +223,14 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val v_missingField =
         makeRecord(
           ValueParty(alice),
+          ValueParty(bob),
           ValueInt64(100),
         )
 
       val v_extendedWithNone =
         makeRecord(
           ValueParty(alice),
+          ValueParty(bob),
           ValueInt64(100),
           ValueOptional(None),
         )
@@ -236,6 +259,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val v =
         makeRecord(
           ValueParty(alice),
+          ValueParty(bob),
           ValueInt64(100),
           ValueOptional(None),
         )
@@ -273,6 +297,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val v1_extraText =
         makeRecord(
           ValueParty(alice),
+          ValueParty(bob),
           ValueInt64(100),
           ValueText("extra"),
         )
@@ -293,6 +318,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val v1_extraSome =
         makeRecord(
           ValueParty(alice),
+          ValueParty(bob),
           ValueInt64(100),
           ValueOptional(Some(ValueParty(bob))),
         )
@@ -309,6 +335,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val v1_extraNone =
         makeRecord(
           ValueParty(alice),
+          ValueParty(bob),
           ValueInt64(100),
           Value.ValueOptional(None),
         )
@@ -345,13 +372,15 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     val v_alice_none =
       makeRecord(
         ValueParty(alice),
+        ValueParty(bob),
         ValueInt64(100),
         ValueOptional(None),
       )
 
-    val v_alice_bob =
+    val v_alice_some =
       makeRecord(
         ValueParty(alice),
+        ValueParty(bob),
         ValueInt64(100),
         ValueOptional(Some(ValueParty(bob))),
       )
@@ -365,9 +394,9 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         uv.keyOpt shouldBe None
     }
 
-    inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(pkgName, i"'-pgk3-':M:T", v_alice_bob))) {
+    inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(pkgName, i"'-pgk3-':M:T", v_alice_some))) {
       case Right((v, List(uv))) =>
-        v shouldBe v_alice_bob
+        v shouldBe v_alice_some
         uv.coid shouldBe theCid
         uv.signatories.toList shouldBe List(alice, bob)
         uv.observers.toList shouldBe List()
@@ -386,10 +415,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val sv1_base: SValue = {
         def fields = ImmArray(
           n"sig",
+          n"obs",
           n"aNumber",
         )
         def values: util.ArrayList[SValue] = ArrayList(
           SValue.SParty(alice), // And it needs to be a party
+          SValue.SParty(bob),
           SValue.SInt64(100),
         )
         SValue.SRecord(i"'-pkg1-':M:T", fields, values)
@@ -404,11 +435,13 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val sv1_base: SValue = {
         def fields = ImmArray(
           n"sig",
+          n"obs",
           n"aNumber",
           n"extraField",
         )
         def values: util.ArrayList[SValue] = ArrayList(
           SValue.SParty(alice),
+          SValue.SParty(bob),
           SValue.SInt64(100),
           SValue.SOptional(None),
         )
