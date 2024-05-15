@@ -1054,7 +1054,7 @@ rst-selector-parser 2.2.3 : BSD 3-clause "New" or "Revised" License
 RxJava 2.2.21 : Apache License 2.0
 safe 0.3.19 : BSD 3-clause "New" or "Revised" License
 safe-buffer 5.1.2 : MIT License
-safe-buffer v5.2.1 : MIT License
+safe-buffer 5.2.1 : MIT License
 safe-exceptions 0.1.7.3 : MIT License
 safe-json-parse 1.0.1 : MIT License
 safer-buffer 2.1.2 : MIT License
@@ -10437,7 +10437,7 @@ SOFTWARE
 ---
 
 MIT License
-(is-buffer 1.1.6, is-buffer v2.0.5, safe-buffer 5.1.2, safe-buffer v5.2.1)
+(is-buffer 1.1.6, is-buffer v2.0.5, safe-buffer 5.1.2, safe-buffer 5.2.1)
 
 The MIT License (MIT)
 
