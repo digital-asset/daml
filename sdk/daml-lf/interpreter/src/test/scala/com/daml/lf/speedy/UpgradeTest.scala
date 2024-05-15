@@ -383,21 +383,15 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         ContractInstance(pkgName, i"'-pkg1-':M:T", v1_base),
       )
       inside(res) { case Right((_, verificationRequests)) =>
+        val v4_key = GlobalKeyWithMaintainers.assertBuild(
+          i"'-pkg1-':M:T",
+          ValueParty(bob),
+          Set(bob),
+          pkgName,
+        )
         verificationRequests shouldBe List(
           UpgradeVerificationRequest(theCid, Set(alice), Set(bob), Some(v1_key)),
-          UpgradeVerificationRequest(
-            theCid,
-            Set(bob),
-            Set(alice),
-            Some(
-              GlobalKeyWithMaintainers.assertBuild(
-                i"'-pkg1-':M:T",
-                ValueParty(bob),
-                Set(bob),
-                pkgName,
-              )
-            ),
-          ),
+          UpgradeVerificationRequest(theCid, Set(bob), Set(alice), Some(v4_key)),
         )
       }
     }
