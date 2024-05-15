@@ -5,6 +5,7 @@
 // We should intend to replace this as soon as possible
 
 package com.daml.lf.validation
+package upgrade
 
 import com.digitalasset.canton.ledger.client.LedgerCallCredentials.authenticatingStub
 import com.digitalasset.canton.ledger.client.GrpcChannel
