@@ -14,7 +14,7 @@ import com.digitalasset.canton.console.{
   ConsoleEnvironment,
   ConsoleMacros,
   ParticipantReference,
-  SequencerNodeReference,
+  SequencerReference,
 }
 import com.digitalasset.canton.demo.Step.{Action, Noop}
 import com.digitalasset.canton.demo.model.ai.java as ME
@@ -603,7 +603,7 @@ object ReferenceDemoScript {
       consoleEnvironment: ConsoleEnvironment
   ): Unit = {
 
-    def getSequencer(str: String): SequencerNodeReference =
+    def getSequencer(str: String): SequencerReference =
       consoleEnvironment.sequencers.all
         .find(_.name == str)
         .getOrElse(sys.error(s"can not find domain named ${str}"))

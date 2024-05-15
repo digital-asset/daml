@@ -142,7 +142,7 @@ class MediatorStateTest
         } yield {
           sut.pendingRequestIdsBefore(CantonTimestamp.MaxValue) shouldBe empty
         }
-      }
+      }.failOnShutdown("Unexpected shutdown.")
     }
 
     "fetching items" should {
@@ -155,7 +155,7 @@ class MediatorStateTest
           progress shouldBe Some(currentVersion)
           noItem shouldBe None
         }
-      }
+      }.failOnShutdown("Unexpected shutdown.")
     }
 
     "updating items" should {
@@ -174,13 +174,13 @@ class MediatorStateTest
             ),
           )
         } yield result shouldBe None
-      }
+      }.failOnShutdown("Unexpected shutdown.")
 
       "allow updating to a newer version" in {
         for {
           result <- sut.replace(currentVersion, newVersion).value
         } yield result shouldBe Some(())
-      }
+      }.failOnShutdown("Unexpected shutdown.")
     }
   }
 }

@@ -3,17 +3,7 @@
 
 package com.digitalasset.canton.http
 
-import com.digitalasset.canton.http.domain.{
-  ActiveContract,
-  Choice,
-  Contract,
-  ContractTypeId,
-  CreateAndExerciseCommand,
-  CreateCommand,
-  ExerciseCommand,
-  ExerciseResponse,
-  JwtWritePayload,
-}
+import com.digitalasset.canton.http.domain.{ActiveContract, Choice, Contract, ContractTypeId, CreateAndExerciseCommand, CreateCommand, ExerciseCommand, ExerciseResponse, JwtWritePayload}
 import com.daml.jwt.domain.Jwt
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.daml.ledger.api.v2 as lav2
@@ -29,7 +19,7 @@ import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.digitalasset.canton.http.util.{Commands, Transactions}
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.tracing.NoTracing
+import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import scalaz.std.scalaFuture.*
 import scalaz.syntax.show.*
 import scalaz.syntax.std.option.*
@@ -73,14 +63,14 @@ class CommandService(
       jwtPayload: JwtWritePayload,
       input: CreateCommand[lav2.value.Record, ContractTypeId.Template.RequiredPkg],
   )(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID], traceContext: TraceContext
   ): Future[Error \/ domain.CreateCommandResponse[lav2.value.Value]] =
     withTemplateLoggingContext(input.templateId).run { implicit lc =>
       logger.trace(s"sending create command to ledger, ${lc.makeString}")
       val command = createCommand(input)
       val request = submitAndWaitRequest(jwtPayload, input.meta, command, "create")
       val et: ET[domain.CreateCommandResponse[lav2.value.Value]] = for {
-        response <- logResult(Symbol("create"), submitAndWaitForTransaction(jwt, request)(lc))
+        response <- logResult(Symbol("create"), submitAndWaitForTransaction(jwt, request)(traceContext)(lc))
         contract <- either(exactlyOneActiveContract(response))
       } yield domain.CreateCommandResponse(
         contract.contractId,

@@ -4,11 +4,14 @@
 package com.digitalasset.canton.lifecycle
 
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.lifecycle.StartAndCloseable.StartAfterClose
+import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.lifecycle.PromiseUnlessShutdown
+import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.SingleUseCell
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Trait to cleanly manage concurrent start and close operations
   *
@@ -18,7 +21,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
   */
 trait StartAndCloseable[A] extends FlagCloseableAsync {
 
-  private val startF = new SingleUseCell[Future[A]]()
+  private val startF = new SingleUseCell[Future[UnlessShutdown[A]]]()
 
   def isStarted: Boolean = startF.get.isDefined
 
@@ -30,10 +33,14 @@ trait StartAndCloseable[A] extends FlagCloseableAsync {
     * [[com.digitalasset.canton.lifecycle.StartAndCloseable.StartAfterClose]].
     * If close is called concurrently, it will delay the close until the start has succeeded.
     */
-  final def start()(implicit ec: ExecutionContext, traceContext: TraceContext): Future[A] = {
-    val outcomeF = internalPerformUnlessClosingF[A](functionFullName) {
-      val promise = Promise[A]()
-      val future = promise.future
+  final def start()(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+      err: ErrorLoggingContext,
+  ): Future[UnlessShutdown[A]] = {
+    val outcomeF = internalPerformUnlessClosingF[UnlessShutdown[A]](functionFullName) {
+      val promise = new PromiseUnlessShutdown[A](s"StartAndCloseable", FutureSupervisor.Noop)
+      val future = promise.futureUS.unwrap
       val previous = startF.putIfAbsent(future)
       previous match {
         case None =>
@@ -47,7 +54,7 @@ trait StartAndCloseable[A] extends FlagCloseableAsync {
 
     val res = outcomeF.onShutdown {
       // Return a failed future if we're not starting
-      val alreadyClosing = Future.failed(StartAfterClose())
+      val alreadyClosing = Future.successful(AbortedDueToShutdown)
       val previous = startF.putIfAbsent(alreadyClosing)
       previous.getOrElse(alreadyClosing)
     }
@@ -60,7 +67,15 @@ trait StartAndCloseable[A] extends FlagCloseableAsync {
     res
   }
 
-  protected def startAsync()(implicit tc: TraceContext): Future[A]
+  def startFUS()(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+      err: ErrorLoggingContext,
+  ): FutureUnlessShutdown[A] = {
+    FutureUnlessShutdown(start())
+  }
+
+  protected def startAsync()(implicit tc: TraceContext): FutureUnlessShutdown[A]
 
 }
 

@@ -11,6 +11,7 @@ import com.daml.lf.data.Ref.{Party, UserId}
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{ObjectMeta, User, UserRight}
 import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -23,33 +24,39 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       user: User,
       initialRights: Seq[UserRight] = List.empty,
       token: Option[String] = None,
-  ): Future[User] = {
+  )(implicit traceContext: TraceContext): Future[User] = {
     val request = proto.CreateUserRequest(
       Some(UserManagementClient.toProtoUser(user)),
       initialRights.view.map(toProtoRight).toList,
     )
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .createUser(request)
       .flatMap(res => fromOptionalProtoUser(res.user))
   }
 
-  def getUser(userId: UserId, token: Option[String] = None): Future[User] =
+  def getUser(userId: UserId, token: Option[String] = None)(implicit
+      traceContext: TraceContext
+  ): Future[User] =
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .getUser(proto.GetUserRequest(userId.toString))
       .flatMap(res => fromOptionalProtoUser(res.user))
 
   /** Retrieve the User information for the user authenticated by the token(s) on the call . */
-  def getAuthenticatedUser(token: Option[String] = None): Future[User] =
+  def getAuthenticatedUser(
+      token: Option[String] = None
+  )(implicit traceContext: TraceContext): Future[User] =
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .getUser(proto.GetUserRequest())
       .flatMap(res => fromOptionalProtoUser(res.user))
 
-  def deleteUser(userId: UserId, token: Option[String] = None): Future[Unit] =
+  def deleteUser(userId: UserId, token: Option[String] = None)(implicit
+      traceContext: TraceContext
+  ): Future[Unit] =
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .deleteUser(proto.DeleteUserRequest(userId.toString))
       .map(_ => ())
 
@@ -57,9 +64,9 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       token: Option[String] = None,
       pageToken: String,
       pageSize: Int,
-  ): Future[(Seq[User], String)] =
+  )(implicit traceContext: TraceContext): Future[(Seq[User], String)] =
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .listUsers(proto.ListUsersRequest(pageToken = pageToken, pageSize = pageSize))
       .map(res => res.users.view.map(fromProtoUser).toSeq -> res.nextPageToken)
 
@@ -67,9 +74,9 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       userId: UserId,
       rights: Seq[UserRight],
       token: Option[String] = None,
-  ): Future[Seq[UserRight]] =
+  )(implicit traceContext: TraceContext): Future[Seq[UserRight]] =
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .grantUserRights(proto.GrantUserRightsRequest(userId.toString, rights.map(toProtoRight)))
       .map(_.newlyGrantedRights.view.collect(fromProtoRight.unlift).toSeq)
 
@@ -77,27 +84,31 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       userId: UserId,
       rights: Seq[UserRight],
       token: Option[String] = None,
-  ): Future[Seq[UserRight]] =
+  )(implicit traceContext: TraceContext): Future[Seq[UserRight]] =
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .revokeUserRights(proto.RevokeUserRightsRequest(userId.toString, rights.map(toProtoRight)))
       .map(_.newlyRevokedRights.view.collect(fromProtoRight.unlift).toSeq)
 
   /** List the rights of the given user.
     * Unknown rights are ignored.
     */
-  def listUserRights(userId: UserId, token: Option[String] = None): Future[Seq[UserRight]] =
+  def listUserRights(userId: UserId, token: Option[String] = None)(implicit
+      traceContext: TraceContext
+  ): Future[Seq[UserRight]] =
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .listUserRights(proto.ListUserRightsRequest(userId.toString))
       .map(_.rights.view.collect(fromProtoRight.unlift).toSeq)
 
   /** Retrieve the rights of the user authenticated by the token(s) on the call .
     * Unknown rights are ignored.
     */
-  def listAuthenticatedUserRights(token: Option[String] = None): Future[Seq[UserRight]] =
+  def listAuthenticatedUserRights(
+      token: Option[String] = None
+  )(implicit traceContext: TraceContext): Future[Seq[UserRight]] =
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .listUserRights(proto.ListUserRightsRequest())
       .map(_.rights.view.collect(fromProtoRight.unlift).toSeq)
 }

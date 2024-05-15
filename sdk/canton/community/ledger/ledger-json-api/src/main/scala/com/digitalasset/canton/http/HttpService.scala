@@ -36,6 +36,7 @@ import io.grpc.Channel
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthGrpc}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.Http.ServerBinding
+import org.apache.pekko.http.scaladsl.model.{HttpRequest, HttpResponse}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.settings.ServerSettings
 import org.apache.pekko.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
@@ -124,7 +125,7 @@ class HttpService(
         { case (jwt, byteString) =>
           implicit lc =>
             ledgerClientJwt
-              .uploadDar(ledgerClient)(directEc)(
+              .uploadDar(ledgerClient)(directEc, traceContext)(
                 jwt,
                 byteString,
               )(lc)
@@ -137,7 +138,7 @@ class HttpService(
         { case (jwt, request) =>
           implicit lc =>
             ledgerClientJwt
-              .getMeteringReport(ledgerClient)(directEc)(jwt, request)(
+              .getMeteringReport(ledgerClient)(directEc, traceContext)(jwt, request)(
                 lc
               )
         }
@@ -193,7 +194,7 @@ class HttpService(
           websocketEndpoints.transactionWebSocket,
         )
 
-      allEndpoints = concat(
+      allEndpoints: Route = concat(
         staticContentConfig.cata(
           c => concat(StaticContentEndpoints.all(c, loggerFactory), defaultEndpoints),
           defaultEndpoints,

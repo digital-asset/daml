@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.traverse.*
 import com.digitalasset.canton.config.CantonRequireTypes.{String1, String255}
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
@@ -16,7 +17,7 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.ByteString
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class DbMediatorDomainConfigurationStore(
     override protected val storage: DbStorage,
@@ -36,18 +37,20 @@ class DbMediatorDomainConfigurationStore(
 
   override def fetchConfiguration(implicit
       traceContext: TraceContext
-  ): EitherT[Future, MediatorDomainConfigurationStoreError, Option[MediatorDomainConfiguration]] =
+  ): EitherT[FutureUnlessShutdown, MediatorDomainConfigurationStoreError, Option[
+    MediatorDomainConfiguration
+  ]] =
     for {
       rowO <- EitherT.right(
         storage
-          .query(
+          .queryUnlessShutdown(
             sql"""select domain_id, static_domain_parameters, sequencer_connection
             from mediator_domain_configuration #${storage.limit(1)}""".as[SerializedRow].headOption,
             "fetch-configuration",
           )
       )
       config <- EitherT
-        .fromEither[Future](rowO.traverse(deserialize))
+        .fromEither[FutureUnlessShutdown](rowO.traverse(deserialize))
         .leftMap[MediatorDomainConfigurationStoreError](
           MediatorDomainConfigurationStoreError.DeserializationError
         )
@@ -55,14 +58,14 @@ class DbMediatorDomainConfigurationStore(
 
   override def saveConfiguration(configuration: MediatorDomainConfiguration)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, MediatorDomainConfigurationStoreError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, MediatorDomainConfigurationStoreError, Unit] = {
     val (domainId, domainParameters, sequencerConnection) = serialize(
       configuration
     )
 
     EitherT.right(
       storage
-        .update_(
+        .updateUnlessShutdown_(
           storage.profile match {
             case _: DbStorage.Profile.H2 =>
               sqlu"""merge into mediator_domain_configuration
