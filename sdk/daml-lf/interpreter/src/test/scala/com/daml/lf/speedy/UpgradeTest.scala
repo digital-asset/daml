@@ -25,7 +25,13 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import java.util
 
-class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks with Inside {
+class UpgradeTestV2 extends UpgradeTest(LanguageMajorVersion.V2)
+
+class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyFreeSpec
+    with Matchers
+    with TableDrivenPropertyChecks
+    with Inside {
 
   implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
 
@@ -34,7 +40,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChec
   private[this] implicit def parserParameters(implicit
       pkgId: Ref.PackageId
   ): ParserParameters[this.type] =
-    ParserParameters(pkgId, languageVersion = LanguageMajorVersion.V2.dev)
+    ParserParameters(pkgId, languageVersion = majorLanguageVersion.dev)
 
   val pkgId1 = Ref.PackageId.assertFromString("-pkg1-")
   private lazy val pkg1 = {
@@ -45,8 +51,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChec
       record @serializable T = { sig: Party, obs: Party, aNumber: Int64 };
       template (this: T) = {
         precondition True;
-        signatories M:sigs (M:T {sig} this) (None @Party);
-        observers '-pkg1-':M:sigs (M:T {obs} this) (None @Party);
+        signatories M:mkList (M:T {sig} this) (None @Party);
+        observers M:mkList (M:T {obs} this) (None @Party);
         key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
@@ -54,7 +60,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChec
         \(cId: ContractId M:T) ->
           fetch_template @M:T cId;
 
-      val sigs: Party -> Option Party -> List Party =
+      val mkList: Party -> Option Party -> List Party =
         \(sig: Party) -> \(optSig: Option Party) ->
           case optSig of
             None -> Cons @Party [sig] Nil @Party
@@ -75,8 +81,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChec
       record @serializable T = { sig: Party, obs: Party, aNumber: Int64 };
       template (this: T) = {
         precondition True;
-        signatories '-pkg1-':M:sigs (M:T {sig} this) (None @Party);
-        observers '-pkg1-':M:sigs (M:T {obs} this) (None @Party);
+        signatories '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
+        observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
         key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
@@ -97,8 +103,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChec
       record @serializable T = { sig: Party, obs: Party, aNumber: Int64, optSig: Option Party };
       template (this: T) = {
         precondition True;
-        signatories '-pkg1-':M:sigs (M:T {sig} this) (M:T {optSig} this);
-        observers '-pkg1-':M:sigs (M:T {obs} this) (None @Party);
+        signatories '-pkg1-':M:mkList (M:T {sig} this) (M:T {optSig} this);
+         observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
         key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
@@ -112,7 +118,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChec
 
   val pkgId4: Ref.PackageId = Ref.PackageId.assertFromString("-pkg4-")
   private lazy val pkg4 = {
-    // swap signatories and observers with respect to pkg2
+    // add an optional additional signatory
     implicit def pkgId: Ref.PackageId = pkgId4
     p""" metadata ( '-upgrade-test-' : '4.0.0' )
       module M {
@@ -120,8 +126,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChec
       record @serializable T = { sig: Party, obs: Party, aNumber: Int64, optSig: Option Party };
       template (this: T) = {
         precondition True;
-        signatories '-pkg1-':M:sigs (M:T {obs} this) (None @Party);
-        observers '-pkg1-':M:sigs (M:T {sig} this) (None @Party);
+        signatories '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
+        observers '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
         key @Party (M:T {obs} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
@@ -140,7 +146,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChec
   private lazy val pkgs =
     PureCompiledPackages.assertBuild(
       Map(pkgId1 -> pkg1, pkgId2 -> pkg2, pkgId3 -> pkg3, pkgId4 -> pkg4),
-      Compiler.Config.Dev(LanguageMajorVersion.V2),
+      Compiler.Config.Dev(majorLanguageVersion),
     )
 
   private val alice = Ref.Party.assertFromString("alice")
@@ -353,7 +359,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChec
 
   "upgrade" - {
     "be able to fetch a same contract using different versions" in {
-      // The following code is not properly typed, but emulates two commands that fetch a same contract using different versions.
+      // The following code is not properly type, but emulate two commands that fetch a same contract using different versions.
       val res = go(
         e"""\(cid: ContractId '-pkg1-':M:T) ->
                ubind
@@ -366,7 +372,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChec
       res shouldBe a[Right[_, _]]
     }
     "do recompute and check immutability of meta data when using different versions" in {
-      // The following code is not properly typed, but emulates two commands that fetch a same contract using different versions.
+      // The following code is not properly type, but emulate two commands that fetch a same contract using different versions.
       val res: Either[SError, (Value, List[UpgradeVerificationRequest])] = go(
         e"""\(cid: ContractId '-pkg1-':M:T) ->
                ubind
