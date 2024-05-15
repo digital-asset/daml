@@ -14,7 +14,7 @@ import com.daml.lf.speedy.SValue.SContractId
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.TransactionVersion.VDev
-import com.daml.lf.transaction.Versioned
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 import com.daml.logging.LoggingContext
@@ -50,7 +50,8 @@ class UpgradeTest
       template (this: T) = {
         precondition True;
         signatories M:sigs (M:T {sig} this) (None @Party);
-        observers Nil @Party;
+        observers '-pkg1-':M:sigs (M:T {obs} this) (None @Party);
+        key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
       val do_fetch: ContractId M:T -> Update M:T =
@@ -79,7 +80,8 @@ class UpgradeTest
       template (this: T) = {
         precondition True;
         signatories '-pkg1-':M:sigs (M:T {sig} this) (None @Party);
-        observers Nil @Party;
+        observers '-pkg1-':M:sigs (M:T {obs} this) (None @Party);
+        key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
       val do_fetch: ContractId M:T -> Update M:T =
@@ -100,7 +102,8 @@ class UpgradeTest
       template (this: T) = {
         precondition True;
         signatories '-pkg1-':M:sigs (M:T {sig} this) (M:T {optSig} this);
-        observers Nil @Party;
+         observers '-pkg1-':M:sigs (M:T {obs} this) (None @Party);
+        key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
       val do_fetch: ContractId M:T -> Update M:T =
@@ -112,7 +115,7 @@ class UpgradeTest
   }
 
   val pkgId4: Ref.PackageId = Ref.PackageId.assertFromString("-pkg4-")
-   lazy val pkg4 = {
+  private lazy val pkg4 = {
     // add an optional additional signatory
     implicit def pkgId: Ref.PackageId = pkgId4
     p""" metadata ( '-upgrade-test-' : '4.0.0' )
@@ -121,26 +124,26 @@ class UpgradeTest
       record @serializable T = { sig: Party, obs: Party, aNumber: Int64, optSig: Option Party };
       template (this: T) = {
         precondition True;
-        signatories '-pkg1-':M:sigs (M:T {sig} this) (M:T {optSig} this);
-        observers Nil @Party;
+        signatories '-pkg1-':M:sigs (M:T {obs} this) (None @Party);
+        observers '-pkg1-':M:sigs (M:T {sig} this) (None @Party);
+        key @Party (M:T {obs} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
       val do_fetch: ContractId M:T -> Update M:T =
         \(cId: ContractId M:T) ->
           fetch_template @M:T cId;
-
       }
     """
   }
 
   val pkgName = {
-    assert(pkg1.name == pkg2.name && pkg2.name == pkg3.name)
+    assert(pkg1.name == pkg2.name && pkg2.name == pkg3.name && pkg3.name == pkg4.name)
     pkg1.name
   }
 
   private lazy val pkgs =
     PureCompiledPackages.assertBuild(
-      Map(pkgId1 -> pkg1, pkgId2 -> pkg2, pkgId3 -> pkg3),
+      Map(pkgId1 -> pkg1, pkgId2 -> pkg2, pkgId3 -> pkg3, pkgId4 -> pkg4),
       Compiler.Config.Dev(LanguageMajorVersion.V2),
     )
 
@@ -215,6 +218,8 @@ class UpgradeTest
       ValueParty(bob),
       ValueInt64(100),
     )
+
+  val v1_key = GlobalKeyWithMaintainers.assertBuild(i"'-pkg1-':M:T", ValueParty(alice), Set(alice), pkgName)
 
   "upgrade attempted" - {
 
@@ -303,7 +308,7 @@ class UpgradeTest
         )
 
       val res =
-        go(e"'-pkg1-':M:do_fetch", ContractInstance(pkgName, i"'-unknow-':M:T", v1_extraText))
+        go(e"'-pkg1-':M:do_fetch", ContractInstance(pkgName, i"'-unknown-':M:T", v1_extraText))
 
       inside(res) { case Left(SError.SErrorCrash(_, reason)) =>
         reason should include(
@@ -350,7 +355,7 @@ class UpgradeTest
   }
 
   "upgrade" - {
-    "be able to fetch a same contract using different version" in {
+    "be able to fetch a same contract using different versions" in {
       // The following code is not properly type, but emulate two commands that fetch a same contract using different versions.
       val res = go(
         e"""\(cid: ContractId '-pkg1-':M:T) ->
@@ -362,6 +367,25 @@ class UpgradeTest
         ContractInstance(pkgName, i"'-pkg1-':M:T", v1_base),
       )
       res shouldBe a[Right[_, _]]
+    }
+    "do recompute and check immutability of meta data when using different versions" in {
+      // The following code is not properly type, but emulate two commands that fetch a same contract using different versions.
+      val res: Either[SError, (Value, List[UpgradeVerificationRequest])] = go(
+        e"""\(cid: ContractId '-pkg1-':M:T) ->
+               ubind
+                 x1: Unit <- '-pkg2-':M:do_fetch cid;
+                 x2: Unit <- '-pkg4-':M:do_fetch cid
+               in upure @Unit ()
+          """,
+        ContractInstance(pkgName, i"'-pkg1-':M:T", v1_base),
+      )
+      inside(res){
+        case Right((_, verificationRequests)) =>
+          verificationRequests shouldBe List(
+            UpgradeVerificationRequest(theCid, Set(alice), Set(bob), Some(v1_key)),
+            UpgradeVerificationRequest(theCid, Set(bob), Set(alice), Some(GlobalKeyWithMaintainers.assertBuild(i"'-pkg1-':M:T", ValueParty(bob), Set(bob), pkgName))),
+          )
+      }
     }
   }
 
@@ -390,8 +414,8 @@ class UpgradeTest
         v shouldBe v_alice_none
         uv.coid shouldBe theCid
         uv.signatories.toList shouldBe List(alice)
-        uv.observers.toList shouldBe List()
-        uv.keyOpt shouldBe None
+        uv.observers.toList shouldBe List(bob)
+        uv.keyOpt shouldBe Some(v1_key)
     }
 
     inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(pkgName, i"'-pgk3-':M:T", v_alice_some))) {
@@ -399,8 +423,8 @@ class UpgradeTest
         v shouldBe v_alice_some
         uv.coid shouldBe theCid
         uv.signatories.toList shouldBe List(alice, bob)
-        uv.observers.toList shouldBe List()
-        uv.keyOpt shouldBe None
+        uv.observers.toList shouldBe List(bob)
+        uv.keyOpt shouldBe Some(v1_key)
     }
 
   }
