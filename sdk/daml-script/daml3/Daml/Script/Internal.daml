@@ -28,9 +28,7 @@ module Daml.Script.Internal
     concurrently
   , trySubmitConcurrently
 
-  , -- Exceptions
-    -- TODO: consider exposing this normally.
-    tryToEither
+    -- Exceptions
   , throwAnyException
 
   , -- Internal submit error

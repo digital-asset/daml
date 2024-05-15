@@ -102,6 +102,7 @@ module Daml.Script
   , listUserRightsOn
   , submitUser
   , submitUserOn
+  , tryToEither
   ) where
 
 import Daml.Script.Internal.LowLevel
