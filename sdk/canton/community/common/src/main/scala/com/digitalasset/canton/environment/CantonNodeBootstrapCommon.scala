@@ -24,9 +24,11 @@ import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.health.admin.grpc.GrpcStatusService
 import com.digitalasset.canton.health.admin.v0.StatusServiceGrpc
 import com.digitalasset.canton.health.{
+  DependenciesHealthService,
   GrpcHealthReporter,
   GrpcHealthServer,
   HealthService,
+  LivenessHealthService,
   ServiceHealthStatusManager,
 }
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext, Lifecycle}
@@ -201,18 +203,19 @@ abstract class CantonNodeBootstrapCommon[
     (Lifecycle.toCloseableServer(server, logger, "AdminServer"), registry)
   }
 
-  protected def mkNodeHealthService(storage: Storage): HealthService
+  protected def mkNodeHealthService(
+      storage: Storage
+  ): (DependenciesHealthService, LivenessHealthService)
   protected def mkHealthComponents(
-      nodeHealthService: HealthService
-  ): (GrpcHealthReporter, Option[GrpcHealthServer], HealthService) = {
-    // Service that will always return `SERVING`. Useful to be targeted by k8s liveness probes.
-    val livenessService = HealthService("liveness", logger, timeouts)
+      nodeHealthService: HealthService,
+      nodeLivenessService: LivenessHealthService,
+  ): (GrpcHealthReporter, Option[GrpcHealthServer]) = {
     val healthReporter: GrpcHealthReporter = new GrpcHealthReporter(loggerFactory)
     val grpcNodeHealthManager =
       ServiceHealthStatusManager(
         "Health API",
         new io.grpc.protobuf.services.HealthStatusManager(),
-        Set(nodeHealthService, livenessService),
+        Set(nodeHealthService, nodeLivenessService),
       )
     val grpcHealthServer = config.monitoring.grpcHealthServer.map { healthConfig =>
       healthReporter.registerHealthManager(grpcNodeHealthManager)
@@ -231,7 +234,7 @@ abstract class CantonNodeBootstrapCommon[
         grpcNodeHealthManager.manager,
       )
     }
-    (healthReporter, grpcHealthServer, livenessService)
+    (healthReporter, grpcHealthServer)
   }
 
 }

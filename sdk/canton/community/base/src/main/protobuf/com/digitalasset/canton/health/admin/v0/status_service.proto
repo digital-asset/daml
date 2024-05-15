@@ -48,6 +48,7 @@ message NodeStatus {
       StatusData ok = 2;
       StatusData degraded = 3;
       StatusData failed = 4;
+      StatusData fatal = 5;
     }
     message StatusData {
       google.protobuf.StringValue description = 1;

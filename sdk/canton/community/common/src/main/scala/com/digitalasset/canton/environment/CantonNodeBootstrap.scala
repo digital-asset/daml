@@ -14,7 +14,7 @@ import com.digitalasset.canton.config.{InitConfigBase, LocalNodeConfig, Processi
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.v0.VaultServiceGrpc
 import com.digitalasset.canton.error.CantonError
-import com.digitalasset.canton.health.HealthService
+import com.digitalasset.canton.health.{DependenciesHealthService, LivenessHealthService}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
@@ -37,6 +37,7 @@ import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.util.retry
 import com.digitalasset.canton.util.retry.RetryUtil.NoExnRetryable
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
+import com.digitalasset.canton.watchdog.WatchdogService
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.actor.ActorSystem
 import org.slf4j.event.Level
@@ -438,9 +439,24 @@ abstract class CantonNodeBootstrapBase[
 
   /** Health service component of the node
     */
-  protected lazy val nodeHealthService: HealthService = mkNodeHealthService(storage)
-  protected val (healthReporter, grpcHealthServer, livenessHealthService) =
-    mkHealthComponents(nodeHealthService)
+  protected lazy val (
+    nodeHealthService: DependenciesHealthService,
+    nodeLivenessService: LivenessHealthService,
+  ) = mkNodeHealthService(storage)
+  protected val (healthReporter, grpcHealthServer) =
+    mkHealthComponents(nodeHealthService, nodeLivenessService)
+
+  private val watchdogServiceO = arguments.parameterConfig.watchdog
+    .filter(_.enabled)
+    .map(watchdogConfig =>
+      WatchdogService.SysExitOnNotServing(
+        watchdogConfig.checkInterval,
+        watchdogConfig.killDelay,
+        nodeLivenessService,
+        loggerFactory,
+        timeouts,
+      )
+    )
 
   override protected def onClosed(): Unit = {
     if (isRunningVar.getAndSet(false)) {
@@ -459,8 +475,8 @@ abstract class CantonNodeBootstrapBase[
         storage,
         clock,
         nodeHealthService,
-        livenessHealthService,
-      )
+        nodeLivenessService,
+      ) ++ watchdogServiceO.toList
       Lifecycle.close(instances: _*)(logger)
       logger.debug(s"Successfully completed shutdown of $name")
     } else {

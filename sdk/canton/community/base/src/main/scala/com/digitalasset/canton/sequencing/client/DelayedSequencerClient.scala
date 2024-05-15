@@ -8,7 +8,7 @@ import com.digitalasset.canton.sequencing.client.DelayedSequencerClient.{
   Immediate,
   SequencedEventDelayPolicy,
 }
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.{DomainId, Member}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent
@@ -23,7 +23,7 @@ case object NoDelay extends DelaySequencedEvent {
   override def delay(event: OrdinarySerializedEvent): Future[Unit] = Future.unit
 }
 
-final case class DelayedSequencerClient(domain: DomainId, member: String)
+final case class DelayedSequencerClient(domain: DomainId, member: Member)
     extends DelaySequencedEvent {
 
   private[this] val onPublish: AtomicReference[SequencedEventDelayPolicy] =
@@ -41,13 +41,13 @@ final case class DelayedSequencerClient(domain: DomainId, member: String)
 
 object DelayedSequencerClient {
 
-  private val clients: concurrent.Map[(String, DomainId, String), DelayedSequencerClient] =
-    new TrieMap[(String, DomainId, String), DelayedSequencerClient]
+  private val clients: concurrent.Map[(String, DomainId, Member), DelayedSequencerClient] =
+    new TrieMap[(String, DomainId, Member), DelayedSequencerClient]
 
   def delayedSequencerClient(
       environmentId: String,
       domainId: DomainId,
-      member: String,
+      member: Member,
   ): Option[DelayedSequencerClient] = {
     clients.get((environmentId, domainId, member))
   }
@@ -55,7 +55,7 @@ object DelayedSequencerClient {
   def registerAndCreate(
       environmentId: String,
       domainId: DomainId,
-      member: String,
+      member: Member,
   ): DelayedSequencerClient = {
     val delayedLog = new DelayedSequencerClient(domainId, member)
     clients.putIfAbsent((environmentId, domainId, member), delayedLog).discard

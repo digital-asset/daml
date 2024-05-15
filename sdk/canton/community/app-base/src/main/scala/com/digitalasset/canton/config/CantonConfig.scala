@@ -534,6 +534,7 @@ private[config] object CantonNodeParameterConverter {
       node.storage.parameters.migrateAndStart,
       parent.features.skipTopologyManagerSignatureValidation,
       parent.parameters.exitOnFatalFailures,
+      node.parameters.watchdog,
     )
   }
 
@@ -1003,8 +1004,11 @@ object CantonConfig {
       deriveReader[AmmoniteConsoleConfig]
     lazy implicit val cantonParametersReader: ConfigReader[CantonParameters] =
       deriveReader[CantonParameters]
-    lazy implicit val cantonFeaturesReader: ConfigReader[CantonFeatures] =
+    lazy implicit val cantonFeaturesReader: ConfigReader[CantonFeatures] = {
       deriveReader[CantonFeatures]
+    }
+    lazy implicit val cantonWatchdogConfigReader: ConfigReader[WatchdogConfig] =
+      deriveReader[WatchdogConfig]
   }
 
   /** writers
@@ -1384,8 +1388,11 @@ object CantonConfig {
       deriveWriter[AmmoniteConsoleConfig]
     lazy implicit val cantonParametersWriter: ConfigWriter[CantonParameters] =
       deriveWriter[CantonParameters]
-    lazy implicit val cantonFeaturesWriter: ConfigWriter[CantonFeatures] =
+    lazy implicit val cantonFeaturesWriter: ConfigWriter[CantonFeatures] = {
       deriveWriter[CantonFeatures]
+    }
+    lazy implicit val cantonWatchdogConfigWriter: ConfigWriter[WatchdogConfig] =
+      deriveWriter[WatchdogConfig]
   }
 
   /** Parses and merges the provided configuration files into a single [[com.typesafe.config.Config]].

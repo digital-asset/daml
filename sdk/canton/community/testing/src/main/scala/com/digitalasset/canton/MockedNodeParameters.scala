@@ -51,5 +51,7 @@ object MockedNodeParameters {
     override def skipTopologyManagerSignatureValidation: Boolean = false
 
     override def exitOnFatalFailures: Boolean = ???
+
+    override def watchdog: Option[WatchdogConfig] = None
   }
 }

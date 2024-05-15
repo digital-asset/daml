@@ -65,6 +65,7 @@ trait LocalNodeConfig extends NodeConfig {
 
 trait LocalNodeParametersConfig {
   def batching: BatchingConfig
+  def watchdog: Option[WatchdogConfig]
 }
 
 trait CommunityLocalNodeConfig extends LocalNodeConfig {

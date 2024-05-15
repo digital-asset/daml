@@ -320,8 +320,8 @@ class SequencerClientTest
             )
             logEntry.throwable shouldBe Some(error)
           },
-          _.warningMessage should include(
-            s"Closing resilient sequencer subscription due to error: HandlerError($syncError)"
+          _.errorMessage should include(
+            s"Sequencer subscription is being closed due to handler exception (this indicates a bug): $syncError"
           ),
         )
 
@@ -394,8 +394,8 @@ class SequencerClientTest
             )
             logEntry.throwable shouldBe Some(error)
           },
-          _.warningMessage should include(
-            s"Closing resilient sequencer subscription due to error: HandlerError($asyncException)"
+          _.errorMessage should include(
+            s"Sequencer subscription is being closed due to handler exception (this indicates a bug): $asyncException"
           ),
         )
       } yield closeReason

@@ -510,6 +510,7 @@ final case class ParticipantNodeParameterConfig(
     engine: CantonEngineConfig = CantonEngineConfig(),
     allowForUnauthenticatedContractIds: Boolean = false,
     disableUpgradeValidation: Boolean = false,
+    watchdog: Option[WatchdogConfig] = None,
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores
