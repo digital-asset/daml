@@ -322,6 +322,22 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     }
   }
 
+  "upgrade" - {
+    "be able to fetch a same contract using different version" in {
+      // The following code is not properly type, but emulate two commands that fetch a same contract using different versions.
+      val res = go(
+        e"""\(cid: ContractId '-pkg1-':M:T) ->
+               ubind
+                 x1: Unit <- '-pkg2-':M:do_fetch cid;
+                 x2: Unit <- '-pkg3-':M:do_fetch cid
+               in upure @Unit ()
+          """,
+        ContractInstance(pkgName, i"'-pkg1-':M:T", v1_base),
+      )
+      res shouldBe a[Right[_, _]]
+    }
+  }
+
   "Correct calls to ResultNeedUpgradeVerification" in {
 
     implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
