@@ -16,6 +16,10 @@ data Catch = Catch with
   dummy : ()
 instance IsQuestion Catch (Either AnyException x) where command = "Catch"
 
+-- | Named version of the `try catch` behaviour of Daml-Script.
+-- Note that this is no more powerful than `try catch` in daml-script, and will not catch exceptions in submissions.
+-- (Use `trySubmit` for this)
+-- Input computation is deferred to catch pure exceptions
 tryToEither : forall t. (() -> Script t) -> Script (Either AnyException t)
 tryToEither act = lift Catch with
   act = \() -> toLedgerValue $ act ()

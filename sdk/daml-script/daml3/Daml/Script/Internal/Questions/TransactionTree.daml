@@ -9,19 +9,16 @@ import Daml.Script.Internal.Questions.Util
 import DA.Optional
 import DA.List.Total
 
--- | HIDE This is an early access feature.
 data TransactionTree = TransactionTree
   with
     rootEvents: [TreeEvent]
   deriving Show
 
--- | HIDE This is an early access feature.
 data TreeEvent
   = CreatedEvent Created
   | ExercisedEvent Exercised
   deriving Show
 
--- | HIDE This is an early access feature.
 data Created = Created
   with
     contractId : AnyContractId
@@ -35,7 +32,6 @@ instance Show Created where
     showsPrec 0 contractId .
     showString "}"
 
--- | HIDE This is an early access feature.
 data Exercised = Exercised
   with
     contractId : AnyContractId
@@ -58,18 +54,15 @@ instance Show Exercised where
     showsPrec 0 childEvents .
     showString "}"
 
--- | HIDE This is an early access feature.
 data TreeIndex t
   = CreatedIndex (CreatedIndexPayload t)
   | ExercisedIndex (ExercisedIndexPayload t)
 
--- | HIDE This is an early access feature.
 data CreatedIndexPayload t = CreatedIndexPayload
   with
     templateId : TemplateTypeRep
     offset : Int
 
--- | HIDE This is an early access feature.
 data ExercisedIndexPayload t = ExercisedIndexPayload
   with
     templateId : TemplateTypeRep
@@ -77,7 +70,12 @@ data ExercisedIndexPayload t = ExercisedIndexPayload
     offset : Int
     child : TreeIndex t
 
--- | HIDE This is an early access feature.
+-- | Finds the contract id of an event within a tree given a tree index
+-- Tree indices are created using the `created(N)` and `exercised(N)` builders
+-- which allow building "paths" within a transaction to a create node
+-- For example, `exercisedN @MyTemplate1 "MyChoice" 2 $ createdN @MyTemplate2 1`
+-- would find the `ContractId MyTemplate2` of the second (0 index) create event under
+-- the 3rd exercise event of `MyChoice` from `MyTemplate1`
 fromTree : Template t => TransactionTree -> TreeIndex t -> ContractId t
 fromTree tree index = fromTreeGo index tree.rootEvents
 
@@ -110,22 +108,28 @@ fromTreeGo (ExercisedIndex index) events =
       | otherwise
       = None
 
--- | HIDE This is an early access feature.
+-- | Index for the first create event of a given template
+-- e.g. `created @MyTemplate`
 created : forall t. HasTemplateTypeRep t => TreeIndex t
 created = createdN 0
 
--- | HIDE This is an early access feature.
+-- | Index for the Nth create event of a given template
+-- e.g. `createdN 2 @MyTemplate`
+-- `created = createdN 0`
 createdN : forall t. HasTemplateTypeRep t => Int -> TreeIndex t
 createdN offset = CreatedIndex CreatedIndexPayload
   with
     templateId = templateTypeRep @t
     offset
 
--- | HIDE This is an early access feature.
+-- | Index for the first exercise of a given choice on a given template
+-- e.g. `exercised @MyTemplate "MyChoice"
 exercised : forall t t'. HasTemplateTypeRep t => Text -> TreeIndex t' -> TreeIndex t'
 exercised choice = exercisedN @t choice 0
 
--- | HIDE This is an early access feature.
+-- | Index for the Nth exercise of a given choice on a given template
+-- e.g. `exercisedN @MyTemplate "MyChoice" 2
+-- `exercised c = exercisedN c 0`
 exercisedN : forall t t'. HasTemplateTypeRep t => Text -> Int -> TreeIndex t' -> TreeIndex t'
 exercisedN choice offset child = ExercisedIndex ExercisedIndexPayload
   with
