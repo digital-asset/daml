@@ -25,11 +25,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import java.util
 
-class UpgradeTest
-    extends AnyFreeSpec
-    with Matchers
-    with TableDrivenPropertyChecks
-    with Inside {
+class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks with Inside {
 
   implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
 
@@ -219,7 +215,8 @@ class UpgradeTest
       ValueInt64(100),
     )
 
-  val v1_key = GlobalKeyWithMaintainers.assertBuild(i"'-pkg1-':M:T", ValueParty(alice), Set(alice), pkgName)
+  val v1_key =
+    GlobalKeyWithMaintainers.assertBuild(i"'-pkg1-':M:T", ValueParty(alice), Set(alice), pkgName)
 
   "upgrade attempted" - {
 
@@ -379,12 +376,23 @@ class UpgradeTest
           """,
         ContractInstance(pkgName, i"'-pkg1-':M:T", v1_base),
       )
-      inside(res){
-        case Right((_, verificationRequests)) =>
-          verificationRequests shouldBe List(
-            UpgradeVerificationRequest(theCid, Set(alice), Set(bob), Some(v1_key)),
-            UpgradeVerificationRequest(theCid, Set(bob), Set(alice), Some(GlobalKeyWithMaintainers.assertBuild(i"'-pkg1-':M:T", ValueParty(bob), Set(bob), pkgName))),
-          )
+      inside(res) { case Right((_, verificationRequests)) =>
+        verificationRequests shouldBe List(
+          UpgradeVerificationRequest(theCid, Set(alice), Set(bob), Some(v1_key)),
+          UpgradeVerificationRequest(
+            theCid,
+            Set(bob),
+            Set(alice),
+            Some(
+              GlobalKeyWithMaintainers.assertBuild(
+                i"'-pkg1-':M:T",
+                ValueParty(bob),
+                Set(bob),
+                pkgName,
+              )
+            ),
+          ),
+        )
       }
     }
   }

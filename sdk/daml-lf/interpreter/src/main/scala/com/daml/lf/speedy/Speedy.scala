@@ -491,8 +491,10 @@ private[lf] object Speedy {
       */
     // TODO: https://github.com/digital-asset/daml/issues/17082
     // - Must be template-id aware when we support ResultNeedUpgradeVerification
-    private[speedy] var contractInfoCache_ : Map[(V.ContractId, PackageId), ContractInfo] = Map.empty
-    private[speedy] def contractInfoCache: Map[(V.ContractId, PackageId), ContractInfo] = contractInfoCache_
+    private[speedy] var contractInfoCache_ : Map[(V.ContractId, PackageId), ContractInfo] =
+      Map.empty
+    private[speedy] def contractInfoCache: Map[(V.ContractId, PackageId), ContractInfo] =
+      contractInfoCache_
     private[speedy] def insertContractInfoCache(
         coid: V.ContractId,
         contract: ContractInfo,
