@@ -39,6 +39,7 @@ class NodesTest extends AnyWordSpec with BaseTest with HasExecutionContext {
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig()
     override def parameters: LocalNodeParametersConfig = new LocalNodeParametersConfig {
       override def batching: BatchingConfig = BatchingConfig()
+      override def watchdog: Option[WatchdogConfig] = None
     }
   }
 

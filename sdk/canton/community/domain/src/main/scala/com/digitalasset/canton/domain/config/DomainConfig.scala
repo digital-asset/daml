@@ -159,6 +159,7 @@ trait DomainConfig extends DomainBaseConfig {
 final case class DomainNodeParametersConfig(
     maxBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.5),
     batching: BatchingConfig = BatchingConfig(),
+    watchdog: Option[WatchdogConfig] = None,
 ) extends LocalNodeParametersConfig
 
 final case class CommunityDomainConfig(

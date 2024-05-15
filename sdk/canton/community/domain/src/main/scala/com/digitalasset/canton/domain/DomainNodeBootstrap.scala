@@ -47,7 +47,8 @@ import com.digitalasset.canton.health.admin.data.{
 }
 import com.digitalasset.canton.health.{
   ComponentStatus,
-  HealthService,
+  DependenciesHealthService,
+  LivenessHealthService,
   MutableHealthComponent,
   MutableHealthQuasiComponent,
 }
@@ -144,8 +145,13 @@ class DomainNodeBootstrap(
     timeouts,
   )
 
-  override protected def mkNodeHealthService(storage: Storage): HealthService =
-    HealthService("domain", logger, timeouts, Seq(storage))
+  override protected def mkNodeHealthService(
+      storage: Storage
+  ): (DependenciesHealthService, LivenessHealthService) = {
+    val readiness = DependenciesHealthService("domain", logger, timeouts, Seq(storage))
+    val liveness = LivenessHealthService.alwaysAlive(logger, timeouts)
+    (readiness, liveness)
+  }
 
   // Holds the gRPC server started when the node is started, even when non initialized
   // If non initialized the server will expose the gRPC health service only
@@ -170,7 +176,7 @@ class DomainNodeBootstrap(
     else EitherT.pure(())
   }
 
-  private val domainApiServiceHealth = HealthService(
+  private val domainApiServiceHealth = DependenciesHealthService(
     CantonGrpcUtil.sequencerHealthCheckServiceName,
     logger,
     timeouts,

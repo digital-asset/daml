@@ -16,9 +16,11 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory,
 import com.digitalasset.canton.sequencing.SerializedEventHandler
 import com.digitalasset.canton.sequencing.client.ResilientSequencerSubscription.LostSequencerSubscription
 import com.digitalasset.canton.sequencing.client.SequencerClientSubscriptionError.{
+  ApplicationHandlerException,
   ApplicationHandlerPassive,
   ApplicationHandlerShutdown,
 }
+import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason.HandlerException
 import com.digitalasset.canton.sequencing.client.transports.SequencerClientTransport
 import com.digitalasset.canton.sequencing.handlers.{CounterCapture, HasReceivedEvent}
 import com.digitalasset.canton.sequencing.protocol.SubscriptionRequest
@@ -216,6 +218,11 @@ class ResilientSequencerSubscription[HandlerError](
         logger.info("Sequencer subscription is being closed due to an ongoing shutdown")
       case Success(SubscriptionCloseReason.HandlerError(_: ApplicationHandlerShutdown.type)) =>
         logger.info("Sequencer subscription is being closed due to handler shutdown")
+      case Success(SubscriptionCloseReason.HandlerError(exception: ApplicationHandlerException)) =>
+        logger.error(
+          s"Sequencer subscription is being closed due to handler exception (this indicates a bug): $exception"
+        )
+        fatalOccurred(exception.toString)
       case Success(SubscriptionCloseReason.HandlerError(ApplicationHandlerPassive(reason))) =>
         logger.warn(
           s"Closing resilient sequencer subscription because instance became passive: $reason"
@@ -224,10 +231,14 @@ class ResilientSequencerSubscription[HandlerError](
         logger.info(
           s"Closing resilient sequencer subscription after an error due to an ongoing shutdown: $reason"
         )
+      case Success(ex: HandlerException) =>
+        logger.error(s"Closing resilient sequencer subscription due to handler exception: $ex")
+        fatalOccurred(ex.toString)
       case Success(error) =>
         logger.warn(s"Closing resilient sequencer subscription due to error: $error")
       case Failure(exception) =>
         logger.error(s"Closing resilient sequencer subscription due to exception", exception)
+        fatalOccurred(exception.toString)
     }
     closeReasonPromise.tryComplete(reason).discard
     close()

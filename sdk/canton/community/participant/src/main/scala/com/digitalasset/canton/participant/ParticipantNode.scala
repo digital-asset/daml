@@ -17,7 +17,11 @@ import com.digitalasset.canton.crypto.{CommunityCryptoFactory, CryptoPureApi, Sy
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.admin.data.ParticipantStatus
-import com.digitalasset.canton.health.{ComponentStatus, HealthService}
+import com.digitalasset.canton.health.{
+  ComponentStatus,
+  DependenciesHealthService,
+  LivenessHealthService,
+}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.StaticGrpcServices
@@ -119,8 +123,10 @@ class ParticipantNodeBootstrap(
 
   override protected def connectionPoolForParticipant: Boolean = true
 
-  override protected def mkNodeHealthService(storage: Storage): HealthService =
-    HealthService(
+  override protected def mkNodeHealthService(
+      storage: Storage
+  ): (DependenciesHealthService, LivenessHealthService) = {
+    val readiness = DependenciesHealthService(
       "participant",
       logger,
       timeouts,
@@ -134,6 +140,9 @@ class ParticipantNodeBootstrap(
         syncAcsCommitmentProcessorHealth,
       ),
     )
+    val liveness = LivenessHealthService.alwaysAlive(logger, timeouts)
+    (readiness, liveness)
+  }
 
   private val packageDependencyResolver =
     new PackageDependencyResolver(

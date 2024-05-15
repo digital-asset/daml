@@ -762,7 +762,7 @@ class SequencerClientImpl(
           DelayedSequencerClient.registerAndCreate(
             value.environmentId,
             domainId,
-            member.uid.toString,
+            member,
           )
         case None => NoDelay
       }

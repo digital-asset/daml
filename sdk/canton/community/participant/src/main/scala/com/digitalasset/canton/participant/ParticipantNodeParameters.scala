@@ -66,6 +66,7 @@ object ParticipantNodeParameters {
       dbMigrateAndStart = false,
       skipTopologyManagerSignatureValidation = false,
       exitOnFatalFailures = true,
+      watchdog = None,
     ),
     partyChangeNotification = PartyNotificationConfig.Eager,
     adminWorkflow = AdminWorkflowConfig(
