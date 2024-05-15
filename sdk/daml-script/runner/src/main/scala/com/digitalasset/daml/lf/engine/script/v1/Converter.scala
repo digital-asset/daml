@@ -402,4 +402,9 @@ object Converter extends script.ConverterMethods(StablePackagesV1) {
     }
     iter(freeAp, List())
   }
+
+  def makePair(v1: SValue, v2: SValue): SValue = {
+    import com.daml.script.converter.Converter.record
+    record(StablePackagesV1.Tuple2, ("_1", v1), ("_2", v2))
+  }
 }

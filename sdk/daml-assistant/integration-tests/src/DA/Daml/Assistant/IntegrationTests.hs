@@ -163,7 +163,7 @@ damlStart tmpDir _disableUpgradeValidation = do
     scriptOutput <- readFileUTF8 (projDir </> scriptOutputFile)
     let alice = (read scriptOutput :: String)
     -- TODO(raphael-speyer-da): Use a package name once supported by canton out of the box.
-    let packageRef = "6310b9aa3d506211b592dd657afb167d63637453f31eae986fad5aa1b6d61401"
+    packageRef <- extractPackageRefFromDar projDir
     pure $
         DamlStartResource
             { projDir = projDir
@@ -179,6 +179,20 @@ damlStart tmpDir _disableUpgradeValidation = do
                 killThread outReader
             , stdoutChan = outChan
             }
+
+extractPackageRefFromDar :: String -> IO String
+extractPackageRefFromDar projDir = do
+    inspectOutput <-
+        readCreateProcess
+            ( shell $
+                "daml damlc inspect "
+                    <> projDir
+                    <> "/.daml/dist/assistant-integration-tests-1.0.dar"
+            )
+            ""
+    case words $ head $ lines inspectOutput of
+        [_, packageRef] -> pure packageRef
+        _ -> error "Failed to extract package ref from DAR"
 
 tests :: SdkVersioned => FilePath -> TestTree
 tests tmpDir =
@@ -482,7 +496,7 @@ damlStartTestsWithoutValidation getDamlStart =
         untilM_ (pure ()) $ do
             line <- atomically $ readTChan stdoutReadChan
             pure ("Rebuild complete" `isInfixOf` line)
-        let newPackageRef = "8caa3f3b63b66d0338e0bb8b931c5c57644a4362b3bd82c482bd37d7438abcc8"
+        newPackageRef <- extractPackageRefFromDar projDir
         initialRequest <-
             parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
         manager <- newManager defaultManagerSettings

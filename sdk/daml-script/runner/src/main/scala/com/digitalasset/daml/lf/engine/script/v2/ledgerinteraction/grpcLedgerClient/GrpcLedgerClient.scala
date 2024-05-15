@@ -161,7 +161,23 @@ class GrpcLedgerClient(
               )
           val blob =
             Bytes.fromByteString(createdEvent.createdEventBlob)
-          (ScriptLedgerClient.ActiveContract(templateId, cid, argument, blob), key)
+          val disclosureTemplateId =
+            Converter
+              .fromApiIdentifier(
+                createdEvent.templateId.getOrElse(
+                  throw new ConverterException("missing required template_id in CreatedEvent")
+                )
+              )
+              .getOrElse(throw new ConverterException("invalid template_id in CreatedEvent"))
+          (
+            ScriptLedgerClient.ActiveContract(
+              disclosureTemplateId,
+              cid,
+              argument,
+              blob,
+            ),
+            key,
+          )
         })
       )
     )

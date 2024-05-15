@@ -218,26 +218,23 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       )
       .map { xs => SList(xs.to(FrontStack)) }
 
-  // Convert an active contract to AnyTemplate
-  def fromContract(
-      translator: preprocessing.ValueTranslator,
-      contract: ScriptLedgerClient.ActiveContract,
-      enableContractUpgrading: Boolean = false,
-  ): Either[String, SValue] =
-    fromAnyTemplate(translator, contract.templateId, contract.argument, enableContractUpgrading)
-
   // Convert a Created event to a pair of (ContractId (), AnyTemplate)
   def fromCreated(
       translator: preprocessing.ValueTranslator,
       contract: ScriptLedgerClient.ActiveContract,
+      targetTemplateId: Identifier,
       enableContractUpgrading: Boolean = false,
   ): Either[String, SValue] = {
     for {
-      anyTpl <- fromContract(translator, contract, enableContractUpgrading)
-    } yield record(
-      StablePackagesV2.Tuple2,
-      ("_1", SContractId(contract.contractId)),
-      ("_2", anyTpl),
+      anyTpl <- fromAnyTemplate(
+        translator,
+        targetTemplateId,
+        contract.argument,
+        enableContractUpgrading,
+      )
+    } yield makeTuple(
+      SContractId(contract.contractId),
+      anyTpl,
     )
   }
 
@@ -417,4 +414,10 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       ("version", SText(packageName.version.toString)),
     )
   }
+
+  def makeTuple(v1: SValue, v2: SValue): SValue =
+    record(StablePackagesV2.Tuple2, ("_1", v1), ("_2", v2))
+
+  def makeTuple(v1: SValue, v2: SValue, v3: SValue): SValue =
+    record(StablePackagesV2.Tuple3, ("_1", v1), ("_2", v2), ("_3", v3))
 }
