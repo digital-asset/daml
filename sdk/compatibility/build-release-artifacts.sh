@@ -19,10 +19,10 @@ HEAD_TARGET_DIR=${1:-compatibility/head_sdk}
 git clean -fxd -e 'daml-*.tgz' $HEAD_TARGET_DIR
 
 bazel build \
-  --java_language_version=11 \
-  --java_runtime_version=nixpkgs_java_11 \
-  --tool_java_runtime_version=nixpkgs_java_11 \
-  --tool_java_language_version=11 \
+  --java_language_version=17 \
+  --java_runtime_version=nixpkgs_java_17 \
+  --tool_java_runtime_version=nixpkgs_java_17 \
+  --tool_java_language_version=17 \
   //release:sdk-release-tarball \
   //daml-assistant:daml
 
