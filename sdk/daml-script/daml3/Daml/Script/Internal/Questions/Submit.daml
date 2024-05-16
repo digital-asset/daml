@@ -148,8 +148,8 @@ actAsNonEmpty ps = case ps of
 -- Concurrently takes a computation in `ConcurrentSubmits`, which supports all the existing `submitWithOptions` functions
 -- that `Script` supports. It however does not implement `Action`, and thus does not support true binding and computation interdependence
 -- NOTE: The submission order of transactions within `concurrently` is deterministic, this function is not intended to test contention.
--- It is only intended to allow faster submission of many unrelated transactions, by not waiting for completion for each transaction before
--- sending the next.
+-- It is only intended to allow faster submission of many unrelated transactions, by not waiting for completion for each transaction
+-- before sending the next.
 -- Example:
 -- ```
 -- exerciseResult <- concurrently $ do
