@@ -6,35 +6,35 @@ package engine
 package script
 package v1
 
-import java.time.Clock
-import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.lf.data.FrontStack
-import com.daml.lf.{CompiledPackages, command}
-import com.daml.lf.engine.preprocessing.ValueTranslator
-import com.daml.lf.data.Ref.{Identifier, Name, PackageId, Party, UserId}
+import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.language.{Ast, StablePackagesV1}
-import com.daml.lf.speedy.SExpr.{SEAppAtomic, SEValue}
-import com.daml.lf.speedy.{ArrayList, SError, SValue}
-import com.daml.lf.speedy.SExpr.SExpr
+import com.daml.lf.engine.preprocessing.ValueTranslator
+import com.daml.lf.language.Ast
+import com.daml.lf.speedy.SExpr.{SEAppAtomic, SEValue, SExpr}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy.PureMachine
+import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import scalaz.{Foldable, OneAnd}
-import scalaz.syntax.traverse._
+import com.daml.lf.{CompiledPackages, command}
+import com.daml.script.converter.Converter.{toContractId, toText}
+import org.apache.pekko.stream.Materializer
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.std.option._
-import com.daml.script.converter.Converter.{toContractId, toText}
+import scalaz.syntax.traverse._
+import scalaz.{Foldable, OneAnd}
 
+import java.time.Clock
 import scala.concurrent.{ExecutionContext, Future}
 
 sealed trait ScriptF
 
 object ScriptF {
+
   final case class Catch(act: SValue, handle: SValue, continue: SValue) extends ScriptF
   final case class Throw(exc: SAny) extends ScriptF
 
@@ -230,6 +230,7 @@ object ScriptF {
       } yield SEAppAtomic(SEValue(continue), Array(SEValue(SList(res))))
 
   }
+
   final case class QueryContractId(
       parties: OneAnd[Set, Party],
       tplId: Identifier,
@@ -250,7 +251,14 @@ object ScriptF {
         optR <- client.queryContractId(parties, tplId, cid)
         optR <- Converter.toFuture(
           if (asDisclosure)
-            Right(optR.map(c => SValue.SText(c.blob.toHexString)))
+            Right(
+              optR.map(c =>
+                Converter.makePair(
+                  Converter.fromTemplateTypeRep(c.templateId),
+                  SValue.SText(c.blob.toHexString),
+                )
+              )
+            )
           else
             optR.traverse(Converter.fromContract(env.valueTranslator, _))
         )
@@ -271,11 +279,6 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] = {
 
-      def makePair(v1: SValue, v2: SValue): SValue = {
-        import com.daml.script.converter.Converter.record
-        record(StablePackagesV1.Tuple2, ("_1", v1), ("_2", v2))
-      }
-
       for {
         viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
@@ -286,7 +289,7 @@ object ScriptF {
             .traverse { case (cid, optView) =>
               optView match {
                 case None =>
-                  Right(makePair(SContractId(cid), SOptional(None)))
+                  Right(Converter.makePair(SContractId(cid), SOptional(None)))
                 case Some(view) =>
                   for {
                     view <- Converter.fromInterfaceView(
@@ -295,7 +298,7 @@ object ScriptF {
                       view,
                     )
                   } yield {
-                    makePair(SContractId(cid), SOptional(Some(view)))
+                    Converter.makePair(SContractId(cid), SOptional(Some(view)))
                   }
               }
             }

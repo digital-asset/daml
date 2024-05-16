@@ -50,6 +50,11 @@ template ValidUpgrade
       controller party
       do pure "V2"
 
+    nonconsuming choice Noop : () with
+        ctl : Party
+      controller ctl
+      do pure ()
+
 -- This upgrade is invalid at runtime based on signatories and observers, not the datatype, so we may test those individually
 -- replacement signatories + observers are ignored in v1, added in v2, to test them changing in upgrade
 template InvalidUpgradeStakeholders
