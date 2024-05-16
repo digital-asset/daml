@@ -7,6 +7,7 @@ package grpcLedgerClient
 
 import java.time.Instant
 import java.util.UUID
+
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.ledger.api.domain.{PartyDetails, User, UserRight}
@@ -41,6 +42,7 @@ import com.digitalasset.canton.ledger.api.util.LfEngineToApi.{
   toTimestamp,
 }
 import com.daml.script.converter.ConverterException
+import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.protobuf.StatusProto
 import com.google.rpc.status.{Status => GoogleStatus}
@@ -61,6 +63,7 @@ class GrpcLedgerClient(
     val compiledPackages: CompiledPackages,
 ) extends ScriptLedgerClient {
   override val transport = "gRPC API"
+  implicit val traceContext: TraceContext = TraceContext.empty
 
   override def query(
       parties: OneAnd[Set, Ref.Party],
