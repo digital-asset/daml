@@ -35,6 +35,7 @@ import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.{
   ExercisedEvent,
 }
 import com.digitalasset.canton.platform.{ApiOffset, TemplatePartiesFilter, Value}
+import com.digitalasset.canton.protocol.LfPackageVersion
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
@@ -507,7 +508,7 @@ private[platform] object TransactionLogUpdatesConversions {
               Node.Create(
                 coid = createdEvent.contractId,
                 templateId = createdEvent.templateId,
-                packageName = createdEvent.packageName,
+                packageNameVersion = createdEvent.packageName zip Some(LfPackageVersion.Dummy),
                 arg = createdEvent.createArgument.unversioned,
                 agreementText = createdEvent.createAgreementText.getOrElse(""),
                 signatories = createdEvent.createSignatories,

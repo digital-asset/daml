@@ -71,7 +71,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
     Versioned(
       TransactionVersion.VDev,
       ContractInstance(
-        pkg.name,
+        pkg.nameVersion,
         "T1",
         ValueRecord(
           Some("T1"),
@@ -84,7 +84,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
     Versioned(
       TransactionVersion.VDev,
       ContractInstance(
-        pkg.name,
+        pkg.nameVersion,
         "X1",
         ValueRecord(
           Some("X1"),

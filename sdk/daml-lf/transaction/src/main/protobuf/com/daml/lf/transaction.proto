@@ -28,7 +28,8 @@ message Transaction {
 
 // architecture-handbook-entry-begin: Contract
 message ContractInstance {
-   string package_name = 4; // required *since dev*
+    string package_name = 4; // required *since dev*
+    repeated uint32 package_version = 5; // required *since dev*
     com.daml.lf.value.Identifier template_id = 1;
     com.daml.lf.value.VersionedValue arg_versioned = 2;
     string agreement = 3;
@@ -63,6 +64,7 @@ message NodeCreate {
     reserved 1; // was contract_id
     ContractInstance contract_instance = 2; // *must not be used*
     string package_name = 10; // required *since dev*
+    repeated uint32 package_version = 11; // required *since dev*
     com.daml.lf.value.Identifier template_id = 7;
     bytes arg_unversioned = 8;
     string agreement = 9;
@@ -139,6 +141,7 @@ message Versioned {
 message FatContractInstance {
   bytes contract_id = 1;
   string package_name = 9; // required *since dev*
+  repeated uint32 package_version = 10; // required *since dev*
   com.daml.lf.value.Identifier template_id = 2;
 
   bytes create_arg = 3;

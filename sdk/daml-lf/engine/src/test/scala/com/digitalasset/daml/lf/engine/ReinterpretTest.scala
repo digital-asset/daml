@@ -53,7 +53,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
       toContractId("ReinterpretTests:MySimple:1") ->
         assertAsVersionedContract(
           ContractInstance(
-            miniTestsPkg.name,
+            miniTestsPkg.nameVersion,
             TypeConName(miniTestsPkgId, "ReinterpretTests:MySimple"),
             ValueRecord(
               Some(Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")),

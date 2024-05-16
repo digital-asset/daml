@@ -7,7 +7,7 @@ package test
 
 import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.transaction.test.TestNodeBuilder.{CreateKey, CreateTransactionVersion}
-import com.daml.lf.data.Ref.{PackageId, PackageName, Party, TypeConName}
+import com.daml.lf.data.Ref.{PackageId, PackageName, PackageVersion, Party, TypeConName}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, NodeId, TransactionVersion}
 import com.daml.lf.value.Value
@@ -34,10 +34,12 @@ trait TestNodeBuilder {
       signatories: Set[Party],
       observers: Set[Party] = Set.empty,
       key: CreateKey = CreateKey.NoKey,
-      packageName: Option[PackageName] = None,
+      packageNameVersion: Option[(PackageName, PackageVersion)] = None,
       version: CreateTransactionVersion = CreateTransactionVersion.StableMax,
       agreementText: String = "",
   ): Node.Create = {
+
+    val packageName = packageNameVersion.map(_._1)
 
     val transactionVersion = version match {
       case CreateTransactionVersion.StableMax => TransactionVersion.StableVersions.max
@@ -72,7 +74,8 @@ trait TestNodeBuilder {
 
     Node.Create(
       coid = id,
-      packageName = packageName.filter(_ => transactionVersion < TransactionVersion.minUpgrade),
+      packageNameVersion =
+        packageNameVersion.filter(_ => transactionVersion < TransactionVersion.minUpgrade),
       templateId = templateId,
       arg = argument,
       agreementText = agreementText,

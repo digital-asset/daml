@@ -364,7 +364,7 @@ private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, Pa
     lookupPackage(pkgId).map(_.languageVersion)
 
   def lookupPackageName(pkgId: PackageId): Either[LookupError, Option[PackageName]] =
-    lookupPackage(pkgId).map(_.name)
+    lookupPackage(pkgId).map(_.nameVersion.map(_._1))
 
   val packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
     signatures andThen (_.languageVersion)

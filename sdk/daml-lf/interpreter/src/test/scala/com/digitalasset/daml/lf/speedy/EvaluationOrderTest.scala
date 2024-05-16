@@ -350,7 +350,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
     Versioned(
       testTxVersion,
       Value.ContractInstance(
-        pkg.name,
+        pkg.nameVersion,
         T,
         Value.ValueRecord(
           None,
@@ -371,7 +371,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
     cId ->
       Speedy.ContractInfo(
         version = TransactionVersion.minExplicitDisclosure,
-        packageName = pkg.name,
+        packageNameVersion = pkg.nameVersion,
         templateId = Dummy,
         value = SRecord(
           Dummy,
@@ -391,7 +391,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
   private[this] val helper = Versioned(
     testTxVersion,
     Value.ContractInstance(
-      pkg.name,
+      pkg.nameVersion,
       Helper,
       ValueRecord(
         None,
@@ -403,7 +403,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
   private[this] val iface_contract = Versioned(
     testTxVersion,
     Value.ContractInstance(
-      pkg.name,
+      pkg.nameVersion,
       Human,
       Value.ValueRecord(
         None,
@@ -435,7 +435,11 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
 
   private[this] val dummyContract = Versioned(
     testTxVersion,
-    Value.ContractInstance(pkg.name, Dummy, ValueRecord(None, ImmArray(None -> ValueParty(alice)))),
+    Value.ContractInstance(
+      pkg.nameVersion,
+      Dummy,
+      ValueRecord(None, ImmArray(None -> ValueParty(alice))),
+    ),
   )
   private[this] val getWronglyTypedContract = Map(cId -> dummyContract)
 

@@ -8,7 +8,7 @@ package transaction
 import com.daml.lf.crypto.Hash
 import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.data.Ref.{Identifier, PackageName, Party}
+import com.daml.lf.data.Ref.{Identifier, PackageName, PackageVersion, Party}
 import com.daml.lf.transaction.{TransactionOuterClass => proto}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
@@ -214,7 +214,7 @@ class TransactionCoderSpec
       val node =
         Node.Create(
           coid = absCid("#test-cid"),
-          packageName = None,
+          packageNameVersion = None,
           templateId = Identifier.assertFromString("pkg-id:Test:Name"),
           arg = Value.ValueParty(Party.assertFromString("francesco")),
           agreementText = "agreement",
@@ -348,13 +348,17 @@ class TransactionCoderSpec
     "accept to encode ContractInstance with a packageName iff version >= 1.16" ignore {
       forAll(
         malformedCreateNodeGen(),
-        pkgNameGen(TransactionVersion.minUpgrade),
+        pkgNameVersionGen(TransactionVersion.minUpgrade),
         minSuccessful(5),
-      ) { (create, pkgName) =>
-        val wrongPackageName = pkgName.filter(_ => create.version < TransactionVersion.minUpgrade)
+      ) { (create, pkgNameVersion) =>
+        val wrongPackageNameVersion =
+          pkgNameVersion.filter(_ => create.version < TransactionVersion.minUpgrade)
 
-        val normalizedCreate =
-          adjustStakeholders(normalizeCreate(create).copy(packageName = wrongPackageName))
+        val normalizedCreate = {
+          adjustStakeholders(
+            normalizeCreate(create).copy(packageNameVersion = wrongPackageNameVersion)
+          )
+        }
         val instance = normalizedCreate.versionedCoinst.map(
           Value.ContractInstanceWithAgreement(_, normalizedCreate.agreementText)
         )
@@ -368,15 +372,18 @@ class TransactionCoderSpec
     "accept to encode FatContractInstance with a packageName iff version >= 1.16" ignore {
       forAll(
         malformedCreateNodeGen(),
-        pkgNameGen(TransactionVersion.minUpgrade),
+        pkgNameVersionGen(TransactionVersion.minUpgrade),
         timestampGen,
         bytesGen,
         minSuccessful(5),
-      ) { (create, pkgName, time, salt) =>
-        val wrongPackageName = pkgName.filter(_ => create.version < TransactionVersion.minUpgrade)
+      ) { (create, pkgNameVersion, time, salt) =>
+        val wrongPackageNameVersion =
+          pkgNameVersion.filter(_ => create.version < TransactionVersion.minUpgrade)
 
         val normalizedCreate =
-          adjustStakeholders(normalizeCreate(create).copy(packageName = wrongPackageName))
+          adjustStakeholders(
+            normalizeCreate(create).copy(packageNameVersion = wrongPackageNameVersion)
+          )
         val instance = FatContractInstance.fromCreateNode(
           normalizedCreate,
           time,
@@ -479,10 +486,11 @@ class TransactionCoderSpec
     "accept to encode action node with a packageName iff version >= 1.16" ignore {
       forAll(
         danglingRefGenActionNode,
-        pkgNameGen(TransactionVersion.minUpgrade),
+        pkgNameVersionGen(TransactionVersion.minUpgrade),
         minSuccessful(5),
-      ) { case ((nodeId, node), pkgName) =>
-        val wrongPackageName = pkgName.filter(_ => node.version < TransactionVersion.minUpgrade)
+      ) { case ((nodeId, node), pkgNameVersion) =>
+        val wrongPackageName =
+          pkgNameVersion.filter(_ => node.version < TransactionVersion.minUpgrade)
         val wrongNode = updatePackageName(normalizeNode(node), wrongPackageName)
 
         TransactionCoder.encodeNode(
@@ -1015,16 +1023,23 @@ class TransactionCoderSpec
     )
   }
 
-  private[this] val dummyPackageName = Some(PackageName.assertFromString("package-name"))
+  private[this] val dummyPackageNameVersion = Some(
+    (
+      PackageName.assertFromString("package-name"),
+      PackageVersion.assertFromString("1.0.0"),
+    )
+  )
+
+  private[this] def dummyPackageName = dummyPackageNameVersion.map(_._1)
 
   private[this] def normalizeCreate(
       create: Node.Create
   ): Node.Create = {
     val node = create.packageName match {
       case Some(_) if create.version < TransactionVersion.minUpgrade =>
-        create.copy(packageName = None)
+        create.copy(packageNameVersion = None)
       case None if create.version >= TransactionVersion.minUpgrade =>
-        create.copy(packageName = dummyPackageName)
+        create.copy(packageNameVersion = dummyPackageNameVersion)
       case _ => create
     }
     node.copy(
@@ -1103,14 +1118,19 @@ class TransactionCoderSpec
     case node: Node.Rollback => node
   }
 
-  private def updatePackageName(node: Node, pkgName: Option[PackageName]): Node =
+  private def updatePackageName(
+      node: Node,
+      pkgNameVer: Option[(PackageName, PackageVersion)],
+  ): Node = {
+    def pkgName = pkgNameVer.map(_._1)
     node match {
-      case node: Node.Create => node.copy(packageName = pkgName)
+      case node: Node.Create => node.copy(packageNameVersion = pkgNameVer)
       case node: Node.Fetch => node.copy(packageName = pkgName)
       case node: Node.LookupByKey => node.copy(packageName = pkgName)
       case node: Node.Exercise => node.copy(packageName = pkgName)
       case node: Node.Rollback => node
     }
+  }
 
   def addUnknownField(
       builder: Message.Builder,

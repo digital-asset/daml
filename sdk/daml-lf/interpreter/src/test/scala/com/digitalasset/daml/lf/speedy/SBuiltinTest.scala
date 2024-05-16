@@ -1784,7 +1784,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           )
         val contractInfo = ContractInfo(
           version = txVersion,
-          packageName = pkg.name,
+          packageNameVersion = pkg.nameVersion,
           templateId = templateId,
           value = disclosedContract.argument,
           agreementText = "",
@@ -1811,7 +1811,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
               contractId -> Versioned(
                 version = version,
                 Value.ContractInstance(
-                  packageName = pkg.name,
+                  packageNameVersion = pkg.nameVersion,
                   template = templateId,
                   arg = disclosedContract.argument.toUnnormalizedValue,
                 ),
@@ -1845,7 +1845,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         )
         val contractInfo = ContractInfo(
           version = txVersion,
-          packageName = pkg.name,
+          packageNameVersion = pkg.nameVersion,
           templateId = templateId,
           value = disclosedContract.argument,
           agreementText = "agreement",
@@ -1877,7 +1877,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
                 Value.ContractInstance(
                   template = templateId,
                   arg = disclosedContract.argument.toUnnormalizedValue,
-                  packageName = pkg.name,
+                  packageNameVersion = pkg.nameVersion,
                 ),
               )
             ),

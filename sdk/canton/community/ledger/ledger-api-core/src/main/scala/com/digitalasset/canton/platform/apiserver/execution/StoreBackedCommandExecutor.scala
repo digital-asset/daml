@@ -561,7 +561,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         driverMetadataBytes = disclosedContract.driverMetadata.toByteArray,
         contractInstance = Versioned(
           disclosedContract.version,
-          ContractInstance(
+          ContractInstance.build(
             packageName = disclosedContract.packageName,
             template = disclosedContract.templateId,
             arg = disclosedContract.argument,

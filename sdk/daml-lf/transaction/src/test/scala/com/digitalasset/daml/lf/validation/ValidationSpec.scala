@@ -6,8 +6,14 @@ package transaction
 
 import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.PackageName
-import com.daml.lf.data.Ref.{ChoiceName, Identifier, Party, TypeConName}
+import com.daml.lf.data.Ref.{
+  ChoiceName,
+  Identifier,
+  Party,
+  PackageName,
+  PackageVersion,
+  TypeConName,
+}
 import com.daml.lf.value.{Value => V}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -59,6 +65,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val samText1 = "some text"
 
   private val somePkgName = PackageName.assertFromString("package-name")
+  private val somePkgVersion = PackageVersion.assertFromString("1.2.3")
 
   private val samContractId1 = V.ContractId.V1(crypto.Hash.hashPrivateKey("cid1"))
   private val samContractId2 = V.ContractId.V1(crypto.Hash.hashPrivateKey("cid2"))
@@ -109,11 +116,13 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val someCreates: Seq[Node] = {
     for {
       version <- Seq(samVersion1, samVersion2)
-      packageName = if (version < TransactionVersion.minUpgrade) None else Some(somePkgName)
+      packageNameVersion =
+        if (version < TransactionVersion.minUpgrade) None else Some(somePkgName -> somePkgVersion)
+      packageName = packageNameVersion.map(_._1)
       key <- Seq(None, Some(samKWM1(KeyPackageName(packageName, version))))
     } yield Node.Create(
       coid = samContractId1,
-      packageName = packageName,
+      packageNameVersion = packageNameVersion,
       templateId = samTemplateId1,
       arg = samValue1,
       agreementText = samText1,

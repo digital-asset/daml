@@ -124,11 +124,12 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       owner: Party,
       maintainer: Party,
       version: LanguageVersion = pkg.languageVersion,
-      packageName: Option[Ref.PackageName] = pkg.name,
+      packageNameVersion: Option[(Ref.PackageName, Ref.PackageVersion)] = pkg.nameVersion,
       templateId: Ref.Identifier = houseTemplateId,
       withKey: Boolean = true,
       label: String = testKeyName,
   ): Speedy.ContractInfo = {
+    val packageName = packageNameVersion.map(_._1)
     val cachedKey: Option[Speedy.CachedKey] =
       if (withKey)
         Some(
@@ -143,7 +144,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
         None
     Speedy.ContractInfo(
       version = TransactionVersion.maxVersion,
-      packageName = packageName,
+      packageNameVersion = packageNameVersion,
       templateId = templateId,
       value = SValue.SRecord(
         templateId,
@@ -159,12 +160,12 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
 
   def buildDisclosedCaveContract(
       owner: Party,
-      packageName: Option[Ref.PackageName] = pkg.name,
+      packageNameVersion: Option[(Ref.PackageName, Ref.PackageVersion)] = pkg.nameVersion,
       templateId: Ref.Identifier = caveTemplateId,
   ): Speedy.ContractInfo = {
     Speedy.ContractInfo(
       version = TransactionVersion.maxVersion,
-      packageName = packageName,
+      packageNameVersion = packageNameVersion,
       templateId = templateId,
       value = SValue.SRecord(
         templateId,
@@ -207,7 +208,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   def buildContract(
       owner: Party,
       maintainer: Party,
-      packageName: Option[Ref.PackageName] = pkg.name,
+      packageNameVersion: Option[(Ref.PackageName, Ref.PackageVersion)] = pkg.nameVersion,
       templateId: Ref.Identifier = houseTemplateId,
   ): Versioned[ContractInstance] = {
     val contractFields = templateId match {
@@ -231,7 +232,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
     Versioned(
       TransactionVersion.minExplicitDisclosure,
       Value.ContractInstance(
-        packageName = packageName,
+        packageNameVersion = packageNameVersion,
         template = templateId,
         arg = Value.ValueRecord(None, contractFields),
       ),
@@ -241,7 +242,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   def buildHouseContractInfo(
       signatory: Party,
       maintainer: Party,
-      packageName: Option[Ref.PackageName] = pkg.name,
+      packageNameVersion: Option[(Ref.PackageName, Ref.PackageVersion)] = pkg.nameVersion,
       version: LanguageVersion = pkg.languageVersion,
       templateId: Ref.Identifier = houseTemplateId,
       withKey: Boolean = true,
@@ -255,6 +256,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
         SValue.SList(FrontStack.from(ImmArray(SValue.SParty(maintainer)))),
       ),
     )
+    val packageName = packageNameVersion.map(_._1)
     val mbKey =
       if (withKey) {
         val keyPackageName = KeyPackageName(packageName, version)
@@ -275,7 +277,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
 
     ContractInfo(
       version = TransactionVersion.minExplicitDisclosure,
-      packageName = packageName,
+      packageNameVersion = packageNameVersion,
       templateId = templateId,
       value = contract,
       agreementText = "Agreement3",

@@ -766,7 +766,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
       val expectedProcessedDisclosedContract = Node.Create(
         coid = usedDisclosedContract.contractId,
-        packageName = getPackageName(basicTestsPkg),
+        packageNameVersion = basicTestsPkg.nameVersion,
         templateId = usedDisclosedContract.templateId,
         arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
         signatories = Set(alice),
@@ -1215,7 +1215,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     ) =
       assertAsVersionedContract(
         ContractInstance(
-          basicTestsPkg.name,
+          basicTestsPkg.nameVersion,
           TypeConName(basicTestsPkgId, tid),
           ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs),
         )
@@ -1356,7 +1356,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val fetchedContract =
       assertAsVersionedContract(
         ContractInstance(
-          basicTestsPkg.name,
+          basicTestsPkg.nameVersion,
           TypeConName(basicTestsPkgId, fetchedStrTid),
           ValueRecord(
             Some(Identifier(basicTestsPkgId, fetchedStrTid)),
@@ -1403,7 +1403,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val lookerUpInst =
       assertAsVersionedContract(
         ContractInstance(
-          basicTestsPkg.name,
+          basicTestsPkg.nameVersion,
           TypeConName(basicTestsPkgId, lookerUpTemplate),
           ValueRecord(Some(lookerUpTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
         )
@@ -1617,7 +1617,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
       val expectedDisclosedEvent = Node.Create(
         coid = usedDisclosedContract.contractId,
-        packageName = getPackageName(basicTestsPkg),
+        packageNameVersion = basicTestsPkg.nameVersion,
         templateId = usedDisclosedContract.templateId,
         arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
         signatories = Set(alice),
@@ -1671,7 +1671,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
       val expectedDisclosedEvent = Node.Create(
         coid = usedDisclosedContract.contractId,
-        packageName = getPackageName(basicTestsPkg),
+        packageNameVersion = basicTestsPkg.nameVersion,
         templateId = usedDisclosedContract.templateId,
         arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
         signatories = Set(alice),
@@ -1768,7 +1768,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val fetcherCid = toContractId("2")
       val fetcherInst = assertAsVersionedContract(
         ContractInstance(
-          basicTestsPkg.name,
+          basicTestsPkg.nameVersion,
           TypeConName(basicTestsPkgId, fetcherTemplate),
           ValueRecord(Some(fetcherTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
         )
@@ -1837,7 +1837,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val fetcherCid = toContractId("42")
     val fetcherInst = assertAsVersionedContract(
       ContractInstance(
-        basicTestsPkg.name,
+        basicTestsPkg.nameVersion,
         fetcherId,
         ValueRecord(
           None,
@@ -2016,7 +2016,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val contracts = Map(
       cid -> assertAsVersionedContract(
         ContractInstance(
-          exceptionsPkg.name,
+          exceptionsPkg.nameVersion,
           TypeConName(exceptionsPkgId, "Exceptions:K"),
           ValueRecord(
             None,
@@ -2165,7 +2165,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val contracts = Map(
       cid -> assertAsVersionedContract(
         ContractInstance(
-          exceptionsPkg.name,
+          exceptionsPkg.nameVersion,
           TypeConName(exceptionsPkgId, "Exceptions:K"),
           ValueRecord(
             None,
@@ -2242,7 +2242,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val contracts = Map(
       cid -> assertAsVersionedContract(
         ContractInstance(
-          exceptionsPkg.name,
+          exceptionsPkg.nameVersion,
           TypeConName(exceptionsPkgId, "Exceptions:K"),
           ValueRecord(
             None,
@@ -2466,7 +2466,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   val withKeyContractInst: VersionedContractInstance =
     assertAsVersionedContract(
       ContractInstance(
-        basicTestsPkg.name,
+        basicTestsPkg.nameVersion,
         TypeConName(basicTestsPkgId, withKeyTemplate),
         ValueRecord(
           Some(BasicTests_WithKey),
@@ -2483,7 +2483,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       toContractId("BasicTests:Simple:1") ->
         assertAsVersionedContract(
           ContractInstance(
-            basicTestsPkg.name,
+            basicTestsPkg.nameVersion,
             TypeConName(basicTestsPkgId, "BasicTests:Simple"),
             ValueRecord(
               Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
@@ -2494,7 +2494,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       toContractId("BasicTests:CallablePayout:1") ->
         assertAsVersionedContract(
           ContractInstance(
-            basicTestsPkg.name,
+            basicTestsPkg.nameVersion,
             TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
             ValueRecord(
               Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
@@ -2541,13 +2541,6 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   def participant: Ref.IdString.ParticipantId = Ref.ParticipantId.assertFromString("participant")
   def byKeyNodes(tx: VersionedTransaction): Set[NodeId] =
     tx.nodes.collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }.toSet
-
-  def getPackageName(basicTestsPkg: Package): Option[PackageName] = {
-    if (basicTestsPkg.languageVersion < LanguageVersion.Features.packageUpgrades)
-      None
-    else
-      Some(basicTestsPkg.metadata.get.name)
-  }
 
   def newEngine(requireCidSuffixes: Boolean = false) =
     new Engine(

@@ -60,7 +60,7 @@ class TransactionNodeStatisticsSpec
       val parties = Set(b.newParty)
       b.create(
         id = b.newCid,
-        packageName = Some(b.newPackageName),
+        packageNameVersion = Some(b.newPackageNameVersion),
         templateId = b.newIdentifier,
         argument = Value.ValueUnit,
         signatories = parties,

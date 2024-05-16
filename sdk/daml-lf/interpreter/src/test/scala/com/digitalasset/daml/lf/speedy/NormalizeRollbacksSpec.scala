@@ -295,7 +295,7 @@ object NormalizeRollbackSpec {
   private def dummyCreateNode(n: Long): Node.Create =
     Node.Create(
       coid = toCid("dummyCid"),
-      packageName = None,
+      packageNameVersion = None,
       templateId = Ref.Identifier.assertFromString("-dummyPkg-:DummyModule:dummyName"),
       arg = V.ValueInt64(n),
       agreementText = "dummyAgreement",

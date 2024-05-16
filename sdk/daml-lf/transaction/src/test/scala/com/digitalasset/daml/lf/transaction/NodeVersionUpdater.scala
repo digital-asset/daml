@@ -41,7 +41,7 @@ object NodeVersionUpdater {
     ): Node.Create =
       n.copy(
         version = version,
-        packageName = packageName,
+        packageNameVersion = packageName.map((_, Ref.PackageVersion.Dummy)),
         keyOpt = n.keyOpt.map(rehash(version, packageName)),
       )
   }

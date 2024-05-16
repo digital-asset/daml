@@ -97,7 +97,7 @@ case class SerializableContract(
   def toLf: LfNodeCreate = LfNodeCreate(
     coid = contractId,
     templateId = rawContractInstance.contractInstance.unversioned.template,
-    packageName = rawContractInstance.contractInstance.unversioned.packageName,
+    packageNameVersion = rawContractInstance.contractInstance.unversioned.packageNameVersion,
     arg = rawContractInstance.contractInstance.unversioned.arg,
     agreementText = rawContractInstance.unvalidatedAgreementText.v,
     signatories = metadata.signatories,

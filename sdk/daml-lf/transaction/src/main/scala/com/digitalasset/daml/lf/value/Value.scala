@@ -5,7 +5,7 @@ package com.daml.lf
 package value
 
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref.{Identifier, Name, TypeConName}
+import com.daml.lf.data.Ref.{Identifier, Name, PackageName, TypeConName}
 import com.daml.lf.data._
 import com.daml.lf.language.{Ast, StablePackages}
 import data.ScalazEqual._
@@ -166,18 +166,29 @@ object Value {
   /** A contract instance is a value plus the template that originated it. */
   // Prefer to use transaction.FatContractInstance
   final case class ContractInstance(
-      packageName: Option[Ref.PackageName],
+      packageNameVersion: Option[(Ref.PackageName, Ref.PackageVersion)],
       template: Identifier,
       arg: Value,
   ) extends CidContainer[ContractInstance] {
 
     override protected def self: this.type = this
 
+    def packageName: Option[PackageName] = packageNameVersion.map(_._1)
+
     def map(f: Value => Value): ContractInstance =
       copy(arg = f(arg))
 
     def mapCid(f: ContractId => ContractId): ContractInstance =
       copy(arg = arg.mapCid(f))
+  }
+
+  object ContractInstance {
+    def build(
+        packageName: Option[Ref.PackageName],
+        template: Identifier,
+        arg: Value,
+    ) =
+      new ContractInstance(packageName zip Some(Ref.PackageVersion.Dummy), template, arg)
   }
 
   final case class ContractInstanceWithAgreement(
@@ -197,21 +208,20 @@ object Value {
   type VersionedContractInstance = transaction.Versioned[ContractInstance]
 
   object VersionedContractInstance {
-    def apply(
+
+    def build(
         packageName: Option[Ref.PackageName],
         template: Identifier,
         arg: VersionedValue,
     ): VersionedContractInstance =
-      arg.map(ContractInstance(packageName, template, _))
+      arg.map(ContractInstance.build(packageName, template, _))
 
-    @deprecated("use the version with 3 argument", since = "2.9.0")
     def apply(
-        version: transaction.TransactionVersion,
-        packageName: Option[Ref.PackageName],
+        packageNameVersion: Option[(Ref.PackageName, Ref.PackageVersion)],
         template: Identifier,
-        arg: Value,
+        arg: VersionedValue,
     ): VersionedContractInstance =
-      transaction.Versioned(version, ContractInstance(packageName, template, arg))
+      arg.map(ContractInstance(packageNameVersion, template, _))
   }
 
   type NodeIdx = Int

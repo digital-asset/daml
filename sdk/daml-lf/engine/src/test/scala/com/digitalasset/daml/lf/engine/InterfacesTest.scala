@@ -80,14 +80,14 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     val contracts = Map(
       cid1 -> assertAsVersionedContract(
         ContractInstance(
-          interfacesPkg.name,
+          interfacesPkg.nameVersion,
           idT1,
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
         )
       ),
       cid2 -> assertAsVersionedContract(
         ContractInstance(
-          interfacesPkg.name,
+          interfacesPkg.nameVersion,
           idT2,
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
         )

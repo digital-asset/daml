@@ -108,6 +108,9 @@ package object protocol {
   type LfPackageName = Ref.PackageName
   val LfPackageName: Ref.PackageName.type = Ref.PackageName
 
+  type LfPackageVersion = Ref.PackageVersion
+  val LfPackageVersion: Ref.PackageVersion.type = Ref.PackageVersion
+
   type LfChoiceName = Ref.ChoiceName
   val LfChoiceName: Ref.ChoiceName.type = Ref.ChoiceName
 

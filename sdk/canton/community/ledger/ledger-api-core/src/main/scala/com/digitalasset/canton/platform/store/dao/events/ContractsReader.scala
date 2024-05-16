@@ -223,7 +223,7 @@ private[dao] object ContractsReader {
       deserializationTimer,
       s"Failed to deserialize create argument for contract ${contractId.coid}",
     )
-    Contract(
+    Contract.build(
       template = Identifier.assertFromString(templateId),
       packageName = packageName.map(Ref.PackageName.assertFromString),
       arg = deserialized,
@@ -235,7 +235,7 @@ private[dao] object ContractsReader {
       packageName: Option[Ref.PackageName],
       createArgument: Value,
   ): Contract =
-    Contract(
+    Contract.build(
       template = Identifier.assertFromString(templateId),
       packageName = packageName,
       arg = createArgument,

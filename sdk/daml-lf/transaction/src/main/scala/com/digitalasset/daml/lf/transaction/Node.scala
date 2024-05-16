@@ -81,7 +81,7 @@ object Node {
   /** Denotes the creation of a contract instance. */
   final case class Create(
       coid: ContractId,
-      override val packageName: Option[PackageName],
+      packageNameVersion: Option[(PackageName, PackageVersion)],
       override val templateId: TypeConName,
       arg: Value,
       agreementText: String,
@@ -91,6 +91,9 @@ object Node {
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyAction {
+
+    override def packageName: Option[PackageName] = packageNameVersion.map(_._1)
+    def packageVersion: Option[PackageVersion] = packageNameVersion.map(_._2)
 
     @deprecated("use keyOpt", since = "2.6.0")
     def key: Option[GlobalKeyWithMaintainers] = keyOpt
@@ -105,7 +108,7 @@ object Node {
     def versionedArg: Value.VersionedValue = versioned(arg)
 
     def coinst: Value.ContractInstance =
-      Value.ContractInstance(packageName, templateId, arg)
+      Value.ContractInstance(packageNameVersion, templateId, arg)
 
     def versionedCoinst: Value.VersionedContractInstance = versioned(coinst)
 

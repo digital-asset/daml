@@ -7,6 +7,7 @@ package test
 
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.PackageName
 import com.daml.lf.value.Value.ContractId
 
 import java.util.concurrent.atomic.AtomicInteger
@@ -41,6 +42,14 @@ trait TestIdFactory {
 
   def newPackageName: Ref.PackageName =
     Ref.PackageName.assertFromString("package-name-" + nextSuffix)
+
+  def newPackageNameVersion: (PackageName, Ref.PackageVersion) = {
+    val i = atomic.getAndIncrement()
+    val pkgVersion = Ref.PackageVersion.assertFromInts(
+      List((i >> 24) % 8, (i >> 16) % 8, (i >> 8) % 8, (i >> 0) % 8)
+    )
+    newPackageName -> pkgVersion
+  }
 
   def newIdentifier: Ref.Identifier =
     Ref.Identifier(newPackageId, Ref.QualifiedName(newModName, newIdentifierName))

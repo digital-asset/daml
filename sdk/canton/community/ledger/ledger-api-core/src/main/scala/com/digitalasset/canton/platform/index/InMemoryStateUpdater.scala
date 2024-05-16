@@ -247,7 +247,7 @@ private[platform] object InMemoryStateUpdater {
           case createdEvent: TransactionLogUpdate.CreatedEvent =>
             ContractStateEvent.Created(
               contractId = createdEvent.contractId,
-              contract = Contract(
+              contract = Contract.build(
                 template = createdEvent.templateId,
                 packageName = createdEvent.packageName,
                 arg = createdEvent.createArgument,

@@ -471,7 +471,7 @@ object ModelConformanceChecker {
         // The contract id is already validated by SerializableContractAuthenticator,
         // as contract is an input contract of the underlying transaction.
         coid = actual.coid,
-        packageName = unversioned.packageName,
+        packageNameVersion = unversioned.packageNameVersion,
         templateId = unversioned.template,
         arg = unversioned.arg,
         agreementText = instance.unvalidatedAgreementText.v,

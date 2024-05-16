@@ -4,6 +4,7 @@
 package com.daml.lf
 package transaction
 
+import com.daml.lf.data.Ref.PackageName
 import data.{Bytes, Ref, Time}
 import value.{CidContainer, Value}
 
@@ -14,7 +15,7 @@ import scala.collection.immutable.TreeSet
 sealed abstract class FatContractInstance extends CidContainer[FatContractInstance] {
   val version: TransactionVersion
   val contractId: Value.ContractId
-  val packageName: Option[Ref.PackageName]
+  val packageNameVersion: Option[(Ref.PackageName, Ref.PackageVersion)]
   val templateId: Ref.TypeConName
   val createArg: Value
   val signatories: TreeSet[Ref.Party]
@@ -28,6 +29,8 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
     contractKeyWithMaintainers.fold(TreeSet.empty[Ref.Party])(k => TreeSet.from(k.maintainers))
   final lazy val nonMaintainerSignatories: TreeSet[Ref.Party] = signatories -- maintainers
   final lazy val nonSignatoryStakeholders: TreeSet[Ref.Party] = stakeholders -- signatories
+  final def packageName: Option[PackageName] = packageNameVersion.map(_._1)
+  final def packageVersion: Option[Ref.PackageVersion] = packageNameVersion.map(_._2)
   def updateCreateAt(updatedTime: Time.Timestamp): FatContractInstance
   def setSalt(cantonData: Bytes): FatContractInstance
 }
@@ -35,7 +38,7 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
 private[lf] final case class FatContractInstanceImpl(
     version: TransactionVersion,
     contractId: Value.ContractId,
-    packageName: Option[Ref.PackageName],
+    packageNameVersion: Option[(Ref.PackageName, Ref.PackageVersion)],
     templateId: Ref.TypeConName,
     createArg: Value,
     signatories: TreeSet[Ref.Party],
@@ -71,7 +74,7 @@ private[lf] final case class FatContractInstanceImpl(
 
   def toCreateNode = Node.Create(
     contractId,
-    packageName,
+    packageNameVersion,
     templateId,
     createArg,
     "",
@@ -92,7 +95,7 @@ object FatContractInstance {
     FatContractInstanceImpl(
       version = create.version,
       contractId = create.coid,
-      packageName = create.packageName,
+      packageNameVersion = create.packageNameVersion,
       templateId = create.templateId,
       createArg = create.arg,
       signatories = TreeSet.from(create.signatories),

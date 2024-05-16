@@ -83,7 +83,7 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(basePkg.name, iouId, iouPayload),
+                ContractInstance(basePkg.nameVersion, iouId, iouPayload),
               )
             ),
             getPkg = PartialFunction.empty,
@@ -100,7 +100,7 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(extraPkgName, extraIouId, iouPayload),
+                ContractInstance(extraPkgNameVersion, extraIouId, iouPayload),
               )
             ),
             getPkg = PartialFunction.empty,
@@ -117,7 +117,7 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(extraPkgName, extraIouId, iouPayload),
+                ContractInstance(extraPkgNameVersion, extraIouId, iouPayload),
               )
             ),
             getPkg = { case `extraPkgId` =>
@@ -281,7 +281,9 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
   val Ast.TTyCon(iouId) = t"'$basePkgId':Mod:Iou"
 
   // We assume extraPkg use the same version as basePkg
-  val extraPkgName = basePkg.name.map(_ => Ref.PackageName.assertFromString("-extra-package-name-"))
+  val extraPkgNameVersion =
+    basePkg.nameVersion.map(_.copy(_1 = Ref.PackageName.assertFromString("-extra-package-name-")))
+  def extraPkgName = extraPkgNameVersion.map(_._1)
   val extraPkgId = Ref.PackageId.assertFromString("-extra-package-id-")
   require(extraPkgId != basePkgId)
 

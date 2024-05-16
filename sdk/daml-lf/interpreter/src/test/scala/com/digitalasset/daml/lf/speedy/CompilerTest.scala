@@ -78,7 +78,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
       val versionedContract1 = Versioned(
         version = version,
         ContractInstance(
-          packageName = pkg.name,
+          packageNameVersion = pkg.nameVersion,
           template = templateId,
           arg = disclosedContract1.argument.toUnnormalizedValue,
         ),
@@ -88,7 +88,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
       val versionedContract2 = Versioned(
         version = version,
         ContractInstance(
-          packageName = pkg.name,
+          packageNameVersion = pkg.nameVersion,
           template = templateId,
           arg = disclosedContract2.argument.toUnnormalizedValue,
         ),
@@ -131,7 +131,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
       val versionedContract1 = Versioned(
         version = version,
         ContractInstance(
-          packageName = pkg.name,
+          packageNameVersion = pkg.nameVersion,
           template = templateId,
           arg = disclosedContract1.argument.toUnnormalizedValue,
         ),
@@ -145,7 +145,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
       val versionedContract2 = Versioned(
         version = version,
         ContractInstance(
-          packageName = pkg.name,
+          packageNameVersion = pkg.nameVersion,
           template = templateId,
           arg = disclosedContract2.argument.toUnnormalizedValue,
         ),
@@ -319,7 +319,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
       val versionedContract1 = Versioned(
         version = version,
         ContractInstance(
-          packageName = pkg.name,
+          packageNameVersion = pkg.nameVersion,
           template = templateId,
           arg = disclosedContract1.argument.toUnnormalizedValue,
         ),
@@ -335,7 +335,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
       val versionedContract2 = Versioned(
         version = version,
         ContractInstance(
-          packageName = pkg.name,
+          packageNameVersion = pkg.nameVersion,
           template = templateId,
           arg = disclosedContract2.argument.toUnnormalizedValue,
         ),

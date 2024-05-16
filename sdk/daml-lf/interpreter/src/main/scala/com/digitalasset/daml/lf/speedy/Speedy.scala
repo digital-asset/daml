@@ -137,7 +137,7 @@ private[lf] object Speedy {
 
   final case class ContractInfo(
       version: TxVersion,
-      packageName: Option[Ref.PackageName],
+      packageNameVersion: Option[(Ref.PackageName, Ref.PackageVersion)],
       templateId: Ref.TypeConName,
       value: SValue,
       agreementText: String,
@@ -146,6 +146,7 @@ private[lf] object Speedy {
       keyOpt: Option[CachedKey],
   ) {
     val stakeholders: Set[Party] = signatories union observers
+    def packageName: Option[Ref.PackageName] = packageNameVersion.map(_._1)
 
     private[speedy] val any = SValue.SAnyContract(templateId, value)
     private[speedy] def arg = value.toNormalizedValue(version)
@@ -153,7 +154,7 @@ private[lf] object Speedy {
     private[speedy] def toCreateNode(coid: V.ContractId) =
       Node.Create(
         coid = coid,
-        packageName = packageName,
+        packageNameVersion = packageNameVersion,
         templateId = templateId,
         arg = arg,
         agreementText = agreementText,
@@ -364,7 +365,7 @@ private[lf] object Speedy {
           markDisclosedcontractAsUsed(coid)
           f(
             V.ContractInstance(
-              contractInfo.packageName,
+              contractInfo.packageNameVersion,
               contractInfo.templateId,
               contractInfo.value.toUnnormalizedValue,
             )
@@ -928,13 +929,16 @@ private[lf] object Speedy {
         compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
       )
 
-    final def tmplId2PackageName(tmplId: TypeConName, version: TxVersion): Option[PackageName] = {
+    final def tmplId2PackageNameVersion(
+        tmplId: TypeConName,
+        version: TxVersion,
+    ): Option[(PackageName, PackageVersion)] = {
       import Ordering.Implicits._
       if (version < TxVersion.minUpgrade)
         None
       else
         compiledPackages.pkgInterface.signatures(tmplId.packageId).metadata match {
-          case Some(value) => Some(value.name)
+          case Some(value) => Some((value.name, value.version))
           case None =>
             val version = compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
             throw SErrorCrash(
@@ -943,6 +947,9 @@ private[lf] object Speedy {
             )
         }
     }
+
+    final def tmplId2PackageName(tmplId: TypeConName, version: TxVersion) =
+      tmplId2PackageNameVersion(tmplId: TypeConName, version: TxVersion).map(_._1)
 
     /* kont manipulation... */
 

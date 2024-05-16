@@ -96,14 +96,22 @@ object TransactionCoder {
     for {
       value <- ValueCoder
         .encodeVersionedValue(encodeCid, coinst.version, coinst.unversioned.contractInstance.arg)
-      pkgName <- encodePackageName(coinst.unversioned.contractInstance.packageName, coinst.version)
-    } yield TransactionOuterClass.ContractInstance
-      .newBuilder()
-      .setPackageName(pkgName)
-      .setTemplateId(ValueCoder.encodeIdentifier(coinst.unversioned.contractInstance.template))
-      .setArgVersioned(value)
-      .setAgreement(coinst.unversioned.agreementText)
-      .build()
+      (pkgName, pkgVer) = coinst.unversioned.contractInstance.packageNameVersion.unzip
+      pkgName <- encodePackageName(pkgName, coinst.version)
+      pkgVer <- encodePackageVersion(pkgVer, coinst.version)
+    } yield {
+      val builder = TransactionOuterClass.ContractInstance.newBuilder()
+      discard(builder.setPackageName(pkgName))
+      discard(pkgVer.foreach(builder.addPackageVersion))
+      discard(
+        builder.setTemplateId(
+          ValueCoder.encodeIdentifier(coinst.unversioned.contractInstance.template)
+        )
+      )
+      discard(builder.setArgVersioned(value))
+      discard(builder.setAgreement(coinst.unversioned.agreementText))
+      builder.build()
+    }
 
   def decodePackageName(s: String): Either[DecodeError, Ref.PackageName] =
     Ref.PackageName.fromString(s).left.map(err => DecodeError(s"Invalid package name '$s': $err"))
@@ -119,10 +127,7 @@ object TransactionCoder {
         Left(
           DecodeError(s"packageName is not supported by transaction version ${version.protoValue}")
         )
-    else
-    // TODO: https://github.com/digital-asset/daml/issues/17995
-    //  drop the `|| true`, once canton populate the package name
-    if (version < TransactionVersion.minUpgrade || true)
+    else if (version < TransactionVersion.minUpgrade)
       Right(None)
     else
       Left(DecodeError(s"packageName is required for transaction version  ${version.protoValue}"))
@@ -142,13 +147,66 @@ object TransactionCoder {
             )
           )
       case None =>
-        // TODO: https://github.com/digital-asset/daml/issues/17995
-        //  drop the `|| true`, once canton populate the package name
-        if (version < TransactionVersion.minUpgrade || true)
+        if (version < TransactionVersion.minUpgrade)
           Right("")
         else
           Left(
             EncodeError(s"packageName is required for transaction version  ${version.protoValue}")
+          )
+    }
+
+  def decodePackageVersion(l: Seq[Int]): Either[DecodeError, Ref.PackageVersion] =
+    Ref.PackageVersion
+      .fromInts(l)
+      .left
+      .map(err => DecodeError(s"Invalid package version '$l': $err"))
+
+  def decodePackageVersion(
+      l: java.util.List[Integer],
+      version: TransactionVersion,
+  ): Either[DecodeError, Option[Ref.PackageVersion]] = {
+    val seq = l.asScala.view.map(_.toInt).toSeq
+    if (seq.nonEmpty)
+      if (version >= TransactionVersion.minUpgrade)
+        decodePackageVersion(seq).map(Some(_))
+      else
+        Left(
+          DecodeError(
+            s"packageVersion is not supported by transaction version ${version.protoValue}"
+          )
+        )
+    else if (version < TransactionVersion.minUpgrade || true)
+      Right(None)
+    else
+      Left(
+        DecodeError(s"packageVersion is required for transaction version  ${version.protoValue}")
+      )
+  }
+
+  def encodePackageVersion(
+      pkgVer: Option[Ref.PackageVersion],
+      version: TransactionVersion,
+  ): Either[EncodeError, Seq[Int]] =
+    pkgVer match {
+      case Some(ver) =>
+        if (version >= TransactionVersion.minUpgrade)
+          Right(ver.segments.toSeq)
+        else
+          Left(
+            EncodeError(
+              s"packageVer is not supported by transaction version ${version.protoValue}"
+            )
+          )
+      case None =>
+        // TODO: https://github.com/digital-asset/daml/issues/17995
+        //  drop the `|| true`, once canton populate the package version
+        if (version < TransactionVersion.minUpgrade || true)
+          Right(List.empty)
+        else
+          Left(
+            EncodeError(
+              s"packageVersion is required for transaction version  ${version.protoValue}"
+            )
           )
     }
 
@@ -172,10 +230,12 @@ object TransactionCoder {
       id <- ValueCoder.decodeIdentifier(protoCoinst.getTemplateId)
       value <- ValueCoder.decodeVersionedValue(decodeCid, protoCoinst.getArgVersioned)
       pkgName <- decodePackageName(protoCoinst.getPackageName, value.version)
+      pkgVer <- decodePackageVersion(protoCoinst.getPackageVersionList, value.version)
+      pkgNameVersion = pkgName zip pkgVer
     } yield value.map(arg =>
       Value.ContractInstanceWithAgreement(
         Value.ContractInstance(
-          pkgName,
+          pkgNameVersion,
           id,
           arg,
         ),
@@ -269,6 +329,8 @@ object TransactionCoder {
                 )
                 encodedPkgName <- encodePackageName(nc.packageName, nodeVersion)
                 _ = builder.setPackageName(encodedPkgName)
+                encodedPkgVersion <- encodePackageVersion(nc.packageVersion, nodeVersion)
+                _ = encodedPkgVersion.foreach(builder.addPackageVersion)
                 _ <- encodeAndSetContractKey(
                   nodeVersion,
                   nc.keyOpt,
@@ -324,7 +386,7 @@ object TransactionCoder {
                 _ = builder.setPackageName(encodedPkgName)
                 _ <- Either.cond(
                   test = ne.version >= TransactionVersion.minChoiceAuthorizers ||
-                    !(ne.choiceAuthorizers.isDefined),
+                    !ne.choiceAuthorizers.isDefined,
                   right = (),
                   left = EncodeError(nodeVersion, isTooOldFor = "explicit choice-authorizers"),
                 )
@@ -472,6 +534,8 @@ object TransactionCoder {
         for {
           ni <- nodeId
           pkgName <- decodePackageName(protoCreate.getPackageName, nodeVersion)
+          pkgVersion <- decodePackageVersion(protoCreate.getPackageVersionList, nodeVersion)
+          pkgNameVersion = pkgName zip pkgVersion
           c <- decodeCid.decode(protoCreate.getContractIdStruct)
           tmplId <- ValueCoder.decodeIdentifier(protoCreate.getTemplateId)
           arg <- ValueCoder.decodeValue(decodeCid, nodeVersion, protoCreate.getArgUnversioned)
@@ -485,7 +549,7 @@ object TransactionCoder {
           )
         } yield ni -> Node.Create(
           coid = c,
-          packageName = pkgName,
+          packageNameVersion = pkgNameVersion,
           templateId = tmplId,
           arg = arg,
           agreementText = protoCreate.getAgreement,
@@ -853,6 +917,7 @@ object TransactionCoder {
     for {
       encodedArg <- ValueCoder.encodeValue(ValueCoder.CidEncoder, version, createArg)
       encodedPackageName <- encodePackageName(packageName, version)
+      encodedPackageVersion <- encodePackageVersion(packageVersion, version)
       encodedKeyOpt <- contractKeyWithMaintainers match {
         case None =>
           Right(None)
@@ -866,6 +931,7 @@ object TransactionCoder {
           discard(builder.setContractId(cid.toBytes.toByteString))
       }
       discard(builder.setPackageName(encodedPackageName))
+      encodedPackageVersion.foreach(builder.addPackageVersion)
       discard(builder.setTemplateId(ValueCoder.encodeIdentifier(templateId)))
       discard(builder.setCreateArg(encodedArg))
       encodedKeyOpt.foreach(builder.setContractKeyWithMaintainers)
@@ -905,6 +971,8 @@ object TransactionCoder {
         .left
         .map(DecodeError)
       pkgName <- decodePackageName(proto.getPackageName, version)
+      pkgVersion <- decodePackageVersion(proto.getPackageVersionList, version)
+      pkgNameVersion = pkgName zip pkgVersion
       templateId <- ValueCoder.decodeIdentifier(proto.getTemplateId)
       createArg <- ValueCoder.decodeValue(ValueCoder.CidDecoder, version, proto.getCreateArg)
       keyWithMaintainers <-
@@ -941,7 +1009,7 @@ object TransactionCoder {
     } yield FatContractInstanceImpl(
       version = versionedBlob.version,
       contractId = contractId,
-      packageName = pkgName,
+      packageNameVersion = pkgNameVersion,
       templateId = templateId,
       createArg = createArg,
       signatories = signatories,

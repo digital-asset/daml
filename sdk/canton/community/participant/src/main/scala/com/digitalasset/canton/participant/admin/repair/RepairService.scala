@@ -1457,7 +1457,7 @@ object RepairService {
 
         lfPackageName <- packageName.traverse(LfPackageName.fromString)
 
-        lfContractInst = LfContractInst(
+        lfContractInst = LfContractInst.build(
           template = template,
           packageName = lfPackageName,
           arg = argsVersionedValue,
