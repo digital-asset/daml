@@ -177,7 +177,6 @@ in rec {
     sha1sum = pkgs.coreutils;
     sha256sum = pkgs.coreutils;
     xargs = pkgs.findutils;
-    xmlstarlet = pkgs.xmlstarlet;
 
     # Cryptography tooling
     gnupg = pkgs.gnupg;
