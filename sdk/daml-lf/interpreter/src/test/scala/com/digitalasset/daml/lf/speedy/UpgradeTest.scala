@@ -13,7 +13,7 @@ import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.daml.lf.speedy.SValue.SContractId
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.transaction.TransactionVersion.VDev
+import com.daml.lf.transaction.TransactionVersion.V16
 import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
@@ -54,8 +54,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         precondition True;
         signatories M:mkList (M:T {sig} this) (None @Party);
         observers M:mkList (M:T {obs} this) (None @Party);
-        key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
         agreement "Agreement";
+        key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
       val do_fetch: ContractId M:T -> Update M:T =
@@ -85,8 +85,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         precondition True;
         signatories '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
         observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
-        key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
         agreement "Agreement";
+        key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
       val do_fetch: ContractId M:T -> Update M:T =
@@ -108,8 +108,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         precondition True;
         signatories '-pkg1-':M:mkList (M:T {sig} this) (M:T {optSig} this);
         observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
-        key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
         agreement "Agreement";
+        key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
       val do_fetch: ContractId M:T -> Update M:T =
@@ -132,8 +132,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         precondition True;
         signatories '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
         observers '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
-        key @Party (M:T {obs} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
         agreement "Agreement";
+        key @Party (M:T {obs} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
       val do_fetch: ContractId M:T -> Update M:T =
@@ -173,9 +173,9 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
 
     SpeedyTestLib
-      .runCollectRequests(machine, getContract = Map(theCid -> Versioned(VDev, contract)))
+      .runCollectRequests(machine, getContract = Map(theCid -> Versioned(V16, contract)))
       .map { case (sv, _, uvs) => // ignoring any AuthRequest
-        val v = sv.toNormalizedValue(VDev)
+        val v = sv.toNormalizedValue(V16)
         (v, uvs)
       }
   }
@@ -194,7 +194,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     val contractInfo: Speedy.ContractInfo =
       // NICK: where does this contract-info even get used?
       Speedy.ContractInfo(
-        version = VDev,
+        version = V16,
         packageName = pkgName,
         templateId = i"'-unknown-':M:T",
         value = contractSValue,
@@ -208,7 +208,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     SpeedyTestLib
       .runCollectRequests(machine)
       .map { case (sv, _, uvs) => // ignoring any AuthRequest
-        val v = sv.toNormalizedValue(VDev)
+        val v = sv.toNormalizedValue(V16)
         (v, uvs)
       }
   }
@@ -228,7 +228,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     )
 
   val v1_key =
-    GlobalKeyWithMaintainers.assertBuild(i"'-pkg1-':M:T", ValueParty(alice), Set(alice), pkgName)
+    GlobalKeyWithMaintainers.assertBuild(
+      i"'-pkg1-':M:T",
+      ValueParty(alice),
+      Set(alice),
+      crypto.Hash.KeyPackageName.assertBuild(pkgName, V16),
+    )
 
   "upgrade attempted" - {
 
@@ -393,7 +398,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           i"'-pkg1-':M:T",
           ValueParty(bob),
           Set(bob),
-          pkgName,
+          crypto.Hash.KeyPackageName.assertBuild(pkgName, V16),
         )
         verificationRequests shouldBe List(
           UpgradeVerificationRequest(theCid, Set(alice), Set(bob), Some(v1_key)),
