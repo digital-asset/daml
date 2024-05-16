@@ -561,6 +561,9 @@ expandSdkPackages logger lfVersion dars = do
     expand mbSdkPath fp
       | fp `elem` basePackages = pure fp
       | isSdkPackage fp = case mbSdkPath of
+            Just sdkPath | fp == "daml-script-beta" -> do
+              Logger.logWarning logger "daml-script-beta is unstable and may change without warning. Use at your own risk."
+              pure $ sdkPath </> "daml-libs" </> "daml3-script" <> sdkSuffix <.> "dar"
             Just sdkPath -> do
               when (fp == "daml3-script")
                 $ Logger.logWarning logger
