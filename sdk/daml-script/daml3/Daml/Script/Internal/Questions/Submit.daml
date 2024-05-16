@@ -26,11 +26,15 @@ data Submission = Submission with
   sActAs : NonEmpty Party
   sReadAs : [Party]
   sDisclosures : [Disclosure]
+  sPackagePreference : Optional [PackageId]
   sErrorBehaviour : ErrorBehaviour
   sCommands : [CommandWithMeta]
   sLocation : Optional (Text, SrcLoc)
 
 data ErrorBehaviour = MustSucceed | MustFail | Try
+
+-- | HIDE Package-id newtype for package preference
+newtype PackageId = PackageId Text deriving (Show, Eq)
 
 -- | Options to detemine the stakeholders of a transaction, as well as disclosures.
 -- Intended to be specified using the `actAs`, `readAs` and `disclose` builders, combined using the Semigroup concat `(<>)` operator.
@@ -47,10 +51,17 @@ data SubmitOptions = SubmitOptions with
   soActAs : [Party]
   soReadAs : [Party]
   soDisclosures : [Disclosure]
+  soPackagePreference : Optional [PackageId]
+
+-- Optional doesn't have Semigroup instance?
+combineOptional : Semigroup a => Optional a -> Optional a -> Optional a
+combineOptional (Some a) (Some b) = Some (a <> b)
+combineOptional None r = r
+combineOptional l _ = l
 
 -- | Semigroup instance allowing for combination via (<>)
 instance Semigroup SubmitOptions where
-  SubmitOptions a b c <> SubmitOptions a' b' c' = SubmitOptions (a <> a') (b <> b') (c <> c')
+  SubmitOptions a b c d <> SubmitOptions a' b' c' d' = SubmitOptions (a <> a') (b <> b') (c <> c') (d `combineOptional` d')
 
 -- | Builds a SubmitOptions with given actAs parties.
 -- Any given submission must include at least one actAs party.
@@ -63,7 +74,7 @@ instance Semigroup SubmitOptions where
 -- Optional Party
 -- ```
 actAs : IsParties parties => parties -> SubmitOptions
-actAs p = SubmitOptions (toParties p) [] []
+actAs p = SubmitOptions (toParties p) [] [] None
 
 -- | Builds a SubmitOptions with given readAs parties.
 -- A given submission may omit any readAs parties and still be valid.
@@ -76,15 +87,19 @@ actAs p = SubmitOptions (toParties p) [] []
 -- Optional Party
 -- ```
 readAs : IsParties parties => parties -> SubmitOptions
-readAs p = SubmitOptions [] (toParties p) []
+readAs p = SubmitOptions [] (toParties p) [] None
 
 -- | Provides many Explicit Disclosures to the transaction.
 discloseMany : [Disclosure] -> SubmitOptions
-discloseMany ds = SubmitOptions [] [] ds
+discloseMany ds = SubmitOptions [] [] ds None
 
 -- | Provides an Explicit Disclosure to the transaction.
 disclose : Disclosure -> SubmitOptions
 disclose d = discloseMany [d]
+
+-- | Provide a package id selection preference for upgrades for a submission
+packagePreference : [PackageId] -> SubmitOptions
+packagePreference = SubmitOptions [] [] [] . Some
 
 -- | Defines a type that can be transformed into a SubmitOptions
 class IsSubmitOptions options where
@@ -166,6 +181,7 @@ submitInternal opts errorBehaviour cmds = liftSubmission $ ConcurrentSubmits wit
         sActAs = actAsNonEmpty opts.soActAs
         sReadAs = opts.soReadAs
         sDisclosures = opts.soDisclosures
+        sPackagePreference = opts.soPackagePreference
         sErrorBehaviour = errorBehaviour
         sCommands = cmds.commands
         sLocation = head getExposedCallStack
