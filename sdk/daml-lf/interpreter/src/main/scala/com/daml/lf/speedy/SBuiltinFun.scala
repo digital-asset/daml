@@ -2293,8 +2293,10 @@ private[lf] object SBuiltinFun {
       templateArg: SValue,
       keyOpt: SValue,
   )(f: ContractInfo => Control[Question.Update]): Control[Question.Update] = {
-    machine.lookupContractInfoCache(coid) match {
+    machine.contractInfoCache.get((coid, templateId.packageId)) match {
       case Some(contract) =>
+        // sanity check
+        assert(contract.templateId == templateId)
         f(contract)
       case None =>
         computeContractInfo(machine, templateId, templateArg, keyOpt) { contract =>
