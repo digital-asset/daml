@@ -305,8 +305,8 @@ def daml_deps():
     if "com_github_johnynek_bazel_jar_jar" not in native.existing_rules():
         http_archive(
             name = "com_github_johnynek_bazel_jar_jar",
-            sha256 = "64748da73bc82ecbbb2a872722690a3be52c06bb92a1c939136e2852470f308d",
-            strip_prefix = "bazel_jar_jar-20dbf71f09b1c1c2a8575a42005a968b38805519",
+            sha256 = "a9d2ca9a2e9014f8d63dcbe9091bcb9f2d2929b3b7d16836c6225e98f9ca54df",
+            strip_prefix = "bazel_jar_jar-0.1.5",
             url = "https://github.com/bazeltools/bazel_jar_jar/releases/download/v0.1.5/bazel_jar_jar-v0.1.5.tar.gz",
         )
 

@@ -18,7 +18,6 @@ let shared = rec {
     gzip
     imagemagick
     jdk17
-    #jdk8
     jekyll
     jq
     netcat-gnu
