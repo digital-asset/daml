@@ -307,7 +307,7 @@ def daml_deps():
             name = "com_github_johnynek_bazel_jar_jar",
             sha256 = "64748da73bc82ecbbb2a872722690a3be52c06bb92a1c939136e2852470f308d",
             strip_prefix = "bazel_jar_jar-20dbf71f09b1c1c2a8575a42005a968b38805519",
-            urls = ["https://github.com/johnynek/bazel_jar_jar/archive/20dbf71f09b1c1c2a8575a42005a968b38805519.tar.gz"],  # Latest commit SHA as at 2019/02/13
+            url = "https://github.com/bazeltools/bazel_jar_jar/releases/download/v0.1.5/bazel_jar_jar-v0.1.5.tar.gz",
         )
 
     if "com_github_bazelbuild_remote_apis" not in native.existing_rules():
