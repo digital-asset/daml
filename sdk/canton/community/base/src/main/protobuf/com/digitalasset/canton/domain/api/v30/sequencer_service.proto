@@ -1,0 +1,242 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.domain.api.v30;
+
+import "com/digitalasset/canton/topology/admin/v30/topology_ext.proto";
+import "com/digitalasset/canton/v30/trace_context.proto";
+import "scalapb/scalapb.proto";
+
+// The service that a member can use to send messages to the domain and
+// receive events from the domain
+service SequencerService {
+  // Submit a request to the sequencer.
+  //
+  // A request contains a batch, which is a sequence of envelopes.
+  // Every envelope consists of its content and a set of recipients, arranged in a forest.
+  // A domain member is intended to receive those envelopes of a batch that contain the member as a recipient.
+  // A domain member is supposed to learn about those recipients of an envelope that are
+  // (1) specified at a node that also specifies the member or
+  // (2) at a descendant thereof. (I.e., a node further down in the recipient forest.)
+  //
+  // The sequencer may or may not accept a request.
+  // If an incoming request is valid (i.e., it can be parsed and every field meets its documented validity conditions)
+  // the sequencer will accept requests in a best effort manner, provided resource limits are met.
+  //
+  // For every accepted request, the sequencer assigns a unique sequencing timestamp to the request.
+  // The sequencer will deliver an event to the sender and to those domain members that are intended to receive at least one envelope.
+  // An event for a domain member contains only those envelopes of the batch of the request
+  // that the member is intended to receive and
+  // the recipients of an envelope contains only those that the member is supposed to learn about.
+  // A member will receive the envelopes of the same request within a single event.
+  // A member will receive events ordered by sequencing timestamp.
+  // A member will only receive events corresponding to prior requests and no other events.
+  //
+  // If a request is accepted, the sender will receive a corresponding event, called "receipt";
+  // so that the sender is informed that the sequencer has accepted the request.
+  // If the sender is not a recipient of the request, the receipt has an empty batch.
+  //
+  // If the request contains an aggregation rule, the sequencer will process requests in an aggregated fashion.
+  // A set of requests belong to the same aggregation, if they have essentially the same contents (details specified at SubmissionRequest.aggregationId).
+  // The sequencer validates and assigns sequencing timestamps to requests within an aggregation just as for requests without an aggregation rule.
+  // The sequencer emits events and receipts for an accepted request within an aggregation as follows:
+  // - As long as the number of accepted requests is strictly less than AggregationRule.threshold,
+  //   the sequencer only emits a receipt with an empty batch to the sender of the request.
+  //   It does not emit any other events.
+  // - As soon as the number of accepted requests equals AggregationRule.threshold, the sequencer emits
+  //   events to the sender and the recipients of the request.
+  //   The sequencing timestamp of the events is the sequencing timestamp of the last accepted request.
+  // - The sequencer will not accept more than AggregationRule.threshold requests.
+  //   The sequencer will reject any further request that could otherwise be accepted.
+  //   Consequently, events for the request are delivered only once even if the threshold is attained multiple times.
+  //
+  // The sequencer may reject a request, e.g., because the request is invalid or the sequencer is overloaded.
+  // The sequencer will indicate a rejection (independently of whether there is an aggregation rule)
+  // in exactly one of the following ways:
+  // (1) synchronously, by returning an error in the response of this method
+  // (2) asynchronously, by emitting an error in the response to SubscribeVersioned to the sender and
+  //     possibly an empty batch to non-sender recipients
+  // (3) by not emitting a receipt to the sender until request.max_sequencing_time
+  rpc SendAsyncVersioned(SendAsyncVersionedRequest) returns (SendAsyncVersionedResponse);
+
+  // Submit an unauthenticated request to the sequencer.
+  // The behavior is as for SendAsyncVersioned, except that the sender is not authenticated.
+  // (Further details, e.g. about allowed recipients, can be found in the implementation.)
+  //
+  // This method will be discontinued soon.
+  rpc SendAsyncUnauthenticatedVersioned(SendAsyncUnauthenticatedVersionedRequest) returns (SendAsyncUnauthenticatedVersionedResponse);
+
+  // Establishes a stream with the server to receive sequenced events from the domain after the given
+  // counter. The delivered events will have a sequential counter and monotonically increasing timestamp.
+  //
+  // The call fails synchronously, if the request is invalid, i.e., some field violates a documented validity condition.
+  // The call fails asynchronously, if the sequencer does not have a key to sign the event; this may occur if
+  // event.topology_timestamp refers to a time before the sequencer has been onboarded.
+  rpc SubscribeVersioned(SubscriptionRequest) returns (stream VersionedSubscriptionResponse);
+
+  // Same as SubscribeVersioned except that it lacks authentication for the subscriber.
+  //
+  // This method will be discontinued soon.
+  rpc SubscribeUnauthenticatedVersioned(SubscriptionRequest) returns (stream VersionedSubscriptionResponse);
+
+  // Allows a member to acknowledge that they have read all events up to and including the provided timestamp,
+  // and that they will never re-read these events again. This information is currently only used for informational
+  // purposes and to provide a watermark for which it is safe to prune earlier events from the sequencer data stores.
+  // There is no requirement for every event to be individually acknowledged, and in fact callers are encouraged to
+  // only periodically record acknowledgements (at an interval of minutes is expected to be more than sufficient for
+  // pruning).
+  rpc AcknowledgeSigned(AcknowledgeSignedRequest) returns (AcknowledgeSignedResponse);
+
+  // Download the topology state for a member up to including the topology transaction that made the member
+  // known on the domain.
+  rpc DownloadTopologyStateForInit(DownloadTopologyStateForInitRequest) returns (stream DownloadTopologyStateForInitResponse);
+}
+
+message SendAsyncVersionedRequest {
+  // Contains a versioned SignedContent which itself contains a versioned SubmissionRequest.
+  // TODO(i17383): Have exactly one signature instead of multiple signatures.
+  bytes signed_submission_request = 1;
+}
+
+message SendAsyncUnauthenticatedVersionedRequest {
+  // Contains a versioned SubmissionRequest
+  bytes submission_request = 1;
+}
+
+message SendAsyncUnauthenticatedVersionedResponse {
+  Error error = 1; // Defined iff the response is an error.
+
+  message Error {
+    oneof reason {
+      // The sequencer couldn't read the request (typically indicates a serialization and/or versioning bug).
+      string request_invalid = 1;
+
+      // The sequencer could read the request but refused to handle it (the request may violate a max size constraint).
+      string request_refused = 2;
+
+      // The sequencer is overloaded and does not have capacity to handle this request.
+      string overloaded = 3;
+
+      // The specified sender is not registered so the sequencer cannot guarantee publishing a Deliver event if the request can be sequenced.
+      string sender_unknown = 4;
+
+      // The sequencer is shutting down so is declining to process new requests
+      string shutting_down = 5;
+
+      // The sequencer is unavailable and can't currently process requests
+      string unavailable = 6;
+
+      // There are one or more recipients that are not registered so the sequencer cannot guarantee publishing a Deliver event if the request can be sequenced.
+      // This message was added in protocol version 1.1, therefore it must not be used by a sequencer operating on Canton 1.0 protocol version.
+      string unknown_recipients = 7;
+    }
+  }
+}
+
+// Changes compared to SendAsyncResponse: added `Internal` and `Generic`. Note: `Generic` is not used yet, it is introduced for upgradability purposes.
+message SendAsyncVersionedResponse {
+  Error error = 1; // Defined iff the response is an error.
+
+  message Error {
+    oneof reason {
+      // The sequencer couldn't read the request (typically indicates a serialization and/or versioning bug).
+      string request_invalid = 1;
+
+      // The sequencer could read the request but refused to handle it (the request may violate a max size constraint).
+      string request_refused = 2;
+
+      // The sequencer is overloaded and does not have capacity to handle this request.
+      string overloaded = 3;
+
+      // The specified sender is not registered so the sequencer cannot guarantee publishing a Deliver event if the request can be sequenced.
+      string sender_unknown = 4;
+
+      // The sequencer is shutting down so is declining to process new requests
+      string shutting_down = 5;
+
+      // The sequencer is unavailable and can't currently process requests
+      string unavailable = 6;
+
+      // There are one or more recipients that are not registered so the sequencer cannot guarantee publishing a Deliver event if the request can be sequenced.
+      // This message was added in Canton 2.1, therefore it must not be used by a sequencer operating on Canton 1.0.
+      string unknown_recipients = 7;
+
+      // Can be used for internal errors. For example if the sequencer is not able to get dynamic parameters from the latest snapshot.
+      string internal = 8;
+
+      // Generic error
+      string generic = 9;
+    }
+  }
+}
+
+message SubscriptionRequest {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  string member = 1;
+
+  // Indicates the next event to receive.
+  // If it refers to an event that has already been acknowledged, the sequencer may reject the request.
+  int64 counter = 2;
+}
+
+message VersionedSubscriptionResponse {
+  // Contains a versioned SignedContent which itself contains a versioned SequencedEvent
+  // Serialized SignedContent[SequencedEvent[ClosedEnvelope]]
+  bytes signed_sequenced_event = 1;
+
+  // optional, canton trace context
+  //
+  // DO NOT RENAME this field, as the ApiRequestLogger uses reflection to read this field.
+  //
+  // We typically use a header to transfer this information however streamed items do
+  // not have per item/message headers, so we instead in this instance set it in the body.
+  com.digitalasset.canton.v30.TraceContext trace_context = 2;
+
+  // Traffic state for the subscribed member
+  // Optional value which is set if the sequencer enforces traffic limits
+  SequencedEventTrafficState traffic_state = 3;
+}
+
+message AcknowledgeRequest {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  // Who is the acknowledgement being sent on behalf of
+  string member = 1;
+
+  // The timestamp in sequencer time that they are acknowledging and will not re-read earlier events.
+  // It is expected that the caller has a received an event with this timestamp but this is not validated.
+  // In microseconds of UTC time since Unix epoch
+  int64 timestamp = 2;
+}
+
+message AcknowledgeResponse {}
+
+message AcknowledgeSignedRequest {
+  // contains a versioned AcknowledgeRequest
+  // TODO(i17383): Have exactly one signature instead of multiple signatures.
+  // Serialized SignedContent[AcknowledgeRequest]
+  bytes signed_acknowledge_request = 1;
+}
+
+message AcknowledgeSignedResponse {}
+
+message DownloadTopologyStateForInitRequest {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  string member = 1;
+}
+
+message DownloadTopologyStateForInitResponse {
+  com.digitalasset.canton.topology.admin.v30.TopologyTransactions topology_transactions = 1;
+}
+
+message SequencedEventTrafficState {
+  // Remaining extra traffic at the time of this event
+  uint64 extra_traffic_remainder = 2;
+
+  // Total extra traffic consumed at the time of this event
+  uint64 extra_traffic_consumed = 3;
+}

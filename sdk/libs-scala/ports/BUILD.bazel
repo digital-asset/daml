@@ -1,0 +1,53 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@os_info//:os_info.bzl", "is_darwin")
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test",
+)
+
+da_scala_library(
+    name = "ports",
+    srcs = [
+        "src/main/scala/com/daml/ports/Port.scala",
+        "src/main/scala/com/daml/ports/PortFiles.scala",
+        "src/main/scala/com/daml/ports/PortLock.scala",
+    ],
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    tags = ["maven_coordinates=com.daml:ports:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+)
+
+da_scala_library(
+    name = "ports-testing",
+    srcs = [
+        "src/main/scala/com/daml/ports/FreePort.scala",
+        "src/main/scala/com/daml/ports/LockedFreePort.scala",
+    ],
+    data = ["@sysctl_nix//:bin/sysctl"] if is_darwin else [],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        ":ports",
+        "//bazel_tools/runfiles:scala_runfiles",
+    ],
+)
+
+da_scala_test(
+    name = "ports-tests",
+    srcs = glob(["src/test/suite/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    deps = [
+        ":ports",
+        ":ports-testing",
+    ],
+)

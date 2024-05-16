@@ -42,6 +42,7 @@ jobs:
           var_name: bash-lib
       - bash: |
           set -euo pipefail
+          cd sdk
           eval "$(dev-env/bin/dade assist)"
 
           bazel build //ci/cron:cron
@@ -67,7 +68,9 @@ jobs:
       - bash: |
           set -euo pipefail
 
-          eval "$(dev-env/bin/dade-assist)"
+          eval "$(cd sdk; dev-env/bin/dade-assist)"
+          cd sdk
+
           HEAD=$(git rev-parse HEAD)
           while ! nix-build --no-out-link -A tools.sed -A tools.jq -A tools.curl -A tools.base64 nix; do :; done
 
@@ -123,7 +126,7 @@ jobs:
       - bash: |
           set -euo pipefail
 
-          eval "$(dev-env/bin/dade-assist)"
+          eval "$(cd sdk; dev-env/bin/dade-assist)"
 
           AUTH=$(echo -n "OAuth:${MARKETPLACE_TOKEN}" | base64 -w0)
           MARKET=$(curl -H "Authorization: Basic $AUTH" \
@@ -164,6 +167,10 @@ jobs:
           if [[ "$GITHUB" != "$MARKET" ]] && git merge-base --is-ancestor 798e96c9b9034eac85ace786b9e1955cf380285c v$GITHUB; then
             echo "Publishing $GITHUB to VSCode Marketplace"
             git checkout v$GITHUB
+            (
+            if [ -d sdk ]; then
+              cd sdk
+            fi
             cp LICENSE compiler/daml-extension
             trap "rm -rf $PWD/compiler/daml-extension/LICENSE" EXIT
             cd compiler/daml-extension
@@ -172,6 +179,7 @@ jobs:
             bazel run --run_under="cd $PWD &&" @nodejs//:yarn install
             bazel run --run_under="cd $PWD &&" @nodejs//:yarn compile
             bazel run --run_under="cd $PWD && " @daml_extension_deps//vsce/bin:vsce -- publish --yarn $GITHUB -p $MARKETPLACE_TOKEN
+            )
           else
             if [[ "$GITHUB" == "$MARKET" ]]; then
               echo "Version on marketplace is already the latest ($GITHUB)."
@@ -193,7 +201,7 @@ jobs:
       - bash: |
           set -euo pipefail
 
-          eval "$(dev-env/bin/dade-assist)"
+          eval "$(cd sdk; dev-env/bin/dade-assist)"
 
           STATS=$(mktemp)
           curl https://api.github.com/repos/digital-asset/daml/releases -sSfL | gzip -9 > $STATS

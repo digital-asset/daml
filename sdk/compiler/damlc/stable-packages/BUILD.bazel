@@ -1,0 +1,131 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "generate_and_track_cabal")
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "COMPILER_LF_MAJOR_VERSIONS",
+)
+load(
+    ":defs.bzl",
+    "stable_packages",
+)
+
+da_haskell_library(
+    name = "stable-packages-lib",
+    srcs = glob(["lib/**/*.hs"]),
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "text",
+    ],
+    src_strip_prefix = "lib",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto-encode",
+        "//compiler/damlc/daml-lf-util",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+da_haskell_binary(
+    name = "generate-stable-package",
+    srcs = glob(["src/**/*.hs"]),
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "optparse-applicative",
+        "text",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "stable-packages-lib",
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto-encode",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+[
+    genrule(
+        name = "gen-stable-packages-v{}".format(majorLfVersion),
+        srcs = [],
+        outs = stable_packages(majorLfVersion).values(),
+        cmd = "\n".join(
+            ["$(location :generate-stable-package) --major-version {major} --module {module} -o $(location {path})".format(
+                major = majorLfVersion,
+                module = module,
+                path = path,
+            ) for (module, path) in stable_packages(majorLfVersion).items()],
+        ),
+        tools = [":generate-stable-package"],
+        visibility = ["//visibility:public"],
+    )
+    for majorLfVersion in COMPILER_LF_MAJOR_VERSIONS
+]
+
+# Generates a list of dalf paths to be used by StablePackages.scala to load the dalfs as classpath
+# resources. There is not simple way to list resources in java so we generate the list and include
+# it in the jar as a resource itself. This also prevents the unintended loading of other dalfs that
+# aren't stable packages but are present as resources in the jar.
+[
+    genrule(
+        name = "gen-stable-packages-manifest-v{}".format(majorLfVersion),
+        srcs = [],
+        outs = ["stable-packages-manifest-v{}.txt".format(majorLfVersion)],
+        cmd = """
+cat << EOF > $@
+{paths}
+EOF""".format(paths = "\n".join([
+            "compiler/damlc/stable-packages/" + path
+            for path in stable_packages(majorLfVersion).values()
+        ])),
+        visibility = ["//visibility:public"],
+    )
+    for majorLfVersion in COMPILER_LF_MAJOR_VERSIONS
+]
+
+# If you change this you also need to update generateStablePackages in Development.IDE.Core.Rules.Daml
+filegroup(
+    name = "stable-packages",
+    srcs = [
+        dalf
+        for dalfs in [
+            stable_packages(majorLfVersion).values()
+            for majorLfVersion in COMPILER_LF_MAJOR_VERSIONS
+        ]
+        for dalf in dalfs
+    ],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "stable-packages-list-srcs",
+    outs = ["DA/Daml/StablePackagesList.hs"],
+    cmd = """
+    $(location :generate-stable-package) gen-package-list -o $(location DA/Daml/StablePackagesList.hs)
+  """,
+    tools = [":generate-stable-package"],
+)
+
+# We generate this as a library rather than depending on :stable-packages-lib
+# to avoid a cyclical dependency between the daml-lf-proto and :stable-packages-lib
+# and to avoid having to encode the packages at runtime to get their package id.
+da_haskell_library(
+    name = "stable-packages-list",
+    srcs = ["DA/Daml/StablePackagesList.hs"],
+    hackage_deps = [
+        "base",
+        "containers",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+    ],
+)
+
+generate_and_track_cabal("stable-packages-lib", "generate-stable-package")

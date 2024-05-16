@@ -1,0 +1,66 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+exclude: '^sdk/canton/(community|daml-common-staging)'
+repos:
+- repo: local
+  hooks:
+    - id: hlint
+      name: hlint
+      language: system
+      entry: "hlint -j --hint=sdk/.hlint.yaml"
+      require_serial: true
+      types: [haskell]
+    - id: scalafmt
+      name: scalafmt
+      language: system
+      require_serial: true
+      entry: "scalafmt --config=sdk/.scalafmt.conf --respect-project-filters"
+      types: [scala]
+    - id: javafmt
+      name: javafmt
+      language: system
+      require_serial: true
+      entry: "javafmt --set-exit-if-changed --replace"
+      types: [java]
+    - id: buildifier
+      name: buildifier
+      language: system
+      require_serial: true
+      entry: "bash -c 'cd sdk/; bazel run //:buildifier-pre-commit -- -mode=fix -v=true'"
+      types: [bazel]
+    - id: pprettier
+      name: pprettier
+      language: system
+      require_serial: true
+      # NB: we need to pass a single argument which ends up in $0 when invoking bash -c
+      entry: "bash -c 'yarn install --silent && files=(\"$@\") && yarn run --cwd=sdk pprettier --write ${files[@]##sdk/}' bash"
+      types_or: [ts, tsx]
+    - id: copyrights
+      name: copyright headers
+      description: Idempotently add DA copyright headers to source files.
+      language: system
+      pass_filenames: false
+      entry: "bash -c 'unset GIT_DIR; dade-copyright-headers update'"
+      types: [text]
+    - id: platform-independence-check
+      name: platform-independence-check
+      language: system
+      pass_filenames: false
+      entry: "sdk/pre-commit/platform-independence-check.sh"
+    - id: yarn-lock-check
+      name: yarn-lock-check
+      language: system
+      pass_filenames: true
+      files: ^sdk/(package.json|yarn.lock)$
+      entry: "sdk/pre-commit/yarn-lock-check.sh"
+    - id: mainonly
+      name: main only
+      description: Check for changes under packages with targets tagged with main-only
+      language: system
+      pass_filenames: true
+      entry: "dade-check-main-only-files"
+      types: [text]

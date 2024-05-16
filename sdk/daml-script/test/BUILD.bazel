@@ -1,0 +1,521 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test",
+    "da_scala_test_suite",
+    "lf_scalacopts_stricter",
+)
+load("//bazel_tools:haskell.bzl", "da_haskell_test")
+load("@build_environment//:configuration.bzl", "sdk_version")
+load("@os_info//:os_info.bzl", "is_windows")
+load("//rules_daml:daml.bzl", "daml_compile")
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "ENGINE_LF_DEV_VERSIONS",
+    "LF_DEFAULT_DEV_VERSION",
+    "lf_version_default_or_latest",
+    "mangle_for_damlc",
+)
+
+[
+    genrule(
+        name = "script{scriptVersion}-test-v{name}".format(
+            name = name,
+            scriptVersion = scriptVersion,
+        ),
+        srcs =
+            glob(["**/*.daml"]) + [
+                "//daml-script/daml{scriptVersion}:daml{scriptVersion}-script-{target}.dar".format(
+                    scriptVersion = scriptVersion,
+                    target = target,
+                ),
+                "//docs:source/daml-script/template-root/src/ScriptExample.daml",
+                "//compiler/damlc/tests:divulgence-daml-test-files",
+            ],
+        outs = ["script{scriptVersion}-test-v{name}.dar".format(
+            name = name,
+            scriptVersion = scriptVersion,
+        )],
+        cmd = """
+      set -eou pipefail
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/MultiTest.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/TestContractId.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/TestExceptions.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/TestInterfaces.daml) $$TMP_DIR/daml
+      cp -L $(location //docs:source/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
+      cp -L $(locations //compiler/damlc/tests:divulgence-daml-test-files) $$TMP_DIR/daml
+      cat << EOF >> $$TMP_DIR/daml/ScriptExample.daml
+initializeFixed : Script ()
+initializeFixed = do
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
+  bank <- allocatePartyWithHint "Bank" (PartyIdHint "Bank")
+  let parties = LedgerParties{{..}}
+  initialize parties
+EOF
+      cp -L $(location //daml-script/daml{scriptVersion}:daml{scriptVersion}-script-{target}.dar) $$TMP_DIR/
+      cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: {sdk}
+name: script{scriptVersion}-test
+source: daml
+version: 0.0.1
+dependencies:
+  - daml-stdlib
+  - daml-prim
+  - daml{scriptVersion}-script-{target}.dar
+build-options:
+  - --target={target}
+  - --enable-interfaces=yes
+EOF
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script{scriptVersion}-test-v{name}.dar)
+      rm -rf $$TMP_DIR
+    """.format(
+            name = name,
+            scriptVersion = scriptVersion,
+            sdk = sdk_version,
+            target = target,
+        ),
+        tools = ["//compiler/damlc"],
+        visibility = ["//visibility:public"],
+    )
+    for (target, name) in
+    # TODO(https://github.com/digital-asset/daml/issues/18457): re-enable once
+    #  script tests have been split into those that use keys and those that
+    #  don't.
+    #[(
+    #    lf_version_default_or_latest(major),
+    #    major,
+    #) for major in SUPPORTED_LF_MAJOR_VERSIONS] +
+    [
+        (target, target)
+        for target in ENGINE_LF_DEV_VERSIONS
+    ]
+    for scriptVersion in [
+        "",
+        "3",
+    ]
+]
+
+[
+    # Test DAR in x.dev to test new features.
+    genrule(
+        name = "script-test-{}".format(lf_version),
+        srcs =
+            glob(["**/*.daml"]) + ["//daml-script/daml:daml-script-{}.dar".format(lf_version)],
+        outs = ["script-test-{}.dar".format(lf_version)],
+        cmd = """
+      set -eou pipefail
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -L $(location :daml/TestChoiceAuthority.daml) $$TMP_DIR/daml
+      cp -L $(location //daml-script/daml:daml-script-{lf_version}.dar) $$TMP_DIR/
+      cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: {sdk}
+name: script-test-{mangled_lf_version}
+version: 0.0.1
+source: daml
+build-options:
+  - --target={lf_version}
+dependencies:
+  - daml-stdlib
+  - daml-prim
+  - daml-script-{lf_version}.dar
+EOF
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test-{lf_version}.dar)
+      rm -rf $$TMP_DIR
+    """.format(
+            lf_version = lf_version,
+            mangled_lf_version = mangle_for_damlc(lf_version),
+            sdk = sdk_version,
+        ),
+        tools = ["//compiler/damlc"],
+        visibility = ["//visibility:public"],
+    )
+    for lf_version in ENGINE_LF_DEV_VERSIONS
+]
+
+# A variant of script-test that has not been uploaded to the ledger
+# to test missing template ids. We only care that this has a different package id.
+genrule(
+    name = "script-test-no-ledger",
+    srcs =
+        glob(["**/*.daml"]) + [
+            "//daml-script/daml3:daml3-script-{}.dar".format(LF_DEFAULT_DEV_VERSION),
+            "//docs:source/daml-script/template-root/src/ScriptExample.daml",
+        ],
+    outs = ["script-test-no-ledger.dar"],
+    cmd = """
+      set -eou pipefail
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
+      cp -L $(location //daml-script/daml3:daml3-script-{target}.dar) $$TMP_DIR/
+      cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: {sdk}
+name: script-test-no-ledger
+source: daml
+version: 0.0.2
+build-options:
+  - --target={target}
+dependencies:
+  - daml-stdlib
+  - daml-prim
+  - daml3-script-{target}.dar
+EOF
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test-no-ledger.dar)
+      rm -rf $$TMP_DIR
+    """.format(
+        sdk = sdk_version,
+        target = LF_DEFAULT_DEV_VERSION,
+    ),
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+da_scala_library(
+    name = "test-utils",
+    srcs = glob(["src/test-utils/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    tags = [
+        "cpu:4",
+        "dev-canton-test",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-scala-lib",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_base",
+        "//canton:community_ledger_ledger-common",
+        "//canton:daml-common-staging_daml-tls",
+        "//canton:ledger_api_proto_scala",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/stable-packages",
+        "//daml-lf/transaction",
+        "//daml-script/runner:script-runner-lib",
+        "//libs-scala/ledger-resources",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/scala-utils",
+        "//libs-scala/testing-utils",
+        "//test-common/canton/it-lib",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+[
+    daml_compile(
+        name = "coin-v1-{}".format(lf_version),
+        srcs = [":upgrades/coin-v1/Coin.daml"],
+        project_name = "coin",
+        target = lf_version,
+        version = "1.0.0",
+    )
+    for lf_version in ENGINE_LF_DEV_VERSIONS
+]
+
+[
+    daml_compile(
+        name = "coin-v2-{}".format(lf_version),
+        srcs = [":upgrades/coin-v2/Coin.daml"],
+        project_name = "coin",
+        target = lf_version,
+        # upgrades = "//daml-script/test:coin-v1-{}.dar".format(lf_version),
+        version = "2.0.0",
+    )
+    for lf_version in ENGINE_LF_DEV_VERSIONS
+]
+
+[
+    daml_compile(
+        name = "coin-v2-new-field-{}".format(lf_version),
+        srcs = [":upgrades/coin-v2-new-field/Coin.daml"],
+        project_name = "coin",
+        target = lf_version,
+        # upgrades = "//daml-script/test:coin-v1-{}.dar".format(lf_version),
+        version = "2.0.0",
+    )
+    for lf_version in ENGINE_LF_DEV_VERSIONS
+]
+
+[
+    daml_compile(
+        name = "coin-v3-{}".format(lf_version),
+        srcs = [":upgrades/coin-v3/Coin.daml"],
+        project_name = "coin",
+        target = lf_version,
+        # upgrades = "//daml-script/test:coin-v2-{}.dar".format(lf_version),
+        version = "3.0.0",
+    )
+    for lf_version in ENGINE_LF_DEV_VERSIONS
+]
+
+[
+    daml_compile(
+        name = "coin-upgrade-v1-v2-{}".format(lf_version),
+        srcs = [":upgrades/coin-upgrade-v1-v2/CoinUpgrade.daml"],
+        data_dependencies = [
+            "//daml-script/test:coin-v1-{}.dar".format(lf_version),
+            "//daml-script/test:coin-v2-{}.dar".format(lf_version),
+        ],
+        dependencies = [
+            "//daml-script/daml:daml-script-{}.dar".format(lf_version),
+        ],
+        module_prefixes = {
+            "coin-1.0.0": "Coin_1_0_0",
+            "coin-2.0.0": "Coin_2_0_0",
+        },
+        project_name = "coin-upgrade",
+        target = lf_version,
+        version = "2.0.0",
+    )
+    for lf_version in ENGINE_LF_DEV_VERSIONS
+]
+
+[
+    daml_compile(
+        name = "coin-upgrade-v1-v2-new-field-{}".format(lf_version),
+        srcs = [":upgrades/coin-upgrade-v1-v2-new-field/CoinUpgrade.daml"],
+        data_dependencies = [
+            "//daml-script/test:coin-v1-{}.dar".format(lf_version),
+            "//daml-script/test:coin-v2-new-field-{}.dar".format(lf_version),
+        ],
+        dependencies = [
+            "//daml-script/daml:daml-script-{}.dar".format(lf_version),
+        ],
+        module_prefixes = {
+            "coin-1.0.0": "Coin_1",
+            "coin-2.0.0": "Coin_2",
+        },
+        project_name = "coin-upgrade",
+        target = lf_version,
+        version = "2.0.0",
+    )
+    for lf_version in ENGINE_LF_DEV_VERSIONS
+]
+
+[
+    daml_compile(
+        name = "coin-upgrade-v1-v3-{}".format(lf_version),
+        srcs = [":upgrades/coin-upgrade-v1-v3/CoinUpgrade.daml"],
+        data_dependencies = [
+            "//daml-script/test:coin-v1-{}.dar".format(lf_version),
+            "//daml-script/test:coin-v3-{}.dar".format(lf_version),
+        ],
+        dependencies = [
+            "//daml-script/daml:daml-script-{}.dar".format(lf_version),
+        ],
+        module_prefixes = {
+            "coin-1.0.0": "Coin_1_0_0",
+            "coin-3.0.0": "Coin_3_0_0",
+        },
+        project_name = "coin-upgrade",
+        target = lf_version,
+        version = "3.0.0",
+    )
+    for lf_version in ENGINE_LF_DEV_VERSIONS
+]
+
+daml_compile(
+    name = "upgrade-test-lib",
+    srcs = [":daml/UpgradeTestLib.daml"],
+    dependencies = [
+        "//daml-script/daml3:daml3-script-2.dev.dar",
+    ],
+    project_name = "upgrade-test-lib",
+    # TODO(https://github.com/digital-asset/daml/issues/18457): split the lib into modules that use
+    #  contract keys and those that don't. Revert to the default target for those that don't.
+    target = "2.dev",
+    version = "1.0.0",
+)
+
+da_scala_test_suite(
+    name = "test",
+    size = "large",
+    srcs = glob(
+        ["src/main/scala/**/*.scala"],
+        exclude = [
+            "src/main/scala/**/*Dev*.scala",
+            "src/main/scala/com/daml/lf/engine/script/test/UpgradesIT.scala",
+        ],
+    ),
+    data = [
+        ":script-test-no-ledger.dar",
+        # TODO((https://github.com/digital-asset/daml/issues/18457): remove these dev dependencies
+        #  oncee integration tests don't depend on keys anymore
+        ":script-test-v2.dev.dar",
+        ":script3-test-v2.dev.dar",
+        "//compiler/damlc",
+        "//daml-script/runner:daml-script-binary",
+    ],
+    # TODO(https://github.com/digital-asset/daml/issues/18457): re-enable once
+    #  script tests have been split into those that use keys and those that
+    #  don't.
+    #+ [
+    #     ":script{scriptVersion}-test-v{major}.dar".format(
+    #         major = major,
+    #         scriptVersion = scriptVersion,
+    #     )
+    #     for major in SUPPORTED_LF_MAJOR_VERSIONS
+    #     for scriptVersion in [
+    #         "",
+    #         "3",
+    #    ]
+    resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    tags = [
+        "cpu:4",
+    ],
+    deps = [
+        ":test-utils",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_ledger_ledger-common",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//daml-script/runner:script-runner-lib",
+        "//libs-scala/ledger-resources",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/testing-utils",
+        "//test-common/canton/it-lib",
+    ],
+)
+
+da_scala_test(
+    name = "upgrade-test",
+    size = "large",
+    srcs = ["src/main/scala/com/daml/lf/engine/script/test/UpgradesIT.scala"],
+    data = [
+        ":upgrade-test-files",
+        ":upgrade-test-lib.dar",
+        "//compiler/damlc",
+        "//daml-script/daml3:daml3-script-2.dev.dar",
+    ],
+    resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:io_circe_circe_core",
+        "@maven//:io_circe_circe_yaml_common",
+        "@maven//:io_circe_circe_yaml",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
+    ],
+    tags = [
+        "cpu:4",
+    ],
+    deps = [
+        ":test-utils",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_ledger_ledger-common",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//daml-script/runner:script-runner-lib",
+        "//libs-scala/ledger-resources",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/scala-utils",
+        "//libs-scala/testing-utils",
+        "//libs-scala/timer-utils",
+        "//test-common/canton/it-lib",
+    ],
+) if not is_windows else None
+# skipping windows for now, it doesn't seem to like the filegroup `:upgrade-test-files`
+
+filegroup(
+    name = "upgrade-test-files",
+    srcs = glob(["daml/upgrades/*.daml"]),
+    visibility = ["__pkg__"],
+)
+
+da_scala_test_suite(
+    name = "test-dev",
+    srcs = glob(
+        ["src/main/scala/com/**/*Dev*.scala"],
+    ),
+    data = [dep for deps in [[
+        ":coin-upgrade-v1-v2-{}.dar".format(lf),
+        ":coin-upgrade-v1-v2-new-field-{}.dar".format(lf),
+        ":coin-upgrade-v1-v3-{}.dar".format(lf),
+        ":coin-v1-{}.dar".format(lf),
+        ":coin-v2-{}.dar".format(lf),
+        ":coin-v2-new-field-{}.dar".format(lf),
+        ":coin-v3-{}.dar".format(lf),
+        ":script-test-{}.dar".format(lf),
+    ] for lf in ENGINE_LF_DEV_VERSIONS] for dep in deps] + [
+        ":script-test-no-ledger.dar",
+        "//compiler/damlc/tests:query-test.dar",
+        "//compiler/damlc/tests:try-submit-concurrently-test.dar",
+        "//compiler/damlc/tests:try-submit-test.dar",
+        "//daml-script/runner:daml-script-binary",
+    ],
+    resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+    ],
+    tags = [
+        "cpu:4",
+        "dev-canton-test",
+    ],
+    deps = [
+        ":test-utils",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_ledger_ledger-common",
+        "//daml-lf/api-type-signature",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//daml-script/runner:script-runner-lib",
+        "//libs-scala/ledger-resources",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/testing-utils",
+        "//observability/metrics",
+        "//test-common/canton/it-lib",
+        "@maven//:com_auth0_java_jwt",
+    ],
+)

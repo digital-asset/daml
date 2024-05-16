@@ -1,0 +1,47 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.admin.participant.v30;
+
+import "com/digitalasset/canton/admin/crypto/v30/crypto.proto";
+import "google/protobuf/timestamp.proto";
+import "scalapb/scalapb.proto";
+
+// Schema definition for the exported ACS snapshot
+message ActiveContract {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  // The ID of the domain where the contract was assigned at the time of the export
+  // Required
+  string domain_id = 1;
+  // The contract and its associated metadata
+  // Required
+  Contract contract = 2;
+  // The number of times the contract has been reassigned at the time of the export
+  // Required
+  int64 reassignment_counter = 3;
+}
+
+message Contract {
+  message Metadata {
+    repeated string non_maintainer_signatories = 1;
+    repeated string non_signatory_stakeholders = 2;
+    GlobalKey key = 3; // optional: only set if contract has a key
+    repeated string maintainers = 4; // optional; only set if contract has a key
+  }
+
+  message GlobalKey {
+    bytes template_id = 1;
+    bytes key = 2;
+    string package_name = 3;
+  }
+
+  string contract_id = 1;
+  bytes raw_contract_instance = 2;
+  Metadata metadata = 3;
+  google.protobuf.Timestamp ledger_create_time = 4; // in microseconds of UTC time since Unix epoch
+  com.digitalasset.canton.admin.crypto.v30.Salt contract_salt = 5; // optional
+}
+

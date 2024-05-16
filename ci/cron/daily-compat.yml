@@ -83,6 +83,7 @@ jobs:
           var_name: bash_lib
       - bash: |
           set -euo pipefail
+          cd sdk
           eval "$(dev-env/bin/dade assist)"
           source $(bash_lib)
 
@@ -126,7 +127,7 @@ jobs:
           var_name: bash_lib
       - bash: |
           set -euo pipefail
-          eval "$(dev-env/bin/dade assist)"
+          eval "$(cd sdk; dev-env/bin/dade assist)"
           source $(bash_lib)
 
           export AUTH="$(get_gh_auth_header)"
@@ -151,6 +152,7 @@ jobs:
       need_to_build: $[ dependencies.blackduck_scan.outputs['out.need_to_build'] ]
     steps:
       - bash: |
+          cd sdk
           eval "$(./dev-env/bin/dade-assist)"
           if [ "$(need_to_build)" == "true" ]; then
               branch="notices-update-$(Build.BuildId)"
@@ -178,63 +180,23 @@ jobs:
       - bash: |
           set -euo pipefail
 
+          cd sdk
           eval "$(./dev-env/bin/dade-assist)"
           source $(bash_lib)
 
           git fetch
           git checkout origin/$(Build.SourceBranchName)
 
-          get_canton_version_for_major_version() {
-            major=$1
-            curl -u $AUTH \
-                 --fail \
-                 --location \
-                 --silent \
-                 https://digitalasset.jfrog.io/artifactory/api/storage/assembly/canton \
-            | jq -r '.children[].uri' \
-            | sed -e 's/^\///' \
-            | grep -P "^${major}\.\d+\.\d+" \
-            | sort -V \
-            | tail -1
-          }
+          version=$(ci/refresh-canton.sh)
 
-          canton_version_to_commitish() {
-            canton_version=$1
-            STABLE_REGEX="\d+\.\d+\.\d+"
-            SNAPSHOT_REGEX="^${STABLE_REGEX}-snapshot(\.\d+)+\.v[0-9a-f]{8}$"
-            if (echo "$1" | grep -q -P "${SNAPSHOT_REGEX}"); then
-              # Extracting commit (short) sha from snapshot version
-              echo "${canton_version: -8}"
-            else
-              # relying on stable version tag
-              echo "v$canton_version"
-            fi
-          }
-
-          canton3_version=$(get_canton_version_for_major_version 3)
-
-          sed -i 's|SKIP_DEV_CANTON_TESTS=.*|SKIP_DEV_CANTON_TESTS=false|' build.sh
-
-          ### code drop ###
-
-          tmp=$(mktemp -d)
-          trap "rm -rf ${tmp}" EXIT
-
-          git clone https://$GITHUB_TOKEN@github.com/DACH-NY/canton $tmp
-          git -C $tmp checkout $(canton_version_to_commitish $canton3_version)
-
-          ci/copy-canton.sh $tmp
-
-          ### create PR ###
-
-          branch="main-canton-update-$canton3_version"
+          branch="main-canton-update-$version"
 
           if git diff --exit-code origin/$(Build.SourceBranchName) -- canton build.sh >/dev/null; then
               echo "Already up-to-date with latest Canton source & snapshot."
           else
               if [ "main" = "$(Build.SourceBranchName)" ]; then
-                  git add build.sh
-                  open_pr "$branch" "update canton to $canton3_version" "tell-slack: canton" "" "$(Build.SourceBranchName)"
+                  git add build.sh canton
+                  open_pr "$branch" "update canton to $version" "tell-slack: canton" "" "$(Build.SourceBranchName)"
                   az extension add --name azure-devops
                   trap "az devops logout" EXIT
                   echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
@@ -248,8 +210,6 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
-          AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
-          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
   - job: compat_versions_pr
     condition: or(eq(variables['Build.SourceBranchName'], 'main'),
@@ -266,6 +226,7 @@ jobs:
         var_name: bash_lib
     - bash: |
         set -euo pipefail
+        cd sdk
         eval "$(./dev-env/bin/dade-assist)"
 
         ## refresh tags, in case someone deleted one
@@ -273,14 +234,15 @@ jobs:
 
         ## get latest version, in case it's already up to date
         git fetch origin
-        git merge origin/main
+        git -c user.name="Azure Pipelines Daml Build" \
+            -c user.email="support@digitalasset.com" \
+            merge origin/main
 
         source $(bash_lib)
 
         cp .bazelrc compatibility/
         compatibility/update-versions.sh
         git add compatibility/versions.bzl compatibility/maven_install.json
-
 
         if ! git diff --cached --quiet; then
           BRANCH=update-compat-versions-$(date -I)-$(Build.SourceBranchName)
@@ -321,6 +283,7 @@ jobs:
     - bash: |
         set -euo pipefail
 
+        cd sdk
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash_lib)
 
@@ -347,3 +310,26 @@ jobs:
         else
           tell_slack "Daily tests failed ($(Build.SourceBranchName)): $COMMIT_LINK." "$(Slack.ci-failures-daml)"
         fi
+
+  - job: snapshots
+    timeoutInMinutes: 60
+    condition: eq(variables['Build.SourceBranchName'], 'main')
+    pool:
+      name: 'ubuntu_20_04'
+      demands: assignment -equals default
+    steps:
+      - bash: |
+          cd sdk
+          eval "$(./dev-env/bin/dade-assist)"
+
+          for branch in main main-2.x; do
+            sha=$(git rev-parse origin/$branch)
+            az extension add --name azure-devops
+            trap "az devops logout" EXIT
+            echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
+            az pipelines run --org "https://dev.azure.com/digitalasset" \
+                             --project daml \
+                             --name "snapshot" \
+                             --commit-id main \
+                             --parameters "commit=$sha"
+          done

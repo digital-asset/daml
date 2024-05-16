@@ -1,0 +1,226 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v2;
+
+import "com/daml/ledger/api/v2/value.proto";
+import "google/protobuf/timestamp.proto";
+import "google/rpc/status.proto";
+
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
+option java_outer_classname = "EventOuterClass";
+option java_package = "com.daml.ledger.api.v2";
+
+// An event in the flat transaction stream can either be the creation
+// or the archiving of a contract.
+//
+// In the transaction service the events are restricted to the events
+// visible for the parties specified in the transaction filter. Each
+// event message type below contains a ``witness_parties`` field which
+// indicates the subset of the requested parties that can see the event
+// in question. In the flat transaction stream you'll only receive events
+// that have witnesses.
+message Event {
+  oneof event {
+    CreatedEvent created = 1;
+    ArchivedEvent archived = 2;
+  }
+}
+
+// Records that a contract has been created, and choices may now be exercised on it.
+message CreatedEvent {
+  // The ID of this particular event.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string event_id = 1;
+
+  // The ID of the created contract.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string contract_id = 2;
+
+  // The template of the created contract.
+  // Required
+  Identifier template_id = 3;
+
+  // The key of the created contract.
+  // This will be set if and only if ``create_arguments`` is set and ``template_id`` defines a contract key.
+  // Optional
+  Value contract_key = 4;
+
+  // The arguments that have been used to create the contract.
+  // Set either:
+  //   - if there was a party, which is in the ``witness_parties`` of this event,
+  //     and for which an ``InclusiveFilters`` exists with the ``template_id`` of this event
+  //     among the ``template_filters``,
+  //   - or if there was a party, which is in the ``witness_parties`` of this event,
+  //     and for which a wildcard filter exists (``Filters`` without ``InclusiveFilters``,
+  //     or with an ``InclusiveFilters`` with empty ``template_filters`` and empty ``interface_filters``).
+  // Optional
+  Record create_arguments = 5;
+
+  // Opaque representation of contract create event payload intended for forwarding
+  // to an API server as a contract disclosed as part of a command
+  // submission.
+  // Optional
+  bytes created_event_blob = 6;
+
+  // Interface views specified in the transaction filter.
+  // Includes an ``InterfaceView`` for each interface for which there is a ``InterfaceFilter`` with
+  //   - its party in the ``witness_parties`` of this event,
+  //   - and which is implemented by the template of this event,
+  //   - and which has ``include_interface_view`` set.
+  // Optional
+  repeated InterfaceView interface_views = 7;
+
+  // The parties that are notified of this event. When a ``CreatedEvent``
+  // is returned as part of a transaction tree, this will include all
+  // the parties specified in the ``TransactionFilter`` that are informees
+  // of the event. If served as part of a flat transaction those will
+  // be limited to all parties specified in the ``TransactionFilter`` that
+  // are stakeholders of the contract (i.e. either signatories or observers).
+  // In case of v2 API:
+  //   If the ``CreatedEvent`` is returned as part of an AssignedEvent,
+  //   ActiveContract or IncompleteUnassigned (so the event is related to
+  //   an assignment or unassignment): this will include all parties of the
+  //   ``TransactionFilter`` that are stakeholders of the contract.
+  // Required
+  repeated string witness_parties = 8;
+
+  // The signatories for this contract as specified by the template.
+  // Required
+  repeated string signatories = 9;
+
+  // The observers for this contract as specified explicitly by the template or implicitly as choice controllers.
+  // This field never contains parties that are signatories.
+  // Required
+  repeated string observers = 10;
+
+  // Ledger effective time of the transaction that created the contract.
+  // Required
+  google.protobuf.Timestamp created_at = 11;
+
+  // The package name of the created contract.
+  // Required
+  string package_name = 12;
+}
+
+// View of a create event matched by an interface filter.
+message InterfaceView {
+  // The interface implemented by the matched event.
+  // Required
+  Identifier interface_id = 1;
+
+  // Whether the view was successfully computed, and if not,
+  // the reason for the error. The error is reported using the same rules
+  // for error codes and messages as the errors returned for API requests.
+  // Required
+  google.rpc.Status view_status = 2;
+
+  // The value of the interface's view method on this event.
+  // Set if it was requested in the ``InterfaceFilter`` and it could be
+  // sucessfully computed.
+  // Optional
+  Record view_value = 3;
+}
+
+// Records that a contract has been archived, and choices may no longer be exercised on it.
+message ArchivedEvent {
+  // The ID of this particular event.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string event_id = 1;
+
+  // The ID of the archived contract.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string contract_id = 2;
+
+  // The template of the archived contract.
+  // Required
+  Identifier template_id = 3;
+
+  // The parties that are notified of this event. For an ``ArchivedEvent``,
+  // these are the intersection of the stakeholders of the contract in
+  // question and the parties specified in the ``TransactionFilter``. The
+  // stakeholders are the union of the signatories and the observers of
+  // the contract.
+  // Each one of its elements must be a valid PartyIdString (as described
+  // in ``value.proto``).
+  // Required
+  repeated string witness_parties = 4;
+
+  // The package name of the contract.
+  // Required
+  string package_name = 5;
+}
+
+// Records that a choice has been exercised on a target contract.
+message ExercisedEvent {
+  // The ID of this particular event.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string event_id = 1;
+
+  // The ID of the target contract.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string contract_id = 2;
+
+  // The template of the target contract.
+  // Required
+  Identifier template_id = 3;
+
+  // The interface where the choice is defined, if inherited.
+  // Optional
+  Identifier interface_id = 4;
+
+  // The choice that was exercised on the target contract.
+  // Must be a valid NameString (as described in ``value.proto``).
+  // Required
+  string choice = 5;
+
+  // The argument of the exercised choice.
+  // Required
+  Value choice_argument = 6;
+
+  // The parties that exercised the choice.
+  // Each element must be a valid PartyIdString (as described in ``value.proto``).
+  // Required
+  repeated string acting_parties = 7;
+
+  // If true, the target contract may no longer be exercised.
+  // Required
+  bool consuming = 8;
+
+  // The parties that are notified of this event. The witnesses of an exercise
+  // node will depend on whether the exercise was consuming or not.
+  // If consuming, the witnesses are the union of the stakeholders and
+  // the actors.
+  // If not consuming, the witnesses are the union of the signatories and
+  // the actors. Note that the actors might not necessarily be observers
+  // and thus signatories. This is the case when the controllers of a
+  // choice are specified using "flexible controllers", using the
+  // ``choice ... controller`` syntax, and said controllers are not
+  // explicitly marked as observers.
+  // Each element must be a valid PartyIdString (as described in ``value.proto``).
+  // Required
+  repeated string witness_parties = 9;
+
+  // References to further events in the same transaction that appeared as a result of this ``ExercisedEvent``.
+  // It contains only the immediate children of this event, not all members of the subtree rooted at this node.
+  // The order of the children is the same as the event order in the transaction.
+  // Each element must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  repeated string child_event_ids = 10;
+
+  // The result of exercising the choice.
+  // Required
+  Value exercise_result = 11;
+
+  // The package name of the contract.
+  // Required
+  string package_name = 12;
+}

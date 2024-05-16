@@ -1,0 +1,1415 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+// .proto representation of the first version of the Daml-LF language,
+// as specified by
+// <https://github.com/digital-asset/daml/blob/main/daml-lf/spec/daml-lf-1.rst>.
+//
+// A few notes:
+//
+// * We generally "compress" structures that are often repeated, such as
+//   application, let bindings, abstractions, etc.. In the Haskell / Scala
+//   AST we probably will use the normal binary forms.
+// * We generally never "newtype" strings, even if it might be good in
+//   the actual AST. This is to keep the message structure relatively flat
+//   and light.
+
+
+// Minor version history:
+// * 2.1 --  2024-03-18: Initial version
+// * dev (special staging area for the next version to be released)
+
+syntax = "proto3";
+package daml_lf_2;
+
+option java_package = "com.daml.daml_lf_dev";
+option csharp_namespace = "Com.Daml.Daml_Lf_Dev.DamlLf1";
+
+// Canonical encoding in one-ofs for cases that carry no meaningful
+// values.
+message Unit {}
+
+// Package reference
+message PackageRef {
+  oneof Sum {
+
+    // Reference to the package of which the package this reference
+    // belongs.
+    Unit self = 1;
+
+    // An index into `interned_package_ids` of the Package containing
+    // this reference.
+    // *Must be a valid interned package Id string*
+    int32 package_id_interned_str = 3;
+  }
+}
+
+// A fully qualified module reference
+message ModuleRef {
+  // package where the module is defined.
+  PackageRef package_ref = 1;
+  int32 module_name_interned_dname = 2;
+}
+
+// A fully qualified reference to a type constructor name.
+message TypeConName {
+  // Module where the type is defined.
+  ModuleRef module = 1;
+  // *Must be a valid interned name*
+  int32 name_interned_dname = 2;
+}
+
+// A fully qualified reference to a type synonym name.
+message TypeSynName {
+  // Module where the type is defined.
+  ModuleRef module = 1;
+  // *Must be a valid interned name*
+  int32 name_interned_dname = 2;
+}
+
+// A fully qualified reference to a value definition.
+message ValName {
+  // Module where the value is defined
+  ModuleRef module = 1;
+  // *Must be a valid interned name*
+  int32 name_interned_dname = 2;
+}
+
+// A field name definition in a record or a variant associated with a type.
+message FieldWithType {
+
+  // *Must a valid interned identifier*
+  int32 field_interned_str = 3;
+
+  // Type associated
+  Type type = 2;
+}
+
+// Binder associated with a type.
+message VarWithType {
+
+  // *Must be a valid interned identifier*
+  int32 var_interned_str = 3;
+
+  // Type of the bound variable
+  Type type = 2;
+}
+
+// Type binder associated with a kind.
+message TypeVarWithKind {
+
+  // *Must be a valid interned identifier*
+  int32 var_interned_str = 3;
+
+  // Kind of the bound variable
+  Kind kind = 2;
+}
+
+// A field in a record with its value.
+message FieldWithExpr {
+
+  // *Must be a valid interned identifier*
+  int32 field_interned_str = 3;
+
+  // Value of the field
+  Expr expr = 2;
+}
+
+// A binding of a typed binder to an expression
+message Binding {
+  // The binder (expression variable and type)
+  VarWithType binder = 1;
+  // The value to which the variable is bound.
+  Expr bound = 2;
+}
+
+// Kinds
+message Kind {
+
+  // The kind of polimorphic type.
+  message Arrow {
+    // parameter of the kind
+    // *Must be non-empty*
+    repeated Kind params = 1;
+    Kind result = 2;
+  }
+
+  oneof Sum {
+    // Kind of monomorphic type.
+    Unit star = 1;
+    // Kind of polymorphic type.
+    Arrow arrow = 2;
+    // kind of TNat type;
+    Unit nat = 3;
+  }
+}
+
+// Builtin types
+enum BuiltinType {
+  // Builtin type 'Unit'
+  UNIT = 0;
+  // Builtin type 'Bool'
+  BOOL = 1;
+  // Builtin type 'Int64'
+  INT64 = 2;
+  // Builtin type 'Date'
+  DATE = 3;
+  // Builtin type 'Timestamp'
+  TIMESTAMP = 4;
+  // Builtin type 'Numeric'
+  NUMERIC = 5;
+  // Builtin tpe 'Party'
+  PARTY = 6;
+  // Builtin type 'Text'
+  TEXT = 7;
+  // Builtin type 'ContractId'
+  CONTRACT_ID = 8;
+  // Builtin type 'Optional'
+  OPTIONAL = 9;
+  // Builtin type 'List'
+  LIST = 10;
+  // Builtin type 'TGenMap`
+  GENMAP = 11;
+  // Builtin type 'Any'
+  ANY = 13;
+  // Builtin type 'TAnyException'
+  ANY_EXCEPTION = 14;
+  // Builtin type 'TypeRep'
+  TYPE_REP = 15;
+  // Builtin type `TArrow`
+  ARROW = 16;
+  // Builtin type 'Update'
+  UPDATE = 17;
+
+  // Builtin type 'TTextMap`
+  // *Available in versions >= 2.dev*
+  TEXTMAP = 1001;
+  // Builtin type 'TBigNumeric'
+  // *Available in versions >= 2.dev*
+  BIGNUMERIC = 1002;
+  // Builtin type 'TRoundingMode'
+  // *Available in versions >= 2.dev*
+  ROUNDING_MODE = 1003;
+  // Builtin type 'Scenario'
+  // *Available in versions >= 2.dev*
+  SCENARIO = 1004;
+}
+
+// Types
+message Type {
+
+  // Possibly applied type variable 'TyVar'
+  message Var {
+
+    // *Must be a valid interned identifier*
+    int32 var_interned_str = 3;
+
+    // Types to which the variable is applied
+    repeated Type args = 2;
+  }
+
+  // Possibly applied type constructor 'TyCon'
+  message Con {
+
+    // Name of the type constructor name
+    TypeConName tycon = 1;
+
+    // Type to which the constructor name is applied.
+    repeated Type args = 2;
+  }
+
+  // Fully applied type constructor 'TySyn'
+  message Syn {
+
+    // Name of the type synonym
+    TypeSynName tysyn = 1;
+
+    // Types to which the synonym is applied.
+    repeated Type args = 2;
+  }
+
+  // Possibly applied builtin types
+  message Builtin {
+
+    // Builtin type
+    // FixMe: Rename
+    BuiltinType builtin = 1;
+
+    // Types to which the builtin type is applied.
+    repeated Type args = 2;
+  }
+
+  // Universal quantification 'TyForAll'
+  message Forall {
+    // binders of the quantification
+    // *Must be non-empty*
+    repeated TypeVarWithKind vars = 1;
+    // Body of the quantification
+    Type body = 2;
+  }
+
+  // Struct type
+  message Struct {
+    // name of the field with their types.
+    repeated FieldWithType fields = 1;
+  }
+
+  oneof Sum {
+    Var var = 1;
+    Con con = 2;
+    Builtin builtin = 3;
+    Forall forall = 4;
+    Struct struct = 5;
+    // *Must be between 0 and 37 (bounds inclusive)*
+    // use standard signed long for future usage.
+    sint64 nat = 6;
+    Syn syn = 7;
+    int32 interned = 8;
+  }
+
+}
+
+// Builtin constructors
+enum BuiltinCon {
+  // Unit value '()'
+  CON_UNIT = 0;
+  // 'False' boolean value
+  CON_FALSE = 1;
+  // 'True' boolean value
+  CON_TRUE = 2;
+}
+
+// Builtin functions
+// Refer to Daml-LF major version 1 specification for types and behavior of those.
+enum BuiltinFunction {
+
+  TRACE = 0;
+  ERROR = 1;
+
+  EQUAL = 2;
+  LESS_EQ = 3;
+  LESS = 4;
+  GREATER_EQ = 5;
+  GREATER = 6;
+
+  ADD_INT64 = 7;
+  SUB_INT64 = 8;
+  MUL_INT64 = 9;
+  DIV_INT64 = 10;
+  MOD_INT64 = 11;
+  EXP_INT64 = 12;
+
+  ADD_NUMERIC = 13;
+  SUB_NUMERIC = 14;
+  MUL_NUMERIC = 15;
+  DIV_NUMERIC = 16;
+  ROUND_NUMERIC = 17;
+  CAST_NUMERIC = 18;
+  SHIFT_NUMERIC = 19;
+
+  INT64_TO_NUMERIC = 20;
+  NUMERIC_TO_INT64 = 21;
+
+  INT64_TO_TEXT = 22;
+  NUMERIC_TO_TEXT = 23;
+  TIMESTAMP_TO_TEXT = 25;
+  DATE_TO_TEXT = 26;
+  PARTY_TO_TEXT = 27;
+  TEXT_TO_PARTY = 28;
+  TEXT_TO_INT64 = 29;
+  TEXT_TO_NUMERIC = 30;
+  CONTRACT_ID_TO_TEXT = 31;
+  SHA256_TEXT = 32;
+  EXPLODE_TEXT = 33;
+  APPEND_TEXT = 34;
+  IMPLODE_TEXT = 35;
+
+  CODE_POINTS_TO_TEXT = 36;
+  TEXT_TO_CODE_POINTS = 37;
+  DATE_TO_UNIX_DAYS = 38;
+  UNIX_DAYS_TO_DATE = 39;
+  TIMESTAMP_TO_UNIX_MICROSECONDS = 40;
+  UNIX_MICROSECONDS_TO_TIMESTAMP = 41;
+
+  COERCE_CONTRACT_ID = 42;
+
+  FOLDL = 43;
+  FOLDR = 44;
+  EQUAL_LIST = 45;
+
+  GENMAP_EMPTY = 52;
+  GENMAP_INSERT = 53;
+  GENMAP_LOOKUP = 54;
+  GENMAP_DELETE = 55;
+  GENMAP_KEYS = 56;
+  GENMAP_VALUES = 57;
+  GENMAP_SIZE = 58;
+
+  ANY_EXCEPTION_MESSAGE = 59;
+
+  // Next id is 60.
+
+  /* Dev Builtins */
+
+
+  TEXTMAP_EMPTY = 1001;                // *Available in versions >= 2.dev*
+  TEXTMAP_INSERT = 1002;               // *Available in versions >= 2.dev*
+  TEXTMAP_LOOKUP = 1003;               // *Available in versions >= 2.dev*
+  TEXTMAP_DELETE = 1004;               // *Available in versions >= 2.dev*
+  TEXTMAP_TO_LIST = 1005;              // *Available in versions >= 2.dev*
+  TEXTMAP_SIZE = 1006;                 // *Available in versions >= 2.dev*
+
+  SCALE_BIGNUMERIC = 2001;             // *Available in versions >= 2.dev*
+  PRECISION_BIGNUMERIC = 2002;         // *Available in versions >= 2.dev*
+  ADD_BIGNUMERIC = 2003;               // *Available in versions >= 2.dev*
+  SUB_BIGNUMERIC = 2004;               // *Available in versions >= 2.dev*
+  MUL_BIGNUMERIC = 2005;               // *Available in versions >= 2.dev*
+  DIV_BIGNUMERIC = 2006;               // *Available in versions >= 2.dev*
+  SHIFT_RIGHT_BIGNUMERIC = 2007;       // *Available in versions >= 2.dev*
+  BIGNUMERIC_TO_NUMERIC = 2008;        // *Available in versions >= 2.dev*
+  NUMERIC_TO_BIGNUMERIC = 2009;        // *Available in versions >= 2.dev*
+  BIGNUMERIC_TO_TEXT = 2010;           // *Available in versions >= 2.dev*
+
+  TYPE_REP_TYCON_NAME = 3011;          // *Available in versions >= 2.dev*
+}
+
+// Builtin literals
+message BuiltinLit {
+
+  // match java.math.BigDecimal.ROUND_XXX constants
+  // *Available in versions >= 2.dev*
+  enum RoundingMode {
+    UP = 0;
+    DOWN = 1;
+    CEILING = 2;
+    FLOOR = 3;
+    HALF_UP = 4;
+    HALF_DOWN = 5;
+    HALF_EVEN = 6;
+    UNNECESSARY = 7;
+  }
+
+  oneof Sum {
+    //  64-bit integer literal ('LitInt64')
+    sint64 int64 = 1;
+    // *Must be a valid timestamp*
+    sfixed64 timestamp = 2;
+    // *Must be a valid interned numeric */
+    int32 numeric_interned_str = 3;
+    // *Must be a valid interned text*
+    int32 text_interned_str = 4;
+    // *Must be a valid date*
+    int32 date = 5;
+    // rounding mode for arithmetic operation
+    // *Available in versions >= 2.dev*
+    RoundingMode rounding_mode = 1001;
+  }
+}
+
+// Source code locations
+message Location {
+
+  // 0-indexed start and end line and column numbers.
+  message Range {
+    int32 start_line = 1;
+    int32 start_col = 2;
+    int32 end_line = 3;
+    int32 end_col = 4;
+  }
+
+  ModuleRef module = 1; // (*optional*), if missing the line is within the current module.
+  Range range = 2;
+}
+
+
+// Expressions
+message Expr {
+
+  // Record construction ('ExpRecCon')
+  message RecCon {
+
+    // type of the record being constructed
+    Type.Con tycon = 1;
+
+    // Field names and the associated values.
+    repeated FieldWithExpr fields = 2;
+  }
+
+  // Record projection (ExpRecProj)
+  message RecProj {
+
+    // type of the record being projected.
+    Type.Con tycon = 1;
+
+    // *Must be a valid interned identifier*
+    int32 field_interned_str = 4;
+
+    // projected expression
+    Expr record = 3;
+  }
+
+  // Record update ('ExpRecUp')
+  message RecUpd {
+
+    // type of the record being updated
+    Type.Con tycon = 1;
+
+    // *Must be a valid interned identifier*
+    int32 field_interned_str = 2;
+
+    // Actual record being updated
+    Expr record = 3;
+
+    // Value to wich the record is udpated
+    Expr update = 4;
+  }
+
+  // Variant construction ('ExpVariantCon')
+  message VariantCon {
+
+    // type of the variant being constructed
+    Type.Con tycon = 1;
+
+    // *Must be a valid interned identifier*
+    int32 variant_con_interned_str = 2;
+
+    // Argument of the variant.
+    Expr variant_arg = 3;
+  }
+
+  // Enum construction ('ExpEnumCon')
+  message EnumCon {
+
+    // Name of the type constructor name
+    TypeConName tycon = 1;
+
+    // *Must be a valid interned identifier*
+    int32 enum_con_interned_str = 2;
+  }
+
+  // Struct Construction ('ExpStructCon')
+  message StructCon {
+    // Field names and their associated values.
+    repeated FieldWithExpr fields = 1;
+  }
+
+  // Struct Projection ('ExpStructProj')
+  message StructProj {
+    // *Must be a valid interned identifier*
+    int32 field_interned_str = 1;
+
+    // struct to be projected.
+    Expr struct = 2;
+  }
+
+  // Struct update ('ExpTuplUpdate')
+  message StructUpd {
+    // *Must be a valid interned identifier*
+    int32 field_interned_str = 1;
+
+    // Actual struct being updated.
+    Expr struct = 2;
+
+    // Value to which the record is udpated.
+    Expr update = 3;
+  }
+
+  // Application ('ExpApp')
+  message App {
+
+    // Function
+    Expr fun = 1;
+
+    // Arguments of the function.
+    // *Must be non-empty*
+    repeated Expr args = 2;
+  }
+
+  // Type application ('ExpTyApp')
+  message TyApp {
+
+    // Polymorphic expression
+    Expr expr = 1;
+
+    // Arguments of the function.
+    // *Must be non-empty*
+    repeated Type types = 2;
+  }
+
+  // Abstraction ('ExpAbs')
+  message Abs {
+
+    // Abstracted Variables with their kind
+    // *Must be non-empty*
+    repeated VarWithType param = 1;
+
+    // Abstracted value
+    Expr body = 2;
+  }
+
+  message TyAbs {
+
+    // Abstracted Variables with their type
+    // *Must be non-empty*
+    repeated TypeVarWithKind param = 1;
+
+    // Abstracted value
+    Expr body = 2;
+  }
+
+  // Empty list ('ExpNil')
+  message Nil {
+
+    // type of the list elements.
+    Type type = 1;
+  }
+
+  // Non empty list
+  message Cons {
+
+    // type of the list elements.
+    Type type = 1;
+
+    // Front element of the list.
+    // *Must be non-empty*
+    repeated Expr front = 2;
+
+    // tail of the list
+    Expr tail = 3;
+  }
+
+  // (*Since version 1*)
+  // Empty optional value
+  message OptionalNone {
+
+    // type of the element
+    Type type = 1;
+  }
+
+  // (*Since version 1*)
+  // Non empty optional value
+  message OptionalSome {
+
+    // type of the element
+    Type type = 1;
+
+    // contained value
+    Expr value = 2;
+  }
+
+  // Wrap a value in Any
+  message ToAny {
+    // type of argument. Must be the TypeConName of a template.
+    Type type = 1;
+    // argument
+    Expr expr = 2;
+  }
+
+  // Extract the given type from Any or return None on type-mismatch
+  message FromAny {
+    // type that should be extracted. Must be the TypeConName of a template.
+    Type type = 1;
+    // Value of type Any
+    Expr expr = 2;
+  }
+
+  // Wrap an exception value in AnyException
+  message ToAnyException {
+    // type of argument. Must be an exception type.
+    Type type = 1;
+    // argument
+    Expr expr = 2;
+  }
+
+  // Extract the given exception type from AnyException or return None on type-mismatch
+  message FromAnyException {
+    // type that should be extracted. Must be an exception type.
+    Type type = 1;
+    // Value of type AnyException
+    Expr expr = 2;
+  }
+
+  // Throw an exception.
+  message Throw {
+    // Overall type of the "throw" expression.
+    Type return_type = 1;
+    // Type of exception to throw. Must be an exception type.
+    Type exception_type = 2;
+    // Value of type "exception_type".
+    Expr exception_expr = 3;
+  }
+
+  // Convert a template payload to an interface.
+  message ToInterface {
+    TypeConName interface_type = 1;
+    TypeConName template_type = 2;
+    Expr template_expr = 3;
+  }
+
+  // Convert an interface back to a template payload if possible.
+  message FromInterface {
+    TypeConName interface_type = 1;
+    TypeConName template_type = 2;
+    Expr interface_expr = 3;
+  }
+
+  // Invoke an interface method.
+  message CallInterface {
+    TypeConName interface_type = 1;
+    int32 method_interned_name = 2;
+    Expr interface_expr = 3;
+  }
+
+  // Obtain an interface view
+  message ViewInterface {
+    TypeConName interface = 1;
+    Expr expr = 2;
+  }
+
+  // Obtain the signatories of a contract through an interface
+  message SignatoryInterface {
+    // Interface type
+    TypeConName interface = 1;
+    // Interface argument
+    Expr expr = 2;
+  }
+
+  // Obtain the observers of a contract through an interface
+  message ObserverInterface {
+    // Interface type
+    TypeConName interface = 1;
+    // Interface argument
+    Expr expr = 2;
+  }
+
+
+
+  // Convert an interface back to a template payload, or raises WronglyTypedContract if not possible.
+  message UnsafeFromInterface {
+    TypeConName interface_type = 1;
+    TypeConName template_type = 2;
+    Expr contract_id_expr = 3;
+    Expr interface_expr = 4;
+  }
+
+  // Upcast from an interface payload to an interface it requires.
+  message ToRequiredInterface {
+    TypeConName required_interface = 1;
+    TypeConName requiring_interface = 2;
+    Expr expr = 3;
+  }
+
+  // Downcast from an interface payload to an interface that requires it, if possible.
+  message FromRequiredInterface {
+    TypeConName required_interface = 1;
+    TypeConName requiring_interface = 2;
+    Expr expr = 3;
+  }
+
+  // Downcast from an interface payload to an interface that requires it, or raises WronglyTypedContract if not possible.
+  message UnsafeFromRequiredInterface {
+    TypeConName required_interface = 1;
+    TypeConName requiring_interface = 2;
+    Expr contract_id_expr = 3;
+    Expr interface_expr = 4;
+  }
+
+  // Obtain the type representation of a contract through an interface
+  message InterfaceTemplateTypeRep {
+    // interface type
+    TypeConName interface = 1;
+    // interface argument
+    Expr expr = 2;
+  }
+
+  // Obtain the controllers for a choice.
+  message ChoiceController {
+    TypeConName template = 1;
+    int32 choice_interned_str = 2;
+    Expr contract_expr = 3;
+    Expr choice_arg_expr = 4;
+  }
+
+  // Obtain the observers for a choice.
+  message ChoiceObserver {
+    TypeConName template = 1;
+    int32 choice_interned_str = 2;
+    Expr contract_expr = 3;
+    Expr choice_arg_expr = 4;
+  }
+
+  message Experimental {
+    string name = 1;
+    Type type = 2 ;
+  }
+
+  // Location of the expression in the Daml code source.
+  // Optional
+  Location location = 1;
+
+  oneof Sum {
+
+    // *Must be a valid interned identifier*
+    int32 var_interned_str = 2;
+
+    // Defined value ('ExpVal')
+    ValName val = 3;
+
+    // Builtin function ('ExpBuiltin')
+    BuiltinFunction builtin = 4;
+
+    // Builtin constructor ('()', 'False' or 'True')
+    BuiltinCon builtin_con = 5;
+
+    // Builtin literal ('ExpBuiltin')
+    BuiltinLit builtin_lit = 6;
+
+    // Record construction ('ExpRecCon')
+    RecCon rec_con = 7;
+
+    // Record projection ('ExpRecProj')
+    RecProj rec_proj = 8;
+
+    // Record udpate ('ExpRecUpdate')
+    RecUpd rec_upd = 9;
+
+    // Variant construction ('ExpVariantCon')
+    VariantCon variant_con = 10;
+
+    // Enum construction ('ExpEnumCon')
+    EnumCon enum_con = 11;
+
+    // Struct construction ('ExpStructCon')
+    StructCon struct_con = 12;
+
+    // Struct project ('ExpStructProj')
+    StructProj struct_proj = 13;
+
+    // Struct update ('ExpStructUpdate')
+    StructUpd struct_upd = 14;
+
+    // Application ('ExpApp')
+    App app = 15;
+
+    // Type Application ('ExpTyApp')
+    TyApp ty_app = 16;
+
+    // Abstraction ('ExpAbs')
+    Abs abs = 17;
+
+    // Type Abstraction ('ExpTyAbs')
+    TyAbs ty_abs = 18;
+
+    // Pattern Matching ('ExpCase')
+    Case case = 19;
+
+    // Let block ('ExpLet')
+    Block let = 20;
+
+    // Empty List ('ExpNil')
+    Nil nil = 21;
+
+    // Non Empty list ('ExpCons')
+    Cons cons = 22;
+
+    // Update expression ('ExpUpdate')
+    Update update = 23;
+
+    // empty optional value ('ExpNone')
+    OptionalNone optional_none = 25;
+
+    // non empty optional value ('ExpSome')
+    OptionalSome optional_some = 26;
+
+    // Wrap an arbitrary value in Any ('ExpToAny')
+    ToAny to_any = 27;
+
+    // Extract the given type from Any or return None on type-mismatch ('ExpFromAny')
+    FromAny from_any = 28;
+
+    // A type representation
+    Type type_rep = 29;
+
+    // Wrap an arbitrary exception into an AnyException ('ExpToAnyException').
+    ToAnyException to_any_exception = 30;
+
+    // Extract an arbitrary exception from an AnyException ('ExpFromAnyException').
+    FromAnyException from_any_exception = 31;
+
+    // Throw an exception ('ExpThrow').
+    Throw throw = 32;
+
+    // Convert to/from interface payloads.
+    ToInterface to_interface = 33;
+    FromInterface from_interface = 34;
+
+    // Invoke an interface method.
+    CallInterface call_interface = 35;
+
+    // Obtain a contract's signatories/observers through an interface.
+    SignatoryInterface signatory_interface = 36;
+    ObserverInterface observer_interface = 37;
+
+    // Invoke an interface method.
+    ViewInterface view_interface = 38;
+
+    // Unsafe conversion from interface payloads.
+    UnsafeFromInterface unsafe_from_interface = 39;
+
+    // Obtain the type representation of a contract's template through an interface.
+    InterfaceTemplateTypeRep interface_template_type_rep = 40;
+
+    // Upcast/downcast interface payloads.
+    ToRequiredInterface to_required_interface = 41;
+    FromRequiredInterface from_required_interface = 42;
+    UnsafeFromRequiredInterface unsafe_from_required_interface = 43;
+
+    // Obtain the controllers for a choice.
+    // *Available in versions >= 2.dev*
+    ChoiceController choice_controller = 1001;
+
+    // Obtain the observers for a choice.
+    // *Available in versions >= 2.dev*
+    ChoiceObserver choice_observer = 1002;
+
+    // Scenario Expression ('ExpScenario')
+    // *Available in versions >= 2.dev*
+    Scenario scenario = 1003;
+
+    Experimental experimental = 9999; // *Available only in 2.dev*
+  }
+}
+
+// Case alternative
+message CaseAlt {
+
+  // Variant pattern
+  message Variant {
+
+    // name of the type constructor
+    TypeConName con = 1;
+
+    // *Must be a valid interned identifier*
+    int32 variant_interned_str = 2;
+
+    // *Must be a valid interned identifier*
+    int32 binder_interned_str = 3;
+  }
+
+  // Enum pattern
+  message Enum {
+
+    // name of the type constructor
+    TypeConName con = 1;
+
+    // *Must be a valid interned identifier*
+    int32 constructor_interned_str = 2;
+  }
+
+  // Non empty list pattern
+  message Cons {
+    // *Must be a valid interned identifier*
+    int32 var_head_interned_str = 1;
+
+    // *Must be a valid interned identifier*
+    int32 var_tail_interned_str = 2;
+  }
+
+  // Non empty option patterm
+  message OptionalSome {
+      // *Must be a valid interned identifier*
+      int32 var_body_interned_str = 1;
+  }
+
+  oneof Sum {
+    Unit default = 2;
+    Variant variant = 3;
+    BuiltinCon builtin_con = 4;
+    Unit nil = 5;
+    Cons cons = 6;
+    Unit optional_none = 7;
+    OptionalSome optional_some = 8;
+    Enum enum = 9;
+  }
+
+  Expr body = 1;
+}
+
+message Case {
+  Expr scrut = 1;
+  repeated CaseAlt alts = 2;
+}
+
+// A block of bindings and an expression.
+// Encodes a sequence of binds in e.g. a let or update block.
+message Block {
+  // *Must be non-empty*
+  // Bindings
+  repeated Binding bindings = 1;
+  Expr body = 2;
+}
+
+// A Pure statement either scenario or update
+message Pure {
+  Type type = 1;
+  Expr expr = 2;
+}
+
+message Update {
+
+  // Create Update
+  message Create {
+    // Template type
+    TypeConName template = 1;
+    // Template argument
+    Expr expr = 2;
+  }
+
+  // Interface Create Update
+  message CreateInterface {
+    // Interface type
+    TypeConName interface = 1;
+    // Interface argument
+    Expr expr = 2;
+  }
+
+  // Exercise Update
+  message Exercise {
+    // Template type
+    TypeConName template = 1;
+
+    // *Must be a valid interned identifier*
+    int32 choice_interned_str = 6;
+
+    // contract id
+    Expr cid = 3;
+    // actors
+    reserved 4; // Was actor
+    // argument
+    Expr arg = 5;
+  }
+
+  // Soft Exercise Update
+  // Exercises a contract of the given template type OR a predecessor.
+  // *Available in versions >= 2.dev*
+  message SoftExercise {
+    // Template type
+    TypeConName template = 1;
+    // *Must be a valid interned identifier*
+    int32 choice_interned_str = 2;
+    // contract id
+    Expr cid = 3;
+    // argument
+    Expr arg = 4;
+  }
+
+  // Dynamic Exercise Update
+  message DynamicExercise {
+    // Template type
+    TypeConName template = 1;
+
+    // name of the exercised template choice
+    // *Must be a valid interned identifier*
+    int32 choice_interned_str = 2;
+
+    // contract id
+    Expr cid = 3;
+    // argument
+    Expr arg = 4;
+  }
+
+  // Interface Exercise Update
+  message ExerciseInterface {
+    // Interface type
+    TypeConName interface = 1;
+
+    // name of the exercised template choice
+    // *Must be a valid interned identifier*
+    int32 choice_interned_str = 2;
+
+    // contract id
+    Expr cid = 3;
+    // argument
+    Expr arg = 4;
+
+    // exercise guard (Interface -> Bool)
+    Expr guard = 5;  // *optional*  *Available in versions >= 2.dev*
+  }
+
+ // ExerciseByKey Update
+  message ExerciseByKey {
+    // Template type
+    TypeConName template = 1;
+    // *Must be a valid interned identifier*
+    int32 choice_interned_str = 2;
+    // key
+    Expr key = 3;
+    // argument
+    Expr arg = 4;
+  }
+
+  // Fetch Update
+  message Fetch {
+    // Template type
+    TypeConName template = 1;
+    // contract id
+    Expr cid = 2;
+  }
+
+  // Soft Fetch Update
+  // Fetches a contract of the given template type OR a predecessor.
+  // *Available in versions >= 2.dev*
+  message SoftFetch {
+    // Template type
+    TypeConName template = 1;
+    // contract id
+    Expr cid = 2;
+  }
+
+  // Interface Fetch Update
+  message FetchInterface {
+    // Interface type
+    TypeConName interface = 1;
+    // contract id
+    Expr cid = 2;
+  }
+
+  // Embedded Expression Update
+  message EmbedExpr {
+    // Expression type
+    Type type = 1;
+    // Expression body
+    Expr body = 2;
+  }
+
+  // Retrieve by key Update
+  message RetrieveByKey {
+    TypeConName template = 1;
+    Expr key = 2;
+  }
+
+  // Try-catch block.
+  message TryCatch {
+    Type return_type = 1;
+    Expr try_expr = 2;
+
+    // Name of the bound expression variable.
+    // *Must be a valid interned identifier*
+    int32 var_interned_str = 3;
+    Expr catch_expr = 4;
+  }
+
+  oneof Sum {
+    Pure pure = 1;
+    Block block = 2;
+    Create create = 3;
+    Exercise exercise = 4;
+    ExerciseByKey exercise_by_key = 10;
+    Fetch fetch = 5;
+    Unit get_time = 6;
+    RetrieveByKey lookup_by_key = 8;
+    RetrieveByKey fetch_by_key = 9;
+    EmbedExpr embed_expr = 7;
+    TryCatch try_catch = 11;
+    CreateInterface create_interface = 12;
+    ExerciseInterface exercise_interface = 13;
+    FetchInterface fetch_interface = 14;
+
+    DynamicExercise dynamic_exercise = 1001; // *Available in versions >= 2.dev*
+    SoftFetch soft_fetch = 1002; // *Available in versions >= 2.dev*
+    SoftExercise soft_exercise = 1003; // *Available in versions >= 2.dev*
+  }
+}
+
+// Scenario actions
+message Scenario {
+
+  message Commit {
+    // committing party
+    Expr party = 1;
+    //
+    Expr expr = 2;
+    // type of result
+    Type ret_type = 3;
+  }
+
+  message EmbedExpr {
+    Type type = 1;
+    Expr body = 2;
+  }
+
+  oneof Sum {
+    Pure pure = 1;
+    Block block = 2;
+    Commit commit = 3;
+    Commit mustFailAt = 4;
+    Expr pass = 5;
+    Unit get_time = 6;
+    Expr get_party = 7;
+    // embed an expression of type Scenario. note that this construct is useful
+    // to explicitly mark the start of scenario execution, which is useful in
+    // top level definitions. for example if we hav
+    //
+    // def test : Scenario Unit = if <blah> then <this> else <that>
+    //
+    // this is not a value, since it's headed with an `if`, but we can turn
+    // it into a value by wrapping the `if` with this constructor. in that
+    // case, the `if` will be executed every time the scenario runs --
+    // as expected.
+    EmbedExpr embed_expr = 8;
+  }
+}
+
+// Template choice definition.
+message TemplateChoice {
+  Location location = 1;
+
+  // *Must be a valid interned identifier*
+  int32 name_interned_str = 2;
+
+  // Choice type
+  bool consuming = 3;
+
+  // The controllers of the choice. They have type `List Party` and the
+  // template parameter in scope, and the choice parameter. All of these
+  // controllers need to authorize the exercising of this choice (aka
+  // conjunctive choice controllers).
+  Expr controllers = 4;
+
+  // The additional informees of the choice. They have type `List Party`.
+  Expr observers = 5;
+
+  // Name to which the choice argument is bound and its type.
+  VarWithType arg_binder = 6;
+
+  // Return type of the choice.
+  Type ret_type = 8;
+
+  // Follow-up update of the choice. It has type `Update <ret_type>` and both
+  // the template parameter and the choice parameter in scope.
+  Expr update = 9;
+
+  // *Must be a valid interned identifier*
+  int32 self_binder_interned_str = 10;
+
+
+  // The optional authorizers of the choice. When present they have type `List Party`.
+  // When missing, we assume the default value: template-signatories + choice-cotrollers.
+  Expr authorizers = 1001; // *Available in versions >= 2.dev*
+
+}
+
+  // Contents of an interface instance.
+message InterfaceInstanceBody {
+
+  message InterfaceInstanceMethod {
+    int32 method_interned_name = 1;
+    Expr value = 2;
+  }
+
+  repeated InterfaceInstanceMethod methods = 1;
+  Expr view = 2;
+}
+
+// Contract template definition
+message DefTemplate {
+
+  message DefKey {
+    Type type = 1;
+    Expr key_expr = 4;
+    Expr maintainers = 3; // a function from the key type to [Party]
+  }
+
+  // An interface instance defined in this template.
+  message Implements {
+    TypeConName interface = 1;
+    InterfaceInstanceBody body = 2;
+    Location location = 3;
+  }
+
+  // The type constructor for the template, acting as both
+  // the name of the template and the type of the template argument.
+  // *Must be a valid interned name*
+  int32 tycon_interned_dname = 1;
+
+  // *Must be a valid interned identifier*
+  int32 param_interned_str = 2;
+
+  // Pre-condition that the template argument must satisfy.
+  // When present, it has type `Bool` and the template parameter in scope.
+  // *Optional*, interpreted as 'True' if undefined
+  Expr precond = 3;
+
+  // The signatories of the contract. They have type `List Party` and the
+  // template parameter in scope.
+  Expr signatories = 4;
+
+  // The agreement text associated with the contract. It has type `Text` and
+  // the template parameter in scope.
+  Expr agreement = 5;
+
+  // The choices available in the resulting contract.
+  repeated TemplateChoice choices = 6;
+
+  // The observers of the contract. They have type `List Party` and the
+  // template parameter in scope.
+  Expr observers = 7;
+
+  Location location = 8;
+
+  // The key definition for the template, if present
+  DefKey key = 9; // optional
+
+  // Interface instances defined in this template.
+  repeated Implements implements = 10;
+}
+
+// Interface method definition.
+// *Available in versions >= 1.15*
+message InterfaceMethod {
+  Location location = 1;
+  int32 method_interned_name = 2;
+  Type type = 3;
+}
+
+// Interface definition.
+// *Available in versions >= 1.15*
+message DefInterface {
+
+  Location location = 1;
+  int32 tycon_interned_dname = 2;
+  repeated InterfaceMethod methods = 3;
+
+  // Binder for interface value ("this") in precond and fixed choices.
+  int32 param_interned_str = 4;
+
+  repeated TemplateChoice choices = 5;
+
+  // View type for this interface
+  Type view = 6;
+
+  repeated TypeConName requires = 7;
+}
+
+// Exception definition
+message DefException {
+  // *Must be a valid interned dotted name*
+  int32 name_interned_dname = 1;
+  Location location = 2;
+  Expr message = 3;
+}
+
+// Data type definition
+message DefDataType {
+  message Fields {
+    repeated FieldWithType fields = 1;
+  }
+
+  message EnumConstructors {
+    // *Must be a list of valid interned identifiers*
+    repeated int32 constructors_interned_str = 2;
+  }
+
+  Location location = 1;
+
+  // name of the defined data type
+  // *Must be a valid interned name*
+  int32 name_interned_dname = 2;
+
+  // type parameters
+  // *Must be empty if enum field is set*
+  repeated TypeVarWithKind params = 3;
+
+  // If true, this data type preserves serializability in the sense that when
+  // all parameters are instantiated with serializable types (of kind '*'),
+  // then the resulting type is serializable as well.
+  // This flag is used to simplify package validation by not requiring an
+  // inference but only a check. Such a check must validate that this flag is
+  // set correctly and that template and choice argument and result types
+  // have this flag set to true.
+  bool serializable = 4;
+
+  oneof DataCons {
+    Fields record = 5; // Records without fields are explicitly allowed.
+    Fields variant = 6; // Variants without constructors are explicitly allowed.
+    EnumConstructors enum = 7;
+    Unit interface = 8; // Interfaces are special, they can't be represented as records or variants.
+  }
+
+}
+
+// Type synonym definition
+// *Available in versions >= 1.8*
+message DefTypeSyn {
+  Location location = 1;
+  // name of the defined type synonym
+  // *Must be a valid interned name*
+  int32 name_interned_dname = 2;
+  // type parameters
+  repeated TypeVarWithKind params = 3;
+  Type type = 4;
+}
+
+// Value definition
+message DefValue {
+  // The reason why we have this type instead of just flattening name
+  // and type in DefValue is that it was VarWithType before, and we
+  // want to be binary-compatible with it.
+  message NameWithType {
+    // *Must be a valid interned name*
+    int32 name_interned_dname = 1; // *Available in versions >= 1.7*
+    // Type of the value
+    Type type = 2;
+  }
+
+  Location location = 1;
+
+  NameWithType name_with_type = 2;
+
+  Expr expr = 3;
+
+  bool is_test = 1000; // *Available in versions >= 2.dev*
+}
+
+message FeatureFlags {
+  bool forbidPartyLiterals = 1;
+  bool dontDivulgeContractIdsInCreateArguments = 2;
+  bool dontDiscloseNonConsumingChoicesToObservers = 3;
+}
+
+message Module {
+
+  int32 name_interned_dname = 1;
+  FeatureFlags flags = 2;
+  repeated DefTypeSyn synonyms = 3;
+  repeated DefDataType data_types = 4;
+  repeated DefValue values = 5;
+  repeated DefTemplate templates = 6;
+  repeated DefException exceptions = 7;
+  repeated DefInterface interfaces = 8;
+}
+
+message InternedDottedName {
+  repeated int32 segments_interned_str = 1;
+}
+
+message UpgradedPackageId {
+  int32 upgraded_package_id_interned_str = 1;
+}
+
+message PackageMetadata {
+  int32 name_interned_str = 1;
+  int32 version_interned_str = 2;
+  UpgradedPackageId upgraded_package_id = 3; // *optional*
+}
+
+message Package {
+  repeated Module modules = 1;
+  repeated string interned_strings = 2;
+  repeated InternedDottedName interned_dotted_names = 3;
+  PackageMetadata metadata = 4;
+
+  // Types in the interning table are only allowed to refer to interned types
+  // at smaller indices.
+  repeated Type interned_types = 5;
+}

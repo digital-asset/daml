@@ -1,0 +1,1208 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE InstanceSigs #-}
+
+module Daml.Script
+  ( Script
+  , submit
+  , submitMustFail
+  , submitMulti
+  , submitMultiMustFail
+  , submitWithDisclosures
+  , submitWithDisclosuresMustFail
+  , submitMultiWithDisclosures
+  , submitMultiWithDisclosuresMustFail
+  , submitTree
+  , submitTreeMulti
+  , query
+  , queryInterface
+  , queryContractId
+  , queryDisclosure
+  , queryInterfaceContractId
+  , queryContractKey
+  , queryFilter
+  , PartyIdHint (..)
+  , ParticipantName (..)
+  , PartyDetails(..)
+  , allocateParty
+  , allocatePartyWithHint
+  , allocatePartyOn
+  , allocatePartyWithHintOn
+  , listKnownParties
+  , listKnownPartiesOn
+  , Commands
+  , Disclosure
+  , createCmd
+  , exerciseCmd
+  , exerciseByKeyCmd
+  , createAndExerciseCmd
+  , archiveCmd
+  , internalCreateCmd
+  , internalExerciseCmd
+  , internalExerciseByKeyCmd
+  , internalCreateAndExerciseCmd
+  , getTime
+  , setTime
+  , passTime
+  , sleep
+  , script
+  , TransactionTree(..)
+  , TreeEvent(..)
+  , Created(..)
+  , Exercised(..)
+  , TreeIndex
+  , fromTree
+  , created
+  , createdN
+  , exercised
+  , exercisedN
+  , AnyContractId
+  , fromAnyContractId
+
+  , UserId
+  , InvalidUserId(..)
+  , UserAlreadyExists(..)
+  , UserNotFound(..)
+  , User(..)
+  , UserRight(..)
+  , userIdToText
+  , validateUserId
+  , createUser
+  , createUserOn
+  , getUser
+  , getUserOn
+  , deleteUser
+  , deleteUserOn
+  , listAllUsers
+  , listAllUsersOn
+  , grantUserRights
+  , grantUserRightsOn
+  , revokeUserRights
+  , revokeUserRightsOn
+  , listUserRights
+  , listUserRightsOn
+  , submitUser
+  , submitUserOn
+  ) where
+
+#ifdef DAML_EXCEPTIONS
+import DA.Bifunctor
+import DA.Exception
+#endif
+import DA.Functor
+import DA.NonEmpty (NonEmpty(..))
+import DA.List.Total
+import DA.Optional
+import DA.Stack
+import DA.Time
+import Daml.Script.Free (Free(..))
+
+-- | A free applicative, since we don’t have existentials we have to use the weird RankNTypes encoding, this is isomorphic to
+-- forall b. Ap (f b) (Ap f (b -> a))
+data Ap f a
+  = PureA a
+  | Ap (forall r. (forall b. f b -> Ap f (b -> a) -> r) -> r)
+
+instance Functor (Ap f) where
+  fmap f (PureA x) = PureA (f x)
+  fmap f (Ap c) = Ap (\c' -> c (\a b -> c' a (fmap (f .) b)))
+
+instance Applicative (Ap f) where
+  pure = PureA
+  PureA f <*> x = fmap f x
+  Ap c <*> x = Ap (\c' -> c (\a b -> c' a (flip <$> b <*> x)))
+
+data CommandsF a
+  = Create { argC : AnyTemplate, continueC : ContractId () -> a }
+  | Exercise { tplId : TemplateTypeRep, cId : ContractId (), argE : AnyChoice, continueE : LedgerValue -> a }
+  | ExerciseByKey { tplId : TemplateTypeRep, keyE : AnyContractKey, argE : AnyChoice, continueE : LedgerValue -> a }
+  | CreateAndExercise { tplArgCE : AnyTemplate, choiceArgCE : AnyChoice, continueE : LedgerValue -> a }
+  deriving Functor
+
+-- | This is used to build up the commands send as part of `submit`.
+-- If you enable the `ApplicativeDo` extension by adding
+-- `{-# LANGUAGE ApplicativeDo #-}` at the top of your file, you can
+-- use `do`-notation but the individual commands must not depend
+-- on each other and the last statement in a `do` block
+-- must be of the form ``return expr`` or ``pure expr``.
+newtype Commands a = Commands (Ap CommandsF a)
+  deriving (Functor, Applicative)
+
+data Disclosure = Disclosure with
+   templateId: TemplateTypeRep
+   contractId : ContractId ()
+   blob: Text
+ deriving (Eq, Ord)
+
+data ScriptF a
+  = Submit (SubmitCmd a)
+  | SubmitMustFail (SubmitMustFailCmd a)
+  | SubmitTree (SubmitTreePayload a)
+  | Query (QueryACS a)
+  | QueryContractId (QueryContractIdPayload a)
+  | QueryInterface (QueryInterfacePayload a)
+  | QueryInterfaceContractId (QueryInterfaceContractIdPayload a)
+  | QueryContractKey (QueryContractKeyPayload a)
+  | AllocParty (AllocateParty a)
+  | ListKnownParties (ListKnownPartiesPayload a)
+  | GetTime (GetTimePayload a)
+  | SetTime (SetTimePayload a)
+  | Sleep (SleepRec a)
+  | ValidateUserId (ValidateUserIdPayload a)
+  | CreateUser (CreateUserPayload a)
+  | GetUser (GetUserPayload a)
+  | DeleteUser (DeleteUserPayload a)
+  | ListAllUsers (ListAllUsersPayload a)
+  | GrantUserRights (GrantUserRightsPayload a)
+  | RevokeUserRights (RevokeUserRightsPayload a)
+  | ListUserRights (ListUserRightsPayload a)
+#ifdef DAML_EXCEPTIONS
+  | Catch (CatchPayload LedgerValue a)
+  | Throw ThrowPayload
+#endif
+  | QueryDisclosure (QueryDisclosurePayload a)
+  deriving Functor
+
+-- `(try x catch f) >>= g` roughly translates to
+-- CatchPayload with
+--   act = \() -> x
+--   handle = f
+--   continue = g
+data CatchPayload x a = CatchPayload
+  with
+    -- TODO(MA): simplify to `act : () -> Free ScriptF x`
+    act : () -> Free ScriptF (Free ScriptF x, ())
+    handle : AnyException -> Optional (Free ScriptF x)
+    continue : Free ScriptF x -> a
+  deriving Functor
+
+-- This wraps a `CatchPayload` whose inner action returns an `x` into an
+-- existential - we forget what `x` was.
+castCatchPayload : CatchPayload x a -> CatchPayload LedgerValue a
+castCatchPayload = error "foobar" -- gets replaced by the identity-function in script/Runner.scala
+
+data ThrowPayload = ThrowPayload
+  with
+    exc: AnyException
+
+instance ActionThrow Script where
+  throw e = lift (Free (Throw (ThrowPayload (toAnyException e))))
+
+instance ActionCatch Script where
+  _tryCatch : forall t. (() -> Script t) -> (AnyException -> Optional (Script t)) -> Script t
+  _tryCatch act handle = lift $ Free $ Catch $ castCatchPayload payload
+    where
+      payload : CatchPayload t (Free ScriptF t)
+      payload = CatchPayload with
+        act = \() -> fmap (first pure) $ runScript (act ()) ()
+        handle = \e -> fmap (\s -> fmap fst $ runScript s ()) (handle e)
+        continue = identity
+#endif
+
+data QueryACS a = QueryACS
+  { parties : [Party]
+  , tplId : TemplateTypeRep
+  , continue : [(ContractId (), AnyTemplate)] -> a
+  , locations : [(Text, SrcLoc)]
+  } deriving Functor
+
+-- | Query the set of active contracts of the template
+-- that are visible to the given party.
+query : forall t p. (Template t, HasEnsure t, IsParties p) => p -> Script [(ContractId t, t)]
+-- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+query p = lift $ Free $ Query QueryACS with
+  parties = toParties p
+  tplId = templateTypeRep @t
+  continue = pure . map (\(cid, tpl) -> (coerceContractId cid, fromSome $ fromAnyTemplate tpl))
+  locations = getCallStack callStack
+
+-- | Query the set of active contracts of the template
+-- that are visible to the given party and match the given predicate.
+queryFilter : (Template c, HasEnsure c, IsParties p) => p -> (c -> Bool) -> Script [(ContractId c, c)]
+-- The 'HasEnsure c' constraint prevents this function from being used on interface types.
+queryFilter p f = filter (\(_, c) -> f c) <$> query p
+
+data QueryContractIdPayload a = QueryContractIdPayload
+  { parties : [Party]
+  , tplId : TemplateTypeRep
+  , cid : ContractId ()
+  , continue : Optional AnyTemplate -> a
+  , locations : [(Text, SrcLoc)]
+  } deriving Functor
+
+-- | Query for the contract with the given contract id.
+--
+-- Returns `None` if there is no active contract the party is a stakeholder on.
+--
+-- WARNING: Over the gRPC and with the JSON API
+-- in-memory backend this performs a linear search so only use this if the number of
+-- active contracts is small.
+--
+-- This is semantically equivalent to calling `query`
+-- and filtering on the client side.
+queryContractId : forall t p. (Template t, HasEnsure t, IsParties p) => HasCallStack => p -> ContractId t -> Script (Optional t)
+-- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+queryContractId p c = lift $ Free $ QueryContractId QueryContractIdPayload with
+  parties = toParties p
+  tplId = templateTypeRep @t
+  cid = coerceContractId c
+  continue = pure . fmap (fromSome . fromAnyTemplate)
+  locations = getCallStack callStack
+
+data QueryInterfacePayload a = QueryInterfacePayload
+  { parties : [Party]
+  , interfaceId : TemplateTypeRep
+  , continue : [LedgerValue] -> a
+  , locations : [(Text, SrcLoc)]
+  } deriving Functor
+
+-- | Query the set of active contract views for an interface
+-- that are visible to the given party.
+-- If the view function fails for a given contract id, The `Optional v` will be `None`.
+--
+-- WARNING: Information about instances with failed-views is not currently returned over the JSON API: the `Optional v` will be `Some _` for every element in the returned list.
+queryInterface : forall i v p. (Template i, HasInterfaceView i v, IsParties p) => p -> Script [(ContractId i, Optional v)]
+queryInterface p = lift $ Free $ QueryInterface QueryInterfacePayload with
+  parties = toParties p
+  interfaceId = templateTypeRep @i
+  continue = pure . map (fromLedgerValue @(ContractId i, Optional v))
+  locations = getCallStack callStack
+
+data QueryInterfaceContractIdPayload a = QueryInterfaceContractIdPayload
+  { parties : [Party]
+  , interfaceId : TemplateTypeRep
+  , cid : ContractId ()
+  , continue : Optional LedgerValue -> a
+  , locations : [(Text, SrcLoc)]
+  } deriving Functor
+
+-- | Query for the contract view with the given contract id.
+--
+-- Returns `None` if there is no active contract the party is a stakeholder on.
+--
+-- Returns `None` if the view function fails for the given contract id.
+--
+-- WARNING: Over the gRPC and with the JSON API
+-- in-memory backend this performs a linear search so only use this if the number of
+-- active contracts is small.
+--
+-- This is semantically equivalent to calling `queryInterface`
+-- and filtering on the client side.
+queryInterfaceContractId : forall i v p. (Template i, HasInterfaceView i v, IsParties p) => HasCallStack => p -> ContractId i -> Script (Optional v)
+queryInterfaceContractId p c = lift $ Free $ QueryInterfaceContractId QueryInterfaceContractIdPayload with
+  parties = toParties p
+  interfaceId = templateTypeRep @i
+  cid = coerceContractId c
+  continue = pure . fmap (fromLedgerValue @ v)
+  locations = getCallStack callStack
+
+data QueryDisclosurePayload a = QueryDisclosurePayload
+  { parties : [Party]
+  , tplId : TemplateTypeRep
+  , cid : ContractId ()
+  , continue : Optional (TemplateTypeRep, Text) -> a
+  , locations : [(Text, SrcLoc)]
+  } deriving Functor
+
+-- | like by queryContractId but return the contract as a explicit disclosure blob
+--
+-- WARNING: Over the gRPC this performs a linear search so only use this if the number of
+-- active contracts is small.
+-- Not supported by JSON API
+queryDisclosure : forall t p. (Template t, HasEnsure t, IsParties p) => HasCallStack => p -> ContractId t -> Script (Optional Disclosure)
+-- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+queryDisclosure p c = lift $ Free $ QueryDisclosure QueryDisclosurePayload with
+    parties = toParties p
+    tplId = templateTypeRep @t
+    cid = cid
+    continue = pure . fmap \(actualTplId, blob) -> Disclosure actualTplId cid blob
+    locations = getCallStack callStack
+  where
+    tplId = templateTypeRep @t
+    cid = coerceContractId c
+
+data QueryContractKeyPayload a = QueryContractKeyPayload
+  { parties : [Party]
+  , tplId : TemplateTypeRep
+  , key : AnyContractKey
+  , continue : Optional (ContractId (), AnyTemplate) -> a
+  , locations : [(Text, SrcLoc)]
+  } deriving Functor
+
+-- | Returns `None` if there is no active contract with the given key that
+-- the party is a stakeholder on.
+--
+-- WARNING: Over the gRPC and with the JSON API
+-- in-memory backend this performs a linear search so only use this if the number of
+-- active contracts is small.
+--
+-- This is semantically equivalent to calling `query`
+-- and filtering on the client side.
+queryContractKey : forall t k p. HasCallStack => (TemplateKey t k, IsParties p) => p -> k -> Script (Optional (ContractId t, t))
+queryContractKey p k = lift $ Free $ QueryContractKey QueryContractKeyPayload with
+  parties = toParties p
+  tplId = templateTypeRep @t
+  key = toAnyContractKey @t k
+  continue = pure . fmap (\(cid, anyTpl) -> (coerceContractId cid, fromSome (fromAnyTemplate anyTpl)))
+  locations = getCallStack callStack
+
+data SetTimePayload a = SetTimePayload
+  with
+    time : Time
+    continue : () -> a
+    locations : [(Text, SrcLoc)]
+  deriving Functor
+
+-- | Set the time via the time service.
+--
+-- This is only supported in Daml Studio and `daml test` as well as
+-- when running over the gRPC API against a ledger in static time mode.
+--
+-- Note that the ledger time service does not support going backwards in time.
+-- However, you can go back in time in Daml Studio.
+setTime : HasCallStack => Time -> Script ()
+setTime time = lift $ Free $ SetTime $ SetTimePayload with
+  time
+  continue = pure
+  locations = getCallStack callStack
+
+-- | Advance ledger time by the given interval.
+--
+-- This is only supported in Daml Studio and `daml test` as well as
+-- when running over the gRPC API against a ledger in static time mode.
+-- Note that this is not an atomic operation over the
+-- gRPC API so no other clients should try to change time while this is
+-- running.
+--
+-- Note that the ledger time service does not support going backwards in time.
+-- However, you can go back in time in Daml Studio.
+passTime : RelTime -> Script ()
+passTime rt = do
+  t <- getTime
+  setTime (addRelTime t rt)
+
+data AllocateParty a = AllocateParty
+  { displayName : Text
+  , idHint : Text
+  , participant : Optional Text
+  , continue : Party -> a
+  , locations : [(Text, SrcLoc)]
+  } deriving Functor
+
+data ListKnownPartiesPayload a = ListKnownPartiesPayload
+  { participant : Optional Text
+  , continue : [PartyDetails] -> a
+  , locations : [(Text, SrcLoc)]
+  } deriving Functor
+
+data SleepRec a = SleepRec
+  { duration : RelTime
+  , continue : () -> a
+  , locations : [(Text, SrcLoc)]
+  } deriving Functor
+
+-- | A hint to the backing participant what party id to allocate.
+-- Must be a valid PartyIdString (as described in @value.proto@).
+newtype PartyIdHint = PartyIdHint { partyIdHint : Text }
+
+newtype ParticipantName = ParticipantName { participantName : Text }
+
+-- | Allocate a party with the given display name
+-- using the party management service.
+allocateParty : HasCallStack => Text -> Script Party
+allocateParty displayName = lift $ Free $ AllocParty $ AllocateParty with
+  displayName
+  idHint = ""
+  participant = None
+  continue = pure
+  locations = getCallStack callStack
+
+-- | Allocate a party with the given display name and id hint
+-- using the party management service.
+allocatePartyWithHint : HasCallStack => Text -> PartyIdHint -> Script Party
+allocatePartyWithHint displayName (PartyIdHint idHint) = lift $ Free $ AllocParty $ AllocateParty with
+  displayName
+  idHint = idHint
+  participant = None
+  continue = pure
+  locations = getCallStack callStack
+
+-- | Allocate a party with the given display name
+-- on the specified participant using the party management service.
+allocatePartyOn : Text -> ParticipantName -> Script Party
+allocatePartyOn displayName (ParticipantName participant) = lift $ Free $ AllocParty $ AllocateParty with
+  displayName
+  idHint = ""
+  participant = Some participant
+  continue = pure
+  locations = getCallStack callStack
+
+-- | Allocate a party with the given display name and id hint
+-- on the specified participant using the party management service.
+allocatePartyWithHintOn : Text -> PartyIdHint -> ParticipantName -> Script Party
+allocatePartyWithHintOn displayName (PartyIdHint idHint) (ParticipantName participant) = lift $ Free $ AllocParty $ AllocateParty with
+  displayName
+  idHint = idHint
+  participant = Some participant
+  continue = pure
+  locations = getCallStack callStack
+
+-- | List the parties known to the default participant.
+listKnownParties : HasCallStack => Script [PartyDetails]
+listKnownParties =
+  lift $ Free $ ListKnownParties $ ListKnownPartiesPayload with
+    participant = None
+    continue = pure
+    locations = getCallStack callStack
+
+-- | List the parties known to the given participant.
+listKnownPartiesOn : HasCallStack => ParticipantName -> Script [PartyDetails]
+listKnownPartiesOn (ParticipantName participant) =
+  lift $ Free $ ListKnownParties $ ListKnownPartiesPayload with
+    participant = Some participant
+    continue = pure
+    locations = getCallStack callStack
+
+-- | The party details returned by the party management service.
+data PartyDetails = PartyDetails
+  with
+    party : Party -- ^ Party id
+    displayName : Optional Text -- ^ Optional display name
+    isLocal : Bool -- ^ True if party is hosted by the backing participant.
+  deriving (Eq, Ord, Show)
+
+-- | In wallclock mode, this is the current UTC time both over gRPC and over the JSON API.
+--
+-- In static time mode over gRPC, this will
+-- query the ledger time service for the current time when running over
+-- gRPC.
+--
+-- In static time mode over the JSON API, it will always
+-- return the Unix epoch.
+instance HasTime Script where
+  getTime = lift $ Free $ GetTime GetTimePayload with
+    continue = pure
+    locations = getCallStack callStack
+
+data GetTimePayload a = GetTimePayload
+  with
+    continue : Time -> a
+    locations : [(Text, SrcLoc)]
+  deriving Functor
+
+-- | Sleep for the given duration.
+--
+-- This is primarily useful in tests
+-- where you repeatedly call `query` until a certain state is reached.
+--
+-- Note that this will sleep for the same duration in both wall clock and static time mode.
+sleep : HasCallStack => RelTime -> Script ()
+sleep duration = lift $ Free $Sleep SleepRec with
+  duration = duration
+  continue = pure
+  locations = getCallStack callStack
+
+data SubmitFailure = SubmitFailure
+  { status : Int
+  , description : Text
+  }
+
+-- | Details of the @submit@ command.
+--
+-- The @handleFailure@ field is kept on @submit@ for backwards compatibility.
+-- Older versions of the SDK didn't distinguish @Submit@ and
+-- @SubmitMustFail@ in the script runner.
+-- We stub it out to () for newer versions so we can easily
+-- check if it needs to be called for failures or not.
+data SubmitCmd a = SubmitCmd
+  with
+    actAs : NonEmpty Party
+    readAs : [Party]
+    commands : Commands a
+    handleFailure : ()
+    locations : [(Text, SrcLoc)]
+    disclosures: [Disclosure]
+  deriving Functor
+
+-- | Details of the @submitMustFail@ command.
+data SubmitMustFailCmd a = SubmitMustFailCmd
+  with
+    actAs : NonEmpty Party
+    readAs : [Party]
+    commands : Commands a
+    continue : () -> a
+    locations : [(Text, SrcLoc)]
+    disclosures: [Disclosure]
+  deriving Functor
+
+-- | Submit the commands as a single transaction.
+
+-- This will error if the submission fails.
+
+submit : HasCallStack => Party -> Commands a -> Script a
+submit p cmds =
+    lift $ Free $ fmap pure $ Submit $ SubmitCmd with
+      actAs = NonEmpty p []
+      readAs = []
+      commands = cmds
+      handleFailure = ()
+      locations = getCallStack callStack
+      disclosures = []
+
+submitMustFail : HasCallStack => Party -> Commands a -> Script ()
+submitMustFail p cmds =
+    lift $ Free $ fmap pure $ SubmitMustFail $ SubmitMustFailCmd with
+      actAs = NonEmpty p []
+      readAs = []
+      commands = void cmds
+      continue = const ()
+      locations = getCallStack callStack
+      disclosures = []
+
+-- | `submitWithDisclosures p disc cmds` submits the commands `cmds` as a single transaction
+-- from party `p` with the explicit disclosures `disc` and returns the value returned by `cmds`.
+-- If the transaction fails, `submit` also fails.
+submitWithDisclosures : HasCallStack => Party -> [Disclosure] -> Commands a -> Script a
+submitWithDisclosures p disc cmds =
+    lift $ Free $ fmap pure $ Submit $ SubmitCmd with
+      actAs = NonEmpty p []
+      readAs = []
+      commands = cmds
+      handleFailure = ()
+      locations = getCallStack callStack
+      disclosures = disc
+
+-- | `submitWithDisclosures p disc cmds` submits the commands `cmds` as a single transaction
+-- from party `p` with the explicit disclosures `disc`
+-- It only succeeds if the submitting the transaction fails.
+submitWithDisclosuresMustFail : HasCallStack => Party -> [Disclosure] -> Commands a -> Script ()
+submitWithDisclosuresMustFail p disc cmds =
+    lift $ Free $ fmap pure $ SubmitMustFail $ SubmitMustFailCmd with
+      actAs = NonEmpty p []
+      readAs = []
+      commands = void cmds
+      continue = const ()
+      locations = getCallStack callStack
+      disclosures = disc
+
+-- There are a few different options for passing the parties here:
+--
+-- 1. NonEmpty Party -> [Party] -> …
+--    This is the safest one but it’s rather awkward to use since NonEmpty is
+--    long and fairly uncommon. Given that Daml Script is primarily used during
+--    testing and development, the extra safety is also not that crucial.
+--    It is also different from signatories which also needs to be nonempty but
+--    does not enforce this statically.
+-- 2. (IsParties p1, IsParties p2) => p1 -> p2 -> …
+--    This leads to type inference problems if you use empty lists which is super common
+--    for readAs.
+-- 3. (IsParties p1) => p1 -> [Party] -> …
+--    clearly inconsistent but better type inference since actAs must be non-empty.
+-- 4. [Party] -> [Party] -> …
+--    concise, good type inference but runtime error.
+--
+-- In the end, we chose 4.
+
+actAsNonEmpty : [Party] -> NonEmpty Party
+actAsNonEmpty ps = case toParties ps of
+  [] -> error "actAs must be non-empty"
+  p :: ps -> NonEmpty p ps
+
+-- | `submitMulti actAs readAs cmds` submits `cmds` as a single transaction
+-- authorized by `actAs`. Fetched contracts must be visible to at least
+-- one party in the union of actAs and readAs.
+submitMulti : HasCallStack => [Party] -> [Party] -> Commands a -> Script a
+submitMulti actAs readAs cmds =
+    lift $ Free $ fmap pure $ Submit $ SubmitCmd with
+      actAs = actAsNonEmpty actAs
+      readAs = toParties readAs
+      commands = cmds
+      handleFailure = ()
+      locations = getCallStack callStack
+      disclosures = []
+
+-- | `submitMultiMustFail actAs readAs cmds` behaves like `submitMulti actAs readAs cmds`
+-- but fails when `submitMulti` succeeds and the other way around.
+submitMultiMustFail : HasCallStack => [Party] -> [Party] -> Commands a -> Script ()
+submitMultiMustFail actAs readAs cmds =
+    lift $ Free $ fmap pure $ SubmitMustFail $ SubmitMustFailCmd with
+      actAs = actAsNonEmpty actAs
+      readAs = toParties readAs
+      commands = void cmds
+      continue = const ()
+      locations = getCallStack callStack
+      disclosures = []
+
+-- | `submitMultiWithDisclosures actAs readAs disc cmds` submits `cmds` as a single
+-- transaction authorized by `actAs` with explicit disclosures `disc` . Fetched
+-- contracts, except explicit disclosed ones, must be visible to at least one party in
+-- the union of actAs and readAs.
+submitMultiWithDisclosures : HasCallStack => [Party] -> [Party] -> [Disclosure] -> Commands a -> Script a
+submitMultiWithDisclosures actAs readAs disc cmds =
+    lift $ Free $ fmap pure $ Submit $ SubmitCmd with
+      actAs = actAsNonEmpty actAs
+      readAs = toParties readAs
+      commands = cmds
+      handleFailure = ()
+      locations = getCallStack callStack
+      disclosures = disc
+
+-- | `submitMultiWithDisclosuresMustFail actAs readAs disc cmds` behaves like
+-- `submitMultiWithDisclosures actAs readAs disc cmds` but fails when `submitMulti`
+-- succeeds and the other way around.
+submitMultiWithDisclosuresMustFail : HasCallStack => [Party] -> [Party] -> [Disclosure] -> Commands a -> Script ()
+submitMultiWithDisclosuresMustFail actAs readAs disc cmds =
+    lift $ Free $ fmap pure $ SubmitMustFail $ SubmitMustFailCmd with
+      actAs = actAsNonEmpty actAs
+      readAs = toParties readAs
+      commands = void cmds
+      continue = const ()
+      locations = getCallStack callStack
+      disclosures = disc
+
+
+-- | This is the type of A Daml script. `Script` is an instance of `Action`,
+-- so you can use `do` notation.
+data Script a = Script with
+    runScript : () -> (Free ScriptF (a, ()))
+    -- We use an inlined StateT () to separate evaluation of
+    -- something of type Script from execution and to ensure
+    -- proper sequencing of evaluation. This is mainly so that `debug` does something
+    -- slightly more sensible.
+    dummy : ()
+    -- Dummy field to make sure damlc does not consider this an old-style
+    -- typeclass.
+  deriving Functor
+
+instance CanAbort Script where
+  abort s = Script (\_ -> error s) ()
+
+instance ActionFail Script where
+  fail = abort
+
+instance CanAssert Script where
+#ifdef DAML_EXCEPTIONS
+  assertFail m = throw (AssertionFailed m)
+#else
+  assertFail = abort
+#endif
+
+data LedgerValue = LedgerValue {}
+
+fromLedgerValue : LedgerValue -> a
+fromLedgerValue = error "foobar" -- gets replaced by the identity-function in script/Runner.scala
+
+-- | HIDE A version of 'createCmd' without constraints.
+--
+-- This is used for Daml ledger exports involving contracts defined in Daml-LF 1.6 or 1.7.
+internalCreateCmd : AnyTemplate -> Commands (ContractId t)
+internalCreateCmd arg = Commands $ Ap (\f -> f (Create arg identity) (pure coerceContractId))
+
+-- | HIDE A version of 'exerciseCmd' without constraints.
+--
+-- This is used for Daml ledger exports involving contracts defined in Daml-LF 1.6 or 1.7.
+internalExerciseCmd : forall r. TemplateTypeRep -> ContractId () -> AnyChoice -> Commands r
+internalExerciseCmd tplTypeRep cId arg = Commands $ Ap (\f -> f (Exercise tplTypeRep cId arg identity) (pure (fromLedgerValue @r)))
+
+-- | HIDE A version of 'exerciseByKeyCmd' without constraints.
+--
+-- This is used for Daml ledger exports involving contracts defined in Daml-LF 1.6 or 1.7.
+internalExerciseByKeyCmd : forall r. TemplateTypeRep -> AnyContractKey -> AnyChoice -> Commands r
+internalExerciseByKeyCmd tplTypeRep key arg = Commands $ Ap (\f -> f (ExerciseByKey tplTypeRep key arg identity) (pure (fromLedgerValue @r)))
+
+-- | HIDE A version of 'createAndExerciseCmd' without constraints.
+--
+-- This is used for Daml ledger exports involving contracts defined in Daml-LF 1.6 or 1.7.
+internalCreateAndExerciseCmd : forall r. AnyTemplate -> AnyChoice -> Commands r
+internalCreateAndExerciseCmd tplArg choiceArg = Commands $ Ap (\f -> f (CreateAndExercise tplArg choiceArg identity) (pure (fromLedgerValue @r)))
+
+-- | Create a contract of the given template.
+createCmd : (Template t, HasEnsure t) => t -> Commands (ContractId t)
+-- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+createCmd arg = internalCreateCmd (toAnyTemplate arg)
+
+-- | Exercise a choice on the given contract.
+exerciseCmd : forall t c r. Choice t c r => ContractId t -> c -> Commands r
+exerciseCmd cId arg = internalExerciseCmd (templateTypeRep @t) (coerceContractId cId) (toAnyChoice @t arg)
+
+-- | Exercise a choice on the contract with the given key.
+exerciseByKeyCmd : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> Commands r
+exerciseByKeyCmd key arg = internalExerciseByKeyCmd (templateTypeRep @t) (toAnyContractKey @t key) (toAnyChoice @t arg)
+
+-- | Create a contract and exercise a choice on it in the same transaction.
+createAndExerciseCmd : forall t c r. (Template t, Choice t c r, HasEnsure t) => t -> c -> Commands r
+-- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+createAndExerciseCmd tplArg choiceArg = internalCreateAndExerciseCmd (toAnyTemplate tplArg) (toAnyChoice @t choiceArg)
+
+-- | Archive the given contract.
+--
+-- `archiveCmd cid` is equivalent to `exerciseCmd cid Archive`.
+archiveCmd : Choice t Archive () => ContractId t -> Commands ()
+archiveCmd cid = exerciseCmd cid Archive
+
+instance Applicative Script where
+    pure a = Script (\s -> return (a, s)) ()
+
+    Script mf _ <*> Script mx _ = Script with
+      runScript = \ s -> do
+        (f, s') <- mf s
+        (x, s'') <- mx s'
+        return (f x, s'')
+      dummy = ()
+
+instance Action Script where
+    m >>= k  = Script with
+      runScript = \ s -> do
+        (a, s') <- runScript m s
+        runScript (k a) s'
+      dummy = ()
+
+lift : Free ScriptF a -> Script a
+lift m = Script with
+  runScript = \s -> do
+    a <- m
+    pure (a, s)
+  dummy = ()
+
+-- | Convenience helper to declare you are writing a Script.
+--
+-- This is only useful for readability and to improve type inference.
+-- Any expression of type `Script a` is a valid script regardless of whether
+-- it is implemented using `script` or not.
+script : Script a -> Script a
+script = identity
+
+-- | HIDE This is an early access feature.
+data TransactionTree = TransactionTree
+  with
+    rootEvents: [TreeEvent]
+  deriving Show
+
+-- | HIDE This is an early access feature.
+data TreeEvent
+  = CreatedEvent Created
+  | ExercisedEvent Exercised
+  deriving Show
+
+-- | HIDE This is an early access feature.
+data Created = Created
+  with
+    contractId : AnyContractId
+    argument : AnyTemplate
+
+-- | Custom Show instance since we cannot show AnyTemplate
+instance Show Created where
+  showsPrec d (Created contractId _) =
+    showString "Created {" .
+    showString "contractId = " .
+    showsPrec 0 contractId .
+    showString "}"
+
+-- | HIDE This is an early access feature.
+data Exercised = Exercised
+  with
+    contractId : AnyContractId
+    choice : Text
+    argument : AnyChoice
+    childEvents: [TreeEvent]
+
+-- | Custom Show instance since we cannot
+-- show AnyChoice.
+instance Show Exercised where
+  showsPrec d (Exercised cid choice _arg childEvents) =
+    showString "Exercised {" .
+    showString "contractId = " .
+    showsPrec 0 cid .
+    showCommaSpace .
+    showString "choice = " .
+    showsPrec 0 choice .
+    showCommaSpace .
+    showString "childEvents = " .
+    showsPrec 0 childEvents .
+    showString "}"
+
+-- | HIDE This is an early access feature.
+data TreeIndex t
+  = CreatedIndex (CreatedIndexPayload t)
+  | ExercisedIndex (ExercisedIndexPayload t)
+
+-- | HIDE This is an early access feature.
+data CreatedIndexPayload t = CreatedIndexPayload
+  with
+    templateId : TemplateTypeRep
+    offset : Int
+
+-- | HIDE This is an early access feature.
+data ExercisedIndexPayload t = ExercisedIndexPayload
+  with
+    templateId : TemplateTypeRep
+    choice : Text
+    offset : Int
+    child : TreeIndex t
+
+-- | HIDE This is an early access feature.
+fromTree : Template t => TransactionTree -> TreeIndex t -> ContractId t
+fromTree tree index = fromTreeGo index tree.rootEvents
+
+fromTreeGo : Template t => TreeIndex t -> [TreeEvent] -> ContractId t
+fromTreeGo (CreatedIndex index) events =
+  case mapOptional fromCreated events of
+    [] -> error "No created events for the requested template id found"
+    contractIds ->
+      let msg = "CreatedIndex out of bound" in
+      fromSomeNote msg $ contractIds !! index.offset
+  where
+    fromCreated : Template t => TreeEvent -> Optional (ContractId t)
+    fromCreated (CreatedEvent created) = fromAnyContractId created.contractId
+    fromCreated (ExercisedEvent _) = None
+fromTreeGo (ExercisedIndex index) events =
+  case mapOptional fromExercised events of
+    [] -> error $ "No exercised events for choice " <> index.choice <> " found"
+    childEventsList ->
+      let msg = "ExercisedIndex on choice " <> index.choice <> " out of bound"
+          childEvents = fromSomeNote msg $ childEventsList !! index.offset in
+      fromTreeGo index.child childEvents
+  where
+    fromExercised : TreeEvent -> Optional [TreeEvent]
+    fromExercised (CreatedEvent _) = None
+    fromExercised (ExercisedEvent exercised)
+      | AnyChoice _ rep <- exercised.argument
+      , rep == index.templateId
+      , exercised.choice == index.choice
+      = Some exercised.childEvents
+      | otherwise
+      = None
+
+-- | HIDE This is an early access feature.
+created : forall t. HasTemplateTypeRep t => TreeIndex t
+created = createdN 0
+
+-- | HIDE This is an early access feature.
+createdN : forall t. HasTemplateTypeRep t => Int -> TreeIndex t
+createdN offset = CreatedIndex CreatedIndexPayload
+  with
+    templateId = templateTypeRep @t
+    offset
+
+-- | HIDE This is an early access feature.
+exercised : forall t t'. HasTemplateTypeRep t => Text -> TreeIndex t' -> TreeIndex t'
+exercised choice = exercisedN @t choice 0
+
+-- | HIDE This is an early access feature.
+exercisedN : forall t t'. HasTemplateTypeRep t => Text -> Int -> TreeIndex t' -> TreeIndex t'
+exercisedN choice offset child = ExercisedIndex ExercisedIndexPayload
+  with
+    templateId = templateTypeRep @t
+    choice
+    offset
+    child
+
+-- | HIDE This is an early access feature
+data AnyContractId = AnyContractId
+  { templateId : TemplateTypeRep
+  , contractId : ContractId ()
+  } deriving Eq
+
+instance Show AnyContractId where
+  showsPrec d (AnyContractId _ cid) = showParen (d > app_prec) $
+    showString "AnyContractId " . showsPrec (app_prec +1) cid
+    where app_prec = 10
+
+-- | HIDE This is an early access feature.
+fromAnyContractId : forall t. Template t => AnyContractId -> Optional (ContractId t)
+fromAnyContractId cid
+  | cid.templateId == templateTypeRep @t = Some (coerceContractId cid.contractId)
+  | otherwise = None
+
+data SubmitTreePayload a = SubmitTreePayload
+  with
+    actAs : NonEmpty Party
+    readAs : [Party]
+    commands : Commands ()
+    continue : TransactionTree -> a
+    locations : [(Text, SrcLoc)]
+    disclosures : [Disclosure]
+  deriving Functor
+
+-- | HIDE Equivalent to `submit` but returns the full transaction tree.
+-- This is an early access feature.
+submitTree : HasCallStack => Party -> Commands a -> Script TransactionTree
+submitTree p cmds =
+  lift $ Free $ fmap pure $ SubmitTree $ SubmitTreePayload with
+    actAs = NonEmpty p []
+    readAs = []
+    commands = void cmds
+    locations = getCallStack callStack
+    continue = identity
+    disclosures = []
+
+-- | HIDE Equivalent to `submitMulti` but returns the full transaction tree.
+-- This is an early access feature.
+submitTreeMulti : HasCallStack => [Party] -> [Party] -> Commands a -> Script TransactionTree
+submitTreeMulti actAs readAs cmds =
+  lift $ Free $ fmap pure $ SubmitTree $ SubmitTreePayload with
+    actAs = actAsNonEmpty actAs
+    readAs = readAs
+    commands = void cmds
+    locations = getCallStack callStack
+    continue = identity
+    disclosures = []
+
+
+-- | Identifier for a user in the user management service.
+newtype UserId = UserId Text deriving (Eq, Ord)
+
+instance Show UserId where show (UserId text) = "'" <> text <> "'"
+
+-- | Extract the name-text from a user identitifer.
+userIdToText : UserId -> Text
+userIdToText (UserId text) = text
+
+-- | User-info record for a user in the user management service.
+data User = User
+  with
+    userId : UserId
+    primaryParty : Optional Party
+  deriving (Show, Eq, Ord)
+
+-- | The rights of a user.
+data UserRight
+  = ParticipantAdmin
+  | CanActAs Party
+  | CanReadAs Party
+  deriving (Show, Eq)
+
+-- | Thrown if text for a user identifier does not conform to the format restriction.
+exception InvalidUserId
+  with
+    m : Text
+  where
+    message m
+
+mkUserId : Text -> Script (Optional Text) -> Script UserId
+mkUserId name validateScript = do
+  validateScript >>= \case
+    None -> pure (UserId name)
+    Some msg -> throw (InvalidUserId msg)
+
+-- | Thrown if a user to be created already exists.
+exception UserAlreadyExists
+  with
+    userId : UserId
+  where
+    message (userIdToText userId)
+
+checkUserAlreadyExists : UserId -> Script (Optional ()) -> Script ()
+checkUserAlreadyExists userId script = do
+  script >>= \case
+    None -> throw (UserAlreadyExists userId)
+    Some x -> pure x
+
+-- | Thrown if a user cannot be located for a given user identifier.
+exception UserNotFound
+  with
+    userId : UserId
+  where
+    message (userIdToText userId)
+
+checkUserNotFound : UserId -> Script (Optional a) -> Script a
+checkUserNotFound userId script = do
+  script >>= \case
+    None -> throw (UserNotFound userId)
+    Some x -> pure x
+
+-- | Construct a user identifer from text. May throw InvalidUserId.
+validateUserId : HasCallStack => Text -> Script UserId
+validateUserId name = mkUserId name $ lift $ Free $ ValidateUserId ValidateUserIdPayload with
+  continue = pure
+  locations = getCallStack callStack
+  name
+
+-- | Create a user with the given rights. May throw UserAlreadyExists.
+createUser : HasCallStack => User -> [UserRight] -> Script ()
+createUser user rights = createUser' user rights None
+
+-- | Create a user with the given rights on the given participant. May throw UserAlreadyExists.
+createUserOn : HasCallStack => User -> [UserRight] -> ParticipantName -> Script ()
+createUserOn user rights participant = createUser' user rights (Some participant)
+
+createUser' : HasCallStack => User -> [UserRight] -> Optional ParticipantName -> Script ()
+createUser' user rights participant = checkUserAlreadyExists user.userId $ lift $ Free $ CreateUser CreateUserPayload with
+  participant = fmap participantName participant
+  continue = pure
+  locations = getCallStack callStack
+  user
+  rights
+
+-- | Fetch a user record by user id. May throw UserNotFound.
+getUser : HasCallStack => UserId -> Script User
+getUser userId = getUser' userId None
+
+-- | Fetch a user record by user id from the given participant. May throw UserNotFound.
+getUserOn : HasCallStack => UserId -> ParticipantName -> Script User
+getUserOn userId participant = getUser' userId (Some participant)
+
+getUser' : HasCallStack => UserId -> Optional ParticipantName -> Script User
+getUser' userId participant = checkUserNotFound userId $ lift $ Free $ GetUser GetUserPayload with
+  participant = fmap participantName participant
+  continue = pure
+  locations = getCallStack callStack
+  userId
+
+-- | List all users. This function may make multiple calls to underlying paginated ledger API.
+listAllUsers : Script [User]
+listAllUsers = listAllUsers' None
+
+-- | List all users on the given participant. This function may make multiple calls to underlying paginated ledger API.
+listAllUsersOn : ParticipantName -> Script [User]
+listAllUsersOn participant = listAllUsers' (Some participant)
+
+listAllUsers' : Optional ParticipantName -> Script [User]
+listAllUsers' participant = lift $ Free $ ListAllUsers ListAllUsersPayload with
+  participant = fmap participantName participant
+  continue = pure
+  locations = getCallStack callStack
+
+-- | Grant rights to a user. Returns the rights that have been newly granted. May throw UserNotFound.
+grantUserRights : HasCallStack => UserId -> [UserRight] -> Script [UserRight]
+grantUserRights userId rights = grantUserRights' userId rights None
+
+-- | Grant rights to a user on the given participant. Returns the rights that have been newly granted. May throw UserNotFound.
+grantUserRightsOn : HasCallStack => UserId -> [UserRight] -> ParticipantName -> Script [UserRight]
+grantUserRightsOn userId rights participant = grantUserRights' userId rights (Some participant)
+
+grantUserRights' : HasCallStack => UserId -> [UserRight] -> Optional ParticipantName -> Script [UserRight]
+grantUserRights' userId rights participant = checkUserNotFound userId $ lift $ Free $ GrantUserRights GrantUserRightsPayload with
+  participant = fmap participantName participant
+  continue = pure
+  locations = getCallStack callStack
+  userId
+  rights
+
+-- | Revoke rights for a user. Returns the revoked rights. May throw UserNotFound.
+revokeUserRights : HasCallStack => UserId -> [UserRight] -> Script [UserRight]
+revokeUserRights userId rights = revokeUserRights' userId rights None
+
+-- | Revoke rights for a user on the given participant. Returns the revoked rights. May throw UserNotFound.
+revokeUserRightsOn : HasCallStack => UserId -> [UserRight] -> ParticipantName -> Script [UserRight]
+revokeUserRightsOn userId rights participant = revokeUserRights' userId rights (Some participant)
+
+revokeUserRights' : HasCallStack => UserId -> [UserRight] -> Optional ParticipantName -> Script [UserRight]
+revokeUserRights' userId rights participant = checkUserNotFound userId $ lift $ Free $ RevokeUserRights RevokeUserRightsPayload with
+  participant = fmap participantName participant
+  continue = pure
+  locations = getCallStack callStack
+  userId
+  rights
+
+-- | Delete a user. May throw UserNotFound.
+deleteUser : HasCallStack => UserId -> Script ()
+deleteUser userId = deleteUser' userId None
+
+-- | Delete a user on the given participant. May throw UserNotFound.
+deleteUserOn : HasCallStack => UserId -> ParticipantName -> Script ()
+deleteUserOn userId participant = deleteUser' userId (Some participant)
+
+deleteUser' : HasCallStack => UserId -> Optional ParticipantName -> Script ()
+deleteUser' userId participant = checkUserNotFound userId $ lift $ Free $ DeleteUser DeleteUserPayload with
+  participant = fmap participantName participant
+  continue = pure
+  locations = getCallStack callStack
+  userId
+
+-- | List the rights of a user. May throw UserNotFound.
+listUserRights : HasCallStack => UserId -> Script [UserRight]
+listUserRights userId = listUserRights' userId None
+
+-- | List the rights of a user on the given participant. May throw UserNotFound.
+listUserRightsOn : HasCallStack => UserId -> ParticipantName -> Script [UserRight]
+listUserRightsOn userId participant = listUserRights' userId (Some participant)
+
+listUserRights' : HasCallStack => UserId -> Optional ParticipantName -> Script [UserRight]
+listUserRights' userId participant = checkUserNotFound userId $ lift $ Free $ ListUserRights ListUserRightsPayload with
+  participant = fmap participantName participant
+  continue = pure
+  locations = getCallStack callStack
+  userId
+
+-- | Submit the commands with the actAs and readAs claims granted to a user. May throw UserNotFound.
+submitUser : HasCallStack => UserId -> Commands a -> Script a
+submitUser userId cmds = submitUser' userId None cmds
+
+-- | Submit the commands with the actAs and readAs claims granted to the user on the given participant. May throw UserNotFound.
+submitUserOn : HasCallStack => UserId -> ParticipantName -> Commands a -> Script a
+submitUserOn userId participant cmds = submitUser' userId (Some participant) cmds
+
+submitUser' : HasCallStack => UserId -> Optional ParticipantName -> Commands a -> Script a
+submitUser' userId participant cmds = do
+  rights <- listUserRights' userId participant
+  let actAs = [ p | CanActAs p <- rights ]
+  let readAs = [ p | CanReadAs p <- rights ]
+  submitMulti actAs readAs cmds
+
+data ValidateUserIdPayload a = ValidateUserIdPayload
+  with
+    name : Text
+    continue : Optional Text -> a -- text indicates reason for invalid name
+    locations : [(Text, SrcLoc)]
+  deriving Functor
+
+data CreateUserPayload a = CreateUserPayload
+  with
+    user: User
+    rights: [UserRight]
+    participant : Optional Text
+    continue : Optional () -> a
+    locations : [(Text, SrcLoc)]
+  deriving Functor
+
+data GetUserPayload a = GetUserPayload
+  with
+    userId : UserId
+    participant : Optional Text
+    continue : Optional User -> a
+    locations : [(Text, SrcLoc)]
+  deriving Functor
+
+data DeleteUserPayload a = DeleteUserPayload
+  with
+    userId : UserId
+    participant : Optional Text
+    continue : Optional () -> a
+    locations : [(Text, SrcLoc)]
+  deriving Functor
+
+data ListAllUsersPayload a = ListAllUsersPayload
+  with
+    participant : Optional Text
+    continue : [User] -> a
+    locations : [(Text, SrcLoc)]
+  deriving Functor
+
+data GrantUserRightsPayload a = GrantUserRightsPayload
+  with
+    userId : UserId
+    rights : [UserRight]
+    participant : Optional Text
+    continue : Optional [UserRight] -> a
+    locations : [(Text, SrcLoc)]
+  deriving Functor
+
+data RevokeUserRightsPayload a = RevokeUserRightsPayload
+  with
+    userId : UserId
+    rights : [UserRight]
+    participant : Optional Text
+    continue : Optional [UserRight] -> a
+    locations : [(Text, SrcLoc)]
+  deriving Functor
+
+data ListUserRightsPayload a = ListUserRightsPayload
+  with
+    userId : UserId
+    participant : Optional Text
+    continue : Optional [UserRight] -> a
+    locations : [(Text, SrcLoc)]
+  deriving Functor

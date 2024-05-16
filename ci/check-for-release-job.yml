@@ -17,6 +17,7 @@ jobs:
         var_name: bash-lib
     - bash: |
         set -euo pipefail
+        cd sdk
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
 
@@ -24,7 +25,7 @@ jobs:
 
         changes_release_files() {
             changed="$(git diff-tree --no-commit-id --name-only -r $(fork_sha) $(branch_sha) | sort)"
-            [ "LATEST" = "$changed" ]
+            [ "sdk/LATEST" = "$changed" ]
         }
 
         changes_one_line_in_latest() {

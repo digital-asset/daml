@@ -1,0 +1,87 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@os_info//:os_info.bzl", "is_linux_intel")
+load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library")
+load(":test_evidence.bzl", "test_evidence_binary", "write_scalatest_runpath")
+
+write_scalatest_runpath(
+    name = "phase_write_scalatest_runpath",
+    visibility = ["//visibility:public"],
+)
+
+[
+    da_scala_library(
+        name = "ledger-generator-lib",
+        srcs = glob(["src/main/scala/**/*.scala"]),
+        scala_deps = [
+            "@maven//:org_scalactic_scalactic",
+            "@maven//:org_scalatest_scalatest_core",
+            "@maven//:org_typelevel_cats_core",
+            "@maven//:org_typelevel_cats_kernel",
+            "@maven//:com_github_pathikrit_better_files",
+            "@maven//:com_chuusai_shapeless",
+            "@maven//:io_circe_circe_core",
+            "@maven//:io_circe_circe_generic",
+        ],
+        deps = [
+            "//bazel_tools/runfiles:scala_runfiles",
+            "//libs-scala/test-evidence/generator",
+            "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
+            "//libs-scala/test-evidence/tag:test-evidence-tag",
+            "@maven//:org_scalatest_scalatest_compatible",
+        ],
+    ),
+    test_evidence_binary(
+        name = "generator",
+        testonly = True,  # needed in order to depend on testonly targets
+        main_class = "com.daml.test.evidence.generator.Main",
+        tests = [
+            "//ledger-service/utils",
+            "//libs-scala/jwt:tests-lib",
+        ],
+        runtime_deps = [
+            "//libs-scala/jwt",
+            "//libs-scala/scalatest-utils",
+        ],
+        deps = [
+            ":ledger-generator-lib",
+            "//libs-scala/test-evidence/generator",
+            "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
+            "//libs-scala/test-evidence/tag:test-evidence-tag",
+            "@maven//:ch_qos_logback_logback_classic",
+        ],
+    ),
+    genrule(
+        name = "generate-security-test-evidence-files",
+        testonly = True,
+        srcs = [],
+        outs = [
+            "daml-security-test-evidence.csv",
+            "daml-security-test-evidence.json",
+        ],
+        cmd = "$(location //test-evidence:generator) $(location daml-security-test-evidence.csv) $(location daml-security-test-evidence.json)",
+        tools = ["//test-evidence:generator"],
+        visibility = ["//visibility:public"],
+    ),
+    genrule(
+        name = "test-evidence-tarball",
+        testonly = True,
+        srcs = [
+            ":generate-security-test-evidence-files",
+        ],
+        outs = ["daml-test-evidence.tar.gz"],
+        cmd = """
+        set -eou pipefail
+        DIR=$$(mktemp -d)
+        trap "rm -rf $$DIR" EXIT
+        mkdir $$DIR/daml-test-evidence
+        cp $(locations :generate-security-test-evidence-files) $$DIR/daml-test-evidence/
+        MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
+        OUT=$$PWD/$(location daml-test-evidence.tar.gz)
+        cd $$DIR
+        $$MKTGZ $$OUT daml-test-evidence
+        """,
+        tools = ["//bazel_tools/sh:mktgz"],
+    ),
+] if is_linux_intel else []

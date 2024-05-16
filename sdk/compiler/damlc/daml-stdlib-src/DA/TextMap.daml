@@ -1,0 +1,194 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+
+#ifndef DAML_TEXTMAP
+-- | HIDE
+module DA.TextMap where
+  
+#else
+  
+-- | TextMap - A map is an associative array data type composed of a
+-- collection of key/value pairs such that, each possible key appears
+-- at most once in the collection.
+module DA.TextMap
+  ( TextMap
+  , empty
+  , size
+  , toList
+  , fromList
+  , fromListWith
+  , fromListWithL
+  , fromListWithR
+  , null
+  , lookup
+  , member
+  , filter
+  , filterWithKey
+  , delete
+  , insert
+  , union
+  , merge
+  ) where
+
+import Prelude hiding (lookup, null, filter, empty)
+import DA.Foldable qualified as Foldable
+import DA.Internal.LF (TextMap, unpackPair)
+import DA.List qualified as List
+import DA.Optional
+import DA.Traversable qualified as Traversable
+import GHC.Types (primitive)
+import GHC.Tuple.Check()
+
+-- | Create a map from a list of key/value pairs.
+fromList : [(Text, a)] -> TextMap a
+fromList list = foldl (\acc (key, value) -> insert key value acc) empty list
+
+-- | Create a map from a list of key/value pairs with a combining
+-- function. The combining function is only used when a key appears multiple
+-- times in the list and it takes two arguments: the first one is the new value
+-- being inserted at that key and the second one is the value accumulated so
+-- far at that key.
+-- Examples:
+--
+-- ```
+-- >>> fromListWithL (++) [("A", [1]), ("A", [2]), ("B", [2]), ("B", [1]), ("A", [3])]
+-- fromList [("A", [3, 2, 1]), ("B", [1, 2])]
+-- >>> fromListWithL (++) [] == (empty : TextMap [Int])
+-- True
+-- ```
+fromListWithL : (a -> a -> a) -> [(Text, a)] -> TextMap a
+fromListWithL f = foldl g empty
+  where
+    g acc (k, x) =
+      let z = case lookup k acc of
+            None -> x
+            Some y -> f x y
+      in insert k z acc
+
+-- | Create a map from a list of key/value pairs like `fromListWithL`
+-- with the combining function flipped. Examples:
+--
+-- ```
+-- >>> fromListWithR (++) [("A", [1]), ("A", [2]), ("B", [2]), ("B", [1]), ("A", [3])]
+-- fromList [("A", [1, 2, 3]), ("B", [2, 1])]
+-- >>> fromListWithR (++) [] == (empty : TextMap [Int])
+-- True
+-- ```
+fromListWithR : (a -> a -> a) -> [(Text, a)] -> TextMap a
+fromListWithR = fromListWithL . flip
+
+{-# DEPRECATED fromListWith "Daml compatibility helper, use 'fromListWithR' instead of 'fromListWith'" #-}
+fromListWith : (a -> a -> a) -> [(Text, a)] -> TextMap a
+fromListWith = fromListWithR
+
+-- | Convert the map to a list of key/value pairs where the keys are
+-- in ascending order.
+toList : TextMap a -> [(Text, a)]
+toList x = map (unpackPair @"key" @"value") (primitive @"BETextMapToList" x)
+
+-- | The empty map.
+empty : TextMap a
+empty = primitive @"BETextMapEmpty"
+
+-- | Number of elements in the map.
+size : TextMap a -> Int
+size = primitive @"BETextMapSize"
+
+-- | Is the map empty?
+null : TextMap v -> Bool
+null m = size m == 0
+
+-- | Lookup the value at a key in the map.
+lookup : Text -> TextMap a -> Optional a
+lookup = primitive @"BETextMapLookup"
+
+-- | Is the key a member of the map?
+member : Text -> TextMap v -> Bool
+member x m = isSome $ lookup x m
+
+-- | Filter the `TextMap` using a predicate: keep only the entries where the
+-- value satisfies the predicate.
+filter : (v -> Bool) -> TextMap v -> TextMap v
+filter p = filterWithKey (const p)
+
+-- | Filter the `TextMap` using a predicate: keep only the entries which
+-- satisfy the predicate.
+filterWithKey : (Text -> v -> Bool) -> TextMap v -> TextMap v
+filterWithKey p m = fromList $ List.filter (uncurry p) (toList m)
+
+-- | Delete a key and its value from the map. When the key is not a
+-- member of the map, the original map is returned.
+delete : Text -> TextMap a ->  TextMap a
+delete = primitive @"BETextMapDelete"
+
+-- | Insert a new key/value pair in the map. If the key is already
+-- present in the map, the associated value is replaced with the
+-- supplied value.
+insert : Text -> a -> TextMap a -> TextMap a
+insert = primitive @"BETextMapInsert"
+
+-- | The union of two maps, preferring the first map when equal
+-- keys are encountered.
+union : TextMap a -> TextMap a -> TextMap a
+union m1 m2 = foldl (\acc (k, v) -> insert k v acc) m2 (toList m1)
+
+-- | Merge two maps. `merge f g h x y` applies `f` to all key/value pairs
+-- whose key only appears in `x`, `g` to all pairs whose key only appears
+-- in `y` and `h` to all pairs whose key appears in both `x` and `y`.
+-- In the end, all pairs yielding `Some` are collected as the result.
+merge
+  :  (Text -> a -> Optional c)
+  -> (Text -> b -> Optional c)
+  -> (Text -> a -> b -> Optional c)
+  -> TextMap a
+  -> TextMap b
+  -> TextMap c
+merge f g h xs ys = fromList $ mergeList f g h (toList xs) (toList ys)
+
+-- | HIDE Auxiliary function for `merge`.
+mergeList
+  :  (Text -> a -> Optional c)
+  -> (Text -> b -> Optional c)
+  -> (Text -> a -> b -> Optional c)
+  -> [(Text, a)]
+  -> [(Text, b)]
+  -> [(Text, c)]
+mergeList f g h xs ys = case (xs, ys) of
+  ([], []) -> []
+  ([], _::_) -> foldr (\(l, y) -> prepend l (g l y)) [] ys
+  (_::_, []) -> foldr (\(k, x) -> prepend k (f k x)) [] xs
+  ((k, x)::xs', (l, y)::ys') -> case k `compare` l of
+    LT -> prepend k (f k x) $ mergeList f g h xs' ys
+    EQ -> prepend k (h k x y) $ mergeList f g h xs' ys'
+    GT -> prepend l (g l y) $ mergeList f g h xs ys'
+  where
+    prepend _ None xs = xs
+    prepend k (Some x) xs = (k, x)::xs
+
+instance Show a => Show (TextMap a) where
+  show m = "TextMap " <> show (toList m)
+
+instance Eq a => Eq (TextMap a) where
+  x == y = toList x == toList y
+
+instance Ord a => Ord (TextMap a) where
+  x `compare` y = toList x `compare` toList y
+
+instance Semigroup (TextMap b) where
+  (<>) = union
+
+instance Monoid (TextMap b) where
+  mempty = empty
+
+instance Functor TextMap where
+  fmap f x = fromList $ map (\(k, v) -> (k, f v)) $ toList x
+
+instance Foldable.Foldable TextMap where
+  foldr f z x = List.foldr (\(_, v) acc -> f v acc) z $ toList x
+
+instance Traversable.Traversable TextMap where
+  mapA f x = fmap fromList $ mapA (\(k, v) -> fmap (k,) $ f v) $ toList x
+
+#endif

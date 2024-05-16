@@ -1,0 +1,52 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:haskell.bzl",
+    "da_haskell_library",
+)
+
+da_haskell_library(
+    name = "daml-ide",
+    srcs = glob(["src/**/*.hs"]),
+    hackage_deps = [
+        "aeson",
+        "async",
+        "clock",
+        "base",
+        "containers",
+        "data-default",
+        "extra",
+        "filepath",
+        "ghc-lib",
+        "ghc-lib-parser",
+        "ghcide",
+        "lens",
+        "lsp",
+        "lsp-types",
+        "network-uri",
+        "prettyprinter",
+        "rope-utf16-splay",
+        "safe",
+        "safe-exceptions",
+        "shake",
+        "stm",
+        "tagged",
+        "text",
+        "transformers",
+        "uri-encode",
+        "unordered-containers",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/damlc/daml-compiler",
+        "//compiler/damlc/daml-ide-core",
+        "//compiler/damlc/daml-lf-util",
+        "//compiler/damlc/daml-package-config",
+        "//compiler/damlc/daml-rule-types",
+        "//daml-assistant:daml-project-config",
+        "//libs-haskell/da-hs-base",
+    ],
+)

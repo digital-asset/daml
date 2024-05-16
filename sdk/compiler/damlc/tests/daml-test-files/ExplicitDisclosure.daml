@@ -1,0 +1,71 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+
+module ExplicitDisclosure where
+
+import DA.Optional(fromSome)
+import Daml.Script
+
+template Box with
+    s: Party
+    content: Text
+  where
+    signatory s
+    nonconsuming choice Open: Text with
+        c: Party
+      controller c
+      do
+        pure content
+
+template Helper with
+    s: Party
+  where
+    signatory s
+    nonconsuming choice FailWith: () with
+        msg: Text
+      controller s
+      do
+        error msg
+
+
+disclosuresTest : Script Text
+disclosuresTest = do
+  -- init
+  alice <- allocatePartyOn "alice" (ParticipantName "participant0")
+  bob <- allocatePartyOn "bob" (ParticipantName "participant1")
+  did <- alice `submit` createCmd (Box alice "my secret")
+  disclosure <- fromSome <$> queryDisclosure alice did
+
+  alice `submit` exerciseCmd did (Open alice)
+
+  bob `submitMustFail` exerciseCmd did (Open bob)
+
+  content <- submitWithDisclosures bob [disclosure] (exerciseCmd did (Open bob))
+
+  alice `submit` archiveCmd did
+
+  submitWithDisclosuresMustFail bob [disclosure] (exerciseCmd did (Open bob))
+
+  pure content
+
+-- @ERROR range=55:1-55:46; Here
+inactiveDisclosureDoesNotFailDuringSubmission: Script ()
+inactiveDisclosureDoesNotFailDuringSubmission = do
+    -- init
+    alice <- allocatePartyOn "alice" (ParticipantName "participant0")
+    did <- alice `submit` do createCmd (Box alice "my secret")
+    hid <- alice `submit` do createCmd (Helper alice)
+    disclosure <- fromSome <$> queryDisclosure alice did
+    alice `submit` archiveCmd did
+
+    -- we double check exercising the consumed disclosure fail 
+    submitMustFail alice $ exerciseCmd did (Open alice)
+
+    submitWithDisclosures alice [disclosure] $ do
+      exerciseCmd did (Open alice)
+      exerciseCmd hid (FailWith "Here")
+      pure ()
+
+    pure ()

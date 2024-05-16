@@ -20,11 +20,9 @@ jobs:
 
 - job: check_standard_change_label
   dependsOn:
-    - git_sha
-  variables:
-    fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
-    branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
-  condition: eq(variables['Build.Reason'], 'PullRequest')
+    - check_for_release
+  condition: and(eq(variables['Build.Reason'], 'PullRequest'),
+                 eq(dependencies.check_for_release.outputs['out.is_release'], 'true'))
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
@@ -33,17 +31,7 @@ jobs:
     - bash: |
         set -euo pipefail
 
-        has_changed () {
-            git diff $(fork_sha) $(branch_sha) --name-only | grep -q "^$1"
-        }
-
-        fail_if_missing_std_change_label () {
-            curl https://api.github.com/repos/digital-asset/daml/pulls/$PR -s | jq -r '.labels[].name' | grep -q '^Standard-Change$'
-        }
-
-        if has_changed "LATEST"; then
-            fail_if_missing_std_change_label
-        fi
+        curl https://api.github.com/repos/digital-asset/daml/pulls/$PR -s | jq -r '.labels[].name' | grep -q '^Standard-Change$'
       env:
         PR: $(System.PullRequest.PullRequestNumber)
 

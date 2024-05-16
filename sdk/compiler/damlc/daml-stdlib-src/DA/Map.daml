@@ -1,0 +1,274 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | Note: This is only supported in Daml-LF 1.11 or later.
+--
+-- This module exports the generic map type `Map k v` and associated
+-- functions. This module should be imported qualified, for example:
+--
+-- ```
+-- import DA.Map (Map)
+-- import DA.Map qualified as M
+-- ```
+--
+-- This will give access to the `Map` type, and the various operations
+-- as `M.lookup`, `M.insert`, `M.fromList`, etc.
+--
+-- `Map k v` internally uses the built-in order for the type `k`.
+-- This means that keys that contain functions are not comparable
+-- and will result in runtime errors. To prevent this, the `Ord k`
+-- instance is required for most map operations. It is recommended to
+-- only use `Map k v` for key types that have an `Ord k` instance
+-- that is derived automatically using `deriving`:
+--
+-- ```
+-- data K = ...
+--   deriving (Eq, Ord)
+-- ```
+--
+-- This includes all built-in types that aren't function types, such as
+-- `Int`, `Text`, `Bool`, `(a, b)` assuming `a` and `b` have default
+-- `Ord` instances, `Optional t` and `[t]` assuming `t` has a
+-- default `Ord` instance, `Map k v` assuming `k` and `v` have
+-- default `Ord` instances, and `Set k` assuming `k` has a
+-- default `Ord` instance.
+module DA.Map
+    ( Map
+    , empty
+    , size
+    , toList
+    , fromList
+    , fromListWith
+    , fromListWithL
+    , fromListWithR
+    , null
+    , lookup
+    , member
+    , filter
+    , filterWithKey
+    , delete
+    , insert
+    , insertWith
+    , alter
+    , union
+    , unionWith
+    , merge
+    , keys
+    , values
+    ) where
+
+import Prelude hiding (lookup, null, filter, empty)
+import DA.Internal.LF (Map)
+import DA.Foldable qualified as Foldable
+import DA.List qualified as List
+import DA.Optional
+import DA.Traversable qualified as Traversable
+import GHC.Types (primitive)
+import GHC.Tuple.Check()
+
+
+-- | Create a map from a list of key/value pairs.
+fromList : Ord k => [(k, v)] -> Map k v
+fromList list = foldl (\acc (key, value) -> insert key value acc) empty list
+
+-- | Create a map from a list of key/value pairs with a combining
+-- function. The combining function is only used when a key appears multiple
+-- times in the list and it takes two arguments: the first one is the new value
+-- being inserted at that key and the second one is the value accumulated so
+-- far at that key.
+-- Examples:
+--
+-- ```
+-- >>> fromListWithL (++) [("A", [1]), ("A", [2]), ("B", [2]), ("B", [1]), ("A", [3])]
+-- fromList [("A", [3, 2, 1]), ("B", [1, 2])]
+-- >>> fromListWithL (++) [] == (empty : Map Text [Int])
+-- True
+-- ```
+fromListWithL : Ord k => (v -> v -> v) -> [(k, v)] -> Map k v
+fromListWithL f = foldl g empty
+  where
+    g acc (k, x) =
+      let z = case lookup k acc of
+            None -> x
+            Some y -> f x y
+      in insert k z acc
+
+-- | Create a map from a list of key/value pairs like `fromListWithL`
+-- with the combining function flipped. Examples:
+--
+-- ```
+-- >>> fromListWithR (++) [("A", [1]), ("A", [2]), ("B", [2]), ("B", [1]), ("A", [3])]
+-- fromList [("A", [1, 2, 3]), ("B", [2, 1])]
+-- >>> fromListWithR (++) [] == (empty : Map Text [Int])
+-- True
+-- ```
+fromListWithR : Ord k => (v -> v -> v) -> [(k, v)] -> Map k v
+fromListWithR = fromListWithL . flip
+
+{-# DEPRECATED fromListWith "Daml compatibility helper, use 'fromListWithR' instead of 'fromListWith'" #-}
+fromListWith : Ord k => (v -> v -> v) -> [(k, v)] -> Map k v
+fromListWith = fromListWithR
+
+-- | Get the list of keys in the map. Keys are sorted according to the
+-- built-in order for the type `k`, which matches the `Ord k` instance
+-- when using `deriving Ord`.
+--
+-- ```
+-- >>> keys (fromList [("A", 1), ("C", 3), ("B", 2)])
+-- ["A", "B", "C"]
+-- ```
+keys : Map k v -> [k]
+keys = primitive @"BEGenMapKeys"
+
+-- | Get the list of values in the map. These will be in the same order as
+-- their respective keys from `M.keys`.
+--
+-- ```
+-- >>> values (fromList [("A", 1), ("B", 2)])
+-- [1, 2]
+-- ```
+values : Map k v -> [v]
+values = primitive @"BEGenMapValues"
+
+-- | Convert the map to a list of key/value pairs. These will be ordered
+-- by key, as in `M.keys`.
+toList : Map k v -> [(k, v)]
+toList x = zip (keys x) (values x)
+
+-- | The empty map.
+empty : Map k v
+empty = primitive @"BEGenMapEmpty"
+
+-- | Number of elements in the map.
+size : Map k v -> Int
+size = primitive @"BEGenMapSize"
+
+-- | Is the map empty?
+null : Map k v -> Bool
+null m = size m == 0
+
+-- | Lookup the value at a key in the map.
+lookup : Ord k => k -> Map k v -> Optional v
+lookup = primitive @"BEGenMapLookup"
+
+-- | Is the key a member of the map?
+member : Ord k => k -> Map k v -> Bool
+member x m = isSome $ lookup x m
+
+-- | Filter the `Map` using a predicate: keep only the entries where the
+-- value satisfies the predicate.
+filter : Ord k => (v -> Bool) -> Map k v -> Map k v
+filter p = filterWithKey (const p)
+
+-- | Filter the `Map` using a predicate: keep only the entries which
+-- satisfy the predicate.
+filterWithKey : Ord k => (k -> v -> Bool) -> Map k v -> Map k v
+filterWithKey p m = fromList $ List.filter (uncurry p) (toList m)
+
+-- | Delete a key and its value from the map. When the key is not a
+-- member of the map, the original map is returned.
+delete : Ord k => k -> Map k v -> Map k v
+delete = primitive @"BEGenMapDelete"
+
+-- | Insert a new key/value pair in the map. If the key is already
+-- present in the map, the associated value is replaced with the
+-- supplied value.
+insert : Ord k => k -> v -> Map k v -> Map k v
+insert = primitive @"BEGenMapInsert"
+
+-- | Insert a new key/value pair in the map. If the key is already
+-- present in the map, it is combined with the previous value using the given function
+-- `f new_value old_value`.
+insertWith : Ord k => (v -> v -> v) -> k -> v -> Map k v -> Map k v
+insertWith f k v m =
+  case lookup k m of
+    None -> insert k v m
+    Some v' -> insert k (f v v') m
+
+-- | Update the value in `m` at `k` with `f`, inserting or deleting as
+-- required.  `f` will be called with either the value at `k`, or `None`
+-- if absent; `f` can return `Some` with a new value to be inserted in
+-- `m` (replacing the old value if there was one), or `None` to remove
+-- any `k` association `m` may have.
+--
+-- Some implications of this behavior:
+--
+--   alter identity k = identity
+--   alter g k . alter f k = alter (g . f) k
+--   alter (\_ -> Some v) k = insert k v
+--   alter (\_ -> None) = delete
+alter : Ord k => (Optional v -> Optional v) -> k -> Map k v -> Map k v
+alter f k m =
+  let orig = lookup k m
+  in case (orig, f orig) of
+       (None, None) -> m
+       (_, Some v) -> insert k v m
+       (Some _, None) -> delete k m
+
+-- | The union of two maps, preferring the first map when equal
+-- keys are encountered.
+union : Ord k => Map k v -> Map k v -> Map k v
+union m1 m2 = foldl (\acc (k, v) -> insert k v acc) m2 (toList m1)
+
+-- | The union of two maps using the combining function to merge values that
+-- exist in both maps.
+unionWith : forall k v. Ord k => (v -> v -> v) -> Map k v -> Map k v -> Map k v
+unionWith combine m1 m2 = foldl f m1 (toList m2)
+  where f : Map k v -> (k, v) -> Map k v
+        f acc (k, v) = case lookup k acc of
+          None -> insert k v acc
+          Some v' -> insert k (combine v' v) acc
+
+-- | Combine two maps, using separate functions based on whether
+-- a key appears only in the first map, only in the second map,
+-- or appears in both maps.
+merge : forall k a b c.
+    Ord k
+    => (k -> a -> Optional c)
+    -> (k -> b -> Optional c)
+    -> (k -> a -> b -> Optional c)
+    -> Map k a
+    -> Map k b
+    -> Map k c
+merge f g h mapA mapB = foldl insertB (foldl insertA empty (toList mapA)) (toList mapB)
+  where
+    insertA : Map k c -> (k, a) -> Map k c
+    insertA accum (k, a) =
+        case lookup k mapB of
+            None -> insertMaybe k (f k a) accum
+            Some b -> insertMaybe k (h k a b) accum
+
+    insertB : Map k c -> (k, b) -> Map k c
+    insertB accum (k, b) =
+        if member k mapA
+            then accum
+            else insertMaybe k (g k b) accum
+
+    insertMaybe : k -> Optional v -> Map k v -> Map k v
+    insertMaybe k (Some v) m = insert k v m
+    insertMaybe _ None m = m
+
+instance (Show k, Show v) => Show (Map k v) where
+  show m = "Map " <> show (toList m)
+
+instance (Ord k, Eq v) => Eq (Map k v) where
+    x == y = size x == size y
+        && all (\(k,v) -> Some v == lookup k y) (toList x)
+
+instance (Ord k, Ord v) => Ord (Map k v) where
+  x `compare` y = List.sort (toList x) `compare` List.sort (toList y)
+
+instance Ord k => Semigroup (Map k v) where
+  (<>) = union
+
+instance Ord k => Monoid (Map k v) where
+  mempty = empty
+
+instance Ord k => Functor (Map k) where
+  fmap f x = fromList $ map (\(k, v) -> (k, f v)) $ toList x
+
+instance Ord k => Foldable.Foldable (Map k) where
+  foldr f z x = List.foldr (\(_, v) acc -> f v acc) z $ toList x
+
+instance Ord k => Traversable.Traversable (Map k) where
+  mapA f x = fmap fromList $ mapA (\(k, v) -> fmap (k,) $ f v) $ toList x

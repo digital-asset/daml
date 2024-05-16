@@ -1,0 +1,232 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v2.admin;
+
+import "com/daml/ledger/api/v2/admin/object_meta.proto";
+import "google/protobuf/field_mask.proto";
+
+option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
+option java_outer_classname = "PartyManagementServiceOuterClass";
+option java_package = "com.daml.ledger.api.v2.admin";
+
+// This service allows inspecting the party management state of the ledger known to the participant
+// and managing the participant-local party metadata.
+//
+// The authorization rules for its RPCs are specified on the ``<RpcName>Request``
+// messages as boolean expressions over these facts:
+// (1) ``HasRight(r)`` denoting whether the authenticated user has right ``r`` and
+// (2) ``IsAuthenticatedIdentityProviderAdmin(idp)`` denoting whether ``idp`` is equal to the ``identity_provider_id``
+// of the authenticated user and the user has an IdentityProviderAdmin right.
+// If `identity_provider_id` is set to an empty string, then it's effectively set to the value of access token's 'iss' field if that is provided.
+// If `identity_provider_id` remains an empty string, the default identity provider will be assumed.
+//
+// The fields of request messages (and sub-messages) are marked either as ``Optional`` or ``Required``:
+// (1) ``Optional`` denoting the client may leave the field unset when sending a request.
+// (2) ``Required`` denoting the client must set the field to a non-default value when sending a request.
+//
+// A party details resource is described by the ``PartyDetails`` message,
+// A party details resource, once it has been created, can be modified using the ``UpdatePartyDetails`` RPC.
+// The only fields that can be modified are those marked as ``Modifiable``.
+service PartyManagementService {
+  // Return the identifier of the participant.
+  // All horizontally scaled replicas should return the same id.
+  // daml-on-kv-ledger: returns an identifier supplied on command line at launch time
+  // canton: returns globally unique identifier of the participant
+  rpc GetParticipantId(GetParticipantIdRequest) returns (GetParticipantIdResponse);
+
+  // Get the party details of the given parties. Only known parties will be
+  // returned in the list.
+  rpc GetParties(GetPartiesRequest) returns (GetPartiesResponse);
+
+  // List the parties known by the participant.
+  // The list returned contains parties whose ledger access is facilitated by
+  // the participant and the ones maintained elsewhere.
+  rpc ListKnownParties(ListKnownPartiesRequest) returns (ListKnownPartiesResponse);
+
+  // Allocates a new party on a ledger and adds it to the set managed by the participant.
+  // Caller specifies a party identifier suggestion, the actual identifier
+  // allocated might be different and is implementation specific.
+  // Caller can specify party metadata that is stored locally on the participant.
+  // This call may:
+  // - Succeed, in which case the actual allocated identifier is visible in
+  //   the response.
+  // - Respond with a gRPC error
+  // daml-on-kv-ledger: suggestion's uniqueness is checked by the validators in
+  // the consensus layer and call rejected if the identifier is already present.
+  // canton: completely different globally unique identifier is allocated.
+  // Behind the scenes calls to an internal protocol are made. As that protocol
+  // is richer than the surface protocol, the arguments take implicit values
+  // The party identifier suggestion must be a valid party name. Party names are required to be non-empty US-ASCII strings built from letters, digits, space,
+  // colon, minus and underscore limited to 255 chars
+  rpc AllocateParty(AllocatePartyRequest) returns (AllocatePartyResponse);
+
+  // Update selected modifiable participant-local attributes of a party details resource.
+  // Can update the participant's local information for local parties.
+  rpc UpdatePartyDetails(UpdatePartyDetailsRequest) returns (UpdatePartyDetailsResponse);
+
+  // Update the assignment of a party from one IDP to another.
+  rpc UpdatePartyIdentityProviderId(UpdatePartyIdentityProviderIdRequest) returns (UpdatePartyIdentityProviderIdResponse);
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin)``
+message GetParticipantIdRequest {}
+
+message GetParticipantIdResponse {
+  // Identifier of the participant, which SHOULD be globally unique.
+  // Must be a valid LedgerString (as describe in ``value.proto``).
+  string participant_id = 1;
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
+message GetPartiesRequest {
+  // The stable, unique identifier of the Daml parties.
+  // Must be valid PartyIdStrings (as described in ``value.proto``).
+  // Required
+  repeated string parties = 1;
+
+  // The id of the ``Identity Provider`` whose parties should be retrieved.
+  // Optional, if not set, assume the party is managed by the default identity provider or party is not hosted by the participant.
+  string identity_provider_id = 2;
+}
+
+message GetPartiesResponse {
+  // The details of the requested Daml parties by the participant, if known.
+  // The party details may not be in the same order as requested.
+  // Required
+  repeated PartyDetails party_details = 1;
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
+message ListKnownPartiesRequest {
+  // Pagination token to determine the specific page to fetch. Using the token guarantees that parties on a subsequent
+  // page are all lexically greater than the last party on a previous page. Server does not store intermediate results
+  // between calls chained by a series of page tokens. As a consequence, if new parties are being added and a page is
+  // requested twice using the same token, more parties can be returned on the second call.
+  // Leave empty to fetch the first page.
+  // Optional
+  string page_token = 2;
+
+  // Maximum number of results to be returned by the server. The server will return no more than that many results,
+  // but it might return fewer. If the page_size is 0, the server will decide the number of results to be returned.
+  // If the page_size exceeds the maximum supported by the server, an error will be returned. To obtain the server's
+  // maximum consult the PartyManagementFeature descriptor available in the VersionService.
+  // Optional
+  int32 page_size = 3;
+
+  // The id of the ``Identity Provider`` whose parties should be retrieved.
+  // Optional, if not set, assume the party is managed by the default identity provider or party is not hosted by the participant.
+  string identity_provider_id = 1;
+}
+
+message ListKnownPartiesResponse {
+  // The details of all Daml parties known by the participant.
+  // Required
+  repeated PartyDetails party_details = 1;
+
+  // Pagination token to retrieve the next page.
+  // Empty, if there are no further results.
+  string next_page_token = 2;
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
+message AllocatePartyRequest {
+  // A hint to the participant which party ID to allocate. It can be
+  // ignored.
+  // Must be a valid PartyIdString (as described in ``value.proto``).
+  // Optional
+  string party_id_hint = 1;
+
+  // Human-readable name of the party to be added to the participant. It doesn't
+  // have to be unique.
+  // Use of this field is discouraged. Use ``local_metadata`` instead.
+  // Optional
+  string display_name = 2;
+
+  // Participant-local metadata to be stored in the ``PartyDetails`` of this newly allocated party.
+  // Optional
+  ObjectMeta local_metadata = 3;
+
+  // The id of the ``Identity Provider``
+  // Optional, if not set, assume the party is managed by the default identity provider or party is not hosted by the participant.
+  string identity_provider_id = 4;
+}
+
+message AllocatePartyResponse {
+  PartyDetails party_details = 1;
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(party_details.identity_provider_id)``
+message UpdatePartyDetailsRequest {
+  // Party to be updated
+  // Required,
+  // Modifiable
+  PartyDetails party_details = 1;
+
+  // An update mask specifies how and which properties of the ``PartyDetails`` message are to be updated.
+  // An update mask consists of a set of update paths.
+  // A valid update path points to a field or a subfield relative to the ``PartyDetails`` message.
+  // A valid update mask must:
+  // (1) contain at least one update path,
+  // (2) contain only valid update paths.
+  // Fields that can be updated are marked as ``Modifiable``.
+  // An update path can also point to non-``Modifiable`` fields such as 'party' and 'local_metadata.resource_version'
+  // because they are used:
+  // (1) to identify the party details resource subject to the update,
+  // (2) for concurrent change control.
+  // An update path can also point to non-``Modifiable`` fields such as 'is_local' and 'display_name'
+  // as long as the values provided in the update request match the server values.
+  // Examples of update paths: 'local_metadata.annotations', 'local_metadata'.
+  // For additional information see the documentation for standard protobuf3's ``google.protobuf.FieldMask``.
+  // For similar Ledger API see ``com.daml.ledger.api.v2.admin.UpdateUserRequest``.
+  // Required
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+message UpdatePartyDetailsResponse {
+  // Updated party details
+  PartyDetails party_details = 1;
+}
+
+message PartyDetails {
+  // The stable unique identifier of a Daml party.
+  // Must be a valid PartyIdString (as described in ``value.proto``).
+  // Required
+  string party = 1;
+
+  // Human readable name associated with the party at allocation time.
+  // Caution, it might not be unique.
+  // Use of this field is discouraged. Use the `local_metadata` field instead.
+  // Optional
+  string display_name = 2;
+
+  // true if party is hosted by the participant and the party shares the same identity provider as the user issuing the request.
+  // Optional
+  bool is_local = 3;
+
+  // Participant-local metadata of this party.
+  // Optional,
+  // Modifiable
+  ObjectMeta local_metadata = 4;
+
+  // The id of the ``Identity Provider``
+  // Optional, if not set, there could be 3 options:
+  // 1) the party is managed by the default identity provider.
+  // 2) party is not hosted by the participant.
+  // 3) party is hosted by the participant, but is outside of the user's identity provider.
+  string identity_provider_id = 5;
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin)``
+message UpdatePartyIdentityProviderIdRequest {
+  // Party to update
+  string party = 1;
+  // Current identity provider id of the party
+  string source_identity_provider_id = 2;
+  // Target identity provider id of the party
+  string target_identity_provider_id = 3;
+}
+
+message UpdatePartyIdentityProviderIdResponse {}

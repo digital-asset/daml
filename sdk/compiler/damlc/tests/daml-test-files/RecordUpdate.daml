@@ -1,0 +1,71 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @INFO range=44:18-44:42; Evaluate
+-- @INFO range=44:25-44:41; Use const
+-- @QUERY-LF $pkg | .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["p_1_0"]) | .expr.rec_upd | (lf::get_field($pkg) == "x") and (.record.val | lf::get_value_name($pkg) == ["origin"]) and (.update.builtin_lit.int64 == "1")
+-- @QUERY-LF $pkg | .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["p_1_2"]) | .expr.rec_upd | (lf::get_field($pkg) == "y") and (.record.rec_upd | (lf::get_field($pkg) == "x") and (.record.val | lf::get_value_name($pkg) == ["origin"]) and (.update.builtin_lit.int64 == "1")) and (.update.builtin_lit.int64 == "2")
+
+module RecordUpdate where
+
+import Daml.Script
+import DA.Assert
+
+-- Check that record update and projection work in conjunction - see DEL-5426
+
+data Foo = Foo with
+  foo : Bar
+
+data Bar = Bar with
+    bar : Int
+  deriving (Eq,Show)
+
+main1 = script do
+  let x : Foo = Foo with foo = Bar with bar = 1
+  let y1 = x.foo{bar=3}
+  let y2 = x.foo with {bar=3}
+  let y3 = x.foo with bar=3
+  y1 === Bar 3
+  y2 === Bar 3
+  y3 === Bar 3
+
+
+-- Check that lambdas after selectors can still contain selectors - see DEL-5537
+
+data Record1 = Record1 with
+  field : Int
+
+data Record2 = Record2 with
+  field : Bool
+
+main2 = script do
+    bug === 1
+
+bug = const rec1.field (\_ -> rec1.field)
+  where rec1 = Record1 with field = 1
+
+-- Check that record selectors work on pairs and triples
+
+main3 = script do
+  let a = (1,2)
+  a{_2=4}._2=== 4
+
+  let b = (1,2,"test")
+  show b{_1=4, _3="new"} === "(4,2,\"new\")"
+
+-- NOTE(MH): Check that the code generated for record updates uses the
+-- `ERecUpd` AST node.
+data Point = Point with
+    x: Int
+    y: Int
+
+origin = Point with x = 0; y = 0
+
+-- NOTE(MH): We expect this to become
+-- `ERecUpd _ "x" (EVal ["origin"]) (EBuiltinFun (BEInt64 1))`
+-- modulo location information.
+p_1_0 = origin with x = 1
+-- NOTE(MH): We expect this to become
+-- `ERecUpd _ "y" (ERecUpd _ "x" (EVal ["origin"]) (EBuiltinFun (BEInt64 1))) (EBuiltinFun (BEInt64 2))`
+-- modulo location information.
+p_1_2 = origin with x = 1; y = 2

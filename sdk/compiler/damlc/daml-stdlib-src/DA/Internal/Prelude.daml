@@ -1,0 +1,654 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
+-- | MOVE Prelude Our Prelude, extending WiredIn with things that don't need special treatment.
+
+module DA.Internal.Prelude
+  ( module DA.Internal.Prelude
+  , module GHC
+  , Down(..)
+  ) where
+
+import Control.Exception.Base ()
+import GHC.Base as GHC hiding ((++), getTag)
+import GHC.Classes as GHC
+import GHC.CString as GHC (fromString)
+import GHC.Enum as GHC
+import GHC.Err as GHC
+import GHC.Integer.Type as GHC (fromInteger)
+import GHC.Num as GHC
+import GHC.Real as GHC (fromRational)
+import GHC.Show as GHC
+import DA.Types as GHC (Either(..))
+import GHC.Tuple()
+import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, DamlEnum, ifThenElse
+  , Numeric
+  )
+-- Not reexported
+import GHC.Types (primitive)
+import GHC.Tuple.Check()
+
+import DA.Internal.Down
+
+-- | Turn a function that takes a pair into a function that takes two arguments.
+curry : ((a, b) -> c) -> a -> b -> c
+curry f x y = f (x, y)
+
+-- | Turn a function that takes two arguments into a function that takes a pair.
+uncurry : (a -> b -> c) -> (a, b) -> c
+uncurry f (x, y) = f x y
+
+infixl 4 <*>
+infixl 4 *>
+infixl 4 <*
+class Functor f => Applicative f where
+    {-# MINIMAL pure, ((<*>) | liftA2) #-}
+    -- | Lift a value.
+    pure : a -> f a
+
+    -- | Sequentially apply the function.
+    --
+    -- A few functors support an implementation of `<*>` that is more
+    -- efficient than the default one.
+    (<*>) : f (a -> b) -> f a -> f b
+    (<*>) = liftA2 identity
+
+    -- | Lift a binary function to actions.
+    --
+    -- Some functors support an implementation of `liftA2` that is more
+    -- efficient than the default one. In particular, if `fmap` is an
+    -- expensive operation, it is likely better to use `liftA2` than to
+    -- `fmap` over the structure and then use `<*>`.
+    liftA2 : (a -> b -> c) -> f a -> f b -> f c
+    liftA2 f x = (<*>) (fmap f x)
+
+    -- | Sequence actions, discarding the value of the first argument.
+    (*>) : f a -> f b -> f b
+    a1 *> a2 = (identity <$ a1) <*> a2
+
+    -- | Sequence actions, discarding the value of the second argument.
+    (<*) : f a -> f b -> f a
+    (<*) = liftA2 const
+
+-- | Sequentially compose two actions, discarding any value produced
+-- by the first. This is like sequencing operators (such as the semicolon)
+-- in imperative languages.
+(>>) : Action m => m a -> m b -> m b
+-- NOTE(MH): We need an `Action` constraint here rather than an `Applicative`
+-- constrait since the conversion to Daml-LF rewrites `A >> B` into
+-- `A >>= \_ -> B`. This is to make `(>>)` lazy in its second argument and
+-- hence give `do A; B` the desired semantics where `B` is not evaluated if
+-- `A` short-circuits the monad computation..
+(>>) = (*>)
+infixl 1 >>
+
+-- | Synonym for `<*>`.
+ap : Applicative f => f (a -> b) -> f a -> f b
+ap = (<*>)
+
+-- This is a poor doc string but I don't know what the correct improvement would be.
+-- | Inject a value into the monadic type. For example, for `Update` and a
+-- value of type `a`, `return` would give you an `Update a`.
+return : Applicative m => a -> m a
+return = pure
+
+infixl 1 >>=
+class Applicative m => Action m where
+    -- | Sequentially compose two actions, passing any value produced
+    -- by the first as an argument to the second.
+    (>>=) : forall a b. m a -> (a -> m b) -> m b
+
+-- | Collapses nested actions into a single action.
+join : (Action m) => m (m a) -> m a
+join x = x >>= identity
+
+-- | This class exists to desugar pattern matches in do-notation.
+-- Polymorphic usage, or calling `fail` directly, is not recommended.
+-- Instead consider using `CanAbort`.
+class Action m => ActionFail m where
+    -- | Fail with an error message.
+    fail : Text -> m a
+
+-- | The identity function.
+identity : a -> a
+identity x = x
+
+instance Functor ((,) a) where
+  fmap f (x, y) = (x, f y)
+  v <$ (x, _) = (x, v)
+
+instance Functor [] where
+    fmap = map
+instance Applicative [] where
+    pure x    = [x]
+    fs <*> xs = concatMap (\f -> map f xs) fs
+instance Action [] where
+    xs >>= f = concatMap f xs
+instance ActionFail [] where
+    fail _   = []
+
+instance Functor ((->) r) where
+    fmap = (.)
+
+instance Applicative ((->) r) where
+    pure = const
+    f <*> x = \r -> f r (x r)
+
+instance Action ((->) r) where
+    f >>= g = \r -> g (f r) r
+
+guard : ActionFail m => Bool -> m ()
+guard False = fail "guard is false"
+guard True = pure ()
+
+-- | This function is a left fold, which you can use to inspect/analyse/consume lists.
+-- `foldl f i xs` performs a left fold over the list `xs` using
+-- the function `f`, using the starting value `i`.
+--
+-- Examples:
+--
+-- ```
+-- >>> foldl (+) 0 [1,2,3]
+-- 6
+--
+-- >>> foldl (^) 10 [2,3]
+-- 1000000
+-- ```
+--
+-- Note that foldl works from left-to-right over the list arguments.
+foldl : (b -> a -> b) -> b -> [a] -> b
+foldl = primitive @"BEFoldl"
+
+-- | `find p xs` finds the first element of the list `xs` where the
+-- predicate `p` is true. There might not be such an element, which
+-- is why this function returns an `Optional a`.
+find : (a -> Bool) -> [a] -> Optional a
+find _ [] = None
+find p (x::xs) = if p x then Some x else find p xs
+
+-- | Gives the length of the list.
+length : [a] -> Int
+length = foldl (\l _ -> l + 1) 0
+
+-- | Are there any elements in the list where the predicate is true?
+-- `any p xs` is `True` if `p` holds for at least one element of `xs`.
+any : (a -> Bool) -> [a] -> Bool
+any f = foldl (\b x -> b || f x) False
+
+-- | Is the predicate true for all of the elements in the list?
+-- `all p xs` is `True` if `p` holds for every element of `xs`.
+all : (a -> Bool) -> [a] -> Bool
+all f = foldl (\b x -> b && f x) True
+
+-- | Is at least one of elements in a list of `Bool` true?
+-- `or bs` is `True` if at least one element of `bs` is `True`.
+or : [Bool] -> Bool
+or = any identity
+
+-- | Is every element in a list of Bool true?
+-- `and bs` is `True` if every element of `bs` is `True`.
+and : [Bool] -> Bool
+and = all identity
+
+-- | Does this value exist in this list?
+-- `elem x xs` is `True` if `x` is an element of the list `xs`.
+elem : Eq a => a -> [a] -> Bool
+elem x = any (== x)
+
+-- | Negation of `elem`:
+-- `elem x xs` is `True` if `x` is _not_ an element of the list `xs`.
+notElem : Eq a => a ->  [a] -> Bool
+notElem x = not . elem x
+
+infixl 4 <$>
+-- | Synonym for `fmap`.
+(<$>) : Functor f => (a -> b) -> f a -> f b
+(<$>) = fmap
+
+-- | The `Optional` type encapsulates an optional value.  A value of type
+-- `Optional a` either contains a value of type `a` (represented as `Some a`),
+-- or it is empty (represented as `None`).  Using `Optional` is a good way to
+-- deal with errors or exceptional cases without resorting to drastic
+-- measures such as `error`.
+--
+-- The `Optional` type is also an `Action`.  It is a simple kind of error
+-- `Action`, where all errors are represented by `None`.  A richer
+-- error `Action` could be built using the `Data.Either.Either` type.
+--
+data Optional a  =  None | Some a
+    deriving (Eq, Ord, Show)
+
+instance Functor Optional where
+    fmap _ None       = None
+    fmap f (Some a)      = Some (f a)
+
+-- | @since 2.01
+instance Applicative Optional where
+    pure = Some
+
+    Some f  <*> m       = fmap f m
+    None <*> _m      = None
+
+    liftA2 f (Some x) (Some y) = Some (f x y)
+    liftA2 _ _ _ = None
+
+    Some _m1 *> m2      = m2
+    None  *> _m2     = None
+
+-- | @since 2.01
+instance Action Optional where
+    (Some x) >>= k      = k x
+    None  >>= _      = None
+
+instance ActionFail Optional where
+    fail _              = None
+
+
+-- | The `optional` function takes a default value, a function, and a `Optional`
+-- value.  If the `Optional` value is `None`, the function returns the
+-- default value.  Otherwise, it applies the function to the value inside
+-- the `Some` and returns the result.
+--
+-- Basic usage examples:
+--
+-- ```
+-- >>> optional False (> 2) (Some 3)
+-- True
+-- ```
+--
+-- ```
+-- >>> optional False (> 2) None
+-- False
+-- ```
+--
+-- ```
+-- >>> optional 0 (*2) (Some 5)
+-- 10
+-- >>> optional 0 (*2) None
+-- 0
+-- ```
+--
+-- This example applies `show` to a `Optional Int`. If you have `Some n`,
+-- this shows the underlying `Int`, `n`. But if you have `None`, this
+-- returns the empty string instead of (for example) `None`:
+--
+-- ```
+-- >>> optional "" show (Some 5)
+-- "5"
+-- >>> optional "" show (None : Optional Int)
+-- ""
+-- ```
+--
+optional : b -> (a -> b) -> Optional a -> b
+optional n _ None  = n
+optional _ f (Some x) = f x
+
+
+instance Functor (Either e) where
+  fmap _ (Left e) = Left e
+  fmap f (Right a) = Right (f a)
+
+instance Applicative (Either e) where
+  pure = Right
+
+  Left e <*> _ = Left e
+  Right f <*> a = fmap f a
+
+instance Action (Either e) where
+  Left e >>= _ = Left e
+  Right a >>= f = f a
+
+instance ActionFail (Either Text) where
+  fail = Left
+
+-- | The `either` function provides case analysis for the `Either` type.
+-- If the value is `Left a`, it applies the first function to `a`;
+-- if it is `Right b`, it applies the second function to `b`.
+--
+-- Examples:
+--
+-- This example has two values of type `Either [Int] Int`, one using the
+-- `Left` constructor and another using the `Right` constructor. Then
+-- it applies `either` the `length` function (if it has a `[Int]`)
+-- or the "times-two" function (if it has an `Int`):
+--
+-- ```
+-- >>> let s = Left [1,2,3] : Either [Int] Int in either length (*2) s
+-- 3
+-- >>> let n = Right 3 : Either [Int] Int in either length (*2) n
+-- 6
+-- ```
+--
+either : (a -> c) -> (b -> c) -> Either a b -> c
+either f _ (Left x) = f x
+either _ g (Right x) = g x
+
+infixr 6 <>
+-- | The class of semigroups (types with an associative binary operation).
+class Semigroup a where
+  -- | An associative operation.
+  (<>): a -> a -> a
+
+instance Semigroup Text where
+  -- | Concatenate two strings.
+  (<>) = primitive @"BEAppendText"
+
+instance Semigroup [a] where
+  (<>) = (++)
+
+instance Semigroup Ordering where
+  LT <> _ = LT
+  EQ <> y = y
+  GT <> _ = GT
+
+-- | The class of monoids (types with an associative binary operation that has an identity).
+class Semigroup a => Monoid a where
+  -- | Identity of `(<>)`
+  mempty : a
+
+  -- | Fold a list using the monoid.
+  -- For example using `mconcat` on a list of strings would concatenate all strings to one lone string.
+  mconcat : [a] -> a
+  mconcat = foldr (<>) mempty
+
+instance Monoid [a] where
+  mempty = []
+
+instance Monoid Text where
+  mempty = ""
+
+instance Monoid Ordering where
+  mempty = EQ
+
+-- | Take a list of lists and concatenate those lists into one list.
+concat : [[a]] -> [a]
+concat = mconcat
+
+infixr 5 ++
+-- | Concatenate two lists.
+(++) : [a] -> [a] -> [a]
+xs ++ ys = foldr (::) ys xs
+
+-- | Flip the order of the arguments of a two argument function.
+flip                    : (a -> b -> c) -> b -> a -> c
+flip f x y              =  f y x
+
+-- | Reverse a list.
+reverse : [a] -> [a]
+reverse =  foldl (flip (::)) []
+
+-- | Apply an applicative function to each element of a list.
+mapA : Applicative m => (a -> m b) -> [a] -> m [b]
+mapA f = foldr (\x y -> liftA2 (::) (f x) y) (pure [])
+
+-- | `forA` is `mapA` with its arguments flipped.
+forA : Applicative m => [a] -> (a -> m b) -> m [b]
+forA = flip mapA
+
+-- | Perform a list of actions in sequence and collect the results.
+sequence : Applicative m => [m a] -> m [a]
+sequence = foldr (liftA2 (::)) (pure [])
+
+infixr 1 =<<
+-- | `=<<` is `>>=` with its arguments flipped.
+(=<<) : Action m => (a -> m b) -> m a -> m b
+(=<<) = flip (>>=)
+
+-- | Map a function over each element of a list, and concatenate all the results.
+concatMap : (a -> [b]) -> [a] -> [b]
+concatMap f xs = foldr (\x acc -> f x ++ acc) [] xs
+
+-- | `replicate i x` gives the list `[x, x, x, ..., x]` with `i` copies of `x`.
+replicate : Int -> a -> [a]
+replicate i x | i <= 0 = []
+              | otherwise = x :: replicate (i-1) x
+
+-- | Take the first `n` elements of a list.
+take : Int -> [a] -> [a]
+take n _      | n <= 0 =  []
+take _ []              =  []
+take n (x :: xs)       =  x :: take (n-1) xs
+
+-- | Drop the first `n` elements of a list.
+drop : Int -> [a] -> [a]
+drop n xs     | n <= 0 =  xs
+drop _ []              =  []
+drop n (_ :: xs)       =  drop (n-1) xs
+
+-- | Split a list at a given index.
+splitAt : Int -> [a] -> ([a], [a])
+splitAt _ [] = ([], [])
+splitAt i ys@(x :: xs)
+  | i <= 0 = ([], ys)
+  | otherwise = case splitAt (i - 1) xs of
+      (a, b) -> (x :: a, b)
+
+-- | Take elements from a list while the predicate holds.
+takeWhile : (a -> Bool) -> [a] -> [a]
+takeWhile _ []          =  []
+takeWhile p (x :: xs)
+            | p x       =  x :: takeWhile p xs
+            | otherwise =  []
+
+-- | Drop elements from a list while the predicate holds.
+dropWhile : (a -> Bool) -> [a] -> [a]
+dropWhile _ []          =  []
+dropWhile p xs@(x :: xs')
+            | p x       =  dropWhile p xs'
+            | otherwise =  xs
+
+-- | `span p xs` is equivalent to `(takeWhile p xs, dropWhile p xs)`.
+span : (a -> Bool) -> [a] -> ([a], [a])
+span _ xs@[]            =  (xs, xs)
+span p xs@(x::xs')
+         | p x          =  let (ys,zs) = span p xs' in (x::ys,zs)
+         | otherwise    =  ([],xs)
+
+-- | The `partition` function takes a predicate, a list and returns
+-- the pair of lists of elements which do and do not satisfy the
+-- predicate, respectively; i.e.,
+--
+-- > partition p xs == (filter p xs, filter (not . p) xs)
+--
+-- ```
+-- >>> partition (<0) [1, -2, -3, 4, -5, 6]
+-- ([-2, -3, -5], [1, 4, 6])
+-- ```
+partition : (a -> Bool) -> [a] -> ([a], [a])
+partition p xs =
+  foldr insert ([], []) xs
+  where
+    insert x (ps, nonPs)
+      | p x = (x :: ps, nonPs)
+      | otherwise = (ps, x :: nonPs)
+
+-- | Break a list into two, just before the first element where the predicate holds.
+-- `break p xs` is equivalent to `span (not . p) xs`.
+break : (a -> Bool) -> [a] -> ([a], [a])
+break f = span (not . f)
+
+-- | Look up the first element with a matching key.
+lookup : Eq a => a -> [(a, b)] -> Optional b
+lookup _key []          =  None
+lookup  key ((x,y)::xys)
+    | key == x          =  Some y
+    | otherwise         =  lookup key xys
+
+-- | Generate a list containing all values of a given enumeration.
+enumerate : (Enum a, Bounded a) => [a]
+enumerate = [minBound .. maxBound]
+
+-- | `zip` takes two lists and returns a list of corresponding pairs.
+-- If one list is shorter, the excess elements of the longer list are discarded.
+zip : [a] -> [b] -> [(a, b)]
+zip (a::as) (b::bs) = (a,b) :: zip as bs
+zip _      _    = []
+
+-- | `zip3` takes three lists and returns a list of triples, analogous to `zip`.
+zip3 : [a] -> [b] -> [c] -> [(a, b, c)]
+zip3 (a::as) (b::bs) (c::cs) = (a,b,c) :: zip3 as bs cs
+zip3 _ _ _ = []
+
+-- | `zipWith` takes a function and two lists.
+-- It generalises `zip` by combining elements using the function, instead of forming pairs.
+-- If one list is shorter, the excess elements of the longer list are discarded.
+zipWith : (a -> b -> c) -> [a] -> [b] -> [c]
+zipWith f (a::as) (b::bs) = f a b :: zipWith f as bs
+zipWith _ _ _ = []
+
+-- | `zipWith3` generalises `zip3` by combining elements using the function, instead of forming triples.
+zipWith3 : (a -> b -> c -> d) -> [a] -> [b] -> [c] -> [d]
+zipWith3 f (a::as) (b::bs) (c::cs) = f a b c :: zipWith3 f as bs cs
+zipWith3 _ _ _ _ = []
+
+-- | Turn a list of pairs into a pair of lists.
+unzip : [(a, b)] -> ([a], [b])
+unzip = foldr (\(a,b) ~(as,bs) -> (a::as,b::bs)) ([],[])
+
+-- | Turn a list of triples into a triple of lists.
+unzip3 : [(a, b, c)] -> ([a], [b], [c])
+unzip3 = foldr (\(a,b,c) ~(as,bs,cs) -> (a::as,b::bs,c::cs))
+                  ([],[],[])
+
+-- | `traceRaw msg a` prints `msg` and returns `a`, for debugging purposes.
+--
+-- The default configuration on the participant logs these messages at DEBUG level.
+traceRaw : Text -> a -> a
+traceRaw = primitive @"BETrace"
+
+-- | `trace b a` prints `b` and returns `a`, for debugging purposes.
+--
+-- The default configuration on the participant logs these messages at DEBUG level.
+trace : Show b => b -> a -> a
+trace = traceRaw . show
+
+-- | `traceId a` prints `a` and returns `a`, for debugging purposes.
+--
+-- The default configuration on the participant logs these messages at DEBUG level.
+traceId : Show b => b -> b
+traceId x = trace x x
+
+-- | `debug x` prints `x` for debugging purposes.
+--
+-- The default configuration on the participant logs these messages at DEBUG level.
+debug : (Show b, Action m) => b -> m ()
+debug x = debugRaw (show x)
+
+-- | `debugRaw msg` prints `msg` for debugging purposes.
+--
+-- The default configuration on the participant logs these messages at DEBUG level.
+debugRaw : Action m => Text -> m ()
+debugRaw x =
+  -- NOTE (MK): We introduce an explicit indirection via >>=
+  -- to make sure that evaluating something like
+  -- `debug x >> pure ()` does not print the debug statement.
+  -- Instead it will only be printed when you execute the monadic
+  -- action.
+  pure () >>= \_ -> pure (traceRaw x ())
+
+-- | Return the first element of a tuple.
+fst : (a, b) -> a
+fst (x, _) = x
+
+-- | Return the second element of a tuple.
+snd : (a, b) -> b
+snd (_, x) = x
+
+-- | `truncate x` rounds `x` toward zero.
+truncate : Numeric n -> Int
+truncate = primitive @"BENumericToInt64"
+
+-- | Convert an `Int` to a `Numeric`.
+intToNumeric : forall n. NumericScale n => Int -> Numeric n
+intToNumeric = primitive @"BEInt64ToNumeric" (numericOne @n)
+
+-- | Convert an `Int` to a `Decimal`.
+intToDecimal : Int -> Decimal
+intToDecimal = intToNumeric
+
+-- | Bankers' Rounding: `roundBankers dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded to the nearest even digit.
+roundBankers : Int -> Numeric n -> Numeric n
+roundBankers = primitive @"BERoundNumeric"
+
+-- | Commercial Rounding: `roundCommercial dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded away from zero.
+roundCommercial : forall n. NumericScale n => Int -> Numeric n -> Numeric n
+roundCommercial d x =
+  -- Until we have a `roundCommercial` primitive, we use a somewhat hacky implementation
+  -- relying on `roundBankers` is a primitive.
+
+  -- We first use bankers rounding and calculate the difference
+  -- we identify the problematic rounding by multiply 2 and checking idempotency by bankers rounding and its sign
+   let
+      t = roundBankers d x
+      diff = t - x
+      diffx2 = diff * intToNumeric 2
+    in
+      if diffx2 == roundBankers d diffx2 && diff * signum x < intToNumeric 0
+      then x - diff
+      else t
+
+-- | Round a `Numeric` to the nearest integer, where a `.5` is rounded away from zero.
+round : forall n. NumericScale n => Numeric n -> Int
+round x = if x > intToNumeric 0
+    then truncate $ x + half
+    else truncate $ x - half
+  where
+    -- Note that for `n = 0`, `half = 0.`, so the result of round is still correct.
+    half = primitive @"BEDivNumeric" (numericOne @n) (intToNumeric @0 1) (intToNumeric @0 2)
+
+
+-- | Round a `Decimal` down to the nearest integer.
+floor : NumericScale n => Numeric n -> Int
+floor x =
+  let i = truncate x
+  in if intToNumeric i <= x then i else i - 1
+
+-- | Round a `Decimal` up to the nearest integer.
+ceiling : NumericScale n => Numeric n -> Int
+ceiling x =
+  let i = truncate x
+  in if intToNumeric i < x then i + 1 else i
+
+-- | Is the list empty? `null xs` is true if `xs` is the empty list.
+null : [a] -> Bool
+null [] = True
+null _ = False
+
+-- | Filters the list using the function: keep only the elements where the predicate holds.
+filter : (a -> Bool) -> [a] -> [a]
+filter p = foldr (\x xs -> if p x then x :: xs else xs) []
+
+-- | HIDE
+fixedpoint : ((a -> b) -> a -> b) -> a -> b
+fixedpoint g v = g ( fixedpoint g ) v
+
+deriving instance Eq a => Eq (Down a)
+deriving instance Show a => Show (Down a)
+deriving instance Functor Down
+
+instance Ord a => Ord (Down a) where
+    compare (Down x) (Down y) = compare y x
+
+instance Applicative Down where
+    pure = Down
+    Down f <*> Down x = Down (f x)
+
+instance Action Down where
+    Down a >>= k = k a
+
+-- | Add together all the elements in the list.
+sum : Additive a => [a] -> a
+sum = foldl (+) aunit
+
+-- | Multiply all the elements in the list together.
+product : Multiplicative a => [a] -> a
+product = foldl (*) munit
+
+-- | A convenience function that can be used to mark something not implemented.
+-- Always throws an error with "Not implemented."
+undefined : a
+undefined = error "Not implemented."

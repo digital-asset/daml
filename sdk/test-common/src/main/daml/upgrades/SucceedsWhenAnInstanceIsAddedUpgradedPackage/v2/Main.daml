@@ -1,0 +1,14 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Main where
+import qualified "upgrades-example-SucceedsWhenAnInstanceIsAddedUpgradedPackage" Main as V1
+template T with
+    p: Party
+  where
+    signatory p
+    interface instance V1.I for T where
+      view = V1.IView "hi"
+      method1 = 2
+data IView = IView { i : Text }
+

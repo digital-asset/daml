@@ -1,0 +1,233 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# OPTIONS -Wno-unused-binds #-} -- the opaque constructors are not exported
+
+-- | MOVE Prelude Daml-LF types and primitives, apart from templates/contracts.
+module DA.Internal.LF
+  ( Party
+
+  , partyToText
+  , partyFromText
+
+  , ContractId
+  , coerceContractId
+
+  , Date
+
+  , Time
+
+#ifdef DAML_TEXTMAP
+  , TextMap
+#endif
+
+  , Map
+
+  , Update
+
+  , HasTime
+  , getTime
+
+  , CanAbort
+  , abort
+
+  , Pair
+  , unpackPair
+
+  -- We always expose Any and TypeRep since they are used by template desugaring.
+  -- If this is not supported by the target LF version, we compile it to ().
+  , Any
+  , TypeRep
+
+  #ifdef DAML_EXCEPTIONS
+  , AnyException
+  #endif
+
+  #ifdef DAML_SCENARIOS
+  , Scenario
+  #endif
+
+  ) where
+
+import GHC.Stack.Types (HasCallStack)
+import GHC.Types (Opaque, Symbol, primitive, magic)
+import DA.Internal.Prelude
+
+-- This module should not define any new types. It should only provide the Daml equivalent for LF
+-- builtins using Opaque.
+
+-- | The `Party` type represents a party to a contract.
+data Party =
+  Party Opaque
+-- Note that before Daml-LF 1.2 BEToText added single quotes around the party.
+-- now it does not, and the old behavior has been renamed BEPartyToQuotedText.
+-- Since we want this to work with both versions, keep the old behavior.
+instance Show Party where show party = "'" <> partyToText party <> "'"
+instance Eq Party where (==) = primitive @"BEEqual"
+instance Ord Party where
+  (<) = primitive @"BELess"
+  (<=) = primitive @"BELessEq"
+  (>=) = primitive @"BEGreaterEq"
+  (>) = primitive @"BEGreater"
+
+-- | Convert the `Party` to `Text`, giving back what you passed to `getParty`.
+--   In most cases, you should use `show` instead. `show` wraps
+--   the party in `'ticks'` making it clear it was a `Party` originally.
+partyToText : Party -> Text
+partyToText = primitive @"BEToText"
+
+-- | Converts a `Text` to `Party`. It returns `None` if the provided text contains
+-- any forbidden characters. See Daml-LF spec for a specification on which characters
+-- are allowed in parties. Note that this function accepts text _without_
+-- single quotes.
+--
+-- This function does not check on whether the provided
+-- text corresponds to a party that "exists" on a given ledger: it merely converts
+-- the given `Text` to a `Party`. The only way to guarantee that a given `Party`
+-- exists on a given ledger is to involve it in a contract.
+--
+-- This function, together with `partyToText`, forms an isomorphism between
+-- valid party strings and parties. In other words, the following equations hold:
+--
+-- ```daml-force
+-- ∀ p. partyFromText (partyToText p) = Some p
+-- ∀ txt p. partyFromText txt = Some p ==> partyToText p = txt
+-- ```
+--
+-- This function will crash at runtime if you compile Daml to Daml-LF < 1.2.
+partyFromText : Text -> Optional Party
+partyFromText = primitive @"BETextToParty"
+
+#ifdef DAML_SCENARIOS
+-- | The `Scenario` type is for simulating ledger interactions.
+-- The type `Scenario a` describes a set of actions taken by various parties during
+-- the simulated scenario, before returning a value of type `a`.
+data Scenario a =
+  Scenario Opaque
+#endif
+
+-- | The `Date` type represents a date, for example `date 2007 Apr 5`.
+data Date =
+  Date Opaque
+instance Show Date where show = primitive @"BEToText"
+instance Eq Date where (==) = primitive @"BEEqual"
+instance Ord Date where (<=) = primitive @"BELessEq"
+
+-- | The `Time` type represents a specific datetime in UTC,
+-- for example `time (date 2007 Apr 5) 14 30 05`.
+data Time =
+  Time Opaque
+instance Show Time where show = primitive @"BEToText"
+instance Eq Time where (==) = primitive @"BEEqual"
+instance Ord Time where (<=) = primitive @"BELessEq"
+
+#ifdef DAML_TEXTMAP
+-- | The `TextMap a` type represents an associative array from keys of type
+-- `Text` to values of type `a`.
+data TextMap a =
+  TextMap Opaque
+#endif
+
+-- | The `Map a b` type represents an associative array from keys of type `a`
+-- to values of type `b`. It uses the built-in equality for keys. Import
+-- `DA.Map` to use it.
+data Map a b =
+  Map Opaque
+
+-- | The `ContractId a` type represents an ID for a contract created from a template `a`.
+--   You can use the ID to fetch the contract, among other things.
+data ContractId a =
+  ContractId Opaque
+instance Eq (ContractId a) where (==) = primitive @"BEEqual"
+
+instance Ord (ContractId a) where
+  (<) = primitive @"BELess"
+  (<=) = primitive @"BELessEq"
+  (>) = primitive @"BEGreater"
+  (>=) = primitive @"BEGreaterEq"
+
+instance Show (ContractId a) where
+  show cid = case primitive @"BEContractIdToText" cid of
+    None -> "<contract-id>"
+    Some t -> t
+
+-- | Used to convert the type index of a `ContractId`, since they are just
+-- pointers. Note that subsequent fetches and exercises might fail if the
+-- template of the contract on the ledger doesn't match.
+coerceContractId : ContractId a -> ContractId b
+coerceContractId = primitive @"BECoerceContractId"
+
+-- | The `Update a` type represents an `Action` to update or query the ledger,
+--   before returning a value of type `a`. Examples include `create` and `fetch`.
+data Update a =
+  Update Opaque
+
+instance Functor Update where
+    fmap f x = x >>= \v -> pure (f v)
+
+instance Applicative Update where
+    pure = primitive @"UPure"
+    f <*> x = f >>= \f -> x >>= \x -> pure (f x)
+
+instance Action Update where
+    (>>=) = primitive @"UBind"
+
+instance ActionFail Update where
+#ifdef DAML_EXCEPTIONS
+    fail m = pure () >>= \_ -> error m
+#else
+    fail = primitive @"UAbort"
+#endif
+
+-- | The `HasTime` class is for where the time is available: `Scenario` and `Update`.
+class HasTime m where
+    -- | Get the current time.
+    getTime : HasCallStack => m Time
+
+instance HasTime Update where
+    getTime = primitive @"UGetTime"
+
+-- | The `CanAbort` class is for `Action` s that can be aborted.
+class (Action m) => CanAbort m where
+    -- | Abort the current action with a message.
+    abort : Text -> m a
+
+instance CanAbort Update where
+    abort = fail
+
+instance CanAbort (Either Text) where
+    abort = fail
+
+-- | HIDE A dummy type for the Daml-LF structural record type
+-- `<f1: a1, f2: a2>`.
+data Pair (f1 : Symbol) (f2 : Symbol) a1 a2 = Pair Opaque
+
+-- | HIDE Function to turn a Daml-LF structural record type into a Daml pair.
+unpackPair : forall f1 f2 a1 a2. Pair f1 f2 a1 a2 -> (a1, a2)
+unpackPair = magic @"unpackPair"
+
+-- | HIDE Existential type that can wrap an arbitrary type.
+-- We do not expose this directly and instead only expose AnyTemplate and AnyChoice.
+data Any = Any Opaque
+
+-- | HIDE Value-level representation of a type.
+-- We do not expose this directly and instead only expose TemplateTypeRep.
+data TypeRep = TypeRep Opaque
+
+instance Eq TypeRep where
+  (==) = primitive @"BEEqual"
+
+instance Ord TypeRep where
+  (<=) = primitive @"BELessEq"
+  (>=) = primitive @"BEGreaterEq"
+  (<) = primitive @"BELess"
+  (>) = primitive @"BEGreater"
+
+#ifdef DAML_EXCEPTIONS
+
+-- | A wrapper for all exception types.
+data AnyException = AnyException Opaque
+
+#endif

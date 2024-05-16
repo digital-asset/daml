@@ -1,0 +1,28 @@
+-- Copyright (c) 2022, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- This tests that the ContractId type is not allowed to be in a
+-- contract key at compile time.
+
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+
+-- @ERROR range=17:10-19:29; contract key type should not contain ContractId
+module ContractIdInContractKey where
+
+template Contract with
+    party : Party
+  where
+    signatory party
+
+template ContractKeyWithCid with
+    party: Party
+    cid: ContractId Contract
+  where
+    signatory [party]
+
+    nonconsuming choice Noop : ()
+      controller party
+      do pure ()
+
+    key (party, cid) : (Party, ContractId Contract)
+    maintainer key._1

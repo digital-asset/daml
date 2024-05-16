@@ -10,17 +10,34 @@ parameters:
   test_mode: ''
 
 steps:
+  - bash: |
+      set -euo pipefail
+      major=$(cat sdk/NIGHTLY_PREFIX | awk -F. '{print $1}')
+      minor=$(cat sdk/NIGHTLY_PREFIX | awk -F. '{print $2}')
+      setvar() {
+        echo "Setting '$1' to '$2'"
+        echo "##vso[task.setvariable variable=$1]$2"
+      }
+      if ([ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "arm64" ]) \
+        && ([ "$major" = "2" ] && [ "$minor" -lt "9" ]); then
+        setvar skip true
+      else
+        setvar skip false
+      fi
   - bash: ci/dev-env-install.sh
     displayName: 'Build/Install the Developer Environment'
     condition: and(succeeded(),
+                   eq(variables.skip, 'false'),
                    or(eq(${{parameters.is_release}}, 'false'),
                       ne(${{parameters.name_exp}}, 'm1')))
 
   - bash: |
+      cd sdk
       source dev-env/lib/ensure-nix
       ci/dev-env-push.py
     displayName: 'Push Developer Environment build results'
     condition: and(succeeded(),
+                   eq(variables.skip, 'false'),
                    eq(variables['System.PullRequest.IsFork'], 'False'),
                    or(eq(${{parameters.is_release}}, 'false'),
                       ne(${{parameters.name_exp}}, 'm1')))
@@ -29,29 +46,36 @@ steps:
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       NIX_SECRET_KEY_CONTENT: $(NIX_SECRET_KEY_CONTENT)
 
-  - bash: ci/configure-bazel.sh
+  - bash: |
+      ci/configure-bazel.sh
     displayName: 'Configure Bazel'
     env:
       IS_FORK: $(System.PullRequest.IsFork)
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
     condition: and(succeeded(),
+                   eq(variables.skip, 'false'),
                    or(eq(${{parameters.is_release}}, 'false'),
                       ne(${{parameters.name_exp}}, 'm1')))
 
-  - bash: ./fmt.sh --test
+  - bash: |
+      sdk/fmt.sh --test
     displayName: 'Platform-agnostic lints and checks'
-    condition: and(succeeded(), eq(${{parameters.name_exp}}, 'linux-intel'))
+    condition: and(succeeded(),
+                   eq(variables.skip, 'false'),
+                   eq(${{parameters.is_release}}, 'false'),
+                   eq(${{parameters.name_exp}}, 'linux-intel'))
 
   - bash: |
-      set -euo pipefail
-      if [ -e bazel-testlogs ]; then
-          rm -rf bazel-testlogs/
-      fi
+      rm -rf sdk/bazel-testlogs/
     displayName: delete old logs
+    condition: and(succeeded(),
+                   eq(variables.skip, 'false'))
 
   - bash: |
       set -euo pipefail
+      cd sdk
+      eval "$(dev-env/bin/dade-assist)"
       p="_${{parameters.name_str}}"
       a="_$(Build.BuildNumber)_$(System.JobAttempt)"
       t="${{parameters.test_mode}}"
@@ -60,12 +84,34 @@ steps:
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
       DAML_SCALA_VERSION: ${{parameters.scala_version}}
+      IS_FORK: $(System.PullRequest.IsFork)
+    condition: and(succeeded(),
+                   eq(variables.skip, 'false'),
+                   eq(${{parameters.is_release}}, 'false'))
+
+  - bash: |
+      set -euo pipefail
+      cd sdk
+      eval "$(dev-env/bin/dade-assist)"
+      p="_${{parameters.name_str}}"
+      a="_$(Build.BuildNumber)_$(System.JobAttempt)"
+      t="${{parameters.test_mode}}"
+      # Other branches may not have this optimization
+      if [ -f ci/build-release.sh ]; then
+        ci/build-release.sh $p $a $t
+      else
+        ./build.sh $p $a $t
+      fi
+    displayName: 'Build Release'
+    env:
+      DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
+      DAML_SCALA_VERSION: ${{parameters.scala_version}}
       ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
       ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
       IS_FORK: $(System.PullRequest.IsFork)
     condition: and(succeeded(),
-                   or(eq(${{parameters.is_release}}, 'false'),
-                      ne(${{parameters.name_exp}}, 'm1')))
+                   eq(variables.skip, 'false'),
+                   eq(${{parameters.is_release}}, 'true'))
 
   # Do not publish dar from m1
   - ${{ if ne(parameters.name_exp, 'm1') }}:
@@ -76,6 +122,7 @@ steps:
 
   - task: PublishBuildArtifacts@1
     condition: and(succeededOrFailed(),
+                   eq(variables.skip, 'false'),
                    or(eq(${{parameters.is_release}}, 'false'),
                       ne(${{parameters.name_exp}}, 'm1')))
     continueOnError: true
@@ -85,16 +132,19 @@ steps:
 
   - task: PublishBuildArtifacts@1
     condition: and(failed(),
+                   eq(variables.skip, 'false'),
                    or(eq(${{parameters.is_release}}, 'false'),
                       ne(${{parameters.name_exp}}, 'm1')))
     displayName: 'Publish the bazel test logs'
     inputs:
-      pathtoPublish: 'bazel-testlogs/'
+      pathtoPublish: 'sdk/bazel-testlogs/'
       artifactName: 'Test logs ${{parameters.name_str}}'
 
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(./dev-env/bin/dade-assist)"
+      bazel build //release:release
       ./bazel-bin/release/release --release-dir "$(mktemp -d)" --upload
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
@@ -106,6 +156,7 @@ steps:
       NPM_TOKEN: $(NPM_TOKEN)
     name: publish_npm_mvn
     condition: and(succeeded(),
+                   eq(variables.skip, 'false'),
                    eq(${{parameters.is_release}}, 'true'),
                    eq(${{parameters.name_exp}}, 'linux-intel'),
                    in(variables['Build.SourceBranchName'], 'main', 'main-2.x'))
@@ -113,17 +164,19 @@ steps:
     parameters:
       var_name: bash-lib
       condition: and(succeeded(),
+                     eq(variables.skip, 'false'),
                      or(eq(${{parameters.is_release}}, 'false'),
                         ne(${{parameters.name_exp}}, 'm1')))
   - bash: |
       set -euo pipefail
-      eval "$(./dev-env/bin/dade-assist)"
+      eval "$(cd sdk; dev-env/bin/dade-assist)"
       mkdir -p $(Build.StagingDirectory)/release
       ./ci/copy-unix-release-artifacts.sh ${{parameters.release_tag}} ${{parameters.name_str}} $(Build.StagingDirectory)/release
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
     name: publish
     condition: and(succeeded(),
+                   eq(variables.skip, 'false'),
                    ne(${{parameters.name_exp}}, 'm1'),
                    eq(${{parameters.is_release}}, 'true'),
                    in(variables['Build.SourceBranchName'], 'main', 'main-2.x'))
@@ -132,6 +185,7 @@ steps:
       targetPath: $(Build.StagingDirectory)/release
       artifactName: ${{parameters.name_str}}-release
     condition: and(succeeded(),
+                   eq(variables.skip, 'false'),
                    ne(${{parameters.name_exp}}, 'm1'),
                    eq(${{parameters.is_release}}, 'true'),
                    in(variables['Build.SourceBranchName'], 'main', 'main-2.x'))
