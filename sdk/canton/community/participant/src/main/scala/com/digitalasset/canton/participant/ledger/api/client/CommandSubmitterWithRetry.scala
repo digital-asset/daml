@@ -89,7 +89,6 @@ class CommandSubmitterWithRetry(
     val commandId = commands.commandId
     val deadline: CantonTimestamp = clock.now.plus(timeout.toJava)
     def go(): FutureUnlessShutdown[CommandResult] = {
-      traceContext.context.makeCurrent()
       abortIfClosing("submit-with-retry", futureSupervisor) {
         logger.debug(s"Submitting command=${commandId} to command service")
         commandServiceClient

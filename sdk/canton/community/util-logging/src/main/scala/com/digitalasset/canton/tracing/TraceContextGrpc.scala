@@ -5,7 +5,7 @@ package com.digitalasset.canton.tracing
 
 import io.grpc.ForwardingClientCall.SimpleForwardingClientCall
 import io.grpc.*
-import io.grpc.{Context as GrpcContext}
+import io.grpc.Context as GrpcContext
 
 /** Support for propagating TraceContext values across GRPC boundaries.
   * Includes:
@@ -16,6 +16,8 @@ object TraceContextGrpc {
   // value of trace context in the GRPC Context
   private val TraceContextKey =
     Context.keyWithDefault[TraceContext]("traceContext", TraceContext.empty)
+
+  val TraceContextOptionsKey = CallOptions.Key.create[TraceContext]("traceContext")
 
   def fromGrpcContext: TraceContext = TraceContextKey.get()
 
@@ -37,14 +39,14 @@ object TraceContextGrpc {
         next: Channel,
     ): ClientCall[ReqT, RespT] =
       new SimpleForwardingClientCall[ReqT, RespT](next.newCall(method, callOptions)) {
+
         override def start(
             responseListener: ClientCall.Listener[RespT],
             headers: Metadata,
         ): Unit = {
-          val traceContext = TraceContextKey.get()
-
+          val tcOpts = Option(callOptions.getOption(TraceContextOptionsKey))
+          val traceContext = tcOpts.getOrElse(TraceContextKey.get())
           W3CTraceContext.injectIntoGrpcMetadata(traceContext, headers)
-
           super.start(responseListener, headers)
         }
       }

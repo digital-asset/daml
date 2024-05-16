@@ -18,6 +18,7 @@ import com.daml.ledger.api.v2.state_service.{
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.pekkostreams.ExtractMaterializedValue
+import com.digitalasset.canton.tracing.TraceContext
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 
@@ -39,7 +40,7 @@ class StateServiceClient(service: StateServiceStub)(implicit
       verbose: Boolean = false,
       validAtOffset: Option[String] = None,
       token: Option[String] = None,
-  ): Source[GetActiveContractsResponse, Future[String]] = {
+  )(implicit traceContext: TraceContext): Source[GetActiveContractsResponse, Future[String]] = {
     ClientAdapter
       .serverStreaming(
         GetActiveContractsRequest(
@@ -47,7 +48,7 @@ class StateServiceClient(service: StateServiceStub)(implicit
           verbose = verbose,
           activeAtOffset = validAtOffset.getOrElse(""),
         ),
-        LedgerClient.stub(service, token).getActiveContracts,
+        LedgerClient.stubWithTracing(service, token).getActiveContracts,
       )
       .viaMat(StateServiceClient.extractOffset)(
         Keep.right
@@ -61,7 +62,8 @@ class StateServiceClient(service: StateServiceStub)(implicit
       validAtOffset: Option[String] = None,
       token: Option[String] = None,
   )(implicit
-      materializer: Materializer
+      materializer: Materializer,
+      traceContext: TraceContext,
   ): Future[(Seq[ActiveContract], ParticipantOffset)] = {
     val (offsetF, contractsF) =
       getActiveContractsSource(filter, verbose, validAtOffset, token)
@@ -82,13 +84,15 @@ class StateServiceClient(service: StateServiceStub)(implicit
 
   def getLedgerEnd(
       token: Option[String] = None
-  ): Future[GetLedgerEndResponse] =
+  )(implicit traceContext: TraceContext): Future[GetLedgerEndResponse] =
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .getLedgerEnd(GetLedgerEndRequest())
 
   /** Get the current participant offset */
-  def getLedgerEndOffset(token: Option[String] = None): Future[ParticipantOffset] =
+  def getLedgerEndOffset(
+      token: Option[String] = None
+  )(implicit traceContext: TraceContext): Future[ParticipantOffset] =
     getLedgerEnd(token).map { response =>
       response.offset.getOrElse(
         throw new IllegalStateException("Invalid empty getLedgerEnd response from server")

@@ -7,15 +7,16 @@ import com.daml.ledger.api.v2.version_service.VersionServiceGrpc.VersionServiceS
 import com.daml.ledger.api.v2.version_service.{FeaturesDescriptor, GetLedgerApiVersionRequest}
 import com.digitalasset.canton.ledger.api.domain.Feature
 import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
 final class VersionClient(service: VersionServiceStub) {
   def getApiVersion(
       token: Option[String] = None
-  )(implicit executionContext: ExecutionContext): Future[String] =
+  )(implicit executionContext: ExecutionContext, traceContext: TraceContext): Future[String] =
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .getLedgerApiVersion(
         new GetLedgerApiVersionRequest()
       )

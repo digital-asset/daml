@@ -40,7 +40,7 @@ import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import com.digitalasset.canton.http.{EndpointsCompanion, domain}
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.tracing.NoTracing
+import com.digitalasset.canton.tracing.{NoTracing, TraceContext, W3CTraceContext}
 
 private[http] final class RouteSetup(
     allowNonHttps: Boolean,
@@ -62,7 +62,7 @@ private[http] final class RouteSetup(
           JwtWritePayload,
           JsValue,
           TimerHandle,
-      ) => LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID] => ET[
+      ) => TraceContext=> LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID] => ET[
         T[ApiValue]
       ]
   )(implicit
@@ -70,7 +70,10 @@ private[http] final class RouteSetup(
       ev1: JsonWriter[T[JsValue]],
       ev2: Traverse[T],
       metrics: HttpApiMetrics,
-  ): ET[domain.SyncResponse[JsValue]] =
+  ): ET[domain.SyncResponse[JsValue]] = {
+    val traceContextOption =
+      W3CTraceContext.fromHeaders(req.headers.map(header => (header.name(), header.value())).toMap)
+    implicit val traceContext = traceContextOption.map(_.toTraceContext).getOrElse(TraceContext.empty)
     for {
       parseAndDecodeTimerCtx <- getParseAndDecodeTimerCtx()
       t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
@@ -80,6 +83,7 @@ private[http] final class RouteSetup(
       )
       jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError.fromMsg)): ET[JsValue]
     } yield domain.OkResponse(jsVal)
+  }
 
   def inputJsValAndJwtPayload[P](req: HttpRequest)(implicit
       createFromUserToken: CreateFromUserToken[P],
@@ -174,14 +178,14 @@ object RouteSetup {
     "missing HTTPS reverse-proxy request headers; for development launch with --allow-insecure-tokens"
 
   def withJwtPayloadLoggingContext[A](jwtPayload: JwtPayloadG)(
-      fn: LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID] => A
-  )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): A =
+      fn: TraceContext => LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID] => A
+  )(implicit lc: LoggingContextOf[InstanceUUID with RequestID], traceContext: TraceContext): A =
     withEnrichedLoggingContext(
       LoggingContextOf.label[JwtPayloadTag],
       "act_as" -> jwtPayload.actAs.toString,
       "application_id" -> jwtPayload.applicationId.toString,
       "read_as" -> jwtPayload.readAs.toString,
-    ).run(fn)
+    ).run(fn(traceContext))
 
   def handleFutureFailure[A](fa: Future[A])(implicit
       ec: ExecutionContext

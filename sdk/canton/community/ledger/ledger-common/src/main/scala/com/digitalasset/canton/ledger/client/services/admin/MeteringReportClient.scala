@@ -9,6 +9,7 @@ import com.daml.ledger.api.v2.admin.metering_report_service.{
   GetMeteringReportResponse,
 }
 import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.Future
 
@@ -17,9 +18,9 @@ final class MeteringReportClient(service: MeteringReportServiceStub) {
   def getMeteringReport(
       request: GetMeteringReportRequest,
       token: Option[String] = None,
-  ): Future[GetMeteringReportResponse] =
+  )(implicit traceContext: TraceContext): Future[GetMeteringReportResponse] =
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .getMeteringReport(request)
 
 }
