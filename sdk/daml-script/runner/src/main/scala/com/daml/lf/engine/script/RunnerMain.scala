@@ -5,8 +5,8 @@ package com.daml.lf.engine.script
 
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream._
-
 import java.nio.file.Files
+
 import scala.jdk.CollectionConverters._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
@@ -21,13 +21,17 @@ import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.Ast.Type
 import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.reader.SignatureReader
-import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
 import com.daml.auth.TokenHolder
-import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, GrpcLedgerClient}
+import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptLedgerClient}
 import java.io.FileInputStream
+
 import com.google.protobuf.ByteString
 import java.util.concurrent.atomic.AtomicBoolean
 import java.io.File
+
+import com.digitalasset.canton.tracing.TraceContext
+
 import scala.util.{Failure, Success}
 
 // We have our own type for time modes since TimeProviderType
@@ -46,6 +50,7 @@ object RunnerMain {
       new PekkoExecutionSequencerPool("ScriptCliRunnerPool")(system)
     implicit val ec: ExecutionContext = system.dispatcher
     implicit val materializer: Materializer = Materializer(system)
+    implicit val traceContext: TraceContext = TraceContext.empty
 
     val flow = run(config)
 
@@ -73,6 +78,7 @@ object RunnerMain {
       sequencer: ExecutionSequencerFactory,
       ec: ExecutionContext,
       materializer: Materializer,
+      traceContext: TraceContext,
   ): Future[Boolean] =
     for {
       _ <- Future.successful(())
@@ -186,6 +192,7 @@ object RunnerMain {
   )(implicit
       sequencer: ExecutionSequencerFactory,
       ec: ExecutionContext,
+      traceContext: TraceContext,
   ): Future[Participants[ScriptLedgerClient]] = {
     val token = config.accessTokenFile.map(new TokenHolder(_)).flatMap(_.token)
     config.participantMode match {
@@ -222,6 +229,7 @@ object RunnerMain {
   )(implicit
       sequencer: ExecutionSequencerFactory,
       ec: ExecutionContext,
+      traceContext: TraceContext,
   ): Future[Participants[ScriptLedgerClient]] =
     Runner.connect(participantParams, config.tlsConfig, config.maxInboundMessageSize)
 }
