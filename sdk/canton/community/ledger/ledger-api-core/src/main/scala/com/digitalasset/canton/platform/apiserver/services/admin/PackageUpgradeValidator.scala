@@ -72,12 +72,14 @@ class PackageUpgradeValidator(
               TypecheckUpgrades.MaximalDarCheck,
               optUpgradingDar,
               optMaximalDar,
+              packageMap,
             )
             optMinimalDar <- minimalVersionedDar(upgradingPackageAst, packageMap)
             _ <- typecheckUpgrades(
               TypecheckUpgrades.MinimalDarCheck,
               optMinimalDar,
               optUpgradingDar,
+              packageMap,
             )
             _ = logger.info(s"Typechecking upgrades for $upgradingPackageId succeeded.")
           } yield ()
@@ -141,11 +143,13 @@ class PackageUpgradeValidator(
       .map(_.flatten)
   }
 
+  type PackageMap = Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]
+
   private def strictTypecheckUpgrades(
       phase: TypecheckUpgrades.UploadPhaseCheck,
-      optNewDar1: Option[(Ref.PackageId, Ast.Package)],
+      optNewDar1: Option[(Ref.PackageId, Ast.Package, PackageMap)],
       oldPkgId2: Ref.PackageId,
-      optOldPkg2: Option[Ast.Package],
+      optOldPkg2: Option[(Ast.Package, PackageMap)],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit] = {
@@ -156,11 +160,11 @@ class PackageUpgradeValidator(
         case None =>
           Future.unit
 
-        case Some((newPkgId1, newPkg1)) =>
+        case Some((newPkgId1, newPkg1, newPkgDeps1)) =>
           logger.info(s"Package $newPkgId1 claims to upgrade package id $oldPkgId2")
           Future
             .fromTry(
-              TypecheckUpgrades.typecheckUpgrades((newPkgId1, newPkg1), oldPkgId2, optOldPkg2)
+              TypecheckUpgrades.typecheckUpgrades((newPkgId1, newPkg1, newPkgDeps1), oldPkgId2, optOldPkg2)
             )
             .recoverWith {
               case err: UpgradeError =>
@@ -189,6 +193,7 @@ class PackageUpgradeValidator(
       typecheckPhase: TypecheckUpgrades.UploadPhaseCheck,
       optNewDar1: Option[(Ref.PackageId, Ast.Package)],
       optOldDar2: Option[(Ref.PackageId, Ast.Package)],
+      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit] = {
@@ -199,9 +204,9 @@ class PackageUpgradeValidator(
       case (Some((newPkgId1, newPkg1)), Some((oldPkgId2, oldPkg2))) =>
         strictTypecheckUpgrades(
           typecheckPhase,
-          Some((newPkgId1, newPkg1)),
+          Some((newPkgId1, newPkg1, newPkg1.directDeps.map((x: Ref.PackageId) => (x, packageMap(x))).toMap)),
           oldPkgId2,
-          Some(oldPkg2),
+          Some(oldPkg2, oldPkg2.directDeps.map((x: Ref.PackageId) => (x, packageMap(x))).toMap),
         )
     }
   }
