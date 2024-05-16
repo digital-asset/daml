@@ -76,6 +76,7 @@ da_scala_library(
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:community_admin-api",
         "//canton:community_ledger_ledger-common",
+        "//canton:community_util-logging",
         "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
