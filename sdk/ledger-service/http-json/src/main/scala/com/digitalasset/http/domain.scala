@@ -71,7 +71,7 @@ package domain {
 
   import com.daml.fetchcontracts.domain.`fc domain ErrorOps`
   import com.daml.ledger.api.v1.commands.Commands
-  import com.daml.lf.data.Ref.HexString
+  import com.daml.lf.data.Ref.{HexString, PackageRef}
 
   sealed trait SubmissionIdTag
 
@@ -358,7 +358,7 @@ package domain {
 
   final case class CreateCommandResponse[+LfV](
       contractId: ContractId,
-      templateId: ContractTypeId.Template.RequiredPkg,
+      templateId: ContractTypeId.Template.RequiredPkgId,
       key: Option[LfV],
       payload: LfV,
       signatories: Seq[Party],
@@ -451,7 +451,7 @@ package domain {
     implicit val `AcC hasTemplateId`: HasTemplateId.Compat[ActiveContract.ResolvedCtTyId] =
       new HasTemplateId[ActiveContract.ResolvedCtTyId] {
         override def templateId(fa: ActiveContract.ResolvedCtTyId[_]): ContractTypeId.RequiredPkg =
-          fa.templateId
+          fa.templateId.map(PackageRef.Id(_))
 
         type TypeFromCtId = LfType
 
@@ -463,7 +463,7 @@ package domain {
             h: PackageService.ResolveKeyType,
         ): Error \/ LfType =
           templateId match {
-            case tid: ContractTypeId.Template.Resolved =>
+            case tid @ ContractTypeId.Template(_, _, _) =>
               f(tid: ContractTypeId.Template.Resolved)
                 .leftMap(e => Error(Symbol("ActiveContract_hasTemplateId_lfType"), e.shows))
             case other =>
@@ -482,7 +482,9 @@ package domain {
         case ResolvedQuery.ByInterfaceId(interfaceId) =>
           \/-(interfaceId.original)
         case _ =>
-          (in.templateId required "templateId").map(ContractTypeId.Template.fromLedgerApi)
+          (in.templateId required "templateId")
+            .map(ContractTypeId.Template.fromLedgerApi)
+            .map(_.map(PackageRef.Id(_)))
       }
       for {
         templateId <- resolvedTemplateId
@@ -499,7 +501,9 @@ package domain {
         } yield Some(
           ArchivedContract(
             contractId = ContractId(in.contractId),
-            templateId = ContractTypeId.Template fromLedgerApi templateId,
+            templateId = (ContractTypeId.Template fromLedgerApi templateId).map(
+              PackageRef.Id(_)
+            ),
           )
         )
       } else {
@@ -565,7 +569,7 @@ package domain {
             h: PackageService.ResolveKeyType,
         ): Error \/ LfType = {
           templateId match {
-            case tid: ContractTypeId.Template.Resolved =>
+            case tid @ ContractTypeId.Template(_, _, _) =>
               h(tid: ContractTypeId.Template.Resolved)
                 .leftMap(e => Error(Symbol("EnrichedContractKey_hasTemplateId_lfType"), e.shows))
             case other =>
@@ -644,7 +648,7 @@ package domain {
   }
 
   object ExerciseCommand {
-    type RequiredPkg[+LfV, +Ref] = ExerciseCommand[String, LfV, Ref]
+    type RequiredPkg[+LfV, +R] = ExerciseCommand[PackageRef, LfV, R]
 
     implicit def bitraverseInstance[PkgId]: Bitraverse[ExerciseCommand[PkgId, *, *]] =
       new Bitraverse[ExerciseCommand[PkgId, *, *]] {
@@ -661,7 +665,7 @@ package domain {
       }
 
     implicit val leftTraverseInstance: Traverse[RequiredPkg[+*, Nothing]] =
-      bitraverseInstance[String].leftTraverse
+      bitraverseInstance[PackageRef].leftTraverse
 
     implicit val hasTemplateId: HasTemplateId.Aux[RequiredPkg[
       +*,

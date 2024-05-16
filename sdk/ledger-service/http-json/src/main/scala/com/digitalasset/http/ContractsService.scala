@@ -106,7 +106,9 @@ class ContractsService(
         )
       case domain.EnrichedContractId(None, contractId) =>
         findByContractId(jwt, parties, None, ledgerId, contractId)
-          .map(_.map(a => \/-(a.templateId -> a.contractId)))
+          .map(
+            _.map(a => \/-(a.templateId.map(lf.data.Ref.PackageRef.Id) -> a.contractId))
+          )
     }
 
   def lookup(
@@ -218,7 +220,7 @@ class ContractsService(
               resolveContractTypeId(jwt, ledgerId)(x)
                 .map(_.toOption.flatten.map({ r => Set(r) })),
             // ignoring interface IDs for all-templates query
-            allTemplateIds(lc)(jwt, ledgerId).map(_.toSet[ContractTypeRef.Resolved].some),
+            allTemplateIds(lc)(jwt, ledgerId).map(_.toSet[ContractTypeRef[ContractTypeId]].some),
           )
         )
         resolvedQuery <- OptionT(
@@ -445,7 +447,7 @@ class ContractsService(
                     parties,
                     resolved.allPkgIds,
                     Hash.assertHashContractKey(
-                      templateId = toLedgerApiValue(resolved.original),
+                      templateId = toLedgerApiValue(resolved.latestPkgId),
                       key = contractKey,
                       packageName = resolved.name,
                     ),
@@ -554,7 +556,7 @@ class ContractsService(
     val empty = (Vector.empty[Error], Vector.empty[Ac])
     import InsertDeleteStep.appendForgettingDeletes
 
-    val funPredicates: Map[domain.ContractTypeId.Resolved, Ac => Boolean] =
+    val funPredicates: Map[domain.ContractTypeId.ResolvedPkgId, Ac => Boolean] =
       resolvedQuery.resolved
         .flatMap { case tid =>
           // Use the latest version of the template to convert JSON into a predicate
@@ -601,7 +603,7 @@ class ContractsService(
 
   private[this] sealed abstract class InMemoryQuery extends Product with Serializable {
     import InMemoryQuery._
-    def toPredicate(tid: domain.ContractTypeId.RequiredPkg): P =
+    def toPredicate(tid: domain.ContractTypeId.RequiredPkgId): P =
       this match {
         case Params(q) =>
           val vp = valuePredicate(tid, q).toFunPredicate
@@ -680,7 +682,7 @@ class ContractsService(
       .leftMap(e => InternalError(Symbol("apiAcToLfAc"), e.shows))
 
   private[http] def valuePredicate(
-      templateId: domain.ContractTypeId.RequiredPkg,
+      templateId: domain.ContractTypeId.RequiredPkgId,
       q: Map[String, JsValue],
   ): query.ValuePredicate =
     ValuePredicate.fromTemplateJsObject(q, templateId, lookupType)

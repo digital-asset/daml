@@ -7,6 +7,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCode
 import com.daml.http.domain
 import com.daml.http.domain.{Base64, ContractTypeId, DisclosedContract}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.HexString
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
@@ -165,25 +166,37 @@ object JsonProtocol extends JsonProtocolLow {
     }
   }
 
+  implicit def TemplateIdRequiredPkgIdFormat[CtId[T] <: domain.ContractTypeId[T]](implicit
+      CtId: domain.ContractTypeId.Like[CtId]
+  ): RootJsonFormat[CtId[Ref.PackageId]] = new TemplateIdFormat(CtId, Ref.PackageId.fromString)
+
   implicit def TemplateIdRequiredPkgFormat[CtId[T] <: domain.ContractTypeId[T]](implicit
       CtId: domain.ContractTypeId.Like[CtId]
-  ): RootJsonFormat[CtId[String]] =
-    new RootJsonFormat[CtId[String]] {
-      override def write(a: CtId[String]) =
-        JsString(s"${a.packageId: String}:${a.moduleName: String}:${a.entityName: String}")
+  ): RootJsonFormat[CtId[Ref.PackageRef]] = new TemplateIdFormat(CtId, Ref.PackageRef.fromString)
 
-      override def read(json: JsValue) = json match {
-        case JsString(str) =>
-          str.split(':') match {
-            case Array(p, m, e) => CtId(p, m, e)
-            case _ => error(json)
-          }
-        case _ => error(json)
-      }
+  class TemplateIdFormat[P, CtId[T] <: domain.ContractTypeId[T]](
+      CtId: domain.ContractTypeId.Like[CtId],
+      readPkg: (String => Either[String, P]),
+  ) extends RootJsonFormat[CtId[P]] {
+    override def write(a: CtId[P]) =
+      JsString(s"${a.packageId.toString: String}:${a.moduleName: String}:${a.entityName: String}")
 
-      private def error(json: JsValue): Nothing =
-        deserializationError(s"Expected JsString(<packageId>:<module>:<entity>), got: $json")
+    override def read(json: JsValue) = json match {
+      case JsString(str) =>
+        str.split(':') match {
+          case Array(p, m, e) =>
+            readPkg(p) match {
+              case Left(reason) => error(json, reason)
+              case Right(pkgRef) => CtId(pkgRef, m, e)
+            }
+          case _ => error(json, "did not have two ':' chars")
+        }
+      case _ => error(json, "not JsString")
     }
+
+    private def error(json: JsValue, reason: String): Nothing =
+      deserializationError(s"Expected JsString(<packageId>:<module>:<entity>), got: $json. $reason")
+  }
 
   private[this] def decodeContractRef(
       fields: Map[String, JsValue],
@@ -297,14 +310,14 @@ object JsonProtocol extends JsonProtocolLow {
 
   implicit val ActiveContractFormat
       : RootJsonFormat[domain.ActiveContract.ResolvedCtTyId[JsValue]] = {
-    implicit val `ctid resolved fmt`: JsonFormat[domain.ContractTypeId.Resolved] =
+    implicit val `ctid resolved fmt`: JsonFormat[domain.ContractTypeId.ResolvedPkgId] =
       jsonFormatFromReaderWriter(
-        TemplateIdRequiredPkgFormat[domain.ContractTypeId.Template],
+        TemplateIdRequiredPkgIdFormat[domain.ContractTypeId.Template],
         // we only write (below) in main, but read ^ in tests.  For ^, getting
         // the proper contract type ID right doesn't matter
-        TemplateIdRequiredPkgFormat[domain.ContractTypeId],
+        TemplateIdRequiredPkgIdFormat[domain.ContractTypeId],
       )
-    jsonFormat7(domain.ActiveContract.apply[ContractTypeId.Resolved, JsValue])
+    jsonFormat7(domain.ActiveContract.apply[ContractTypeId.ResolvedPkgId, JsValue])
   }
 
   implicit val ArchivedContractFormat: RootJsonFormat[domain.ArchivedContract] =

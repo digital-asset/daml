@@ -167,14 +167,15 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
 
   protected[http] def version()(implicit log: LogHandler): ConnectionIO[Option[Int]]
 
-  final def surrogateTemplateId(packageId: String, moduleName: String, entityName: String)(implicit
+  final def surrogateTemplateId(packageId: Ref.PackageId, moduleName: String, entityName: String)(
+      implicit
       log: LogHandler,
       lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[SurrogateTpId] = surrogateTemplateId(None, packageId, moduleName, entityName)
 
   final def surrogateTemplateId(
       packageName: Option[String],
-      packageId: String,
+      packageId: Ref.PackageId,
       moduleName: String,
       entityName: String,
   )(implicit

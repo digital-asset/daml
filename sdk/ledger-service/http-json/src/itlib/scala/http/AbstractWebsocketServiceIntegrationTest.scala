@@ -17,6 +17,7 @@ import com.daml.http.HttpServiceTestFixture.{
 import AbstractHttpServiceIntegrationTestFuns.UriFixture
 import com.daml.http.json.SprayJson
 import com.daml.ledger.api.v1.admin.{participant_pruning_service => PruneGrpc}
+import com.daml.lf.data.Ref.PackageRef
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -329,7 +330,9 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
           AccountQuery(event) <- readOne
         } yield {
           event.created.record should ===(record)
-          event.created.templateId should ===(TpId.IAccount.IAccount)
+          domain.ContractTypeId.withPkgRef(event.created.templateId) should ===(
+            TpId.IAccount.IAccount
+          )
           event.matchedQueries should ===(mq)
           event
         }
@@ -385,10 +388,12 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
                         )
                       ) =>
                     archivedContractId should ===(createdAccountEvent1.created.contractId)
-                    archivedTemplateId should ===(TpId.IAccount.IAccount)
-
-                    createdTemplateId should ===(TpId.IAccount.IAccount)
-
+                    domain.ContractTypeId.withPkgRef(archivedTemplateId) should ===(
+                      TpId.IAccount.IAccount
+                    )
+                    domain.ContractTypeId.withPkgRef(createdTemplateId) should ===(
+                      TpId.IAccount.IAccount
+                    )
                     createdRecord should ===(AccountRecord("abcxx", true, false))
                     matchedQueries shouldBe Vector(0)
                 }
@@ -1541,7 +1546,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
     import json.JsonProtocol._
     val baseVal =
       domain.EnrichedContractKey(
-        domain.ContractTypeId.Template("ab", "cd", "ef"),
+        domain.ContractTypeId.Template(PackageRef.assertFromString("ab"), "cd", "ef"),
         JsString("42"): JsValue,
       )
     val baseMap = baseVal.toJson.asJsObject.fields

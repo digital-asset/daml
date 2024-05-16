@@ -24,7 +24,7 @@ prettier_args="--write"
 ## Functions ##
 
 run_pprettier() {
-    yarn pprettier $@
+    yarn pprettier ${@##sdk/}
 }
 
 log() {
@@ -142,7 +142,7 @@ run dade-copyright-headers "$dade_copyright_arg" .
 # We do test hlint via Bazel rules but we run it separately
 # to get linting failures early.
 if [ "$diff_mode" = "true" ]; then
-  check_diff $merge_base '\.hs$' hlint -j4
+  check_diff $merge_base '\.hs$' hlint -j4 --path=..
   check_diff $merge_base '\.java$' javafmt "${javafmt_args[@]:-}"
   check_diff $merge_base '\.\(ts\|tsx\)$' run_pprettier ${prettier_args[@]:-}
 else

@@ -67,7 +67,7 @@ object WebSocketService {
   private val logger = ContextualizedLogger.get(getClass)
 
   private type CompiledQueries =
-    NonEmpty[Map[domain.ContractTypeId.Resolved, (ValuePredicate, LfV => Boolean)]]
+    NonEmpty[Map[domain.ContractTypeId.ResolvedPkgId, (ValuePredicate, LfV => Boolean)]]
 
   final case class StreamPredicate[+Positive](
       resolvedQuery: domain.ResolvedQuery,
@@ -410,7 +410,7 @@ object WebSocketService {
         }
 
         def fn(
-            q: Map[domain.ContractTypeId.Resolved, NonEmptyList[
+            q: Map[domain.ContractTypeId.ResolvedPkgId, NonEmptyList[
               ((ValuePredicate, LfV => Boolean), (Int, Int))
             ]]
         )(
@@ -425,7 +425,7 @@ object WebSocketService {
           }
         }
 
-        def dbQueriesPlan[CtId <: domain.ContractTypeId.RequiredPkg](
+        def dbQueriesPlan[CtId <: domain.ContractTypeId.RequiredPkgId](
             q: NonEmpty[Map[CtId, NonEmptyList[((ValuePredicate, LfV => Boolean), (Int, Int))]]]
         )(implicit
             sjd: dbbackend.SupportedJdbcDriver.TC
@@ -444,7 +444,7 @@ object WebSocketService {
             rsfq: ResolvedSearchForeverQuery,
             pos: Int,
             ix: Int,
-        ): NonEmpty[Map[domain.ContractTypeId.Resolved, NonEmptyList[
+        ): NonEmpty[Map[domain.ContractTypeId.ResolvedPkgId, NonEmptyList[
           ((ValuePredicate, ValuePredicate.LfV => Boolean), (Int, Int))
         ]]] = {
           val compiledQueries =
@@ -642,7 +642,7 @@ object WebSocketService {
         lc: LoggingContextOf[InstanceUUID]
     ): Future[StreamPredicate[Positive]] = {
       def fn(
-          q: Map[domain.ContractTypeId.Resolved, NonEmpty[Set[LfV]]]
+          q: Map[domain.ContractTypeId.ResolvedPkgId, NonEmpty[Set[LfV]]]
       ): (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Positive] = {
         (a, _) =>
           a.key match {
@@ -655,13 +655,13 @@ object WebSocketService {
           q: NonEmpty[Map[ContractTypeRef.Resolved, NonEmpty[Set[LfV]]]]
       )(implicit
           sjd: dbbackend.SupportedJdbcDriver.TC
-      ): NonEmpty[Seq[(domain.ContractTypeId.Resolved, doobie.Fragment)]] =
+      ): NonEmpty[Seq[(domain.ContractTypeId.ResolvedPkgId, doobie.Fragment)]] =
         q.toSeq flatMap { case (tid, lfvKeys) =>
           // We can use the same set of hashes for all package ids within this ContractTypeRef.
           // If we have a package name, then the packageId part is ignored for hashing.
           // If we did not have a package name, then there is only one package id anyway.
           val keyHashes: NonEmpty[Vector[Hash]] = lfvKeys.toVector
-            .map(k => Hash.assertHashContractKey(toLedgerApiValue(tid.original), k, tid.name))
+            .map(k => Hash.assertHashContractKey(toLedgerApiValue(tid.latestPkgId), k, tid.name))
             .sorted
           val keyEqHashes = dbbackend.Queries.joinFragment(keyHashes.map(keyEquality), sql" OR ")
           tid.allPkgIds.toSeq

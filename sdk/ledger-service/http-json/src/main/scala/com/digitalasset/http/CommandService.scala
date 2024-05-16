@@ -257,7 +257,7 @@ class CommandService(
 
   private def exactlyOneActiveContract(
       response: lav1.command_service.SubmitAndWaitForTransactionResponse
-  ): Error \/ ActiveContract[ContractTypeId.Template.Resolved, lav1.value.Value] =
+  ): Error \/ ActiveContract[ContractTypeId.Template.ResolvedPkgId, lav1.value.Value] =
     activeContracts(response).flatMap {
       case Seq(x) => \/-(x)
       case xs @ _ =>
@@ -271,7 +271,7 @@ class CommandService(
 
   private def activeContracts(
       response: lav1.command_service.SubmitAndWaitForTransactionResponse
-  ): Error \/ ImmArraySeq[ActiveContract[ContractTypeId.Template.Resolved, lav1.value.Value]] =
+  ): Error \/ ImmArraySeq[ActiveContract[ContractTypeId.Template.ResolvedPkgId, lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(
         InternalError(
@@ -283,7 +283,9 @@ class CommandService(
 
   private def activeContracts(
       tx: lav1.transaction.Transaction
-  ): Error \/ ImmArraySeq[ActiveContract[ContractTypeId.Template.Resolved, lav1.value.Value]] = {
+  ): Error \/ ImmArraySeq[
+    ActiveContract[ContractTypeId.Template.ResolvedPkgId, lav1.value.Value]
+  ] = {
     Transactions
       .allCreatedEvents(tx)
       .traverse(ActiveContract.fromLedgerApi(domain.ActiveContract.ExtractAs.Template, _))

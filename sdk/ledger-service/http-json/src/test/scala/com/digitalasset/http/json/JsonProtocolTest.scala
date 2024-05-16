@@ -10,7 +10,6 @@ import com.daml.http.Generators.{
   contractLocatorGen,
   exerciseCmdGen,
   genDomainTemplateId,
-  genDomainTemplateIdO,
   genServiceWarning,
   genUnknownParties,
   genUnknownTemplateIds,
@@ -147,7 +146,7 @@ class JsonProtocolTest
   }
 
   "domain.OkResponse" - {
-    "response with warnings" in forAll(listOf(genDomainTemplateIdO)) {
+    "response with warnings" in forAll(listOf(genDomainTemplateId)) {
       templateIds: List[domain.ContractTypeId.RequiredPkg] =>
         val response: domain.OkResponse[Int] =
           domain.OkResponse(result = 100, warnings = Some(domain.UnknownTemplateIds(templateIds)))
@@ -188,7 +187,7 @@ class JsonProtocolTest
       inside(decode1[domain.SyncResponse, List[JsValue]](str)) {
         case \/-(domain.OkResponse(List(), Some(warning), StatusCodes.OK)) =>
           warning shouldBe domain.UnknownTemplateIds(
-            List(domain.ContractTypeId("ZZZ", "AAA", "BBB"))
+            List(domain.ContractTypeId(Ref.PackageRef.assertFromString("ZZZ"), "AAA", "BBB"))
           )
       }
     }
@@ -273,7 +272,8 @@ class JsonProtocolTest
       val utf8 = java.nio.charset.Charset forName "UTF-8"
       val expected = DisclosedContract(
         contractId = domain.ContractId("abcd"),
-        templateId = domain.ContractTypeId.Template("Pkg", "Mod", "Tmpl"),
+        templateId =
+          domain.ContractTypeId.Template(Ref.PackageRef.assertFromString("Pkg"), "Mod", "Tmpl"),
         createdEventBlob = domain.Base64(ByteString.copyFrom("some create event payload", utf8)),
       )
       val encoded =

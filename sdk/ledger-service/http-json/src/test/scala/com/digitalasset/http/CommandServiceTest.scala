@@ -84,7 +84,12 @@ object CommandServiceTest {
     readAs = multiPartyJwp.readAs,
     ledgerId = Some(multiPartyJwp.ledgerId.unwrap),
   )
-  private val tplId = domain.ContractTypeId.Template("Foo", "Bar", "Baz")
+  private val tplId =
+    domain.ContractTypeId.Template(
+      com.daml.lf.data.Ref.PackageRef.assertFromString("Foo"),
+      "Bar",
+      "Baz",
+    )
 
   implicit private val ignoredLoggingContext
       : LoggingContextOf[HLogging.InstanceUUID with HLogging.RequestID] =
