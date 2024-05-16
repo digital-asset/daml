@@ -468,6 +468,7 @@ private[conflictdetection] trait RequestTrackerTest {
               .value
               .value
               .failed
+              .failOnShutdown
           } yield {
             assert(
               finalizationResult == InvalidCommitSet(
@@ -510,7 +511,12 @@ private[conflictdetection] trait RequestTrackerTest {
         _ = assert(!timeout.timedOut, s"timeout promise for request 1 is kept with NoTimeout")
         _ <- loggerFactory.suppressWarningsAndErrors {
           for {
-            finalize <- rt.addCommitSet(RequestCounter(1), Success(commitSet)).value.value.failed
+            finalize <- rt
+              .addCommitSet(RequestCounter(1), Success(commitSet))
+              .value
+              .value
+              .failed
+              .failOnShutdown
           } yield {
             assert(
               finalize ==
@@ -1074,7 +1080,7 @@ private[conflictdetection] trait RequestTrackerTest {
                 .valueOrFail("no commit set error expected for first request")
             rt.tick(sc + 3, ts.plusMillis(5)) // Trigger finalization of first request
             for {
-              commit0 <- commitF0.value.failed
+              commit0 <- commitF0.value.failed.failOnShutdown
               finalize1 = rt.addResult(rc + 1, sc + 4, ts.plusMillis(6), ts.plusMillis(6))
               _ = finalize1 shouldBe Right(())
               to1 <- toF1

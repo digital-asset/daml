@@ -46,7 +46,9 @@ private[mediator] trait MediatorEventDeduplicator {
   )(implicit
       executionContext: ExecutionContext,
       callerCloseContext: CloseContext,
-  ): Future[(Seq[(TracedProtocolEvent, Seq[DefaultOpenEnvelope])], FutureUnlessShutdown[Unit])] =
+  ): FutureUnlessShutdown[
+    (Seq[(TracedProtocolEvent, Seq[DefaultOpenEnvelope])], FutureUnlessShutdown[Unit])
+  ] =
     MonadUtil
       .sequentialTraverse(envelopesByEvent) { case (tracedProtocolEvent, envelopes) =>
         implicit val traceContext: TraceContext = tracedProtocolEvent.traceContext
@@ -71,7 +73,7 @@ private[mediator] trait MediatorEventDeduplicator {
   )(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[(Seq[DefaultOpenEnvelope], FutureUnlessShutdown[Unit])]
+  ): FutureUnlessShutdown[(Seq[DefaultOpenEnvelope], FutureUnlessShutdown[Unit])]
 }
 
 private[mediator] object MediatorEventDeduplicator {
@@ -95,11 +97,17 @@ private[mediator] object MediatorEventDeduplicator {
         } yield domainParameters
       }
 
-    def getDeduplicationTimeout(tracedRequestTime: Traced[CantonTimestamp]): Future[Duration] =
+    def getDeduplicationTimeout(
+        tracedRequestTime: Traced[CantonTimestamp]
+    ): FutureUnlessShutdown[Duration] = FutureUnlessShutdown.outcomeF(
       getDomainParameters(tracedRequestTime).map(_.mediatorDeduplicationTimeout.duration)
+    )
 
-    def getDecisionTime(tracedRequestTime: Traced[CantonTimestamp]): Future[CantonTimestamp] =
+    def getDecisionTime(
+        tracedRequestTime: Traced[CantonTimestamp]
+    ): FutureUnlessShutdown[CantonTimestamp] = FutureUnlessShutdown.outcomeF(
       getDomainParameters(tracedRequestTime).flatMap(_.decisionTimeForF(tracedRequestTime.value))
+    )
 
     new DefaultMediatorEventDeduplicator(
       store,
@@ -115,8 +123,8 @@ private[mediator] object MediatorEventDeduplicator {
 class DefaultMediatorEventDeduplicator(
     store: MediatorDeduplicationStore,
     verdictSender: VerdictSender,
-    getDeduplicationTimeout: Traced[CantonTimestamp] => Future[Duration],
-    getDecisionTime: Traced[CantonTimestamp] => Future[CantonTimestamp],
+    getDeduplicationTimeout: Traced[CantonTimestamp] => FutureUnlessShutdown[Duration],
+    getDecisionTime: Traced[CantonTimestamp] => FutureUnlessShutdown[CantonTimestamp],
     protocolVersion: ProtocolVersion,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -129,7 +137,7 @@ class DefaultMediatorEventDeduplicator(
   )(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[(Seq[DefaultOpenEnvelope], FutureUnlessShutdown[Unit])] =
+  ): FutureUnlessShutdown[(Seq[DefaultOpenEnvelope], FutureUnlessShutdown[Unit])] =
     MonadUtil
       .sequentialTraverse(envelopes) { envelope =>
         envelope.protocolMessage match {
@@ -137,7 +145,8 @@ class DefaultMediatorEventDeduplicator(
             processUuid(requestTimestamp, request, envelopes).map { case (hasUniqueUuid, storeF) =>
               Option.when(hasUniqueUuid)(envelope) -> storeF
             }
-          case _: ProtocolMessage => Future.successful(Some(envelope) -> FutureUnlessShutdown.unit)
+          case _: ProtocolMessage =>
+            FutureUnlessShutdown.pure(Some(envelope) -> FutureUnlessShutdown.unit)
         }
       }
       .map(_.separate)
@@ -152,7 +161,7 @@ class DefaultMediatorEventDeduplicator(
   )(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[(Boolean, FutureUnlessShutdown[Unit])] = {
+  ): FutureUnlessShutdown[(Boolean, FutureUnlessShutdown[Unit])] = {
     val uuid = request.requestUuid
     val previousUsages = store.findUuid(uuid, requestTimestamp)
     NonEmpty.from(previousUsages) match {
@@ -164,7 +173,7 @@ class DefaultMediatorEventDeduplicator(
           logger.debug(
             s"Storing requestUuid=$uuid, requestTimestamp=$requestTimestamp, expireAt=$expireAt"
           )
-          val storeF = FutureUnlessShutdown.outcomeF(store.store(uuid, requestTimestamp, expireAt))
+          val storeF = store.store(uuid, requestTimestamp, expireAt)
           (true, storeF)
         }
       case Some(previousUsagesNE) =>
@@ -181,13 +190,14 @@ class DefaultMediatorEventDeduplicator(
         for {
           decisionTime <- getDecisionTime(Traced(requestTimestamp))
         } yield {
-          val sendF = verdictSender.sendReject(
-            RequestId(requestTimestamp),
-            Some(request),
-            rootHashMessages,
-            MediatorVerdict.MediatorReject(rejection).toVerdict(protocolVersion),
-            decisionTime,
-          )
+          val sendF =
+            verdictSender.sendReject(
+              RequestId(requestTimestamp),
+              Some(request),
+              rootHashMessages,
+              MediatorVerdict.MediatorReject(rejection).toVerdict(protocolVersion),
+              decisionTime,
+            )
           (false, sendF)
         }
     }

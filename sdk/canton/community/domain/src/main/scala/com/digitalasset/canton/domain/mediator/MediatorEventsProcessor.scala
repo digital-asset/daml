@@ -110,9 +110,8 @@ private[mediator] class MediatorEventsProcessor(
 
     val envelopesByEvent = envelopesGroupedByEvent(events)
     for {
-      deduplicatorResult <- FutureUnlessShutdown.outcomeF(
+      deduplicatorResult <-
         deduplicator.rejectDuplicates(envelopesByEvent)
-      )
       (uniqueEnvelopesByEvent, storeF) = deduplicatorResult
 
       determinedStages <- FutureUnlessShutdown.outcomeF(determineStages(uniqueEnvelopesByEvent))
@@ -120,7 +119,8 @@ private[mediator] class MediatorEventsProcessor(
 
       resultIdentity <- identityF
     } yield {
-      resultIdentity.andThenF(_ => storeF)
+      resultIdentity
+        .andThenF(_ => storeF)
     }
   }
 

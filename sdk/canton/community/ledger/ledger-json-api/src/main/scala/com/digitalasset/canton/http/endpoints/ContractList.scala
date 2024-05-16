@@ -55,34 +55,34 @@ private[http] final class ContractList(
 
       (jwt, jwtPayload, reqBody) = input
 
-      jsVal <- withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
-        logger.debug(s"/v1/fetch reqBody: $reqBody, ${lc.makeString}")
-        for {
-          fr <-
-            either(
-              SprayJson
-                .decode[domain.FetchRequest[JsValue]](reqBody)
-                .liftErr[Error](InvalidUserInput)
-            )
-              .flatMap(
-                _.traverseLocator(
-                  decoder
-                    .decodeContractLocatorKey(_, jwt)
-                    .liftErr(InvalidUserInput)
+      jsVal <- withJwtPayloadLoggingContext(jwtPayload) { _ => { implicit lc =>
+            logger.debug(s"/v1/fetch reqBody: $reqBody, ${lc.makeString}")
+            for {
+              fr <-
+                either(
+                  SprayJson
+                    .decode[domain.FetchRequest[JsValue]](reqBody)
+                    .liftErr[Error](InvalidUserInput)
                 )
-              ): ET[domain.FetchRequest[LfValue]]
-          _ <- EitherT.pure(parseAndDecodeTimer.stop())
-          _ = logger.debug(s"/v1/fetch fr: $fr, ${lc.makeString}")
+                  .flatMap(
+                    _.traverseLocator(
+                      decoder
+                        .decodeContractLocatorKey(_, jwt)
+                        .liftErr(InvalidUserInput)
+                    )
+                  ): ET[domain.FetchRequest[LfValue]]
+              _ <- EitherT.pure(parseAndDecodeTimer.stop())
+              _ = logger.debug(s"/v1/fetch fr: $fr, ${lc.makeString}")
 
-          _ <- either(ensureReadAsAllowedByJwt(fr.readAs, jwtPayload))
-          ac <- contractsService.lookup(jwt, jwtPayload, fr)
+              _ <- either(ensureReadAsAllowedByJwt(fr.readAs, jwtPayload))
+              ac <- contractsService.lookup(jwt, jwtPayload, fr)
 
-          jsVal <- either(
-            ac.cata(x => toJsValue(x), \/-(JsNull))
-          ): ET[JsValue]
-        } yield jsVal
+              jsVal <- either(
+                ac.cata(x => toJsValue(x), \/-(JsNull))
+              ): ET[JsValue]
+            } yield jsVal
+          }
       }
-
     } yield domain.OkResponse(jsVal)
   }
 
@@ -96,17 +96,20 @@ private[http] final class ContractList(
     res <- inputAndJwtPayload[JwtPayload](req).run.map {
       _.map { case (jwt, jwtPayload, _) =>
         parseAndDecodeTimer.stop()
-        withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
-          val result: SearchResult[
-            ContractsService.Error \/ domain.ActiveContract.ResolvedCtTyId[LfValue]
-          ] =
-            contractsService.retrieveAll(jwt, jwtPayload)
+        withJwtPayloadLoggingContext(jwtPayload) {
+          _ =>
+            { implicit lc =>
+              val result: SearchResult[
+                ContractsService.Error \/ domain.ActiveContract.ResolvedCtTyId[LfValue]
+              ] =
+                contractsService.retrieveAll(jwt, jwtPayload)
 
-          domain.SyncResponse.covariant.map(result) { source =>
-            source
-              .via(handleSourceFailure)
-              .map(_.flatMap(lfAcToJsValue)): Source[Error \/ JsValue, NotUsed]
-          }
+              domain.SyncResponse.covariant.map(result) { source =>
+                source
+                  .via(handleSourceFailure)
+                  .map(_.flatMap(lfAcToJsValue)): Source[Error \/ JsValue, NotUsed]
+              }
+            }
         }
       }
     }
@@ -119,27 +122,30 @@ private[http] final class ContractList(
     for {
       it <- inputAndJwtPayload[JwtPayload](req).leftMap(identity[Error])
       (jwt, jwtPayload, reqBody) = it
-      res <- withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
-        val res = for {
-          cmd <- SprayJson
-            .decode[domain.GetActiveContractsRequest](reqBody)
-            .liftErr[Error](InvalidUserInput)
-          _ <- ensureReadAsAllowedByJwt(cmd.readAs, jwtPayload)
-        } yield withEnrichedLoggingContext(
-          LoggingContextOf.label[domain.GetActiveContractsRequest],
-          "cmd" -> cmd.toString,
-        ).run { implicit lc =>
-          logger.debug(s"Processing a query request, ${lc.makeString}")
-          contractsService
-            .search(jwt, jwtPayload, cmd)
-            .map(
-              domain.SyncResponse.covariant.map(_)(
-                _.via(handleSourceFailure)
-                  .map(_.flatMap(toJsValue[domain.ActiveContract.ResolvedCtTyId[JsValue]](_)))
-              )
-            )
-        }
-        eitherT(res.sequence)
+      res <- withJwtPayloadLoggingContext(jwtPayload) {
+        tc =>
+          { implicit lc =>
+            val res = for {
+              cmd <- SprayJson
+                .decode[domain.GetActiveContractsRequest](reqBody)
+                .liftErr[Error](InvalidUserInput)
+              _ <- ensureReadAsAllowedByJwt(cmd.readAs, jwtPayload)
+            } yield withEnrichedLoggingContext(
+              LoggingContextOf.label[domain.GetActiveContractsRequest],
+              "cmd" -> cmd.toString,
+            ).run { implicit lc =>
+              logger.debug(s"Processing a query request, ${lc.makeString}")
+              contractsService
+                .search(jwt, jwtPayload, cmd)
+                .map(
+                  domain.SyncResponse.covariant.map(_)(
+                    _.via(handleSourceFailure)
+                      .map(_.flatMap(toJsValue[domain.ActiveContract.ResolvedCtTyId[JsValue]](_)))
+                  )
+                )
+            }
+            eitherT(res.sequence)
+          }
       }
     } yield res
   }.run

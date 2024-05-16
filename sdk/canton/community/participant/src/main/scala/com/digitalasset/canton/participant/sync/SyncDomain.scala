@@ -585,7 +585,7 @@ class SyncDomain(
 
   protected def startAsync()(implicit
       initializationTraceContext: TraceContext
-  ): Future[Either[SyncDomainInitializationError, Unit]] = {
+  ): FutureUnlessShutdown[Either[SyncDomainInitializationError, Unit]] = {
 
     val delayLogger = new DelayLogger(
       clock,
@@ -626,8 +626,10 @@ class SyncDomain(
 
     // Initialize, replay and process stored events, then subscribe to new events
     (for {
-      _ <- initialize(initializationTraceContext)
-      firstUnpersistedEventSc <- EitherT.liftF(firstUnpersistedEventScF)
+      _ <- initialize(initializationTraceContext).mapK(FutureUnlessShutdown.outcomeK)
+      firstUnpersistedEventSc <- EitherT
+        .liftF(firstUnpersistedEventScF)
+        .mapK(FutureUnlessShutdown.outcomeK)
       monitor = new SyncDomain.EventProcessingMonitor(
         ephemeral.startingPoints,
         firstUnpersistedEventSc,
@@ -687,32 +689,33 @@ class SyncDomain(
         loggerFactory,
       )
       trackingHandler = cleanSequencerCounterTracker(eventHandler)
-      _ <- EitherT.right[SyncDomainInitializationError](
-        sequencerClient.subscribeAfter(
-          subscriptionPriorTs,
-          sequencerCounterPreheadTsO,
-          trackingHandler,
-          ephemeral.timeTracker,
-          PeriodicAcknowledgements.fetchCleanCounterFromStore(
-            persistent.sequencerCounterTrackerStore
-          ),
-        )(initializationTraceContext)
-      )
+      _ <- EitherT
+        .right[SyncDomainInitializationError](
+          sequencerClient.subscribeAfter(
+            subscriptionPriorTs,
+            sequencerCounterPreheadTsO,
+            trackingHandler,
+            ephemeral.timeTracker,
+            PeriodicAcknowledgements.fetchCleanCounterFromStore(
+              persistent.sequencerCounterTrackerStore
+            ),
+          )(initializationTraceContext)
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
 
       // wait for initial topology transactions to be sequenced and received before we start computing pending
       // topology transactions to push for IDM approval
-      _ <- waitForParticipantToBeInTopology(initializationTraceContext).onShutdown(Right(()))
+      _ <- waitForParticipantToBeInTopology(initializationTraceContext)
       _ <-
         registerIdentityTransactionHandle
           .domainConnected()(initializationTraceContext)
-          .onShutdown(Right(()))
           .leftMap[SyncDomainInitializationError](ParticipantTopologyHandshakeError)
     } yield {
       logger.debug(s"Started sync domain for $domainId")(initializationTraceContext)
       ephemeral.markAsRecovered()
       logger.debug("Sync domain is ready.")(initializationTraceContext)
-      FutureUtil.doNotAwait(
-        completeTransferIn.unwrap,
+      FutureUtil.doNotAwaitUnlessShutdown(
+        completeTransferIn,
         "Failed to complete outstanding transfer-ins on startup. " +
           "You may have to complete the transfer-ins manually.",
       )
@@ -1051,6 +1054,8 @@ object SyncDomain {
 }
 
 sealed trait SyncDomainInitializationError
+
+final case class AbortedDueToShutdownError(msg: String) extends SyncDomainInitializationError
 
 final case class SequencedEventStoreError(err: store.SequencedEventStoreError)
     extends SyncDomainInitializationError

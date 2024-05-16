@@ -135,8 +135,8 @@ private[mediator] class ConfirmationResponseProcessor(
       )
       decisionTime <- FutureUnlessShutdown.outcomeF(domainParameters.decisionTimeForF(requestTs))
 
-      _ <- MonadUtil.sequentialTraverse_(events) {
-        _.withTraceContext { implicit traceContext =>
+      _ <- MonadUtil.sequentialTraverse_[FutureUnlessShutdown, Traced[MediatorEvent]](events) {
+        _.withTraceContext[FutureUnlessShutdown[Unit]] { implicit traceContext =>
           {
             case MediatorEvent.Request(
                   counter,
@@ -161,19 +161,17 @@ private[mediator] class ConfirmationResponseProcessor(
                   topologyTimestamp,
                   recipients,
                 ) =>
-              FutureUnlessShutdown.outcomeF {
-                processResponse(
-                  timestamp,
-                  counter,
-                  participantResponseDeadline,
-                  decisionTime,
-                  response,
-                  topologyTimestamp,
-                  recipients,
-                )
-              }
+              processResponse(
+                timestamp,
+                counter,
+                participantResponseDeadline,
+                decisionTime,
+                response,
+                topologyTimestamp,
+                recipients,
+              )
             case MediatorEvent.Timeout(_counter, timestamp, requestId) =>
-              FutureUnlessShutdown.outcomeF(handleTimeout(requestId, timestamp, decisionTime))
+              handleTimeout(requestId, timestamp, decisionTime)
           }
         }
       }
@@ -186,12 +184,12 @@ private[mediator] class ConfirmationResponseProcessor(
       requestId: RequestId,
       timestamp: CantonTimestamp,
       decisionTime: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Future[Unit] = {
-    def pendingRequestNotFound: Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    def pendingRequestNotFound: FutureUnlessShutdown[Unit] = {
       logger.debug(
         s"Pending aggregation for request [$requestId] not found. This implies the request has been finalized since the timeout was scheduled."
       )
-      Future.unit
+      FutureUnlessShutdown.unit
     }
 
     mediatorState.getPending(requestId).fold(pendingRequestNotFound) { responseAggregation =>
@@ -208,7 +206,7 @@ private[mediator] class ConfirmationResponseProcessor(
       mediatorState
         .replace(responseAggregation, timeout)
         .semiflatMap { _ =>
-          sendResultIfDone(timeout, decisionTime).onShutdown(())
+          sendResultIfDone(timeout, decisionTime)
         }
         .getOrElse(())
     }
@@ -250,22 +248,22 @@ private[mediator] class ConfirmationResponseProcessor(
           _ <- unitOrVerdictO match {
             // Request is well-formed, but not yet finalized
             case Right(()) =>
-              val aggregationF = ResponseAggregation.fromRequest(
-                requestId,
-                request,
-                snapshot.ipsSnapshot,
+              val aggregationF = FutureUnlessShutdown.outcomeF(
+                ResponseAggregation.fromRequest(
+                  requestId,
+                  request,
+                  snapshot.ipsSnapshot,
+                )
               )
 
-              FutureUnlessShutdown.outcomeF {
-                for {
-                  aggregation <- aggregationF
-                  _ <- mediatorState.add(aggregation)
-                } yield {
-                  timeTracker.requestTick(participantResponseDeadline)
-                  logger.info(
-                    show"Phase 2: Registered request=${requestId.unwrap} with ${request.informeesAndThresholdByViewPosition.size} view(s). Initial state: ${aggregation.showMergedState}"
-                  )
-                }
+              for {
+                aggregation <- aggregationF
+                _ <- mediatorState.add(aggregation)
+              } yield {
+                timeTracker.requestTick(participantResponseDeadline)
+                logger.info(
+                  show"Phase 2: Registered request=${requestId.unwrap} with ${request.informeesAndThresholdByViewPosition.size} view(s). Initial state: ${aggregation.showMergedState}"
+                )
               }
 
             // Request is finalized, approve / reject immediately
@@ -273,18 +271,18 @@ private[mediator] class ConfirmationResponseProcessor(
               val verdict = rejection.toVerdict(protocolVersion)
               logger.debug(show"$requestId: finalizing immediately with verdict $verdict...")
               for {
-                _ <- verdictSender.sendReject(
-                  requestId,
-                  Some(request),
-                  rootHashMessages,
-                  verdict,
-                  decisionTime,
-                )
-                _ <- FutureUnlessShutdown.outcomeF(
+                _ <-
+                  verdictSender.sendReject(
+                    requestId,
+                    Some(request),
+                    rootHashMessages,
+                    verdict,
+                    decisionTime,
+                  )
+                _ <-
                   mediatorState.add(
                     FinalizedResponse(requestId, request, requestId.unwrap, verdict)(traceContext)
                   )
-                )
               } yield ()
 
             // Discard request
@@ -614,7 +612,7 @@ private[mediator] class ConfirmationResponseProcessor(
       signedResponse: SignedProtocolMessage[ConfirmationResponse],
       topologyTimestamp: Option[CantonTimestamp],
       recipients: Recipients,
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     withSpan("TransactionConfirmationResponseProcessor.processResponse") {
       implicit traceContext => span =>
         span.setAttribute("timestamp", ts.toString)
@@ -622,9 +620,10 @@ private[mediator] class ConfirmationResponseProcessor(
         val response = signedResponse.message
 
         (for {
-          snapshot <- OptionT.liftF(crypto.awaitSnapshot(response.requestId.unwrap))
+          snapshot <- OptionT.liftF(crypto.awaitSnapshotUS(response.requestId.unwrap))
           _ <- signedResponse
             .verifySignature(snapshot, response.sender)
+            .mapK(FutureUnlessShutdown.outcomeK)
             .leftMap(err =>
               MediatorError.MalformedMessage
                 .Reject(
@@ -634,23 +633,23 @@ private[mediator] class ConfirmationResponseProcessor(
             )
             .toOption
           _ <-
-            if (signedResponse.domainId == domainId) OptionT.some[Future](())
+            if (signedResponse.domainId == domainId) OptionT.some[FutureUnlessShutdown](())
             else {
               MediatorError.MalformedMessage
                 .Reject(
                   s"Request ${response.requestId}, sender ${response.sender}: Discarding confirmation response for wrong domain ${signedResponse.domainId}"
                 )
                 .report()
-              OptionT.none[Future, Unit]
+              OptionT.none[FutureUnlessShutdown, Unit]
             }
 
           _ <-
-            if (ts <= participantResponseDeadline) OptionT.some[Future](())
+            if (ts <= participantResponseDeadline) OptionT.some[FutureUnlessShutdown](())
             else {
               logger.warn(
                 s"Response ${ts} is too late as request ${response.requestId} has already exceeded the participant response deadline [$participantResponseDeadline]"
               )
-              OptionT.none[Future, Unit]
+              OptionT.none[FutureUnlessShutdown, Unit]
             }
           _ <- {
             // To ensure that a mediator group address is resolved in the same way as for the request
@@ -658,14 +657,14 @@ private[mediator] class ConfirmationResponseProcessor(
             // request's sequencing time. The sequencer communicates this timestamp to the client
             // via the timestamp of signing key.
             if (topologyTimestamp.contains(response.requestId.unwrap))
-              OptionT.some[Future](())
+              OptionT.some[FutureUnlessShutdown](())
             else {
               MediatorError.MalformedMessage
                 .Reject(
                   s"Request ${response.requestId}, sender ${response.sender}: Discarding confirmation response because the topology timestamp is not set to the request id [$topologyTimestamp]"
                 )
                 .report()
-              OptionT.none
+              OptionT.none[FutureUnlessShutdown, Unit]
             }
           }
 
@@ -676,7 +675,7 @@ private[mediator] class ConfirmationResponseProcessor(
             val error = MediatorError.InvalidMessage.Reject(cause)
             error.log()
 
-            OptionT.none
+            OptionT.none[FutureUnlessShutdown, ResponseAggregator]
           }
 
           _ <- {
@@ -687,21 +686,23 @@ private[mediator] class ConfirmationResponseProcessor(
               recipients.allRecipients.sizeCompare(1) == 0 &&
               recipients.allRecipients.contains(responseAggregation.request.mediator)
             ) {
-              OptionT.some[Future](())
+              OptionT.some[FutureUnlessShutdown](())
             } else {
               MediatorError.MalformedMessage
                 .Reject(
                   s"Request ${response.requestId}, sender ${response.sender}: Discarding confirmation response with wrong recipients ${recipients}, expected ${responseAggregation.request.mediator}"
                 )
                 .report()
-              OptionT.none[Future, Unit]
+              OptionT.none[FutureUnlessShutdown, Unit]
             }
           }
           nextResponseAggregation <- OptionT(
-            responseAggregation.validateAndProgress(ts, response, snapshot.ipsSnapshot)
+            FutureUnlessShutdown.outcomeF(
+              responseAggregation.validateAndProgress(ts, response, snapshot.ipsSnapshot)
+            )
           )
           _unit <- mediatorState.replace(responseAggregation, nextResponseAggregation)
-          _ <- OptionT.some(
+          _ <- OptionT.some[FutureUnlessShutdown](
             // we can send the result asynchronously, as there is no need to reply in
             // order and there is no need to guarantee delivery of verdicts
             doNotAwait(

@@ -107,7 +107,6 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
     */
   def sendAsyncUnauthenticatedOrNot(
       batch: Batch[DefaultOpenEnvelope],
-      sendType: SendType = SendType.Other,
       topologyTimestamp: Option[CantonTimestamp] = None,
       maxSequencingTime: CantonTimestamp = generateMaxSequencingTime,
       messageId: MessageId = generateMessageId,
@@ -122,7 +121,6 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
     */
   def sendAsyncUnauthenticated(
       batch: Batch[DefaultOpenEnvelope],
-      sendType: SendType = SendType.Other,
       maxSequencingTime: CantonTimestamp = generateMaxSequencingTime,
       messageId: MessageId = generateMessageId,
       callback: SendCallback = SendCallback.empty,
@@ -254,7 +252,6 @@ abstract class SequencerClientImpl(
 
   override def sendAsyncUnauthenticatedOrNot(
       batch: Batch[DefaultOpenEnvelope],
-      sendType: SendType,
       topologyTimestamp: Option[CantonTimestamp],
       maxSequencingTime: CantonTimestamp,
       messageId: MessageId,
@@ -268,7 +265,6 @@ abstract class SequencerClientImpl(
       case _: AuthenticatedMember =>
         sendAsync(
           batch = batch,
-          sendType = sendType,
           topologyTimestamp = topologyTimestamp,
           maxSequencingTime = maxSequencingTime,
           messageId = messageId,
@@ -278,7 +274,6 @@ abstract class SequencerClientImpl(
       case _: UnauthenticatedMemberId =>
         sendAsyncUnauthenticated(
           batch = batch,
-          sendType = sendType,
           maxSequencingTime = maxSequencingTime,
           messageId = messageId,
           callback = callback,
@@ -288,7 +283,6 @@ abstract class SequencerClientImpl(
 
   override def sendAsync(
       batch: Batch[DefaultOpenEnvelope],
-      sendType: SendType,
       topologyTimestamp: Option[CantonTimestamp],
       maxSequencingTime: CantonTimestamp,
       messageId: MessageId,
@@ -322,7 +316,6 @@ abstract class SequencerClientImpl(
       result <- sendAsyncInternal(
         batch,
         requiresAuthentication = true,
-        sendType,
         topologyTimestamp,
         maxSequencingTime,
         messageId,
@@ -338,7 +331,6 @@ abstract class SequencerClientImpl(
     */
   override def sendAsyncUnauthenticated(
       batch: Batch[DefaultOpenEnvelope],
-      sendType: SendType = SendType.Other,
       maxSequencingTime: CantonTimestamp = generateMaxSequencingTime,
       messageId: MessageId = generateMessageId,
       callback: SendCallback = SendCallback.empty,
@@ -355,7 +347,6 @@ abstract class SequencerClientImpl(
       sendAsyncInternal(
         batch,
         requiresAuthentication = false,
-        sendType,
         // Requests involving unauthenticated members must not specify a topology timestamp
         topologyTimestamp = None,
         maxSequencingTime = maxSequencingTime,
@@ -385,7 +376,6 @@ abstract class SequencerClientImpl(
   private def sendAsyncInternal(
       batch: Batch[DefaultOpenEnvelope],
       requiresAuthentication: Boolean,
-      sendType: SendType,
       topologyTimestamp: Option[CantonTimestamp],
       maxSequencingTime: CantonTimestamp,
       messageId: MessageId,
@@ -403,7 +393,6 @@ abstract class SequencerClientImpl(
           .create(
             member,
             messageId,
-            sendType.isRequest,
             Batch.closeEnvelopes(batch),
             maxSequencingTime,
             topologyTimestamp,
@@ -848,7 +837,11 @@ abstract class SequencerClientImpl(
   ): EitherT[FutureUnlessShutdown, String, Boolean] = {
     val request = AcknowledgeRequest(member, timestamp, protocolVersion)
     for {
-      signedRequest <- requestSigner.signRequest(request, HashPurpose.AcknowledgementSignature)
+      signedRequest <- requestSigner.signRequest(
+        request,
+        HashPurpose.AcknowledgementSignature,
+        Some(syncCryptoClient.currentSnapshotApproximation),
+      )
       result <- sequencersTransportState.transport
         .acknowledgeSigned(signedRequest)
         .mapK(FutureUnlessShutdown.outcomeK)

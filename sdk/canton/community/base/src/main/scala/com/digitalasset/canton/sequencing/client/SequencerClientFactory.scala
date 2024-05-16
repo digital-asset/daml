@@ -80,7 +80,7 @@ object SequencerClientFactory {
       loggerFactory: NamedLoggerFactory,
       supportedProtocolVersions: Seq[ProtocolVersion],
       minimumProtocolVersion: Option[ProtocolVersion],
-  ): SequencerClientFactory with SequencerClientTransportFactory =
+  ): SequencerClientFactory & SequencerClientTransportFactory =
     new SequencerClientFactory with SequencerClientTransportFactory {
 
       override def create(
@@ -307,7 +307,6 @@ object SequencerClientFactory {
           supportedProtocolVersions,
           config.authToken,
           clock,
-          futureSupervisor,
           processingTimeout,
           loggerFactory,
         )

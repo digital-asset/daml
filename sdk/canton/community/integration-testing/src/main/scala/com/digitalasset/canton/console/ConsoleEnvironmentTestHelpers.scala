@@ -31,17 +31,17 @@ trait ConsoleEnvironmentTestHelpers[+CE <: ConsoleEnvironment] { this: CE =>
     .find(_.name == name)
     .getOrElse(sys.error(s"neither local nor remote participant [$name] is configured"))
 
-  def s(name: String): SequencerNodeReference =
+  def s(name: String): SequencerReference =
     sequencers.all
       .find(_.name == name)
       .getOrElse(sys.error(s"sequencer [$name] not configured"))
 
-  def ls(name: String): LocalSequencerNodeReference =
+  def ls(name: String): LocalSequencerReference =
     sequencers.local
       .find(_.name == name)
       .getOrElse(sys.error(s"local sequencer [$name] not configured"))
 
-  def rs(name: String): RemoteSequencerNodeReference =
+  def rs(name: String): RemoteSequencerReference =
     sequencers.remote
       .find(_.name == name)
       .getOrElse(sys.error(s"remote sequencer [$name] not configured"))

@@ -60,7 +60,7 @@ class SimpleExecutionQueueTest
         task3Result = queue.executeUnderFailuresUS(task3.run(), "Task3").failOnShutdown
         // check that if a task fails subsequent tasks will still be run
         _ = task2.fail()
-        _ <- task2Result.failed
+        _ <- task2Result.failed.failOnShutdown("aborted due to shutdown.")
         _ = task2.started.get() shouldBe true
         _ = task3.complete()
         _ <- task3Result
@@ -107,9 +107,9 @@ class SimpleExecutionQueueTest
       task1.fail()
       task2.complete()
       for {
-        task1Res <- task1Result.failed
+        task1Res <- task1Result.failed.failOnShutdown("aborted due to shutdown.")
         task2Res <- task2Result.failOnShutdown
-        task3Res <- task3Result.failed
+        task3Res <- task3Result.failed.failOnShutdown("aborted due to shutdown.")
       } yield {
         task1Res.getMessage shouldBe "mocked failure for task1"
         task2Res shouldBe "task2"
@@ -126,7 +126,7 @@ class SimpleExecutionQueueTest
       flush0.isCompleted shouldBe false
       task1.fail()
       for {
-        _ <- task1Result.failed
+        _ <- task1Result.failed.failOnShutdown("aborted due to shutdown.")
         _ <- queue.flush()
         _ <- flush0
       } yield {
@@ -290,11 +290,11 @@ class SimpleExecutionQueueTest
       queue.queued shouldBe Seq("sentinel (completed)", "Task1", "Task2", "Task3", "Task4")
       task1.fail()
       for {
-        _ <- task1Result.failed
+        _ <- task1Result.failed.failOnShutdown("aborted due to shutdown.")
         queue1 = queue.queued
         _ = task2.complete()
         _ <- task2Result.failOnShutdown
-        _ <- task3Result.failed
+        _ <- task3Result.failed.failOnShutdown("aborted due to shutdown.")
         queue3 = queue.queued
         _ = task4.complete()
         _ <- task4Result.failOnShutdown

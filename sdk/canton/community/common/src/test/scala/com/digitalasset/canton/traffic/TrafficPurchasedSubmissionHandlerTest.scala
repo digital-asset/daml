@@ -19,7 +19,6 @@ import com.digitalasset.canton.sequencing.client.{
   SendAsyncClientError,
   SendCallback,
   SendResult,
-  SendType,
   SequencerClientSend,
 }
 import com.digitalasset.canton.sequencing.protocol.{SequencersOfDomain, *}
@@ -89,7 +88,6 @@ class TrafficPurchasedSubmissionHandlerTest
     when(
       sequencerClient.sendAsync(
         batchCapture.capture(),
-        any[SendType],
         any[Option[CantonTimestamp]],
         maxSequencingTimeCapture.capture(),
         any[MessageId],
@@ -173,7 +171,6 @@ class TrafficPurchasedSubmissionHandlerTest
     when(
       sequencerClient.sendAsync(
         any[Batch[DefaultOpenEnvelope]],
-        any[SendType],
         any[Option[CantonTimestamp]],
         maxSequencingTimeCapture.capture(),
         any[MessageId],
@@ -228,7 +225,6 @@ class TrafficPurchasedSubmissionHandlerTest
     when(
       sequencerClient.sendAsync(
         any[Batch[DefaultOpenEnvelope]],
-        any[SendType],
         any[Option[CantonTimestamp]],
         any[CantonTimestamp],
         any[MessageId],
@@ -264,7 +260,6 @@ class TrafficPurchasedSubmissionHandlerTest
     when(
       sequencerClient.sendAsync(
         any[Batch[DefaultOpenEnvelope]],
-        any[SendType],
         any[Option[CantonTimestamp]],
         any[CantonTimestamp],
         any[MessageId],
@@ -316,7 +311,6 @@ class TrafficPurchasedSubmissionHandlerTest
     when(
       sequencerClient.sendAsync(
         any[Batch[DefaultOpenEnvelope]],
-        any[SendType],
         any[Option[CantonTimestamp]],
         any[CantonTimestamp],
         any[MessageId],

@@ -459,7 +459,6 @@ abstract class ProtocolProcessor[
       _ <- sequencerClient
         .sendAsync(
           batch,
-          SendType.ConfirmationRequest,
           callback = res => sendResultP.trySuccess(res).discard,
           maxSequencingTime = maxSequencingTime,
           messageId = messageId,

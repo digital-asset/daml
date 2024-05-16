@@ -118,7 +118,7 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)
     def connect_local(
-        domain: SequencerNodeReference,
+        domain: SequencerReference,
         alias: DomainAlias,
         manualConnect: Boolean = false,
         synchronize: Option[NonNegativeDuration] = Some(
