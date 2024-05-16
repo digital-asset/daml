@@ -317,6 +317,13 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
     override def description = name.toString
   }
 
+  def toPackageId(v: SValue): Either[String, PackageId] =
+    v match {
+      case SRecord(_, _, ArrayList(SText(packageId))) =>
+        Right(PackageId.assertFromString(packageId))
+      case _ => Left(s"Expected PackageId but got $v")
+    }
+
   def unrollFree(ctx: ScriptF.Ctx, v: SValue): ErrorOr[SValue Either Question[SValue]] =
     // ScriptF is a newtype over the question with its payload, locations and continue. It's modelled as a record with a single field.
     // Thus the extra SRecord

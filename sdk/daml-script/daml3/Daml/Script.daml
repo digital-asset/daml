@@ -5,7 +5,9 @@ module Daml.Script
 
   -- Main submits
   , submit
+  , submitWithOptions
   , submitMustFail
+  , submitMustFailWithOptions
   , submitResultAndTree
   , submitTree
   , submitWithError
