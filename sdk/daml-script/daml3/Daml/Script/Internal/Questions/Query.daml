@@ -3,10 +3,10 @@
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
-module Daml.Script.Questions.Query where
+module Daml.Script.Internal.Questions.Query where
 
-import Daml.Script.Internal
-import Daml.Script.Questions.Commands (Disclosure(..))
+import Daml.Script.Internal.LowLevel
+import Daml.Script.Internal.Questions.Commands (Disclosure(..))
 import DA.Optional
 import DA.Stack
 

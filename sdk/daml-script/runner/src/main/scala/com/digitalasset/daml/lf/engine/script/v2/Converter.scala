@@ -61,7 +61,8 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       tree: ScriptLedgerClient.TransactionTree,
       enableContractUpgrading: Boolean = false,
   ): Either[String, SValue] = {
-    def damlTree(s: String) = scriptIds.damlScriptModule("Daml.Script.Questions.TransactionTree", s)
+    def damlTree(s: String) =
+      scriptIds.damlScriptModule("Daml.Script.Internal.Questions.TransactionTree", s)
     def translateTreeEvent(ev: ScriptLedgerClient.TreeEvent): Either[String, SValue] = ev match {
       case ScriptLedgerClient.Created(tplId, contractId, argument, _) =>
         for {
@@ -128,7 +129,8 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       commandResult: ScriptLedgerClient.CommandResult,
       enableContractUpgrading: Boolean = false,
   ): Either[String, SValue] = {
-    def scriptCommands(s: String) = scriptIds.damlScriptModule("Daml.Script.Commands", s)
+    def scriptCommands(s: String) =
+      scriptIds.damlScriptModule("Daml.Script.Internal.Questions.Commands", s)
     commandResult match {
       case ScriptLedgerClient.CreateResult(contractId) =>
         Right(
@@ -402,12 +404,13 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       case _ => Left(s"Expected command but got $v")
     }
 
-  // Encodes as Daml.Script.Questions.Packages.PackageName
+  // Encodes as Daml.Script.Internal.Questions.Packages.PackageName
   def fromReadablePackageId(
       scriptIds: ScriptIds,
       packageName: ScriptLedgerClient.ReadablePackageId,
   ): SValue = {
-    val packageNameTy = scriptIds.damlScriptModule("Daml.Script.Questions.Packages", "PackageName")
+    val packageNameTy =
+      scriptIds.damlScriptModule("Daml.Script.Internal.Questions.Packages", "PackageName")
     record(
       packageNameTy,
       ("name", SText(packageName.name.toString)),

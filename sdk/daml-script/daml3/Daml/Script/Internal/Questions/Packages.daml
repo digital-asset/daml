@@ -3,11 +3,11 @@
 
 -- TODO[SW]: Add some kind of warning here saying this _only_ works for IdeLedgerClient
 
-module Daml.Script.Questions.Packages where
+module Daml.Script.Internal.Questions.Packages where
 
-import Daml.Script.Internal
-import Daml.Script.Questions.PartyManagement (ParticipantName (..))
-import Daml.Script.Questions.Time (sleep)
+import Daml.Script.Internal.LowLevel
+import Daml.Script.Internal.Questions.PartyManagement (ParticipantName (..))
+import Daml.Script.Internal.Questions.Time (sleep)
 import DA.Stack
 import DA.Time
 
