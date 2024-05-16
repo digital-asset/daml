@@ -32,7 +32,6 @@ import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{ApiRequestLogger, ClientChannelBuilder}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.admin.MutablePackageNameMapResolver
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.platform.LedgerApiServer
@@ -81,7 +80,6 @@ class StartableStoppableLedgerApiServer(
     futureSupervisor: FutureSupervisor,
     multiDomainEnabled: Boolean,
     parameters: ParticipantNodeParameters,
-    packageNameMapResolver: MutablePackageNameMapResolver,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     actorSystem: ActorSystem,
@@ -215,11 +213,6 @@ class StartableStoppableLedgerApiServer(
       packageMetadataStore = new InMemoryPackageMetadataStore(
         inMemoryState.packageMetadataView
       )
-      _ <- ResourceOwner.forReleasable(() =>
-        packageNameMapResolver.setReference(() =>
-          packageMetadataStore.getSnapshot.getUpgradablePackageMap
-        )
-      )(_ => Future.successful(packageNameMapResolver.unset()))
       timedReadService = new TimedReadService(config.syncService, config.metrics)
       indexerHealth <- new IndexerServiceOwner(
         config.participantId,
