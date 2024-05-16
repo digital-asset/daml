@@ -48,6 +48,24 @@ rules_nixpkgs_sha256 = "46aa0ca80b77848492aa1564e9201de9ed79588ca1284f8a4f76deb7
 rules_nixpkgs_patches = [
 ]
 
+rules_nixpkgs_toolchain_patches = {
+    "java": [
+        # rules_nixpkgs passes a --patch-module=java.compiler=... option to
+        # jvm_opts which is no longer necessary nor compatible with jkd 17 (see
+        # https://github.com/bazelbuild/bazel/issues/14474#issuecomment-1001071398).
+        # This is fixed in rules_nixpkgs v0.10.0 (see
+        # https://github.com/tweag/rules_nixpkgs/commit/c2c5ffaf559a7ec08a7b4ac5ba0f0369650df970),
+        # but migrating to this version of rules_nixpkgs is a non-trivial piece
+        # of work. In the meantime we backport the relevant 2 lines of the fix.
+        "@com_github_digital_asset_daml//bazel_tools:jvm-opts.patch"
+        ],
+    "cc": [],
+    "python": [],
+    "go": [],
+    "rust": [],
+    "posix": [],
+}
+
 buildifier_version = "b163fcf72b7def638f364ed129c9b28032c1d39b"
 buildifier_sha256 = "c2399161fa569f7c815f8e27634035557a2e07a557996df579412ac73bf52c23"
 zlib_version = "1.2.11"
@@ -139,6 +157,8 @@ def daml_deps():
                 strip_prefix = strip_prefix + "/toolchains/" + toolchain,
                 urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
                 sha256 = rules_nixpkgs_sha256,
+                patches = rules_nixpkgs_toolchain_patches[toolchain],
+                patch_args = ["-p3"],
             )
 
     if "com_github_madler_zlib" not in native.existing_rules():
