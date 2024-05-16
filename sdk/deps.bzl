@@ -57,8 +57,8 @@ rules_nixpkgs_toolchain_patches = {
         # https://github.com/tweag/rules_nixpkgs/commit/c2c5ffaf559a7ec08a7b4ac5ba0f0369650df970),
         # but migrating to this version of rules_nixpkgs is a non-trivial piece
         # of work. In the meantime we backport the relevant 2 lines of the fix.
-        "@com_github_digital_asset_daml//bazel_tools:jvm-opts.patch"
-        ],
+        "@com_github_digital_asset_daml//bazel_tools:jvm-opts.patch",
+    ],
     "cc": [],
     "python": [],
     "go": [],
