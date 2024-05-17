@@ -408,8 +408,6 @@ class BlockUpdateGeneratorImpl(
               logger,
               metrics,
             )
-        case LedgerBlockEvent.AddMember(_) =>
-          metrics.blockEvents.mark()(MetricsContext("type" -> "add-member"))
         case LedgerBlockEvent.Acknowledgment(request) =>
           // record the event
           metrics.blockEvents
@@ -1601,7 +1599,7 @@ class BlockUpdateGeneratorImpl(
       sequencerError: SequencerDeliverError,
       nextCounter: SequencerCounter,
   )(implicit traceContext: TraceContext): SubmissionRequestOutcome = {
-    val SubmissionRequest(sender, messageId, _, _, _, _, _, _) = request
+    val SubmissionRequest(sender, messageId, _, _, _, _, _) = request
     logger.debug(
       show"Rejecting submission request $messageId from $sender with error ${sequencerError.code
           .toMsg(sequencerError.cause, correlationId = None, limit = None)}"

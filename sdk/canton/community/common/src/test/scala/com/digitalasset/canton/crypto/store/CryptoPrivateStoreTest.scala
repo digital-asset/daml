@@ -23,20 +23,21 @@ trait CryptoPrivateStoreTest extends BaseTest { this: AsyncWordSpec =>
   def uniqueKeyName(name: String): String =
     name + getClass.getSimpleName
 
-  val sigKey1Name: String = uniqueKeyName("sigKey1_")
+  lazy val crypto = SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
 
-  val encKey1Name: String = uniqueKeyName("encKey1_")
+  lazy val sigKey1Name: String = uniqueKeyName("sigKey1_")
+  lazy val encKey1Name: String = uniqueKeyName("encKey1_")
 
-  val sigKey1: SigningPrivateKey = SymbolicCrypto.signingPrivateKey(sigKey1Name)
-  val sigKey1WithName: SigningPrivateKeyWithName =
+  lazy val sigKey1: SigningPrivateKey = crypto.newSymbolicSigningKeyPair().privateKey
+  lazy val sigKey1WithName: SigningPrivateKeyWithName =
     SigningPrivateKeyWithName(sigKey1, Some(KeyName.tryCreate(sigKey1Name)))
-  val sigKey1BytesWithName: (ByteString, Option[KeyName]) =
+  lazy val sigKey1BytesWithName: (ByteString, Option[KeyName]) =
     (sigKey1.toByteString(testedReleaseProtocolVersion.v), sigKey1WithName.name)
 
-  val encKey1: EncryptionPrivateKey = SymbolicCrypto.encryptionPrivateKey(encKey1Name)
-  val encKey1WithName: EncryptionPrivateKeyWithName =
+  lazy val encKey1: EncryptionPrivateKey = crypto.newSymbolicEncryptionKeyPair().privateKey
+  lazy val encKey1WithName: EncryptionPrivateKeyWithName =
     EncryptionPrivateKeyWithName(encKey1, Some(KeyName.tryCreate(encKey1Name)))
-  val encKey1BytesWithName: (ByteString, Option[KeyName]) =
+  lazy val encKey1BytesWithName: (ByteString, Option[KeyName]) =
     (encKey1.toByteString(testedReleaseProtocolVersion.v), encKey1WithName.name)
 
   def cryptoPrivateStore(

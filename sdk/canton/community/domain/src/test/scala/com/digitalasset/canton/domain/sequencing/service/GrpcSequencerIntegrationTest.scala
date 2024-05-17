@@ -43,16 +43,10 @@ import com.digitalasset.canton.protocol.{
   TestDomainParameters,
   v30 as protocolV30,
 }
+import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.authentication.AuthenticationToken
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.sequencing.{
-  ApplicationHandler,
-  GrpcSequencerConnection,
-  OrdinaryApplicationHandler,
-  SequencerConnections,
-  SerializedEventOrErrorHandler,
-}
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.store.memory.{InMemorySendTrackerStore, InMemorySequencedEventStore}
 import com.digitalasset.canton.time.{DomainTimeTracker, SimClock}
@@ -407,7 +401,6 @@ class GrpcSequencerIntegrationTest
           .sendAsync(
             Batch
               .of(testedProtocolVersion, (MockProtocolMessage, Recipients.cc(anotherParticipant))),
-            SendType.Other,
             None,
           )
           .value

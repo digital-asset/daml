@@ -6,6 +6,7 @@ package v1.ledgerinteraction
 
 import java.util.UUID
 import java.time.Instant
+
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.ledger.api.domain.{PartyDetails, User, UserRight}
@@ -39,6 +40,7 @@ import com.digitalasset.canton.ledger.api.util.LfEngineToApi.{
   toTimestamp,
 }
 import com.daml.script.converter.ConverterException
+import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.protobuf.StatusProto
 import io.grpc.StatusRuntimeException
 import io.grpc.Status.Code
@@ -55,6 +57,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[Ref.ApplicationId])
     extends ScriptLedgerClient {
   override val transport = "gRPC API"
+  implicit val traceContext: TraceContext = TraceContext.empty
 
   override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
       ec: ExecutionContext,

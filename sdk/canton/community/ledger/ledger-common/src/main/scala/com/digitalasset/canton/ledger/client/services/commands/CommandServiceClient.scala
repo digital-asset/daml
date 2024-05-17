@@ -13,6 +13,7 @@ import com.daml.ledger.api.v2.command_service.{
 import com.daml.ledger.api.v2.commands.Commands
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.client.services.commands.CommandServiceClient.statusFromThrowable
+import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.google.rpc.status.Status
 import io.grpc.protobuf.StatusProto
 
@@ -41,7 +42,7 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
       commands: Commands,
       timeout: Option[Duration] = None,
       token: Option[String] = None,
-  ): Future[Either[Status, Unit]] =
+  )(implicit traceContext: TraceContext): Future[Either[Status, Unit]] =
     submitAndHandle(
       timeout,
       token,
@@ -52,7 +53,7 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
       request: SubmitAndWaitRequest,
       timeout: Option[Duration] = None,
       token: Option[String] = None,
-  ): Future[SubmitAndWaitForTransactionResponse] =
+  )(implicit traceContext: TraceContext): Future[SubmitAndWaitForTransactionResponse] =
     serviceWithTokenAndDeadline(timeout, token).submitAndWaitForTransaction(
       request
     )
@@ -61,7 +62,7 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
       request: SubmitAndWaitRequest,
       timeout: Option[Duration] = None,
       token: Option[String] = None,
-  ): Future[SubmitAndWaitForTransactionTreeResponse] =
+  )(implicit traceContext: TraceContext): Future[SubmitAndWaitForTransactionTreeResponse] =
     serviceWithTokenAndDeadline(timeout, token).submitAndWaitForTransactionTree(
       request
     )
@@ -70,6 +71,8 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
       commands: Commands,
       timeout: Option[Duration] = None,
       token: Option[String] = None,
+  )(implicit
+      traceContext: TraceContext
   ): Future[Either[Status, SubmitAndWaitForTransactionResponse]] =
     submitAndHandle(
       timeout,
@@ -81,6 +84,8 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
       commands: Commands,
       timeout: Option[Duration] = None,
       token: Option[String] = None,
+  )(implicit
+      traceContext: TraceContext
   ): Future[Either[Status, SubmitAndWaitForTransactionTreeResponse]] =
     submitAndHandle(
       timeout,
@@ -92,6 +97,8 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
       commands: Commands,
       timeout: Option[Duration] = None,
       token: Option[String] = None,
+  )(implicit
+      traceContext: TraceContext
   ): Future[Either[Status, SubmitAndWaitForUpdateIdResponse]] = {
     submitAndHandle(
       timeout,
@@ -103,19 +110,23 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
   private def serviceWithTokenAndDeadline(
       timeout: Option[Duration],
       token: Option[String],
-  ): CommandServiceStub = {
-    val withToken = LedgerClient.stub(service, token)
+  )(implicit traceContext: TraceContext): CommandServiceStub = {
+    val withToken: CommandServiceStub = LedgerClient
+      .stub(service, token)
+      .withOption(TraceContextGrpc.TraceContextOptionsKey, traceContext)
+
     timeout
-      .fold(withToken)(timeout =>
-        withToken.withDeadlineAfter(timeout.toMillis, TimeUnit.MILLISECONDS)
-      )
+      .fold(withToken) { timeout =>
+        withToken
+          .withDeadlineAfter(timeout.toMillis, TimeUnit.MILLISECONDS)
+      }
   }
 
   private def submitAndHandle[R](
       timeout: Option[Duration],
       token: Option[String],
       request: CommandServiceStub => Future[R],
-  ): Future[Either[Status, R]] = {
+  )(implicit traceContext: TraceContext): Future[Either[Status, R]] = {
     request(serviceWithTokenAndDeadline(timeout, token))
       .transformWith {
         case Success(value) => Future.successful(Right(value))

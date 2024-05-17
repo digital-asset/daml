@@ -158,7 +158,8 @@ object FutureUnlessShutdownImpl {
       unwrap.onComplete(f)
 
     /** Analog to [[scala.concurrent.Future]].`failed` */
-    def failed: Future[Throwable] = self.unwrap.failed
+    def failed(implicit ec: ExecutionContext): FutureUnlessShutdown[Throwable] =
+      FutureUnlessShutdown.outcomeF(self.unwrap.failed)
 
     /** Evaluates `f` and returns its result if this future completes with [[UnlessShutdown.AbortedDueToShutdown]]. */
     def onShutdown[B >: A](f: => B)(implicit ec: ExecutionContext): Future[B] =

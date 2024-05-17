@@ -4,17 +4,14 @@
 package com.digitalasset.canton.crypto
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.Generators
 import com.digitalasset.canton.config.CantonRequireTypes.String68
+import com.digitalasset.canton.config.DefaultProcessingTimeouts
+import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingIdentityFactory}
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.{BaseTest, Generators}
 import com.google.protobuf.ByteString
 import magnolify.scalacheck.auto.*
 import org.scalacheck.*
-
-import scala.concurrent.duration.*
-import scala.concurrent.{Await, ExecutionContext}
 
 object GeneratorsCrypto {
   import Generators.*
@@ -65,49 +62,34 @@ object GeneratorsCrypto {
   private lazy val loggerFactoryNotUsed =
     NamedLoggerFactory.unnamedKey("test", "NotUsed-GeneratorsCrypto")
 
-  lazy val cryptoFactory =
-    TestingIdentityFactory(loggerFactoryNotUsed).forOwnerAndDomain(
-      DefaultTestIdentities.daSequencerId
-    )
-  private lazy val sequencerKey =
-    TestingIdentityFactory(loggerFactoryNotUsed)
-      .newSigningPublicKey(DefaultTestIdentities.daSequencerId)
-      .fingerprint
-  private lazy val privateCrypto = cryptoFactory.crypto.privateCrypto
-  private lazy val pureCryptoApi: CryptoPureApi = cryptoFactory.pureCrypto
+  private lazy val crypto = SymbolicCrypto.create(
+    BaseTest.testedReleaseProtocolVersion,
+    DefaultProcessingTimeouts.testing,
+    loggerFactoryNotUsed,
+  )
+  private lazy val sequencerKey = crypto.generateSymbolicSigningKey()
 
   // TODO(#15813): Change arbitrary signing keys to match real keys
   implicit val signingPublicKeyArb: Arbitrary[SigningPublicKey] = Arbitrary(for {
-    id <- Arbitrary.arbitrary[Fingerprint]
-    format = CryptoKeyFormat.Symbolic
     key <- Arbitrary.arbitrary[ByteString]
     scheme <- Arbitrary.arbitrary[SigningKeyScheme]
-  } yield new SigningPublicKey(id, format, key, scheme))
+    format = CryptoKeyFormat.Symbolic
+  } yield new SigningPublicKey(format, key, scheme))
 
   // TODO(#15813): Change arbitrary encryption keys to match real keys
   implicit val encryptionPublicKeyArb: Arbitrary[EncryptionPublicKey] = Arbitrary(for {
-    id <- Arbitrary.arbitrary[Fingerprint]
-    format = CryptoKeyFormat.Symbolic
     key <- Arbitrary.arbitrary[ByteString]
     scheme <- Arbitrary.arbitrary[EncryptionKeyScheme]
-  } yield new EncryptionPublicKey(id, format, key, scheme))
+    format = CryptoKeyFormat.Symbolic
+  } yield new EncryptionPublicKey(format, key, scheme))
 
   // TODO(#14515) Check that the generator is exhaustive
   implicit val publicKeyArb: Arbitrary[PublicKey] = Arbitrary(
     Gen.oneOf(Arbitrary.arbitrary[SigningPublicKey], Arbitrary.arbitrary[EncryptionPublicKey])
   )
 
-  def sign(str: String, purpose: HashPurpose)(implicit
-      executionContext: ExecutionContext
-  ): Signature = {
-    val hash =
-      pureCryptoApi.build(purpose).addWithoutLengthPrefix(str).finish()
-    Await.result(
-      privateCrypto
-        .sign(hash, sequencerKey)(TraceContext.empty)
-        .valueOr(err => throw new RuntimeException(err.toString))
-        .onShutdown(sys.error("aborted due to shutdown")),
-      10.seconds,
-    )
+  def sign(str: String, purpose: HashPurpose): Signature = {
+    val hash = crypto.pureCrypto.build(purpose).addWithoutLengthPrefix(str).finish()
+    crypto.sign(hash, sequencerKey.id)
   }
 }

@@ -16,6 +16,7 @@ import com.digitalasset.canton.config.{
   TestingConfigInternal,
 }
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.event.{
@@ -86,25 +87,28 @@ sealed trait AcsCommitmentProcessorBaseTest
     with SortedReconciliationIntervalsHelpers
     with HasTestCloseContext {
 
-  protected val interval = PositiveSeconds.tryOfSeconds(5)
-  protected val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::da"))
-  protected val localId = ParticipantId(
+  protected lazy val crypto =
+    SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
+
+  protected lazy val interval = PositiveSeconds.tryOfSeconds(5)
+  protected lazy val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::da"))
+  protected lazy val localId = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("localParticipant::domain")
   )
-  protected val remoteId1 = ParticipantId(
+  protected lazy val remoteId1 = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant1::domain")
   )
-  protected val remoteId2 = ParticipantId(
+  protected lazy val remoteId2 = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant2::domain")
   )
-  protected val remoteId3 = ParticipantId(
+  protected lazy val remoteId3 = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant3::domain")
   )
 
-  protected val List(alice, bob, carol, danna, ed) =
+  protected lazy val List(alice, bob, carol, danna, ed) =
     List("Alice::1", "Bob::2", "Carol::3", "Danna::4", "Ed::5").map(LfPartyId.assertFromString)
 
-  protected val topology = Map(
+  protected lazy val topology = Map(
     localId -> Set(alice),
     remoteId1 -> Set(bob),
     remoteId2 -> Set(carol, danna, ed),
@@ -205,7 +209,7 @@ sealed trait AcsCommitmentProcessorBaseTest
 
     testingTopology
       .withReversedTopology(topologyWithPermissions)
-      .build()
+      .build(crypto, loggerFactory)
       .forOwnerAndDomain(owner)
   }
 
@@ -890,11 +894,14 @@ class AcsCommitmentProcessorTest
   ): Future[SignedProtocolMessage[AcsCommitment]] = {
     val (remote, contracts, fromExclusive, toInclusive, reconciliationInterval) = params
 
-    val crypto =
-      TestingTopology().withSimpleParticipants(remote).build().forOwnerAndDomain(remote)
+    val syncCrypto =
+      TestingTopology()
+        .withSimpleParticipants(remote)
+        .build(crypto, loggerFactory)
+        .forOwnerAndDomain(remote)
     // we assume that the participant has a single stakeholder group
     val cmt = commitmentsFromStkhdCmts(Seq(stakeholderCommitment(contracts)))
-    val snapshotF = crypto.snapshot(CantonTimestamp.Epoch)
+    val snapshotF = syncCrypto.snapshot(CantonTimestamp.Epoch)
     val period =
       CommitmentPeriod
         .create(

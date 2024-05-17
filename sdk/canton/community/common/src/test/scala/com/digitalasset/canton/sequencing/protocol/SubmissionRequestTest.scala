@@ -32,7 +32,6 @@ class SubmissionRequestTest extends BaseTestWordSpec {
     SubmissionRequest.tryCreate(
       DefaultTestIdentities.participant1,
       MessageId.fromUuid(new UUID(1L, 1L)),
-      isRequest = false,
       Batch.empty(testedProtocolVersion),
       maxSequencingTime = CantonTimestamp.MaxValue,
       topologyTimestamp = defaultTopologyTimestamp,
@@ -126,7 +125,6 @@ class SubmissionRequestTest extends BaseTestWordSpec {
         val requestsWithoutSignatures = Seq(
           submissionRequestWithEnvelope1,
           submissionRequestWithEnvelope1.copy(sender = DefaultTestIdentities.participant3),
-          submissionRequestWithEnvelope1.copy(isRequest = true),
           submissionRequestWithEnvelope1.copy(messageId = MessageId.fromUuid(new UUID(10, 10))),
         )
 
@@ -161,7 +159,6 @@ class SubmissionRequestTest extends BaseTestWordSpec {
               envelope2.copy(signatures = Seq(someSignature, Signature.noSignature)),
             )
           ),
-          submissionRequestWithEnvelope2.copy(isRequest = true),
           submissionRequestWithEnvelope2.copy(messageId = MessageId.fromUuid(new UUID(10, 10))),
         )
 

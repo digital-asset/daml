@@ -56,6 +56,9 @@ object EnterpriseSequencerBftAdminData {
   final case class PeerNetworkStatus(endpointStatuses: Seq[PeerEndpointStatus]) {
     def +(status: PeerEndpointStatus): PeerNetworkStatus =
       copy(endpointStatuses = endpointStatuses :+ status)
+
+    def toProto: GetPeerNetworkStatusResponse =
+      GetPeerNetworkStatusResponse.of(endpointStatuses.map(_.toProto))
   }
 
   object PeerNetworkStatus {

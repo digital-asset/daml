@@ -6,7 +6,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.store
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerApiTest
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.sequencing.protocol.RecipientsTest.*
-import com.digitalasset.canton.topology.{TestingIdentityFactory, TestingTopology}
+import com.digitalasset.canton.topology.TestingTopology
 
 abstract class NonBftDomainSequencerApiTest extends SequencerApiTest {
 
@@ -16,8 +16,8 @@ abstract class NonBftDomainSequencerApiTest extends SequencerApiTest {
       NonBftDomainSequencerApiTest.this.loggerFactory
 
     override lazy val topologyFactory =
-      new TestingIdentityFactory(
-        topology = TestingTopology().withSimpleParticipants(
+      TestingTopology(domainParameters = List.empty)
+        .withSimpleParticipants(
           p1,
           p2,
           p3,
@@ -36,10 +36,8 @@ abstract class NonBftDomainSequencerApiTest extends SequencerApiTest {
           p17,
           p18,
           p19,
-        ),
-        loggerFactory,
-        List.empty,
-      )
+        )
+        .build(loggerFactory)
   }
 
   override protected final type FixtureParam = NonBftEnv

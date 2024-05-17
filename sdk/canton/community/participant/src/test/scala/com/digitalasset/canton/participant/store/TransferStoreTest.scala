@@ -6,8 +6,10 @@ package com.digitalasset.canton.participant.store
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata, ViewType}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.GlobalOffset
@@ -61,7 +63,7 @@ import org.scalatest.{Assertion, EitherValues}
 
 import java.util.UUID
 import scala.concurrent.duration.*
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
 
 trait TransferStoreTest {
@@ -1310,35 +1312,26 @@ object TransferStoreTest extends EitherValues with NoTracing {
     loggerFactoryNotUsed.getLogger(TransferStoreTest.getClass)
   )
   private implicit val _ec: ExecutionContext = ec
-  val cryptoFactory =
-    TestingIdentityFactory(loggerFactoryNotUsed).forOwnerAndDomain(
-      DefaultTestIdentities.daSequencerId
-    )
-  val sequencerKey =
-    TestingIdentityFactory(loggerFactoryNotUsed)
-      .newSigningPublicKey(DefaultTestIdentities.daSequencerId)
-      .fingerprint
-  val privateCrypto = cryptoFactory.crypto.privateCrypto
-  val pureCryptoApi: CryptoPureApi = cryptoFactory.pureCrypto
+
+  lazy val crypto = SymbolicCrypto.create(
+    BaseTest.testedReleaseProtocolVersion,
+    DefaultProcessingTimeouts.testing,
+    loggerFactoryNotUsed,
+  )
+  val sequencerKey = crypto.generateSymbolicSigningKey()
 
   def sign(str: String): Signature = {
     val hash =
-      pureCryptoApi
+      crypto.pureCrypto
         .build(TestHash.testHashPurpose)
         .addWithoutLengthPrefix(str)
         .finish()
-    Await.result(
-      privateCrypto
-        .sign(hash, sequencerKey)
-        .valueOr(err => throw new RuntimeException(err.toString))
-        .onShutdown(sys.error("aborted due to shutdown")),
-      10.seconds,
-    )
+    crypto.sign(hash, sequencerKey.id)
   }
 
   private val initialTransferCounter: TransferCounter = TransferCounter.Genesis
 
-  val seedGenerator = new SeedGenerator(pureCryptoApi)
+  val seedGenerator = new SeedGenerator(crypto.pureCrypto)
 
   private def submitterMetadata(submitter: LfPartyId): TransferSubmitterMetadata = {
 
@@ -1390,8 +1383,8 @@ object TransferStoreTest extends EitherValues with NoTracing {
     val seed = seedGenerator.generateSaltSeed()
     val fullTransferOutViewTree = transferOutRequest
       .toFullTransferOutTree(
-        pureCryptoApi,
-        pureCryptoApi,
+        crypto.pureCrypto,
+        crypto.pureCrypto,
         seed,
         uuid,
       )

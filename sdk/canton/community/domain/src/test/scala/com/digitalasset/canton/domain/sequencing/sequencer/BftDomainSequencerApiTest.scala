@@ -7,12 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.sequencing.protocol.RecipientsTest.*
-import com.digitalasset.canton.topology.{
-  SequencerGroup,
-  SequencerId,
-  TestingIdentityFactory,
-  TestingTopology,
-}
+import com.digitalasset.canton.topology.{SequencerGroup, SequencerId, TestingTopology}
 
 abstract class BftDomainSequencerApiTest extends SequencerApiTest {
 
@@ -22,38 +17,35 @@ abstract class BftDomainSequencerApiTest extends SequencerApiTest {
       BftDomainSequencerApiTest.this.loggerFactory
 
     override lazy val topologyFactory =
-      new TestingIdentityFactory(
-        topology = TestingTopology()
-          .withSequencerGroup(
-            SequencerGroup(
-              active = NonEmpty.mk(Seq, SequencerId(domainId.uid)),
-              passive = Seq.empty,
-              threshold = PositiveInt.one,
-            )
+      TestingTopology(domainParameters = List.empty)
+        .withSequencerGroup(
+          SequencerGroup(
+            active = NonEmpty.mk(Seq, SequencerId(domainId.uid)),
+            passive = Seq.empty,
+            threshold = PositiveInt.one,
           )
-          .withSimpleParticipants(
-            p1,
-            p2,
-            p3,
-            p4,
-            p5,
-            p6,
-            p7,
-            p8,
-            p9,
-            p10,
-            p11,
-            p12,
-            p13,
-            p14,
-            p15,
-            p17,
-            p18,
-            p19,
-          ),
-        loggerFactory,
-        List.empty,
-      )
+        )
+        .withSimpleParticipants(
+          p1,
+          p2,
+          p3,
+          p4,
+          p5,
+          p6,
+          p7,
+          p8,
+          p9,
+          p10,
+          p11,
+          p12,
+          p13,
+          p14,
+          p15,
+          p17,
+          p18,
+          p19,
+        )
+        .build(loggerFactory)
   }
 
   override protected final type FixtureParam = BftEnv

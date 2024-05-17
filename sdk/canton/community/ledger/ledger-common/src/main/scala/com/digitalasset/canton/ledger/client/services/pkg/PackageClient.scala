@@ -13,6 +13,7 @@ import com.daml.ledger.api.v2.package_service.{
   ListPackagesResponse,
 }
 import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.Future
 
@@ -20,25 +21,25 @@ final class PackageClient(service: PackageServiceStub) {
 
   def listPackages(
       token: Option[String] = None
-  ): Future[ListPackagesResponse] =
+  )(implicit traceContext: TraceContext): Future[ListPackagesResponse] =
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .listPackages(ListPackagesRequest())
 
   def getPackage(
       packageId: String,
       token: Option[String] = None,
-  ): Future[GetPackageResponse] =
+  )(implicit traceContext: TraceContext): Future[GetPackageResponse] =
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .getPackage(GetPackageRequest(packageId = packageId))
 
   def getPackageStatus(
       packageId: String,
       token: Option[String] = None,
-  ): Future[GetPackageStatusResponse] =
+  )(implicit traceContext: TraceContext): Future[GetPackageStatusResponse] =
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .getPackageStatus(
         GetPackageStatusRequest(packageId = packageId)
       )

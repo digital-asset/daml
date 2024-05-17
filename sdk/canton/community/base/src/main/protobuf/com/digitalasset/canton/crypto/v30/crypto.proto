@@ -72,7 +72,8 @@ enum KeyPurpose {
 }
 
 message SigningPublicKey {
-  string id = 1;
+  // Previously public key id / fingerprint
+  reserved 1;
 
   CryptoKeyFormat format = 2;
 
@@ -113,7 +114,8 @@ enum SigningKeyScheme {
 }
 
 message EncryptionPublicKey {
-  string id = 1;
+  // Previously public key id / fingerprint
+  reserved 1;
 
   CryptoKeyFormat format = 2;
 

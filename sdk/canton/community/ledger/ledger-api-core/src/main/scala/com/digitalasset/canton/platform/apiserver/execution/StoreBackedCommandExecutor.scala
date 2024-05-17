@@ -461,7 +461,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
       EitherT.fromEither[Future](result).fold(UpgradeFailure, _ => Valid)
     }
 
-    // TODO(#14884): Guard contract activeness check with readers permission check
     def lookupActiveContractVerificationData(): Result =
       EitherT(
         contractStore

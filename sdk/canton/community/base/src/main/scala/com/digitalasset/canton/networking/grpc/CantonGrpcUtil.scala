@@ -6,8 +6,8 @@ package com.digitalasset.canton.networking.grpc
 import cats.data.EitherT
 import cats.implicits.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
-import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.connection.v30.{ApiInfoServiceGrpc, GetApiInfoRequest}
 import com.digitalasset.canton.error.CantonErrorGroups.GrpcErrorGroup
 import com.digitalasset.canton.error.{BaseCantonError, CantonError}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
@@ -17,6 +17,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{DelayUtil, EitherTUtil}
+import com.digitalasset.canton.{ProtoDeserializationError, config}
 import io.grpc.*
 import io.grpc.stub.AbstractStub
 
@@ -256,5 +257,51 @@ object CantonGrpcUtil {
     def asGrpcResponse(implicit ec: ExecutionContext, elc: ErrorLoggingContext): Future[A] = {
       f.failOnShutdownTo(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
     }
+  }
+
+  def checkCantonApiInfo(
+      serverName: String,
+      expectedName: String,
+      channel: ManagedChannel,
+      logger: TracedLogger,
+      timeout: config.NonNegativeDuration,
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[Future, String, Unit] = {
+    for {
+      apiInfo <- CantonGrpcUtil
+        .sendSingleGrpcRequest(
+          serverName = s"$serverName/$expectedName",
+          requestDescription = "GetApiInfo",
+          channel = channel,
+          stubFactory = ApiInfoServiceGrpc.stub,
+          timeout = timeout.unwrap,
+          logger = logger,
+          logPolicy = CantonGrpcUtil.silentLogPolicy,
+          retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
+        )(_.getApiInfo(GetApiInfoRequest()))
+        .leftMap(_.toString)
+      _ <- {
+        val errorMessage = apiInfoErrorMessage(channel, apiInfo.name, expectedName, serverName)
+        EitherTUtil.condUnitET[Future](apiInfo.name == expectedName, errorMessage)
+      }
+    } yield ()
+  }
+
+  private[grpc] def apiInfoErrorMessage(
+      channel: Channel,
+      receivedApiName: String,
+      expectedApiName: String,
+      serverName: String,
+  ): String =
+    s"Endpoint '$channel' provides '${receivedApiName}', " +
+      s"expected '$expectedApiName'. This message indicates a possible mistake in configuration, " +
+      s"please check node connection settings for '$serverName'."
+
+  object ApiName {
+    val AdminApi: String = "admin-api"
+    val LedgerApi: String = "ledger-api"
+    val SequencerPublicApi: String = "sequencer-public-api"
   }
 }

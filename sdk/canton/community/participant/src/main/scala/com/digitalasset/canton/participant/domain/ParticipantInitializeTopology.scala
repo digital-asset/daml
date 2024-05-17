@@ -141,7 +141,6 @@ final class ParticipantInitializeTopology(
         success <- initiateOnboarding(handle)
       } yield success
     }
-
     for {
       unauthenticatedSequencerClient <- sequencerClientFactory
         .create(

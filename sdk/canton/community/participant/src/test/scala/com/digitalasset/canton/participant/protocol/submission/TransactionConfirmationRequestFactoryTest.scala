@@ -36,7 +36,6 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.OptionUtil
 import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -69,7 +68,7 @@ class TransactionConfirmationRequestFactoryTest
       partyToParticipant: Map[ParticipantId, Seq[LfPartyId]],
       permission: ParticipantPermission = Submission,
       keyPurposes: Set[KeyPurpose] = KeyPurpose.All,
-      encKeyTag: Option[String] = None,
+      freshKeys: Boolean = false,
   ): DomainSnapshotSyncCryptoApi = {
 
     val map = partyToParticipant.fmap(parties => parties.map(_ -> permission).toMap)
@@ -77,7 +76,7 @@ class TransactionConfirmationRequestFactoryTest
       .withReversedTopology(map)
       .withDomains(domain)
       .withKeyPurposes(keyPurposes)
-      .withEncKeyTag(OptionUtil.noneAsEmptyString(encKeyTag))
+      .withFreshKeys(freshKeys)
       .build(loggerFactory)
       .forOwnerAndDomain(submittingParticipant, domain)
       .currentSnapshotApproximation
@@ -450,9 +449,7 @@ class TransactionConfirmationRequestFactoryTest
         for {
           firstSessionKeyInfo <- getSessionKeyFromConfirmationRequest(newCryptoSnapshot)
           secondSessionKeyInfo <- getSessionKeyFromConfirmationRequest(newCryptoSnapshot)
-          // we add a tag that is to be appended to the encryption key id
-          // (to enforce that the key is different from the previous one, i.e. simulate a key rotation/revocation)
-          anotherCryptoSnapshot = createCryptoSnapshot(defaultTopology, encKeyTag = Some("-new"))
+          anotherCryptoSnapshot = createCryptoSnapshot(defaultTopology, freshKeys = true)
           thirdSessionKeyInfo <- getSessionKeyFromConfirmationRequest(anotherCryptoSnapshot)
         } yield {
           firstSessionKeyInfo shouldBe secondSessionKeyInfo

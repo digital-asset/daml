@@ -10,7 +10,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
+import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, SymbolicPureCrypto}
 import com.digitalasset.canton.data.ViewType.TransferInViewType
 import com.digitalasset.canton.data.{CantonTimestamp, FullTransferInTree, TransferSubmitterMetadata}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -61,28 +61,30 @@ import java.util.UUID
 import scala.concurrent.Future
 
 class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with HasTestCloseContext {
-  private val sourceDomain = SourceDomainId(
+  private lazy val sourceDomain = SourceDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
   )
-  private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(100))
-  private val targetDomain = TargetDomainId(
+  private lazy val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(100))
+  private lazy val targetDomain = TargetDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
   )
-  private val targetMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(200))
-  private val anotherDomain = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::another"))
-  private val anotherMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(300))
-  private val party1: LfPartyId = PartyId(
+  private lazy val targetMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(200))
+  private lazy val anotherDomain = DomainId(
+    UniqueIdentifier.tryFromProtoPrimitive("domain::another")
+  )
+  private lazy val anotherMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(300))
+  private lazy val party1: LfPartyId = PartyId(
     UniqueIdentifier.tryFromProtoPrimitive("party1::party")
   ).toLf
-  private val party2: LfPartyId = PartyId(
+  private lazy val party2: LfPartyId = PartyId(
     UniqueIdentifier.tryFromProtoPrimitive("party2::party")
   ).toLf
 
-  private val participant = ParticipantId(
+  private lazy val participant = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
   )
 
-  private val initialTransferCounter: TransferCounter = TransferCounter.Genesis
+  private lazy val initialTransferCounter: TransferCounter = TransferCounter.Genesis
 
   private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata = {
     TransferSubmitterMetadata(
@@ -95,23 +97,24 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
     )
   }
 
+  private lazy val clock = new WallClock(timeouts, loggerFactory)
+  private lazy val crypto =
+    SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
+
+  private lazy val seedGenerator = new SeedGenerator(crypto.pureCrypto)
+
   private lazy val identityFactory = TestingTopology()
     .withDomains(sourceDomain.unwrap)
     .withReversedTopology(
       Map(submittingParticipant -> Map(party1 -> ParticipantPermission.Submission))
     )
     .withSimpleParticipants(participant) // required such that `participant` gets a signing key
-    .build(loggerFactory)
+    .build(crypto, loggerFactory)
 
   private lazy val cryptoSnapshot =
     identityFactory
       .forOwnerAndDomain(submittingParticipant, sourceDomain.unwrap)
       .currentSnapshotApproximation
-
-  private val clock = new WallClock(timeouts, loggerFactory)
-  private val crypto = TestingIdentityFactory.newCrypto(loggerFactory)(participant)
-
-  private val seedGenerator = new SeedGenerator(crypto.pureCrypto)
 
   private lazy val transferInProcessingSteps =
     testInstance(targetDomain, Set(party1), Set(party1), cryptoSnapshot, None)

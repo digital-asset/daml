@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant
 
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.store.{DomainConnectionConfigStore, EventLogId}
 import com.digitalasset.canton.participant.sync.UpstreamOffsetConvert
 import com.digitalasset.canton.topology.DomainId
@@ -17,8 +18,12 @@ object Pruning {
     override def message: String = "Cancelled due to shutdown"
   }
 
-  case object LedgerPruningNothingToPrune extends LedgerPruningError {
-    val message = "Nothing to prune"
+  final case class LedgerPruningNothingToPrune(
+      beforeOrAt: CantonTimestamp,
+      boundInclusive: GlobalOffset,
+  ) extends LedgerPruningError {
+    override def message = "No internal participant data to prune up to time " +
+      s"${beforeOrAt} and offset ${boundInclusive.unwrap.value}."
   }
 
   final case class LedgerPruningInternalError(message: String) extends LedgerPruningError

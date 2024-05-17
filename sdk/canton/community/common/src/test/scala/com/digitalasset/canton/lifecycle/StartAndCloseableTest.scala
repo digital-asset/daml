@@ -5,7 +5,7 @@ package com.digitalasset.canton.lifecycle
 
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.StartAndCloseable.StartAfterClose
+import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, config}
@@ -60,9 +60,11 @@ class StartAndCloseableTest extends AnyWordSpec with BaseTest with HasExecutionC
 
     override protected def startAsync()(implicit
         initializationTraceContext: TraceContext
-    ): Future[Unit] = {
-      startInvocations.incrementAndGet()
-      started.future
+    ): FutureUnlessShutdown[Unit] = {
+      FutureUnlessShutdown.outcomeF {
+        startInvocations.incrementAndGet()
+        started.future
+      }
     }
     override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
       Seq(
@@ -138,12 +140,12 @@ class StartAndCloseableTest extends AnyWordSpec with BaseTest with HasExecutionC
       val fc = f.closeF()
       val fs = f.closingInvokedP.future.flatMap(_ => f.start())
       (for {
-        failure <- fs.failed
-        _ <- fc
+        failure <- fs.futureValue
+        _ <- UnlessShutdown.Outcome(fc)
       } yield {
         f.evaluate(checkStarted = true, checkClosed = true, 0, 1)
-        failure shouldBe a[StartAfterClose]
-      }).futureValue
+        failure shouldBe a[AbortedDueToShutdown]
+      })
     }
 
     "close begin, start begin, close done, start done" in {
@@ -157,12 +159,12 @@ class StartAndCloseableTest extends AnyWordSpec with BaseTest with HasExecutionC
         f.started.success(())
       }
       (for {
-        failure <- fs.failed
-        _ <- fc
+        failure <- fs.futureValue
+        _ <- UnlessShutdown.Outcome(fc)
       } yield {
         f.evaluate(checkStarted = true, checkClosed = true, 0, 1)
-        failure shouldBe a[StartAfterClose]
-      }).futureValue
+        failure shouldBe a[AbortedDueToShutdown]
+      })
       startF.futureValue
     }
 

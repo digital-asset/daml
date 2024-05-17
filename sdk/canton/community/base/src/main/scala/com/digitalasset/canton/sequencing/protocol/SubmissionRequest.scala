@@ -16,7 +16,7 @@ import com.digitalasset.canton.serialization.{
   ProtoConverter,
   ProtocolVersionedMemoizedEvidence,
 }
-import com.digitalasset.canton.topology.Member
+import com.digitalasset.canton.topology.{Member, ParticipantId}
 import com.digitalasset.canton.version.{
   HasMemoizedProtocolVersionedWithContextCompanion,
   HasProtocolVersionedWrapper,
@@ -40,7 +40,6 @@ import com.google.protobuf.ByteString
 final case class SubmissionRequest private (
     sender: Member,
     messageId: MessageId,
-    isRequest: Boolean,
     batch: Batch[ClosedEnvelope],
     maxSequencingTime: CantonTimestamp,
     topologyTimestamp: Option[CantonTimestamp],
@@ -58,11 +57,23 @@ final case class SubmissionRequest private (
 
   @transient override protected lazy val companionObj: SubmissionRequest.type = SubmissionRequest
 
+  @VisibleForTesting
+  def isRequest: Boolean = {
+    val hasParticipantRecipient = batch.allMembers.exists {
+      case _: ParticipantId => true
+      case _: Member => false
+    }
+    val hasMediatorRecipient = batch.allRecipients.exists {
+      case _: MediatorGroupRecipient => true
+      case _: Recipient => false
+    }
+    hasParticipantRecipient && hasMediatorRecipient
+  }
+
   // Caches the serialized request to be able to do checks on its size without re-serializing
   lazy val toProtoV30: v30.SubmissionRequest = v30.SubmissionRequest(
     sender = sender.toProtoPrimitive,
     messageId = messageId.toProtoPrimitive,
-    isRequest = isRequest,
     batch = Some(batch.toProtoV30),
     maxSequencingTime = maxSequencingTime.toProtoPrimitive,
     topologyTimestamp = topologyTimestamp.map(_.toProtoPrimitive),
@@ -74,7 +85,6 @@ final case class SubmissionRequest private (
   def copy(
       sender: Member = this.sender,
       messageId: MessageId = this.messageId,
-      isRequest: Boolean = this.isRequest,
       batch: Batch[ClosedEnvelope] = this.batch,
       maxSequencingTime: CantonTimestamp = this.maxSequencingTime,
       topologyTimestamp: Option[CantonTimestamp] = this.topologyTimestamp,
@@ -84,7 +94,6 @@ final case class SubmissionRequest private (
     .create(
       sender,
       messageId,
-      isRequest,
       batch,
       maxSequencingTime,
       topologyTimestamp,
@@ -188,7 +197,6 @@ object SubmissionRequest
   def create(
       sender: Member,
       messageId: MessageId,
-      isRequest: Boolean,
       batch: Batch[ClosedEnvelope],
       maxSequencingTime: CantonTimestamp,
       topologyTimestamp: Option[CantonTimestamp],
@@ -201,7 +209,6 @@ object SubmissionRequest
         new SubmissionRequest(
           sender,
           messageId,
-          isRequest,
           batch,
           maxSequencingTime,
           topologyTimestamp,
@@ -214,7 +221,6 @@ object SubmissionRequest
   def tryCreate(
       sender: Member,
       messageId: MessageId,
-      isRequest: Boolean,
       batch: Batch[ClosedEnvelope],
       maxSequencingTime: CantonTimestamp,
       topologyTimestamp: Option[CantonTimestamp],
@@ -225,7 +231,6 @@ object SubmissionRequest
     create(
       sender,
       messageId,
-      isRequest,
       batch,
       maxSequencingTime,
       topologyTimestamp,
@@ -241,7 +246,6 @@ object SubmissionRequest
     val v30.SubmissionRequest(
       senderP,
       messageIdP,
-      isRequest,
       batchP,
       maxSequencingTimeP,
       topologyTimestamp,
@@ -265,7 +269,6 @@ object SubmissionRequest
     } yield new SubmissionRequest(
       sender,
       messageId,
-      isRequest,
       batch,
       maxSequencingTime,
       ts,

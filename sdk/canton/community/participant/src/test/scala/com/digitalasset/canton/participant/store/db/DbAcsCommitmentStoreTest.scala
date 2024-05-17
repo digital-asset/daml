@@ -37,7 +37,7 @@ trait DbAcsCommitmentStoreTest extends AcsCommitmentStoreTest { this: DbTest =>
         storage,
         IndexedDomain.tryCreate(domainId, 1),
         testedProtocolVersion,
-        cryptoApi,
+        crypto.pureCrypto,
         timeouts,
         futureSupervisor,
         loggerFactory,

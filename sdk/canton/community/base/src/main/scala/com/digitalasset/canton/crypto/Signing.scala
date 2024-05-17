@@ -28,10 +28,7 @@ import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
 }
-import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
-import monocle.Lens
-import monocle.macros.GenLens
 import slick.jdbc.GetResult
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -283,23 +280,13 @@ object SigningKeyPair {
     throw new UnsupportedOperationException("Use generate or deserialization methods")
 
   private[crypto] def create(
-      id: Fingerprint,
       format: CryptoKeyFormat,
       publicKeyBytes: ByteString,
       privateKeyBytes: ByteString,
       scheme: SigningKeyScheme,
   ): SigningKeyPair = {
-    val publicKey = new SigningPublicKey(id, format, publicKeyBytes, scheme)
+    val publicKey = new SigningPublicKey(format, publicKeyBytes, scheme)
     val privateKey = new SigningPrivateKey(publicKey.id, format, privateKeyBytes, scheme)
-    new SigningKeyPair(publicKey, privateKey)
-  }
-
-  @VisibleForTesting
-  def wrongSigningKeyPairWithPublicKeyUnsafe(
-      publicKey: SigningPublicKey
-  ): SigningKeyPair = {
-    val privateKey =
-      new SigningPrivateKey(publicKey.id, publicKey.format, publicKey.key, publicKey.scheme)
     new SigningKeyPair(publicKey, privateKey)
   }
 
@@ -320,18 +307,17 @@ object SigningKeyPair {
     } yield new SigningKeyPair(publicKey, privateKey)
 }
 
-@SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
-case class SigningPublicKey private[crypto] (
-    id: Fingerprint,
+final case class SigningPublicKey private[crypto] (
     format: CryptoKeyFormat,
     protected[crypto] val key: ByteString,
     scheme: SigningKeyScheme,
 ) extends PublicKey
     with PrettyPrinting
     with HasVersionedWrapper[SigningPublicKey] {
+
   override val purpose: KeyPurpose = KeyPurpose.Signing
 
-  override protected def companionObj = SigningPublicKey
+  override protected def companionObj: SigningPublicKey.type = SigningPublicKey
 
   // TODO(#15649): Make SigningPublicKey object invariant
   protected def validated: Either[ProtoDeserializationError.CryptoDeserializationError, this.type] =
@@ -345,7 +331,6 @@ case class SigningPublicKey private[crypto] (
 
   def toProtoV30: v30.SigningPublicKey =
     v30.SigningPublicKey(
-      id = id.toProtoPrimitive,
       format = format.toProtoEnum,
       publicKey = key,
       scheme = scheme.toProtoEnum,
@@ -356,6 +341,7 @@ case class SigningPublicKey private[crypto] (
 
   override def pretty: Pretty[SigningPublicKey] =
     prettyOfClass(param("id", _.id), param("format", _.format), param("scheme", _.scheme))
+
 }
 
 object SigningPublicKey
@@ -372,26 +358,19 @@ object SigningPublicKey
   )
 
   private[crypto] def create(
-      id: Fingerprint,
       format: CryptoKeyFormat,
       key: ByteString,
       scheme: SigningKeyScheme,
   ): Either[ProtoDeserializationError.CryptoDeserializationError, SigningPublicKey] =
-    new SigningPublicKey(id, format, key, scheme).validated
-
-  @VisibleForTesting
-  val idUnsafe: Lens[SigningPublicKey, Fingerprint] =
-    GenLens[SigningPublicKey](_.id)
+    new SigningPublicKey(format, key, scheme).validated
 
   def fromProtoV30(
       publicKeyP: v30.SigningPublicKey
   ): ParsingResult[SigningPublicKey] =
     for {
-      id <- Fingerprint.fromProtoPrimitive(publicKeyP.id)
       format <- CryptoKeyFormat.fromProtoEnum("format", publicKeyP.format)
       scheme <- SigningKeyScheme.fromProtoEnum("scheme", publicKeyP.scheme)
       signingPublicKey <- SigningPublicKey.create(
-        id,
         format,
         publicKeyP.publicKey,
         scheme,

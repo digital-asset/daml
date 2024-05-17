@@ -47,6 +47,7 @@ import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContext
 import com.daml.script.converter.ConverterException
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.tracing.TraceContext
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.OneAnd._
 import scalaz.std.either._
@@ -256,7 +257,11 @@ object Runner {
       params: ApiParameters,
       tlsConfig: TlsConfiguration,
       maxInboundMessageSize: Int,
-  )(implicit ec: ExecutionContext, seq: ExecutionSequencerFactory): Future[GrpcLedgerClient] = {
+  )(implicit
+      ec: ExecutionContext,
+      seq: ExecutionSequencerFactory,
+      traceContext: TraceContext,
+  ): Future[GrpcLedgerClient] = {
     val applicationId = params.application_id.getOrElse(
       // If an application id was not supplied, but an access token was,
       // we leave the application id empty so that the ledger will
@@ -292,6 +297,7 @@ object Runner {
   )(implicit
       ec: ExecutionContext,
       seq: ExecutionSequencerFactory,
+      traceContext: TraceContext,
   ): Future[Participants[GrpcLedgerClient]] = {
     for {
       defaultClient <- participantParams.default_participant.traverse(x =>

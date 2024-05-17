@@ -12,16 +12,18 @@ trait CryptoPublicStoreTest extends BaseTest { this: AsyncWordSpec =>
 
   def cryptoPublicStore(newStore: => CryptoPublicStore, backedByDatabase: Boolean): Unit = {
 
-    val sigKey1: SigningPublicKey = SymbolicCrypto.signingPublicKey("sigKey1")
+    val crypto = SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
+
+    val sigKey1: SigningPublicKey = crypto.generateSymbolicSigningKey(Some("sigKey1"))
     val sigKey1WithName: SigningPublicKeyWithName =
       SigningPublicKeyWithName(sigKey1, Some(KeyName.tryCreate("sigKey1")))
-    val sigKey2: SigningPublicKey = SymbolicCrypto.signingPublicKey("sigKey2")
+    val sigKey2: SigningPublicKey = crypto.generateSymbolicSigningKey(Some("sigKey2"))
     val sigKey2WithName: SigningPublicKeyWithName = SigningPublicKeyWithName(sigKey2, None)
 
-    val encKey1: EncryptionPublicKey = SymbolicCrypto.encryptionPublicKey("encKey1")
+    val encKey1: EncryptionPublicKey = crypto.generateSymbolicEncryptionKey(Some("encKey1"))
     val encKey1WithName: EncryptionPublicKeyWithName =
       EncryptionPublicKeyWithName(encKey1, Some(KeyName.tryCreate("encKey1")))
-    val encKey2: EncryptionPublicKey = SymbolicCrypto.encryptionPublicKey("encKey2")
+    val encKey2: EncryptionPublicKey = crypto.generateSymbolicEncryptionKey(Some("encKey2"))
     val encKey2WithName: EncryptionPublicKeyWithName = EncryptionPublicKeyWithName(encKey2, None)
 
     "save encryption keys correctly when added incrementally" in {

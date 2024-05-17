@@ -41,7 +41,6 @@ trait SequencerClientSend {
     */
   def sendAsync(
       batch: Batch[DefaultOpenEnvelope],
-      sendType: SendType = SendType.Other,
       topologyTimestamp: Option[CantonTimestamp] = None,
       maxSequencingTime: CantonTimestamp = generateMaxSequencingTime,
       messageId: MessageId = generateMessageId,

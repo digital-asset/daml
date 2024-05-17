@@ -16,12 +16,7 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.sequencing.client.{
-  SendCallback,
-  SendResult,
-  SendType,
-  SequencerClientSend,
-}
+import com.digitalasset.canton.sequencing.client.{SendCallback, SendResult, SequencerClientSend}
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{MediatorId, ParticipantId, PartyId}
@@ -164,7 +159,6 @@ private[mediator] class DefaultVerdictSender(
       // that point.
       sequencerSend.sendAsync(
         batch,
-        SendType.Other,
         Some(requestId.unwrap),
         callback = callback,
         maxSequencingTime = decisionTime,

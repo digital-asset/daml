@@ -6,6 +6,7 @@ package com.digitalasset.canton.ledger.client.services.admin
 import com.daml.ledger.api.v2.admin.participant_pruning_service.ParticipantPruningServiceGrpc.ParticipantPruningServiceStub
 import com.daml.ledger.api.v2.admin.participant_pruning_service.{PruneRequest, PruneResponse}
 import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.Future
 
@@ -22,9 +23,9 @@ final class ParticipantPruningManagementClient(service: ParticipantPruningServic
       pruneUpTo: String,
       token: Option[String] = None,
       submissionId: Option[String] = None,
-  ): Future[PruneResponse] =
+  )(implicit traceContext: TraceContext): Future[PruneResponse] =
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .prune(ParticipantPruningManagementClient.pruneRequest(pruneUpTo, submissionId))
 
 }

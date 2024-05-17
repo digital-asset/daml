@@ -31,10 +31,6 @@ import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequest
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerIntegration
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
-import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
-  RegisterMemberError,
-  SequencerWriteError,
-}
 import com.digitalasset.canton.domain.sequencing.traffic.RateLimitManagerTesting
 import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficPurchasedStore
 import com.digitalasset.canton.lifecycle.AsyncOrSyncCloseable
@@ -217,9 +213,6 @@ class BlockSequencerTest
     override def send(signedSubmission: SignedOrderingRequest)(implicit
         traceContext: TraceContext
     ): EitherT[Future, SendAsyncError, Unit] = ???
-    override def register(member: Member)(implicit
-        traceContext: TraceContext
-    ): EitherT[Future, SequencerWriteError[RegisterMemberError], Unit] = ???
     override def health(implicit traceContext: TraceContext): Future[SequencerDriverHealthStatus] =
       ???
     override def acknowledge(signedAcknowledgeRequest: SignedContent[AcknowledgeRequest])(implicit

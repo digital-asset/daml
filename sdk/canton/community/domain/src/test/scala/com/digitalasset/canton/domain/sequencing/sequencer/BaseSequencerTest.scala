@@ -63,7 +63,6 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
     SubmissionRequest.tryCreate(
       from,
       messageId,
-      isRequest = true,
       mkBatch(to),
       CantonTimestamp.MaxValue,
       None,

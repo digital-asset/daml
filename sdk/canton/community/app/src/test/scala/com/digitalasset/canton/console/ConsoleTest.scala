@@ -130,8 +130,12 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
       new CommunityConsoleEnvironment(
         environment,
         consoleOutput = testConsoleOutput,
-        createAdminCommandRunner = _ => adminCommandRunner,
-      )
+      ) {
+        override protected def createAdminCommandRunner(
+            consoleEnvironment: ConsoleEnvironment,
+            apiName: String,
+        ): ConsoleGrpcAdminCommandRunner = adminCommandRunner
+      }
 
     def runOrFail(commands: String*): Unit = {
       val (result, stderr) = run(commands*)

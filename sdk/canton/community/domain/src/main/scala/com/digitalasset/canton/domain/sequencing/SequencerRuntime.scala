@@ -10,6 +10,8 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.connection.GrpcApiInfoService
+import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.api.v30
@@ -42,6 +44,7 @@ import com.digitalasset.canton.lifecycle.{
   Lifecycle,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.protocol.{
@@ -298,6 +301,15 @@ class SequencerRuntime(
         executionContext,
       )
     )
+    // register the api info services
+    register(
+      ApiInfoServiceGrpc.bindService(
+        new GrpcApiInfoService(
+          CantonGrpcUtil.ApiName.AdminApi
+        ),
+        executionContext,
+      )
+    )
   }
 
   def domainServices(implicit ec: ExecutionContext): Seq[ServerServiceDefinition] = Seq(
@@ -334,6 +346,13 @@ class SequencerRuntime(
       ServerInterceptors.intercept(
         v30.SequencerServiceGrpc.bindService(sequencerService, ec),
         interceptors,
+      )
+    }, {
+      ApiInfoServiceGrpc.bindService(
+        new GrpcApiInfoService(
+          CantonGrpcUtil.ApiName.SequencerPublicApi
+        ),
+        executionContext,
       )
     },
   )

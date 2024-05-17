@@ -57,7 +57,6 @@ import com.digitalasset.canton.sequencing.client.SendResult.Success
 import com.digitalasset.canton.sequencing.client.{
   SendAsyncClientError,
   SendCallback,
-  SendType,
   SequencerClientSend,
 }
 import com.digitalasset.canton.sequencing.protocol.*
@@ -140,7 +139,6 @@ class ProtocolProcessorTest
   when(
     mockSequencerClient.sendAsync(
       any[Batch[DefaultOpenEnvelope]],
-      any[SendType],
       any[Option[CantonTimestamp]],
       any[CantonTimestamp],
       any[MessageId],
@@ -152,7 +150,6 @@ class ProtocolProcessorTest
     .thenAnswer(
       (
           batch: Batch[DefaultOpenEnvelope],
-          _: SendType,
           _: Option[CantonTimestamp],
           _: CantonTimestamp,
           messageId: MessageId,
@@ -444,7 +441,6 @@ class ProtocolProcessorTest
       when(
         failingSequencerClient.sendAsync(
           any[Batch[DefaultOpenEnvelope]],
-          any[SendType],
           any[Option[CantonTimestamp]],
           any[CantonTimestamp],
           any[MessageId],
