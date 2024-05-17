@@ -2179,7 +2179,7 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
                 domain.Contract(\/-(created1)),
               ) =>
             domain.ContractTypeId.withPkgRef(created0.templateId) shouldBe cmd.templateId
-            archived0.templateId shouldBe cmd.templateId
+            domain.ContractTypeId.withPkgRef(archived0.templateId) shouldBe cmd.templateId
             archived0.contractId shouldBe created0.contractId
             domain.ContractTypeId.withPkgRef(created1.templateId) shouldBe TpId.Iou.IouTransfer
             asContractId(result.exerciseResult) shouldBe created1.contractId

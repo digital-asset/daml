@@ -135,7 +135,7 @@ package domain {
 
   case class Contract[LfV](value: ArchivedContract \/ ActiveContract.ResolvedCtTyId[LfV])
 
-  case class ArchivedContract(contractId: ContractId, templateId: ContractTypeId.RequiredPkg)
+  case class ArchivedContract(contractId: ContractId, templateId: ContractTypeId.RequiredPkgId)
 
   final case class FetchRequest[+LfV](
       locator: ContractLocator[LfV],
@@ -480,11 +480,13 @@ package domain {
     ): Error \/ ArchivedContract = {
       val resolvedTemplateId = resolvedQuery match {
         case ResolvedQuery.ByInterfaceId(interfaceId) =>
-          \/-(interfaceId.original)
+          (in.templateId required "templateId")
+            .map(ContractTypeId.Interface.fromLedgerApi)
+            // Use the interface id that was queried for, but with the package id returned.
+            .map(gotId => interfaceId.latestPkgId.copy(packageId = gotId.packageId))
         case _ =>
           (in.templateId required "templateId")
             .map(ContractTypeId.Template.fromLedgerApi)
-            .map(_.map(PackageRef.Id(_)))
       }
       for {
         templateId <- resolvedTemplateId
@@ -501,9 +503,7 @@ package domain {
         } yield Some(
           ArchivedContract(
             contractId = ContractId(in.contractId),
-            templateId = (ContractTypeId.Template fromLedgerApi templateId).map(
-              PackageRef.Id(_)
-            ),
+            templateId = (ContractTypeId.Template fromLedgerApi templateId),
           )
         )
       } else {

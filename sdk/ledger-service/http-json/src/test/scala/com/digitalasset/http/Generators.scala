@@ -108,7 +108,7 @@ object Generators {
   def archivedContractGen: Gen[domain.ArchivedContract] =
     for {
       contractId <- contractIdGen
-      templateId <- Generators.genDomainTemplateIdO: Gen[domain.ContractTypeId.RequiredPkg]
+      templateId <- Generators.genDomainTemplateIdO: Gen[domain.ContractTypeId.RequiredPkgId]
     } yield domain.ArchivedContract(
       contractId = contractId,
       templateId = templateId,
