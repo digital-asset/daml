@@ -24,7 +24,7 @@ prettier_args="--write"
 ## Functions ##
 
 run_pprettier() {
-    yarn pprettier ${@##sdk/}
+    yarn pprettier $@
 }
 
 log() {
@@ -51,7 +51,7 @@ check_diff() {
   # "${@:3}" command
   changed_files=$(git diff --name-only --diff-filter=ACMRT "$1" | grep $2 | grep -E -v '^canton(-3x)?/' || [[ $? == 1 ]])
   if [[ -n "$changed_files" ]]; then
-    run "${@:3}" ${changed_files[@]:-}
+    run "${@:3}" ${changed_files[@]##sdk/}
   else
     echo "No changed file to check matching '$2', skipping."
   fi
@@ -142,7 +142,7 @@ run dade-copyright-headers "$dade_copyright_arg" .
 # We do test hlint via Bazel rules but we run it separately
 # to get linting failures early.
 if [ "$diff_mode" = "true" ]; then
-  check_diff $merge_base '\.hs$' hlint -j4 --path=..
+  check_diff $merge_base '\.hs$' hlint -j4
   check_diff $merge_base '\.java$' javafmt "${javafmt_args[@]:-}"
   check_diff $merge_base '\.\(ts\|tsx\)$' run_pprettier ${prettier_args[@]:-}
 else
