@@ -394,18 +394,12 @@ instance Exception CouldNotResolveReleaseVersion where
         "Could not resolve release version " <> T.unpack (V.toText (unwrapUnresolvedReleaseVersion version)) <> " from the internet. Reason: " <> displayException githubReleaseError
 
 resolveReleaseVersion :: HasCallStack => UseCache -> UnresolvedReleaseVersion -> IO (Either CouldNotResolveReleaseVersion ReleaseVersion)
-resolveReleaseVersion useCache unresolvedVersion = do
-    putStrLn "resolveReleaseVersion"
-    r <- try (resolveReleaseVersionInternal useCache unresolvedVersion)
-    putStrLn "resolveReleaseVersionDone"
-    pure r
+resolveReleaseVersion useCache unresolvedVersion =
+    try (resolveReleaseVersionInternal useCache unresolvedVersion)
 
 resolveReleaseVersionUnsafe :: HasCallStack => UseCache -> UnresolvedReleaseVersion -> IO ReleaseVersion
-resolveReleaseVersionUnsafe useCache targetVersion = do
-    putStrLn "resolveReleaseVersionUnsafe"
-    r <- mapException handle $ resolveReleaseVersionInternal useCache targetVersion
-    putStrLn "resolveReleaseVersionUnsafeDone"
-    pure r
+resolveReleaseVersionUnsafe useCache targetVersion =
+    mapException handle $ resolveReleaseVersionInternal useCache targetVersion
     where
     handle :: CouldNotResolveReleaseVersion -> AssistantError
     handle = wrapSomeExceptionWithMsg "Resolve SDK version from release version" . SomeException
