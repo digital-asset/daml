@@ -72,7 +72,7 @@ EOF
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],
     )
-    for target in [lf_version_configuration.get("latest")]
+    for target in [lf_version_configuration.get("default")]
 ]
 
 [
