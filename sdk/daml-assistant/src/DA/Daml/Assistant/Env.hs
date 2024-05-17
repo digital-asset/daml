@@ -220,14 +220,11 @@ getProjectPath (LookForProjectPath True) = wrapErr "Detecting daml project." $ d
 getSdk :: UseCache
        -> DamlPath
        -> Maybe ProjectPath
-       -> IO (Maybe ReleaseVersion, Maybe SdkPath)
+       -> IO (Maybe UnresolvedReleaseVersion, Maybe SdkPath)
 getSdk useCache damlPath projectPathM =
     wrapErr "Determining SDK version and path." $ do
-        releaseVersion <-
-            let parseAndResolve =
-                  traverse (resolveReleaseVersionUnsafe useCache) .
-                    parseVersion .
-                      pack
+        unresolvedVersion <-
+            let parseAndResolve = pure . parseVersion . pack
             in
             overrideWithEnvVarMaybeIO
                 sdkVersionEnvVar
@@ -235,22 +232,22 @@ getSdk useCache damlPath projectPathM =
                 parseAndResolve $
                 firstJustM id
                     [ maybeM (pure Nothing)
-                        (tryAssistantM . getReleaseVersionFromSdkPath useCache . SdkPath)
+                        ((fmap . fmap) (UnresolvedReleaseVersion . releaseVersionFromReleaseVersion) . tryAssistantM . getReleaseVersionFromSdkPath useCache . SdkPath)
                         (getEnv sdkPathEnvVar)
-                    , mapM (getSdkVersionFromProjectPath useCache) projectPathM
-                    , tryAssistantM $ getDefaultSdkVersion damlPath
+                    , mapM getUnresolvedReleaseVersionFromProjectPath projectPathM
+                    , (fmap . fmap) (UnresolvedReleaseVersion . releaseVersionFromReleaseVersion) $ tryAssistantM $ getDefaultSdkVersion damlPath
                     ]
 
         sdkPath <- overrideWithEnvVarMaybe @SomeException sdkPathEnvVar makeAbsolute (Right . SdkPath) $
-            useInstalledPath damlPath releaseVersion
+            useInstalledPath damlPath unresolvedVersion
 
-        return (releaseVersion, sdkPath)
+        return (unresolvedVersion, sdkPath)
 
     where
-        useInstalledPath :: DamlPath -> Maybe ReleaseVersion -> IO (Maybe SdkPath)
+        useInstalledPath :: DamlPath -> Maybe UnresolvedReleaseVersion -> IO (Maybe SdkPath)
         useInstalledPath _ Nothing = pure Nothing
-        useInstalledPath damlPath (Just releaseVersion) = do
-            let sdkPath = defaultSdkPath damlPath releaseVersion
+        useInstalledPath damlPath (Just unresolvedVersion) = do
+            let sdkPath = defaultSdkPathUnresolved damlPath unresolvedVersion
             test <- doesDirectoryExist (unwrapSdkPath sdkPath)
             pure (guard test >> Just sdkPath)
 
