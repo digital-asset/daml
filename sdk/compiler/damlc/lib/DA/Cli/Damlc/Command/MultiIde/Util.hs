@@ -11,7 +11,7 @@ module DA.Cli.Damlc.Command.MultiIde.Util (
 
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TMVar
-import Control.Exception (SomeException, handle, try)
+import Control.Exception (SomeException, displayException, handle, try)
 import Control.Lens ((^.))
 import Control.Monad (void)
 import Control.Monad.STM
@@ -20,7 +20,7 @@ import Control.Monad.Trans.Except
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Daml.Project.Config (readProjectConfig, queryProjectConfig, queryProjectConfigRequired)
 import DA.Daml.Project.Consts (projectConfigName)
-import DA.Daml.Project.Types (ConfigError)
+import DA.Daml.Project.Types (ConfigError (..), parseUnresolvedVersion)
 import Data.Aeson (Value (Null))
 import Data.Bifunctor (first)
 import Data.List.Extra (lower, replace)
@@ -183,16 +183,17 @@ closeFileNotification path = LSP.FromClientMess LSP.STextDocumentDidClose LSP.No
   , _jsonrpc = "2.0"
   }
 
-registerFileWatchersMessage :: LSP.RequestMessage 'LSP.ClientRegisterCapability
+registerFileWatchersMessage :: LSP.FromServerMessage
 registerFileWatchersMessage =
-  LSP.RequestMessage "2.0" (LSP.IdString "MultiIdeWatchedFiles") LSP.SClientRegisterCapability $ LSP.RegistrationParams $ LSP.List
-    [ LSP.SomeRegistration $ LSP.Registration "MultiIdeWatchedFiles" LSP.SWorkspaceDidChangeWatchedFiles $ LSP.DidChangeWatchedFilesRegistrationOptions $ LSP.List
-      [ LSP.FileSystemWatcher "**/multi-package.yaml" Nothing
-      , LSP.FileSystemWatcher "**/daml.yaml" Nothing
-      , LSP.FileSystemWatcher "**/*.dar" Nothing
-      , LSP.FileSystemWatcher "**/*.daml" Nothing
+  LSP.FromServerMess LSP.SClientRegisterCapability $
+    LSP.RequestMessage "2.0" (LSP.IdString "MultiIdeWatchedFiles") LSP.SClientRegisterCapability $ LSP.RegistrationParams $ LSP.List
+      [ LSP.SomeRegistration $ LSP.Registration "MultiIdeWatchedFiles" LSP.SWorkspaceDidChangeWatchedFiles $ LSP.DidChangeWatchedFilesRegistrationOptions $ LSP.List
+        [ LSP.FileSystemWatcher "**/multi-package.yaml" Nothing
+        , LSP.FileSystemWatcher "**/daml.yaml" Nothing
+        , LSP.FileSystemWatcher "**/*.dar" Nothing
+        , LSP.FileSystemWatcher "**/*.daml" Nothing
+        ]
       ]
-    ]
 
 castLspId :: LSP.LspId m -> LSP.LspId m'
 castLspId (LSP.IdString s) = LSP.IdString s
@@ -215,8 +216,8 @@ findHome path = do
             then pure Nothing
             else aux newPath
 
-unitIdAndDepsFromDamlYaml :: PackageHome -> IO (Either ConfigError (UnitId, [DarFile]))
-unitIdAndDepsFromDamlYaml path = do
+packageSummaryFromDamlYaml :: PackageHome -> IO (Either ConfigError PackageSummary)
+packageSummaryFromDamlYaml path = do
   handle (\(e :: ConfigError) -> return $ Left e) $ runExceptT $ do
     project <- lift $ readProjectConfig $ toProjectPath path
     dataDeps <- except $ fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
@@ -225,7 +226,13 @@ unitIdAndDepsFromDamlYaml path = do
     canonDeps <- lift $ withCurrentDirectory (unPackageHome path) $ traverse canonicalizePath $ dataDeps <> directDarDeps
     name <- except $ queryProjectConfigRequired ["name"] project
     version <- except $ queryProjectConfigRequired ["version"] project
-    pure (UnitId $ name <> "-" <> version, DarFile . toPosixFilePath <$> canonDeps)
+    releaseVersion <- except $ queryProjectConfigRequired ["sdk-version"] project
+    unresolvedReleaseVersion <- except $ first (ConfigFieldInvalid "project" ["sdk-version"] . displayException) $ parseUnresolvedVersion releaseVersion
+    pure PackageSummary
+      { psUnitId = UnitId $ name <> "-" <> version
+      , psDeps = DarFile . toPosixFilePath <$> canonDeps
+      , psReleaseVersion = unresolvedReleaseVersion
+      }
 
 -- LSP requires all requests are replied to. When we don't have a working IDE (say the daml.yaml is malformed), we need to reply
 -- We don't want to reply with LSP errors, as there will be too many. Instead, we show our error in diagnostics, and send empty replies

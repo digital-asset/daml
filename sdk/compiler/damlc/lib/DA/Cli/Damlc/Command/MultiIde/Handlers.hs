@@ -79,8 +79,11 @@ subIdeMessageHandler miState unblock ide bs = do
     case msg of
       LSP.FromServerRsp LSP.SInitialize LSP.ResponseMessage {_result} -> do
         logDebug miState "Got initialization reply, sending initialized and unblocking"
-        -- Dangerous call here is acceptable as this only happens while the ide is booting, before unblocking
-        unsafeSendSubIde ide $ LSP.FromClientMess LSP.SInitialized $ LSP.NotificationMessage "2.0" LSP.SInitialized (Just LSP.InitializedParams)
+        holdingIDEsAtomic miState $ \ides -> do
+          let ideData = lookupSubIde (ideHome ide) ides
+          -- Clear diagnostics for every file, ready for fresh diagnostics from SubIDE
+          traverse_ (sendClientSTM miState) $ clearIdeDiagnosticMessages ideData
+          unsafeSendSubIdeSTM ide $ LSP.FromClientMess LSP.SInitialized $ LSP.NotificationMessage "2.0" LSP.SInitialized (Just LSP.InitializedParams)
         unblock
       LSP.FromServerRsp LSP.SShutdown (LSP.ResponseMessage {_id}) | maybe False isCoordinatorShutdownLspId _id -> handleExit miState ide
 
@@ -184,10 +187,8 @@ clientMessageHandler miState unblock bs = do
       unblock
 
       -- Register watchers for daml.yaml, multi-package.yaml and *.dar files
-      let LSP.RequestMessage {_id, _method} = registerFileWatchersMessage
-      putReqMethodSingleFromServerCoordinator (misFromServerMethodTrackerVar miState) _id _method
-
-      sendClient miState $ LSP.FromServerMess _method registerFileWatchersMessage
+      putFromServerCoordinatorMessage miState registerFileWatchersMessage
+      sendClient miState registerFileWatchersMessage
 
     LSP.FromClientMess LSP.SWindowWorkDoneProgressCancel notif -> do
       let (newNotif, mPrefix) = stripWorkDoneProgressCancelTokenPrefix notif

@@ -17,7 +17,7 @@ import Control.Concurrent.STM.TMVar
 import Control.Concurrent.MVar
 import Control.Monad (void)
 import Control.Monad.STM
-import DA.Daml.Project.Types (ProjectPath (..))
+import DA.Daml.Project.Types (ProjectPath (..), UnresolvedReleaseVersion)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BSL
 import Data.Function (on)
@@ -305,4 +305,10 @@ type ResponseCombiner (m :: LSP.Method 'LSP.FromClient 'LSP.Request) =
 data SMethodWithSender (m :: LSP.Method 'LSP.FromServer t) = SMethodWithSender
   { smsMethod :: LSP.SMethod m
   , smsSender :: Maybe PackageHome
+  }
+
+data PackageSummary = PackageSummary
+  { psUnitId :: UnitId
+  , psDeps :: [DarFile]
+  , psReleaseVersion :: UnresolvedReleaseVersion
   }

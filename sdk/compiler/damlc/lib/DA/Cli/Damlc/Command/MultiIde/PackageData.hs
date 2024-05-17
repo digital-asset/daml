@@ -105,11 +105,11 @@ updatePackageData miState = do
         -- load cache with all multi-package dars, so they'll be present in darUnitIds
         traverse_ getDarUnitId darPaths
         fmap (bimap catMaybes catMaybes . unzip) $ forM packagePaths $ \packagePath -> do
-          mUnitIdAndDeps <- lift $ fmap eitherToMaybe $ unitIdAndDepsFromDamlYaml packagePath
-          case mUnitIdAndDeps of
-            Just (unitId, deps) -> do
-              allDepsValid <- isJust . sequence <$> traverse getDarUnitId deps
-              pure (if allDepsValid then Nothing else Just packagePath, Just (packagePath, unitId, deps))
+          mPackageSummary <- lift $ fmap eitherToMaybe $ packageSummaryFromDamlYaml packagePath
+          case mPackageSummary of
+            Just packageSummary -> do
+              allDepsValid <- isJust . sequence <$> traverse getDarUnitId (psDeps packageSummary)
+              pure (if allDepsValid then Nothing else Just packagePath, Just (packagePath, psUnitId packageSummary, psDeps packageSummary))
             _ -> pure (Just packagePath, Nothing)
 
       let invalidHomes :: [PackageHome]

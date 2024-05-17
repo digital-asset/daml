@@ -75,6 +75,8 @@ unsafeAddNewSubIdeAndSend
 unsafeAddNewSubIdeAndSend miState ides home mMsg = do
   logDebug miState "Trying to make a SubIde"
 
+  packageSummary <- either (\cErr -> error $ "Failed to get unit ID from daml.yaml: " <> show cErr) id <$> packageSummaryFromDamlYaml home
+
   let ideData = lookupSubIde home ides
   case ideDataMain ideData of
     Just ide -> do
@@ -93,15 +95,12 @@ unsafeAddNewSubIdeAndSend miState ides home mMsg = do
           -- Only add diagnostic messages for first fail to start.
           -- Diagnostic messages trigger the client to send a codeAction request, which would create an infinite loop if we sent
           -- diagnostics with its reply
-          messages = responses <> if ideShouldDisable ideData then disableIdeDiagnosticMessages ideData else []
+          messages = responses <> if ideDataDisabled ideData then [] else disableIdeDiagnosticMessages ideData
 
       atomically $ traverse_ (sendClientSTM miState) messages
       pure $ Map.insert home ideData' ides
     Nothing -> do
       logInfo miState $ "Creating new SubIde for " <> unPackageHome home
-      traverse_ (sendClient miState) $ clearIdeDiagnosticMessages ideData
-
-      unitId <- either (\cErr -> error $ "Failed to get unit ID from daml.yaml: " <> show cErr) fst <$> unitIdAndDepsFromDamlYaml home
 
       subIdeProcess <- runSubProc miState home
       let inHandle = getStdin subIdeProcess
@@ -156,7 +155,7 @@ unsafeAddNewSubIdeAndSend miState ides home mMsg = do
               , ideProcess = subIdeProcess
               , ideHome = home
               , ideMessageIdPrefix = T.pack $ show pid
-              , ideUnitId = unitId
+              , ideUnitId = psUnitId packageSummary
               }
           ideData' = ideData {ideDataMain = Just ide}
           !initParams = fromMaybe (error "Attempted to create a SubIde before initialization!") mInitParams
