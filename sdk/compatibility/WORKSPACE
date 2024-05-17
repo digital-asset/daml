@@ -316,7 +316,7 @@ load("@daml//bazel_tools:java.bzl", "dadew_java_configure")
 
 dadew_java_configure(
     name = "dadew_java_runtime",
-    dadew_path = "ojdkbuild17",
+    dadew_path = "jdk",
 ) if is_windows else None
 
 nixpkgs_java_configure(
