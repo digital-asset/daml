@@ -739,7 +739,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     }
 
     private def in_domain(
-        sequencers: NonEmpty[Seq[SequencerNodeReference]],
+        sequencers: NonEmpty[Seq[SequencerReference]],
         mediators: NonEmpty[Seq[MediatorReference]],
     )(domainId: DomainId): Either[String, Option[DomainId]] = {
       def isNotInitializedOrSuccessWithDomain(
@@ -792,7 +792,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     private def check_domain_bootstrap_status(
         name: String,
         owners: Seq[InstanceReference],
-        sequencers: Seq[SequencerNodeReference],
+        sequencers: Seq[SequencerReference],
         mediators: Seq[MediatorReference],
     ): Either[String, Option[DomainId]] =
       for {
@@ -814,8 +814,8 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         domainName: String,
         staticDomainParameters: data.StaticDomainParameters,
         domainOwners: Seq[InstanceReference],
-        sequencers: Seq[SequencerNodeReference],
-        mediatorsToSequencers: Map[MediatorReference, Seq[SequencerNodeReference]],
+        sequencers: Seq[SequencerReference],
+        mediatorsToSequencers: Map[MediatorReference, Seq[SequencerReference]],
     ): DomainId = {
       val (decentralizedNamespace, foundingTxs) =
         bootstrap.decentralized_namespace(domainOwners, store = AuthorizedStore.filterName)
@@ -908,7 +908,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     )
     def domain(
         domainName: String,
-        sequencers: Seq[SequencerNodeReference],
+        sequencers: Seq[SequencerReference],
         mediators: Seq[MediatorReference],
         domainOwners: Seq[InstanceReference] = Seq.empty,
         staticDomainParameters: data.StaticDomainParameters,
@@ -927,17 +927,21 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     )
     def domain(
         domainName: String,
-        sequencers: Seq[SequencerNodeReference],
-        mediatorsToSequencers: Map[MediatorReference, Seq[SequencerNodeReference]],
+        sequencers: Seq[SequencerReference],
+        mediatorsToSequencers: Map[MediatorReference, Seq[SequencerReference]],
         domainOwners: Seq[InstanceReference],
         staticDomainParameters: data.StaticDomainParameters,
     ): DomainId = {
+      // skip over HA sequencers
+      val uniqueSequencers =
+        sequencers.groupBy(_.id).flatMap(_._2.headOption.toList).toList
       val domainOwnersOrDefault = if (domainOwners.isEmpty) sequencers else domainOwners
       val mediators = mediatorsToSequencers.keys.toSeq
+
       check_domain_bootstrap_status(
         domainName,
         domainOwnersOrDefault,
-        sequencers,
+        uniqueSequencers,
         mediators,
       ) match {
         case Right(Some(domainId)) =>
@@ -948,7 +952,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
             domainName,
             staticDomainParameters,
             domainOwnersOrDefault,
-            sequencers,
+            uniqueSequencers,
             mediatorsToSequencers,
           )
         case Left(error) =>

@@ -7,6 +7,8 @@ import cats.data.EitherT
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.NonNegativeFiniteDuration as _
+import com.digitalasset.canton.connection.GrpcApiInfoService
+import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.{Crypto, DomainSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -185,6 +187,12 @@ class SequencerNodeBootstrap(
     adminServerRegistry.addServiceU(
       SequencerInitializationServiceGrpc.bindService(
         new GrpcSequencerInitializationService(this, loggerFactory)(executionContext),
+        executionContext,
+      )
+    )
+    adminServerRegistry.addServiceU(
+      ApiInfoServiceGrpc.bindService(
+        new GrpcApiInfoService(CantonGrpcUtil.ApiName.AdminApi),
         executionContext,
       )
     )

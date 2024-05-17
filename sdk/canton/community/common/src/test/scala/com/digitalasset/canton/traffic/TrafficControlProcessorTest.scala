@@ -17,23 +17,12 @@ import com.digitalasset.canton.protocol.messages.{
   SignedProtocolMessage,
   TopologyTransactionsBroadcast,
 }
-import com.digitalasset.canton.sequencing.protocol.{
-  Batch,
-  Deliver,
-  DeliverError,
-  MessageId,
-  Recipients,
-  SequencerErrors,
-  SequencersOfDomain,
-}
+import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.InvalidTrafficPurchasedMessage
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
+import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor.TrafficControlSubscriber
 import com.digitalasset.canton.topology.processing.TopologyTransactionTestFactory
-import com.digitalasset.canton.topology.{
-  DefaultTestIdentities,
-  TestingIdentityFactory,
-  TestingTopology,
-}
+import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingTopology}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import org.scalatest.wordspec.AnyWordSpec
@@ -42,8 +31,6 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
 import scala.concurrent.Future
-
-import TrafficControlProcessor.TrafficControlSubscriber
 
 class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExecutionContext {
 
@@ -57,11 +44,8 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
   private val sc2 = SequencerCounter(2)
   private val sc3 = SequencerCounter(3)
 
-  private val domainCrypto = new TestingIdentityFactory(
-    TestingTopology(),
-    loggerFactory,
-    dynamicDomainParameters = List.empty,
-  )
+  private val domainCrypto = TestingTopology(domainParameters = List.empty)
+    .build(loggerFactory)
     .forOwnerAndDomain(DefaultTestIdentities.sequencerId, domainId)
 
   private val dummySignature = SymbolicCrypto.emptySignature

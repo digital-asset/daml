@@ -84,34 +84,34 @@ final class TransferOutProcessingStepsTest
 
   private implicit val ec: ExecutionContext = executorService
 
-  private val sourceDomain = SourceDomainId(
+  private lazy val sourceDomain = SourceDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("source::domain"))
   )
-  private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(100))
-  private val targetDomain = TargetDomainId(
+  private lazy val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(100))
+  private lazy val targetDomain = TargetDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("target::domain"))
   )
 
-  private val submitter: LfPartyId = PartyId(
+  private lazy val submitter: LfPartyId = PartyId(
     UniqueIdentifier.tryFromProtoPrimitive("submitter::party")
   ).toLf
-  private val party1: LfPartyId = PartyId(
+  private lazy val party1: LfPartyId = PartyId(
     UniqueIdentifier.tryFromProtoPrimitive("party1::party")
   ).toLf
-  private val party2: LfPartyId = PartyId(
+  private lazy val party2: LfPartyId = PartyId(
     UniqueIdentifier.tryFromProtoPrimitive("party2::party")
   ).toLf
 
-  private val submittingParticipant = ParticipantId(
+  private lazy val submittingParticipant = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("submitting::participant")
   )
 
-  private val templateId =
+  private lazy val templateId =
     LfTemplateId.assertFromString("transferoutprocessingstepstestpackage:template:id")
-  private val packageName =
+  private lazy val packageName =
     LfPackageName.assertFromString("transferoutprocessingstepstestpackagename")
 
-  private val initialTransferCounter: TransferCounter = TransferCounter.Genesis
+  private lazy val initialTransferCounter: TransferCounter = TransferCounter.Genesis
 
   private def submitterMetadata(submitter: LfPartyId): TransferSubmitterMetadata = {
     TransferSubmitterMetadata(
@@ -124,12 +124,13 @@ final class TransferOutProcessingStepsTest
     )
   }
 
-  private val adminSubmitter: LfPartyId = submittingParticipant.adminParty.toLf
+  private lazy val adminSubmitter: LfPartyId = submittingParticipant.adminParty.toLf
 
-  private val crypto = TestingIdentityFactory.newCrypto(loggerFactory)(submittingParticipant)
+  private lazy val crypto =
+    SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
 
   private lazy val multiDomainEventLog = mock[MultiDomainEventLog]
-  private val clock = new WallClock(timeouts, loggerFactory)
+  private lazy val clock = new WallClock(timeouts, loggerFactory)
   private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
   private lazy val persistentState =
     new InMemorySyncDomainPersistentState(
@@ -160,7 +161,7 @@ final class TransferOutProcessingStepsTest
       FutureSupervisor.Noop,
     )
 
-  private val damle =
+  private lazy val damle =
     DAMLeTestInstance(submittingParticipant, signatories = Set(party1), stakeholders = Set(party1))(
       loggerFactory
     )
@@ -195,7 +196,7 @@ final class TransferOutProcessingStepsTest
     )
   }
 
-  private val cryptoFactory = createCryptoFactory()
+  private lazy val cryptoFactory = createCryptoFactory()
 
   private def createCryptoSnapshot(
       testingIdentityFactory: TestingIdentityFactory = cryptoFactory
@@ -204,9 +205,9 @@ final class TransferOutProcessingStepsTest
       .forOwnerAndDomain(submittingParticipant, sourceDomain.unwrap)
       .currentSnapshotApproximation
 
-  private val cryptoSnapshot = createCryptoSnapshot()
+  private lazy val cryptoSnapshot = createCryptoSnapshot()
 
-  private val seedGenerator = new SeedGenerator(crypto.pureCrypto)
+  private lazy val seedGenerator = new SeedGenerator(crypto.pureCrypto)
 
   private def createTransferCoordination(
       cryptoSnapshot: DomainSnapshotSyncCryptoApi = cryptoSnapshot
@@ -220,7 +221,7 @@ final class TransferOutProcessingStepsTest
       Seq(templateId.packageId),
     )(directExecutionContext)
 
-  private val coordination: TransferCoordination =
+  private lazy val coordination: TransferCoordination =
     createTransferCoordination()
 
   private def createOutProcessingSteps(transferCoordination: TransferCoordination = coordination) =
@@ -234,9 +235,9 @@ final class TransferOutProcessingStepsTest
       loggerFactory,
     )(executorService)
 
-  private val outProcessingSteps: TransferOutProcessingSteps = createOutProcessingSteps()
+  private lazy val outProcessingSteps: TransferOutProcessingSteps = createOutProcessingSteps()
 
-  private val Seq(
+  private lazy val Seq(
     (participant1, admin1),
     (participant2, _),
     (participant3, admin3),
@@ -249,7 +250,7 @@ final class TransferOutProcessingStepsTest
       participant -> admin
     }
 
-  private val timeEvent =
+  private lazy val timeEvent =
     TimeProofTestUtil.mkTimeProof(timestamp = CantonTimestamp.Epoch, targetDomain = targetDomain)
 
   private lazy val contractId = ExampleTransactionFactory.suffixedId(10, 0)

@@ -8,6 +8,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandle
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
@@ -32,7 +33,6 @@ import com.digitalasset.canton.{
   DomainAlias,
   ProtocolVersionChecksAsyncWordSpec,
   SequencerCounter,
-  config,
 }
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -40,7 +40,6 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.duration.*
 import scala.concurrent.{Future, Promise}
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -50,26 +49,21 @@ class QueueBasedDomainOutboxTest
     with ProtocolVersionChecksAsyncWordSpec {
   import DefaultTestIdentities.*
 
-  private val clock = new WallClock(timeouts, loggerFactory)
-  private val crypto = TestingIdentityFactory.newCrypto(loggerFactory)(participant1)
-  private val publicKey =
-    config
-      .NonNegativeFiniteDuration(10.seconds)
-      .await("get public key")(crypto.cryptoPublicStore.signingKeys.value)
-      .valueOrFail("signing keys")
-      .headOption
-      .value
-  private val namespace = Namespace(publicKey.id)
-  private val domain = DomainAlias.tryCreate("target")
-  private val transactions =
+  private lazy val clock = new WallClock(timeouts, loggerFactory)
+  private lazy val crypto =
+    SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
+  private lazy val publicKey = crypto.generateSymbolicSigningKey()
+  private lazy val namespace = Namespace(publicKey.id)
+  private lazy val domain = DomainAlias.tryCreate("target")
+  private lazy val transactions =
     Seq[TopologyMapping](
       IdentifierDelegation(UniqueIdentifier.tryCreate("alpha", namespace), publicKey),
       IdentifierDelegation(UniqueIdentifier.tryCreate("beta", namespace), publicKey),
       IdentifierDelegation(UniqueIdentifier.tryCreate("gamma", namespace), publicKey),
       IdentifierDelegation(UniqueIdentifier.tryCreate("delta", namespace), publicKey),
     ).map(txAddFromMapping)
-  private val slice1 = transactions.slice(0, 2)
-  private val slice2 = transactions.slice(slice1.length, transactions.length)
+  private lazy val slice1 = transactions.slice(0, 2)
+  private lazy val slice2 = transactions.slice(slice1.length, transactions.length)
 
   private val rootCertF = SignedTopologyTransaction
     .create(

@@ -25,7 +25,6 @@ class TestSequencerClientSend extends SequencerClientSend {
 
   override def sendAsync(
       batch: Batch[DefaultOpenEnvelope],
-      sendType: SendType,
       topologyTimestamp: Option[CantonTimestamp],
       maxSequencingTime: CantonTimestamp,
       messageId: MessageId,
@@ -36,7 +35,7 @@ class TestSequencerClientSend extends SequencerClientSend {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
     requestsQueue.add(
-      Request(batch, sendType, topologyTimestamp, maxSequencingTime, messageId, aggregationRule)
+      Request(batch, topologyTimestamp, maxSequencingTime, messageId, aggregationRule)
     )
     EitherTUtil.unitUS[SendAsyncClientError]
   }
@@ -48,7 +47,6 @@ class TestSequencerClientSend extends SequencerClientSend {
 object TestSequencerClientSend {
   final case class Request(
       batch: Batch[DefaultOpenEnvelope],
-      sendType: SendType,
       topologyTimestamp: Option[CantonTimestamp],
       maxSequencingTime: CantonTimestamp,
       messageId: MessageId,

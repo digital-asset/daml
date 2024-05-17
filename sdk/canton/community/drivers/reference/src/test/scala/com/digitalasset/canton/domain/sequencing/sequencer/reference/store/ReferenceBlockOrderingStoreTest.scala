@@ -9,7 +9,6 @@ import com.digitalasset.canton.domain.block.BlockOrderer
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore.TimestampedBlock
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.ReferenceSequencerDriverStore.{
   sequencedAcknowledgement,
-  sequencedRegisterMember,
   sequencedSend,
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction
@@ -20,9 +19,9 @@ import org.scalatest.wordspec.AsyncWordSpec
 trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest {
 
   private val event1 =
-    sequencedSend(payload = ByteString.copyFromUtf8("payload"), microsecondsSinceEpoch = 0)
+    sequencedSend(payload = ByteString.copyFromUtf8("payload1"), microsecondsSinceEpoch = 0)
   private val event2 =
-    sequencedRegisterMember(payload = ByteString.copyFromUtf8("member"), microsecondsSinceEpoch = 1)
+    sequencedSend(payload = ByteString.copyFromUtf8("payload2"), microsecondsSinceEpoch = 1)
   private val event3 =
     sequencedAcknowledgement(
       payload = ByteString.copyFromUtf8("acknowledge"),

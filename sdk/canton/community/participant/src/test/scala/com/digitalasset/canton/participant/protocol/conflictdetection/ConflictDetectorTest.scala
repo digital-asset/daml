@@ -201,6 +201,7 @@ class ConflictDetectorTest
         failure <- cd
           .registerActivenessSet(RequestCounter(0), mkActivenessSet(deact = Set(coid00)))
           .failed
+          .failOnShutdown
       } yield assert(failure.isInstanceOf[ConflictDetectionStoreAccessError])
     }
 
@@ -244,7 +245,10 @@ class ConflictDetectorTest
     "complain about nonexistent requests at finalization" in {
       val cd = mkCd()
       for {
-        error <- cd.finalizeRequest(CommitSet.empty, TimeOfChange(RequestCounter(0), Epoch)).failed
+        error <- cd
+          .finalizeRequest(CommitSet.empty, TimeOfChange(RequestCounter(0), Epoch))
+          .failed
+          .failOnShutdown
       } yield assert(error.isInstanceOf[IllegalArgumentException])
     }
 

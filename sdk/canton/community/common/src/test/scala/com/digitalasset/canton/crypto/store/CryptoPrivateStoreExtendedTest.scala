@@ -24,30 +24,30 @@ trait CryptoPrivateStoreExtendedTest extends CryptoPrivateStoreTest { this: Asyn
       encrypted: Boolean,
   ): Unit = {
 
+    val crypto = SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
+
     val sigKey1Name: String = uniqueKeyName("sigKey1_")
-    val sigKey2Name: String = uniqueKeyName("sigKey2_")
 
     val encKey1Name: String = uniqueKeyName("encKey1_")
-    val encKey2Name: String = uniqueKeyName("encKey2_")
 
-    val sigKey1: SigningPrivateKey = SymbolicCrypto.signingPrivateKey(sigKey1Name)
+    val sigKey1: SigningPrivateKey = crypto.newSymbolicSigningKeyPair().privateKey
     val sigKey1WithName: SigningPrivateKeyWithName =
       SigningPrivateKeyWithName(sigKey1, Some(KeyName.tryCreate(sigKey1Name)))
     val sigKey1BytesWithName =
       (sigKey1.toByteString(testedReleaseProtocolVersion.v), sigKey1WithName.name)
 
-    val sigKey2: SigningPrivateKey = SymbolicCrypto.signingPrivateKey(sigKey2Name)
+    val sigKey2: SigningPrivateKey = crypto.newSymbolicSigningKeyPair().privateKey
     val sigKey2WithName: SigningPrivateKeyWithName = SigningPrivateKeyWithName(sigKey2, None)
     val sigKey2BytesWithName =
       (sigKey2.toByteString(testedReleaseProtocolVersion.v), sigKey2WithName.name)
 
-    val encKey1: EncryptionPrivateKey = SymbolicCrypto.encryptionPrivateKey(encKey1Name)
+    val encKey1: EncryptionPrivateKey = crypto.newSymbolicEncryptionKeyPair().privateKey
     val encKey1WithName: EncryptionPrivateKeyWithName =
       EncryptionPrivateKeyWithName(encKey1, Some(KeyName.tryCreate(encKey1Name)))
     val encKey1BytesWithName =
       (encKey1.toByteString(testedReleaseProtocolVersion.v), encKey1WithName.name)
 
-    val encKey2: EncryptionPrivateKey = SymbolicCrypto.encryptionPrivateKey(encKey2Name)
+    val encKey2: EncryptionPrivateKey = crypto.newSymbolicEncryptionKeyPair().privateKey
     val encKey2WithName: EncryptionPrivateKeyWithName = EncryptionPrivateKeyWithName(encKey2, None)
     val encKey2BytesWithName =
       (encKey2.toByteString(testedReleaseProtocolVersion.v), encKey2WithName.name)

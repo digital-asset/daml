@@ -426,7 +426,6 @@ abstract class SequencerApiTest
           SubmissionRequest.tryCreate(
             sender,
             messageId,
-            isRequest = false,
             Batch(envelopes, testedProtocolVersion),
             CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
             topologyTimestamp = Some(CantonTimestamp.Epoch),
@@ -532,7 +531,6 @@ abstract class SequencerApiTest
           SubmissionRequest.tryCreate(
             sender,
             messageId,
-            isRequest = false,
             Batch(List(envelope), testedProtocolVersion),
             CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
             topologyTimestamp = Some(CantonTimestamp.Epoch),
@@ -643,7 +641,6 @@ abstract class SequencerApiTest
         val request = SubmissionRequest.tryCreate(
           p17,
           messageId,
-          isRequest = false,
           Batch.empty(testedProtocolVersion),
           maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
           topologyTimestamp = None,
@@ -674,7 +671,6 @@ abstract class SequencerApiTest
         val request = SubmissionRequest.tryCreate(
           p18,
           messageId,
-          isRequest = false,
           Batch.empty(testedProtocolVersion),
           maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
           topologyTimestamp = None,
@@ -710,7 +706,6 @@ abstract class SequencerApiTest
         val request = SubmissionRequest.tryCreate(
           p19,
           messageId,
-          isRequest = false,
           Batch.empty(testedProtocolVersion),
           maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
           topologyTimestamp = None,
@@ -796,7 +791,6 @@ trait SequencerApiTestUtils
     SubmissionRequest.tryCreate(
       sender,
       messageId,
-      isRequest = false,
       batch,
       maxSequencingTime,
       topologyTimestamp,

@@ -19,7 +19,6 @@ import com.digitalasset.canton.sequencing.client.{
   SendAsyncClientError,
   SendCallback,
   SendResult,
-  SendType,
   SequencerClientSend,
 }
 import com.digitalasset.canton.sequencing.protocol.{SequencersOfDomain, *}
@@ -58,10 +57,8 @@ class TrafficPurchasedSubmissionHandlerTest
   private val clock = new SimClock(loggerFactory = loggerFactory)
   private val trafficParams = TrafficControlParameters()
   private val handler = new TrafficPurchasedSubmissionHandler(clock, loggerFactory)
-  val crypto = new TestingIdentityFactory(
-    TestingTopology(),
-    loggerFactory,
-    dynamicDomainParameters = List(
+  val crypto = TestingTopology(
+    domainParameters = List(
       DomainParameters.WithValidity(
         validFrom = CantonTimestamp.Epoch.minusSeconds(1),
         validUntil = None,
@@ -69,8 +66,8 @@ class TrafficPurchasedSubmissionHandlerTest
           .defaultValues(testedProtocolVersion)
           .tryUpdate(trafficControlParameters = Some(trafficParams)),
       )
-    ),
-  )
+    )
+  ).build(loggerFactory)
     .forOwnerAndDomain(DefaultTestIdentities.sequencerId, domainId)
 
   override def beforeEach(): Unit = {
@@ -89,7 +86,6 @@ class TrafficPurchasedSubmissionHandlerTest
     when(
       sequencerClient.sendAsync(
         batchCapture.capture(),
-        any[SendType],
         any[Option[CantonTimestamp]],
         maxSequencingTimeCapture.capture(),
         any[MessageId],
@@ -173,7 +169,6 @@ class TrafficPurchasedSubmissionHandlerTest
     when(
       sequencerClient.sendAsync(
         any[Batch[DefaultOpenEnvelope]],
-        any[SendType],
         any[Option[CantonTimestamp]],
         maxSequencingTimeCapture.capture(),
         any[MessageId],
@@ -228,7 +223,6 @@ class TrafficPurchasedSubmissionHandlerTest
     when(
       sequencerClient.sendAsync(
         any[Batch[DefaultOpenEnvelope]],
-        any[SendType],
         any[Option[CantonTimestamp]],
         any[CantonTimestamp],
         any[MessageId],
@@ -264,7 +258,6 @@ class TrafficPurchasedSubmissionHandlerTest
     when(
       sequencerClient.sendAsync(
         any[Batch[DefaultOpenEnvelope]],
-        any[SendType],
         any[Option[CantonTimestamp]],
         any[CantonTimestamp],
         any[MessageId],
@@ -316,7 +309,6 @@ class TrafficPurchasedSubmissionHandlerTest
     when(
       sequencerClient.sendAsync(
         any[Batch[DefaultOpenEnvelope]],
-        any[SendType],
         any[Option[CantonTimestamp]],
         any[CantonTimestamp],
         any[MessageId],

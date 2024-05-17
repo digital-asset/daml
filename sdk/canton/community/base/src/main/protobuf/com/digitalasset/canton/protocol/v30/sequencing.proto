@@ -174,11 +174,6 @@ message SubmissionRequest {
   // because otherwise it will be unable to correlate receipts with requests.
   string message_id = 2;
 
-  // CURRENT STATE: Indicates whether the batch contains a confirmation request
-  // Used for rate limiting
-  // TARGET STATE: Remove this field
-  bool is_request = 3;
-
   // The payload, mandatory
   // At most one recipient of an envelope may be (a) a mediator, (b) a mediator group, or (c) all domain members.
   CompressedBatch batch = 4;

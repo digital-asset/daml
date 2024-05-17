@@ -20,6 +20,7 @@ import com.digitalasset.canton.ledger.api.domain.{
   PartyDetails,
 }
 import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.tracing.TraceContext
 import scalaz.OneAnd
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -51,9 +52,11 @@ final class PartyManagementClient(service: PartyManagementServiceStub)(implicit
     ec: ExecutionContext
 ) {
 
-  def getParticipantId(token: Option[String] = None): Future[ParticipantId] =
+  def getParticipantId(
+      token: Option[String] = None
+  )(implicit traceContext: TraceContext): Future[ParticipantId] =
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .getParticipantId(PartyManagementClient.getParticipantIdRequest)
       .map(r => ParticipantId(Ref.ParticipantId.assertFromString(r.participantId)))
 
@@ -61,9 +64,9 @@ final class PartyManagementClient(service: PartyManagementServiceStub)(implicit
       token: Option[String] = None,
       pageToken: String = "",
       pageSize: Int = 1000,
-  ): Future[(List[PartyDetails], String)] =
+  )(implicit traceContext: TraceContext): Future[(List[PartyDetails], String)] =
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .listKnownParties(PartyManagementClient.listKnownPartiesRequest(pageToken, pageSize))
       .map(resp =>
         (resp.partyDetails.view.map(PartyManagementClient.details).toList, resp.nextPageToken)
@@ -72,9 +75,9 @@ final class PartyManagementClient(service: PartyManagementServiceStub)(implicit
   def getParties(
       parties: OneAnd[Set, Ref.Party],
       token: Option[String] = None,
-  ): Future[List[PartyDetails]] =
+  )(implicit traceContext: TraceContext): Future[List[PartyDetails]] =
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .getParties(PartyManagementClient.getPartiesRequest(parties))
       .map(_.partyDetails.view.map(PartyManagementClient.details).toList)
 
@@ -82,9 +85,9 @@ final class PartyManagementClient(service: PartyManagementServiceStub)(implicit
       hint: Option[String],
       displayName: Option[String],
       token: Option[String] = None,
-  ): Future[PartyDetails] =
+  )(implicit traceContext: TraceContext): Future[PartyDetails] =
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .allocateParty(new AllocatePartyRequest(hint.getOrElse(""), displayName.getOrElse("")))
       .map(_.partyDetails.getOrElse(sys.error("No PartyDetails in response.")))
       .map(PartyManagementClient.details)

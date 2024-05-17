@@ -218,10 +218,23 @@ trait BaseTest
   )(implicit ec: ExecutionContext, position: Position): Future[A] =
     e.fold(fail(clue))(Predef.identity)
 
+  /** Converts an OptionT into a FutureUnlessShutdown, failing in case of a [[scala.None$]]. */
+  def valueOrFailUS[A](e: OptionT[FutureUnlessShutdown, A])(
+      clue: String
+  )(implicit ec: ExecutionContext, position: Position): FutureUnlessShutdown[A] =
+    e.fold(fail(clue))(Predef.identity)
+
   /** Converts an OptionT into a Future, failing in case of a [[scala.Some$]]. */
   def noneOrFail[A](e: OptionT[Future, A])(
       clue: String
   )(implicit ec: ExecutionContext, position: Position): Future[Assertion] = {
+    e.fold(succeed)(some => fail(s"$clue, value is $some"))
+  }
+
+  /** Converts an OptionT into a FutureUnlessShutdown, failing in case of a [[scala.Some$]]. */
+  def noneOrFailUS[A](e: OptionT[FutureUnlessShutdown, A])(
+      clue: String
+  )(implicit ec: ExecutionContext, position: Position): FutureUnlessShutdown[Assertion] = {
     e.fold(succeed)(some => fail(s"$clue, value is $some"))
   }
 
@@ -301,8 +314,8 @@ trait BaseTest
       fut.onShutdown(fail(s"Shutdown during $clue"))
     def failOnShutdown(implicit ec: ExecutionContext, pos: Position): Future[A] =
       fut.onShutdown(fail(s"Unexpected shutdown"))
-    def futureValueUS(implicit ec: ExecutionContext, pos: Position): A =
-      fut.failOnShutdown.futureValue
+    def futureValueUS(implicit pos: Position): A =
+      fut.unwrap.futureValue.onShutdown(fail("Unexpected shutdown"))
   }
 
   implicit class UnlessShutdownSyntax[A](us: UnlessShutdown[A]) {

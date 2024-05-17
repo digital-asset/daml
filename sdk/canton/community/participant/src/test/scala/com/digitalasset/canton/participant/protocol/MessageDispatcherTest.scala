@@ -749,7 +749,7 @@ trait MessageDispatcherTest {
           ),
           _.errorMessage should include("event processing failed."),
         )
-        .futureValue
+        .futureValueUS
 
       error shouldBe a[IllegalArgumentException]
       error.getMessage should include(show"No processor for view type $UnknownTestViewType")
@@ -789,7 +789,7 @@ trait MessageDispatcherTest {
           ),
           _.errorMessage should include("processing failed"),
         )
-        .futureValue
+        .futureValueUS
 
       error shouldBe a[IllegalArgumentException]
       error.getMessage should include(show"No processor for view type $UnknownTestViewType")

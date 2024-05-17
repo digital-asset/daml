@@ -8,6 +8,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.ViewType.{TransactionViewType, TransferInViewType}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.domain.mediator.ResponseAggregation.ConsortiumVotingState
@@ -119,6 +120,9 @@ class ConfirmationResponseProcessorTest
   protected val participant2 = ExampleTransactionFactory.signatoryParticipant
   protected val participant3 = ParticipantId("participant3")
 
+  private lazy val crypto =
+    SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
+
   private lazy val topology: TestingTopology = TestingTopology(
     Set(domainId),
     Map(
@@ -131,11 +135,13 @@ class ConfirmationResponseProcessorTest
     Set(mediatorGroup, mediatorGroup2),
     sequencerGroup,
   )
+
   private lazy val identityFactory = TestingIdentityFactory(
     topology,
     loggerFactory,
     dynamicDomainParameters =
       initialDomainParameters.tryUpdate(confirmationResponseTimeout = confirmationResponseTimeout),
+    crypto,
   )
 
   private lazy val identityFactory2 = {
@@ -149,7 +155,12 @@ class ConfirmationResponseProcessorTest
       Set(mediatorGroup),
       sequencerGroup,
     )
-    TestingIdentityFactory(topology2, loggerFactory, initialDomainParameters)
+    TestingIdentityFactory(
+      topology2,
+      loggerFactory,
+      initialDomainParameters,
+      crypto,
+    )
   }
 
   private lazy val identityFactory3 = {
@@ -160,6 +171,7 @@ class ConfirmationResponseProcessorTest
       topology3,
       loggerFactory,
       dynamicDomainParameters = initialDomainParameters,
+      crypto,
     )
   }
 
@@ -175,6 +187,7 @@ class ConfirmationResponseProcessorTest
       ),
       loggerFactory,
       dynamicDomainParameters = initialDomainParameters,
+      crypto,
     )
 
   protected lazy val domainSyncCryptoApi: DomainSyncCryptoClient =
@@ -400,18 +413,20 @@ class ConfirmationResponseProcessorTest
           testedProtocolVersion,
         )
         _ <- loggerFactory.assertLogs(
-          sut.processor.processResponse(
-            CantonTimestamp.Epoch,
-            notSignificantCounter,
-            requestTimestamp.plusSeconds(60),
-            requestTimestamp.plusSeconds(120),
-            signedResponse,
-            Some(reqId.unwrap),
-            Recipients.cc(mediatorGroupRecipient),
-          ),
+          sut.processor
+            .processResponse(
+              CantonTimestamp.Epoch,
+              notSignificantCounter,
+              requestTimestamp.plusSeconds(60),
+              requestTimestamp.plusSeconds(120),
+              signedResponse,
+              Some(reqId.unwrap),
+              Recipients.cc(mediatorGroupRecipient),
+            )
+            .failOnShutdown,
           _.shouldBeCantonError(
             MediatorError.MalformedMessage,
-            _ should fullyMatch regex s"$domainId \\(timestamp: ${CantonTimestamp.Epoch}\\): invalid signature from $participant with SignatureWithWrongKey\\(.*\\)",
+            _ should include regex s"$domainId \\(timestamp: ${CantonTimestamp.Epoch}\\): invalid signature from $participant with SignatureWithWrongKey",
           ),
         )
       } yield succeed
@@ -781,7 +796,11 @@ class ConfirmationResponseProcessorTest
           )
           .failOnShutdown
         // should record the request
-        requestState <- sut.mediatorState.fetch(requestId).value.map(_.value)
+        requestState <- sut.mediatorState
+          .fetch(requestId)
+          .value
+          .failOnShutdown("Unexpected shutdown.")
+          .map(_.value)
         responseAggregation <-
           ResponseAggregation.fromRequest(
             requestId,
@@ -808,18 +827,23 @@ class ConfirmationResponseProcessorTest
           )
         }
         _ <- sequentialTraverse_(approvals)(
-          sut.processor.processResponse(
-            ts1,
-            notSignificantCounter,
-            ts1.plusSeconds(60),
-            ts1.plusSeconds(120),
-            _,
-            Some(requestId.unwrap),
-            Recipients.cc(mediatorGroupRecipient),
-          )
+          sut.processor
+            .processResponse(
+              ts1,
+              notSignificantCounter,
+              ts1.plusSeconds(60),
+              ts1.plusSeconds(120),
+              _,
+              Some(requestId.unwrap),
+              Recipients.cc(mediatorGroupRecipient),
+            )
+            .failOnShutdown("Unexpected shutdown.")
         )
         // records the request
-        updatedState <- sut.mediatorState.fetch(requestId).value
+        updatedState <- sut.mediatorState
+          .fetch(requestId)
+          .value
+          .failOnShutdown("Unexpected shutdown.")
         _ = {
           inside(updatedState) {
             case Some(
@@ -916,18 +940,23 @@ class ConfirmationResponseProcessorTest
           )
         }
         _ <- sequentialTraverse_(approvals)(
-          sut.processor.processResponse(
-            ts2,
-            notSignificantCounter,
-            ts2.plusSeconds(60),
-            ts2.plusSeconds(120),
-            _,
-            Some(requestId.unwrap),
-            Recipients.cc(mediatorGroupRecipient),
-          )
+          sut.processor
+            .processResponse(
+              ts2,
+              notSignificantCounter,
+              ts2.plusSeconds(60),
+              ts2.plusSeconds(120),
+              _,
+              Some(requestId.unwrap),
+              Recipients.cc(mediatorGroupRecipient),
+            )
+            .failOnShutdown("Unexpected shutdown.")
         )
         // records the request
-        finalState <- sut.mediatorState.fetch(requestId).value
+        finalState <- sut.mediatorState
+          .fetch(requestId)
+          .value
+          .failOnShutdown("Unexpected shutdown.")
       } yield {
         inside(finalState) {
           case Some(FinalizedResponse(`requestId`, `informeeMessage`, `ts2`, verdict)) =>
@@ -1049,18 +1078,23 @@ class ConfirmationResponseProcessorTest
 
         // records the request
         _ <- sequentialTraverse_(malformed)(
-          sut.processor.processResponse(
-            ts1,
-            notSignificantCounter,
-            ts1.plusSeconds(60),
-            ts1.plusSeconds(120),
-            _,
-            Some(requestId.unwrap),
-            Recipients.cc(mediatorGroupRecipient),
-          )
+          sut.processor
+            .processResponse(
+              ts1,
+              notSignificantCounter,
+              ts1.plusSeconds(60),
+              ts1.plusSeconds(120),
+              _,
+              Some(requestId.unwrap),
+              Recipients.cc(mediatorGroupRecipient),
+            )
+            .failOnShutdown("Unexpected shutdown.")
         )
 
-        finalState <- sut.mediatorState.fetch(requestId).value
+        finalState <- sut.mediatorState
+          .fetch(requestId)
+          .value
+          .failOnShutdown("Unexpected shutdown.")
         _ = inside(finalState) {
           case Some(
                 FinalizedResponse(
@@ -1137,7 +1171,8 @@ class ConfirmationResponseProcessorTest
               response,
               Some(requestId.unwrap),
               Recipients.cc(mediatorGroupRecipient),
-            ),
+            )
+            .failOnShutdown("Unexpected shutdown."),
           _.warningMessage shouldBe s"Response $responseTs is too late as request RequestId($requestTs) has already exceeded the participant response deadline [$participantResponseDeadline]",
         )
       } yield succeed
@@ -1200,7 +1235,9 @@ class ConfirmationResponseProcessorTest
       // this request is not added to the pending state
       for {
         snapshot <- domainSyncCryptoApi2.snapshot(requestTs)
-        _ <- sut.processor.handleTimeout(requestId, timeoutTs, decisionTime)
+        _ <- sut.processor
+          .handleTimeout(requestId, timeoutTs, decisionTime)
+          .failOnShutdown("Unexpected shutdown.")
       } yield succeed
     }
 
@@ -1279,15 +1316,17 @@ class ConfirmationResponseProcessorTest
           requestId,
         )
         _ <- loggerFactory.assertLogs(
-          sut.processor.processResponse(
-            ts.immediateSuccessor,
-            sc + 1L,
-            ts.plusSeconds(60),
-            ts.plusSeconds(120),
-            response,
-            Some(requestId.unwrap),
-            Recipients.cc(mediatorGroupRecipient),
-          ), {
+          sut.processor
+            .processResponse(
+              ts.immediateSuccessor,
+              sc + 1L,
+              ts.plusSeconds(60),
+              ts.plusSeconds(120),
+              response,
+              Some(requestId.unwrap),
+              Recipients.cc(mediatorGroupRecipient),
+            )
+            .failOnShutdown("Unexpected shutdown."), {
             _.shouldBeCantonError(
               MediatorError.InvalidMessage,
               _ shouldBe show"Received a confirmation response at ${ts.immediateSuccessor} by $participant with an unknown request id $requestId. Discarding response...",
@@ -1325,30 +1364,34 @@ class ConfirmationResponseProcessorTest
         )
 
         _ <- loggerFactory.assertLogs(
-          sut.processor.processResponse(
-            ts1,
-            notSignificantCounter,
-            ts1.plusSeconds(60),
-            ts1.plusSeconds(120),
-            someResponse,
-            // No timestamp of signing key given
-            None,
-            Recipients.cc(mediatorGroupRecipient),
-          ),
+          sut.processor
+            .processResponse(
+              ts1,
+              notSignificantCounter,
+              ts1.plusSeconds(60),
+              ts1.plusSeconds(120),
+              someResponse,
+              // No timestamp of signing key given
+              None,
+              Recipients.cc(mediatorGroupRecipient),
+            )
+            .failOnShutdown("Unexpected shutdown."),
           checkWrongTimestampOfSigningKeyError,
         )
 
         _ <- loggerFactory.assertLogs(
-          sut.processor.processResponse(
-            ts1,
-            notSignificantCounter,
-            ts1.plusSeconds(60),
-            ts1.plusSeconds(120),
-            someResponse,
-            // Wrong timestamp of signing key given
-            Some(requestId.unwrap.immediatePredecessor),
-            Recipients.cc(mediatorGroupRecipient),
-          ),
+          sut.processor
+            .processResponse(
+              ts1,
+              notSignificantCounter,
+              ts1.plusSeconds(60),
+              ts1.plusSeconds(120),
+              someResponse,
+              // Wrong timestamp of signing key given
+              Some(requestId.unwrap.immediatePredecessor),
+              Recipients.cc(mediatorGroupRecipient),
+            )
+            .failOnShutdown("Unexpected shutdown."),
           checkWrongTimestampOfSigningKeyError,
         )
       } yield succeed

@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol.transfer
 
 import cats.data.EitherT
 import com.digitalasset.canton.*
+import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
@@ -61,7 +62,7 @@ class TransferOutValidationTest
 
   val transferId = TransferId(sourceDomain, CantonTimestamp.Epoch)
   val uuid = new UUID(3L, 4L)
-  private val pureCrypto = TestingIdentityFactory.pureCrypto()
+  private val pureCrypto = new SymbolicPureCrypto
   private val seedGenerator = new SeedGenerator(pureCrypto)
   val seed = seedGenerator.generateSaltSeed()
 

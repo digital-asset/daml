@@ -29,8 +29,8 @@ message SequencerAuthentication {
       string domain_version = 1;
       // random nonce to be used for authentication
       bytes nonce = 2;
-      // fingerprints of the possible keys the domain expects the member to use for authentication
-      // (many are supplied in case there are many instances running on behalf of the member that only have access to a subset of the registered keys)
+      // A hint containing fingerprints of keys that the sequencer considers valid
+      // This is helpful, because the client does not necessarily have the current topology state before connecting.
       repeated string fingerprints = 3;
     }
     message Failure {
@@ -46,7 +46,8 @@ message SequencerAuthentication {
   message AuthenticateRequest {
     // member sending request
     string member = 1;
-    // signature of the handshake nonce concatenated with the identity of the domain (fingerprint)
+    // signature of the handshake nonce
+    // Any key that is valid at time of verification may be used
     com.digitalasset.canton.crypto.v30.Signature signature = 2;
     // nonce value that was signed is sent back to identify the challenge
     bytes nonce = 3;

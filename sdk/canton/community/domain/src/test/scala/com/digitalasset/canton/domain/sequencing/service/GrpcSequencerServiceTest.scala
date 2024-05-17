@@ -190,7 +190,6 @@ class GrpcSequencerServiceTest
     SubmissionRequest.tryCreate(
       sender,
       id,
-      isRequest = true,
       batch,
       CantonTimestamp.MaxValue,
       None,
@@ -299,7 +298,6 @@ class GrpcSequencerServiceTest
         protocolV30.SubmissionRequest(
           sender = "",
           messageId = "",
-          isRequest = false,
           batch = None,
           maxSequencingTime = 0L,
           topologyTimestamp = None,

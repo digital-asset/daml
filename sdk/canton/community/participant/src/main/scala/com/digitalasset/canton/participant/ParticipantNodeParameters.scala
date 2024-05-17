@@ -86,7 +86,7 @@ object ParticipantNodeParameters {
     excludeInfrastructureTransactions = true,
     engine = CantonEngineConfig(),
     journalGarbageCollectionDelay = NonNegativeFiniteDuration.Zero,
-    disableUpgradeValidation = true,
+    disableUpgradeValidation = false,
     allowForUnauthenticatedContractIds = false,
   )
 }

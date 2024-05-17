@@ -12,7 +12,7 @@ import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.mediator.FinalizedResponse
-import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.{
@@ -28,7 +28,7 @@ import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
 import java.util.concurrent.ConcurrentHashMap
 import scala.collection.immutable.SortedSet
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Stores and retrieves finalized confirmation response aggregations
   */
@@ -41,24 +41,33 @@ private[mediator] trait FinalizedResponseStore extends AutoCloseable {
     */
   def store(
       finalizedResponse: FinalizedResponse
-  )(implicit traceContext: TraceContext, callerCloseContext: CloseContext): Future[Unit]
+  )(implicit
+      traceContext: TraceContext,
+      callerCloseContext: CloseContext,
+  ): FutureUnlessShutdown[Unit]
 
   /** Fetch previously stored finalized confirmation response aggregation by requestId.
     */
   def fetch(requestId: RequestId)(implicit
       traceContext: TraceContext,
       overrideCloseContext: CloseContext,
-  ): OptionT[Future, FinalizedResponse]
+  ): OptionT[FutureUnlessShutdown, FinalizedResponse]
 
   /** Remove all responses up to and including the provided timestamp. */
   def prune(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext, callerCloseContext: CloseContext): Future[Unit]
+  )(implicit
+      traceContext: TraceContext,
+      callerCloseContext: CloseContext,
+  ): FutureUnlessShutdown[Unit]
 
   /** Count how many finalized responses we have stored.
     * Primarily used for testing mediator pruning.
     */
-  def count()(implicit traceContext: TraceContext, callerCloseContext: CloseContext): Future[Long]
+  def count()(implicit
+      traceContext: TraceContext,
+      callerCloseContext: CloseContext,
+  ): FutureUnlessShutdown[Long]
 
   /** Locate a timestamp relative to the earliest available finalized response
     * Useful to monitor the progress of pruning and for pruning in batches.
@@ -66,7 +75,7 @@ private[mediator] trait FinalizedResponseStore extends AutoCloseable {
   def locatePruningTimestamp(skip: Int)(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[Option[CantonTimestamp]]
+  ): FutureUnlessShutdown[Option[CantonTimestamp]]
 }
 
 private[mediator] object FinalizedResponseStore {
@@ -104,23 +113,29 @@ private[mediator] class InMemoryFinalizedResponseStore(
 
   override def store(
       finalizedResponse: FinalizedResponse
-  )(implicit traceContext: TraceContext, callerCloseContext: CloseContext): Future[Unit] = {
+  )(implicit
+      traceContext: TraceContext,
+      callerCloseContext: CloseContext,
+  ): FutureUnlessShutdown[Unit] = {
     finalizedRequests.putIfAbsent(finalizedResponse.requestId.unwrap, finalizedResponse).discard
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
   override def fetch(requestId: RequestId)(implicit
       traceContext: TraceContext,
       overrideCloseContext: CloseContext,
-  ): OptionT[Future, FinalizedResponse] =
-    OptionT.fromOption[Future](
+  ): OptionT[FutureUnlessShutdown, FinalizedResponse] =
+    OptionT.fromOption[FutureUnlessShutdown](
       finalizedRequests.get(requestId.unwrap)
     )
 
   override def prune(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext, callerCloseContext: CloseContext): Future[Unit] =
-    Future.successful {
+  )(implicit
+      traceContext: TraceContext,
+      callerCloseContext: CloseContext,
+  ): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.pure {
       finalizedRequests.keys
         .filterNot(_.isAfter(timestamp))
         .foreach(finalizedRequests.remove(_).discard[Option[FinalizedResponse]])
@@ -129,16 +144,16 @@ private[mediator] class InMemoryFinalizedResponseStore(
   override def count()(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[Long] =
-    Future.successful(finalizedRequests.size.toLong)
+  ): FutureUnlessShutdown[Long] =
+    FutureUnlessShutdown.pure(finalizedRequests.size.toLong)
 
   override def locatePruningTimestamp(
       skip: Int
   )(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[Option[CantonTimestamp]] = {
-    Future.successful {
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] = {
+    FutureUnlessShutdown.pure {
       import cats.Order.*
       val sortedSet =
         SortedSet.empty[CantonTimestamp] ++ finalizedRequests.keySet
@@ -190,7 +205,10 @@ private[mediator] class DbFinalizedResponseStore(
 
   override def store(
       finalizedResponse: FinalizedResponse
-  )(implicit traceContext: TraceContext, callerCloseContext: CloseContext): Future[Unit] = {
+  )(implicit
+      traceContext: TraceContext,
+      callerCloseContext: CloseContext,
+  ): FutureUnlessShutdown[Unit] = {
     val insert = storage.profile match {
       case _: DbStorage.Profile.Oracle =>
         sqlu"""insert
@@ -210,7 +228,7 @@ private[mediator] class DbFinalizedResponseStore(
 
     CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
       closeContext =>
-        storage.update_(
+        storage.updateUnlessShutdown_(
           insert,
           operationName = s"${this.getClass}: store request ${finalizedResponse.requestId}",
         )(traceContext, closeContext)
@@ -220,10 +238,10 @@ private[mediator] class DbFinalizedResponseStore(
   override def fetch(requestId: RequestId)(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): OptionT[Future, FinalizedResponse] = {
+  ): OptionT[FutureUnlessShutdown, FinalizedResponse] = {
     CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
       closeContext =>
-        storage.querySingle(
+        storage.querySingleUnlessShutdown(
           sql"""select request_id, mediator_confirmation_request, version, verdict, request_trace_context
               from med_response_aggregations where request_id=${requestId.unwrap}
            """
@@ -251,11 +269,14 @@ private[mediator] class DbFinalizedResponseStore(
 
   override def prune(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext, callerCloseContext: CloseContext): Future[Unit] =
+  )(implicit
+      traceContext: TraceContext,
+      callerCloseContext: CloseContext,
+  ): FutureUnlessShutdown[Unit] =
     CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
       closeContext =>
         for {
-          removedCount <- storage.update(
+          removedCount <- storage.updateUnlessShutdown(
             sqlu"delete from med_response_aggregations where request_id <= ${timestamp}",
             functionFullName,
           )(traceContext, closeContext)
@@ -265,10 +286,10 @@ private[mediator] class DbFinalizedResponseStore(
   override def count()(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[Long] = {
+  ): FutureUnlessShutdown[Long] = {
     CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
       closeContext =>
-        storage.query(
+        storage.queryUnlessShutdown(
           sql"select count(request_id) from med_response_aggregations".as[Long].head,
           functionFullName,
         )(traceContext, closeContext)
@@ -280,11 +301,11 @@ private[mediator] class DbFinalizedResponseStore(
   )(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[Option[CantonTimestamp]] = {
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] = {
     CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
       closeContext =>
         storage
-          .query(
+          .queryUnlessShutdown(
             sql"select request_id from med_response_aggregations order by request_id asc #${storage
                 .limit(1, skip.toLong)}"
               .as[CantonTimestamp]

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.domain.sequencing
 
 import com.digitalasset.canton.domain.block.RawLedgerBlock
-import com.digitalasset.canton.domain.block.RawLedgerBlock.RawBlockEvent.{AddMember, Send}
+import com.digitalasset.canton.domain.block.RawLedgerBlock.RawBlockEvent.Send
 import com.digitalasset.canton.domain.sequencing.BaseSequencerDriverApiTest.CompletionTimeout
 import com.google.protobuf.ByteString
 import org.apache.pekko.stream.scaladsl.Sink
@@ -19,27 +19,6 @@ abstract class SequencerDriverApiConformanceTest[ConfigType]
       driver.close()
       // so far there are no admin services
       driver.adminServices shouldBe Seq.empty
-    }
-
-    "register a member and get it back" in {
-      val driver = createDriver()
-      for {
-        _ <- driver.registerMember("member")
-        _ <- driver
-          .subscribe()
-          .filter { rawBlock =>
-            rawBlock.events.exists(tracedEv =>
-              tracedEv.value match {
-                case AddMember(member) =>
-                  member == "member" && tracedEv.traceContext == traceContext
-                case _ => false
-              }
-            )
-          }
-          .completionTimeout(CompletionTimeout)
-          .runWith(Sink.head)
-          .andThen(_ => driver.close())
-      } yield succeed
     }
 
     "send an event and get it back" in {

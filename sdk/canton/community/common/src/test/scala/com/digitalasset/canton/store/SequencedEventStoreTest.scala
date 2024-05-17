@@ -5,9 +5,8 @@ package com.digitalasset.canton.store
 
 import cats.data.Validated.Valid
 import cats.syntax.parallel.*
-import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.crypto.{Crypto, Fingerprint, Signature, TestHash}
+import com.digitalasset.canton.crypto.{Signature, SigningPublicKey, TestHash}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.sequencing.protocol.*
@@ -25,25 +24,19 @@ import scala.concurrent.ExecutionContext
 trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
   this: AsyncWordSpec with BaseTest =>
 
-  val sequencerKey: Fingerprint = Fingerprint.tryCreate("sequencer")
-  val crypto: Crypto =
-    SymbolicCrypto.tryCreate(
-      Seq(sequencerKey),
-      Seq(),
+  lazy val crypto: SymbolicCrypto =
+    SymbolicCrypto.create(
       testedReleaseProtocolVersion,
       timeouts,
       loggerFactory,
     )
 
-  def sign(str: String): Signature =
-    DefaultProcessingTimeouts.default
-      .await("event signing")(
-        crypto.privateCrypto.sign(TestHash.digest(str), sequencerKey).value.unwrap
-      )
-      .failOnShutdown
-      .valueOrFail("failed to create signature")
+  lazy val sequencerKey: SigningPublicKey = crypto.generateSymbolicSigningKey()
 
-  val domainId: DomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("da::default"))
+  def sign(str: String): Signature =
+    crypto.sign(TestHash.digest(str), sequencerKey.id)
+
+  lazy val domainId: DomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("da::default"))
 
   def mkBatch(envelopes: ClosedEnvelope*): Batch[ClosedEnvelope] =
     Batch(envelopes.toList, testedProtocolVersion)

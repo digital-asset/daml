@@ -178,7 +178,6 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
       val submission = SubmissionRequest.tryCreate(
         alice,
         messageId,
-        isRequest = true,
         Batch.closeEnvelopes(
           Batch.of(
             testedProtocolVersion,

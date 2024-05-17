@@ -15,6 +15,8 @@ import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.CantonRequireTypes
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.connection.GrpcApiInfoService
+import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.CommunityGrpcVaultServiceFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.{
@@ -35,7 +37,7 @@ import com.digitalasset.canton.health.{
 }
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.StaticGrpcServices
+import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, StaticGrpcServices}
 import com.digitalasset.canton.participant.admin.grpc.{
   GrpcDomainConnectivityService,
   GrpcInspectionService,
@@ -819,6 +821,13 @@ class ParticipantNodeBootstrap(
               parameterConfig.processingTimeouts,
               loggerFactory,
             ),
+            executionContext,
+          )
+        )
+      adminServerRegistry
+        .addServiceU(
+          ApiInfoServiceGrpc.bindService(
+            new GrpcApiInfoService(CantonGrpcUtil.ApiName.AdminApi),
             executionContext,
           )
         )

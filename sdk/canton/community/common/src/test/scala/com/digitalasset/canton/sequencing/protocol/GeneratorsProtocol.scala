@@ -103,7 +103,6 @@ final class GeneratorsProtocol(
       } yield SubmissionRequest.tryCreate(
         sender,
         messageId,
-        isRequest,
         batch,
         maxSequencingTime,
         topologyTimestamp,

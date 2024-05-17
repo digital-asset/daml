@@ -23,7 +23,6 @@ import com.digitalasset.canton.serialization.{
   BytestringWithCryptographicEvidence,
   HasCryptographicEvidence,
 }
-import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfTimestamp, ProtoDeserializationError}
@@ -45,7 +44,6 @@ object LedgerBlockEvent extends HasLoggerName {
   ) extends LedgerBlockEvent {
     lazy val signedSubmissionRequest = signedOrderingRequest.signedSubmissionRequest
   }
-  final case class AddMember(member: Member) extends LedgerBlockEvent
   final case class Acknowledgment(request: SignedContent[AcknowledgeRequest])
       extends LedgerBlockEvent
 
@@ -60,10 +58,6 @@ object LedgerBlockEvent extends HasLoggerName {
             .fromLong(microsecondsSinceEpoch)
             .leftMap(e => ProtoDeserializationError.TimestampConversionError(e))
         } yield LedgerBlockEvent.Send(CantonTimestamp(timestamp), deserializedRequest, request.size)
-      case RawBlockEvent.AddMember(memberString) =>
-        Member
-          .fromProtoPrimitive_(memberString)
-          .bimap(ProtoDeserializationError.StringConversionError, LedgerBlockEvent.AddMember)
       case RawBlockEvent.Acknowledgment(acknowledgement) =>
         deserializeSignedAcknowledgeRequest(protocolVersion)(acknowledgement).map(
           LedgerBlockEvent.Acknowledgment

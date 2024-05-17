@@ -53,7 +53,7 @@ import com.digitalasset.canton.protocol.{
   WithContractHash,
 }
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.RequestRefused
-import com.digitalasset.canton.sequencing.client.{SendType, SequencerClientSend}
+import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, Recipients, SendAsyncError}
 import com.digitalasset.canton.store.SequencerCounterTrackerStore
 import com.digitalasset.canton.topology.processing.EffectiveTime
@@ -1379,7 +1379,6 @@ class AcsCommitmentProcessor(
           sequencerClient
             .sendAsync(
               batch,
-              SendType.Other,
               None,
               // ACS commitments are best effort, so no need to amplify them
               amplify = false,

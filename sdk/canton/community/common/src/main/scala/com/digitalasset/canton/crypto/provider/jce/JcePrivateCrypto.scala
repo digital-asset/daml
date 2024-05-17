@@ -31,9 +31,6 @@ class JcePrivateCrypto(
   // Internal case class to ensure we don't mix up the private and public key bytestrings
   private case class RawKeyPair(id: Fingerprint, publicKey: ByteString, privateKey: ByteString)
 
-  private def fingerprint(publicKey: ByteString): Fingerprint =
-    Fingerprint.create(publicKey)
-
   private def fromJavaKeyPair(javaKeyPair: JKeyPair): RawKeyPair = {
     // Encode public key as X509 subject public key info in DER
     val publicKey = ByteString.copyFrom(javaKeyPair.getPublic.getEncoded)
@@ -41,7 +38,7 @@ class JcePrivateCrypto(
     // Encode private key as PKCS8 in DER
     val privateKey = ByteString.copyFrom(javaKeyPair.getPrivate.getEncoded)
 
-    val keyId = fingerprint(publicKey)
+    val keyId = Fingerprint.create(publicKey)
 
     RawKeyPair(keyId, publicKey, privateKey)
   }
@@ -52,7 +49,6 @@ class JcePrivateCrypto(
   ): SigningKeyPair = {
     val rawKeyPair = fromJavaKeyPair(javaKeyPair)
     SigningKeyPair.create(
-      id = rawKeyPair.id,
       format = CryptoKeyFormat.Der,
       publicKeyBytes = rawKeyPair.publicKey,
       privateKeyBytes = rawKeyPair.privateKey,
@@ -79,7 +75,6 @@ class JcePrivateCrypto(
     ): EncryptionKeyPair = {
       val rawKeyPair = fromJavaKeyPair(javaKeyPair)
       EncryptionKeyPair.create(
-        id = rawKeyPair.id,
         format = CryptoKeyFormat.Der,
         publicKeyBytes = rawKeyPair.publicKey,
         privateKeyBytes = rawKeyPair.privateKey,
@@ -130,10 +125,8 @@ class JcePrivateCrypto(
           .toEitherT
         publicKey = ByteString.copyFrom(rawKeyPair.getPublicKey)
         privateKey = ByteString.copyFrom(rawKeyPair.getPrivateKey)
-        id = fingerprint(publicKey)
         keyPair = SigningKeyPair
           .create(
-            id = id,
             format = CryptoKeyFormat.Raw,
             publicKeyBytes = publicKey,
             privateKeyBytes = privateKey,

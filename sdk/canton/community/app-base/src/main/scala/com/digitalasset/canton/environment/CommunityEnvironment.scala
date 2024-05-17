@@ -13,7 +13,6 @@ import com.digitalasset.canton.console.{
   CommunityHealthDumpGenerator,
   ConsoleEnvironment,
   ConsoleEnvironmentBinding,
-  ConsoleGrpcAdminCommandRunner,
   ConsoleOutput,
   GrpcAdminCommandRunner,
   HealthDumpGenerator,
@@ -21,7 +20,7 @@ import com.digitalasset.canton.console.{
   LocalInstanceReference,
   LocalMediatorReference,
   LocalParticipantReference,
-  LocalSequencerNodeReference,
+  LocalSequencerReference,
   StandardConsoleOutput,
 }
 import com.digitalasset.canton.crypto.CommunityCryptoFactory
@@ -57,10 +56,9 @@ class CommunityEnvironment(
   override type Console = CommunityConsoleEnvironment
 
   override protected def _createConsole(
-      consoleOutput: ConsoleOutput,
-      createAdminCommandRunner: ConsoleEnvironment => ConsoleGrpcAdminCommandRunner,
+      consoleOutput: ConsoleOutput
   ): CommunityConsoleEnvironment =
-    new CommunityConsoleEnvironment(this, consoleOutput, createAdminCommandRunner)
+    new CommunityConsoleEnvironment(this, consoleOutput)
 
   override protected lazy val migrationsFactory: DbMigrationsFactory =
     new CommunityDbMigrationsFactory(loggerFactory)
@@ -155,8 +153,6 @@ object CommunityEnvironmentFactory extends EnvironmentFactory[CommunityEnvironme
 class CommunityConsoleEnvironment(
     val environment: CommunityEnvironment,
     val consoleOutput: ConsoleOutput = StandardConsoleOutput,
-    protected val createAdminCommandRunner: ConsoleEnvironment => ConsoleGrpcAdminCommandRunner =
-      new ConsoleGrpcAdminCommandRunner(_),
 ) extends ConsoleEnvironment {
   override type Env = CommunityEnvironment
   override type Status = CommunityCantonStatus
@@ -171,7 +167,7 @@ class CommunityConsoleEnvironment(
 
   override def startupOrderPrecedence(instance: LocalInstanceReference): Int =
     instance match {
-      case _: LocalSequencerNodeReference => 1
+      case _: LocalSequencerReference => 1
       case _: LocalMediatorReference => 2
       case _: LocalParticipantReference => 3
       case _ => 4

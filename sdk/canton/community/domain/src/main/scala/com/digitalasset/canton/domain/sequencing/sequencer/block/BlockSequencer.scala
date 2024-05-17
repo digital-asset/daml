@@ -264,7 +264,6 @@ class BlockSequencer(
     val SubmissionRequest(
       sender,
       _,
-      _,
       batch,
       maxSequencingTime,
       _,

@@ -459,7 +459,6 @@ abstract class ProtocolProcessor[
       _ <- sequencerClient
         .sendAsync(
           batch,
-          SendType.ConfirmationRequest,
           callback = res => sendResultP.trySuccess(res).discard,
           maxSequencingTime = maxSequencingTime,
           messageId = messageId,
@@ -1132,8 +1131,9 @@ abstract class ProtocolProcessor[
                   }
               s"approved=${approved}, rejected=${rejected}" }"
           )
-          sendResponses(requestId, signedResponsesTo, Some(messageId))
-            .leftMap(err => steps.embedRequestError(SequencerRequestError(err)))
+          EitherT.liftF[FutureUnlessShutdown, steps.RequestError, Unit](
+            sendResponses(requestId, signedResponsesTo, Some(messageId))
+          )
         } else {
           logger.info(
             s"Phase 4: Finished validation for request=${requestId.unwrap} with nothing to approve."
@@ -1185,8 +1185,7 @@ abstract class ProtocolProcessor[
             signResponse(snapshot, response).map(_ -> recipients)
           })
 
-        _ <- sendResponses(requestId, messages)
-          .leftMap(err => steps.embedRequestError(SequencerRequestError(err)))
+        _ <- EitherT.liftF(sendResponses(requestId, messages))
 
         _ = requestDataHandle.complete(None)
 

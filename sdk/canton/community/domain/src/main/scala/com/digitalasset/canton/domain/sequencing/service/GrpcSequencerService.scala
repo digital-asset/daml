@@ -542,7 +542,13 @@ class GrpcSequencerService(
     }
 
     sender match {
-      case participantId: ParticipantId if request.isRequest =>
+      // Rate limiting only if participants send to participants.
+      case participantId: ParticipantId if request.batch.allRecipients.exists {
+            case AllMembersOfDomain => true
+            case MemberRecipient(_: ParticipantId) => true
+            case ParticipantsOfParty(_) => true
+            case _: Recipient => false
+          } =>
         for {
           confirmationRequestsMaxRate <- EitherTUtil
             .fromFuture(
@@ -553,8 +559,6 @@ class GrpcSequencerService(
           _ <- EitherT.fromEither[Future](checkRate(participantId, confirmationRequestsMaxRate))
         } yield ()
       case _ =>
-        // No rate limitation for domain entities and non-requests
-        // TODO(i2898): verify that the sender is not lying about the request nature to bypass the rate limitation
         EitherT.rightT[Future, SendAsyncError](())
     }
   }

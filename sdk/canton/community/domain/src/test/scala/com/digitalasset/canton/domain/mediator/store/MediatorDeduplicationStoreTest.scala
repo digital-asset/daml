@@ -55,7 +55,7 @@ trait MediatorDeduplicationStoreTest extends AsyncWordSpec with BaseTest { this:
         _ <- store.store(data2)
         _ <- store.store(data3)
       } yield store.allData() shouldBe Set(data1, data2, data3)
-    }
+    }.failOnShutdown("Unexpected shutdown.")
 
     "store UUIDs with unusual request ids and expiration times" in {
       val store = mkStore()
@@ -97,7 +97,7 @@ trait MediatorDeduplicationStoreTest extends AsyncWordSpec with BaseTest { this:
         _ <- store.store(data4)
         _ <- store.store(data5)
       } yield store.allData() shouldBe Set(data1, data2, data3, data4, data5)
-    }
+    }.failOnShutdown("Unexpected shutdown.")
 
     "store extreme values" in {
       val store = mkStore()
@@ -110,7 +110,7 @@ trait MediatorDeduplicationStoreTest extends AsyncWordSpec with BaseTest { this:
         _ <- store.store(minData)
         _ <- store.store(maxData)
       } yield store.allData() shouldBe Set(minData, maxData)
-    }
+    }.failOnShutdown("Unexpected shutdown.")
 
     "retrieve existing UUIDs taking expiration into account" in {
       val store = mkStore()
@@ -138,7 +138,7 @@ trait MediatorDeduplicationStoreTest extends AsyncWordSpec with BaseTest { this:
         store.findUuid(uuids(1), CantonTimestamp.ofEpochSecond(11)) shouldBe Set(data2)
         store.findUuid(uuids(1), CantonTimestamp.ofEpochSecond(12)) shouldBe empty
       }
-    }
+    }.failOnShutdown("Unexpected shutdown.")
 
     "retrieve with extreme values" in {
       val store = mkStore()
@@ -155,7 +155,7 @@ trait MediatorDeduplicationStoreTest extends AsyncWordSpec with BaseTest { this:
         store.findUuid(uuids(0), CantonTimestamp.MinValue) shouldBe Set(data)
         store.findUuid(uuids(0), CantonTimestamp.MaxValue) shouldBe Set(data)
       }
-    }
+    }.failOnShutdown("Unexpected shutdown.")
 
     "not retrieve non-existing UUIDs" in {
       val store = mkStore()
@@ -196,7 +196,7 @@ trait MediatorDeduplicationStoreTest extends AsyncWordSpec with BaseTest { this:
 
         _ <- store.prune(CantonTimestamp.MaxValue)
       } yield store.allData() shouldBe empty
-    }
+    }.failOnShutdown("Unexpected shutdown.")
   }
 }
 
@@ -206,7 +206,7 @@ class MediatorDeduplicationStoreTestInMemory
     with HasCloseContext {
   override def mkStore(firstEventTs: CantonTimestamp): MediatorDeduplicationStore = {
     val store = new InMemoryMediatorDeduplicationStore(loggerFactory, timeouts)
-    store.initialize(firstEventTs).futureValue
+    store.initialize(firstEventTs).futureValueUS
     store
   }
 }
@@ -223,7 +223,7 @@ trait DbMediatorDeduplicationStoreTest extends MediatorDeduplicationStoreTest wi
       BatchAggregatorConfig.defaultsForTesting,
       loggerFactory,
     )
-    store.initialize(firstEventTs).futureValue
+    store.initialize(firstEventTs).futureValueUS
     store
   }
 
@@ -260,7 +260,7 @@ trait DbMediatorDeduplicationStoreTest extends MediatorDeduplicationStoreTest wi
         val store4 = mkStore(CantonTimestamp.Epoch)
         store4.allData() shouldBe empty
       }
-    }
+    }.failOnShutdown("Unexpected shutdown.")
   }
 }
 

@@ -61,11 +61,9 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
       DatabaseSequencerSnapshottingTest.this.loggerFactory
 
     override lazy val topologyFactory =
-      new TestingIdentityFactory(
-        topology = TestingTopology().withSimpleParticipants(p11, p12, p13, p14, p15),
-        loggerFactory,
-        List.empty,
-      )
+      TestingTopology(domainParameters = List.empty)
+        .withSimpleParticipants(p11, p12, p13, p14, p15)
+        .build(loggerFactory)
   }
 
   override protected final type FixtureParam = SingleDbEnv

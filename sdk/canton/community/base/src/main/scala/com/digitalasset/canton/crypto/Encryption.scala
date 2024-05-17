@@ -32,10 +32,7 @@ import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
 }
-import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
-import monocle.Lens
-import monocle.macros.GenLens
 import slick.jdbc.GetResult
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -344,23 +341,13 @@ object EncryptionKeyPair {
     throw new UnsupportedOperationException("Use generate or deserialization methods")
 
   private[crypto] def create(
-      id: Fingerprint,
       format: CryptoKeyFormat,
       publicKeyBytes: ByteString,
       privateKeyBytes: ByteString,
       scheme: EncryptionKeyScheme,
   ): EncryptionKeyPair = {
-    val publicKey = new EncryptionPublicKey(id, format, publicKeyBytes, scheme)
+    val publicKey = new EncryptionPublicKey(format, publicKeyBytes, scheme)
     val privateKey = new EncryptionPrivateKey(publicKey.id, format, privateKeyBytes, scheme)
-    new EncryptionKeyPair(publicKey, privateKey)
-  }
-
-  @VisibleForTesting
-  def wrongEncryptionKeyPairWithPublicKeyUnsafe(
-      publicKey: EncryptionPublicKey
-  ): EncryptionKeyPair = {
-    val privateKey =
-      new EncryptionPrivateKey(publicKey.id, publicKey.format, publicKey.key, publicKey.scheme)
     new EncryptionKeyPair(publicKey, privateKey)
   }
 
@@ -382,7 +369,6 @@ object EncryptionKeyPair {
 }
 
 final case class EncryptionPublicKey private[crypto] (
-    id: Fingerprint,
     format: CryptoKeyFormat,
     protected[crypto] val key: ByteString,
     scheme: EncryptionKeyScheme,
@@ -390,7 +376,7 @@ final case class EncryptionPublicKey private[crypto] (
     with PrettyPrinting
     with HasVersionedWrapper[EncryptionPublicKey] {
 
-  override protected def companionObj = EncryptionPublicKey
+  override protected def companionObj: EncryptionPublicKey.type = EncryptionPublicKey
 
   // TODO(#15649): Make EncryptionPublicKey object invariant
   protected def validated: Either[ProtoDeserializationError.CryptoDeserializationError, this.type] =
@@ -406,7 +392,6 @@ final case class EncryptionPublicKey private[crypto] (
 
   def toProtoV30: v30.EncryptionPublicKey =
     v30.EncryptionPublicKey(
-      id = id.toProtoPrimitive,
       format = format.toProtoEnum,
       publicKey = key,
       scheme = scheme.toProtoEnum,
@@ -432,26 +417,19 @@ object EncryptionPublicKey
   )
 
   private[crypto] def create(
-      id: Fingerprint,
       format: CryptoKeyFormat,
       key: ByteString,
       scheme: EncryptionKeyScheme,
   ): Either[ProtoDeserializationError.CryptoDeserializationError, EncryptionPublicKey] =
-    new EncryptionPublicKey(id, format, key, scheme).validated
-
-  @VisibleForTesting
-  val idUnsafe: Lens[EncryptionPublicKey, Fingerprint] =
-    GenLens[EncryptionPublicKey](_.id)
+    new EncryptionPublicKey(format, key, scheme).validated
 
   def fromProtoV30(
       publicKeyP: v30.EncryptionPublicKey
   ): ParsingResult[EncryptionPublicKey] =
     for {
-      id <- Fingerprint.fromProtoPrimitive(publicKeyP.id)
       format <- CryptoKeyFormat.fromProtoEnum("format", publicKeyP.format)
       scheme <- EncryptionKeyScheme.fromProtoEnum("scheme", publicKeyP.scheme)
       encryptionPublicKey <- EncryptionPublicKey.create(
-        id,
         format,
         publicKeyP.publicKey,
         scheme,

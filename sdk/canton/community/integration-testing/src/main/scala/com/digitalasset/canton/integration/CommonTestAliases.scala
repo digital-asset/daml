@@ -8,12 +8,12 @@ import com.digitalasset.canton.console.{
   ConsoleEnvironmentTestHelpers,
   LocalMediatorReference,
   LocalParticipantReference,
-  LocalSequencerNodeReference,
+  LocalSequencerReference,
   ParticipantReference,
   RemoteMediatorReference,
   RemoteParticipantReference,
-  RemoteSequencerNodeReference,
-  SequencerNodeReference,
+  RemoteSequencerReference,
+  SequencerReference,
 }
 
 /** Aliases used by our typical single domain and multi domain tests.
@@ -32,11 +32,11 @@ trait CommonTestAliases[+CE <: ConsoleEnvironment] {
   lazy val participant7: LocalParticipantReference = lp("participant7")
   lazy val participant8: LocalParticipantReference = lp("participant8")
 
-  lazy val sequencer1: LocalSequencerNodeReference = ls("sequencer1")
-  lazy val sequencer1_ : SequencerNodeReference = s("sequencer1")
-  lazy val sequencer2: LocalSequencerNodeReference = ls("sequencer2")
-  lazy val sequencer3: LocalSequencerNodeReference = ls("sequencer3")
-  lazy val sequencer4: LocalSequencerNodeReference = ls("sequencer4")
+  lazy val sequencer1: LocalSequencerReference = ls("sequencer1")
+  lazy val sequencer1_ : SequencerReference = s("sequencer1")
+  lazy val sequencer2: LocalSequencerReference = ls("sequencer2")
+  lazy val sequencer3: LocalSequencerReference = ls("sequencer3")
+  lazy val sequencer4: LocalSequencerReference = ls("sequencer4")
 
   lazy val mediator1: LocalMediatorReference = lm("mediator1")
   lazy val mediator2: LocalMediatorReference = lm("mediator2")
@@ -44,9 +44,9 @@ trait CommonTestAliases[+CE <: ConsoleEnvironment] {
   lazy val mediator4: LocalMediatorReference = lm("mediator4")
 
   // Remote
-  lazy val remoteSequencer1: RemoteSequencerNodeReference = rs("sequencer1")
-  lazy val remoteSequencer2: RemoteSequencerNodeReference = rs("sequencer2")
-  lazy val remoteSequencer3: RemoteSequencerNodeReference = rs("sequencer3")
+  lazy val remoteSequencer1: RemoteSequencerReference = rs("sequencer1")
+  lazy val remoteSequencer2: RemoteSequencerReference = rs("sequencer2")
+  lazy val remoteSequencer3: RemoteSequencerReference = rs("sequencer3")
 
   lazy val remoteMediator1: RemoteMediatorReference = rm("mediator1")
   lazy val remoteMediator2: RemoteMediatorReference = rm("mediator2")

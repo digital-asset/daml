@@ -157,7 +157,7 @@ class CommunityCantonHealthAdministration(override val consoleEnv: ConsoleEnviro
   @Help.Summary("Aggregate status info of all participants and domains")
   def status(): CommunityCantonStatus = {
     CommunityCantonStatus.getStatus(
-      statusMap[SequencerNodeReference](consoleEnv.sequencers),
+      statusMap[SequencerReference](consoleEnv.sequencers),
       statusMap[MediatorReference](consoleEnv.mediators),
       statusMap[ParticipantReference](consoleEnv.participants),
     )

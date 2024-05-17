@@ -5,6 +5,7 @@ package com.digitalasset.canton.domain.mediator
 
 import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Signature, TestHash}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.mediator.store.{
@@ -73,6 +74,7 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
 
     val domainSyncCryptoApi: DomainSyncCryptoClient = new TestingIdentityFactory(
       TestingTopology(),
+      SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory),
       loggerFactory,
       dynamicDomainParameters,
     ).forOwnerAndDomain(
@@ -87,8 +89,8 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
       )(implicit
           traceContext: TraceContext,
           callerCloseContext: CloseContext,
-      ): Future[(Seq[DefaultOpenEnvelope], FutureUnlessShutdown[Unit])] =
-        Future.successful(envelopes -> FutureUnlessShutdown.unit)
+      ): FutureUnlessShutdown[(Seq[DefaultOpenEnvelope], FutureUnlessShutdown[Unit])] =
+        FutureUnlessShutdown.pure(envelopes -> FutureUnlessShutdown.unit)
     }
 
     val processor = new MediatorEventsProcessor(
@@ -216,7 +218,9 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
 
       for {
         pendingRequest <- pendingRequestF
-        _ <- env.state.add(pendingRequest)
+        _ <- env.state
+          .add(pendingRequest)
+          .failOnShutdown("Unexpected shutdown.")
         deliverTs = pendingRequestTs.add(confirmationResponseTimeout.unwrap).addMicros(1)
         _ <- env.handle(env.deliver(deliverTs)).onShutdown(fail())
       } yield {
@@ -276,8 +280,12 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
         for {
           pendingRequest1 <- pendingRequest1F
           pendingRequest2 <- pendingRequest2F
-          _ <- env.state.add(pendingRequest1)
-          _ <- env.state.add(pendingRequest2)
+          _ <- env.state
+            .add(pendingRequest1)
+            .failOnShutdown("Unexpected shutdown.")
+          _ <- env.state
+            .add(pendingRequest2)
+            .failOnShutdown("Unexpected shutdown.")
           _ <- env.handle(env.deliver(deliverTs)).onShutdown(fail())
         } yield env.receivedEventsAt(deliverTs).toSet shouldBe expectedEvents
       }

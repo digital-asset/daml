@@ -27,7 +27,7 @@ trait MediatorDomainConfigurationStoreTest {
       for {
         config <- valueOrFail(store.fetchConfiguration)("fetchConfiguration")
       } yield config shouldBe None
-    }
+    }.failOnShutdown("Unexpected shutdown.")
 
     "when set returns set value" in {
       val store = mkStore
@@ -47,7 +47,7 @@ trait MediatorDomainConfigurationStoreTest {
         _ <- valueOrFail(store.saveConfiguration(originalConfig))("saveConfiguration")
         persistedConfig <- valueOrFail(store.fetchConfiguration)("fetchConfiguration").map(_.value)
       } yield persistedConfig shouldBe originalConfig
-    }
+    }.failOnShutdown("Unexpected shutdown.")
 
     "supports updating the config" in {
       val store = mkStore
@@ -84,7 +84,7 @@ trait MediatorDomainConfigurationStoreTest {
           .map(_.value)
       } yield persistedConfig2 shouldBe updatedConfig
 
-    }
+    }.failOnShutdown("Unexpected shutdown.")
   }
 }
 

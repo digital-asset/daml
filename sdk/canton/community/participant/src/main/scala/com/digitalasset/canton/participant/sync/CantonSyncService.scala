@@ -482,9 +482,9 @@ class CantonSyncService(
         }
       _pruned <- pruningProcessor.pruneLedgerEvents(pruneUpToMultiDomainGlobalOffset)
     } yield ()).transform {
-      case Left(LedgerPruningNothingToPrune) =>
+      case Left(err @ LedgerPruningNothingToPrune(_, _)) =>
         logger.info(
-          s"Could not locate pruning point: ${LedgerPruningNothingToPrune.message}. Considering success for idempotency"
+          s"Could not locate pruning point: ${err.message}. Considering success for idempotency"
         )
         Right(())
       case Left(err @ LedgerPruningOnlySupportedInEnterpriseEdition) =>
@@ -1042,11 +1042,17 @@ class CantonSyncService(
   ): EitherT[Future, SyncServiceError, Unit] =
     EitherTUtil
       .fromFuture(
-        syncDomain.start(),
+        syncDomain.startFUS(),
         t => SyncServiceError.SyncServiceInternalError.Failure(alias, t),
       )
       .subflatMap[SyncServiceError, Unit](
         _.leftMap(error => SyncServiceError.SyncServiceStartupError.InitError(alias, error))
+      )
+      .onShutdown(
+        Left(
+          SyncServiceError.SyncServiceStartupError
+            .InitError(alias, AbortedDueToShutdownError("Aborted due to shutdown"))
+        )
       )
 
   /** Connect the sync service to the given domain.

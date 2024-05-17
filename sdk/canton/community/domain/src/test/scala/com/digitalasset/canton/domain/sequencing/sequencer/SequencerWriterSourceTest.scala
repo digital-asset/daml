@@ -327,7 +327,6 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
             SubmissionRequest.tryCreate(
               alice,
               MessageId.tryCreate("test-unknown-recipients"),
-              isRequest = true,
               batch = Batch.fromClosed(
                 testedProtocolVersion,
                 ClosedEnvelope.create(
