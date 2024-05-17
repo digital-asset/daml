@@ -316,17 +316,17 @@ load("@daml//bazel_tools:java.bzl", "dadew_java_configure")
 
 dadew_java_configure(
     name = "dadew_java_runtime",
-    dadew_path = "ojdkbuild11",
+    dadew_path = "jdk",
 ) if is_windows else None
 
 nixpkgs_java_configure(
-    attribute_path = "jdk11.home",
+    attribute_path = "jdk17.home",
     nix_file = "@daml//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
     toolchain = True,
     toolchain_name = "nixpkgs_java",
-    toolchain_version = "11",
+    toolchain_version = "17",
 ) if not is_windows else None
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
