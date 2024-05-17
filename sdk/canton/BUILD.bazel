@@ -163,7 +163,7 @@ da_scala_library(
     visibility = [
         "//daml-lf/validation:__subpackages__",
         "//daml-script:__subpackages__",
-        "//language-support/java:__subpackages__",
+        "//language-support:__subpackages__",
         "//test-common/canton:__subpackages__",
     ],
     deps = [
