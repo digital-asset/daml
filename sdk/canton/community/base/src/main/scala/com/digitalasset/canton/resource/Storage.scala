@@ -33,7 +33,7 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.canton.metrics.{DbQueueMetrics, DbStorageMetrics}
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
-import com.digitalasset.canton.protocol.{LfContractId, LfGlobalKey, LfHash}
+import com.digitalasset.canton.protocol.{LfContractId, LfGlobalKey, LfHash, LfPackageName}
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Oracle, Postgres}
 import com.digitalasset.canton.resource.DbStorage.{DbAction, Profile}
 import com.digitalasset.canton.resource.StorageFactory.StorageCreationException
@@ -46,7 +46,7 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.retry.RetryUtil.DbExceptionRetryable
 import com.digitalasset.canton.util.retry.{DbRetries, RetryEither}
-import com.digitalasset.canton.{LfPackageId, LfPartyId}
+import com.digitalasset.canton.{LfPackageId, LfPackageVersion, LfPartyId}
 import com.google.protobuf.ByteString
 import com.typesafe.config.{Config, ConfigValueFactory}
 import com.typesafe.scalalogging.Logger
@@ -545,6 +545,35 @@ object DbStorage {
           .valueOr(err =>
             throw new DbDeserializationException(s"Failed to deserialize package id: $err")
           )
+      }
+
+    // LfPackageNames are length-limited
+    @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
+    implicit val setParameterLfPackageName: SetParameter[Option[LfPackageName]] = (v, pp) =>
+      pp.setStringOption(v)
+    implicit val getResultPackageName: GetResult[Option[LfPackageName]] =
+      GetResult(r => r.nextStringOption()).andThen {
+        _.map(
+          LfPackageName
+            .fromString(_)
+            .valueOr(err =>
+              throw new DbDeserializationException(s"Failed to deserialize package name: $err")
+            )
+        )
+      }
+    // LfPackageVersions are length-limited
+    @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
+    implicit val setParameterLfPackageVersion: SetParameter[Option[LfPackageVersion]] = (v, pp) =>
+      pp.setStringOption(v.map(_.toString))
+    implicit val getResultPackageVersion: GetResult[Option[LfPackageVersion]] =
+      GetResult(r => r.nextStringOption()).andThen {
+        _.map(
+          LfPackageVersion
+            .fromString(_)
+            .valueOr(err =>
+              throw new DbDeserializationException(s"Failed to deserialize package version: $err")
+            )
+        )
       }
 
     implicit val setParameterByteString: SetParameter[ByteString] = (bs, pp) =>

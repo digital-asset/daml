@@ -15,6 +15,8 @@ import com.digitalasset.canton.concurrent.{
 }
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.{LocalNodeConfig, ProcessingTimeout, TestingConfigInternal}
+import com.digitalasset.canton.connection.GrpcApiInfoService
+import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.GrpcVaultServiceFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CryptoPrivateStoreFactory
@@ -35,7 +37,7 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext, Lifecy
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.DbStorageMetrics
 import com.digitalasset.canton.metrics.MetricHandle.MetricsFactory
-import com.digitalasset.canton.networking.grpc.CantonServerBuilder
+import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, CantonServerBuilder}
 import com.digitalasset.canton.resource.{Storage, StorageFactory}
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.Clock
@@ -198,6 +200,12 @@ abstract class CantonNodeBootstrapCommon[
         )
       )
       .addService(ProtoReflectionService.newInstance(), false)
+      .addService(
+        ApiInfoServiceGrpc.bindService(
+          new GrpcApiInfoService(CantonGrpcUtil.ApiName.AdminApi),
+          executionContext,
+        )
+      )
       .build
       .start()
     (Lifecycle.toCloseableServer(server, logger, "AdminServer"), registry)
