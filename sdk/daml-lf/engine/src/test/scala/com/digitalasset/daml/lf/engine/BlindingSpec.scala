@@ -4,7 +4,7 @@
 package com.daml.lf
 package engine
 
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{Ref, ImmArray}
 import com.daml.lf.engine.BlindingSpec.TxBuilder
 import com.daml.lf.transaction.{BlindingInfo, Node}
 import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TransactionBuilder, TestNodeBuilder}
@@ -14,7 +14,10 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
 
 object BlindingSpec {
-  class TxBuilder extends NodeIdTransactionBuilder with TestNodeBuilder
+  class TxBuilder extends NodeIdTransactionBuilder with TestNodeBuilder {
+    val defaultPackageName = Some(Ref.PackageName.assertFromString("-default-"))
+
+  }
 }
 
 class BlindingSpec extends AnyFreeSpec with Matchers {
