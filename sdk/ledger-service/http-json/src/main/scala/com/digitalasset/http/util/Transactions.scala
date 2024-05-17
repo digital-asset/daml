@@ -22,7 +22,7 @@ object Transactions {
   @deprecated("use AcsTxStreams.transactionFilter instead", since = "2.4.0")
   def transactionFilterFor(
       parties: PartySet,
-      contractTypeIds: List[ContractTypeId.Resolved],
+      contractTypeIds: List[ContractTypeId.ResolvedPkg],
   ): TransactionFilter =
     transactionFilter(parties, contractTypeIds)
 }

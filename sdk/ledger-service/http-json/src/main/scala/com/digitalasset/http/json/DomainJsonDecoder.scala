@@ -268,8 +268,8 @@ class DomainJsonDecoder(
       ledgerId: LedgerApiDomain.LedgerId,
   ): ET[domain.LfType] =
     templateId_(id, jwt, ledgerId).flatMap {
-      case it: domain.ContractTypeId.Template.Resolved =>
-        either(resolveKeyType(it: ContractTypeId.Template.Resolved).liftErr(JsonError))
+      case it: domain.ContractTypeId.Template.ResolvedPkg =>
+        either(resolveKeyType(it: ContractTypeId.Template.ResolvedPkg).liftErr(JsonError))
       case other =>
         either(-\/(JsonError(s"Expect contract type Id to be template Id, got otherwise: $other")))
     }

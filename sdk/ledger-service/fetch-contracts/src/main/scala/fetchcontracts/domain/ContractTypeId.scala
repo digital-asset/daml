@@ -13,7 +13,7 @@ import scalaz.syntax.functor._
 import scala.collection.IterableOps
 
 /** A contract type ID that may be either a template or an interface ID.
-  * A [[ContractTypeId.Resolved]] ID will always be either [[ContractTypeId.Template]]
+  * A [[ContractTypeId.ResolvedPkg]] ID will always be either [[ContractTypeId.Template]]
   * or [[ContractTypeId.Interface]]; an
   * unresolved ID may be one of those, which indicates an expectation of what
   * the resolved ID will be, or neither, which indicates that resolving what
@@ -251,7 +251,7 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
 sealed abstract class ContractTypeIdLike[CtId[T] <: ContractTypeId[T]] {
   type RequiredPkg = CtId[Ref.PackageRef]
   type RequiredPkgId = CtId[Ref.PackageId]
-  type Resolved = ContractTypeId.ResolvedOf[CtId]
+  type ResolvedPkg = ContractTypeId.ResolvedOf[CtId]
   type ResolvedPkgId = ContractTypeId.ResolvedPkgIdOf[CtId]
 
   // treat the companion like a typeclass instance
@@ -314,7 +314,7 @@ object ContractTypeRef {
   }
 
   private[domain] final case class TemplateRef(
-      orig: ContractTypeId.Template.Resolved,
+      orig: ContractTypeId.Template.ResolvedPkg,
       pkgIds: NonEmpty[Seq[Ref.PackageId]],
       kpn: KeyPackageName,
   ) extends ContractTypeRef[ContractTypeId.Template](
@@ -324,7 +324,7 @@ object ContractTypeRef {
       )
 
   private[domain] final case class InterfaceRef(
-      orig: ContractTypeId.Interface.Resolved,
+      orig: ContractTypeId.Interface.ResolvedPkg,
       pkgIds: NonEmpty[Seq[Ref.PackageId]],
       kpn: KeyPackageName,
   ) extends ContractTypeRef[ContractTypeId.Interface](
