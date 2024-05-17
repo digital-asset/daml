@@ -17,15 +17,17 @@ import Ordering.Implicits._
 
 trait TestNodeBuilder {
 
-  def packageVersion(packageId: PackageId): Option[TransactionVersion] = None
+  val defaultPackageName: Option[PackageName]
 
-  private def assertPackageVersion(packageId: PackageId): TransactionVersion =
-    packageVersion(packageId).getOrElse(
+  def packageTxVersion(packageId: PackageId): Option[TransactionVersion] = None
+
+  private def assertTxVersion(packageId: PackageId): TransactionVersion =
+    packageTxVersion(packageId).getOrElse(
       throw new IllegalArgumentException(s"Could not lookup transaction version for ${packageId}")
     )
 
-  private def contractPackageVersion(contract: Node.Create): TransactionVersion =
-    packageVersion(contract.templateId.packageId).getOrElse(contract.version)
+  private def contractTxVersion(contract: Node.Create): TransactionVersion =
+    packageTxVersion(contract.templateId.packageId).getOrElse(contract.version)
 
   def create(
       id: ContractId,
@@ -34,14 +36,14 @@ trait TestNodeBuilder {
       signatories: Set[Party],
       observers: Set[Party] = Set.empty,
       key: CreateKey = CreateKey.NoKey,
-      packageName: Option[PackageName] = None,
+      packageName: Option[PackageName] = defaultPackageName,
       version: CreateTransactionVersion = CreateTransactionVersion.StableMax,
       agreementText: String = "",
   ): Node.Create = {
 
     val transactionVersion = version match {
       case CreateTransactionVersion.StableMax => TransactionVersion.StableVersions.max
-      case CreateTransactionVersion.FromPackage => assertPackageVersion(templateId.packageId)
+      case CreateTransactionVersion.FromPackage => assertTxVersion(templateId.packageId)
       case CreateTransactionVersion.Version(version) => version
     }
 
@@ -72,7 +74,7 @@ trait TestNodeBuilder {
 
     Node.Create(
       coid = id,
-      packageName = packageName.filter(_ => transactionVersion < TransactionVersion.minUpgrade),
+      packageName = packageName.filter(_ => transactionVersion >= TransactionVersion.minUpgrade),
       templateId = templateId,
       arg = argument,
       agreementText = agreementText,
@@ -112,7 +114,7 @@ trait TestNodeBuilder {
       exerciseResult = result,
       keyOpt = contract.keyOpt,
       byKey = byKey,
-      version = contractPackageVersion(contract),
+      version = contractTxVersion(contract),
     )
 
   def fetch(
@@ -128,7 +130,7 @@ trait TestNodeBuilder {
       stakeholders = contract.stakeholders,
       keyOpt = contract.keyOpt,
       byKey = byKey,
-      version = contractPackageVersion(contract),
+      version = contractTxVersion(contract),
     )
 
   def lookupByKey(contract: Node.Create, found: Boolean = true): Node.LookupByKey =
@@ -141,7 +143,7 @@ trait TestNodeBuilder {
         )
       ),
       result = if (found) Some(contract.coid) else None,
-      version = contractPackageVersion(contract),
+      version = contractTxVersion(contract),
     )
 
   def rollback(children: ImmArray[NodeId] = ImmArray.empty): Node.Rollback =
@@ -150,6 +152,8 @@ trait TestNodeBuilder {
 }
 
 object TestNodeBuilder extends TestNodeBuilder {
+
+  final override val defaultPackageName = None
 
   sealed trait CreateKey
   object CreateKey {

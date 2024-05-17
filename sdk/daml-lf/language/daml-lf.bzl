@@ -59,7 +59,7 @@ def version_in(
 
 # The lastest stable version for each major LF version.
 lf_version_latest = {
-    "1": "1.15",
+    "1": "1.16",
 }
 
 # The following dictionary aliases LF versions to keywords:
@@ -75,7 +75,7 @@ lf_version_latest = {
 lf_version_configuration = {
     "default": "1.15",
     "latest": lf_version_latest.get("1"),
-    "preview": "1.16",
+    #    "preview": "1.16",
     "dev": "1.dev",
 }
 

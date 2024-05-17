@@ -111,8 +111,8 @@ EOF
         visibility = ["//visibility:public"],
     )
     for tag in [
+        "default",
         "latest",
-        "preview",
         "dev",
     ]
     for lf_version in [lf_version_configuration.get(tag)]

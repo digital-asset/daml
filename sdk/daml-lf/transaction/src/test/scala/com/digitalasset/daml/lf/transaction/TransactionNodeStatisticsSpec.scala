@@ -4,6 +4,8 @@
 package com.daml.lf
 package transaction
 
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.PackageName
 import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey
 import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey.NoKey
 import com.daml.lf.transaction.TransactionNodeStatistics.Actions
@@ -221,5 +223,9 @@ class TransactionNodeStatisticsSpec
 }
 
 object TransactionNodeStatisticsSpec {
-  class TxBuilder extends NodeIdTransactionBuilder with TestNodeBuilder
+  class TxBuilder extends NodeIdTransactionBuilder with TestNodeBuilder {
+    final override val defaultPackageName: Option[PackageName] = Some(
+      Ref.PackageName.assertFromString("-default-")
+    )
+  }
 }
