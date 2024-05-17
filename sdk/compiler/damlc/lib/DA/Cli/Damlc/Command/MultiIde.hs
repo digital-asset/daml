@@ -14,7 +14,7 @@ import qualified Data.ByteString.Lazy.Char8 as BSLC
 import DA.Cli.Damlc.Command.MultiIde.Handlers
 import DA.Cli.Damlc.Command.MultiIde.PackageData
 import DA.Cli.Damlc.Command.MultiIde.Parsing
-import DA.Cli.Damlc.Command.MultiIde.SubIde
+import DA.Cli.Damlc.Command.MultiIde.SubIdeManagement
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Cli.Damlc.Command.MultiIde.Util
 import qualified DA.Service.Logger as Logger

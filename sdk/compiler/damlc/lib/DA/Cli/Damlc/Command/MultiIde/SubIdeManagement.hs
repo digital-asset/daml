@@ -4,8 +4,9 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE DataKinds #-}
 
-module DA.Cli.Damlc.Command.MultiIde.SubIde (
-  module DA.Cli.Damlc.Command.MultiIde.SubIde
+module DA.Cli.Damlc.Command.MultiIde.SubIdeManagement (
+  module DA.Cli.Damlc.Command.MultiIde.SubIdeManagement,
+  module DA.Cli.Damlc.Command.MultiIde.SubIdeCommunication,
 ) where
 
 import Control.Concurrent.Async (async)
@@ -16,23 +17,20 @@ import Control.Concurrent.MVar
 import Control.Lens
 import Control.Monad
 import Control.Monad.STM
-import qualified Data.Aeson as Aeson
-import DA.Cli.Damlc.Command.MultiIde.Client
+import DA.Cli.Damlc.Command.MultiIde.ClientCommunication
 import DA.Cli.Damlc.Command.MultiIde.Util
 import DA.Cli.Damlc.Command.MultiIde.Parsing
 import DA.Cli.Damlc.Command.MultiIde.Types
+import DA.Cli.Damlc.Command.MultiIde.SubIdeCommunication
 import Data.Foldable (traverse_)
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe, isJust, mapMaybe)
+import Data.Maybe (fromMaybe, isJust)
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.Extended as TE
 import qualified Data.Text.IO as T
-import GHC.Conc (unsafeIOToSTM)
 import qualified Language.LSP.Types as LSP
-import System.Directory (doesFileExist)
 import System.Environment (getEnv, getEnvironment)
-import System.FilePath.Posix (takeDirectory, (</>))
 import System.IO.Extra
 import System.Info.Extra (isWindows)
 import System.Process (getPid, terminateProcess)
@@ -195,18 +193,6 @@ unsafeAddNewSubIdeAndSend miState ides home mMsg = do
 
       pure $ Map.insert home ideData' ides
 
-disableIdeDiagnosticMessages :: SubIdeData -> [LSP.FromServerMessage]
-disableIdeDiagnosticMessages ideData =
-  fullFileDiagnostic 
-    ( "Daml IDE environment failed to start with the following error:\n"
-    <> fromMaybe "No information" (ideDataLastError ideData)
-    )
-    <$> ((unPackageHome (ideDataHome ideData) </> "daml.yaml") : fmap unDamlFile (Set.toList $ ideDataOpenFiles ideData))
-
-clearIdeDiagnosticMessages :: SubIdeData -> [LSP.FromServerMessage]
-clearIdeDiagnosticMessages ideData =
-  clearDiagnostics <$> ((unPackageHome (ideDataHome ideData) </> "daml.yaml") : fmap unDamlFile (Set.toList $ ideDataOpenFiles ideData))
-
 runSubProc :: MultiIdeState -> PackageHome -> IO (Process Handle Handle Handle)
 runSubProc miState home = do
   assistantPath <- getEnv "DAML_ASSISTANT"
@@ -301,56 +287,7 @@ handleExit miState ide =
       -- Able to be unsafe as no other messages can use this IDE once it has been shutdown
       unsafeSendSubIde ide exitMsg
 
--- Communication logic
-
--- Dangerous as does not hold the misSubIdesVar lock. If a shutdown is called whiled this is running, the message may not be sent.
-unsafeSendSubIde :: SubIdeInstance -> LSP.FromClientMessage -> IO ()
-unsafeSendSubIde ide = atomically . unsafeSendSubIdeSTM ide
-
-unsafeSendSubIdeSTM :: SubIdeInstance -> LSP.FromClientMessage -> STM ()
-unsafeSendSubIdeSTM ide = writeTChan (ideInHandleChannel ide) . Aeson.encode
-
-sendAllSubIdes :: MultiIdeState -> LSP.FromClientMessage -> IO [PackageHome]
-sendAllSubIdes miState msg = holdingIDEsAtomic miState $ \ides ->
-  let ideInstances = mapMaybe ideDataMain $ Map.elems ides
-   in forM ideInstances $ \ide -> ideHome ide <$ unsafeSendSubIdeSTM ide msg
-
-sendAllSubIdes_ :: MultiIdeState -> LSP.FromClientMessage -> IO ()
-sendAllSubIdes_ miState = void . sendAllSubIdes miState
-
-getDirectoryIfFile :: FilePath -> IO FilePath
-getDirectoryIfFile path = do
-  isFile <- doesFileExist path
-  pure $ if isFile then takeDirectory path else path
-
-getSourceFileHome :: MultiIdeState -> FilePath -> STM PackageHome
-getSourceFileHome miState path = do
-  -- If the path is a file, we only care about the directory, as all files in the same directory share the same home
-  dirPath <- unsafeIOToSTM $ getDirectoryIfFile path
-  sourceFileHomes <- takeTMVar (misSourceFileHomesVar miState)
-  case Map.lookup dirPath sourceFileHomes of
-    Just home -> do
-      putTMVar (misSourceFileHomesVar miState) sourceFileHomes
-      unsafeIOToSTM $ logDebug miState $ "Found cached home for " <> path
-      pure home
-    Nothing -> do
-      -- Safe as repeat prints are acceptable
-      unsafeIOToSTM $ logDebug miState $ "No cached home for " <> path
-      -- Read only operation, so safe within STM
-      home <- unsafeIOToSTM $ fromMaybe (misDefaultPackagePath miState) <$> findHome dirPath
-      unsafeIOToSTM $ logDebug miState $ "File system yielded " <> unPackageHome home
-      putTMVar (misSourceFileHomesVar miState) $ Map.insert dirPath home sourceFileHomes
-      pure home
-
-sourceFileHomeHandleDamlFileDeleted :: MultiIdeState -> FilePath -> STM ()
-sourceFileHomeHandleDamlFileDeleted miState path = do
-  dirPath <- unsafeIOToSTM $ getDirectoryIfFile path
-  modifyTMVar (misSourceFileHomesVar miState) $ Map.delete dirPath
-
--- When a daml.yaml changes, all files pointing to it are invalidated in the cache
-sourceFileHomeHandleDamlYamlChanged :: MultiIdeState -> PackageHome -> STM ()
-sourceFileHomeHandleDamlYamlChanged miState home = modifyTMVar (misSourceFileHomesVar miState) $ Map.filter (/=home)
-
+-- This function lives here instead of SubIdeCommunication because it can spin up new subIDEs
 sendSubIdeByPath :: MultiIdeState -> FilePath -> LSP.FromClientMessage -> IO ()
 sendSubIdeByPath miState path msg = do
   home <- atomically $ getSourceFileHome miState path

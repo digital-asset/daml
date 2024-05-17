@@ -16,13 +16,13 @@ import Control.Monad.STM
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
 import qualified Data.ByteString as B
-import DA.Cli.Damlc.Command.MultiIde.Client
+import DA.Cli.Damlc.Command.MultiIde.ClientCommunication
 import DA.Cli.Damlc.Command.MultiIde.Forwarding
 import DA.Cli.Damlc.Command.MultiIde.OpenFiles
 import DA.Cli.Damlc.Command.MultiIde.PackageData
 import DA.Cli.Damlc.Command.MultiIde.Parsing
 import DA.Cli.Damlc.Command.MultiIde.Prefixing
-import DA.Cli.Damlc.Command.MultiIde.SubIde
+import DA.Cli.Damlc.Command.MultiIde.SubIdeManagement
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Cli.Damlc.Command.MultiIde.Util
 import DA.Cli.Damlc.Command.MultiIde.DarDependencies (resolveSourceLocation, unpackDar, unpackedDarsLocation)

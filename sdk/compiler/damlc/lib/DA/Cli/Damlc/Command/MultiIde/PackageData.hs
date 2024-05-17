@@ -12,7 +12,7 @@ import Control.Monad.STM
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.State.Strict (StateT, runStateT, gets, modify')
 import qualified Data.ByteString.Lazy as BSL
-import DA.Cli.Damlc.Command.MultiIde.Client
+import DA.Cli.Damlc.Command.MultiIde.ClientCommunication
 import DA.Cli.Damlc.Command.MultiIde.Util
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Daml.LF.Reader (DalfManifest(..), readDalfManifest)

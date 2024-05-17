@@ -10,8 +10,8 @@ module DA.Cli.Damlc.Command.MultiIde.OpenFiles (
 
 import Control.Monad
 import Control.Monad.STM
-import DA.Cli.Damlc.Command.MultiIde.Client
-import DA.Cli.Damlc.Command.MultiIde.SubIde
+import DA.Cli.Damlc.Command.MultiIde.ClientCommunication
+import DA.Cli.Damlc.Command.MultiIde.SubIdeCommunication
 import DA.Cli.Damlc.Command.MultiIde.Util
 import DA.Cli.Damlc.Command.MultiIde.Types
 import Data.Foldable (traverse_)
