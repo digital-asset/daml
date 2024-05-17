@@ -56,7 +56,7 @@ class EncoderDecoderSpec extends AnyWordSpec with Matchers with EitherValues wit
   }
 
   private def testEC[T: Encoder: Decoder](expected: T): Assertion = {
-    val json = expected.asJson.spaces2
+    val json = Printer.spaces2.copy(dropNullValues = true).print(expected.asJson)
     println(json)
     val actual = decode[T](json).value
     actual shouldBe expected
