@@ -16,7 +16,6 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
-
 import org.junit.Test;
 
 public class JsonLfDecodersTest {
@@ -149,7 +148,10 @@ public class JsonLfDecodersTest {
         eq("\"1990-11-09T04:30:23.12Z\"", timestampUTC(1990, Month.NOVEMBER, 9, 4, 30, 23, 120000)),
         eq("\"1990-11-09T04:30:23.1Z\"", timestampUTC(1990, Month.NOVEMBER, 9, 4, 30, 23, 100000)),
         eq("\"1990-11-09T04:30:23Z\"", timestampUTC(1990, Month.NOVEMBER, 9, 4, 30, 23, 0)),
-        eq("\"0001-01-01T00:00:00Z\"", timestampUTC(1, Month.JANUARY, 1, 0, 0, 0, 0)));
+        eq("\"0001-01-01T00:00:00Z\"", timestampUTC(1, Month.JANUARY, 1, 0, 0, 0, 0)),
+        eq(
+            "\"1990-11-09T04:30:23.123-07:00\"",
+            timestampUTC(1990, Month.NOVEMBER, 9, 11, 30, 23, 123000)));
   }
 
   @Test
@@ -172,12 +174,6 @@ public class JsonLfDecodersTest {
         errors(
             "\"1990-11-09\"",
             "Expected valid ISO 8601 date and time in UTC but was 1990-11-09 at line: 1, column: 1",
-            DateTimeParseException.class),
-        // Time zone
-        errors(
-            "\"1990-11-09T04:30:23.123-07:00\"",
-            "Expected valid ISO 8601 date and time in UTC but was 1990-11-09T04:30:23.123-07:00 at"
-                + " line: 1, column: 1",
             DateTimeParseException.class),
         // No -
         errors(
