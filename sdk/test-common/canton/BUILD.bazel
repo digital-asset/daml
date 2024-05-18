@@ -24,9 +24,9 @@ if [ "{local}" = "true" ]; then
     exit 0
 fi
 
-CANTON_ENTERPRISE_VERSION=2.9.0-snapshot.20240514.12014.0.vb429d088
-CANTON_ENTERPRISE_SHA=2dcee02a1316f1bccc8f6217d120b31d6feb62657eb3c4445da641f31b06ed4d
-CANTON_ENTERPRISE_URL=https://digitalasset.jfrog.io/artifactory/assembly/daml/canton-backup/2.9.0-snapshot.20240514.12014.0.vb429d088/2dcee02a1316f1bccc8f6217d120b31d6feb62657eb3c4445da641f31b06ed4d/canton-enterprise-2.9.0-snapshot.20240514.12014.0.vb429d088.tar.gz
+CANTON_ENTERPRISE_VERSION=2.9.0-snapshot.20240517.12028.0.vd43c4279
+CANTON_ENTERPRISE_SHA=4631928e370dcb5ee1bb9a2b930b95c60b65177e39feaee95c5174f603717bc4
+CANTON_ENTERPRISE_URL=https://digitalasset.jfrog.io/artifactory/assembly/daml/canton-backup/2.9.0-snapshot.20240517.12028.0.vd43c4279/4631928e370dcb5ee1bb9a2b930b95c60b65177e39feaee95c5174f603717bc4/canton-enterprise-2.9.0-snapshot.20240517.12028.0.vd43c4279.tar.gz
 
 url=$$CANTON_ENTERPRISE_URL
 

@@ -7,6 +7,8 @@ import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.connection.GrpcApiInfoService
+import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.domain.admin.v0.{
   SequencerAdministrationServiceGrpc,
@@ -38,6 +40,7 @@ import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.health.admin.data.{SequencerHealthStatus, TopologyQueueStatus}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
 import com.digitalasset.canton.protocol.{DomainParametersLookup, StaticDomainParameters}
 import com.digitalasset.canton.resource.Storage
@@ -265,6 +268,13 @@ class SequencerRuntime(
         executionContext,
       )
     }, {
+      ApiInfoServiceGrpc.bindService(
+        new GrpcApiInfoService(
+          CantonGrpcUtil.ApiName.SequencerPublicApi
+        ),
+        executionContext,
+      )
+    }, {
       ServerInterceptors.intercept(
         v0.SequencerConnectServiceGrpc.bindService(
           new GrpcSequencerConnectService(
@@ -298,6 +308,13 @@ class SequencerRuntime(
       ServerInterceptors.intercept(
         v0.SequencerServiceGrpc.bindService(sequencerService, ec),
         interceptors,
+      )
+    }, {
+      ApiInfoServiceGrpc.bindService(
+        new GrpcApiInfoService(
+          CantonGrpcUtil.ApiName.SequencerPublicApi
+        ),
+        executionContext,
       )
     },
   )

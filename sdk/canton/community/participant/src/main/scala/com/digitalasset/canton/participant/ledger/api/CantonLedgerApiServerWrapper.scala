@@ -21,7 +21,6 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.admin.MutablePackageNameMapResolver
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.platform.apiserver.*
@@ -110,7 +109,6 @@ object CantonLedgerApiServerWrapper extends NoTracing {
       startLedgerApiServer: Boolean,
       futureSupervisor: FutureSupervisor,
       multiDomainEnabled: Boolean,
-      packageNameMapResolver: MutablePackageNameMapResolver,
   )(implicit
       ec: ExecutionContextIdlenessExecutorService,
       actorSystem: ActorSystem,
@@ -149,7 +147,6 @@ object CantonLedgerApiServerWrapper extends NoTracing {
             futureSupervisor = futureSupervisor,
             multiDomainEnabled = multiDomainEnabled,
             parameters = parameters,
-            packageNameMapResolver = packageNameMapResolver,
           )
         val startupMode: IndexerStartupMode =
           if (config.cantonParameterConfig.dbMigrateAndStart)

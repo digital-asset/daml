@@ -52,7 +52,7 @@ class WatchdogServiceTest extends AnyWordSpec with BaseTest {
             loggerFactory = loggerFactory,
             timeouts = timeouts,
           )
-          Threading.sleep(120)
+          Threading.sleep(1000)
           watchdogService.close()
         },
         (

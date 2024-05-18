@@ -16,7 +16,6 @@ import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.Recipients
 import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{RequestCounter, SequencerCounter, checked}
 
@@ -96,16 +95,13 @@ class BadRootHashMessagesRequestProcessor(
           )
         )
         signedRejection <- FutureUnlessShutdown.outcomeF(signResponse(snapshot, rejection))
-        _ <- sendResponses(
-          requestId,
-          requestCounter,
-          Seq(signedRejection -> Recipients.cc(mediator.toRecipient)),
-        ).mapK(FutureUnlessShutdown.outcomeK)
-          .valueOr(
-            // This is a best-effort response anyway, so we merely log the failure and continue
-            error =>
-              logger.warn(show"Failed to send best-effort rejection of malformed request: $error")
+        _ <- FutureUnlessShutdown.outcomeF(
+          sendResponses(
+            requestId,
+            requestCounter,
+            Seq(signedRejection -> Recipients.cc(mediator.toRecipient)),
           )
+        )
       } yield ()
     }
 }
