@@ -35,10 +35,13 @@ class ExecutionContextMonitorTest extends AnyWordSpec with BaseTest {
       )
     monitor.monitor(ec)
 
-    // As we are setting min num threads in fork join pool to 2, we also need to
-    // set this to 2 here as otherwise this test becomes flaky when running in the
+    // As we are setting min num threads in fork join pool, we also need to
+    // set this here as otherwise this test becomes flaky when running in the
     // sequential test
-    val numThreads = Math.max(2, Threading.detectNumberOfThreads(noTracingLogger))
+    val numThreads = Math.max(
+      Threading.minParallelismForForkJoinPool,
+      Threading.detectNumberOfThreads(noTracingLogger),
+    )
 
     loggerFactory.assertLoggedWarningsAndErrorsSeq(
       {
@@ -52,9 +55,10 @@ class ExecutionContextMonitorTest extends AnyWordSpec with BaseTest {
             }
           )
           Await.result(Future.sequence(futs), 120.seconds)
-          monitor.close()
-          scheduler.shutdown()
         }
+        monitor.close()
+        scheduler.shutdown()
+        ec.shutdown()
       },
       check,
     )

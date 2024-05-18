@@ -375,7 +375,6 @@ class CantonSyncService(
     // Share the sync service queue with the repair service, so that repair operations cannot run concurrently with
     // domain connections.
     connectQueue,
-    futureSupervisor,
     loggerFactory,
   )
 

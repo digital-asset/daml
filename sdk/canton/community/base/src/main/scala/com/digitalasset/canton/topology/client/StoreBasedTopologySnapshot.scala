@@ -566,15 +566,6 @@ class StoreBasedTopologySnapshot(
         pid -> pdp.toParticipantAttributes
       })
 
-  override def participants()(implicit
-      traceContext: TraceContext
-  ): Future[Seq[(ParticipantId, ParticipantPermission)]] =
-    Future.failed(
-      new UnsupportedOperationException(
-        s"Participants lookup not supported by StoreBasedDomainTopologyClient. This is a coding bug."
-      )
-    )
-
   /** abstract loading function used to obtain the full key collection for a key owner */
   override def allKeys(owner: Member)(implicit traceContext: TraceContext): Future[KeyCollection] =
     allKeys(Seq(owner)).map(_.getOrElse(owner, KeyCollection.empty))

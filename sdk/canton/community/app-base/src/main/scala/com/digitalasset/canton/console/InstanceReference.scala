@@ -849,7 +849,7 @@ abstract class SequencerReference(
         mediators.foreach { mediator =>
           val identityState = mediator.topology.transactions.identity_transactions()
 
-          topology.transactions.load(identityState, domainId.filterString)
+          topology.transactions.load(identityState, domainId.filterString, ForceFlag.AlienMember)
         }
 
         topology.mediators
@@ -900,7 +900,7 @@ abstract class SequencerReference(
         newMediators.foreach { med =>
           val identityState = med.topology.transactions.identity_transactions()
 
-          topology.transactions.load(identityState, domainId.filterString)
+          topology.transactions.load(identityState, domainId.filterString, ForceFlag.AlienMember)
         }
 
         topology.mediators

@@ -5,10 +5,12 @@ package com.digitalasset.canton.topology.transaction
 
 import cats.data.EitherT
 import cats.instances.future.*
+import cats.syntax.semigroup.*
 import com.digitalasset.canton.crypto.KeyPurpose
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.OnboardingRestriction
+import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.PositiveStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.{
@@ -18,12 +20,6 @@ import com.digitalasset.canton.topology.store.{
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
-import com.digitalasset.canton.topology.{
-  AuthenticatedMember,
-  ParticipantId,
-  UnauthenticatedMemberId,
-  UniqueIdentifier,
-}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 
@@ -93,6 +89,17 @@ class ValidatingTopologyMappingChecks(
 
         checkReplace.orElse(checkRemove)
 
+      case (Code.MediatorDomainState, None | Some(Code.MediatorDomainState)) =>
+        toValidate
+          .select[TopologyChangeOp.Replace, MediatorDomainState]
+          .map(
+            checkMediatorDomainStateReplace(
+              effective,
+              _,
+              inStore.flatMap(_.select[TopologyChangeOp.Replace, MediatorDomainState]),
+            )
+          )
+
       case otherwise => None
     }
     checkOpt.getOrElse(EitherTUtil.unit)
@@ -101,7 +108,8 @@ class ValidatingTopologyMappingChecks(
   private def loadFromStore(
       effective: EffectiveTime,
       code: Code,
-      filterUid: Option[Seq[UniqueIdentifier]],
+      filterUid: Option[Seq[UniqueIdentifier]] = None,
+      filterNamespace: Option[Seq[Namespace]] = None,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TopologyTransactionRejection, PositiveStoredTopologyTransactions] =
@@ -114,7 +122,7 @@ class ValidatingTopologyMappingChecks(
             isProposal = false,
             types = Seq(code),
             filterUid = filterUid,
-            filterNamespace = None,
+            filterNamespace = filterNamespace,
           )
       )
 
@@ -351,5 +359,63 @@ class ValidatingTopologyMappingChecks(
         ensureParticipantDoesNotHostParties(effective, participantId)
       case _: UnauthenticatedMemberId | _: AuthenticatedMember => EitherTUtil.unit
     }
+  }
+
+  private def checkMediatorDomainStateReplace(
+      effectiveTime: EffectiveTime,
+      toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, MediatorDomainState],
+      inStore: Option[SignedTopologyTransaction[TopologyChangeOp.Replace, MediatorDomainState]],
+  )(implicit traceContext: TraceContext): EitherT[Future, TopologyTransactionRejection, Unit] = {
+    def checkMissingMappings(): EitherT[Future, TopologyTransactionRejection, Unit] = {
+      val newMediators = (toValidate.mapping.allMediatorsInGroup.toSet -- inStore.toList.flatMap(
+        _.mapping.allMediatorsInGroup
+      )).map(identity[Member])
+
+      val otks = loadFromStore(
+        effectiveTime,
+        OwnerToKeyMapping.code,
+        filterUid = Some(newMediators.toSeq.map(_.uid)),
+      )
+
+      val nsds = loadFromStore(
+        effectiveTime,
+        NamespaceDelegation.code,
+        filterNamespace = Some(newMediators.toSeq.map(_.namespace)),
+      )
+
+      for {
+        otks <- otks
+        nsds <- nsds
+
+        mediatorsWithOTK = otks.result.flatMap(
+          _.selectMapping[OwnerToKeyMapping].map(_.mapping.member)
+        )
+        missingOTK = newMediators -- mediatorsWithOTK
+
+        rootCertificates = nsds.result
+          .flatMap(_.selectMapping[NamespaceDelegation].filter(_.mapping.isRootDelegation))
+          .map(_.mapping.namespace)
+          .toSet
+        missingNSD = newMediators.filter(med => !rootCertificates.contains(med.namespace))
+        otk = missingOTK.map(_ -> Seq(OwnerToKeyMapping.code)).toMap
+        nsd = missingNSD.map(_ -> Seq(NamespaceDelegation.code)).toMap
+        missingMappings = otk.combine(nsd)
+        _ <- EitherTUtil.condUnitET[Future][TopologyTransactionRejection](
+          missingOTK.isEmpty && missingNSD.isEmpty,
+          TopologyTransactionRejection.MissingMappings(
+            missingMappings.view.mapValues(_.sortBy(_.dbInt)).toMap
+          ),
+        )
+      } yield {}
+    }
+
+    val thresholdCheck = EitherTUtil.condUnitET(
+      toValidate.mapping.threshold.value <= toValidate.mapping.active.size,
+      TopologyTransactionRejection.ThresholdTooHigh(
+        toValidate.mapping.threshold.value,
+        toValidate.mapping.active.size,
+      ),
+    )
+    thresholdCheck.flatMap(_ => checkMissingMappings())
   }
 }

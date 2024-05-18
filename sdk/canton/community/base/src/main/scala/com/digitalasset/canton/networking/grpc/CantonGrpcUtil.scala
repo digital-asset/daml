@@ -281,11 +281,22 @@ object CantonGrpcUtil {
           logPolicy = CantonGrpcUtil.silentLogPolicy,
           retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
         )(_.getApiInfo(GetApiInfoRequest()))
-        .leftMap(_.toString)
-      _ <- {
-        val errorMessage = apiInfoErrorMessage(channel, apiInfo.name, expectedName, serverName)
-        EitherTUtil.condUnitET[Future](apiInfo.name == expectedName, errorMessage)
-      }
+        .map(_.name)
+        // TODO(i16458): Remove this special case once we have a stable release
+        .leftFlatMap {
+          case _: GrpcError.GrpcServiceUnavailable =>
+            logger.debug(
+              s"Endpoint '$channel' is not providing an API info service, " +
+                s"will skip the check for '$serverName/$expectedName' " +
+                "and assume it is running an older version of Canton."
+            )
+            EitherT.right[String](Future.successful(expectedName))
+          case error =>
+            EitherT.leftT[Future, String](error.toString)
+        }
+      errorMessage = apiInfoErrorMessage(channel, apiInfo, expectedName, serverName)
+      _ <-
+        EitherTUtil.condUnitET[Future](apiInfo == expectedName, errorMessage)
     } yield ()
   }
 

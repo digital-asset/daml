@@ -10,6 +10,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.OnboardingRestriction
+import com.digitalasset.canton.topology.transaction.TopologyMapping
 import com.digitalasset.canton.topology.{
   DomainId,
   Member,
@@ -170,5 +171,23 @@ object TopologyTransactionRejection {
         participantId,
         parties,
       )
+  }
+
+  final case class MissingMappings(missing: Map[Member, Seq[TopologyMapping.Code]])
+      extends TopologyTransactionRejection {
+    override def asString: String = {
+      val mappingString = missing.toSeq
+        .sortBy(_._1)
+        .map { case (member, mappings) =>
+          s"$member: ${mappings.mkString(", ")}"
+        }
+        .mkString("; ")
+      s"The following members are missing certain topology mappings: $mappingString"
+    }
+
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.MissingTopologyMapping.Reject(missing)
+
+    override def pretty: Pretty[MissingMappings.this.type] = prettyOfString(_ => asString)
   }
 }
