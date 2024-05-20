@@ -71,6 +71,8 @@ da_scala_test_suite(
         "//ledger-service/http-json:CIou.dar",
         "//ledger-service/http-json:RIou.dar",
         "//ledger-service/http-json:User.dar",
+        "//ledger-service/http-json:FooV1.dar",
+        "//ledger-service/http-json:FooV2.dar",
         "//test-common:dar-files",
         "//test-common/test-certificates",
     ],
