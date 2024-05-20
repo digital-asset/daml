@@ -251,6 +251,7 @@ class CommandService(
             .getOrElse(DeduplicationPeriod.Empty),
           submissionId = meta.flatMap(_.submissionId),
           meta.flatMap(_.disclosedContracts) getOrElse Seq.empty,
+          meta.flatMap(_.packageIdSelectionPreference) getOrElse Seq.empty,
         )
       }
   }

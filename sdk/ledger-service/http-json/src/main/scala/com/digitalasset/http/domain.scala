@@ -71,7 +71,7 @@ package domain {
 
   import com.daml.fetchcontracts.domain.`fc domain ErrorOps`
   import com.daml.ledger.api.v1.commands.Commands
-  import com.daml.lf.data.Ref.{HexString, PackageRef}
+  import com.daml.lf.data.Ref.{HexString, PackageId, PackageRef}
 
   sealed trait SubmissionIdTag
 
@@ -309,6 +309,7 @@ package domain {
       submissionId: Option[SubmissionId],
       deduplicationPeriod: Option[domain.DeduplicationPeriod],
       disclosedContracts: Option[List[DisclosedContract[TmplId]]],
+      packageIdSelectionPreference: Option[List[PackageId]],
   )
 
   object CommandMeta {

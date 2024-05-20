@@ -8,7 +8,6 @@ import com.daml.http.domain
 import com.daml.http.domain.{Base64, ContractTypeId, DisclosedContract}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.HexString
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.nonempty.NonEmpty
@@ -414,8 +413,11 @@ object JsonProtocol extends JsonProtocolLow {
     }
   }
 
-  implicit val hexStringFormat: JsonFormat[HexString] =
-    xemapStringJsonFormat(HexString.fromString)(identity)
+  implicit val hexStringFormat: JsonFormat[Ref.HexString] =
+    xemapStringJsonFormat(Ref.HexString.fromString)(identity)
+
+  implicit val PackageIdFormat: JsonFormat[Ref.PackageId] =
+    xemapStringJsonFormat(Ref.PackageId.fromString)(identity)
 
   implicit val DeduplicationPeriodFormat: JsonFormat[domain.DeduplicationPeriod] =
     deriveFormat[domain.DeduplicationPeriod]
@@ -423,7 +425,7 @@ object JsonProtocol extends JsonProtocolLow {
   implicit val SubmissionIdFormat: JsonFormat[domain.SubmissionId] = taggedJsonFormat
 
   implicit def CommandMetaFormat[TmplId: JsonFormat]: JsonFormat[domain.CommandMeta[TmplId]] =
-    jsonFormat6(domain.CommandMeta.apply[TmplId])
+    jsonFormat7(domain.CommandMeta.apply[TmplId])
 
   // exposed for testing
   private[json] implicit val CommandMetaNoDisclosedFormat
@@ -438,7 +440,7 @@ object JsonProtocol extends JsonProtocolLow {
       override def read(json: JsValue): Option[List[NeverDC]] = None
       override def readSome(value: JsValue): Some[List[NeverDC]] = Some(List.empty)
     }
-    jsonFormat6(domain.CommandMeta.apply)
+    jsonFormat7(domain.CommandMeta.apply)
   }
 
   implicit val CreateCommandFormat: RootJsonFormat[
