@@ -18,6 +18,8 @@ import scalaz.{@@, Equal, Order, Tag}
 import scalaz.syntax.equal.*
 import scalaz.syntax.std.string.*
 
+import java.time.Instant
+
 /** A compressed encoding of API values.
   *
   * The encoded values do not include type information.
@@ -135,7 +137,7 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
       }
       case Model.DamlLfPrimType.Unit => { case JsObject(_) => V.ValueUnit }
       case Model.DamlLfPrimType.Timestamp => { case JsString(v) =>
-        V.ValueTimestamp(assertDE(Time.Timestamp fromString v))
+        V.ValueTimestamp(assertDE(Time.Timestamp.fromInstant(Instant.parse(v)))) // FIXME: can throw DateTimeParseException
       }
       case Model.DamlLfPrimType.Date => { case JsString(v) =>
         try {

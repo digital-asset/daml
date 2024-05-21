@@ -1,7 +1,8 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.data
+package com.daml.lf
+package data
 
 import java.math.{RoundingMode, BigDecimal}
 import java.time.format.DateTimeFormatter
@@ -175,10 +176,13 @@ object Time {
     ): Either[String, Timestamp] =
       safely(assertFromInstant(i, rounding), s"cannot convert instant $i into Timestamp")
 
-    def assertFromString(str: String, rounding: RoundingMode = DefaultRounding): Timestamp =
+    private[lf] def assertFromString(
+        str: String,
+        rounding: RoundingMode = DefaultRounding,
+    ): Timestamp =
       assertFromLong(assertMicrosFromString(str, rounding))
 
-    final def fromString(
+    private[lf] final def fromString(
         s: String,
         rounding: RoundingMode = DefaultRounding,
     ): Either[String, Timestamp] =
