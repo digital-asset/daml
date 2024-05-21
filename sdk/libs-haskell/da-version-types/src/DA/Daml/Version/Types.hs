@@ -39,6 +39,9 @@ releaseVersionFromReleaseVersion :: ReleaseVersion -> V.Version
 releaseVersionFromReleaseVersion (SplitReleaseVersion releaseVersion _) = releaseVersion
 releaseVersionFromReleaseVersion (OldReleaseVersion bothVersion) = bothVersion
 
+unresolvedVersionFromReleaseVersion :: ReleaseVersion -> UnresolvedReleaseVersion
+unresolvedVersionFromReleaseVersion = UnresolvedReleaseVersion . releaseVersionFromReleaseVersion
+
 mkReleaseVersion :: UnresolvedReleaseVersion -> SdkVersion -> ReleaseVersion
 mkReleaseVersion release sdk =
     let unwrappedRelease = unwrapUnresolvedReleaseVersion release
@@ -70,14 +73,6 @@ instance Y.FromJSON SdkVersion where
             Left e -> fail ("Invalid SDK version: " <> e)
             Right v -> pure (SdkVersion v)
 
-versionToString :: ReleaseVersion -> String
-versionToString (OldReleaseVersion bothVersion) = V.toString bothVersion
-versionToString (SplitReleaseVersion releaseVersion _) = V.toString releaseVersion
-
-versionToText :: ReleaseVersion -> Text
-versionToText (OldReleaseVersion bothVersion) = V.toText bothVersion
-versionToText (SplitReleaseVersion releaseVersion _) = V.toText releaseVersion
-
 rawVersionToTextWithV :: V.Version -> Text
 rawVersionToTextWithV v = "v" <> V.toText v
 
@@ -92,18 +87,30 @@ unresolvedReleaseVersionToText = V.toText . unwrapUnresolvedReleaseVersion
 
 class IsVersion a where
     isHeadVersion :: a -> Bool
+    versionToString :: a -> String
+    versionToText :: a -> Text
 
 instance IsVersion ReleaseVersion where
     isHeadVersion v = isHeadVersion (releaseVersionFromReleaseVersion v)
+    versionToString (OldReleaseVersion bothVersion) = V.toString bothVersion
+    versionToString (SplitReleaseVersion releaseVersion _) = V.toString releaseVersion
+    versionToText (OldReleaseVersion bothVersion) = V.toText bothVersion
+    versionToText (SplitReleaseVersion releaseVersion _) = V.toText releaseVersion
 
 instance IsVersion UnresolvedReleaseVersion where
     isHeadVersion v = isHeadVersion (unwrapUnresolvedReleaseVersion v)
+    versionToString = V.toString . unwrapUnresolvedReleaseVersion
+    versionToText = V.toText . unwrapUnresolvedReleaseVersion
 
 instance IsVersion SdkVersion where
     isHeadVersion v = isHeadVersion (unwrapSdkVersion v)
+    versionToString = V.toString . unwrapSdkVersion
+    versionToText = V.toText . unwrapSdkVersion
 
 instance IsVersion V.Version where
     isHeadVersion v = V.initial == L.set V.release [] (L.set V.metadata [] v)
+    versionToText = V.toText
+    versionToString = V.toString
 
 headReleaseVersion :: ReleaseVersion
 headReleaseVersion = OldReleaseVersion V.initial
