@@ -7,6 +7,7 @@ module DA.Daml.Assistant.Version
     , getSdkVersionFromSdkPath
     , getReleaseVersionFromSdkPath
     , getSdkVersionFromProjectPath
+    , getUnresolvedReleaseVersionFromProjectPath
     , getAssistantSdkVersion
     , getDefaultSdkVersion
     , getAvailableReleaseVersions
@@ -111,22 +112,13 @@ getSdkVersionFromSdkPath sdkPath = do
     requiredE "Failed to parse SDK version from SDK config." $
         sdkVersionFromSdkConfig config
 
--- | Determine SDK version from project root. Fails with an
--- AssistantError exception if the version cannot be determined.
-getSdkVersionFromProjectPath :: UseCache -> ProjectPath -> IO ReleaseVersion
-getSdkVersionFromProjectPath useCache projectPath =
+getUnresolvedReleaseVersionFromProjectPath :: ProjectPath -> IO UnresolvedReleaseVersion
+getUnresolvedReleaseVersionFromProjectPath projectPath =
     requiredIO ("Failed to read SDK version from " <> pack projectConfigName) $ do
         configE <- tryConfig $ readProjectConfig projectPath
         case releaseVersionFromProjectConfig =<< configE of
             Right (Just v) -> do
-                resolvedVersionOrErr <- resolveReleaseVersion useCache v
-                case resolvedVersionOrErr of
-                    Left resolveErr ->
-                        throwIO $ assistantErrorDetails
-                            ("sdk-version field in " <> projectConfigName <> " is not a valid Daml version. Validating version from the internet failed.")
-                            [("path", unwrapProjectPath projectPath </> projectConfigName)
-                            ,("internal", displayException resolveErr)]
-                    Right version -> pure version
+                pure v
             Left (ConfigFileInvalid _ raw) ->
                 throwIO $ assistantErrorDetails
                     (projectConfigName <> " is an invalid YAML file")
@@ -145,6 +137,21 @@ getSdkVersionFromProjectPath useCache projectPath =
                     ("sdk-version field is invalid in " <> projectConfigName)
                     [("path", unwrapProjectPath projectPath </> projectConfigName)
                     ,("internal", raw)]
+
+-- | Determine SDK version from project root. Fails with an
+-- AssistantError exception if the version cannot be determined.
+getSdkVersionFromProjectPath :: UseCache -> ProjectPath -> IO ReleaseVersion
+getSdkVersionFromProjectPath useCache projectPath =
+    requiredIO ("Failed to read SDK version from " <> pack projectConfigName) $ do
+        v <- getUnresolvedReleaseVersionFromProjectPath projectPath
+        resolvedVersionOrErr <- resolveReleaseVersion useCache v
+        case resolvedVersionOrErr of
+            Left resolveErr ->
+                throwIO $ assistantErrorDetails
+                    ("sdk-version field in " <> projectConfigName <> " is not a valid Daml version. Validating version from the internet failed.")
+                    [("path", unwrapProjectPath projectPath </> projectConfigName)
+                    ,("internal", displayException resolveErr)]
+            Right version -> pure version
 
 -- | Get the list of installed SDK versions. Returned list is
 -- in no particular order. Fails with an AssistantError exception
@@ -387,11 +394,12 @@ instance Exception CouldNotResolveReleaseVersion where
         "Could not resolve release version " <> T.unpack (V.toText (unwrapUnresolvedReleaseVersion version)) <> " from the internet. Reason: " <> displayException githubReleaseError
 
 resolveReleaseVersion :: HasCallStack => UseCache -> UnresolvedReleaseVersion -> IO (Either CouldNotResolveReleaseVersion ReleaseVersion)
-resolveReleaseVersion useCache unresolvedVersion = do
+resolveReleaseVersion useCache unresolvedVersion =
     try (resolveReleaseVersionInternal useCache unresolvedVersion)
 
 resolveReleaseVersionUnsafe :: HasCallStack => UseCache -> UnresolvedReleaseVersion -> IO ReleaseVersion
-resolveReleaseVersionUnsafe useCache targetVersion = mapException handle $ resolveReleaseVersionInternal useCache targetVersion
+resolveReleaseVersionUnsafe useCache targetVersion =
+    mapException handle $ resolveReleaseVersionInternal useCache targetVersion
     where
     handle :: CouldNotResolveReleaseVersion -> AssistantError
     handle = wrapSomeExceptionWithMsg "Resolve SDK version from release version" . SomeException
@@ -448,14 +456,22 @@ resolveReleaseVersionFromDamlPath damlPath targetVersion = do
   let isMatchingVersion releaseVersion =
           unwrapUnresolvedReleaseVersion targetVersion == releaseVersionFromReleaseVersion releaseVersion
   resolvedVersions <- getInstalledSdkVersions damlPath
-  pure (find isMatchingVersion resolvedVersions)
+  let matching = find isMatchingVersion resolvedVersions
+  case matching of
+    Just _ -> putStrLn "Got a version via daml path"
+    Nothing -> pure ()
+  pure matching
 
 resolveSdkVersionFromDamlPath :: DamlPath -> SdkVersion -> IO (Maybe ReleaseVersion)
 resolveSdkVersionFromDamlPath damlPath targetSdkVersion = do
   let isMatchingVersion releaseVersion =
           targetSdkVersion == sdkVersionFromReleaseVersion releaseVersion
   resolvedVersions <- getInstalledSdkVersions damlPath
-  pure (find isMatchingVersion resolvedVersions)
+  let matching = find isMatchingVersion resolvedVersions
+  case matching of
+    Just _ -> putStrLn "Got a version via daml path"
+    Nothing -> pure ()
+  pure matching
 
 -- | Subset of the github release response that we care about
 data GithubReleaseResponseSubset = GithubReleaseResponseSubset
