@@ -5,6 +5,7 @@ package com.daml.lf
 package testing.snapshot
 
 import com.daml.lf.crypto.Hash.KeyPackageName
+import com.daml.lf.data.Ref.PackageName
 import com.daml.lf.data._
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.testing.snapshot.Adapter.TxBuilder
@@ -123,10 +124,12 @@ final class Adapter(
 }
 
 object Adapter {
-  private class TxBuilder(pkgLangVer: Ref.PackageId => LanguageVersion)
-      extends NodeIdTransactionBuilder
+  private class TxBuilder(
+      pkgLangVer: Ref.PackageId => LanguageVersion,
+      override val defaultPackageName: Option[PackageName] = None,
+  ) extends NodeIdTransactionBuilder
       with TestNodeBuilder {
-    override def packageVersion(packageId: Ref.PackageId): Option[TransactionVersion] = {
+    override def packageTxVersion(packageId: Ref.PackageId): Option[TransactionVersion] = {
       Some(TransactionVersion.assignNodeVersion(pkgLangVer(packageId)))
     }
   }

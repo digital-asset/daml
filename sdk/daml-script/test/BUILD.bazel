@@ -72,7 +72,7 @@ EOF
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],
     )
-    for target in [lf_version_configuration.get("latest")]
+    for target in [lf_version_configuration.get("default")]
 ]
 
 [
@@ -111,8 +111,8 @@ EOF
         visibility = ["//visibility:public"],
     )
     for tag in [
+        "default",
         "latest",
-        "preview",
         "dev",
     ]
     for lf_version in [lf_version_configuration.get(tag)]

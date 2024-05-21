@@ -154,7 +154,9 @@ class MetaDataTestHelper(majorLanguageVersion: LanguageMajorVersion) {
   val langVersion = majorLanguageVersion.maxStableVersion
 
   object langNodeBuilder extends TestNodeBuilder {
-    override def packageVersion(packageId: PackageId): Option[TransactionVersion] =
+    val defaultPackageName = Some(Ref.PackageName.assertFromString("-default-"))
+
+    override def packageTxVersion(packageId: PackageId): Option[TransactionVersion] =
       Some(TransactionVersion.assignNodeVersion(langVersion))
   }
 

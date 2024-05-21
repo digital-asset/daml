@@ -923,6 +923,10 @@ object ContractStateMachineSpec {
     )
   }
 
-  class TxBuilder extends NodeIdTransactionBuilder with TestNodeBuilder
+  class TxBuilder extends NodeIdTransactionBuilder with TestNodeBuilder {
+    final override val defaultPackageName: Option[Ref.PackageName] = Some(
+      Ref.PackageName.assertFromString("-default-")
+    )
+  }
 
 }
