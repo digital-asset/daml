@@ -1,8 +1,0 @@
-zap grpc.health.v1.**
-zap io.grpc.**
-zap io.netty.**
-zap io.reactivex.**
-zap org.reactivestreams.**
-zap com.sun.**
-zap javax.**
-zap sun.**

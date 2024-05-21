@@ -51,7 +51,7 @@
   type: jar-scala
 - target: //language-support/codegen-common:codegen-common
   type: jar-scala
-- target: //language-support/codegen-main:shaded_binary
+- target: //language-support/codegen-main:binary
   type: jar-jarjar
 - target: //canton:bindings-java
   type: jar-lib
@@ -59,7 +59,7 @@
   type: jar-lib
 - target: //language-support/java/codegen:lib
   type: jar-scala
-- target: //language-support/java/codegen:shaded_binary
+- target: //language-support/java/codegen:binary
   type: jar-jarjar
 - target: //language-support/java/json:json
   type: jar-scala

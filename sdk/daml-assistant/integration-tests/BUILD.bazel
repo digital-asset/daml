@@ -14,8 +14,8 @@ genrule(
         "//canton:bindings-java_pom.xml",
         "//language-support/java/bindings-rxjava:libbindings-rxjava.jar",
         "//language-support/java/bindings-rxjava:bindings-rxjava_pom.xml",
-        "//language-support/java/codegen:shaded_binary.jar",
-        "//language-support/java/codegen:shaded_binary_pom.xml",
+        "//language-support/java/codegen:binary.jar",
+        "//language-support/java/codegen:binary_pom.xml",
         "//libs-scala/rs-grpc-bridge:librs-grpc-bridge.jar",
         "//libs-scala/rs-grpc-bridge:rs-grpc-bridge_pom.xml",
         "//docs:quickstart-java.tar.gz",
@@ -52,8 +52,8 @@ genrule(
         $(location //language-support/java/bindings-rxjava:bindings-rxjava_pom.xml)
       install_mvn \\
         "com.daml" "codegen-java" \\
-        $(location //language-support/java/codegen:shaded_binary.jar) \\
-        $(location //language-support/java/codegen:shaded_binary_pom.xml)
+        $(location //language-support/java/codegen:binary.jar) \\
+        $(location //language-support/java/codegen:binary_pom.xml)
       install_mvn \\
         "com.daml" "rs-grpc-bridge" \\
         $(location //libs-scala/rs-grpc-bridge:librs-grpc-bridge.jar) \\
