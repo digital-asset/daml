@@ -1524,8 +1524,7 @@ abstract class ProtocolProcessor[
       _ <- EitherT.right(
         FutureUnlessShutdown.outcomeF(
           ephemeral.contractStore.storeCreatedContracts(
-            requestCounter,
-            contractsToBeStored,
+            contractsToBeStored.map((_, requestCounter))
           )
         )
       )

@@ -202,7 +202,6 @@ class ParticipantTopologyDispatcher(
               signingKeys = Seq(participantId.fingerprint),
               protocolVersion = state.protocolVersion,
               expectFullAuthorization = true,
-              force = false,
             )
             // TODO(#14048) improve error handling
             .leftMap(_.cause)

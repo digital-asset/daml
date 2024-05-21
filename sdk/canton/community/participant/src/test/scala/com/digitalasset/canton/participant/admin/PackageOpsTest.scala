@@ -9,7 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.{Fingerprint, Hash, HashAlgorithm, HashPurpose, Signature}
+import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.UnlessShutdown
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageMissingDependencies
@@ -34,6 +34,7 @@ import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{
   AuthorizedTopologyManager,
   DomainId,
+  ForceFlags,
   ParticipantId,
   UniqueIdentifier,
 }
@@ -231,7 +232,7 @@ class PackageOpsTest extends PackageOpsTestBase {
               any[Seq[Fingerprint]],
               any[ProtocolVersion],
               anyBoolean,
-              anyBoolean,
+              any[ForceFlags],
             )(anyTraceContext)
 
             succeed
@@ -281,7 +282,7 @@ class PackageOpsTest extends PackageOpsTestBase {
               any[Seq[Fingerprint]],
               any[ProtocolVersion],
               anyBoolean,
-              anyBoolean,
+              any[ForceFlags],
             )(anyTraceContext)
 
             succeed
@@ -329,7 +330,7 @@ class PackageOpsTest extends PackageOpsTestBase {
           eqTo(Seq(participantId.fingerprint)),
           eqTo(testedProtocolVersion),
           eqTo(true),
-          eqTo(false),
+          eqTo(ForceFlags.none),
         )(anyTraceContext)
       ).thenReturn(EitherT.rightT(signedTopologyTransaction(List(pkgId2))))
 

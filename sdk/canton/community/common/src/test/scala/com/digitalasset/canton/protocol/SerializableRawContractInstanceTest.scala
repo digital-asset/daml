@@ -55,9 +55,10 @@ class SerializableRawContractInstanceTest
       val nonSerializableContractInst = ExampleTransactionFactory.veryDeepContractInstance
 
       "fail if no serialization is given" in {
-        SerializableRawContractInstance.create(nonSerializableContractInst) should matchPattern {
-          case Left(_: ValueCoder.EncodeError) =>
-        }
+        SerializableRawContractInstance
+          .create(nonSerializableContractInst)
+          .left
+          .value shouldBe a[ValueCoder.EncodeError]
       }
 
       "not attempt serialization if the serialization is provided" in {

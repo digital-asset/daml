@@ -54,7 +54,7 @@ trait SingleDimensionEventLog[+Id <: EventLogId] extends SingleDimensionEventLog
 
   def id: Id
 
-  /** Publishes an event and the change in causality state associated with the event.
+  /** Publishes an event.
     * @return [[scala.Left$]] if an event with the same event ID has been published with a different (unpruned)
     *         [[com.digitalasset.canton.participant.LocalOffset]]. Returns the conflicting event.
     * @throws java.lang.IllegalArgumentException if a different event has already been published with the same
@@ -105,6 +105,30 @@ trait SingleDimensionEventLog[+Id <: EventLogId] extends SingleDimensionEventLog
         )
       )
     )
+
+  /** Publishes events and fails upon an event ID clash.
+    * @throws java.lang.IllegalArgumentException if a one of the event has already been published with the same
+    *                                            [[com.digitalasset.canton.participant.LocalOffset]] or
+    *                                            an event with the same [[com.digitalasset.canton.participant.sync.TimestampedEvent.EventId]]
+    *                                            has been published with a different (unpruned) [[com.digitalasset.canton.participant.LocalOffset]].
+    */
+  def insert(events: Seq[TimestampedEvent])(implicit
+      traceContext: TraceContext
+  ): Future[Unit] = {
+    insertsUnlessEventIdClash(events).map { results =>
+      val clashes = results.collect { case Left(eventWithSameId) =>
+        (eventWithSameId.eventId, eventWithSameId.localOffset)
+      }
+
+      if (clashes.nonEmpty) {
+        ErrorUtil.internalError(
+          new IllegalArgumentException(
+            show"Unable to insert events, as some of the events were already inserted: $clashes"
+          )
+        )
+      }
+    }
+  }
 
   def prune(beforeAndIncluding: LocalOffset)(implicit traceContext: TraceContext): Future[Unit]
 

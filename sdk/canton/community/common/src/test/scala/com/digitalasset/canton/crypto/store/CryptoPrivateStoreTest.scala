@@ -16,12 +16,13 @@ import com.digitalasset.canton.crypto.{
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.util.UUID
 import scala.concurrent.Future
 
 trait CryptoPrivateStoreTest extends BaseTest { this: AsyncWordSpec =>
 
   def uniqueKeyName(name: String): String =
-    name + getClass.getSimpleName
+    name + getClass.getSimpleName + "_" + UUID.randomUUID().toString
 
   lazy val crypto = SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
 

@@ -96,8 +96,6 @@ class TopologyStateProcessor(
       sequenced: SequencedTime,
       effective: EffectiveTime,
       transactionsToValidate: Seq[GenericSignedTopologyTransaction],
-      // TODO(#12390) propagate and abort unless we use force
-      abortIfCascading: Boolean,
       expectFullAuthorization: Boolean,
   )(implicit
       traceContext: TraceContext

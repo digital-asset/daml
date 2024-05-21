@@ -382,12 +382,6 @@ trait ParticipantTopologySnapshotClient {
 
   this: BaseTopologySnapshotClient =>
 
-  // used by domain to fetch all participants
-  @Deprecated(since = "3.0")
-  def participants()(implicit
-      traceContext: TraceContext
-  ): Future[Seq[(ParticipantId, ParticipantPermission)]]
-
   /** Checks whether the provided participant exists and is active */
   def isParticipantActive(participantId: ParticipantId)(implicit
       traceContext: TraceContext
