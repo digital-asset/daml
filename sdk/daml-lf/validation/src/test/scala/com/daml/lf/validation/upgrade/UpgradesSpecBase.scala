@@ -578,7 +578,9 @@ trait LongTests { this: UpgradesSpec =>
           "test-common/upgrades-FailsWhenDepsDowngradeVersions-v1.dar",
           "test-common/upgrades-FailsWhenDepsDowngradeVersions-v2.dar",
           assertPackageUpgradeCheck(
-            Some("Dependency upgrades-example-FailsWhenDepsDowngradeVersions-dep has version 1.0.0 on the upgrading package, which is older than version 2.0.0 on the upgraded package.")
+            Some(
+              "Dependency upgrades-example-FailsWhenDepsDowngradeVersions-dep has version 1.0.0 on the upgrading package, which is older than version 2.0.0 on the upgraded package."
+            )
           ),
         )
       } yield result
