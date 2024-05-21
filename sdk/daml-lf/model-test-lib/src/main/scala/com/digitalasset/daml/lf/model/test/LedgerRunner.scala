@@ -33,6 +33,7 @@ import com.digitalasset.canton.ledger.client.configuration.{
   LedgerClientConfiguration,
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.ByteString
 import org.apache.pekko.stream.Materializer
 
@@ -65,6 +66,7 @@ object LedgerRunner {
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       materializer: Materializer,
+      traceContext: TraceContext,
   ): LedgerRunner =
     new CantonLedgerRunner(languageVersion, universalDarPaths, host, apiPorts)
 
@@ -152,6 +154,7 @@ private class CantonLedgerRunner(
     ec: ExecutionContext,
     esf: ExecutionSequencerFactory,
     materializer: Materializer,
+    traceContext: TraceContext,
 ) extends AbstractLedgerRunner(languageVersion, universalDarPaths) {
 
   override def ledgerClients: Seq[ScriptLedgerClient] =
