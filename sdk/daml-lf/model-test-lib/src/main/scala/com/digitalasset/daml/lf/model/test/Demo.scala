@@ -9,6 +9,7 @@ import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.model.test.LedgerRunner.ApiPorts
+import com.digitalasset.canton.tracing.TraceContext
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 import org.scalacheck.{Gen, Prop}
@@ -71,6 +72,7 @@ object Demo {
     implicit val materializer: Materializer = Materializer(system)
     implicit val sequencer: ExecutionSequencerFactory =
       new PekkoExecutionSequencerPool("ModelBasedTestingRunnerPool")(system)
+    implicit val traceContext: TraceContext = TraceContext.empty
 
     val cantonLedgerRunner = LedgerRunner.forCantonLedger(
       languageVersion,
