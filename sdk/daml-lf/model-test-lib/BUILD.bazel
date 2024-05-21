@@ -111,6 +111,8 @@ da_scala_binary(
     deps = [
         ":model-test-lib",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_util-logging",
+        "//daml-lf/data",
         "//daml-lf/language",
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/rs-grpc-pekko",
