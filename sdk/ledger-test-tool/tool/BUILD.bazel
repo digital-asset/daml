@@ -191,8 +191,8 @@ conformance_test(
     extra_runner_args = ["7000"],
     lf_versions = [
         "default",
-# reenable once pv 6 is stable
-#        "latest",
+        # reenable once pv 6 is stable
+        #        "latest",
     ],
     ports = conformance_test_ports,
     runner = "@//bazel_tools/client_server/runner_with_health_check",
