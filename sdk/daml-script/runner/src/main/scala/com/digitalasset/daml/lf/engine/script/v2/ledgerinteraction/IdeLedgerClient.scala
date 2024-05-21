@@ -610,6 +610,7 @@ class IdeLedgerClient(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       disclosures: List[Disclosure],
+      optPackagePreference: Option[List[PackageId]],
       commands: List[ScriptLedgerClient.CommandWithMeta],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
@@ -622,6 +623,9 @@ class IdeLedgerClient(
     ScriptLedgerClient.SubmitFailure,
     (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
   ]] = Future {
+    optPackagePreference.foreach(_ =>
+      throw new IllegalArgumentException("IDE Ledger does not support Package Preference")
+    )
     synchronized {
       unsafeSubmit(actAs, readAs, disclosures, commands, optLocation) match {
         case Right(ScenarioRunner.Commit(result, _, tx)) =>

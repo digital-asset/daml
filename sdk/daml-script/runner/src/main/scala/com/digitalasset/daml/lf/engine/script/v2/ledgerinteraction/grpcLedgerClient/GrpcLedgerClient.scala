@@ -288,6 +288,7 @@ class GrpcLedgerClient(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       disclosures: List[Disclosure],
+      optPackagePreference: Option[List[PackageId]],
       commands: List[ScriptLedgerClient.CommandWithMeta],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
@@ -325,6 +326,7 @@ class GrpcLedgerClient(
           applicationId = applicationId.getOrElse(""),
           commandId = UUID.randomUUID.toString,
           disclosedContracts = ledgerDisclosures,
+          packageIdSelectionPreference = optPackagePreference.getOrElse(List.empty),
         )
         request = SubmitAndWaitRequest(Some(apiCommands))
         resp <- grpcClient.commandServiceClient
