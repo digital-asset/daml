@@ -423,7 +423,7 @@ class IdeLedgerClient(
       case PackageRef.Name(_) =>
         // TODO: https://github.com/digital-asset/daml/issues/17995
         //  add support for package name
-        throw new IllegalArgumentException("package name not support")
+        throw new IllegalArgumentException("package name not supported")
     }
 
   private def getReferencePackageId(ref: Reference): PackageId =
@@ -431,7 +431,7 @@ class IdeLedgerClient(
       // TODO: https://github.com/digital-asset/daml/issues/17995
       //  add support for package name
       case Reference.PackageWithName(_) =>
-        throw new IllegalArgumentException("package name not support")
+        throw new IllegalArgumentException("package name not supported")
       case Reference.Package(packageId) => packageId
       case Reference.Module(packageId, _) => packageId
       case Reference.Definition(name) => name.packageId
