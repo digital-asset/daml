@@ -28,12 +28,9 @@ load(
     "lf_version_default_or_latest",
     "lf_version_is_dev",
 )
-load(
-    "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
-    "jar_jar",
-)
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@os_info//:os_info.bzl", "is_windows")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 
 da_scala_binary(
     name = "codegen",
@@ -168,23 +165,24 @@ dar_to_java(
     package_prefix = "ut",
 )
 
-jar_jar(
-    name = "shaded_binary",
-    input_jar = "//language-support/java/codegen:codegen_distribute.jar",
-    rules = "shade_rule",
+copy_file(
+    name = "binary",
+    src = "//language-support/java/codegen:codegen_distribute.jar",
+    out = "binary.jar",
+    allow_symlink = True,
     tags = ["maven_coordinates=com.daml:codegen-java:__VERSION__"],
     visibility = ["//visibility:public"],
 )
 
 pom_file(
-    name = "shaded_binary_pom",
-    target = ":shaded_binary",
+    name = "binary_pom",
+    target = ":binary",
     visibility = ["//visibility:public"],
 )
 
 # Create empty Scaladoc JAR for uploading to Maven Central
 scaladoc_jar(
-    name = "shaded_binary_scaladoc",
+    name = "binary_scaladoc",
     srcs = [],
     tags = ["scaladoc"],
     deps = [],
@@ -192,7 +190,7 @@ scaladoc_jar(
 
 # Create empty Sources JAR for uploading to Maven Central
 scala_source_jar(
-    name = "shaded_binary_src",
+    name = "binary_src",
     srcs = [],
 )
 
