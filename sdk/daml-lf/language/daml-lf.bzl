@@ -75,7 +75,6 @@ lf_version_latest = {
 lf_version_configuration = {
     "default": "1.15",
     "latest": lf_version_latest.get("1"),
-    #    "preview": "1.16",
     "dev": "1.dev",
 }
 
