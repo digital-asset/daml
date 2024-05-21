@@ -153,7 +153,9 @@ trait TestNodeBuilder {
 
 object TestNodeBuilder extends TestNodeBuilder {
 
-  final override val defaultPackageName = None
+  final override val defaultPackageName = Some(
+    Ref.PackageName.assertFromString("-default-package-name-")
+  )
 
   sealed trait CreateKey
   object CreateKey {
