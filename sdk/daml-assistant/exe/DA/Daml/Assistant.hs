@@ -107,7 +107,7 @@ versionChecks Env{..} = do
     envFreshStableSdkVersionForCheck <- envFreshStableSdkVersionForCheck
     whenJust envFreshStableSdkVersionForCheck $ \latestVersion -> do
         let isHead = maybe False isHeadVersion envSdkVersion
-            projectSdkVersionIsOld = isJust envProjectPath && envSdkVersion < Just latestVersion
+            projectSdkVersionIsOld = isJust envProjectPath && envSdkVersion < Just (unresolvedVersionFromReleaseVersion latestVersion)
             assistantVersionIsOld = isJust envDamlAssistantSdkVersion &&
                 fmap unwrapDamlAssistantSdkVersion envDamlAssistantSdkVersion <
                 Just latestVersion
@@ -146,7 +146,9 @@ autoInstall env@Env{..} = do
     if doAutoInstall && isJust envSdkVersion && isNothing envSdkPath then do
         -- sdk is missing, so let's install it!
         let sdkVersion = fromJust envSdkVersion
-            options = InstallOptions
+            useCache = envUseCache env
+        releaseVersion <- resolveReleaseVersionUnsafe useCache sdkVersion
+        let options = InstallOptions
                 { iTargetM = Nothing
                 , iSnapshots = False
                 , iQuiet = QuietInstall False
@@ -162,8 +164,8 @@ autoInstall env@Env{..} = do
             installEnv = InstallEnv
                 { options = options
                 , damlPath = envDamlPath
-                , useCache = envUseCache env
-                , targetVersionM = sdkVersion
+                , useCache = useCache
+                , targetVersionM = releaseVersion
                 , missingAssistant = False
                 , installingFromOutside = False
                 , projectPathM = Nothing
@@ -177,7 +179,7 @@ autoInstall env@Env{..} = do
                     -- up by a pipe.
                 }
         versionInstall installEnv
-        pure env { envSdkPath = Just (defaultSdkPath envDamlPath sdkVersion) }
+        pure env { envSdkPath = Just (defaultSdkPathUnresolved envDamlPath sdkVersion) }
 
     else
         pure env
@@ -201,7 +203,7 @@ runCommand env@Env{..} = \case
         let useCache =
               UseCache
                 { cachePath = envCachePath
-                , damlPath = envDamlPath
+                , damlPathUnsafe = envDamlPath
                 , overrideTimeout = if vForceRefresh then Just (CacheTimeout 1) else Nothing
                 }
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
@@ -214,10 +216,11 @@ runCommand env@Env{..} = \case
         defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
         projectVersionM <- mapM (getSdkVersionFromProjectPath useCache) envProjectPath
         envSelectedVersionM <- lookupEnv sdkVersionEnvVar
+        envSdkVersionResolved <- resolveReleaseVersionUnsafe useCache `traverse` envSdkVersion
 
         let asstVersion = unwrapDamlAssistantSdkVersion <$> envDamlAssistantSdkVersion
             envVersions = catMaybes
-                [ envSdkVersion
+                [ envSdkVersionResolved
                 , guard vAssistant >> asstVersion
                 , projectVersionM
                 , defaultVersionM
@@ -280,8 +283,8 @@ runCommand env@Env{..} = \case
         install options envDamlPath (envUseCache env) envProjectPath envDamlAssistantSdkVersion
 
     Builtin (Uninstall unresolvedVersion) -> do
-        version <- resolveReleaseVersion (envUseCache env) unresolvedVersion
-        uninstallVersion env version
+        versionOrErr <- resolveReleaseVersion (envUseCache env) unresolvedVersion
+        uninstallVersion env versionOrErr
 
     Builtin (Exec cmd args) -> do
         wrapErr "Running executable in daml environment." $ do
@@ -295,8 +298,8 @@ runCommand env@Env{..} = \case
                 args = unwrapSdkCommandArgs sdkCommandArgs ++ unwrapUserCommandArgs cmdArgs
             dispatchWithEnvVarWarning env path args
 
-envVarAddedVersion :: ReleaseVersion
-envVarAddedVersion = either throw id $ unsafeParseOldReleaseVersion "2.9.0-snapshot.20240210.0"
+envVarAddedVersion :: UnresolvedReleaseVersion
+envVarAddedVersion = either throw id $ parseUnresolvedVersion "2.9.0-snapshot.20240210.0"
 
 dispatchWithEnvVarWarning :: SdkVersioned => Env -> FilePath -> [String] -> IO ()
 dispatchWithEnvVarWarning env@Env{..} path args = do

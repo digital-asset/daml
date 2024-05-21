@@ -23,7 +23,7 @@ data EnvF f = Env
     , envDamlAssistantSdkVersion :: Maybe DamlAssistantSdkVersion
     , envProjectPath   :: Maybe ProjectPath
     , envSdkPath       :: Maybe SdkPath
-    , envSdkVersion    :: Maybe ReleaseVersion
+    , envSdkVersion    :: Maybe UnresolvedReleaseVersion
     , envFreshStableSdkVersionForCheck :: f (Maybe ReleaseVersion)
     }
 
