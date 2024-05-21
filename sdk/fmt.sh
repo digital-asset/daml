@@ -49,11 +49,11 @@ check_diff() {
   # $1 merge_base
   # $2 regex
   # "${@:3}" command
-  changed_files=$(git diff --name-only --diff-filter=ACMRT "$1" | grep $2 | grep -E -v '^canton(-3x)?/' || [[ $? == 1 ]])
-  if [[ -n "$changed_files" ]]; then
-    run "${@:3}" ${changed_files[@]:-}
-  else
+  readarray -t changed_files < <(git diff --name-only --diff-filter=ACMRT "$1" | grep $2 | grep -E -v '^sdk/canton(-3x)?/' || [[ $? == 1 ]])
+  if [[ -z "${changed_files[@]}" ]]; then
     echo "No changed file to check matching '$2', skipping."
+  else
+    run "${@:3}" ${changed_files[@]##sdk/}
   fi
 }
 
