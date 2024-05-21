@@ -71,7 +71,12 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(packageName = basePkg.pkgName, packageVersion = basePkg.pkgVersion, template = iouId, arg = iouPayload),
+                ContractInstance(
+                  packageName = basePkg.pkgName,
+                  packageVersion = basePkg.pkgVersion,
+                  template = iouId,
+                  arg = iouPayload,
+                ),
               )
             ),
             getPkg = PartialFunction.empty,
