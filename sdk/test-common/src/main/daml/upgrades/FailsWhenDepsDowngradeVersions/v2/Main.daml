@@ -5,3 +5,5 @@ module Main where
 
 import Dep
 
+self : Text
+self = "v2 with " <> dep

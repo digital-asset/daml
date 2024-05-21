@@ -3,3 +3,5 @@
 
 module Dep where
 
+dep : Text
+dep = "dep-v2"
