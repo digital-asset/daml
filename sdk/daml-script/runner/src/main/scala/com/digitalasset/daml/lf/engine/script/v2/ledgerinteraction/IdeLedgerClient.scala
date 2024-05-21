@@ -42,6 +42,7 @@ class IdeLedgerClient(
     traceLog: TraceLog,
     warningLog: WarningLog,
     canceled: () => Boolean,
+    override val enableContractUpgrading: Boolean,
 ) extends ScriptLedgerClient {
   val submitErrors = new SubmitErrors(
     originalCompiledPackages.compilerConfig.allowedLanguageVersions.majorVersion

@@ -447,6 +447,7 @@ object Runner {
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
       profile: Profile = Speedy.Machine.newProfile,
       canceled: () => Option[RuntimeException] = () => None,
+      enableContractUpgrading: Boolean,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -464,6 +465,7 @@ object Runner {
       warningLog,
       profile,
       canceled,
+      enableContractUpgrading,
     )
     (resultF, oIdeLedgerContext.get)
   }
@@ -479,7 +481,7 @@ object Runner {
       warningLog: WarningLog,
       profile: Profile,
       canceled: () => Option[RuntimeException],
-      enableContractUpgrading: Boolean = false,
+      enableContractUpgrading: Boolean,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
