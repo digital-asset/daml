@@ -7,7 +7,6 @@ import cats.data.EitherT
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -116,39 +115,6 @@ object ParticipantTopologyManagerError extends ParticipantErrorGroup {
     final case class Reject(_cause: String)(implicit val loggingContext: ErrorLoggingContext)
         extends CantonError.Impl(
           cause = _cause
-        )
-        with ParticipantTopologyManagerError
-  }
-
-  @Explanation(
-    """This error indicates that a dangerous owner to key mapping authorization was rejected.
-      |This is the case if a command is run that could break a participant.
-      |If the command was run to assign a key for the given participant, then the command
-      |was rejected because the key is not in the participants private store.
-      |If the command is run on a participant to issue transactions for another participant,
-      |then such commands must be run with force, as they are very dangerous and could easily break
-      |the participant.
-      |As an example, if we assign an encryption key to a participant that the participant does not
-      |have, then the participant will be unable to process an incoming transaction. Therefore we must
-      |be very careful to not create such situations.
-      | """
-  )
-  @Resolution("Set force=true if you really know what you are doing.")
-  object DangerousKeyUseCommandRequiresForce
-      extends ErrorCode(
-        id = "DANGEROUS_KEY_USE_COMMAND_REQUIRES_FORCE",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-    final case class AlienParticipant(participant: ParticipantId)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = "Issuing owner to key mappings for alien participants requires force=yes"
-        )
-        with ParticipantTopologyManagerError
-    final case class NoSuchKey(fingerprint: Fingerprint)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = show"Can not assign unknown key $fingerprint to this participant"
         )
         with ParticipantTopologyManagerError
   }

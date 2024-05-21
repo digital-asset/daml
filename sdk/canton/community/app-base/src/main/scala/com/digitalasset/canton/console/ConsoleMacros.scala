@@ -708,7 +708,10 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       val ownerNSDs = owners.flatMap(_.topology.transactions.identity_transactions())
       val foundingTransactions = ownerNSDs :+ decentralizedNamespaceDefinition
 
-      owners.foreach(_.topology.transactions.load(foundingTransactions, store = store))
+      owners.foreach(
+        _.topology.transactions
+          .load(foundingTransactions, store = store, ForceFlag.AlienMember)
+      )
 
       (decentralizedNamespaceDefinition.mapping.namespace, foundingTransactions)
     }
@@ -828,7 +831,11 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       val seqMedIdentityTxs =
         (sequencers ++ mediators).flatMap(_.topology.transactions.identity_transactions())
       domainOwners.foreach(
-        _.topology.transactions.load(seqMedIdentityTxs, store = AuthorizedStore.filterName)
+        _.topology.transactions.load(
+          seqMedIdentityTxs,
+          store = AuthorizedStore.filterName,
+          ForceFlag.AlienMember,
+        )
       )
 
       val domainGenesisTxs = domainOwners.flatMap(

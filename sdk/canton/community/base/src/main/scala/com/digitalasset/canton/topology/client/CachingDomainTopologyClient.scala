@@ -229,10 +229,6 @@ private class ForwardingTopologySnapshotClient(
     extends TopologySnapshotLoader {
 
   override def referenceTime: CantonTimestamp = parent.timestamp
-  override def participants()(implicit
-      traceContext: TraceContext
-  ): Future[Seq[(ParticipantId, ParticipantPermission)]] =
-    parent.participants()
   override def allKeys(owner: Member)(implicit traceContext: TraceContext): Future[KeyCollection] =
     parent.allKeys(owner)
   override def allKeys(members: Seq[Member])(implicit
@@ -405,11 +401,6 @@ class CachingTopologySnapshot(
         cache = cachingConfigs.partyCache.buildScaffeine(),
         loader = traceContext => party => parent.authorityOf(party)(traceContext),
       )(logger)
-
-  override def participants()(implicit
-      traceContext: TraceContext
-  ): Future[Seq[(ParticipantId, ParticipantPermission)]] =
-    parent.participants()
 
   override def allKeys(owner: Member)(implicit traceContext: TraceContext): Future[KeyCollection] =
     keyCache.get(owner)

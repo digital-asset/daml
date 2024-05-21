@@ -27,7 +27,6 @@ trait CryptoPrivateStoreExtendedTest extends CryptoPrivateStoreTest { this: Asyn
     val crypto = SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
 
     val sigKey1Name: String = uniqueKeyName("sigKey1_")
-
     val encKey1Name: String = uniqueKeyName("encKey1_")
 
     val sigKey1: SigningPrivateKey = crypto.newSymbolicSigningKeyPair().privateKey

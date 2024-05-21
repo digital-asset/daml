@@ -234,7 +234,7 @@ private[inspection] object AcsInspection {
 
     for {
       batch <- state.contractStore
-        .lookupManyUncached(cids)
+        .lookupManyExistingUncached(cids)
         .leftMap(missingContract => Error.InconsistentSnapshot(domainId, missingContract))
 
       contractsWithTransferCounter = batch.zip(transferCounters)

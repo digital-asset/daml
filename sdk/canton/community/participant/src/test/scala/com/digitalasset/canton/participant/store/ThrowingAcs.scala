@@ -31,25 +31,23 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
   )
 
   override def markContractsCreatedOrAdded(
-      contracts: Seq[(LfContractId, TransferCounter)],
-      toc: TimeOfChange,
+      contracts: Seq[(LfContractId, TransferCounter, TimeOfChange)],
       isCreation: Boolean,
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] = {
     val operation = if (isCreation) "create contracts" else "add contracts"
-    CheckedT(Future.failed[M](mk(s"$operation for $contracts at $toc")))
+    CheckedT(Future.failed[M](mk(s"$operation for $contracts")))
   }
 
   override def purgeOrArchiveContracts(
-      contracts: Seq[LfContractId],
-      toc: TimeOfChange,
+      contracts: Seq[(LfContractId, TimeOfChange)],
       isArchival: Boolean,
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] = {
     val operation = if (isArchival) "archive contracts" else "purge contracts"
-    CheckedT(Future.failed[M](mk(s"$operation for $contracts at $toc")))
+    CheckedT(Future.failed[M](mk(s"$operation for $contracts")))
   }
 
   override def transferInContracts(

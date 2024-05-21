@@ -54,8 +54,8 @@ message AuthorizeRequest {
    */
   bool must_fully_authorize = 3;
 
-  /** Force change even if dangerous */
-  bool force_change = 4;
+  /** Force specific changes even if dangerous */
+  repeated ForceFlag force_changes = 4;
 
   /**
    * Fingerprint of the keys signing the authorization
@@ -89,8 +89,8 @@ message AddTransactionsRequest {
    */
   repeated com.digitalasset.canton.protocol.v30.SignedTopologyTransaction transactions = 1;
 
-  /** Force change even if dangerous */
-  bool force_change = 2;
+  /** Force specific changes even if dangerous */
+  repeated ForceFlag force_changes = 2;
 
   /**
    * The store that is used as the underlying source for executing this request.
@@ -110,8 +110,7 @@ message AddTransactionsResponse {}
  */
 message ImportTopologySnapshotRequest {
   bytes topology_snapshot = 1;
-  bool force_change = 2;
-  string store = 3;
+  string store = 2;
 }
 message ImportTopologySnapshotResponse {}
 
@@ -131,4 +130,12 @@ message SignTransactionsRequest {
 message SignTransactionsResponse {
   /** The transaction with the additional signatures from this node */
   repeated com.digitalasset.canton.protocol.v30.SignedTopologyTransaction transactions = 1;
+}
+
+enum ForceFlag {
+  FORCE_FLAG_UNSPECIFIED = 0;
+  /** Required when authorizing adding a topology transaction on behalf of another node. */
+  FORCE_FLAG_ALIEN_MEMBER = 1;
+  /** Required when increasing the ledger time record time tolerance */
+  FORCE_FLAG_LEDGER_TIME_RECORD_TIME_TOLERANCE_INCREASE = 2;
 }

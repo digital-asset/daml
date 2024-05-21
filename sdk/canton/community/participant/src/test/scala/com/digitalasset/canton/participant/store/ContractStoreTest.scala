@@ -143,7 +143,7 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
       val element = WithTransactionId(contract, transactionId1)
 
       for {
-        _ <- store.storeCreatedContracts(rc, Seq(element, element))
+        _ <- store.storeCreatedContracts(Seq((element, rc), (element, rc)))
         _ <- store.storeDivulgedContracts(rc, Seq(contract2, contract2))
       } yield succeed
     }

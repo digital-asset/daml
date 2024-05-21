@@ -362,7 +362,7 @@ class SyncDomain(
 
     def withMetadataSeq(cids: Seq[LfContractId]): Future[Seq[StoredContract]] =
       persistent.contractStore
-        .lookupManyUncached(cids)
+        .lookupManyExistingUncached(cids)
         .valueOr { missingContractId =>
           ErrorUtil.internalError(
             new IllegalStateException(

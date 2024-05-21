@@ -389,7 +389,6 @@ class TopologyTransactionProcessor(
             sequencingTimestamp,
             effectiveTimestamp,
             tx,
-            abortIfCascading = false,
             expectFullAuthorization = false,
           )
       ).merge
