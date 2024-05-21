@@ -459,13 +459,10 @@ object ApiServices {
         val apiPackageManagementService = ApiPackageManagementService.createApiService(
           indexService,
           transactionsService,
-          packageMetadataStore,
           writeService,
           managementServiceTimeout,
-          engine,
           telemetry = telemetry,
           loggerFactory = loggerFactory,
-          disableUpgradeValidation = disableUpgradeValidation,
         )
 
         val apiConfigManagementService = ApiConfigManagementService.createApiService(

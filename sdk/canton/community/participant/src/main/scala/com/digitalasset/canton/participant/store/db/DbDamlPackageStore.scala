@@ -8,7 +8,6 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.data.Ref.PackageId
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.DarName
 import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String256M}
@@ -28,6 +27,7 @@ import com.digitalasset.canton.resource.DbStorage.DbAction.WriteOnly
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.SimpleExecutionQueue
+import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPackageVersion}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -67,7 +67,7 @@ class DbDamlPackageStore(
       }
 
   private def insertOrUpdatePackages(
-      pkgs: List[DamlPackage],
+      pkgs: Seq[DamlPackage],
       darO: Option[DarDescriptor],
       sourceDescription: String256M,
   )(implicit traceContext: TraceContext): DbAction.All[Unit] = {
@@ -84,8 +84,8 @@ class DbDamlPackageStore(
             |  ) as excluded
             |  on (daml_packages.package_id = excluded.package_id)
             |  when not matched then
-            |    insert (package_id, data, source_description)
-            |    values (excluded.package_id, ?, excluded.source_description)
+            |    insert (package_id, data, source_description, package_name, package_version)
+            |    values (excluded.package_id, ?, excluded.source_description, ?, ?)
             |  when matched and ? then
             |    update set
             |      source_description = excluded.source_description""".stripMargin
@@ -100,16 +100,16 @@ class DbDamlPackageStore(
             |  ) excluded
             |  on (daml_packages.package_id = excluded.package_id)
             |  when not matched then
-            |    insert (package_id, data, source_description)
-            |    values (excluded.package_id, ?, excluded.source_description)
+            |    insert (package_id, data, source_description, package_name, package_version)
+            |    values (excluded.package_id, ?, excluded.source_description, ?, ?)
             |  when matched then
             |    update set
             |      source_description = excluded.source_description
             |      where ? = 1""".stripMargin // Strangely (or not), it looks like Oracle does not have a Boolean type...
         case _: DbStorage.Profile.Postgres =>
           """insert
-              |  into daml_packages (package_id, source_description, data)
-              |  values (?, ?, ?)
+              |  into daml_packages (package_id, source_description, data, package_name, package_version)
+              |  values (?, ?, ?, ?, ?)
               |  on conflict (package_id) do
               |    update set source_description = excluded.source_description
               |    where ?""".stripMargin
@@ -120,6 +120,8 @@ class DbDamlPackageStore(
         pp >> (if (sourceDescription.nonEmpty) sourceDescription
                else String256M.tryCreate("default"))
         pp >> pkg.data
+        pp >> pkg.packageNameO
+        pp >> pkg.packageVersionO
         pp >> sourceDescription.nonEmpty
       }
     }
@@ -158,7 +160,7 @@ class DbDamlPackageStore(
   }
 
   override def append(
-      pkgs: List[DamlLf.Archive],
+      pkgs: Seq[(DamlLf.Archive, Option[LfPackageName], Option[LfPackageVersion])],
       sourceDescription: String256M,
       dar: Option[PackageService.Dar],
   )(implicit
@@ -166,7 +168,9 @@ class DbDamlPackageStore(
   ): FutureUnlessShutdown[Unit] = processingTime.eventUS {
 
     val insertPkgs = insertOrUpdatePackages(
-      pkgs.map(pkg => DamlPackage(readPackageId(pkg), pkg.toByteArray)),
+      pkgs.map { case (pkgArchive, pkgName, pkgVersion) =>
+        DamlPackage(readPackageId(pkgArchive), pkgArchive.toByteArray, pkgName, pkgVersion)
+      },
       dar.map(_.descriptor),
       sourceDescription,
     )
@@ -207,7 +211,7 @@ class DbDamlPackageStore(
   ): Future[Option[PackageDescription]] = processingTime.event {
     storage
       .querySingle(
-        sql"select package_id, source_description from daml_packages where package_id = $packageId"
+        sql"select package_id, source_description, package_name, package_version from daml_packages where package_id = $packageId"
           .as[PackageDescription]
           .headOption,
         functionFullName,
@@ -220,7 +224,8 @@ class DbDamlPackageStore(
   )(implicit traceContext: TraceContext): Future[Seq[PackageDescription]] =
     processingTime.event {
       storage.query(
-        sql"select package_id, source_description from daml_packages #${limit.fold("")(storage.limit(_))}"
+        sql"select package_id, source_description, package_name, package_version from daml_packages #${limit
+            .fold("")(storage.limit(_))}"
           .as[PackageDescription],
         functionFullName,
       )
@@ -347,7 +352,12 @@ class DbDamlPackageStore(
 }
 
 object DbDamlPackageStore {
-  private final case class DamlPackage(packageId: LfPackageId, data: Array[Byte])
+  private final case class DamlPackage(
+      packageId: LfPackageId,
+      data: Array[Byte],
+      packageNameO: Option[LfPackageName],
+      packageVersionO: Option[LfPackageVersion],
+  )
 
   private final case class DarRecord(hash: Hash, data: Array[Byte], name: DarName)
 }

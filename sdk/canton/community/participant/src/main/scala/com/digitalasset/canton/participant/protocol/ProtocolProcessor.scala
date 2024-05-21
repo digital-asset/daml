@@ -1044,8 +1044,10 @@ abstract class ProtocolProcessor[
                   }
               s"approved=${approved}, rejected=${rejected}" }"
           )
-          sendResponses(requestId, rc, signedResponsesTo, Some(messageId))
-            .leftMap(err => steps.embedRequestError(SequencerRequestError(err)))
+          EitherT
+            .liftF[Future, steps.RequestError, Unit](
+              sendResponses(requestId, rc, signedResponsesTo, Some(messageId))
+            )
             .mapK(FutureUnlessShutdown.outcomeK)
         } else {
           logger.info(
@@ -1087,8 +1089,7 @@ abstract class ProtocolProcessor[
           signResponse(snapshot, response).map(_ -> recipients)
         })
 
-        _ <- sendResponses(requestId, rc, messages)
-          .leftMap(err => steps.embedRequestError(SequencerRequestError(err)))
+        _ <- EitherT.liftF(sendResponses(requestId, rc, messages))
 
         _ = handleRequestData.complete(None)
 

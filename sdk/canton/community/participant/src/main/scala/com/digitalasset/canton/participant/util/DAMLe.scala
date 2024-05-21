@@ -16,7 +16,11 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{LoggingContextUtil, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.store.ContractLookupAndVerification
-import com.digitalasset.canton.participant.util.DAMLe.{ContractWithMetadata, PackageResolver}
+import com.digitalasset.canton.participant.util.DAMLe.{
+  ContractWithMetadata,
+  HasReinterpret,
+  PackageResolver,
+}
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
@@ -89,6 +93,23 @@ object DAMLe {
   ): PackageId => TraceContext => Future[Option[Package]] =
     pkgId => traceContext => packageService.getPackage(pkgId)(traceContext)
 
+  trait HasReinterpret {
+    def reinterpret(
+        contracts: ContractLookupAndVerification,
+        submitters: Set[LfPartyId],
+        command: LfCommand,
+        ledgerTime: CantonTimestamp,
+        submissionTime: CantonTimestamp,
+        rootSeed: Option[LfHash],
+        packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
+        expectFailure: Boolean,
+    )(traceContext: TraceContext): EitherT[
+      Future,
+      Error,
+      (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
+    ]
+  }
+
 }
 
 /** Represents a Daml runtime instance for interpreting commands. Provides an abstraction for the Daml engine
@@ -106,7 +127,8 @@ class DAMLe(
     engineLoggingConfig: EngineLoggingConfig,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends NamedLogging {
+    extends NamedLogging
+    with HasReinterpret {
 
   logger.debug(engine.info.show)(TraceContext.empty)
 
@@ -117,15 +139,15 @@ class DAMLe(
       ledgerTime: CantonTimestamp,
       submissionTime: CantonTimestamp,
       rootSeed: Option[LfHash],
-      expectFailure: Boolean,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[
+      expectFailure: Boolean,
+  )(tc: TraceContext): EitherT[
     Future,
     Error,
-    (LfVersionedTransaction, TransactionMetadata, LfKeyResolver),
+    (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
   ] = {
+
+    implicit val traceContext: TraceContext = tc
 
     def peelAwayRootLevelRollbackNode(
         tx: LfVersionedTransaction
@@ -191,6 +213,7 @@ class DAMLe(
       txNoRootRollback,
       TransactionMetadata.fromLf(ledgerTime, metadata),
       metadata.globalKeyMapping,
+      metadata.usedPackages,
     )
   }
 
@@ -241,8 +264,8 @@ class DAMLe(
         CantonTimestamp.Epoch,
         Some(DAMLe.zeroSeed),
         expectFailure = false,
-      )
-      (transaction, _metadata, _resolver) = transactionWithMetadata
+      )(traceContext)
+      (transaction, _metadata, _resolver, _usedPackages) = transactionWithMetadata
       md = transaction.nodes(transaction.roots(0)) match {
         case nc @ LfNodeCreate(
               _cid,
