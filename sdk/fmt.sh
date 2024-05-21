@@ -51,7 +51,7 @@ check_diff() {
   # "${@:3}" command
   changed_files=$(git diff --name-only --diff-filter=ACMRT "$1" | grep $2 | grep -E -v '^canton(-3x)?/' || [[ $? == 1 ]])
   if [[ -n "$changed_files" ]]; then
-    run "${@:3}" ${changed_files[@]##sdk/}
+    run "${@:3}" ${changed_files[@]:-}
   else
     echo "No changed file to check matching '$2', skipping."
   fi
