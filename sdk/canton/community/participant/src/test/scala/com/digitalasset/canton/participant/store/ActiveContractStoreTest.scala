@@ -711,10 +711,10 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         val toc0 = TimeOfChange(rc, ts)
         for {
           add1 <- acs
-            .markContractAdded(coid00 -> initialTransferCounter, toc0)
+            .markContractAdded((coid00, initialTransferCounter, toc0))
             .value
           add2 <- acs
-            .markContractAdded(coid00 -> initialTransferCounter, toc0)
+            .markContractAdded((coid00, initialTransferCounter, toc0))
             .value
         } yield {
           assert(add1.successful, "create is successful")
@@ -728,7 +728,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         val toc1 = TimeOfChange(rc + 1, ts.plusSeconds(1))
         for {
           added <- acs
-            .markContractsAdded(Seq(coid00 -> initialTransferCounter), toc0)
+            .markContractsAdded(Seq((coid00, initialTransferCounter, toc0)))
             .value
           created <- acs
             .markContractCreated(coid01 -> initialTransferCounter, toc0)
@@ -742,9 +742,9 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
             )
             .value
 
-          addAdd <- acs.markContractAdded(coid00 -> initialTransferCounter, toc0).value
-          createAdd <- acs.markContractAdded(coid01 -> initialTransferCounter, toc1).value
-          tfInAdd <- acs.markContractAdded(coid02 -> initialTransferCounter, toc1).value
+          addAdd <- acs.markContractAdded((coid00, initialTransferCounter, toc0)).value
+          createAdd <- acs.markContractAdded((coid01, initialTransferCounter, toc1)).value
+          tfInAdd <- acs.markContractAdded((coid02, initialTransferCounter, toc1)).value
         } yield {
           assert(added.successful, "add is successful")
           assert(created.successful, "create is successful")
@@ -801,14 +801,14 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
             .value
 
           archive <- acs.archiveContracts(Seq(coid00), toc1).value
-          purge <- acs.purgeContracts(Seq(coid01, coid02), toc1).value
+          purge <- acs.purgeContracts(Seq((coid01, toc1), (coid02, toc1))).value
 
           addAfterArchive <- acs
-            .markContractAdded(coid00 -> initialTransferCounter, toc2)
+            .markContractAdded((coid00, initialTransferCounter, toc2))
             .value
 
           addAfterPurge <- acs
-            .markContractAdded(coid01 -> initialTransferCounter, toc2)
+            .markContractAdded((coid01, initialTransferCounter, toc2))
             .value
 
           createAfterPurge <- acs
@@ -850,8 +850,11 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
                 .value
               add <- acs
                 .markContractAdded(
-                  coid00 -> (initialTransferCounter + shift),
-                  TimeOfChange(rc + shift + 1, ts.plusSeconds(shift + 1)),
+                  (
+                    coid00,
+                    (initialTransferCounter + shift),
+                    TimeOfChange(rc + shift + 1, ts.plusSeconds(shift + 1)),
+                  )
                 )
                 .value
             } yield Seq(purge.successful, add.successful)

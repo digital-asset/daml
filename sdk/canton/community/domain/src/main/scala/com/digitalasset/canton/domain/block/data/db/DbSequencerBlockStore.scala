@@ -52,6 +52,7 @@ class DbSequencerBlockStore(
     override protected val storage: DbStorage,
     protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
+    enableAdditionalConsistencyChecks: Boolean,
     private val checkedInvariant: Option[Member],
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit override protected val executionContext: ExecutionContext)
@@ -149,8 +150,8 @@ class DbSequencerBlockStore(
       trafficState: Map[Member, TrafficState],
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val addMember = sequencerStore.addMemberDBIO(_, _)
-    val addEvents = sequencerStore.addEventsDBIO(trafficState)(_)
     val addAcks = sequencerStore.acknowledgeDBIO _
+    val addEvents = sequencerStore.addEventsDBIO(trafficState)(_)
     val (unauthenticated, disabledMembers) = membersDisabled.partitionMap {
       case unauthenticated: UnauthenticatedMemberId => Left(unauthenticated)
       case other => Right(other)
@@ -161,7 +162,6 @@ class DbSequencerBlockStore(
     val dbio = DBIO
       .seq(
         newMembers.toSeq.map(addMember.tupled) ++
-          events.map(addEvents) ++
           acknowledgments.toSeq.map(addAcks.tupled) ++
           unauthenticated.map(unregisterUnauthenticatedMember) ++
           Seq(sequencerStore.addInFlightAggregationUpdatesDBIO(inFlightAggregationUpdates)) ++
@@ -169,7 +169,14 @@ class DbSequencerBlockStore(
       )
       .transactionally
 
-    storage.queryAndUpdate(dbio, functionFullName)
+    for {
+      _ <- storage.queryAndUpdate(dbio, functionFullName)
+      _ <- storage.queryAndUpdate(
+        if (enableAdditionalConsistencyChecks) DBIO.seq(events.map(addEvents)*).transactionally
+        else sequencerStore.bulkInsertEventsDBIO(events, trafficState),
+        functionFullName,
+      )
+    } yield ()
   }
 
   override def finalizeBlockUpdate(block: BlockInfo)(implicit

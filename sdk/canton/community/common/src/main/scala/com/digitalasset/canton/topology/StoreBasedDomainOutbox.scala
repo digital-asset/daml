@@ -257,7 +257,7 @@ class StoreBasedDomainOutbox(
           (pending, applicable) = pendingAndApplicable
           _ = lastDispatched.set(applicable.lastOption)
           // Try to convert if necessary the topology transactions for the required protocol version of the domain
-          convertedTxs <- performUnlessClosingEitherU(functionFullName) {
+          convertedTxs <- performUnlessClosingEitherUSF(functionFullName) {
             convertTransactions(applicable)
           }
           // dispatch to domain

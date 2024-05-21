@@ -3,15 +3,8 @@
 
 package com.digitalasset.canton.participant.store
 
-import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, SymbolicPureCrypto}
-import com.digitalasset.canton.crypto.{
-  CryptoPrivateApi,
-  CryptoPureApi,
-  Fingerprint,
-  LtHash16,
-  Signature,
-  TestHash,
-}
+import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
+import com.digitalasset.canton.crypto.{LtHash16, Signature, SigningPublicKey, TestHash}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.pruning.{
@@ -27,45 +20,45 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.store.PrunableByTimeTest
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
-import com.digitalasset.canton.{BaseTest, LfPartyId, ProtocolVersionChecksAsyncWordSpec, config}
+import com.digitalasset.canton.{
+  BaseTest,
+  HasExecutionContext,
+  LfPartyId,
+  ProtocolVersionChecksAsyncWordSpec,
+}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.immutable.SortedSet
 import scala.concurrent.ExecutionContext
-import scala.concurrent.duration.*
 
-trait CommitmentStoreBaseTest extends AsyncWordSpec with BaseTest {
-  val domainId: DomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::domain"))
-  val cryptoApi: CryptoPureApi = new SymbolicPureCrypto
+trait CommitmentStoreBaseTest extends AsyncWordSpec with BaseTest with HasExecutionContext {
+  lazy val domainId: DomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::domain"))
 
-  val symbolicVault: CryptoPrivateApi =
-    SymbolicCrypto
-      .tryCreate(
-        Seq(Fingerprint.tryCreate("test")),
-        Seq(),
-        testedReleaseProtocolVersion,
-        timeouts,
-        loggerFactory,
-      )
-      .privateCrypto
+  lazy val crypto: SymbolicCrypto = SymbolicCrypto.create(
+    testedReleaseProtocolVersion,
+    timeouts,
+    loggerFactory,
+  )
 
-  val localId: ParticipantId = ParticipantId(
+  lazy val testKey: SigningPublicKey = crypto.generateSymbolicSigningKey()
+
+  lazy val localId: ParticipantId = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("localParticipant::domain")
   )
-  val remoteId: ParticipantId = ParticipantId(
+  lazy val remoteId: ParticipantId = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant::domain")
   )
-  val remoteId2: ParticipantId = ParticipantId(
+  lazy val remoteId2: ParticipantId = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant2::domain")
   )
-  val remoteId3: ParticipantId = ParticipantId(
+  lazy val remoteId3: ParticipantId = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant3::domain")
   )
-  val remoteId4: ParticipantId = ParticipantId(
+  lazy val remoteId4: ParticipantId = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant4::domain")
   )
-  val interval: PositiveSeconds = PositiveSeconds.tryOfSeconds(1)
+  lazy val interval: PositiveSeconds = PositiveSeconds.tryOfSeconds(1)
 
   def ts(time: Int): CantonTimestamp = CantonTimestamp.ofEpochSecond(time.toLong)
   def meta(stakeholders: LfPartyId*): ContractMetadata =
@@ -77,48 +70,42 @@ trait CommitmentStoreBaseTest extends AsyncWordSpec with BaseTest {
   def period(fromExclusive: Int, toInclusive: Int): CommitmentPeriod =
     CommitmentPeriod.create(ts(fromExclusive), ts(toInclusive), interval).value
 
-  val dummyCommitment: AcsCommitment.CommitmentType = {
+  lazy val dummyCommitment: AcsCommitment.CommitmentType = {
     val h = LtHash16()
     h.add("blah".getBytes())
     h.getByteString()
   }
-  val dummyCommitment2: AcsCommitment.CommitmentType = {
+  lazy val dummyCommitment2: AcsCommitment.CommitmentType = {
     val h = LtHash16()
     h.add("yah mon".getBytes())
     h.getByteString()
   }
 
-  val dummyCommitment3: AcsCommitment.CommitmentType = {
+  lazy val dummyCommitment3: AcsCommitment.CommitmentType = {
     val h = LtHash16()
     h.add("it's 42".getBytes())
     h.getByteString()
   }
 
-  val dummyCommitment4: AcsCommitment.CommitmentType = {
+  lazy val dummyCommitment4: AcsCommitment.CommitmentType = {
     val h = LtHash16()
     h.add("impossibility results".getBytes())
     h.getByteString()
   }
 
-  val dummyCommitment5: AcsCommitment.CommitmentType = {
+  lazy val dummyCommitment5: AcsCommitment.CommitmentType = {
     val h = LtHash16()
     h.add("mayday".getBytes())
     h.getByteString()
   }
 
-  lazy val dummySignature: Signature = config
-    .NonNegativeFiniteDuration(10.seconds)
-    .await("dummy signature")(
-      symbolicVault
-        .sign(
-          cryptoApi.digest(TestHash.testHashPurpose, dummyCommitment),
-          Fingerprint.tryCreate("test"),
-        )
-        .value
+  lazy val dummySignature: Signature =
+    crypto.sign(
+      crypto.pureCrypto.digest(TestHash.testHashPurpose, dummyCommitment),
+      testKey.id,
     )
-    .valueOrFail("failed to create dummy signature")
 
-  val dummyCommitmentMsg: AcsCommitment =
+  lazy val dummyCommitmentMsg: AcsCommitment =
     AcsCommitment.create(
       domainId,
       remoteId,
@@ -127,12 +114,12 @@ trait CommitmentStoreBaseTest extends AsyncWordSpec with BaseTest {
       dummyCommitment,
       testedProtocolVersion,
     )
-  val dummySigned: SignedProtocolMessage[AcsCommitment] =
+  lazy val dummySigned: SignedProtocolMessage[AcsCommitment] =
     SignedProtocolMessage.from(dummyCommitmentMsg, testedProtocolVersion, dummySignature)
 
-  val alice: LfPartyId = LfPartyId.assertFromString("Alice")
-  val bob: LfPartyId = LfPartyId.assertFromString("bob")
-  val charlie: LfPartyId = LfPartyId.assertFromString("charlie")
+  lazy val alice: LfPartyId = LfPartyId.assertFromString("Alice")
+  lazy val bob: LfPartyId = LfPartyId.assertFromString("bob")
+  lazy val charlie: LfPartyId = LfPartyId.assertFromString("charlie")
 }
 
 trait AcsCommitmentStoreTest

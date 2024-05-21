@@ -28,7 +28,7 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLogging,
 }
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.services.{ErrorCause, RejectionGenerators}
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.RawCreatedEvent
@@ -97,7 +97,7 @@ trait LfValueSerialization {
 }
 
 final class LfValueTranslation(
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     // Note: LfValueTranslation is used by JdbcLedgerDao for both serialization and deserialization.
     // Sometimes the JdbcLedgerDao is used in a way that it never needs to deserialize data in verbose mode
     // (e.g., the indexer, or some tests). In this case, the engine is not required.

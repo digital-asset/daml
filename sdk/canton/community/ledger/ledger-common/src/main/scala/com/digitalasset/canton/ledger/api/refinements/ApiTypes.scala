@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.refinements
 
-import com.daml.ledger.api.v2.value.{Identifier, Record, Value}
+import com.daml.ledger.api.v2.value.Identifier
 import scalaz.{@@, Tag}
 
 object ApiTypes {
@@ -43,14 +43,6 @@ object ApiTypes {
   sealed trait ChoiceTag
   type Choice = String @@ ChoiceTag
   val Choice = Tag.of[ChoiceTag]
-
-  sealed trait CreateArgumentsTag
-  type CreateArguments = Record @@ CreateArgumentsTag
-  val CreateArguments = Tag.of[CreateArgumentsTag]
-
-  sealed trait ChoiceArgumentTag
-  type ChoiceArgument = Value @@ ChoiceArgumentTag
-  val ChoiceArgument = Tag.of[ChoiceArgumentTag]
 
   sealed trait PartyTag
   type Party = String @@ PartyTag

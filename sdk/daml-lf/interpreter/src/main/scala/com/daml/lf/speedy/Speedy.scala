@@ -347,23 +347,21 @@ private[lf] object Speedy {
 
     private[speedy] def lookupContract(coid: V.ContractId)(
         f: V.ContractInstance => Control[Question.Update]
-    ): Control[Question.Update] = {
-
-      disclosedContracts.get(coid) match {
-        case Some(contractInfo) =>
-          markDisclosedcontractAsUsed(coid)
-          f(
-            V.ContractInstance(
-              contractInfo.packageName,
-              contractInfo.templateId,
-              contractInfo.value.toUnnormalizedValue,
-            )
-          )
-
+    ): Control[Question.Update] =
+      contractsCache.get(coid) match {
+        case Some(res) =>
+          f(res)
         case None =>
-          contractsCache.get(coid) match {
-            case Some(res) =>
-              f(res)
+          disclosedContracts.get(coid) match {
+            case Some(contractInfo) =>
+              markDisclosedcontractAsUsed(coid)
+              f(
+                V.ContractInstance(
+                  contractInfo.packageName,
+                  contractInfo.templateId,
+                  contractInfo.value.toUnnormalizedValue,
+                )
+              )
             case None =>
               needContract(
                 NameOf.qualifiedNameOfCurrentFunc,
@@ -375,7 +373,6 @@ private[lf] object Speedy {
               )
           }
       }
-    }
 
     private[speedy] override def asUpdateMachine(location: String)(
         f: UpdateMachine => Control[Question.Update]
@@ -494,15 +491,16 @@ private[lf] object Speedy {
       */
     // TODO: https://github.com/digital-asset/daml/issues/17082
     // - Must be template-id aware when we support ResultNeedUpgradeVerification
-    private[speedy] var contractInfoCache: Map[V.ContractId, ContractInfo] = Map.empty
-    private[speedy] def lookupContractInfoCache(coid: V.ContractId): Option[ContractInfo] = {
-      contractInfoCache.get(coid)
-    }
+    private[speedy] var contractInfoCache_ : Map[(V.ContractId, PackageId), ContractInfo] =
+      Map.empty
+    private[speedy] def contractInfoCache: Map[(V.ContractId, PackageId), ContractInfo] =
+      contractInfoCache_
     private[speedy] def insertContractInfoCache(
         coid: V.ContractId,
         contract: ContractInfo,
     ): Unit = {
-      contractInfoCache = contractInfoCache + (coid -> contract)
+      val pkgId = contract.templateId.packageId
+      contractInfoCache_ = contractInfoCache_.updated((coid, pkgId), contract)
     }
 
     private[speedy] def isLocalContract(contractId: V.ContractId): Boolean = {

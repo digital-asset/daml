@@ -5,11 +5,11 @@ package com.digitalasset.canton.platform.store.cache
 
 import com.daml.lf.transaction.GlobalKey
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.participant.state.index.v2
-import com.digitalasset.canton.ledger.participant.state.index.v2.ContractStore
+import com.digitalasset.canton.ledger.participant.state.index
+import com.digitalasset.canton.ledger.participant.state.index.ContractStore
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.ContractKeyStateValue.*
 import com.digitalasset.canton.platform.store.cache.ContractStateValue.*
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
@@ -24,7 +24,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
 
 private[platform] class MutableCacheBackedContractStore(
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     contractsReader: LedgerDaoContractsReader,
     val loggerFactory: NamedLoggerFactory,
     private[cache] val contractStateCaches: ContractStateCaches,
@@ -40,11 +40,11 @@ private[platform] class MutableCacheBackedContractStore(
 
   override def lookupContractState(
       contractId: ContractId
-  )(implicit loggingContext: LoggingContextWithTrace): Future[v2.ContractState] =
+  )(implicit loggingContext: LoggingContextWithTrace): Future[index.ContractState] =
     lookupContractStateValue(contractId)
       .map {
         case active: Active =>
-          v2.ContractState.Active(
+          index.ContractState.Active(
             contractInstance = active.contract,
             ledgerEffectiveTime = active.createLedgerEffectiveTime,
             stakeholders = active.stakeholders,
@@ -53,8 +53,8 @@ private[platform] class MutableCacheBackedContractStore(
             maintainers = active.keyMaintainers,
             driverMetadata = active.driverMetadata,
           )
-        case _: Archived => v2.ContractState.Archived
-        case NotFound => v2.ContractState.NotFound
+        case _: Archived => index.ContractState.Archived
+        case NotFound => index.ContractState.NotFound
       }
 
   private def lookupContractStateValue(

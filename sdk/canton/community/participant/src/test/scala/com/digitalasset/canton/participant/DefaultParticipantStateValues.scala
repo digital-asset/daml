@@ -7,7 +7,7 @@ import cats.syntax.option.*
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.DefaultDamlValues.*
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
-import com.digitalasset.canton.ledger.participant.state.v2.*
+import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.{ApplicationId, CommandId, DefaultDamlValues, LfPartyId, WorkflowId}
 

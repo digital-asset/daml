@@ -9,7 +9,7 @@ import com.digitalasset.canton.caching.CaffeineCache
 import com.digitalasset.canton.caching.CaffeineCache.FutureAsyncCacheLoader
 import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader.CacheKey
 import com.digitalasset.canton.ledger.api.domain.JwksUrl
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.github.benmanes.caffeine.cache as caffeine
 import scalaz.\/
 
@@ -43,7 +43,7 @@ class CachedJwtVerifierLoader(
     readTimeout: Long = 10,
     readTimeoutUnit: TimeUnit = TimeUnit.SECONDS,
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
 )(implicit
     executionContext: ExecutionContext
 ) extends JwtVerifierLoader {

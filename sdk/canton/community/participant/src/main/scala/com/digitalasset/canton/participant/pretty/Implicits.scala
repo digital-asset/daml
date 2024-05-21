@@ -3,11 +3,12 @@
 
 package com.digitalasset.canton.participant.pretty
 
+import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary
 import com.daml.ledger.javaapi.data.codegen.ContractId
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.participant.state.v2.ChangeId
+import com.digitalasset.canton.ledger.participant.state.ChangeId
 import com.digitalasset.canton.logging.pretty.Pretty
 import pprint.Tree
 
@@ -51,4 +52,11 @@ object Implicits {
       coidStr
     }
   }
+
+  implicit def prettyCompletion: Pretty[Completion] =
+    prettyOfClass(
+      unnamedParamIfDefined(_.status),
+      param("commandId", _.commandId.singleQuoted),
+      param("updateId", _.updateId.singleQuoted, _.updateId.nonEmpty),
+    )
 }

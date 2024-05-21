@@ -4,12 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{
-  BatchingConfig,
-  CachingConfigs,
-  ProcessingTimeout,
-  TopologyConfig,
-}
+import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.config.ParticipantStoreConfig
@@ -64,7 +59,6 @@ object SyncDomainPersistentState {
       clock: Clock,
       crypto: Crypto,
       parameters: ParticipantStoreConfig,
-      topologyConfig: TopologyConfig,
       caching: CachingConfigs,
       batching: BatchingConfig,
       processingTimeouts: ProcessingTimeout,
@@ -83,7 +77,6 @@ object SyncDomainPersistentState {
           domainId,
           protocolVersion,
           enableAdditionalConsistencyChecks,
-          topologyConfig.enableTopologyTransactionValidation,
           indexedStringStore,
           domainLoggerFactory,
           processingTimeouts,
@@ -102,7 +95,6 @@ object SyncDomainPersistentState {
           batching,
           processingTimeouts,
           enableAdditionalConsistencyChecks,
-          topologyConfig.enableTopologyTransactionValidation,
           indexedStringStore,
           domainLoggerFactory,
           futureSupervisor,

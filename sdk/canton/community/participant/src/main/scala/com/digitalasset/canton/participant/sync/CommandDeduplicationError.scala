@@ -10,7 +10,7 @@ import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.Tra
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors.DuplicateCommand
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidDeduplicationPeriodField
-import com.digitalasset.canton.ledger.participant.state.v2.ChangeId
+import com.digitalasset.canton.ledger.participant.state.ChangeId
 
 object CommandDeduplicationError extends InjectionErrorGroup {
 

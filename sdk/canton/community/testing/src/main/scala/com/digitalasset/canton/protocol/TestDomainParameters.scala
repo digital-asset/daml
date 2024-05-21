@@ -5,41 +5,11 @@ package com.digitalasset.canton.protocol
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
-import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
-import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
-import com.digitalasset.canton.topology.{
-  DomainId,
-  SequencerId,
-  TestingIdentityFactory,
-  TestingTopology,
-}
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 
 /** Domain parameters used for unit testing with sane default values. */
 object TestDomainParameters {
-  def identityFactory(
-      loggerFactory: NamedLoggerFactory,
-      clock: Clock,
-      transformDefaults: DynamicDomainParameters => DynamicDomainParameters =
-        identity[DynamicDomainParameters],
-  ) = TestingIdentityFactory(
-    TestingTopology(),
-    loggerFactory,
-    transformDefaults(DynamicDomainParameters.initialValues(clock, BaseTest.testedProtocolVersion)),
-  )
-
-  def domainSyncCryptoApi(
-      domainId: DomainId,
-      loggerFactory: NamedLoggerFactory,
-      clock: Clock,
-      transformDefaults: DynamicDomainParameters => DynamicDomainParameters =
-        identity[DynamicDomainParameters],
-  ): DomainSyncCryptoClient =
-    identityFactory(loggerFactory, clock, transformDefaults).forOwnerAndDomain(
-      SequencerId(domainId.uid),
-      domainId,
-    )
 
   val defaultDynamic: DynamicDomainParameters =
     DynamicDomainParameters.initialValues(

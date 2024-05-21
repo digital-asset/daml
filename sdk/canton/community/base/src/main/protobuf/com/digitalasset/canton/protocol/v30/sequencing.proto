@@ -72,6 +72,13 @@ message Handshake {
 
 // Messages used for synchronization between sequencer nodes
 
+// Submission cost computed by the sender for a SubmissionRequest
+message SequencingSubmissionCost {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  // Computed cost
+  int64 cost = 1;
+}
+
 message StaticDomainParameters {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
@@ -167,11 +174,6 @@ message SubmissionRequest {
   // because otherwise it will be unable to correlate receipts with requests.
   string message_id = 2;
 
-  // CURRENT STATE: Indicates whether the batch contains a confirmation request
-  // Used for rate limiting
-  // TARGET STATE: Remove this field
-  bool is_request = 3;
-
   // The payload, mandatory
   // At most one recipient of an envelope may be (a) a mediator, (b) a mediator group, or (c) all domain members.
   CompressedBatch batch = 4;
@@ -192,4 +194,7 @@ message SubmissionRequest {
 
   // Optional rule used to aggregate requests.
   v30.AggregationRule aggregation_rule = 7;
+
+  // Optional submission cost computed by the sender. Must be provided if traffic control is enabled on the receiving domain.
+  v30.SequencingSubmissionCost submission_cost = 8;
 }

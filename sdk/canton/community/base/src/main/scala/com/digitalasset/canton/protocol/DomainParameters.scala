@@ -802,8 +802,7 @@ final case class DynamicDomainParametersWithValidity(
 
   /** Computes the decision time for the given activeness time.
     *
-    * @param activenessTime
-    * @return Left in case of error, the decision time otherwise
+    * @return Left if the domain parameters are not valid at `activenessTime`, the decision time otherwise
     */
   def decisionTimeFor(activenessTime: CantonTimestamp): Either[String, CantonTimestamp] =
     checkValidity(activenessTime, "decision time").map(_ =>
@@ -814,8 +813,7 @@ final case class DynamicDomainParametersWithValidity(
 
   /** Computes the decision time for the given activeness time.
     *
-    * @param activenessTime
-    * @return Decision time or a failed future in case of error
+    * @return Left if the domain parameters are not valid at `activenessTime`, the decision time otherwise
     */
   def decisionTimeForF(activenessTime: CantonTimestamp): Future[CantonTimestamp] =
     decisionTimeFor(activenessTime).fold(
@@ -828,11 +826,19 @@ final case class DynamicDomainParametersWithValidity(
       baseline.add(transferExclusivityTimeout.unwrap)
     )
 
+  /** Computes the participant response time for the given timestamp.
+    *
+    * @return Left if the domain parameters are not valid at `timestamp`.
+    */
   def participantResponseDeadlineFor(timestamp: CantonTimestamp): Either[String, CantonTimestamp] =
     checkValidity(timestamp, "participant response deadline").map(_ =>
       timestamp.add(parameters.confirmationResponseTimeout.unwrap)
     )
 
+  /** Computes the participant response time for the given timestamp.
+    *
+    * @throws java.lang.IllegalStateException if the domain parameters are not valid at `timestamp`.
+    */
   def participantResponseDeadlineForF(timestamp: CantonTimestamp): Future[CantonTimestamp] =
     participantResponseDeadlineFor(timestamp).toFuture(new IllegalStateException(_))
 

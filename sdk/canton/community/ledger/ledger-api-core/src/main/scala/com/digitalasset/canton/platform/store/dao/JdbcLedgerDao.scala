@@ -13,19 +13,16 @@ import com.daml.logging.entries.LoggingEntry
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
-import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.ReportData
-import com.digitalasset.canton.ledger.participant.state.index.v2.{
-  IndexerPartyDetails,
-  PackageDetails,
-}
-import com.digitalasset.canton.ledger.participant.state.v2.Update
-import com.digitalasset.canton.ledger.participant.state.v2 as state
+import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
+import com.digitalasset.canton.ledger.participant.state.index.{IndexerPartyDetails, PackageDetails}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
   withEnrichedLoggingContext,
 }
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.config.{
   ActiveContractsServiceStreamsConfig,
@@ -52,7 +49,7 @@ import scala.util.{Failure, Success}
 private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher & ReportsHealth,
     servicesExecutionContext: ExecutionContext,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     engine: Option[Engine],
     sequentialIndexer: SequentialWriteDao,
     participantId: Ref.ParticipantId,
@@ -636,7 +633,7 @@ private[platform] object JdbcLedgerDao {
   def read(
       dbSupport: DbSupport,
       servicesExecutionContext: ExecutionContext,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       engine: Option[Engine],
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,
@@ -679,7 +676,7 @@ private[platform] object JdbcLedgerDao {
       dbSupport: DbSupport,
       sequentialWriteDao: SequentialWriteDao,
       servicesExecutionContext: ExecutionContext,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       engine: Option[Engine],
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,

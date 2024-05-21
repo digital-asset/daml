@@ -18,7 +18,7 @@ import com.digitalasset.canton.ledger.localstore.{
   InMemoryIdentityProviderConfigStore,
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.freespec.AsyncFreeSpec
 
@@ -45,7 +45,7 @@ class CachedIdentityProviderConfigStoreSpec
       delegate,
       cacheExpiryAfterWrite = 1.second,
       maximumCacheSize = 10,
-      Metrics.ForTesting,
+      LedgerApiServerMetrics.ForTesting,
       loggerFactory,
     )
 

@@ -11,7 +11,7 @@ import com.digitalasset.canton.ledger.api.validation.{
   EventQueryServiceRequestValidator,
   PartyNameChecker,
 }
-import com.digitalasset.canton.ledger.participant.state.index.v2.IndexEventQueryService
+import com.digitalasset.canton.ledger.participant.state.index.IndexEventQueryService
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
   withEnrichedLoggingContext,

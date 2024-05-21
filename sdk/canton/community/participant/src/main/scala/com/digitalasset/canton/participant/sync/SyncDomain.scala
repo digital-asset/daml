@@ -21,7 +21,7 @@ import com.digitalasset.canton.health.{
   CloseableHealthComponent,
   ComponentHealthState,
 }
-import com.digitalasset.canton.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
+import com.digitalasset.canton.ledger.participant.state.{SubmitterInfo, TransactionMeta}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
@@ -34,7 +34,7 @@ import com.digitalasset.canton.participant.event.{
   ContractStakeholdersAndTransferCounter,
   RecordTime,
 }
-import com.digitalasset.canton.participant.metrics.{PruningMetrics, SyncDomainMetrics}
+import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.SubmissionDuringShutdown
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmissionError,
@@ -74,6 +74,7 @@ import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.{PeriodicAcknowledgements, RichSequencerClient}
 import com.digitalasset.canton.sequencing.handlers.CleanSequencerCounterTracker
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Envelope}
+import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
@@ -86,7 +87,7 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.traffic.{MemberTrafficStatus, TrafficControlProcessor}
+import com.digitalasset.canton.traffic.MemberTrafficStatus
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil}
@@ -125,7 +126,6 @@ class SyncDomain(
     inFlightSubmissionTracker: InFlightSubmissionTracker,
     messageDispatcherFactory: MessageDispatcher.Factory[MessageDispatcher],
     clock: Clock,
-    pruningMetrics: PruningMetrics,
     metrics: SyncDomainMetrics,
     trafficStateController: TrafficStateController,
     futureSupervisor: FutureSupervisor,
@@ -176,6 +176,7 @@ class SyncDomain(
       authorityResolver,
       Some(domainId),
       engine,
+      parameters.engine.validationPhaseLogging,
       loggerFactory,
     )
 
@@ -195,6 +196,7 @@ class SyncDomain(
     loggerFactory,
     futureSupervisor,
     packageResolver = packageResolver,
+    testingConfig = testingConfig,
   )
 
   private val transferOutProcessor: TransferOutProcessor = new TransferOutProcessor(
@@ -211,6 +213,7 @@ class SyncDomain(
     SourceProtocolVersion(staticDomainParameters.protocolVersion),
     loggerFactory,
     futureSupervisor,
+    testingConfig = testingConfig,
   )
 
   private val transferInProcessor: TransferInProcessor = new TransferInProcessor(
@@ -227,6 +230,7 @@ class SyncDomain(
     TargetProtocolVersion(staticDomainParameters.protocolVersion),
     loggerFactory,
     futureSupervisor,
+    testingConfig = testingConfig,
   )
 
   private val sortedReconciliationIntervalsProvider = new SortedReconciliationIntervalsProvider(
@@ -258,7 +262,7 @@ class SyncDomain(
       sortedReconciliationIntervalsProvider,
       persistent.acsCommitmentStore,
       journalGarbageCollector.observer,
-      pruningMetrics,
+      metrics.commitments,
       staticDomainParameters.protocolVersion,
       timeouts,
       futureSupervisor,
@@ -358,7 +362,7 @@ class SyncDomain(
 
     def withMetadataSeq(cids: Seq[LfContractId]): Future[Seq[StoredContract]] =
       persistent.contractStore
-        .lookupManyUncached(cids)
+        .lookupManyExistingUncached(cids)
         .valueOr { missingContractId =>
           ErrorUtil.internalError(
             new IllegalStateException(
@@ -581,7 +585,7 @@ class SyncDomain(
 
   protected def startAsync()(implicit
       initializationTraceContext: TraceContext
-  ): Future[Either[SyncDomainInitializationError, Unit]] = {
+  ): FutureUnlessShutdown[Either[SyncDomainInitializationError, Unit]] = {
 
     val delayLogger = new DelayLogger(
       clock,
@@ -622,8 +626,10 @@ class SyncDomain(
 
     // Initialize, replay and process stored events, then subscribe to new events
     (for {
-      _ <- initialize(initializationTraceContext)
-      firstUnpersistedEventSc <- EitherT.liftF(firstUnpersistedEventScF)
+      _ <- initialize(initializationTraceContext).mapK(FutureUnlessShutdown.outcomeK)
+      firstUnpersistedEventSc <- EitherT
+        .liftF(firstUnpersistedEventScF)
+        .mapK(FutureUnlessShutdown.outcomeK)
       monitor = new SyncDomain.EventProcessingMonitor(
         ephemeral.startingPoints,
         firstUnpersistedEventSc,
@@ -683,32 +689,33 @@ class SyncDomain(
         loggerFactory,
       )
       trackingHandler = cleanSequencerCounterTracker(eventHandler)
-      _ <- EitherT.right[SyncDomainInitializationError](
-        sequencerClient.subscribeAfter(
-          subscriptionPriorTs,
-          sequencerCounterPreheadTsO,
-          trackingHandler,
-          ephemeral.timeTracker,
-          PeriodicAcknowledgements.fetchCleanCounterFromStore(
-            persistent.sequencerCounterTrackerStore
-          ),
-        )(initializationTraceContext)
-      )
+      _ <- EitherT
+        .right[SyncDomainInitializationError](
+          sequencerClient.subscribeAfter(
+            subscriptionPriorTs,
+            sequencerCounterPreheadTsO,
+            trackingHandler,
+            ephemeral.timeTracker,
+            PeriodicAcknowledgements.fetchCleanCounterFromStore(
+              persistent.sequencerCounterTrackerStore
+            ),
+          )(initializationTraceContext)
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
 
       // wait for initial topology transactions to be sequenced and received before we start computing pending
       // topology transactions to push for IDM approval
-      _ <- waitForParticipantToBeInTopology(initializationTraceContext).onShutdown(Right(()))
+      _ <- waitForParticipantToBeInTopology(initializationTraceContext)
       _ <-
         registerIdentityTransactionHandle
           .domainConnected()(initializationTraceContext)
-          .onShutdown(Right(()))
           .leftMap[SyncDomainInitializationError](ParticipantTopologyHandshakeError)
     } yield {
       logger.debug(s"Started sync domain for $domainId")(initializationTraceContext)
       ephemeral.markAsRecovered()
       logger.debug("Sync domain is ready.")(initializationTraceContext)
-      FutureUtil.doNotAwait(
-        completeTransferIn.unwrap,
+      FutureUtil.doNotAwaitUnlessShutdown(
+        completeTransferIn,
         "Failed to complete outstanding transfer-ins on startup. " +
           "You may have to complete the transfer-ins manually.",
       )
@@ -985,7 +992,6 @@ object SyncDomain {
         transferCoordination: TransferCoordination,
         inFlightSubmissionTracker: InFlightSubmissionTracker,
         clock: Clock,
-        pruningMetrics: PruningMetrics,
         syncDomainMetrics: SyncDomainMetrics,
         trafficStateController: TrafficStateController,
         futureSupervisor: FutureSupervisor,
@@ -1013,7 +1019,6 @@ object SyncDomain {
         transferCoordination: TransferCoordination,
         inFlightSubmissionTracker: InFlightSubmissionTracker,
         clock: Clock,
-        pruningMetrics: PruningMetrics,
         syncDomainMetrics: SyncDomainMetrics,
         trafficStateController: TrafficStateController,
         futureSupervisor: FutureSupervisor,
@@ -1039,7 +1044,6 @@ object SyncDomain {
         inFlightSubmissionTracker,
         MessageDispatcher.DefaultFactory,
         clock,
-        pruningMetrics,
         syncDomainMetrics,
         trafficStateController,
         futureSupervisor,
@@ -1050,6 +1054,8 @@ object SyncDomain {
 }
 
 sealed trait SyncDomainInitializationError
+
+final case class AbortedDueToShutdownError(msg: String) extends SyncDomainInitializationError
 
 final case class SequencedEventStoreError(err: store.SequencedEventStoreError)
     extends SyncDomainInitializationError

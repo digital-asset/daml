@@ -36,7 +36,7 @@ import com.digitalasset.canton.logging.{
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.time.TimeProvider
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.{ErrorUtil, PekkoUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.util.{ErrorUtil, PekkoUtil}
 import com.google.protobuf.ByteString
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
@@ -174,29 +174,6 @@ object ReferenceBlockOrderer {
 
   final case class TimestampedRequest(tag: String, body: ByteString, microsecondsSinceEpoch: Long)
 
-  private[sequencer] def storeBatch(
-      blockHeight: Long,
-      timestamp: CantonTimestamp,
-      lastTopologyTimestamp: CantonTimestamp,
-      sendQueue: SimpleExecutionQueue,
-      store: ReferenceBlockOrderingStore,
-      requests: Seq[Traced[TimestampedRequest]],
-  )(implicit
-      executionContext: ExecutionContext,
-      errorLoggingContext: ErrorLoggingContext,
-      traceContext: TraceContext,
-  ): Future[Unit] =
-    sendQueue
-      .execute(
-        store.insertRequestWithHeight(
-          blockHeight,
-          batchRequests(timestamp.toMicros, lastTopologyTimestamp, requests, traceContext),
-        ),
-        s"send request at $timestamp",
-      )
-      .unwrap
-      .map(_ => ())
-
   private def batchRequests(
       timestamp: Long,
       lastTopologyTimestamp: CantonTimestamp,
@@ -231,7 +208,10 @@ object ReferenceBlockOrderer {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Source[BlockOrderer.Block, KillSwitch] =
+  ): Source[BlockOrderer.Block, KillSwitch] = {
+    logger.debug(
+      s"Subscription started from height $fromHeight, current max height in DB is ${store.maxBlockHeight()}"
+    )
     Source
       .tick(
         initialDelay = 0.milli,
@@ -269,4 +249,5 @@ object ReferenceBlockOrderer {
         }
       }
       .mapConcat(_._2)
+  }
 }

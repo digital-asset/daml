@@ -178,7 +178,7 @@ private final class ChangeAssignation(
     (SerializableContract, ChangeAssignation.Data[(LfContractId, TransferCounter)])
   ]] =
     repairSource.domain.persistentState.contractStore
-      .lookupManyUncached(contractIdsWithTransferCounters.map(_.payload._1))
+      .lookupManyExistingUncached(contractIdsWithTransferCounters.map(_.payload._1))
       .map(_.map(_.contract).zip(contractIdsWithTransferCounters))
       .leftMap(contractId =>
         s"Failed to look up contract $contractId in domain ${repairSource.domain.alias}"

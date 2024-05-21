@@ -6,8 +6,8 @@ package integrationtest
 
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.{
-  PekkoBeforeAndAfterAll,
   OwnedResource,
+  PekkoBeforeAndAfterAll,
   SuiteResource,
   SuiteResourceManagementAroundAll,
 }
@@ -19,9 +19,10 @@ import org.scalatest.Suite
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
-
-import java.nio.file.{Path, Paths, Files}
+import java.nio.file.{Files, Path, Paths}
 import java.util.UUID
+
+import com.digitalasset.canton.tracing.TraceContext
 
 @scala.annotation.nowarn("msg=match may not be exhaustive")
 object CantonFixture {
@@ -145,17 +146,13 @@ trait CantonFixtureWithResource[A]
   final protected def ledgerPorts: Vector[CantonFixture.LedgerPorts] = suiteResource.value._1
   final protected def additional: A = suiteResource.value._2
 
+  implicit val traceContext: TraceContext = TraceContext.empty
+
   final protected def defaultLedgerClient(
       token: Option[String] = None,
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
   )(implicit ec: ExecutionContext): Future[LedgerClient] =
     config.ledgerClient(ports.head, token, applicationId, maxInboundMessageSize)
-
-  final protected def ledgerClients(
-      token: Option[String] = None,
-      maxInboundMessageSize: Int = 64 * 1024 * 1024,
-  )(implicit ec: ExecutionContext): Future[Vector[LedgerClient]] =
-    Future.traverse(ports)(config.ledgerClient(_, token, applicationId, maxInboundMessageSize))
 
 }
 

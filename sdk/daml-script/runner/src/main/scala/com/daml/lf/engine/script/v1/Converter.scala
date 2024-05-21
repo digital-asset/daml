@@ -214,10 +214,9 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
   ): Either[String, SValue] = {
     for {
       anyTpl <- fromContract(translator, contract)
-    } yield record(
-      StablePackagesV2.Tuple2,
-      ("_1", SContractId(contract.contractId)),
-      ("_2", anyTpl),
+    } yield makeTuple(
+      SContractId(contract.contractId),
+      anyTpl,
     )
   }
 

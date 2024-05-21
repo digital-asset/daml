@@ -19,12 +19,9 @@ import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
-import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.ReportData
-import com.digitalasset.canton.ledger.participant.state.index.v2.{
-  IndexerPartyDetails,
-  PackageDetails,
-}
-import com.digitalasset.canton.ledger.participant.state.v2 as state
+import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
+import com.digitalasset.canton.ledger.participant.state.index.{IndexerPartyDetails, PackageDetails}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd

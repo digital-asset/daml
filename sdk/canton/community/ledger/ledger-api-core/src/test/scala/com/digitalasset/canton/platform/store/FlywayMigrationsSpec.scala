@@ -70,14 +70,10 @@ object FlywayMigrationsSpec {
   private def scanner(config: FluentConfiguration) =
     new Scanner(
       classOf[JavaMigration],
-      config.getLocations.toList.asJava,
-      getClass.getClassLoader,
-      config.getEncoding,
-      false,
       false,
       new ResourceNameCache,
       new LocationScannerCache,
-      false,
+      config,
     )
 
   private def getExpectedDigest(

@@ -35,7 +35,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerTrafficStatus,
 }
 import com.digitalasset.canton.domain.sequencing.traffic.EnterpriseSequencerRateLimitManager.TrafficStateUpdateResult
-import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
+import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficPurchasedStore
 import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
@@ -44,16 +44,16 @@ import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.TrafficControlError
+import com.digitalasset.canton.sequencing.traffic.{
+  TrafficControlErrors,
+  TrafficPurchasedSubmissionHandler,
+}
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.traffic.TrafficControlErrors.TrafficControlError
-import com.digitalasset.canton.traffic.{
-  MemberTrafficStatus,
-  TrafficBalanceSubmissionHandler,
-  TrafficControlErrors,
-}
+import com.digitalasset.canton.traffic.MemberTrafficStatus
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.{EitherTUtil, PekkoUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -74,7 +74,7 @@ class BlockSequencer(
     sequencerId: SequencerId,
     stateManager: BlockSequencerStateManagerBase,
     store: SequencerBlockStore,
-    balanceStore: TrafficBalanceStore,
+    balanceStore: TrafficPurchasedStore,
     storage: Storage,
     futureSupervisor: FutureSupervisor,
     health: Option[SequencerHealthConfig],
@@ -130,8 +130,8 @@ class BlockSequencer(
     blockRateLimitManager
   )
 
-  private val trafficBalanceSubmissionHandler =
-    new TrafficBalanceSubmissionHandler(clock, loggerFactory)
+  private val trafficPurchasedSubmissionHandler =
+    new TrafficPurchasedSubmissionHandler(clock, loggerFactory)
   override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
     stateManager.firstSequencerCounterServableForSequencer
 
@@ -147,6 +147,7 @@ class BlockSequencer(
       stateManager.maybeLowerTopologyTimestampBound,
       blockRateLimitManager,
       orderingTimeFixMode,
+      metrics.block,
       loggerFactory,
       unifiedSequencer = unifiedSequencer,
     )(CloseContext(cryptoApi))
@@ -229,7 +230,7 @@ class BlockSequencer(
 
   override protected def sendAsyncInternal(
       submission: SubmissionRequest
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] = {
     val signedContent = SignedContent(submission, Signature.noSignature, None, protocolVersion)
     sendAsyncSignedInternal(signedContent)
   }
@@ -238,7 +239,9 @@ class BlockSequencer(
 
   private def signOrderingRequest[A <: HasCryptographicEvidence](
       content: SignedContent[SubmissionRequest]
-  )(implicit tc: TraceContext): EitherT[Future, SendAsyncError.Internal, SignedOrderingRequest] = {
+  )(implicit
+      tc: TraceContext
+  ): EitherT[FutureUnlessShutdown, SendAsyncError.Internal, SignedOrderingRequest] = {
     val privateCrypto = cryptoApi.currentSnapshotApproximation
     for {
       signed <- SignedContent
@@ -256,16 +259,16 @@ class BlockSequencer(
 
   override protected def sendAsyncSignedInternal(
       signedSubmission: SignedContent[SubmissionRequest]
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] = {
     val submission = signedSubmission.content
     val SubmissionRequest(
       sender,
-      _,
       _,
       batch,
       maxSequencingTime,
       _,
       _aggregationRule,
+      _submissionCost,
     ) = submission
     logger.debug(
       s"Request to send submission with id ${submission.messageId} with max sequencing time $maxSequencingTime from $sender to ${batch.allRecipients}"
@@ -274,20 +277,22 @@ class BlockSequencer(
     for {
       // TODO(i17584): revisit the consequences of no longer enforcing that
       //  aggregated submissions with signed envelopes define a topology snapshot
-      _ <- validateMaxSequencingTime(submission)
-      memberCheck <- EitherT.right[SendAsyncError](
-        cryptoApi.currentSnapshotApproximation.ipsSnapshot
-          .allMembers()
-          .map(allMembers =>
-            (member: Member) => allMembers.contains(member) || !member.isAuthenticated
-          )
-      )
+      _ <- validateMaxSequencingTime(submission).mapK(FutureUnlessShutdown.outcomeK)
+      memberCheck <- EitherT
+        .right[SendAsyncError](
+          cryptoApi.currentSnapshotApproximation.ipsSnapshot
+            .allMembers()
+            .map(allMembers =>
+              (member: Member) => allMembers.contains(member) || !member.isAuthenticated
+            )
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
       _ <- SequencerValidations
         .checkSenderAndRecipientsAreRegistered(
           submission,
           memberCheck,
         )
-        .toEitherT[Future]
+        .toEitherT[FutureUnlessShutdown]
       _ = if (logEventDetails)
         logger.debug(
           s"Invoking send operation on the ledger with the following protobuf message serialized to bytes ${prettyPrinter
@@ -302,7 +307,7 @@ class BlockSequencer(
             )(
               blockSequencerOps.send(signedOrderingRequest).value
             )
-        )
+        ).mapK(FutureUnlessShutdown.outcomeK)
     } yield ()
   }
 
@@ -413,14 +418,14 @@ class BlockSequencer(
     // TODO(#12676) Make sure that we don't request a snapshot for a state that was already pruned
 
     for {
-      trafficBalances <- EitherT.right(balanceStore.lookupLatestBeforeInclusive(timestamp))
+      trafficPurchaseds <- EitherT.right(balanceStore.lookupLatestBeforeInclusive(timestamp))
       bsSnapshot <- store
         .readStateForBlockContainingTimestamp(timestamp)
         .bimap(
           _ => s"Provided timestamp $timestamp is not linked to a block",
           blockEphemeralState =>
             blockEphemeralState
-              .toSequencerSnapshot(protocolVersion, trafficBalances)
+              .toSequencerSnapshot(protocolVersion, trafficPurchaseds)
               .tap(snapshot =>
                 if (logger.underlying.isDebugEnabled()) {
                   logger.debug(
@@ -619,10 +624,10 @@ class BlockSequencer(
       }
   }
 
-  override def setTrafficBalance(
+  override def setTrafficPurchased(
       member: Member,
       serial: PositiveInt,
-      totalTrafficBalance: NonNegativeLong,
+      totalTrafficPurchased: NonNegativeLong,
       sequencerClient: SequencerClient,
   )(implicit
       traceContext: TraceContext
@@ -636,12 +641,12 @@ class BlockSequencer(
           s"The provided serial value $serial is too low. Latest serial used by this member is $maxSerialO"
         ),
       )
-      timestamp <- trafficBalanceSubmissionHandler.sendTrafficBalanceRequest(
+      timestamp <- trafficPurchasedSubmissionHandler.sendTrafficPurchasedRequest(
         member,
         domainId,
         protocolVersion,
         serial,
-        totalTrafficBalance,
+        totalTrafficPurchased,
         sequencerClient,
         cryptoApi,
       )

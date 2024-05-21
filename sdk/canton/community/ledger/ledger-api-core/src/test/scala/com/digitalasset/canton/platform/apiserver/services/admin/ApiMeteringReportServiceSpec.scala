@@ -8,8 +8,8 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore
-import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.ReportData
+import com.digitalasset.canton.ledger.participant.state.index.MeteringStore
+import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.apiserver.meteringreport.HmacSha256.{Bytes, Key}
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportGenerator

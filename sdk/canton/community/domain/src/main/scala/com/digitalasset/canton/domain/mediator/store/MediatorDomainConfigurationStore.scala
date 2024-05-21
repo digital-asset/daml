@@ -6,6 +6,7 @@ package com.digitalasset.canton.domain.mediator.store
 import cats.data.EitherT
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
@@ -13,7 +14,7 @@ import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 final case class MediatorDomainConfiguration(
     domainId: DomainId,
@@ -31,10 +32,12 @@ object MediatorDomainConfigurationStoreError {
 trait MediatorDomainConfigurationStore extends AutoCloseable {
   def fetchConfiguration(implicit
       traceContext: TraceContext
-  ): EitherT[Future, MediatorDomainConfigurationStoreError, Option[MediatorDomainConfiguration]]
+  ): EitherT[FutureUnlessShutdown, MediatorDomainConfigurationStoreError, Option[
+    MediatorDomainConfiguration
+  ]]
   def saveConfiguration(configuration: MediatorDomainConfiguration)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, MediatorDomainConfigurationStoreError, Unit]
+  ): EitherT[FutureUnlessShutdown, MediatorDomainConfigurationStoreError, Unit]
 }
 
 object MediatorDomainConfigurationStore {

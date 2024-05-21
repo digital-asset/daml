@@ -16,9 +16,10 @@ import com.digitalasset.canton.sequencing.protocol.{
   GroupRecipient,
   TrafficState,
 }
+import com.digitalasset.canton.sequencing.traffic.EventCostCalculator
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.traffic.EventCostCalculator
+import com.digitalasset.canton.version.ProtocolVersion
 import monocle.macros.syntax.lens.*
 
 class SequencerMemberRateLimiter(
@@ -39,6 +40,7 @@ class SequencerMemberRateLimiter(
       trafficState: TrafficState,
       groupToMembers: Map[GroupRecipient, Set[Member]],
       currentBalance: NonNegativeLong,
+      protocolVersion: ProtocolVersion,
   )(implicit
       tc: TraceContext
   ): (
@@ -58,6 +60,7 @@ class SequencerMemberRateLimiter(
         event,
         trafficControlConfig.readVsWriteScalingFactor,
         groupToMembers,
+        protocolVersion,
       )
 
       val (newTrafficState, accepted) =

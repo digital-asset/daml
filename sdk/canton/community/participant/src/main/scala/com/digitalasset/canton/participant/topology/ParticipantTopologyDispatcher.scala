@@ -202,7 +202,6 @@ class ParticipantTopologyDispatcher(
               signingKeys = Seq(participantId.fingerprint),
               protocolVersion = state.protocolVersion,
               expectFullAuthorization = true,
-              force = false,
             )
             // TODO(#14048) improve error handling
             .leftMap(_.cause)
@@ -406,7 +405,7 @@ private class DomainOnboardingOutbox(
         performUnlessClosingF(functionFullName)(notAlreadyPresent(applicablePossiblyPresent))
       )
       // Try to convert if necessary the topology transactions for the required protocol version of the domain
-      convertedTxs <- performUnlessClosingEitherU(functionFullName) {
+      convertedTxs <- performUnlessClosingEitherUSF(functionFullName) {
         convertTransactions(applicable).leftMap[DomainRegistryError](
           DomainRegistryError.TopologyConversionError.Error(_)
         )

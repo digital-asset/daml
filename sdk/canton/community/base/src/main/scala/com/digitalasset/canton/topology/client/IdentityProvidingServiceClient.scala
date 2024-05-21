@@ -13,6 +13,7 @@ import com.digitalasset.canton.concurrent.HasFutureSupervision
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{EncryptionPublicKey, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.protocol.{
@@ -21,6 +22,7 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
+import com.digitalasset.canton.time.DomainTimeTracker
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.{
@@ -31,6 +33,7 @@ import com.digitalasset.canton.topology.processing.TopologyTransactionProcessing
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.SingleUseCell
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, checked}
 
@@ -379,12 +382,6 @@ trait ParticipantTopologySnapshotClient {
 
   this: BaseTopologySnapshotClient =>
 
-  // used by domain to fetch all participants
-  @Deprecated(since = "3.0")
-  def participants()(implicit
-      traceContext: TraceContext
-  ): Future[Seq[(ParticipantId, ParticipantPermission)]]
-
   /** Checks whether the provided participant exists and is active */
   def isParticipantActive(participantId: ParticipantId)(implicit
       traceContext: TraceContext
@@ -481,10 +478,11 @@ trait DomainGovernanceSnapshotClient {
   this: BaseTopologySnapshotClient with NamedLogging =>
 
   def trafficControlParameters[A](
-      protocolVersion: ProtocolVersion
+      protocolVersion: ProtocolVersion,
+      warnOnUsingDefault: Boolean = true,
   )(implicit tc: TraceContext): FutureUnlessShutdown[Option[TrafficControlParameters]] =
     FutureUnlessShutdown.outcomeF {
-      findDynamicDomainParametersOrDefault(protocolVersion)
+      findDynamicDomainParametersOrDefault(protocolVersion, warnOnUsingDefault = warnOnUsingDefault)
         .map(_.trafficControlParameters)
     }
 
@@ -547,6 +545,11 @@ trait DomainTopologyClientWithInit
     with NamedLogging {
 
   implicit override protected def executionContext: ExecutionContext
+
+  protected val domainTimeTracker: SingleUseCell[DomainTimeTracker] = new SingleUseCell()
+
+  def setDomainTimeTracker(tracker: DomainTimeTracker): Unit =
+    domainTimeTracker.putIfAbsent(tracker).discard
 
   /** current number of changes waiting to become effective */
   def numPendingChanges: Int

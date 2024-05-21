@@ -8,13 +8,13 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitError.AboveTrafficLimit
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.domain.sequencing.traffic.EnterpriseSequencerRateLimitManager.TrafficStateUpdateResult
-import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficBalanceStore
+import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficPurchasedStore
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.traffic.{EventCostCalculator, TrafficPurchased}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DefaultTestIdentities.*
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.traffic.EventCostCalculator
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.google.protobuf.ByteString
 import org.scalatest.FutureOutcome
@@ -43,7 +43,12 @@ class EnterpriseSequencerRateLimitManagerTest
   private val eventCostCalculator = mock[EventCostCalculator]
   private val batch: Batch[ClosedEnvelope] = Batch(List(envelope1), testedProtocolVersion)
   when(
-    eventCostCalculator.computeEventCost(batch, trafficConfig.readVsWriteScalingFactor, Map.empty)
+    eventCostCalculator.computeEventCost(
+      batch,
+      trafficConfig.readVsWriteScalingFactor,
+      Map.empty,
+      testedProtocolVersion,
+    )
   )
     .thenReturn(NonNegativeLong.tryCreate(eventCost))
   private val sequencingTs = CantonTimestamp.Epoch.plusSeconds(1)
@@ -58,15 +63,15 @@ class EnterpriseSequencerRateLimitManagerTest
       trafficConfig: TrafficControlParameters,
       batch: Batch[ClosedEnvelope],
       rlm: SequencerRateLimitManager,
-      balanceManager: TrafficBalanceManager,
+      balanceManager: TrafficPurchasedManager,
   )
 
   override type FixtureParam = Env
 
-  it should "consume from traffic balance" in { implicit f =>
+  it should "consume from traffic purchased entry" in { implicit f =>
     for {
-      _ <- f.balanceManager.addTrafficBalance(
-        TrafficBalance(
+      _ <- f.balanceManager.addTrafficPurchased(
+        TrafficPurchased(
           sender,
           PositiveInt.one,
           NonNegativeLong.tryCreate(15L),
@@ -97,10 +102,10 @@ class EnterpriseSequencerRateLimitManagerTest
     } yield res
   }
 
-  it should "consume from traffic balance and base rate" in { implicit f =>
+  it should "consume from traffic purchased entry and base rate" in { implicit f =>
     for {
-      _ <- f.balanceManager.addTrafficBalance(
-        TrafficBalance(
+      _ <- f.balanceManager.addTrafficPurchased(
+        TrafficPurchased(
           sender,
           PositiveInt.one,
           NonNegativeLong.tryCreate(15L),
@@ -136,8 +141,8 @@ class EnterpriseSequencerRateLimitManagerTest
 
   it should "consume from base rate only" in { implicit f =>
     for {
-      _ <- f.balanceManager.addTrafficBalance(
-        TrafficBalance(
+      _ <- f.balanceManager.addTrafficPurchased(
+        TrafficPurchased(
           sender,
           PositiveInt.one,
           NonNegativeLong.tryCreate(8L),
@@ -207,8 +212,8 @@ class EnterpriseSequencerRateLimitManagerTest
           NonNegativeLong.tryCreate(1L), // Should have consumed 5 from base rate
         sequencingTs.immediateSuccessor,
       )
-      _ <- f.balanceManager.addTrafficBalance(
-        TrafficBalance(
+      _ <- f.balanceManager.addTrafficPurchased(
+        TrafficPurchased(
           sender,
           PositiveInt.one,
           NonNegativeLong.tryCreate(8L),
@@ -280,8 +285,8 @@ class EnterpriseSequencerRateLimitManagerTest
   }
 
   override def withFixture(test: OneArgAsyncTest): FutureOutcome = {
-    val store = new InMemoryTrafficBalanceStore(loggerFactory)
-    val manager = mkTrafficBalanceManager(store)
+    val store = new InMemoryTrafficPurchasedStore(loggerFactory)
+    val manager = mkTrafficPurchasedManager(store)
     val rateLimiter = mkRateLimiter(manager)
     val env = Env(
       trafficConfig,

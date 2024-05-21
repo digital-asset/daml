@@ -19,8 +19,8 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.api.services.CommandSubmissionService
 import com.digitalasset.canton.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
 import com.digitalasset.canton.ledger.api.{SubmissionIdGenerator, ValidationLogger}
-import com.digitalasset.canton.ledger.participant.state.v2.{ReassignmentCommand, WriteService}
-import com.digitalasset.canton.ledger.participant.state.v2 as state
+import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.{ReassignmentCommand, WriteService}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{
@@ -29,7 +29,7 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLogging,
 }
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.util.OptionUtil
 
@@ -45,7 +45,7 @@ final class ApiCommandSubmissionService(
     currentUtcTime: () => Instant,
     maxDeduplicationDuration: Duration,
     submissionIdGenerator: SubmissionIdGenerator,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)

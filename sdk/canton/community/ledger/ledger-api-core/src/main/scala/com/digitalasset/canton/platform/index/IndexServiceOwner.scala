@@ -12,10 +12,10 @@ import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.error.IndexErrors.IndexDbException
-import com.digitalasset.canton.ledger.participant.state.index.v2.IndexService
+import com.digitalasset.canton.ledger.participant.state.index.IndexService
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.InMemoryState
 import com.digitalasset.canton.platform.apiserver.TimedIndexService
 import com.digitalasset.canton.platform.config.IndexServiceConfig
@@ -44,7 +44,7 @@ final class IndexServiceOwner(
     config: IndexServiceConfig,
     dbSupport: DbSupport,
     servicesExecutionContext: ExecutionContext,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     engine: Engine,
     participantId: Ref.ParticipantId,
     inMemoryState: InMemoryState,
@@ -207,7 +207,7 @@ final class IndexServiceOwner(
     )
 
   private def buildInMemoryFanOutExecutionContext(
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       threadPoolSize: Int,
   ): ResourceOwner[ExecutionContextExecutorService] =
     ResourceOwner

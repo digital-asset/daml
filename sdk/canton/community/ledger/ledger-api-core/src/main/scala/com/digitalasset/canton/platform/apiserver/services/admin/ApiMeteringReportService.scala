@@ -14,8 +14,8 @@ import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors
 import com.digitalasset.canton.ledger.error.groups.AdminServiceErrors
-import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore
-import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.ReportData
+import com.digitalasset.canton.ledger.participant.state.index.MeteringStore
+import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,

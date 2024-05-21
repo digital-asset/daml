@@ -216,7 +216,6 @@ class SyncDomainPersistentStateManager(
       clock,
       crypto,
       parameters.stores,
-      topologyConfig,
       parameters.cachingConfigs,
       parameters.batchingConfig,
       parameters.processingTimeouts,

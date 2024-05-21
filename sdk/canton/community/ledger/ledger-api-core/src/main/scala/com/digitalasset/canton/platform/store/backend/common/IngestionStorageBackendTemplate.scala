@@ -36,6 +36,8 @@ private[backend] class IngestionStorageBackendTemplate(
           .offsetIsGreater("event_offset", ledgerOffset)}",
       SQL"DELETE FROM lapi_events_non_consuming_exercise WHERE ${queryStrategy
           .offsetIsGreater("event_offset", ledgerOffset)}",
+      SQL"DELETE FROM lapi_events_unassign WHERE ${queryStrategy.offsetIsGreater("event_offset", ledgerOffset)}",
+      SQL"DELETE FROM lapi_events_assign WHERE ${queryStrategy.offsetIsGreater("event_offset", ledgerOffset)}",
       SQL"DELETE FROM lapi_party_entries WHERE ${queryStrategy.offsetIsGreater("ledger_offset", ledgerOffset)}",
       SQL"DELETE FROM lapi_string_interning WHERE internal_id > $lastStringInterningId",
       SQL"DELETE FROM lapi_pe_create_id_filter_stakeholder WHERE event_sequential_id > $lastEventSequentialId",
@@ -43,6 +45,8 @@ private[backend] class IngestionStorageBackendTemplate(
       SQL"DELETE FROM lapi_pe_consuming_id_filter_stakeholder WHERE event_sequential_id > $lastEventSequentialId",
       SQL"DELETE FROM lapi_pe_consuming_id_filter_non_stakeholder_informee WHERE event_sequential_id > $lastEventSequentialId",
       SQL"DELETE FROM lapi_pe_non_consuming_id_filter_informee WHERE event_sequential_id > $lastEventSequentialId",
+      SQL"DELETE FROM lapi_pe_unassign_id_filter_stakeholder WHERE event_sequential_id > $lastEventSequentialId",
+      SQL"DELETE FROM lapi_pe_assign_id_filter_stakeholder WHERE event_sequential_id > $lastEventSequentialId",
       SQL"DELETE FROM lapi_transaction_meta WHERE ${queryStrategy
           .offsetIsGreater("event_offset", ledgerOffset)}",
       SQL"DELETE FROM lapi_transaction_metering WHERE ${queryStrategy.offsetIsGreater("ledger_offset", ledgerOffset)}",

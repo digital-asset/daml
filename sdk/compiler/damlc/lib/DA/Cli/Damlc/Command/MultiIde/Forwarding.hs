@@ -51,7 +51,7 @@ pullMonadThroughTuple (a, mb) = (a,) <$> mb
 -- Takes a natural transformation of responses and lifts it to forward the first error
 assumeSuccessCombiner
   :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
-  .  ([(FilePath, LSP.ResponseResult m)] -> LSP.ResponseResult m)
+  .  ([(PackageHome, LSP.ResponseResult m)] -> LSP.ResponseResult m)
   -> ResponseCombiner m
 assumeSuccessCombiner f res = f <$> mapM pullMonadThroughTuple res
 
@@ -78,36 +78,37 @@ uriFilePathPrism = prism' LSP.filePathToUri LSP.uriToFilePath
 
 getMessageForwardingBehaviour
   :: forall t (m :: LSP.Method 'LSP.FromClient t)
-  .  LSP.SMethod m
+  .  MultiIdeState
+  -> LSP.SMethod m
   -> LSP.Message m
   -> Forwarding m
-getMessageForwardingBehaviour meth params =
+getMessageForwardingBehaviour miState meth params =
   case meth of
     LSP.SInitialize -> handleElsewhere "Initialize"
     LSP.SInitialized -> ignore
     -- send to all then const reply
     LSP.SShutdown -> ForwardRequest params $ AllRequest (assumeSuccessCombiner @m $ const LSP.Empty)
-    LSP.SExit -> ForwardNotification params AllNotification
+    LSP.SExit -> handleElsewhere "Exit"
     LSP.SWorkspaceDidChangeWorkspaceFolders -> ForwardNotification params AllNotification
     LSP.SWorkspaceDidChangeConfiguration -> ForwardNotification params AllNotification
     LSP.SWorkspaceDidChangeWatchedFiles -> ForwardNotification params AllNotification
-    LSP.STextDocumentDidOpen -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument params
-    LSP.STextDocumentDidChange -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument params
-    LSP.STextDocumentWillSave -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument params
-    LSP.STextDocumentWillSaveWaitUntil -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
-    LSP.STextDocumentDidSave -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument params
-    LSP.STextDocumentDidClose -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument params
-    LSP.STextDocumentCompletion -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
-    LSP.STextDocumentHover -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
-    LSP.STextDocumentSignatureHelp -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
-    LSP.STextDocumentDeclaration -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
+    LSP.STextDocumentDidOpen -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.STextDocumentDidChange -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.STextDocumentWillSave -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.STextDocumentWillSaveWaitUntil -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.STextDocumentDidSave -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.STextDocumentDidClose -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.STextDocumentCompletion -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.STextDocumentHover -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.STextDocumentSignatureHelp -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.STextDocumentDeclaration -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
     LSP.STextDocumentDefinition -> handleElsewhere "TextDocumentDefinition"
-    LSP.STextDocumentDocumentSymbol -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
-    LSP.STextDocumentCodeAction -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
-    LSP.STextDocumentCodeLens -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
-    LSP.STextDocumentDocumentLink -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
-    LSP.STextDocumentColorPresentation -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
-    LSP.STextDocumentOnTypeFormatting -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
+    LSP.STextDocumentDocumentSymbol -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.STextDocumentCodeAction -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.STextDocumentCodeLens -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.STextDocumentDocumentLink -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.STextDocumentColorPresentation -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.STextDocumentOnTypeFormatting -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
     
     LSP.SCustomMethod "daml/keepAlive" ->
       case params of
@@ -169,20 +170,25 @@ getMessageForwardingBehaviour meth params =
     LSP.STextDocumentSemanticTokensRange -> unsupported "TextDocumentSemanticTokensRange"
     LSP.SWorkspaceSemanticTokensRefresh -> unsupported "WorkspaceSemanticTokensRefresh"
 
-filePathFromParamsWithTextDocument :: (LSP.HasParams p a, LSP.HasTextDocument a t, LSP.HasUri t LSP.Uri) => p -> FilePath
-filePathFromParamsWithTextDocument params =
+filePathFromParamsWithTextDocument :: (LSP.HasParams p a, LSP.HasTextDocument a t, LSP.HasUri t LSP.Uri) => MultiIdeState -> p -> FilePath
+filePathFromParamsWithTextDocument miState params =
   let uri = params ^. LSP.params . LSP.textDocument . LSP.uri
-   in fromMaybe (error $ "Failed to extract path: " <> show uri) $ filePathFromURI uri
+   in fromMaybe (error $ "Failed to extract path: " <> show uri) $ filePathFromURI miState uri
 
-forwardingBehaviourFromParamsWithTextDocument :: (LSP.HasParams p a, LSP.HasTextDocument a t, LSP.HasUri t LSP.Uri) => p -> ForwardingBehaviour m
-forwardingBehaviourFromParamsWithTextDocument params = Single $ filePathFromParamsWithTextDocument params
+forwardingBehaviourFromParamsWithTextDocument :: (LSP.HasParams p a, LSP.HasTextDocument a t, LSP.HasUri t LSP.Uri) => MultiIdeState -> p -> ForwardingBehaviour m
+forwardingBehaviourFromParamsWithTextDocument miState params = Single $ filePathFromParamsWithTextDocument miState params
 
 -- Attempts to convert the URI directly to a filepath
 -- If the URI is a virtual resource, we instead parse it as such and extract the file from that
-filePathFromURI :: LSP.Uri -> Maybe FilePath
-filePathFromURI uri = 
+filePathFromURI :: MultiIdeState -> LSP.Uri -> Maybe FilePath
+filePathFromURI miState uri = 
   LSP.uriToFilePath uri
     <|> do
       parsedUri <- URI.parseURI $ T.unpack $ LSP.getUri uri
-      vr <- uriToVirtualResource parsedUri
-      pure $ LSP.fromNormalizedFilePath $ vrScenarioFile vr
+      case URI.uriScheme parsedUri of
+        "daml:" -> do
+          vr <- uriToVirtualResource parsedUri
+          pure $ LSP.fromNormalizedFilePath $ vrScenarioFile vr
+        "untitled:" ->
+          pure $ unPackageHome $ defaultPackagePath miState
+        _ -> Nothing

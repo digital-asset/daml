@@ -16,7 +16,7 @@ import com.digitalasset.canton.ledger.api.validation.{
   ValidationErrors,
 }
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.ledger.participant.state.index.v2.IndexTransactionsService
+import com.digitalasset.canton.ledger.participant.state.index.IndexTransactionsService
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{
@@ -25,7 +25,7 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLogging,
 }
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import io.grpc.stub.StreamObserver
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
@@ -35,7 +35,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final class ApiUpdateService(
     transactionsService: IndexTransactionsService,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
     validator: UpdateServiceRequestValidator,

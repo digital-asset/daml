@@ -21,6 +21,7 @@ import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.DefaultTestIdentities.{
@@ -36,7 +37,6 @@ import com.digitalasset.canton.topology.{
   UniqueIdentifier,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.traffic.TrafficControlErrors
 import com.digitalasset.canton.{BaseTest, SequencerCounter}
 import com.google.protobuf.ByteString
 import org.apache.pekko.Done
@@ -63,9 +63,9 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
     SubmissionRequest.tryCreate(
       from,
       messageId,
-      isRequest = true,
       mkBatch(to),
       CantonTimestamp.MaxValue,
+      None,
       None,
       None,
       testedProtocolVersion,
@@ -98,14 +98,14 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
         .Set[Member]() // we're using the scalatest serial execution context so don't need a concurrent collection
     override protected def sendAsyncInternal(submission: SubmissionRequest)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, SendAsyncError, Unit] =
-      EitherT.pure[Future, SendAsyncError](())
+    ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] =
+      EitherT.pure[FutureUnlessShutdown, SendAsyncError](())
     override protected def sendAsyncSignedInternal(
         signedSubmission: SignedContent[SubmissionRequest]
     )(implicit
         traceContext: TraceContext
-    ): EitherT[Future, SendAsyncError, Unit] =
-      EitherT.pure[Future, SendAsyncError](())
+    ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] =
+      EitherT.pure[FutureUnlessShutdown, SendAsyncError](())
     override def isRegistered(member: Member)(implicit
         traceContext: TraceContext
     ): Future[Boolean] =
@@ -164,10 +164,10 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
     ): FutureUnlessShutdown[SequencerTrafficStatus] = ???
 
     override protected def timeouts: ProcessingTimeout = ProcessingTimeout()
-    override def setTrafficBalance(
+    override def setTrafficPurchased(
         member: Member,
         serial: PositiveInt,
-        totalTrafficBalance: NonNegativeLong,
+        totalTrafficPurchased: NonNegativeLong,
         sequencerClient: SequencerClient,
     )(implicit
         traceContext: TraceContext
@@ -198,7 +198,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
         val request =
           submission(from = unauthenticatedMemberId, to = Set(participant1, participant2))
         for {
-          _ <- send(sequencer)(request).value
+          _ <- send(sequencer)(request).value.failOnShutdown
         } yield sequencer.newlyRegisteredMembers should contain only unauthenticatedMemberId
       }
 
@@ -207,7 +207,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
         val request = submission(from = participant1, to = Set(participant1, participant2))
 
         for {
-          _ <- send(sequencer)(request).value
+          _ <- send(sequencer)(request).value.failOnShutdown
         } yield sequencer.newlyRegisteredMembers shouldBe empty
       }
     }

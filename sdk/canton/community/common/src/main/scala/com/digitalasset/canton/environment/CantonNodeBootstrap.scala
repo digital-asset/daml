@@ -23,6 +23,8 @@ import com.digitalasset.canton.config.{
   ProcessingTimeout,
   TestingConfigInternal,
 }
+import com.digitalasset.canton.connection.GrpcApiInfoService
+import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.GrpcVaultServiceFactory
 import com.digitalasset.canton.crypto.admin.v30.VaultServiceGrpc
@@ -36,10 +38,11 @@ import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.health.admin.grpc.GrpcStatusService
 import com.digitalasset.canton.health.admin.v30.StatusServiceGrpc
 import com.digitalasset.canton.health.{
+  DependenciesHealthService,
   GrpcHealthReporter,
   GrpcHealthServer,
-  HealthService,
   HttpHealthServer,
+  LivenessHealthService,
   ServiceHealthStatusManager,
 }
 import com.digitalasset.canton.lifecycle.{
@@ -50,19 +53,22 @@ import com.digitalasset.canton.lifecycle.{
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.DbStorageMetrics
-import com.digitalasset.canton.networking.grpc.CantonServerBuilder
+import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, CantonServerBuilder}
 import com.digitalasset.canton.resource.{Storage, StorageFactory}
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.{
-  GrpcIdentityInitializationServiceX,
+  GrpcIdentityInitializationService,
   GrpcTopologyAggregationService,
   GrpcTopologyManagerReadService,
   GrpcTopologyManagerWriteService,
 }
 import com.digitalasset.canton.topology.admin.v30 as adminV30
-import com.digitalasset.canton.topology.client.IdentityProvidingServiceClient
+import com.digitalasset.canton.topology.client.{
+  DomainTopologyClient,
+  IdentityProvidingServiceClient,
+}
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{InitializationStore, TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.{
@@ -75,6 +81,7 @@ import com.digitalasset.canton.topology.transaction.{
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracerProvider}
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
+import com.digitalasset.canton.watchdog.WatchdogService
 import io.grpc.protobuf.services.ProtoReflectionService
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
@@ -233,17 +240,24 @@ abstract class CantonNodeBootstrapImpl[
         )
       )
       .addService(ProtoReflectionService.newInstance(), withLogging = false)
+      .addService(
+        ApiInfoServiceGrpc.bindService(
+          new GrpcApiInfoService(CantonGrpcUtil.ApiName.AdminApi),
+          executionContext,
+        )
+      )
       .build
       .start()
     (Lifecycle.toCloseableServer(server, logger, "AdminServer"), registry)
   }
 
-  protected def mkNodeHealthService(storage: Storage): HealthService
+  protected def mkNodeHealthService(
+      storage: Storage
+  ): (DependenciesHealthService, LivenessHealthService)
   protected def mkHealthComponents(
-      nodeHealthService: HealthService
-  ): (GrpcHealthReporter, Option[GrpcHealthServer], Option[HttpHealthServer], HealthService) = {
-    // Service that will always return `SERVING`. Useful to be targeted by k8s liveness probes.
-    val livenessService = HealthService("liveness", logger, timeouts)
+      nodeHealthService: DependenciesHealthService,
+      livenessService: LivenessHealthService,
+  ): (GrpcHealthReporter, Option[GrpcHealthServer], Option[HttpHealthServer]) = {
     val healthReporter: GrpcHealthReporter = new GrpcHealthReporter(loggerFactory)
     val grpcNodeHealthManager =
       ServiceHealthStatusManager(
@@ -277,7 +291,7 @@ abstract class CantonNodeBootstrapImpl[
         loggerFactory,
       )
     }
-    (healthReporter, grpcHealthServer, httpHealthServer, livenessService)
+    (healthReporter, grpcHealthServer, httpHealthServer)
   }
 
   protected def customNodeStages(
@@ -286,7 +300,7 @@ abstract class CantonNodeBootstrapImpl[
       nodeId: UniqueIdentifier,
       manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
-      healthService: HealthService,
+      healthService: DependenciesHealthService,
   ): BootstrapStageOrLeaf[T]
 
   /** member depends on node type */
@@ -325,6 +339,8 @@ abstract class CantonNodeBootstrapImpl[
     override def ec: ExecutionContext = CantonNodeBootstrapImpl.this.executionContext
   }
 
+  protected def lookupTopologyClient(storeId: TopologyStoreId): Option[DomainTopologyClient]
+
   private val startupStage =
     new BootstrapStage[T, SetupCrypto](
       description = "Initialise storage",
@@ -350,11 +366,24 @@ abstract class CantonNodeBootstrapImpl[
         ).map { storage =>
           registerHealthGauge()
           // init health services once
-          val healthService = mkNodeHealthService(storage)
+          val (healthService, livenessService) = mkNodeHealthService(storage)
           addCloseable(healthService)
-          val (healthReporter, grpcHealthServer, httpHealthServer, livenessHealthService) =
-            mkHealthComponents(healthService)
-          addCloseable(livenessHealthService)
+          addCloseable(livenessService)
+          val (healthReporter, grpcHealthServer, httpHealthServer) = {
+            mkHealthComponents(healthService, livenessService)
+          }
+          arguments.parameterConfig.watchdog
+            .filter(_.enabled)
+            .foreach(watchdogConfig => {
+              val watchdog = WatchdogService.SysExitOnNotServing(
+                watchdogConfig.checkInterval,
+                watchdogConfig.killDelay,
+                livenessService,
+                bootstrap.loggerFactory,
+                bootstrap.timeouts,
+              )
+              addCloseable(watchdog)
+            })
           grpcHealthServer.foreach(addCloseable)
           httpHealthServer.foreach(addCloseable)
           addCloseable(storage)
@@ -366,7 +395,7 @@ abstract class CantonNodeBootstrapImpl[
   private class SetupCrypto(
       val storage: Storage,
       val healthReporter: GrpcHealthReporter,
-      healthService: HealthService,
+      healthService: DependenciesHealthService,
   ) extends BootstrapStage[T, SetupNodeId](
         description = "Init crypto module",
         bootstrapStageCallback,
@@ -378,7 +407,7 @@ abstract class CantonNodeBootstrapImpl[
     ): EitherT[FutureUnlessShutdown, String, Option[SetupNodeId]] = {
       // crypto factory doesn't write to the db during startup, hence,
       // we won't have "isPassive" issues here
-      performUnlessClosingEitherU("create-crypto")(
+      performUnlessClosingEitherUSF("create-crypto")(
         arguments.cryptoFactory
           .create(
             cryptoConfig,
@@ -413,7 +442,7 @@ abstract class CantonNodeBootstrapImpl[
       storage: Storage,
       val crypto: Crypto,
       healthReporter: GrpcHealthReporter,
-      healthService: HealthService,
+      healthService: DependenciesHealthService,
   ) extends BootstrapStageWithStorage[T, GenerateOrAwaitNodeTopologyTx, UniqueIdentifier](
         description = "Init node id",
         bootstrapStageCallback,
@@ -421,7 +450,7 @@ abstract class CantonNodeBootstrapImpl[
         config.init.autoInit,
       )
       with HasCloseContext
-      with GrpcIdentityInitializationServiceX.Callback {
+      with GrpcIdentityInitializationService.Callback {
 
     private val initializationStore = InitializationStore(
       storage,
@@ -440,9 +469,9 @@ abstract class CantonNodeBootstrapImpl[
 
     adminServerRegistry
       .addServiceU(
-        adminV30.IdentityInitializationXServiceGrpc
+        adminV30.IdentityInitializationServiceGrpc
           .bindService(
-            new GrpcIdentityInitializationServiceX(
+            new GrpcIdentityInitializationService(
               clock,
               this,
               crypto.cryptoPublicStore,
@@ -456,14 +485,18 @@ abstract class CantonNodeBootstrapImpl[
         traceContext: TraceContext
     ): Future[Option[UniqueIdentifier]] = initializationStore.uid
 
-    override protected def buildNextStage(uid: UniqueIdentifier): GenerateOrAwaitNodeTopologyTx =
-      new GenerateOrAwaitNodeTopologyTx(
-        uid,
-        authorizedStore,
-        storage,
-        crypto,
-        healthReporter,
-        healthService,
+    override protected def buildNextStage(
+        uid: UniqueIdentifier
+    ): EitherT[FutureUnlessShutdown, String, GenerateOrAwaitNodeTopologyTx] =
+      EitherT.rightT(
+        new GenerateOrAwaitNodeTopologyTx(
+          uid,
+          authorizedStore,
+          storage,
+          crypto,
+          healthReporter,
+          healthService,
+        )
       )
 
     override protected def autoCompleteStage()
@@ -476,16 +509,20 @@ abstract class CantonNodeBootstrapImpl[
           .flatMap(_.nodeIdentifier.identifierName)
           .getOrElse(name.unwrap)
         uid <- EitherT
-          .fromEither[Future](
+          .fromEither[FutureUnlessShutdown](
             UniqueIdentifier
               .create(identifierName, namespaceKey.fingerprint)
           )
           .leftMap(err => s"Failed to convert name to identifier: $err")
-        _ <- EitherT.right[String](initializationStore.setUid(uid))
+        _ <- EitherT
+          .right[String](initializationStore.setUid(uid))
+          .mapK(FutureUnlessShutdown.outcomeK)
       } yield Option(uid)
-    }.mapK(FutureUnlessShutdown.outcomeK)
+    }
 
-    override def initializeWithProvidedId(uid: UniqueIdentifier): EitherT[Future, String, Unit] =
+    override def initializeWithProvidedId(uid: UniqueIdentifier)(implicit
+        traceContext: TraceContext
+    ): EitherT[Future, String, Unit] =
       completeWithExternal(
         EitherT.right(initializationStore.setUid(uid).map(_ => uid))
       ).onShutdown(Left("Node has been shutdown"))
@@ -500,7 +537,7 @@ abstract class CantonNodeBootstrapImpl[
       storage: Storage,
       crypto: Crypto,
       healthReporter: GrpcHealthReporter,
-      healthService: HealthService,
+      healthService: DependenciesHealthService,
   ) extends BootstrapStageWithStorage[T, BootstrapStageOrLeaf[T], Unit](
         description = "generate-or-await-node-topology-tx",
         bootstrapStageCallback,
@@ -514,7 +551,6 @@ abstract class CantonNodeBootstrapImpl[
         clock,
         crypto,
         authorizedStore,
-        config.topology.enableTopologyTransactionValidation,
         bootstrapStageCallback.timeouts,
         futureSupervisor,
         bootstrapStageCallback.loggerFactory,
@@ -527,6 +563,7 @@ abstract class CantonNodeBootstrapImpl[
             new GrpcTopologyManagerReadService(
               sequencedTopologyStores :+ authorizedStore,
               crypto,
+              lookupTopologyClient,
               bootstrapStageCallback.loggerFactory,
             ),
             executionContext,
@@ -614,15 +651,19 @@ abstract class CantonNodeBootstrapImpl[
         }
     }
 
-    override protected def buildNextStage(result: Unit): BootstrapStageOrLeaf[T] = {
+    override protected def buildNextStage(
+        result: Unit
+    ): EitherT[FutureUnlessShutdown, String, BootstrapStageOrLeaf[T]] = {
       topologyManager.removeObserver(topologyManagerObserver)
-      customNodeStages(
-        storage,
-        crypto,
-        nodeId,
-        topologyManager,
-        healthReporter,
-        healthService,
+      EitherT.rightT(
+        customNodeStages(
+          storage,
+          crypto,
+          nodeId,
+          topologyManager,
+          healthReporter,
+          healthService,
+        )
       )
     }
 
@@ -650,7 +691,6 @@ abstract class CantonNodeBootstrapImpl[
         // all nodes need a signing key
         signingKey <- CantonNodeBootstrapImpl
           .getOrCreateSigningKey(crypto)(s"$name-signing")
-          .mapK(FutureUnlessShutdown.outcomeK)
         // key owner id depends on the type of node
         ownerId = member(nodeId)
         // participants need also an encryption key
@@ -661,7 +701,6 @@ abstract class CantonNodeBootstrapImpl[
                 .getOrCreateEncryptionKey(crypto)(
                   s"$name-encryption"
                 )
-                .mapK(FutureUnlessShutdown.outcomeK)
             } yield NonEmpty.mk(Seq, signingKey, encryptionKey)
           } else {
             EitherT.rightT[FutureUnlessShutdown, String](NonEmpty.mk(Seq, signingKey))
@@ -714,11 +753,14 @@ object CantonNodeBootstrapImpl {
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, String, SigningPublicKey] =
+  ): EitherT[FutureUnlessShutdown, String, SigningPublicKey] =
     getOrCreateKey(
       "signing",
       crypto.cryptoPublicStore.findSigningKeyIdByName,
-      name => crypto.generateSigningKey(name = name).leftMap(_.toString),
+      name =>
+        crypto
+          .generateSigningKey(name = name)
+          .leftMap(_.toString),
       crypto.cryptoPrivateStore.existsSigningKey,
       name,
     )
@@ -728,7 +770,7 @@ object CantonNodeBootstrapImpl {
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, String, SigningPublicKey] =
+  ): EitherT[FutureUnlessShutdown, String, SigningPublicKey] =
     getKeyByFingerprint(
       "signing",
       crypto.cryptoPublicStore.findSigningKeyIdByFingerprint,
@@ -741,7 +783,7 @@ object CantonNodeBootstrapImpl {
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, String, EncryptionPublicKey] =
+  ): EitherT[FutureUnlessShutdown, String, EncryptionPublicKey] =
     getOrCreateKey(
       "encryption",
       crypto.cryptoPublicStore.findEncryptionKeyIdByName,
@@ -753,15 +795,22 @@ object CantonNodeBootstrapImpl {
   private def getKeyByFingerprint[P <: PublicKey](
       typ: String,
       findPubKeyIdByFingerprint: Fingerprint => EitherT[Future, CryptoPublicStoreError, Option[P]],
-      existPrivateKeyByFp: Fingerprint => EitherT[Future, CryptoPrivateStoreError, Boolean],
+      existPrivateKeyByFp: Fingerprint => EitherT[
+        FutureUnlessShutdown,
+        CryptoPrivateStoreError,
+        Boolean,
+      ],
       fingerprint: Fingerprint,
-  )(implicit ec: ExecutionContext): EitherT[Future, String, P] = for {
+  )(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, String, P] = for {
     keyIdO <- findPubKeyIdByFingerprint(fingerprint)
       .leftMap(err =>
         s"Failure while looking for $typ fingerprint $fingerprint in public store: $err"
       )
+      .mapK(FutureUnlessShutdown.outcomeK)
     pubKey <- keyIdO.fold(
-      EitherT.leftT[Future, P](s"$typ key with fingerprint $fingerprint does not exist")
+      EitherT.leftT[FutureUnlessShutdown, P](
+        s"$typ key with fingerprint $fingerprint does not exist"
+      )
     ) { keyWithFingerprint =>
       val fingerprint = keyWithFingerprint.fingerprint
       existPrivateKeyByFp(fingerprint)
@@ -780,13 +829,18 @@ object CantonNodeBootstrapImpl {
   private def getOrCreateKey[P <: PublicKey](
       typ: String,
       findPubKeyIdByName: KeyName => EitherT[Future, CryptoPublicStoreError, Option[P]],
-      generateKey: Option[KeyName] => EitherT[Future, String, P],
-      existPrivateKeyByFp: Fingerprint => EitherT[Future, CryptoPrivateStoreError, Boolean],
+      generateKey: Option[KeyName] => EitherT[FutureUnlessShutdown, String, P],
+      existPrivateKeyByFp: Fingerprint => EitherT[
+        FutureUnlessShutdown,
+        CryptoPrivateStoreError,
+        Boolean,
+      ],
       name: String,
-  )(implicit ec: ExecutionContext): EitherT[Future, String, P] = for {
-    keyName <- EitherT.fromEither[Future](KeyName.create(name))
+  )(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, String, P] = for {
+    keyName <- EitherT.fromEither[FutureUnlessShutdown](KeyName.create(name))
     keyIdO <- findPubKeyIdByName(keyName)
       .leftMap(err => s"Failure while looking for $typ key $name in public store: $err")
+      .mapK(FutureUnlessShutdown.outcomeK)
     pubKey <- keyIdO.fold(
       generateKey(Some(keyName))
         .leftMap(err => s"Failure while generating $typ key for $name: $err")

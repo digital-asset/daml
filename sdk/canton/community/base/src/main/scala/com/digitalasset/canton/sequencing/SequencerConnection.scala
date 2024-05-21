@@ -8,8 +8,8 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.domain.v30
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
+import com.digitalasset.canton.networking.{Endpoint, UrlValidator}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.TracingConfig.Propagation
 import com.digitalasset.canton.{ProtoDeserializationError, SequencerAlias}
@@ -118,7 +118,8 @@ object GrpcSequencerConnection {
       sequencerAlias: SequencerAlias = SequencerAlias.Default,
   ): Either[String, GrpcSequencerConnection] =
     for {
-      endpointsWithTlsFlag <- Endpoint.fromUris(NonEmpty(Seq, new URI(connection)))
+      uri <- UrlValidator.validate(connection).leftMap(_.message)
+      endpointsWithTlsFlag <- Endpoint.fromUris(NonEmpty(Seq, uri))
       (endpoints, useTls) = endpointsWithTlsFlag
     } yield GrpcSequencerConnection(endpoints, useTls, customTrustCertificates, sequencerAlias)
 
@@ -145,13 +146,21 @@ object SequencerConnection {
   private def fromGrpcProto(
       grpcP: v30.SequencerConnection.Grpc,
       alias: String,
-  ): ParsingResult[SequencerConnection] =
+  ): ParsingResult[SequencerConnection] = {
+
     for {
-      uris <- NonEmpty
-        .from(grpcP.connections.map(new URI(_)))
-        .toRight(ProtoDeserializationError.FieldNotSet("connections"))
+      uris <- grpcP.connections
+        .traverse { connection =>
+          UrlValidator
+            .validate(connection)
+            .leftMap(err =>
+              ProtoDeserializationError
+                .OtherError(s"Connection `$connection` is invalid: ${err.message}")
+            )
+        }
+      urisNE <- NonEmpty.from(uris).toRight(ProtoDeserializationError.FieldNotSet("connections"))
       endpoints <- Endpoint
-        .fromUris(uris)
+        .fromUris(urisNE)
         .leftMap(err => ProtoDeserializationError.ValueConversionError("connections", err))
       sequencerAlias <- SequencerAlias.fromProtoPrimitive(alias)
     } yield GrpcSequencerConnection(
@@ -160,6 +169,7 @@ object SequencerConnection {
       grpcP.customTrustCertificates,
       sequencerAlias,
     )
+  }
 
   def merge(connections: Seq[SequencerConnection]): Either[String, SequencerConnection] =
     for {

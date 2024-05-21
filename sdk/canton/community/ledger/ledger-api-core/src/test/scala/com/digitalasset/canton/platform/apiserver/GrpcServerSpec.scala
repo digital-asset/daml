@@ -23,7 +23,11 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   SuppressingLogger,
 }
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.{
+  HistogramInventory,
+  LedgerApiServerHistograms,
+  LedgerApiServerMetrics,
+}
 import com.digitalasset.canton.platform.apiserver.GrpcServerSpec.*
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
 import com.digitalasset.canton.platform.apiserver.ratelimiting.{
@@ -136,7 +140,11 @@ final class GrpcServerSpec
 
     "install rate limit interceptor" in {
       val metricsFactory = new InMemoryMetricsFactory
-      val metrics = new Metrics(MetricName("test"), metricsFactory)
+      val inventory = new HistogramInventory
+      val metrics = new LedgerApiServerMetrics(
+        new LedgerApiServerHistograms(MetricName("test"))(inventory),
+        metricsFactory,
+      )
       val overLimitRejection = LedgerApiErrors.ThreadpoolOverloaded.Rejection(
         "test",
         "test",
@@ -215,7 +223,7 @@ object GrpcServerSpec {
 
   private def resources(
       loggerFactory: NamedLoggerFactory,
-      metrics: Metrics = Metrics.ForTesting,
+      metrics: LedgerApiServerMetrics = LedgerApiServerMetrics.ForTesting,
       interceptors: List[ServerInterceptor] = List.empty,
       helloService: ExecutionContext => BindableService with HelloService =
         new HelloServiceReferenceImplementation()(_),

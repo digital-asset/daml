@@ -7,7 +7,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.ledger.participant.state.index.v2.{
+import com.digitalasset.canton.ledger.participant.state.index.{
   ContractState,
   ContractStore,
   MaximumLedgerTime,

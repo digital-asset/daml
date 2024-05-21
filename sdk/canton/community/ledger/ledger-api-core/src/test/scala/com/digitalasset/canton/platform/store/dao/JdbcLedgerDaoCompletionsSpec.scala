@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.TransactionNodeStatistics
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.participant.state.v2 as state
+import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDaoCompletionsSpec.*
 import com.google.rpc.status.Status as RpcStatus

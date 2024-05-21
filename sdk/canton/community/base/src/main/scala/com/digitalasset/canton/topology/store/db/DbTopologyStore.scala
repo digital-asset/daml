@@ -254,7 +254,9 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   )(implicit
       traceContext: TraceContext
   ): Future[StoredTopologyTransactions[TopologyChangeOp, TopologyMapping]] = {
-    logger.debug(s"Inspecting store for types=$types, filter=$idFilter, time=$timeQuery")
+    logger.debug(
+      s"Inspecting store for types=$types, filter=$idFilter, time=$timeQuery, recentTimestamp=$recentTimestampO"
+    )
 
     val timeFilter: SQLActionBuilderChain = timeQuery match {
       case TimeQuery.HeadState =>

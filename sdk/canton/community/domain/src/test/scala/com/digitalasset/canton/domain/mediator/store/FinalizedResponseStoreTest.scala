@@ -18,10 +18,9 @@ import com.digitalasset.canton.protocol.{ConfirmationPolicy, RequestId, RootHash
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
+import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
-import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingIdentityFactory}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{ApplicationId, BaseTest, CommandId, LfPartyId}
 import org.scalatest.BeforeAndAfterAll
@@ -121,14 +120,14 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
         sut.fetch(requestId).value.map { result =>
           result shouldBe None
         }
-      }
+      }.failOnShutdown("Unexpected shutdown.")
       "should be able to fetch previously stored response" in {
         val sut = mk()
         for {
           _ <- sut.store(currentVersion)
           result <- sut.fetch(requestId).value
         } yield result shouldBe Some(currentVersion)
-      }
+      }.failOnShutdown("Unexpected shutdown.")
       "should allow the same response to be stored more than once" in {
         // can happen after a crash and event replay
         val sut = mk()
@@ -136,7 +135,7 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
           _ <- sut.store(currentVersion)
           _ <- sut.store(currentVersion)
         } yield succeed
-      }
+      }.failOnShutdown("Unexpected shutdown.")
     }
 
     "pruning" should {
@@ -149,11 +148,11 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
         for {
           _ <- requests.toList.parTraverse(sut.store)
           _ <- sut.prune(ts(2))
-          _ <- noneOrFail(sut.fetch(requestIdTs(1)))("fetch(ts1)")
-          _ <- noneOrFail(sut.fetch(requestIdTs(2)))("fetch(ts2)")
-          _ <- valueOrFail(sut.fetch(requestIdTs(3)))("fetch(ts3)")
+          _ <- noneOrFailUS(sut.fetch(requestIdTs(1)))("fetch(ts1)")
+          _ <- noneOrFailUS(sut.fetch(requestIdTs(2)))("fetch(ts2)")
+          _ <- valueOrFailUS(sut.fetch(requestIdTs(3)))("fetch(ts3)")
         } yield succeed
-      }
+      }.failOnShutdown("Unexpected shutdown.")
     }
   }
 }
@@ -173,8 +172,6 @@ trait DbFinalizedResponseStoreTest
     with FinalizedResponseStoreTest {
   this: DbTest =>
 
-  val pureCryptoApi: CryptoPureApi = TestingIdentityFactory.pureCrypto()
-
   def cleanDb(storage: DbStorage): Future[Int] = {
     import storage.api.*
     storage.update(sqlu"truncate table med_response_aggregations", functionFullName)
@@ -183,7 +180,7 @@ trait DbFinalizedResponseStoreTest
     behave like finalizedResponseStore(() =>
       new DbFinalizedResponseStore(
         storage,
-        pureCryptoApi,
+        new SymbolicPureCrypto,
         testedProtocolVersion,
         timeouts,
         loggerFactory,

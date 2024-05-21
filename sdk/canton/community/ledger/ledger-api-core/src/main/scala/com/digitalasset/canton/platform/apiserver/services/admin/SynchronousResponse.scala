@@ -6,8 +6,8 @@ package com.digitalasset.canton.platform.apiserver.services.admin
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain.ParticipantOffset
 import com.digitalasset.canton.ledger.error.CommonErrors
-import com.digitalasset.canton.ledger.participant.state.v2.SubmissionResult
-import com.digitalasset.canton.ledger.participant.state.v2 as state
+import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.SubmissionResult
 import com.digitalasset.canton.logging.*
 import com.digitalasset.canton.platform.apiserver.services.admin.SynchronousResponse.{
   Accepted,

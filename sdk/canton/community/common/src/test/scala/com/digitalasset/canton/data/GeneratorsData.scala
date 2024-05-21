@@ -51,8 +51,6 @@ final class GeneratorsData(
   // If this pattern match is not exhaustive anymore, update the generator below
   {
     ((_: MerklePathElement) match {
-      case _: ViewPosition.ListIndex =>
-        () // This one is excluded because it is not made to be serialized
       case _: ViewPosition.MerkleSeqIndex => ()
       case _: ViewPosition.MerkleSeqIndexFromRoot =>
         () // This one is excluded because it is not made to be serialized

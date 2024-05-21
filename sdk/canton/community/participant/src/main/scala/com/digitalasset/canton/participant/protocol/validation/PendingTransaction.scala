@@ -4,6 +4,8 @@
 package com.digitalasset.canton.participant.protocol.validation
 
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.PendingRequestData
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
@@ -17,11 +19,15 @@ final case class PendingTransaction(
     override val requestSequencerCounter: SequencerCounter,
     transactionValidationResult: TransactionValidationResult,
     override val mediator: MediatorGroupRecipient,
-    override val locallyRejected: Boolean,
+    override val locallyRejectedF: FutureUnlessShutdown[Boolean],
+    override val abortEngine: String => Unit,
+    override val engineAbortStatusF: FutureUnlessShutdown[EngineAbortStatus],
 ) extends PendingRequestData {
 
   val requestId: RequestId = RequestId(requestTime)
   override def rootHashO: Option[RootHash] = Some(
     transactionValidationResult.transactionId.toRootHash
   )
+
+  override def isCleanReplay: Boolean = false
 }

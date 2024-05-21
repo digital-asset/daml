@@ -7,10 +7,10 @@ import com.daml.lf.crypto
 import com.daml.lf.data.Time
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.domain.Commands
-import com.digitalasset.canton.ledger.participant.state.index.v2.MaximumLedgerTime
+import com.digitalasset.canton.ledger.participant.state.index.MaximumLedgerTime
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -20,7 +20,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
     delegate: CommandExecutor,
     resolveMaximumLedgerTime: ResolveMaximumLedgerTime,
     maxRetries: Int,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     ec: ExecutionContext

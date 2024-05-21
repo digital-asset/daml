@@ -20,7 +20,7 @@ import com.digitalasset.canton.domain.sequencing.config.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
 import com.digitalasset.canton.domain.sequencing.sequencer.{Sequencer, SequencerValidations}
 import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerService.*
-import com.digitalasset.canton.lifecycle.FlagCloseable
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
@@ -159,7 +159,7 @@ object GrpcSequencerService {
     /** Call the appropriate send method on the [[Sequencer]] */
     def send(request: ValueClass, sequencer: Sequencer)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, SendAsyncError, Unit]
+    ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit]
   }
 
   private object VersionedSignedSubmissionRequestProcessing
@@ -190,7 +190,7 @@ object GrpcSequencerService {
 
     override def send(request: SignedContent[SubmissionRequest], sequencer: Sequencer)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, SendAsyncError, Unit] = sequencer.sendAsyncSigned(request)
+    ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] = sequencer.sendAsyncSigned(request)
   }
 
   private object VersionedUnsignedSubmissionRequestProcessing
@@ -213,7 +213,8 @@ object GrpcSequencerService {
 
     override def send(request: SubmissionRequest, sequencer: Sequencer)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, SendAsyncError, Unit] = sequencer.sendAsync(request)
+    ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] =
+      sequencer.sendAsync(request)
   }
 
   private sealed trait WrappedAcknowledgeRequest extends Product with Serializable {
@@ -305,15 +306,19 @@ class GrpcSequencerService(
     } yield request
 
     lazy val sendET = for {
-      domainParameters <- EitherT.right[SendAsyncError](
-        domainParamsLookup.getApproximateOrDefaultValue(warnOnUsingDefaults(senderFromMetadata))
+      domainParameters <- EitherT
+        .right[SendAsyncError](
+          domainParamsLookup.getApproximateOrDefaultValue(warnOnUsingDefaults(senderFromMetadata))
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
+      request <- EitherT.fromEither[FutureUnlessShutdown](
+        parseAndValidate(domainParameters.maxRequestSize)
       )
-      request <- EitherT.fromEither[Future](parseAndValidate(domainParameters.maxRequestSize))
-      _ <- checkRate(processing.unwrap(request))
+      _ <- checkRate(processing.unwrap(request)).mapK(FutureUnlessShutdown.outcomeK)
       _ <- processing.send(request, sequencer)
     } yield ()
 
-    performUnlessClosingF(functionFullName)(sendET.value.map { res =>
+    performUnlessClosingUSF(functionFullName)(sendET.value.map { res =>
       res.left.foreach { err =>
         logger.info(s"Rejecting submission request by $senderFromMetadata with $err")
       }
@@ -426,9 +431,9 @@ class GrpcSequencerService(
       )
       _ <- request.aggregationRule.traverse_(validateAggregationRule(sender, messageId, _))
     } yield {
-      metrics.bytesProcessed.mark(requestSize.toLong)(MetricsContext.Empty)
-      metrics.messagesProcessed.mark()
-      if (TimeProof.isTimeProofSubmission(request)) metrics.timeRequests.mark()
+      metrics.publicApi.bytesProcessed.mark(requestSize.toLong)(MetricsContext.Empty)
+      metrics.publicApi.messagesProcessed.mark()
+      if (TimeProof.isTimeProofSubmission(request)) metrics.publicApi.timeRequests.mark()
 
       ()
     }
@@ -537,7 +542,13 @@ class GrpcSequencerService(
     }
 
     sender match {
-      case participantId: ParticipantId if request.isRequest =>
+      // Rate limiting only if participants send to participants.
+      case participantId: ParticipantId if request.batch.allRecipients.exists {
+            case AllMembersOfDomain => true
+            case MemberRecipient(_: ParticipantId) => true
+            case ParticipantsOfParty(_) => true
+            case _: Recipient => false
+          } =>
         for {
           confirmationRequestsMaxRate <- EitherTUtil
             .fromFuture(
@@ -548,8 +559,6 @@ class GrpcSequencerService(
           _ <- EitherT.fromEither[Future](checkRate(participantId, confirmationRequestsMaxRate))
         } yield ()
       case _ =>
-        // No rate limitation for domain entities and non-requests
-        // TODO(i2898): verify that the sender is not lying about the request nature to bypass the rate limitation
         EitherT.rightT[Future, SendAsyncError](())
     }
   }

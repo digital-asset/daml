@@ -17,9 +17,9 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.Phase37Synchronizer.*
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
   PendingRequestData,
+  ReplayDataOr,
   RequestType,
 }
-import com.digitalasset.canton.participant.protocol.ProtocolProcessor.PendingRequestDataOrReplayData
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
@@ -75,10 +75,10 @@ class Phase37Synchronizer(
     implicit val evRequest = ts.pendingRequestRelation
 
     val promise: PromiseUnlessShutdown[Option[
-      PendingRequestDataOrReplayData[requestType.PendingRequestData]
+      ReplayDataOr[requestType.PendingRequestData]
     ]] =
       mkPromise[Option[
-        PendingRequestDataOrReplayData[requestType.PendingRequestData]
+        ReplayDataOr[requestType.PendingRequestData]
       ]]("phase37sync-register-request-data", futureSupervisor)
 
     logger.debug(s"Registering a new request $ts")
@@ -87,6 +87,7 @@ class Phase37Synchronizer(
       val requestRelation: RequestRelation[requestType.PendingRequestData] = RequestRelation(
         promise.future
           .map(_.onShutdown(None).orElse {
+            logger.debug(s"Removing request $requestId from pending requests.")
             blocking(synchronized {
               pendingRequests.remove_(ts)
             })
@@ -119,9 +120,8 @@ class Phase37Synchronizer(
   @SuppressWarnings(Array("com.digitalasset.canton.SynchronizedFuture"))
   def awaitConfirmed(requestType: RequestType)(
       requestId: RequestId,
-      filter: PendingRequestDataOrReplayData[requestType.PendingRequestData] => Future[Boolean] =
-        (_: PendingRequestDataOrReplayData[requestType.PendingRequestData]) =>
-          Future.successful(true),
+      filter: ReplayDataOr[requestType.PendingRequestData] => Future[Boolean] =
+        (_: ReplayDataOr[requestType.PendingRequestData]) => Future.successful(true),
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
@@ -224,13 +224,13 @@ object Phase37Synchronizer {
     *                                 Subsequently, future calls to awaitConfirmed will 'flatMap'/chain on this future.
     */
   private final case class RequestRelation[+T <: PendingRequestData](
-      pendingRequestDataFuture: Future[Option[PendingRequestDataOrReplayData[T]]]
+      pendingRequestDataFuture: Future[Option[ReplayDataOr[T]]]
   )
 
   final class PendingRequestDataHandle[T <: PendingRequestData](
-      private val handle: PromiseUnlessShutdown[Option[PendingRequestDataOrReplayData[T]]]
+      private val handle: PromiseUnlessShutdown[Option[ReplayDataOr[T]]]
   ) {
-    def complete(pendingData: Option[PendingRequestDataOrReplayData[T]]): Unit = {
+    def complete(pendingData: Option[ReplayDataOr[T]]): Unit = {
       handle.outcome(pendingData)
     }
     def failed(exception: Throwable): Unit = {
@@ -250,7 +250,7 @@ object Phase37Synchronizer {
     /** Marks a given request as being successful and returns the data.
       */
     final case class Success[T <: PendingRequestData](
-        pendingRequestData: PendingRequestDataOrReplayData[T]
+        pendingRequestData: ReplayDataOr[T]
     ) extends RequestOutcome[T]
 
     /** Marks a given request as already served or has timed out.

@@ -3,22 +3,23 @@
 
 package com.digitalasset.canton.http.json
 
-import org.apache.pekko.http.scaladsl.model.StatusCode
-import com.digitalasset.canton.http.domain
-import com.digitalasset.canton.http.domain.{Base64, ContractTypeId, DisclosedContract}
-import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.daml.lf.data.Ref.HexString
 import com.daml.lf.value.Value.ContractId
 import com.daml.nonempty.NonEmpty
-import com.google.protobuf.ByteString
-import com.google.protobuf.struct.Struct
-import scalaz.syntax.std.option.*
-import scalaz.{-\/, @@, NonEmptyList, Tag, \/-}
-import spray.json.*
-import spray.json.derived.Discriminator
-import scalaz.syntax.tag.*
 import com.daml.struct.spray.StructJsonFormat
 import com.digitalasset.canton.daml.lf.value.json.ApiCodecCompressed
+import com.digitalasset.canton.http.domain
+import com.digitalasset.canton.http.domain.*
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
+import com.google.protobuf.ByteString
+import com.google.protobuf.struct.Struct
+import org.apache.pekko.http.scaladsl.model.StatusCode
+import scalaz.syntax.std.option.*
+import scalaz.syntax.tag.*
+import scalaz.{-\/, @@, NonEmptyList, Tag, \/-}
+import spray.json.*
+
+import scala.reflect.ClassTag
 
 object JsonProtocol extends JsonProtocolLow {
 
@@ -99,6 +100,7 @@ object JsonProtocol extends JsonProtocolLow {
 
   implicit val Base16Format: JsonFormat[domain.Base16] = {
     import com.google.common.io.BaseEncoding.base16
+
     import java.util.Locale.US
     baseNFormat(s => base16.decode(s toUpperCase US), ba => base16.encode(ba) toLowerCase US)
   }
@@ -106,14 +108,74 @@ object JsonProtocol extends JsonProtocolLow {
   implicit val userDetails: JsonFormat[domain.UserDetails] =
     jsonFormat2(domain.UserDetails.apply)
 
-  import spray.json.derived.semiauto.*
+  implicit val participantAdmin: JsonFormat[ParticipantAdmin.type] =
+    jsonFormat0(() => ParticipantAdmin)
+  implicit val identityProviderAdmin: JsonFormat[IdentityProviderAdmin.type] =
+    jsonFormat0(() => IdentityProviderAdmin)
+  implicit val canReadAsAnyParty: JsonFormat[CanReadAsAnyParty.type] =
+    jsonFormat0(() => CanReadAsAnyParty)
+  implicit val canActAs: JsonFormat[CanActAs] = jsonFormat1(CanActAs.apply)
+  implicit val canReadAs: JsonFormat[CanReadAs] = jsonFormat1(CanReadAs.apply)
 
-  // For whatever reason the annotation detection for the deriveFormat is not working correctly.
-  // This fixes it.
-  private implicit def annotationFix[T]: shapeless.Annotation[Option[Discriminator], T] =
-    shapeless.Annotation.mkAnnotation(None)
+  implicit val userRight: JsonFormat[UserRight] = {
+    val participantAdminTypeName = ParticipantAdmin.getClass.getSimpleName.replace("$", "")
+    val identityProviderAdminTypeName =
+      IdentityProviderAdmin.getClass.getSimpleName.replace("$", "")
+    val canActAsTypeName = classOf[CanActAs].getSimpleName
+    val canReadAsTypeName = classOf[CanReadAs].getSimpleName
+    val canReadAsAnyPartyTypeName = CanReadAsAnyParty.getClass.getSimpleName.replace("$", "")
 
-  implicit val userRight: JsonFormat[domain.UserRight] = deriveFormat[domain.UserRight]
+    jsonFormatFromADT[UserRight](
+      {
+        case `participantAdminTypeName` => _ => ParticipantAdmin
+        case `identityProviderAdminTypeName` => _ => IdentityProviderAdmin
+        case `canActAsTypeName` => canActAs.read(_)
+        case `canReadAsTypeName` => canReadAs.read(_)
+        case `canReadAsAnyPartyTypeName` => _ => CanReadAsAnyParty
+        case typeName => deserializationError(s"Unknown user right type: $typeName")
+      },
+      {
+        case ParticipantAdmin => participantAdmin.write(ParticipantAdmin)
+        case IdentityProviderAdmin => identityProviderAdmin.write(IdentityProviderAdmin)
+        case canActAsObj: CanActAs => canActAs.write(canActAsObj)
+        case canReadAsObj: CanReadAs => canReadAs.write(canReadAsObj)
+        case CanReadAsAnyParty => canReadAsAnyParty.write(CanReadAsAnyParty)
+      },
+    )
+  }
+
+  private def jsonFormatFromADT[T: ClassTag](
+      fromJs: String => JsObject => T,
+      toJs: T => JsValue,
+  ): JsonFormat[T] =
+    new JsonFormat[T] {
+      private val typeDiscriminatorKeyName = "type"
+
+      override def read(json: JsValue): T = {
+        val fields = json.asJsObject().fields
+        val typeValue = fields.getOrElse(
+          typeDiscriminatorKeyName,
+          deserializationError(
+            s"${implicitly[ClassTag[T]].runtimeClass.getSimpleName} must have a `$typeDiscriminatorKeyName` field"
+          ),
+        ) match {
+          case JsString(value) => value
+          case other =>
+            deserializationError(
+              s"field with key name `$typeDiscriminatorKeyName` must be a JsString, got $other"
+            )
+        }
+        val jsValueWithoutType = JsObject(fields - typeDiscriminatorKeyName)
+        fromJs(typeValue)(jsValueWithoutType)
+      }
+      override def write(obj: T): JsObject = {
+        val typeName = obj.getClass.getSimpleName.replace("$", "")
+        val jsObj = toJs(obj)
+        jsObj.asJsObject.copy(fields =
+          jsObj.asJsObject.fields + (typeDiscriminatorKeyName -> JsString(typeName))
+        )
+      }
+    }
 
   implicit val PartyDetails: JsonFormat[domain.PartyDetails] =
     jsonFormat3(domain.PartyDetails.apply)
@@ -186,7 +248,7 @@ object JsonProtocol extends JsonProtocolLow {
   implicit def TemplateIdOptionalPkgFormat[CtId[T] <: domain.ContractTypeId[T]](implicit
       CtId: domain.ContractTypeId.Like[CtId]
   ): RootJsonFormat[CtId[Option[String]]] = {
-    import CtId.{OptionalPkg as IdO}
+    import CtId.OptionalPkg as IdO
     new RootJsonFormat[IdO] {
 
       override def write(a: IdO): JsValue = a.packageId match {
@@ -412,8 +474,31 @@ object JsonProtocol extends JsonProtocolLow {
   implicit val hexStringFormat: JsonFormat[HexString] =
     xemapStringJsonFormat(HexString.fromString)(identity)
 
-  implicit val DeduplicationPeriodFormat: JsonFormat[domain.DeduplicationPeriod] =
-    deriveFormat[domain.DeduplicationPeriod]
+  implicit val deduplicationPeriodOffset: JsonFormat[DeduplicationPeriod.Offset] = jsonFormat1(
+    DeduplicationPeriod.Offset.apply
+  )
+  implicit val deduplicationPeriodDuration: JsonFormat[DeduplicationPeriod.Duration] = jsonFormat1(
+    DeduplicationPeriod.Duration.apply
+  )
+
+  implicit val DeduplicationPeriodFormat: JsonFormat[DeduplicationPeriod] = {
+    val deduplicationPeriodOffsetTypeName =
+      classOf[DeduplicationPeriod.Offset].getSimpleName
+    val deduplicationPeriodDurationTypeName =
+      classOf[DeduplicationPeriod.Duration].getSimpleName
+
+    jsonFormatFromADT(
+      {
+        case `deduplicationPeriodOffsetTypeName` => deduplicationPeriodOffset.read(_)
+        case `deduplicationPeriodDurationTypeName` => deduplicationPeriodDuration.read(_)
+        case typeName => deserializationError(s"Unknown deduplication period type: $typeName")
+      },
+      {
+        case obj: DeduplicationPeriod.Offset => deduplicationPeriodOffset.write(obj)
+        case obj: DeduplicationPeriod.Duration => deduplicationPeriodDuration.write(obj)
+      },
+    )
+  }
 
   implicit val SubmissionIdFormat: JsonFormat[domain.SubmissionId] = taggedJsonFormat
 
@@ -587,7 +672,30 @@ object JsonProtocol extends JsonProtocolLow {
     domain.RequestInfoDetail
   )
 
-  implicit val ErrorDetailsFormat: JsonFormat[domain.ErrorDetail] = deriveFormat[domain.ErrorDetail]
+  implicit val ErrorDetailsFormat: JsonFormat[domain.ErrorDetail] = {
+    val resourceInfoDetailTypeName = classOf[ResourceInfoDetail].getSimpleName
+    val errorInfoDetailTypeName = classOf[ErrorInfoDetail].getSimpleName
+    val retryInfoDetailTypeName = classOf[RetryInfoDetail].getSimpleName
+    val requestInfoDetailTypeName = classOf[RequestInfoDetail].getSimpleName
+
+    jsonFormatFromADT(
+      {
+        case `resourceInfoDetailTypeName` => ResourceInfoDetailFormat.read(_)
+        case `errorInfoDetailTypeName` => ErrorInfoDetailFormat.read(_)
+        case `retryInfoDetailTypeName` => RetryInfoDetailFormat.read(_)
+        case `requestInfoDetailTypeName` => RequestInfoDetailFormat.read(_)
+        case typeName => deserializationError(s"Unknown error detail type: $typeName")
+      },
+      {
+        case resourceInfoDetail: ResourceInfoDetail =>
+          ResourceInfoDetailFormat.write(resourceInfoDetail)
+        case errorInfoDetail: ErrorInfoDetail => ErrorInfoDetailFormat.write(errorInfoDetail)
+        case retryInfoDetail: RetryInfoDetail => RetryInfoDetailFormat.write(retryInfoDetail)
+        case requestInfoDetail: RequestInfoDetail =>
+          RequestInfoDetailFormat.write(requestInfoDetail)
+      },
+    )
+  }
 
   implicit val LedgerApiErrorFormat: RootJsonFormat[domain.LedgerApiError] =
     jsonFormat3(domain.LedgerApiError)

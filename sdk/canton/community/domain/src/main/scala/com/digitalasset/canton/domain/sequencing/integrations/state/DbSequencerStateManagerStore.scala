@@ -21,6 +21,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SaveLowerBoundError
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.DbStorage.DbAction.ReadOnly
+import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
 import com.digitalasset.canton.resource.DbStorage.{DbAction, dbEitherT}
 import com.digitalasset.canton.resource.IdempotentInsert.insertVerifyingConflicts
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
@@ -305,6 +306,77 @@ class DbSequencerStateManagerStore(
       trafficSate: Map[Member, TrafficState],
   )(implicit traceContext: TraceContext): Future[Unit] = {
     storage.queryAndUpdate(addEventsDBIO(trafficSate)(events), functionFullName)
+  }
+
+  def bulkInsertEventsDBIO(
+      events: Seq[Map[Member, OrdinarySerializedEvent]],
+      trafficState: Map[Member, TrafficState],
+  )(implicit batchTraceContext: TraceContext): DBIOAction[Array[Int], NoStream, Effect.All] = {
+    events.foreach { evs =>
+      ErrorUtil.requireArgument(
+        evs.values.map(_.counter).forall(_ >= SequencerCounter.Genesis),
+        "all counters must be greater or equal to the genesis counter",
+      )
+
+      ErrorUtil.requireArgument(
+        evs.values.map(_.timestamp).toSet.sizeCompare(1) <= 0,
+        "events should all be for the same timestamp",
+      )
+    }
+
+    val addEventsInsertSql = storage.profile match {
+      case _: Postgres =>
+        """insert into seq_state_manager_events (member, counter, ts, content, trace_context, extra_traffic_remainder, extra_traffic_consumed, base_traffic_remainder)
+             values (?, ?, ?, ?, ?, ?, ?, ?)
+             on conflict (member, counter) do nothing """
+      case _: H2 =>
+        """
+          merge into seq_state_manager_events using
+             (select
+                cast(? as varchar(300)) as member,
+                cast(? as bigint) as counter,
+                cast(? as bigint) as ts,
+                cast(? as binary large object) as content,
+                cast(? as binary large object) as trace_context,
+                cast(? as bigint) as extra_traffic_remainder,
+                cast(? as bigint) as extra_traffic_consumed,
+                cast(? as bigint) as base_traffic_remainder
+              from dual) as excluded
+            on (seq_state_manager_events.member = excluded.member and seq_state_manager_events.counter = excluded.counter)
+            when not matched then
+              insert (
+                member,
+                counter, ts, content, trace_context,
+                extra_traffic_remainder, extra_traffic_consumed, base_traffic_remainder
+              )
+              values (
+                excluded.member,
+                excluded.counter, excluded.ts, excluded.content, excluded.trace_context,
+                excluded.extra_traffic_remainder, excluded.extra_traffic_consumed, excluded.base_traffic_remainder
+              )
+            """
+      case _ => sys.error("Oracle not supported")
+    }
+
+    val storedEvents = for {
+      event <- events
+      storedEvent <- event.fmap(StoredEvent.create)
+    } yield storedEvent
+
+    DbStorage.bulkOperation(addEventsInsertSql, storedEvents, storage.profile) { pp => entry =>
+      entry match {
+        case (member, storedEvent) =>
+          val state = trafficState.get(member)
+          pp >> member
+          pp >> storedEvent.counter
+          pp >> storedEvent.timestamp
+          pp >> storedEvent.content
+          pp >> SerializableTraceContext(storedEvent.traceContext)
+          pp >> state.map(_.extraTrafficRemainder.value)
+          pp >> state.map(_.extraTrafficConsumed.value)
+          pp >> state.map(_.baseTrafficRemainder.value)
+      }
+    }
   }
 
   def addEventsDBIO(trafficState: Map[Member, TrafficState])(

@@ -17,9 +17,9 @@ import com.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
 import com.daml.lf.transaction.{CommittedTransaction, NodeId}
 import com.daml.lf.value.Value
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
-import com.digitalasset.canton.ledger.participant.state.v2.Update.CommandRejected.FinalReason
-import com.digitalasset.canton.ledger.participant.state.v2.*
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.FinalReason
+import com.digitalasset.canton.ledger.participant.state.*
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater.PrepareResult
@@ -216,7 +216,7 @@ object InMemoryStateUpdaterSpec {
       executorService,
       executorService,
       FiniteDuration(10, "seconds"),
-      Metrics.ForTesting,
+      LedgerApiServerMetrics.ForTesting,
       logger,
     )(
       prepare = (_, lastEventSequentialId) => result(lastEventSequentialId),

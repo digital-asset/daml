@@ -73,7 +73,7 @@ in rec {
 
     zinc = pkgs.callPackage ./tools/zinc {};
 
-    jdk    = bazel_dependencies.jdk11;
+    jdk    = bazel_dependencies.jdk17;
     java   = jdk;
     javac  = jdk;
     jinfo  = jdk;
@@ -177,7 +177,6 @@ in rec {
     sha1sum = pkgs.coreutils;
     sha256sum = pkgs.coreutils;
     xargs = pkgs.findutils;
-    xmlstarlet = pkgs.xmlstarlet;
 
     # Cryptography tooling
     gnupg = pkgs.gnupg;

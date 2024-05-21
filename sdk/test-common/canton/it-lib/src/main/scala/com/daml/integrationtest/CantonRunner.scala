@@ -101,7 +101,7 @@ object CantonRunner {
          |      }
          |      storage.type = memory
          |      parameters = {
-         |        enable-engine-stack-traces = true
+         |        engine.enable-engine-stack-traces = true
          |        dev-version-support = yes
          |        disable-upgrade-validation = ${config.disableUpgradeValidation}
          |      }

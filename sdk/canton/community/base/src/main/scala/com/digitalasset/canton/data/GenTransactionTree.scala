@@ -24,7 +24,8 @@ import monocle.macros.GenLens
 
 import scala.collection.mutable
 
-/** Partially blinded version of a transaction tree.
+/** A DAML transaction, decomposed into views (cf. ViewDecomposition) and embedded in a Merkle tree.
+  * Merkle tree nodes may or may not be blinded.
   * This class is also used to represent transaction view trees and informee trees.
   */
 // private constructor, because object invariants are checked by factory methods

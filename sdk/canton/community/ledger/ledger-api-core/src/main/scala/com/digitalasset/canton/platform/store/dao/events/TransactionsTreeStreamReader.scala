@@ -13,7 +13,7 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.TraceIdentifiers
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.config.TransactionTreeStreamsConfig
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.common.{
@@ -51,7 +51,7 @@ class TransactionsTreeStreamReader(
     queryValidRange: QueryValidRange,
     eventStorageBackend: EventStorageBackend,
     lfValueTranslation: LfValueTranslation,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     tracer: Tracer,
     reassignmentStreamReader: ReassignmentStreamReader,
     val loggerFactory: NamedLoggerFactory,

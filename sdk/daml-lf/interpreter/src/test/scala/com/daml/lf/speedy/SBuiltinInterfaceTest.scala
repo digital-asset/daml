@@ -172,7 +172,7 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
   require(extraPkgId != basePkgId)
 
   val basePkgNameMap =
-    List(basePkg.name, extraPkgName).map(n => n -> basePkgId).toMap
+    Map(basePkg.name -> basePkgId, extraPkgName -> extraPkgId)
 
   lazy val extendedPkgs = {
 

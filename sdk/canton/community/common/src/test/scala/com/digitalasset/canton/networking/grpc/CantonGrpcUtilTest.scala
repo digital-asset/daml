@@ -4,6 +4,8 @@
 package com.digitalasset.canton.networking.grpc
 
 import cats.data.EitherT
+import com.digitalasset.canton.connection.GrpcApiInfoService
+import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.domain.api.v0.HelloServiceGrpc.{HelloService, HelloServiceStub}
 import com.digitalasset.canton.domain.api.v0.{Hello, HelloServiceGrpc}
 import com.digitalasset.canton.logging.TracedLogger
@@ -38,8 +40,14 @@ object CantonGrpcUtilTest {
 
     val helloServiceDefinition: ServerServiceDefinition =
       intercept(HelloServiceGrpc.bindService(service, ec), TraceContextGrpc.serverInterceptor)
+    val apiInfoServiceDefinition: ServerServiceDefinition =
+      ApiInfoServiceGrpc.bindService(
+        new GrpcApiInfoService("correct-api"),
+        ec,
+      )
 
     registry.addService(helloServiceDefinition)
+    registry.addService(apiInfoServiceDefinition)
 
     val channel: ManagedChannel = InProcessChannelBuilder
       .forName(channelName)
@@ -399,6 +407,45 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
         err.status.getCode shouldBe INTERNAL
         err.status.getDescription shouldBe "test description"
         err.status.getCause shouldBe cause
+      }
+    }
+
+    "checking for correct API" must {
+      "succeed if API is correct" in { env =>
+        import env.*
+
+        server.start()
+        val resultET = CantonGrpcUtil.checkCantonApiInfo(
+          "server-name",
+          "correct-api",
+          channel,
+          logger,
+          timeouts.network,
+        )
+        resultET.futureValue shouldBe ()
+      }
+
+      "fail if API is incorrect" in { env =>
+        import env.*
+
+        server.start()
+        val requestET = CantonGrpcUtil.checkCantonApiInfo(
+          "server-name",
+          "other-api",
+          channel,
+          logger,
+          timeouts.network,
+        )
+
+        val resultE = requestET.value.futureValue
+        inside(resultE) { case Left(message) =>
+          message shouldBe CantonGrpcUtil.apiInfoErrorMessage(
+            channel = channel,
+            receivedApiName = "correct-api",
+            expectedApiName = "other-api",
+            serverName = "server-name",
+          )
+        }
       }
     }
   }

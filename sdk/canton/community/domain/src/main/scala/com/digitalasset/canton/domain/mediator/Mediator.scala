@@ -9,8 +9,8 @@ import cats.instances.future.*
 import cats.syntax.bifunctor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.config.{DomainTimeTrackerConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.mediator.Mediator.PruningError
@@ -18,7 +18,7 @@ import com.digitalasset.canton.domain.mediator.store.MediatorState
 import com.digitalasset.canton.domain.metrics.MediatorMetrics
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.error.MediatorError
-import com.digitalasset.canton.lifecycle.*
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, *}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.MetricsHelper
 import com.digitalasset.canton.protocol.messages.{
@@ -50,16 +50,18 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherUtil.RichEither
-import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.util.FutureUtil
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import io.opentelemetry.api.trace.Tracer
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
-/** The Mediator that acts as transaction coordinator. */
+/** Responsible for events processing.
+  * Reads mediator confirmation requests and confirmation responses from a sequencer and produces ConfirmationResultMessages.
+  * For scaling / high-availability, several instances need to be created.
+  */
 private[mediator] class Mediator(
     val domain: DomainId,
     val mediatorId: MediatorId,
@@ -70,7 +72,7 @@ private[mediator] class Mediator(
     topologyTransactionProcessor: TopologyTransactionProcessor,
     val topologyManagerStatus: TopologyManagerStatus,
     val domainOutboxHandle: DomainOutboxHandle,
-    timeTrackerConfig: DomainTimeTrackerConfig,
+    val timeTracker: DomainTimeTracker,
     state: MediatorState,
     private[canton] val sequencerCounterTrackerStore: SequencerCounterTrackerStore,
     sequencedEventStore: SequencedEventStore,
@@ -93,15 +95,6 @@ private[mediator] class Mediator(
       parameters.delayLoggingThreshold,
       metrics.sequencerClient.handler.delay,
     )
-
-  val timeTracker = DomainTimeTracker(
-    timeTrackerConfig,
-    clock,
-    sequencerClient,
-    protocolVersion,
-    timeouts,
-    loggerFactory,
-  )
 
   private val verdictSender =
     VerdictSender(sequencerClient, syncCrypto, mediatorId, protocolVersion, loggerFactory)
@@ -141,17 +134,19 @@ private[mediator] class Mediator(
 
   override protected def startAsync()(implicit
       initializationTraceContext: TraceContext
-  ): Future[Unit] = for {
+  ): FutureUnlessShutdown[Unit] = for {
 
-    preheadO <- sequencerCounterTrackerStore.preheadSequencerCounter
+    preheadO <- FutureUnlessShutdown.outcomeF(sequencerCounterTrackerStore.preheadSequencerCounter)
     nextTs = preheadO.fold(CantonTimestamp.MinValue)(_.timestamp.immediateSuccessor)
     _ <- state.deduplicationStore.initialize(nextTs)
 
-    _ <- sequencerClient.subscribeTracking(
-      sequencerCounterTrackerStore,
-      DiscardIgnoredEvents(loggerFactory)(handler),
-      timeTracker,
-      onCleanHandler = onCleanSequencerCounterHandler,
+    _ <- FutureUnlessShutdown.outcomeF(
+      sequencerClient.subscribeTracking(
+        sequencerCounterTrackerStore,
+        DiscardIgnoredEvents(loggerFactory)(handler),
+        timeTracker,
+        onCleanHandler = onCleanSequencerCounterHandler,
+      )
     )
   } yield ()
 
@@ -159,7 +154,7 @@ private[mediator] class Mediator(
       newTracedPrehead: Traced[SequencerCounterCursorPrehead]
   ): Unit = newTracedPrehead.withTraceContext { implicit traceContext => newPrehead =>
     FutureUtil.doNotAwait(
-      performUnlessClosingF("prune mediator deduplication store")(
+      performUnlessClosingUSF("prune mediator deduplication store")(
         state.deduplicationStore.prune(newPrehead.timestamp)
       ).onShutdown(logger.info("Not pruning the mediator deduplication store due to shutdown")),
       "pruning the mediator deduplication store failed",
@@ -172,23 +167,29 @@ private[mediator] class Mediator(
     */
   def prune(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): EitherT[Future, PruningError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, PruningError, Unit] =
     for {
-      preHeadCounterO <- EitherT.right(sequencerCounterTrackerStore.preheadSequencerCounter)
+      preHeadCounterO <- EitherT
+        .right(sequencerCounterTrackerStore.preheadSequencerCounter)
+        .mapK(FutureUnlessShutdown.outcomeK)
       preHeadTsO = preHeadCounterO.map(_.timestamp)
       cleanTimestamp <- EitherT
         .fromOption(preHeadTsO, PruningError.NoDataAvailableForPruning)
         .leftWiden[PruningError]
+        .mapK(FutureUnlessShutdown.outcomeK)
 
-      _ <- EitherT.cond(
-        timestamp <= cleanTimestamp,
-        (),
-        PruningError.CannotPruneAtTimestamp(timestamp, cleanTimestamp),
-      )
+      _ <- EitherT
+        .cond[FutureUnlessShutdown](
+          timestamp <= cleanTimestamp,
+          (),
+          PruningError.CannotPruneAtTimestamp(timestamp, cleanTimestamp),
+        )
 
-      domainParametersChanges <- EitherT.right(
-        topologyClient.awaitSnapshot(timestamp).flatMap(_.listDynamicDomainParametersChanges())
-      )
+      domainParametersChanges <- EitherT
+        .right(
+          topologyClient.awaitSnapshot(timestamp).flatMap(_.listDynamicDomainParametersChanges())
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
 
       _ <- NonEmptySeq.fromSeq(domainParametersChanges) match {
         case Some(domainParametersChangesNes) =>
@@ -202,7 +203,7 @@ private[mediator] class Mediator(
           logger.info(
             s"No domain parameters found for pruning at $timestamp. This is likely due to $timestamp being before domain bootstrapping. Will not prune."
           )
-          EitherT.pure[Future, PruningError](())
+          EitherT.pure[FutureUnlessShutdown, PruningError](())
       }
 
     } yield ()
@@ -211,14 +212,14 @@ private[mediator] class Mediator(
       pruneAt: CantonTimestamp,
       cleanTimestamp: CantonTimestamp,
       domainParametersChanges: NonEmptySeq[DynamicDomainParametersWithValidity],
-  )(implicit tc: TraceContext): EitherT[Future, PruningError, Unit] = {
+  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, PruningError, Unit] = {
     val latestSafePruningTsO = Mediator.latestSafePruningTsBefore(
       domainParametersChanges,
       cleanTimestamp,
     )
 
     for {
-      _ <- EitherT.fromEither {
+      _ <- EitherT.fromEither[FutureUnlessShutdown] {
         latestSafePruningTsO
           .toRight(PruningError.MissingDomainParametersForValidPruningTsComputation(pruneAt))
           .flatMap { latestSafePruningTs =>
@@ -233,7 +234,7 @@ private[mediator] class Mediator(
       _ = logger.debug(show"Pruning finalized responses up to [$pruneAt]")
       _ <- EitherT.right(state.prune(pruneAt))
       _ = logger.debug(show"Pruning sequenced event up to [$pruneAt]")
-      _ <- EitherT.right(sequencedEventStore.prune(pruneAt))
+      _ <- EitherT.right(FutureUnlessShutdown.outcomeF(sequencedEventStore.prune(pruneAt)))
 
       // After pruning successfully, update the "max-event-age" metric
       // looking up the oldest event (in case prunedAt precedes any events and nothing was pruned).
@@ -263,16 +264,20 @@ private[mediator] class Mediator(
           rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
           timestamp: CantonTimestamp,
           verdict: MediatorVerdict.MediatorReject,
-      )(implicit tc: TraceContext): Future[Unit] = {
+      )(implicit tc: TraceContext): FutureUnlessShutdown[Unit] = {
         val requestId = RequestId(timestamp)
 
         for {
-          snapshot <- syncCrypto.awaitSnapshot(timestamp)
-          domainParameters <- snapshot.ipsSnapshot
-            .findDynamicDomainParameters()
-            .flatMap(_.toFuture(new RuntimeException(_)))
+          snapshot <- syncCrypto.awaitSnapshotUS(timestamp)
+          domainParameters <- FutureUnlessShutdown.outcomeF(
+            snapshot.ipsSnapshot
+              .findDynamicDomainParameters()
+              .flatMap(_.toFuture(new RuntimeException(_)))
+          )
 
-          decisionTime <- domainParameters.decisionTimeForF(timestamp)
+          decisionTime <- FutureUnlessShutdown.outcomeF(
+            domainParameters.decisionTimeForF(timestamp)
+          )
           _ <- verdictSender.sendReject(
             requestId,
             None,
@@ -312,7 +317,7 @@ private[mediator] class Mediator(
                   closedEvent.timestamp,
                   MediatorVerdict.MediatorReject(alarm),
                 )
-              } else Future.unit
+              } else FutureUnlessShutdown.unit
             }
 
             (
@@ -333,7 +338,8 @@ private[mediator] class Mediator(
             "Failed to handle Mediator events",
             closeContext = Some(closeContext),
           )
-          FutureUnlessShutdown.outcomeF(rejectionsF.sequence_).flatMap { case () => result }
+
+          rejectionsF.sequence_.flatMap { case () => result }
         }
       }
     }

@@ -7,7 +7,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.tls.TlsConfiguration
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.ServerInterceptor
 
@@ -22,7 +22,7 @@ final class LedgerApiService(
     tlsConfiguration: Option[TlsConfiguration] = None,
     interceptors: List[ServerInterceptor] = List.empty,
     servicesExecutor: Executor,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
     val loggerFactory: NamedLoggerFactory,
 ) extends ResourceOwner[ApiService]
     with NamedLogging {

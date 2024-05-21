@@ -154,11 +154,11 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
       val mockSubmissionRequest = SubmissionRequest.tryCreate(
         DefaultTestIdentities.participant1,
         MessageId.fromUuid(new UUID(1L, 1L)),
-        isRequest = false,
         Batch.empty(testedProtocolVersion),
         maxSequencingTime = CantonTimestamp.MaxValue,
         topologyTimestamp = None,
         aggregationRule = None,
+        submissionCost = None,
         testedProtocolVersion,
       )
 

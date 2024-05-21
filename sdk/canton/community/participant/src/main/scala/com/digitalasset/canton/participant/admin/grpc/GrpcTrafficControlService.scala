@@ -12,10 +12,10 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.MalformedInputErrors.InvalidDomainId
+import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.TrafficStateNotFound
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.traffic.MemberTrafficStatus
-import com.digitalasset.canton.traffic.TrafficControlErrors.TrafficStateNotFound
 
 import scala.concurrent.{ExecutionContext, Future}
 

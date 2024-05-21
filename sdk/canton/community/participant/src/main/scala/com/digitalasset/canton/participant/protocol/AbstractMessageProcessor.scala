@@ -19,15 +19,11 @@ import com.digitalasset.canton.protocol.messages.{
   ProtocolMessage,
   SignedProtocolMessage,
 }
-import com.digitalasset.canton.sequencing.client.{
-  SendAsyncClientError,
-  SendCallback,
-  SequencerClientSend,
-}
+import com.digitalasset.canton.sequencing.client.{SendCallback, SequencerClientSend}
 import com.digitalasset.canton.sequencing.protocol.{Batch, MessageId, Recipients}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, FutureUtil}
+import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 
@@ -78,7 +74,7 @@ abstract class AbstractMessageProcessor(
 
   protected def signResponse(ips: DomainSnapshotSyncCryptoApi, response: ConfirmationResponse)(
       implicit traceContext: TraceContext
-  ): Future[SignedProtocolMessage[ConfirmationResponse]] =
+  ): FutureUnlessShutdown[SignedProtocolMessage[ConfirmationResponse]] =
     SignedProtocolMessage.trySignAndCreate(response, ips, protocolVersion)
 
   // Assumes that we are not closing (i.e., that this is synchronized with shutdown somewhere higher up the call stack)
@@ -89,12 +85,12 @@ abstract class AbstractMessageProcessor(
       messageId: Option[MessageId] = None,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
-    if (messages.isEmpty) EitherTUtil.unitUS[SendAsyncClientError]
+  ): FutureUnlessShutdown[Unit] = {
+    if (messages.isEmpty) FutureUnlessShutdown.unit
     else {
       logger.trace(s"Request $requestId: ProtocolProcessor scheduling the sending of responses")
 
-      for {
+      val result = for {
         domainParameters <- EitherT.right(
           crypto.ips
             .awaitSnapshotUS(requestId.unwrap)
@@ -116,6 +112,13 @@ abstract class AbstractMessageProcessor(
           amplify = true,
         )
       } yield ()
+
+      result.valueOr {
+        // Swallow Left errors to avoid stopping request processing, as sending response could fail for arbitrary reasons
+        // if the sequencer rejects them (e.g max sequencing time has elapsed)
+        err =>
+          logger.warn(s"Request $requestId: Failed to send responses: ${err.show}")
+      }
     }
   }
 

@@ -28,6 +28,8 @@ class TransactionConfirmationResponseFactory(
 
   import com.digitalasset.canton.util.ShowUtil.*
 
+  /** Takes a `transactionValidationResult` and computes the [[protocol.messages.ConfirmationResponse]], to be sent to the mediator.
+    */
   def createConfirmationResponses(
       requestId: RequestId,
       malformedPayloads: Seq[MalformedPayload],
@@ -133,12 +135,14 @@ class TransactionConfirmationResponseFactory(
         case (viewPosition, viewValidationResult) =>
           for {
             hostedConfirmingParties <- hostedConfirmingPartiesOfView(viewValidationResult)
+            modelConformanceResultE <- transactionValidationResult.modelConformanceResultET.value
           } yield {
 
             // Rejections due to a failed model conformance check
+            // Aborts are logged by the Engine callback when the abort happens
             val modelConformanceRejections =
-              transactionValidationResult.modelConformanceResultE.swap.toSeq.flatMap(error =>
-                error.errors.map(cause =>
+              modelConformanceResultE.swap.toSeq.flatMap(error =>
+                error.nonAbortErrors.map(cause =>
                   logged(
                     requestId,
                     LocalRejectError.MalformedRejects.ModelConformance.Reject(cause.toString),

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.client
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.scalautil.Statement.discard
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import io.grpc.netty.NettyChannelBuilder
 import io.grpc.{Channel, ManagedChannel}
@@ -24,7 +24,7 @@ object GrpcChannel {
     override def acquire()(implicit context: ResourceContext): Resource[ManagedChannel] =
       Resource(Future(builder.build()))(channel =>
         Future {
-          discard(channel.shutdownNow())
+          channel.shutdownNow().discard
         }
       )
   }
@@ -33,9 +33,9 @@ object GrpcChannel {
       builder: NettyChannelBuilder
   ): ManagedChannel = {
     val channel = builder.build()
-    discard(sys.addShutdownHook {
-      discard(channel.shutdownNow())
-    })
+    (sys.addShutdownHook {
+      DiscardOps(channel.shutdownNow()).discard
+    }).discard
     channel
   }
 

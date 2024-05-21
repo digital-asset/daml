@@ -1,6 +1,7 @@
 # Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@os_info//:os_info.bzl", "is_intel", "is_windows")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_benchmark_jmh",
@@ -11,7 +12,6 @@ load(
     "lf_scalacopts",
     "lf_scalacopts_stricter",
 )
-load("@os_info//:os_info.bzl", "is_intel", "is_windows")
 
 da_scala_library(
     name = "validation",
@@ -52,25 +52,44 @@ da_scala_library(
     name = "upgrade-test-lib",
     srcs =
         glob(
-            ["src/test/**/UpgradesSpecUtil.scala"],
+            [
+                "src/test/scala/**/upgrade/UpgradesSpecBase.scala",
+                "src/test/scala/**/upgrade/UpgradesSpecUtil.scala",
+            ],
         ) +
         #  we depend on sources to avoid pushing a canton artifact to maven
         [
             "//canton:community_admin-api_proto_scala",
         ],
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+    ],
     scaladoc = False,
     visibility = ["//visibility:public"],
     deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
         "//canton:community_admin-api",
         "//canton:community_ledger_ledger-common",
+        "//canton:community_util-logging",
         "//canton:ledger_api_proto_scala",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//libs-scala/ledger-resources",
         "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/testing-utils",
         "//test-common/canton/it-lib",
         "@maven//:io_grpc_grpc_netty",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
-
-upgrade_test_file = "src/test/scala/com/daml/lf/validation/UpgradesSpec.scala"
 
 da_scala_test_suite(
     name = "tests",
@@ -79,12 +98,12 @@ da_scala_test_suite(
         ["src/test/**/*.scala"],
         exclude = [
             "src/test/**/*SpecUtil.scala",
-            upgrade_test_file,
+            "src/test/**/*SpecUtil.scala",
+            "src/test/**/upgrade/*",
         ],
     ),
     data = [],
-    scala_deps = [
-    ],
+    scala_deps = [],
     scalacopts = lf_scalacopts,
     deps = [
         ":validation",
@@ -98,10 +117,16 @@ da_scala_test_suite(
 # TODO https://github.com/digital-asset/daml/issues/17254
 #  this test should not use canton and be part of the suite above
 [
-    da_scala_test(
+    da_scala_test_suite(
         name = "upgrade-tests",
-        size = "medium",
-        srcs = [upgrade_test_file],
+        size = "large",
+        srcs = glob(
+            ["src/test/**/upgrade/*.scala"],
+            exclude = [
+                "src/test/scala/**/upgrade/UpgradesSpecBase.scala",
+                "src/test/scala/**/upgrade/UpgradesSpecUtil.scala",
+            ],
+        ),
         data = [
             "//test-common:dar-files-default",
             "//test-common:upgrades-CommonVersionFailure-v1a.dar",
@@ -217,17 +242,13 @@ da_scala_test_suite(
         scalacopts = lf_scalacopts,
         deps = [
             ":upgrade-test-lib",
-            "//bazel_tools/runfiles:scala_runfiles",
-            "//canton:community_ledger_ledger-common",
-            "//canton:ledger_api_proto_scala",
-            "//daml-lf/archive:daml_lf_archive_reader",
             "//daml-lf/data",
             "//libs-scala/ledger-resources",
-            "//libs-scala/ports",
             "//libs-scala/resources",
             "//libs-scala/rs-grpc-bridge",
             "//libs-scala/testing-utils",
             "//test-common/canton/it-lib",
+            "@maven//:com_google_protobuf_protobuf_java",
         ],
     ),
 ] if is_intel and not is_windows else []

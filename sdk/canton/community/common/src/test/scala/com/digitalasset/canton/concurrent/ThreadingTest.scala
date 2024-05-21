@@ -19,7 +19,7 @@ class ThreadingTest extends AnyWordSpec with BaseTest {
 
   lazy val configuredNumerOfThreads: Int = Threading.detectNumberOfThreads(noTracingLogger)
   lazy val expectedNumberOfParallelTasks: Int =
-    configuredNumerOfThreads max Threading.minParallelism
+    configuredNumerOfThreads max Threading.minParallelismForForkJoinPool
   val expectedNumberOfParallelTasksWrappedInBlocking: Int = 200
   val numberOfTasksToMakeExecutionContextBusy: Int = 200
 

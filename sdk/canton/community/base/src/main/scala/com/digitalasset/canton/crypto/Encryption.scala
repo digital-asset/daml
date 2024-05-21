@@ -5,7 +5,6 @@ package com.digitalasset.canton.crypto
 
 import cats.Order
 import cats.data.EitherT
-import cats.instances.future.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
@@ -15,6 +14,7 @@ import com.digitalasset.canton.crypto.store.{
   CryptoPublicStoreError,
 }
 import com.digitalasset.canton.error.{BaseCantonError, CantonErrorGroups}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{
@@ -32,10 +32,7 @@ import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
 }
-import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
-import monocle.Lens
-import monocle.macros.GenLens
 import slick.jdbc.GetResult
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -117,7 +114,7 @@ trait EncryptionPrivateOps {
       deserialize: ByteString => Either[DeserializationError, M]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, DecryptionError, M]
+  ): EitherT[FutureUnlessShutdown, DecryptionError, M]
 
   /** Generates a new encryption key pair with the given scheme and optional name, stores the private key and returns the public key. */
   def generateEncryptionKey(
@@ -125,7 +122,7 @@ trait EncryptionPrivateOps {
       name: Option[KeyName] = None,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, EncryptionKeyGenerationError, EncryptionPublicKey]
+  ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionPublicKey]
 }
 
 /** A default implementation with a private key store */
@@ -138,9 +135,9 @@ trait EncryptionPrivateStoreOps extends EncryptionPrivateOps {
   protected val encryptionOps: EncryptionOps
 
   /** Decrypts an encrypted message using the referenced private encryption key */
-  def decrypt[M](encryptedMessage: AsymmetricEncrypted[M])(
+  override def decrypt[M](encryptedMessage: AsymmetricEncrypted[M])(
       deserialize: ByteString => Either[DeserializationError, M]
-  )(implicit tc: TraceContext): EitherT[Future, DecryptionError, M] =
+  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, DecryptionError, M] =
     store
       .decryptionKey(encryptedMessage.encryptedFor)
       .leftMap(storeError => DecryptionError.KeyStoreError(storeError.show))
@@ -154,14 +151,14 @@ trait EncryptionPrivateStoreOps extends EncryptionPrivateOps {
       traceContext: TraceContext
   ): EitherT[Future, EncryptionKeyGenerationError, EncryptionKeyPair]
 
-  def generateEncryptionKey(
+  override def generateEncryptionKey(
       scheme: EncryptionKeyScheme = defaultEncryptionKeyScheme,
       name: Option[KeyName] = None,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, EncryptionKeyGenerationError, EncryptionPublicKey] =
+  ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionPublicKey] =
     for {
-      keypair <- generateEncryptionKeypair(scheme)
+      keypair <- generateEncryptionKeypair(scheme).mapK(FutureUnlessShutdown.outcomeK)
       _ <- store
         .storeDecryptionKey(keypair.privateKey, name)
         .leftMap[EncryptionKeyGenerationError](
@@ -344,23 +341,13 @@ object EncryptionKeyPair {
     throw new UnsupportedOperationException("Use generate or deserialization methods")
 
   private[crypto] def create(
-      id: Fingerprint,
       format: CryptoKeyFormat,
       publicKeyBytes: ByteString,
       privateKeyBytes: ByteString,
       scheme: EncryptionKeyScheme,
   ): EncryptionKeyPair = {
-    val publicKey = new EncryptionPublicKey(id, format, publicKeyBytes, scheme)
+    val publicKey = new EncryptionPublicKey(format, publicKeyBytes, scheme)
     val privateKey = new EncryptionPrivateKey(publicKey.id, format, privateKeyBytes, scheme)
-    new EncryptionKeyPair(publicKey, privateKey)
-  }
-
-  @VisibleForTesting
-  def wrongEncryptionKeyPairWithPublicKeyUnsafe(
-      publicKey: EncryptionPublicKey
-  ): EncryptionKeyPair = {
-    val privateKey =
-      new EncryptionPrivateKey(publicKey.id, publicKey.format, publicKey.key, publicKey.scheme)
     new EncryptionKeyPair(publicKey, privateKey)
   }
 
@@ -382,7 +369,6 @@ object EncryptionKeyPair {
 }
 
 final case class EncryptionPublicKey private[crypto] (
-    id: Fingerprint,
     format: CryptoKeyFormat,
     protected[crypto] val key: ByteString,
     scheme: EncryptionKeyScheme,
@@ -390,7 +376,7 @@ final case class EncryptionPublicKey private[crypto] (
     with PrettyPrinting
     with HasVersionedWrapper[EncryptionPublicKey] {
 
-  override protected def companionObj = EncryptionPublicKey
+  override protected def companionObj: EncryptionPublicKey.type = EncryptionPublicKey
 
   // TODO(#15649): Make EncryptionPublicKey object invariant
   protected def validated: Either[ProtoDeserializationError.CryptoDeserializationError, this.type] =
@@ -406,7 +392,6 @@ final case class EncryptionPublicKey private[crypto] (
 
   def toProtoV30: v30.EncryptionPublicKey =
     v30.EncryptionPublicKey(
-      id = id.toProtoPrimitive,
       format = format.toProtoEnum,
       publicKey = key,
       scheme = scheme.toProtoEnum,
@@ -432,26 +417,19 @@ object EncryptionPublicKey
   )
 
   private[crypto] def create(
-      id: Fingerprint,
       format: CryptoKeyFormat,
       key: ByteString,
       scheme: EncryptionKeyScheme,
   ): Either[ProtoDeserializationError.CryptoDeserializationError, EncryptionPublicKey] =
-    new EncryptionPublicKey(id, format, key, scheme).validated
-
-  @VisibleForTesting
-  val idUnsafe: Lens[EncryptionPublicKey, Fingerprint] =
-    GenLens[EncryptionPublicKey](_.id)
+    new EncryptionPublicKey(format, key, scheme).validated
 
   def fromProtoV30(
       publicKeyP: v30.EncryptionPublicKey
   ): ParsingResult[EncryptionPublicKey] =
     for {
-      id <- Fingerprint.fromProtoPrimitive(publicKeyP.id)
       format <- CryptoKeyFormat.fromProtoEnum("format", publicKeyP.format)
       scheme <- EncryptionKeyScheme.fromProtoEnum("scheme", publicKeyP.scheme)
       encryptionPublicKey <- EncryptionPublicKey.create(
-        id,
         format,
         publicKeyP.publicKey,
         scheme,

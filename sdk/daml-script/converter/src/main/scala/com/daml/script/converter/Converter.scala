@@ -3,16 +3,18 @@
 
 package com.daml.script.converter
 
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.{ArrayList, SValue}
+import com.daml.lf.stablepackages.StablePackagesV2
+import com.daml.lf.value.Value.ContractId
+import scalaz.std.either._
+import scalaz.syntax.bind._
+
 import java.util
 import scala.jdk.CollectionConverters._
-import scalaz.syntax.bind._
-import scalaz.std.either._
-import com.daml.lf.data.{ImmArray, Ref}
-import Ref._
-import com.daml.lf.language.Ast
-import com.daml.lf.speedy.{ArrayList, SValue}
-import SValue._
-import com.daml.lf.value.Value.ContractId
 
 class ConverterException(message: String) extends RuntimeException(message)
 
@@ -34,6 +36,12 @@ private[daml] object Converter {
       new util.ArrayList[SValue](fields.map({ case (_, v) => v }).asJava)
     SRecord(ty, fieldNames, args) // TODO: construct SRecord directly from Map
   }
+
+  def makeTuple(v1: SValue, v2: SValue): SValue =
+    record(StablePackagesV2.Tuple2, ("_1", v1), ("_2", v2))
+
+  def makeTuple(v1: SValue, v2: SValue, v3: SValue): SValue =
+    record(StablePackagesV2.Tuple3, ("_1", v1), ("_2", v2), ("_3", v3))
 
   /** Unpack one step of a Pure/Roll-style free monad representation,
     * with the assumption that `f` is a variant type.

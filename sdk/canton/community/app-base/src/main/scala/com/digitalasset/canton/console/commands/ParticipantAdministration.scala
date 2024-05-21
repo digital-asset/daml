@@ -40,7 +40,7 @@ import com.digitalasset.canton.console.{
   Helpful,
   LedgerApiCommandRunner,
   ParticipantReference,
-  SequencerNodeReference,
+  SequencerReference,
 }
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.data.CantonTimestamp
@@ -114,7 +114,7 @@ private[console] object ParticipantCommands {
   object domains {
 
     def reference_to_config(
-        domain: NonEmpty[Map[SequencerAlias, SequencerNodeReference]],
+        domain: NonEmpty[Map[SequencerAlias, SequencerReference]],
         domainAlias: DomainAlias,
         manualConnect: Boolean = false,
         maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
@@ -885,9 +885,6 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       }
       if (synchronizeVetting && vetAllPackages) {
         packages.synchronize_vetting()
-        synchronize.foreach { timeout =>
-          ConsoleMacros.utils.synchronize_topology(Some(timeout))(consoleEnvironment)
-        }
       }
       res
     }
@@ -1061,7 +1058,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)
     def connect_local(
-        domain: SequencerNodeReference,
+        domain: SequencerReference,
         alias: DomainAlias,
         manualConnect: Boolean = false,
         maxRetryDelayMillis: Option[Long] = None,
@@ -1095,7 +1092,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           validation - Whether to validate the connectivity and ids of the given sequencers (default All)
         """)
     def register(
-        domain: SequencerNodeReference,
+        domain: SequencerReference,
         alias: DomainAlias,
         handshakeOnly: Boolean = false,
         maxRetryDelayMillis: Option[Long] = None,
@@ -1152,7 +1149,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     }
 
     def connect_local_bft(
-        domain: NonEmpty[Map[SequencerAlias, SequencerNodeReference]],
+        domain: NonEmpty[Map[SequencerAlias, SequencerReference]],
         alias: DomainAlias,
         manualConnect: Boolean = false,
         maxRetryDelayMillis: Option[Long] = None,
@@ -1227,7 +1224,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |that the participant reconnects to the domain.
         |""")
     def connect(
-        instance: SequencerNodeReference,
+        instance: SequencerReference,
         domainAlias: DomainAlias,
     ): Unit =
       connect_by_config(
@@ -1363,7 +1360,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)
     def reconnect_local(
-        ref: SequencerNodeReference
+        ref: SequencerReference
     ): Boolean = reconnect(ref.name)
 
     @Help.Summary("Reconnect this participant to the given local domain")

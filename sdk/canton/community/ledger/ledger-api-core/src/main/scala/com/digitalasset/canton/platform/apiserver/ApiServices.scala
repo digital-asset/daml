@@ -21,23 +21,15 @@ import com.digitalasset.canton.ledger.localstore.api.{
   PartyRecordStore,
   UserManagementStore,
 }
-import com.digitalasset.canton.ledger.participant.state.index.v2.{
-  ContractStore,
-  IndexActiveContractsService,
-  IndexCompletionsService,
-  IndexEventQueryService,
-  IndexPackagesService,
-  IndexPartyManagementService,
-  IndexService,
-  IndexTransactionsService,
-  MaximumLedgerTimeService,
-  MeteringStore,
-}
-import com.digitalasset.canton.ledger.participant.state.v2.ReadService
-import com.digitalasset.canton.ledger.participant.state.v2 as state
+import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.ReadService
+import com.digitalasset.canton.ledger.participant.state.index.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
-import com.digitalasset.canton.platform.apiserver.configuration.LedgerEndObserverFromIndex
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.apiserver.configuration.{
+  EngineLoggingConfig,
+  LedgerEndObserverFromIndex,
+}
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
 import com.digitalasset.canton.platform.apiserver.execution.*
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
@@ -100,7 +92,7 @@ object ApiServices {
       commandConfig: CommandServiceConfig,
       optTimeServiceBackend: Option[TimeServiceBackend],
       servicesExecutionContext: ExecutionContext,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       healthChecks: HealthChecks,
       seedService: SeedService,
       managementServiceTimeout: FiniteDuration,
@@ -109,6 +101,7 @@ object ApiServices {
       maxDeduplicationDuration: config.NonNegativeFiniteDuration,
       userManagementServiceConfig: UserManagementServiceConfig,
       partyManagementServiceConfig: PartyManagementServiceConfig,
+      engineLoggingConfig: EngineLoggingConfig,
       meteringReportKey: MeteringReportKey,
       authenticateContract: AuthenticateContract,
       telemetry: Telemetry,
@@ -313,6 +306,7 @@ object ApiServices {
               authorityResolver,
               authenticateContract,
               metrics,
+              engineLoggingConfig,
               loggerFactory,
               dynParamGetter,
               timeProvider,

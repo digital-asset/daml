@@ -50,8 +50,17 @@ class GrpcSequencerConnectClient(
 
   override def getDomainClientBootstrapInfo(
       domainAlias: DomainAlias
-  )(implicit traceContext: TraceContext): EitherT[Future, Error, DomainClientBootstrapInfo] =
+  )(implicit traceContext: TraceContext): EitherT[Future, Error, DomainClientBootstrapInfo] = {
     for {
+      _ <- CantonGrpcUtil
+        .checkCantonApiInfo(
+          domainAlias.unwrap,
+          CantonGrpcUtil.ApiName.SequencerPublicApi,
+          builder.build(),
+          logger,
+          timeouts.network,
+        )
+        .leftMap(err => Error.Transport(err))
       response <- CantonGrpcUtil
         .sendSingleGrpcRequest(
           serverName = domainAlias.unwrap,
@@ -80,6 +89,7 @@ class GrpcSequencerConnectClient(
 
       sequencerId <- EitherT.fromEither[Future](sequencerId)
     } yield DomainClientBootstrapInfo(domainId, sequencerId)
+  }
 
   override def getDomainParameters(
       domainIdentifier: String

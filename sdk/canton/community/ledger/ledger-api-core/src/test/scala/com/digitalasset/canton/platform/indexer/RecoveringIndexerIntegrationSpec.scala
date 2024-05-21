@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref.{Party, SubmissionId}
 import com.daml.lf.data.{Ref, Time}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.participant.state.v2.{
+import com.digitalasset.canton.ledger.participant.state.{
   InternalStateServiceProviderImpl,
   ReadService,
   SubmissionResult,
@@ -22,7 +22,7 @@ import com.digitalasset.canton.logging.{
   SuppressingLogger,
   SuppressionRule,
 }
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.LedgerApiServer
 import com.digitalasset.canton.platform.config.{
   CommandServiceConfig,
@@ -241,7 +241,7 @@ class RecoveringIndexerIntegrationSpec
     val participantId = Ref.ParticipantId.assertFromString(s"participant-$testId")
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase()}-$testId;db_close_delay=-1;db_close_on_exit=false"
-    val metrics = Metrics.ForTesting
+    val metrics = LedgerApiServerMetrics.ForTesting
     val participantDataSourceConfig = ParticipantDataSourceConfig(jdbcUrl)
     val indexerConfig = IndexerConfig(restartDelay = restartDelay)
     for {
@@ -298,7 +298,7 @@ class RecoveringIndexerIntegrationSpec
   private def eventuallyPartiesShouldBe(dbSupport: DbSupport, partyNames: String*)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit] = {
-    val metrics = Metrics.ForTesting
+    val metrics = LedgerApiServerMetrics.ForTesting
     val ledgerEndCache = MutableLedgerEndCache()
     val storageBackendFactory = dbSupport.storageBackendFactory
     val partyStorageBacked = storageBackendFactory.createPartyStorageBackend(ledgerEndCache)

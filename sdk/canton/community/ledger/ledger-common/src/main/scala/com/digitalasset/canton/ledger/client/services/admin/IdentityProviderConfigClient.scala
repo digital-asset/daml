@@ -12,6 +12,7 @@ import com.digitalasset.canton.ledger.api.domain.{
   JwksUrl,
 }
 import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.field_mask.FieldMask
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -24,12 +25,12 @@ final class IdentityProviderConfigClient(service: IdentityProviderConfigServiceS
   def createIdentityProviderConfig(
       config: IdentityProviderConfig,
       token: Option[String],
-  ): Future[IdentityProviderConfig] = {
+  )(implicit traceContext: TraceContext): Future[IdentityProviderConfig] = {
     val request = proto.CreateIdentityProviderConfigRequest(
       Some(IdentityProviderConfigClient.toProtoConfig(config))
     )
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .createIdentityProviderConfig(request)
       .map(res => fromProtoConfig(res.getIdentityProviderConfig))
   }
@@ -37,10 +38,10 @@ final class IdentityProviderConfigClient(service: IdentityProviderConfigServiceS
   def getIdentityProviderConfig(
       identityProviderId: IdentityProviderId.Id,
       token: Option[String],
-  ): Future[IdentityProviderConfig] = {
+  )(implicit traceContext: TraceContext): Future[IdentityProviderConfig] = {
     val request = proto.GetIdentityProviderConfigRequest(identityProviderId.toRequestString)
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .getIdentityProviderConfig(request)
       .map(res => fromProtoConfig(res.getIdentityProviderConfig))
   }
@@ -49,21 +50,23 @@ final class IdentityProviderConfigClient(service: IdentityProviderConfigServiceS
       config: IdentityProviderConfig,
       updateMask: FieldMask,
       token: Option[String],
-  ): Future[IdentityProviderConfig] = {
+  )(implicit traceContext: TraceContext): Future[IdentityProviderConfig] = {
     val request = proto.UpdateIdentityProviderConfigRequest(
       Some(IdentityProviderConfigClient.toProtoConfig(config)),
       Some(updateMask),
     )
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .updateIdentityProviderConfig(request)
       .map(res => fromProtoConfig(res.getIdentityProviderConfig))
   }
 
-  def listIdentityProviderConfigs(token: Option[String]): Future[Seq[IdentityProviderConfig]] = {
+  def listIdentityProviderConfigs(
+      token: Option[String]
+  )(implicit traceContext: TraceContext): Future[Seq[IdentityProviderConfig]] = {
     val request = proto.ListIdentityProviderConfigsRequest()
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .listIdentityProviderConfigs(request)
       .map(res => res.identityProviderConfigs.map(fromProtoConfig))
   }
@@ -71,10 +74,10 @@ final class IdentityProviderConfigClient(service: IdentityProviderConfigServiceS
   def deleteIdentityProviderConfig(
       identityProviderId: IdentityProviderId.Id,
       token: Option[String],
-  ): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] = {
     val request = proto.DeleteIdentityProviderConfigRequest(identityProviderId.toRequestString)
     LedgerClient
-      .stub(service, token)
+      .stubWithTracing(service, token)
       .deleteIdentityProviderConfig(request)
       .map(_ => ())
   }

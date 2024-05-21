@@ -12,7 +12,7 @@ import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value as LfValue
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.participant.state.v2.ReassignmentInfo
+import com.digitalasset.canton.ledger.participant.state.ReassignmentInfo
 import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.digitalasset.canton.platform.{ContractId, Identifier}
 
@@ -73,7 +73,7 @@ object TransactionLogUpdate {
     sealed trait Reassignment
     final case class Assigned(createdEvent: CreatedEvent) extends Reassignment
     final case class Unassigned(
-        unassign: com.digitalasset.canton.ledger.participant.state.v2.Reassignment.Unassign
+        unassign: com.digitalasset.canton.ledger.participant.state.Reassignment.Unassign
     ) extends Reassignment
   }
 

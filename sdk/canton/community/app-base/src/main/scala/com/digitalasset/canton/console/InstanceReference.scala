@@ -130,6 +130,12 @@ trait InstanceReference
 
 }
 
+object InstanceReference {
+  implicit class Active[A <: InstanceReference](seq: Seq[A]) {
+    def active: Seq[A] = seq.filter(_.health.active)
+  }
+}
+
 /** Pointer for a potentially running instance by instance type (domain/participant) and its id.
   * These methods define the REPL interface for these instances (e.g. participant1 start)
   */
@@ -208,8 +214,9 @@ trait LocalInstanceReference extends InstanceReference with NoTracing {
         metricName: String,
         attributes: Map[String, String] = Map(),
     ): Either[String, MetricValue] = check(FeatureFlag.Testing) {
-      val res = consoleEnvironment.environment.configuredOpenTelemetry.onDemandMetricsReader
+      val candidates = consoleEnvironment.environment.configuredOpenTelemetry.onDemandMetricsReader
         .read()
+      val res = candidates
         .find { data =>
           data.getName.equals(metricName)
         }
@@ -219,7 +226,7 @@ trait LocalInstanceReference extends InstanceReference with NoTracing {
       res match {
         case one :: Nil => Right(one)
         case Nil =>
-          Left(s"No metric of name ${metricName} with instance name ${name} found")
+          Left(s"No metric of name ${metricName} with instance name ${name} found.")
         case other => Left(s"Found ${other.length} matching metrics")
       }
     }
@@ -408,7 +415,7 @@ class ExternalLedgerApiClient(
   override protected[console] def ledgerApiCommand[Result](
       command: GrpcAdminCommand[?, ?, Result]
   ): ConsoleCommandResult[Result] =
-    consoleEnvironment.grpcAdminCommandRunner
+    consoleEnvironment.grpcLedgerCommandRunner
       .runCommand("sourceLedger", command, ClientConfig(hostname, port, tls), token)
 
   override protected def optionallyAwait[Tx](
@@ -440,7 +447,7 @@ class SequencerPublicApiClient(
   protected[console] def publicApiCommand[Result](
       command: GrpcAdminCommand[?, ?, Result]
   ): ConsoleCommandResult[Result] =
-    consoleEnvironment.grpcAdminCommandRunner
+    consoleEnvironment.grpcDomainCommandRunner
       .runCommand(
         sequencerConnection.sequencerAlias.unwrap,
         command,
@@ -560,14 +567,11 @@ abstract class ParticipantReference(
             ConsoleMacros.utils.retry_until_true(timeout)(
               {
                 // ensure that vetted packages on the domain match the ones in the authorized store
-                val timeQuery =
-                  if (consoleEnvironment.environment.simClock.isDefined) TimeQuery.HeadState
-                  else TimeQuery.Snapshot(consoleEnvironment.environment.clock.now)
                 val onDomain = participant.topology.vetted_packages
                   .list(
                     filterStore = item.domainId.filterString,
                     filterParticipant = id.filterString,
-                    timeQuery = timeQuery,
+                    timeQuery = TimeQuery.HeadState,
                   )
                   .flatMap(_.item.packageIds)
                   .toSet
@@ -622,7 +626,7 @@ class RemoteParticipantReference(environment: ConsoleEnvironment, override val n
   override protected[console] def ledgerApiCommand[Result](
       command: GrpcAdminCommand[?, ?, Result]
   ): ConsoleCommandResult[Result] =
-    consoleEnvironment.grpcAdminCommandRunner.runCommand(
+    consoleEnvironment.grpcLedgerCommandRunner.runCommand(
       name,
       command,
       config.clientLedgerApi,
@@ -711,18 +715,18 @@ class LocalParticipantReference(
       command: GrpcAdminCommand[?, ?, Result]
   ): ConsoleCommandResult[Result] =
     runCommandIfRunning(
-      consoleEnvironment.grpcAdminCommandRunner
+      consoleEnvironment.grpcLedgerCommandRunner
         .runCommand(name, command, config.clientLedgerApi, adminToken)
     )
 
   override protected[console] def token: Option[String] = adminToken
 }
 
-object SequencerNodeReference {
+object SequencerReference {
   val InstanceType = "Sequencer"
 }
 
-abstract class SequencerNodeReference(
+abstract class SequencerReference(
     val consoleEnvironment: ConsoleEnvironment,
     name: String,
 ) extends InstanceReference
@@ -737,13 +741,13 @@ abstract class SequencerNodeReference(
 
   override def equals(obj: Any): Boolean = {
     obj match {
-      case x: SequencerNodeReference =>
+      case x: SequencerReference =>
         x.consoleEnvironment == consoleEnvironment && x.name == name
       case _ => false
     }
   }
 
-  override protected val instanceType: String = SequencerNodeReference.InstanceType
+  override protected val instanceType: String = SequencerReference.InstanceType
   override protected val loggerFactory: NamedLoggerFactory =
     consoleEnvironment.environment.loggerFactory.append("sequencer", name)
 
@@ -845,7 +849,7 @@ abstract class SequencerNodeReference(
         mediators.foreach { mediator =>
           val identityState = mediator.topology.transactions.identity_transactions()
 
-          topology.transactions.load(identityState, domainId.filterString)
+          topology.transactions.load(identityState, domainId.filterString, ForceFlag.AlienMember)
         }
 
         topology.mediators
@@ -896,7 +900,7 @@ abstract class SequencerNodeReference(
         newMediators.foreach { med =>
           val identityState = med.topology.transactions.identity_transactions()
 
-          topology.transactions.load(identityState, domainId.filterString)
+          topology.transactions.load(identityState, domainId.filterString, ForceFlag.AlienMember)
         }
 
         topology.mediators
@@ -1179,10 +1183,10 @@ abstract class SequencerNodeReference(
   }
 }
 
-class LocalSequencerNodeReference(
+class LocalSequencerReference(
     override val consoleEnvironment: ConsoleEnvironment,
     val name: String,
-) extends SequencerNodeReference(consoleEnvironment, name)
+) extends SequencerReference(consoleEnvironment, name)
     with LocalInstanceReference
     with BaseInspection[SequencerNode] {
 
@@ -1212,8 +1216,8 @@ class LocalSequencerNodeReference(
   )(consoleEnvironment)
 }
 
-class RemoteSequencerNodeReference(val environment: ConsoleEnvironment, val name: String)
-    extends SequencerNodeReference(environment, name)
+class RemoteSequencerReference(val environment: ConsoleEnvironment, val name: String)
+    extends SequencerReference(environment, name)
     with RemoteInstanceReference {
 
   override protected[canton] def executionContext: ExecutionContext =

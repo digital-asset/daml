@@ -218,10 +218,23 @@ trait BaseTest
   )(implicit ec: ExecutionContext, position: Position): Future[A] =
     e.fold(fail(clue))(Predef.identity)
 
+  /** Converts an OptionT into a FutureUnlessShutdown, failing in case of a [[scala.None$]]. */
+  def valueOrFailUS[A](e: OptionT[FutureUnlessShutdown, A])(
+      clue: String
+  )(implicit ec: ExecutionContext, position: Position): FutureUnlessShutdown[A] =
+    e.fold(fail(clue))(Predef.identity)
+
   /** Converts an OptionT into a Future, failing in case of a [[scala.Some$]]. */
   def noneOrFail[A](e: OptionT[Future, A])(
       clue: String
   )(implicit ec: ExecutionContext, position: Position): Future[Assertion] = {
+    e.fold(succeed)(some => fail(s"$clue, value is $some"))
+  }
+
+  /** Converts an OptionT into a FutureUnlessShutdown, failing in case of a [[scala.Some$]]. */
+  def noneOrFailUS[A](e: OptionT[FutureUnlessShutdown, A])(
+      clue: String
+  )(implicit ec: ExecutionContext, position: Position): FutureUnlessShutdown[Assertion] = {
     e.fold(succeed)(some => fail(s"$clue, value is $some"))
   }
 
@@ -281,6 +294,9 @@ trait BaseTest
 
     def leftOrFailShutdown(clue: String)(implicit ec: ExecutionContext, pos: Position): Future[E] =
       self.leftOrFail(eitherT)(clue).onShutdown(fail(s"Shutdown during $clue"))
+
+    def failOnShutdown(implicit ec: ExecutionContext, pos: Position): EitherT[Future, E, A] =
+      eitherT.onShutdown(fail("Unexpected shutdown"))
   }
 
   implicit class EitherTUnlessShutdownSyntax[E, A](
@@ -298,8 +314,15 @@ trait BaseTest
       fut.onShutdown(fail(s"Shutdown during $clue"))
     def failOnShutdown(implicit ec: ExecutionContext, pos: Position): Future[A] =
       fut.onShutdown(fail(s"Unexpected shutdown"))
-    def futureValueUS(implicit ec: ExecutionContext, pos: Position): A =
-      fut.failOnShutdown.futureValue
+    def futureValueUS(implicit pos: Position): A =
+      fut.unwrap.futureValue.onShutdown(fail("Unexpected shutdown"))
+  }
+
+  implicit class UnlessShutdownSyntax[A](us: UnlessShutdown[A]) {
+    def failOnShutdown(clue: String)(implicit pos: Position): A =
+      us.onShutdown(fail(s"Shutdown during $clue"))
+    def failOnShutdown(implicit pos: Position): A =
+      us.onShutdown(fail(s"Unexpected shutdown"))
   }
 
   def forEveryParallel[A](inputs: Seq[A])(
@@ -388,11 +411,6 @@ object BaseTest {
     }
     testCode // try one last time and throw exception, if assertion keeps failing
   }
-
-  def eventuallyNoException[T](
-      timeUntilSuccess: FiniteDuration = 20.seconds,
-      maxPollInterval: FiniteDuration = 5.seconds,
-  )(testCode: => T): T = BaseTest.eventually(timeUntilSuccess, maxPollInterval, false)(testCode)
 
   // Uses SymbolicCrypto for the configured crypto schemes
   lazy val defaultStaticDomainParameters: StaticDomainParameters =

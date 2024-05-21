@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.protocol.transfer
 import cats.implicits.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.{CantonTimestamp, FullTransferInTree, TransferSubmitterMetadata}
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.participant.protocol.transfer.TransferInValidation.*
@@ -76,7 +77,7 @@ class TransferInValidationTest
       .forOwnerAndDomain(submittingParticipant, sourceDomain.unwrap)
       .currentSnapshotApproximation
 
-  private val pureCrypto = TestingIdentityFactory.pureCrypto()
+  private val pureCrypto = new SymbolicPureCrypto
 
   private val seedGenerator = new SeedGenerator(pureCrypto)
 

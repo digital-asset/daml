@@ -12,25 +12,29 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   DefaultUnboundedTimeout,
   ServerEnforcedTimeout,
 }
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{ClientConfig, ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.lifecycle.Lifecycle.CloseableChannel
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
+import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, ClientChannelBuilder}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import io.opentelemetry.api.trace.Tracer
 
-import java.util.concurrent.TimeUnit
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContextExecutor, Future, blocking}
 
 /** Attempt to run a grpc admin-api command against whatever is pointed at in the config
+  * @param environment the environment to run in
+  * @param commandTimeouts the timeouts to use for the commands
+  * @param apiName the name of the api to check against the grpc server-side
   */
 class GrpcAdminCommandRunner(
     environment: Environment,
     val commandTimeouts: ConsoleCommandTimeout,
+    apiName: String,
 )(implicit tracer: Tracer)
     extends NamedLogging
     with AutoCloseable
@@ -63,16 +67,43 @@ class GrpcAdminCommandRunner(
     }
     val callTimeout = awaitTimeout.duration match {
       // Abort the command shortly before the console times out, to get a better error message
-      case x: FiniteDuration => Duration((x.toMillis * 9) / 10, TimeUnit.MILLISECONDS)
-      case x => x
+      case _: FiniteDuration =>
+        config.NonNegativeDuration.tryFromDuration(awaitTimeout.duration * 0.9)
+      case _ => awaitTimeout
     }
-    val closeableChannel = getOrCreateChannel(instanceName, clientConfig)
-    logger.debug(s"Running on ${instanceName} command ${command} against ${clientConfig}")(
-      traceContext
-    )
+
+    val resultET = for {
+      _ <- {
+        channels.get((instanceName, clientConfig.address, clientConfig.port)) match {
+          case Some(_) =>
+            EitherT.pure[Future, String](())
+          case None =>
+            logger.debug(
+              s"Checking the endpoint at $clientConfig for $instanceName to provide the API '$apiName'"
+            )
+            CantonGrpcUtil
+              .checkCantonApiInfo(
+                serverName = instanceName,
+                expectedName = apiName,
+                channel = ClientChannelBuilder.createChannelToTrustedServer(clientConfig),
+                logger = logger,
+                timeout = commandTimeouts.bounded,
+              )
+        }
+      }
+      closeableChannel = getOrCreateChannel(instanceName, clientConfig, callTimeout)
+      _ = logger.debug(s"Running command $command on $instanceName against $clientConfig")
+      result <- grpcRunner.run(
+        instanceName,
+        command,
+        closeableChannel.channel,
+        token,
+        callTimeout.duration,
+      )
+    } yield result
     (
       awaitTimeout,
-      grpcRunner.run(instanceName, command, closeableChannel.channel, token, callTimeout),
+      resultET,
     )
   }
 
@@ -98,6 +129,7 @@ class GrpcAdminCommandRunner(
   private def getOrCreateChannel(
       instanceName: String,
       clientConfig: ClientConfig,
+      callTimeout: config.NonNegativeDuration,
   ): CloseableChannel =
     blocking(synchronized {
       val addr = (instanceName, clientConfig.address, clientConfig.port)
@@ -121,8 +153,13 @@ class GrpcAdminCommandRunner(
   }
 }
 
-class ConsoleGrpcAdminCommandRunner(consoleEnvironment: ConsoleEnvironment)
+/** A console-specific version of the GrpcAdminCommandRunner that uses the console environment
+  * @param consoleEnvironment the console environment to run in
+  * @param apiName the name of the api to check against the grpc server-side
+  */
+class ConsoleGrpcAdminCommandRunner(consoleEnvironment: ConsoleEnvironment, apiName: String)
     extends GrpcAdminCommandRunner(
       consoleEnvironment.environment,
       consoleEnvironment.commandTimeouts,
+      apiName,
     )(consoleEnvironment.tracer)

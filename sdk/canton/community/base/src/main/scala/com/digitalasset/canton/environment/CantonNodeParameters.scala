@@ -9,6 +9,7 @@ import com.digitalasset.canton.config.{
   LoggingConfig,
   ProcessingTimeout,
   QueryCostMonitoringConfig,
+  WatchdogConfig,
 }
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -32,6 +33,7 @@ object CantonNodeParameters {
     def dbMigrateAndStart: Boolean
     def exitOnFatalFailures: Boolean
     def useUnifiedSequencer: Boolean
+    def watchdog: Option[WatchdogConfig]
   }
   object General {
     final case class Impl(
@@ -49,6 +51,7 @@ object CantonNodeParameters {
         dbMigrateAndStart: Boolean,
         exitOnFatalFailures: Boolean,
         useUnifiedSequencer: Boolean,
+        watchdog: Option[WatchdogConfig],
     ) extends CantonNodeParameters.General
   }
   trait Protocol {
@@ -83,7 +86,7 @@ trait HasGeneralCantonNodeParameters extends CantonNodeParameters.General {
   override def dbMigrateAndStart: Boolean = general.dbMigrateAndStart
   override def exitOnFatalFailures: Boolean = general.exitOnFatalFailures
   override def useUnifiedSequencer: Boolean = general.useUnifiedSequencer
-
+  override def watchdog: Option[WatchdogConfig] = general.watchdog
 }
 
 trait HasProtocolCantonNodeParameters extends CantonNodeParameters.Protocol {

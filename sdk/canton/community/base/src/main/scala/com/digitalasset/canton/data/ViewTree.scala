@@ -6,7 +6,7 @@ package com.digitalasset.canton.data
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{RootHash, ViewHash}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 
 /** Common supertype of all view trees that are sent as [[com.digitalasset.canton.protocol.messages.EncryptedViewMessage]]s */
 trait ViewTree extends PrettyPrinting {
@@ -42,6 +42,8 @@ trait ViewTree extends PrettyPrinting {
   */
 trait TransferViewTree extends ViewTree {
   def submitterMetadata: TransferSubmitterMetadata
+
+  def isTransferringParticipant(participantId: ParticipantId): Boolean
 
   val viewPosition: ViewPosition =
     ViewPosition.root // Use a dummy value, as there is only one view.

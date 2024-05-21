@@ -29,12 +29,12 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.domain.PackageEntry
 import com.digitalasset.canton.ledger.api.domain.ParticipantOffset.Absolute
-import com.digitalasset.canton.ledger.participant.state.index.v2.{
+import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.SubmissionResult
+import com.digitalasset.canton.ledger.participant.state.index.{
   IndexPackagesService,
   IndexTransactionsService,
 }
-import com.digitalasset.canton.ledger.participant.state.v2.SubmissionResult
-import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, SuppressionRule}
 import com.digitalasset.canton.platform.store.packagemeta.{
   PackageMetadata,

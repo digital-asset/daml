@@ -68,11 +68,6 @@ object BlockOrderingSequencer {
       // perhaps we can rename the field in the sequencer API.
       blockOrderer.grpcServices
 
-    override def registerMember(member: String)(implicit
-        traceContext: TraceContext
-    ): Future[Unit] =
-      blockOrderer.sendRequest(RegisterMemberTag, ByteString.copyFromUtf8(member))
-
     override def acknowledge(acknowledgement: ByteString)(implicit
         traceContext: TraceContext
     ): Future[Unit] =
@@ -108,8 +103,6 @@ object BlockOrderingSequencer {
               implicit val traceContext: TraceContext =
                 event.traceContext // Preserve the request trace ID in the log
               tag match {
-                case RegisterMemberTag =>
-                  Traced(RawLedgerBlock.RawBlockEvent.AddMember(body.toStringUtf8))
                 case AcknowledgeTag =>
                   Traced(RawLedgerBlock.RawBlockEvent.Acknowledgment(body))
                 case SendTag =>
@@ -123,7 +116,6 @@ object BlockOrderingSequencer {
     }
 
   private[domain] val AcknowledgeTag = "acknowledge"
-  private[domain] val RegisterMemberTag = "registerMember"
   private[domain] val SendTag = "send"
   private[domain] val BatchTag = "batch"
 }

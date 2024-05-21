@@ -7,7 +7,7 @@ import com.daml.lf.archive.ArchiveParser
 import com.daml.metrics.Timed
 import com.daml.timer.FutureCheck.*
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.PackageId
 import com.digitalasset.canton.platform.store.backend.PackageStorageBackend
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
@@ -24,7 +24,7 @@ import scala.util.control.NonFatal
 object UpdatePackageMetadataView {
   def apply(
       packageStorageBackend: PackageStorageBackend,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       dbDispatcher: DbDispatcher,
       packageMetadataView: PackageMetadataView,
       computationExecutionContext: ExecutionContext,

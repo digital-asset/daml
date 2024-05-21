@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.admin
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.error.LedgerApiErrors.ParticipantBackpressure
-import com.digitalasset.canton.ledger.participant.state.v2.SubmissionResult
+import com.digitalasset.canton.ledger.participant.state.SubmissionResult
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.networking.grpc.StaticGrpcServices
@@ -38,8 +38,8 @@ trait ResourceManagementService {
   def checkOverloaded(currentLoad: Int)(implicit
       loggingContext: ErrorLoggingContext
   ): Option[SubmissionResult] = {
-    metrics.dirtyRequests.updateValue(currentLoad)
-    val errorO = checkNumberOfDirtyRequests(currentLoad).orElse(checkAndUpdateRate())
+    metrics.inflightValidationRequests.updateValue(currentLoad)
+    val errorO = checkNumberOfInflightValidationRequests(currentLoad).orElse(checkAndUpdateRate())
     (errorO, warnIfOverloadedDuring) match {
       case (_, None) =>
       // Warn on overloaded is disabled
@@ -64,7 +64,7 @@ trait ResourceManagementService {
     errorO
   }
 
-  protected def checkNumberOfDirtyRequests(
+  protected def checkNumberOfInflightValidationRequests(
       currentLoad: Int
   )(implicit loggingContext: ErrorLoggingContext): Option[SubmissionResult] =
     resourceLimits.maxInflightValidationRequests

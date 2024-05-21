@@ -18,6 +18,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import java.nio.file.{Path, Paths}
 
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.tracing.TraceContext
 
 object CantonConfig {
 
@@ -121,7 +122,11 @@ final case class CantonConfig(
       token: Option[String],
       applicationId: Option[Ref.ApplicationId],
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
-  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] = {
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      traceContext: TraceContext,
+  ): Future[LedgerClient] = {
     import com.digitalasset.canton.ledger.client.configuration._
     LedgerClient(
       channel = channel(port, maxInboundMessageSize),

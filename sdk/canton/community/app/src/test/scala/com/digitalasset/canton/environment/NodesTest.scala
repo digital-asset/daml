@@ -20,12 +20,16 @@ import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.CommunityGrpcV
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.{CommunityCryptoFactory, Crypto}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.health.{GrpcHealthReporter, HealthService}
+import com.digitalasset.canton.health.{
+  DependenciesHealthService,
+  GrpcHealthReporter,
+  LivenessHealthService,
+}
 import com.digitalasset.canton.lifecycle.{Lifecycle, ShutdownFailedException}
 import com.digitalasset.canton.metrics.{
   CommonMockMetrics,
   DbStorageMetrics,
-  Metrics,
+  LedgerApiServerMetrics,
   OnDemandMetricsReader,
 }
 import com.digitalasset.canton.resource.{
@@ -36,6 +40,8 @@ import com.digitalasset.canton.resource.{
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.SimClock
+import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
+import com.digitalasset.canton.topology.store.TopologyStoreId
 import com.digitalasset.canton.topology.{AuthorizedTopologyManager, Member, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.util.FutureInstances.*
@@ -72,6 +78,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       override def caching: CachingConfigs = CachingConfigs()
       override def useUnifiedSequencer: Boolean = false
       override def devVersionSupport: Boolean = false
+      override def watchdog: Option[WatchdogConfig] = None
     }
   }
 
@@ -94,14 +101,15 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       initialProtocolVersion: ProtocolVersion = testedProtocolVersion,
       exitOnFatalFailures: Boolean = true,
       useUnifiedSequencer: Boolean = false,
+      watchdog: Option[WatchdogConfig] = None,
   ) extends CantonNodeParameters
 
   private val metricsFactory: LabeledMetricsFactory = new InMemoryMetricsFactory
   case class TestMetrics(
       prefix: MetricName = MetricName("test-metrics"),
       openTelemetryMetricsFactory: LabeledMetricsFactory = metricsFactory,
-      grpcMetrics: GrpcServerMetrics = Metrics.ForTesting.grpc,
-      healthMetrics: HealthMetrics = Metrics.ForTesting.health,
+      grpcMetrics: GrpcServerMetrics = LedgerApiServerMetrics.ForTesting.grpc,
+      healthMetrics: HealthMetrics = LedgerApiServerMetrics.ForTesting.health,
       storageMetrics: DbStorageMetrics = CommonMockMetrics.dbStorage,
   ) extends BaseMetrics
 
@@ -155,15 +163,21 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
         nodeId: UniqueIdentifier,
         manager: AuthorizedTopologyManager,
         healthReporter: GrpcHealthReporter,
-        healthService: HealthService,
+        healthService: DependenciesHealthService,
     ): BootstrapStageOrLeaf[TestNode] = ???
     override protected def member(
         uid: UniqueIdentifier
     ): Member = ???
-    override protected def mkNodeHealthService(storage: Storage): HealthService = ???
+    override protected def mkNodeHealthService(
+        storage: Storage
+    ): (DependenciesHealthService, LivenessHealthService) =
+      ???
     override def start(): EitherT[Future, String, Unit] = {
       EitherT.pure[Future, String](())
     }
+    override protected def lookupTopologyClient(
+        storeId: TopologyStoreId
+    ): Option[DomainTopologyClientWithInit] = ???
   }
 
   class TestNodeFactory {

@@ -25,7 +25,6 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.ProtocolVersionValidation
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -59,13 +58,19 @@ class GrpcTopologyManagerWriteService(
                 request.signedBy.traverse(Fingerprint.fromProtoPrimitive)
               )
               .leftMap(ProtoDeserializationFailure.Wrap(_))
+          forceFlags <- EitherT
+            .fromEither[FutureUnlessShutdown](
+              ForceFlags
+                .fromProtoV30(request.forceChanges)
+                .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
+            )
           signedTopoTx <-
             // TODO(#14067) understand when and why force needs to come in effect
             manager
               .accept(
                 txHash,
                 signingKeys,
-                force = false,
+                forceChanges = forceFlags,
                 expectFullAuthorization = request.mustFullyAuthorize,
               )
               .leftWiden[CantonError]
@@ -81,6 +86,8 @@ class GrpcTopologyManagerWriteService(
           mapping <- ProtoConverter.required("AuthorizeRequest.mapping", mapping)
           signingKeys <-
             request.signedBy.traverse(Fingerprint.fromProtoPrimitive)
+          forceFlags <- ForceFlags
+            .fromProtoV30(request.forceChanges)
           validatedMapping <- mapping.mapping match {
             case Mapping.Empty => FieldNotSet("mapping").asLeft
             case Mapping.DecentralizedNamespaceDefinition(mapping) =>
@@ -113,13 +120,13 @@ class GrpcTopologyManagerWriteService(
               PurgeTopologyTransaction.fromProtoV30(mapping)
           }
         } yield {
-          (op, serial, validatedMapping, signingKeys, request.forceChange)
+          (op, serial, validatedMapping, signingKeys, forceFlags)
         }
         for {
           mapping <- EitherT
             .fromEither[FutureUnlessShutdown](validatedMappingE)
             .leftMap(ProtoDeserializationFailure.Wrap(_))
-          (op, serial, validatedMapping, signingKeys, forceChange) = mapping
+          (op, serial, validatedMapping, signingKeys, forceChanges) = mapping
           manager <- targetManagerET(request.store)
 
           signedTopoTx <- manager
@@ -130,7 +137,7 @@ class GrpcTopologyManagerWriteService(
               signingKeys,
               manager.managerVersion.serialization,
               expectFullAuthorization = request.mustFullyAuthorize,
-              force = forceChange,
+              forceChanges = forceChanges,
             )
             .leftWiden[CantonError]
         } yield {
@@ -164,7 +171,6 @@ class GrpcTopologyManagerWriteService(
           .parTraverse(key => crypto.privateCrypto.sign(tx.hash.hash, key))
           .leftMap(TopologyManagerError.InternalError.TopologySigningError(_): CantonError)
           .map(tx.addSignatures)
-          .mapK(FutureUnlessShutdown.outcomeK)
       )
     } yield extendedTransactions
 
@@ -179,12 +185,17 @@ class GrpcTopologyManagerWriteService(
     val res = for {
       manager <- targetManagerET(request.store)
       protocolVersionValidation = manager.managerVersion.validation
+      forceChanges <- EitherT.fromEither[FutureUnlessShutdown](
+        ForceFlags
+          .fromProtoV30(request.forceChanges)
+          .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
+      )
       signedTxs <- EitherT.fromEither[FutureUnlessShutdown](
         request.transactions
           .traverse(tx => SignedTopologyTransaction.fromProtoV30(protocolVersionValidation, tx))
           .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
       )
-      _ <- addTransactions(signedTxs, request.store, request.forceChange)
+      _ <- addTransactions(signedTxs, request.store, forceChanges)
     } yield v30.AddTransactionsResponse()
     CantonGrpcUtil.mapErrNewEUS(res)
   }
@@ -200,7 +211,7 @@ class GrpcTopologyManagerWriteService(
           .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
       )
       signedTxs = storedTxs.result.map(_.transaction)
-      _ <- addTransactions(signedTxs, request.store, request.forceChange)
+      _ <- addTransactions(signedTxs, request.store, ForceFlags.all)
     } yield v30.ImportTopologySnapshotResponse()
     CantonGrpcUtil.mapErrNewEUS(res)
   }
@@ -208,7 +219,7 @@ class GrpcTopologyManagerWriteService(
   private def addTransactions(
       signedTxs: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
       store: String,
-      forceChange: Boolean,
+      forceChanges: ForceFlags,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
@@ -218,7 +229,7 @@ class GrpcTopologyManagerWriteService(
       _ <- manager
         .add(
           signedTxs,
-          force = forceChange,
+          forceChanges = forceChanges,
           expectFullAuthorization = false,
         )
         .leftWiden[CantonError]

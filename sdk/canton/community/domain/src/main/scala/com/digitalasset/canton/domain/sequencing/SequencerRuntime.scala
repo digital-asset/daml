@@ -9,11 +9,9 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.{
-  DomainTimeTrackerConfig,
-  ProcessingTimeout,
-  TestingConfigInternal,
-}
+import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.connection.GrpcApiInfoService
+import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.api.v30
@@ -46,6 +44,7 @@ import com.digitalasset.canton.lifecycle.{
   Lifecycle,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.protocol.{
@@ -58,20 +57,14 @@ import com.digitalasset.canton.sequencer.admin.v30.{
   SequencerAdministrationServiceGrpc,
   SequencerVersionServiceGrpc,
 }
-import com.digitalasset.canton.sequencing.client.SequencerClient.SequencerTransports
-import com.digitalasset.canton.sequencing.client.{
-  RequestSigner,
-  SendTracker,
-  SequencedEventValidatorFactory,
-  SequencerClient,
-  SequencerClientImplPekko,
-}
+import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.handlers.{
   DiscardIgnoredEvents,
   EnvelopeOpener,
   StripSignature,
 }
 import com.digitalasset.canton.sequencing.protocol.SequencedEvent
+import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
 import com.digitalasset.canton.sequencing.{
   BoxedEnvelope,
   HandlerResult,
@@ -79,12 +72,7 @@ import com.digitalasset.canton.sequencing.{
   UnsignedEnvelopeBox,
   UnsignedProtocolEventHandler,
 }
-import com.digitalasset.canton.store.{
-  IndexedDomain,
-  SendTrackerStore,
-  SequencedEventStore,
-  SequencerCounterTrackerStore,
-}
+import com.digitalasset.canton.store.{IndexedDomain, SequencerCounterTrackerStore}
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
@@ -92,11 +80,9 @@ import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{TopologyStateForInitializationService, TopologyStore}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.traffic.TrafficControlProcessor
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.FutureUtil
 import io.grpc.{ServerInterceptors, ServerServiceDefinition}
-import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -124,11 +110,11 @@ object SequencerAuthenticationConfig {
 class SequencerRuntime(
     sequencerId: SequencerId,
     val sequencer: Sequencer,
+    client: SequencerClient,
     staticDomainParameters: StaticDomainParameters,
     localNodeParameters: SequencerNodeParameters,
     publicServerConfig: PublicServerConfig,
-    timeTrackerConfig: DomainTimeTrackerConfig,
-    testingConfig: TestingConfigInternal,
+    timeTracker: DomainTimeTracker,
     val metrics: SequencerMetrics,
     indexedDomain: IndexedDomain,
     syncCrypto: DomainSyncCryptoClient,
@@ -137,7 +123,6 @@ class SequencerRuntime(
     topologyProcessor: TopologyTransactionProcessor,
     topologyManagerStatusO: Option[TopologyManagerStatus],
     initializationEffective: Future[Unit],
-    initializedAtHead: => Future[Boolean],
     storage: Storage,
     clock: Clock,
     authenticationConfig: SequencerAuthenticationConfig,
@@ -150,7 +135,6 @@ class SequencerRuntime(
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext,
-    tracer: Tracer,
     actorSystem: ActorSystem,
     traceContext: TraceContext,
 ) extends FlagCloseable
@@ -317,6 +301,15 @@ class SequencerRuntime(
         executionContext,
       )
     )
+    // register the api info services
+    register(
+      ApiInfoServiceGrpc.bindService(
+        new GrpcApiInfoService(
+          CantonGrpcUtil.ApiName.AdminApi
+        ),
+        executionContext,
+      )
+    )
   }
 
   def domainServices(implicit ec: ExecutionContext): Seq[ServerServiceDefinition] = Seq(
@@ -354,63 +347,14 @@ class SequencerRuntime(
         v30.SequencerServiceGrpc.bindService(sequencerService, ec),
         interceptors,
       )
-    },
-  )
-
-  private val sequencedEventStore =
-    SequencedEventStore(
-      storage,
-      indexedDomain,
-      staticDomainParameters.protocolVersion,
-      timeouts,
-      loggerFactory,
-    )
-
-  private val client: SequencerClient =
-    new SequencerClientImplPekko[DirectSequencerClientTransport.SubscriptionError](
-      domainId,
-      sequencerId,
-      SequencerTransports.default(
-        sequencerId,
-        new DirectSequencerClientTransport(
-          sequencer,
-          localNodeParameters.processingTimeouts,
-          loggerFactory,
+    }, {
+      ApiInfoServiceGrpc.bindService(
+        new GrpcApiInfoService(
+          CantonGrpcUtil.ApiName.SequencerPublicApi
         ),
-      ),
-      localNodeParameters.sequencerClient,
-      testingConfig,
-      staticDomainParameters.protocolVersion,
-      sequencerDomainParamsLookup,
-      localNodeParameters.processingTimeouts,
-      // Since the sequencer runtime trusts itself, there is no point in validating the events.
-      SequencedEventValidatorFactory.noValidation(domainId, warn = false),
-      clock,
-      RequestSigner(syncCrypto, staticDomainParameters.protocolVersion),
-      sequencedEventStore,
-      new SendTracker(
-        Map(),
-        SendTrackerStore(storage),
-        metrics.sequencerClient,
-        loggerFactory,
-        timeouts,
-      ),
-      metrics.sequencerClient,
-      None,
-      replayEnabled = false,
-      syncCrypto.pureCrypto,
-      localNodeParameters.loggingConfig,
-      loggerFactory,
-      futureSupervisor,
-      sequencer.firstSequencerCounterServeableForSequencer,
-    )
-  private val timeTracker = DomainTimeTracker(
-    timeTrackerConfig,
-    clock,
-    client,
-    staticDomainParameters.protocolVersion,
-    timeouts,
-    loggerFactory,
+        executionContext,
+      )
+    },
   )
 
   private val topologyManagerSequencerCounterTrackerStore =
@@ -525,9 +469,6 @@ class SequencerRuntime(
       client,
       topologyProcessor,
       topologyManagerSequencerCounterTrackerStore,
-      sequencedEventStore,
-      syncCrypto,
-      topologyClient,
       sequencerService,
       authenticationServices.memberAuthenticationService,
       sequencer,

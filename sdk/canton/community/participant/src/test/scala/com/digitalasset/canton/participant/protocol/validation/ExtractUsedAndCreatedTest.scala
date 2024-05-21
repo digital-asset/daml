@@ -18,7 +18,8 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
   val etf: ExampleTransactionFactory = new ExampleTransactionFactory()()
 
   private val emptyUsedAndCreatedContracts = UsedAndCreatedContracts(
-    witnessedAndDivulged = Map.empty[LfContractId, SerializableContract],
+    witnessed = Map.empty[LfContractId, SerializableContract],
+    divulged = Map.empty[LfContractId, SerializableContract],
     checkActivenessTxInputs = Set.empty[LfContractId],
     consumedInputsOfHostedStakeholders = Map.empty[LfContractId, WithContractHash[Set[LfPartyId]]],
     used = Map.empty[LfContractId, SerializableContract],

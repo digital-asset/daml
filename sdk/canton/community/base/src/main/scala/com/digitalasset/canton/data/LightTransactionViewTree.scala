@@ -19,7 +19,9 @@ import monocle.PLens
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-/** Wraps a `GenTransactionTree` where exactly one view (not including subviews) is unblinded.
+/** Wraps a `GenTransactionTree` where exactly one view is unblinded.
+  * The direct subviews of the unblinded view are blinded - this is why the class name is prefixed "Light".
+  *
   * The `commonMetadata` and `participantMetadata` are also unblinded.
   * The `submitterMetadata` is unblinded if and only if the unblinded view is a root view.
   *

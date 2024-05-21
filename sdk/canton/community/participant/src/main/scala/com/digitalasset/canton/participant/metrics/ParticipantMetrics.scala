@@ -6,46 +6,102 @@ package com.digitalasset.canton.participant.metrics
 import cats.Eval
 import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
-import com.daml.metrics.api.MetricHandle.{Counter, Gauge, LabeledMetricsFactory, Meter}
+import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Histogram, LabeledMetricsFactory, Meter}
 import com.daml.metrics.api.noop.NoOpGauge
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.data.TaskSchedulerMetrics
 import com.digitalasset.canton.environment.BaseMetrics
-import com.digitalasset.canton.http.metrics.HttpApiMetrics
+import com.digitalasset.canton.http.metrics.{HttpApiHistograms, HttpApiMetrics}
+import com.digitalasset.canton.metrics.HistogramInventory.Item
 import com.digitalasset.canton.metrics.*
-import com.digitalasset.canton.metrics.Metrics as LedgerApiServerMetrics
 import com.digitalasset.canton.participant.metrics.PruningMetrics as ParticipantPruningMetrics
 
 import scala.collection.concurrent.TrieMap
 
+class ParticipantHistograms(val parent: MetricName)(implicit
+    inventory: HistogramInventory
+) {
+
+  private[metrics] val prefix: MetricName = parent :+ "participant"
+
+  private[metrics] val ledgerApiServer: LedgerApiServerHistograms =
+    new LedgerApiServerHistograms(prefix :+ "api")
+
+  private[metrics] val httpApi: HttpApiHistograms =
+    new HttpApiHistograms(prefix)
+
+  private[metrics] val dbStorage: DbStorageHistograms =
+    new DbStorageHistograms(parent)
+  private[metrics] val sequencerClient: SequencerClientHistograms = new SequencerClientHistograms(
+    parent
+  )
+  private[metrics] val syncDomain: SyncDomainHistograms = new SyncDomainHistograms(
+    prefix,
+    sequencerClient,
+  )
+  private[metrics] val pruning: PruningHistograms = new PruningHistograms(parent)
+
+  private[metrics] val consolePrefix: MetricName = prefix :+ "console"
+  private[metrics] val consoleNodeCount: Item =
+    Item(
+      consolePrefix :+ "tx-node-count",
+      "Number of nodes per transaction histogram, measured using canton console ledger_api.updates.start_measure",
+      MetricQualification.Debug,
+    )
+  private[metrics] val consoleTransactionSize: Item =
+    Item(
+      consolePrefix :+ "tx-size",
+      "Transaction size histogram, measured using canton console ledger_api.updates.start_measure ",
+      MetricQualification.Debug,
+    )
+
+}
+
 class ParticipantMetrics(
-    parent: MetricName,
+    inventory: ParticipantHistograms,
     override val openTelemetryMetricsFactory: LabeledMetricsFactory,
 ) extends BaseMetrics {
 
-  // TODO(#17917) add "participant" here once we've decomposed the SyncDomainMetrics and pulled out the sequencer client
-  override val prefix: MetricName = parent
+  private implicit val mc: MetricsContext = MetricsContext.Empty
+
+  override val prefix: MetricName = inventory.prefix
 
   override def grpcMetrics: GrpcServerMetrics = ledgerApiServer.grpc
   override def healthMetrics: HealthMetrics = ledgerApiServer.health
   override def storageMetrics: DbStorageMetrics = dbStorage
 
-  private implicit val mc: MetricsContext =
-    MetricsContext.Empty // participant -> participant1 is already set in MetricsFactory
+  object dbStorage extends DbStorageMetrics(inventory.dbStorage, openTelemetryMetricsFactory)
 
-  object dbStorage extends DbStorageMetrics(parent, openTelemetryMetricsFactory)
+  object consoleThroughput {
+    private val prefix = ParticipantMetrics.this.prefix :+ "console"
+    val metric: Meter =
+      openTelemetryMetricsFactory.meter(
+        MetricInfo(
+          prefix :+ "tx-nodes-emitted",
+          "Total number of nodes emitted, measured using canton console ledger_api.updates.start_measure",
+          MetricQualification.Debug,
+        )
+      )
+    val nodeCount: Histogram =
+      openTelemetryMetricsFactory.histogram(inventory.consoleNodeCount.info)
+    val transactionSize: Histogram =
+      openTelemetryMetricsFactory.histogram(inventory.consoleTransactionSize.info)
+  }
 
   val ledgerApiServer: LedgerApiServerMetrics =
-    new LedgerApiServerMetrics(parent, openTelemetryMetricsFactory)
+    new LedgerApiServerMetrics(
+      inventory.ledgerApiServer,
+      openTelemetryMetricsFactory,
+    )
 
   val httpApiServer: HttpApiMetrics =
-    new HttpApiMetrics(parent, openTelemetryMetricsFactory, openTelemetryMetricsFactory)
+    new HttpApiMetrics(inventory.httpApi, openTelemetryMetricsFactory)
 
   private val clients = TrieMap[DomainAlias, Eval[SyncDomainMetrics]]()
 
-  object pruning extends ParticipantPruningMetrics(parent, openTelemetryMetricsFactory)
+  object pruning extends ParticipantPruningMetrics(inventory.pruning, openTelemetryMetricsFactory)
 
   def domainMetrics(alias: DomainAlias): SyncDomainMetrics = {
     clients
@@ -56,7 +112,7 @@ class ParticipantMetrics(
         // Eval.later ensures that we actually create only one instance of SyncDomainMetrics in such a case
         // by delaying the creation until the getOrElseUpdate call has finished.
         Eval.later(
-          new SyncDomainMetrics(prefix, openTelemetryMetricsFactory)(
+          new SyncDomainMetrics(inventory.syncDomain, openTelemetryMetricsFactory)(
             mc.withExtraLabels("domain" -> alias.unwrap)
           )
         ),
@@ -75,10 +131,10 @@ class ParticipantMetrics(
     )
   )
 
-  val dirtyRequests: Gauge[Int] =
+  val inflightValidationRequests: Gauge[Int] =
     openTelemetryMetricsFactory.gauge(
       MetricInfo(
-        prefix :+ "dirty_requests",
+        prefix :+ "inflight_validation_requests",
         summary = "Number of requests being validated.",
         description = """Number of requests that are currently being validated.
                         |This also covers requests submitted by other participants.
@@ -95,7 +151,7 @@ class ParticipantMetrics(
   val maxInflightValidationRequestGaugeForDocs: Gauge[Int] =
     NoOpGauge(
       MetricInfo(
-        prefix :+ "max_dirty_requests",
+        prefix :+ "max_inflight_validation_requests",
         summary = "Configured maximum number of requests currently being validated.",
         description =
           """Configuration for the maximum number of requests that are currently being validated.
@@ -118,16 +174,29 @@ class ParticipantMetrics(
 
 }
 
+class SyncDomainHistograms(val parent: MetricName, val sequencerClient: SequencerClientHistograms)(
+    implicit inventory: HistogramInventory
+) {
+
+  private[metrics] val prefix: MetricName = parent :+ "sync"
+
+  private[metrics] val transactionProcessing: TransactionProcessingHistograms =
+    new TransactionProcessingHistograms(prefix)
+
+  private[metrics] val commitments: CommitmentHistograms = new CommitmentHistograms(prefix)
+
+}
+
 class SyncDomainMetrics(
-    prefix: MetricName,
+    histograms: SyncDomainHistograms,
     factory: LabeledMetricsFactory,
 )(implicit metricsContext: MetricsContext) {
 
-  object sequencerClient extends SequencerClientMetrics(prefix, factory)
+  object sequencerClient extends SequencerClientMetrics(histograms.sequencerClient, factory)
 
   object conflictDetection extends TaskSchedulerMetrics {
 
-    private val prefix = SyncDomainMetrics.this.prefix :+ "conflict-detection"
+    private val prefix = histograms.prefix :+ "conflict-detection"
 
     val sequencerCounterQueue: Counter =
       factory.counter(
@@ -159,11 +228,14 @@ class SyncDomainMetrics(
 
   }
 
-  object transactionProcessing extends TransactionProcessingMetrics(prefix, factory)
+  object commitments extends CommitmentMetrics(histograms.commitments, factory)
 
-  val numDirtyRequests: Counter = factory.counter(
+  object transactionProcessing
+      extends TransactionProcessingMetrics(histograms.transactionProcessing, factory)
+
+  val numInflightValidations: Counter = factory.counter(
     MetricInfo(
-      prefix :+ "dirty-requests",
+      histograms.prefix :+ "inflight-validations",
       summary = "Number of requests being validated on the domain.",
       description = """Number of requests that are currently being validated on the domain.
                     |This also covers requests submitted by other participants.
@@ -174,7 +246,7 @@ class SyncDomainMetrics(
 
   object recordOrderPublisher extends TaskSchedulerMetrics {
 
-    private val prefix = SyncDomainMetrics.this.prefix :+ "request-tracker"
+    private val prefix = histograms.prefix :+ "request-tracker"
 
     val sequencerCounterQueue: Counter =
       factory.counter(
@@ -204,7 +276,7 @@ class SyncDomainMetrics(
   // TODO(i14580): add testing
   object trafficControl {
 
-    private val prefix = SyncDomainMetrics.this.prefix :+ "traffic-control"
+    private val prefix = histograms.prefix :+ "traffic-control"
 
     val extraTrafficAvailable: Gauge[Long] =
       factory.gauge(

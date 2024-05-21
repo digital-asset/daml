@@ -18,7 +18,7 @@ import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.MutablePackageNameMapResolver
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
@@ -70,7 +70,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
       adminToken: CantonAdminToken,
       override val loggerFactory: NamedLoggerFactory,
       tracerProvider: TracerProvider,
-      metrics: Metrics,
+      metrics: LedgerApiServerMetrics,
       jsonApiMetrics: HttpApiMetrics,
       meteringReportKey: MeteringReportKey,
       maxDeduplicationDuration: NonNegativeFiniteDuration,

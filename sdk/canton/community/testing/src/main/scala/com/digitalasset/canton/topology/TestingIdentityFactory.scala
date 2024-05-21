@@ -17,7 +17,7 @@ import com.digitalasset.canton.concurrent.{
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, SymbolicPureCrypto}
+import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -35,7 +35,7 @@ import com.digitalasset.canton.topology.store.{TopologyStoreId, ValidatedTopolog
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Remove
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
-import com.digitalasset.canton.util.{ErrorUtil, MapsUtil, OptionUtil}
+import com.digitalasset.canton.util.{ErrorUtil, MapsUtil}
 import com.digitalasset.canton.{BaseTest, LfPackageId, LfPartyId}
 
 import scala.concurrent.duration.*
@@ -114,7 +114,7 @@ final case class TestingTopology(
         parameter = DefaultTestIdentities.defaultDynamicDomainParameters,
       )
     ),
-    encKeyTag: Option[String] = None,
+    freshKeys: Boolean = false,
 ) {
   def mediators: Seq[MediatorId] = mediatorGroups.toSeq.flatMap(_.all)
 
@@ -123,6 +123,21 @@ final case class TestingTopology(
     * All domains will have exactly the same topology.
     */
   def withDomains(domains: DomainId*): TestingTopology = this.copy(domains = domains.toSet)
+
+  def withDynamicDomainParameters(
+      dynamicDomainParameters: DynamicDomainParameters,
+      validFrom: CantonTimestamp = CantonTimestamp.Epoch,
+  ) = {
+    copy(
+      domainParameters = List(
+        DomainParameters.WithValidity(
+          validFrom = validFrom,
+          validUntil = None,
+          parameter = dynamicDomainParameters,
+        )
+      )
+    )
+  }
 
   /** Overwrites the `sequencerGroup` field.
     */
@@ -159,11 +174,8 @@ final case class TestingTopology(
   def withKeyPurposes(keyPurposes: Set[KeyPurpose]): TestingTopology =
     this.copy(keyPurposes = keyPurposes)
 
-  /** This adds a tag to the id of the encryption key during key generation [[genKeyCollection]].
-    * Therefore, we can potentially enforce a different key id for the same encryption key.
-    */
-  def withEncKeyTag(tag: String): TestingTopology =
-    this.copy(encKeyTag = Some(tag))
+  def withFreshKeys(freshKeys: Boolean): TestingTopology =
+    this.copy(freshKeys = freshKeys)
 
   /** Define the topology as a simple map of party to participant */
   def withTopology(
@@ -201,12 +213,27 @@ final case class TestingTopology(
 
   def build(
       loggerFactory: NamedLoggerFactory = NamedLoggerFactory("test-area", "crypto")
+  ): TestingIdentityFactory = {
+    build(
+      SymbolicCrypto.create(
+        testedReleaseProtocolVersion,
+        DefaultProcessingTimeouts.testing,
+        loggerFactory,
+      ),
+      loggerFactory,
+    )
+  }
+
+  def build(
+      crypto: SymbolicCrypto,
+      loggerFactory: NamedLoggerFactory,
   ): TestingIdentityFactory =
-    new TestingIdentityFactory(this, loggerFactory, domainParameters)
+    new TestingIdentityFactory(this, crypto, loggerFactory, domainParameters)
 }
 
 class TestingIdentityFactory(
     topology: TestingTopology,
+    crypto: SymbolicCrypto,
     override protected val loggerFactory: NamedLoggerFactory,
     dynamicDomainParameters: List[DomainParameters.WithValidity[DynamicDomainParameters]],
 ) extends NamedLogging {
@@ -220,7 +247,7 @@ class TestingIdentityFactory(
     new SyncCryptoApiProvider(
       owner,
       ips(availableUpToInclusive),
-      TestingIdentityFactory.newCrypto(loggerFactory)(owner),
+      crypto,
       CachingConfigs.testing,
       DefaultProcessingTimeouts.testing,
       FutureSupervisor.Noop,
@@ -441,20 +468,29 @@ class TestingIdentityFactory(
       owner: Member
   ): Seq[SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]] = {
     val keyPurposes = topology.keyPurposes
+    val keyName = owner.toProtoPrimitive
 
     val sigKey =
-      if (keyPurposes.contains(KeyPurpose.Signing))
-        Seq(SymbolicCrypto.signingPublicKey(s"sigK-${keyFingerprintForOwner(owner).unwrap}"))
-      else Seq()
+      if (keyPurposes.contains(KeyPurpose.Signing)) {
+        if (topology.freshKeys) {
+          crypto.setRandomKeysFlag(true)
+          val key = Seq(crypto.generateSymbolicSigningKey(Some(keyName)))
+          crypto.setRandomKeysFlag(false)
+          key
+        } else
+          Seq(crypto.getOrGenerateSymbolicSigningKey(keyName))
+      } else Seq()
 
     val encKey =
-      if (keyPurposes.contains(KeyPurpose.Encryption))
-        Seq(
-          SymbolicCrypto.encryptionPublicKey(
-            s"encK${OptionUtil.noneAsEmptyString(topology.encKeyTag)}-${keyFingerprintForOwner(owner).unwrap}"
-          )
-        )
-      else Seq()
+      if (keyPurposes.contains(KeyPurpose.Encryption)) {
+        if (topology.freshKeys) {
+          crypto.setRandomKeysFlag(true)
+          val key = Seq(crypto.generateSymbolicEncryptionKey(Some(keyName)))
+          crypto.setRandomKeysFlag(false)
+          key
+        } else
+          Seq(crypto.getOrGenerateSymbolicEncryptionKey(keyName))
+      } else Seq()
 
     NonEmpty
       .from(sigKey ++ encKey)
@@ -521,42 +557,6 @@ class TestingIdentityFactory(
         )
       )
     }
-
-  private def keyFingerprintForOwner(owner: Member): Fingerprint =
-    // We are converting an Identity (limit of 185 characters) to a Fingerprint (limit of 68 characters) - this would be
-    // problematic if this function wasn't only used for testing
-    Fingerprint.tryCreate(owner.uid.identifier.unwrap)
-
-  def newCrypto(
-      owner: Member,
-      signingFingerprints: Seq[Fingerprint] = Seq(),
-      fingerprintSuffixes: Seq[String] = Seq(),
-  ): Crypto = {
-    val signingFingerprintsOrOwner =
-      if (signingFingerprints.isEmpty)
-        Seq(keyFingerprintForOwner(owner))
-      else
-        signingFingerprints
-
-    val fingerprintSuffixesOrOwner =
-      if (fingerprintSuffixes.isEmpty)
-        Seq(keyFingerprintForOwner(owner).unwrap)
-      else
-        fingerprintSuffixes
-
-    SymbolicCrypto.tryCreate(
-      signingFingerprintsOrOwner,
-      fingerprintSuffixesOrOwner,
-      testedReleaseProtocolVersion,
-      DefaultProcessingTimeouts.testing,
-      loggerFactory,
-    )
-  }
-
-  def newSigningPublicKey(owner: Member): SigningPublicKey = {
-    SymbolicCrypto.signingPublicKey(keyFingerprintForOwner(owner))
-  }
-
 }
 
 /** something used often: somebody with keys and ability to created signed transactions */
@@ -737,6 +737,7 @@ class TestingOwnerWithKeys(
           .value,
         10.seconds,
       )
+      .onShutdown(sys.error("aborted due to shutdown"))
       .getOrElse(sys.error("failed to create signed topology transaction"))
 
   def setSerial(
@@ -818,6 +819,7 @@ class TestingOwnerWithKeys(
           .value,
         30.seconds,
       )
+      .onShutdown(sys.error("aborted due to shutdown"))
       .getOrElse(sys.error("key should be there"))
 
   def genEncKey(name: String): EncryptionPublicKey =
@@ -828,6 +830,7 @@ class TestingOwnerWithKeys(
           .value,
         30.seconds,
       )
+      .onShutdown(sys.error("aborted due to shutdown"))
       .getOrElse(sys.error("key should be there"))
 
 }
@@ -842,14 +845,18 @@ object TestingIdentityFactory {
       TestingTopology(topology = topology),
       loggerFactory,
       TestDomainParameters.defaultDynamic,
+      SymbolicCrypto
+        .create(testedReleaseProtocolVersion, DefaultProcessingTimeouts.testing, loggerFactory),
     )
 
   def apply(
       topology: TestingTopology,
       loggerFactory: NamedLoggerFactory,
       dynamicDomainParameters: DynamicDomainParameters,
-  ) = new TestingIdentityFactory(
+      crypto: SymbolicCrypto,
+  ): TestingIdentityFactory = new TestingIdentityFactory(
     topology,
+    crypto,
     loggerFactory,
     dynamicDomainParameters = List(
       DomainParameters.WithValidity(
@@ -860,37 +867,19 @@ object TestingIdentityFactory {
     ),
   )
 
-  def pureCrypto(): CryptoPureApi = new SymbolicPureCrypto
-
-  def newCrypto(loggerFactory: NamedLoggerFactory)(
-      owner: Member,
-      signingFingerprints: Seq[Fingerprint] = Seq(),
-      fingerprintSuffixes: Seq[String] = Seq(),
-  ): Crypto = {
-    val signingFingerprintsOrOwner =
-      if (signingFingerprints.isEmpty)
-        Seq(keyFingerprintForOwner(owner))
-      else
-        signingFingerprints
-
-    val fingerprintSuffixesOrOwner =
-      if (fingerprintSuffixes.isEmpty)
-        Seq(keyFingerprintForOwner(owner).unwrap)
-      else
-        fingerprintSuffixes
-
-    SymbolicCrypto.tryCreate(
-      signingFingerprintsOrOwner,
-      fingerprintSuffixesOrOwner,
+  def apply(
+      topology: TestingTopology,
+      loggerFactory: NamedLoggerFactory,
+      dynamicDomainParameters: DynamicDomainParameters,
+  ): TestingIdentityFactory = TestingIdentityFactory(
+    topology,
+    loggerFactory,
+    dynamicDomainParameters,
+    SymbolicCrypto.create(
       testedReleaseProtocolVersion,
       DefaultProcessingTimeouts.testing,
       loggerFactory,
-    )
-  }
-
-  private def keyFingerprintForOwner(owner: Member): Fingerprint =
-    // We are converting an Identity (limit of 185 characters) to a Fingerprint (limit of 68 characters) - this would be
-    // problematic if this function wasn't only used for testing
-    Fingerprint.tryCreate(owner.uid.identifier.str)
+    ),
+  )
 
 }

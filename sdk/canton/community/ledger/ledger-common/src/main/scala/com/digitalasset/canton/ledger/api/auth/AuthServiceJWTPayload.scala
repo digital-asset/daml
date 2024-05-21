@@ -80,7 +80,6 @@ object AuthServiceJWTCodec {
   private[this] final val propExp: String = "exp"
   private[this] final val propSub: String = "sub"
   private[this] final val propScope: String = "scope"
-  private[this] final val propParty: String = "party" // Legacy JSON API payload
 
   // ------------------------------------------------------------------------------------------------------------------
   // Encoding
@@ -304,18 +303,6 @@ object AuthServiceJWTCodec {
         deserializationError(s"Could not read ${value.prettyPrint} as string for $name")
     }
 
-  private[this] def readOptionalStringList(
-      name: String,
-      fields: Map[String, JsValue],
-  ): List[String] = fields.get(name) match {
-    case None => List.empty
-    case Some(JsNull) => List.empty
-    case Some(JsArray(values)) =>
-      readStringList(name, values)
-    case Some(value) =>
-      deserializationError(s"Could not read ${value.prettyPrint} as string list for $name")
-  }
-
   private def readStringList(name: String, values: Vector[JsValue]) = {
     values.toList.map {
       case JsString(value) => value
@@ -323,17 +310,6 @@ object AuthServiceJWTCodec {
         deserializationError(s"Could not read ${value.prettyPrint} as string element for $name")
     }
   }
-  private[this] def readOptionalBoolean(
-      name: String,
-      fields: Map[String, JsValue],
-  ): Option[Boolean] = fields.get(name) match {
-    case None => None
-    case Some(JsNull) => None
-    case Some(JsBoolean(value)) => Some(value)
-    case Some(value) =>
-      deserializationError(s"Could not read ${value.prettyPrint} as boolean for $name")
-  }
-
   private[this] def readInstant(name: String, fields: Map[String, JsValue]): Option[Instant] =
     fields.get(name) match {
       case None => None

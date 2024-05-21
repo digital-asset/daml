@@ -178,7 +178,6 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
       val submission = SubmissionRequest.tryCreate(
         alice,
         messageId,
-        isRequest = true,
         Batch.closeEnvelopes(
           Batch.of(
             testedProtocolVersion,
@@ -187,6 +186,7 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
           )
         ),
         clock.now.plusSeconds(10),
+        None,
         None,
         None,
         testedProtocolVersion,
@@ -198,7 +198,7 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
         )(
           "member registration"
         )
-        _ <- valueOrFail(sequencer.sendAsync(submission))("send")
+        _ <- sequencer.sendAsync(submission).valueOrFailShutdown("send")
         aliceDeliverEvent <- readAsSeq(alice, 1)
           .map(_.loneElement.signedEvent.content)
           .map(asDeliverEvent)

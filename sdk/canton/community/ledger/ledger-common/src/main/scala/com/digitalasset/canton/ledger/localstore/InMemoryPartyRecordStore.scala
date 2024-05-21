@@ -5,7 +5,7 @@ package com.digitalasset.canton.ledger.localstore
 
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
-import com.daml.scalautil.Statement.discard
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, ObjectMeta}
 import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator
@@ -134,7 +134,7 @@ class InMemoryPartyRecordStore(
             Left(PartyRecordStore.PartyNotFound(party = party))
           } else {
             val updatedInfo = info.copy(identityProviderId = targetIdp)
-            discard(state.put(party, updatedInfo))
+            state.put(party, updatedInfo).discard
             Right(toPartyRecord(updatedInfo))
           }
         case None =>
@@ -194,7 +194,7 @@ class InMemoryPartyRecordStore(
         annotations = updatedAnnotations,
         identityProviderId = partyRecordUpdate.identityProviderId,
       )
-      discard(state.put(party, updatedInfo))
+      state.put(party, updatedInfo).discard
       updatedInfo
     }
   }

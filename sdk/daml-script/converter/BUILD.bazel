@@ -20,6 +20,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
+        "//daml-lf/stable-packages",
         "//daml-lf/transaction",
     ],
 )

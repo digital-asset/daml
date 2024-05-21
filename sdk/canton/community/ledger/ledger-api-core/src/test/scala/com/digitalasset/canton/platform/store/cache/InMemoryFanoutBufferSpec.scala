@@ -8,7 +8,7 @@ import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRespons
 import com.daml.lf.data.Time
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.BufferSlice.LastBufferChunkSuffix
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.{
   BufferSlice,
@@ -471,7 +471,7 @@ class InMemoryFanoutBufferSpec
     )(test: InMemoryFanoutBuffer => Assertion): Assertion = {
       val buffer = new InMemoryFanoutBuffer(
         maxBufferSize,
-        Metrics.ForTesting,
+        LedgerApiServerMetrics.ForTesting,
         maxBufferedChunkSize = maxFetchSize,
         loggerFactory = loggerFactory,
       )

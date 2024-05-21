@@ -18,6 +18,7 @@ import com.digitalasset.canton.domain.sequencing.config.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
 import com.digitalasset.canton.domain.sequencing.service.SubscriptionPool.PoolClosed
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
 import com.digitalasset.canton.protocol.{
@@ -83,9 +84,9 @@ class GrpcSequencerServiceTest
   class Environment(member: Member) extends Matchers {
     val sequencer: Sequencer = mock[Sequencer]
     when(sequencer.sendAsync(any[SubmissionRequest])(anyTraceContext))
-      .thenReturn(EitherT.rightT[Future, SendAsyncError](()))
+      .thenReturn(EitherT.rightT[FutureUnlessShutdown, SendAsyncError](()))
     when(sequencer.sendAsyncSigned(any[SignedContent[SubmissionRequest]])(anyTraceContext))
-      .thenReturn(EitherT.rightT[Future, SendAsyncError](()))
+      .thenReturn(EitherT.rightT[FutureUnlessShutdown, SendAsyncError](()))
     when(sequencer.acknowledge(any[Member], any[CantonTimestamp])(anyTraceContext))
       .thenReturn(Future.unit)
     when(sequencer.acknowledgeSigned(any[SignedContent[AcknowledgeRequest]])(anyTraceContext))
@@ -189,11 +190,11 @@ class GrpcSequencerServiceTest
     SubmissionRequest.tryCreate(
       sender,
       id,
-      isRequest = true,
       batch,
       CantonTimestamp.MaxValue,
       None,
       None,
+      Option.empty[SequencingSubmissionCost],
       testedProtocolVersion,
     )
   }
@@ -293,7 +294,16 @@ class GrpcSequencerServiceTest
       }
 
     "reject empty request" in { implicit env =>
-      val requestV1 = protocolV30.SubmissionRequest("", "", isRequest = false, None, 0L, None, None)
+      val requestV1 =
+        protocolV30.SubmissionRequest(
+          sender = "",
+          messageId = "",
+          batch = None,
+          maxSequencingTime = 0L,
+          topologyTimestamp = None,
+          aggregationRule = None,
+          submissionCost = None,
+        )
       val signedRequestV0 = signedContent(
         VersionedMessage[SubmissionRequest](requestV1.toByteString, 0).toByteString
       )

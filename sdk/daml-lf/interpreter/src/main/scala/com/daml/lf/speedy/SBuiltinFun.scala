@@ -1096,21 +1096,6 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  // SBCastAnyContract: ContractId templateId -> Any -> templateId
-  final case class SBCastAnyContract(templateId: TypeConName) extends SBuiltinFun(2) {
-    override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
-        machine: Machine[Q],
-    ): Control[Nothing] = {
-      val coid = getSContractId(args, 0)
-      val (actualTemplateId, record) = getSAnyContract(args, 1)
-      if (actualTemplateId == templateId)
-        Control.Value(record)
-      else
-        Control.Error(IE.WronglyTypedContract(coid, templateId, actualTemplateId))
-    }
-  }
-
   private[this] def getInterfaceInstance(
       machine: Machine[_],
       interfaceId: TypeConName,
@@ -1152,16 +1137,14 @@ private[lf] object SBuiltinFun {
     *    -> a
     */
 
-  final case class SBFetchAny(optTargetTemplateId: Option[TypeConName]) extends UpdateBuiltin(2) {
+  final case class SBFetchTemplate(templateId: TypeConName) extends UpdateBuiltin(2) {
     override protected def executeUpdate(
         args: util.ArrayList[SValue],
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       val coid = getSContractId(args, 0)
       val keyOpt = args.get(1)
-      fetchAny(machine, optTargetTemplateId, coid, keyOpt) { sv =>
-        Control.Value(sv)
-      }
+      fetchTemplate(machine, templateId, coid, keyOpt)(Control.Value)
     }
   }
 
@@ -1258,11 +1241,9 @@ private[lf] object SBuiltinFun {
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control.Expression = {
-      val optTargetTemplateId: Option[TypeConName] = None // no upgrading
       val e = SEBuiltinFun(
         SBUInsertFetchNode(
           getSAnyContract(args, 0)._1,
-          optTargetTemplateId,
           byKey = false,
         )
       )
@@ -1429,7 +1410,6 @@ private[lf] object SBuiltinFun {
     */
   final case class SBUInsertFetchNode(
       templateId: TypeConName,
-      optTargetTemplateId: Option[TypeConName],
       byKey: Boolean,
   ) extends UpdateBuiltin(2) {
 
@@ -1439,7 +1419,7 @@ private[lf] object SBuiltinFun {
     ): Control[Question.Update] = {
       val coid = getSContractId(args, 0)
       val keyOpt: SValue = args.get(1)
-      fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) { templateArg =>
+      fetchTemplate(machine, templateId, coid, keyOpt) { templateArg =>
         getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
           val version = machine.tmplId2TxVersion(templateId)
           machine.ptx.insertFetch(
@@ -1540,8 +1520,7 @@ private[lf] object SBuiltinFun {
   }
 
   private[speedy] sealed abstract class SBUKeyBuiltin(
-      operation: KeyOperation,
-      optTargetTemplateId: Option[TypeConName],
+      operation: KeyOperation
   ) extends UpdateBuiltin(1)
       with Product {
     override protected def executeUpdate(
@@ -1572,11 +1551,10 @@ private[lf] object SBuiltinFun {
             machine.ptx = machine.ptx.copy(contractState = next)
             keyMapping match {
               case ContractStateMachine.KeyActive(coid) =>
-                fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) {
-                  templateArg =>
-                    getContractInfo(machine, coid, templateId, templateArg, keyOpt)(_ =>
-                      operation.handleKeyFound(coid)
-                    )
+                fetchTemplate(machine, templateId, coid, keyOpt) { templateArg =>
+                  getContractInfo(machine, coid, templateId, templateArg, keyOpt)(_ =>
+                    operation.handleKeyFound(coid)
+                  )
                 }
 
               case ContractStateMachine.KeyInactive =>
@@ -1590,11 +1568,10 @@ private[lf] object SBuiltinFun {
               keyMapping match {
                 case ContractStateMachine.KeyActive(coid) =>
                   val c =
-                    fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) {
-                      templateArg =>
-                        getContractInfo(machine, coid, templateId, templateArg, keyOpt)(_ =>
-                          operation.handleKeyFound(coid)
-                        )
+                    fetchTemplate(machine, templateId, coid, keyOpt) { templateArg =>
+                      getContractInfo(machine, coid, templateId, templateArg, keyOpt)(_ =>
+                        operation.handleKeyFound(coid)
+                      )
                     }
                   (c, true)
                 case ContractStateMachine.KeyInactive =>
@@ -1623,18 +1600,16 @@ private[lf] object SBuiltinFun {
     *   -> ContractId T
     */
   final case class SBUFetchKey(
-      templateId: TypeConName,
-      optTargetTemplateId: Option[TypeConName] = None,
-  ) extends SBUKeyBuiltin(new KeyOperation.Fetch(templateId), optTargetTemplateId)
+      templateId: TypeConName
+  ) extends SBUKeyBuiltin(new KeyOperation.Fetch(templateId))
 
   /** $lookupKey[T]
     *   :: { key: key, maintainers: List Party }
     *   -> Maybe (ContractId T)
     */
   final case class SBULookupKey(
-      templateId: TypeConName,
-      optTargetTemplateId: Option[TypeConName] = None,
-  ) extends SBUKeyBuiltin(new KeyOperation.Lookup(templateId), optTargetTemplateId)
+      templateId: TypeConName
+  ) extends SBUKeyBuiltin(new KeyOperation.Lookup(templateId))
 
   /** $getTime :: Token -> Timestamp */
   final case object SBUGetTime extends UpdateBuiltin(1) {
@@ -2156,56 +2131,28 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  private def fetchContract(
+  private def fetchTemplate(
       machine: UpdateMachine,
-      templateId: TypeConName,
-      optTargetTemplateId: Option[TypeConName],
+      dstTmplId: TypeConName,
       coid: V.ContractId,
       keyOpt: SValue,
-  )(f: SValue => Control[Question.Update]): Control[Question.Update] = {
-    fetchAny(machine, optTargetTemplateId, coid, keyOpt) { fetched =>
-      // The SBCastAnyContract check can never fail when the upgrading feature flag is enabled.
-      // This is because the contract got up/down-graded when imported by importValue.
-
-      val castExp: SExpr = SEApp(
-        SEBuiltinFun(SBCastAnyContract(templateId)),
-        Array(
-          SContractId(coid),
-          fetched,
-        ),
-      )
-      executeExpression(machine, castExp) { casted =>
-        f(casted)
-      }
-    }
-  }
-
-  // This is the core function which fetches a contract given it's coid.
-  // Regardless of it being a local, disclosed or global contract
-  private def fetchAny(
-      machine: UpdateMachine,
-      optTargetTemplateId: Option[TypeConName],
-      coid: V.ContractId,
-      keyOpt: SValue,
-  )(f: SValue => Control[Question.Update]): Control[Question.Update] = {
+  )(f: SValue => Control[Question.Update]): Control[Question.Update] =
     machine.getIfLocalContract(coid) match {
-      case Some((templateId, templateArg)) =>
-        ensureContractActive(machine, coid, templateId) {
-          f(SValue.SAnyContract(templateId, templateArg))
-        }
-      case None =>
-        machine.lookupContract(coid) { case V.ContractInstance(_, srcTmplId, coinstArg) =>
-          val (upgradingIsEnabled, dstTmplId) = optTargetTemplateId match {
-            case Some(tycon) =>
-              (true, tycon)
-            case None =>
-              (false, srcTmplId) // upgrading not enabled; import at source type
-          }
-          if (srcTmplId.qualifiedName != dstTmplId.qualifiedName) {
+      case Some((srcTmplId, templateArg)) =>
+        ensureContractActive(machine, coid, srcTmplId) {
+          if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
             Control.Error(
               IE.WronglyTypedContract(coid, dstTmplId, srcTmplId)
             )
-          } else
+          else f(templateArg)
+        }
+      case None =>
+        machine.lookupContract(coid) { case V.ContractInstance(_, srcTmplId, coinstArg) =>
+          if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
+            Control.Error(
+              IE.WronglyTypedContract(coid, dstTmplId, srcTmplId)
+            )
+          else
             machine.ensurePackageIsLoaded(
               dstTmplId.packageId,
               language.Reference.Template(dstTmplId),
@@ -2221,19 +2168,13 @@ private[lf] object SBuiltinFun {
                     // In Validation mode, we always call validateContractInfo
                     // In Submission mode, we only call validateContractInfo when src != dest
                     val needValidationCall: Boolean =
-                      if (machine.validating) {
-                        upgradingIsEnabled
-                      } else {
-                        // we already check qualified names match
-                        upgradingIsEnabled && (srcTmplId.packageId != dstTmplId.packageId)
-                      }
+                      machine.validating || srcTmplId.packageId != dstTmplId.packageId
                     if (needValidationCall) {
-
                       validateContractInfo(machine, coid, srcTmplId, contract) { () =>
-                        f(contract.any)
+                        f(contract.value)
                       }
                     } else {
-                      f(contract.any)
+                      f(contract.value)
                     }
                   }
                 }
@@ -2241,7 +2182,6 @@ private[lf] object SBuiltinFun {
             }
         }
     }
-  }
 
   // TODO https://github.com/digital-asset/daml/issues/17995
   //  redesing contract fetching to improve factotrizstion
@@ -2353,8 +2293,10 @@ private[lf] object SBuiltinFun {
       templateArg: SValue,
       keyOpt: SValue,
   )(f: ContractInfo => Control[Question.Update]): Control[Question.Update] = {
-    machine.lookupContractInfoCache(coid) match {
+    machine.contractInfoCache.get((coid, templateId.packageId)) match {
       case Some(contract) =>
+        // sanity check
+        assert(contract.templateId == templateId)
         f(contract)
       case None =>
         computeContractInfo(machine, templateId, templateArg, keyOpt) { contract =>

@@ -1,7 +1,7 @@
 # Bazel distributed cache, can be temporarily disabled by passing the following
 # flag: --noremote_accept_cached
-build:darwin --remote_cache=https://bazel-cache.da-ext.net/202309/macos
-build:linux --remote_cache=https://bazel-cache.da-ext.net/202309/ubuntu
+build:darwin --remote_cache=https://bazel-cache.da-ext.net/202405/macos
+build:linux --remote_cache=https://bazel-cache.da-ext.net/202405/ubuntu
 # Don't push local build results to the remote cache.
 build --remote_upload_local_results=false
 # Do still push local build results to the local disk cache.
@@ -62,10 +62,10 @@ test --strategy=Scalac=worker
 #  https://github.com/grpc/grpc/pull/13929/files
 build --copt -DGRPC_BAZEL_BUILD
 
-build --java_language_version=11
-build --java_runtime_version=nixpkgs_java_11
-build --tool_java_runtime_version=nixpkgs_java_11
-build --tool_java_language_version=11
+build --java_language_version=17
+build --java_runtime_version=nixpkgs_java_17
+build --tool_java_runtime_version=nixpkgs_java_17
+build --tool_java_language_version=17
 
 # Propagate locales and the java home to the test environment.
 build --test_env=LANG=en_US.utf8 --test_env=LOCALE_ARCHIVE --test_env=JAVA_HOME
@@ -85,20 +85,8 @@ build:linux --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host
 build:darwin --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host
 # and GHC's gcc on Windows
 build:windows --crosstool_top=@rules_haskell_ghc_windows_amd64//:cc_toolchain
-
-# Caching is currently disabled on Windows.
-# See: https://github.com/tweag/rules_haskell/issues/744 for details.
-build:windows --noremote_accept_cached
-
-# We use a special windows configuration on CI: cache is enabled. The caching
-# is not totally reliable on Windows yet re. absolute paths, but it is not a
-# problem on CI if all builds share a similar directory structure.
-build:windows-ci --remote_accept_cached=true
-
-# The Windows CI machines have 4 physical and 8 logical cores. By default Bazel
-# will parallelize up to the number of logical cores. This can cause flakyness
-# in timing sensitive tests.
-build:windows-ci --jobs=4
+build:windows --remote_accept_cached=true
+build:windows --jobs=4
 
 # Instruct bazel to globally use this flag for compiling protobuf files.
 # We need the source info for generating proto docs. By default proto_library strips

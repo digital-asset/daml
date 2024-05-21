@@ -26,14 +26,15 @@ import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
-import com.digitalasset.canton.ledger.participant.state.index.v2.{
+import com.digitalasset.canton.ledger.participant.state.index.{
   ContractState,
   ContractStore,
   IndexPackagesService,
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.PackageName
+import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause.InterpretationTimeExceeded
 import com.digitalasset.canton.protocol.{DriverContractMetadata, LfContractId, LfTransactionVersion}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -124,7 +125,8 @@ class StoreBackedCommandExecutorSpec
       mock[ContractStore],
       AuthorityResolver(),
       authenticateContract = _ => Right(()),
-      metrics = Metrics.ForTesting,
+      metrics = LedgerApiServerMetrics.ForTesting,
+      EngineLoggingConfig(),
       loggerFactory = loggerFactory,
       dynParamGetter = new TestDynamicDomainParameterGetter(tolerance),
       TimeProvider.UTC,
@@ -331,7 +333,8 @@ class StoreBackedCommandExecutorSpec
         store,
         AuthorityResolver(),
         authenticateContract = _ => authenticationResult,
-        metrics = Metrics.ForTesting,
+        metrics = LedgerApiServerMetrics.ForTesting,
+        EngineLoggingConfig(),
         loggerFactory = loggerFactory,
         dynParamGetter = new TestDynamicDomainParameterGetter(NonNegativeFiniteDuration.Zero),
         TimeProvider.UTC,

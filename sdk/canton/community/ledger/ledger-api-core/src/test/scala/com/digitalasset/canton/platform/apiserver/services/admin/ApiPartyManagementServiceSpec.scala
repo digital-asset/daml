@@ -20,13 +20,13 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.domain.ParticipantOffset.Absolute
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, ObjectMeta}
 import com.digitalasset.canton.ledger.localstore.api.{PartyRecord, PartyRecordStore}
-import com.digitalasset.canton.ledger.participant.state.index.v2.{
+import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.index.{
   IndexPartyManagementService,
   IndexTransactionsService,
   IndexerPartyDetails,
   PartyEntry,
 }
-import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementService.blindAndConvertToProto
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementServiceSpec.*

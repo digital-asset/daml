@@ -10,12 +10,7 @@ import com.digitalasset.canton.domain.block.{
   SequencerDriverHealthStatus,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequest
-import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
-  RegisterMemberError,
-  SequencerWriteError,
-}
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.ServerServiceDefinition
@@ -42,12 +37,6 @@ class DriverBlockSequencerOps(
     EitherT.right(
       driver.send(signedSubmission.toByteString)
     )
-
-  override def register(member: Member)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, SequencerWriteError[RegisterMemberError], Unit] =
-    // The driver API doesn't provide error reporting, so we don't attempt to translate the exception
-    EitherT.right(driver.registerMember(member.toProtoPrimitive))
 
   override def acknowledge(signedAcknowledgeRequest: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext

@@ -13,7 +13,8 @@ import cats.data.Validated
 import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.jwt.JwtTimestampLeeway
-import com.daml.metrics.{HistogramDefinition, MetricsFilterConfig}
+import com.daml.metrics.MetricsFilterConfig
+import com.daml.metrics.api.MetricQualification
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.{
@@ -69,7 +70,10 @@ import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
 import com.digitalasset.canton.participant.config.ParticipantInitConfig.ParticipantLedgerApiInitConfig
 import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
-import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
+import com.digitalasset.canton.platform.apiserver.configuration.{
+  EngineLoggingConfig,
+  RateLimitingConfig,
+}
 import com.digitalasset.canton.platform.config.ActiveContractsServiceStreamsConfig
 import com.digitalasset.canton.platform.indexer.PackageMetadataViewConfig
 import com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig
@@ -78,6 +82,7 @@ import com.digitalasset.canton.pureconfigutils.HttpServerConfig
 import com.digitalasset.canton.pureconfigutils.SharedConfigReaders.catchConvertError
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
+import com.digitalasset.canton.telemetry.HistogramDefinition
 import com.digitalasset.canton.time.EnrichedDurations.RichNonNegativeFiniteDurationConfig
 import com.digitalasset.canton.tracing.TracingConfig
 import com.typesafe.config.ConfigException.UnresolvedSubstitution
@@ -379,8 +384,7 @@ trait CantonConfig {
         ),
         ledgerApiServerParameters = participantParameters.ledgerApiServer,
         excludeInfrastructureTransactions = participantParameters.excludeInfrastructureTransactions,
-        enableEngineStackTrace = participantParameters.enableEngineStackTraces,
-        iterationsBetweenInterruptions = participantParameters.iterationsBetweenInterruptions,
+        engine = participantParameters.engine,
         journalGarbageCollectionDelay =
           participantParameters.journalGarbageCollectionDelay.toInternal,
         disableUpgradeValidation = participantParameters.disableUpgradeValidation,
@@ -510,6 +514,7 @@ private[canton] object CantonNodeParameterConverter {
       dbMigrateAndStart = node.storage.parameters.migrateAndStart,
       exitOnFatalFailures = parent.parameters.exitOnFatalFailures,
       useUnifiedSequencer = node.parameters.useUnifiedSequencer,
+      watchdog = node.parameters.watchdog,
     )
   }
 
@@ -896,8 +901,28 @@ object CantonConfig {
       deriveReader[MetricsConfig.JvmMetrics]
     lazy implicit val metricsReporterConfigReader: ConfigReader[MetricsReporterConfig] =
       deriveReader[MetricsReporterConfig]
+    lazy implicit val histogramAggregationTypeConfigReader
+        : ConfigReader[HistogramDefinition.AggregationType] =
+      deriveReader[HistogramDefinition.AggregationType]
+    lazy implicit val histogramBucketConfigReader: ConfigReader[HistogramDefinition.Buckets] =
+      deriveReader[HistogramDefinition.Buckets]
+    lazy implicit val histogramExpontentialConfigReader
+        : ConfigReader[HistogramDefinition.Exponential] =
+      deriveReader[HistogramDefinition.Exponential]
     lazy implicit val histogramDefinitionConfigReader: ConfigReader[HistogramDefinition] =
       deriveReader[HistogramDefinition]
+    lazy implicit val metricQualificationConfigReader: ConfigReader[MetricQualification] = {
+      ConfigReader.fromString[MetricQualification](catchConvertError { s =>
+        s.toLowerCase() match {
+          case "debug" => Right(MetricQualification.Debug)
+          case "errors" => Right(MetricQualification.Errors)
+          case "saturation" => Right(MetricQualification.Saturation)
+          case "traffic" => Right(MetricQualification.Traffic)
+          case "latency" => Right(MetricQualification.Latency)
+          case _ => Left("not one of 'errors', 'saturation', 'traffic', 'latency', 'debug'")
+        }
+      })
+    }
     lazy implicit val metricsConfigReader: ConfigReader[MetricsConfig] = deriveReader[MetricsConfig]
     lazy implicit val queryCostMonitoringConfigReader: ConfigReader[QueryCostMonitoringConfig] =
       deriveReader[QueryCostMonitoringConfig]
@@ -913,14 +938,17 @@ object CantonConfig {
       deriveReader[ProcessingTimeout]
     lazy implicit val timeoutSettingsReader: ConfigReader[TimeoutSettings] =
       deriveReader[TimeoutSettings]
-    lazy implicit val partyNotificationConfigViaDomainReader
-        : ConfigReader[PartyNotificationConfig.ViaDomain.type] =
-      deriveReader[PartyNotificationConfig.ViaDomain.type]
-    lazy implicit val partyNotificationConfigEagerReader
-        : ConfigReader[PartyNotificationConfig.Eager.type] =
-      deriveReader[PartyNotificationConfig.Eager.type]
-    lazy implicit val partyNotificationConfigReader: ConfigReader[PartyNotificationConfig] =
+
+    @nowarn("cat=unused") lazy implicit val partyNotificationConfigReader
+        : ConfigReader[PartyNotificationConfig] = {
+      implicit val partyNotificationConfigViaDomainReader
+          : ConfigReader[PartyNotificationConfig.ViaDomain.type] =
+        deriveReader[PartyNotificationConfig.ViaDomain.type]
+      implicit val partyNotificationConfigEagerReader
+          : ConfigReader[PartyNotificationConfig.Eager.type] =
+        deriveReader[PartyNotificationConfig.Eager.type]
       deriveReader[PartyNotificationConfig]
+    }
     lazy implicit val cacheConfigReader: ConfigReader[CacheConfig] =
       deriveReader[CacheConfig]
     lazy implicit val cacheConfigWithTimeoutReader: ConfigReader[CacheConfigWithTimeout] =
@@ -940,6 +968,11 @@ object CantonConfig {
     lazy implicit val ledgerApiServerParametersConfigReader
         : ConfigReader[LedgerApiServerParametersConfig] =
       deriveReader[LedgerApiServerParametersConfig]
+
+    lazy implicit val engineLoggingConfigReader: ConfigReader[EngineLoggingConfig] =
+      deriveReader[EngineLoggingConfig]
+    lazy implicit val cantonEngineConfigReader: ConfigReader[CantonEngineConfig] =
+      deriveReader[CantonEngineConfig]
     lazy implicit val participantNodeParameterConfigReader
         : ConfigReader[ParticipantNodeParameterConfig] =
       deriveReader[ParticipantNodeParameterConfig]
@@ -967,8 +1000,11 @@ object CantonConfig {
       deriveReader[AmmoniteConsoleConfig]
     lazy implicit val cantonParametersReader: ConfigReader[CantonParameters] =
       deriveReader[CantonParameters]
-    lazy implicit val cantonFeaturesReader: ConfigReader[CantonFeatures] =
+    lazy implicit val cantonFeaturesReader: ConfigReader[CantonFeatures] = {
       deriveReader[CantonFeatures]
+    }
+    lazy implicit val cantonWatchdogConfigReader: ConfigReader[WatchdogConfig] =
+      deriveReader[WatchdogConfig]
   }
 
   /** writers
@@ -1286,8 +1322,25 @@ object CantonConfig {
       deriveWriter[MetricsConfig.JvmMetrics]
     lazy implicit val metricsReporterConfigWriter: ConfigWriter[MetricsReporterConfig] =
       deriveWriter[MetricsReporterConfig]
+    lazy implicit val histogramAggregationTypeConfigWriter
+        : ConfigWriter[HistogramDefinition.AggregationType] =
+      deriveWriter[HistogramDefinition.AggregationType]
+    lazy implicit val histogramBucketConfigWriter: ConfigWriter[HistogramDefinition.Buckets] =
+      deriveWriter[HistogramDefinition.Buckets]
+    lazy implicit val histogramExpontentialConfigWriter
+        : ConfigWriter[HistogramDefinition.Exponential] =
+      deriveWriter[HistogramDefinition.Exponential]
     lazy implicit val histogramDefinitionConfigWriter: ConfigWriter[HistogramDefinition] =
       deriveWriter[HistogramDefinition]
+    lazy implicit val metricQualificationConfigWriter: ConfigWriter[MetricQualification] = {
+      ConfigWriter.toString[MetricQualification] {
+        case MetricQualification.Debug => "debug"
+        case MetricQualification.Errors => "errors"
+        case MetricQualification.Saturation => "saturation"
+        case MetricQualification.Traffic => "traffic"
+        case MetricQualification.Latency => "latency"
+      }
+    }
     lazy implicit val metricsConfigWriter: ConfigWriter[MetricsConfig] = deriveWriter[MetricsConfig]
     lazy implicit val queryCostMonitoringConfig: ConfigWriter[QueryCostMonitoringConfig] =
       deriveWriter[QueryCostMonitoringConfig]
@@ -1330,6 +1383,10 @@ object CantonConfig {
     lazy implicit val ledgerApiServerParametersConfigWriter
         : ConfigWriter[LedgerApiServerParametersConfig] =
       deriveWriter[LedgerApiServerParametersConfig]
+    lazy implicit val engineLoggingConfigWriter: ConfigWriter[EngineLoggingConfig] =
+      deriveWriter[EngineLoggingConfig]
+    lazy implicit val cantonEngineConfigWriter: ConfigWriter[CantonEngineConfig] =
+      deriveWriter[CantonEngineConfig]
     lazy implicit val participantNodeParameterConfigWriter
         : ConfigWriter[ParticipantNodeParameterConfig] =
       deriveWriter[ParticipantNodeParameterConfig]
@@ -1358,8 +1415,11 @@ object CantonConfig {
       deriveWriter[AmmoniteConsoleConfig]
     lazy implicit val cantonParametersWriter: ConfigWriter[CantonParameters] =
       deriveWriter[CantonParameters]
-    lazy implicit val cantonFeaturesWriter: ConfigWriter[CantonFeatures] =
+    lazy implicit val cantonFeaturesWriter: ConfigWriter[CantonFeatures] = {
       deriveWriter[CantonFeatures]
+    }
+    lazy implicit val cantonWatchdogConfigWriter: ConfigWriter[WatchdogConfig] =
+      deriveWriter[WatchdogConfig]
   }
 
   /** Parses and merges the provided configuration files into a single [[com.typesafe.config.Config]].

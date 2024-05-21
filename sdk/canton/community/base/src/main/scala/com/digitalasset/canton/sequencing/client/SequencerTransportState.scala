@@ -11,7 +11,7 @@ import com.digitalasset.canton.config
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.{FlagCloseable, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.SubmissionRequestAmplification
 import com.digitalasset.canton.sequencing.client.SequencerClient.{
@@ -354,8 +354,10 @@ class SequencersTransportState(
           Right(()) // we don't want to close the sequencer client when changing transport
       }
 
-    def complete(reason: Try[SequencerClient.CloseReason]): Unit =
+    def complete(reason: Try[SequencerClient.CloseReason]): Unit = {
       closeReasonPromise.tryComplete(reason).discard
+      Lifecycle.close(this)(logger)
+    }
 
     lazy val closeReason: Try[SequencerClient.CloseReason] = maybeCloseReason.collect {
       case Left(error) =>

@@ -7,18 +7,7 @@ import cats.data.*
 import cats.syntax.all.*
 import com.daml.lf.crypto
 import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.engine.{
-  Engine,
-  Result,
-  ResultDone,
-  ResultError,
-  ResultInterruption,
-  ResultNeedAuthority,
-  ResultNeedContract,
-  ResultNeedKey,
-  ResultNeedPackage,
-  ResultNeedUpgradeVerification,
-}
+import com.daml.lf.engine.*
 import com.daml.lf.transaction.*
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance}
@@ -26,15 +15,16 @@ import com.daml.metrics.{Timed, Tracked}
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, DisclosedContract}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
-import com.digitalasset.canton.ledger.participant.state.index.v2.{
+import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.index.{
   ContractState,
   ContractStore,
   IndexPackagesService,
 }
-import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
 import com.digitalasset.canton.platform.apiserver.execution.UpgradeVerificationResult.MissingDriverMetadata
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
@@ -62,7 +52,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
     contractStore: ContractStore,
     authorityResolver: AuthorityResolver,
     authenticateContract: AuthenticateContract,
-    metrics: Metrics,
+    metrics: LedgerApiServerMetrics,
+    config: EngineLoggingConfig,
     val loggerFactory: NamedLoggerFactory,
     dynParamGetter: DynamicDomainParameterGetter,
     timeProvider: TimeProvider,
@@ -198,6 +189,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           disclosures = commands.disclosedContracts.map(_.toLf),
           participantId = participant,
           submissionSeed = submissionSeed,
+          config.toEngineLogger(loggerFactory.append("phase", "submission")),
         )
       }),
     )
@@ -469,7 +461,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
       EitherT.fromEither[Future](result).fold(UpgradeFailure, _ => Valid)
     }
 
-    // TODO(#14884): Guard contract activeness check with readers permission check
     def lookupActiveContractVerificationData(): Result =
       EitherT(
         contractStore

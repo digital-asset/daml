@@ -42,7 +42,7 @@ trait DomainOutboxDispatchHelper extends NamedLogging {
   protected def convertTransactions(transactions: Seq[GenericSignedTopologyTransaction])(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, Seq[GenericSignedTopologyTransaction]]
+  ): EitherT[FutureUnlessShutdown, String, Seq[GenericSignedTopologyTransaction]]
 
   protected def filterTransactions(
       transactions: Seq[GenericSignedTopologyTransaction],
@@ -92,12 +92,14 @@ trait StoreBasedDomainOutboxDispatchHelper extends DomainOutboxDispatchHelper {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, /*DomainRegistryError*/ String, Seq[GenericSignedTopologyTransaction]] = {
+  ): EitherT[FutureUnlessShutdown, /*DomainRegistryError*/ String, Seq[
+    GenericSignedTopologyTransaction
+  ]] = {
     transactions
       .parTraverse { tx =>
         if (tx.transaction.isEquivalentTo(protocolVersion)) {
           // Transaction already in the correct version, nothing to do here
-          EitherT.rightT[Future, String](tx)
+          EitherT.rightT[FutureUnlessShutdown, String](tx)
         } else {
           // First try to find if the topology transaction already exists in the correct version in the topology store
           OptionT(
@@ -106,7 +108,7 @@ trait StoreBasedDomainOutboxDispatchHelper extends DomainOutboxDispatchHelper {
               tx.transaction,
               protocolVersion,
             )
-          )
+          ).mapK(FutureUnlessShutdown.outcomeK)
             .map(_.transaction)
             .toRight("")
             .leftFlatMap { _ =>
@@ -125,12 +127,14 @@ trait QueueBasedDomainOutboxDispatchHelper extends DomainOutboxDispatchHelper {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, /*DomainRegistryError*/ String, Seq[GenericSignedTopologyTransaction]] = {
+  ): EitherT[FutureUnlessShutdown, /*DomainRegistryError*/ String, Seq[
+    GenericSignedTopologyTransaction
+  ]] = {
     transactions
       .parTraverse { tx =>
         if (tx.transaction.isEquivalentTo(protocolVersion)) {
           // Transaction already in the correct version, nothing to do here
-          EitherT.rightT[Future, String](tx)
+          EitherT.rightT[FutureUnlessShutdown, String](tx)
         } else {
           SignedTopologyTransaction.asVersion(tx, protocolVersion)(crypto)
         }

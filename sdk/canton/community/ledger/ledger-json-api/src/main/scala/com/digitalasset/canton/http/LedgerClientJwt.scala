@@ -42,7 +42,7 @@ import com.digitalasset.canton.ledger.client.services.state.StateServiceClient
 import com.digitalasset.canton.ledger.client.services.updates.UpdateServiceClient
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.tracing.NoTracing
+import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf
 import com.google.rpc.Code
 import scalaz.syntax.tag.*
@@ -50,9 +50,7 @@ import scalaz.{-\/, OneAnd, \/}
 
 import scala.concurrent.{Future, ExecutionContext as EC}
 
-final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
-    extends NamedLogging
-    with NoTracing {
+final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends NamedLogging {
   import Grpc.Category.*
   import LedgerClientJwt.*
   import LedgerClientRequestTimeLogger.*
@@ -63,17 +61,18 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       client: DamlLedgerClient
   )(implicit ec: EC): SubmitAndWaitForTransaction =
     (jwt, req) =>
-      implicit lc => {
-        logFuture(SubmitAndWaitForTransactionLog) {
-          client.v2.commandService
-            .deprecatedSubmitAndWaitForTransactionForJsonApi(req, token = bearer(jwt))
+      implicit traceContext =>
+        implicit lc => {
+          logFuture(SubmitAndWaitForTransactionLog) {
+            client.v2.commandService
+              .deprecatedSubmitAndWaitForTransactionForJsonApi(req, token = bearer(jwt))
+          }
+            .requireHandling(submitErrors)
         }
-          .requireHandling(submitErrors)
-      }
 
   def submitAndWaitForTransactionTree(
       client: DamlLedgerClient
-  )(implicit ec: EC): SubmitAndWaitForTransactionTree =
+  )(implicit ec: EC, traceContext: TraceContext): SubmitAndWaitForTransactionTree =
     (jwt, req) =>
       implicit lc => {
         logFuture(SubmitAndWaitForTransactionTreeLog) {
@@ -84,7 +83,9 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       }
 
   // TODO(#13364) test this function with a token or do not pass the token to getActiveContractsSource if it is not needed
-  def getActiveContracts(client: DamlLedgerClient): GetActiveContracts =
+  def getActiveContracts(client: DamlLedgerClient)(implicit
+      traceContext: TraceContext
+  ): GetActiveContracts =
     (jwt, filter, verbose) =>
       implicit lc => {
         log(GetActiveContractsLog) {
@@ -98,7 +99,9 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
         }
       }
 
-  def getCreatesAndArchivesSince(client: DamlLedgerClient): GetCreatesAndArchivesSince =
+  def getCreatesAndArchivesSince(
+      client: DamlLedgerClient
+  )(implicit traceContext: TraceContext): GetCreatesAndArchivesSince =
     (jwt, filter, offset, terminates) => { implicit lc =>
       {
         val end = terminates.toOffset
@@ -124,7 +127,9 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       }
     }
 
-  def getByContractId(client: DamlLedgerClient)(implicit ec: EC): GetContractByContractId = {
+  def getByContractId(
+      client: DamlLedgerClient
+  )(implicit ec: EC, traceContext: TraceContext): GetContractByContractId = {
     (jwt, contractId, requestingParties) =>
       { implicit lc =>
         logFuture(GetContractByContractIdLog) {
@@ -171,7 +176,8 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
   // TODO(#13303): Replace all occurrences of EC for logging purposes in this file
   //  (preferrably with DirectExecutionContext)
   def listKnownParties(client: DamlLedgerClient)(implicit
-      ec: EC
+      ec: EC,
+      traceContext: TraceContext,
   ): ListKnownParties =
     (jwt, pageToken, pageSize) =>
       implicit lc => {
@@ -184,7 +190,8 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       }
 
   def getParties(client: DamlLedgerClient)(implicit
-      ec: EC
+      ec: EC,
+      traceContext: TraceContext,
   ): GetParties =
     (jwt, partyIds) =>
       implicit lc => {
@@ -197,7 +204,8 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       }
 
   def allocateParty(client: DamlLedgerClient)(implicit
-      ec: EC
+      ec: EC,
+      traceContext: TraceContext,
   ): AllocateParty =
     (jwt, identifierHint, displayName) =>
       implicit lc => {
@@ -211,7 +219,8 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       }
 
   def listPackages(client: DamlLedgerClient)(implicit
-      ec: EC
+      ec: EC,
+      traceContext: TraceContext,
   ): ListPackages =
     jwt =>
       implicit lc => {
@@ -222,7 +231,8 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       }
 
   def getPackage(client: DamlLedgerClient)(implicit
-      ec: EC
+      ec: EC,
+      traceContext: TraceContext,
   ): GetPackage =
     (jwt, packageId) =>
       implicit lc => {
@@ -233,7 +243,8 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       }
 
   def uploadDar(client: DamlLedgerClient)(implicit
-      ec: EC
+      ec: EC,
+      traceContext: TraceContext,
   ): UploadDarFile =
     (jwt, byteString) =>
       implicit lc => {
@@ -244,7 +255,8 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       }
 
   def getMeteringReport(client: DamlLedgerClient)(implicit
-      ec: EC
+      ec: EC,
+      traceContext: TraceContext,
   ): GetMeteringReport =
     (jwt, request) =>
       implicit lc => {
@@ -256,7 +268,9 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
 
   private def logFuture[T, C](
       requestLog: RequestLog
-  )(block: => Future[T])(implicit ec: EC, lc: LoggingContextOf[C]): Future[T] = if (
+  )(
+      block: => Future[T]
+  )(implicit ec: EC, lc: LoggingContextOf[C], traceContext: TraceContext): Future[T] = if (
     logger.underlying.isDebugEnabled
   ) {
     val start = System.nanoTime()
@@ -268,7 +282,9 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
 
   private def log[T, C](
       requestLog: RequestLog
-  )(block: => T)(implicit lc: LoggingContextOf[C]): T = if (logger.underlying.isDebugEnabled) {
+  )(block: => T)(implicit lc: LoggingContextOf[C], traceContext: TraceContext): T = if (
+    logger.underlying.isDebugEnabled
+  ) {
     val start = System.nanoTime()
     val result = block
     logger.debug(s"${logMessage(start, requestLog)}, ${lc.makeString}")
@@ -287,7 +303,7 @@ object LedgerClientJwt {
     (
         Jwt,
         SubmitAndWaitRequest,
-    ) => LoggingContextOf[InstanceUUID with RequestID] => EFuture[
+    ) => TraceContext => LoggingContextOf[InstanceUUID with RequestID] => EFuture[
       SubmitError,
       SubmitAndWaitForTransactionResponse,
     ]

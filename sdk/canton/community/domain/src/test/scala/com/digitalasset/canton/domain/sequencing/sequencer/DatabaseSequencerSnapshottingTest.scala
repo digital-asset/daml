@@ -61,11 +61,9 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
       DatabaseSequencerSnapshottingTest.this.loggerFactory
 
     override lazy val topologyFactory =
-      new TestingIdentityFactory(
-        topology = TestingTopology().withSimpleParticipants(p11, p12, p13, p14, p15),
-        loggerFactory,
-        List.empty,
-      )
+      TestingTopology(domainParameters = List.empty)
+        .withSimpleParticipants(p11, p12, p13, p14, p15)
+        .build(loggerFactory)
   }
 
   override protected final type FixtureParam = SingleDbEnv
@@ -89,7 +87,7 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
         _ <- valueOrFail(sequencer.registerMember(sender))("Register mediator")
         _ <- valueOrFail(sequencer.registerMember(sequencerId))("Register sequencer")
 
-        _ <- valueOrFail(sequencer.sendAsync(request))("Sent async")
+        _ <- sequencer.sendAsync(request).valueOrFailShutdown("Sent async")
         messages <- readForMembers(List(sender), sequencer)
         _ = {
           val details = EventDetails(
@@ -120,7 +118,7 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
           // need to advance clock so that the new event doesn't get the same timestamp as the previous one,
           // which would then cause it to be ignored on the read path
           simClockOrFail(clock).advance(Duration.ofSeconds(1))
-          valueOrFail(secondSequencer.sendAsync(request2))("Sent async")
+          secondSequencer.sendAsync(request2).valueOrFailShutdown("Sent async")
         }
 
         messages2 <- readForMembers(

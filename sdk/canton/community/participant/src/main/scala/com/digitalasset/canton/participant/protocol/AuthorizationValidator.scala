@@ -4,8 +4,8 @@
 package com.digitalasset.canton.participant.protocol
 
 import cats.syntax.parallel.*
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.{FullTransactionViewTree, ViewPosition}
+import com.digitalasset.canton.participant.protocol.TransactionProcessingSteps.ParsedTransactionRequest
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -20,11 +20,20 @@ class AuthorizationValidator(participantId: ParticipantId)(implicit
 ) {
 
   def checkAuthorization(
+      parsedRequest: ParsedTransactionRequest
+  )(implicit traceContext: TraceContext): Future[Map[ViewPosition, String]] =
+    checkAuthorization(
+      parsedRequest.requestId,
+      parsedRequest.rootViewTrees.forgetNE,
+      parsedRequest.snapshot.ipsSnapshot,
+    )
+
+  def checkAuthorization(
       requestId: RequestId,
-      rootViews: NonEmpty[Seq[FullTransactionViewTree]],
+      rootViews: Seq[FullTransactionViewTree],
       snapshot: TopologySnapshot,
   )(implicit traceContext: TraceContext): Future[Map[ViewPosition, String]] =
-    rootViews.forgetNE
+    rootViews
       .parTraverseFilter { rootView =>
         val authorizers =
           rootView.viewParticipantData.rootAction.authorizers

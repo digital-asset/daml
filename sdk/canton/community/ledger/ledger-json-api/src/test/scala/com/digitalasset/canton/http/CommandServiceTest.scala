@@ -13,6 +13,7 @@ import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload, StandardJWTPayload, StandardJWTTokenFormat}
+import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -21,14 +22,14 @@ import scalaz.syntax.foldable.*
 import scalaz.syntax.tag.*
 import spray.json.*
 import scalaz.syntax.show.*
-import java.util.concurrent.CopyOnWriteArrayList
 
+import java.util.concurrent.CopyOnWriteArrayList
 import scala.collection as sc
 import scala.concurrent.{Future, ExecutionContext as EC}
 import scala.jdk.CollectionConverters.*
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class CommandServiceTest extends AsyncWordSpec with Matchers with Inside {
+class CommandServiceTest extends AsyncWordSpec with Matchers with Inside with NoTracing {
   import CommandServiceTest.*
 
   "create" should {
@@ -72,7 +73,7 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside {
   }
 }
 
-object CommandServiceTest extends BaseTest {
+object CommandServiceTest extends BaseTest  {
   private val multiPartyJwp = domain.JwtWritePayload(
     domain.ApplicationId("myapp"),
     submitter = domain.Party subst NonEmptyList("foo", "bar"),
@@ -88,6 +89,7 @@ object CommandServiceTest extends BaseTest {
   implicit private val ignoredLoggingContext
       : LoggingContextOf[HLogging.InstanceUUID with HLogging.RequestID] =
     newLoggingContext(label[HLogging.InstanceUUID with HLogging.RequestID])(identity)
+
 
   // TODO(#13303): Deduplicate with original
   def jwtForParties(
@@ -128,6 +130,7 @@ object CommandServiceTest extends BaseTest {
     (
       new CommandService(
         submitAndWaitForTransaction = (_, req) =>
+          _ =>
           _ =>
             Future {
               txns.add(req)

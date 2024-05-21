@@ -16,27 +16,29 @@ import com.digitalasset.canton.crypto.{
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.util.UUID
 import scala.concurrent.Future
 
 trait CryptoPrivateStoreTest extends BaseTest { this: AsyncWordSpec =>
 
   def uniqueKeyName(name: String): String =
-    name + getClass.getSimpleName
+    name + getClass.getSimpleName + "_" + UUID.randomUUID().toString
 
-  val sigKey1Name: String = uniqueKeyName("sigKey1_")
+  lazy val crypto = SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
 
-  val encKey1Name: String = uniqueKeyName("encKey1_")
+  lazy val sigKey1Name: String = uniqueKeyName("sigKey1_")
+  lazy val encKey1Name: String = uniqueKeyName("encKey1_")
 
-  val sigKey1: SigningPrivateKey = SymbolicCrypto.signingPrivateKey(sigKey1Name)
-  val sigKey1WithName: SigningPrivateKeyWithName =
+  lazy val sigKey1: SigningPrivateKey = crypto.newSymbolicSigningKeyPair().privateKey
+  lazy val sigKey1WithName: SigningPrivateKeyWithName =
     SigningPrivateKeyWithName(sigKey1, Some(KeyName.tryCreate(sigKey1Name)))
-  val sigKey1BytesWithName: (ByteString, Option[KeyName]) =
+  lazy val sigKey1BytesWithName: (ByteString, Option[KeyName]) =
     (sigKey1.toByteString(testedReleaseProtocolVersion.v), sigKey1WithName.name)
 
-  val encKey1: EncryptionPrivateKey = SymbolicCrypto.encryptionPrivateKey(encKey1Name)
-  val encKey1WithName: EncryptionPrivateKeyWithName =
+  lazy val encKey1: EncryptionPrivateKey = crypto.newSymbolicEncryptionKeyPair().privateKey
+  lazy val encKey1WithName: EncryptionPrivateKeyWithName =
     EncryptionPrivateKeyWithName(encKey1, Some(KeyName.tryCreate(encKey1Name)))
-  val encKey1BytesWithName: (ByteString, Option[KeyName]) =
+  lazy val encKey1BytesWithName: (ByteString, Option[KeyName]) =
     (encKey1.toByteString(testedReleaseProtocolVersion.v), encKey1WithName.name)
 
   def cryptoPrivateStore(
@@ -55,8 +57,8 @@ trait CryptoPrivateStoreTest extends BaseTest { this: AsyncWordSpec =>
       for {
         _ <- storePrivateKey(store, sigKey1, sigKey1.id, sigKey1WithName.name)
         _ <- storePrivateKey(store, encKey1, encKey1.id, encKey1WithName.name)
-        signRes <- store.existsSigningKey(sigKey1.id)
-        encRes <- store.existsDecryptionKey(encKey1.id)
+        signRes <- store.existsSigningKey(sigKey1.id).failOnShutdown
+        encRes <- store.existsDecryptionKey(encKey1.id).failOnShutdown
       } yield {
         signRes shouldBe true
         encRes shouldBe true
@@ -68,8 +70,8 @@ trait CryptoPrivateStoreTest extends BaseTest { this: AsyncWordSpec =>
       val store = newStore
       for {
         _ <- storePrivateKey(store, sigKey1, sigKey1.id, sigKey1WithName.name)
-        _ <- store.removePrivateKey(sigKey1.id)
-        res <- store.existsSigningKey(sigKey1.id)
+        _ <- store.removePrivateKey(sigKey1.id).failOnShutdown
+        res <- store.existsSigningKey(sigKey1.id).failOnShutdown
       } yield res shouldBe false
     }
 

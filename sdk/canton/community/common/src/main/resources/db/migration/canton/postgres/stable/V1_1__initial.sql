@@ -699,12 +699,6 @@ CREATE TABLE par_pruning_schedules (
   prune_internally_only boolean NOT NULL DEFAULT false -- whether to prune only canton-internal stores not visible to ledger api
 );
 
-create table register_topology_transaction_responses (
-  request_id varchar(300) collate "C" primary key,
-  response bytea not null,
-  completed boolean not null
-);
-
 -- store nonces that have been requested for authentication challenges
 create table sequencer_authentication_nonces (
   nonce varchar(300) collate "C" primary key,
@@ -941,13 +935,13 @@ alter table seq_initial_state
 alter table seq_initial_state
     add column sequenced_timestamp bigint;
 
--- Stores the traffic balance updates
+-- Stores the traffic purchased entry updates
 create table seq_traffic_control_balance_updates (
-  -- member the traffic balance update is for
+  -- member the traffic purchased entry update is for
   member varchar(300) collate "C" not null,
   -- timestamp at which the update was sequenced
   sequencing_timestamp bigint not null,
-  -- total traffic balance after the update
+  -- total traffic purchased entry after the update
   balance bigint not null,
   -- used to keep balance updates idempotent
   serial bigint not null,

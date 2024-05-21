@@ -8,36 +8,29 @@ import cats.syntax.bifunctor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.DecryptionError.FailedToDecrypt
 import com.digitalasset.canton.crypto.SyncCryptoError.SyncCryptoDecryptionError
-import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, Hash, HashOps, Signature}
-import com.digitalasset.canton.data.ViewPosition.MerkleSeqIndex
-import com.digitalasset.canton.data.{
-  CantonTimestamp,
-  Informee,
-  ViewPosition,
-  ViewTree,
-  ViewTypeTest,
+import com.digitalasset.canton.crypto.{
+  DomainSnapshotSyncCryptoApi,
+  Hash,
+  HashOps,
+  Signature,
+  TestHash,
 }
+import com.digitalasset.canton.data.ViewPosition.MerkleSeqIndex
+import com.digitalasset.canton.data.*
 import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
+import com.digitalasset.canton.participant.protocol.EngineController
+import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
+  ParsedRequest,
   PendingRequestData,
   RequestType,
   WrapsProcessorError,
 }
-import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
-  DomainParametersError,
-  NoMediatorError,
-}
+import com.digitalasset.canton.participant.protocol.ProtocolProcessor.NoMediatorError
 import com.digitalasset.canton.participant.protocol.SubmissionTracker.SubmissionData
-import com.digitalasset.canton.participant.protocol.TestProcessingSteps.{
-  TestPendingRequestData,
-  TestPendingRequestDataType,
-  TestProcessingError,
-  TestProcessorError,
-  TestViewTree,
-  TestViewType,
-}
+import com.digitalasset.canton.participant.protocol.TestProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessResult,
   ActivenessSet,
@@ -82,7 +75,6 @@ class TestProcessingSteps(
     ]
     with BaseTest {
   override type SubmissionResultArgs = Unit
-  override type PendingDataAndResponseArgs = Unit
   override type RejectionArgs = Unit
   override type PendingSubmissions = concurrent.Map[Int, Unit]
   override type PendingSubmissionId = Int
@@ -93,6 +85,8 @@ class TestProcessingSteps(
 
   override type RequestType = TestPendingRequestDataType
   override val requestType = TestPendingRequestDataType
+
+  override type ParsedRequestType = TestParsedRequest
 
   override def embedRequestError(
       err: ProtocolProcessor.RequestProcessingError
@@ -120,27 +114,13 @@ class TestProcessingSteps(
   override def embedNoMediatorError(error: NoMediatorError): TestProcessingError =
     TestProcessorError(error)
 
-  override def decisionTimeFor(
-      parameters: DynamicDomainParametersWithValidity,
-      requestTs: CantonTimestamp,
-  ): Either[TestProcessingError, CantonTimestamp] = parameters
-    .decisionTimeFor(requestTs)
-    .leftMap(err => TestProcessorError(DomainParametersError(parameters.domainId, err)))
-
   override def getSubmitterInformation(
       views: Seq[DecryptedView]
   ): (Option[ViewSubmitterMetadata], Option[SubmissionTracker.SubmissionData]) =
     (None, submissionDataForTrackerO)
 
-  override def participantResponseDeadlineFor(
-      parameters: DynamicDomainParametersWithValidity,
-      requestTs: CantonTimestamp,
-  ): Either[TestProcessingError, CantonTimestamp] = parameters
-    .participantResponseDeadlineFor(requestTs)
-    .leftMap(err => TestProcessorError(DomainParametersError(parameters.domainId, err)))
-
-  override def prepareSubmission(
-      param: Int,
+  override def createSubmission(
+      submissionParam: Int,
       mediator: MediatorGroupRecipient,
       ephemeralState: SyncDomainEphemeralStateLookup,
       recentSnapshot: DomainSnapshotSyncCryptoApi,
@@ -152,7 +132,7 @@ class TestProcessingSteps(
     EitherT.rightT(new UntrackedSubmission {
       override def batch: Batch[DefaultOpenEnvelope] =
         Batch.of(testedProtocolVersion, (envelope, Recipients.cc(recipient)))
-      override def pendingSubmissionId: Int = param
+      override def pendingSubmissionId: Int = submissionParam
       override def maxSequencingTimeO: OptionT[Future, CantonTimestamp] = OptionT.none
 
       override def embedSubmissionError(
@@ -182,7 +162,9 @@ class TestProcessingSteps(
       batch: NonEmpty[Seq[OpenEnvelope[EncryptedViewMessage[TestViewType]]]],
       snapshot: DomainSnapshotSyncCryptoApi,
       sessionKeyStore: SessionKeyStore,
-  )(implicit traceContext: TraceContext): EitherT[Future, TestProcessingError, DecryptedViews] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TestProcessingError, DecryptedViews] = {
     def treeFor(viewHash: ViewHash, hash: Hash): TestViewTree = {
       val rootHash = RootHash(hash)
       val informees = informeesOfView(viewHash)
@@ -214,30 +196,42 @@ class TestProcessingSteps(
   ): (Seq[(WithRecipients[FullView], Option[Signature])], Seq[ProtocolProcessor.MalformedPayload]) =
     (decryptedViewsWithSignatures, Seq.empty)
 
-  override def computeActivenessSetAndPendingContracts(
-      ts: CantonTimestamp,
+  override def computeParsedRequest(
       rc: RequestCounter,
+      ts: CantonTimestamp,
       sc: SequencerCounter,
-      fullViewsWithSignatures: NonEmpty[
-        Seq[(WithRecipients[TestViewTree], Option[Signature])]
-      ],
-      malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
-      snapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorGroupRecipient,
+      rootViewsWithMetadata: NonEmpty[Seq[(WithRecipients[FullView], Option[Signature])]],
       submitterMetadataO: Option[ViewSubmitterMetadata],
+      isFreshOwnTimelyRequest: Boolean,
+      malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
+      mediator: MediatorGroupRecipient,
+      snapshot: DomainSnapshotSyncCryptoApi,
+      domainParameters: DynamicDomainParametersWithValidity,
+  )(implicit traceContext: TraceContext): Future[TestParsedRequest] = Future.successful(
+    TestParsedRequest(
+      rc,
+      ts,
+      sc,
+      malformedPayloads,
+      snapshot,
+      mediator,
+      isFreshOwnTimelyRequest,
+      domainParameters,
+    )
+  )
+
+  override def computeActivenessSet(
+      parsedRequest: ParsedRequestType
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TestProcessingError, CheckActivenessAndWritePendingContracts] = {
-    val res = CheckActivenessAndWritePendingContracts(ActivenessSet.empty, ())
-    EitherT.rightT(res)
-  }
+  ): Either[TestProcessingError, ActivenessSet] =
+    Right(ActivenessSet.empty)
 
   override def constructPendingDataAndResponse(
-      pendingDataAndResponseArgs: PendingDataAndResponseArgs,
+      parsedRequest: ParsedRequestType,
       transferLookup: TransferLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
-      mediator: MediatorGroupRecipient,
-      freshOwnTimelyTx: Boolean,
+      engineController: EngineController,
   )(implicit
       traceContext: TraceContext
   ): EitherT[
@@ -250,11 +244,13 @@ class TestProcessingSteps(
         TestPendingRequestData(
           RequestCounter(0),
           SequencerCounter(0),
-          mediator,
-          locallyRejected = false,
+          parsedRequest.mediator,
+          locallyRejectedF = FutureUnlessShutdown.pure(false),
+          abortEngine = _ => (),
+          engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
         )
       ),
-      Seq.empty,
+      EitherT.pure[FutureUnlessShutdown, RequestError](Seq.empty),
       (),
     )
     EitherT.rightT(res)
@@ -309,7 +305,7 @@ class TestProcessingSteps(
   ): Unit = ()
 
   override def authenticateInputContracts(
-      pendingDataAndResponseArgs: Unit
+      parsedRequest: ParsedRequestType
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TestProcessingError, Unit] =
@@ -343,14 +339,32 @@ object TestProcessingSteps {
   }
   type TestViewType = TestViewType.type
 
+  final case class TestParsedRequest(
+      override val rc: RequestCounter,
+      override val requestTimestamp: CantonTimestamp,
+      override val sc: SequencerCounter,
+      override val malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
+      override val snapshot: DomainSnapshotSyncCryptoApi,
+      override val mediator: MediatorGroupRecipient,
+      override val isFreshOwnTimelyRequest: Boolean,
+      override val domainParameters: DynamicDomainParametersWithValidity,
+  ) extends ParsedRequest[TestViewType.ViewSubmitterMetadata] {
+    override def submitterMetadataO: None.type = None
+    override def rootHash: RootHash = TestHash.dummyRootHash
+  }
+
   final case class TestPendingRequestData(
       override val requestCounter: RequestCounter,
       override val requestSequencerCounter: SequencerCounter,
       override val mediator: MediatorGroupRecipient,
-      override val locallyRejected: Boolean,
+      override val locallyRejectedF: FutureUnlessShutdown[Boolean],
+      override val abortEngine: String => Unit,
+      override val engineAbortStatusF: FutureUnlessShutdown[EngineAbortStatus],
   ) extends PendingRequestData {
 
     override def rootHashO: Option[RootHash] = None
+
+    override def isCleanReplay: Boolean = false
   }
 
   case object TestPendingRequestDataType extends RequestType {

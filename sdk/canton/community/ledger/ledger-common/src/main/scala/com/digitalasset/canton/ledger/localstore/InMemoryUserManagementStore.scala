@@ -5,7 +5,7 @@ package com.digitalasset.canton.ledger.localstore
 
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
-import com.daml.scalautil.Statement.discard
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, ObjectMeta, User, UserRight}
 import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator
 import com.digitalasset.canton.ledger.localstore.api.{UserManagementStore, UserUpdate}
@@ -30,7 +30,7 @@ class InMemoryUserManagementStore(
   // (No need to mark state as volatile -- rely on synchronized to establish the JMM's happens-before relation.)
   private val state: mutable.TreeMap[Ref.UserId, InMemUserInfo] = mutable.TreeMap()
   if (createAdmin) {
-    discard(state.put(AdminUser.user.id, AdminUser))
+    state.put(AdminUser.user.id, AdminUser).discard
   }
 
   override def getUserInfo(id: UserId, identityProviderId: IdentityProviderId)(implicit
@@ -110,7 +110,7 @@ class InMemoryUserManagementStore(
       identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Unit]] =
     withUser(id, identityProviderId) { _ =>
-      discard(state.remove(id))
+      state.remove(id).discard
       Right(())
     }
 

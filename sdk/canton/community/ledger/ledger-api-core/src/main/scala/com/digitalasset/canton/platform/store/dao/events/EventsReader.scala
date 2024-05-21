@@ -8,7 +8,7 @@ import com.daml.ledger.api.v2.event_query_service.{Archived, Created, GetEventsB
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.{EventStorageBackend, ParameterStorageBackend}
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.dao.{
@@ -23,7 +23,7 @@ private[dao] sealed class EventsReader(
     val dbDispatcher: DbDispatcher,
     val eventStorageBackend: EventStorageBackend,
     val parameterStorageBackend: ParameterStorageBackend,
-    val metrics: Metrics,
+    val metrics: LedgerApiServerMetrics,
     val lfValueTranslation: LfValueTranslation,
     val ledgerEndCache: LedgerEndCache,
 )(implicit ec: ExecutionContext)

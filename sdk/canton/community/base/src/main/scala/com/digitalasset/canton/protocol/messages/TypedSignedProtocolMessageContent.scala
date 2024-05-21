@@ -107,8 +107,10 @@ object TypedSignedProtocolMessageContent
           )
         case Sm.AcsCommitment(acsCommitmentBytes) =>
           AcsCommitment.fromByteString(expectedProtocolVersion)(acsCommitmentBytes)
-        case Sm.SetTrafficBalance(setTrafficBalanceBytes) =>
-          SetTrafficBalanceMessage.fromByteString(expectedProtocolVersion)(setTrafficBalanceBytes)
+        case Sm.SetTrafficPurchased(setTrafficPurchasedBytes) =>
+          SetTrafficPurchasedMessage.fromByteString(expectedProtocolVersion)(
+            setTrafficPurchasedBytes
+          )
         case Sm.Empty =>
           Left(OtherError("Deserialization of a SignedMessage failed due to a missing message"))
       }): ParsingResult[SignedProtocolMessageContent]

@@ -84,7 +84,7 @@ object TopologyMapping {
   ): MappingHash =
     MappingHash(
       addUniqueKeyToBuilder(
-        Hash.build(HashPurpose.DomainTopologyTransactionMessageSignature, HashAlgorithm.Sha256)
+        Hash.build(HashPurpose.TopologyMappingUniqueKey, HashAlgorithm.Sha256)
       ).add(code.dbInt)
         .finish()
     )
@@ -123,6 +123,7 @@ object TopologyMapping {
       OwnerToKeyMapping,
       DomainTrustCertificate,
       ParticipantDomainPermission,
+      PartyHostingLimits,
       VettedPackages,
       PartyToParticipant,
       AuthorityOf,

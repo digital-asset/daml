@@ -5,8 +5,6 @@ package com.digitalasset.canton.participant.protocol
 
 import cats.syntax.flatMap.*
 import cats.syntax.option.*
-import com.daml.metrics.api.noop.NoOpMetricsFactory
-import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
@@ -26,7 +24,7 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.PrettyUtil
 import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
-import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.metrics.{ParticipantTestMetrics, SyncDomainMetrics}
 import com.digitalasset.canton.participant.protocol.MessageDispatcher.{AcsCommitment as _, *}
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker
 import com.digitalasset.canton.participant.protocol.submission.{
@@ -49,6 +47,7 @@ import com.digitalasset.canton.protocol.{
   v30 as protocolv30,
 }
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
 import com.digitalasset.canton.sequencing.{
   HandlerResult,
   PossiblyIgnoredProtocolEvent,
@@ -60,7 +59,6 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{SequencedTime, TopologyTransactionTestFactory}
 import com.digitalasset.canton.tracing.Traced
-import com.digitalasset.canton.traffic.TrafficControlProcessor
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.*
@@ -180,7 +178,7 @@ trait MessageDispatcherTest {
 
       val trafficProcessor = mock[TrafficControlProcessor]
       when(
-        trafficProcessor.processSetTrafficBalanceEnvelopes(
+        trafficProcessor.processSetTrafficPurchasedEnvelopes(
           any[CantonTimestamp],
           any[Option[CantonTimestamp]],
           any[List[DefaultOpenEnvelope]],
@@ -235,10 +233,7 @@ trait MessageDispatcherTest {
         }
       }
 
-      val syncDomainMetrics = new SyncDomainMetrics(
-        MetricName("test"),
-        NoOpMetricsFactory,
-      )(MetricsContext.Empty)
+      val syncDomainMetrics = ParticipantTestMetrics.domain
 
       val messageDispatcher = mkMd(
         testedProtocolVersion,
@@ -566,8 +561,8 @@ trait MessageDispatcherTest {
       }
 
       "call the topology processor before calling the traffic control processor" in {
-        val setTrafficBalanceMsg = SignedProtocolMessage.from(
-          SetTrafficBalanceMessage(
+        val setTrafficPurchasedMsg = SignedProtocolMessage.from(
+          SetTrafficPurchasedMessage(
             participantId,
             PositiveInt.one,
             NonNegativeLong.tryCreate(1000),
@@ -584,13 +579,13 @@ trait MessageDispatcherTest {
 
         val event =
           mkDeliver(
-            Batch.of(testedProtocolVersion, setTrafficBalanceMsg -> Recipients.cc(participantId)),
+            Batch.of(testedProtocolVersion, setTrafficPurchasedMsg -> Recipients.cc(participantId)),
             sc,
             ts,
           )
 
         when(
-          sut.trafficProcessor.processSetTrafficBalanceEnvelopes(
+          sut.trafficProcessor.processSetTrafficPurchasedEnvelopes(
             any[CantonTimestamp],
             any[Option[CantonTimestamp]],
             any[Seq[DefaultOpenEnvelope]],
@@ -601,7 +596,7 @@ trait MessageDispatcherTest {
         }
 
         handle(sut, event) {
-          verify(sut.trafficProcessor).processSetTrafficBalanceEnvelopes(
+          verify(sut.trafficProcessor).processSetTrafficPurchasedEnvelopes(
             isEq(ts),
             isEq(None),
             any[Seq[DefaultOpenEnvelope]],
@@ -754,7 +749,7 @@ trait MessageDispatcherTest {
           ),
           _.errorMessage should include("event processing failed."),
         )
-        .futureValue
+        .futureValueUS
 
       error shouldBe a[IllegalArgumentException]
       error.getMessage should include(show"No processor for view type $UnknownTestViewType")
@@ -794,7 +789,7 @@ trait MessageDispatcherTest {
           ),
           _.errorMessage should include("processing failed"),
         )
-        .futureValue
+        .futureValueUS
 
       error shouldBe a[IllegalArgumentException]
       error.getMessage should include(show"No processor for view type $UnknownTestViewType")

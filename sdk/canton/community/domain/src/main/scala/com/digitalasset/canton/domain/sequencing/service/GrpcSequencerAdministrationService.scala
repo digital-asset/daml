@@ -20,8 +20,8 @@ import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.sequencer.admin.v30.OnboardingStateRequest.Request
 import com.digitalasset.canton.sequencer.admin.v30.{
-  SetTrafficBalanceRequest,
-  SetTrafficBalanceResponse,
+  SetTrafficPurchasedRequest,
+  SetTrafficPurchasedResponse,
 }
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -280,13 +280,13 @@ class GrpcSequencerAdministrationService(
     }
   }
 
-  /** Update the traffic balance of a member
+  /** Update the traffic purchased entry of a member
     * The top up will only become valid once authorized by all sequencers of the domain
     */
-  override def setTrafficBalance(
-      requestP: SetTrafficBalanceRequest
+  override def setTrafficPurchased(
+      requestP: SetTrafficPurchasedRequest
   ): Future[
-    SetTrafficBalanceResponse
+    SetTrafficPurchasedResponse
   ] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
@@ -294,13 +294,13 @@ class GrpcSequencerAdministrationService(
       for {
         member <- wrapErrUS(Member.fromProtoPrimitive(requestP.member, "member"))
         serial <- wrapErrUS(ProtoConverter.parsePositiveInt(requestP.serial))
-        totalTrafficBalance <- wrapErrUS(
-          ProtoConverter.parseNonNegativeLong(requestP.totalTrafficBalance)
+        totalTrafficPurchased <- wrapErrUS(
+          ProtoConverter.parseNonNegativeLong(requestP.totalTrafficPurchased)
         )
         highestMaxSequencingTimestamp <- sequencer
-          .setTrafficBalance(member, serial, totalTrafficBalance, sequencerClient)
+          .setTrafficPurchased(member, serial, totalTrafficPurchased, sequencerClient)
           .leftWiden[CantonError]
-      } yield SetTrafficBalanceResponse(
+      } yield SetTrafficPurchasedResponse(
         maxSequencingTimestamp = Some(highestMaxSequencingTimestamp.toProtoTimestamp)
       )
     }

@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.protocol.transfer
 
 import cats.data.EitherT
 import cats.implicits.*
-import com.daml.lf.engine.Error
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
@@ -17,9 +16,12 @@ import com.digitalasset.canton.participant.admin.{
   PackageService,
 }
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
+import com.digitalasset.canton.participant.protocol.EngineController.GetEngineAbortStatus
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.sync.ParticipantEventPublisher
 import com.digitalasset.canton.participant.util.DAMLe
+import com.digitalasset.canton.participant.util.DAMLe.ReinterpretationError
+import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.*
@@ -60,13 +62,19 @@ object DAMLeTestInstance {
       AuthorityResolver(),
       None,
       engine,
+      EngineLoggingConfig(),
       loggerFactory,
     ) {
       override def contractMetadata(
           contractInstance: LfContractInst,
           supersetOfSignatories: Set[LfPartyId],
-      )(implicit traceContext: TraceContext): EitherT[Future, Error, ContractMetadata] = {
-        EitherT.pure[Future, Error](ContractMetadata.tryCreate(signatories, stakeholders, None))
+          getEngineAbortStatus: GetEngineAbortStatus,
+      )(implicit
+          traceContext: TraceContext
+      ): EitherT[Future, ReinterpretationError, ContractMetadata] = {
+        EitherT.pure[Future, ReinterpretationError](
+          ContractMetadata.tryCreate(signatories, stakeholders, None)
+        )
       }
     }
 
