@@ -286,7 +286,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
 
   private val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(pkg)
 
-  private val packageNameMap = Map(pkg.name -> packageId)
+  private val packageNameMap = Map(pkg.pkgName -> packageId)
 
   private[this] val List(alice, bob, charlie) =
     List("alice", "bob", "charlie").map(Ref.Party.assertFromString)
@@ -340,7 +340,8 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
     Versioned(
       testTxVersion,
       Value.ContractInstance(
-        pkg.name,
+        pkg.pkgName,
+        pkg.pkgVersion,
         T,
         Value.ValueRecord(
           None,
@@ -361,7 +362,8 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
     cId ->
       Speedy.ContractInfo(
         version = TransactionVersion.minVersion,
-        packageName = pkg.name,
+        packageName = pkg.pkgName,
+        packageVersion = pkg.pkgVersion,
         templateId = Dummy,
         value = SRecord(
           Dummy,
@@ -379,9 +381,10 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
   private[this] val helper = Versioned(
     testTxVersion,
     Value.ContractInstance(
-      pkg.name,
-      Helper,
-      ValueRecord(
+      packageName = pkg.pkgName,
+      packageVersion = pkg.pkgVersion,
+      template = Helper,
+      arg = ValueRecord(
         None,
         ImmArray(None -> ValueParty(alice), None -> ValueParty(charlie)),
       ),
@@ -391,9 +394,10 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
   private[this] val iface_contract = Versioned(
     testTxVersion,
     Value.ContractInstance(
-      pkg.name,
-      Human,
-      Value.ValueRecord(
+      packageName = pkg.pkgName,
+      packageVersion = pkg.pkgVersion,
+      template = Human,
+      arg = Value.ValueRecord(
         None,
         ImmArray(
           None -> Value.ValueParty(alice),
@@ -412,12 +416,17 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
   private[this] val getHelper = Map(helperCId -> helper)
 
   private[this] val getKey = Map(
-    GlobalKeyWithMaintainers.assertBuild(T, keyValue, Set(alice), pkg.name) -> cId
+    GlobalKeyWithMaintainers.assertBuild(T, keyValue, Set(alice), pkg.pkgName) -> cId
   )
 
   private[this] val dummyContract = Versioned(
     testTxVersion,
-    Value.ContractInstance(pkg.name, Dummy, ValueRecord(None, ImmArray(None -> ValueParty(alice)))),
+    Value.ContractInstance(
+      packageName = pkg.pkgName,
+      packageVersion = pkg.pkgVersion,
+      template = Dummy,
+      arg = ValueRecord(None, ImmArray(None -> ValueParty(alice))),
+    ),
   )
   private[this] val getWronglyTypedContract = Map(cId -> dummyContract)
 

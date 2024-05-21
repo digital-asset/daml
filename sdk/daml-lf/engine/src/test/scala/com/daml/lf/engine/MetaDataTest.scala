@@ -150,7 +150,7 @@ class MetaDataTestHelper(majorLanguageVersion: LanguageMajorVersion) {
   val langVersion = majorLanguageVersion.maxStableVersion
 
   object langNodeBuilder extends TestNodeBuilder {
-    override def packageVersion(packageId: PackageId): Option[TransactionVersion] =
+    override def transactionVersion(packageId: PackageId): Option[TransactionVersion] =
       Some(TransactionVersion.assignNodeVersion(langVersion))
   }
 

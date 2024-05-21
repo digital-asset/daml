@@ -56,12 +56,15 @@ object TransactionCoder {
   ): Either[EncodeError, TransactionOuterClass.ContractInstance] =
     for {
       value <- ValueCoder.encodeVersionedValue(coinst.version, coinst.unversioned.arg)
-    } yield TransactionOuterClass.ContractInstance
-      .newBuilder()
-      .setPackageName(coinst.unversioned.packageName)
-      .setTemplateId(ValueCoder.encodeIdentifier(coinst.unversioned.template))
-      .setArgVersioned(value)
-      .build()
+      encodedPkgVer <- encodePackageVersion(coinst.version, coinst.unversioned.packageVersion)
+    } yield {
+      val builder = TransactionOuterClass.ContractInstance.newBuilder()
+      discard(builder.setPackageName(coinst.unversioned.packageName))
+      encodedPkgVer.foreach(builder.addPackageVersion)
+      discard(builder.setTemplateId(ValueCoder.encodeIdentifier(coinst.unversioned.template)))
+      discard(builder.setArgVersioned(value))
+      builder.build()
+    }
 
   def decodePackageName(s: String): Either[DecodeError, Ref.PackageName] =
     Either
@@ -77,6 +80,51 @@ object TransactionCoder {
           .map(err => DecodeError(s"Invalid package name '$s': $err"))
       )
 
+  def encodePackageVersion(
+      txVer: TransactionVersion,
+      pkgVer: Option[Ref.PackageVersion],
+  ): Either[EncodeError, Seq[Int]] =
+    if (txVer < TransactionVersion.minPackageVersion)
+      Either.cond(
+        pkgVer.isEmpty,
+        List.empty,
+        EncodeError(s"packageVersion is not supported by transaction version ${txVer.protoValue}"),
+      )
+    else
+      pkgVer match {
+        case Some(version) =>
+          Right(version.segments.toSeq)
+        case None =>
+          // TODO: enable once canton persist package version
+          // Left(
+          //   EncodeError(
+          //     s"packageVersion must not be empty by transaction version ${txVer.protoValue}"
+          //   )
+          // )
+          Right(List.empty)
+      }
+
+  def decodePackageVersion(
+      txVer: TransactionVersion,
+      pkgVer: java.util.List[Integer],
+  ): Either[DecodeError, Option[Ref.PackageVersion]] =
+    if (txVer < TransactionVersion.minPackageVersion)
+      Either.cond(
+        pkgVer.isEmpty,
+        None,
+        DecodeError(s"packageVersion is not supported by transaction version ${txVer.protoValue}"),
+      )
+    else if (pkgVer.isEmpty)
+      // TODO: enable once canton persist package version
+      // DecodeError(s"packageVersion must not be empty by transaction version ${txVer.protoValue}")
+      Right(None)
+    else
+      Ref.PackageVersion
+        .fromInts(pkgVer.asScala.view.map(_.toInt).toSeq)
+        .left
+        .map(DecodeError)
+        .map(Some(_))
+
   /** Decode a contract instance from wire format
     *
     * @param protoCoinst protocol buffer encoded contract instance
@@ -90,7 +138,8 @@ object TransactionCoder {
       id <- ValueCoder.decodeIdentifier(protoCoinst.getTemplateId)
       value <- ValueCoder.decodeVersionedValue(protoCoinst.getArgVersioned)
       pkgName <- decodePackageName(protoCoinst.getPackageName)
-    } yield value.map(arg => Value.ContractInstance(pkgName, id, arg))
+      pkgVer <- decodePackageVersion(value.version, protoCoinst.getPackageVersionList)
+    } yield value.map(arg => Value.ContractInstance(pkgName, pkgVer, id, arg))
 
   private[transaction] def encodeKeyWithMaintainers(
       version: TransactionVersion,
@@ -716,6 +765,7 @@ object TransactionCoder {
     import contractInstance._
     for {
       encodedArg <- ValueCoder.encodeValue(version, createArg)
+      encodedPkgVer <- encodePackageVersion(version, packageVersion)
       encodedKeyOpt <- contractKeyWithMaintainers match {
         case None =>
           Right(None)
@@ -726,6 +776,7 @@ object TransactionCoder {
       val builder = TransactionOuterClass.FatContractInstance.newBuilder()
       discard(builder.setContractId(contractId.toBytes.toByteString))
       discard(builder.setPackageName(packageName))
+      encodedPkgVer.foreach(builder.addPackageVersion)
       discard(builder.setTemplateId(ValueCoder.encodeIdentifier(templateId)))
       discard(builder.setCreateArg(encodedArg))
       encodedKeyOpt.foreach(builder.setContractKeyWithMaintainers)
@@ -753,19 +804,20 @@ object TransactionCoder {
     )
 
   private[lf] def decodeFatContractInstance(
-      version: TransactionVersion,
+      txVersion: TransactionVersion,
       msg: TransactionOuterClass.FatContractInstance,
   ): Either[DecodeError, FatContractInstance] =
     for {
       _ <- ValueCoder.ensureNoUnknownFields(msg)
       contractId <- ValueCoder.decodeCoid(msg.getContractId)
       pkgName <- decodePackageName(msg.getPackageName)
+      pkgVer <- decodePackageVersion(txVersion, msg.getPackageVersionList)
       templateId <- ValueCoder.decodeIdentifier(msg.getTemplateId)
-      createArg <- ValueCoder.decodeValue(version = version, bytes = msg.getCreateArg)
+      createArg <- ValueCoder.decodeValue(version = txVersion, bytes = msg.getCreateArg)
       keyWithMaintainers <-
         if (msg.hasContractKeyWithMaintainers)
           strictDecodeKeyWithMaintainers(
-            version,
+            txVersion,
             templateId,
             pkgName,
             msg.getContractKeyWithMaintainers,
@@ -794,9 +846,10 @@ object TransactionCoder {
       createdAt <- data.Time.Timestamp.fromLong(msg.getCreatedAt).left.map(DecodeError)
       cantonData = msg.getCantonData
     } yield FatContractInstanceImpl(
-      version = version,
+      version = txVersion,
       contractId = contractId,
       packageName = pkgName,
+      packageVersion = pkgVer,
       templateId = templateId,
       createArg = createArg,
       signatories = signatories,

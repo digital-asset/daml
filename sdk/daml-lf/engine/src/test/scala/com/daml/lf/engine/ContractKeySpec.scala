@@ -81,9 +81,10 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
   val withKeyContractInst: VersionedContractInstance =
     assertAsVersionedContract(
       ContractInstance(
-        basicTestsPkg.name,
-        TypeConName(basicTestsPkgId, withKeyTemplate),
-        ValueRecord(
+        packageName = basicTestsPkg.pkgName,
+        packageVersion = basicTestsPkg.pkgVersion,
+        template = TypeConName(basicTestsPkgId, withKeyTemplate),
+        arg = ValueRecord(
           Some(BasicTests_WithKey),
           ImmArray(
             (Some[Ref.Name]("p"), ValueParty(alice)),
@@ -98,9 +99,10 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
       toContractId("BasicTests:Simple:1") ->
         assertAsVersionedContract(
           ContractInstance(
-            basicTestsPkg.name,
-            TypeConName(basicTestsPkgId, "BasicTests:Simple"),
-            ValueRecord(
+            packageName = basicTestsPkg.pkgName,
+            packageVersion = basicTestsPkg.pkgVersion,
+            template = TypeConName(basicTestsPkgId, "BasicTests:Simple"),
+            arg = ValueRecord(
               Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
               ImmArray((Some[Name]("p"), ValueParty(party))),
             ),
@@ -109,9 +111,10 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
       toContractId("BasicTests:CallablePayout:1") ->
         assertAsVersionedContract(
           ContractInstance(
-            basicTestsPkg.name,
-            TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
-            ValueRecord(
+            packageName = basicTestsPkg.pkgName,
+            packageVersion = basicTestsPkg.pkgVersion,
+            template = TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
+            arg = ValueRecord(
               Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
               ImmArray(
                 (Some[Ref.Name]("giver"), ValueParty(alice)),
@@ -128,7 +131,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
     GlobalKey.assertBuild(
       TypeConName(basicTestsPkgId, withKeyTemplate),
       ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
-      basicTestsPkg.name,
+      basicTestsPkg.pkgName,
     )
       ->
         toContractId("BasicTests:WithKey:1")
@@ -288,9 +291,10 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
       val cid2 = toContractId("2")
       val keyedInst = assertAsVersionedContract(
         ContractInstance(
-          multiKeysPkg.name,
-          TypeConName(multiKeysPkgId, "MultiKeys:Keyed"),
-          ValueRecord(None, ImmArray((None, ValueParty(party)))),
+          packageName = multiKeysPkg.pkgName,
+          packageVersion = multiKeysPkg.pkgVersion,
+          template = TypeConName(multiKeysPkgId, "MultiKeys:Keyed"),
+          arg = ValueRecord(None, ImmArray((None, ValueParty(party)))),
         )
       )
       val contracts = Map(cid1 -> keyedInst, cid2 -> keyedInst)

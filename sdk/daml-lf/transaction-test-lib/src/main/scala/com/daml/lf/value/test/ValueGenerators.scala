@@ -75,6 +75,15 @@ object ValueGenerators {
         .map(s => PackageName.assertFromString(s.mkString))
     } yield pkgName
 
+  def pkgVerGen(txVer: TransactionVersion): Gen[Option[PackageVersion]] =
+    if (txVer <= TransactionVersion.minPackageVersion)
+      None
+    else
+      Gen
+        .nonEmptyListOf(Gen.choose(0, Int.MaxValue))
+        .flatMap(l => Ref.PackageVersion.fromInts(l).toOption)
+        .filter(_.nonEmpty)
+
   // generate a junk identifier
   val idGen: Gen[Identifier] = for {
     n <- Gen.choose(1, 64)
@@ -266,7 +275,8 @@ object ValueGenerators {
       template <- idGen
       arg <- versionedValueGen
       pkgName <- pkgNameGen
-    } yield arg.map(Value.ContractInstance(pkgName, template, _))
+      pkgVer <- pkgVerGen(arg.version)
+    } yield arg.map(Value.ContractInstance(pkgName, pkgVer, template, _))
 
   def keyWithMaintainersGen(
       templateId: TypeConName,
@@ -305,6 +315,7 @@ object ValueGenerators {
     for {
       coid <- coidGen
       packageName <- pkgNameGen
+      pkgVer <- pkgVerGen(version)
       templateId <- idGen
       arg <- valueGen()
       signatories <- genNonEmptyParties
@@ -313,6 +324,7 @@ object ValueGenerators {
     } yield Node.Create(
       coid = coid,
       packageName = packageName,
+      packageVersion = pkgVer,
       templateId = templateId,
       arg = arg,
       signatories = signatories,

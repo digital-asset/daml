@@ -1020,7 +1020,7 @@ private[lf] object SBuiltinFun {
 
       getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
         val templateVersion = machine.tmplId2TxVersion(templateId)
-        val pkgName = machine.tmplId2PackageName(templateId)
+        val (pkgName, _) = machine.tmplId2PackageNameVersion(templateId)
         val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
         val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
         val chosenValue = args.get(0).toNormalizedValue(exerciseVersion)
@@ -1452,7 +1452,7 @@ private[lf] object SBuiltinFun {
         machine: UpdateMachine,
     ): Control[Nothing] = {
       val keyVersion = machine.tmplId2TxVersion(templateId)
-      val pkgName = machine.tmplId2PackageName(templateId)
+      val (pkgName, _) = machine.tmplId2PackageNameVersion(templateId)
       val cachedKey =
         extractKey(NameOf.qualifiedNameOfCurrentFunc, keyVersion, pkgName, templateId, args.get(0))
       val mbCoid = args.get(1) match {
@@ -1532,7 +1532,7 @@ private[lf] object SBuiltinFun {
 
       val keyValue = args.get(0)
       val version = machine.tmplId2TxVersion(templateId)
-      val pkgName = machine.tmplId2PackageName(templateId)
+      val (pkgName, _) = machine.tmplId2PackageNameVersion(templateId)
       val cachedKey =
         extractKey(NameOf.qualifiedNameOfCurrentFunc, version, pkgName, templateId, keyValue)
       if (cachedKey.maintainers.isEmpty) {
@@ -1960,7 +1960,7 @@ private[lf] object SBuiltinFun {
       val contractInfoStruct = args.get(0)
       val contract = extractContractInfo(
         machine.tmplId2TxVersion,
-        machine.tmplId2PackageName,
+        machine.tmplId2PackageNameVersion,
         contractInfoStruct,
       )
       (keyHash, contract.keyOpt) match {
@@ -2085,7 +2085,7 @@ private[lf] object SBuiltinFun {
 
   private def extractContractInfo(
       tmplId2TxVersion: TypeConName => TransactionVersion,
-      tmplId2PackageName: TypeConName => PackageName,
+      tmplId2PackageNameVersion: TypeConName => (PackageName, Option[PackageVersion]),
       contractInfoStruct: SValue,
   ): ContractInfo = {
     contractInfoStruct match {
@@ -2099,7 +2099,7 @@ private[lf] object SBuiltinFun {
             )
         }
         val version = tmplId2TxVersion(templateId)
-        val pkgName = tmplId2PackageName(templateId)
+        val (pkgName, pkgVer) = tmplId2PackageNameVersion(templateId)
         val mbKey = vals.get(contractInfoStructKeyIdx) match {
           case SOptional(mbKey) =>
             mbKey.map(
@@ -2114,6 +2114,7 @@ private[lf] object SBuiltinFun {
         ContractInfo(
           version = version,
           packageName = pkgName,
+          packageVersion = pkgVer,
           templateId = templateId,
           value = vals.get(contractInfoStructArgIdx),
           signatories = extractParties(
@@ -2147,7 +2148,7 @@ private[lf] object SBuiltinFun {
           else f(templateArg)
         }
       case None =>
-        machine.lookupContract(coid) { case V.ContractInstance(_, srcTmplId, coinstArg) =>
+        machine.lookupContract(coid) { case V.ContractInstance(_, _, srcTmplId, coinstArg) =>
           if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
             Control.Error(
               IE.WronglyTypedContract(coid, dstTmplId, srcTmplId)
@@ -2196,38 +2197,39 @@ private[lf] object SBuiltinFun {
           f(SValue.SAnyContract(templateId, templateArg))
         }
       case None =>
-        machine.lookupContract(coid) { case V.ContractInstance(packageName, srcTmplId, coinstArg) =>
-          machine.packageResolution.get(packageName) match {
-            case Some(pkgId) =>
-              val dstTmplId = srcTmplId.copy(packageId = pkgId)
-              machine.ensurePackageIsLoaded(
-                dstTmplId.packageId,
-                language.Reference.Template(dstTmplId),
-              ) { () =>
-                importValue(machine, dstTmplId, coinstArg) { templateArg =>
-                  getContractInfo(machine, coid, dstTmplId, templateArg, keyOpt) { contract =>
-                    ensureContractActive(machine, coid, contract.templateId) {
+        machine.lookupContract(coid) {
+          case V.ContractInstance(packageName, _, srcTmplId, coinstArg) =>
+            machine.packageResolution.get(packageName) match {
+              case Some(pkgId) =>
+                val dstTmplId = srcTmplId.copy(packageId = pkgId)
+                machine.ensurePackageIsLoaded(
+                  dstTmplId.packageId,
+                  language.Reference.Template(dstTmplId),
+                ) { () =>
+                  importValue(machine, dstTmplId, coinstArg) { templateArg =>
+                    getContractInfo(machine, coid, dstTmplId, templateArg, keyOpt) { contract =>
+                      ensureContractActive(machine, coid, contract.templateId) {
 
-                      machine.checkContractVisibility(coid, contract)
-                      machine.enforceLimitAddInputContract()
-                      machine.enforceLimitSignatoriesAndObservers(coid, contract)
+                        machine.checkContractVisibility(coid, contract)
+                        machine.enforceLimitAddInputContract()
+                        machine.enforceLimitSignatoriesAndObservers(coid, contract)
 
-                      // In Validation mode, we always call validateContractInfo
-                      // In Submission mode, we only call validateContractInfo when src != dest
-                      if ((machine.validating) || (srcTmplId.packageId != dstTmplId.packageId)) {
-                        validateContractInfo(machine, coid, srcTmplId, contract) { () =>
+                        // In Validation mode, we always call validateContractInfo
+                        // In Submission mode, we only call validateContractInfo when src != dest
+                        if ((machine.validating) || (srcTmplId.packageId != dstTmplId.packageId)) {
+                          validateContractInfo(machine, coid, srcTmplId, contract) { () =>
+                            f(contract.any)
+                          }
+                        } else {
                           f(contract.any)
                         }
-                      } else {
-                        f(contract.any)
                       }
                     }
                   }
                 }
-              }
-            case None =>
-              crash(s"Could not resolve packageName to packageId: $packageName")
-          }
+              case None =>
+                crash(s"Could not resolve packageName to packageId: $packageName")
+            }
         }
     }
   }
@@ -2322,7 +2324,7 @@ private[lf] object SBuiltinFun {
     executeExpression(machine, e) { contractInfoStruct =>
       val contract = extractContractInfo(
         machine.tmplId2TxVersion,
-        machine.tmplId2PackageName,
+        machine.tmplId2PackageNameVersion,
         contractInfoStruct,
       )
       f(contract)

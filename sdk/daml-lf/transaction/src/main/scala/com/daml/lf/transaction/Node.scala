@@ -84,6 +84,7 @@ object Node {
   final case class Create(
       coid: ContractId,
       override val packageName: PackageName,
+      packageVersion: Option[PackageVersion],
       override val templateId: TypeConName,
       arg: Value,
       agreementText: String = "", // to be removed
@@ -110,7 +111,7 @@ object Node {
     def versionedArg: Value.VersionedValue = versioned(arg)
 
     def coinst: Value.ContractInstance =
-      Value.ContractInstance(packageName, templateId, arg)
+      Value.ContractInstance(packageName, packageVersion, templateId, arg)
 
     def versionedCoinst: Value.VersionedContractInstance = versioned(coinst)
 

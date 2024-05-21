@@ -324,7 +324,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
 
         }
     """
-  val pkgName = pkg.name
+  val pkgName = pkg.pkgName
   val pkgs = Map(defaultPackageId -> pkg)
   val alice: Party = Ref.Party.assertFromString("Alice")
   val parties: ValueList = ValueList(FrontStack(ValueParty(alice)))

@@ -481,6 +481,7 @@ object ModelConformanceChecker {
         // as contract is an input contract of the underlying transaction.
         coid = actual.coid,
         packageName = unversioned.packageName,
+        packageVersion = None,
         templateId = unversioned.template,
         arg = unversioned.arg,
         signatories = metadata.signatories,

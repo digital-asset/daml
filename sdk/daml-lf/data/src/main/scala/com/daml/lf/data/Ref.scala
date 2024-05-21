@@ -384,7 +384,7 @@ object Ref {
 
   object PackageVersion {
     private val MaxPackageVersionLength = 255
-    final def fromString(s: String): Either[String, PackageVersion] = for {
+    def fromString(s: String): Either[String, PackageVersion] = for {
       _ <- Either.cond(
         s.length <= MaxPackageVersionLength,
         (),
@@ -402,6 +402,14 @@ object Ref {
     } yield PackageVersion(ImmArray.from(segments))
 
     @throws[IllegalArgumentException]
-    final def assertFromString(s: String): PackageVersion = assertRight(fromString(s))
+    def assertFromString(s: String): PackageVersion = assertRight(fromString(s))
+
+    def fromInts(s: Seq[Int]): Either[String, PackageVersion] = {
+      val ver = PackageVersion(ImmArray.from(s))
+      fromString(ver.toString)
+    }
+
+    @throws[IllegalArgumentException]
+    def assertFromInts(s: Seq[Int]): PackageVersion = assertRight(fromInts(s))
   }
 }

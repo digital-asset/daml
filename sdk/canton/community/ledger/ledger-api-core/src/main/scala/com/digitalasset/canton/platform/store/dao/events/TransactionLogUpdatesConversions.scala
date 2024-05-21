@@ -501,6 +501,7 @@ private[events] object TransactionLogUpdatesConversions {
                 coid = createdEvent.contractId,
                 templateId = createdEvent.templateId,
                 packageName = createdEvent.packageName,
+                packageVersion = None,
                 arg = createdEvent.createArgument.unversioned,
                 signatories = createdEvent.createSignatories,
                 stakeholders = createdEvent.createSignatories ++ createdEvent.createObservers,

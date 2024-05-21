@@ -114,7 +114,7 @@ object Adapter {
   private class TxBuilder(pkgLangVer: Ref.PackageId => LanguageVersion)
       extends NodeIdTransactionBuilder
       with TestNodeBuilder {
-    override def packageVersion(packageId: Ref.PackageId): Option[TransactionVersion] = {
+    override def transactionVersion(packageId: Ref.PackageId): Option[TransactionVersion] = {
       Some(TransactionVersion.assignNodeVersion(pkgLangVer(packageId)))
     }
   }

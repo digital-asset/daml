@@ -63,7 +63,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     val (interfacesPkgId, interfacesPkg, allInterfacesPkgs) =
       loadAndAddPackage(s"daml-lf/tests/Interfaces-v${majorLanguageVersion.pretty}.dar")
 
-    val packageNameMap = Map(interfacesPkg.name -> interfacesPkgId)
+    val packageNameMap = Map(interfacesPkg.pkgName -> interfacesPkgId)
 
     val idI1 = Identifier(interfacesPkgId, "Interfaces:I1")
     val idI2 = Identifier(interfacesPkgId, "Interfaces:I2")
@@ -77,14 +77,16 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     val contracts = Map(
       cid1 -> assertAsVersionedContract(
         ContractInstance(
-          interfacesPkg.name,
+          interfacesPkg.pkgName,
+          interfacesPkg.pkgVersion,
           idT1,
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
         )
       ),
       cid2 -> assertAsVersionedContract(
         ContractInstance(
-          interfacesPkg.name,
+          interfacesPkg.pkgName,
+          interfacesPkg.pkgVersion,
           idT2,
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
         )

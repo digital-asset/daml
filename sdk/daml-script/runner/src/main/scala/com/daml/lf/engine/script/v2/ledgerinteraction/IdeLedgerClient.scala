@@ -285,7 +285,7 @@ class IdeLedgerClient(
       .getOrElse(throw new IllegalArgumentException(s"Unknown package ${templateId.packageId}"))
 
     GlobalKey
-      .build(templateId, keyValue, pkg.name)
+      .build(templateId, keyValue, pkg.pkgName)
       .fold(keyBuilderError(_), Future.successful(_))
       .flatMap { gkey =>
         ledger.ledgerData.activeKeys.get(gkey) match {
