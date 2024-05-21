@@ -84,7 +84,7 @@ object Node {
   final case class Create(
       coid: ContractId,
       override val packageName: PackageName,
-      packageVersion: Option[PackageVersion],
+      packageVersion: Option[PackageVersion] = None,
       override val templateId: TypeConName,
       arg: Value,
       agreementText: String = "", // to be removed

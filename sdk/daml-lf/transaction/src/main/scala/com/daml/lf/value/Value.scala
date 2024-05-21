@@ -168,7 +168,7 @@ object Value {
   // Prefer to use transaction.FatContractInstance
   final case class ContractInstance(
       packageName: Ref.PackageName,
-      packageVersion: Option[Ref.PackageVersion],
+      packageVersion: Option[Ref.PackageVersion] = None,
       template: Identifier,
       arg: Value,
   ) extends CidContainer[ContractInstance] {
