@@ -71,7 +71,7 @@ private class ContractsFetch(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: List[domain.ContractTypeId.Resolved],
+      templateIds: List[domain.ContractTypeId.ResolvedPkgId],
       tickFetch: ConnectionIO ~> ConnectionIO = NaturalTransformation.refl,
   )(within: BeginBookmark[Terminates.AtAbsolute] => ConnectionIO[A])(implicit
       ec: ExecutionContext,
@@ -84,7 +84,7 @@ private class ContractsFetch(
     val fetchContext = FetchContext(jwt, ledgerId, parties)
     def go(
         maxAttempts: Int,
-        fetchTemplateIds: List[domain.ContractTypeId.Resolved],
+        fetchTemplateIds: List[domain.ContractTypeId.ResolvedPkgId],
         absEnd: Terminates.AtAbsolute,
     ): ConnectionIO[A] = for {
       bb <- tickFetch(fetchToAbsEnd(fetchContext, fetchTemplateIds, absEnd))
@@ -96,7 +96,7 @@ private class ContractsFetch(
       lagging <- (templateIds.toSet, bb.map(_.toDomain)) match {
         case (NonEmpty(tids), AbsoluteBookmark(expectedOff)) =>
           laggingOffsets(parties, expectedOff, tids)
-        case _ => fconn.pure(none[(domain.Offset, Set[domain.ContractTypeId.Resolved])])
+        case _ => fconn.pure(none[(domain.Offset, Set[domain.ContractTypeId.ResolvedPkgId])])
       }
       retriedA <- lagging.cata(
         { case (newOff, laggingTids) =>
@@ -128,7 +128,7 @@ private class ContractsFetch(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: List[domain.ContractTypeId.Resolved],
+      templateIds: List[domain.ContractTypeId.ResolvedPkgId],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -144,7 +144,7 @@ private class ContractsFetch(
 
   private[this] def fetchToAbsEnd(
       fetchContext: FetchContext,
-      templateIds: List[domain.ContractTypeId.Resolved],
+      templateIds: List[domain.ContractTypeId.ResolvedPkgId],
       absEnd: Terminates.AtAbsolute,
   )(implicit
       ec: ExecutionContext,
@@ -207,7 +207,7 @@ private class ContractsFetch(
       fetchContext: FetchContext,
       oldestVisible: Option[domain.Offset],
       absEnd: Terminates.AtAbsolute,
-      templateId: domain.ContractTypeId.Resolved,
+      templateId: domain.ContractTypeId.ResolvedPkgId,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -261,7 +261,7 @@ private class ContractsFetch(
       fetchContext: FetchContext,
       oldestVisible: Option[domain.Offset],
       absEnd: Terminates.AtAbsolute,
-      templateId: domain.ContractTypeId.Resolved,
+      templateId: domain.ContractTypeId.ResolvedPkgId,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -299,6 +299,7 @@ private class ContractsFetch(
   ): ConnectionIO[Unit] = {
     import sjd.q.queries
     import cats.syntax.traverse._
+    import com.daml.lf.data.Ref
 
     debugLogActionWithMetrics(
       s"cache refresh for templates older than offset: $offsetLimitToRefresh",
@@ -310,7 +311,11 @@ private class ContractsFetch(
         _ = logger.debug(s"refreshing the cache for ${oldTemplates.size} templates")
         _ <- oldTemplates
           .map { case ((packageId, moduleName, entityName), partyOffsetsRaw) =>
-            val templateId = ContractTypeId.Template(packageId, moduleName, entityName)
+            val templateId = ContractTypeId.Template(
+              Ref.PackageId.assertFromString(packageId),
+              moduleName,
+              entityName,
+            )
             val partyOffsets = partyOffsetsRaw.map { case (p, o) =>
               (domain.Party(p), domain.Offset(o))
             }.toMap
@@ -331,7 +336,7 @@ private class ContractsFetch(
 
   private def prepareCreatedEventStorage(
       ce: lav1.event.CreatedEvent,
-      d: ContractTypeId.Resolved,
+      d: ContractTypeId.ResolvedPkgId,
   ): Exception \/ PreInsertContract = {
     import scalaz.syntax.traverse._
     import scalaz.std.option._
@@ -366,7 +371,7 @@ private class ContractsFetch(
     )
   }
 
-  private def jsonifyInsertDeleteStep[D <: ContractTypeId.Resolved](
+  private def jsonifyInsertDeleteStep[D <: ContractTypeId.ResolvedPkgId](
       a: InsertDeleteStep[Any, lav1.event.CreatedEvent],
       d: D,
   ): InsertDeleteStep[D, PreInsertContract] =
@@ -375,7 +380,7 @@ private class ContractsFetch(
 
   private def contractsFromOffsetIo(
       fetchContext: FetchContext,
-      templateId: domain.ContractTypeId.Resolved,
+      templateId: domain.ContractTypeId.ResolvedPkgId,
       offsets: Map[domain.Party, domain.Offset],
       oldestVisible: Option[domain.Offset],
       absEnd: Terminates.AtAbsolute,
@@ -528,12 +533,12 @@ private[http] object ContractsFetch {
 
   case class PreInsertContract(
       packageName: Option[String],
-      contract: DBContract[ContractTypeId.RequiredPkg, JsValue, JsValue, Seq[domain.Party]],
+      contract: DBContract[ContractTypeId.RequiredPkgId, JsValue, JsValue, Seq[domain.Party]],
   )
 
   implicit val cidOfPIC: InsertDeleteStep.Cid[PreInsertContract] = _.contract.contractId
 
-  private def surrogateTemplateIds[K <: ContractTypeId.RequiredPkg](
+  private def surrogateTemplateIds[K <: ContractTypeId.RequiredPkgId](
       ids: Set[(Option[String], K)] // { (package name, template id) }
   )(implicit
       log: doobie.LogHandler,
@@ -552,7 +557,7 @@ private[http] object ContractsFetch {
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def insertAndDelete(
-      step: InsertDeleteStep[ContractTypeId.Resolved, PreInsertContract]
+      step: InsertDeleteStep[ContractTypeId.ResolvedPkgId, PreInsertContract]
   )(implicit
       log: doobie.LogHandler,
       sjd: SupportedJdbcDriver.TC,
@@ -567,7 +572,7 @@ private[http] object ContractsFetch {
       import cats.syntax.apply._, cats.instances.vector._
       import json.JsonProtocol._
       import sjd.q.queries
-      def mapToId(a: ContractTypeId.RequiredPkg): SurrogateTpId =
+      def mapToId(a: ContractTypeId.RequiredPkgId): SurrogateTpId =
         stidMap.getOrElse(
           a,
           throw new IllegalStateException(

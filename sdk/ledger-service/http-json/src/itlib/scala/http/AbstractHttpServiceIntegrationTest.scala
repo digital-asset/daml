@@ -502,7 +502,13 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
               acl.size shouldBe 0
               warnings shouldBe Some(
                 domain.UnknownTemplateIds(
-                  List(domain.ContractTypeId("UnknownPackage", "UnknownModule", "UnknownEntity"))
+                  List(
+                    domain.ContractTypeId(
+                      Ref.PackageRef.assertFromString("UnknownPackage"),
+                      "UnknownModule",
+                      "UnknownEntity",
+                    )
+                  )
                 )
               )
             }
@@ -523,8 +529,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
               errors shouldBe List(ErrorMessages.cannotResolveAnyTemplateId)
               inside(warnings) { case Some(domain.UnknownTemplateIds(unknownTemplateIds)) =>
                 unknownTemplateIds.toSet shouldBe Set(
-                  domain.ContractTypeId("ZZZ", "AAA", "BBB"),
-                  domain.ContractTypeId("ZZZ", "XXX", "YYY"),
+                  domain.ContractTypeId(Ref.PackageRef.assertFromString("ZZZ"), "AAA", "BBB"),
+                  domain.ContractTypeId(Ref.PackageRef.assertFromString("ZZZ"), "XXX", "YYY"),
                 )
               }
           }
@@ -1187,33 +1193,30 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       import lav1.commands.{Commands, Command}
       import domain.{DisclosedContract => DC}
 
-      // we assume Disclosed is in the main dalf
-      lazy val inferredPkgId = AbstractHttpServiceIntegrationTestFuns.pkgIdAccount
-
-      def inDar2Main[CtId[P] <: domain.ContractTypeId.Ops[CtId, P]](
-          tid: CtId[String]
-      ): CtId[String] =
-        tid.copy(packageId = inferredPkgId)
-
-      lazy val ToDisclose = inDar2Main(TpId.Disclosure.ToDisclose)
-      lazy val AnotherToDisclose = inDar2Main(TpId.Disclosure.AnotherToDisclose)
-      lazy val HasGarbage = inDar2Main(TpId.Disclosure.HasGarbage)
+      def unwrapPkgId(ctid: ContractTypeId.RequiredPkg): ContractTypeId.RequiredPkgId =
+        inside(ctid.packageId) { case Ref.PackageRef.Id(pid) => ctid.copy(packageId = pid) }
 
       lazy val (_, toDiscloseVA) =
-        VA.record(lfIdentifier(ToDisclose), ShRecord(owner = VAx.partyDomain, junk = VA.text))
+        VA.record(
+          lfIdentifier(unwrapPkgId(TpId.Disclosure.ToDisclose)),
+          ShRecord(owner = VAx.partyDomain, junk = VA.text),
+        )
 
       lazy val (_, anotherToDiscloseVA) =
-        VA.record(lfIdentifier(ToDisclose), ShRecord(owner = VAx.partyDomain, garbage = VA.text))
+        VA.record(
+          lfIdentifier(unwrapPkgId(TpId.Disclosure.ToDisclose)),
+          ShRecord(owner = VAx.partyDomain, garbage = VA.text),
+        )
 
       val (_, viewportVA) =
         VA.record(
-          lfIdentifier(TpId.Disclosure.Viewport.copy(packageId = "ignored")),
+          lfIdentifier(unwrapPkgId(TpId.Disclosure.Viewport)),
           ShRecord(owner = VAx.partyDomain),
         )
 
       val (_, checkVisibilityVA) =
         VA.record(
-          Ref.Identifier assertFromString "ignored:Disclosure:CheckVisibility",
+          lfIdentifier(unwrapPkgId(TpId.Disclosure.CheckVisibility)),
           ShRecord(disclosed = VAx.contractIdDomain, ifaceDisclosed = VAx.contractIdDomain),
         )
 
@@ -1226,8 +1229,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       )
 
       def filterWithBlobsFor(
-          interfaceId: ContractTypeId.Interface[String],
-          templateId: ContractTypeId.Template[String],
+          interfaceId: ContractTypeId.Interface.RequiredPkg,
+          templateId: ContractTypeId.Template.RequiredPkg,
           party: domain.Party,
       ) = {
         TransactionFilter(
@@ -1266,8 +1269,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           ShRecord(owner = alice, garbage = garbageMessage)
         )
         createCommands = Seq(
-          (ToDisclose, toDisclosePayload),
-          (AnotherToDisclose, anotherToDisclosePayload),
+          (TpId.Disclosure.ToDisclose, toDisclosePayload),
+          (TpId.Disclosure.AnotherToDisclose, anotherToDisclosePayload),
         ) map { case (tpid, payload) =>
           Command(util.Commands.create(refApiIdentifier(tpid), payload))
         }
@@ -1287,8 +1290,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         (ceAtOffset, (toDiscloseCid, atdCid)) = inside(createResp.transaction) { case Some(tx) =>
           import lav1.event.Event, Event.Event.Created
           inside(tx.events) { case Seq(Event(Created(ce0)), Event(Created(ce1))) =>
-            val EntityTD = ToDisclose.entityName
-            val EntityATD = AnotherToDisclose.entityName
+            val EntityTD = TpId.Disclosure.ToDisclose.entityName
+            val EntityATD = TpId.Disclosure.AnotherToDisclose.entityName
             val orderedCes = inside((ce0, ce1) umap (_.templateId.map(_.entityName))) {
               case (Some(EntityTD), Some(EntityATD)) => (ce0, ce1)
               case (Some(EntityATD), Some(EntityTD)) => (ce1, ce0)
@@ -1308,7 +1311,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             .getTransactions(
               LedgerBegin.toLedgerApi,
               Some(AbsoluteBookmark(domain.Offset(ceAtOffset)).toLedgerApi),
-              filterWithBlobsFor(HasGarbage, ToDisclose, alice),
+              filterWithBlobsFor(TpId.Disclosure.HasGarbage, TpId.Disclosure.ToDisclose, alice),
               com.daml.ledger.api.domain.LedgerId(""),
               token = Some(jwt.value),
             )
@@ -2175,10 +2178,10 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
                 domain.Contract(-\/(archived0)),
                 domain.Contract(\/-(created1)),
               ) =>
-            created0.templateId shouldBe cmd.templateId
-            archived0.templateId shouldBe cmd.templateId
+            domain.ContractTypeId.withPkgRef(created0.templateId) shouldBe cmd.templateId
+            domain.ContractTypeId.withPkgRef(archived0.templateId) shouldBe cmd.templateId
             archived0.contractId shouldBe created0.contractId
-            created1.templateId shouldBe TpId.Iou.IouTransfer
+            domain.ContractTypeId.withPkgRef(created1.templateId) shouldBe TpId.Iou.IouTransfer
             asContractId(result.exerciseResult) shouldBe created1.contractId
         }
       }

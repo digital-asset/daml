@@ -11,6 +11,7 @@ import com.daml.http.util.Logging.InstanceUUID
 import com.daml.http.{PackageService, domain}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContextOf
 import scalaz.std.option._
 import scalaz.syntax.bitraverse._
@@ -217,7 +218,7 @@ class DomainJsonDecoder(
   private[this] def resolveMetaTemplateIds[
       CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]
   ](
-      meta: domain.CommandMeta[CtId[String]],
+      meta: domain.CommandMeta[CtId[Ref.PackageRef]],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   )(implicit
@@ -237,7 +238,7 @@ class DomainJsonDecoder(
   private def templateId_[
       CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]
   ](
-      id: CtId[String],
+      id: CtId[Ref.PackageRef],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   )(implicit
@@ -267,8 +268,8 @@ class DomainJsonDecoder(
       ledgerId: LedgerApiDomain.LedgerId,
   ): ET[domain.LfType] =
     templateId_(id, jwt, ledgerId).flatMap {
-      case it: domain.ContractTypeId.Template.Resolved =>
-        either(resolveKeyType(it: ContractTypeId.Template.Resolved).liftErr(JsonError))
+      case it: domain.ContractTypeId.Template.ResolvedPkg =>
+        either(resolveKeyType(it: ContractTypeId.Template.ResolvedPkg).liftErr(JsonError))
       case other =>
         either(-\/(JsonError(s"Expect contract type Id to be template Id, got otherwise: $other")))
     }

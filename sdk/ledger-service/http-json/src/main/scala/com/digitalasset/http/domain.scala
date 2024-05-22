@@ -71,7 +71,7 @@ package domain {
 
   import com.daml.fetchcontracts.domain.`fc domain ErrorOps`
   import com.daml.ledger.api.v1.commands.Commands
-  import com.daml.lf.data.Ref.HexString
+  import com.daml.lf.data.Ref.{HexString, PackageRef}
 
   sealed trait SubmissionIdTag
 
@@ -135,7 +135,7 @@ package domain {
 
   case class Contract[LfV](value: ArchivedContract \/ ActiveContract.ResolvedCtTyId[LfV])
 
-  case class ArchivedContract(contractId: ContractId, templateId: ContractTypeId.RequiredPkg)
+  case class ArchivedContract(contractId: ContractId, templateId: ContractTypeId.RequiredPkgId)
 
   final case class FetchRequest[+LfV](
       locator: ContractLocator[LfV],
@@ -358,7 +358,7 @@ package domain {
 
   final case class CreateCommandResponse[+LfV](
       contractId: ContractId,
-      templateId: ContractTypeId.Template.RequiredPkg,
+      templateId: ContractTypeId.Template.RequiredPkgId,
       key: Option[LfV],
       payload: LfV,
       signatories: Seq[Party],
@@ -451,20 +451,20 @@ package domain {
     implicit val `AcC hasTemplateId`: HasTemplateId.Compat[ActiveContract.ResolvedCtTyId] =
       new HasTemplateId[ActiveContract.ResolvedCtTyId] {
         override def templateId(fa: ActiveContract.ResolvedCtTyId[_]): ContractTypeId.RequiredPkg =
-          fa.templateId
+          fa.templateId.map(PackageRef.Id(_))
 
         type TypeFromCtId = LfType
 
         override def lfType(
             fa: ActiveContract.ResolvedCtTyId[_],
-            templateId: ContractTypeId.Resolved,
+            templateId: ContractTypeId.ResolvedPkg,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
         ): Error \/ LfType =
           templateId match {
-            case tid: ContractTypeId.Template.Resolved =>
-              f(tid: ContractTypeId.Template.Resolved)
+            case tid @ ContractTypeId.Template(_, _, _) =>
+              f(tid: ContractTypeId.Template.ResolvedPkg)
                 .leftMap(e => Error(Symbol("ActiveContract_hasTemplateId_lfType"), e.shows))
             case other =>
               val errorMsg = s"Expect contract type Id to be template Id, got otherwise: $other"
@@ -480,9 +480,13 @@ package domain {
     ): Error \/ ArchivedContract = {
       val resolvedTemplateId = resolvedQuery match {
         case ResolvedQuery.ByInterfaceId(interfaceId) =>
-          \/-(interfaceId.original)
+          (in.templateId required "templateId")
+            .map(ContractTypeId.Interface.fromLedgerApi)
+            // Use the interface id that was queried for, but with the package id returned.
+            .map(gotId => interfaceId.latestPkgId.copy(packageId = gotId.packageId))
         case _ =>
-          (in.templateId required "templateId").map(ContractTypeId.Template.fromLedgerApi)
+          (in.templateId required "templateId")
+            .map(ContractTypeId.Template.fromLedgerApi)
       }
       for {
         templateId <- resolvedTemplateId
@@ -499,7 +503,7 @@ package domain {
         } yield Some(
           ArchivedContract(
             contractId = ContractId(in.contractId),
-            templateId = ContractTypeId.Template fromLedgerApi templateId,
+            templateId = (ContractTypeId.Template fromLedgerApi templateId),
           )
         )
       } else {
@@ -559,14 +563,14 @@ package domain {
 
         override def lfType(
             fa: EnrichedContractKey[_],
-            templateId: ContractTypeId.Resolved,
+            templateId: ContractTypeId.ResolvedPkg,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
         ): Error \/ LfType = {
           templateId match {
-            case tid: ContractTypeId.Template.Resolved =>
-              h(tid: ContractTypeId.Template.Resolved)
+            case tid @ ContractTypeId.Template(_, _, _) =>
+              h(tid: ContractTypeId.Template.ResolvedPkg)
                 .leftMap(e => Error(Symbol("EnrichedContractKey_hasTemplateId_lfType"), e.shows))
             case other =>
               val errorMsg = s"Expect contract type Id to be template Id, got otherwise: $other"
@@ -598,7 +602,7 @@ package domain {
 
     def lfType(
         fa: F[_],
-        templateId: ContractTypeId.Resolved,
+        templateId: ContractTypeId.ResolvedPkg,
         f: PackageService.ResolveTemplateRecordType,
         g: PackageService.ResolveChoiceArgType,
         h: PackageService.ResolveKeyType,
@@ -622,7 +626,7 @@ package domain {
 
           override def lfType(
               fa: F[_],
-              templateId: ContractTypeId.Resolved,
+              templateId: ContractTypeId.ResolvedPkg,
               f: PackageService.ResolveTemplateRecordType,
               g: PackageService.ResolveChoiceArgType,
               h: PackageService.ResolveKeyType,
@@ -644,7 +648,7 @@ package domain {
   }
 
   object ExerciseCommand {
-    type RequiredPkg[+LfV, +Ref] = ExerciseCommand[String, LfV, Ref]
+    type RequiredPkg[+LfV, +R] = ExerciseCommand[PackageRef, LfV, R]
 
     implicit def bitraverseInstance[PkgId]: Bitraverse[ExerciseCommand[PkgId, *, *]] =
       new Bitraverse[ExerciseCommand[PkgId, *, *]] {
@@ -661,12 +665,12 @@ package domain {
       }
 
     implicit val leftTraverseInstance: Traverse[RequiredPkg[+*, Nothing]] =
-      bitraverseInstance[String].leftTraverse
+      bitraverseInstance[PackageRef].leftTraverse
 
     implicit val hasTemplateId: HasTemplateId.Aux[RequiredPkg[
       +*,
       domain.ContractLocator[_],
-    ], (Option[domain.ContractTypeId.Interface.Resolved], LfType)] =
+    ], (Option[domain.ContractTypeId.Interface.ResolvedPkg], LfType)] =
       new HasTemplateId[RequiredPkg[+*, domain.ContractLocator[_]]] {
         override def templateId(fab: FHuh): ContractTypeId.RequiredPkg =
           fab.choiceInterfaceId getOrElse (fab.reference match {
@@ -678,11 +682,11 @@ package domain {
               )
           })
 
-        type TypeFromCtId = (Option[domain.ContractTypeId.Interface.Resolved], LfType)
+        type TypeFromCtId = (Option[domain.ContractTypeId.Interface.ResolvedPkg], LfType)
 
         override def lfType(
             fa: FHuh,
-            templateId: ContractTypeId.Resolved,
+            templateId: ContractTypeId.ResolvedPkg,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,

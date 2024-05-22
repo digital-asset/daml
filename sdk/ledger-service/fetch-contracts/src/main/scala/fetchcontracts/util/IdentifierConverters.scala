@@ -15,9 +15,9 @@ private[daml] object IdentifierConverters {
       entityName = a.qualifiedName.name.dottedName,
     )
 
-  def apiIdentifier(a: domain.ContractTypeId.RequiredPkg): lav1.value.Identifier =
+  def apiIdentifier[Pkg](a: domain.ContractTypeId[Pkg]): lav1.value.Identifier =
     lav1.value.Identifier(
-      packageId = a.packageId,
+      packageId = a.packageId.toString,
       moduleName = a.moduleName,
       entityName = a.entityName,
     )

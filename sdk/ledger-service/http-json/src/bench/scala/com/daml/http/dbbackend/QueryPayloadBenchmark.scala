@@ -23,7 +23,8 @@ trait QueryPayloadBenchmark extends ContractDaoBenchmark {
   @Param(Array("1", "10"))
   var extraPayloadValues: Int = _
 
-  private val tpid: ContractTypeId.Resolved = ContractTypeId.Template("-pkg-", "M", "T")
+  private val tpid: ContractTypeId.ResolvedPkgId =
+    ContractTypeId.Template(Ref.PackageId.assertFromString("-pkg-"), "M", "T")
   private var surrogateTpid: SurrogateTpId = _
   val party = "Alice"
 

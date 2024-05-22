@@ -215,7 +215,7 @@ object ValuePredicate {
 
   private[http] def fromTemplateJsObject(
       it: Map[String, JsValue],
-      typ: domain.ContractTypeId.RequiredPkg,
+      typ: domain.ContractTypeId.RequiredPkgId,
       defs: TypeLookup,
   ): ValuePredicate =
     fromJsObject(

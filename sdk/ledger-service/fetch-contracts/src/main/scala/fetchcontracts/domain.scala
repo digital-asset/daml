@@ -89,22 +89,22 @@ package domain {
   )
 
   object ActiveContract {
-    type ResolvedCtTyId[+LfV] = ActiveContract[ContractTypeId.Resolved, LfV]
+    type ResolvedCtTyId[+LfV] = ActiveContract[ContractTypeId.ResolvedPkgId, LfV]
 
     def matchesKey(k: LfValue)(a: ResolvedCtTyId[LfValue]): Boolean =
       a.key.fold(false)(_ == k)
 
-    def fromLedgerApi[CtTyId](
+    def fromLedgerApi[CtTyId[T] <: ContractTypeId.Definite[T]](
         extractor: ExtractAs[CtTyId],
         gacr: lav1.active_contracts_service.GetActiveContractsResponse,
-    ): Error \/ List[ActiveContract[CtTyId, lav1.value.Value]] = {
+    ): Error \/ List[ActiveContract[ContractTypeId.ResolvedPkgIdOf[CtTyId], lav1.value.Value]] = {
       gacr.activeContracts.toList.traverse(fromLedgerApi(extractor, _))
     }
 
-    def fromLedgerApi[CtTyId](
+    def fromLedgerApi[CtTyId[T] <: ContractTypeId.Definite[T]](
         extractor: ExtractAs[CtTyId],
         in: lav1.event.CreatedEvent,
-    ): Error \/ ActiveContract[CtTyId, lav1.value.Value] = {
+    ): Error \/ ActiveContract[ContractTypeId.ResolvedPkgIdOf[CtTyId], lav1.value.Value] = {
       extractor.getIdKeyPayload(in).map { case (id, key, payload) =>
         ActiveContract(
           contractId = ContractId(in.contractId),
@@ -120,19 +120,20 @@ package domain {
 
     // Strategy for extracting data from the created event,
     // depending on the kind of thing we were expecting, i.e. template or interface view.
-    sealed trait ExtractAs[+CtTyId] {
+    sealed trait ExtractAs[+CtTyId[T] <: ContractTypeId.Definite[T]] {
       def getIdKeyPayload(in: lav1.event.CreatedEvent): ExtractAs.IdKeyPayload[CtTyId]
     }
 
     object ExtractAs {
-      type IdKeyPayload[+Id] = Error \/ (Id, Option[lav1.value.Value], lav1.value.Record)
+      type IdKeyPayload[+CtId[_]] =
+        Error \/ (ContractTypeId.ResolvedPkgIdOf[CtId], Option[lav1.value.Value], lav1.value.Record)
 
-      def apply(id: ContractTypeId.Resolved): ExtractAs[ContractTypeId.Resolved] = id match {
+      def apply(id: ContractTypeId.Definite[_]): ExtractAs[ContractTypeId.Definite] = id match {
         case ContractTypeId.Interface(_, mod, entity) => ExtractAs.InterfaceView(mod, entity)
         case ContractTypeId.Template(_, _, _) => ExtractAs.Template
       }
 
-      def apply(resolvedQuery: ResolvedQuery): ExtractAs[ContractTypeId.Resolved] =
+      def apply(resolvedQuery: ResolvedQuery): ExtractAs[ContractTypeId.Definite] =
         resolvedQuery match {
           case ResolvedQuery.ByInterfaceId(intfId) =>
             ExtractAs.InterfaceView(intfId.original.moduleName, intfId.original.entityName)
@@ -142,10 +143,8 @@ package domain {
 
       // For interfaces we need to find the correct view and extract the payload and id from that.
       final case class InterfaceView(module: String, entity: String)
-          extends ExtractAs[ContractTypeId.Interface.Resolved] {
-        def getIdKeyPayload(
-            in: lav1.event.CreatedEvent
-        ): IdKeyPayload[ContractTypeId.Interface.Resolved] = {
+          extends ExtractAs[ContractTypeId.Interface] {
+        def getIdKeyPayload(in: lav1.event.CreatedEvent): IdKeyPayload[ContractTypeId.Interface] = {
           val view = in.interfaceViews.find(
             // We ignore the package id when matching views.
             // The search result should have already selected the correct packages,
@@ -175,13 +174,12 @@ package domain {
       }
 
       // For templates we can get the data more directly.
-      final case object Template extends ExtractAs[ContractTypeId.Template.Resolved] {
-        def getIdKeyPayload(
-            in: lav1.event.CreatedEvent
-        ): IdKeyPayload[ContractTypeId.Template.Resolved] = for {
-          id <- in.templateId.required("templateId")
-          payload <- in.createArguments.required("createArguments")
-        } yield (ContractTypeId.Template.fromLedgerApi(id), in.contractKey, payload)
+      final case object Template extends ExtractAs[ContractTypeId.Template] {
+        def getIdKeyPayload(in: lav1.event.CreatedEvent): IdKeyPayload[ContractTypeId.Template] =
+          for {
+            id <- in.templateId.required("templateId")
+            payload <- in.createArguments.required("createArguments")
+          } yield (ContractTypeId.Template.fromLedgerApi(id), in.contractKey, payload)
       }
     }
 
@@ -222,6 +220,6 @@ package domain {
     final val ResolvedQuery = here.ResolvedQuery
     type ResolvedQuery = here.ResolvedQuery
     final val ContractTypeRef = here.ContractTypeRef
-    type ContractTypeRef[+CtTyId] = here.ContractTypeRef[CtTyId]
+    type ContractTypeRef[+CtTyId[T] <: ContractTypeId[T]] = here.ContractTypeRef[CtTyId]
   }
 }

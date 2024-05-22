@@ -68,11 +68,11 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   private val doNotReloadPackages = FiniteDuration(100, DAYS)
 
   // TODO(paulbrauner-da): Use a package name once supported by canton out of the box.
-  lazy val staticPkgIdAccount = {
+  lazy val staticPkgIdAccount: Ref.PackageRef = {
     import com.daml.lf.{archive, typesig}
     val darFile = requiredResource("ledger-service/http-json/Account.dar")
     val dar = archive.UniversalArchiveReader.assertReadFile(darFile)
-    typesig.PackageSignature.read(dar.main)._2.packageId
+    Ref.PackageRef.assertFromString(typesig.PackageSignature.read(dar.main)._2.packageId)
   }
 
   def withHttpService[A](

@@ -4,6 +4,7 @@
 package com.daml.http
 
 import com.daml.fetchcontracts.domain.ContractTypeId
+import com.daml.lf.data.Ref
 import com.daml.ledger.api.{v1 => lav1}
 import org.scalacheck.Gen
 import scalaz.{-\/, \/, \/-}
@@ -12,18 +13,16 @@ import spray.json.{JsNumber, JsObject, JsString, JsValue}
 object Generators {
   def genApiIdentifier: Gen[lav1.value.Identifier] =
     for {
-      p <- Gen.identifier
+      p <- genPkgIdentifier
       m <- Gen.identifier
       e <- Gen.identifier
     } yield lav1.value.Identifier(packageId = p, moduleName = m, entityName = e)
 
-  def genDomainTemplateId: Gen[domain.ContractTypeId.Template.RequiredPkg] =
-    genDomainContractTypeId[domain.ContractTypeId.Template]
+  def genDomainTemplateIdPkgId: Gen[domain.ContractTypeId.Template.RequiredPkgId] =
+    genDomainTemplateIdO[domain.ContractTypeId.Template, Ref.PackageId]
 
-  private def genDomainContractTypeId[CtId[T] <: domain.ContractTypeId[T]](implicit
-      CtId: domain.ContractTypeId.Like[CtId]
-  ): Gen[CtId.RequiredPkg] =
-    genApiIdentifier.map(CtId.fromLedgerApi)
+  def genDomainTemplateId: Gen[domain.ContractTypeId.Template.RequiredPkg] =
+    genDomainTemplateIdO[domain.ContractTypeId.Template, Ref.PackageRef]
 
   def genDomainTemplateIdO[CtId[T] <: domain.ContractTypeId[T], A](implicit
       CtId: domain.ContractTypeId.Like[CtId],
@@ -41,17 +40,27 @@ object Generators {
   def genDuplicateModuleEntityApiIdentifiers: Gen[Set[lav1.value.Identifier]] =
     for {
       id0 <- genApiIdentifier
-      otherPackageIds <- nonEmptySetOf(Gen.identifier.filter(x => x != id0.packageId))
+      otherPackageIds <- nonEmptySetOf(genPkgIdentifier.filter(x => x != id0.packageId))
     } yield Set(id0) ++ otherPackageIds.map(a => id0.copy(packageId = a))
 
-  def genDuplicateModuleEntityTemplateIds: Gen[Set[domain.ContractTypeId.Template.RequiredPkg]] =
+  def genDuplicateModuleEntityTemplateIds: Gen[Set[domain.ContractTypeId.Template.RequiredPkgId]] =
     genDuplicateModuleEntityApiIdentifiers.map(xs =>
       xs.map(domain.ContractTypeId.Template.fromLedgerApi)
     )
 
   final case class PackageIdGen[A](gen: Gen[A])
 
-  implicit val RequiredPackageIdGen: PackageIdGen[String] = PackageIdGen(Gen.identifier)
+  private val genPkgIdentifier = Gen.identifier.map(s => s.substring(0, 64 min s.length))
+
+  implicit val RequiredPackageIdGen: PackageIdGen[Ref.PackageId] = PackageIdGen(
+    genPkgIdentifier.map(Ref.PackageId.assertFromString)
+  )
+  implicit val RequiredPackageRefGen: PackageIdGen[Ref.PackageRef] = PackageIdGen(
+    Gen.oneOf(
+      genPkgIdentifier.map(s => Ref.PackageRef.Id(Ref.PackageId.assertFromString(s))),
+      genPkgIdentifier.map(s => Ref.PackageRef.Name(Ref.PackageName.assertFromString(s))),
+    )
+  )
 
   def contractIdGen: Gen[domain.ContractId] = domain.ContractId subst Gen.identifier
   def partyGen: Gen[domain.Party] = domain.Party subst Gen.identifier
@@ -61,7 +70,7 @@ object Generators {
 
   def inputContractRefGen[LfV](lfv: Gen[LfV]): Gen[domain.InputContractRef[LfV]] =
     scalazEitherGen(
-      Gen.zip(genDomainTemplateIdO[domain.ContractTypeId.Template, String], lfv),
+      Gen.zip(genDomainTemplateIdO[domain.ContractTypeId.Template, Ref.PackageRef], lfv),
       Gen.zip(
         Gen.option(genDomainTemplateIdO: Gen[domain.ContractTypeId.RequiredPkg]),
         contractIdGen,
@@ -78,15 +87,15 @@ object Generators {
     for {
       contractId <- contractIdGen
       templateId <- Gen.oneOf(
-        genDomainTemplateIdO[domain.ContractTypeId.Template, String],
-        genDomainTemplateIdO[domain.ContractTypeId.Interface, String],
+        genDomainTemplateIdO[domain.ContractTypeId.Template, Ref.PackageId],
+        genDomainTemplateIdO[domain.ContractTypeId.Interface, Ref.PackageId],
       )
       key <- Gen.option(Gen.identifier.map(JsString(_)))
       argument <- Gen.identifier.map(JsString(_))
       signatories <- Gen.listOf(partyGen)
       observers <- Gen.listOf(partyGen)
       agreementText <- Gen.identifier
-    } yield domain.ActiveContract[ContractTypeId.Resolved, JsValue](
+    } yield domain.ActiveContract[ContractTypeId.ResolvedPkgId, JsValue](
       contractId = contractId,
       templateId = templateId,
       key = key,
@@ -99,7 +108,7 @@ object Generators {
   def archivedContractGen: Gen[domain.ArchivedContract] =
     for {
       contractId <- contractIdGen
-      templateId <- Generators.genDomainTemplateId
+      templateId <- Generators.genDomainTemplateIdO: Gen[domain.ContractTypeId.RequiredPkgId]
     } yield domain.ArchivedContract(
       contractId = contractId,
       templateId = templateId,
@@ -110,7 +119,7 @@ object Generators {
 
   def enrichedContractKeyGen: Gen[domain.EnrichedContractKey[JsObject]] =
     for {
-      templateId <- genDomainTemplateIdO[domain.ContractTypeId.Template, String]
+      templateId <- genDomainTemplateIdO[domain.ContractTypeId.Template, Ref.PackageRef]
       key <- genJsObj
     } yield domain.EnrichedContractKey(templateId, key)
 

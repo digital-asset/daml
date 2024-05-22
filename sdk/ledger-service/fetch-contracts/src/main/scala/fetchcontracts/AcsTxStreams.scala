@@ -135,9 +135,9 @@ private[daml] object AcsTxStreams {
     (ContractStreamStep.Txn(partitionInsertsDeletes(tx.events), offset), offset)
   }
 
-  private[daml] def transactionFilter(
+  private[daml] def transactionFilter[Pkg](
       parties: domain.PartySet,
-      contractTypeIds: List[ContractTypeId.Resolved],
+      contractTypeIds: List[ContractTypeId.Definite[Pkg]],
   ): lav1.transaction_filter.TransactionFilter = {
     import lav1.transaction_filter._
 
@@ -145,7 +145,7 @@ private[daml] object AcsTxStreams {
     val filters = Filters(
       Some(
         lav1.transaction_filter.InclusiveFilters(
-          templateIds = templateIds.map(apiIdentifier),
+          templateIds = templateIds.map(apiIdentifier[Pkg]),
           interfaceFilters = interfaceIds.map(interfaceId =>
             InterfaceFilter(
               interfaceId = Some(apiIdentifier(interfaceId)),

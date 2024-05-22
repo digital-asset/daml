@@ -8,6 +8,7 @@ import com.daml.http.dbbackend.{ContractDao, JdbcConfig}
 import com.daml.http.domain.ContractTypeId
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import doobie.util.log.LogHandler
@@ -44,6 +45,9 @@ abstract class AbstractDatabaseIntegrationTest
     daoWithoutPrefix.close()
     super.afterAll()
   }
+
+  def newTemplateId(template: String) =
+    ContractTypeId.Template(Ref.PackageId.assertFromString("pkg"), "mod", template)
 
   "DbStartupOps" - {
 
@@ -190,14 +194,15 @@ abstract class AbstractDatabaseIntegrationTest
     import dao.logHandler, dao.jdbcDriver.q.queries
 
     "should be used on template insertion and reads" in {
-      def getOrElseInsertTemplate(tpid: ContractTypeId[String]) = instanceUUIDLogCtx(implicit lc =>
-        dao.transact(
-          queries
-            .surrogateTemplateId(tpid.packageId, tpid.moduleName, tpid.entityName)
+      def getOrElseInsertTemplate(tpid: ContractTypeId[Ref.PackageId]) =
+        instanceUUIDLogCtx(implicit lc =>
+          dao.transact(
+            queries
+              .surrogateTemplateId(tpid.packageId, tpid.moduleName, tpid.entityName)
+          )
         )
-      )
 
-      val tpId = ContractTypeId.Template("pkg", "mod", "ent")
+      val tpId = newTemplateId("ent")
       for {
         storedStpId <- getOrElseInsertTemplate(tpId) // insert the template id into the cache
         cachedStpId <- getOrElseInsertTemplate(tpId) // should trigger a read from cache
@@ -212,7 +217,7 @@ abstract class AbstractDatabaseIntegrationTest
       import dbbackend.Queries.DBContract, spray.json.{JsObject, JsNull, JsValue},
       spray.json.DefaultJsonProtocol._
 
-      val tpId = ContractTypeId.Template("pkg", "mod", "UncomCollision")
+      val tpId = newTemplateId("UncomCollision")
 
       val simulation = instanceUUIDLogCtx { implicit lc =>
         def stid =

@@ -333,7 +333,7 @@ abstract class HttpServiceIntegrationTest
           encodeExercise(encoder)(
             iouTransfer(
               domain.EnrichedContractKey(
-                TpId.unsafeCoerce[domain.ContractTypeId.Template, String](TpId.IIou.IIou),
+                TpId.unsafeCoerce[domain.ContractTypeId.Template, Ref.PackageRef](TpId.IIou.IIou),
                 v.Value(v.Value.Sum.Party(domain.Party unwrap alice)),
               ),
               tExercise()(ShRecord(echo = "bob")),

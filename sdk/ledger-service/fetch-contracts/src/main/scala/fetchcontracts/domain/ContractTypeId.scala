@@ -13,7 +13,7 @@ import scalaz.syntax.functor._
 import scala.collection.IterableOps
 
 /** A contract type ID that may be either a template or an interface ID.
-  * A [[ContractTypeId.Resolved]] ID will always be either [[ContractTypeId.Template]]
+  * A [[ContractTypeId.ResolvedPkg]] ID will always be either [[ContractTypeId.Template]]
   * or [[ContractTypeId.Interface]]; an
   * unresolved ID may be one of those, which indicates an expectation of what
   * the resolved ID will be, or neither, which indicates that resolving what
@@ -67,14 +67,14 @@ sealed abstract class ContractTypeId[+PkgId]
 
 object ResolvedQuery {
 
-  def apply(resolved: ContractTypeRef.Resolved): ResolvedQuery =
+  def apply[CtId[T] <: ContractTypeId[T]](resolved: ContractTypeRef[CtId]): ResolvedQuery =
     resolved match {
       case t: ContractTypeRef.TemplateRef => ByTemplateId(t)
       case i: ContractTypeRef.InterfaceRef => ByInterfaceId(i)
     }
 
   def apply(
-      resolved: Set[ContractTypeRef.Resolved]
+      resolved: Set[_ <: ContractTypeRef[ContractTypeId]]
   ): Unsupported \/ ResolvedQuery = {
     import com.daml.nonempty.{NonEmpty, Singleton}
     val (templateIds, interfaceIds) = partitionKPN(resolved)
@@ -93,16 +93,16 @@ object ResolvedQuery {
     }
   }
 
-  def partition[CC[_], C](
-      resolved: IterableOps[ContractTypeId.Resolved, CC, C]
-  ): (CC[ContractTypeId.Template.Resolved], CC[ContractTypeId.Interface.Resolved]) =
+  def partition[CC[_], C, Pkg](
+      resolved: IterableOps[ContractTypeId.Definite[Pkg], CC, C]
+  ): (CC[ContractTypeId.Template[Pkg]], CC[ContractTypeId.Interface[Pkg]]) =
     resolved.partitionMap {
       case t @ ContractTypeId.Template(_, _, _) => Left(t)
       case i @ ContractTypeId.Interface(_, _, _) => Right(i)
     }
 
   private def partitionKPN[CC[_], C](
-      resolved: IterableOps[ContractTypeRef[_], CC, C]
+      resolved: IterableOps[ContractTypeRef[ContractTypeId], CC, C]
   ): (
       CC[ContractTypeRef.TemplateRef],
       CC[ContractTypeRef.InterfaceRef],
@@ -224,9 +224,11 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
   // confirmed-present IDs only.  Can probably start by adding
   // `with Definite[Any]` here and seeing what happens
   /** A resolved [[ContractTypeId]], typed `CtTyId`. */
-  type ResolvedId[+CtTyId] = CtTyId
 
-  type ResolvedOf[+CtId[_]] = ResolvedId[CtId[String] with Definite[String]]
+  type WithDefiniteOps[+CtId[_], Pkg] = CtId[Pkg] with Definite[Pkg] with Ops[CtId, Pkg]
+
+  type ResolvedOf[+CtId[_]] = WithDefiniteOps[CtId, Ref.PackageRef]
+  type ResolvedPkgIdOf[+CtId[_]] = WithDefiniteOps[CtId, Ref.PackageId]
 
   type Like[CtId[T] <: ContractTypeId[T]] = ContractTypeIdLike[CtId]
 
@@ -236,22 +238,33 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
         packageId: PkgId0 = packageId,
         moduleName: String = moduleName,
         entityName: String = entityName,
-    ): CtId[PkgId0]
+    ): CtId[PkgId0] with Ops[CtId, PkgId0]
   }
+
+  def withPkgRef[CtId[T] <: ContractTypeId[T]](
+      id: CtId[Ref.PackageId] with Ops[CtId, Ref.PackageId]
+  ): CtId[Ref.PackageRef] =
+    id.copy(packageId = Ref.PackageRef.Id(id.packageId): Ref.PackageRef)
 }
 
 /** A contract type ID companion. */
 sealed abstract class ContractTypeIdLike[CtId[T] <: ContractTypeId[T]] {
-  type RequiredPkg = CtId[String]
-  type Resolved = ContractTypeId.ResolvedOf[CtId]
+  type RequiredPkg = CtId[Ref.PackageRef]
+  type RequiredPkgId = CtId[Ref.PackageId]
+  type ResolvedPkg = ContractTypeId.ResolvedOf[CtId]
+  type ResolvedPkgId = ContractTypeId.ResolvedPkgIdOf[CtId]
 
   // treat the companion like a typeclass instance
   implicit def `ContractTypeIdLike companion`: this.type = this
 
-  def apply[PkgId](packageId: PkgId, moduleName: String, entityName: String): CtId[PkgId]
+  def apply[PkgId](
+      packageId: PkgId,
+      moduleName: String,
+      entityName: String,
+  ): CtId[PkgId] with ContractTypeId.Ops[CtId, PkgId]
 
-  final def fromLedgerApi(in: lav1.value.Identifier): RequiredPkg =
-    apply(in.packageId, in.moduleName, in.entityName)
+  final def fromLedgerApi(in: lav1.value.Identifier): RequiredPkgId =
+    apply(Ref.PackageId.assertFromString(in.packageId), in.moduleName, in.entityName)
 
   private[this] def qualifiedName(a: CtId[_]): Ref.QualifiedName =
     Ref.QualifiedName(
@@ -259,10 +272,9 @@ sealed abstract class ContractTypeIdLike[CtId[T] <: ContractTypeId[T]] {
       Ref.DottedName.assertFromString(a.entityName),
     )
 
-  final def toLedgerApiValue(a: RequiredPkg): Ref.Identifier = {
+  final def toLedgerApiValue(a: RequiredPkgId): Ref.Identifier = {
     val qfName = qualifiedName(a)
-    val packageId = Ref.PackageId.assertFromString(a.packageId)
-    Ref.Identifier(packageId, qfName)
+    Ref.Identifier(a.packageId, qfName)
   }
 }
 
@@ -270,50 +282,52 @@ sealed abstract class ContractTypeIdLike[CtId[T] <: ContractTypeId[T]] {
 // i.e. `orig` may have a form or either "#foo:Bar:Baz" or "123:Bar:Baz".
 // If a package name is provided, then `allIds` may resolve to multiple values, for the relevant
 // template in each package id that shares the same package name.
-sealed abstract class ContractTypeRef[+CtTyId](
-    orig: CtTyId,
-    ids: NonEmpty[Seq[CtTyId]],
+sealed abstract class ContractTypeRef[+CtTyId[T] <: ContractTypeId[T]](
+    orig: ContractTypeId.ResolvedOf[CtTyId],
+    ids: NonEmpty[Seq[ContractTypeId.ResolvedPkgIdOf[CtTyId]]],
     val name: KeyPackageName,
 ) {
-  def allPkgIds: NonEmpty[Set[_ <: CtTyId]] = ids.toSet
-  def latestPkgId: CtTyId = ids.head
-  def original: CtTyId = orig
+  def allPkgIds: NonEmpty[Set[_ <: ContractTypeId.ResolvedPkgIdOf[CtTyId]]] = ids.toSet
+  def latestPkgId: ContractTypeId.ResolvedPkgIdOf[CtTyId] = ids.head
+  def original: ContractTypeId.ResolvedOf[CtTyId] = orig
 }
 
 object ContractTypeRef {
-  type Resolved = ContractTypeRef[ContractTypeId.Resolved]
+  type Resolved = ContractTypeRef[ContractTypeId]
 
-  def unnamed[CtTyId <: ContractTypeId.Resolved](
-      id: CtTyId
-  ): ContractTypeRef[CtTyId] =
-    apply(id, NonEmpty(Seq, id.packageId), KeyPackageName.empty)
+  def unnamed[CtTyId[T] <: ContractTypeId[T]](
+      id: ContractTypeId.ResolvedPkgIdOf[CtTyId]
+  ): ContractTypeRef[CtTyId] = {
+    val idWithRef = id.copy(packageId = Ref.PackageRef.Id(id.packageId): Ref.PackageRef)
+    apply[CtTyId](idWithRef, NonEmpty(Seq, id.packageId), KeyPackageName.empty)
+  }
 
-  def apply[CtId <: ContractTypeId.Resolved](
-      id: CtId, // The original template/interface id.
-      pkgIds: NonEmpty[Seq[String]], // Package ids with same name, ordered by version, descending
+  def apply[CtId[T] <: ContractTypeId[T]](
+      id: ContractTypeId.ResolvedOf[CtId], // The original template/interface id.
+      pkgIds: NonEmpty[Seq[Ref.PackageId]], // Package ids with same name, by version, descending
       name: KeyPackageName, // The package name info
   ): ContractTypeRef[CtId] = {
-    (id match {
+    ((id: ContractTypeId.Definite[Ref.PackageRef]) match {
       case t @ ContractTypeId.Template(_, _, _) => TemplateRef(t, pkgIds, name)
       case i @ ContractTypeId.Interface(_, _, _) => InterfaceRef(i, pkgIds, name)
-    }).asInstanceOf[ContractTypeRef[CtId]]
+    }).asInstanceOf[ContractTypeRef[CtId]] // CtId <: Definite, because id is resolved
   }
 
   private[domain] final case class TemplateRef(
-      orig: ContractTypeId.Template.Resolved,
-      pkgIds: NonEmpty[Seq[String]],
+      orig: ContractTypeId.Template.ResolvedPkg,
+      pkgIds: NonEmpty[Seq[Ref.PackageId]],
       kpn: KeyPackageName,
-  ) extends ContractTypeRef[ContractTypeId.Template.Resolved](
+  ) extends ContractTypeRef[ContractTypeId.Template](
         orig,
         pkgIds.map(pkgId => orig.copy(packageId = pkgId)),
         kpn,
       )
 
   private[domain] final case class InterfaceRef(
-      orig: ContractTypeId.Interface.Resolved,
-      pkgIds: NonEmpty[Seq[String]],
+      orig: ContractTypeId.Interface.ResolvedPkg,
+      pkgIds: NonEmpty[Seq[Ref.PackageId]],
       kpn: KeyPackageName,
-  ) extends ContractTypeRef[ContractTypeId.Interface.Resolved](
+  ) extends ContractTypeRef[ContractTypeId.Interface](
         orig,
         pkgIds.map(pkgId => orig.copy(packageId = pkgId)),
         kpn,

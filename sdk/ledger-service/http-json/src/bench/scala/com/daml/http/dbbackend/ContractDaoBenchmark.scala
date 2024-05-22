@@ -75,7 +75,7 @@ abstract class ContractDaoBenchmark {
     agreementText = "",
   )
 
-  protected def insertTemplate(tpid: ContractTypeId.RequiredPkg): SurrogateTpId = {
+  protected def insertTemplate(tpid: ContractTypeId.RequiredPkgId): SurrogateTpId = {
     instanceUUIDLogCtx(implicit lc =>
       dao
         .transact(

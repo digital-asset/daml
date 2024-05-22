@@ -93,7 +93,8 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
 
         createPairs = creates map { add =>
           import json.JsonProtocol.ActiveContractFormat
-          val ac = add.convertTo[domain.ActiveContract[domain.ContractTypeId.Resolved, JsValue]]
+          val ac =
+            add.convertTo[domain.ActiveContract[domain.ContractTypeId.ResolvedPkgId, JsValue]]
           (ac.contractId, ac.payload)
         }: Vector[(domain.ContractId, JsValue)]
 
@@ -137,12 +138,12 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
   )
   private[http] final case class CreatedAccountContract(
       contractId: domain.ContractId,
-      templateId: domain.ContractTypeId.Unknown[String],
+      templateId: domain.ContractTypeId.Unknown[Ref.PackageId],
       record: AccountRecord,
   )
 
   private[http] object ContractTypeId {
-    def unapply(jsv: JsValue): Option[domain.ContractTypeId.Unknown[String]] = for {
+    def unapply(jsv: JsValue): Option[domain.ContractTypeId.Unknown[Ref.PackageId]] = for {
       JsString(templateIdStr) <- Some(jsv)
       templateId <- Ref.Identifier.fromString(templateIdStr).toOption
     } yield domain.ContractTypeId.Unknown(

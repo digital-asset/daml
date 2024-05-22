@@ -181,7 +181,8 @@ private class PackageService(
       latestMaps: () => (TemplateIdMap, InterfaceIdMap)
   )(implicit ec: ExecutionContext): ResolveContractTypeId = new ResolveContractTypeId {
     import ResolveContractTypeId.{Overload => O}, domain.{ContractTypeId => C}
-    override def apply[U, R <: ContractTypeId.Resolved](
+
+    override def apply[U, R[T] <: ContractTypeId[T]](
         jwt: Jwt,
         ledgerId: LedgerApiDomain.LedgerId,
     )(
@@ -225,9 +226,8 @@ private class PackageService(
       for {
         result <- EitherT.pure(doSearch(latestMaps())): ET[ResultType]
         _ = logger.trace(s"Result: $result")
-        finalResult <- {
-          val packageId = (x: C.RequiredPkg).packageId
-          if (packageId.startsWith("#")) { // Used package name, not package id
+        finalResult <- ((x: C.RequiredPkg).packageId match {
+          case Ref.PackageRef.Name(_) => // Used package name, not package id
             if (result.isDefined)
               // no package id and we do have the package, refresh if timeout
               if (cache.packagesShouldBeFetchedAgain) {
@@ -246,7 +246,7 @@ private class PackageService(
               logger.trace("no package id and we don’t have the package, always refresh")
               doReloadAndSearchAgain()
             }
-          } else {
+          case Ref.PackageRef.Id(packageId) =>
             if (result.isDefined) {
               logger.trace("package id defined & template id found, no refresh necessary")
               keep(result)
@@ -262,8 +262,7 @@ private class PackageService(
                 doReloadAndSearchAgain()
               }
             }
-          }: ET[ResultType]
-        }
+        }): ET[ResultType]
         _ = logger.trace(s"Final result: $finalResult")
       } yield finalResult
     }.run
@@ -275,7 +274,7 @@ private class PackageService(
         state.templateIdMap
           .toContractTypeRef(templateId)
           .map(_.latestPkgId)
-          .getOrElse(templateId)
+          .get
       \/-(
         typesig
           .TypeCon(
@@ -297,8 +296,8 @@ private class PackageService(
       f.map(_ => state.templateIdMap.allIds)
   }
 
-  val resolvePackageName: ResolvePackageName = templateId =>
-    state.packageNameMap.get(templateId).get._1
+  val resolvePackageName: ResolvePackageName = packageId =>
+    state.packageNameMap.get(Ref.PackageRef.Id(packageId)).get._1
 
   // See the above comment on resolveTemplateId
   def resolveChoiceArgType: ResolveChoiceArgType =
@@ -326,7 +325,8 @@ object PackageService {
 
   sealed abstract class ResolveContractTypeId {
     import ResolveContractTypeId.Overload
-    def apply[U, R <: ContractTypeId.Resolved](jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
+
+    def apply[U, R[T] <: ContractTypeId[T]](jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
         x: U with ContractTypeId.RequiredPkg
     )(implicit lc: LoggingContextOf[InstanceUUID], overload: Overload[U, R]): Future[
       PackageService.Error \/ Option[ContractTypeRef[R]]
@@ -334,20 +334,20 @@ object PackageService {
   }
 
   object ResolveContractTypeId {
-    sealed abstract class Overload[-Unresolved, +Resolved]
+    sealed abstract class Overload[-Unresolved, +Resolved[_]]
 
     import domain.{ContractTypeId => C}
 
     object Overload extends LowPriority {
-      implicit case object Template extends Overload[C.Template.RequiredPkg, C.Template.Resolved]
-      case object Top extends Overload[C.RequiredPkg, C.ResolvedId[C.Definite[String]]]
+      implicit case object Template extends Overload[C.Template.RequiredPkg, C.Template]
+      case object Top extends Overload[C.RequiredPkg, C.Definite]
     }
 
     // TODO #15293 if the request model has .Unknown included, then LowPriority and Top are
     // no longer needed and can be replaced with Overload.Unknown above
     sealed abstract class LowPriority { this: Overload.type =>
       // needs to be low priority so it doesn't win against Template
-      implicit def `fallback Top`: Overload[C.RequiredPkg, C.ResolvedId[C.Definite[String]]] = Top
+      implicit def `fallback Top`: Overload[C.RequiredPkg, C.Definite] = Top
     }
   }
 
@@ -360,54 +360,52 @@ object PackageService {
     ] => (
         Jwt,
         LedgerApiDomain.LedgerId,
-    ) => Future[Set[ContractTypeRef[ContractTypeId.Template.Resolved]]]
+    ) => Future[Set[ContractTypeRef[ContractTypeId.Template]]]
 
   type ResolveChoiceArgType =
     (
-        ContractTypeId.Resolved,
+        ContractTypeId.ResolvedPkg,
         Choice,
-    ) => Error \/ (Option[ContractTypeId.Interface.Resolved], typesig.Type)
+    ) => Error \/ (Option[ContractTypeId.Interface.ResolvedPkg], typesig.Type)
 
   type ResolveKeyType =
     ContractTypeId.Template.RequiredPkg => Error \/ typesig.Type
 
   final case class ContractTypeIdMap[CtId[T] <: ContractTypeId[T]](
-      all: Map[RequiredPkg[CtId], ResolvedOf[CtId]],
-      nameIds: Map[Ref.PackageName, NonEmpty[Seq[String]]],
+      all: Map[CtId[Ref.PackageRef], ResolvedOf[CtId]],
+      nameIds: Map[Ref.PackageName, NonEmpty[Seq[Ref.PackageId]]],
       idNames: PackageNameMap,
   ) {
-    private[http] def toContractTypeRef[R <: ContractTypeId.Resolved](
-        id: R
-    ): Option[ContractTypeRef[R]] = {
+    private[http] def toContractTypeRef(
+        id: ContractTypeId.ResolvedOf[CtId]
+    ): Option[ContractTypeRef[CtId]] = {
       id.packageId match {
-        case s"#${name}" =>
+        case Ref.PackageRef.Name(pname) =>
           for {
-            pkgIdsForName <- nameIds.get(asPackageName(name))
+            pkgIdsForName <- nameIds.get(pname)
             pkgIdsForCtId <- NonEmpty.from(
-              pkgIdsForName.filter(pkgId =>
-                all.contains(id.copy(packageId = pkgId).asInstanceOf[RequiredPkg[CtId]])
-              )
+              pkgIdsForName.filter(pId => all.contains(id.copy(packageId = Ref.PackageRef.Id(pId))))
             )
-            (kpn, _) <- idNames.get(id.packageId)
+            (kpn, _) <- idNames.get(Ref.PackageRef.Name(pname))
           } yield ContractTypeRef(id, pkgIdsForCtId, kpn)
-        case _ =>
-          Some(ContractTypeRef.unnamed(id))
+        case Ref.PackageRef.Id(pid) =>
+          Some(ContractTypeRef.unnamed[CtId](id.copy(packageId = pid)))
       }
     }
 
-    def allIds: Set[ContractTypeRef[ResolvedOf[CtId]]] =
+    def allIds: Set[ContractTypeRef[CtId]] =
       all.values.flatMap { case id =>
         // If the package has a name, use the package name instead of package id.
         val useId = idNames
           .get(id.packageId)
           .flatMap { case (kpn, _) => kpn.toOption }
-          .fold(id)(name => id.copy(packageId = s"#${name}").asInstanceOf[ResolvedOf[CtId]])
+          .fold(id)(name => id.copy(packageId = Ref.PackageRef.Name(name)))
         toContractTypeRef(useId)
       }.toSet
 
     private[http] def resolve(
         a: ContractTypeId.RequiredPkg
-    )(implicit makeKey: ContractTypeId.Like[CtId]): Option[ContractTypeRef[ResolvedOf[CtId]]] =
+    )(implicit makeKey: ContractTypeId.Like[CtId]): Option[ContractTypeRef[CtId]] =
       (all get makeKey(a.packageId, a.moduleName, a.entityName)).flatMap(toContractTypeRef)
   }
 
@@ -415,45 +413,43 @@ object PackageService {
   private type InterfaceIdMap = ContractTypeIdMap[ContractTypeId.Interface]
 
   object TemplateIdMap {
-    def Empty[CtId[T] <: ContractTypeId[T]]: ContractTypeIdMap[CtId] =
+    def Empty[CtId[T] <: ContractTypeId.Definite[T]]: ContractTypeIdMap[CtId] =
       ContractTypeIdMap(Map.empty, Map.empty, PackageNameMap.empty)
   }
 
-  private type ChoiceTypeMap = Map[ContractTypeId.Resolved, NonEmpty[
-    Map[Choice, NonEmpty[Map[Option[ContractTypeId.Interface.Resolved], typesig.Type]]]
+  private type ChoiceTypeMap = Map[ContractTypeId.ResolvedPkg, NonEmpty[
+    Map[Choice, NonEmpty[Map[Option[ContractTypeId.Interface.ResolvedPkg], typesig.Type]]]
   ]]
 
-  type KeyTypeMap = Map[ContractTypeId.Template.Resolved, typesig.Type]
+  type KeyTypeMap = Map[ContractTypeId.Template.ResolvedPkg, typesig.Type]
 
-  type ResolvePackageName = String => KeyPackageName
+  type ResolvePackageName = Ref.PackageId => KeyPackageName
 
   case class PackageNameMap(
-      private val mapView: MapView[String, (KeyPackageName, Ref.PackageVersion)]
+      private val mapView: MapView[Ref.PackageRef, (KeyPackageName, Ref.PackageVersion)]
   ) {
-    def get(pkgId: String) = mapView.get(pkgId)
+    def get(pkgId: Ref.PackageRef) = mapView.get(pkgId)
   }
   object PackageNameMap {
     val empty = PackageNameMap(MapView.empty)
   }
 
-  private def asPackageName(name: String): Ref.PackageName = Ref.PackageName.assertFromString(name)
-
   private def buildPackageNameMap(packageStore: PackageStore): PackageNameMap = {
-    import com.daml.lf.language.LanguageVersion
-
-    // We make two entries per package: one by package id and another by package name.
-    def entries(pkgId: String, lv: LanguageVersion, m: typesig.PackageMetadata) =
-      List(
-        (pkgId, (KeyPackageName(Some(asPackageName(m.name)), lv), m.version)),
-        (s"#${m.name}", (KeyPackageName(Some(asPackageName(m.name)), lv), m.version)),
-      )
-
     PackageNameMap(
       packageStore.view
         .flatMap { case ((pkgId, p)) =>
-          p.metadata.toList.flatMap(entries(pkgId, p.languageVersion, _))
+          p.metadata.toList.flatMap { m =>
+            // We make two entries per package: one by package id and another by package name.
+            val pId = Ref.PackageId.assertFromString(pkgId)
+            val pName = Ref.PackageName.assertFromString(m.name)
+            val nameInfo = (KeyPackageName(Some(pName), p.languageVersion), m.version)
+            List(
+              (Ref.PackageRef.Id(pId), nameInfo),
+              (Ref.PackageRef.Name(pName), nameInfo),
+            )
+          }
         }
-        .toMap
+        .toMap[Ref.PackageRef, (KeyPackageName, Ref.PackageVersion)]
         .view
     )
   }
@@ -478,50 +474,54 @@ object PackageService {
 
   def buildTemplateIdMap[CtId[T] <: ContractTypeId.Definite[T] with ContractTypeId.Ops[CtId, T]](
       idName: PackageNameMap,
-      ids: Set[RequiredPkg[CtId]],
+      ids: Set[CtId[Ref.PackageId]],
   ): ContractTypeIdMap[CtId] = {
     import com.daml.nonempty.NonEmptyReturningOps._
-    val all = ids.view.map(k => (k, k)).toMap
+    val all: Map[CtId[Ref.PackageRef], ResolvedOf[CtId]] = ids.view.map { id =>
+      val k = id.copy(packageId = Ref.PackageRef.Id(id.packageId): Ref.PackageRef)
+      (k, k)
+    }.toMap
 
-    val idPkgNamePkgVer: Set[(RequiredPkg[CtId], Ref.PackageName, Ref.PackageVersion)] =
+    val idPkgNamePkgVer: Set[(CtId[Ref.PackageId], Ref.PackageName, Ref.PackageVersion)] =
       ids
         .flatMap { id =>
           idName
-            .get(id.packageId)
+            .get(Ref.PackageRef.Id(id.packageId))
             .flatMap { case (kpn, v) => kpn.toOption.map(nm => (id, nm, v)) }
         }
 
-    val nameIds = idPkgNamePkgVer
+    val nameIds: Map[Ref.PackageName, NonEmpty[Seq[Ref.PackageId]]] = idPkgNamePkgVer
       .groupBy1(_._2) // group by package name
       .map {
         case (name, idNameVers) => {
           // Sort the package ids by version, descending
-          val orderedPkgIds: NonEmpty[Seq[String]] = idNameVers
+          val orderedPkgIds: NonEmpty[Seq[Ref.PackageId]] = idNameVers
             .map { case (id, _, ver) => (id.packageId, ver) }
             .toSeq
-            .sorted(Ordering.by((pkgIdVer: (String, Ref.PackageVersion)) => pkgIdVer._2).reverse)
+            .sorted(
+              Ordering.by((pkgIdVer: (Ref.PackageId, Ref.PackageVersion)) => pkgIdVer._2).reverse
+            )
             .map(_._1)
           (name, orderedPkgIds)
         }
       }
       .toMap
 
-    val allByPkgName = idPkgNamePkgVer.map { case (id, name, _) =>
-      val idWithPkgName = id.copy(packageId = s"#${name.toString}")
-      (idWithPkgName, idWithPkgName)
+    val allByPkgName: Map[CtId[Ref.PackageRef], ResolvedOf[CtId]] = idPkgNamePkgVer.map {
+      case (id, name, _) =>
+        val idWithPkgName = id.copy(packageId = Ref.PackageRef.Name(name): Ref.PackageRef)
+        (idWithPkgName, idWithPkgName)
     }.toMap
 
     ContractTypeIdMap(all ++ allByPkgName, nameIds, idName)
   }
 
-  private type RequiredPkg[CtId[_]] = CtId[String]
-
   private def resolveChoiceArgType(
       choiceIdMap: ChoiceTypeMap
   )(
-      ctId: ContractTypeId.Resolved,
+      ctId: ContractTypeId.ResolvedPkg,
       choice: Choice,
-  ): Error \/ (Option[ContractTypeId.Interface.Resolved], typesig.Type) = {
+  ): Error \/ (Option[ContractTypeId.Interface.ResolvedPkg], typesig.Type) = {
     // TODO #14727 skip indirect resolution if ctId is an interface ID
     val resolution = for {
       choices <- choiceIdMap get ctId
@@ -546,7 +546,7 @@ object PackageService {
   private[this] def fromIdentifier[CtId[T] <: ContractTypeId.Definite[T]](
       b: ContractTypeId.Like[CtId],
       id: Ref.Identifier,
-  ): b.Resolved =
+  ): b.ResolvedPkg =
     fromQualifiedName(b, id.packageId, id.qualifiedName)
 
   // assert that the given identifier is resolved
@@ -554,8 +554,8 @@ object PackageService {
       b: ContractTypeId.Like[CtId],
       pkgId: Ref.PackageId,
       qn: Ref.QualifiedName,
-  ): b.Resolved =
-    b(pkgId, qn.module.dottedName, qn.name.dottedName)
+  ): b.ResolvedPkg =
+    b(Ref.PackageRef.Id(pkgId): Ref.PackageRef, qn.module.dottedName, qn.name.dottedName)
 
   // TODO (Leo): merge getChoiceTypeMap and getKeyTypeMap, so we build them in one iteration over all templates
   private def getChoiceTypeMap(packageStore: PackageStore): ChoiceTypeMap =
@@ -581,7 +581,7 @@ object PackageService {
     })
 
   private[this] type ChoicesByInterface[Ty] =
-    Map[Choice, NonEmpty[Map[Option[ContractTypeId.Interface.Resolved], Ty]]]
+    Map[Choice, NonEmpty[Map[Option[ContractTypeId.Interface.ResolvedPkg], Ty]]]
 
   private def getTChoices[Ty](
       choices: Map[Ref.ChoiceName, NonEmpty[
@@ -603,7 +603,7 @@ object PackageService {
       choices: Map[Ref.ChoiceName, typesig.TemplateChoice[Ty]]
   ): ChoicesByInterface[Ty] =
     choices.map { case (name, typesig.TemplateChoice(pTy, _, _)) =>
-      (Choice(name: String), NonEmpty(Map, none[ContractTypeId.Interface.Resolved] -> pTy))
+      (Choice(name: String), NonEmpty(Map, none[ContractTypeId.Interface.ResolvedPkg] -> pTy))
     }
 
   // flatten two levels of partiality into one
@@ -623,7 +623,7 @@ object PackageService {
 
   private def getKeys(
       interface: typesig.PackageSignature
-  ): Map[ContractTypeId.Template.Resolved, typesig.Type] =
+  ): Map[ContractTypeId.Template.ResolvedPkg, typesig.Type] =
     interface.typeDecls.collect {
       case (
             qn,
@@ -631,7 +631,11 @@ object PackageService {
               .Template(_, typesig.DefTemplate(_, Some(keyType), _)),
           ) =>
         val templateId =
-          ContractTypeId.Template(interface.packageId, qn.module.dottedName, qn.name.dottedName)
+          ContractTypeId.Template(
+            Ref.PackageRef.Id(interface.packageId),
+            qn.module.dottedName,
+            qn.name.dottedName,
+          )
         (templateId, keyType)
     }
 }
