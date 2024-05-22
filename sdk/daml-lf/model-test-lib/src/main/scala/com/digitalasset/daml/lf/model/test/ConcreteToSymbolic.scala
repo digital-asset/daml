@@ -92,7 +92,11 @@ object ConcreteToSymbolic {
       ledger.map(toSymbolic)
 
     def toSymbolic(participant: Conc.Participant): Sym.Participant =
-      Sym.Participant(ctx.mkInt(participant.participantId), toSymbolic(participant.parties))
+      Sym.Participant(
+        ctx.mkInt(participant.participantId),
+        toSymbolic(participant.packages),
+        toSymbolic(participant.parties),
+      )
 
     def toSymbolic(topology: Conc.Topology): Sym.Topology =
       topology.map(toSymbolic)
