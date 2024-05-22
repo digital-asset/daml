@@ -16,16 +16,18 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.BlockSequencerStateManager.ChunkState
 import com.digitalasset.canton.domain.block.data.memory.InMemorySequencerBlockStore
 import com.digitalasset.canton.domain.block.data.{BlockEphemeralState, BlockInfo, EphemeralState}
+import com.digitalasset.canton.domain.block.update.{
+  BlockUpdate,
+  BlockUpdateGenerator,
+  OrderedBlockUpdate,
+  SignedChunkEvents,
+}
 import com.digitalasset.canton.domain.block.{
   BlockEvents,
   BlockSequencerStateManager,
   BlockSequencerStateManagerBase,
-  BlockUpdate,
-  BlockUpdateGenerator,
-  OrderedBlockUpdate,
   RawLedgerBlock,
   SequencerDriverHealthStatus,
-  SignedChunkEvents,
 }
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequest

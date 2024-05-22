@@ -51,7 +51,15 @@ class ValidatingTopologyMappingChecksTest
   }
 
   "TopologyMappingChecks" when {
-    import DefaultTestIdentities.{domainId, participant1, participant2, participant3, party1}
+    import DefaultTestIdentities.{
+      domainId,
+      participant1,
+      participant2,
+      participant3,
+      party1,
+      party2,
+      party3,
+    }
     import factory.TestingTransactions.*
 
     def checkTransaction(
@@ -462,6 +470,68 @@ class ValidatingTopologyMappingChecksTest
           InvalidTopologyMapping(
             "OwnerToKeyMapping for participants must contain at least 1 encryption key."
           )
+        )
+      }
+    }
+
+    "validating AuthorityOf" should {
+      val ptps @ Seq(p1_ptp, p2_ptp, p3_ptp) = Seq(party1, party2, party3).map { party =>
+        factory.mkAdd(
+          PartyToParticipant(
+            party,
+            None,
+            PositiveInt.one,
+            Seq(HostingParticipant(participant1, ParticipantPermission.Confirmation)),
+            groupAddressing = false,
+          )
+        )
+      }
+      "report no errors for valid mappings" in {
+        val (checks, store) = mk()
+        addToStore(store, ptps*)
+
+        val authorityOf =
+          factory.mkAdd(AuthorityOf(party1, None, PositiveInt.two, Seq(party2, party3)))
+        checkTransaction(checks, authorityOf) shouldBe Right(())
+      }
+
+      "report UnknownParties for missing PTPs for referenced parties" in {
+        val (checks, store) = mk()
+        addToStore(store, p1_ptp)
+
+        val missingAuthorizingParty =
+          factory.mkAdd(AuthorityOf(party2, None, PositiveInt.one, Seq(party1)))
+        checkTransaction(checks, missingAuthorizingParty) shouldBe Left(
+          TopologyTransactionRejection.UnknownParties(Seq(party2))
+        )
+
+        val missingAuthorizedParty =
+          factory.mkAdd(AuthorityOf(party1, None, PositiveInt.one, Seq(party2)))
+        checkTransaction(checks, missingAuthorizedParty) shouldBe Left(
+          TopologyTransactionRejection.UnknownParties(Seq(party2))
+        )
+
+        val missingAllParties =
+          factory.mkAdd(AuthorityOf(party2, None, PositiveInt.one, Seq(party3)))
+        checkTransaction(checks, missingAllParties) shouldBe Left(
+          TopologyTransactionRejection.UnknownParties(Seq(party2, party3))
+        )
+
+        val missingMixedParties =
+          factory.mkAdd(AuthorityOf(party2, None, PositiveInt.one, Seq(party1, party3)))
+        checkTransaction(checks, missingMixedParties) shouldBe Left(
+          TopologyTransactionRejection.UnknownParties(Seq(party2, party3))
+        )
+      }
+
+      "report ThresholdTooHigh if the threshold is higher than the number of authorized parties" in {
+        val (checks, store) = mk()
+        addToStore(store, ptps*)
+
+        val thresholdTooHigh =
+          factory.mkAdd(AuthorityOf(party1, None, PositiveInt.three, Seq(party2, party3)))
+        checkTransaction(checks, thresholdTooHigh) shouldBe Left(
+          TopologyTransactionRejection.ThresholdTooHigh(3, 2)
         )
       }
     }

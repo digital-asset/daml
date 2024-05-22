@@ -1,15 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.domain.block
+package com.digitalasset.canton.domain.block.update
 
 import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.crypto.SyncCryptoApi
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.block.BlockUpdateGenerator.EventsForSubmissionRequest
 import com.digitalasset.canton.domain.block.data.{BlockInfo, BlockUpdateEphemeralState}
+import com.digitalasset.canton.domain.block.update.BlockUpdateGenerator.EventsForSubmissionRequest
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer.LocalEvent
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   InFlightAggregationUpdates,

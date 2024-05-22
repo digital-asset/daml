@@ -57,6 +57,15 @@ object TopologyTransactionRejection {
     }
   }
 
+  final case class UnknownParties(parties: Seq[PartyId]) extends TopologyTransactionRejection {
+    override def asString: String = s"Parties ${parties.sorted.mkString(", ")} are unknown."
+
+    override def pretty: Pretty[UnknownParties.this.type] = prettyOfString(_ => asString)
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.UnknownParties.Failure(parties)
+
+  }
+
   final case class OnboardingRestrictionInPlace(
       participant: ParticipantId,
       restriction: OnboardingRestriction,

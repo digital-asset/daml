@@ -479,6 +479,26 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
+    "This error indicates that the topology transaction references parties that are currently unknown."
+  )
+  @Resolution(
+    """Wait for the onboarding of the parties to be become active or remove the unknown parties from the topology transaction.
+      |The metadata details of this error contain the unknown parties in the field ``parties``."""
+  )
+  object UnknownParties
+      extends ErrorCode(
+        id = "UNKNOWN_PARTIES",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+      ) {
+    final case class Failure(parties: Seq[PartyId])(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"Parties ${parties.sorted.mkString(", ")} are unknown."
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
     """This error indicates that a participant is trying to rescind their domain trust certificate
       |while still being hosting parties."""
   )

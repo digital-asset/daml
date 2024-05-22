@@ -100,6 +100,11 @@ class ValidatingTopologyMappingChecks(
             )
           )
 
+      case (Code.AuthorityOf, None | Some(Code.AuthorityOf)) =>
+        toValidate
+          .select[TopologyChangeOp.Replace, AuthorityOf]
+          .map(checkAuthorityOf(effective, _))
+
       case otherwise => None
     }
     checkOpt.getOrElse(EitherTUtil.unit)
@@ -417,5 +422,43 @@ class ValidatingTopologyMappingChecks(
       ),
     )
     thresholdCheck.flatMap(_ => checkMissingMappings())
+  }
+
+  private def checkAuthorityOf(
+      effectiveTime: EffectiveTime,
+      toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, AuthorityOf],
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, TopologyTransactionRejection, Unit] = {
+    def checkPartiesAreKnown(): EitherT[Future, TopologyTransactionRejection, Unit] = {
+      val allPartiesToLoad = toValidate.mapping.partyId +: toValidate.mapping.parties
+      loadFromStore(
+        effectiveTime,
+        Code.PartyToParticipant,
+        filterUid = Some(allPartiesToLoad.map(_.uid)),
+      ).flatMap { partyMappings =>
+        val knownParties = partyMappings.result
+          .flatMap(_.selectMapping[PartyToParticipant])
+          .map(_.mapping.partyId)
+
+        val missingParties = allPartiesToLoad.toSet -- knownParties
+
+        EitherTUtil.condUnitET(
+          missingParties.isEmpty,
+          TopologyTransactionRejection.UnknownParties(missingParties.toSeq.sorted),
+        )
+      }
+    }
+
+    val checkThreshold = {
+      val actual = toValidate.mapping.threshold.value
+      val mustBeAtMost = toValidate.mapping.parties.size
+      EitherTUtil.condUnitET(
+        actual <= mustBeAtMost,
+        TopologyTransactionRejection.ThresholdTooHigh(actual, mustBeAtMost),
+      )
+    }
+
+    checkThreshold.flatMap(_ => checkPartiesAreKnown())
   }
 }

@@ -84,10 +84,13 @@ class TopologyAdministrationGroup(
                       |Automatic node initialisation is usually turned off to preserve the identity of a participant or domain
                       |node (during major version upgrades) or if the topology transactions are managed through
                       |a different topology manager than the one integrated into this node.""")
-  def init_id(identifier: UniqueIdentifier): Unit =
+  def init_id(identifier: UniqueIdentifier, waitForReady: Boolean = true): Unit = {
+    if (waitForReady) instance.health.wait_for_ready_for_id()
+
     consoleEnvironment.run {
       adminCommand(TopologyAdminCommands.Init.InitId(identifier.toProtoPrimitive))
     }
+  }
 
   private def getIdCommand(): ConsoleCommandResult[UniqueIdentifier] =
     adminCommand(TopologyAdminCommands.Init.GetId())

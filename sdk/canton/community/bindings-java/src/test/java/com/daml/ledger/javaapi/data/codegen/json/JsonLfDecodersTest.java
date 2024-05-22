@@ -150,7 +150,9 @@ public class JsonLfDecodersTest {
         eq("\"1990-11-09T04:30:23.1Z\"", timestampUTC(1990, Month.NOVEMBER, 9, 4, 30, 23, 100000)),
         eq("\"1990-11-09T04:30:23Z\"", timestampUTC(1990, Month.NOVEMBER, 9, 4, 30, 23, 0)),
         eq("\"0001-01-01T00:00:00Z\"", timestampUTC(1, Month.JANUARY, 1, 0, 0, 0, 0)),
-        eq("\"1990-11-09T04:30:23.123-07:00\"", timestampUTC(1990, Month.NOVEMBER, 9, 11, 30, 23, 123000)));
+        eq(
+            "\"1990-11-09T04:30:23.123-07:00\"",
+            timestampUTC(1990, Month.NOVEMBER, 9, 11, 30, 23, 123000)));
   }
 
   @Test
