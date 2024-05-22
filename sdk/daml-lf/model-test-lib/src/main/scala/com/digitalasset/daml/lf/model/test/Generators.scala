@@ -55,11 +55,14 @@ class Generators(numParticipants: Int, numPackages: Int, numParties: Int) {
     } yield Scenario(topology, ledger)
 
   // Randomly assigns a participant ID to each party. Retry until each
-  // participant hosts at least one party.
+  // party is hosted by at least one participant.
   lazy val topologyGen: Gen[Topology] =
     (0 until numParticipants).toList
       .traverse(participantId =>
-        nonEmptyPartySetGen.map(parties => Participant(participantId, parties))
+        for {
+          packages <- nonEmptyPackageIdSetGen
+          parties <- nonEmptyPartySetGen
+        } yield Participant(participantId, packages, parties)
       )
       .retryUntil(_.flatMap(_.parties).toSet.size == numParties)
 
@@ -68,6 +71,9 @@ class Generators(numParticipants: Int, numPackages: Int, numParties: Int) {
 
   lazy val nonEmptyPartySetGen: Gen[PartySet] =
     Gen.atLeastOne(1 to numParties).map(_.toSet)
+
+  lazy val nonEmptyPackageIdSetGen: Gen[PackageIdSet] =
+    Gen.atLeastOne(0 until numPackages).map(_.toSet)
 
   lazy val contractIdGen: Gen[ContractId] =
     Gen.posNum[ContractId]
