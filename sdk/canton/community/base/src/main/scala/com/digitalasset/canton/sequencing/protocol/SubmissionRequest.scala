@@ -58,7 +58,7 @@ final case class SubmissionRequest private (
   @transient override protected lazy val companionObj: SubmissionRequest.type = SubmissionRequest
 
   @VisibleForTesting
-  def isRequest: Boolean = {
+  def isConfirmationRequest: Boolean = {
     val hasParticipantRecipient = batch.allMembers.exists {
       case _: ParticipantId => true
       case _: Member => false
@@ -125,7 +125,7 @@ final case class SubmissionRequest private (
     *     [[com.digitalasset.canton.sequencing.protocol.ClosedEnvelope.bytes]] are interpreted.
     *     </li>
     *   <li>The [[sender]] and the [[messageId]], as they are specific to the sender of a particular submission request</li>
-    *   <li>The [[isRequest]] flag because it is irrelevant for delivery or aggregation</li>
+    *   <li>The [[isConfirmationRequest]] flag because it is irrelevant for delivery or aggregation</li>
     * </ul>
     */
   def aggregationId(hashOps: HashOps): Option[AggregationId] = aggregationRule.map { rule =>

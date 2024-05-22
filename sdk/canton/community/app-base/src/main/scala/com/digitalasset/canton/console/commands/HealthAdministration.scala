@@ -113,10 +113,25 @@ class HealthAdministration[S <: data.NodeStatus.Status](
     // in case the node is not reachable, we assume it is not running
     falseIfUnreachable(runningCommand)
 
+  @Help.Summary("Check if the node is ready for setting the node's id")
+  def is_ready_for_id(): Boolean = falseIfUnreachable(
+    adminCommand(StatusAdminCommands.IsReadyForId)
+  )
+
+  @Help.Summary("Check if the node is ready for uploading the node's identity topology")
+  def is_ready_for_node_topology(): Boolean = falseIfUnreachable(
+    adminCommand(StatusAdminCommands.IsReadyForNodeTopology)
+  )
+
+  @Help.Summary("Check if the node is ready for initialization")
+  def is_ready_for_initialization(): Boolean = falseIfUnreachable(
+    adminCommand(StatusAdminCommands.IsReadyForInitialization)
+  )
+
   @Help.Summary("Check if the node is running and is the active instance (mediator, participant)")
   def active: Boolean = status match {
     case NodeStatus.Success(status) => status.active
-    case NodeStatus.NotInitialized(active) => active
+    case NodeStatus.NotInitialized(active, _) => active
     case _ => false
   }
 
@@ -141,6 +156,13 @@ class HealthAdministration[S <: data.NodeStatus.Status](
       case x => x
     })
   }
+
+  @Help.Summary("Wait for the node to be ready for setting the node's id")
+  def wait_for_ready_for_id(): Unit = waitFor(is_ready_for_id())
+  @Help.Summary("Wait for the node to be ready for uploading the node's identity topology")
+  def wait_for_ready_for_node_topology(): Unit = waitFor(is_ready_for_node_topology())
+  @Help.Summary("Wait for the node to be ready for initialization")
+  def wait_for_ready_for_initialization(): Unit = waitFor(is_ready_for_initialization())
 
   protected def waitFor(condition: => Boolean): Unit = {
     // all calls here are potentially unbounded. we do not know how long it takes

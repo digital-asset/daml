@@ -765,7 +765,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
               true,
               s"${instance.id.member} has already been initialized for domain ${status.domainId} instead of $domainId",
             )
-          case NodeStatus.NotInitialized(true) =>
+          case NodeStatus.NotInitialized(true, _) =>
             // the node is not yet initialized for this domain
             Right(false)
           case NodeStatus.Failure(msg) =>

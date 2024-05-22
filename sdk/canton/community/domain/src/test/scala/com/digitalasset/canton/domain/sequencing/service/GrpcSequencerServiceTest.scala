@@ -222,6 +222,26 @@ class GrpcSequencerServiceTest
     )
   }
 
+  private lazy val defaultConfirmationRequest: SubmissionRequest = {
+    val sender: Member = participant
+    val recipientPar = MemberRecipient(DefaultTestIdentities.participant2)
+    val recipientMed = MediatorGroupRecipient(NonNegativeInt.zero)
+    mkSubmissionRequest(
+      Batch(
+        List(
+          ClosedEnvelope.create(
+            content,
+            Recipients.cc(recipientPar, recipientMed),
+            Seq.empty,
+            testedProtocolVersion,
+          )
+        ),
+        testedProtocolVersion,
+      ),
+      sender,
+    )
+  }
+
   "send signed" should {
     def signedSubmissionReq(
         request: SubmissionRequest
@@ -438,14 +458,14 @@ class GrpcSequencerServiceTest
         )
     }
 
-    "reject on rate excess" in { implicit env =>
+    "reject on confirmation rate excess" in { implicit env =>
       def expectSuccess(): Future[Assertion] = {
-        sendAndCheckSucceed(defaultRequest)
+        sendAndCheckSucceed(defaultConfirmationRequest)
       }
 
       def expectOneSuccessOneOverloaded(): Future[Assertion] = {
-        val result1F = send(defaultRequest, authenticated = true)
-        val result2F = send(defaultRequest, authenticated = true)
+        val result1F = send(defaultConfirmationRequest, authenticated = true)
+        val result2F = send(defaultConfirmationRequest, authenticated = true)
         for {
           result1 <- result1F
           result2 <- result2F
@@ -461,8 +481,9 @@ class GrpcSequencerServiceTest
             case (Some(error), None) => assertOverloadedError(error)
             case (None, Some(error)) => assertOverloadedError(error)
             case (Some(_), Some(_)) =>
-              fail("at least one successful submition expected, but both failed")
-            case (None, None) => fail("at least one overloaded submition expected, but none failed")
+              fail("at least one successful submission expected, but both failed")
+            case (None, None) =>
+              fail("at least one overloaded submission expected, but none failed")
           }
         }
       }

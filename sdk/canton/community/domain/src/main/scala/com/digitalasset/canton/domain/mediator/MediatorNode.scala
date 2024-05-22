@@ -29,13 +29,11 @@ import com.digitalasset.canton.domain.mediator.store.{
 import com.digitalasset.canton.domain.metrics.MediatorMetrics
 import com.digitalasset.canton.domain.service.GrpcSequencerConnectionService
 import com.digitalasset.canton.environment.*
-import com.digitalasset.canton.health.admin.data.MediatorNodeStatus
-import com.digitalasset.canton.health.{
-  ComponentStatus,
-  DependenciesHealthService,
-  GrpcHealthReporter,
-  LivenessHealthService,
-  MutableHealthComponent,
+import com.digitalasset.canton.health.*
+import com.digitalasset.canton.health.admin.data.{
+  MediatorNodeStatus,
+  WaitingForExternalInput,
+  WaitingForInitialization,
 }
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -277,6 +275,10 @@ class MediatorNodeBootstrap(
         )
       )
     }
+
+    override def waitingFor: Option[WaitingForExternalInput] = Some(
+      WaitingForInitialization
+    )
 
     override protected def autoCompleteStage()
         : EitherT[FutureUnlessShutdown, String, Option[DomainId]] =

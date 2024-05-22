@@ -34,7 +34,12 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction
 import com.digitalasset.canton.error.FatalError
-import com.digitalasset.canton.health.admin.data.NodeStatus
+import com.digitalasset.canton.health.admin.data.{
+  NodeStatus,
+  WaitingForExternalInput,
+  WaitingForId,
+  WaitingForNodeTopology,
+}
 import com.digitalasset.canton.health.admin.grpc.GrpcStatusService
 import com.digitalasset.canton.health.admin.v30.StatusServiceGrpc
 import com.digitalasset.canton.health.{
@@ -198,7 +203,23 @@ abstract class CantonNodeBootstrapImpl[
   private def status: Future[NodeStatus[NodeStatus.Status]] = {
     getNode
       .map(_.status.map(NodeStatus.Success(_)))
-      .getOrElse(Future.successful(NodeStatus.NotInitialized(isActive)))
+      .getOrElse(
+        Future.successful(NodeStatus.NotInitialized(isActive, waitingFor))
+      )
+  }
+
+  private def waitingFor: Option[WaitingForExternalInput] = {
+    def nextStage(stage: BootstrapStage[?, ?]): Option[BootstrapStage[?, ?]] = {
+      stage.next match {
+        case Some(s: BootstrapStage[_, _]) => nextStage(s)
+        case Some(_: RunningNode[_]) => None
+        // BootstrapStageOrLeaf is not a sealed class, therefore we need to catch any other
+        // possible subclass
+        case Some(_) => None
+        case None => Some(stage)
+      }
+    }
+    nextStage(startupStage).flatMap(_.waitingFor)
   }
 
   protected def registerHealthGauge(): Unit = {
@@ -481,6 +502,8 @@ abstract class CantonNodeBootstrapImpl[
           )
       )
 
+    override def waitingFor: Option[WaitingForExternalInput] = Some(WaitingForId)
+
     override protected def stageCompleted(implicit
         traceContext: TraceContext
     ): Future[Option[UniqueIdentifier]] = initializationStore.uid
@@ -621,6 +644,8 @@ abstract class CantonNodeBootstrapImpl[
       topologyManager.addObserver(topologyManagerObserver)
       super.start()
     }
+
+    override def waitingFor: Option[WaitingForExternalInput] = Some(WaitingForNodeTopology)
 
     override protected def stageCompleted(implicit
         traceContext: TraceContext

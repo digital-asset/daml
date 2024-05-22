@@ -36,9 +36,18 @@ class GrpcStatusService(
     status.map {
       case data.NodeStatus.Success(status) =>
         v30.StatusResponse(v30.StatusResponse.Response.Success(status.toProtoV30))
-      case data.NodeStatus.NotInitialized(active) =>
+      case data.NodeStatus.NotInitialized(active, waitingFor) =>
         v30.StatusResponse(
-          v30.StatusResponse.Response.NotInitialized(v30.StatusResponse.NotInitialized(active))
+          v30.StatusResponse.Response.NotInitialized(
+            v30.StatusResponse.NotInitialized(
+              active,
+              waitingFor
+                .map(_.toProtoV30)
+                .getOrElse(
+                  v30.StatusResponse.NotInitialized.WaitingForExternalInput.WAITING_FOR_EXTERNAL_INPUT_UNSPECIFIED
+                ),
+            )
+          )
         )
       case data.NodeStatus.Failure(_msg) =>
         // The node's status should never return a Failure here.

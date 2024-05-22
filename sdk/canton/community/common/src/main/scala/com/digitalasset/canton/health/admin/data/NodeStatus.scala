@@ -7,11 +7,12 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
-import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
+import com.digitalasset.canton.ProtoDeserializationError.{InvariantViolation, UnrecognizedEnum}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.health.ComponentHealthState.UnhealthyState
 import com.digitalasset.canton.health.admin.data.NodeStatus.{multiline, portsString}
 import com.digitalasset.canton.health.admin.v30
+import com.digitalasset.canton.health.admin.v30.StatusResponse.NotInitialized.WaitingForExternalInput as V30WaitingForExternalInput
 import com.digitalasset.canton.health.{
   ComponentHealthState,
   ComponentStatus,
@@ -51,8 +52,10 @@ object NodeStatus {
   }
 
   /** A node is running but not yet initialized. */
-  final case class NotInitialized(active: Boolean) extends NodeStatus[Nothing] {
-    override def pretty: Pretty[NotInitialized] = prettyOfClass(param("active", _.active))
+  final case class NotInitialized(active: Boolean, waitingFor: Option[WaitingForExternalInput])
+      extends NodeStatus[Nothing] {
+    override def pretty: Pretty[NotInitialized] =
+      prettyOfClass(param("active", _.active), paramIfDefined("waitingFor", _.waitingFor))
     override def trySuccess: Nothing = sys.error(s"Node is not yet initialized.")
     override def successOption: Option[Nothing] = None
 
@@ -82,6 +85,45 @@ object NodeStatus {
     }.toSeq)
   private[data] def multiline(elements: Seq[String]): String =
     if (elements.isEmpty) "None" else elements.map(el => s"\n\t$el").mkString
+}
+
+sealed abstract class WaitingForExternalInput extends PrettyPrinting {
+  def toProtoV30: V30WaitingForExternalInput
+}
+case object WaitingForId extends WaitingForExternalInput {
+  override def pretty: Pretty[WaitingForId.this.type] = prettyOfString(_ => "ID")
+
+  override def toProtoV30: V30WaitingForExternalInput =
+    V30WaitingForExternalInput.WAITING_FOR_EXTERNAL_INPUT_ID
+}
+case object WaitingForNodeTopology extends WaitingForExternalInput {
+  override def pretty: Pretty[WaitingForNodeTopology.this.type] =
+    prettyOfString(_ => "Node Topology")
+
+  override def toProtoV30: V30WaitingForExternalInput =
+    V30WaitingForExternalInput.WAITING_FOR_EXTERNAL_INPUT_NODE_TOPOLOGY
+}
+case object WaitingForInitialization extends WaitingForExternalInput {
+  override def pretty: Pretty[WaitingForInitialization.this.type] =
+    prettyOfString(_ => "Initialization")
+
+  override def toProtoV30: V30WaitingForExternalInput =
+    V30WaitingForExternalInput.WAITING_FOR_EXTERNAL_INPUT_INITIALIZATION
+}
+
+object WaitingForExternalInput {
+  def fromProtoV30(
+      externalInput: V30WaitingForExternalInput
+  ): ParsingResult[Option[WaitingForExternalInput]] = externalInput match {
+    case V30WaitingForExternalInput.WAITING_FOR_EXTERNAL_INPUT_UNSPECIFIED => Right(None)
+    case V30WaitingForExternalInput.WAITING_FOR_EXTERNAL_INPUT_ID => Right(Some(WaitingForId))
+    case V30WaitingForExternalInput.WAITING_FOR_EXTERNAL_INPUT_NODE_TOPOLOGY =>
+      Right(Some(WaitingForNodeTopology))
+    case V30WaitingForExternalInput.WAITING_FOR_EXTERNAL_INPUT_INITIALIZATION =>
+      Right(Some(WaitingForInitialization))
+    case V30WaitingForExternalInput.Unrecognized(unrecognizedValue) =>
+      Left(UnrecognizedEnum("waiting_for_external_input", unrecognizedValue))
+  }
 }
 
 final case class SimpleStatus(

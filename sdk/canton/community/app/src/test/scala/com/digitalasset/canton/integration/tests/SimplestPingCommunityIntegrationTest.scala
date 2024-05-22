@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.config.CommunityStorageConfig
 import com.digitalasset.canton.console.InstanceReference
-import com.digitalasset.canton.health.admin.data.NodeStatus
+import com.digitalasset.canton.health.admin.data.{NodeStatus, WaitingForInitialization}
 import com.digitalasset.canton.integration.CommunityTests.{
   CommunityIntegrationTest,
   SharedCommunityEnvironment,
@@ -31,8 +31,14 @@ sealed trait SimplestPingCommunityIntegrationTest
     sequencer1.start()
     mediator1.start()
 
-    sequencer1.health.status shouldBe NodeStatus.NotInitialized(true)
-    mediator1.health.status shouldBe NodeStatus.NotInitialized(true)
+    sequencer1.health.status shouldBe NodeStatus.NotInitialized(
+      active = true,
+      Some(WaitingForInitialization),
+    )
+    mediator1.health.status shouldBe NodeStatus.NotInitialized(
+      active = true,
+      Some(WaitingForInitialization),
+    )
 
     bootstrap.domain(
       "da",

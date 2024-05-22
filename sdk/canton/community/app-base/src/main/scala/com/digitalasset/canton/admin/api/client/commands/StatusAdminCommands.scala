@@ -6,6 +6,7 @@ package com.digitalasset.canton.admin.api.client.commands
 import cats.syntax.either.*
 import ch.qos.logback.classic.Level
 import com.digitalasset.canton.ProtoDeserializationError
+import com.digitalasset.canton.health.admin.data.WaitingForExternalInput
 import com.digitalasset.canton.health.admin.v30.{
   HealthDumpRequest,
   HealthDumpResponse,
@@ -43,7 +44,14 @@ object StatusAdminCommands {
     override def handleResponse(response: v30.StatusResponse): Either[String, data.NodeStatus[S]] =
       ((response.response match {
         case v30.StatusResponse.Response.NotInitialized(notInitialized) =>
-          Right(data.NodeStatus.NotInitialized(notInitialized.active))
+          WaitingForExternalInput
+            .fromProtoV30(notInitialized.waitingForExternalInput)
+            .map(waitingFor =>
+              data.NodeStatus.NotInitialized(
+                notInitialized.active,
+                waitingFor,
+              )
+            )
         case v30.StatusResponse.Response.Success(status) =>
           deserialize(status).map(data.NodeStatus.Success(_))
         case v30.StatusResponse.Response.Empty =>
@@ -88,6 +96,28 @@ object StatusAdminCommands {
         case v30.StatusResponse.Response.Success(_) => true
         case _ => false
       })
+
+  sealed abstract class IsReadyForExternalInput(
+      externalInput: v30.StatusResponse.NotInitialized.WaitingForExternalInput
+  ) extends StatusAdminCommands.FromStatus({
+        case v30.StatusResponse.Response
+              .NotInitialized(v30.StatusResponse.NotInitialized(active, `externalInput`)) =>
+          true
+        case _ => false
+      })
+
+  object IsReadyForId
+      extends IsReadyForExternalInput(
+        v30.StatusResponse.NotInitialized.WaitingForExternalInput.WAITING_FOR_EXTERNAL_INPUT_ID
+      )
+  object IsReadyForNodeTopology
+      extends IsReadyForExternalInput(
+        v30.StatusResponse.NotInitialized.WaitingForExternalInput.WAITING_FOR_EXTERNAL_INPUT_NODE_TOPOLOGY
+      )
+  object IsReadyForInitialization
+      extends IsReadyForExternalInput(
+        v30.StatusResponse.NotInitialized.WaitingForExternalInput.WAITING_FOR_EXTERNAL_INPUT_INITIALIZATION
+      )
 
   class FromStatus(predicate: v30.StatusResponse.Response => Boolean)
       extends GetStatusBase[Boolean] {
