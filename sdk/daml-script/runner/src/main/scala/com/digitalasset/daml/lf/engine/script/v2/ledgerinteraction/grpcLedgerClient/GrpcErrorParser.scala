@@ -19,6 +19,13 @@ import io.grpc.StatusRuntimeException
 import scala.reflect.ClassTag
 import scala.util.Try
 
+object GrpcErrorParser {
+  private val parsers = LanguageMajorVersion.All.map(v => v -> new GrpcErrorParser(v)).toMap
+
+  def apply(majorLanguageVersion: LanguageMajorVersion): GrpcErrorParser =
+    parsers(majorLanguageVersion)
+}
+
 class GrpcErrorParser(majorVersion: LanguageMajorVersion) {
   val submitErrors = new SubmitErrors(majorVersion)
 

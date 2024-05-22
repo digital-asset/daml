@@ -61,8 +61,8 @@ class GrpcLedgerClient(
 
   private val majorLanguageVersion =
     compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion
-  private val converter = new Converter(majorLanguageVersion)
-  private val grpcErrorParser = new GrpcErrorParser(majorLanguageVersion)
+  private val converter = Converter(majorLanguageVersion)
+  private val grpcErrorParser = GrpcErrorParser(majorLanguageVersion)
 
   override def query(
       parties: OneAnd[Set, Ref.Party],

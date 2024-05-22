@@ -26,7 +26,7 @@ import scalaz.syntax.traverse._
 
 import scala.annotation.tailrec
 
-object Converter extends script.ConverterMethods(LanguageMajorVersion.V1) {
+object Converter extends script.Converter(LanguageMajorVersion.V1) {
   import com.daml.script.converter.Converter._
 
   def translateExerciseResult(

@@ -22,8 +22,15 @@ import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.syntax.traverse._
 
+object Converter {
+  private val converters = LanguageMajorVersion.All.map(v => v -> new Converter(v)).toMap
+
+  def apply(majorLanguageVersion: LanguageMajorVersion): Converter =
+    converters(majorLanguageVersion)
+}
+
 final class Converter(majorLanguageVersion: LanguageMajorVersion)
-    extends script.ConverterMethods(majorLanguageVersion) {
+    extends script.Converter(majorLanguageVersion) {
   import com.daml.script.converter.Converter._
 
   def translateExerciseResult(

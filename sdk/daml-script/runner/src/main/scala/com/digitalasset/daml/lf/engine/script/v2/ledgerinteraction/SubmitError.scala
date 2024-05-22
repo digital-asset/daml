@@ -33,7 +33,7 @@ class SubmitErrors(majorLanguageVersion: LanguageMajorVersion) {
   import ScriptF.Env
   import com.daml.script.converter.Converter._
 
-  val converter = new Converter(majorLanguageVersion)
+  val converter = Converter(majorLanguageVersion)
   import converter._
 
   case class SubmitErrorConverters(env: ScriptF.Env) {

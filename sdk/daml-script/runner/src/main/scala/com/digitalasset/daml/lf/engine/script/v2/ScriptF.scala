@@ -36,6 +36,11 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 object ScriptF {
+  private val scriptFs = LanguageMajorVersion.All.map(v => v -> new ScriptF(v)).toMap
+
+  def apply(majorLanguageVersion: LanguageMajorVersion): ScriptF =
+    scriptFs(majorLanguageVersion)
+
   final case class Ctx(knownPackages: Map[String, PackageId], compiledPackages: CompiledPackages)
 
   // The environment that the `execute` function gets access to.
@@ -96,7 +101,7 @@ object ScriptF {
 class ScriptF(majorLanguageVersion: LanguageMajorVersion) {
   import ScriptF._
 
-  val converter = new Converter(majorLanguageVersion)
+  val converter = Converter(majorLanguageVersion)
   val stablePackages = StablePackages(majorLanguageVersion)
 
   val left = SEBuiltin(

@@ -32,7 +32,7 @@ private[lf] class Runner(
   import Free.Result
   import SExpr.SExpr
 
-  val scriptF = new ScriptF(
+  val scriptF = ScriptF(
     unversionedRunner.compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion
   )
 
