@@ -44,7 +44,7 @@ class GrpcErrorParser(majorVersion: LanguageMajorVersion) {
 
   val parseList = (s: String) => s.tail.init.split(", ").toSeq
 
-  // Converts a given SubmitError into a submitErrors. Wraps in an UnknownError if its not what we expect, wraps in a TruncatedError if we're missing resources
+  // Converts a given SubmitError into a SubmitError. Wraps in an UnknownError if its not what we expect, wraps in a TruncatedError if we're missing resources
   def convertStatusRuntimeException(
       s: StatusRuntimeException,
       keyPackageNameLookup: PackageId => Either[String, KeyPackageName],
