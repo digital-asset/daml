@@ -13,11 +13,6 @@ cd "$(dirname "$0")"
 
 eval "$(cd ..; ./dev-env/bin/dade-assist)"
 
-# Git, symlinks and windows do not play well together
-# so we have to copy over the Bazel config. We just do
-# it unconditionally since it should be cheap enough.
-cp ../.bazelrc .bazelrc
-
 # Occasionally we end up with a stale sandbox process for a hardcoded
 # port number. Not quite sure how we end up with a stale process
 # but it happens sufficiently rarely that just killing it here is
