@@ -6,7 +6,7 @@ package transaction
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ImmArray
-import com.daml.lf.value.Value.ContractId
+import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.lf.value._
 
 /** Generic transaction node type for both update transactions and the
@@ -119,6 +119,29 @@ object Node {
 
     override def informeesOfNode: Set[Party] = stakeholders
     override def requiredAuthorizers: Set[Party] = signatories
+  }
+
+  object Create {
+
+    def apply(
+        coid: ContractId,
+        contract: VersionedContractInstance,
+        signatories: Set[Party],
+        stakeholders: Set[Party],
+        key: Option[GlobalKeyWithMaintainers],
+    ): Create =
+      Create(
+        coid = coid,
+        packageName = contract.unversioned.packageName,
+        packageVersion = contract.unversioned.packageVersion,
+        templateId = contract.unversioned.template,
+        arg = contract.unversioned.arg,
+        signatories = signatories,
+        stakeholders = stakeholders,
+        keyOpt = key,
+        version = contract.version,
+      )
+
   }
 
   /** Denotes that the contract identifier `coid` needs to be active for the transaction to be valid. */

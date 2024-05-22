@@ -480,14 +480,10 @@ object ModelConformanceChecker {
         // The contract id is already validated by SerializableContractAuthenticator,
         // as contract is an input contract of the underlying transaction.
         coid = actual.coid,
-        packageName = unversioned.packageName,
-        packageVersion = None,
-        templateId = unversioned.template,
-        arg = unversioned.arg,
+        contract = instance.contractInstance,
         signatories = metadata.signatories,
         stakeholders = metadata.stakeholders,
-        keyOpt = metadata.maybeKeyWithMaintainers,
-        version = instance.contractInstance.version,
+        key = metadata.maybeKeyWithMaintainers,
       )
       _ <- EitherT.cond[Future](
         actual == expected,
