@@ -8,21 +8,22 @@ package v2
 
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.validation.NoLoggingValueValidator
-import com.daml.lf.data._
 import com.daml.lf.data.Ref._
+import com.daml.lf.data._
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.StablePackagesV2
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
-import scalaz.std.list._
 import scalaz.std.either._
+import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.syntax.traverse._
 
-object Converter extends script.ConverterMethods(StablePackagesV2) {
+final class Converter(majorLanguageVersion: LanguageMajorVersion)
+    extends script.ConverterMethods(majorLanguageVersion) {
   import com.daml.script.converter.Converter._
 
   def translateExerciseResult(
@@ -178,7 +179,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
         )
         .map { rs =>
           SVariant(
-            StablePackagesV2.Either,
+            stablePackages.Either,
             Ref.Name.assertFromString("Right"),
             1,
             SList(rs),
@@ -187,7 +188,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
     case Left(submitError) =>
       Right(
         SVariant(
-          StablePackagesV2.Either,
+          stablePackages.Either,
           Ref.Name.assertFromString("Left"),
           0,
           translateError(submitError),
@@ -252,7 +253,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
         event.kind match {
           case TreeEvent.Kind.Created(created) =>
             for {
-              tplId <- Converter.fromApiIdentifier(created.getTemplateId)
+              tplId <- fromApiIdentifier(created.getTemplateId)
               cid <- ContractId.fromString(created.contractId)
               arg <-
                 NoLoggingValueValidator
@@ -268,8 +269,8 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
             )
           case TreeEvent.Kind.Exercised(exercised) =>
             for {
-              tplId <- Converter.fromApiIdentifier(exercised.getTemplateId)
-              ifaceId <- exercised.interfaceId.traverse(Converter.fromApiIdentifier)
+              tplId <- fromApiIdentifier(exercised.getTemplateId)
+              ifaceId <- exercised.interfaceId.traverse(fromApiIdentifier)
               cid <- ContractId.fromString(exercised.contractId)
               choice <- ChoiceName.fromString(exercised.choice)
               choiceArg <- NoLoggingValueValidator
@@ -303,7 +304,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
     }
   }
 
-  final case class Question[A](
+  case class Question[A](
       name: String,
       version: Int,
       payload: A,
@@ -424,10 +425,4 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       ("version", SText(packageName.version.toString)),
     )
   }
-
-  def makeTuple(v1: SValue, v2: SValue): SValue =
-    record(StablePackagesV2.Tuple2, ("_1", v1), ("_2", v2))
-
-  def makeTuple(v1: SValue, v2: SValue, v3: SValue): SValue =
-    record(StablePackagesV2.Tuple3, ("_1", v1), ("_2", v2), ("_3", v3))
 }

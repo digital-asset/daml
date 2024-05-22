@@ -16,7 +16,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.language.{Ast, LanguageVersion, StablePackagesV2}
+import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion, StablePackages}
 import com.daml.lf.speedy.SBuiltin.{SBToAny, SBVariantCon}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
@@ -36,26 +36,8 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 object ScriptF {
-  val left = SEBuiltin(
-    SBVariantCon(StablePackagesV2.Either, Name.assertFromString("Left"), 0)
-  )
-  val right = SEBuiltin(
-    SBVariantCon(StablePackagesV2.Either, Name.assertFromString("Right"), 1)
-  )
+  final case class Ctx(knownPackages: Map[String, PackageId], compiledPackages: CompiledPackages)
 
-  sealed trait Cmd {
-    private[lf] def executeWithRunner(env: Env, @annotation.unused runner: v2.Runner)(implicit
-        ec: ExecutionContext,
-        mat: Materializer,
-        esf: ExecutionSequencerFactory,
-    ): Future[SExpr] = execute(env)
-
-    private[lf] def execute(env: Env)(implicit
-        ec: ExecutionContext,
-        mat: Materializer,
-        esf: ExecutionSequencerFactory,
-    ): Future[SExpr]
-  }
   // The environment that the `execute` function gets access to.
   final class Env(
       val scriptIds: ScriptIds,
@@ -108,10 +90,37 @@ object ScriptF {
         case Left(err) => Left(err.pretty)
       }
     }
+  }
+}
 
+class ScriptF(majorLanguageVersion: LanguageMajorVersion) {
+  import ScriptF._
+
+  val converter = new Converter(majorLanguageVersion)
+  val stablePackages = StablePackages(majorLanguageVersion)
+
+  val left = SEBuiltin(
+    SBVariantCon(stablePackages.Either, Name.assertFromString("Left"), 0)
+  )
+  val right = SEBuiltin(
+    SBVariantCon(stablePackages.Either, Name.assertFromString("Right"), 1)
+  )
+
+  sealed trait Cmd {
+    private[lf] def executeWithRunner(env: Env, @annotation.unused runner: v2.Runner)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] = execute(env)
+
+    private[lf] def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr]
   }
 
-  final case class Throw(exc: SAny) extends Cmd {
+  sealed case class Throw(exc: SAny) extends Cmd {
     override def execute(
         env: Env
     )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
@@ -123,7 +132,7 @@ object ScriptF {
       )
   }
 
-  final case class Catch(act: SValue) extends Cmd {
+  sealed case class Catch(act: SValue) extends Cmd {
     override def executeWithRunner(env: Env, runner: v2.Runner)(implicit
         ec: ExecutionContext,
         mat: Materializer,
@@ -157,7 +166,7 @@ object ScriptF {
     ): Future[SExpr] = Future.failed(new NotImplementedError)
   }
 
-  final case class Submission(
+  case class Submission(
       actAs: OneAnd[Set, Party],
       readAs: Set[Party],
       cmds: List[ScriptLedgerClient.CommandWithMeta],
@@ -168,7 +177,7 @@ object ScriptF {
   )
 
   // The one submit to rule them all
-  final case class Submit(submissions: List[Submission]) extends Cmd {
+  sealed case class Submit(submissions: List[Submission]) extends Cmd {
     import ScriptLedgerClient.SubmissionErrorBehaviour._
 
     override def execute(
@@ -188,7 +197,7 @@ object ScriptF {
         env: Env,
     )(implicit ec: ExecutionContext, mat: Materializer): Future[SValue] =
       for {
-        client <- Converter.toFuture(
+        client <- converter.toFuture(
           env.clients
             .getPartiesParticipant(submission.actAs)
         )
@@ -211,11 +220,11 @@ object ScriptF {
               )
             )
           case (Right((commandResults, tree)), _) =>
-            Converter.toFuture(
+            converter.toFuture(
               commandResults
                 .to(FrontStack)
                 .traverse(
-                  Converter.fromCommandResult(
+                  converter.fromCommandResult(
                     env.lookupChoice,
                     env.valueTranslator,
                     env.scriptIds,
@@ -224,7 +233,7 @@ object ScriptF {
                   )
                 )
                 .flatMap { rs =>
-                  Converter
+                  converter
                     .translateTransactionTree(
                       env.lookupChoice,
                       env.valueTranslator,
@@ -236,10 +245,10 @@ object ScriptF {
                 }
                 .map { case (rs, tree) =>
                   SVariant(
-                    StablePackagesV2.Either,
+                    stablePackages.Either,
                     Name.assertFromString("Right"),
                     1,
-                    Converter.makeTuple(SList(rs), tree),
+                    converter.makeTuple(SList(rs), tree),
                   )
                 }
             )
@@ -247,7 +256,7 @@ object ScriptF {
           case (Left(ScriptLedgerClient.SubmitFailure(_, submitError)), _) =>
             Future.successful(
               SVariant(
-                StablePackagesV2.Either,
+                stablePackages.Either,
                 Name.assertFromString("Left"),
                 0,
                 submitError.toDamlSubmitError(env),
@@ -257,7 +266,7 @@ object ScriptF {
       } yield res
   }
 
-  final case class QueryACS(
+  sealed case class QueryACS(
       parties: OneAnd[Set, Party],
       tplId: Identifier,
   ) extends Cmd {
@@ -265,23 +274,23 @@ object ScriptF {
         env: Env
     )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
       for {
-        client <- Converter.toFuture(
+        client <- converter.toFuture(
           env.clients
             .getPartiesParticipant(parties)
         )
         acs <- client.query(parties, tplId)
-        res <- Converter.toFuture(
+        res <- converter.toFuture(
           acs
             .to(FrontStack)
             .traverse(
-              Converter
+              converter
                 .fromCreated(env.valueTranslator, _, tplId, client.enableContractUpgrading)
             )
         )
       } yield SEValue(SList(res))
 
   }
-  final case class QueryContractId(
+  sealed case class QueryContractId(
       parties: OneAnd[Set, Party],
       tplId: Identifier,
       cid: ContractId,
@@ -292,11 +301,11 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
+        client <- converter.toFuture(env.clients.getPartiesParticipant(parties))
         optR <- client.queryContractId(parties, tplId, cid)
-        optR <- Converter.toFuture(
+        optR <- converter.toFuture(
           optR.traverse(c =>
-            Converter
+            converter
               .fromAnyTemplate(
                 env.valueTranslator,
                 tplId,
@@ -304,9 +313,9 @@ object ScriptF {
                 client.enableContractUpgrading,
               )
               .map(
-                Converter.makeTuple(
+                converter.makeTuple(
                   _,
-                  Converter.fromTemplateTypeRep(c.templateId),
+                  converter.fromTemplateTypeRep(c.templateId),
                   SText(c.blob.toHexString),
                 )
               )
@@ -315,7 +324,7 @@ object ScriptF {
       } yield SEValue(SOptional(optR))
   }
 
-  final case class QueryInterface(
+  sealed case class QueryInterface(
       parties: OneAnd[Set, Party],
       interfaceId: Identifier,
   ) extends Cmd {
@@ -326,25 +335,25 @@ object ScriptF {
     ): Future[SExpr] = {
 
       for {
-        viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
-        client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
+        viewType <- converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
+        client <- converter.toFuture(env.clients.getPartiesParticipant(parties))
         list <- client.queryInterface(parties, interfaceId, viewType)
-        list <- Converter.toFuture(
+        list <- converter.toFuture(
           list
             .to(FrontStack)
             .traverse { case (cid, optView) =>
               optView match {
                 case None =>
-                  Right(Converter.makeTuple(SContractId(cid), SOptional(None)))
+                  Right(converter.makeTuple(SContractId(cid), SOptional(None)))
                 case Some(view) =>
                   for {
-                    view <- Converter.fromInterfaceView(
+                    view <- converter.fromInterfaceView(
                       env.valueTranslator,
                       viewType,
                       view,
                     )
                   } yield {
-                    Converter.makeTuple(SContractId(cid), SOptional(Some(view)))
+                    converter.makeTuple(SContractId(cid), SOptional(Some(view)))
                   }
               }
             }
@@ -353,7 +362,7 @@ object ScriptF {
     }
   }
 
-  final case class QueryInterfaceContractId(
+  sealed case class QueryInterfaceContractId(
       parties: OneAnd[Set, Party],
       interfaceId: Identifier,
       cid: ContractId,
@@ -364,17 +373,17 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] = {
       for {
-        viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
-        client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
+        viewType <- converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
+        client <- converter.toFuture(env.clients.getPartiesParticipant(parties))
         optR <- client.queryInterfaceContractId(parties, interfaceId, viewType, cid)
-        optR <- Converter.toFuture(
-          optR.traverse(Converter.fromInterfaceView(env.valueTranslator, viewType, _))
+        optR <- converter.toFuture(
+          optR.traverse(converter.fromInterfaceView(env.valueTranslator, viewType, _))
         )
       } yield SEValue(SOptional(optR))
     }
   }
 
-  final case class QueryContractKey(
+  sealed case class QueryContractKey(
       parties: OneAnd[Set, Party],
       tplId: Identifier,
       key: AnyContractKey,
@@ -400,21 +409,21 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
+        client <- converter.toFuture(env.clients.getPartiesParticipant(parties))
         optR <- client.queryContractKey(
           parties,
           tplId,
           key.key,
           translateKey(env, client.enableContractUpgrading),
         )
-        optR <- Converter.toFuture(
+        optR <- converter.toFuture(
           optR.traverse(
-            Converter.fromCreated(env.valueTranslator, _, tplId, client.enableContractUpgrading)
+            converter.fromCreated(env.valueTranslator, _, tplId, client.enableContractUpgrading)
           )
         )
       } yield SEValue(SOptional(optR))
   }
-  final case class AllocParty(
+  sealed case class AllocParty(
       displayName: String,
       idHint: String,
       participant: Option[Participant],
@@ -437,7 +446,7 @@ object ScriptF {
       }
 
   }
-  final case class ListKnownParties(
+  sealed case class ListKnownParties(
       participant: Option[Participant]
   ) extends Cmd {
     override def execute(env: Env)(implicit
@@ -451,14 +460,14 @@ object ScriptF {
           case Left(err) => Future.failed(new RuntimeException(err))
         }
         partyDetails <- client.listKnownParties()
-        partyDetails_ <- Converter.toFuture(
+        partyDetails_ <- converter.toFuture(
           partyDetails
-            .traverse(details => Converter.fromPartyDetails(env.scriptIds, details))
+            .traverse(details => converter.fromPartyDetails(env.scriptIds, details))
         )
       } yield SEValue(SList(partyDetails_.to(FrontStack)))
 
   }
-  final case class GetTime() extends Cmd {
+  sealed case class GetTime() extends Cmd {
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
         mat: Materializer,
@@ -471,7 +480,7 @@ object ScriptF {
             // is only useful in static time mode and using the time
             // service with multiple participants is very dodgy.
             for {
-              client <- Converter.toFuture(env.clients.getParticipant(None))
+              client <- converter.toFuture(env.clients.getParticipant(None))
               t <- client.getStaticTime()
             } yield t
           }
@@ -483,7 +492,7 @@ object ScriptF {
       } yield SEValue(STimestamp(time))
 
   }
-  final case class SetTime(time: Timestamp) extends Cmd {
+  sealed case class SetTime(time: Timestamp) extends Cmd {
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
         mat: Materializer,
@@ -495,7 +504,7 @@ object ScriptF {
             // We don’t parametrize this by participant since this
             // is only useful in static time mode and using the time
             // service with multiple participants is very dodgy.
-            client <- Converter.toFuture(env.clients.getParticipant(None))
+            client <- converter.toFuture(env.clients.getParticipant(None))
             _ <- client.setStaticTime(time)
           } yield SEValue(SUnit)
         case ScriptTimeMode.WallClock =>
@@ -506,7 +515,7 @@ object ScriptF {
       }
   }
 
-  final case class Sleep(micros: Long) extends Cmd {
+  sealed case class Sleep(micros: Long) extends Cmd {
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
         mat: Materializer,
@@ -529,7 +538,7 @@ object ScriptF {
     }
   }
 
-  final case class ValidateUserId(
+  sealed case class ValidateUserId(
       userName: String
   ) extends Cmd {
     override def execute(env: Env)(implicit
@@ -546,7 +555,7 @@ object ScriptF {
     }
   }
 
-  final case class CreateUser(
+  sealed case class CreateUser(
       user: User,
       rights: List[UserRight],
       participant: Option[Participant],
@@ -557,15 +566,15 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- Converter.toFuture(env.clients.getParticipant(participant))
+        client <- converter.toFuture(env.clients.getParticipant(participant))
         res <- client.createUser(user, rights)
-        res <- Converter.toFuture(
-          Converter.fromOptional[Unit](res, _ => Right(SUnit))
+        res <- converter.toFuture(
+          converter.fromOptional[Unit](res, _ => Right(SUnit))
         )
       } yield SEValue(res)
   }
 
-  final case class GetUser(
+  sealed case class GetUser(
       userId: UserId,
       participant: Option[Participant],
   ) extends Cmd {
@@ -575,15 +584,15 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- Converter.toFuture(env.clients.getParticipant(participant))
+        client <- converter.toFuture(env.clients.getParticipant(participant))
         user <- client.getUser(userId)
-        user <- Converter.toFuture(
-          Converter.fromOptional(user, Converter.fromUser(env.scriptIds, _))
+        user <- converter.toFuture(
+          converter.fromOptional(user, converter.fromUser(env.scriptIds, _))
         )
       } yield SEValue(user)
   }
 
-  final case class DeleteUser(
+  sealed case class DeleteUser(
       userId: UserId,
       participant: Option[Participant],
   ) extends Cmd {
@@ -593,15 +602,15 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- Converter.toFuture(env.clients.getParticipant(participant))
+        client <- converter.toFuture(env.clients.getParticipant(participant))
         res <- client.deleteUser(userId)
-        res <- Converter.toFuture(
-          Converter.fromOptional[Unit](res, _ => Right(SUnit))
+        res <- converter.toFuture(
+          converter.fromOptional[Unit](res, _ => Right(SUnit))
         )
       } yield SEValue(res)
   }
 
-  final case class ListAllUsers(
+  sealed case class ListAllUsers(
       participant: Option[Participant]
   ) extends Cmd {
     override def execute(env: Env)(implicit
@@ -610,15 +619,15 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- Converter.toFuture(env.clients.getParticipant(participant))
+        client <- converter.toFuture(env.clients.getParticipant(participant))
         users <- client.listAllUsers()
-        users <- Converter.toFuture(
-          users.to(FrontStack).traverse(Converter.fromUser(env.scriptIds, _))
+        users <- converter.toFuture(
+          users.to(FrontStack).traverse(converter.fromUser(env.scriptIds, _))
         )
       } yield SEValue(SList(users))
   }
 
-  final case class GrantUserRights(
+  sealed case class GrantUserRights(
       userId: UserId,
       rights: List[UserRight],
       participant: Option[Participant],
@@ -629,20 +638,20 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- Converter.toFuture(env.clients.getParticipant(participant))
+        client <- converter.toFuture(env.clients.getParticipant(participant))
         rights <- client.grantUserRights(userId, rights)
-        rights <- Converter.toFuture(
-          Converter.fromOptional[List[UserRight]](
+        rights <- converter.toFuture(
+          converter.fromOptional[List[UserRight]](
             rights,
             _.to(FrontStack)
-              .traverse(Converter.fromUserRight(env.scriptIds, _))
+              .traverse(converter.fromUserRight(env.scriptIds, _))
               .map(SList(_)),
           )
         )
       } yield SEValue(rights)
   }
 
-  final case class RevokeUserRights(
+  sealed case class RevokeUserRights(
       userId: UserId,
       rights: List[UserRight],
       participant: Option[Participant],
@@ -653,20 +662,20 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- Converter.toFuture(env.clients.getParticipant(participant))
+        client <- converter.toFuture(env.clients.getParticipant(participant))
         rights <- client.revokeUserRights(userId, rights)
-        rights <- Converter.toFuture(
-          Converter.fromOptional[List[UserRight]](
+        rights <- converter.toFuture(
+          converter.fromOptional[List[UserRight]](
             rights,
             _.to(FrontStack)
-              .traverse(Converter.fromUserRight(env.scriptIds, _))
+              .traverse(converter.fromUserRight(env.scriptIds, _))
               .map(SList(_)),
           )
         )
       } yield SEValue(rights)
   }
 
-  final case class ListUserRights(
+  sealed case class ListUserRights(
       userId: UserId,
       participant: Option[Participant],
   ) extends Cmd {
@@ -676,20 +685,20 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- Converter.toFuture(env.clients.getParticipant(participant))
+        client <- converter.toFuture(env.clients.getParticipant(participant))
         rights <- client.listUserRights(userId)
-        rights <- Converter.toFuture(
-          Converter.fromOptional[List[UserRight]](
+        rights <- converter.toFuture(
+          converter.fromOptional[List[UserRight]](
             rights,
             _.to(FrontStack)
-              .traverse(Converter.fromUserRight(env.scriptIds, _))
+              .traverse(converter.fromUserRight(env.scriptIds, _))
               .map(SList(_)),
           )
         )
       } yield SEValue(rights)
   }
 
-  final case class VetPackages(
+  sealed case class VetPackages(
       packages: List[ScriptLedgerClient.ReadablePackageId]
   ) extends Cmd {
     override def execute(env: Env)(implicit
@@ -698,12 +707,12 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- Converter.toFuture(env.clients.getParticipant(None))
+        client <- converter.toFuture(env.clients.getParticipant(None))
         _ <- client.vetPackages(packages)
       } yield SEValue(SUnit)
   }
 
-  final case class UnvetPackages(
+  sealed case class UnvetPackages(
       packages: List[ScriptLedgerClient.ReadablePackageId]
   ) extends Cmd {
     override def execute(env: Env)(implicit
@@ -712,40 +721,40 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- Converter.toFuture(env.clients.getParticipant(None))
+        client <- converter.toFuture(env.clients.getParticipant(None))
         _ <- client.unvetPackages(packages)
       } yield SEValue(SUnit)
   }
 
-  final case class ListVettedPackages() extends Cmd {
+  sealed case class ListVettedPackages() extends Cmd {
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- Converter.toFuture(env.clients.getParticipant(None))
+        client <- converter.toFuture(env.clients.getParticipant(None))
         packages <- client.listVettedPackages()
       } yield SEValue(
-        SList(packages.to(FrontStack).map(Converter.fromReadablePackageId(env.scriptIds, _)))
+        SList(packages.to(FrontStack).map(converter.fromReadablePackageId(env.scriptIds, _)))
       )
   }
 
-  final case class ListAllPackages() extends Cmd {
+  sealed case class ListAllPackages() extends Cmd {
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- Converter.toFuture(env.clients.getParticipant(None))
+        client <- converter.toFuture(env.clients.getParticipant(None))
         packages <- client.listAllPackages()
       } yield SEValue(
-        SList(packages.to(FrontStack).map(Converter.fromReadablePackageId(env.scriptIds, _)))
+        SList(packages.to(FrontStack).map(converter.fromReadablePackageId(env.scriptIds, _)))
       )
   }
 
-  final case class VetDar(
+  sealed case class VetDar(
       darName: String,
       participant: Option[Participant],
   ) extends Cmd {
@@ -755,12 +764,12 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- Converter.toFuture(env.clients.getParticipant(participant))
+        client <- converter.toFuture(env.clients.getParticipant(participant))
         _ <- client.vetDar(darName)
       } yield SEValue(SUnit)
   }
 
-  final case class UnvetDar(
+  sealed case class UnvetDar(
       darName: String,
       participant: Option[Participant],
   ) extends Cmd {
@@ -770,12 +779,12 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- Converter.toFuture(env.clients.getParticipant(participant))
+        client <- converter.toFuture(env.clients.getParticipant(participant))
         _ <- client.unvetDar(darName)
       } yield SEValue(SUnit)
   }
 
-  final case class TryCommands(act: SValue) extends Cmd {
+  sealed case class TryCommands(act: SValue) extends Cmd {
     override def executeWithRunner(env: Env, runner: v2.Runner)(implicit
         ec: ExecutionContext,
         mat: Materializer,
@@ -802,7 +811,7 @@ object ScriptF {
             SEApp(
               left,
               Array(
-                Converter.makeTuple(
+                converter.makeTuple(
                   SText(cmdName),
                   SText(name),
                   SText(msg),
@@ -820,9 +829,7 @@ object ScriptF {
     ): Future[SExpr] = Future.failed(new NotImplementedError)
   }
 
-  final case class Ctx(knownPackages: Map[String, PackageId], compiledPackages: CompiledPackages)
-
-  final case class KnownPackages(pkgs: Map[String, PackageId])
+  case class KnownPackages(pkgs: Map[String, PackageId])
 
   private def parseErrorBehaviour(
       n: Name
@@ -850,15 +857,15 @@ object ScriptF {
             ),
           ) =>
         for {
-          actAs <- OneAnd(hdAct, tlAct.toList).traverse(Converter.toParty)
-          readAs <- readAs.traverse(Converter.toParty)
-          disclosures <- disclosures.toImmArray.toList.traverse(Converter.toDisclosure)
+          actAs <- OneAnd(hdAct, tlAct.toList).traverse(converter.toParty)
+          readAs <- readAs.traverse(converter.toParty)
+          disclosures <- disclosures.toImmArray.toList.traverse(converter.toDisclosure)
           optPackagePreference <- optPackagePreference.traverse(
-            Converter.toList(_, Converter.toPackageId)
+            converter.toList(_, converter.toPackageId)
           )
           errorBehaviour <- parseErrorBehaviour(name)
-          cmds <- cmds.toList.traverse(Converter.toCommandWithMeta)
-          optLocation <- optLocation.traverse(Converter.toLocation(knownPackages.pkgs, _))
+          cmds <- cmds.toList.traverse(converter.toCommandWithMeta)
+          optLocation <- optLocation.traverse(converter.toLocation(knownPackages.pkgs, _))
         } yield Submission(
           actAs = toOneAndSet(actAs),
           readAs = readAs.toSet,
@@ -888,8 +895,8 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(readAs, tplId)) =>
         for {
-          readAs <- Converter.toParties(readAs)
-          tplId <- Converter
+          readAs <- converter.toParties(readAs)
+          tplId <- converter
             .typeRepToIdentifier(tplId)
         } yield QueryACS(readAs, tplId)
       case _ => Left(s"Expected QueryACS payload but got $v")
@@ -899,8 +906,8 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(actAs, tplId, cid)) =>
         for {
-          actAs <- Converter.toParties(actAs)
-          tplId <- Converter.typeRepToIdentifier(tplId)
+          actAs <- converter.toParties(actAs)
+          tplId <- converter.typeRepToIdentifier(tplId)
           cid <- toContractId(cid)
         } yield QueryContractId(actAs, tplId, cid)
       case _ => Left(s"Expected QueryContractId payload but got $v")
@@ -910,8 +917,8 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(actAs, interfaceId)) =>
         for {
-          actAs <- Converter.toParties(actAs)
-          interfaceId <- Converter.typeRepToIdentifier(interfaceId)
+          actAs <- converter.toParties(actAs)
+          interfaceId <- converter.typeRepToIdentifier(interfaceId)
         } yield QueryInterface(actAs, interfaceId)
       case _ => Left(s"Expected QueryInterface payload but got $v")
     }
@@ -920,8 +927,8 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(actAs, interfaceId, cid)) =>
         for {
-          actAs <- Converter.toParties(actAs)
-          interfaceId <- Converter.typeRepToIdentifier(interfaceId)
+          actAs <- converter.toParties(actAs)
+          interfaceId <- converter.typeRepToIdentifier(interfaceId)
           cid <- toContractId(cid)
         } yield QueryInterfaceContractId(actAs, interfaceId, cid)
       case _ => Left(s"Expected QueryInterfaceContractId payload but got $v")
@@ -931,9 +938,9 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(actAs, tplId, key)) =>
         for {
-          actAs <- Converter.toParties(actAs)
-          tplId <- Converter.typeRepToIdentifier(tplId)
-          key <- Converter.toAnyContractKey(key)
+          actAs <- converter.toParties(actAs)
+          tplId <- converter.typeRepToIdentifier(tplId)
+          key <- converter.toAnyContractKey(key)
         } yield QueryContractKey(actAs, tplId, key)
       case _ => Left(s"Expected QueryContractKey payload but got $v")
     }
@@ -942,7 +949,7 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(SText(displayName), SText(idHint), participantName)) =>
         for {
-          participantName <- Converter.toParticipantName(participantName)
+          participantName <- converter.toParticipantName(participantName)
         } yield AllocParty(displayName, idHint, participantName)
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
@@ -951,7 +958,7 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(participantName)) =>
         for {
-          participantName <- Converter.toParticipantName(participantName)
+          participantName <- converter.toParticipantName(participantName)
         } yield ListKnownParties(participantName)
       case _ => Left(s"Expected ListKnownParties payload but got $v")
     }
@@ -966,7 +973,7 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(time)) =>
         for {
-          time <- Converter.toTimestamp(time)
+          time <- converter.toTimestamp(time)
         } yield SetTime(time)
       case _ => Left(s"Expected SetTime payload but got $v")
     }
@@ -1004,9 +1011,9 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(user, rights, participant)) =>
         for {
-          user <- Converter.toUser(user)
-          participant <- Converter.toParticipantName(participant)
-          rights <- Converter.toList(rights, Converter.toUserRight)
+          user <- converter.toUser(user)
+          participant <- converter.toParticipantName(participant)
+          rights <- converter.toList(rights, converter.toUserRight)
         } yield CreateUser(user, rights, participant)
       case _ => Left(s"Exected CreateUser payload but got $v")
     }
@@ -1015,8 +1022,8 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(userId, participant)) =>
         for {
-          userId <- Converter.toUserId(userId)
-          participant <- Converter.toParticipantName(participant)
+          userId <- converter.toUserId(userId)
+          participant <- converter.toParticipantName(participant)
         } yield GetUser(userId, participant)
       case _ => Left(s"Expected GetUser payload but got $v")
     }
@@ -1025,8 +1032,8 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(userId, participant)) =>
         for {
-          userId <- Converter.toUserId(userId)
-          participant <- Converter.toParticipantName(participant)
+          userId <- converter.toUserId(userId)
+          participant <- converter.toParticipantName(participant)
         } yield DeleteUser(userId, participant)
       case _ => Left(s"Expected DeleteUser payload but got $v")
     }
@@ -1035,7 +1042,7 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(participant)) =>
         for {
-          participant <- Converter.toParticipantName(participant)
+          participant <- converter.toParticipantName(participant)
         } yield ListAllUsers(participant)
       case _ => Left(s"Expected ListAllUsers payload but got $v")
     }
@@ -1044,9 +1051,9 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(userId, rights, participant)) =>
         for {
-          userId <- Converter.toUserId(userId)
-          rights <- Converter.toList(rights, Converter.toUserRight)
-          participant <- Converter.toParticipantName(participant)
+          userId <- converter.toUserId(userId)
+          rights <- converter.toList(rights, converter.toUserRight)
+          participant <- converter.toParticipantName(participant)
         } yield GrantUserRights(userId, rights, participant)
       case _ => Left(s"Expected GrantUserRights payload but got $v")
     }
@@ -1055,9 +1062,9 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(userId, rights, participant)) =>
         for {
-          userId <- Converter.toUserId(userId)
-          rights <- Converter.toList(rights, Converter.toUserRight)
-          participant <- Converter.toParticipantName(participant)
+          userId <- converter.toUserId(userId)
+          rights <- converter.toList(rights, converter.toUserRight)
+          participant <- converter.toParticipantName(participant)
         } yield RevokeUserRights(userId, rights, participant)
       case _ => Left(s"Expected RevokeUserRights payload but got $v")
     }
@@ -1066,8 +1073,8 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(userId, participant)) =>
         for {
-          userId <- Converter.toUserId(userId)
-          participant <- Converter.toParticipantName(participant)
+          userId <- converter.toUserId(userId)
+          participant <- converter.toParticipantName(participant)
         } yield ListUserRights(userId, participant)
       case _ => Left(s"Expected ListUserRights payload but got $v")
     }
@@ -1086,7 +1093,7 @@ object ScriptF {
       }
     v match {
       case SRecord(_, _, ArrayList(packages)) =>
-        Converter.toList(packages, toReadablePackageId)
+        converter.toList(packages, toReadablePackageId)
       case _ => Left(s"Expected Packages payload but got $v")
     }
   }
@@ -1098,7 +1105,7 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(SText(name), participant)) =>
         for {
-          participant <- Converter.toParticipantName(participant)
+          participant <- converter.toParticipantName(participant)
         } yield wrap(name, participant)
       case _ => Left(s"Expected VetDar payload but got $v")
     }

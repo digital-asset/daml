@@ -6,6 +6,7 @@ package com.daml.lf.engine.script.v2.ledgerinteraction
 import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.assertRight
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.transaction.{GlobalKey, TransactionVersion}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueCoder
@@ -18,7 +19,9 @@ import io.grpc.StatusRuntimeException
 import scala.reflect.ClassTag
 import scala.util.Try
 
-object GrpcErrorParser {
+class GrpcErrorParser(majorVersion: LanguageMajorVersion) {
+  val submitErrors = new SubmitErrors(majorVersion)
+
   val decodeValue = (s: String) =>
     for {
       bytes <- Try(BaseEncoding.base64().decode(s)).toOption
@@ -34,7 +37,7 @@ object GrpcErrorParser {
 
   val parseList = (s: String) => s.tail.init.split(", ").toSeq
 
-  // Converts a given SubmitError into a SubmitError. Wraps in an UnknownError if its not what we expect, wraps in a TruncatedError if we're missing resources
+  // Converts a given SubmitError into a submitErrors. Wraps in an UnknownError if its not what we expect, wraps in a TruncatedError if we're missing resources
   def convertStatusRuntimeException(
       s: StatusRuntimeException,
       keyPackageNameLookup: PackageId => Either[String, KeyPackageName],
@@ -70,18 +73,18 @@ object GrpcErrorParser {
     ): SubmitError =
       handler
         .lift(resourceDetails)
-        .getOrElse(new SubmitError.TruncatedError(classNameOf[A], message))
+        .getOrElse(new submitErrors.TruncatedError(classNameOf[A], message))
 
     errorCode match {
       case "CONTRACT_NOT_FOUND" =>
         caseErr {
           case Seq((ErrorResource.ContractId, cid)) =>
-            SubmitError.ContractNotFound(
+            submitErrors.ContractNotFound(
               NonEmpty(Seq, ContractId.assertFromString(cid)),
               None,
             )
           case Seq((ErrorResource.ContractIds, cids)) =>
-            SubmitError.ContractNotFound(
+            submitErrors.ContractNotFound(
               NonEmpty
                 .from(parseList(cids).map(ContractId.assertFromString(_)))
                 .getOrElse(
@@ -99,7 +102,7 @@ object GrpcErrorParser {
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
               ) =>
             val templateId = Identifier.assertFromString(tid)
-            SubmitError.ContractKeyNotFound(
+            submitErrors.ContractKeyNotFound(
               GlobalKey.assertBuild(templateId, key, assertKeyPackageName(templateId.packageId))
             )
 
@@ -109,14 +112,14 @@ object GrpcErrorParser {
                 (ErrorResource.SharedKey, _),
               ) =>
             val templateId = Identifier.assertFromString(tid)
-            SubmitError.ContractKeyNotFound(
+            submitErrors.ContractKeyNotFound(
               GlobalKey.assertBuild(templateId, key, assertKeyPackageName(templateId.packageId))
             )
         }
-      case "DAML_AUTHORIZATION_ERROR" => SubmitError.AuthorizationError(message)
+      case "DAML_AUTHORIZATION_ERROR" => submitErrors.AuthorizationError(message)
       case "CONTRACT_NOT_ACTIVE" =>
         caseErr { case Seq((ErrorResource.TemplateId, tid @ _), (ErrorResource.ContractId, cid)) =>
-          SubmitError.ContractNotFound(
+          submitErrors.ContractNotFound(
             NonEmpty(Seq, ContractId.assertFromString(cid)),
             None,
           )
@@ -130,7 +133,7 @@ object GrpcErrorParser {
                 (ErrorResource.ContractKeyHash, keyHash),
               ) =>
             val templateId = Identifier.assertFromString(tid)
-            SubmitError.DisclosedContractKeyHashingError(
+            submitErrors.DisclosedContractKeyHashingError(
               ContractId.assertFromString(cid),
               GlobalKey.assertBuild(templateId, key, assertKeyPackageName(templateId.packageId)),
               keyHash,
@@ -144,7 +147,7 @@ object GrpcErrorParser {
                 (ErrorResource.ContractKeyHash, keyHash),
               ) =>
             val templateId = Identifier.assertFromString(tid)
-            SubmitError.DisclosedContractKeyHashingError(
+            submitErrors.DisclosedContractKeyHashingError(
               ContractId.assertFromString(cid),
               GlobalKey.assertBuild(templateId, key, assertKeyPackageName(templateId.packageId)),
               keyHash,
@@ -157,7 +160,7 @@ object GrpcErrorParser {
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
               ) =>
             val templateId = Identifier.assertFromString(tid)
-            SubmitError.DuplicateContractKey(
+            submitErrors.DuplicateContractKey(
               Some(
                 GlobalKey.assertBuild(templateId, key, assertKeyPackageName(templateId.packageId))
               )
@@ -168,7 +171,7 @@ object GrpcErrorParser {
                 (ErrorResource.SharedKey, _),
               ) =>
             val templateId = Identifier.assertFromString(tid)
-            SubmitError.DuplicateContractKey(
+            submitErrors.DuplicateContractKey(
               Some(
                 GlobalKey.assertBuild(
                   templateId,
@@ -178,21 +181,21 @@ object GrpcErrorParser {
               )
             )
           // TODO[SW] Canton can omit the key, unsure why.
-          case Seq() => SubmitError.DuplicateContractKey(None)
+          case Seq() => submitErrors.DuplicateContractKey(None)
         }
       case "LOCAL_VERDICT_LOCKED_KEYS" =>
         caseErr {
           // TODO[MA] Canton does not currently provide the template ids so we
           // can't convert to GlobalKeys.
           // https://github.com/DACH-NY/canton/issues/15071
-          case _ => SubmitError.LocalVerdictLockedKeys(Seq())
+          case _ => submitErrors.LocalVerdictLockedKeys(Seq())
         }
       case "LOCAL_VERDICT_LOCKED_CONTRACTS" =>
         caseErr {
           // TODO[MA] Canton does not currently provide the template ids so we
           // can't construct the argument to LocalVerdictLockedContracts.
           // https://github.com/DACH-NY/canton/issues/15071
-          case _ => SubmitError.LocalVerdictLockedContracts(Seq())
+          case _ => submitErrors.LocalVerdictLockedContracts(Seq())
         }
       case "INCONSISTENT_CONTRACT_KEY" =>
         caseErr {
@@ -202,7 +205,7 @@ object GrpcErrorParser {
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
               ) =>
             val templateId = Identifier.assertFromString(tid)
-            SubmitError.InconsistentContractKey(
+            submitErrors.InconsistentContractKey(
               GlobalKey.assertBuild(templateId, key, assertKeyPackageName(templateId.packageId))
             )
 
@@ -212,7 +215,7 @@ object GrpcErrorParser {
                 (ErrorResource.SharedKey, _),
               ) =>
             val templateId = Identifier.assertFromString(tid)
-            SubmitError.InconsistentContractKey(
+            submitErrors.InconsistentContractKey(
               GlobalKey.assertBuild(templateId, key, assertKeyPackageName(templateId.packageId))
             )
         }
@@ -222,21 +225,21 @@ object GrpcErrorParser {
                 (ErrorResource.ExceptionType, ty),
                 (ErrorResource.ExceptionValue, decodeValue.unlift(value)),
               ) =>
-            SubmitError.UnhandledException(Some((Identifier.assertFromString(ty), value)))
-          case Seq() => SubmitError.UnhandledException(None)
+            submitErrors.UnhandledException(Some((Identifier.assertFromString(ty), value)))
+          case Seq() => submitErrors.UnhandledException(None)
         }
       case "INTERPRETATION_USER_ERROR" =>
         caseErr { case Seq((ErrorResource.ExceptionText, excMessage)) =>
-          SubmitError.UserError(excMessage)
+          submitErrors.UserError(excMessage)
         }
-      case "TEMPLATE_PRECONDITION_VIOLATED" => SubmitError.TemplatePreconditionViolated()
+      case "TEMPLATE_PRECONDITION_VIOLATED" => submitErrors.TemplatePreconditionViolated()
       case "CREATE_EMPTY_CONTRACT_KEY_MAINTAINERS" =>
         caseErr {
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractArg, decodeValue.unlift(arg)),
               ) =>
-            SubmitError.CreateEmptyContractKeyMaintainers(Identifier.assertFromString(tid), arg)
+            submitErrors.CreateEmptyContractKeyMaintainers(Identifier.assertFromString(tid), arg)
         }
       case "FETCH_EMPTY_CONTRACT_KEY_MAINTAINERS" =>
         caseErr {
@@ -245,7 +248,7 @@ object GrpcErrorParser {
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
               ) =>
             val templateId = Identifier.assertFromString(tid)
-            SubmitError.FetchEmptyContractKeyMaintainers(
+            submitErrors.FetchEmptyContractKeyMaintainers(
               GlobalKey.assertBuild(templateId, key, assertKeyPackageName(templateId.packageId))
             )
 
@@ -255,7 +258,7 @@ object GrpcErrorParser {
                 (ErrorResource.SharedKey, _),
               ) =>
             val templateId = Identifier.assertFromString(tid)
-            SubmitError.FetchEmptyContractKeyMaintainers(
+            submitErrors.FetchEmptyContractKeyMaintainers(
               GlobalKey.assertBuild(templateId, key, assertKeyPackageName(templateId.packageId))
             )
         }
@@ -266,7 +269,7 @@ object GrpcErrorParser {
                 (ErrorResource.TemplateId, expectedTid),
                 (ErrorResource.TemplateId, actualTid),
               ) =>
-            SubmitError.WronglyTypedContract(
+            submitErrors.WronglyTypedContract(
               ContractId.assertFromString(cid),
               Identifier.assertFromString(expectedTid),
               Identifier.assertFromString(actualTid),
@@ -279,7 +282,7 @@ object GrpcErrorParser {
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.InterfaceId, iid),
               ) =>
-            SubmitError.ContractDoesNotImplementInterface(
+            submitErrors.ContractDoesNotImplementInterface(
               ContractId.assertFromString(cid),
               Identifier.assertFromString(tid),
               Identifier.assertFromString(iid),
@@ -293,25 +296,25 @@ object GrpcErrorParser {
                 (ErrorResource.InterfaceId, requiredIid),
                 (ErrorResource.InterfaceId, requiringIid),
               ) =>
-            SubmitError.ContractDoesNotImplementRequiringInterface(
+            submitErrors.ContractDoesNotImplementRequiringInterface(
               ContractId.assertFromString(cid),
               Identifier.assertFromString(tid),
               Identifier.assertFromString(requiredIid),
               Identifier.assertFromString(requiringIid),
             )
         }
-      case "NON_COMPARABLE_VALUES" => SubmitError.NonComparableValues()
-      case "CONTRACT_ID_IN_CONTRACT_KEY" => SubmitError.ContractIdInContractKey()
+      case "NON_COMPARABLE_VALUES" => submitErrors.NonComparableValues()
+      case "CONTRACT_ID_IN_CONTRACT_KEY" => submitErrors.ContractIdInContractKey()
       case "CONTRACT_ID_COMPARABILITY" =>
         caseErr { case Seq((ErrorResource.ContractId, cid)) =>
-          SubmitError.ContractIdComparability(cid)
+          submitErrors.ContractIdComparability(cid)
         }
       case "INTERPRETATION_DEV_ERROR" =>
         caseErr { case Seq((ErrorResource.DevErrorType, errorType)) =>
-          SubmitError.DevError(errorType, message)
+          submitErrors.DevError(errorType, message)
         }
 
-      case _ => new SubmitError.UnknownError(message)
+      case _ => new submitErrors.UnknownError(message)
     }
   }
 }
