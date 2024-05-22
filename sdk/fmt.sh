@@ -163,7 +163,9 @@ run scalafmt "${scalafmt_args[@]:-}"
 run bazel run "$buildifier_target"
 
 # Note that we cannot use a symlink here because Windows.
-if ! diff .bazelrc compatibility/.bazelrc >/dev/null; then
+tmpdiff=$(mktemp)
+diff .bazelrc compatibility/.bazelrc > $tmpdiff || true
+if ! diff $tmpdiff compatibility/expected_bazelrc_diff >/dev/null; then
     echo ".bazelrc and  compatibility/.bazelrc are out of sync:"
     diff -u .bazelrc compatibility/.bazelrc
 fi
