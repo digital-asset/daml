@@ -99,6 +99,22 @@ scaladoc_jar(
     deps = [],
 ) if is_windows == False else None
 
+da_scala_library(
+    name = "test-lib",
+    srcs = glob(
+        ["src/test-lib/scala/**/*.scala"]
+    ),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalactic_scalactic",
+    ],
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//libs-scala/scala-utils",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
 da_scala_test(
     name = "tests",
     size = "large",
@@ -115,14 +131,15 @@ da_scala_test(
             test_dar_count + 1,
         )],
     scala_deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_http_core",
+        "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_apache_pekko_pekko_actor",
-        "@maven//:com_typesafe_scala_logging_scala_logging",
-        "@maven//:org_apache_pekko_pekko_stream",
     ],
     deps = [
+        ":test-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -139,7 +156,6 @@ da_scala_test(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/rs-grpc-bridge",
-        "//libs-scala/scala-utils",
         "//libs-scala/testing-utils",
         "//test-common/canton/it-lib",
         "@maven//:org_scalatest_scalatest_compatible",
