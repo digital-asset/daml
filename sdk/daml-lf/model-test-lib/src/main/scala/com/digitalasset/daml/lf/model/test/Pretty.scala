@@ -30,7 +30,7 @@ object Pretty {
 
     def participantToTree(participant: Participant): Tree = {
       Tree(
-        s"Participant ${participant.participantId} parties=${prettyParties(participant.parties)}",
+        s"Participant ${participant.participantId} pkgs=${prettyPackages(participant.packages)} parties=${prettyParties(participant.parties)}",
         Seq.empty,
       )
     }
@@ -100,6 +100,9 @@ object Pretty {
 
     private def prettyParties(partySet: PartySet): String =
       partySet.toSeq.sorted.mkString("{", ",", "}")
+
+    private def prettyPackages(packages: PackageIdSet): String =
+      packages.toSeq.sorted.mkString("{", ",", "}")
 
     private def prettyContracts(contractIdSet: ContractIdSet): String =
       contractIdSet.toSeq.sorted.mkString("{", ",", "}")

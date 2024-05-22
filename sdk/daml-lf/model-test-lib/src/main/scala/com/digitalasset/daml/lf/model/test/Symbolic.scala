@@ -18,9 +18,11 @@ object Symbolic {
   type PartySort = IntSort
   type PartySetSort = SetSort[PartySort]
   type ContractIdSetSort = SetSort[ContractIdSort]
+  type PackageIdSetSort = SetSort[PackageIdSort]
 
   type PartySet = ArrayExpr[PartySort, BoolSort]
   type ContractIdSet = ArrayExpr[ContractIdSort, BoolSort]
+  type PackageIdSet = ArrayExpr[PackageIdSort, BoolSort]
   type PartyId = IntExpr
   type ContractId = IntExpr
   type KeyId = IntExpr
@@ -98,6 +100,7 @@ object Symbolic {
 
   final case class Participant(
       participantId: ParticipantId,
+      packages: PackageIdSet,
       parties: PartySet,
   )
 

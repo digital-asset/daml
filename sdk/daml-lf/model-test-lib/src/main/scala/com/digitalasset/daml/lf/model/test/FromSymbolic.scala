@@ -10,7 +10,7 @@ import com.microsoft.z3.enumerations.Z3_lbool
 import com.microsoft.z3.{Context, IntNum, Model}
 import LedgerImplicits._
 
-class FromSymbolic(numParties: Int, ctx: Context, model: Model) {
+class FromSymbolic(numPackages: Int, numParties: Int, ctx: Context, model: Model) {
 
   private def evalParticipantId(pid: S.ParticipantId): L.ParticipantId =
     model.evaluate(pid, false).asInstanceOf[IntNum].getInt
@@ -33,6 +33,13 @@ class FromSymbolic(numParties: Int, ctx: Context, model: Model) {
 
   private def evalContractIdSet(numContracts: Int, set: S.ContractIdSet): L.ContractIdSet =
     (0 until numContracts).toSet.filter { i =>
+      model
+        .evaluate(ctx.mkSelect(set, ctx.mkInt(i)), false)
+        .getBoolValue == Z3_lbool.Z3_L_TRUE
+    }
+
+  private def evalPackageIdSet(set: S.PackageIdSet): L.PackageIdSet =
+    (0 until numPackages).toSet.filter { i =>
       model
         .evaluate(ctx.mkSelect(set, ctx.mkInt(i)), false)
         .getBoolValue == Z3_lbool.Z3_L_TRUE
@@ -121,6 +128,7 @@ class FromSymbolic(numParties: Int, ctx: Context, model: Model) {
   private def toConcrete(participant: S.Participant): L.Participant = {
     L.Participant(
       evalParticipantId(participant.participantId),
+      evalPackageIdSet(participant.packages),
       evalPartySet(participant.parties),
     )
   }

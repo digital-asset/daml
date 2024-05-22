@@ -11,6 +11,7 @@ object Ledgers {
 
   type PartySet = Set[PartyId]
   type ContractIdSet = Set[ContractId]
+  type PackageIdSet = Set[PackageId]
   type PartyId = Int
   type ContractId = Int
   type KeyId = Int
@@ -88,6 +89,7 @@ object Ledgers {
 
   final case class Participant(
       participantId: ParticipantId,
+      packages: PackageIdSet,
       parties: PartySet,
   )
 
