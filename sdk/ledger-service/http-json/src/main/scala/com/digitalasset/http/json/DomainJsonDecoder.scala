@@ -54,11 +54,11 @@ class DomainJsonDecoder(
       )
 
       tmplId <- templateId_(fj.templateId, jwt, ledgerId)
-      payloadT <- either(templateRecordType(tmplId))
+      payloadT <- either(templateRecordType(tmplId.latestPkgId))
 
       fv <- either(
         fj
-          .copy(templateId = tmplId)
+          .copy(templateId = tmplId.original)
           .traversePayload(x => jsValueToApiValue(payloadT, x).flatMap(mustBeApiRecord))
       )
     } yield fv
@@ -101,7 +101,13 @@ class DomainJsonDecoder(
       tId <- templateId_(H.templateId(fa), jwt, ledgerId)
       lfType <- either(
         H
-          .lfType(fa, tId, resolveTemplateRecordType, resolveChoiceArgType, resolveKeyType)
+          .lfType(
+            fa,
+            tId.latestPkgId,
+            resolveTemplateRecordType,
+            resolveChoiceArgType,
+            resolveKeyType,
+          )
           .liftErrS("DomainJsonDecoder_lookupLfType")(JsonError)
       )
     } yield lfType
@@ -146,8 +152,8 @@ class DomainJsonDecoder(
       // treat an inferred iface ID as a user-specified one
       choiceIfaceOverride <-
         if (oIfaceId.isDefined)
-          (oIfaceId: Option[domain.ContractTypeId.Interface.RequiredPkg]).pure[ET]
-        else cmd0.choiceInterfaceId.traverse(id => templateId_(id, jwt, ledgerId))
+          oIfaceId.map(i => i.map(p => Ref.PackageRef.Id(p): Ref.PackageRef)).pure[ET]
+        else cmd0.choiceInterfaceId.traverse(id => templateId_(id, jwt, ledgerId).map(_.original))
 
       lfArgument <- either(jsValueToLfValue(argLfType, cmd0.argument))
       metaWithResolvedIds <- cmd0.meta.traverse(resolveMetaTemplateIds(_, jwt, ledgerId))
@@ -194,21 +200,25 @@ class DomainJsonDecoder(
           .liftErrS(err)(JsonError)
       ).flatMap(_.bitraverse(templateId_(_, jwt, ledgerId), templateId_(_, jwt, ledgerId)))
 
-      tId = fjj.templateId
-      ciId = fjj.choiceInterfaceId
+      tId: ContractTypeId.Template.ResolvedPkgId = fjj.templateId.latestPkgId
+      ciId: Option[ContractTypeId.ResolvedPkgId] = fjj.choiceInterfaceId.map(_.latestPkgId)
 
       payloadT <- either(resolveTemplateRecordType(tId).liftErr(JsonError))
-
       oIfIdArgT <- either(resolveChoiceArgType(ciId getOrElse tId, fjj.choice).liftErr(JsonError))
       (oIfaceId, argT) = oIfIdArgT
 
       payload <- either(jsValueToApiRecord(payloadT, fjj.payload))
       argument <- either(jsValueToApiValue(argT, fjj.argument))
-    } yield fjj.copy(
+
+      choiceIfaceOverride =
+        if (oIfaceId.isDefined) oIfaceId.map(i => i.map(p => Ref.PackageRef.Id(p): Ref.PackageRef))
+        else fjj.choiceInterfaceId.map(_.original)
+
+      cmd <- fjj.bitraverse(_.original.pure[ET], _.pure[ET])
+    } yield cmd.copy(
       payload = payload,
       argument = argument,
-      choiceInterfaceId = oIfaceId orElse fjj.choiceInterfaceId,
-      meta = fjj.meta,
+      choiceInterfaceId = choiceIfaceOverride,
     )
   }
 
@@ -216,40 +226,45 @@ class DomainJsonDecoder(
     jsValueToApiValue(t, v) flatMap mustBeApiRecord
 
   private[this] def resolveMetaTemplateIds[
-      CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]
+      U,
+      CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T],
   ](
-      meta: domain.CommandMeta[CtId[Ref.PackageRef]],
+      meta: domain.CommandMeta[U with ContractTypeId.RequiredPkg],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   )(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): ET[domain.CommandMeta[ContractTypeId.ResolvedOf[CtId]]] = for {
+      overload: PackageService.ResolveContractTypeId.Overload[U, CtId],
+  ): ET[domain.CommandMeta[CtId[Ref.PackageRef]]] = for {
     // resolve as few template IDs as possible
     tpidToResolved <- {
       import scalaz.std.vector._
       val inputTpids = Foldable[domain.CommandMeta].toSet(meta)
       inputTpids.toVector
-        .traverse { ot => templateId_(ot, jwt, ledgerId) strengthL ot }
+        .traverse { ot =>
+          templateId_(ot, jwt, ledgerId).map(_.original) strengthL ot
+        }
         .map(_.toMap)
     }
   } yield meta map tpidToResolved
 
   private def templateId_[
-      CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]
+      U,
+      CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T],
   ](
-      id: CtId[Ref.PackageRef],
+      id: U with ContractTypeId.RequiredPkg,
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   )(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): ET[domain.ContractTypeId.ResolvedOf[CtId]] =
+      overload: PackageService.ResolveContractTypeId.Overload[U, CtId],
+  ): ET[domain.ContractTypeRef[CtId]] =
     eitherT(
       resolveContractTypeId(jwt, ledgerId)(id)
         .map(
           _.toOption.flatten
-            .map(_.original.asInstanceOf[ContractTypeId.ResolvedOf[CtId]])
             .toRightDisjunction(JsonError(cannotResolveTemplateId(id)))
         )
     )
@@ -257,7 +272,7 @@ class DomainJsonDecoder(
   // TODO(Leo) see if you can get get rid of the above boilerplate and rely on the JsonReaders defined below
 
   def templateRecordType(
-      id: domain.ContractTypeId.Template.RequiredPkg
+      id: domain.ContractTypeId.Template.RequiredPkgId
   ): JsonError \/ domain.LfType =
     resolveTemplateRecordType(id).liftErr(JsonError)
 
@@ -267,9 +282,9 @@ class DomainJsonDecoder(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   ): ET[domain.LfType] =
-    templateId_(id, jwt, ledgerId).flatMap {
-      case it: domain.ContractTypeId.Template.ResolvedPkg =>
-        either(resolveKeyType(it: ContractTypeId.Template.ResolvedPkg).liftErr(JsonError))
+    templateId_(id, jwt, ledgerId).map(_.latestPkgId).flatMap {
+      case it: domain.ContractTypeId.Template.ResolvedPkgId =>
+        either(resolveKeyType(it: ContractTypeId.Template.ResolvedPkgId).liftErr(JsonError))
       case other =>
         either(-\/(JsonError(s"Expect contract type Id to be template Id, got otherwise: $other")))
     }
