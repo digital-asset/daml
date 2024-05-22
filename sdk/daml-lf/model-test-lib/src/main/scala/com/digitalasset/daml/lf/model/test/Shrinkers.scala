@@ -36,6 +36,9 @@ object Shrinkers {
   lazy val shrinkContractIdSet: Shrink[ContractIdSet] =
     Shrink.shrinkContainer[Set, ContractId](implicitly, shrinkContractId, implicitly)
 
+  lazy val shrinkPackageIdSet: Shrink[PackageIdSet] =
+    Shrink.shrinkContainer[Set, PackageId](implicitly, shrinkPackageId, implicitly)
+
   lazy val shrinkKeyId: Shrink[KeyId] =
     Shrink.shrinkIntegral[KeyId].suchThat(_ >= 0)
 
@@ -199,8 +202,13 @@ object Shrinkers {
     Shrink.shrinkContainer[List, Commands](implicitly, shrinkCommands, implicitly)
 
   lazy val shrinkParticipant: Shrink[Participant] = Shrink {
-    case Participant(participantId, parties) =>
-      shrinkPartySet.shrink(parties).map(Participant(participantId, _))
+    case Participant(participantId, pkgs, parties) =>
+      Shrink
+        .shrinkTuple2(shrinkPackageIdSet, shrinkPartySet)
+        .shrink((pkgs, parties))
+        .map { case (shrunkenPkgs, shrunkenParties) =>
+          Participant(participantId, shrunkenPkgs, shrunkenParties)
+        }
   }
 
   lazy val shrinkTopology: Shrink[Topology] =

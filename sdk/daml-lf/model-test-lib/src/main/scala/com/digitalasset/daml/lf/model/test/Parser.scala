@@ -52,6 +52,7 @@ object Lexer extends RegexParsers {
   final case object ACT_AS extends Token
   final case object DISCLOSURES extends Token
   final case object PKG extends Token
+  final case object PKGS extends Token
 
   override def skipWhitespace = true
   override val whiteSpace: Regex = "[ \t\r\f]+".r
@@ -90,6 +91,7 @@ object Lexer extends RegexParsers {
   private def commands: Parser[Token] = "Commands" ^^^ COMMANDS
   private def actAs: Parser[Token] = "actAs" ^^^ ACT_AS
   private def disclosures: Parser[Token] = "disclosures" ^^^ DISCLOSURES
+  private def pkgs: Parser[Token] = "pkgs" ^^^ PKGS
   private def pkg: Parser[Token] = "pkg" ^^^ PKG
 
   private def processIndentation(tokens: List[Token], indents: List[Int]): List[Token] = {
@@ -117,7 +119,7 @@ object Lexer extends RegexParsers {
         | fetchByKey | fetch | rollback | createWithKey | create | lookupByKey
         | exerciseByKey | exercise | success | failure | consuming
         | nonConsuming | key | ctl | cobs | sigs | obs | scenario | topology
-        | ledger | commands | actAs | disclosures | pkg
+        | ledger | commands | actAs | disclosures | pkgs | pkg
     )
   ) ^^ { tokens => processIndentation(tokens, List(0)) }
 
@@ -169,6 +171,12 @@ object Parser extends Parsers {
     _ <- accept(BRACE_CLOSE)
   } yield parties.toSet
 
+  def packageIdSet: Parser[PackageIdSet] = for {
+    _ <- accept(BRACE_OPEN)
+    pkgs <- repsep(packageId, COMMA)
+    _ <- accept(BRACE_CLOSE)
+  } yield pkgs.toSet
+
   def key: Parser[(KeyId, PartySet)] = for {
     _ <- accept(PAREN_OPEN)
     keyId <- keyId
@@ -186,10 +194,13 @@ object Parser extends Parsers {
   def participant: Parser[Participant] = for {
     _ <- accept(BIG_PARTICIPANT)
     id <- participantId.commit
+    _ <- accept(PKGS).commit
+    _ <- accept(EQUAL).commit
+    pkgs <- packageIdSet.commit
     _ <- accept(PARTIES).commit
     _ <- accept(EQUAL).commit
     parties <- partySet.commit
-  } yield Participant(id, parties)
+  } yield Participant(id, pkgs, parties)
 
   def createWithKey: Parser[(CreateWithKey, Option[PackageId])] = for {
     _ <- accept(CREATE_WITH_KEY)

@@ -808,7 +808,9 @@ private class SymbolicSolver(ctx: Context, numPackages: Int, numParties: Int) {
 
     solver.check() match {
       case SATISFIABLE =>
-        Some(new FromSymbolic(numParties, ctx, solver.getModel).toConcrete(symScenario))
+        Some(
+          new FromSymbolic(numPackages, numParties, ctx, solver.getModel).toConcrete(symScenario)
+        )
       case UNSATISFIABLE =>
         print(".")
         None

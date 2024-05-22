@@ -92,7 +92,7 @@ object Demo {
     val bad = Parser.parseScenario("""
         |Scenario
         |  Topology
-        |    Participant 0 parties={1}
+        |    Participant 0 pkgs={0} parties={1}
         |  Ledger
         |    Commands participant=0 actAs={1} disclosures={}
         |      Create 0 sigs={1} obs={}

@@ -18,6 +18,7 @@ object SkeletonToSymbolic {
 
     private val partySetSort: Sym.PartySetSort = ctx.mkSetSort(ctx.mkIntSort())
     private val contractIdSetSort: Sym.ContractIdSetSort = ctx.mkSetSort(ctx.mkIntSort())
+    private val packageIdSetSort: Sym.PackageIdSetSort = ctx.mkSetSort(ctx.mkIntSort())
     private val contractIdSort: Sym.ContractIdSort = ctx.mkIntSort()
     private val participantIdSort: Sym.ParticipantIdSort = ctx.mkIntSort()
 
@@ -35,6 +36,9 @@ object SkeletonToSymbolic {
 
     private def mkFreshContractIdSet(name: String): Sym.ContractIdSet =
       ctx.mkFreshConst(name, contractIdSetSort).asInstanceOf[Sym.ContractIdSet]
+
+    private def mkFreshPackageIdSet(name: String): Sym.PackageIdSet =
+      ctx.mkFreshConst(name, packageIdSetSort).asInstanceOf[Sym.PackageIdSet]
 
     private def mkFreshPackageId(): Sym.PackageId =
       ctx.mkFreshConst("pkg", contractIdSort).asInstanceOf[Sym.PackageId]
@@ -116,7 +120,7 @@ object SkeletonToSymbolic {
 
     @nowarn("cat=unused")
     def toSymbolic(participant: Skel.Participant): Sym.Participant =
-      Sym.Participant(mkFreshParticipantId(), mkFreshPartySet("ps"))
+      Sym.Participant(mkFreshParticipantId(), mkFreshPackageIdSet("pkgs"), mkFreshPartySet("ps"))
 
     def toSymbolic(topology: Skel.Topology): Sym.Topology =
       topology.map(toSymbolic)
