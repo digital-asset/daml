@@ -271,6 +271,7 @@ class Interpreter(
           actAs = assertToOneAnd(commands.actAs.map(partyIds)),
           readAs = partyIds.values.toSet,
           disclosures = disclosures,
+          optPackagePreference = None,
           commands = apiCommandsWithMeta,
           optLocation = None,
           languageVersionLookup = _ => Left("language version lookup not supported"),
