@@ -9,7 +9,6 @@ import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.ledger.api.v1.value
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
-import com.daml.lf.engine.script.v2.Converter
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LanguageMajorVersion, StablePackages}
 import com.daml.lf.speedy.SBuiltin._
