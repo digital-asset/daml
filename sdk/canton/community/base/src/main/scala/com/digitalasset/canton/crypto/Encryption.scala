@@ -35,7 +35,7 @@ import com.digitalasset.canton.version.{
 import com.google.protobuf.ByteString
 import slick.jdbc.GetResult
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Encryption operations that do not require access to a private key store but operates with provided keys. */
 trait EncryptionOps {
@@ -149,7 +149,7 @@ trait EncryptionPrivateStoreOps extends EncryptionPrivateOps {
   /** Internal method to generate and return the entire encryption key pair */
   protected[crypto] def generateEncryptionKeypair(scheme: EncryptionKeyScheme)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, EncryptionKeyGenerationError, EncryptionKeyPair]
+  ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionKeyPair]
 
   override def generateEncryptionKey(
       scheme: EncryptionKeyScheme = defaultEncryptionKeyScheme,
@@ -158,7 +158,7 @@ trait EncryptionPrivateStoreOps extends EncryptionPrivateOps {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionPublicKey] =
     for {
-      keypair <- generateEncryptionKeypair(scheme).mapK(FutureUnlessShutdown.outcomeK)
+      keypair <- generateEncryptionKeypair(scheme)
       _ <- store
         .storeDecryptionKey(keypair.privateKey, name)
         .leftMap[EncryptionKeyGenerationError](

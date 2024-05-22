@@ -1324,7 +1324,11 @@ class TransactionProcessingSteps(
       hashOps: HashOps,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
+  ): EitherT[
+    FutureUnlessShutdown,
+    TransactionProcessorError,
+    CommitAndStoreContractsAndPublishEvent,
+  ] = {
     val ts = event.event.content.timestamp
     val submitterMetaO = pendingRequestData.transactionValidationResult.submitterMetadataO
     val completionInfoO = submitterMetaO.flatMap(
@@ -1447,7 +1451,7 @@ class TransactionProcessingSteps(
           )
         }
     } yield res
-  }
+  }.mapK(FutureUnlessShutdown.outcomeK)
 
   override def postProcessResult(verdict: Verdict, pendingSubmission: Nothing)(implicit
       traceContext: TraceContext

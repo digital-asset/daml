@@ -4,7 +4,6 @@
 package com.digitalasset.canton.sequencing.authentication.grpc
 
 import cats.data.EitherT
-import cats.implicits.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.Port
@@ -12,6 +11,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.api.v0
 import com.digitalasset.canton.domain.api.v0.{Hello, HelloServiceGrpc}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.Lifecycle.CloseableChannel
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.sequencing.authentication.{
@@ -60,7 +60,7 @@ class SequencerClientAuthenticationTest extends FixtureAsyncWordSpec with BaseTe
     val tokenManager =
       new AuthenticationTokenManager(
         _ =>
-          EitherT.pure[Future, Status](
+          EitherT.pure[FutureUnlessShutdown, Status](
             AuthenticationTokenWithExpiry(clientNextTokenRefresh.get(), CantonTimestamp.Epoch)
           ),
         false,

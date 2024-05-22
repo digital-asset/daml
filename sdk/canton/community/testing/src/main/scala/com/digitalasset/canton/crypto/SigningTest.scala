@@ -6,17 +6,15 @@ package com.digitalasset.canton.crypto
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.SignatureCheckError.{InvalidSignature, SignatureWithWrongKey}
 import com.digitalasset.canton.crypto.SigningError.UnknownSigningKey
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.google.protobuf.ByteString
-import org.scalatest.wordspec.AsyncWordSpecLike
+import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
-
-trait SigningTest extends BaseTest with CryptoTestHelper {
-  this: AsyncWordSpecLike =>
+trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
 
   def signingProvider(
       supportedSigningKeySchemes: Set[SigningKeyScheme],
-      newCrypto: => Future[Crypto],
+      newCrypto: => FutureUnlessShutdown[Crypto],
   ): Unit = {
 
     forAll(supportedSigningKeySchemes) { signingKeyScheme =>
@@ -31,37 +29,37 @@ trait SigningTest extends BaseTest with CryptoTestHelper {
               .fromProtoVersioned(publicKeyP)
               .valueOrFail("serialize key")
           } yield publicKey shouldEqual publicKey2
-        }
+        }.failOnShutdown
 
         "serialize and deserialize a signature via protobuf" in {
           for {
             crypto <- newCrypto
             publicKey <- getSigningPublicKey(crypto, signingKeyScheme)
             hash = TestHash.digest("foobar")
-            sig <- crypto.privateCrypto.sign(hash, publicKey.id).valueOrFail("sign").failOnShutdown
+            sig <- crypto.privateCrypto.sign(hash, publicKey.id).valueOrFail("sign")
             sigP = sig.toProtoVersioned(testedProtocolVersion)
             sig2 = Signature.fromProtoVersioned(sigP).valueOrFail("serialize signature")
           } yield sig shouldEqual sig2
-        }
+        }.failOnShutdown
 
         "sign and verify" in {
           for {
             crypto <- newCrypto
             publicKey <- getSigningPublicKey(crypto, signingKeyScheme)
             hash = TestHash.digest("foobar")
-            sig <- crypto.privateCrypto.sign(hash, publicKey.id).valueOrFail("sign").failOnShutdown
+            sig <- crypto.privateCrypto.sign(hash, publicKey.id).valueOrFail("sign")
             res = crypto.pureCrypto.verifySignature(hash, publicKey, sig)
           } yield res shouldEqual Right(())
-        }
+        }.failOnShutdown
 
         "fail to sign with unknown private key" in {
           for {
             crypto <- newCrypto
             unknownKeyId = Fingerprint.create(ByteString.copyFromUtf8("foobar"))
             hash = TestHash.digest("foobar")
-            sig <- crypto.privateCrypto.sign(hash, unknownKeyId).value.failOnShutdown
+            sig <- crypto.privateCrypto.sign(hash, unknownKeyId).value
           } yield sig.left.value shouldBe a[UnknownSigningKey]
-        }
+        }.failOnShutdown
 
         "fail to verify if signature is invalid" in {
           for {
@@ -71,23 +69,23 @@ trait SigningTest extends BaseTest with CryptoTestHelper {
             realSig <- crypto.privateCrypto
               .sign(hash, publicKey.id)
               .valueOrFail("sign")
-              .failOnShutdown
             randomBytes = ByteString.copyFromUtf8(PseudoRandom.randomAlphaNumericString(16))
             fakeSig = new Signature(realSig.format, randomBytes, realSig.signedBy)
             res = crypto.pureCrypto.verifySignature(hash, publicKey, fakeSig)
           } yield res.left.value shouldBe a[InvalidSignature]
-        }
+        }.failOnShutdown
 
         "fail to verify with a different public key" in {
           for {
             crypto <- newCrypto
-            (publicKey, publicKey2) <- getTwoSigningPublicKeys(crypto, signingKeyScheme)
+            publicKeys <- getTwoSigningPublicKeys(crypto, signingKeyScheme)
+            (publicKey, publicKey2) = publicKeys
             _ = assert(publicKey != publicKey2)
             hash = TestHash.digest("foobar")
-            sig <- crypto.privateCrypto.sign(hash, publicKey.id).valueOrFail("sign").failOnShutdown
+            sig <- crypto.privateCrypto.sign(hash, publicKey.id).valueOrFail("sign")
             res = crypto.pureCrypto.verifySignature(hash, publicKey2, sig)
           } yield res.left.value shouldBe a[SignatureWithWrongKey]
-        }
+        }.failOnShutdown
 
       }
     }

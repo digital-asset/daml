@@ -43,7 +43,7 @@ class SequencerAggregatorTest
   "Single sequencer aggregator" should {
     "pass-through the event" in { fixture =>
       import fixture.*
-      val event = createEvent().futureValue
+      val event = createEvent().futureValueUS
 
       val aggregator = mkAggregator()
 
@@ -59,7 +59,7 @@ class SequencerAggregatorTest
     "pass-through events in sequence" in { fixture =>
       import fixture.*
       val events = (1 to 100).map(s =>
-        createEvent(timestamp = CantonTimestamp.Epoch.plusSeconds(s.toLong)).futureValue
+        createEvent(timestamp = CantonTimestamp.Epoch.plusSeconds(s.toLong)).futureValueUS
       )
 
       val aggregator = mkAggregator()
@@ -75,7 +75,7 @@ class SequencerAggregatorTest
     "block on queue is full" in { fixture =>
       import fixture.*
       val events = (1 to 2).map(s =>
-        createEvent(timestamp = CantonTimestamp.Epoch.plusSeconds(s.toLong)).futureValue
+        createEvent(timestamp = CantonTimestamp.Epoch.plusSeconds(s.toLong)).futureValueUS
       )
 
       val aggregator = mkAggregator()
@@ -88,7 +88,8 @@ class SequencerAggregatorTest
           .futureValueUS shouldBe Right(true)
       }
 
-      val blockingEvent = createEvent(timestamp = CantonTimestamp.Epoch.plusSeconds(3L)).futureValue
+      val blockingEvent =
+        createEvent(timestamp = CantonTimestamp.Epoch.plusSeconds(3L)).futureValueUS
 
       val p = Promise[Future[Either[SequencerAggregatorError, Boolean]]]()
       p.completeWith(
@@ -180,8 +181,8 @@ class SequencerAggregatorTest
   "Sequencer aggregator with two expected sequencers" should {
     "pass-through the combined event only if both sequencers emitted it" in { fixture =>
       import fixture.*
-      val event1 = createEvent().futureValue
-      val event2 = createEvent().futureValue
+      val event1 = createEvent().futureValueUS
+      val event2 = createEvent().futureValueUS
 
       val aggregator = mkAggregator(
         config(Set(sequencerAlice, sequencerBob), sequencerTrustThreshold = 2)
@@ -211,8 +212,8 @@ class SequencerAggregatorTest
 
     "fail if events share timestamp but content is different" in { fixture =>
       import fixture.*
-      val event1 = createEvent().futureValue
-      val event2 = createEvent(serializedOverride = Some(ByteString.EMPTY)).futureValue
+      val event1 = createEvent().futureValueUS
+      val event2 = createEvent(serializedOverride = Some(ByteString.EMPTY)).futureValueUS
 
       val aggregator = mkAggregator(
         config(Set(sequencerAlice, sequencerBob), sequencerTrustThreshold = 2)
@@ -237,7 +238,7 @@ class SequencerAggregatorTest
     "emit events in order when all sequencers confirmed" in { fixture =>
       import fixture.*
       val events = (1 to 2).map(s =>
-        createEvent(timestamp = CantonTimestamp.Epoch.plusSeconds(s.toLong)).futureValue
+        createEvent(timestamp = CantonTimestamp.Epoch.plusSeconds(s.toLong)).futureValueUS
       )
       val aggregator = mkAggregator(
         config(Set(sequencerAlice, sequencerBob), sequencerTrustThreshold = 2)

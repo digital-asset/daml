@@ -67,10 +67,10 @@ class AuthenticationTokenProvider(
 
   def generateToken(
       authenticationClient: SequencerAuthenticationServiceStub
-  ): EitherT[Future, Status, AuthenticationTokenWithExpiry] = {
+  ): EitherT[FutureUnlessShutdown, Status, AuthenticationTokenWithExpiry] = {
     // this should be called by a grpc client interceptor
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    performUnlessClosingEitherT(functionFullName, shutdownStatus) {
+    performUnlessClosingEitherU(functionFullName) {
       def generateTokenET: FutureUnlessShutdown[Either[Status, AuthenticationTokenWithExpiry]] =
         (for {
           challenge <- getChallenge(authenticationClient).mapK(FutureUnlessShutdown.outcomeK)

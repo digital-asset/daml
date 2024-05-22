@@ -44,7 +44,7 @@ class GrpcSequencerClientAuth(
     clock: Clock,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
-)(implicit executionContext: ExecutionContext)
+)(implicit executionContext: ExecutionContext, traceContext: TraceContext)
     extends FlagCloseable
     with NamedLogging {
 

@@ -31,7 +31,7 @@ import com.digitalasset.canton.version.{
 import com.google.protobuf.ByteString
 import slick.jdbc.GetResult
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Signing operations that do not require access to a private key store but operates with provided keys. */
 trait SigningOps {
@@ -109,7 +109,7 @@ trait SigningPrivateStoreOps extends SigningPrivateOps {
   /** Internal method to generate and return the entire signing key pair */
   protected[crypto] def generateSigningKeypair(scheme: SigningKeyScheme)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SigningKeyGenerationError, SigningKeyPair]
+  ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningKeyPair]
 
   override def generateSigningKey(
       scheme: SigningKeyScheme,
@@ -118,7 +118,7 @@ trait SigningPrivateStoreOps extends SigningPrivateOps {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningPublicKey] =
     for {
-      keypair <- generateSigningKeypair(scheme).mapK(FutureUnlessShutdown.outcomeK)
+      keypair <- generateSigningKeypair(scheme)
       _ <- store
         .storeSigningKey(keypair.privateKey, name)
         .leftMap[SigningKeyGenerationError](SigningKeyGenerationError.SigningPrivateStoreError)

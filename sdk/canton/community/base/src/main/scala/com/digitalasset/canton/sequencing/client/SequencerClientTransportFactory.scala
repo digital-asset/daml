@@ -29,13 +29,14 @@ trait SequencerClientTransportFactory {
       traceContext: TraceContext,
   ): EitherT[Future, String, NonEmpty[
     Map[SequencerAlias, SequencerClientTransport & SequencerClientTransportPekko]
-  ]] =
+  ]] = {
     MonadUtil
       .sequentialTraverse(sequencerConnections.connections)(conn =>
         makeTransport(conn, member, requestSigner)
           .map(transport => conn.sequencerAlias -> transport)
       )
       .map(transports => NonEmptyUtil.fromUnsafe(transports.toMap))
+  }
 
   def makeTransport(
       connection: SequencerConnection,

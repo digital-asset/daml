@@ -487,7 +487,7 @@ trait ProcessingSteps[
       hashOps: HashOps,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ResultError, CommitAndStoreContractsAndPublishEvent]
+  ): EitherT[FutureUnlessShutdown, ResultError, CommitAndStoreContractsAndPublishEvent]
 
   /** Phase 7, step 3:
     *

@@ -31,7 +31,7 @@ import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** An encrypted [[com.digitalasset.canton.data.ViewTree]] together with its [[com.digitalasset.canton.data.ViewType]].
   * The correspondence is encoded via a path-dependent type.
@@ -337,13 +337,13 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
 
     def decryptViewRandomness(
         sessionKeyRandomness: SecureRandomness
-    ): EitherT[Future, EncryptedViewMessageError, SecureRandomness] =
+    ): EitherT[FutureUnlessShutdown, EncryptedViewMessageError, SecureRandomness] =
       for {
         // derive symmetric key from randomness
         sessionKey <- pureCrypto
           .createSymmetricKey(sessionKeyRandomness, encrypted.viewEncryptionScheme)
           .leftMap[EncryptedViewMessageError](SessionKeyCreationError)
-          .toEitherT[Future]
+          .toEitherT[FutureUnlessShutdown]
         randomness <- pureCrypto
           .decryptWith(encrypted.randomness, sessionKey)(
             SecureRandomness.fromByteString(randomnessLength)
@@ -351,7 +351,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
           .leftMap[EncryptedViewMessageError](
             EncryptedViewMessageError.SymmetricDecryptError
           )
-          .toEitherT[Future]
+          .toEitherT[FutureUnlessShutdown]
       } yield randomness
 
     encrypted.sessionKey
@@ -375,9 +375,10 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
            * correct rights to do so, but this participant does not have the corresponding private key in the store.
            */
           encryptionKeys <- EitherT
-            .right(snapshot.ipsSnapshot.encryptionKeys(participantId))
+            .right(
+              FutureUnlessShutdown.outcomeF(snapshot.ipsSnapshot.encryptionKeys(participantId))
+            )
             .map(_.map(_.id).toSet)
-            .mapK(FutureUnlessShutdown.outcomeK)
           encryptedSessionKeyForParticipant <- encrypted.sessionKey
             .find(e => encryptionKeys.contains(e.encryptedFor))
             .toRight(
@@ -418,7 +419,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
                   SyncCryptoDecryptionError(err)
                 )
               )
-          viewRandomness <- decryptViewRandomness(skRandom).mapK(FutureUnlessShutdown.outcomeK)
+          viewRandomness <- decryptViewRandomness(skRandom)
         } yield viewRandomness
       }
   }
@@ -430,8 +431,8 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
 
   private def eitherT[VT <: ViewType, B](value: Either[EncryptedViewMessageError, B])(implicit
       ec: ExecutionContext
-  ): EitherT[Future, EncryptedViewMessageError, B] =
-    EitherT.fromEither[Future](value)
+  ): EitherT[FutureUnlessShutdown, EncryptedViewMessageError, B] =
+    EitherT.fromEither[FutureUnlessShutdown](value)
 
   def computeRandomnessLength(pureCrypto: CryptoPureApi): Int =
     pureCrypto.defaultHashAlgorithm.length.toInt
@@ -444,14 +445,14 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
       viewRandomness: SecureRandomness,
   )(deserialize: ByteString => Either[DeserializationError, encrypted.encryptedView.viewType.View])(
       implicit ec: ExecutionContext
-  ): EitherT[Future, EncryptedViewMessageError, VT#View] = {
+  ): EitherT[FutureUnlessShutdown, EncryptedViewMessageError, VT#View] = {
 
     val pureCrypto = snapshot.pureCrypto
     val viewKeyLength = encrypted.viewEncryptionScheme.keySizeInBytes
     val randomnessLength = computeRandomnessLength(snapshot.pureCrypto)
 
     for {
-      _ <- EitherT.cond[Future](
+      _ <- EitherT.cond[FutureUnlessShutdown](
         viewRandomness.unwrap.size == randomnessLength,
         (),
         EncryptedViewMessageError.WrongRandomnessLength(
@@ -511,7 +512,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
       )(r => EitherT.pure(r))
       decrypted <- decryptWithRandomness(snapshot, encrypted, viewRandomness)(
         deserialize
-      ).mapK(FutureUnlessShutdown.outcomeK)
+      )
     } yield decrypted
   }
 

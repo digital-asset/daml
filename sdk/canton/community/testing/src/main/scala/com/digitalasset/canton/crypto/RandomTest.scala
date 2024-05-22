@@ -3,15 +3,14 @@
 
 package com.digitalasset.canton.crypto
 
-import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
-
 trait RandomTest {
-  this: AsyncWordSpec with BaseTest =>
+  this: AsyncWordSpec & BaseTest & HasExecutionContext =>
 
-  def randomnessProvider(providerF: => Future[RandomOps]): Unit = {
+  def randomnessProvider(providerF: => FutureUnlessShutdown[RandomOps]): Unit = {
     "provide randomness" should {
       "generate fresh randomness" in {
 
@@ -21,7 +20,7 @@ trait RandomTest {
 
           random1 should not equal random2
         }
-      }
+      }.failOnShutdown
     }
   }
 }

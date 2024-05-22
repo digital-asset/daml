@@ -1484,7 +1484,6 @@ abstract class ProtocolProcessor[
                 steps.pendingSubmissions(ephemeral),
                 crypto.pureCrypto,
               )
-              .mapK(FutureUnlessShutdown.outcomeK)
           } yield {
             val steps.CommitAndStoreContractsAndPublishEvent(
               commitSetOF,

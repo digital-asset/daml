@@ -78,6 +78,7 @@ private[protocol] trait ConflictDetectionHelpers {
           result <- store
             .addTransfer(transfer)
             .value
+            .failOnShutdown
         } yield result
       }
       .map(_ => new TransferCache(store, loggerFactory)(parallelExecutionContext))

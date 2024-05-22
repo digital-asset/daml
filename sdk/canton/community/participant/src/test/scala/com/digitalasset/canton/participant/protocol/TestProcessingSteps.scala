@@ -290,9 +290,9 @@ class TestProcessingSteps(
       hashOps: HashOps,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TestProcessingError, CommitAndStoreContractsAndPublishEvent] = {
+  ): EitherT[FutureUnlessShutdown, TestProcessingError, CommitAndStoreContractsAndPublishEvent] = {
     val result = CommitAndStoreContractsAndPublishEvent(None, Seq.empty, None)
-    EitherT.pure[Future, TestProcessingError](result)
+    EitherT.pure[FutureUnlessShutdown, TestProcessingError](result)
   }
 
   override def postProcessSubmissionRejectedCommand(

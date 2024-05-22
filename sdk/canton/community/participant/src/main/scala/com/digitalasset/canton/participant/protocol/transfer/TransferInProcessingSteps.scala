@@ -520,7 +520,11 @@ private[transfer] class TransferInProcessingSteps(
       hashOps: HashOps,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, CommitAndStoreContractsAndPublishEvent] = {
+  ): EitherT[
+    FutureUnlessShutdown,
+    TransferProcessorError,
+    CommitAndStoreContractsAndPublishEvent,
+  ] = {
     val PendingTransferIn(
       requestId,
       requestCounter,
@@ -597,7 +601,7 @@ private[transfer] class TransferInProcessingSteps(
 
       case rejection: Verdict.MediatorReject => rejected(rejection)
     }
-  }
+  }.mapK(FutureUnlessShutdown.outcomeK)
 
   private[transfer] def createTransferredIn(
       contract: SerializableContract,

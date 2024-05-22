@@ -153,6 +153,11 @@ object FutureUnlessShutdownImpl {
       FutureUnlessShutdown(unwrap.transformWith(Instance.unsubst[K](f)))
     }
 
+    def andThen[B](pf: PartialFunction[Try[UnlessShutdown[A]], B])(implicit
+        executor: ExecutionContext
+    ): FutureUnlessShutdown[A] =
+      FutureUnlessShutdown(unwrap.andThen(pf))
+
     /** Analog to [[scala.concurrent.Future]].onComplete */
     def onComplete[B](f: Try[UnlessShutdown[A]] => Unit)(implicit ec: ExecutionContext): Unit =
       unwrap.onComplete(f)
@@ -165,6 +170,11 @@ object FutureUnlessShutdownImpl {
     def onShutdown[B >: A](f: => B)(implicit ec: ExecutionContext): Future[B] =
       unwrap.map(_.onShutdown(f))
 
+    @throws[AbortedDueToShutdownException]("if a shutdown signal has been received.")
+    def failOnShutdownToAbortException(action: String)(implicit ec: ExecutionContext): Future[A] =
+      failOnShutdownTo(AbortedDueToShutdownException(action))
+
+    /** consider using [[failOnShutdownToAbortException]] unless you need a specific exception. */
     def failOnShutdownTo(t: => Throwable)(implicit ec: ExecutionContext): Future[A] = {
       unwrap.flatMap {
         case UnlessShutdown.Outcome(result) => Future.successful(result)
@@ -344,6 +354,11 @@ object FutureUnlessShutdownImpl {
   implicit class EitherTOnShutdownSyntax[A, B](
       private val eitherT: EitherT[FutureUnlessShutdown, A, B]
   ) extends AnyVal {
+    def failOnShutdownTo[C >: A, D >: B](t: => Throwable)(implicit
+        ec: ExecutionContext
+    ): EitherT[Future, C, D] =
+      EitherT(eitherT.value.failOnShutdownTo(t))
+
     def onShutdown[C >: A, D >: B](f: => Either[C, D])(implicit
         ec: ExecutionContext
     ): EitherT[Future, C, D] =
@@ -365,4 +380,8 @@ object FutureUnlessShutdownImpl {
     def future[T](timer: Timer, future: => FutureUnlessShutdown[T]): FutureUnlessShutdown[T] =
       FutureUnlessShutdown(timed.future(timer, future.unwrap))
   }
+
+  final case class AbortedDueToShutdownException(action: String)
+      extends RuntimeException(s"'$action' was aborted due to shutdown.")
+
 }
