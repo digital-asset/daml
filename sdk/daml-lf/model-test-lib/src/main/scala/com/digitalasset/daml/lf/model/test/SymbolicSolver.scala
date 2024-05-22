@@ -40,7 +40,9 @@ private class SymbolicSolver(ctx: Context, numPackages: Int, numParties: Int) {
   private val contractIdSort = ctx.mkIntSort()
   private val keyIdSort = ctx.mkIntSort()
   private val partySort = ctx.mkIntSort()
+  private val packageIdSort = ctx.mkIntSort()
   private val partySetSort = ctx.mkSetSort(ctx.mkIntSort())
+  private val packageIdSetSort = ctx.mkSetSort(ctx.mkIntSort())
 
   private def and(bools: Seq[BoolExpr]): BoolExpr =
     ctx.mkAnd(bools: _*)
@@ -56,6 +58,9 @@ private class SymbolicSolver(ctx: Context, numPackages: Int, numParties: Int) {
 
   private def isEmptyPartySet(partySet: PartySet): BoolExpr =
     ctx.mkEq(partySet, ctx.mkEmptySet(partySort))
+
+  private def isEmptyPackageIdSet(packageIdSet: PackageIdSet): BoolExpr =
+    ctx.mkEq(packageIdSet, ctx.mkEmptySet(packageIdSort))
 
   private def collectCreatedContractIds(ledger: Ledger): Set[ContractId] =
     ledger.flatMap(_.commands.flatMap(collectCreatedContractIds)).toSet
@@ -598,6 +603,8 @@ private class SymbolicSolver(ctx: Context, numPackages: Int, numParties: Int) {
 
   private val allPartiesSetLiteral = toSet(partySort, (1 to numParties).map(ctx.mkInt))
 
+  private val allPackagesSetLiteral = toSet(packageIdSort, (0 until numPackages).map(ctx.mkInt))
+
   private def partySetsWellFormed(ledger: Ledger, allParties: PartySet): BoolExpr =
     and(collectPartySets(ledger).map(s => ctx.mkSetSubset(s, allParties)))
 
@@ -607,17 +614,46 @@ private class SymbolicSolver(ctx: Context, numPackages: Int, numParties: Int) {
         .map(s => ctx.mkNot(isEmptyPartySet(s)))
     )
 
-  private def packageIdsWellFormed(ledger: Ledger): BoolExpr = {
-    val packageIds = collectPackageIds(ledger)
+  private def tiePackagesToParticipants(
+      packagesOf: FuncDecl[Symbolic.PackageIdSetSort],
+      topology: Symbolic.Topology,
+  ): BoolExpr = {
     and(
-      packageIds
-        .map(packageId =>
+      topology.map(participant =>
+        ctx.mkEq(ctx.mkApp(packagesOf, participant.participantId), participant.packages)
+      )
+    )
+  }
+
+  private def packagesAreHostedOnParticipant(
+      packagesOf: FuncDecl[PackageIdSetSort],
+      ledger: Ledger,
+  ): BoolExpr = {
+    and(
+      for {
+        commands <- ledger
+        command <- commands.commands
+        packageId <- command.packageId
+      } yield ctx.mkSetMembership(
+        packageId,
+        ctx.mkApp(packagesOf, commands.participantId).asInstanceOf[PackageIdSet],
+      )
+    )
+  }
+
+  private def packageIdSetsWellFormed(
+      topology: Symbolic.Topology,
+      allPackages: PackageIdSet,
+  ): BoolExpr = {
+    val packageIdSets = topology.map(_.packages)
+    and(
+      packageIdSets
+        .map(packageIdSet =>
           ctx.mkAnd(
-            ctx.mkGe(packageId, ctx.mkInt(0)),
-            ctx.mkLt(packageId, ctx.mkInt(numPackages)),
+            ctx.mkSetSubset(packageIdSet, allPackages),
+            ctx.mkNot(isEmptyPackageIdSet(packageIdSet)),
           )
         )
-        .toSeq
     )
   }
 
@@ -680,6 +716,12 @@ private class SymbolicSolver(ctx: Context, numPackages: Int, numParties: Int) {
       (0 until numBitsPackageId).map(i => ctx.mkEq(ctx.mkExtract(i, i, bitVector), ctx.mkBV(1, 1)))
     }
 
+    def packageIdSetToBits(packageIdSet: PackageIdSet): Seq[BoolExpr] = {
+      (0 until numPackages).map(i =>
+        ctx.mkSelect(packageIdSet, ctx.mkInt(i)).asInstanceOf[BoolExpr]
+      )
+    }
+
     def ledgerToBits(ledger: Ledger): Seq[BoolExpr] = {
       Seq.concat(
         collectReferences(ledger).toSeq.flatMap(contractIdToBits),
@@ -689,8 +731,12 @@ private class SymbolicSolver(ctx: Context, numPackages: Int, numParties: Int) {
       )
     }
 
-    def participantToBits(participant: Participant): Seq[BoolExpr] =
-      partySetToBits(participant.parties)
+    def participantToBits(participant: Participant): Seq[BoolExpr] = {
+      Seq.concat(
+        packageIdSetToBits(participant.packages),
+        partySetToBits(participant.parties),
+      )
+    }
 
     def topologyToBits(topology: Topology): Seq[BoolExpr] =
       topology.flatMap(participantToBits)
@@ -724,6 +770,7 @@ private class SymbolicSolver(ctx: Context, numPackages: Int, numParties: Int) {
 
   private def validScenario(
       constants: Constants,
+      allPackages: PackageIdSet,
       allParties: PartySet,
       symScenario: Scenario,
   ): BoolExpr = {
@@ -758,8 +805,13 @@ private class SymbolicSolver(ctx: Context, numPackages: Int, numParties: Int) {
       actorsAreHostedOnParticipant(partiesOf, symLedger),
       // Maintainers are subsets of signatories
       maintainersAreSubsetsOfSignatories(symLedger),
-      // Package IDs are in {0 .. numPackages-1}
-      packageIdsWellFormed(symLedger),
+      // Package sets of participants are non-empty subsets of {0 .. numPackages-1}
+      packageIdSetsWellFormed(symTopology, allPackages),
+      // Tie packages to participants via packagesOf
+      tiePackagesToParticipants(packagesOf, symTopology),
+      // Package IDs of commands refer to packages present on the participant
+      // TODO: tie packagesOf to the packages of each participant, and fix the function below
+      packagesAreHostedOnParticipant(packagesOf, symLedger),
     )
   }
 
@@ -767,6 +819,7 @@ private class SymbolicSolver(ctx: Context, numPackages: Int, numParties: Int) {
       signatoriesOf: FuncDecl[PartySetSort],
       observersOf: FuncDecl[PartySetSort],
       partiesOf: FuncDecl[PartySetSort],
+      packagesOf: FuncDecl[PackageIdSetSort],
       keyIdsOf: FuncDecl[KeyIdSort],
       maintainersOf: FuncDecl[PartySetSort],
       hasKey: FuncDecl[BoolSort],
@@ -777,6 +830,8 @@ private class SymbolicSolver(ctx: Context, numPackages: Int, numParties: Int) {
       signatoriesOf = ctx.mkFreshFuncDecl("signatories", Array[Sort](contractIdSort), partySetSort),
       observersOf = ctx.mkFreshFuncDecl("observers", Array[Sort](contractIdSort), partySetSort),
       partiesOf = ctx.mkFreshFuncDecl("parties", Array[Sort](participantIdSort), partySetSort),
+      packagesOf =
+        ctx.mkFreshFuncDecl("packages", Array[Sort](participantIdSort), packageIdSetSort),
       keyIdsOf = ctx.mkFreshFuncDecl("key_nums", Array[Sort](contractIdSort), keyIdSort),
       maintainersOf = ctx.mkFreshFuncDecl("maintainers", Array[Sort](contractIdSort), partySetSort),
       hasKey = ctx.mkFreshFuncDecl("has_key", Array[Sort](contractIdSort), ctx.mkBoolSort()),
@@ -797,10 +852,12 @@ private class SymbolicSolver(ctx: Context, numPackages: Int, numParties: Int) {
     solver.add(niceNumbers(symScenario))
     // The scenario is valid
     val allParties = ctx.mkFreshConst("all_parties", partySetSort).asInstanceOf[PartySet]
+    val allPackages = ctx.mkFreshConst("all_pkgs", packageIdSetSort).asInstanceOf[PackageIdSet]
     solver.add(
       ctx.mkAnd(
         ctx.mkEq(allParties, allPartiesSetLiteral),
-        validScenario(constants, allParties, symScenario),
+        ctx.mkEq(allPackages, allPackagesSetLiteral),
+        validScenario(constants, allPackages, allParties, symScenario),
       )
     )
     // Equate a random hash of all the symbols to a constant
@@ -833,9 +890,10 @@ private class SymbolicSolver(ctx: Context, numPackages: Int, numParties: Int) {
 
     val symScenario = ConcreteToSymbolic.toSymbolic(ctx, scenario)
     val allParties = union(partySort, symScenario.topology.map(_.parties))
+    val allPackages = union(packageIdSort, symScenario.topology.map(_.packages))
     val constants = mkFreshConstants()
 
-    solver.check(validScenario(constants, allParties, symScenario)) match {
+    solver.check(validScenario(constants, allPackages, allParties, symScenario)) match {
       case SATISFIABLE => true
       case UNSATISFIABLE =>
         false
