@@ -130,6 +130,7 @@ private[lf] object Speedy {
   final case class ContractInfo(
       version: TxVersion,
       packageName: Ref.PackageName,
+      packageVersion: Option[Ref.PackageVersion],
       templateId: Ref.TypeConName,
       value: SValue,
       signatories: Set[Party],
@@ -145,6 +146,7 @@ private[lf] object Speedy {
       Node.Create(
         coid = coid,
         packageName = packageName,
+        packageVersion = packageVersion,
         templateId = templateId,
         arg = arg,
         signatories = signatories,
@@ -358,6 +360,7 @@ private[lf] object Speedy {
               f(
                 V.ContractInstance(
                   contractInfo.packageName,
+                  contractInfo.packageVersion,
                   contractInfo.templateId,
                   contractInfo.value.toUnnormalizedValue,
                 )
@@ -894,8 +897,10 @@ private[lf] object Speedy {
         compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
       )
 
-    final def tmplId2PackageName(tmplId: TypeConName): PackageName =
-      compiledPackages.pkgInterface.signatures(tmplId.packageId).metadata.name
+    final def tmplId2PackageNameVersion(
+        tmplId: TypeConName
+    ): (PackageName, Option[PackageVersion]) =
+      compiledPackages.pkgInterface.signatures(tmplId.packageId).pkgNameVersion
 
     /* kont manipulation... */
 

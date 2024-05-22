@@ -392,15 +392,15 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         err shouldBe Interpretation.DamlException(
           interpretation.Error.ContractKeyNotFound(
             GlobalKey.assertBuild(
-              BasicTests_WithKey,
-              ValueRecord(
+              templateId = BasicTests_WithKey,
+              key = ValueRecord(
                 Some(BasicTests_WithKey),
                 ImmArray(
                   (Some[Ref.Name]("p"), ValueParty(alice)),
                   (Some[Ref.Name]("k"), ValueInt64(43)),
                 ),
               ),
-              basicTestsHashPkgName,
+              packageName = basicTestsPkg.pkgName,
             )
           )
         )
@@ -652,15 +652,15 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           Interpretation.DamlException(
             interpretation.Error.ContractKeyNotFound(
               GlobalKey.assertBuild(
-                BasicTests_WithKey,
-                ValueRecord(
+                templateId = BasicTests_WithKey,
+                key = ValueRecord(
                   Some(BasicTests_WithKey),
                   ImmArray(
                     (Some[Ref.Name]("p"), ValueParty(alice)),
                     (Some[Ref.Name]("k"), ValueInt64(43)),
                   ),
                 ),
-                basicTestsHashPkgName,
+                packageName = basicTestsPkg.pkgName,
               )
             )
           )
@@ -700,15 +700,15 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           Interpretation.DamlException(
             interpretation.Error.ContractKeyNotFound(
               GlobalKey.assertBuild(
-                BasicTests_WithKey,
-                ValueRecord(
+                templateId = BasicTests_WithKey,
+                key = ValueRecord(
                   Some(BasicTests_WithKey),
                   ImmArray(
                     (Some[Ref.Name]("p"), ValueParty(alice)),
                     (Some[Ref.Name]("k"), ValueInt64(43)),
                   ),
                 ),
-                basicTestsHashPkgName,
+                packageName = basicTestsPkg.pkgName,
               )
             )
           )
@@ -738,7 +738,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, basicTestsHashPkgName, usedContractKey)),
+        Some(crypto.Hash.assertHashContractKey(templateId, basicTestsPkg.pkgName, usedContractKey)),
       )
       val unusedDisclosedContract = DisclosedContract(
         templateId,
@@ -749,7 +749,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
         ),
         Some(
-          crypto.Hash.assertHashContractKey(templateId, basicTestsHashPkgName, unusedContractKey)
+          crypto.Hash.assertHashContractKey(templateId, basicTestsPkg.pkgName, unusedContractKey)
         ),
       )
       val fetchByKeyCommand = speedy.Command.FetchByKey(
@@ -760,7 +760,8 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
       val expectedProcessedDisclosedContract = Node.Create(
         coid = usedDisclosedContract.contractId,
-        packageName = getPackageName(basicTestsPkg),
+        packageName = basicTestsPkg.pkgName,
+        packageVersion = basicTestsPkg.pkgVersion,
         templateId = usedDisclosedContract.templateId,
         arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
         signatories = Set(alice),
@@ -771,7 +772,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
               usedDisclosedContract.templateId,
               usedContractKey,
               Set(alice),
-              basicTestsHashPkgName,
+              basicTestsPkg.pkgName,
             )
         ),
         version = transactionVersion,
@@ -1208,9 +1209,10 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     ) =
       assertAsVersionedContract(
         ContractInstance(
-          basicTestsPkg.name,
-          TypeConName(basicTestsPkgId, tid),
-          ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs),
+          packageName = basicTestsPkg.pkgName,
+          packageVersion = basicTestsPkg.pkgVersion,
+          template = TypeConName(basicTestsPkgId, tid),
+          arg = ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs),
         )
       )
 
@@ -1351,9 +1353,10 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val fetchedContract =
       assertAsVersionedContract(
         ContractInstance(
-          basicTestsPkg.name,
-          TypeConName(basicTestsPkgId, fetchedStrTid),
-          ValueRecord(
+          packageName = basicTestsPkg.pkgName,
+          packageVersion = basicTestsPkg.pkgVersion,
+          template = TypeConName(basicTestsPkgId, fetchedStrTid),
+          arg = ValueRecord(
             Some(Identifier(basicTestsPkgId, fetchedStrTid)),
             ImmArray(
               (Some[Name]("sig1"), ValueParty(alice)),
@@ -1398,9 +1401,11 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val lookerUpInst =
       assertAsVersionedContract(
         ContractInstance(
-          basicTestsPkg.name,
-          TypeConName(basicTestsPkgId, lookerUpTemplate),
-          ValueRecord(Some(lookerUpTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
+          packageName = basicTestsPkg.pkgName,
+          packageVersion = basicTestsPkg.pkgVersion,
+          template = TypeConName(basicTestsPkgId, lookerUpTemplate),
+          arg =
+            ValueRecord(Some(lookerUpTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
         )
       )
 
@@ -1592,7 +1597,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, basicTestsHashPkgName, usedContractKey)),
+        Some(crypto.Hash.assertHashContractKey(templateId, basicTestsPkg.pkgName, usedContractKey)),
       )
       val unusedDisclosedContract = DisclosedContract(
         templateId,
@@ -1603,7 +1608,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
         ),
         Some(
-          crypto.Hash.assertHashContractKey(templateId, basicTestsHashPkgName, unusedContractKey)
+          crypto.Hash.assertHashContractKey(templateId, basicTestsPkg.pkgName, unusedContractKey)
         ),
       )
       val lookupByKeyCommand = speedy.Command.LookupByKey(
@@ -1614,14 +1619,15 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
       val expectedDisclosedEvent = Node.Create(
         coid = usedDisclosedContract.contractId,
-        packageName = getPackageName(basicTestsPkg),
+        packageName = basicTestsPkg.pkgName,
+        packageVersion = basicTestsPkg.pkgVersion,
         templateId = usedDisclosedContract.templateId,
         arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
         signatories = Set(alice),
         stakeholders = Set(alice),
         keyOpt = Some(
           GlobalKeyWithMaintainers
-            .assertBuild(templateId, usedContractKey, Set(alice), basicTestsHashPkgName)
+            .assertBuild(templateId, usedContractKey, Set(alice), basicTestsPkg.pkgName)
         ),
         version = transactionVersion,
       )
@@ -1667,7 +1673,8 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
       val expectedDisclosedEvent = Node.Create(
         coid = usedDisclosedContract.contractId,
-        packageName = getPackageName(basicTestsPkg),
+        packageName = basicTestsPkg.pkgName,
+        packageVersion = basicTestsPkg.pkgVersion,
         templateId = usedDisclosedContract.templateId,
         arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
         signatories = Set(alice),
@@ -1763,9 +1770,10 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val fetcherCid = toContractId("2")
       val fetcherInst = assertAsVersionedContract(
         ContractInstance(
-          basicTestsPkg.name,
-          TypeConName(basicTestsPkgId, fetcherTemplate),
-          ValueRecord(Some(fetcherTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
+          packageName = basicTestsPkg.pkgName,
+          packageVersion = basicTestsPkg.pkgVersion,
+          template = TypeConName(basicTestsPkgId, fetcherTemplate),
+          arg = ValueRecord(Some(fetcherTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
         )
       )
 
@@ -1832,9 +1840,10 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val fetcherCid = toContractId("42")
     val fetcherInst = assertAsVersionedContract(
       ContractInstance(
-        basicTestsPkg.name,
-        fetcherId,
-        ValueRecord(
+        packageName = basicTestsPkg.pkgName,
+        packageVersion = basicTestsPkg.pkgVersion,
+        template = fetcherId,
+        arg = ValueRecord(
           None,
           ImmArray(
             (None, ValueParty(alice)),
@@ -2013,9 +2022,10 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val contracts = Map(
       cid -> assertAsVersionedContract(
         ContractInstance(
-          exceptionsPkg.name,
-          TypeConName(exceptionsPkgId, "Exceptions:K"),
-          ValueRecord(
+          packageName = exceptionsPkg.pkgName,
+          packageVersion = exceptionsPkg.pkgVersion,
+          template = TypeConName(exceptionsPkgId, "Exceptions:K"),
+          arg = ValueRecord(
             None,
             ImmArray(
               (None, ValueParty(party)),
@@ -2164,9 +2174,10 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val contracts = Map(
       cid -> assertAsVersionedContract(
         ContractInstance(
-          exceptionsPkg.name,
-          TypeConName(exceptionsPkgId, "Exceptions:K"),
-          ValueRecord(
+          packageName = exceptionsPkg.pkgName,
+          packageVersion = exceptionsPkg.pkgVersion,
+          template = TypeConName(exceptionsPkgId, "Exceptions:K"),
+          arg = ValueRecord(
             None,
             ImmArray(
               (None, ValueParty(party)),
@@ -2243,9 +2254,10 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val contracts = Map(
       cid -> assertAsVersionedContract(
         ContractInstance(
-          exceptionsPkg.name,
-          TypeConName(exceptionsPkgId, "Exceptions:K"),
-          ValueRecord(
+          packageName = exceptionsPkg.pkgName,
+          packageVersion = exceptionsPkg.pkgVersion,
+          template = TypeConName(exceptionsPkgId, "Exceptions:K"),
+          arg = ValueRecord(
             None,
             ImmArray(
               (None, ValueParty(party)),
@@ -2448,7 +2460,6 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     //  non-dev dar
     s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
   )
-  val basicTestsHashPkgName: PackageName = basicTestsPkg.name
 
   val basicTestsSignatures: PackageInterface =
     language.PackageInterface(Map(basicTestsPkgId -> basicTestsPkg))
@@ -2465,9 +2476,10 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   val withKeyContractInst: VersionedContractInstance =
     assertAsVersionedContract(
       ContractInstance(
-        basicTestsPkg.name,
-        TypeConName(basicTestsPkgId, withKeyTemplate),
-        ValueRecord(
+        packageName = basicTestsPkg.pkgName,
+        packageVersion = basicTestsPkg.pkgVersion,
+        template = TypeConName(basicTestsPkgId, withKeyTemplate),
+        arg = ValueRecord(
           Some(BasicTests_WithKey),
           ImmArray(
             (Some[Ref.Name]("p"), ValueParty(alice)),
@@ -2482,9 +2494,10 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       toContractId("BasicTests:Simple:1") ->
         assertAsVersionedContract(
           ContractInstance(
-            basicTestsPkg.name,
-            TypeConName(basicTestsPkgId, "BasicTests:Simple"),
-            ValueRecord(
+            packageName = basicTestsPkg.pkgName,
+            packageVersion = basicTestsPkg.pkgVersion,
+            template = TypeConName(basicTestsPkgId, "BasicTests:Simple"),
+            arg = ValueRecord(
               Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
               ImmArray((Some[Name]("p"), ValueParty(party))),
             ),
@@ -2493,9 +2506,10 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       toContractId("BasicTests:CallablePayout:1") ->
         assertAsVersionedContract(
           ContractInstance(
-            basicTestsPkg.name,
-            TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
-            ValueRecord(
+            packageName = basicTestsPkg.pkgName,
+            packageVersion = basicTestsPkg.pkgVersion,
+            template = TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
+            arg = ValueRecord(
               Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
               ImmArray(
                 (Some[Ref.Name]("giver"), ValueParty(alice)),
@@ -2511,9 +2525,9 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   val defaultKey = Map(
     GlobalKeyWithMaintainers(
       GlobalKey.assertBuild(
-        TypeConName(basicTestsPkgId, withKeyTemplate),
-        ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
-        basicTestsHashPkgName,
+        templateId = TypeConName(basicTestsPkgId, withKeyTemplate),
+        key = ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
+        packageName = basicTestsPkg.pkgName,
       ),
       Set(alice),
     )
@@ -2540,9 +2554,6 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   def participant: Ref.IdString.ParticipantId = Ref.ParticipantId.assertFromString("participant")
   def byKeyNodes(tx: VersionedTransaction): Set[NodeId] =
     tx.nodes.collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }.toSet
-
-  def getPackageName(basicTestsPkg: Package): PackageName =
-    basicTestsPkg.metadata.name
 
   def newEngine(requireCidSuffixes: Boolean = false) =
     new Engine(

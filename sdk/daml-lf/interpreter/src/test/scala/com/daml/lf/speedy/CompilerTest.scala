@@ -76,7 +76,8 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
       val versionedContract1 = Versioned(
         version = version,
         ContractInstance(
-          packageName = pkg.name,
+          packageName = pkg.pkgName,
+          packageVersion = pkg.pkgVersion,
           template = templateId,
           arg = disclosedContract1.argument.toUnnormalizedValue,
         ),
@@ -86,7 +87,8 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
       val versionedContract2 = Versioned(
         version = version,
         ContractInstance(
-          packageName = pkg.name,
+          packageName = pkg.pkgName,
+          packageVersion = pkg.pkgVersion,
           template = templateId,
           arg = disclosedContract2.argument.toUnnormalizedValue,
         ),
@@ -124,7 +126,8 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
       val versionedContract1 = Versioned(
         version = version,
         ContractInstance(
-          packageName = pkg.name,
+          packageName = pkg.pkgName,
+          packageVersion = pkg.pkgVersion,
           template = templateId,
           arg = disclosedContract1.argument.toUnnormalizedValue,
         ),
@@ -133,7 +136,8 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
       val versionedContract2 = Versioned(
         version = version,
         ContractInstance(
-          packageName = pkg.name,
+          packageName = pkg.pkgName,
+          packageVersion = pkg.pkgVersion,
           template = templateId,
           arg = disclosedContract2.argument.toUnnormalizedValue,
         ),
@@ -301,7 +305,8 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
       val versionedContract1 = Versioned(
         version = version,
         ContractInstance(
-          packageName = pkg.name,
+          packageName = pkg.pkgName,
+          packageVersion = pkg.pkgVersion,
           template = templateId,
           arg = disclosedContract1.argument.toUnnormalizedValue,
         ),
@@ -311,7 +316,8 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
       val versionedContract2 = Versioned(
         version = version,
         ContractInstance(
-          packageName = pkg.name,
+          packageName = pkg.pkgName,
+          packageVersion = pkg.pkgVersion,
           template = templateId,
           arg = disclosedContract2.argument.toUnnormalizedValue,
         ),
@@ -586,7 +592,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       if (withKey) {
         Some(
           GlobalKeyWithMaintainers(
-            GlobalKey.assertBuild(templateId, key.toUnnormalizedValue, pkg.name),
+            GlobalKey.assertBuild(templateId, key.toUnnormalizedValue, pkg.pkgName),
             Set(maintainer),
           )
         )
