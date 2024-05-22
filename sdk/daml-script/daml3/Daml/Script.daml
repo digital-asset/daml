@@ -5,7 +5,9 @@ module Daml.Script
 
   -- Main submits
   , submit
+  , submitWithOptions
   , submitMustFail
+  , submitMustFailWithOptions
   , submitResultAndTree
   , submitTree
   , submitWithError
@@ -102,6 +104,7 @@ module Daml.Script
   , listUserRightsOn
   , submitUser
   , submitUserOn
+  , tryToEither
   ) where
 
 import Daml.Script.Internal.LowLevel

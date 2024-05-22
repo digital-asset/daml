@@ -154,6 +154,7 @@ object ScriptF {
       actAs: OneAnd[Set, Party],
       readAs: Set[Party],
       cmds: List[ScriptLedgerClient.CommandWithMeta],
+      optPackagePreference: Option[List[PackageId]],
       disclosures: List[Disclosure],
       errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
       optLocation: Option[Location],
@@ -183,6 +184,7 @@ object ScriptF {
           submission.actAs,
           submission.readAs,
           submission.disclosures,
+          submission.optPackagePreference,
           submission.cmds,
           submission.optLocation,
           env.lookupLanguageVersion,
@@ -831,6 +833,7 @@ object ScriptF {
               SRecord(_, _, ArrayList(hdAct, SList(tlAct))),
               SList(readAs),
               SList(disclosures),
+              SOptional(optPackagePreference),
               SEnum(_, name, _),
               SList(cmds),
               SOptional(optLocation),
@@ -840,6 +843,9 @@ object ScriptF {
           actAs <- OneAnd(hdAct, tlAct.toList).traverse(Converter.toParty)
           readAs <- readAs.traverse(Converter.toParty)
           disclosures <- disclosures.toImmArray.toList.traverse(Converter.toDisclosure)
+          optPackagePreference <- optPackagePreference.traverse(
+            Converter.toList(_, Converter.toPackageId)
+          )
           errorBehaviour <- parseErrorBehaviour(name)
           cmds <- cmds.toList.traverse(Converter.toCommandWithMeta)
           optLocation <- optLocation.traverse(Converter.toLocation(knownPackages.pkgs, _))
@@ -847,6 +853,7 @@ object ScriptF {
           actAs = toOneAndSet(actAs),
           readAs = readAs.toSet,
           disclosures = disclosures,
+          optPackagePreference = optPackagePreference,
           errorBehaviour = errorBehaviour,
           cmds = cmds,
           optLocation = optLocation,
