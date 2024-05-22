@@ -1,0 +1,10 @@
+65,68c65,68
+< build --java_language_version=11
+< build --java_runtime_version=nixpkgs_java_11
+< build --tool_java_runtime_version=nixpkgs_java_11
+< build --tool_java_language_version=11
+---
+> build --java_language_version=17
+> build --java_runtime_version=nixpkgs_java_17
+> build --tool_java_runtime_version=nixpkgs_java_17
+> build --tool_java_language_version=17
