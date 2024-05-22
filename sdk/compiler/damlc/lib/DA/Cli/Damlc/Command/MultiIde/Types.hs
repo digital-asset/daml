@@ -15,15 +15,17 @@ import Control.Concurrent.STM.TChan
 import Control.Concurrent.STM.TVar
 import Control.Concurrent.STM.TMVar
 import Control.Concurrent.MVar
+import Control.Exception (SomeException, displayException)
 import Control.Monad (void)
 import Control.Monad.STM
-import DA.Daml.Project.Types (ProjectPath (..), UnresolvedReleaseVersion)
+import DA.Daml.Project.Types (ProjectPath (..), UnresolvedReleaseVersion, unresolvedReleaseVersionToString, parseUnresolvedVersion)
+import Data.Aeson
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BSL
 import Data.Function (on)
 import qualified Data.IxMap as IM
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, listToMaybe)
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime)
@@ -115,6 +117,15 @@ instance Ord SubIdeInstance where
   -- ideMessageIdPrefix is derived from process id, so this ordering is of the process.
   compare = compare `on` ideMessageIdPrefix
 
+-- When the IDE is disabled, it must have a diagnostic saying why
+data IdeDataDisabled
+  = IdeDataNotDisabled
+  | IdeDataDisabled
+      { iddSeverity :: LSP.DiagnosticSeverity
+      , iddMessage :: T.Text
+      }
+  deriving (Show, Eq)
+
 -- We store an optional main ide, the currently closing ides (kept only so they can reply to their shutdowns), and open files
 -- open files must outlive the main subide so we can re-send the TextDocumentDidOpen messages on new ide startup
 data SubIdeData = SubIdeData
@@ -122,13 +133,12 @@ data SubIdeData = SubIdeData
   , ideDataMain :: Maybe SubIdeInstance
   , ideDataClosing :: Set.Set SubIdeInstance
   , ideDataOpenFiles :: Set.Set DamlFile
-  , ideDataFailTimes :: [UTCTime]
-  , ideDataDisabled :: Bool
-  , ideDataLastError :: Maybe String
+  , ideDataFailures :: [(UTCTime, T.Text)]
+  , ideDataDisabled :: IdeDataDisabled
   }
 
 defaultSubIdeData :: PackageHome -> SubIdeData
-defaultSubIdeData home = SubIdeData home Nothing Set.empty Set.empty [] False Nothing
+defaultSubIdeData home = SubIdeData home Nothing Set.empty Set.empty [] IdeDataNotDisabled
 
 lookupSubIde :: PackageHome -> SubIdes -> SubIdeData
 lookupSubIde home ides = fromMaybe (defaultSubIdeData home) $ Map.lookup home ides
@@ -137,8 +147,15 @@ ideShouldDisableTimeout :: NominalDiffTime
 ideShouldDisableTimeout = 5
 
 ideShouldDisable :: SubIdeData -> Bool
-ideShouldDisable (ideDataFailTimes -> (t1:t2:_)) = t1 `diffUTCTime` t2 < ideShouldDisableTimeout
+ideShouldDisable (ideDataFailures -> ((t1, _):(t2, _):_)) = t1 `diffUTCTime` t2 < ideShouldDisableTimeout
 ideShouldDisable _ = False
+
+ideIsDisabled :: SubIdeData -> Bool
+ideIsDisabled (ideDataDisabled -> IdeDataDisabled {}) = True
+ideIsDisabled _ = False
+
+ideGetLastFailureMessage :: SubIdeData -> Maybe T.Text
+ideGetLastFailureMessage = fmap snd . listToMaybe . ideDataFailures
 
 -- SubIdes placed in a TMVar. The emptyness representents a modification lock.
 -- The lock unsures the following properties:
@@ -199,6 +216,80 @@ type SourceFileHomesVar = TMVar SourceFileHomes
 -- Extracted to types to resolve cycles in dependencies
 type SubIdeMessageHandler = IO () -> SubIdeInstance -> B.ByteString -> IO ()
 
+-- Used to extract the unsafeAddNewSubIdeAndSend function to resolve dependency cycles
+type UnsafeAddNewSubIdeAndSend = SubIdes -> PackageHome -> Maybe LSP.FromClientMessage -> IO SubIdes
+
+data SdkInstallData = SdkInstallData
+  { sidVersion :: UnresolvedReleaseVersion
+  , sidPendingHomes :: Set.Set PackageHome
+  , sidStatus :: SdkInstallStatus
+  }
+  deriving (Show, Eq)
+
+data SdkInstallStatus
+  = SISCanAsk
+  | SISAsking
+  | SISInstalling (Async ())
+  | SISDenied
+  | SISFailed T.Text SomeException
+
+instance Eq SdkInstallStatus where
+  SISCanAsk == SISCanAsk = True
+  SISAsking == SISAsking = True
+  (SISInstalling thread1) == (SISInstalling thread2) = thread1 == thread2
+  SISDenied == SISDenied = True
+  (SISFailed _ _) == (SISFailed _ _) = True
+  _ == _ = False
+
+instance Show SdkInstallStatus where
+  show SISCanAsk = "SISCanAsk"
+  show SISAsking = "SISAsking"
+  show (SISInstalling _) = "SISInstalling"
+  show SISDenied = "SISDenied"
+  show (SISFailed log err) = "SISFailed (" <> show log <> ") (" <> show err <> ")"
+
+type SdkInstallDatas = Map.Map UnresolvedReleaseVersion SdkInstallData
+type SdkInstallDatasVar = TMVar SdkInstallDatas
+
+getSdkInstallData :: UnresolvedReleaseVersion -> SdkInstallDatas -> SdkInstallData
+getSdkInstallData ver = fromMaybe (SdkInstallData ver mempty SISCanAsk) . Map.lookup ver
+
+data DamlSdkInstallProgressNotificationKind
+  = InstallProgressBegin
+  | InstallProgressReport
+  | InstallProgressEnd
+
+data DamlSdkInstallProgressNotification = DamlSdkInstallProgressNotification
+  { sipSdkVersion :: UnresolvedReleaseVersion
+  , sipKind :: DamlSdkInstallProgressNotificationKind
+  , sipProgress :: Int
+  }
+
+instance ToJSON DamlSdkInstallProgressNotification where
+  toJSON (DamlSdkInstallProgressNotification {..}) = object
+    [ "sdkVersion" .= unresolvedReleaseVersionToString sipSdkVersion
+    , "kind" .= case sipKind of
+        InstallProgressBegin -> "begin" :: T.Text
+        InstallProgressReport -> "report"
+        InstallProgressEnd -> "end"
+    , "progress" .= sipProgress
+    ]
+
+damlSdkInstallProgressMethod :: T.Text
+damlSdkInstallProgressMethod = "daml/sdkInstallProgress"
+
+newtype DamlSdkInstallCancelNotification = DamlSdkInstallCancelNotification
+  { sicSdkVersion :: UnresolvedReleaseVersion
+  }
+
+instance FromJSON DamlSdkInstallCancelNotification where
+  parseJSON = withObject "DamlSdkInstallCancelNotification" $ \v -> do
+    sdkVersionStr <- v .: "sdkVersion"
+    either (fail . displayException) (pure . DamlSdkInstallCancelNotification) $ parseUnresolvedVersion sdkVersionStr
+
+damlSdkInstallCancelMethod :: T.Text
+damlSdkInstallCancelMethod = "daml/sdkInstallCancel"
+
 data MultiIdeState = MultiIdeState
   { misFromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient
     -- ^ The client will track its own IDs to ensure they're unique, so no worries about collisions
@@ -215,6 +306,8 @@ data MultiIdeState = MultiIdeState
   , misSourceFileHomesVar :: SourceFileHomesVar
   , misSubIdeArgs :: [String]
   , misSubIdeMessageHandler :: SubIdeMessageHandler
+  , misUnsafeAddNewSubIdeAndSend :: UnsafeAddNewSubIdeAndSend
+  , misSdkInstallDatasVar :: SdkInstallDatasVar
   }
 
 logError :: MultiIdeState -> String -> IO ()
@@ -229,8 +322,15 @@ logInfo miState msg = Logger.logInfo (misLogger miState) (T.pack msg)
 logDebug :: MultiIdeState -> String -> IO ()
 logDebug miState msg = Logger.logDebug (misLogger miState) (T.pack msg)
 
-newMultiIdeState :: FilePath -> PackageHome -> Logger.Priority -> [String] -> (MultiIdeState -> SubIdeMessageHandler) -> IO MultiIdeState
-newMultiIdeState misMultiPackageHome misDefaultPackagePath logThreshold misSubIdeArgs subIdeMessageHandler = do
+newMultiIdeState
+  :: FilePath
+  -> PackageHome
+  -> Logger.Priority
+  -> [String]
+  -> (MultiIdeState -> SubIdeMessageHandler)
+  -> (MultiIdeState -> UnsafeAddNewSubIdeAndSend)
+  -> IO MultiIdeState
+newMultiIdeState misMultiPackageHome misDefaultPackagePath logThreshold misSubIdeArgs subIdeMessageHandler unsafeAddNewSubIdeAndSend = do
   (misFromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient) <- newTVarIO IM.emptyIxMap
   (misFromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer) <- newTVarIO IM.emptyIxMap
   misSubIdesVar <- newTMVarIO @SubIdes mempty
@@ -240,7 +340,13 @@ newMultiIdeState misMultiPackageHome misDefaultPackagePath logThreshold misSubId
   misDarDependentPackagesVar <- newTMVarIO @DarDependentPackages mempty
   misSourceFileHomesVar <- newTMVarIO @SourceFileHomes mempty
   misLogger <- Logger.newStderrLogger logThreshold "Multi-IDE"
-  let miState = MultiIdeState {misSubIdeMessageHandler = subIdeMessageHandler miState, ..}
+  misSdkInstallDatasVar <- newTMVarIO @SdkInstallDatas mempty
+  let miState =
+        MultiIdeState 
+          { misSubIdeMessageHandler = subIdeMessageHandler miState
+          , misUnsafeAddNewSubIdeAndSend = unsafeAddNewSubIdeAndSend miState
+          , ..
+          }
   pure miState
 
 -- Forwarding

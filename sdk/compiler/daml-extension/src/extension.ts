@@ -116,6 +116,10 @@ export async function activate(context: vscode.ExtensionContext) {
             params.startedAt,
           ),
       );
+      let sdkInstallState: SdkInstallState = {};
+      damlLanguageClient.onNotification(DamlSdkInstallProgress.type, params =>
+        handleDamlSdkInstallProgress(sdkInstallState, params),
+      );
     });
 
     damlLanguageClient.start();
@@ -418,6 +422,84 @@ namespace DamlKeepAliveRequest {
 }
 
 // Custom notifications
+
+interface DamlSdkInstallProgressNotification {
+  sdkVersion: string;
+  kind: "begin" | "report" | "end";
+  progress: number;
+}
+
+namespace DamlSdkInstallProgress {
+  export let type = new NotificationType<DamlSdkInstallProgressNotification>(
+    "daml/sdkInstallProgress",
+  );
+}
+
+interface DamlSdkInstallCancelNotification {
+  sdkVersion: string;
+}
+
+namespace DamlSdkInstallCancel {
+  export let type = new NotificationType<DamlSdkInstallCancelNotification>(
+    "daml/sdkInstallCancel",
+  );
+}
+
+type Progress = vscode.Progress<{ increment: number }>;
+type SdkInstallState = {
+  [sdkVersion: string]: {
+    progress: Progress;
+    resolve: (_: void) => void;
+    reported: number;
+  };
+};
+
+// Handle the SdkInstall work done tokens separately, as we want them to popup as a notification, but VSCode LSPClient doesn't give us a way to do this
+function handleDamlSdkInstallProgress(
+  sdkInstallState: SdkInstallState,
+  message: DamlSdkInstallProgressNotification,
+): void {
+  switch (message.kind) {
+    case "begin":
+      vscode.window.withProgress<void>(
+        {
+          location: vscode.ProgressLocation.Notification,
+          cancellable: true,
+          title: "Installing Daml SDK " + message.sdkVersion,
+        },
+        async (
+          progress: Progress,
+          cancellationToken: vscode.CancellationToken,
+        ) => {
+          cancellationToken.onCancellationRequested(() => {
+            delete sdkInstallState[message.sdkVersion];
+            damlLanguageClient.sendNotification(DamlSdkInstallCancel.type, {
+              sdkVersion: message.sdkVersion,
+            });
+          });
+          return new Promise<void>((resolve, _) => {
+            sdkInstallState[message.sdkVersion] = {
+              progress,
+              resolve,
+              reported: 0,
+            };
+          });
+        },
+      );
+      break;
+    case "report":
+      let progressData = sdkInstallState[message.sdkVersion];
+      if (!progressData) return;
+      let diff = Math.max(0, message.progress - progressData.reported);
+      progressData.progress.report({ increment: diff });
+      progressData.reported += diff;
+      break;
+    case "end":
+      sdkInstallState[message.sdkVersion]?.resolve();
+      delete sdkInstallState[message.sdkVersion];
+      break;
+  }
+}
 
 interface VirtualResourceChangedParams {
   /** The virtual resource uri */

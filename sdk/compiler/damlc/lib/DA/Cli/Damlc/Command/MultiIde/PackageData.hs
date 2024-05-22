@@ -24,6 +24,7 @@ import Data.Foldable (traverse_)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes, isJust)
 import qualified Data.Set as Set
+import qualified Language.LSP.Types as LSP
 import System.Directory (doesFileExist)
 import System.FilePath.Posix ((</>))
 
@@ -80,7 +81,7 @@ updatePackageData miState = do
             void $ tryPutTMVar (misMultiPackageMappingVar miState) Map.empty
             void $ tryPutTMVar (misDarDependentPackagesVar miState) Map.empty
           -- Show the failure as a diagnostic on the multi-package.yaml
-          sendClient miState $ fullFileDiagnostic ("Error reading multi-package.yaml:\n" <> displayException err) multiPackagePath
+          sendClient miState $ fullFileDiagnostic LSP.DsError ("Error reading multi-package.yaml:\n" <> displayException err) multiPackagePath
           pure []
   where
     -- Gets the unit id of a dar if it can, caches result in stateT

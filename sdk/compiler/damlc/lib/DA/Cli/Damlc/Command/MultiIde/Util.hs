@@ -11,7 +11,7 @@ module DA.Cli.Damlc.Command.MultiIde.Util (
 
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TMVar
-import Control.Exception (SomeException, displayException, handle, try)
+import Control.Exception (SomeException, handle, try)
 import Control.Lens ((^.))
 import Control.Monad (void)
 import Control.Monad.STM
@@ -33,6 +33,7 @@ import System.Directory (doesDirectoryExist, listDirectory, withCurrentDirectory
 import qualified System.FilePath as NativeFilePath
 import System.FilePath.Posix (joinDrive, takeDirectory, takeExtension)
 import System.IO (Handle, hClose, hFlush)
+import Text.Read (readMaybe)
 
 er :: Show x => String -> Either x a -> a
 er _msg (Right a) = a
@@ -227,7 +228,10 @@ packageSummaryFromDamlYaml path = do
     name <- except $ queryProjectConfigRequired ["name"] project
     version <- except $ queryProjectConfigRequired ["version"] project
     releaseVersion <- except $ queryProjectConfigRequired ["sdk-version"] project
-    unresolvedReleaseVersion <- except $ first (ConfigFieldInvalid "project" ["sdk-version"] . displayException) $ parseUnresolvedVersion releaseVersion
+    -- Default error gives too much information, e.g. `Invalid SDK version  "2.8.e": Failed reading: takeWhile1`
+    -- Just saying its invalid is enough
+    unresolvedReleaseVersion <- except $ first (const $ ConfigFieldInvalid "project" ["sdk-version"] $ "Invalid Daml SDK version: " <> T.unpack releaseVersion) 
+      $ parseUnresolvedVersion releaseVersion
     pure PackageSummary
       { psUnitId = UnitId $ name <> "-" <> version
       , psDeps = DarFile . toPosixFilePath <$> canonDeps
@@ -264,11 +268,11 @@ noIDEReply (LSP.FromClientMess method params) =
 noIDEReply _ = Nothing
 
 -- | Publishes an error diagnostic for a file containing the given message
-fullFileDiagnostic :: String -> FilePath -> LSP.FromServerMessage
-fullFileDiagnostic message path = LSP.FromServerMess LSP.STextDocumentPublishDiagnostics $ LSP.NotificationMessage "2.0" LSP.STextDocumentPublishDiagnostics 
+fullFileDiagnostic :: LSP.DiagnosticSeverity -> String -> FilePath -> LSP.FromServerMessage
+fullFileDiagnostic severity message path = LSP.FromServerMess LSP.STextDocumentPublishDiagnostics $ LSP.NotificationMessage "2.0" LSP.STextDocumentPublishDiagnostics 
   $ LSP.PublishDiagnosticsParams (LSP.filePathToUri path) Nothing $ LSP.List [LSP.Diagnostic 
     { _range = LSP.Range (LSP.Position 0 0) (LSP.Position 0 1000)
-    , _severity = Just LSP.DsError
+    , _severity = Just severity
     , _code = Nothing
     , _source = Just "Daml Multi-IDE"
     , _message = T.pack message
@@ -280,6 +284,15 @@ fullFileDiagnostic message path = LSP.FromServerMess LSP.STextDocumentPublishDia
 clearDiagnostics :: FilePath -> LSP.FromServerMessage
 clearDiagnostics path = LSP.FromServerMess LSP.STextDocumentPublishDiagnostics $ LSP.NotificationMessage "2.0" LSP.STextDocumentPublishDiagnostics 
   $ LSP.PublishDiagnosticsParams (LSP.filePathToUri path) Nothing $ LSP.List []
+
+showMessageRequest :: LSP.LspId 'LSP.WindowShowMessageRequest -> LSP.MessageType -> T.Text -> [T.Text] -> LSP.FromServerMessage
+showMessageRequest lspId messageType message options = LSP.FromServerMess LSP.SWindowShowMessageRequest $
+  LSP.RequestMessage "2.0" lspId LSP.SWindowShowMessageRequest $ LSP.ShowMessageRequestParams messageType message $
+    Just $ LSP.MessageActionItem <$> options
+
+showMessage :: LSP.MessageType -> T.Text -> LSP.FromServerMessage
+showMessage messageType message = LSP.FromServerMess LSP.SWindowShowMessage $
+  LSP.NotificationMessage "2.0" LSP.SWindowShowMessage $ LSP.ShowMessageParams messageType message
 
 fromClientRequestLspId :: LSP.FromClientMessage -> Maybe LSP.SomeLspId
 fromClientRequestLspId (LSP.FromClientMess method params) =
@@ -308,3 +321,7 @@ hTryFlush handle = void $ try @SomeException $ hFlush handle
 -- Need native filepath for splitDrive, as Posix version just takes first n `/`s
 toPosixFilePath :: FilePath -> FilePath
 toPosixFilePath = uncurry joinDrive . first lower . NativeFilePath.splitDrive . replace "\\" "/"
+
+-- Attempts to exact the percent amount from a string containing strings like 30%
+extractPercentFromText :: T.Text -> Maybe Integer
+extractPercentFromText = readMaybe . T.unpack . T.dropWhile (==' ') . T.takeEnd 3 . T.dropEnd 1 . fst . T.breakOnEnd "%"

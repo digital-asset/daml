@@ -14,14 +14,17 @@ import Control.Concurrent.STM.TChan
 import Control.Concurrent.STM.TMVar
 import Control.Concurrent.STM.TVar
 import Control.Concurrent.MVar
+import Control.Exception (displayException)
 import Control.Lens
 import Control.Monad
 import Control.Monad.STM
 import DA.Cli.Damlc.Command.MultiIde.ClientCommunication
-import DA.Cli.Damlc.Command.MultiIde.Util
+import DA.Cli.Damlc.Command.MultiIde.OpenFiles
 import DA.Cli.Damlc.Command.MultiIde.Parsing
-import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Cli.Damlc.Command.MultiIde.SubIdeCommunication
+import DA.Cli.Damlc.Command.MultiIde.Types
+import DA.Cli.Damlc.Command.MultiIde.Util
+import DA.Cli.Damlc.Command.MultiIde.SdkInstall
 import Data.Foldable (traverse_)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, isJust)
@@ -75,31 +78,53 @@ unsafeAddNewSubIdeAndSend
 unsafeAddNewSubIdeAndSend miState ides home mMsg = do
   logDebug miState "Trying to make a SubIde"
 
-  packageSummary <- either (\cErr -> error $ "Failed to get unit ID from daml.yaml: " <> show cErr) id <$> packageSummaryFromDamlYaml home
+  ePackageSummary <- packageSummaryFromDamlYaml home
+  let unCheckedIdeData = lookupSubIde home ides
 
-  let ideData = lookupSubIde home ides
-  case ideDataMain ideData of
-    Just ide -> do
+  ideData <- case ePackageSummary of 
+    Right packageSummary -> ensureSdkInstalled miState (psReleaseVersion packageSummary) home unCheckedIdeData
+    Left _ -> pure unCheckedIdeData
+
+  let disableIdeWithError :: T.Text -> IO SubIdes
+      disableIdeWithError err = do
+        responses <- getUnrespondedRequestsFallbackResponses miState ideData home
+        logDebug miState $ "Found " <> show (length responses) <> " unresponded messages, sending empty replies."
+
+        let ideData' = ideData {ideDataDisabled = IdeDataDisabled LSP.DsError err, ideDataFailures = []}
+        atomically $ do
+          -- Doesn't include mMsg, as if it was request, it'll already be in the tracker, so a reply for it will be in `responses`
+          -- As such, we cannot send this on every failed message,
+          traverse_ (sendClientSTM miState) responses
+          sendPackageDiagnostic miState ideData'
+        pure $ Map.insert home ideData' ides
+
+  case (ideDataMain ideData, ePackageSummary) of
+    -- Shortcut if the IDE already exists
+    (Just ide, _) -> do
       logDebug miState "SubIde already exists"
       forM_ mMsg $ unsafeSendSubIde ide
-      pure ides
-    Nothing | ideShouldDisable ideData || ideDataDisabled ideData -> do
-      when (ideShouldDisable ideData) $ logDebug miState $ "SubIde failed twice within " <> show ideShouldDisableTimeout <> ", disabling SubIde"
-
+      pure $ Map.insert home ideData ides
+    -- Handle disabled IDE
+    (Nothing, _) | ideIsDisabled ideData -> do
       responses <- getUnrespondedRequestsFallbackResponses miState ideData home
       logDebug miState $ "Found " <> show (length responses) <> " unresponded messages, sending empty replies."
-      
-      -- Doesn't include mMsg, as if it was request, it'll already be in the tracker, so a reply for it will be in `responses`
-      -- As such, we cannot send this on every failed message, 
-      let ideData' = ideData {ideDataDisabled = True, ideDataFailTimes = []}
-          -- Only add diagnostic messages for first fail to start.
-          -- Diagnostic messages trigger the client to send a codeAction request, which would create an infinite loop if we sent
-          -- diagnostics with its reply
-          messages = responses <> if ideDataDisabled ideData then [] else disableIdeDiagnosticMessages ideData
 
-      atomically $ traverse_ (sendClientSTM miState) messages
-      pure $ Map.insert home ideData' ides
-    Nothing -> do
+      -- Doesn't include mMsg, as if it was request, it'll already be in the tracker, so a reply for it will be in `responses`
+      -- As such, we cannot send this on every failed message 
+      -- Also, package diagnostics not sent, as they will have already been sent by whatever disabled the IDE, and resending them
+      -- creates a loop, since diagnostics trigger a request from client
+      atomically $ traverse_ (sendClientSTM miState) responses
+      pure $ Map.insert home (ideData {ideDataFailures = []}) ides
+    -- Disable IDE if it errored many times
+    (Nothing, Right _) | ideShouldDisable ideData -> do
+      logDebug miState $ "SubIde failed twice within " <> show ideShouldDisableTimeout <> ", disabling SubIde"
+      disableIdeWithError $ "Daml IDE environment failed to start with the following error:\n" <> fromMaybe "No information" (ideGetLastFailureMessage ideData)
+    -- Disable IDE if daml.yaml failed to parse
+    (Nothing, Left err) -> do
+      logDebug miState "SubIde has malformed daml.yaml, disabling SubIde"
+      disableIdeWithError $ "daml.yaml failed to parse with the following error:\n" <> T.pack (displayException err)
+    -- Create the IDE
+    (Nothing, Right packageSummary) -> do
       logInfo miState $ "Creating new SubIde for " <> unPackageHome home
 
       subIdeProcess <- runSubProc miState home
@@ -220,7 +245,7 @@ rebootIdeByHome miState home = withIDEs_ miState $ \ides -> do
 lenientRebootIdeByHome :: MultiIdeState -> PackageHome -> IO ()
 lenientRebootIdeByHome miState home = withIDEs_ miState $ \ides -> do
   let ideData = lookupSubIde home ides
-      shouldBoot = isJust (ideDataMain ideData) || ideDataDisabled ideData
+      shouldBoot = isJust (ideDataMain ideData) || ideIsDisabled ideData
   ides' <- unsafeShutdownIdeByHome miState ides home
   if shouldBoot 
     then unsafeAddNewSubIdeAndSend miState ides' home Nothing
@@ -240,6 +265,7 @@ shutdownIdeByHome miState home = withIDEs_ miState $ \ides -> unsafeShutdownIdeB
 unsafeShutdownIdeByHome :: MultiIdeState -> SubIdes -> PackageHome -> IO SubIdes
 unsafeShutdownIdeByHome miState ides home = do
   let ideData = lookupSubIde home ides
+  untrackPackageSdkInstall miState home
   case ideDataMain ideData of
     Just ide -> do
       let shutdownId = LSP.IdString $ ideMessageIdPrefix ide <> "-shutdown"
@@ -258,11 +284,11 @@ unsafeShutdownIdeByHome miState ides home = do
       pure $ Map.adjust (\ideData' -> ideData' 
         { ideDataMain = Nothing
         , ideDataClosing = Set.insert ide $ ideDataClosing ideData
-        , ideDataFailTimes = []
-        , ideDataDisabled = False
+        , ideDataFailures = []
+        , ideDataDisabled = IdeDataNotDisabled
         }) home ides
-    Nothing ->
-      pure $ Map.adjust (\ideData -> ideData {ideDataFailTimes = [], ideDataDisabled = False}) home ides
+    Nothing -> do
+      pure $ Map.adjust (\ideData -> ideData {ideDataFailures = [], ideDataDisabled = IdeDataNotDisabled}) home ides
 
 -- To be called once we receive the Shutdown response
 -- Safe to assume that the sending channel is empty, so we can end the thread and send the final notification directly on the handle

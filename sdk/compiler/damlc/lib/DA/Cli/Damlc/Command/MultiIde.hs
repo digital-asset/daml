@@ -53,7 +53,7 @@ runMultiIde loggingThreshold args = do
   homePath <- toPosixFilePath <$> getCurrentDirectory
   (misDefaultPackagePath, cleanupDefaultPackage) <- createDefaultPackage
   let misSubIdeArgs = if loggingThreshold <= Logger.Debug then "--debug" : args else args
-  miState <- newMultiIdeState homePath misDefaultPackagePath loggingThreshold misSubIdeArgs subIdeMessageHandler
+  miState <- newMultiIdeState homePath misDefaultPackagePath loggingThreshold misSubIdeArgs subIdeMessageHandler unsafeAddNewSubIdeAndSend
   invalidPackageHomes <- updatePackageData miState
 
   -- Ensure we don't send messages to the client until it finishes initializing
@@ -100,7 +100,7 @@ runMultiIde loggingThreshold args = do
             logDebug miState $ "SubIde at " <> unPackageHome home <> " exited, cleaning up."
             traverse_ hTryClose [ideInHandle ide, ideOutHandle ide, ideErrHandle ide]
             traverse_ cancel [ideInhandleAsync ide, ideOutHandleAsync ide, ideErrTextAsync ide]
-            stderrContent <- T.unpack <$> readTVarIO (ideErrText ide)
+            stderrContent <- readTVarIO (ideErrText ide)
             currentTime <- getCurrentTime
             let ideData = lookupSubIde home subIdes
                 isMainIde = ideDataMain ideData == Just ide
@@ -108,15 +108,14 @@ runMultiIde loggingThreshold args = do
                 ideData' = ideData
                   { ideDataClosing = Set.delete ide $ ideDataClosing ideData
                   , ideDataMain = if isMainIde then Nothing else ideDataMain ideData
-                  , ideDataFailTimes = 
+                  , ideDataFailures = 
                       if isCrash && isMainIde
-                        then take 2 $ currentTime : ideDataFailTimes ideData
-                        else ideDataFailTimes ideData
-                  , ideDataLastError = if isCrash && isMainIde then Just stderrContent else Nothing
+                        then take 2 $ (currentTime, stderrContent) : ideDataFailures ideData
+                        else ideDataFailures ideData
                   }
                 toRestart' = if isCrash && isMainIde then home : toRestart else toRestart
             when (isCrash && isMainIde) $
-              logWarning miState $ "Proccess failed, stderr content:\n" <> stderrContent
+              logWarning miState $ "Proccess failed, stderr content:\n" <> T.unpack stderrContent
               
             pure (errs, Map.insert home ideData' subIdes, toRestart')
           -- handler thread errors
