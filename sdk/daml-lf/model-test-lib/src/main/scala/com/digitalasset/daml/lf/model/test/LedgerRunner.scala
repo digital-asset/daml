@@ -130,7 +130,6 @@ private abstract class AbstractLedgerRunner(
     result.map(contractIds => {
       val reversePartyIds = partyIds.map(_.swap)
       val reverseContractIds = contractIds.map { case (k, v) => (v.contractId, k) }
-      // we for now assume there is exactly one participant per party
       val reverseParticipantIds = scenario.topology.groupedByPartyId
       for {
         (partyId, party) <- partyIds
