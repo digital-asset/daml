@@ -1,0 +1,288 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
+module DataChanges (main) where
+
+import UpgradeTestLib
+import qualified V1.NameChanges as V1
+import qualified V1.FieldsRemoved as V1
+import qualified V1.FieldsRemovedNested as V1
+import qualified V1.NonOptionalFieldsAdded as V1
+import qualified V1.NonOptionalFieldsAddedNested as V1
+import qualified V1.EnumUnchanged as V1
+import qualified V1.EnumRemoved as V1
+import qualified V1.EnumAdditional as V1
+
+import qualified V2.NameChanges as V2
+import qualified V2.FieldsRemoved as V2
+import qualified V2.FieldsRemovedNested as V2
+import qualified V2.NonOptionalFieldsAdded as V2
+import qualified V2.NonOptionalFieldsAddedNested as V2
+import qualified V2.EnumUnchanged as V2
+import qualified V2.EnumRemoved as V2
+import qualified V2.EnumAdditional as V2
+import DA.Text
+
+main : Script ()
+main = tests
+  [ ("Fails if the template name changes", templateNameChanges)
+  , ("Fails if fields are removed", templateFieldsRemoved)
+  , ("Fails if non-optional fields are added", templateNonOptionalFieldsAdded)
+  , ("Fails if nested fields are removed", templateFieldsRemovedNested)
+  , ("Fails if nested non-optional fields are added", templateNonOptionalFieldsAddedNested)
+  , ("Succeeds if a nested enum is unchanged", templateEnumUnchanged)
+  , ("Succeeds if a nested enum is upgraded and extended", templateEnumUpgradeFromOld)
+  , ("Succeeds if a nested enum is an old case when downgrading", templateEnumDowngradeFromOld)
+  , ("Fails if a nested enum is a removed case", templateEnumUpgradeToRemoved)
+  , ("Fails if a nested enum is an additional case when downgrading", templateEnumDowngradeFromNew)
+  ]
+
+templateInvalidChange : forall t2 t1 c2. (Template t1, HasAgreement t1, Choice t2 c2 Text) => Bool -> (Party -> t1) -> c2 -> Script ()
+templateInvalidChange shouldSucceed makeV1Contract v2Choice = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createExactCmd (makeV1Contract a)
+  let cidV2 = coerceContractId @t1 @t2 cid
+  res <- a `trySubmit` exerciseCmd cidV2 v2Choice
+
+  case (res, shouldSucceed) of
+    (Right "V2", True) -> pure ()
+    (Left (WronglyTypedContract {}), False) -> pure ()
+    (Left (UnknownError msg), False) | "An error occurred." `isInfixOf` msg -> pure ()
+    _ -> assertFail $ "Expected " <> (if shouldSucceed then "success" else "specific failure") <> " but got " <> show res
+
+{- PACKAGE
+name: data-changes
+versions: 2
+-}
+
+{- MODULE
+package: data-changes
+contents: |
+  module NameChanges where
+
+  template NameChanges              -- @V 1
+  template NameChangesOops          -- @V  2
+    with
+      party : Party
+    where
+      signatory party
+      choice NameChangesCall : Text
+        controller party
+        do pure "V1"                -- @V 1
+        do pure "V2"                -- @V  2
+-}
+
+templateNameChanges : Script ()
+templateNameChanges = templateInvalidChange @V2.NameChangesOops False V1.NameChanges V2.NameChangesCall
+
+{- MODULE
+package: data-changes
+contents: |
+  module FieldsRemoved where
+  template FieldsRemoved
+    with
+      party : Party
+      someData : Int                  -- @V 1
+    where
+      signatory party
+      choice FieldsRemovedCall : Text
+        controller party
+        do pure "V1"                  -- @V 1
+        do pure "V2"                  -- @V  2
+-}
+
+templateFieldsRemoved : Script ()
+templateFieldsRemoved = templateInvalidChange @V2.FieldsRemoved False (`V1.FieldsRemoved` 1) V2.FieldsRemovedCall
+
+{- MODULE
+package: data-changes
+contents: |
+  module FieldsRemovedNested where
+  data FieldsRemovedNestedData = FieldsRemovedNestedData
+    with
+      party : Party
+      someData : Int                        -- @V 1
+    deriving (Eq, Show)
+
+  template FieldsRemovedNested
+    with
+      nestedData : FieldsRemovedNestedData
+    where
+      signatory nestedData.party
+      choice FieldsRemovedNestedCall : Text
+        controller nestedData.party
+        do pure "V1"                        -- @V 1
+        do pure "V2"                        -- @V  2
+-}
+
+templateFieldsRemovedNested : Script ()
+templateFieldsRemovedNested =
+  templateInvalidChange
+    @V2.FieldsRemovedNested
+    False
+    (\p -> V1.FieldsRemovedNested $ V1.FieldsRemovedNestedData p 1)
+    V2.FieldsRemovedNestedCall
+
+{- MODULE
+package: data-changes
+contents: |
+  module NonOptionalFieldsAdded where
+
+  template NonOptionalFieldsAdded
+    with
+      party : Party
+      newField : Int                           -- @V  2
+    where
+      signatory party
+      choice NonOptionalFieldsAddedCall : Text
+        controller party
+        do pure "V1"                           -- @V 1
+        do pure "V2"                           -- @V  2
+-}
+
+templateNonOptionalFieldsAdded : Script ()
+templateNonOptionalFieldsAdded = templateInvalidChange @V2.NonOptionalFieldsAdded False V1.NonOptionalFieldsAdded V2.NonOptionalFieldsAddedCall
+
+{- MODULE
+package: data-changes
+contents: |
+  module NonOptionalFieldsAddedNested where
+
+  data NonOptionalFieldsAddedNestedData = NonOptionalFieldsAddedNestedData
+    with
+      party : Party
+      newField : Int                                 -- @V  2
+    deriving (Eq, Show)
+
+  template NonOptionalFieldsAddedNested
+    with
+      nestedData : NonOptionalFieldsAddedNestedData
+    where
+      signatory nestedData.party
+      choice NonOptionalFieldsAddedNestedCall : Text
+        controller nestedData.party
+        do pure "V1"                                 -- @V 1
+        do pure "V2"                                 -- @V  2
+-}
+
+templateNonOptionalFieldsAddedNested : Script ()
+templateNonOptionalFieldsAddedNested =
+  templateInvalidChange
+    @V2.NonOptionalFieldsAddedNested
+    False
+    (V1.NonOptionalFieldsAddedNested . V1.NonOptionalFieldsAddedNestedData)
+    V2.NonOptionalFieldsAddedNestedCall
+
+{- MODULE
+package: data-changes
+contents: |
+  module EnumUnchanged where
+
+  data EnumUnchangedData
+    = EnumUnchangedData1
+    | EnumUnchangedData2
+    deriving (Eq, Show, Enum)
+  template EnumUnchanged
+    with
+      party : Party
+      nestedData : EnumUnchangedData
+    where
+      signatory party
+      choice EnumUnchangedCall : Text
+        controller party
+        do pure "V1"                     -- @V 1
+        do pure "V2"                     -- @V  2
+-}
+
+templateEnumUnchanged : Script ()
+templateEnumUnchanged =
+  templateInvalidChange
+    @V2.EnumUnchanged
+    True
+    (`V1.EnumUnchanged` V1.EnumUnchangedData1)
+    V2.EnumUnchangedCall
+
+{- MODULE
+package: data-changes
+contents: |
+  module EnumRemoved where
+
+  data EnumRemovedData
+    = EnumRemovedData1
+    | EnumRemovedData2
+    | EnumRemovedData3                 -- @V 1
+    deriving (Eq, Show, Enum)
+  template EnumRemoved
+    with
+      party : Party
+      nestedData : EnumRemovedData
+    where
+      signatory party
+      choice EnumRemovedCall : Text
+        controller party
+        do pure "V1"                   -- @V 1
+        do pure "V2"                   -- @V  2
+-}
+
+templateEnumUpgradeToRemoved : Script ()
+templateEnumUpgradeToRemoved =
+  templateInvalidChange
+    @V2.EnumRemoved
+    False
+    (`V1.EnumRemoved` V1.EnumRemovedData3)
+    V2.EnumRemovedCall
+
+{- MODULE
+package: data-changes
+contents: |
+  module EnumAdditional where
+
+  data EnumAdditionalData
+    = EnumAdditionalData1
+    | EnumAdditionalData2
+    | EnumAdditionalData3                 -- @V  2
+    deriving (Eq, Show, Enum)
+  template EnumAdditional
+    with
+      party : Party
+      nestedData : EnumAdditionalData
+    where
+      signatory party
+      choice EnumAdditionalCall : Text
+        controller party
+        do pure "V1"                      -- @V 1
+        do pure "V2"                      -- @V  2
+-}
+
+templateEnumDowngradeFromNew : Script ()
+templateEnumDowngradeFromNew = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V2.EnumAdditional with party = a, nestedData = V2.EnumAdditionalData3
+
+  let cidV1 = coerceContractId @V2.EnumAdditional @V1.EnumAdditional cid
+
+  -- Ensure we can only call the V1 choice
+  res <- a `trySubmit` exerciseExactCmd cidV1 V1.EnumAdditionalCall
+
+  case res of
+    Left (UnknownError msg) | "An error occurred." `isInfixOf` msg -> pure ()
+    _ -> assertFail $ "Expected specific failure but got " <> show res
+
+templateEnumUpgradeFromOld : Script ()
+templateEnumUpgradeFromOld =
+  templateInvalidChange
+    @V2.EnumAdditional
+    True
+    (`V1.EnumAdditional` V1.EnumAdditionalData1)
+    V2.EnumAdditionalCall
+
+templateEnumDowngradeFromOld : Script ()
+templateEnumDowngradeFromOld =
+  templateInvalidChange
+    @V1.EnumAdditional
+    True
+    (`V2.EnumAdditional` V2.EnumAdditionalData1)
+    V1.EnumAdditionalCall
+

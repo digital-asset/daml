@@ -1,0 +1,440 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
+module VariantChanges (main) where
+
+import UpgradeTestLib
+import DA.Text
+
+import qualified V1.VariantUnchanged as V1
+import qualified V1.VariantRemCon as V1
+import qualified V1.VariantRemFld as V1
+import qualified V1.VariantAddCon as V1
+import qualified V1.VariantAddOptFld as V1
+import qualified V1.VariantAddOptNestedFld as V1
+import qualified V1.VariantAddNonOptFld as V1
+import qualified V1.VariantAddNonOptNestedFld as V1
+import qualified V1.VariantNonLastAdditional as V1
+
+import qualified V2.VariantUnchanged as V2
+import qualified V2.VariantRemCon as V2
+import qualified V2.VariantRemFld as V2
+import qualified V2.VariantAddCon as V2
+import qualified V2.VariantAddOptFld as V2
+import qualified V2.VariantAddOptNestedFld as V2
+import qualified V2.VariantAddNonOptFld as V2
+import qualified V2.VariantAddNonOptNestedFld as V2
+import qualified V2.VariantNonLastAdditional as V2
+
+main : Script ()
+main = tests
+  [ ("Upgrade succeeds if variant is unchanged", unchanged)
+  , ("Upgrade succeeds if variant is existing constructor", upgradeFromExistingCon)
+  , ("Upgrade succeeds if variant has optional fields added", upgradeToNewOptField)
+  , ("Upgrade succeeds if variant has optional nested fields added", upgradeToNewOptNestedField)
+  , ("Upgrade fails if variant is a removed constructor", upgradeToRemovedCon)
+  , ("Upgrade fails if variant has fields removed", upgradeToRemovedField)
+  , ("Upgrade fails if variant has non-optional fields added", upgradeToNewNonOptField)
+  , ("Upgrade fails if variant has non-optional nested fields added", upgradeToNewNonOptNestedField)
+
+  , ("Downgrade succeeds if variant is an existing constructor", downgradeFromExistingCon)
+  , ("Downgrade succeeds if variant has optional fields added as None", downgradeFromNoneNewOptField)
+  , ("Downgrade succeeds if variant has optional nested fields added as None", downgradeFromNoneNewOptNestedField)
+  , ("Downgrade fails if variant is a new constructor", downgradeFromNewCon)
+  , ("Downgrade fails if variant has optional fields added as Some", downgradeFromSomeNewOptField)
+  , ("Downgrade fails if variant has optional nested fields added as Some", downgradeFromSomeNewOptNestedField)
+  , broken ("Fails if upgrading a variant with a new case in the middle, from a case with unchanged rank", templateVariantUpgradeNonLastSameRank)
+  , broken ("Fails if upgrading a variant with a new case in the middle, from a case with changed rank", templateVariantUpgradeNonLastDifferentRank)
+  , ("Fails if downgrading a variant from a new case in the middle", templateVariantDowngradeNonLastDifferentRank)
+  ]
+
+templateInvalidChange : forall t2 t1 c2. (Template t1, HasAgreement t1, Choice t2 c2 Text) => Bool -> (Party -> t1) -> c2 -> Script ()
+templateInvalidChange shouldSucceed makeV1Contract v2Choice = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createExactCmd (makeV1Contract a)
+  let cidV2 = coerceContractId @t1 @t2 cid
+  res <- a `trySubmit` exerciseExactCmd cidV2 v2Choice
+
+  case (res, shouldSucceed) of
+    (Right "V1", True) -> pure ()
+    (Right "V2", True) -> pure ()
+    (Left (DevError Upgrade _), False) -> pure ()
+    (Left (WronglyTypedContract {}), False) -> pure ()
+    (Left (UnknownError msg), False) | "An error occurred." `isInfixOf` msg -> pure ()
+    _ -> assertFail $ "Expected " <> (if shouldSucceed then "success" else "specific failure") <> " but got " <> show res
+
+{- PACKAGE
+name: variant-changes
+versions: 2
+-}
+
+{- MODULE
+package: variant-changes
+contents: |
+  module VariantUnchanged where
+
+  data VariantUnchangedData
+    = VariantUnchangedData1 { vud_field_1_1 : Bool; vud_field_1_2 : Text }
+    | VariantUnchangedData2 { vud_field_2_1 : Bool; vud_field_2_2 : Text }
+    deriving (Eq, Show)
+  template VariantUnchanged
+    with
+      party : Party
+      varData : VariantUnchangedData
+    where
+      signatory party
+      choice VariantUnchangedCall : Text
+        controller party
+        do pure "V1" -- @V 1
+        do pure "V2" -- @V  2
+-}
+
+unchanged : Script ()
+unchanged =
+  templateInvalidChange
+    @V2.VariantUnchanged
+    True
+    (`V1.VariantUnchanged` V1.VariantUnchangedData1 { vud_field_1_1 = True, vud_field_1_2 = "hello" })
+    V2.VariantUnchangedCall
+
+{- MODULE
+package: variant-changes
+contents: |
+  module VariantRemCon where
+
+  data VariantRemConData
+    = VariantRemConData1 { vrd_field_1_1 : Bool; vrd_field_1_2 : Text }
+    | VariantRemConData2 { vrd_field_2_1 : Bool; vrd_field_2_2 : Text }
+    | VariantRemConData3 { vrd_field_3_1 : Bool; vrd_field_3_2 : Text } -- @V 1
+    deriving (Eq, Show)
+
+  template VariantRemCon
+    with
+      party : Party
+      varData : VariantRemConData
+    where
+      signatory party
+      choice VariantRemConCall : Text
+        controller party
+        do pure "V1" -- @V 1
+        do pure "V2" -- @V  2
+-}
+
+upgradeToRemovedCon : Script ()
+upgradeToRemovedCon =
+  templateInvalidChange
+    @V2.VariantRemCon
+    False
+    (`V1.VariantRemCon` V1.VariantRemConData3 { vrd_field_3_1 = True, vrd_field_3_2 = "hello" })
+    V2.VariantRemConCall
+
+{- MODULE
+package: variant-changes
+contents: |
+  module VariantAddCon where
+
+  data VariantAddConData
+    = VariantAddConData1 { vad_field_1_1 : Bool; vad_field_1_2 : Text }
+    | VariantAddConData2 { vad_field_2_1 : Bool; vad_field_2_2 : Text }
+    | VariantAddConData3 { vad_field_3_1 : Bool; vad_field_3_2 : Text } -- @V 2
+    deriving (Eq, Show)
+  template VariantAddCon
+    with
+      party : Party
+      varData : VariantAddConData
+    where
+      signatory party
+      choice VariantAddConCall : Text
+        controller party
+        do pure "V1" -- @V 1
+        do pure "V2" -- @V  2
+-}
+
+downgradeFromNewCon : Script ()
+downgradeFromNewCon =
+  templateInvalidChange
+    @V1.VariantAddCon
+    False
+    (`V2.VariantAddCon` V2.VariantAddConData3 { vad_field_3_1 = True, vad_field_3_2 = "hello" })
+    V1.VariantAddConCall
+
+upgradeFromExistingCon : Script ()
+upgradeFromExistingCon =
+  templateInvalidChange
+    @V2.VariantAddCon
+    True
+    (`V1.VariantAddCon` V1.VariantAddConData1 { vad_field_1_1 = True, vad_field_1_2 = "hello" })
+    V2.VariantAddConCall
+
+downgradeFromExistingCon : Script ()
+downgradeFromExistingCon =
+  templateInvalidChange
+    @V1.VariantAddCon
+    True
+    (`V2.VariantAddCon` V2.VariantAddConData1 { vad_field_1_1 = True, vad_field_1_2 = "hello" })
+    V1.VariantAddConCall
+
+{- MODULE
+package: variant-changes
+contents: |
+  module VariantRemFld where
+  data VariantRemFldData
+    = VariantRemFldData1
+        { vrf_field_1_1 : Bool
+        ; vrf_field_1_2 : Text -- @V 1
+        }
+    | VariantRemFldData2 { vrf_field_2_1 : Bool; vrf_field_2_2 : Text }
+    deriving (Eq, Show)
+  template VariantRemFld
+    with
+      party : Party
+      varData : VariantRemFldData
+    where
+      signatory party
+      choice VariantRemFldCall : Text
+        controller party
+        do pure "V1" -- @V 1
+        do pure "V2" -- @V  2
+-}
+
+upgradeToRemovedField : Script ()
+upgradeToRemovedField =
+  templateInvalidChange
+    @V2.VariantRemFld
+    False
+    (`V1.VariantRemFld` V1.VariantRemFldData1 { vrf_field_1_1 = True, vrf_field_1_2 = "hello" })
+    V2.VariantRemFldCall
+
+{- MODULE
+package: variant-changes
+contents: |
+  module VariantAddNonOptFld where
+
+  data VariantAddNonOptFldData
+    = VariantAddNonOptFldData1
+        { vanof_field_1_1 : Bool
+        ; vanof_field_1_2 : Text
+        ; vanof_field_1_3 : Text -- @V 2
+        }
+    | VariantAddNonOptFldData2 { vanof_field_2_1 : Bool; vanof_field_2_2 : Text }
+    deriving (Eq, Show)
+  template VariantAddNonOptFld
+    with
+      party : Party
+      varData : VariantAddNonOptFldData
+    where
+      signatory party
+      choice VariantAddNonOptFldCall : Text
+        controller party
+        do pure "V1" -- @V 1
+        do pure "V2" -- @V  2
+-}
+
+upgradeToNewNonOptField : Script ()
+upgradeToNewNonOptField =
+  templateInvalidChange
+    @V2.VariantAddNonOptFld
+    False
+    (`V1.VariantAddNonOptFld` V1.VariantAddNonOptFldData1 { vanof_field_1_1 = True, vanof_field_1_2 = "hello" })
+    V2.VariantAddNonOptFldCall
+
+{- MODULE
+package: variant-changes
+contents: |
+  module VariantAddNonOptNestedFld where
+  data VariantAddNonOptNestedFldNest = VariantAddNonOptNestedFldNest with
+      vanonf_nested_field_1 : Bool
+      vanonf_nested_field_2 : Text
+      vanonf_nested_field_3 : Text -- @V 2
+    deriving (Eq, Show)
+  data VariantAddNonOptNestedFldData
+    = VariantAddNonOptNestedFldData1 { vanonf_field_1_1 : Bool; vanonf_field_1_2 : VariantAddNonOptNestedFldNest }
+    | VariantAddNonOptNestedFldData2 { vanonf_field_2_1 : Bool; vanonf_field_2_2 : Text }
+    deriving (Eq, Show)
+  template VariantAddNonOptNestedFld
+    with
+      party : Party
+      varData : VariantAddNonOptNestedFldData
+    where
+      signatory party
+      choice VariantAddNonOptNestedFldCall : Text
+        controller party
+        do pure "V1" -- @V 1
+        do pure "V2" -- @V  2
+-}
+
+upgradeToNewNonOptNestedField : Script ()
+upgradeToNewNonOptNestedField =
+  templateInvalidChange
+    @V2.VariantAddNonOptNestedFld
+    False
+    (`V1.VariantAddNonOptNestedFld` V1.VariantAddNonOptNestedFldData1 with
+      vanonf_field_1_1 = True
+      vanonf_field_1_2 = V1.VariantAddNonOptNestedFldNest with
+        vanonf_nested_field_1 = False
+        vanonf_nested_field_2 = "nested hello"
+    )
+    V2.VariantAddNonOptNestedFldCall
+
+{- MODULE
+package: variant-changes
+contents: |
+  module VariantAddOptFld where
+
+  data VariantAddOptFldData
+    = VariantAddOptFldData1
+        { vaof_field_1_1 : Bool
+        ; vaof_field_1_2 : Text
+        ; vaof_field_1_3 : Optional Text -- @V 2
+        }
+    | VariantAddOptFldData2 { vaof_field_2_1 : Bool; vaof_field_2_2 : Text }
+    deriving (Eq, Show)
+  template VariantAddOptFld
+    with
+      party : Party
+      varData : VariantAddOptFldData
+    where
+      signatory party
+      choice VariantAddOptFldCall : Text
+        controller party
+        do pure "V1" -- @V 1
+        do pure "V2" -- @V  2
+-}
+
+upgradeToNewOptField : Script ()
+upgradeToNewOptField =
+  templateInvalidChange
+    @V2.VariantAddOptFld
+    True
+    (`V1.VariantAddOptFld` V1.VariantAddOptFldData1 { vaof_field_1_1 = True, vaof_field_1_2 = "hello" })
+    V2.VariantAddOptFldCall
+
+downgradeFromNoneNewOptField : Script ()
+downgradeFromNoneNewOptField =
+  templateInvalidChange
+    @V1.VariantAddOptFld
+    True
+    (`V2.VariantAddOptFld` V2.VariantAddOptFldData1 { vaof_field_1_1 = True, vaof_field_1_2 = "hello", vaof_field_1_3 = None })
+    V1.VariantAddOptFldCall
+
+downgradeFromSomeNewOptField : Script ()
+downgradeFromSomeNewOptField =
+  templateInvalidChange
+    @V1.VariantAddOptFld
+    False
+    (`V2.VariantAddOptFld` V2.VariantAddOptFldData1 { vaof_field_1_1 = True, vaof_field_1_2 = "hello", vaof_field_1_3 = Some "goodbye" })
+    V1.VariantAddOptFldCall
+
+{- MODULE
+package: variant-changes
+contents: |
+  module VariantAddOptNestedFld where
+
+  data VariantAddOptNestedFldNest = VariantAddOptNestedFldNest with
+      vaonf_nested_field_1 : Bool
+      vaonf_nested_field_2 : Text
+      vaonf_nested_field_3 : Optional Text -- @V 2
+    deriving (Eq, Show)
+  data VariantAddOptNestedFldData
+    = VariantAddOptNestedFldData1 { vaonf_field_1_1 : Bool; vaonf_field_1_2 : VariantAddOptNestedFldNest }
+    | VariantAddOptNestedFldData2 { vaonf_field_2_1 : Bool; vaonf_field_2_2 : Text }
+    deriving (Eq, Show)
+  template VariantAddOptNestedFld
+    with
+      party : Party
+      varData : VariantAddOptNestedFldData
+    where
+      signatory party
+      choice VariantAddOptNestedFldCall : Text
+        controller party
+        do pure "V1" -- @V 1
+        do pure "V2" -- @V  2
+-}
+
+upgradeToNewOptNestedField : Script ()
+upgradeToNewOptNestedField =
+  templateInvalidChange
+    @V2.VariantAddOptNestedFld
+    True
+    (`V1.VariantAddOptNestedFld` V1.VariantAddOptNestedFldData1 with
+      vaonf_field_1_1 = True
+      vaonf_field_1_2 = V1.VariantAddOptNestedFldNest with
+        vaonf_nested_field_1 = False
+        vaonf_nested_field_2 = "nested hello"
+    )
+    V2.VariantAddOptNestedFldCall
+
+downgradeFromNoneNewOptNestedField : Script ()
+downgradeFromNoneNewOptNestedField =
+  templateInvalidChange
+    @V1.VariantAddOptNestedFld
+    True
+    (`V2.VariantAddOptNestedFld` V2.VariantAddOptNestedFldData1 with
+      vaonf_field_1_1 = True
+      vaonf_field_1_2 = V2.VariantAddOptNestedFldNest with
+        vaonf_nested_field_1 = False
+        vaonf_nested_field_2 = "nested hello"
+        vaonf_nested_field_3 = None
+    )
+    V1.VariantAddOptNestedFldCall
+
+downgradeFromSomeNewOptNestedField : Script ()
+downgradeFromSomeNewOptNestedField =
+  templateInvalidChange
+    @V1.VariantAddOptNestedFld
+    False
+    (`V2.VariantAddOptNestedFld` V2.VariantAddOptNestedFldData1 with
+      vaonf_field_1_1 = True
+      vaonf_field_1_2 = V2.VariantAddOptNestedFldNest with
+        vaonf_nested_field_1 = False
+        vaonf_nested_field_2 = "nested hello"
+        vaonf_nested_field_3 = Some "nested goodbye"
+    )
+    V1.VariantAddOptNestedFldCall
+
+{- MODULE
+package: variant-changes
+contents: |
+  module VariantNonLastAdditional where
+  data VariantNonLastAdditionalData
+    = VariantNonLastAdditionalData1 Int
+    | VariantNonLastAdditionalData15 (Numeric 10) -- @V 2
+    | VariantNonLastAdditionalData2 Bool
+    deriving (Eq, Show)
+  template VariantNonLastAdditional
+    with
+      party : Party
+      nestedData : VariantNonLastAdditionalData
+    where
+      signatory party
+      choice VariantNonLastAdditionalCall : Text
+        controller party
+        do pure "V1" -- @V 1
+        do pure "V2" -- @V  2
+-}
+
+templateVariantUpgradeNonLastSameRank : Script ()
+templateVariantUpgradeNonLastSameRank =
+  templateInvalidChange
+    @V2.VariantNonLastAdditional
+    False
+    (`V1.VariantNonLastAdditional` V1.VariantNonLastAdditionalData1 1)
+    V2.VariantNonLastAdditionalCall
+
+templateVariantUpgradeNonLastDifferentRank : Script ()
+templateVariantUpgradeNonLastDifferentRank =
+  templateInvalidChange
+    @V2.VariantNonLastAdditional
+    False
+    (`V1.VariantNonLastAdditional` V1.VariantNonLastAdditionalData2 True) -- Data2 is second in V1, and third in V2
+    V2.VariantNonLastAdditionalCall
+
+templateVariantDowngradeNonLastDifferentRank : Script ()
+templateVariantDowngradeNonLastDifferentRank =
+  templateInvalidChange
+    @V1.VariantNonLastAdditional
+    False
+    (`V2.VariantNonLastAdditional` V2.VariantNonLastAdditionalData15 1.0) -- Data15 is second in V2, Data2 is second in V1
+    V1.VariantNonLastAdditionalCall
