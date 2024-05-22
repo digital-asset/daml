@@ -963,6 +963,7 @@ scala_library(
         "//libs-scala/resources-pekko",
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/scala-utils",
+        "//libs-scala/timer-utils",
         "//observability/metrics",
         "//observability/tracing",
         "@maven//:com_auth0_java_jwt",

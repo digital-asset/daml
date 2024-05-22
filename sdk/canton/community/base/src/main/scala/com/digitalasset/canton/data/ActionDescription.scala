@@ -101,6 +101,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       case LfNodeCreate(
             contractId,
             _packageName,
+        _packageVersion,
             _templateId,
             _arg,
             _agreementText,

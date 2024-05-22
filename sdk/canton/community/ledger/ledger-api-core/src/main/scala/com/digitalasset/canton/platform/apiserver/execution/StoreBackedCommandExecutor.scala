@@ -522,6 +522,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           unusedTxVersion,
           ContractInstance(
             packageName = disclosedContract.packageName,
+            packageVersion = None,
             template = disclosedContract.templateId,
             arg = disclosedContract.argument,
           ),
