@@ -2,8 +2,3 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module Main where
-
-import Daml.Script
-
-main : Script ()
-main = pure ()

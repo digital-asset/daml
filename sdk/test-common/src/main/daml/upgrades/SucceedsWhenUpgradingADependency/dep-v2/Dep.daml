@@ -1,0 +1,18 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Dep where
+
+data D = D { field1 : Text, field2 : Optional Text }
+
+template T with
+    p: Party
+  where
+    signatory p
+    choice C1 : D
+      controller p
+      do pure $ D "field1" (Some "field2")
+    choice C2 : D
+      controller p
+      do pure $ D "field1" None
+
