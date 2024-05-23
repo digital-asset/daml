@@ -981,6 +981,7 @@ buildEffect relativize pkgConfig@PackageConfigFields{..} opts mbOutFile incremen
               pkgConfig
               (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
               (FromDalf False)
+              (optWarnBadInterfaceInstances opts)
       (dar, mPkgId) <- mbErr "ERROR: Creation of DAR file failed." mbDar
       fp <- targetFilePath relativize $ unitIdString (pkgNameVersion pName pVersion)
       createDarFile loggerH fp dar

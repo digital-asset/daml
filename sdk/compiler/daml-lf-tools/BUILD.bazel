@@ -28,6 +28,7 @@ da_haskell_library(
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-lf-util",
+        "//compiler/damlc/daml-opts:daml-opts-types",
         "//libs-haskell/da-hs-base",
     ],
 )

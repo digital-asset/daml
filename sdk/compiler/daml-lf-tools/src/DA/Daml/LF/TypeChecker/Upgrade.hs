@@ -17,6 +17,7 @@ import           DA.Daml.LF.Ast.Alpha (alphaExpr, alphaType)
 import           DA.Daml.LF.TypeChecker.Check (expandTypeSynonyms)
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
+import           DA.Daml.Options.Types (WarnBadInterfaceInstances(..))
 import           Data.Bifunctor (first)
 import           Data.Data
 import           Data.Either (partitionEithers)
@@ -61,8 +62,8 @@ runGammaUnderUpgrades Upgrading{ _past = pastAction, _present = presentAction } 
     presentResult <- withReaderT _present presentAction
     pure Upgrading { _past = pastResult, _present = presentResult }
 
-checkUpgrade :: Version -> Bool -> LF.Package -> Maybe (LF.PackageId, LF.Package) -> [Diagnostic]
-checkUpgrade version shouldTypecheckUpgrades presentPkg mbUpgradedPackage =
+checkUpgrade :: Version -> Bool -> LF.Package -> Maybe (LF.PackageId, LF.Package) -> WarnBadInterfaceInstances -> [Diagnostic]
+checkUpgrade version shouldTypecheckUpgrades presentPkg mbUpgradedPackage warnBadInterfaceInstances =
     let bothPkgDiagnostics :: Either Error ((), [Warning])
         bothPkgDiagnostics =
             case mbUpgradedPackage of
@@ -70,7 +71,17 @@ checkUpgrade version shouldTypecheckUpgrades presentPkg mbUpgradedPackage =
                     Right ((), [])
                 Just (_, pastPkg) ->
                     let package = Upgrading { _past = pastPkg, _present = presentPkg }
-                        upgradingWorld = fmap (\package -> emptyGamma (initWorldSelf [] package) version) package
+                        initWorldFromPackage package =
+                            emptyGamma (initWorldSelf [] package) version &
+                                if getWarnBadInterfaceInstances warnBadInterfaceInstances
+                                then
+                                    addDiagnosticSwapIndicator (\case
+                                        Left EUpgradeShouldDefineIfaceWithoutImplementation {} -> Just True
+                                        Left EUpgradeShouldDefineTplInSeparatePackage {} -> Just True
+                                        Left EUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> Just True
+                                        _ -> Nothing)
+                                else id
+                        upgradingWorld = fmap initWorldFromPackage package
                     in
                     runGammaF upgradingWorld $ do
                         when shouldTypecheckUpgrades (checkUpgradeM package)

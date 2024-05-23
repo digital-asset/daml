@@ -31,6 +31,8 @@ module DA.Daml.LF.TypeChecker.Env(
     Gamma,
     emptyGamma,
     SomeErrorOrWarning(..),
+    addDiagnosticSwapIndicator,
+    withDiagnosticSwapIndicatorF,
     ) where
 
 import           Control.Lens hiding (Context)
@@ -68,6 +70,21 @@ getLfVersion = view lfVersion
 
 getDiagnosticSwapIndicatorF :: forall m gamma. MonadGammaF gamma m => Getter gamma Gamma -> m (Either WarnableError Warning -> Bool)
 getDiagnosticSwapIndicatorF getter = view (getter . diagnosticSwapIndicator)
+
+addDiagnosticSwapIndicator
+  :: (Either WarnableError Warning -> Maybe Bool)
+  -> Gamma -> Gamma
+addDiagnosticSwapIndicator newIndicator =
+  diagnosticSwapIndicator %~ \oldIndicator err ->
+    case newIndicator err of
+      Nothing -> oldIndicator err
+      Just verdict -> verdict
+
+withDiagnosticSwapIndicatorF
+  :: MonadGammaF gamma m
+  => Setter' gamma Gamma -> (Either WarnableError Warning -> Maybe Bool) -> m () -> m ()
+withDiagnosticSwapIndicatorF setter newIndicator =
+  locally setter (addDiagnosticSwapIndicator newIndicator)
 
 getWorld :: MonadGamma m => m World
 getWorld = view world

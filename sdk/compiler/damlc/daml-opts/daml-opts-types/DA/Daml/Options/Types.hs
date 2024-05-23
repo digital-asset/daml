@@ -10,6 +10,7 @@ module DA.Daml.Options.Types
     , EnableScenarios(..)
     , EnableInterfaces(..)
     , AllowLargeTuples(..)
+    , WarnBadInterfaceInstances(..)
     , StudioAutorunAllScenarios(..)
     , SkipScenarioValidation(..)
     , DlintRulesFile(..)
@@ -127,6 +128,8 @@ data Options = Options
   -- packages from remote ledgers.
   , optAllowLargeTuples :: AllowLargeTuples
   -- ^ Do not warn when tuples of size > 5 are used
+  , optWarnBadInterfaceInstances :: WarnBadInterfaceInstances
+  -- ^ Do not warn when tuples of size > 5 are used
   }
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
@@ -186,6 +189,9 @@ newtype EnableScenarios = EnableScenarios { getEnableScenarios :: Bool }
 
 newtype AllowLargeTuples = AllowLargeTuples { getAllowLargeTuples :: Bool }
     deriving Show
+
+newtype WarnBadInterfaceInstances = WarnBadInterfaceInstances { getWarnBadInterfaceInstances :: Bool }
+  deriving Show
 
 newtype StudioAutorunAllScenarios = StudioAutorunAllScenarios { getStudioAutorunAllScenarios :: Bool }
     deriving Show
@@ -271,6 +277,7 @@ defaultOptions mbVersion =
         , optEnableOfInterestRule = False
         , optAccessTokenPath = Nothing
         , optAllowLargeTuples = AllowLargeTuples False
+        , optWarnBadInterfaceInstances = WarnBadInterfaceInstances False
         }
 
 pkgNameVersion :: LF.PackageName -> Maybe LF.PackageVersion -> UnitId

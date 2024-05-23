@@ -446,6 +446,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     optEnableInterfaces <- enableInterfacesOpt
     optAllowLargeTuples <- allowLargeTuplesOpt
     optTestFilter <- compilePatternExpr <$> optTestPattern
+    optWarnBadInterfaceInstances <- warnBadInterfaceInstancesOpt
 
     return Options{..}
   where
@@ -571,6 +572,15 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
         <> long "cpp"
         <> help "Set path to CPP."
         <> internal
+
+optWarnBadInterfaceInstances :: Parser WarnBadInterfaceInstances
+optWarnBadInterfaceInstances =
+  WarnBadInterfaceInstances <$>
+  flagYesNoAuto
+    "warn-bad-interface-instances"
+    False
+    "Convert errors about bad, non-upgradeable interface instances into warnings."
+    idm
 
 optGhcCustomOptions :: Parser [String]
 optGhcCustomOptions =
