@@ -96,7 +96,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
 
     def filterIds = executeSql(
       backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
-        stakeholder = someParty,
+        stakeholderO = Some(someParty),
         templateIdO = None,
         startExclusive = 0,
         endInclusive = 1000,
@@ -107,20 +107,20 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
     def assignEvents = executeSql(
       backend.event.assignEventBatch(
         eventSequentialIds = List(4),
-        allFilterParties = Set.empty,
+        allFilterParties = Some(Set.empty),
       )
     )
 
     def unassignEvents = executeSql(
       backend.event.unassignEventBatch(
         eventSequentialIds = List(5),
-        allFilterParties = Set.empty,
+        allFilterParties = Some(Set.empty),
       )
     )
 
     def assignIds = executeSql(
       backend.event.fetchAssignEventIdsForStakeholder(
-        stakeholder = someParty,
+        stakeholderO = Some(someParty),
         templateId = None,
         startExclusive = 0L,
         endInclusive = 1000L,
@@ -130,7 +130,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
 
     def unassignIds = executeSql(
       backend.event.fetchUnassignEventIdsForStakeholder(
-        stakeholder = someParty,
+        stakeholderO = Some(someParty),
         templateId = None,
         startExclusive = 0L,
         endInclusive = 1000L,

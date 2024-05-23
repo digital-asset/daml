@@ -100,6 +100,17 @@ class ValidatingTopologyMappingChecks(
             )
           )
 
+      case (Code.SequencerDomainState, None | Some(Code.SequencerDomainState)) =>
+        toValidate
+          .select[TopologyChangeOp.Replace, SequencerDomainState]
+          .map(
+            checkSequencerDomainStateReplace(
+              effective,
+              _,
+              inStore.flatMap(_.select[TopologyChangeOp.Replace, SequencerDomainState]),
+            )
+          )
+
       case (Code.AuthorityOf, None | Some(Code.AuthorityOf)) =>
         toValidate
           .select[TopologyChangeOp.Replace, AuthorityOf]
@@ -366,53 +377,57 @@ class ValidatingTopologyMappingChecks(
     }
   }
 
+  private def checkMissingNsdAndOtkMappings(
+      effectiveTime: EffectiveTime,
+      members: Set[Member],
+  )(implicit traceContext: TraceContext): EitherT[Future, TopologyTransactionRejection, Unit] = {
+
+    val otks = loadFromStore(
+      effectiveTime,
+      OwnerToKeyMapping.code,
+      filterUid = Some(members.toSeq.map(_.uid)),
+    )
+
+    val nsds = loadFromStore(
+      effectiveTime,
+      NamespaceDelegation.code,
+      filterNamespace = Some(members.toSeq.map(_.namespace)),
+    )
+
+    for {
+      otks <- otks
+      nsds <- nsds
+
+      membersWithOTK = otks.result.flatMap(
+        _.selectMapping[OwnerToKeyMapping].map(_.mapping.member)
+      )
+      missingOTK = members -- membersWithOTK
+
+      rootCertificates = nsds.result
+        .flatMap(_.selectMapping[NamespaceDelegation].filter(_.mapping.isRootDelegation))
+        .map(_.mapping.namespace)
+        .toSet
+      missingNSD = members.filter(med => !rootCertificates.contains(med.namespace))
+      otk = missingOTK.map(_ -> Seq(OwnerToKeyMapping.code)).toMap
+      nsd = missingNSD.map(_ -> Seq(NamespaceDelegation.code)).toMap
+      missingMappings = otk.combine(nsd)
+      _ <- EitherTUtil.condUnitET[Future][TopologyTransactionRejection](
+        missingOTK.isEmpty && missingNSD.isEmpty,
+        TopologyTransactionRejection.MissingMappings(
+          missingMappings.view.mapValues(_.sortBy(_.dbInt)).toMap
+        ),
+      )
+    } yield {}
+  }
+
   private def checkMediatorDomainStateReplace(
       effectiveTime: EffectiveTime,
       toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, MediatorDomainState],
       inStore: Option[SignedTopologyTransaction[TopologyChangeOp.Replace, MediatorDomainState]],
   )(implicit traceContext: TraceContext): EitherT[Future, TopologyTransactionRejection, Unit] = {
-    def checkMissingMappings(): EitherT[Future, TopologyTransactionRejection, Unit] = {
-      val newMediators = (toValidate.mapping.allMediatorsInGroup.toSet -- inStore.toList.flatMap(
-        _.mapping.allMediatorsInGroup
-      )).map(identity[Member])
-
-      val otks = loadFromStore(
-        effectiveTime,
-        OwnerToKeyMapping.code,
-        filterUid = Some(newMediators.toSeq.map(_.uid)),
-      )
-
-      val nsds = loadFromStore(
-        effectiveTime,
-        NamespaceDelegation.code,
-        filterNamespace = Some(newMediators.toSeq.map(_.namespace)),
-      )
-
-      for {
-        otks <- otks
-        nsds <- nsds
-
-        mediatorsWithOTK = otks.result.flatMap(
-          _.selectMapping[OwnerToKeyMapping].map(_.mapping.member)
-        )
-        missingOTK = newMediators -- mediatorsWithOTK
-
-        rootCertificates = nsds.result
-          .flatMap(_.selectMapping[NamespaceDelegation].filter(_.mapping.isRootDelegation))
-          .map(_.mapping.namespace)
-          .toSet
-        missingNSD = newMediators.filter(med => !rootCertificates.contains(med.namespace))
-        otk = missingOTK.map(_ -> Seq(OwnerToKeyMapping.code)).toMap
-        nsd = missingNSD.map(_ -> Seq(NamespaceDelegation.code)).toMap
-        missingMappings = otk.combine(nsd)
-        _ <- EitherTUtil.condUnitET[Future][TopologyTransactionRejection](
-          missingOTK.isEmpty && missingNSD.isEmpty,
-          TopologyTransactionRejection.MissingMappings(
-            missingMappings.view.mapValues(_.sortBy(_.dbInt)).toMap
-          ),
-        )
-      } yield {}
-    }
+    val newMediators = (toValidate.mapping.allMediatorsInGroup.toSet -- inStore.toList.flatMap(
+      _.mapping.allMediatorsInGroup
+    )).map(identity[Member])
 
     val thresholdCheck = EitherTUtil.condUnitET(
       toValidate.mapping.threshold.value <= toValidate.mapping.active.size,
@@ -421,7 +436,26 @@ class ValidatingTopologyMappingChecks(
         toValidate.mapping.active.size,
       ),
     )
-    thresholdCheck.flatMap(_ => checkMissingMappings())
+    thresholdCheck.flatMap(_ => checkMissingNsdAndOtkMappings(effectiveTime, newMediators))
+  }
+
+  private def checkSequencerDomainStateReplace(
+      effectiveTime: EffectiveTime,
+      toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, SequencerDomainState],
+      inStore: Option[SignedTopologyTransaction[TopologyChangeOp.Replace, SequencerDomainState]],
+  )(implicit traceContext: TraceContext): EitherT[Future, TopologyTransactionRejection, Unit] = {
+    val newSequencers = (toValidate.mapping.allSequencers.toSet -- inStore.toList.flatMap(
+      _.mapping.allSequencers
+    )).map(identity[Member])
+
+    val thresholdCheck = EitherTUtil.condUnitET(
+      toValidate.mapping.threshold.value <= toValidate.mapping.active.size,
+      TopologyTransactionRejection.ThresholdTooHigh(
+        toValidate.mapping.threshold.value,
+        toValidate.mapping.active.size,
+      ),
+    )
+    thresholdCheck.flatMap(_ => checkMissingNsdAndOtkMappings(effectiveTime, newSequencers))
   }
 
   private def checkAuthorityOf(

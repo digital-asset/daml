@@ -37,7 +37,7 @@ trait SequencerClientTransportCommon extends FlagCloseable with SupportsHandshak
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SendAsyncClientResponseError, Unit]
+  ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit]
 
   /** Acknowledge that we have successfully processed all events up to and including the given timestamp.
     * The client should then never subscribe for events from before this point.
@@ -46,7 +46,7 @@ trait SequencerClientTransportCommon extends FlagCloseable with SupportsHandshak
     */
   def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Boolean]
+  ): EitherT[FutureUnlessShutdown, String, Boolean]
 
   def downloadTopologyStateForInit(request: TopologyStateForInitRequest)(implicit
       traceContext: TraceContext

@@ -172,8 +172,11 @@ final case class GenTransactionTree private (
   } yield FullTransactionViewTree.tryCreate(genTransactionTree)
 
   def allLightTransactionViewTrees(
+      protocolVersion: ProtocolVersion
   ): Seq[LightTransactionViewTree] =
-    allTransactionViewTrees.map(LightTransactionViewTree.fromTransactionViewTree)
+    allTransactionViewTrees.map(tvt =>
+      LightTransactionViewTree.fromTransactionViewTree(tvt, protocolVersion)
+    )
 
   /** All lightweight transaction trees in this [[GenTransactionTree]], accompanied by their witnesses and randomness
     * suitable for deriving encryption keys for encrypted view messages.
@@ -190,6 +193,7 @@ final case class GenTransactionTree private (
   def allLightTransactionViewTreesWithWitnessesAndSeeds(
       initSeed: SecureRandomness,
       hkdfOps: HkdfOps,
+      protocolVersion: ProtocolVersion,
   ): Either[HkdfError, Seq[(LightTransactionViewTree, Witnesses, SecureRandomness)]] = {
     val randomnessLength = initSeed.unwrap.size
     val witnessAndSeedMapE =
@@ -221,7 +225,7 @@ final case class GenTransactionTree private (
     witnessAndSeedMapE.map { witnessAndSeedMap =>
       allTransactionViewTrees.map { tvt =>
         val (witnesses, seed) = witnessAndSeedMap(tvt.viewPosition)
-        (LightTransactionViewTree.fromTransactionViewTree(tvt), witnesses, seed)
+        (LightTransactionViewTree.fromTransactionViewTree(tvt, protocolVersion), witnesses, seed)
       }
     }
   }

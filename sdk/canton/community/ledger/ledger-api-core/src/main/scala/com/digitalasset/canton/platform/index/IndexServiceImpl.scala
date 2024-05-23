@@ -191,7 +191,7 @@ private[index] class IndexServiceImpl(
                       .getTransactionTrees(
                         startExclusive,
                         endInclusive,
-                        parties, // on the query filter side we treat every party as wildcard party
+                        parties, // on the query filter side we treat every party as template-wildcard party // TODO(#18362) [transaction trees] take into account party-wildcard
                         eventProjectionProperties,
                       )
                   }
@@ -519,14 +519,16 @@ object IndexServiceImpl {
         if (!metadata.templates.contains(templateId)) unknownTemplateIds += templateId
     }
 
-    domainTransactionFilter.filtersByParty.iterator
-      .flatMap(_._2.inclusive.iterator)
-      .foreach { case InclusiveFilters(templateFilters, interfaceFilters) =>
-        templateFilters.iterator.map(_.templateTypeRef).foreach(checkTypeConRef)
-        interfaceFilters.iterator.map(_.interfaceId).foreach { interfaceId =>
-          if (!metadata.interfaces.contains(interfaceId)) unknownInterfaceIds += interfaceId
-        }
+    val inclusiveFilters = domainTransactionFilter.filtersByParty.iterator.flatMap(
+      _._2.inclusive.iterator
+    ) ++ domainTransactionFilter.filtersForAnyParty.flatMap(_.inclusive).iterator
+
+    inclusiveFilters.foreach { case InclusiveFilters(templateFilters, interfaceFilters) =>
+      templateFilters.iterator.map(_.templateTypeRef).foreach(checkTypeConRef)
+      interfaceFilters.iterator.map(_.interfaceId).foreach { interfaceId =>
+        if (!metadata.interfaces.contains(interfaceId)) unknownInterfaceIds += interfaceId
       }
+    }
 
     val packageNames = unknownPackageNames.result()
     val templateIds = unknownTemplateIds.result()
@@ -620,12 +622,14 @@ object IndexServiceImpl {
       metadata: PackageMetadata,
       alwaysPopulateArguments: Boolean,
   ): Option[(TemplatePartiesFilter, EventProjectionProperties)] = {
-    val templateFilter: Map[Identifier, Set[Party]] =
+    val templateFilter
+        : Map[Identifier, Option[Set[Party]]] = // TODO(#18362) use type SetOrWildcard[Party] (see at the bottom of the file its definition)
       IndexServiceImpl.templateFilter(metadata, transactionFilter)
 
-    val wildcardFilter: Set[Party] = IndexServiceImpl.wildcardFilter(transactionFilter)
+    val templateWildcardFilter: Option[Set[Party]] =
+      IndexServiceImpl.wildcardFilter(transactionFilter)
 
-    if (templateFilter.isEmpty && wildcardFilter.isEmpty) {
+    if (templateFilter.isEmpty && templateWildcardFilter.fold(false)(_.isEmpty)) {
       None
     } else {
       val eventProjectionProperties = EventProjectionProperties(
@@ -635,7 +639,15 @@ object IndexServiceImpl {
         resolveTemplateRef(metadata),
         alwaysPopulateArguments,
       )
-      Some((TemplatePartiesFilter(templateFilter, wildcardFilter), eventProjectionProperties))
+      Some(
+        (
+          TemplatePartiesFilter(
+            templateFilter,
+            templateWildcardFilter,
+          ),
+          eventProjectionProperties,
+        )
+      )
     }
   }
 
@@ -694,26 +706,64 @@ object IndexServiceImpl {
   private[index] def templateFilter(
       metadata: PackageMetadata,
       transactionFilter: domain.TransactionFilter,
-  ): Map[Identifier, Set[Party]] = {
-    transactionFilter.filtersByParty.view.foldLeft(Map.empty[Identifier, Set[Party]]) {
-      case (acc, (party, Filters(Some(inclusiveFilters)))) =>
-        templateIds(metadata, inclusiveFilters).foldLeft(acc) { case (acc, templateId) =>
-          val updatedPartySet = acc.getOrElse(templateId, Set.empty[Party]) + party
-          acc.updated(templateId, updatedPartySet)
+  ): Map[Identifier, Option[Set[Party]]] = {
+    val templatesFilterByParty =
+      transactionFilter.filtersByParty.view.foldLeft(Map.empty[Identifier, Option[Set[Party]]]) {
+        case (acc, (party, Filters(Some(inclusiveFilters)))) =>
+          templateIds(metadata, inclusiveFilters).foldLeft(acc) { case (acc, templateId) =>
+            val updatedPartySet = acc.getOrElse(templateId, Some(Set.empty[Party])).map(_ + party)
+            acc.updated(templateId, updatedPartySet)
+          }
+        case (acc, _) => acc
+      }
+
+    // templates filter for all the parties
+    val templatesFilterForAnyParty: Map[Identifier, Option[Set[Party]]] =
+      transactionFilter.filtersForAnyParty
+        .fold(Set.empty[Identifier]) {
+          case Filters(Some(inclusiveFilters)) =>
+            templateIds(metadata, inclusiveFilters)
+          case _ => Set.empty
         }
-      case (acc, _) => acc
-    }
+        .map((_, None))
+        .toMap
+
+    // a filter for a specific template that is defined for any party will prevail the filters
+    // defined for specific parties
+    templatesFilterByParty ++ templatesFilterForAnyParty
+
   }
 
   private[index] def wildcardFilter(
       transactionFilter: domain.TransactionFilter
-  ): Set[Party] = {
-    transactionFilter.filtersByParty.view.collect {
-      case (party, Filters(None)) =>
-        party
-      case (party, Filters(Some(InclusiveFilters(templateIds, interfaceFilters))))
+  ): Option[Set[Party]] = {
+    transactionFilter.filtersForAnyParty match {
+      case Some(Filters(None)) => None
+      case Some(Filters(Some(InclusiveFilters(templateIds, interfaceFilters))))
           if templateIds.isEmpty && interfaceFilters.isEmpty =>
-        party
-    }.toSet
+        None
+      case _ =>
+        Some(transactionFilter.filtersByParty.view.collect {
+          case (party, Filters(None)) =>
+            party
+          case (party, Filters(Some(InclusiveFilters(templateIds, interfaceFilters))))
+              if templateIds.isEmpty && interfaceFilters.isEmpty =>
+            party
+        }.toSet)
+    }
   }
+
+// TODO(#18362)
+//  sealed trait SetOrWildcard[A]  {
+//    final def isWildcard: Boolean = this eq Wildcard
+//    def isEmpty: Boolean
+//  }
+//  final object Wildcard extends SetOrWildcard[Nothing] {
+//    def isEmpty: Boolean = false
+//
+//  }
+//  final case class ExplicitSet[A](set: Set[A]) extends SetOrWildcard[A] {
+//    def isEmpty: Boolean = set.isEmpty
+//  }
+
 }

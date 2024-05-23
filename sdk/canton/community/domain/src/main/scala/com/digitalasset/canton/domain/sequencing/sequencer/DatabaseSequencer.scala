@@ -18,7 +18,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.*
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerStore.SequencerPruningResult
 import com.digitalasset.canton.domain.sequencing.sequencer.store.*
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
-import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
+import com.digitalasset.canton.health.admin.data.{SequencerAdminStatus, SequencerHealthStatus}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.MetricsHelper
@@ -156,14 +156,16 @@ class DatabaseSequencer(
     unifiedSequencer = unifiedSequencer,
   )
 
+  private lazy val storageForAdminChanges: Storage = exclusiveStorage.getOrElse(
+    storage // no exclusive storage in non-ha setups
+  )
+
   override val pruningScheduler: Option[PruningScheduler] =
-    pruningSchedulerBuilder.map(
-      _(
-        exclusiveStorage.getOrElse(
-          storage // no exclusive storage in non-ha setups
-        )
-      )
-    )
+    pruningSchedulerBuilder.map(_(storageForAdminChanges))
+
+  override def adminStatus: SequencerAdminStatus = SequencerAdminStatus(
+    storageForAdminChanges.isActive
+  )
 
   private val store = writer.generalStore
 

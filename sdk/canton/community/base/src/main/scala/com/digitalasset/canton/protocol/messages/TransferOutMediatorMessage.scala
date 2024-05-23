@@ -14,6 +14,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.util.EitherUtil
+import com.digitalasset.canton.version.Transfer.SourceProtocolVersion
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWithContextCompanion,
   ProtoVersion,
@@ -40,7 +41,7 @@ final case class TransferOutMediatorMessage(
 
   override def submittingParticipant: ParticipantId = tree.submittingParticipant
 
-  val protocolVersion = commonData.protocolVersion
+  val protocolVersion = commonData.sourceProtocolVersion
 
   override val representativeProtocolVersion
       : RepresentativeProtocolVersion[TransferOutMediatorMessage.type] =
@@ -85,7 +86,7 @@ final case class TransferOutMediatorMessage(
 object TransferOutMediatorMessage
     extends HasProtocolVersionedWithContextCompanion[
       TransferOutMediatorMessage,
-      (HashOps, ProtocolVersion),
+      (HashOps, SourceProtocolVersion),
     ] {
 
   val supportedProtoVersions = SupportedProtoVersions(
@@ -97,7 +98,7 @@ object TransferOutMediatorMessage
     )
   )
 
-  def fromProtoV30(context: (HashOps, ProtocolVersion))(
+  def fromProtoV30(context: (HashOps, SourceProtocolVersion))(
       transferOutMediatorMessageP: v30.TransferOutMediatorMessage
   ): ParsingResult[TransferOutMediatorMessage] = {
     val v30.TransferOutMediatorMessage(treePO, submittingParticipantSignaturePO) =

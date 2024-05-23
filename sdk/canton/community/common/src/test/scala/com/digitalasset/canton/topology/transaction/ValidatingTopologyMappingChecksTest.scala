@@ -286,31 +286,9 @@ class ValidatingTopologyMappingChecksTest
     }
 
     "validating MediatorDomainState" should {
-      def generateMediatorIdentities(
-          numMediators: Int
-      ): (Seq[MediatorId], Seq[GenericSignedTopologyTransaction]) = {
-        val allKeys = {
-          import factory.SigningKeys.*
-          Seq(key1, key2, key3, key4, key5, key6)
-        }
-        val (mediatorIds, identityTransactions) = (1 to numMediators).map { idx =>
-          val key = allKeys(idx)
-          val med = MediatorId(UniqueIdentifier.tryCreate(s"med$idx", Namespace(key.fingerprint)))
-          med -> List(
-            factory.mkAdd(
-              NamespaceDelegation.tryCreate(med.namespace, key, isRootDelegation = true),
-              key,
-            ),
-            factory.mkAdd(OwnerToKeyMapping(med, None, NonEmpty(Seq, key)), key),
-          )
-        }.unzip
-
-        mediatorIds -> identityTransactions.flatten
-      }
-
       "report no errors for valid mappings" in {
         val (checks, store) = mk()
-        val (Seq(med1, med2), transactions) = generateMediatorIdentities(2)
+        val (Seq(med1, med2), transactions) = generateMemberIdentities(2, MediatorId(_))
         addToStore(store, transactions*)
 
         val mds1 = factory.mkAdd(
@@ -347,7 +325,7 @@ class ValidatingTopologyMappingChecksTest
 
       "report MissingMappings for mediators with partial or missing identity transactions" in {
         val (checks, store) = mk()
-        val (Seq(med1, med2, med3, med4), transactions) = generateMediatorIdentities(4)
+        val (Seq(med1, med2, med3, med4), transactions) = generateMemberIdentities(4, MediatorId(_))
 
         val incompleteIdentities = transactions.filter { transaction =>
           (transaction.mapping.code, transaction.mapping.namespace) match {
@@ -387,7 +365,7 @@ class ValidatingTopologyMappingChecksTest
 
       "report ThresholdTooHigh" in {
         val (checks, store) = mk()
-        val (Seq(med1, med2), transactions) = generateMediatorIdentities(2)
+        val (Seq(med1, med2), transactions) = generateMemberIdentities(2, MediatorId(_))
         addToStore(store, transactions*)
 
         // using reflection to create an instance via the private constructor
@@ -410,6 +388,110 @@ class ValidatingTopologyMappingChecksTest
         val mds = factory.mkAdd(invalidMapping, factory.SigningKeys.key1)
 
         checkTransaction(checks, mds) shouldBe Left(
+          TopologyTransactionRejection.ThresholdTooHigh(3, 2)
+        )
+      }
+    }
+
+    "validating SequencerDomainState" should {
+      "report no errors for valid mappings" in {
+        val (checks, store) = mk()
+        val (Seq(seq1, seq2), transactions) = generateMemberIdentities(2, SequencerId(_))
+        addToStore(store, transactions*)
+
+        val sds1 = factory.mkAdd(
+          SequencerDomainState
+            .create(
+              domainId,
+              PositiveInt.one,
+              active = Seq(seq1),
+              Seq.empty,
+            )
+            .value,
+          // the signing key is not relevant for the test
+          factory.SigningKeys.key1,
+        )
+
+        val sds2 = factory.mkAdd(
+          SequencerDomainState
+            .create(
+              domainId,
+              PositiveInt.one,
+              active = Seq(seq1, seq2),
+              Seq.empty,
+            )
+            .value,
+          // the signing key is not relevant for the test
+          factory.SigningKeys.key1,
+        )
+
+        checkTransaction(checks, sds1) shouldBe Right(())
+        checkTransaction(checks, sds2, Some(sds1)) shouldBe Right(())
+      }
+
+      "report MissingMappings for sequencers with partial or missing identity transactions" in {
+        val (checks, store) = mk()
+        val (Seq(seq1, seq2, seq3, seq4), transactions) =
+          generateMemberIdentities(4, SequencerId(_))
+
+        val incompleteIdentities = transactions.filter { transaction =>
+          (transaction.mapping.code, transaction.mapping.namespace) match {
+            case (Code.OwnerToKeyMapping, namespace) =>
+              Set(seq1, seq3).map(_.namespace).contains(namespace)
+            case (Code.NamespaceDelegation, namespace) =>
+              Set(seq1, seq2).map(_.namespace).contains(namespace)
+            case otherwise => fail(s"unexpected mapping: $otherwise")
+          }
+        }
+        addToStore(store, incompleteIdentities*)
+
+        val sds1 = factory.mkAdd(
+          SequencerDomainState
+            .create(
+              domainId,
+              PositiveInt.one,
+              active = Seq(seq1, seq2, seq3, seq4),
+              Seq.empty,
+            )
+            .value,
+          // the signing key is not relevant for the test
+          factory.SigningKeys.key1,
+        )
+
+        checkTransaction(checks, sds1, None) shouldBe Left(
+          TopologyTransactionRejection.MissingMappings(
+            Map(
+              seq2 -> Seq(Code.OwnerToKeyMapping),
+              seq3 -> Seq(Code.NamespaceDelegation),
+              seq4 -> Seq(Code.NamespaceDelegation, Code.OwnerToKeyMapping),
+            )
+          )
+        )
+      }
+
+      "report ThresholdTooHigh" in {
+        val (checks, store) = mk()
+        val (Seq(seq1, seq2), transactions) = generateMemberIdentities(2, SequencerId(_))
+        addToStore(store, transactions*)
+
+        // using reflection to create an instance via the private constructor
+        // so we can bypass the checks in SequencerDomainState.create
+        val ctr = classOf[SequencerDomainState].getConstructor(
+          classOf[DomainId],
+          classOf[PositiveInt],
+          classOf[Object],
+          classOf[Seq[SequencerId]],
+        )
+        val invalidMapping = ctr.newInstance(
+          domainId,
+          PositiveInt.three, // threshold higher than number of active sequencers
+          NonEmpty(Seq, seq1, seq2),
+          Seq.empty,
+        )
+
+        val sds = factory.mkAdd(invalidMapping, factory.SigningKeys.key1)
+
+        checkTransaction(checks, sds) shouldBe Left(
           TopologyTransactionRejection.ThresholdTooHigh(3, 2)
         )
       }
@@ -535,6 +617,30 @@ class ValidatingTopologyMappingChecksTest
         )
       }
     }
+  }
+
+  private def generateMemberIdentities[M <: Member](
+      numMembers: Int,
+      uidToMember: UniqueIdentifier => M,
+  ): (Seq[M], Seq[GenericSignedTopologyTransaction]) = {
+    val allKeys = {
+      import factory.SigningKeys.*
+      Seq(key1, key2, key3, key4, key5, key6)
+    }
+    val (memberIds, identityTransactions) = (1 to numMembers).map { idx =>
+      val key = allKeys(idx)
+      val member =
+        uidToMember(UniqueIdentifier.tryCreate(s"member$idx", Namespace(key.fingerprint)))
+      member -> List(
+        factory.mkAdd(
+          NamespaceDelegation.tryCreate(member.namespace, key, isRootDelegation = true),
+          key,
+        ),
+        factory.mkAdd(OwnerToKeyMapping(member, None, NonEmpty(Seq, key)), key),
+      )
+    }.unzip
+
+    memberIds -> identityTransactions.flatten
   }
 
   private def addToStore(

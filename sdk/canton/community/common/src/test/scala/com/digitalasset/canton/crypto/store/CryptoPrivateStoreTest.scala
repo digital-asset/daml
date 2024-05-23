@@ -13,11 +13,11 @@ import com.digitalasset.canton.crypto.{
   PrivateKey,
   SigningPrivateKey,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
-import scala.concurrent.Future
 
 trait CryptoPrivateStoreTest extends BaseTest { this: AsyncWordSpec =>
 
@@ -48,28 +48,27 @@ trait CryptoPrivateStoreTest extends BaseTest { this: AsyncWordSpec =>
           PrivateKey,
           Fingerprint,
           Option[KeyName],
-      ) => EitherT[Future, CryptoPrivateStoreError, Unit],
+      ) => EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit],
       encrypted: Boolean,
   ): Unit = {
 
     "check existence of private key" in {
       val store = newStore
       for {
-        _ <- storePrivateKey(store, sigKey1, sigKey1.id, sigKey1WithName.name)
-        _ <- storePrivateKey(store, encKey1, encKey1.id, encKey1WithName.name)
+        _ <- storePrivateKey(store, sigKey1, sigKey1.id, sigKey1WithName.name).failOnShutdown
+        _ <- storePrivateKey(store, encKey1, encKey1.id, encKey1WithName.name).failOnShutdown
         signRes <- store.existsSigningKey(sigKey1.id).failOnShutdown
         encRes <- store.existsDecryptionKey(encKey1.id).failOnShutdown
       } yield {
         signRes shouldBe true
         encRes shouldBe true
       }
-
     }
 
     "delete key successfully" in {
       val store = newStore
       for {
-        _ <- storePrivateKey(store, sigKey1, sigKey1.id, sigKey1WithName.name)
+        _ <- storePrivateKey(store, sigKey1, sigKey1.id, sigKey1WithName.name).failOnShutdown
         _ <- store.removePrivateKey(sigKey1.id).failOnShutdown
         res <- store.existsSigningKey(sigKey1.id).failOnShutdown
       } yield res shouldBe false

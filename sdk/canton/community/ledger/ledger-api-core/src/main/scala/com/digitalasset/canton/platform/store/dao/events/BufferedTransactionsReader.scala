@@ -70,7 +70,7 @@ private[events] class BufferedTransactionsReader(
         persistenceFetchArgs = (filter, eventProjectionProperties),
         bufferFilter = ToFlatTransaction
           .filter(
-            filter.wildcardParties,
+            filter.templateWildcardParties,
             filter.relation,
             filter.allFilterParties,
           ),

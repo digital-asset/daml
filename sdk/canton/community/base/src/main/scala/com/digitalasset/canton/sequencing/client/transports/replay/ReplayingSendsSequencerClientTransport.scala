@@ -390,11 +390,11 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SendAsyncClientResponseError, Unit] = EitherT.rightT(())
+  ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] = EitherT.rightT(())
 
   override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Boolean] =
+  ): EitherT[FutureUnlessShutdown, String, Boolean] =
     EitherT.rightT(true)
 
   override def handshake(request: HandshakeRequest)(implicit

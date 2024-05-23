@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.ledger.api
 
+import cats.Eval
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.admin.participant.v30.{PackageServiceGrpc, PingServiceGrpc}
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -39,7 +40,7 @@ import scala.concurrent.{ExecutionContextExecutor, blocking}
 class StartableStoppableLedgerApiDependentServices(
     config: LocalParticipantConfig,
     testingConfig: ParticipantNodeParameters,
-    packageService: PackageService,
+    packageServiceE: Eval[PackageService],
     syncService: CantonSyncService,
     participantId: ParticipantId,
     hashOps: HashOps,
@@ -87,6 +88,8 @@ class StartableStoppableLedgerApiDependentServices(
           case None =>
             logger.debug("Starting Ledger API-dependent canton services")
 
+            // Capture the packageService for this active session
+            val packageService = packageServiceE.value
             val adminWorkflowServices =
               new AdminWorkflowServices(
                 config,

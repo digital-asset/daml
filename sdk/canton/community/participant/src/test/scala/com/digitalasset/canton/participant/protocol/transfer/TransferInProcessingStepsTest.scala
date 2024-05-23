@@ -60,7 +60,11 @@ import org.scalatest.wordspec.AsyncWordSpec
 import java.util.UUID
 import scala.concurrent.Future
 
-class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with HasTestCloseContext {
+class TransferInProcessingStepsTest
+    extends AsyncWordSpec
+    with BaseTest
+    with HasTestCloseContext
+    with HasExecutionContext {
   private lazy val sourceDomain = SourceDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
   )
@@ -182,7 +186,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         transferData: TransferData,
         transferOutResult: DeliveredTransferOutResult,
         persistentState: SyncDomainPersistentState,
-    ): Future[Unit] = {
+    ): FutureUnlessShutdown[Unit] = {
       for {
         _ <- valueOrFail(persistentState.transferStore.addTransfer(transferData))(
           "add transfer data failed"
@@ -214,7 +218,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         transferData <- transferDataF
         deps <- statefulDependencies
         (persistentState, state) = deps
-        _ <- setUpOrFail(transferData, transferOutResult, persistentState)
+        _ <- setUpOrFail(transferData, transferOutResult, persistentState).failOnShutdown
         _preparedSubmission <-
           transferInProcessingSteps
             .createSubmission(
@@ -270,7 +274,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
       for {
         deps <- statefulDependencies
         (persistentState, state) = deps
-        _ <- setUpOrFail(transferData2, transferOutResult, persistentState)
+        _ <- setUpOrFail(transferData2, transferOutResult, persistentState).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
           transferInProcessingSteps.createSubmission(
             submissionParam,
@@ -293,7 +297,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         (persistentState, state) = deps
         _ <- valueOrFail(persistentState.transferStore.addTransfer(transferData))(
           "add transfer data failed"
-        )
+        ).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
           transferInProcessingSteps.createSubmission(
             submissionParam,
@@ -320,7 +324,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         transferData <- transferDataF
         deps <- statefulDependencies
         (persistentState, state) = deps
-        _ <- setUpOrFail(transferData, transferOutResult, persistentState)
+        _ <- setUpOrFail(transferData, transferOutResult, persistentState).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
           transferInProcessingSteps.createSubmission(
             submissionParam2,
@@ -350,7 +354,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         transferData <- transferDataF
         deps <- statefulDependencies
         (persistentState, state) = deps
-        _ <- setUpOrFail(transferData, transferOutResult, persistentState)
+        _ <- setUpOrFail(transferData, transferOutResult, persistentState).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
           transferInProcessingSteps.createSubmission(
             submissionParam,
@@ -380,7 +384,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         )
         deps <- statefulDependencies
         (persistentState, ephemeralState) = deps
-        _ <- setUpOrFail(transferData2, transferOutResult, persistentState)
+        _ <- setUpOrFail(transferData2, transferOutResult, persistentState).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
           transferInProcessingSteps.createSubmission(
             submissionParam2,
@@ -403,7 +407,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         transferData <- transferDataF
         deps <- statefulDependencies
         (persistentState, ephemeralState) = deps
-        _ <- setUpOrFail(transferData, transferOutResult, persistentState)
+        _ <- setUpOrFail(transferData, transferOutResult, persistentState).failOnShutdown
         preparedSubmission <-
           transferInProcessingSteps
             .createSubmission(
@@ -655,20 +659,22 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         (_persistentState, state) = deps
 
         _result <- valueOrFail(
-          transferInProcessingSteps.getCommitSetAndContractsToBeStoredAndEvent(
-            NoOpeningErrors(
-              SignedContent(
-                mock[Deliver[DefaultOpenEnvelope]],
-                Signature.noSignature,
-                None,
-                testedProtocolVersion,
-              )
-            ),
-            inRes.verdict,
-            pendingRequestData,
-            state.pendingTransferInSubmissions,
-            crypto.pureCrypto,
-          )
+          transferInProcessingSteps
+            .getCommitSetAndContractsToBeStoredAndEvent(
+              NoOpeningErrors(
+                SignedContent(
+                  mock[Deliver[DefaultOpenEnvelope]],
+                  Signature.noSignature,
+                  None,
+                  testedProtocolVersion,
+                )
+              ),
+              inRes.verdict,
+              pendingRequestData,
+              state.pendingTransferInSubmissions,
+              crypto.pureCrypto,
+            )
+            .failOnShutdown
         )("get commit set and contracts to be stored and event failed")
       } yield succeed
     }

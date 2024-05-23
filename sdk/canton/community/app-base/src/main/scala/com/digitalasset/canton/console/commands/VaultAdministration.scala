@@ -19,6 +19,7 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.grpc.PrivateKeyMetadata
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
@@ -29,7 +30,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 
 import java.time.Instant
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class SecretKeyAdministration(
     instance: InstanceReference,
@@ -529,10 +530,12 @@ class LocalSecretKeyAdministration(
 )(implicit executionContext: ExecutionContext)
     extends SecretKeyAdministration(instance, runner, consoleEnvironment, loggerFactory) {
 
-  private def run[V](eitherT: EitherT[Future, String, V], action: String): V = {
+  private def run[V](eitherT: EitherT[FutureUnlessShutdown, String, V], action: String): V = {
     import TraceContext.Implicits.Empty.*
     consoleEnvironment.environment.config.parameters.timeouts.processing.default
-      .await(action)(eitherT.value) match {
+      .await(action)(
+        eitherT.onShutdown(throw new RuntimeException("aborted due to shutdown.")).value
+      ) match {
       case Left(error) =>
         throw new IllegalArgumentException(s"Problem while $action. Error: $error")
       case Right(value) => value
@@ -551,13 +554,12 @@ class LocalSecretKeyAdministration(
           .toRight(
             "The selected crypto provider does not support exporting of private keys."
           )
-          .toEitherT[Future]
+          .toEitherT[FutureUnlessShutdown]
         privateKey <- cryptoPrivateStore
           .exportPrivateKey(fingerprint)
           .leftMap(_.toString)
           .subflatMap(_.toRight(s"no private key found for [$fingerprint]"))
           .leftMap(err => s"Error retrieving private key [$fingerprint] $err")
-          .onShutdown(sys.error("aborted due to shutdown"))
         publicKey <- crypto.cryptoPublicStore
           .publicKey(fingerprint)
           .leftMap(_.toString)

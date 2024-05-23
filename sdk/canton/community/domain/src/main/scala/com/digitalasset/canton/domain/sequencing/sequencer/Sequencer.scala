@@ -17,7 +17,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerRateLimitManager,
   SequencerTrafficStatus,
 }
-import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
+import com.digitalasset.canton.health.admin.data.{SequencerAdminStatus, SequencerHealthStatus}
 import com.digitalasset.canton.health.{AtomicHealthElement, CloseableHealthQuasiComponent}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLogging}
@@ -166,6 +166,10 @@ trait Sequencer
   def rateLimitManager: Option[SequencerRateLimitManager] = None
 
   def adminServices: Seq[ServerServiceDefinition] = Seq.empty
+
+  /** Status relating to administrative sequencer operations.
+    */
+  def adminStatus: SequencerAdminStatus
 }
 
 /** Sequencer pruning interface.

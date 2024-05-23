@@ -105,7 +105,7 @@ object TransferInMediatorMessage
     for {
       tree <- ProtoConverter
         .required("TransferInMediatorMessage.tree", treePO)
-        .flatMap(TransferInViewTree.fromProtoV30(context, _))
+        .flatMap(TransferInViewTree.fromProtoV30(context))
       _ <- EitherUtil.condUnitE(
         tree.commonData.isFullyUnblinded,
         OtherError(s"Transfer-in common data is blinded in request ${tree.rootHash}"),

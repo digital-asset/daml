@@ -80,11 +80,20 @@ message TransactionFilter {
   // The interpretation of the filter depends on the stream being filtered:
   // (1) For **transaction tree streams** all party keys used as wildcard filters, and all subtrees
   //     whose root has one of the listed parties as an informee are returned.
-  //     If there are InclusiveFilters, those will control returned ``CreatedEvent`` fields were applicable, but not
+  //     If there are InclusiveFilters, those will control returned ``CreatedEvent`` fields where applicable, but not
   //     used for template/interface filtering.
   // (2) For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
   //    stakeholders include at least one of the listed parties and match the
   //    per-party filter.
   // Required
   map<string, Filters> filters_by_party = 1;
+
+  // Wildcard filters that apply to all the parties existing on the participant. The interpretation of the filters is the same
+  // with the per-party filter as described above.
+  // (1) For **transaction tree streams** all subtrees are returned.
+  //     If there are InclusiveFilters, those will control returned ``CreatedEvent`` fields where applicable, but not
+  //     used for template/interface filtering.
+  // (2) For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
+  //    stakeholders include at least one of the participant's parties and match the filter.
+  Filters filters_for_any_party = 2;
 }

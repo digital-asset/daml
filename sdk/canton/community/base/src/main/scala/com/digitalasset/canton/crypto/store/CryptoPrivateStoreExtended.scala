@@ -25,7 +25,7 @@ import com.digitalasset.canton.version.ReleaseProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Extends a CryptoPrivateStore with the necessary store write/read operations and is intended to be used by canton
   * internal private crypto stores (e.g. [[com.digitalasset.canton.crypto.store.memory.InMemoryCryptoPrivateStore]],
@@ -71,7 +71,7 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
 
   private[crypto] def deletePrivateKey(keyId: Fingerprint)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPrivateStoreError, Unit]
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit]
 
   def storePrivateKey(key: PrivateKey, name: Option[KeyName])(implicit
       traceContext: TraceContext
@@ -121,7 +121,6 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
         deletedDecKey.foreach(decryptionKeyMap.put(keyId, _))
         err
       }
-      .mapK(FutureUnlessShutdown.outcomeK)
   }
 
   private def readAndParsePrivateKey[A <: PrivateKey, B <: PrivateKeyWithName](

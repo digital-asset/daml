@@ -1288,7 +1288,7 @@ private[protocol] object MessageDispatcherTest {
   )
 
   // The message dispatcher only sees encrypted view trees, so there's no point in implementing the methods.
-  sealed trait MockViewTree extends ViewTree with HasVersionedToByteString
+  sealed trait MockViewTree extends ViewTree with HasToByteString
 
   trait AbstractTestViewType extends ViewTypeTest {
     override type View = MockViewTree

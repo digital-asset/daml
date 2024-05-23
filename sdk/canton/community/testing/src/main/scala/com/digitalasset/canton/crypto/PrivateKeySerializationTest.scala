@@ -3,17 +3,16 @@
 
 package com.digitalasset.canton.crypto
 
-import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
-
-trait PrivateKeySerializationTest extends BaseTest { this: AsyncWordSpec =>
+trait PrivateKeySerializationTest extends AsyncWordSpec with BaseTest with HasExecutionContext {
 
   def privateKeySerializerProvider(
       supportedSigningKeySchemes: Set[SigningKeyScheme],
       supportedEncryptionKeySchemes: Set[EncryptionKeyScheme],
-      newCrypto: => Future[Crypto],
+      newCrypto: => FutureUnlessShutdown[Crypto],
   ): Unit = {
 
     s"Serialize and deserialize a private key via protobuf" should {
@@ -27,17 +26,15 @@ trait PrivateKeySerializationTest extends BaseTest { this: AsyncWordSpec =>
             publicKey <- crypto.privateCrypto
               .generateEncryptionKey(encryptionKeyScheme)
               .valueOrFail("generate enc key")
-              .failOnShutdown
             privateKey <- cryptoPrivateStore
               .decryptionKey(publicKey.id)
               .leftMap(_.toString)
               .subflatMap(_.toRight("Private key not found"))
               .valueOrFail("get key")
-              .failOnShutdown
             keyP = privateKey.toProtoVersioned(testedProtocolVersion)
             key2 = EncryptionPrivateKey.fromProtoVersioned(keyP).valueOrFail("serialize key")
           } yield privateKey shouldEqual key2
-        }
+        }.failOnShutdown
       }
 
       forAll(supportedSigningKeySchemes) { signingKeyScheme =>
@@ -49,19 +46,17 @@ trait PrivateKeySerializationTest extends BaseTest { this: AsyncWordSpec =>
             publicKey <- crypto.privateCrypto
               .generateSigningKey(signingKeyScheme)
               .valueOrFail("generate signing key")
-              .failOnShutdown
             privateKey <- cryptoPrivateStore
               .signingKey(publicKey.id)
               .leftMap(_.toString)
               .subflatMap(_.toRight("Private key not found"))
               .valueOrFail("get key")
-              .failOnShutdown
             privateKeyP = privateKey.toProtoVersioned(testedProtocolVersion)
             privateKey2 = SigningPrivateKey
               .fromProtoVersioned(privateKeyP)
               .valueOrFail("serialize key")
           } yield privateKey shouldEqual privateKey2
-        }
+        }.failOnShutdown
       }
     }
   }

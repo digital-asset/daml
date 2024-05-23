@@ -275,20 +275,20 @@ trait EventStorageBackend {
       traceContext: TraceContext,
   ): Unit
 
-  def activeContractCreateEventBatchV2(
+  def activeContractCreateEventBatch(
       eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Party],
+      allFilterParties: Option[Set[Party]],
       endInclusive: Long,
   )(connection: Connection): Vector[RawActiveContract]
 
   def activeContractAssignEventBatch(
       eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Party],
+      allFilterParties: Option[Set[Party]],
       endInclusive: Long,
   )(connection: Connection): Vector[RawActiveContract]
 
   def fetchAssignEventIdsForStakeholder(
-      stakeholder: Party,
+      stakeholderO: Option[Party],
       templateId: Option[Identifier],
       startExclusive: Long,
       endInclusive: Long,
@@ -296,7 +296,7 @@ trait EventStorageBackend {
   )(connection: Connection): Vector[Long]
 
   def fetchUnassignEventIdsForStakeholder(
-      stakeholder: Party,
+      stakeholderO: Option[Party],
       templateId: Option[Identifier],
       startExclusive: Long,
       endInclusive: Long,
@@ -305,12 +305,12 @@ trait EventStorageBackend {
 
   def assignEventBatch(
       eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Party],
+      allFilterParties: Option[Set[Party]],
   )(connection: Connection): Vector[RawAssignEvent]
 
   def unassignEventBatch(
       eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Party],
+      allFilterParties: Option[Set[Party]],
   )(connection: Connection): Vector[RawUnassignEvent]
 
   def lookupAssignSequentialIdByOffset(

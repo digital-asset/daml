@@ -247,7 +247,7 @@ object EncryptedViewMessageFactory {
         )
       encryptedView <- eitherTUS(
         EncryptedView
-          .compressed[VT](cryptoPureApi, symmetricViewKey, viewType, protocolVersion)(viewTree)
+          .compressed[VT](cryptoPureApi, symmetricViewKey, viewType)(viewTree)
           .leftMap(FailedToEncryptViewMessage)
       )
       message <- createEncryptedViewMessage(recipientsInfo, signature, encryptedView).mapK(

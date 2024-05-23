@@ -18,7 +18,6 @@ import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.participant.admin.MutablePackageNameMapResolver
 import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.IndexerLockIds
 import com.digitalasset.canton.participant.ledger.api.*
@@ -50,7 +49,6 @@ class CantonLedgerApiServerFactory(
       httpApiMetrics: HttpApiMetrics,
       tracerProvider: TracerProvider,
       adminToken: CantonAdminToken,
-      packageNameMapResolver: MutablePackageNameMapResolver,
   )(implicit
       executionContext: ExecutionContextIdlenessExecutorService,
       traceContext: TraceContext,
@@ -128,7 +126,6 @@ class CantonLedgerApiServerFactory(
           // start ledger API server iff participant replica is active
           startLedgerApiServer = sync.isActive(),
           futureSupervisor = futureSupervisor,
-          packageNameMapResolver = packageNameMapResolver,
           parameters = parameters,
         )(executionContext, actorSystem)
         .leftMap { err =>

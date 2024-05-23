@@ -9,10 +9,11 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.logging.entries.ToLoggingKey.*
-import com.daml.logging.entries.{LoggingEntries, LoggingEntry, LoggingValue}
+import com.daml.logging.entries.{LoggingEntries, LoggingEntry, LoggingKey, LoggingValue}
 import com.digitalasset.canton.ledger.api.domain.{
   Commands,
   EventId,
+  Filters,
   ParticipantOffset,
   TransactionFilter,
   TransactionId,
@@ -75,14 +76,20 @@ package object logging {
     "filters" -> LoggingValue.Nested(
       LoggingEntries.fromMap(
         filters.filtersByParty.view.map { case (party, partyFilters) =>
-          party.toLoggingKey -> (partyFilters.inclusive match {
-            case None => LoggingValue.from("all-templates")
-            case Some(inclusiveFilters) =>
-              LoggingValue.from(inclusiveFilters.templateFilters.map(_.templateTypeRef))
-          })
-        }.toMap
+          party.toLoggingKey -> filtersToLoggingValue(partyFilters)
+        }.toMap ++
+          filters.filtersForAnyParty.fold(Map.empty[LoggingKey, LoggingValue])(filters =>
+            Map("anyParty" -> filtersToLoggingValue(filters))
+          )
       )
     )
+
+  private def filtersToLoggingValue(filters: Filters): LoggingValue =
+    filters.inclusive match {
+      case None => LoggingValue.from("all-templates")
+      case Some(inclusiveFilters) =>
+        LoggingValue.from(inclusiveFilters.templateFilters.map(_.templateTypeRef))
+    }
 
   private[services] def submissionId(id: String): LoggingEntry =
     "submissionId" -> id

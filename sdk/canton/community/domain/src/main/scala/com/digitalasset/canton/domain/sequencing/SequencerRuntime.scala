@@ -36,7 +36,11 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
 }
 import com.digitalasset.canton.domain.sequencing.service.*
 import com.digitalasset.canton.health.HealthListener
-import com.digitalasset.canton.health.admin.data.{SequencerHealthStatus, TopologyQueueStatus}
+import com.digitalasset.canton.health.admin.data.{
+  SequencerAdminStatus,
+  SequencerHealthStatus,
+  TopologyQueueStatus,
+}
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
@@ -278,6 +282,9 @@ class SequencerRuntime(
     dispatcher = domainOutboxO.map(_.queueSize).getOrElse(0),
     clients = topologyClient.numPendingChanges,
   )
+
+  def adminStatus: SequencerAdminStatus =
+    sequencer.adminStatus
 
   def fetchActiveMembers(): Future[Seq[Member]] =
     Future.successful(sequencerService.membersWithActiveSubscriptions)

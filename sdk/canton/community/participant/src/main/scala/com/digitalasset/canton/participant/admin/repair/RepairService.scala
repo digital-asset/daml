@@ -1441,7 +1441,6 @@ object RepairService {
 
         lfContractInst = LfContractInst(
           packageName = packageName,
-          packageVersion = None,
           template = template,
           arg = argsVersionedValue,
         )

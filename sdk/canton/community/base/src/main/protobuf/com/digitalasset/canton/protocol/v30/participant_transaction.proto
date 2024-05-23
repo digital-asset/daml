@@ -92,6 +92,8 @@ message InformeeMessage {
 }
 
 message LightTransactionViewTree {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
   GenTransactionTree tree = 1;
   repeated bytes subview_hashes = 2;
 }

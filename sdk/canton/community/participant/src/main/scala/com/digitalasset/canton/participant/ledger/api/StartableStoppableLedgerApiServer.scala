@@ -39,7 +39,6 @@ import com.digitalasset.canton.networking.grpc.{
   ClientChannelBuilder,
 }
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.admin.MutablePackageNameMapResolver
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.platform.LedgerApiServer
@@ -86,7 +85,6 @@ class StartableStoppableLedgerApiServer(
     dbConfig: DbSupport.DbConfig,
     telemetry: Telemetry,
     futureSupervisor: FutureSupervisor,
-    packageNameMapResolver: MutablePackageNameMapResolver,
     parameters: ParticipantNodeParameters,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
@@ -223,11 +221,6 @@ class StartableStoppableLedgerApiServer(
       packageMetadataStore = new InMemoryPackageMetadataStore(
         inMemoryState.packageMetadataView
       )
-      _ <- ResourceOwner.forReleasable(() =>
-        packageNameMapResolver.setReference(() =>
-          packageMetadataStore.getSnapshot.getUpgradablePackageMap
-        )
-      )(_ => Future.successful(packageNameMapResolver.unset()))
       timedReadService = new TimedReadService(config.syncService, config.metrics)
       dbSupport <- DbSupport
         .owner(
@@ -284,7 +277,8 @@ class StartableStoppableLedgerApiServer(
         inMemoryState = inMemoryState,
         tracer = config.tracerProvider.tracer,
         loggerFactory = loggerFactory,
-        incompleteOffsets = timedReadService.incompleteReassignmentOffsets(_, _)(_),
+        incompleteOffsets = (off, ps, tc) =>
+          timedReadService.incompleteReassignmentOffsets(off, ps.getOrElse(Set.empty))(tc),
         contractLoader = contractLoader,
       )
       _ = timedReadService.registerInternalStateService(new InternalStateService {
@@ -295,6 +289,8 @@ class StartableStoppableLedgerApiServer(
           indexService.getActiveContracts(
             filter = TransactionFilter(
               filtersByParty = partyIds.view.map(_ -> Filters.noFilter).toMap,
+              filtersForAnyParty =
+                None, // TODO(#18362) use Some(Filters.noFilter) and remove the filtersByParty?
               alwaysPopulateCreatedEventBlob = true,
             ),
             verbose = false,

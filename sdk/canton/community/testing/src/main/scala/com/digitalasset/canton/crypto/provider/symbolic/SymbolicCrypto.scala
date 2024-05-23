@@ -53,7 +53,6 @@ class SymbolicCrypto(
     process("get or generate symbolic signing key") { implicit traceContext =>
       cryptoPublicStore
         .findSigningKeyIdByName(KeyName.tryCreate(name))
-        .mapK(FutureUnlessShutdown.outcomeK)
     }.getOrElse(generateSymbolicSigningKey(Some(name)))
   }
 
@@ -61,7 +60,6 @@ class SymbolicCrypto(
     process("get or generate symbolic encryption key") { implicit traceContext =>
       cryptoPublicStore
         .findEncryptionKeyIdByName(KeyName.tryCreate(name))
-        .mapK(FutureUnlessShutdown.outcomeK)
     }.getOrElse(generateSymbolicEncryptionKey(Some(name)))
   }
 
@@ -81,7 +79,6 @@ class SymbolicCrypto(
       // We don't care about the signing key scheme in symbolic crypto
       privateCrypto
         .generateSigningKeypair(SigningKeyScheme.Ed25519)
-        .mapK(FutureUnlessShutdown.outcomeK)
     }
   }
 
@@ -101,7 +98,6 @@ class SymbolicCrypto(
       // We don't care about the encryption key scheme in symbolic crypto
       privateCrypto
         .generateEncryptionKeypair(EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm)
-        .mapK(FutureUnlessShutdown.outcomeK)
     }
   }
 

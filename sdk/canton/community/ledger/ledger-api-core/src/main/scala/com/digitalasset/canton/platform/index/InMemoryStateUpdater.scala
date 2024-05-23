@@ -246,7 +246,6 @@ private[platform] object InMemoryStateUpdater {
               contractId = createdEvent.contractId,
               contract = Contract(
                 packageName = createdEvent.packageName,
-                packageVersion = None,
                 template = createdEvent.templateId,
                 arg = createdEvent.createArgument,
               ),

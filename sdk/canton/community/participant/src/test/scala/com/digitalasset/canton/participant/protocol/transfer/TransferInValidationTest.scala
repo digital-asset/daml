@@ -30,7 +30,9 @@ import scala.concurrent.{Future, Promise}
 class TransferInValidationTest
     extends AsyncWordSpec
     with BaseTest
-    with ProtocolVersionChecksAsyncWordSpec {
+    with ProtocolVersionChecksAsyncWordSpec
+    with HasActorSystem
+    with HasExecutionContext {
   private val sourceDomain = SourceDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
   )

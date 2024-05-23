@@ -27,8 +27,8 @@ object TransactionFilterValidator {
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.TransactionFilter] =
-    if (txFilter.filtersByParty.isEmpty) {
-      Left(invalidArgument("filtersByParty cannot be empty"))
+    if (txFilter.filtersByParty.isEmpty && txFilter.filtersForAnyParty.isEmpty) {
+      Left(invalidArgument("filtersByParty and filtersForAnyParty cannot be empty simultaneously"))
     } else {
       for {
         convertedFilters <- txFilter.filtersByParty.toList.traverse { case (party, filters) =>
@@ -39,7 +39,13 @@ object TransactionFilterValidator {
             )
           } yield key -> validatedFilters
         }
-      } yield domain.TransactionFilter(convertedFilters.toMap)
+        filtersForAnyParty <- txFilter.filtersForAnyParty.toList
+          .traverse(validateFilters)
+          .map(_.headOption)
+      } yield domain.TransactionFilter(
+        filtersByParty = convertedFilters.toMap,
+        filtersForAnyParty = filtersForAnyParty,
+      )
     }
 
   // Allow using deprecated Protobuf fields for backwards compatibility

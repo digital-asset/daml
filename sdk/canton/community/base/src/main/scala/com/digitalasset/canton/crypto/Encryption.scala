@@ -25,6 +25,7 @@ import com.digitalasset.canton.serialization.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.{
+  HasToByteString,
   HasVersionedMessageCompanion,
   HasVersionedMessageCompanionDbHelpers,
   HasVersionedToByteString,
@@ -35,7 +36,7 @@ import com.digitalasset.canton.version.{
 import com.google.protobuf.ByteString
 import slick.jdbc.GetResult
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Encryption operations that do not require access to a private key store but operates with provided keys. */
 trait EncryptionOps {
@@ -60,11 +61,21 @@ trait EncryptionOps {
       scheme: SymmetricKeyScheme = defaultSymmetricKeyScheme,
   ): Either[EncryptionKeyCreationError, SymmetricKey]
 
-  /** Encrypts the given bytes using the given public key */
+  /** Encrypts the bytes of the serialized message using the given public key.
+    * The given protocol version determines the message serialization.
+    */
   def encryptWith[M <: HasVersionedToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
       version: ProtocolVersion,
+  ): Either[EncryptionError, AsymmetricEncrypted[M]]
+
+  /** Encrypts the bytes of the serialized message using the given public key.
+    * Where the message embedded protocol version determines the message serialization.
+    */
+  def encryptWith[M <: HasToByteString](
+      message: M,
+      publicKey: EncryptionPublicKey,
   ): Either[EncryptionError, AsymmetricEncrypted[M]]
 
   /** Deterministically encrypts the given bytes using the given public key.
@@ -90,11 +101,21 @@ trait EncryptionOps {
     message <- decryptWithInternal(encrypted, privateKey)(deserialize)
   } yield message
 
-  /** Encrypts the given message with the given symmetric key */
+  /** Encrypts the bytes of the serialized message using the given symmetric key.
+    * The given protocol version determines the message serialization.
+    */
   def encryptWith[M <: HasVersionedToByteString](
       message: M,
       symmetricKey: SymmetricKey,
       version: ProtocolVersion,
+  ): Either[EncryptionError, Encrypted[M]]
+
+  /** Encrypts the bytes of the serialized message using the given symmetric key.
+    * Where the message embedded protocol version determines the message serialization.
+    */
+  def encryptWith[M <: HasToByteString](
+      message: M,
+      symmetricKey: SymmetricKey,
   ): Either[EncryptionError, Encrypted[M]]
 
   /** Decrypts a message encrypted using `encryptWith` */
@@ -149,7 +170,7 @@ trait EncryptionPrivateStoreOps extends EncryptionPrivateOps {
   /** Internal method to generate and return the entire encryption key pair */
   protected[crypto] def generateEncryptionKeypair(scheme: EncryptionKeyScheme)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, EncryptionKeyGenerationError, EncryptionKeyPair]
+  ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionKeyPair]
 
   override def generateEncryptionKey(
       scheme: EncryptionKeyScheme = defaultEncryptionKeyScheme,
@@ -158,7 +179,7 @@ trait EncryptionPrivateStoreOps extends EncryptionPrivateOps {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionPublicKey] =
     for {
-      keypair <- generateEncryptionKeypair(scheme).mapK(FutureUnlessShutdown.outcomeK)
+      keypair <- generateEncryptionKeypair(scheme)
       _ <- store
         .storeDecryptionKey(keypair.privateKey, name)
         .leftMap[EncryptionKeyGenerationError](

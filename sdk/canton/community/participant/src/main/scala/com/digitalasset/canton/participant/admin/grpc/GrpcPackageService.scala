@@ -43,7 +43,7 @@ class GrpcPackageService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret =
       service
-        .validateByteString(
+        .validateDar(
           request.data,
           request.filename,
         )
@@ -59,7 +59,7 @@ class GrpcPackageService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret =
       for {
-        hash <- service.appendDarFromByteString(
+        hash <- service.upload(
           request.data,
           request.filename,
           request.vetAllPackages,

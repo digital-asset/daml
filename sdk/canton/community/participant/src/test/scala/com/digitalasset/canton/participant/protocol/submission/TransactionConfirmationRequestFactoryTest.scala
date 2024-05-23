@@ -290,9 +290,8 @@ class TransactionConfirmationRequestFactoryTest
             cryptoPureApi,
             symmetricKey,
             TransactionViewType,
-            testedProtocolVersion,
           )(
-            LightTransactionViewTree.fromTransactionViewTree(tree)
+            LightTransactionViewTree.fromTransactionViewTree(tree, testedProtocolVersion)
           )
           .valueOr(err => fail(s"Failed to encrypt view tree: $err"))
 

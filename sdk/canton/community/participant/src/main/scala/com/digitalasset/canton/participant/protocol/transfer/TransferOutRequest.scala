@@ -68,8 +68,8 @@ final case class TransferOutRequest(
     val view = TransferOutView
       .create(hashOps)(
         viewSalt,
-        creatingTransactionId,
         contract,
+        creatingTransactionId,
         targetDomain,
         targetTimeProof,
         sourceProtocolVersion,
@@ -77,7 +77,7 @@ final case class TransferOutRequest(
         transferCounter,
       )
 
-    FullTransferOutTree(TransferOutViewTree(commonData, view, sourceProtocolVersion.v, hashOps))
+    FullTransferOutTree(TransferOutViewTree(commonData, view, sourceProtocolVersion, hashOps))
   }
 }
 

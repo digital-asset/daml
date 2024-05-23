@@ -54,7 +54,7 @@ import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{DefaultTestIdentities, DomainId, Member, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
+import com.digitalasset.canton.version.HasToByteString
 import com.digitalasset.canton.{BaseTest, RequestCounter, SequencerCounter}
 import com.google.protobuf.ByteString
 
@@ -290,9 +290,9 @@ class TestProcessingSteps(
       hashOps: HashOps,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TestProcessingError, CommitAndStoreContractsAndPublishEvent] = {
+  ): EitherT[FutureUnlessShutdown, TestProcessingError, CommitAndStoreContractsAndPublishEvent] = {
     val result = CommitAndStoreContractsAndPublishEvent(None, Seq.empty, None)
-    EitherT.pure[Future, TestProcessingError](result)
+    EitherT.pure[FutureUnlessShutdown, TestProcessingError](result)
   }
 
   override def postProcessSubmissionRejectedCommand(
@@ -322,11 +322,12 @@ object TestProcessingSteps {
       domainId: DomainId = DefaultTestIdentities.domainId,
       mediator: MediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.zero),
   ) extends ViewTree
-      with HasVersionedToByteString {
+      with HasToByteString {
 
     def toBeSigned: Option[RootHash] = None
     override def pretty: Pretty[TestViewTree] = adHocPrettyInstance
-    override def toByteString(version: ProtocolVersion): ByteString =
+
+    override def toByteString: ByteString =
       throw new UnsupportedOperationException("TestViewTree cannot be serialized")
   }
 

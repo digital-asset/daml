@@ -5,6 +5,7 @@ package com.digitalasset.canton.util
 
 import cats.MonadThrow
 import cats.data.EitherT
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -77,6 +78,12 @@ object ResourceUtil {
   def withResourceFuture[T <: AutoCloseable, V](r: => T)(f: T => Future[V])(implicit
       ec: ExecutionContext
   ): Future[V] = {
+    withResourceM(r)(f)
+  }
+
+  def withResourceFutureUS[T <: AutoCloseable, V](r: => T)(f: T => FutureUnlessShutdown[V])(implicit
+      ec: ExecutionContext
+  ): FutureUnlessShutdown[V] = {
     withResourceM(r)(f)
   }
 
