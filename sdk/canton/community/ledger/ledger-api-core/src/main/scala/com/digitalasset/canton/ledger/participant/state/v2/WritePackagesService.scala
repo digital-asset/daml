@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.ledger.participant.state.v2
 
-import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.tracing.TraceContext
+import com.google.protobuf.ByteString
 
 import java.util.concurrent.CompletionStage
 
@@ -42,7 +42,7 @@ trait WritePackagesService {
     */
   def uploadPackages(
       submissionId: Ref.SubmissionId,
-      archives: List[Archive],
+      dar: ByteString,
       sourceDescription: Option[String],
   )(implicit
       traceContext: TraceContext

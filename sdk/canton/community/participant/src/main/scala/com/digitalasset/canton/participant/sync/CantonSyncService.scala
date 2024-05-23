@@ -10,7 +10,6 @@ import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.*
 import com.daml.lf.data.Ref.{Party, SubmissionId}
 import com.daml.lf.data.{ImmArray, Ref}
@@ -20,7 +19,6 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.CantonRequireTypes.String256M
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiProvider}
@@ -109,6 +107,7 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
+import com.google.protobuf.ByteString
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Materializer
@@ -461,9 +460,9 @@ class CantonSyncService(
         }
       _pruned <- pruningProcessor.pruneLedgerEvents(pruneUpToMultiDomainGlobalOffset)
     } yield ()).transform {
-      case Left(LedgerPruningNothingToPrune) =>
+      case Left(err @ LedgerPruningNothingToPrune(_, _)) =>
         logger.info(
-          s"Could not locate pruning point: ${LedgerPruningNothingToPrune.message}. Considering success for idempotency"
+          s"Could not locate pruning point: ${err.message}. Considering success for idempotency"
         )
         Right(())
       case Left(err @ LedgerPruningOnlySupportedInEnterpriseEdition) =>
@@ -633,7 +632,7 @@ class CantonSyncService(
 
   override def uploadPackages(
       submissionId: LedgerSubmissionId,
-      archives: List[DamlLf.Archive],
+      dar: ByteString,
       sourceDescription: Option[String],
   )(implicit
       traceContext: TraceContext
@@ -644,29 +643,18 @@ class CantonSyncService(
         Future.successful(TransactionError.PassiveNode)
       } else {
         span.setAttribute("submission_id", submissionId)
-        logger.debug(
-          s"Processing ledger-api package upload of ${archives.length} packages from source ${sourceDescription}"
-        )
-        // The API Package service has already decoded and validated the archives,
-        // so we can simply store them here without revalidating them.
-        val ret = for {
-          sourceDescriptionLenLimit <- EitherT.fromEither[Future](
-            String256M
-              .create(sourceDescription.getOrElse(""), Some("package source description"))
-              .leftMap(PackageServiceErrors.InternalError.Generic.apply)
+        packageService
+          .upload(
+            darBytes = dar,
+            fileNameO = None,
+            sourceDescriptionO = sourceDescription,
+            submissionId = submissionId,
+            vetAllPackages = true,
+            synchronizeVetting = false,
           )
-          _ <- packageService
-            .storeValidatedPackagesAndSyncEvent(
-              archives,
-              sourceDescriptionLenLimit,
-              submissionId,
-              dar = None,
-              vetAllPackages = true,
-              synchronizeVetting = false,
-            )
-            .onShutdown(Left(PackageServiceErrors.ParticipantShuttingDown.Error()))
-        } yield SubmissionResult.Acknowledged
-        ret.valueOr(err => TransactionError.internalError(CantonError.stringFromContext(err)))
+          .map(_ => SubmissionResult.Acknowledged)
+          .onShutdown(Left(PackageServiceErrors.ParticipantShuttingDown.Error()))
+          .valueOr(err => SubmissionResult.SynchronousError(err.rpcStatus()))
       }
     }
   }.asJava

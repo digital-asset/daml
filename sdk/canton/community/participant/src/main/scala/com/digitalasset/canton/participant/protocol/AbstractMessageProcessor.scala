@@ -19,11 +19,7 @@ import com.digitalasset.canton.protocol.messages.{
   SignedProtocolMessage,
 }
 import com.digitalasset.canton.protocol.{RequestId, StaticDomainParameters}
-import com.digitalasset.canton.sequencing.client.{
-  SendAsyncClientError,
-  SendCallback,
-  SequencerClient,
-}
+import com.digitalasset.canton.sequencing.client.{SendCallback, SequencerClient}
 import com.digitalasset.canton.sequencing.protocol.{Batch, MessageId, Recipients}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
@@ -89,12 +85,12 @@ abstract class AbstractMessageProcessor(
       messages: Seq[(ProtocolMessage, Recipients)],
       messageId: Option[MessageId] =
         None, // use client.messageId. passed in here such that we can log it before sending
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
-    if (messages.isEmpty) EitherT.pure[Future, SendAsyncClientError](())
+  )(implicit traceContext: TraceContext): Future[Unit] = {
+    if (messages.isEmpty) Future.unit
     else {
       logger.trace(s"Request $rc: ProtocolProcessor scheduling the sending of responses")
 
-      for {
+      val result = for {
         domainParameters <- EitherT.right(
           crypto.ips
             .awaitSnapshot(requestId.unwrap)
@@ -108,6 +104,13 @@ abstract class AbstractMessageProcessor(
           callback = SendCallback.log(s"Response message for request [$rc]", logger),
         )
       } yield ()
+
+      result.valueOr {
+        // Swallow Left errors to avoid stopping request processing, as sending response could fail for arbitrary reasons
+        // if the sequencer rejects them (e.g max sequencing time has elapsed)
+        err =>
+          logger.warn(s"Request $requestId: Failed to send responses: ${err.show}")
+      }
     }
   }
 

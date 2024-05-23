@@ -7,6 +7,8 @@ import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.connection.GrpcApiInfoService
+import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.domain.admin.v0.{
   SequencerAdministrationServiceGrpc,
@@ -35,9 +37,14 @@ import com.digitalasset.canton.domain.sequencing.service.*
 import com.digitalasset.canton.domain.service.ServiceAgreementManager
 import com.digitalasset.canton.domain.service.grpc.GrpcDomainService
 import com.digitalasset.canton.health.HealthListener
-import com.digitalasset.canton.health.admin.data.{SequencerHealthStatus, TopologyQueueStatus}
+import com.digitalasset.canton.health.admin.data.{
+  SequencerAdminStatus,
+  SequencerHealthStatus,
+  TopologyQueueStatus,
+}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
 import com.digitalasset.canton.protocol.{DomainParametersLookup, StaticDomainParameters}
 import com.digitalasset.canton.resource.Storage
@@ -237,6 +244,9 @@ class SequencerRuntime(
     clients = topologyClient.numPendingChanges,
   )
 
+  def adminStatus: SequencerAdminStatus =
+    sequencer.adminStatus
+
   def fetchActiveMembers(): Future[Seq[Member]] =
     Future.successful(sequencerService.membersWithActiveSubscriptions)
 
@@ -262,6 +272,13 @@ class SequencerRuntime(
     {
       v0.DomainServiceGrpc.bindService(
         new GrpcDomainService(authenticationConfig.agreementManager, loggerFactory),
+        executionContext,
+      )
+    }, {
+      ApiInfoServiceGrpc.bindService(
+        new GrpcApiInfoService(
+          CantonGrpcUtil.ApiName.SequencerPublicApi
+        ),
         executionContext,
       )
     }, {
@@ -298,6 +315,13 @@ class SequencerRuntime(
       ServerInterceptors.intercept(
         v0.SequencerServiceGrpc.bindService(sequencerService, ec),
         interceptors,
+      )
+    }, {
+      ApiInfoServiceGrpc.bindService(
+        new GrpcApiInfoService(
+          CantonGrpcUtil.ApiName.SequencerPublicApi
+        ),
+        executionContext,
       )
     },
   )
