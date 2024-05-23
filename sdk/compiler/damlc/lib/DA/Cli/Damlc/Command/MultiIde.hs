@@ -381,14 +381,14 @@ getSourceFileHome miState path = do
       putTMVar (sourceFileHomesVar miState) $ Map.insert dirPath home sourceFileHomes
       pure home
 
-sourceFileHomeDeleted :: MultiIdeState -> FilePath -> STM ()
-sourceFileHomeDeleted miState path = do
+sourceFileHomeHandleDamlFileDeleted :: MultiIdeState -> FilePath -> STM ()
+sourceFileHomeHandleDamlFileDeleted miState path = do
   dirPath <- unsafeIOToSTM $ getDirectoryIfFile path
   modifyTMVar (sourceFileHomesVar miState) $ Map.delete dirPath
 
 -- When a daml.yaml changes, all files pointing to it are invalidated in the cache
-sourceFileHomeDamlYamlChanged :: MultiIdeState -> PackageHome -> STM ()
-sourceFileHomeDamlYamlChanged miState home = modifyTMVar (sourceFileHomesVar miState) $ Map.filter (/=home)
+sourceFileHomeHandleDamlYamlChanged :: MultiIdeState -> PackageHome -> STM ()
+sourceFileHomeHandleDamlYamlChanged miState home = modifyTMVar (sourceFileHomesVar miState) $ Map.filter (/=home)
 
 sendSubIDEByPath :: MultiIdeState -> FilePath -> LSP.FromClientMessage -> IO ()
 sendSubIDEByPath miState path msg = do
@@ -481,7 +481,7 @@ handleCreatedPackageOpenFiles miState home = withIDEsAtomic_ miState $ \ides -> 
   (ides', movedFiles) <- foldM handleIde mempty $ Map.toList ides
   let ideData = lookupSubIde home ides
   -- Invalidate the home cache for every moved file
-  traverse_ (sourceFileHomeDeleted miState . unDamlFile) movedFiles
+  traverse_ (sourceFileHomeHandleDamlFileDeleted miState . unDamlFile) movedFiles
   pure $ Map.insert home (ideData {ideDataOpenFiles = movedFiles <> ideDataOpenFiles ideData}) ides'
 
 resolveAndUnpackSourceLocation :: MultiIdeState -> PackageSourceLocation -> IO PackageHome
@@ -599,7 +599,7 @@ handleOpenFilesNotification miState mess path = atomically $ case (mess ^. LSP.m
     home <- getSourceFileHome miState path
     removeOpenFile miState home $ DamlFile path
     -- Also remove from the source mapping, in case project structure changes while we're not tracking the file
-    sourceFileHomeDeleted miState path
+    sourceFileHomeHandleDamlFileDeleted miState path
   _ -> pure ()
 
 clientMessageHandler :: MultiIdeState -> IO () -> B.ByteString -> IO ()
@@ -676,7 +676,7 @@ clientMessageHandler miState unblock bs = do
           "daml.yaml" -> do
             let home = PackageHome $ takeDirectory changedPath
             logInfo miState $ "daml.yaml change in " <> unPackageHome home <> ". Shutting down IDE"
-            atomically $ sourceFileHomeDamlYamlChanged miState home
+            atomically $ sourceFileHomeHandleDamlYamlChanged miState home
             case changeType of
               LSP.FcDeleted -> do
                 shutdownIdeByHome miState home
@@ -699,7 +699,7 @@ clientMessageHandler miState unblock bs = do
 
             void $ updatePackageData miState
           -- for .daml, we remove entry from the sourceFileHome cache if the file is deleted (note that renames/moves are sent as delete then create)
-          _ | takeExtension changedPath == ".daml" && changeType == LSP.FcDeleted -> atomically $ sourceFileHomeDeleted miState changedPath
+          _ | takeExtension changedPath == ".daml" && changeType == LSP.FcDeleted -> atomically $ sourceFileHomeHandleDamlFileDeleted miState changedPath
           _ -> pure ()
       logDebug miState "all not on filtered DidChangeWatchedFilesParams"
       -- Filter down to only daml files and send those
