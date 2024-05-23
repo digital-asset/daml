@@ -593,6 +593,14 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         jsObject(s"""{"templateId": "#foo:Foo:Bar", "payload": {"owner": "$alice"}}"""),
         hdrs,
       )
+      cidV1PkgNmWithV1Pref <- postCreate(
+        fixture,
+        // Payload per V1 and interpreted as V1, due to the explicit package id preference.
+        jsObject(
+          s"""{"templateId": "#foo:Foo:Bar", "payload": {"owner": "$alice"}, "meta":{"packageIdSelectionPreference":["$pkgIdFooV1"]}}"""
+        ),
+        hdrs,
+      )
       cidV2PkgId <- postCreate(
         fixture,
         jsObject(
@@ -607,13 +615,17 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       )
 
       // query using both package ids and package name.
+
       _ <- searchExpectOk(
         Nil,
         jsObject(s"""{"templateIds": ["$pkgIdFooV1:Foo:Bar"]}"""),
         fixture,
         hdrs,
       ) map { results =>
-        results.map(_.contractId) should contain theSameElementsAs List(cidV1PkgId)
+        results.map(_.contractId) should contain theSameElementsAs List(
+          cidV1PkgId,
+          cidV1PkgNmWithV1Pref,
+        )
       }
 
       _ <- searchExpectOk(
@@ -638,6 +650,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         results.map(_.contractId) should contain theSameElementsAs List(
           cidV1PkgId,
           cidV1PkgNm,
+          cidV1PkgNmWithV1Pref,
           cidV2PkgId,
           cidV2PkgNm,
         )
@@ -1408,6 +1421,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
               None,
               None,
               disclosedContracts = Some(disclosure),
+              None,
             )
             fixture
               .postJsonRequest(
@@ -2172,6 +2186,7 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
                 submissionId = Some(submissionId),
                 deduplicationPeriod = Some(domain.DeduplicationPeriod.Duration(10000L)),
                 disclosedContracts = None,
+                packageIdSelectionPreference = None,
               )
             ),
           )

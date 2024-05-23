@@ -26,6 +26,7 @@ abstract class NonRepudiationTest extends AbstractNonRepudiationTest {
         submissionId = None,
         deduplicationPeriod = None,
         disclosedContracts = None,
+        packageIdSelectionPreference = None,
       )
     )
     val domainParty = domain.Party(expectedParty)

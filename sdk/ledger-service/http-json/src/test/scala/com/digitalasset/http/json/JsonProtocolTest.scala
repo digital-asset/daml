@@ -247,13 +247,13 @@ class JsonProtocolTest
   "domain.CommandMeta" - {
     "is entirely optional" in {
       "{}".parseJson.convertTo[domain.CommandMeta[JsValue]] should ===(
-        domain.CommandMeta(None, None, None, None, None, None)
+        domain.CommandMeta(None, None, None, None, None, None, None)
       )
     }
 
     "is entirely optional when NoDisclosed" in {
       "{}".parseJson.convertTo[domain.CommandMeta.NoDisclosed] should ===(
-        domain.CommandMeta(None, None, None, None, None, None)
+        domain.CommandMeta(None, None, None, None, None, None, None)
       )
     }
   }

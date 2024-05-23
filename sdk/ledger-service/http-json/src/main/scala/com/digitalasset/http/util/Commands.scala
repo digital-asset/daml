@@ -6,6 +6,7 @@ package com.daml.http.util
 import com.daml.http.domain
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
+import com.daml.lf.data.Ref
 import lav1.commands.Commands.DeduplicationPeriod
 import scalaz.NonEmptyList
 import scalaz.syntax.foldable._
@@ -76,6 +77,7 @@ object Commands {
       deduplicationPeriod: DeduplicationPeriod,
       submissionId: Option[domain.SubmissionId],
       disclosedContracts: Seq[domain.DisclosedContract.LAV],
+      packageIdSelectionPreference: Seq[Ref.PackageId],
   ): lav1.command_service.SubmitAndWaitRequest = {
     val commands = lav1.commands.Commands(
       ledgerId = ledgerId.unwrap,
@@ -93,6 +95,7 @@ object Commands {
       readAs = lar.Party.unsubst(readAs),
       deduplicationPeriod = deduplicationPeriod,
       disclosedContracts = disclosedContracts map (_.toLedgerApi),
+      packageIdSelectionPreference = packageIdSelectionPreference,
       commands = Seq(lav1.commands.Command(command)),
     )
     val updatedCommands =
