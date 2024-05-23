@@ -645,6 +645,45 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     } yield succeed
   }
 
+  "should support create and exerciseByKey with package names" in withHttpService { fixture =>
+    val tmplId = "#foo:Foo:Quux"
+    for {
+      _ <- uploadPackage(fixture)(AbstractHttpServiceIntegrationTestFuns.fooV2Dar)
+
+      (alice, hdrs) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+
+      // create using package name.
+      cid <- postCreate(
+        fixture,
+        jsObject(s"""{"templateId": "$tmplId", "payload": {"owner": "$alice"}}"""),
+        hdrs,
+      )
+
+      // exercise by key, to test resolution of the key type, the arg type and the result type.
+      _ <- fixture
+        .postJsonRequest(
+          Uri.Path("/v1/exercise"),
+          jsObject(s"""{
+            "templateId": "$tmplId",
+            "key": {"value": "$alice"},
+            "choice": "Incr",
+            "argument": {"a": {"value": 42}}
+          }"""),
+          hdrs,
+        )
+        .parseResponse[domain.ExerciseResponse[JsValue]]
+        .flatMap(inside(_) {
+          case domain.OkResponse(
+                domain.ExerciseResponse(jsResult, List(domain.Contract(-\/(archived))), _),
+                _,
+                StatusCodes.OK,
+              ) =>
+            archived.contractId shouldBe cid
+            jsResult shouldBe jsObject("""{"value": "43"}""")
+        })
+    } yield succeed
+  }
+
   "query record contains handles small tokens with " - {
     Seq(
       "& " -> "& bar",
