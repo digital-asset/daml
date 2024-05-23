@@ -177,7 +177,15 @@ openFileNotification path content = LSP.FromClientMess LSP.STextDocumentDidOpen 
       }
     }
   , _jsonrpc = "2.0"
-  } 
+  }
+
+closeFileNotification :: DamlFile -> LSP.FromClientMessage
+closeFileNotification path = LSP.FromClientMess LSP.STextDocumentDidClose LSP.NotificationMessage
+  {_method = LSP.STextDocumentDidClose
+  , _params = LSP.DidCloseTextDocumentParams $ LSP.TextDocumentIdentifier $
+      LSP.filePathToUri $ unDamlFile path
+  , _jsonrpc = "2.0"
+  }
 
 registerFileWatchersMessage :: LSP.RequestMessage 'LSP.ClientRegisterCapability
 registerFileWatchersMessage =
