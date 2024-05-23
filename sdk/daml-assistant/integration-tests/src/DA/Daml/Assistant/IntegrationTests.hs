@@ -188,8 +188,8 @@ tests tmpDir =
             , testCase "daml new --list" $
                 callCommandSilentIn tmpDir "daml new --list"
             , packagingTests tmpDir
-            , withResource (damlStart (tmpDir </> "sandbox-canton") False) stop damlStartTests
-            , withResource (damlStart (tmpDir </> "sandbox-canton") True) stop damlStartTestsWithoutValidation
+            , withResource (damlStart (tmpDir </> "sandbox-canton-1") False) stop damlStartTests
+            , withResource (damlStart (tmpDir </> "sandbox-canton-2") True) stop damlStartTestsWithoutValidation
             , cleanTests cleanDir
             , templateTests
             , codegenTests codegenDir
