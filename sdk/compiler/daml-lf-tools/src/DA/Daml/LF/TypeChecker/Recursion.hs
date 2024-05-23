@@ -77,8 +77,8 @@ checkModule mod0 = do
 -- | Check whether a directed graph given by its adjacency list is acyclic. If
 -- it is not, throw an error.
 checkAcyclic
-  :: (Ord k, MonadGamma m)
-  => ([k] -> Error)  -- ^ Make an error from the names of nodes forming a cycle.
+  :: (Ord k, MonadGamma m, SomeErrorOrWarning e)
+  => ([k] -> e)  -- ^ Make an error from the names of nodes forming a cycle.
   -> (a -> k)    -- ^ Map a node to its name.
   -> (a -> [k])  -- ^ Map a node to the names of its adjacent nodes.
   -> [a]         -- ^ Nodes of the graph.
@@ -87,4 +87,4 @@ checkAcyclic mkError name adjacent objs = do
   let graph = map (\obj -> (obj, name obj, nubOrd (adjacent obj))) objs
   for_ (G.stronglyConnComp graph) $ \case
     G.AcyclicSCC _ -> pure ()
-    G.CyclicSCC cycle -> throwWithContext (mkError (map name cycle))
+    G.CyclicSCC cycle -> diagnosticWithContext (mkError (map name cycle))

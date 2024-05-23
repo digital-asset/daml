@@ -143,22 +143,21 @@ initialState :: NCState
 initialState = NCState M.empty
 
 -- | Monad in which to run the name collision check.
-type NCMonad t = RWS () [Diagnostic] NCState t
+type NCMonad t = RWS () [Error] NCState t
 
 -- | Run the name collision with a blank initial state.
 runNameCollision :: NCMonad t -> [Diagnostic]
-runNameCollision m = snd (evalRWS m () initialState)
+runNameCollision m = map toDiagnostic $ snd (evalRWS m () initialState)
 
 -- | Try to add a name to the NCState. Returns Error only
 -- if the name results in a forbidden name collision.
-addName :: Name -> NCState -> Either Diagnostic NCState
+addName :: Name -> NCState -> Either Error NCState
 addName name (NCState nameMap)
     | null badNames =
         Right . NCState $ M.insert frName (name : oldNames) nameMap
     | otherwise =
-        let err = EForbiddenNameCollision (displayName name) (map displayName badNames)
-            diag = toDiagnostic err
-        in Left diag
+        let err = EUnwarnableError $ EForbiddenNameCollision (displayName name) (map displayName badNames)
+        in Left err
   where
     frName = fullyResolve name
     oldNames = fromMaybe [] (M.lookup frName nameMap)

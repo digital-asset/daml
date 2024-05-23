@@ -64,7 +64,7 @@ import           DA.Daml.LF.TypeChecker.Error
 
 
 -- | Check that a list does /not/ contain duplicate elements.
-checkUnique :: (MonadGamma m, Eq a, Hashable a) => (a -> Error) -> [a] -> m ()
+checkUnique :: (MonadGamma m, Eq a, Hashable a) => (a -> UnwarnableError) -> [a] -> m ()
 checkUnique mkDuplicateError xs = void (foldlM step HS.empty xs)
   where
     step acc x
@@ -338,7 +338,7 @@ typeOfRecUpd typ0 field record update = do
   fieldType <- match _Just (EUnknownField field typ1) (lookup field recordType)
   checkExpr record typ1
   catchAndRethrow
-    (\case
+    (overUnwarnable $ \case
       ETypeMismatch { foundType, expectedType, expr } ->
         EFieldTypeMismatch
           { targetRecord = typ1
@@ -1019,7 +1019,7 @@ checkInterfaceInstance tmplParam iiHead iiBody = do
         Nothing -> throwWithContext (EUnknownMethodInInterfaceInstance iiInterface iiTemplate iiMethodName)
         Just InterfaceMethod{ifmType} ->
           catchAndRethrow
-            (\case
+            (overUnwarnable $ \case
               ETypeMismatch { foundType, expectedType, expr } ->
                 EMethodTypeMismatch
                   { emtmIfaceName = iiInterface
@@ -1034,7 +1034,7 @@ checkInterfaceInstance tmplParam iiHead iiBody = do
 
     -- check view result type matches interface result type
     catchAndRethrow
-      (\case
+      (overUnwarnable $ \case
           ETypeMismatch { foundType, expectedType, expr } ->
             EViewTypeMismatch
               { evtmIfaceName = iiInterface

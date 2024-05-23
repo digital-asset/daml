@@ -15,6 +15,7 @@ module DA.Daml.LF.TypeChecker.Env(
     TcMF,
     throwWithContext, throwWithContextF,
     warnWithContext, warnWithContextF,
+    diagnosticWithContext,
     catchAndRethrow,
     inWorld,
     match,
@@ -28,7 +29,8 @@ module DA.Daml.LF.TypeChecker.Env(
     getWorld,
     runGamma, runGammaF,
     Gamma,
-    emptyGamma
+    emptyGamma,
+    SomeErrorOrWarning(..),
     ) where
 
 import           Control.Lens hiding (Context)
@@ -52,12 +54,20 @@ data Gamma = Gamma
     -- ^ The packages in scope.
   , _lfVersion :: Version
     -- ^ The Daml-LF version of the package being type checked.
+  , _diagnosticSwapIndicator :: Either WarnableError Warning -> Bool
+    -- ^ Function for relaxing errors into warnings and strictifying warnings into errors
   }
 
 makeLenses ''Gamma
 
+class SomeErrorOrWarning d where
+  diagnosticWithContextF :: forall m gamma. MonadGammaF gamma m => Getter gamma Gamma -> d -> m ()
+
 getLfVersion :: MonadGamma m => m Version
 getLfVersion = view lfVersion
+
+getDiagnosticSwapIndicatorF :: forall m gamma. MonadGammaF gamma m => Getter gamma Gamma -> m (Either WarnableError Warning -> Bool)
+getDiagnosticSwapIndicatorF getter = view (getter . diagnosticSwapIndicator)
 
 getWorld :: MonadGamma m => m World
 getWorld = view world
@@ -84,13 +94,13 @@ runGammaF gamma act = runStateT (runReaderT act gamma) []
 
 -- | Helper function which tries to match on a prism and fails with a provided
 -- error in case is does not match.
-match :: MonadGamma m => Prism' a b -> Error -> a -> m b
+match :: MonadGamma m => Prism' a b -> UnwarnableError -> a -> m b
 match p e x = either (const (throwWithContext e)) pure (matching p x)
 
 -- | Environment containing only the packages in scope but no type or term
 -- variables.
 emptyGamma :: World -> Version -> Gamma
-emptyGamma = Gamma ContextNone mempty mempty
+emptyGamma world version = Gamma ContextNone mempty mempty world version (const False)
 
 -- | Run a computation in the current environment extended by a new type
 -- variable/kind binding. Does not fail on shadowing.
@@ -125,31 +135,64 @@ inWorld look = do
     Left e -> throwWithContext (EUnknownDefinition e)
     Right x -> pure x
 
-throwWithContext :: MonadGamma m => Error -> m a
-throwWithContext err = do
-  ctx <- view locCtx
-  throwError $ EContext ctx err
+diagnosticWithContext :: (SomeErrorOrWarning d, MonadGamma m) => d -> m ()
+diagnosticWithContext = diagnosticWithContextF id
+
+throwWithContext :: MonadGamma m => UnwarnableError -> m a
+throwWithContext = throwWithContextF id
 
 warnWithContext :: MonadGamma m => Warning -> m ()
-warnWithContext warning = do
-  ctx <- view locCtx
-  modify' (WContext ctx warning :)
+warnWithContext = warnWithContextF id
 
 withContext :: MonadGamma m => Context -> m b -> m b
-withContext ctx = local (set locCtx ctx)
+withContext = withContextF id
 
 catchAndRethrow :: MonadGamma m => (Error -> Error) -> m b -> m b
-catchAndRethrow handler mb = catchError mb $ throwWithContext . handler
+catchAndRethrow handler mb = catchError mb $ throwWithContextFRaw id . handler
 
-throwWithContextF :: MonadGammaF gamma m => Getter gamma Gamma -> Error -> m a
-throwWithContextF getter err = do
+throwWithContextF :: forall m gamma a. MonadGammaF gamma m => Getter gamma Gamma -> UnwarnableError -> m a
+throwWithContextF getter err = throwWithContextFRaw getter (EUnwarnableError err)
+
+throwWithContextFRaw :: forall m gamma a. MonadGammaF gamma m => Getter gamma Gamma -> Error -> m a
+throwWithContextFRaw getter err = do
   ctx <- view $ getter . locCtx
   throwError $ EContext ctx err
 
-warnWithContextF :: MonadGammaF gamma m => Getter gamma Gamma -> Warning -> m ()
-warnWithContextF getter warning = do
-  ctx <- view $ getter . locCtx
-  modify' (WContext ctx warning :)
+warnWithContextF :: forall m gamma. MonadGammaF gamma m => Getter gamma Gamma -> Warning -> m ()
+warnWithContextF = diagnosticWithContextF
 
 withContextF :: MonadGammaF gamma m => Setter' gamma Gamma -> Context -> m b -> m b
 withContextF setter ctx = local (set (setter . locCtx) ctx)
+
+instance SomeErrorOrWarning UnwarnableError where
+  diagnosticWithContextF = throwWithContextF
+
+instance SomeErrorOrWarning WarnableError where
+  diagnosticWithContextF getter err = do
+    shouldSwap <- getDiagnosticSwapIndicatorF getter
+    if shouldSwap (Left err)
+       then do
+        ctx <- view $ getter . locCtx
+        modify' (WContext ctx (WErrorToWarning err) :)
+       else do
+        undefined
+
+instance SomeErrorOrWarning Warning where
+  diagnosticWithContextF getter warning = do
+    shouldSwap <- getDiagnosticSwapIndicatorF getter
+    if shouldSwap (Right warning)
+       then do
+        undefined
+       else do
+        ctx <- view $ getter . locCtx
+        modify' (WContext ctx warning :)
+
+--diagnosticWithContextF :: forall m gamma d. (SomeErrorOrWarning d, MonadGammaF gamma m) => Getter gamma Gamma -> d -> m ()
+--diagnosticWithContextF getter d = do
+--  swapIndicator <- getDiagnosticSwapIndicatorF @m @gamma getter
+--  let diagnostic = toErrorOrWarning d
+--  case (diagnostic, swapIndicator diagnostic) of
+--    (Left err, True) -> warnWithContextF @m @gamma getter $ WErrorToWarning err
+--    (Right warn, True) -> throwWithContextF @m @gamma getter $ EWarningToError warn
+--    (Left err, False) -> throwWithContextF @m @gamma getter err
+--    (Right warn, False) -> warnWithContextF @m @gamma getter warn

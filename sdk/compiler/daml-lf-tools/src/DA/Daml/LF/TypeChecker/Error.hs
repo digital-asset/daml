@@ -4,7 +4,9 @@
 module DA.Daml.LF.TypeChecker.Error(
     Context(..),
     Error(..),
-    UpgradeError(..),
+    overUnwarnable,
+    UnwarnableError(..),
+    WarnableError(..),
     TemplatePart(..),
     InterfacePart(..),
     UnserializabilityReason(..),
@@ -61,6 +63,7 @@ data SerializabilityRequirement
   | SRDataType
   | SRExceptionArg
   | SRView
+  deriving (Show)
 
 -- | Reason why a type is not serializable.
 data UnserializabilityReason
@@ -90,8 +93,19 @@ data UnserializabilityReason
   | URTypeSyn  -- ^ It contains a type synonym.
   | URExperimental -- ^ It contains a experimental type
   | URInterface -- ^ It constains an interface
+  deriving (Show)
 
 data Error
+  = EUnwarnableError !UnwarnableError
+  | EWarnableError !WarnableError
+  | EContext !Context !Error
+  deriving (Show)
+
+overUnwarnable :: (UnwarnableError -> UnwarnableError) -> Error -> Error
+overUnwarnable f (EUnwarnableError e) = EUnwarnableError (f e)
+overUnwarnable _ x = x
+
+data UnwarnableError
   = EUnknownTypeVar        !TypeVarName
   | EUnknownExprVar        !ExprVarName
   | EUnknownDefinition     !LookupError
@@ -143,7 +157,6 @@ data Error
   | EDataTypeCycle         ![TypeConName] -- TODO: implement check for this error
   | EValueCycle            ![ExprValName]
   | EImpredicativePolymorphism !Type
-  | EContext               !Context !Error
   | EKeyOperationOnTemplateWithNoKey !(Qualified TypeConName)
   | EUnsupportedFeature !Feature
   | EForbiddenNameCollision !T.Text ![T.Text]
@@ -163,35 +176,58 @@ data Error
   | EMissingMethodInInterfaceInstance !MethodName
   | EUnknownMethodInInterfaceInstance { eumiiIface :: !(Qualified TypeConName), eumiiTpl :: !(Qualified TypeConName), eumiiMethodName :: !MethodName }
   | EWrongInterfaceRequirement !(Qualified TypeConName) !(Qualified TypeConName)
-  | EUpgradeError !UpgradeError
   | EUnknownExperimental !T.Text !Type
+  | EUpgradeMissingModule !ModuleName
+  | EUpgradeMissingTemplate !TypeConName
+  | EUpgradeMissingChoice !ChoiceName
+  | EUpgradeMissingDataCon !TypeConName
+  | EUpgradeMismatchDataConsVariety !TypeConName
+  | EUpgradeRecordFieldsMissing !UpgradedRecordOrigin
+  | EUpgradeRecordFieldsExistingChanged !UpgradedRecordOrigin
+  | EUpgradeRecordFieldsNewNonOptional !UpgradedRecordOrigin
+  | EUpgradeRecordFieldsOrderChanged !UpgradedRecordOrigin
+  | EUpgradeVariantAddedVariant !UpgradedRecordOrigin
+  | EUpgradeVariantRemovedVariant !UpgradedRecordOrigin
+  | EUpgradeVariantChangedVariantType !UpgradedRecordOrigin
+  | EUpgradeVariantAddedVariantField !UpgradedRecordOrigin
+  | EUpgradeVariantVariantsOrderChanged !UpgradedRecordOrigin
+  | EUpgradeEnumAddedVariant !UpgradedRecordOrigin
+  | EUpgradeEnumRemovedVariant !UpgradedRecordOrigin
+  | EUpgradeEnumVariantsOrderChanged !UpgradedRecordOrigin
+  | EUpgradeRecordChangedOrigin !TypeConName !UpgradedRecordOrigin !UpgradedRecordOrigin
+  | EUpgradeTemplateChangedKeyType !TypeConName
+  | EUpgradeChoiceChangedReturnType !ChoiceName
+  | EUpgradeTemplateRemovedKey !TypeConName !TemplateKey
+  | EUpgradeTemplateAddedKey !TypeConName !TemplateKey
+  | EUpgradeTriedToUpgradeIface !TypeConName
+  | EUpgradeMissingImplementation !TypeConName !TypeConName
+  deriving (Show)
 
-data UpgradeError
-  = MissingModule !ModuleName
-  | MissingTemplate !TypeConName
-  | MissingChoice !ChoiceName
-  | MissingDataCon !TypeConName
-  | MismatchDataConsVariety !TypeConName
-  | RecordFieldsMissing !UpgradedRecordOrigin
-  | RecordFieldsExistingChanged !UpgradedRecordOrigin
-  | RecordFieldsNewNonOptional !UpgradedRecordOrigin
-  | RecordFieldsOrderChanged !UpgradedRecordOrigin
-  | VariantAddedVariant !UpgradedRecordOrigin
-  | VariantRemovedVariant !UpgradedRecordOrigin
-  | VariantChangedVariantType !UpgradedRecordOrigin
-  | VariantAddedVariantField !UpgradedRecordOrigin
-  | VariantVariantsOrderChanged !UpgradedRecordOrigin
-  | EnumAddedVariant !UpgradedRecordOrigin
-  | EnumRemovedVariant !UpgradedRecordOrigin
-  | EnumVariantsOrderChanged !UpgradedRecordOrigin
-  | RecordChangedOrigin !TypeConName !UpgradedRecordOrigin !UpgradedRecordOrigin
-  | TemplateChangedKeyType !TypeConName
-  | ChoiceChangedReturnType !ChoiceName
-  | TemplateRemovedKey !TypeConName !TemplateKey
-  | TemplateAddedKey !TypeConName !TemplateKey
-  | TriedToUpgradeIface !TypeConName
-  | MissingImplementation !TypeConName !TypeConName
-  deriving (Eq, Ord, Show)
+data WarnableError
+  = EUpgradeShouldDefineIfacesAndTemplatesSeparately
+  | EUpgradeShouldDefineIfaceWithoutImplementation !TypeConName ![TypeConName]
+  | EUpgradeShouldDefineTplInSeparatePackage !TypeConName !TypeConName
+  deriving (Show)
+
+instance Pretty WarnableError where
+  pPrint = \case
+    EUpgradeShouldDefineIfacesAndTemplatesSeparately ->
+      vsep
+        [ "This package defines both interfaces and templates."
+        , "This is not recommended - templates are upgradeable, but interfaces are not, which means that this version of the package and its templates can never be uninstalled."
+        , "It is recommended that interfaces are defined in their own package separate from their implementations."
+        ]
+    EUpgradeShouldDefineIfaceWithoutImplementation iface implementingTemplates ->
+      vsep $ concat
+        [ [ "The interface " <> pPrint iface <> " was defined in this package and implemented in this package by the following templates:" ]
+        , map (quotes . pPrint) implementingTemplates
+        , [ "However, it is recommended that interfaces are defined in their own package separate from their implementations." ]
+        ]
+    EUpgradeShouldDefineTplInSeparatePackage tpl iface ->
+      vsep
+        [ "The template " <> pPrint tpl <> " has implemented interface " <> pPrint iface <> ", which is defined in a previous version of this package."
+        , "However, it is recommended that interfaces are defined in their own package separate from their implementations."
+        ]
 
 data UpgradedRecordOrigin
   = TemplateBody TypeConName
@@ -318,12 +354,16 @@ instance Pretty UnserializabilityReason where
 
 instance Pretty Error where
   pPrint = \case
+    EUnwarnableError err -> pPrint err
+    EWarnableError err -> pPrint err
     EContext ctx err ->
       vcat
       [ "error type checking " <> pretty ctx <> ":"
       , nest 2 (pretty err)
       ]
 
+instance Pretty UnwarnableError where
+  pPrint = \case
     EUnknownTypeVar v -> "unknown type variable: " <> pretty v
     EUnknownExprVar v -> "unknown expr variable: " <> pretty v
     EUnknownDefinition e -> pretty e
@@ -565,36 +605,32 @@ instance Pretty Error where
       text "Tried to implement method " <> quotes (pretty eumiiMethodName) <> text ", but interface " <> pretty eumiiIface <> text " does not have a method with that name."
     EWrongInterfaceRequirement requiringIface requiredIface ->
       "Interface " <> pretty requiringIface <> " does not require interface " <> pretty requiredIface
-    EUpgradeError upgradeError -> pPrint upgradeError
     EUnknownExperimental name ty ->
       "Unknown experimental primitive " <> string (show name) <> " : " <> pretty ty
-
-instance Pretty UpgradeError where
-  pPrint = \case
-    MissingModule moduleName -> "Module " <> pPrint moduleName <> " appears in package that is being upgraded, but does not appear in this package."
-    MissingTemplate templateName -> "Template " <> pPrint templateName <> " appears in package that is being upgraded, but does not appear in this package."
-    MissingChoice templateName -> "Choice " <> pPrint templateName <> " appears in package that is being upgraded, but does not appear in this package."
-    MissingDataCon dataConName -> "Data type " <> pPrint dataConName <> " appears in package that is being upgraded, but does not appear in this package."
-    MismatchDataConsVariety dataConName -> "EUpgradeMismatchDataConsVariety " <> pretty dataConName
-    RecordFieldsMissing origin -> "The upgraded " <> pPrint origin <> " is missing some of its original fields."
-    RecordFieldsExistingChanged origin -> "The upgraded " <> pPrint origin <> " has changed the types of some of its original fields."
-    RecordFieldsNewNonOptional origin -> "The upgraded " <> pPrint origin <> " has added new fields, but those fields are not Optional."
-    RecordFieldsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its fields - any new fields must be added at the end of the record."
-    VariantAddedVariant origin -> "The upgraded " <> pPrint origin <> " has added a new variant."
-    VariantRemovedVariant origin -> "The upgraded " <> pPrint origin <> " has removed an existing variant."
-    VariantChangedVariantType origin -> "The upgraded " <> pPrint origin <> " has changed the type of a variant."
-    VariantAddedVariantField origin -> "The upgraded " <> pPrint origin <> " has added a field."
-    VariantVariantsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its variants - any new variant must be added at the end of the variant."
-    EnumAddedVariant origin -> "The upgraded " <> pPrint origin <> " has added a new variant."
-    EnumRemovedVariant origin -> "The upgraded " <> pPrint origin <> " has removed an existing variant."
-    EnumVariantsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its variants - any new variant must be added at the end of the enum."
-    RecordChangedOrigin dataConName past present -> "The record " <> pPrint dataConName <> " has changed origin from " <> pPrint past <> " to " <> pPrint present
-    ChoiceChangedReturnType choice -> "The upgraded choice " <> pPrint choice <> " cannot change its return type."
-    TemplateChangedKeyType templateName -> "The upgraded template " <> pPrint templateName <> " cannot change its key type."
-    TemplateRemovedKey templateName _key -> "The upgraded template " <> pPrint templateName <> " cannot remove its key."
-    TemplateAddedKey template _key -> "The upgraded template " <> pPrint template <> " cannot add a key where it didn't have one previously."
-    TriedToUpgradeIface iface -> "Tried to upgrade interface " <> pPrint iface <> ", but interfaces cannot be upgraded. They should be removed in any upgrading package."
-    MissingImplementation tpl iface -> "Implementation of interface " <> pPrint iface <> " by template " <> pPrint tpl <> " appears in package that is being upgraded, but does not appear in this package."
+    EUpgradeMissingModule moduleName -> "Module " <> pPrint moduleName <> " appears in package that is being upgraded, but does not appear in this package."
+    EUpgradeMissingTemplate templateName -> "Template " <> pPrint templateName <> " appears in package that is being upgraded, but does not appear in this package."
+    EUpgradeMissingChoice templateName -> "Choice " <> pPrint templateName <> " appears in package that is being upgraded, but does not appear in this package."
+    EUpgradeMissingDataCon dataConName -> "Data type " <> pPrint dataConName <> " appears in package that is being upgraded, but does not appear in this package."
+    EUpgradeMismatchDataConsVariety dataConName -> "EUpgradeMismatchDataConsVariety " <> pretty dataConName
+    EUpgradeRecordFieldsMissing origin -> "The upgraded " <> pPrint origin <> " is missing some of its original fields."
+    EUpgradeRecordFieldsExistingChanged origin -> "The upgraded " <> pPrint origin <> " has changed the types of some of its original fields."
+    EUpgradeRecordFieldsNewNonOptional origin -> "The upgraded " <> pPrint origin <> " has added new fields, but those fields are not Optional."
+    EUpgradeRecordFieldsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its fields - any new fields must be added at the end of the record."
+    EUpgradeVariantAddedVariant origin -> "The upgraded " <> pPrint origin <> " has added a new variant."
+    EUpgradeVariantRemovedVariant origin -> "The upgraded " <> pPrint origin <> " has removed an existing variant."
+    EUpgradeVariantChangedVariantType origin -> "The upgraded " <> pPrint origin <> " has changed the type of a variant."
+    EUpgradeVariantAddedVariantField origin -> "The upgraded " <> pPrint origin <> " has added a field."
+    EUpgradeVariantVariantsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its variants - any new variant must be added at the end of the variant."
+    EUpgradeEnumAddedVariant origin -> "The upgraded " <> pPrint origin <> " has added a new variant."
+    EUpgradeEnumRemovedVariant origin -> "The upgraded " <> pPrint origin <> " has removed an existing variant."
+    EUpgradeEnumVariantsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its variants - any new variant must be added at the end of the enum."
+    EUpgradeRecordChangedOrigin dataConName past present -> "The record " <> pPrint dataConName <> " has changed origin from " <> pPrint past <> " to " <> pPrint present
+    EUpgradeChoiceChangedReturnType choice -> "The upgraded choice " <> pPrint choice <> " cannot change its return type."
+    EUpgradeTemplateChangedKeyType templateName -> "The upgraded template " <> pPrint templateName <> " cannot change its key type."
+    EUpgradeTemplateRemovedKey templateName _key -> "The upgraded template " <> pPrint templateName <> " cannot remove its key."
+    EUpgradeTemplateAddedKey template _key -> "The upgraded template " <> pPrint template <> " cannot add a key where it didn't have one previously."
+    EUpgradeTriedToUpgradeIface iface -> "Tried to upgrade interface " <> pPrint iface <> ", but interfaces cannot be upgraded. They should be removed in any upgrading package."
+    EUpgradeMissingImplementation tpl iface -> "Implementation of interface " <> pPrint iface <> " by template " <> pPrint tpl <> " appears in package that is being upgraded, but does not appear in this package."
 
 instance Pretty UpgradedRecordOrigin where
   pPrint = \case
@@ -637,6 +673,17 @@ instance ToDiagnostic Error where
       , _relatedInformation = Nothing
       }
 
+instance ToDiagnostic UnwarnableError where
+  toDiagnostic err = Diagnostic
+      { _range = maybe noRange sourceLocToRange (errorLocation (EUnwarnableError err))
+      , _severity = Just DsError
+      , _code = Nothing
+      , _tags = Nothing
+      , _source = Just "Daml-LF typechecker"
+      , _message = renderPretty err
+      , _relatedInformation = Nothing
+      }
+
 data Warning
   = WContext !Context !Warning
   | WTemplateChangedPrecondition !TypeConName
@@ -651,9 +698,7 @@ data Warning
     -- ^ When upgrading, we extract relevant expressions for things like
     -- signatories. If the expression changes shape so that we can't get the
     -- underlying expression that has changed, this warning is emitted.
-  | WShouldDefineIfacesAndTemplatesSeparately
-  | WShouldDefineIfaceWithoutImplementation !TypeConName ![TypeConName]
-  | WShouldDefineTplInSeparatePackage !TypeConName !TypeConName
+  | WErrorToWarning !WarnableError
   deriving (Show)
 
 warningLocation :: Warning -> Maybe SourceLoc
@@ -677,23 +722,7 @@ instance Pretty Warning where
     WTemplateChangedKeyExpression template -> "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
     WTemplateChangedKeyMaintainers template -> "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
     WCouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
-    WShouldDefineIfacesAndTemplatesSeparately ->
-      vsep
-        [ "This package defines both interfaces and templates."
-        , "This is not recommended - templates are upgradeable, but interfaces are not, which means that this version of the package and its templates can never be uninstalled."
-        , "It is recommended that interfaces are defined in their own package separate from their implementations."
-        ]
-    WShouldDefineIfaceWithoutImplementation iface implementingTemplates ->
-      vsep $ concat
-        [ [ "The interface " <> pPrint iface <> " was defined in this package and implemented in this package by the following templates:" ]
-        , map (quotes . pPrint) implementingTemplates
-        , [ "However, it is recommended that interfaces are defined in their own package separate from their implementations." ]
-        ]
-    WShouldDefineTplInSeparatePackage tpl iface ->
-      vsep
-        [ "The template " <> pPrint tpl <> " has implemented interface " <> pPrint iface <> ", which is defined in a previous version of this package."
-        , "However, it is recommended that interfaces are defined in their own package separate from their implementations."
-        ]
+    WErrorToWarning err -> pPrint err
 
 instance ToDiagnostic Warning where
   toDiagnostic warning = Diagnostic
