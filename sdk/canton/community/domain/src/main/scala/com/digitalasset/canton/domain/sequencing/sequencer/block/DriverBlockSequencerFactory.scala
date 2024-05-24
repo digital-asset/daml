@@ -79,7 +79,7 @@ class DriverBlockSequencerFactory[C](
       tracer: Tracer,
   ): BlockSequencer =
     new BlockSequencer(
-      new DriverBlockSequencerOps(
+      new DriverBlockOrderer(
         sequencerDriverFactory.create(
           config,
           nodeParameters.nonStandardConfig,

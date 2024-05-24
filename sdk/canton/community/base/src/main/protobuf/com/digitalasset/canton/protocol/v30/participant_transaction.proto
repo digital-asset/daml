@@ -9,6 +9,7 @@ import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/protocol/v30/common.proto";
 import "com/digitalasset/canton/protocol/v30/common_stable.proto";
 import "com/digitalasset/canton/protocol/v30/merkle.proto";
+import "com/digitalasset/canton/protocol/v30/quorum.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
@@ -56,8 +57,8 @@ message ViewCommonData {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
-  repeated Informee informees = 2;
-  int32 threshold = 3;
+  repeated string informees = 2;
+  repeated v30.Quorum quorums = 3;
 }
 
 message Informee {
@@ -92,6 +93,8 @@ message InformeeMessage {
 }
 
 message LightTransactionViewTree {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
   GenTransactionTree tree = 1;
   repeated bytes subview_hashes = 2;
 }

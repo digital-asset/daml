@@ -6,7 +6,12 @@ package com.digitalasset.canton.protocol.messages
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{HashOps, Signature}
-import com.digitalasset.canton.data.{Informee, TransferOutViewTree, ViewPosition, ViewType}
+import com.digitalasset.canton.data.{
+  TransferOutViewTree,
+  ViewConfirmationParameters,
+  ViewPosition,
+  ViewType,
+}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
@@ -14,6 +19,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.util.EitherUtil
+import com.digitalasset.canton.version.Transfer.SourceProtocolVersion
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWithContextCompanion,
   ProtoVersion,
@@ -40,7 +46,7 @@ final case class TransferOutMediatorMessage(
 
   override def submittingParticipant: ParticipantId = tree.submittingParticipant
 
-  val protocolVersion = commonData.protocolVersion
+  val protocolVersion = commonData.sourceProtocolVersion
 
   override val representativeProtocolVersion
       : RepresentativeProtocolVersion[TransferOutMediatorMessage.type] =
@@ -52,14 +58,12 @@ final case class TransferOutMediatorMessage(
 
   override def requestUuid: UUID = commonData.uuid
 
-  override def informeesAndThresholdByViewPosition
-      : Map[ViewPosition, (Set[Informee], NonNegativeInt)] = {
+  override def informeesAndConfirmationParamsByViewPosition
+      : Map[ViewPosition, ViewConfirmationParameters] = {
     val confirmingParties = commonData.confirmingParties
     val threshold = NonNegativeInt.tryCreate(confirmingParties.size)
-    Map(tree.viewPosition -> ((confirmingParties, threshold)))
+    Map(tree.viewPosition -> ViewConfirmationParameters.create(confirmingParties, threshold))
   }
-
-  override def minimumThreshold(informees: Set[Informee]): NonNegativeInt = NonNegativeInt.one
 
   def toProtoV30: v30.TransferOutMediatorMessage =
     v30.TransferOutMediatorMessage(
@@ -85,7 +89,7 @@ final case class TransferOutMediatorMessage(
 object TransferOutMediatorMessage
     extends HasProtocolVersionedWithContextCompanion[
       TransferOutMediatorMessage,
-      (HashOps, ProtocolVersion),
+      (HashOps, SourceProtocolVersion),
     ] {
 
   val supportedProtoVersions = SupportedProtoVersions(
@@ -97,7 +101,7 @@ object TransferOutMediatorMessage
     )
   )
 
-  def fromProtoV30(context: (HashOps, ProtocolVersion))(
+  def fromProtoV30(context: (HashOps, SourceProtocolVersion))(
       transferOutMediatorMessageP: v30.TransferOutMediatorMessage
   ): ParsingResult[TransferOutMediatorMessage] = {
     val v30.TransferOutMediatorMessage(treePO, submittingParticipantSignaturePO) =

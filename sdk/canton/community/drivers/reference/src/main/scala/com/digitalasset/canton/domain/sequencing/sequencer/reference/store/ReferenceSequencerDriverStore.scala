@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.reference.store
 
-import com.digitalasset.canton.domain.block.BlockOrderer
-import com.digitalasset.canton.domain.block.BlockOrderingSequencer.{AcknowledgeTag, SendTag}
+import com.digitalasset.canton.domain.block.BlockFormat
+import com.digitalasset.canton.domain.block.BlockFormat.{AcknowledgeTag, SendTag}
 import com.google.protobuf.ByteString
 
 private[reference] object ReferenceSequencerDriverStore {
@@ -12,8 +12,8 @@ private[reference] object ReferenceSequencerDriverStore {
   def sequencedSend(
       payload: ByteString,
       microsecondsSinceEpoch: Long,
-  ): BlockOrderer.OrderedRequest =
-    BlockOrderer.OrderedRequest(
+  ): BlockFormat.OrderedRequest =
+    BlockFormat.OrderedRequest(
       microsecondsSinceEpoch,
       SendTag,
       payload,
@@ -22,8 +22,8 @@ private[reference] object ReferenceSequencerDriverStore {
   def sequencedAcknowledgement(
       payload: ByteString,
       microsecondsSinceEpoch: Long,
-  ): BlockOrderer.OrderedRequest =
-    BlockOrderer.OrderedRequest(
+  ): BlockFormat.OrderedRequest =
+    BlockFormat.OrderedRequest(
       microsecondsSinceEpoch,
       AcknowledgeTag,
       payload,

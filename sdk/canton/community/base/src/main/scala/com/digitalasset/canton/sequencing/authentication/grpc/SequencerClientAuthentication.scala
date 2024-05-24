@@ -6,6 +6,8 @@ package com.digitalasset.canton.sequencing.authentication.grpc
 import cats.data.EitherT
 import cats.implicits.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.sequencing.authentication.{
@@ -23,7 +25,7 @@ import io.grpc.internal.GrpcAttributes
 import io.grpc.stub.AbstractStub
 
 import java.util.concurrent.Executor
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.util.control.NonFatal
 
 /** Provides call credentials and an interceptor to generate a token for outgoing requests and add the token to the call
@@ -84,9 +86,13 @@ private[grpc] class SequencerClientTokenAuthentication(
                 .withCause(ex)
             )
         }
+        .unwrap
         .foreach {
-          case Left(errorStatus) => applier.fail(errorStatus)
-          case Right(token) => applier.apply(generateMetadata(token, maybeEndpoint))
+          case AbortedDueToShutdown =>
+            applier.fail(Status.ABORTED.withDescription("Aborted due to shutdown."))
+          case UnlessShutdown.Outcome(Left(errorStatus)) => applier.fail(errorStatus)
+          case UnlessShutdown.Outcome(Right(token)) =>
+            applier.apply(generateMetadata(token, maybeEndpoint))
         }
     }
 
@@ -156,13 +162,19 @@ object SequencerClientTokenAuthentication {
       domainId: DomainId,
       authenticatedMember: AuthenticatedMember,
       obtainTokenPerEndpoint: NonEmpty[
-        Map[Endpoint, TraceContext => EitherT[Future, Status, AuthenticationTokenWithExpiry]]
+        Map[
+          Endpoint,
+          TraceContext => EitherT[FutureUnlessShutdown, Status, AuthenticationTokenWithExpiry],
+        ]
       ],
       isClosed: => Boolean,
       tokenManagerConfig: AuthenticationTokenManagerConfig,
       clock: Clock,
       loggerFactory: NamedLoggerFactory,
-  )(implicit executionContext: ExecutionContext): SequencerClientAuthentication = {
+  )(implicit
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
+  ): SequencerClientAuthentication = {
     val tokenManagerPerEndpoint = obtainTokenPerEndpoint.transform { case (_, obtainToken) =>
       new AuthenticationTokenManager(
         obtainToken,

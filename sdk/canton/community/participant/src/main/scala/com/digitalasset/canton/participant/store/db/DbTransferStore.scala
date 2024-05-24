@@ -15,7 +15,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.{CantonTimestamp, FullTransferOutTree}
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.transfer.TransferData.TransferGlobalOffset
@@ -89,8 +89,7 @@ class DbTransferStore(
   private def setResultFullTransferOutTree(
       sourceProtocolVersion: SourceProtocolVersion
   ): SetParameter[FullTransferOutTree] =
-    (r: FullTransferOutTree, pp: PositionedParameters) =>
-      pp >> r.toByteString(sourceProtocolVersion.v).toByteArray
+    (r: FullTransferOutTree, pp: PositionedParameters) => pp >> r.toByteString.toByteArray
 
   private implicit val setParameterSerializableContract: SetParameter[SerializableContract] =
     SerializableContract.getVersionedSetParameter(targetDomainProtocolVersion.v)
@@ -162,7 +161,9 @@ class DbTransferStore(
 
   override def addTransfer(
       transferData: TransferData
-  )(implicit traceContext: TraceContext): EitherT[Future, TransferStoreError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit] = {
     @unused implicit val setParameterFullTransferOutTree =
       setResultFullTransferOutTree(transferData.sourceProtocolVersion)
 
@@ -250,7 +251,9 @@ class DbTransferStore(
 
   override def addTransferOutResult(
       transferOutResult: DeliveredTransferOutResult
-  )(implicit traceContext: TraceContext): EitherT[Future, TransferStoreError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit] = {
     val transferId = transferOutResult.transferId
 
     val existsRaw: DbAction.ReadOnly[Option[Option[RawDeliveredTransferOutResult]]] = sql"""
@@ -638,7 +641,7 @@ class DbTransferStore(
       insertFresh: DBIO[R],
       errorHandler: Throwable => E,
       operationName: String = "insertDependentDeprecated",
-  )(implicit traceContext: TraceContext): CheckedT[Future, E, W, Option[R]] =
+  )(implicit traceContext: TraceContext): CheckedT[FutureUnlessShutdown, E, W, Option[R]] =
     updateDependentDeprecated(
       exists,
       insertExisting,
@@ -653,7 +656,7 @@ class DbTransferStore(
       insertNonExisting: Checked[E, W, Option[DBIO[R]]],
       errorHandler: Throwable => E,
       operationName: String = "updateDependentDeprecated",
-  )(implicit traceContext: TraceContext): CheckedT[Future, E, W, Option[R]] = {
+  )(implicit traceContext: TraceContext): CheckedT[FutureUnlessShutdown, E, W, Option[R]] = {
     import DbStorage.Implicits.*
     import storage.api.{DBIO as _, *}
 
@@ -667,10 +670,10 @@ class DbTransferStore(
         )
     val compoundAction = readAndInsert.transactionally.withTransactionIsolation(Serializable)
 
-    val result = storage.queryAndUpdate(compoundAction, operationName = operationName)
+    val result = storage.queryAndUpdateUnlessShutdown(compoundAction, operationName = operationName)
 
     CheckedT(result.recover[Checked[E, W, Option[R]]] { case NonFatal(x) =>
-      Checked.abort(errorHandler(x))
+      UnlessShutdown.Outcome(Checked.abort(errorHandler(x)))
     })
   }
 }

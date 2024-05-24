@@ -19,11 +19,11 @@ import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class DriverBlockSequencerOps(
+class DriverBlockOrderer(
     driver: SequencerDriver,
     protocolVersion: ProtocolVersion,
 )(implicit executionContext: ExecutionContext)
-    extends BlockSequencerOps {
+    extends BlockOrderer {
 
   override def subscribe()(implicit
       traceContext: TraceContext

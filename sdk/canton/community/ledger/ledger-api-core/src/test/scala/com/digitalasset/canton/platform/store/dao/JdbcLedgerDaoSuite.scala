@@ -74,7 +74,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   protected final val defaultAppId = "default-app-id"
   protected final val defaultWorkflowId = "default-workflow-id"
 
-  // Note: *identifiers* and *values* defined below MUST correspond to //test-common/src/main/daml/model/Test.daml
+  // Note: *identifiers* and *values* defined below MUST correspond to community/ledger/ledger-common-dars/src/main/daml/model/Test.daml
   // This is because some tests request values in verbose mode, which requires filling in missing type information,
   // which in turn requires loading Daml-LF packages with valid Daml-LF types that correspond to the Daml-LF values.
   //
@@ -164,6 +164,16 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   protected final val otherContractArgument = LfValue.ValueRecord(
     None,
     ImmArray(None -> LfValue.ValueParty(alice)),
+  )
+
+  protected final val otherTemplateId2 = testIdentifier("DummyFactory")
+  protected final val otherTemplateId3 = testIdentifier("DummyContractFactory")
+  protected final val otherTemplateId4 = testIdentifier("DummyWithParam")
+
+  protected final val otherTemplateId5 = testIdentifier("DummyWithAnnotation")
+  protected final val otherContractArgument5 = LfValue.ValueRecord(
+    None,
+    ImmArray(None -> LfValue.ValueParty(alice), None -> someValueText),
   )
 
   private[dao] def store(

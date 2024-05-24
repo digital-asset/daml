@@ -857,6 +857,7 @@ final class TransferOutProcessingStepsTest
               state.pendingTransferOutSubmissions,
               crypto.pureCrypto,
             )
+            .failOnShutdown
         )("get commit set and contract to be stored and event")
       } yield succeed
     }

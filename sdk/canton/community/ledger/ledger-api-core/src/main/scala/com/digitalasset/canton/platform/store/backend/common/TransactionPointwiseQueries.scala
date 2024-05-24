@@ -68,7 +68,7 @@ class TransactionPointwiseQueries(
         ),
       ),
       requestingParties = requestingParties,
-      filteringRowParser = rawFlatEventParser(_, stringInterning),
+      filteringRowParser = ps => rawFlatEventParser(Some(ps), stringInterning),
     )(connection)
   }
 

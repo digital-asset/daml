@@ -68,7 +68,7 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
           supportedCryptoKeyFormats,
           signingKeyScheme.toString,
           newCrypto,
-          crypto => getSigningPublicKey(crypto, signingKeyScheme),
+          crypto => getSigningPublicKey(crypto, signingKeyScheme).failOnShutdown,
         )
       }
 
@@ -77,7 +77,7 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
           supportedCryptoKeyFormats,
           encryptionKeyScheme.toString,
           newCrypto,
-          crypto => getEncryptionPublicKey(crypto, encryptionKeyScheme),
+          crypto => getEncryptionPublicKey(crypto, encryptionKeyScheme).failOnShutdown,
         )
       }
     }

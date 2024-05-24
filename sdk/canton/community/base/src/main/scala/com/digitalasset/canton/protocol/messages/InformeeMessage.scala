@@ -3,9 +3,13 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{HashOps, Signature}
-import com.digitalasset.canton.data.{FullInformeeTree, Informee, ViewPosition, ViewType}
+import com.digitalasset.canton.data.{
+  FullInformeeTree,
+  ViewConfirmationParameters,
+  ViewPosition,
+  ViewType,
+}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
 import com.digitalasset.canton.protocol.{RootHash, v30}
@@ -56,8 +60,8 @@ case class InformeeMessage(
 
   override def mediator: MediatorGroupRecipient = fullInformeeTree.mediator
 
-  override def informeesAndThresholdByViewPosition
-      : Map[ViewPosition, (Set[Informee], NonNegativeInt)] =
+  override def informeesAndConfirmationParamsByViewPosition
+      : Map[ViewPosition, ViewConfirmationParameters] =
     fullInformeeTree.informeesAndThresholdByViewPosition
 
   // Implementing a `toProto<version>` method allows us to compose serializable classes.
@@ -71,9 +75,6 @@ case class InformeeMessage(
 
   override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
     v30.EnvelopeContent.SomeEnvelopeContent.InformeeMessage(toProtoV30)
-
-  override def minimumThreshold(informees: Set[Informee]): NonNegativeInt =
-    fullInformeeTree.confirmationPolicy.minimumThreshold(informees)
 
   override def rootHash: RootHash = fullInformeeTree.transactionId.toRootHash
 

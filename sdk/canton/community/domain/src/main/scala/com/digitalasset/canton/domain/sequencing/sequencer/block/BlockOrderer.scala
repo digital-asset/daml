@@ -28,7 +28,7 @@ import scala.concurrent.Future
   * and BFT writes require either writing to `f+1` sequencers or writing to a single sequencer
   * and be prepared to retry on another sequencer if a BFT read for the corresponding event fails.
   */
-trait BlockSequencerOps extends AutoCloseable {
+trait BlockOrderer extends AutoCloseable {
 
   /** Delivers a stream of blocks starting with `firstBlockHeight` (if specified in the factory call)
     * or the first serveable block.

@@ -44,7 +44,7 @@ class TransferCacheTest extends AsyncWordSpec with BaseTest with HasExecutorServ
 
     for {
       transferData <- transferDataF
-      _ <- valueOrFail(store.addTransfer(transferData))("add failed")
+      _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
       _ <- valueOrFail(store.lookup(transfer10))("lookup did not find transfer")
       lookup11 <- cache.lookup(transfer11).value
       () <- store.deleteTransfer(transfer10)
@@ -62,7 +62,7 @@ class TransferCacheTest extends AsyncWordSpec with BaseTest with HasExecutorServ
       val cache = new TransferCache(store, loggerFactory)
       for {
         transferData <- transferDataF
-        _ <- valueOrFail(store.addTransfer(transferData))("add failed")
+        _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
         _ = store.preComplete { (transferId, _) =>
           assert(transferId == transfer10)
           CheckedT(
@@ -102,7 +102,7 @@ class TransferCacheTest extends AsyncWordSpec with BaseTest with HasExecutorServ
 
       for {
         transferData <- transferDataF
-        _ <- valueOrFail(store.addTransfer(transferData))("add failed")
+        _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
         _ = store.preComplete { (transferId, _) =>
           assert(transferId == transfer10)
           promise.completeWith(cache.completeTransfer(transfer10, toc2).value)
@@ -133,7 +133,7 @@ class TransferCacheTest extends AsyncWordSpec with BaseTest with HasExecutorServ
 
       for {
         transferData <- transferDataF
-        _ <- valueOrFail(store.addTransfer(transferData))("add failed")
+        _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
         _ <- valueOrFail(store.completeTransfer(transfer10, toc2))("first completion failed")
         _ = store.preComplete { (transferId, _) =>
           assert(transferId == transfer10)
@@ -157,7 +157,7 @@ class TransferCacheTest extends AsyncWordSpec with BaseTest with HasExecutorServ
 
       for {
         transferData <- transferDataF
-        _ <- valueOrFail(store.addTransfer(transferData))("add failed")
+        _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
         _ = store.preComplete { (transferId, _) =>
           assert(transferId == transfer10)
           val f = for {
@@ -184,7 +184,7 @@ class TransferCacheTest extends AsyncWordSpec with BaseTest with HasExecutorServ
 
       for {
         transferData <- transferDataF
-        _ <- valueOrFail(store.addTransfer(transferData))("add failed")
+        _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
         _ <- valueOrFail(cache.completeTransfer(transfer10, laterTimestampedCompletion))(
           "first completion fails"
         )
@@ -222,7 +222,7 @@ class TransferCacheTest extends AsyncWordSpec with BaseTest with HasExecutorServ
 
       for {
         transferData <- transferDataF
-        _ <- valueOrFail(store.addTransfer(transferData))("add failed")
+        _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
 
         resultFutures = (timestamps).map { time =>
           completeAndLookup(time)
@@ -260,12 +260,12 @@ object TransferCacheTest {
 
     override def addTransfer(transferData: TransferData)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, TransferStoreError, Unit] =
+    ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit] =
       baseStore.addTransfer(transferData)
 
     override def addTransferOutResult(transferOutResult: DeliveredTransferOutResult)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, TransferStoreError, Unit] =
+    ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit] =
       baseStore.addTransferOutResult(transferOutResult)
 
     override def addTransfersOffsets(offsets: Map[TransferId, TransferData.TransferGlobalOffset])(

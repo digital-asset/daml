@@ -117,7 +117,7 @@ class SyncDomain(
     participantNodePersistentState: Eval[ParticipantNodePersistentState],
     private[sync] val persistent: SyncDomainPersistentState,
     val ephemeral: SyncDomainEphemeralState,
-    val packageService: PackageService,
+    val packageService: Eval[PackageService],
     domainCrypto: DomainSyncCryptoClient,
     identityPusher: ParticipantTopologyDispatcher,
     topologyProcessorFactory: TopologyTransactionProcessor.Factory,
@@ -168,11 +168,11 @@ class SyncDomain(
     )
 
   private val packageResolver: PackageResolver = pkgId =>
-    traceContext => packageService.getPackage(pkgId)(traceContext)
+    traceContext => packageService.value.getPackage(pkgId)(traceContext)
 
   private val damle =
     new DAMLe(
-      pkgId => traceContext => packageService.getPackage(pkgId)(traceContext),
+      pkgId => traceContext => packageService.value.getPackage(pkgId)(traceContext),
       authorityResolver,
       Some(domainId),
       engine,
@@ -326,7 +326,6 @@ class SyncDomain(
       transactionProcessor,
       transferOutProcessor,
       transferInProcessor,
-      registerIdentityTransactionHandle.processor,
       topologyProcessor,
       trafficProcessor,
       acsCommitmentProcessor.processBatch,
@@ -984,7 +983,7 @@ object SyncDomain {
         participantNodePersistentState: Eval[ParticipantNodePersistentState],
         persistentState: SyncDomainPersistentState,
         ephemeralState: SyncDomainEphemeralState,
-        packageService: PackageService,
+        packageService: Eval[PackageService],
         domainCrypto: DomainSyncCryptoClient,
         identityPusher: ParticipantTopologyDispatcher,
         topologyProcessorFactory: TopologyTransactionProcessor.Factory,
@@ -1011,7 +1010,7 @@ object SyncDomain {
         participantNodePersistentState: Eval[ParticipantNodePersistentState],
         persistentState: SyncDomainPersistentState,
         ephemeralState: SyncDomainEphemeralState,
-        packageService: PackageService,
+        packageService: Eval[PackageService],
         domainCrypto: DomainSyncCryptoClient,
         identityPusher: ParticipantTopologyDispatcher,
         topologyProcessorFactory: TopologyTransactionProcessor.Factory,

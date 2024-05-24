@@ -13,11 +13,11 @@ import com.digitalasset.canton.crypto.{
   PrivateKey,
   SigningPrivateKey,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
-
-trait CryptoPrivateStoreExtendedTest extends CryptoPrivateStoreTest { this: AsyncWordSpec =>
+trait CryptoPrivateStoreExtendedTest extends CryptoPrivateStoreTest {
+  this: AsyncWordSpec =>
 
   def cryptoPrivateStoreExtended(
       newStore: => CryptoPrivateStoreExtended,
@@ -25,6 +25,7 @@ trait CryptoPrivateStoreExtendedTest extends CryptoPrivateStoreTest { this: Asyn
   ): Unit = {
 
     val crypto = SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
+    crypto.setRandomKeysFlag(true)
 
     val sigKey1Name: String = uniqueKeyName("sigKey1_")
     val encKey1Name: String = uniqueKeyName("encKey1_")
@@ -56,12 +57,12 @@ trait CryptoPrivateStoreExtendedTest extends CryptoPrivateStoreTest { this: Asyn
         privateKey: PrivateKey,
         id: Fingerprint,
         name: Option[KeyName],
-    ): EitherT[Future, CryptoPrivateStoreError, Unit] =
+    ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] =
       store match {
         case extended: CryptoPrivateStoreExtended =>
-          extended.storePrivateKey(privateKey, name).failOnShutdown
+          extended.storePrivateKey(privateKey, name)
         case _ =>
-          EitherT.leftT[Future, Unit](
+          EitherT.leftT[FutureUnlessShutdown, Unit](
             CryptoPrivateStoreError.FailedToInsertKey(
               id,
               "crypto private store does not implement the necessary method to store a private key",
@@ -72,7 +73,6 @@ trait CryptoPrivateStoreExtendedTest extends CryptoPrivateStoreTest { this: Asyn
     behave like cryptoPrivateStore(
       newStore,
       storePrivateKey,
-      encrypted,
     )
 
     "store encryption keys correctly when added incrementally" in {

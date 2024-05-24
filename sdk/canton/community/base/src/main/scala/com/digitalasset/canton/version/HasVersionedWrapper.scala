@@ -244,8 +244,7 @@ trait HasVersionedMessageCompanionDbHelpers[ValueClass <: HasVersionedWrapper[Va
 /** Traits for the companion objects of classes that implement [[HasVersionedWrapper]].
   * They provide default methods.
   * Unlike [[HasVersionedMessageCompanion]] these traits allow to pass additional
-  * context to the conversion methods (see, e.g., [[com.digitalasset.canton.data.TransferInViewTree.fromProtoVersioned]]
-  * which takes a `HashOps` parameter).
+  * context to the conversion methods.
   */
 trait HasVersionedMessageWithContextCompanion[ValueClass, Ctx]
     extends HasVersionedMessageCompanionCommon[ValueClass] {

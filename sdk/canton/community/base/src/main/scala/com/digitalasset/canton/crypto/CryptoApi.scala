@@ -49,7 +49,6 @@ class Crypto(
       _ <- cryptoPublicStore
         .storeSigningKey(publicKey, name)
         .leftMap[SigningKeyGenerationError](SigningKeyGenerationError.SigningPublicStoreError)
-        .mapK(FutureUnlessShutdown.outcomeK)
     } yield publicKey
 
   /** Helper method to generate a new encryption key pair and store the public key in the public store as well. */
@@ -66,7 +65,6 @@ class Crypto(
         .leftMap[EncryptionKeyGenerationError](
           EncryptionKeyGenerationError.EncryptionPublicStoreError
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
     } yield publicKey
 
   override def onClosed(): Unit =

@@ -789,7 +789,6 @@ private[participant] object MessageDispatcher {
         transactionProcessor: TransactionProcessor,
         transferOutProcessor: TransferOutProcessor,
         transferInProcessor: TransferInProcessor,
-        registerTopologyTransactionResponseProcessor: EnvelopeHandler,
         topologyProcessor: TopologyTransactionProcessor,
         trafficProcessor: TrafficControlProcessor,
         acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType,
@@ -811,27 +810,13 @@ private[participant] object MessageDispatcher {
           }
       }
 
-      val identityProcessor: (
-          SequencerCounter,
-          SequencedTime,
-          Traced[List[DefaultOpenEnvelope]],
-      ) => HandlerResult =
-        (counter, timestamp, envelopes) => {
-          val registerF = registerTopologyTransactionResponseProcessor(envelopes)
-          val processingF = topologyProcessor.processEnvelopes(counter, timestamp, envelopes)
-          for {
-            r1 <- registerF
-            r2 <- processingF
-          } yield AsyncResult.monoidAsyncResult.combine(r1, r2)
-        }
-
       create(
         protocolVersion,
         domainId,
         participantId,
         requestTracker,
         requestProcessors,
-        identityProcessor,
+        topologyProcessor.processEnvelopes,
         trafficProcessor,
         acsCommitmentProcessor,
         requestCounterAllocator,

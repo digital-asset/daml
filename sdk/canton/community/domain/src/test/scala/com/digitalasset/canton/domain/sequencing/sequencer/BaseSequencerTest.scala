@@ -15,7 +15,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
 import com.digitalasset.canton.health.HealthListener
-import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
+import com.digitalasset.canton.health.admin.data.{SequencerAdminStatus, SequencerHealthStatus}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
@@ -157,6 +157,8 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
     override protected def healthInternal(implicit
         traceContext: TraceContext
     ): Future[SequencerHealthStatus] = Future.successful(SequencerHealthStatus(isActive = true))
+
+    override def adminStatus: SequencerAdminStatus = ???
     override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
       ???
     override def trafficStatus(members: Seq[Member])(implicit

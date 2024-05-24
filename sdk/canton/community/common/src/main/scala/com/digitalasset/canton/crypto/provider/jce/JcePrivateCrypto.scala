@@ -4,10 +4,10 @@
 package com.digitalasset.canton.crypto.provider.jce
 
 import cats.data.EitherT
-import cats.instances.future.*
 import cats.syntax.either.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreExtended
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.crypto.tink.subtle.EllipticCurves.CurveType
 import com.google.crypto.tink.subtle.{Ed25519Sign, EllipticCurves}
@@ -15,7 +15,7 @@ import com.google.protobuf.ByteString
 
 import java.security.spec.{ECGenParameterSpec, RSAKeyGenParameterSpec}
 import java.security.{GeneralSecurityException, KeyPair as JKeyPair, KeyPairGenerator}
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class JcePrivateCrypto(
     pureCrypto: JcePureCrypto,
@@ -68,7 +68,7 @@ class JcePrivateCrypto(
 
   override protected[crypto] def generateEncryptionKeypair(scheme: EncryptionKeyScheme)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, EncryptionKeyGenerationError, EncryptionKeyPair] = {
+  ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionKeyPair] = {
 
     def convertJavaKeyPair(
         javaKeyPair: JKeyPair
@@ -116,13 +116,13 @@ class JcePrivateCrypto(
 
   override protected[crypto] def generateSigningKeypair(scheme: SigningKeyScheme)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SigningKeyGenerationError, SigningKeyPair] = scheme match {
+  ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningKeyPair] = scheme match {
     case SigningKeyScheme.Ed25519 =>
       for {
         rawKeyPair <- Either
           .catchOnly[GeneralSecurityException](Ed25519Sign.KeyPair.newKeyPair())
           .leftMap[SigningKeyGenerationError](SigningKeyGenerationError.GeneralError)
-          .toEitherT
+          .toEitherT[FutureUnlessShutdown]
         publicKey = ByteString.copyFrom(rawKeyPair.getPublicKey)
         privateKey = ByteString.copyFrom(rawKeyPair.getPrivateKey)
         keyPair = SigningKeyPair

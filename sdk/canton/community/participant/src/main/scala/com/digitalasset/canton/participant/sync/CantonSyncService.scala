@@ -136,7 +136,7 @@ class CantonSyncService(
     private[canton] val participantNodePersistentState: Eval[ParticipantNodePersistentState],
     participantNodeEphemeralState: ParticipantNodeEphemeralState,
     private[canton] val syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
-    private[canton] val packageService: PackageService,
+    private[canton] val packageService: Eval[PackageService],
     topologyManagerOps: ParticipantTopologyManagerOps,
     identityPusher: ParticipantTopologyDispatcher,
     partyNotifier: LedgerServerPartyNotifier,
@@ -340,7 +340,7 @@ class CantonSyncService(
 
   private val repairServiceDAMLe =
     new DAMLe(
-      pkgId => traceContext => packageService.getPackage(pkgId)(traceContext),
+      pkgId => traceContext => packageService.value.getPackage(pkgId)(traceContext),
       // The repair service should not need any topology-aware authorisation because it only needs DAMLe
       // to check contract instance arguments, which cannot trigger a ResultNeedAuthority.
       CantonAuthorityResolver.topologyUnawareAuthorityResolver,
@@ -363,7 +363,7 @@ class CantonSyncService(
   val repairService: RepairService = new RepairService(
     participantId,
     syncCrypto,
-    packageService.dependencyResolver,
+    packageService.value.packageDependencyResolver,
     repairServiceDAMLe,
     participantNodePersistentState.map(_.multiDomainEventLog),
     syncDomainPersistentStateManager,
@@ -669,7 +669,7 @@ class CantonSyncService(
               .create(sourceDescription.getOrElse(""), Some("package source description"))
               .leftMap(PackageServiceErrors.InternalError.Generic.apply)
           )
-          _ <- packageService
+          _ <- packageService.value
             .storeValidatedPackagesAndSyncEvent(
               archives,
               sourceDescriptionLenLimit,
@@ -1604,7 +1604,6 @@ class CantonSyncService(
       repairService,
       pruningProcessor,
     ) ++ syncCrypto.ips.allDomains.toSeq ++ connectedDomainsMap.values.toSeq ++ Seq(
-      packageService,
       domainRouter,
       domainRegistry,
       inFlightSubmissionTracker,
@@ -1841,7 +1840,7 @@ object CantonSyncService {
         participantNodePersistentState: Eval[ParticipantNodePersistentState],
         participantNodeEphemeralState: ParticipantNodeEphemeralState,
         syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
-        packageService: PackageService,
+        packageService: Eval[PackageService],
         topologyManagerOps: ParticipantTopologyManagerOps,
         identityPusher: ParticipantTopologyDispatcher,
         partyNotifier: LedgerServerPartyNotifier,
@@ -1871,7 +1870,7 @@ object CantonSyncService {
         participantNodePersistentState: Eval[ParticipantNodePersistentState],
         participantNodeEphemeralState: ParticipantNodeEphemeralState,
         syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
-        packageService: PackageService,
+        packageService: Eval[PackageService],
         topologyManagerOps: ParticipantTopologyManagerOps,
         identityPusher: ParticipantTopologyDispatcher,
         partyNotifier: LedgerServerPartyNotifier,

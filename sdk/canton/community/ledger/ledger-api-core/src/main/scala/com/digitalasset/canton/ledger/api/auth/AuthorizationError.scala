@@ -43,6 +43,11 @@ object AuthorizationError {
     override val reason = s"Claims do not authorize to read data for party '$party'"
   }
 
+  final object MissingReadAsAnyPartyClaim extends AuthorizationError {
+    override val reason =
+      s"Claims do not authorize to read data as any party (super-reader wildcard)"
+  }
+
   final case class MissingActClaim(party: String) extends AuthorizationError {
     override val reason = s"Claims do not authorize to act as party '$party'"
   }

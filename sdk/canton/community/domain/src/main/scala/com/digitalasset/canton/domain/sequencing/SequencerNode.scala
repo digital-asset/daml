@@ -816,6 +816,7 @@ class SequencerNode(
       participants,
       healthStatus,
       topologyQueue = sequencer.topologyQueue,
+      admin = sequencer.adminStatus,
       healthData,
     )
   }

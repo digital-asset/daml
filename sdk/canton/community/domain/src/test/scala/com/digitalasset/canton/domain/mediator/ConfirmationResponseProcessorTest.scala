@@ -114,6 +114,7 @@ class ConfirmationResponseProcessorTest
   protected lazy val submitter = ExampleTransactionFactory.submitter
   protected lazy val signatory = ExampleTransactionFactory.signatory
   protected lazy val observer = ExampleTransactionFactory.observer
+  protected lazy val extra: LfPartyId = ExampleTransactionFactory.extra
 
   // Create a topology with several participants so that we can have several root hash messages or Malformed messages
   protected val participant1 = participant
@@ -130,6 +131,8 @@ class ConfirmationResponseProcessorTest
       signatory ->
         Map(participant -> ParticipantPermission.Confirmation),
       observer ->
+        Map(participant -> ParticipantPermission.Observation),
+      extra ->
         Map(participant -> ParticipantPermission.Observation),
     ),
     Set(mediatorGroup, mediatorGroup2),
@@ -283,7 +286,8 @@ class ConfirmationResponseProcessorTest
     ): LogEntry => Assertion =
       _.shouldBeCantonError(
         MediatorError.MalformedMessage,
-        _ shouldBe s"Received a mediator confirmation request with id $requestId having threshold 0 for transaction view at $viewPosition, which is below the confirmation policy's minimum threshold of 1. Rejecting request...",
+        _ shouldBe s"Received a mediator confirmation request with id $requestId for transaction view at $viewPosition, " +
+          s"where no quorum of the list satisfies the minimum threshold. Rejecting request...",
       )
 
     lazy val rootHashMessages = Seq(
@@ -305,12 +309,19 @@ class ConfirmationResponseProcessorTest
       val testMediatorRequest =
         new InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion) {
           val (firstFaultyViewPosition: ViewPosition, _) =
-            super.informeesAndThresholdByViewPosition.head
+            super.informeesAndConfirmationParamsByViewPosition.head
 
-          override def informeesAndThresholdByViewPosition
-              : Map[ViewPosition, (Set[Informee], NonNegativeInt)] = {
-            super.informeesAndThresholdByViewPosition map { case (key, (informees, _)) =>
-              (key, (informees, NonNegativeInt.zero))
+          override def informeesAndConfirmationParamsByViewPosition
+              : Map[ViewPosition, ViewConfirmationParameters] = {
+            super.informeesAndConfirmationParamsByViewPosition map {
+              case (key, ViewConfirmationParameters(informees, quorums)) =>
+                (
+                  key,
+                  ViewConfirmationParameters.tryCreate(
+                    informees,
+                    quorums.map(_.copy(threshold = NonNegativeInt.zero)),
+                  ),
+                )
             }
           }
         }
@@ -438,19 +449,27 @@ class ConfirmationResponseProcessorTest
       // Create a custom informee message with several recipient participants
       val informeeMessage =
         new InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion) {
-          override val informeesAndThresholdByViewPosition
-              : Map[ViewPosition, (Set[Informee], NonNegativeInt)] = {
-            val submitterI = Informee.create(submitter, NonNegativeInt.one)
-            val signatoryI = Informee.create(signatory, NonNegativeInt.one)
-            val observerI = Informee.create(observer, NonNegativeInt.one)
+          override val informeesAndConfirmationParamsByViewPosition
+              : Map[ViewPosition, ViewConfirmationParameters] =
             Map(
-              ViewPosition.root -> (Set(
-                submitterI,
-                signatoryI,
-                observerI,
-              ) -> NonNegativeInt.one)
+              ViewPosition.root -> ViewConfirmationParameters.tryCreate(
+                Set(
+                  submitter,
+                  signatory,
+                  observer,
+                ),
+                Seq(
+                  Quorum(
+                    Map(
+                      submitter -> PositiveInt.one,
+                      signatory -> PositiveInt.one,
+                      observer -> PositiveInt.one,
+                    ),
+                    NonNegativeInt.one,
+                  )
+                ),
+              )
             )
-          }
         }
       val allParticipants = NonEmpty(Seq, participant1, participant2, participant3)
 
@@ -818,7 +837,7 @@ class ConfirmationResponseProcessorTest
             view11Position -> factory.MultipleRootsAndViewNestings.view11,
             view110Position -> factory.MultipleRootsAndViewNestings.view110,
           )
-        ) { case (viewPosition, view) =>
+        ) { case (viewPosition, _) =>
           signedResponse(
             Set(submitter),
             viewPosition,
@@ -858,6 +877,19 @@ class ConfirmationResponseProcessorTest
               actualRequest shouldBe informeeMessage
               actualVersion shouldBe ts1
           }
+          val completedView = ResponseAggregation.ViewState(
+            Map(
+              submitter -> ConsortiumVotingState(approvals =
+                Set(ExampleTransactionFactory.submittingParticipant)
+              )
+            ),
+            Seq(Quorum.empty),
+            Nil,
+          )
+          val signatoryQuorum = Quorum(
+            Map(signatory -> PositiveInt.one),
+            NonNegativeInt.one,
+          )
           val ResponseAggregation(
             `requestId`,
             `informeeMessage`,
@@ -867,59 +899,40 @@ class ConfirmationResponseProcessorTest
             updatedState.value
           assert(
             states === Map(
-              view0Position ->
-                ResponseAggregation.ViewState(
-                  Set.empty,
-                  Map(
-                    submitter -> ConsortiumVotingState(approvals =
-                      Set(ExampleTransactionFactory.submittingParticipant)
-                    )
-                  ),
-                  0,
-                  Nil,
-                ),
+              view0Position -> completedView,
               view1Position ->
                 ResponseAggregation.ViewState(
-                  Set(ConfirmingParty(signatory, PositiveInt.one)),
                   Map(
                     submitter -> ConsortiumVotingState(approvals =
                       Set(ExampleTransactionFactory.submittingParticipant)
                     ),
                     signatory -> ConsortiumVotingState(),
                   ),
-                  1,
+                  Seq(
+                    signatoryQuorum,
+                    // the new confirming party quorum is `empty`
+                    Quorum.empty,
+                  ),
                   Nil,
                 ),
               view10Position ->
                 ResponseAggregation.ViewState(
-                  Set(ConfirmingParty(signatory, PositiveInt.one)),
                   Map(signatory -> ConsortiumVotingState()),
-                  1,
+                  Seq(signatoryQuorum),
                   Nil,
                 ),
               view11Position ->
                 ResponseAggregation.ViewState(
-                  Set(ConfirmingParty(signatory, PositiveInt.one)),
                   Map(
                     submitter -> ConsortiumVotingState(approvals =
                       Set(ExampleTransactionFactory.submittingParticipant)
                     ),
                     signatory -> ConsortiumVotingState(),
                   ),
-                  1,
+                  Seq(signatoryQuorum),
                   Nil,
                 ),
-              view110Position ->
-                ResponseAggregation.ViewState(
-                  Set.empty,
-                  Map(
-                    submitter -> ConsortiumVotingState(approvals =
-                      Set(ExampleTransactionFactory.submittingParticipant)
-                    )
-                  ),
-                  0,
-                  Nil,
-                ),
+              view110Position -> completedView,
             )
           )
         }
@@ -971,30 +984,58 @@ class ConfirmationResponseProcessorTest
       // Create a custom informee message with many quorums such that the first Malformed rejection doesn't finalize the request
       val informeeMessage =
         new InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion) {
-          override val informeesAndThresholdByViewPosition
-              : Map[ViewPosition, (Set[Informee], NonNegativeInt)] = {
-            val submitterI = Informee.create(submitter, NonNegativeInt.one)
-            val signatoryI = Informee.create(signatory, NonNegativeInt.one)
-            val observerI = Informee.create(observer, NonNegativeInt.one)
+          override val informeesAndConfirmationParamsByViewPosition
+              : Map[ViewPosition, ViewConfirmationParameters] = {
+            val allNodesViewConfirmationParameters = ViewConfirmationParameters.tryCreate(
+              Set(
+                submitter,
+                signatory,
+                observer,
+              ),
+              Seq(
+                Quorum(
+                  Map(
+                    submitter -> PositiveInt.one,
+                    signatory -> PositiveInt.one,
+                    observer -> PositiveInt.one,
+                  ),
+                  NonNegativeInt.one,
+                )
+              ),
+            )
             Map(
-              view0Position -> (Set(
-                submitterI,
-                signatoryI,
-              ) -> NonNegativeInt.one),
-              view1Position -> (Set(
-                submitterI,
-                signatoryI,
-                observerI,
-              ) -> NonNegativeInt.one),
-              view11Position -> (Set(
-                observerI,
-                signatoryI,
-              ) -> NonNegativeInt.one),
-              view10Position -> (Set(
-                submitterI,
-                signatoryI,
-                observerI,
-              ) -> NonNegativeInt.one),
+              view0Position -> ViewConfirmationParameters.tryCreate(
+                Set(
+                  submitter,
+                  signatory,
+                ),
+                Seq(
+                  Quorum(
+                    Map(
+                      submitter -> PositiveInt.one,
+                      signatory -> PositiveInt.one,
+                    ),
+                    NonNegativeInt.one,
+                  )
+                ),
+              ),
+              view1Position -> allNodesViewConfirmationParameters,
+              view11Position -> ViewConfirmationParameters.tryCreate(
+                Set(
+                  observer,
+                  signatory,
+                ),
+                Seq(
+                  Quorum(
+                    Map(
+                      observer -> PositiveInt.one,
+                      signatory -> PositiveInt.one,
+                    ),
+                    NonNegativeInt.one,
+                  )
+                ),
+              ),
+              view10Position -> allNodesViewConfirmationParameters,
             )
           }
         }
@@ -1264,7 +1305,7 @@ class ConfirmationResponseProcessorTest
             .failOnShutdown,
           _.shouldBeCantonError(
             MediatorError.InvalidMessage,
-            _ shouldBe s"Received a mediator confirmation request with id $requestId with some informees not being hosted by an active participant: ${Set(observer, signatory)}. Rejecting request...",
+            _ shouldBe s"Received a mediator confirmation request with id $requestId with some informees not being hosted by an active participant: ${Set(observer, signatory, extra)}. Rejecting request...",
           ),
         )
       } yield succeed

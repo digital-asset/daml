@@ -345,6 +345,10 @@ trait KeyTopologySnapshotClient {
   /** returns all signing keys */
   def signingKeys(owner: Member)(implicit traceContext: TraceContext): Future[Seq[SigningPublicKey]]
 
+  def signingKeysUS(owner: Member)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[SigningPublicKey]]
+
   def signingKeys(members: Seq[Member])(implicit
       traceContext: TraceContext
   ): Future[Map[Member, Seq[SigningPublicKey]]]

@@ -114,7 +114,7 @@ trait TransferStoreTest {
       "find previously stored transfers" in {
         val store = mk(targetDomain)
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
           lookup10 <- valueOrFail(store.lookup(transfer10))(
             "lookup failed to find the stored transfer"
           )
@@ -124,7 +124,7 @@ trait TransferStoreTest {
       "not invent transfers" in {
         val store = mk(targetDomain)
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
           lookup10 <- store.lookup(transfer11).value
         } yield assert(
           lookup10 == Left(UnknownTransferId(transfer11)),
@@ -144,9 +144,9 @@ trait TransferStoreTest {
           )
           bobTransfer <- mkTransferData(transfer11, mediator1, LfPartyId.assertFromString("bob"))
           eveTransfer <- mkTransferData(transfer20, mediator2, LfPartyId.assertFromString("eve"))
-          _ <- valueOrFail(store.addTransfer(aliceTransfer))("add alice failed")
-          _ <- valueOrFail(store.addTransfer(bobTransfer))("add bob failed")
-          _ <- valueOrFail(store.addTransfer(eveTransfer))("add eve failed")
+          _ <- valueOrFail(store.addTransfer(aliceTransfer).failOnShutdown)("add alice failed")
+          _ <- valueOrFail(store.addTransfer(bobTransfer).failOnShutdown)("add bob failed")
+          _ <- valueOrFail(store.addTransfer(eveTransfer).failOnShutdown)("add eve failed")
           lookup <- store.find(None, None, Some(LfPartyId.assertFromString("bob")), 10)
         } yield {
           assert(lookup.toList == List(bobTransfer))
@@ -169,9 +169,9 @@ trait TransferStoreTest {
             TransferId(sourceDomain1, CantonTimestamp.ofEpochMilli(300L)),
             mediator1,
           )
-          _ <- valueOrFail(store.addTransfer(transfer1))("add1 failed")
-          _ <- valueOrFail(store.addTransfer(transfer2))("add2 failed")
-          _ <- valueOrFail(store.addTransfer(transfer3))("add3 failed")
+          _ <- valueOrFail(store.addTransfer(transfer1).failOnShutdown)("add1 failed")
+          _ <- valueOrFail(store.addTransfer(transfer2).failOnShutdown)("add2 failed")
+          _ <- valueOrFail(store.addTransfer(transfer3).failOnShutdown)("add3 failed")
           lookup <- store.find(None, Some(CantonTimestamp.Epoch.plusMillis(200L)), None, 10)
         } yield {
           assert(lookup.toList == List(transfer2))
@@ -188,8 +188,8 @@ trait TransferStoreTest {
             TransferId(sourceDomain2, CantonTimestamp.ofEpochMilli(200L)),
             mediator2,
           )
-          _ <- valueOrFail(store.addTransfer(transfer1))("add1 failed")
-          _ <- valueOrFail(store.addTransfer(transfer2))("add2 failed")
+          _ <- valueOrFail(store.addTransfer(transfer1).failOnShutdown)("add1 failed")
+          _ <- valueOrFail(store.addTransfer(transfer2).failOnShutdown)("add2 failed")
           lookup <- store.find(Some(sourceDomain2), None, None, 10)
         } yield {
           assert(lookup.toList == List(transfer2))
@@ -201,9 +201,9 @@ trait TransferStoreTest {
           transferData10 <- mkTransferData(transfer10, mediator1)
           transferData11 <- mkTransferData(transfer11, mediator1)
           transferData20 <- mkTransferData(transfer20, mediator2)
-          _ <- valueOrFail(store.addTransfer(transferData10))("first add failed")
-          _ <- valueOrFail(store.addTransfer(transferData11))("second add failed")
-          _ <- valueOrFail(store.addTransfer(transferData20))("third add failed")
+          _ <- valueOrFail(store.addTransfer(transferData10).failOnShutdown)("first add failed")
+          _ <- valueOrFail(store.addTransfer(transferData11).failOnShutdown)("second add failed")
+          _ <- valueOrFail(store.addTransfer(transferData20).failOnShutdown)("third add failed")
           lookup <- store.find(None, None, None, 2)
         } yield {
           assert(lookup.length == 2)
@@ -237,10 +237,10 @@ trait TransferStoreTest {
             mediator2,
             LfPartyId.assertFromString("party2"),
           )
-          _ <- valueOrFail(store.addTransfer(transfer1))("first add failed")
-          _ <- valueOrFail(store.addTransfer(transfer2))("second add failed")
-          _ <- valueOrFail(store.addTransfer(transfer3))("third add failed")
-          _ <- valueOrFail(store.addTransfer(transfer4))("fourth add failed")
+          _ <- valueOrFail(store.addTransfer(transfer1).failOnShutdown)("first add failed")
+          _ <- valueOrFail(store.addTransfer(transfer2).failOnShutdown)("second add failed")
+          _ <- valueOrFail(store.addTransfer(transfer3).failOnShutdown)("third add failed")
+          _ <- valueOrFail(store.addTransfer(transfer4).failOnShutdown)("fourth add failed")
           lookup <- store.find(
             Some(sourceDomain2),
             Some(CantonTimestamp.Epoch.plusMillis(200L)),
@@ -277,10 +277,10 @@ trait TransferStoreTest {
           mediator2,
           LfPartyId.assertFromString("party2"),
         )
-        _ <- valueOrFail(store.addTransfer(transfer1))("first add failed")
-        _ <- valueOrFail(store.addTransfer(transfer2))("second add failed")
-        _ <- valueOrFail(store.addTransfer(transfer3))("third add failed")
-        _ <- valueOrFail(store.addTransfer(transfer4))("fourth add failed")
+        _ <- valueOrFail(store.addTransfer(transfer1).failOnShutdown)("first add failed")
+        _ <- valueOrFail(store.addTransfer(transfer2).failOnShutdown)("second add failed")
+        _ <- valueOrFail(store.addTransfer(transfer3).failOnShutdown)("third add failed")
+        _ <- valueOrFail(store.addTransfer(transfer4).failOnShutdown)("fourth add failed")
       } yield (List(transfer1, transfer2, transfer3, transfer4))
 
       "order pending transfers" in {
@@ -388,7 +388,7 @@ trait TransferStoreTest {
 
         for {
           _ <- valueOrFail(MonadUtil.sequentialTraverse_(data) { case (_, transferData) =>
-            store.addTransfer(transferData)
+            store.addTransfer(transferData).failOnShutdown
           })("add transfers")
 
           offsets = data.map { case (offset, transferData) =>
@@ -425,7 +425,7 @@ trait TransferStoreTest {
       "be idempotent" in {
         val store = mk(targetDomain)
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add")
 
           _ <- store
             .addTransfersOffsets(Map(transferId -> transferOutOffset))
@@ -472,7 +472,7 @@ trait TransferStoreTest {
         val store = mk(targetDomain)
 
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add")
 
           _ <- store
             .addTransfersOffsets(Map(transferId -> transferOutOffset))
@@ -493,7 +493,7 @@ trait TransferStoreTest {
         val store = mk(targetDomain)
 
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add")
 
           _ <- store
             .addTransfersOffsets(Map(transferId -> transferInOffset))
@@ -514,7 +514,7 @@ trait TransferStoreTest {
         val store = mk(targetDomain)
 
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add")
 
           _ <- store
             .addTransfersOffsets(Map(transferId -> transferOutOffset))
@@ -592,7 +592,7 @@ trait TransferStoreTest {
         val transferInOffset = 20L
 
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
           lookupNoOffset <- store.findIncomplete(None, Long.MaxValue, None, limit)
 
           _ <- store
@@ -659,7 +659,7 @@ trait TransferStoreTest {
         val transferOutOffset = 20L
 
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
           lookupNoOffset <- store.findIncomplete(None, Long.MaxValue, None, limit)
 
           _ <-
@@ -749,7 +749,7 @@ trait TransferStoreTest {
           incompleteTransfers.map(_.contract.metadata.stakeholders)
 
         for {
-          _ <- valueOrFail(addTransfersET)("add failed")
+          _ <- valueOrFail(addTransfersET.failOnShutdown)("add failed")
 
           lookupNone <- store.findIncomplete(None, transferOutOffset, None, limit)
           lookupAll <- store.findIncomplete(
@@ -777,7 +777,7 @@ trait TransferStoreTest {
           transferData.copy(transferGlobalOffset = Some(TransferInGlobalOffset(offset)))
 
         for {
-          _ <- valueOrFail(store.addTransfer(transfer))("add")
+          _ <- valueOrFail(store.addTransfer(transfer).failOnShutdown)("add")
 
           lookup1a <- store.findIncomplete(Some(sourceDomain2), offset, None, limit) // Wrong domain
           lookup1b <- store.findIncomplete(Some(sourceDomain1), offset, None, limit)
@@ -794,7 +794,7 @@ trait TransferStoreTest {
         val offset = 42L
 
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add")
           _ <- store
             .addTransfersOffsets(
               Map(transferData.transferId -> TransferOutGlobalOffset(offset))
@@ -820,7 +820,7 @@ trait TransferStoreTest {
         val transferOutOffset = 10L
         val transferInOffset = 20L
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
 
           _ <- store
             .addTransfersOffsets(Map(transferId -> TransferOutGlobalOffset(transferOutOffset)))
@@ -852,7 +852,7 @@ trait TransferStoreTest {
         val transferInOffset = 20L
 
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
 
           _ <- store
             .addTransfersOffsets(Map(transferId -> TransferInGlobalOffset(transferInOffset)))
@@ -889,8 +889,8 @@ trait TransferStoreTest {
 
         for {
           lookupEmpty <- store.findEarliestIncomplete()
-          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
-          _ <- valueOrFail(store.addTransfer(transferData3))("add failed")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
+          _ <- valueOrFail(store.addTransfer(transferData3).failOnShutdown)("add failed")
 
           lookupAllInFlight <- store.findEarliestIncomplete()
 
@@ -945,9 +945,9 @@ trait TransferStoreTest {
         val transferInOffset3 = 35L
 
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
-          _ <- valueOrFail(store.addTransfer(transferData2))("add failed")
-          _ <- valueOrFail(store.addTransfer(transferData3))("add failed")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
+          _ <- valueOrFail(store.addTransfer(transferData2).failOnShutdown)("add failed")
+          _ <- valueOrFail(store.addTransfer(transferData3).failOnShutdown)("add failed")
 
           _ <- store
             .addTransfersOffsets(Map(transferId1 -> TransferInGlobalOffset(transferInOffset1)))
@@ -993,8 +993,8 @@ trait TransferStoreTest {
       "be idempotent" in {
         val store = mk(targetDomain)
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("first add failed")
-          _ <- valueOrFail(store.addTransfer(transferData))("second add failed")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("first add failed")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("second add failed")
         } yield succeed
       }
 
@@ -1010,8 +1010,8 @@ trait TransferStoreTest {
         val transferDataModified = transferData.copy(contract = modifiedContract)
 
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("first add failed")
-          add2 <- store.addTransfer(transferDataModified).value
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("first add failed")
+          add2 <- store.addTransfer(transferDataModified).failOnShutdown.value
         } yield assert(
           add2 == Left(TransferDataAlreadyExists(transferData, transferDataModified)),
           "second add failed",
@@ -1021,10 +1021,14 @@ trait TransferStoreTest {
       "handle transfer-out results" in {
         val store = mk(targetDomain)
         for {
-          _ <- valueOrFail(store.addTransfer(withTransferOutResult))("first add failed")
-          _ <- valueOrFail(store.addTransfer(transferData))("second add failed")
+          _ <- valueOrFail(store.addTransfer(withTransferOutResult).failOnShutdown)(
+            "first add failed"
+          )
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("second add failed")
           lookup2 <- valueOrFail(store.lookup(transfer10))("TransferOutResult missing")
-          _ <- valueOrFail(store.addTransfer(withTransferOutResult))("third add failed")
+          _ <- valueOrFail(store.addTransfer(withTransferOutResult).failOnShutdown)(
+            "third add failed"
+          )
         } yield assert(lookup2 == withTransferOutResult, "TransferOutResult remains")
       }
 
@@ -1034,9 +1038,9 @@ trait TransferStoreTest {
           transferData10 <- mkTransferData(transfer10, mediator1)
           transferData11 <- mkTransferData(transfer11, mediator1)
           transferData20 <- mkTransferData(transfer20, mediator2)
-          _ <- valueOrFail(store.addTransfer(transferData10))("first add failed")
-          _ <- valueOrFail(store.addTransfer(transferData11))("second add failed")
-          _ <- valueOrFail(store.addTransfer(transferData20))("third add failed")
+          _ <- valueOrFail(store.addTransfer(transferData10).failOnShutdown)("first add failed")
+          _ <- valueOrFail(store.addTransfer(transferData11).failOnShutdown)("second add failed")
+          _ <- valueOrFail(store.addTransfer(transferData20).failOnShutdown)("third add failed")
           lookup10 <- valueOrFail(store.lookup(transfer10))("first transfer not found")
           lookup11 <- valueOrFail(store.lookup(transfer11))("second transfer not found")
           lookup20 <- valueOrFail(store.lookup(transfer20))("third transfer not found")
@@ -1061,15 +1065,17 @@ trait TransferStoreTest {
       "report missing transfers" in {
         val store = mk(targetDomain)
         for {
-          missing <- store.addTransferOutResult(transferOutResult).value
+          missing <- store.addTransferOutResult(transferOutResult).failOnShutdown.value
         } yield missing shouldBe Left(UnknownTransferId(transfer10))
       }
 
       "add the result" in {
         val store = mk(targetDomain)
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
-          _ <- valueOrFail(store.addTransferOutResult(transferOutResult))("addResult failed")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
+          _ <- valueOrFail(store.addTransferOutResult(transferOutResult).failOnShutdown)(
+            "addResult failed"
+          )
           lookup <- valueOrFail(store.lookup(transfer10))("transfer not found")
         } yield assert(
           lookup == transferData.copy(transferOutResult = Some(transferOutResult)),
@@ -1086,9 +1092,11 @@ trait TransferStoreTest {
           )
         )
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
-          _ <- valueOrFail(store.addTransferOutResult(transferOutResult))("addResult failed")
-          modified <- store.addTransferOutResult(modifiedTransferOutResult).value
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
+          _ <- valueOrFail(store.addTransferOutResult(transferOutResult).failOnShutdown)(
+            "addResult failed"
+          )
+          modified <- store.addTransferOutResult(modifiedTransferOutResult).failOnShutdown.value
           lookup <- valueOrFail(store.lookup(transfer10))("transfer not found")
         } yield {
           assert(
@@ -1113,8 +1121,10 @@ trait TransferStoreTest {
       "mark the transfer as completed" in {
         val store = mk(targetDomain)
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
-          _ <- valueOrFail(store.addTransferOutResult(transferOutResult))("addResult failed")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
+          _ <- valueOrFail(store.addTransferOutResult(transferOutResult).failOnShutdown)(
+            "addResult failed"
+          )
           _ <- valueOrFail(store.completeTransfer(transfer10, toc))("completion failed")
           lookup <- store.lookup(transfer10).value
         } yield lookup shouldBe Left(TransferCompleted(transfer10, toc))
@@ -1123,8 +1133,10 @@ trait TransferStoreTest {
       "be idempotent" in {
         val store = mk(targetDomain)
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
-          _ <- valueOrFail(store.addTransferOutResult(transferOutResult))("addResult failed")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
+          _ <- valueOrFail(store.addTransferOutResult(transferOutResult).failOnShutdown)(
+            "addResult failed"
+          )
           _ <- valueOrFail(store.completeTransfer(transfer10, toc))("first completion failed")
           _ <- valueOrFail(store.completeTransfer(transfer10, toc))("second completion failed")
         } yield succeed
@@ -1133,10 +1145,12 @@ trait TransferStoreTest {
       "be allowed before the result" in {
         val store = mk(targetDomain)
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
           _ <- valueOrFail(store.completeTransfer(transfer10, toc))("first completion failed")
           lookup1 <- store.lookup(transfer10).value
-          _ <- valueOrFail(store.addTransferOutResult(transferOutResult))("addResult failed")
+          _ <- valueOrFail(store.addTransferOutResult(transferOutResult).failOnShutdown)(
+            "addResult failed"
+          )
           lookup2 <- store.lookup(transfer10).value
           _ <- valueOrFail(store.completeTransfer(transfer10, toc))("second completion failed")
         } yield {
@@ -1157,12 +1171,14 @@ trait TransferStoreTest {
         )
 
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
-          _ <- valueOrFail(store.addTransferOutResult(transferOutResult))("addResult failed")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
+          _ <- valueOrFail(store.addTransferOutResult(transferOutResult).failOnShutdown)(
+            "addResult failed"
+          )
           _ <- valueOrFail(store.completeTransfer(transfer10, toc))("first completion failed")
           complete2 <- store.completeTransfer(transfer10, toc2).value
-          add2 <- store.addTransfer(modifiedTransferData).value
-          addResult2 <- store.addTransferOutResult(modifiedTransferOutResult).value
+          add2 <- store.addTransfer(modifiedTransferData).failOnShutdown.value
+          addResult2 <- store.addTransferOutResult(modifiedTransferOutResult).failOnShutdown.value
         } yield {
           complete2 shouldBe Checked.continue(TransferAlreadyCompleted(transfer10, toc2))
           add2 shouldBe Left(TransferDataAlreadyExists(withTransferOutResult, modifiedTransferData))
@@ -1176,8 +1192,10 @@ trait TransferStoreTest {
         val store = mk(targetDomain)
         val toc2 = TimeOfChange(RequestCounter(1), CantonTimestamp.ofEpochSecond(4))
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
-          _ <- valueOrFail(store.addTransferOutResult(transferOutResult))("addResult failed")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
+          _ <- valueOrFail(store.addTransferOutResult(transferOutResult).failOnShutdown)(
+            "addResult failed"
+          )
           _ <- valueOrFail(store.completeTransfer(transfer10, toc2))("later completion failed")
           complete2 <- store.completeTransfer(transfer10, toc).value
           lookup <- store.lookup(transfer10).value
@@ -1193,8 +1211,10 @@ trait TransferStoreTest {
       "remove the transfer" in {
         val store = mk(targetDomain)
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
-          _ <- valueOrFail(store.addTransferOutResult(transferOutResult))("addResult failed")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
+          _ <- valueOrFail(store.addTransferOutResult(transferOutResult).failOnShutdown)(
+            "addResult failed"
+          )
           _ <- store.deleteTransfer(transfer10)
           lookup <- store.lookup(transfer10).value
         } yield lookup shouldBe Left(UnknownTransferId(transfer10))
@@ -1203,8 +1223,10 @@ trait TransferStoreTest {
       "purge completed transfers" in {
         val store = mk(targetDomain)
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
-          _ <- valueOrFail(store.addTransferOutResult(transferOutResult))("addResult failed")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
+          _ <- valueOrFail(store.addTransferOutResult(transferOutResult).failOnShutdown)(
+            "addResult failed"
+          )
           _ <- valueOrFail(store.completeTransfer(transfer10, toc))("completion failed")
           _ <- store.deleteTransfer(transfer10)
         } yield succeed
@@ -1220,7 +1242,7 @@ trait TransferStoreTest {
       "be idempotent" in {
         val store = mk(targetDomain)
         for {
-          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
+          _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
           () <- store.deleteTransfer(transfer10)
           () <- store.deleteTransfer(transfer10)
         } yield succeed
@@ -1231,7 +1253,7 @@ trait TransferStoreTest {
       val storeTarget = mk(targetDomain)
       val store1 = mk(TargetDomainId(sourceDomain1.unwrap))
       for {
-        _ <- valueOrFail(storeTarget.addTransfer(transferData))("add failed")
+        _ <- valueOrFail(storeTarget.addTransfer(transferData).failOnShutdown)("add failed")
         found <- store1.lookup(transferData.transferId).value
       } yield found shouldBe Left(UnknownTransferId(transferData.transferId))
     }
@@ -1247,9 +1269,9 @@ trait TransferStoreTest {
             mkTransferData(transfer10, mediator1, LfPartyId.assertFromString("alice"))
           bobTransfer <- mkTransferData(transfer11, mediator1, LfPartyId.assertFromString("bob"))
           eveTransfer <- mkTransferData(transfer20, mediator2, LfPartyId.assertFromString("eve"))
-          _ <- valueOrFail(store.addTransfer(aliceTransfer))("add alice failed")
-          _ <- valueOrFail(store.addTransfer(bobTransfer))("add bob failed")
-          _ <- valueOrFail(store.addTransfer(eveTransfer))("add eve failed")
+          _ <- valueOrFail(store.addTransfer(aliceTransfer).failOnShutdown)("add alice failed")
+          _ <- valueOrFail(store.addTransfer(bobTransfer).failOnShutdown)("add bob failed")
+          _ <- valueOrFail(store.addTransfer(eveTransfer).failOnShutdown)("add eve failed")
           _ <- valueOrFail(store.completeTransfer(transfer10, toc))("completion alice failed")
           _ <- valueOrFail(store.completeTransfer(transfer11, toc1))("completion bob failed")
           _ <- valueOrFail(store.completeTransfer(transfer20, toc2))("completion eve failed")
