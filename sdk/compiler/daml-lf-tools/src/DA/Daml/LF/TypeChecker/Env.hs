@@ -192,14 +192,14 @@ instance SomeErrorOrWarning WarnableError where
         ctx <- view $ getter . locCtx
         modify' (WContext ctx (WErrorToWarning err) :)
        else do
-        undefined
+        throwWithContextFRaw getter (EWarnableError err)
 
 instance SomeErrorOrWarning Warning where
   diagnosticWithContextF getter warning = do
     shouldSwap <- getDiagnosticSwapIndicatorF getter
     if shouldSwap (Right warning)
        then do
-        undefined
+        throwWithContextFRaw getter (EWarnableError (EWarningToError warning))
        else do
         ctx <- view $ getter . locCtx
         modify' (WContext ctx warning :)

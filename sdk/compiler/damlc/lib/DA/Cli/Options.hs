@@ -573,8 +573,8 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
         <> help "Set path to CPP."
         <> internal
 
-optWarnBadInterfaceInstances :: Parser WarnBadInterfaceInstances
-optWarnBadInterfaceInstances =
+warnBadInterfaceInstancesOpt :: Parser WarnBadInterfaceInstances
+warnBadInterfaceInstancesOpt =
   WarnBadInterfaceInstances <$>
   flagYesNoAuto
     "warn-bad-interface-instances"

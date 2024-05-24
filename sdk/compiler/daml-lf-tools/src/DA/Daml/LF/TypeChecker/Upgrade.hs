@@ -62,8 +62,8 @@ runGammaUnderUpgrades Upgrading{ _past = pastAction, _present = presentAction } 
     presentResult <- withReaderT _present presentAction
     pure Upgrading { _past = pastResult, _present = presentResult }
 
-checkUpgrade :: Version -> Bool -> LF.Package -> Maybe (LF.PackageId, LF.Package) -> WarnBadInterfaceInstances -> [Diagnostic]
-checkUpgrade version shouldTypecheckUpgrades presentPkg mbUpgradedPackage warnBadInterfaceInstances =
+checkUpgrade :: Version -> Bool -> WarnBadInterfaceInstances -> LF.Package -> Maybe (LF.PackageId, LF.Package) -> [Diagnostic]
+checkUpgrade version shouldTypecheckUpgrades warnBadInterfaceInstances presentPkg mbUpgradedPackage =
     let bothPkgDiagnostics :: Either Error ((), [Warning])
         bothPkgDiagnostics =
             case mbUpgradedPackage of

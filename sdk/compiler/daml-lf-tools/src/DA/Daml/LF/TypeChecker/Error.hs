@@ -207,6 +207,7 @@ data WarnableError
   = EUpgradeShouldDefineIfacesAndTemplatesSeparately
   | EUpgradeShouldDefineIfaceWithoutImplementation !TypeConName ![TypeConName]
   | EUpgradeShouldDefineTplInSeparatePackage !TypeConName !TypeConName
+  | EWarningToError !Warning
   deriving (Show)
 
 instance Pretty WarnableError where
@@ -228,6 +229,7 @@ instance Pretty WarnableError where
         [ "The template " <> pPrint tpl <> " has implemented interface " <> pPrint iface <> ", which is defined in a previous version of this package."
         , "However, it is recommended that interfaces are defined in their own package separate from their implementations."
         ]
+    EWarningToError warning -> pPrint warning
 
 data UpgradedRecordOrigin
   = TemplateBody TypeConName
