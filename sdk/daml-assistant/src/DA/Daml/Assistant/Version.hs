@@ -457,9 +457,6 @@ resolveReleaseVersionFromDamlPath damlPath targetVersion = do
           unwrapUnresolvedReleaseVersion targetVersion == releaseVersionFromReleaseVersion releaseVersion
   resolvedVersions <- getInstalledSdkVersions damlPath
   let matching = find isMatchingVersion resolvedVersions
-  case matching of
-    Just _ -> putStrLn "Got a version via daml path"
-    Nothing -> pure ()
   pure matching
 
 resolveSdkVersionFromDamlPath :: DamlPath -> SdkVersion -> IO (Maybe ReleaseVersion)
@@ -468,9 +465,6 @@ resolveSdkVersionFromDamlPath damlPath targetSdkVersion = do
           targetSdkVersion == sdkVersionFromReleaseVersion releaseVersion
   resolvedVersions <- getInstalledSdkVersions damlPath
   let matching = find isMatchingVersion resolvedVersions
-  case matching of
-    Just _ -> putStrLn "Got a version via daml path"
-    Nothing -> pure ()
   pure matching
 
 -- | Subset of the github release response that we care about
