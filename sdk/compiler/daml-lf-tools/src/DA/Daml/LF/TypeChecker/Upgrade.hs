@@ -10,7 +10,7 @@ module DA.Daml.LF.TypeChecker.Upgrade (
 
 import           Control.DeepSeq
 import           Control.Monad (unless, forM_, when)
-import           Control.Monad.Reader (withReaderT)
+import           Control.Monad.Reader (withReaderT, local)
 import           Control.Lens hiding (Context)
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Ast.Alpha (alphaExpr, alphaType)
@@ -64,7 +64,17 @@ runGammaUnderUpgrades Upgrading{ _past = pastAction, _present = presentAction } 
 
 checkUpgrade :: Version -> Bool -> WarnBadInterfaceInstances -> LF.Package -> Maybe (LF.PackageId, LF.Package) -> [Diagnostic]
 checkUpgrade version shouldTypecheckUpgrades warnBadInterfaceInstances presentPkg mbUpgradedPackage =
-    let bothPkgDiagnostics :: Either Error ((), [Warning])
+    let addBadIfaceSwapIndicator :: Gamma -> Gamma
+        addBadIfaceSwapIndicator =
+            if getWarnBadInterfaceInstances warnBadInterfaceInstances
+            then
+                addDiagnosticSwapIndicator (\case
+                    Left WEUpgradeShouldDefineIfaceWithoutImplementation {} -> Just True
+                    Left WEUpgradeShouldDefineTplInSeparatePackage {} -> Just True
+                    Left WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> Just True
+                    _ -> Nothing)
+            else id
+        bothPkgDiagnostics :: Either Error ((), [Warning])
         bothPkgDiagnostics =
             case mbUpgradedPackage of
                 Nothing ->
@@ -72,15 +82,7 @@ checkUpgrade version shouldTypecheckUpgrades warnBadInterfaceInstances presentPk
                 Just (_, pastPkg) ->
                     let package = Upgrading { _past = pastPkg, _present = presentPkg }
                         initWorldFromPackage package =
-                            emptyGamma (initWorldSelf [] package) version &
-                                if getWarnBadInterfaceInstances warnBadInterfaceInstances
-                                then
-                                    addDiagnosticSwapIndicator (\case
-                                        Left EUpgradeShouldDefineIfaceWithoutImplementation {} -> Just True
-                                        Left EUpgradeShouldDefineTplInSeparatePackage {} -> Just True
-                                        Left EUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> Just True
-                                        _ -> Nothing)
-                                else id
+                            addBadIfaceSwapIndicator $ emptyGamma (initWorldSelf [] package) version
                         upgradingWorld = fmap initWorldFromPackage package
                     in
                     runGammaF upgradingWorld $ do
@@ -91,8 +93,9 @@ checkUpgrade version shouldTypecheckUpgrades warnBadInterfaceInstances presentPk
             let world = initWorldSelf [] presentPkg
             in
             runGamma world version $ do
-                 checkNewInterfacesHaveNoTemplates presentPkg
-                 checkNewInterfacesAreUnused presentPkg
+                local addBadIfaceSwapIndicator $ do
+                    checkNewInterfacesAreUnused presentPkg
+                    checkNewInterfacesHaveNoTemplates presentPkg
 
         extractDiagnostics :: Either Error ((), [Warning]) -> [Diagnostic]
         extractDiagnostics result =
@@ -297,14 +300,14 @@ checkNewInterfacesHaveNoTemplates presentPkg =
     in
     forM_ (HMS.toList templateAndInterfaceDefined) $ \(_, (module_, _)) ->
         withContext (ContextDefModule module_) $
-            diagnosticWithContext EUpgradeShouldDefineIfacesAndTemplatesSeparately
+            diagnosticWithContext WEUpgradeShouldDefineIfacesAndTemplatesSeparately
 
 -- This warning should run even when no upgrade target is set
 checkNewInterfacesAreUnused :: LF.Package -> TcM ()
 checkNewInterfacesAreUnused presentPkg =
     forM_ definedAndInstantiated $ \((module_, iface), implementations) ->
         withContext (ContextDefInterface module_ iface IPWhole) $
-            diagnosticWithContext $ EUpgradeShouldDefineIfaceWithoutImplementation (NM.name iface) ((\(_,a,_) -> NM.name a) <$> implementations)
+            diagnosticWithContext $ WEUpgradeShouldDefineIfaceWithoutImplementation (NM.name iface) ((\(_,a,_) -> NM.name a) <$> implementations)
     where
     definedIfaces :: HMS.HashMap (LF.Qualified LF.TypeConName) (Module, DefInterface)
     definedIfaces = HMS.unions
@@ -332,7 +335,7 @@ checkUpgradedInterfacesAreUnused package module_ newInstances = do
                 ifaceInstanceHead = InterfaceInstanceHead ifaceName qualifiedTplName
             in
             withContextF present (ContextTemplate module_ tpl (TPInterfaceInstance ifaceInstanceHead Nothing)) $
-                diagnosticWithContextF present $ EUpgradeShouldDefineTplInSeparatePackage (NM.name tpl) (LF.qualObject (NM.name implementation))
+                diagnosticWithContextF present $ WEUpgradeShouldDefineTplInSeparatePackage (NM.name tpl) (LF.qualObject (NM.name implementation))
     where
     fromUpgradedPackage :: forall a. LF.Qualified a -> Bool
     fromUpgradedPackage identifier =

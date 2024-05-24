@@ -204,32 +204,32 @@ data UnwarnableError
   deriving (Show)
 
 data WarnableError
-  = EUpgradeShouldDefineIfacesAndTemplatesSeparately
-  | EUpgradeShouldDefineIfaceWithoutImplementation !TypeConName ![TypeConName]
-  | EUpgradeShouldDefineTplInSeparatePackage !TypeConName !TypeConName
-  | EWarningToError !Warning
+  = WEUpgradeShouldDefineIfacesAndTemplatesSeparately
+  | WEUpgradeShouldDefineIfaceWithoutImplementation !TypeConName ![TypeConName]
+  | WEUpgradeShouldDefineTplInSeparatePackage !TypeConName !TypeConName
+  | WEWarningToError !Warning
   deriving (Show)
 
 instance Pretty WarnableError where
   pPrint = \case
-    EUpgradeShouldDefineIfacesAndTemplatesSeparately ->
+    WEUpgradeShouldDefineIfacesAndTemplatesSeparately ->
       vsep
         [ "This package defines both interfaces and templates."
         , "This is not recommended - templates are upgradeable, but interfaces are not, which means that this version of the package and its templates can never be uninstalled."
         , "It is recommended that interfaces are defined in their own package separate from their implementations."
         ]
-    EUpgradeShouldDefineIfaceWithoutImplementation iface implementingTemplates ->
+    WEUpgradeShouldDefineIfaceWithoutImplementation iface implementingTemplates ->
       vsep $ concat
         [ [ "The interface " <> pPrint iface <> " was defined in this package and implemented in this package by the following templates:" ]
         , map (quotes . pPrint) implementingTemplates
         , [ "However, it is recommended that interfaces are defined in their own package separate from their implementations." ]
         ]
-    EUpgradeShouldDefineTplInSeparatePackage tpl iface ->
+    WEUpgradeShouldDefineTplInSeparatePackage tpl iface ->
       vsep
         [ "The template " <> pPrint tpl <> " has implemented interface " <> pPrint iface <> ", which is defined in a previous version of this package."
         , "However, it is recommended that interfaces are defined in their own package separate from their implementations."
         ]
-    EWarningToError warning -> pPrint warning
+    WEWarningToError warning -> pPrint warning
 
 data UpgradedRecordOrigin
   = TemplateBody TypeConName

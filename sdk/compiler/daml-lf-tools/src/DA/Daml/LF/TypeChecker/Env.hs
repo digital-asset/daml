@@ -28,7 +28,7 @@ module DA.Daml.LF.TypeChecker.Env(
     getLfVersion,
     getWorld,
     runGamma, runGammaF,
-    Gamma,
+    Gamma(..),
     emptyGamma,
     SomeErrorOrWarning(..),
     addDiagnosticSwapIndicator,
@@ -199,7 +199,7 @@ instance SomeErrorOrWarning Warning where
     shouldSwap <- getDiagnosticSwapIndicatorF getter
     if shouldSwap (Right warning)
        then do
-        throwWithContextFRaw getter (EWarnableError (EWarningToError warning))
+        throwWithContextFRaw getter (EWarnableError (WEWarningToError warning))
        else do
         ctx <- view $ getter . locCtx
         modify' (WContext ctx warning :)
