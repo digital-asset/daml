@@ -6,7 +6,6 @@ package engine
 package script
 package v2
 
-import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.engine.free.Free
 import com.daml.lf.engine.script.Runner.IdeLedgerContext
@@ -14,9 +13,11 @@ import com.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient => UnversionedScriptLedgerClient
 }
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
+import com.daml.lf.language.LanguageVersionRangeOps._
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
-import com.daml.lf.speedy.{SValue, SExpr, Profile, WarningLog, Speedy, TraceLog}
+import com.daml.lf.speedy._
 import com.daml.script.converter.ConverterException
+import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -28,7 +29,12 @@ private[lf] class Runner(
     profile: Profile = Speedy.Machine.newProfile,
     canceled: () => Option[RuntimeException] = () => None,
 ) {
-  import Free.Result, SExpr.SExpr
+  import Free.Result
+  import SExpr.SExpr
+
+  val scriptF = ScriptF(
+    unversionedRunner.compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion
+  )
 
   private val initialClientsV2 = initialClients.map(
     ScriptLedgerClient.realiseScriptLedgerClient(
@@ -46,7 +52,7 @@ private[lf] class Runner(
       unversionedRunner.extendedCompiledPackages,
     )
 
-  private val knownPackages = ScriptF.KnownPackages(unversionedRunner.knownPackages)
+  private val knownPackages = scriptF.KnownPackages(unversionedRunner.knownPackages)
 
   private val ideLedgerContext: Option[IdeLedgerContext] =
     initialClientsV2.default_participant.collect {
@@ -58,9 +64,9 @@ private[lf] class Runner(
         }
     }
 
-  def remapQ[X](result: Result[X, Free.Question, SExpr]): Result[X, ScriptF.Cmd, SExpr] =
+  def remapQ[X](result: Result[X, Free.Question, SExpr]): Result[X, scriptF.Cmd, SExpr] =
     result.remapQ { case Free.Question(name, version, payload, stackTrace) =>
-      ScriptF.parse(name, version, payload, knownPackages) match {
+      scriptF.parse(name, version, payload, knownPackages) match {
         case Right(cmd) =>
           Result.Ask(
             cmd,
@@ -95,7 +101,7 @@ private[lf] class Runner(
         profile,
         Script.DummyLoggingContext,
       )
-    ).runF[ScriptF.Cmd, SExpr](
+    ).runF[scriptF.Cmd, SExpr](
       _.executeWithRunner(env, this)
         .map(Result.successful)
         .recover { case err: RuntimeException => Result.failed(err) },

@@ -10,7 +10,6 @@ import com.daml.ledger.api.v1.value
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageMajorVersion.{V1, V2}
 import com.daml.lf.language.{LanguageMajorVersion, StablePackages}
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
@@ -23,8 +22,8 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.script.converter.ConverterException
 import io.grpc.StatusRuntimeException
-import scalaz.std.list._
 import scalaz.std.either._
+import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.vector._
 import scalaz.syntax.traverse._
@@ -73,16 +72,16 @@ final case class AnyContractKey(templateId: Identifier, ty: Type, key: SValue)
 final case class Disclosure(templatedId: TypeConName, contractId: ContractId, blob: Bytes)
 
 object Converter {
-  def apply(majorLanguageVersion: LanguageMajorVersion): ConverterMethods = {
-    majorLanguageVersion match {
-      case V1 => com.daml.lf.engine.script.v1.Converter
-      case V2 => com.daml.lf.engine.script.v2.Converter
-    }
-  }
+  private val converters = LanguageMajorVersion.All.map(v => v -> new Converter(v)).toMap
+
+  def apply(majorLanguageVersion: LanguageMajorVersion): Converter =
+    converters(majorLanguageVersion)
 }
 
-abstract class ConverterMethods(stablePackages: StablePackages) {
+class Converter(majorLanguageVersion: LanguageMajorVersion) {
   import com.daml.script.converter.Converter._
+
+  val stablePackages = StablePackages(majorLanguageVersion)
 
   private def toNonEmptySet[A](as: OneAnd[FrontStack, A]): OneAnd[Set, A] = {
     import scalaz.syntax.foldable._
@@ -553,4 +552,10 @@ abstract class ConverterMethods(stablePackages: StablePackages) {
       "Explicit disclosures not supported",
     )
   )
+
+  def makeTuple(v1: SValue, v2: SValue): SValue =
+    record(stablePackages.Tuple2, ("_1", v1), ("_2", v2))
+
+  def makeTuple(v1: SValue, v2: SValue, v3: SValue): SValue =
+    record(stablePackages.Tuple3, ("_1", v1), ("_2", v2), ("_3", v3))
 }

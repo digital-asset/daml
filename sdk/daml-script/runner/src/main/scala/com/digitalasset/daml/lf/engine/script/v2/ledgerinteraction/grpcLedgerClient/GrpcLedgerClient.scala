@@ -5,10 +5,6 @@ package com.daml.lf.engine.script
 package v2.ledgerinteraction
 package grpcLedgerClient
 
-import java.time.Instant
-import java.util.UUID
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Sink
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.daml.ledger.api.domain.{User, UserRight}
@@ -18,26 +14,20 @@ import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.event.{CreatedEvent, InterfaceView}
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeServiceStub
 import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
-import com.daml.ledger.api.v1.transaction_filter.{
-  Filters,
-  InclusiveFilters,
-  InterfaceFilter,
-  TemplateFilter,
-  TransactionFilter,
-}
+import com.daml.ledger.api.v1.transaction_filter._
 import com.daml.ledger.api.v1.{value => api}
 import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.ledger.client.LedgerClient
-import com.daml.lf.CompiledPackages
-import com.daml.lf.command
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.engine.script.v2.Converter
+import com.daml.lf.language.LanguageVersionRangeOps._
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.speedy.{SValue, svalue}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
+import com.daml.lf.{CompiledPackages, command}
 import com.daml.platform.participant.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue,
@@ -46,6 +36,8 @@ import com.daml.platform.participant.util.LfEngineToApi.{
 }
 import com.daml.script.converter.ConverterException
 import io.grpc.{Status, StatusRuntimeException}
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Sink
 import scalaz.OneAnd
 import scalaz.OneAnd._
 import scalaz.std.either._
@@ -54,6 +46,8 @@ import scalaz.std.set._
 import scalaz.syntax.foldable._
 import scalaz.syntax.tag._
 
+import java.time.Instant
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcLedgerClient(
@@ -64,6 +58,11 @@ class GrpcLedgerClient(
     val compiledPackages: CompiledPackages,
 ) extends ScriptLedgerClient {
   override val transport = "gRPC API"
+
+  private val majorLanguageVersion =
+    compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion
+  private val converter = Converter(majorLanguageVersion)
+  private val grpcErrorParser = GrpcErrorParser(majorLanguageVersion)
 
   override def query(
       parties: OneAnd[Set, Ref.Party],
@@ -162,7 +161,7 @@ class GrpcLedgerClient(
           val blob =
             Bytes.fromByteString(createdEvent.createdEventBlob)
           val disclosureTemplateId =
-            Converter
+            converter
               .fromApiIdentifier(
                 createdEvent.templateId.getOrElse(
                   throw new ConverterException("missing required template_id in CreatedEvent")
@@ -272,7 +271,7 @@ class GrpcLedgerClient(
     for {
       activeContracts <- queryWithKey(parties, templateId)
       speedyContracts <- activeContracts.traverse { case (t, kOpt) =>
-        Converter.toFuture(kOpt.traverse(translateKey(templateId, _)).map(k => (t, k)))
+        converter.toFuture(kOpt.traverse(translateKey(templateId, _)).map(k => (t, k)))
       }
     } yield {
       // Note that the Equal instance on Value performs structural equality
@@ -312,7 +311,7 @@ class GrpcLedgerClient(
       }
     val resultFuture =
       for {
-        ledgerCommands <- Converter.toFuture(commands.traverse(toCommand(_)))
+        ledgerCommands <- converter.toFuture(commands.traverse(toCommand(_)))
         // We need to remember the original package ID for each command result, so we can reapply them
         // after we get the results (for upgrades)
         commandResultPackageIds = commands.flatMap(toCommandPackageIds(_))
@@ -331,8 +330,8 @@ class GrpcLedgerClient(
         request = SubmitAndWaitRequest(Some(apiCommands))
         resp <- grpcClient.commandServiceClient
           .submitAndWaitForTransactionTree(request)
-        tree <- Converter.toFuture(
-          Converter.fromTransactionTree(resp.getTransaction, commandResultPackageIds)
+        tree <- converter.toFuture(
+          converter.fromTransactionTree(resp.getTransaction, commandResultPackageIds)
         )
         results = ScriptLedgerClient.transactionTreeToCommandResults(tree)
       } yield Right((results, tree))
@@ -342,7 +341,7 @@ class GrpcLedgerClient(
           Left(
             ScriptLedgerClient.SubmitFailure(
               s,
-              GrpcErrorParser.convertStatusRuntimeException(s, keyPackageNameLookup),
+              grpcErrorParser.convertStatusRuntimeException(s, keyPackageNameLookup),
             )
           )
         )

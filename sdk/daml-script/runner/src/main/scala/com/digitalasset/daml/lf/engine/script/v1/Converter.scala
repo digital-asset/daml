@@ -12,22 +12,21 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.engine.script.v1.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.StablePackagesV1
+import com.daml.lf.language.{LanguageMajorVersion, StablePackagesV1}
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{Pretty, SValue, Speedy}
-import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
-import scalaz.std.list._
 import scalaz.std.either._
+import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.syntax.traverse._
 
 import scala.annotation.tailrec
 
-object Converter extends script.ConverterMethods(StablePackagesV1) {
+object Converter extends script.Converter(LanguageMajorVersion.V1) {
   import com.daml.script.converter.Converter._
 
   def translateExerciseResult(
@@ -401,10 +400,5 @@ object Converter extends script.ConverterMethods(StablePackagesV1) {
       }
     }
     iter(freeAp, List())
-  }
-
-  def makePair(v1: SValue, v2: SValue): SValue = {
-    import com.daml.script.converter.Converter.record
-    record(StablePackagesV1.Tuple2, ("_1", v1), ("_2", v2))
   }
 }

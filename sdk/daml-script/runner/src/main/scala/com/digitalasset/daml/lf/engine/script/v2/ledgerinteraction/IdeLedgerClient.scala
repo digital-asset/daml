@@ -7,7 +7,6 @@ package script
 package v2
 package ledgerinteraction
 
-import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails, User, UserRight}
 import com.daml.lf.crypto.Hash.KeyPackageName
@@ -15,26 +14,19 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.interpretation.Error.ContractIdInContractKey
-import com.daml.lf.language.{Ast, LanguageVersion, LookupError, PackageInterface, Reference}
-import com.daml.lf.language.Ast.PackageMetadata
-import com.daml.lf.language.Ast.TTyCon
+import com.daml.lf.language.Ast.{PackageMetadata, TTyCon}
+import com.daml.lf.language.LanguageVersionRangeOps._
+import com.daml.lf.language._
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.Speedy.Machine
-import com.daml.lf.speedy.{Pretty, SError, SValue, TraceLog, WarningLog}
-import com.daml.lf.transaction.{
-  FatContractInstance,
-  GlobalKey,
-  IncompleteTransaction,
-  Node,
-  NodeId,
-  Transaction,
-  TransactionCoder,
-}
+import com.daml.lf.speedy._
+import com.daml.lf.transaction._
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.nonempty.NonEmpty
 import com.daml.logging.LoggingContext
+import com.daml.nonempty.NonEmpty
 import com.daml.platform.localstore.InMemoryUserManagementStore
+import org.apache.pekko.stream.Materializer
 import scalaz.OneAnd
 import scalaz.OneAnd._
 import scalaz.std.set._
@@ -51,6 +43,10 @@ class IdeLedgerClient(
     warningLog: WarningLog,
     canceled: () => Boolean,
 ) extends ScriptLedgerClient {
+  val submitErrors = new SubmitErrors(
+    originalCompiledPackages.compilerConfig.allowedLanguageVersions.majorVersion
+  )
+
   override def transport = "script service"
 
   private val nextSeed: () => crypto.Hash =
@@ -312,49 +308,49 @@ class IdeLedgerClient(
     import interpretation.Error._
     err match {
       // TODO[SW]: This error isn't yet fully implemented, so remains unknown. Convert to a `dev` error once the feature is supported in IDELedger.
-      case e: RejectedAuthorityRequest => SubmitError.UnknownError(e.toString)
+      case e: RejectedAuthorityRequest => submitErrors.UnknownError(e.toString)
       case ContractNotFound(cid) =>
-        SubmitError.ContractNotFound(
+        submitErrors.ContractNotFound(
           NonEmpty(Seq, cid),
-          Some(SubmitError.ContractNotFound.AdditionalInfo.NotFound()),
+          Some(submitErrors.ContractNotFound.AdditionalInfo.NotFound()),
         )
-      case ContractKeyNotFound(key) => SubmitError.ContractKeyNotFound(key)
+      case ContractKeyNotFound(key) => submitErrors.ContractKeyNotFound(key)
       case e: FailedAuthorization =>
-        SubmitError.AuthorizationError(Pretty.prettyDamlException(e).renderWideStream.mkString)
+        submitErrors.AuthorizationError(Pretty.prettyDamlException(e).renderWideStream.mkString)
       case ContractNotActive(cid, tid, _) =>
-        SubmitError.ContractNotFound(
+        submitErrors.ContractNotFound(
           NonEmpty(Seq, cid),
-          Some(SubmitError.ContractNotFound.AdditionalInfo.NotActive(cid, tid)),
+          Some(submitErrors.ContractNotFound.AdditionalInfo.NotActive(cid, tid)),
         )
       case DisclosedContractKeyHashingError(cid, key, hash) =>
-        SubmitError.DisclosedContractKeyHashingError(cid, key, hash.toString)
+        submitErrors.DisclosedContractKeyHashingError(cid, key, hash.toString)
       // Hide not visible as not found
       case ContractKeyNotVisible(_, key, _, _, _) =>
-        SubmitError.ContractKeyNotFound(key)
-      case DuplicateContractKey(key) => SubmitError.DuplicateContractKey(Some(key))
-      case InconsistentContractKey(key) => SubmitError.InconsistentContractKey(key)
+        submitErrors.ContractKeyNotFound(key)
+      case DuplicateContractKey(key) => submitErrors.DuplicateContractKey(Some(key))
+      case InconsistentContractKey(key) => submitErrors.InconsistentContractKey(key)
       // Only pass on the error if the type is a TTyCon
       case UnhandledException(ty, v) =>
-        SubmitError.UnhandledException(getTypeIdentifier(ty).map(tyId => (tyId, v)))
-      case UserError(msg) => SubmitError.UserError(msg)
-      case _: TemplatePreconditionViolated => SubmitError.TemplatePreconditionViolated()
+        submitErrors.UnhandledException(getTypeIdentifier(ty).map(tyId => (tyId, v)))
+      case UserError(msg) => submitErrors.UserError(msg)
+      case _: TemplatePreconditionViolated => submitErrors.TemplatePreconditionViolated()
       case CreateEmptyContractKeyMaintainers(tid, arg, _) =>
-        SubmitError.CreateEmptyContractKeyMaintainers(tid, arg)
+        submitErrors.CreateEmptyContractKeyMaintainers(tid, arg)
       case FetchEmptyContractKeyMaintainers(tid, keyValue, packageName) =>
-        SubmitError.FetchEmptyContractKeyMaintainers(
+        submitErrors.FetchEmptyContractKeyMaintainers(
           GlobalKey.assertBuild(tid, keyValue, packageName)
         )
-      case WronglyTypedContract(cid, exp, act) => SubmitError.WronglyTypedContract(cid, exp, act)
+      case WronglyTypedContract(cid, exp, act) => submitErrors.WronglyTypedContract(cid, exp, act)
       case ContractDoesNotImplementInterface(iid, cid, tid) =>
-        SubmitError.ContractDoesNotImplementInterface(cid, tid, iid)
+        submitErrors.ContractDoesNotImplementInterface(cid, tid, iid)
       case ContractDoesNotImplementRequiringInterface(requiringIid, requiredIid, cid, tid) =>
-        SubmitError.ContractDoesNotImplementRequiringInterface(cid, tid, requiredIid, requiringIid)
-      case NonComparableValues => SubmitError.NonComparableValues()
-      case ContractIdInContractKey(_) => SubmitError.ContractIdInContractKey()
-      case ContractIdComparability(cid) => SubmitError.ContractIdComparability(cid.toString)
-      case ValueNesting(limit) => SubmitError.ValueNesting(limit)
+        submitErrors.ContractDoesNotImplementRequiringInterface(cid, tid, requiredIid, requiringIid)
+      case NonComparableValues => submitErrors.NonComparableValues()
+      case ContractIdInContractKey(_) => submitErrors.ContractIdInContractKey()
+      case ContractIdComparability(cid) => submitErrors.ContractIdComparability(cid.toString)
+      case ValueNesting(limit) => submitErrors.ValueNesting(limit)
       case e @ Dev(_, innerError) =>
-        SubmitError.DevError(
+        submitErrors.DevError(
           innerError.getClass.getSimpleName,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
@@ -364,50 +360,51 @@ class IdeLedgerClient(
   // Projects the scenario submission error down to the script submission error
   private def fromScenarioError(err: scenario.Error): SubmitError = err match {
     case scenario.Error.RunnerException(e: SError.SErrorCrash) =>
-      SubmitError.UnknownError(e.toString)
+      submitErrors.UnknownError(e.toString)
     case scenario.Error.RunnerException(SError.SErrorDamlException(err)) =>
       fromInterpretationError(err)
 
-    case scenario.Error.Internal(reason) => SubmitError.UnknownError(reason)
-    case scenario.Error.Timeout(timeout) => SubmitError.UnknownError("Timeout: " + timeout)
+    case scenario.Error.Internal(reason) => submitErrors.UnknownError(reason)
+    case scenario.Error.Timeout(timeout) => submitErrors.UnknownError("Timeout: " + timeout)
 
     // We treat ineffective contracts (ie, ones that don't exist yet) as being not found
     case scenario.Error.ContractNotEffective(cid, tid, effectiveAt) =>
-      SubmitError.ContractNotFound(
+      submitErrors.ContractNotFound(
         NonEmpty(Seq, cid),
-        Some(SubmitError.ContractNotFound.AdditionalInfo.NotEffective(cid, tid, effectiveAt)),
+        Some(submitErrors.ContractNotFound.AdditionalInfo.NotEffective(cid, tid, effectiveAt)),
       )
 
     case scenario.Error.ContractNotActive(cid, tid, _) =>
-      SubmitError.ContractNotFound(
+      submitErrors.ContractNotFound(
         NonEmpty(Seq, cid),
-        Some(SubmitError.ContractNotFound.AdditionalInfo.NotActive(cid, tid)),
+        Some(submitErrors.ContractNotFound.AdditionalInfo.NotActive(cid, tid)),
       )
 
     // Similarly, we treat contracts that we can't see as not being found
     case scenario.Error.ContractNotVisible(cid, tid, actAs, readAs, observers) =>
-      SubmitError.ContractNotFound(
+      submitErrors.ContractNotFound(
         NonEmpty(Seq, cid),
         Some(
-          SubmitError.ContractNotFound.AdditionalInfo.NotVisible(cid, tid, actAs, readAs, observers)
+          submitErrors.ContractNotFound.AdditionalInfo
+            .NotVisible(cid, tid, actAs, readAs, observers)
         ),
       )
 
     case scenario.Error.ContractKeyNotVisible(_, key, _, _, _) =>
-      SubmitError.ContractKeyNotFound(key)
+      submitErrors.ContractKeyNotFound(key)
 
     case scenario.Error.CommitError(
           ScenarioLedger.CommitError.UniqueKeyViolation(ScenarioLedger.UniqueKeyViolation(gk))
         ) =>
-      SubmitError.DuplicateContractKey(Some(gk))
+      submitErrors.DuplicateContractKey(Some(gk))
 
     case scenario.Error.LookupError(err, _, _) =>
       // TODO[SW]: Implement proper Lookup error throughout
-      SubmitError.UnknownError("Lookup error: " + err.toString)
+      submitErrors.UnknownError("Lookup error: " + err.toString)
 
     // This covers MustFailSucceeded, InvalidPartyName, PartyAlreadyExists which should not be throwable by a command submission
     // It also covers PartiesNotAllocated.
-    case err => SubmitError.UnknownError("Unexpected error type: " + err.toString)
+    case err => submitErrors.UnknownError("Unexpected error type: " + err.toString)
   }
   // Build a SubmissionError with empty transaction
   private def makeEmptySubmissionError(err: scenario.Error): ScenarioRunner.SubmissionError =
@@ -555,8 +552,8 @@ class IdeLedgerClient(
 
       val eitherSpeedyDisclosures
           : Either[scenario.ScenarioRunner.SubmissionError, ImmArray[speedy.DisclosedContract]] = {
-        import scalaz.syntax.traverse._
         import scalaz.std.either._
+        import scalaz.syntax.traverse._
         for {
           fatContacts <-
             disclosures

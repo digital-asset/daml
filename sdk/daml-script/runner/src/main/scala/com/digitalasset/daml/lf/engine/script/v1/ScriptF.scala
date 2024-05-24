@@ -253,7 +253,7 @@ object ScriptF {
           if (asDisclosure)
             Right(
               optR.map(c =>
-                Converter.makePair(
+                Converter.makeTuple(
                   Converter.fromTemplateTypeRep(c.templateId),
                   SValue.SText(c.blob.toHexString),
                 )
@@ -289,7 +289,7 @@ object ScriptF {
             .traverse { case (cid, optView) =>
               optView match {
                 case None =>
-                  Right(Converter.makePair(SContractId(cid), SOptional(None)))
+                  Right(Converter.makeTuple(SContractId(cid), SOptional(None)))
                 case Some(view) =>
                   for {
                     view <- Converter.fromInterfaceView(
@@ -298,7 +298,7 @@ object ScriptF {
                       view,
                     )
                   } yield {
-                    Converter.makePair(SContractId(cid), SOptional(Some(view)))
+                    Converter.makeTuple(SContractId(cid), SOptional(Some(view)))
                   }
               }
             }
