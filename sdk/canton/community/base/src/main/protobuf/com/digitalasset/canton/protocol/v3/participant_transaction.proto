@@ -28,11 +28,11 @@ message ViewParticipantData {
 message ActionDescription {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
-  // Compared to v2: ExerciseActionDescription and LookupByKeyActionDescription updated
+  // Compared to v2: FetchActionDescription, ExerciseActionDescription and LookupByKeyActionDescription updated
   oneof description {
     v0.ActionDescription.CreateActionDescription create = 1;
     ExerciseActionDescription exercise = 2;
-    v0.ActionDescription.FetchActionDescription fetch = 3;
+    v1.ActionDescription.FetchActionDescription fetch = 3;
     v1.ActionDescription.LookupByKeyActionDescription lookup_by_key = 4;
   }
 

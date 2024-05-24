@@ -45,6 +45,15 @@ message ActionDescription {
   message LookupByKeyActionDescription {
     v1.GlobalKey key = 1;
   }
+
+  // Changes from v0: Add templateId
+  message FetchActionDescription {
+    string input_contract_id = 1;
+    repeated string actors = 2;
+    bool by_key = 3;
+    string version = 4;
+    optional string template_id = 5;
+  }
 }
 
 message ViewNode {

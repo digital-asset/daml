@@ -98,6 +98,7 @@ class ParticipantNodeBootstrap(
       _ => Future.successful(SchedulersWithParticipantPruning.noop),
     ledgerApiServerFactory: CantonLedgerApiServerFactory,
     private[canton] val persistentStateFactory: ParticipantNodePersistentStateFactory,
+    packageUploaderFactory: PackageUploaderFactory,
     skipRecipientsCheck: Boolean,
     // Callback when the initialization of the participant node has been completed
     setInitialized: () => Unit,
@@ -338,6 +339,7 @@ class ParticipantNodeBootstrap(
         crypto.value,
         storage,
         persistentStateFactory,
+        packageUploaderFactory,
         engine,
         ledgerApiServerFactory,
         indexedStringStore,
@@ -564,6 +566,7 @@ object ParticipantNodeBootstrap {
         createResourceService(arguments),
         createReplicationServiceFactory(arguments),
         persistentStateFactory = ParticipantNodePersistentStateFactory,
+        packageUploaderFactory = PackageUploaderFactory,
         skipRecipientsCheck = false,
         ledgerApiServerFactory = ledgerApiServerFactory,
         setInitialized = () => (),
