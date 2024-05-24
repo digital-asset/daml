@@ -91,4 +91,4 @@ $YARN run build
 $YARN run lint
 # Invoke 'yarn test'. Control is thereby passed to
 # 'language-support/ts/codegen/tests/ts/build-and-lint-test/src/__tests__/test.ts'.
-JAVA=$JAVA CANTON=$CANTON JSON_API=$JSON_API DAR=$DAR UPLOAD_DAR=$UPLOAD_DAR HIDDEN_DAR=$HIDDEN_DAR $YARN test
+JAVA=$JAVA CANTON=$CANTON JSON_API=$JSON_API DAR=$DAR UPLOAD_DAR=$UPLOAD_DAR HIDDEN_DAR=$HIDDEN_DAR $YARN test -t "${BUILD_AND_LINT_TEST_NAME_PATTERN:-.*}"

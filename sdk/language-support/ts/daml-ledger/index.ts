@@ -174,6 +174,9 @@ function lookupTemplateOrUnknownInterface(
   }
 }
 
+const decodeTemplateId = <I extends string>(): jtv.Decoder<I> =>
+  jtv.string() as jtv.Decoder<I>;
+
 /**
  * Decoder for a [[CreateEvent]].
  */
@@ -181,7 +184,7 @@ const decodeCreateEvent = <T extends object, K, I extends string>(
   template: TemplateOrInterface<T, K, I>,
 ): jtv.Decoder<CreateEvent<T, K, I>> =>
   jtv.object({
-    templateId: jtv.constant(template.templateId),
+    templateId: decodeTemplateId(),
     contractId: ContractId(template).decoder,
     signatories: List(Party).decoder,
     observers: List(Party).decoder,
@@ -206,7 +209,7 @@ const decodeArchiveEvent = <T extends object, K, I extends string>(
   template: TemplateOrInterface<T, K, I>,
 ): jtv.Decoder<ArchiveEvent<T, I>> =>
   jtv.object({
-    templateId: jtv.constant(template.templateId),
+    templateId: decodeTemplateId(),
     contractId: ContractId(template).decoder,
   });
 
@@ -249,6 +252,13 @@ const decodeEventUnknown: jtv.Decoder<Event<object>> = jtv.oneOf<Event<object>>(
 /**
  * @internal
  */
+function stripPackage(templateId: string): string {
+  return templateId.split(":").slice(1).join(":");
+}
+
+/**
+ * @internal
+ */
 async function decodeArchiveResponse<T extends object, K, I extends string>(
   template: Template<T, K, I>,
   archiveMethod: "archive" | "archiveByKey",
@@ -260,7 +270,8 @@ async function decodeArchiveResponse<T extends object, K, I extends string>(
   if (
     events.length === 1 &&
     "archived" in events[0] &&
-    events[0].archived.templateId === template.templateId
+    stripPackage(events[0].archived.templateId) ===
+      stripPackage(template.templateId)
   ) {
     return events[0].archived as ArchiveEvent<T, I>;
   } else {
