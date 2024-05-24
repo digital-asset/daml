@@ -94,6 +94,8 @@ object Node {
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyAction {
+    import Ordering.Implicits._
+    assert(packageVersion.isEmpty || version >= TransactionVersion.minPackageVersion)
 
     @deprecated("use keyOpt", since = "2.6.0")
     def key: Option[GlobalKeyWithMaintainers] = keyOpt

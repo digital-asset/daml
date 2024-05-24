@@ -21,6 +21,8 @@ object TransactionVersion {
 
   val All = List(V31, VDev)
 
+  private[lf] val maxNonDev = All.reverse(1)
+
   implicit val Ordering: scala.Ordering[TransactionVersion] =
     scala.Ordering.by(_.index)
 

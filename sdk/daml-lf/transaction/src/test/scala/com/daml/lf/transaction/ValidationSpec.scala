@@ -36,6 +36,8 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   //
   // The testcases are organised so failure is detected and reported for a named tweak.
 
+  import Ordering.Implicits._
+
   private class Tweak[X](val run: X => List[X])
 
   private object Tweak {
@@ -101,7 +103,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     } yield Node.Create(
       coid = samContractId1,
       packageName = somePkgName,
-      packageVersion = somePkgVer,
+      packageVersion = somePkgVer.filter(_ => version >= TransactionVersion.minPackageVersion),
       templateId = samTemplateId1,
       arg = samValue1,
       signatories = samParties1,
@@ -282,7 +284,11 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       tweakOptKeyMaintainers.run(nc.keyOpt).map { x => nc.copy(keyOpt = x) }
     }
   private val tweakCreateVersion = Tweak.single[Node] { case nc: Node.Create =>
-    nc.copy(version = changeVersion(nc.version))
+    val version = changeVersion(nc.version)
+    val pkgVer = nc.packageVersion
+      .orElse(somePkgVer)
+      .filter(_ => version >= TransactionVersion.minPackageVersion)
+    nc.copy(version = version, packageVersion = pkgVer)
   }
 
   private val sigCreateTweaks =
