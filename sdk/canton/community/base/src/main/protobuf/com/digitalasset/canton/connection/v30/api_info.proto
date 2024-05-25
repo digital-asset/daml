@@ -1,0 +1,18 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.connection.v30;
+
+// Provides basic information about the API, like if it is an admin api or public sequencer api.
+// This is useful to detect port misconfigurations and provide a user-friendly error message.
+service ApiInfoService {
+  rpc GetApiInfo(GetApiInfoRequest) returns (GetApiInfoResponse);
+}
+
+message GetApiInfoRequest {}
+
+message GetApiInfoResponse {
+  string name = 1;
+}

@@ -164,7 +164,7 @@ object Threading {
   /** Minimum parallelism of ForkJoinPool.
     * Currently greater than one to work around a bug that prevents creation of new threads to compensate blocking tasks.
     */
-  val minParallelism = 3
+  val minParallelismForForkJoinPool = 3
 
   @SuppressWarnings(Array("org.wartremover.warts.Null"))
   private def createForkJoinPool(
@@ -174,15 +174,15 @@ object Threading {
       logger: Logger,
   ): ForkJoinPool = {
     val tunedParallelism =
-      if (parallelism >= minParallelism) parallelism
+      if (parallelism >= minParallelismForForkJoinPool) parallelism
       else {
         // The calculation of running threads in ForkJoinPool may overestimate the actual number.
         // As a result, we need to request at least minParallelism threads to get at least 1 (with high probability).
         // The pool may still run out of threads, but the probability is much lower.
         logger.info(
-          s"Creating ForkJoinPool with parallelism = $minParallelism (instead of $parallelism) to avoid starvation."
+          s"Creating ForkJoinPool with parallelism = $minParallelismForForkJoinPool (instead of $parallelism) to avoid starvation."
         )
-        minParallelism
+        minParallelismForForkJoinPool
       }
 
     try {

@@ -72,6 +72,7 @@ object ExampleTransactionFactory {
   // Helper methods for Daml-LF types
   val languageVersion = LfTransactionBuilder.defaultLanguageVersion
   val packageId = LfTransactionBuilder.defaultPackageId
+  val upgradePackageId = LfPackageId.assertFromString("upgraded-pkg-id")
   val templateId = LfTransactionBuilder.defaultTemplateId
   val someOptUsedPackages = Some(Set(packageId))
   val defaultGlobalKey = LfTransactionBuilder.defaultGlobalKey
@@ -132,6 +133,7 @@ object ExampleTransactionFactory {
       key: Option[LfGlobalKeyWithMaintainers] = None,
       byKey: Boolean = false,
       version: LfTransactionVersion = transactionVersion,
+      templateId: LfTemplateId = templateId,
   ): LfNodeFetch =
     LfNodeFetch(
       coid = cid,
@@ -363,7 +365,7 @@ object ExampleTransactionFactory {
       participants = Map(submitterParticipant -> ParticipantAttributes(Submission, TrustLevel.Vip)),
       packages =
         Seq(submitterParticipant, signatoryParticipant, observerParticipant, extraParticipant).map(
-          VettedPackages(_, Seq(ExampleTransactionFactory.packageId))
+          VettedPackages(_, Seq(packageId, upgradePackageId))
         ),
     )
 
@@ -593,6 +595,7 @@ class ExampleTransactionFactory(
       resolvedKeys: Map[LfGlobalKey, SerializableKeyResolution],
       seed: Option[LfHash],
       isRoot: Boolean,
+      packagePreference: Set[LfPackageId],
       subviews: TransactionView*
   ): TransactionView = {
 
@@ -642,7 +645,7 @@ class ExampleTransactionFactory(
       ActionDescription.tryFromLfActionNode(
         LfTransactionUtil.lightWeight(node),
         seed,
-        packagePreference = Set.empty,
+        packagePreference = packagePreference,
         protocolVersion,
       )
 
@@ -916,7 +919,7 @@ class ExampleTransactionFactory(
       )
 
     lazy val view0: TransactionView =
-      view(node, 0, consumed, used, created, Map.empty, nodeSeed, isRoot = true)
+      view(node, 0, consumed, used, created, Map.empty, nodeSeed, isRoot = true, Set.empty)
 
     override lazy val rootViews: Seq[TransactionView] = Seq(view0)
 
@@ -1162,7 +1165,7 @@ class ExampleTransactionFactory(
       consuming: Boolean = true,
   ) extends SingleNode(Some(seed)) {
     val upgradedTemplateId: canton.protocol.LfTemplateId =
-      templateId.copy(packageId = LfPackageId.assertFromString("upgraded"))
+      templateId.copy(packageId = upgradePackageId)
     private def genNode(id: LfContractId): LfNodeExercises =
       exerciseNode(targetCoid = id, templateId = upgradedTemplateId, signatories = Set(submitter))
     override def node: LfNodeExercises = genNode(contractId)
@@ -1283,6 +1286,7 @@ class ExampleTransactionFactory(
           Map.empty,
           ex.nodeSeed,
           isRoot = true,
+          Set.empty,
         )
     }
 
@@ -1653,6 +1657,7 @@ class ExampleTransactionFactory(
         Map.empty,
         Some(create0seed),
         isRoot = true,
+        Set.empty,
       )
     val view10: TransactionView =
       view(
@@ -1664,6 +1669,7 @@ class ExampleTransactionFactory(
         Map.empty,
         Some(create130seed),
         isRoot = false,
+        Set.empty,
       )
     val view110: TransactionView =
       view(
@@ -1675,6 +1681,7 @@ class ExampleTransactionFactory(
         Map.empty,
         Some(create1310seed),
         isRoot = false,
+        Set.empty,
       )
 
     val view11: TransactionView =
@@ -1695,6 +1702,7 @@ class ExampleTransactionFactory(
         Map.empty,
         Some(deriveNodeSeed(1, 3, 1)),
         isRoot = false,
+        Set.empty,
         view110,
       )
 
@@ -1719,6 +1727,7 @@ class ExampleTransactionFactory(
         Map.empty,
         Some(deriveNodeSeed(1)),
         isRoot = true,
+        Set.empty,
         view10,
         view11,
       )
@@ -2246,6 +2255,7 @@ class ExampleTransactionFactory(
         Map.empty,
         Some(create0seed),
         isRoot = true,
+        Set.empty,
       )
 
     val view100: TransactionView =
@@ -2258,6 +2268,7 @@ class ExampleTransactionFactory(
         Map.empty,
         Some(create100seed),
         isRoot = false,
+        Set.empty,
       )
 
     val view10: TransactionView = view(
@@ -2277,6 +2288,7 @@ class ExampleTransactionFactory(
       Map.empty,
       Some(deriveNodeSeed(1, 0)),
       isRoot = false,
+      Set.empty,
       view100,
     )
 
@@ -2290,6 +2302,7 @@ class ExampleTransactionFactory(
         Map.empty,
         Some(create120seed),
         isRoot = false,
+        Set.empty,
       )
 
     val view11: TransactionView =
@@ -2310,6 +2323,7 @@ class ExampleTransactionFactory(
         Map.empty,
         Some(deriveNodeSeed(1, 2)),
         isRoot = false,
+        Set.empty,
         view110,
       )
 
@@ -2335,6 +2349,7 @@ class ExampleTransactionFactory(
         Map.empty,
         Some(deriveNodeSeed(1)),
         isRoot = true,
+        Set.empty,
         view10,
         view11,
       )
@@ -2349,6 +2364,7 @@ class ExampleTransactionFactory(
         Map.empty,
         Some(create2seed),
         isRoot = true,
+        Set.empty,
       )
 
     override lazy val rootViews: Seq[TransactionView] = Seq(view0, view1, view2)
@@ -2767,6 +2783,7 @@ class ExampleTransactionFactory(
         Map.empty,
         Some(create0seed),
         isRoot = true,
+        Set.empty,
       )
 
     val view10: TransactionView = view(
@@ -2786,6 +2803,7 @@ class ExampleTransactionFactory(
       Map.empty,
       Some(deriveNodeSeed(1, 1)),
       isRoot = false,
+      Set.empty,
     )
 
     val view1: TransactionView = view(
@@ -2805,6 +2823,7 @@ class ExampleTransactionFactory(
       Map.empty,
       Some(deriveNodeSeed(1)),
       isRoot = true,
+      Set.empty,
       view10,
     )
 

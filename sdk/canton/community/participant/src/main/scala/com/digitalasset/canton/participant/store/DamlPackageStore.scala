@@ -19,6 +19,7 @@ import com.digitalasset.canton.participant.store.memory.InMemoryDamlPackageStore
 import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.{LfPackageName, LfPackageVersion}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -31,7 +32,7 @@ trait DamlPackageStore extends AutoCloseable { this: NamedLogging =>
     * @return Future which gets completed when the packages are successfully stored.
     */
   def append(
-      pkgs: List[DamlLf.Archive],
+      pkgs: Seq[(DamlLf.Archive, Option[LfPackageName], Option[LfPackageVersion])],
       sourceDescription: String256M,
       dar: Option[PackageService.Dar],
   )(implicit

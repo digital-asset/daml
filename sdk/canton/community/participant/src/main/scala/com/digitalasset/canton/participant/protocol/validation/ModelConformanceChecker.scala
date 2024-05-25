@@ -12,6 +12,12 @@ import com.daml.lf.data.Ref.{Identifier, PackageId, PackageName}
 import com.daml.lf.engine
 import com.daml.lf.language.LanguageVersion
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.data.ActionDescription.{
+  CreateActionDescription,
+  ExerciseActionDescription,
+  FetchActionDescription,
+  LookupByKeyActionDescription,
+}
 import com.digitalasset.canton.data.ViewParticipantData.RootAction
 import com.digitalasset.canton.data.{
   CantonTimestamp,
@@ -20,7 +26,7 @@ import com.digitalasset.canton.data.{
   ViewPosition,
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NamedLoggingContext}
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.participant.protocol.TransactionProcessingSteps.CommonData
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory
@@ -28,12 +34,11 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFa
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.*
 import com.digitalasset.canton.participant.store.{
   ContractLookup,
-  ContractLookupAndVerification,
   ExtendedContractLookup,
   StoredContract,
 }
 import com.digitalasset.canton.participant.util.DAMLe
-import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
+import com.digitalasset.canton.participant.util.DAMLe.{HasReinterpret, PackageResolver}
 import com.digitalasset.canton.protocol.WellFormedTransaction.{
   WithSuffixes,
   WithSuffixesAndMerged,
@@ -46,50 +51,30 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{ErrorUtil, MapsUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{
-  LfCommand,
-  LfCreateCommand,
-  LfKeyResolver,
-  LfPartyId,
-  RequestCounter,
-  checked,
-}
+import com.digitalasset.canton.{LfCreateCommand, LfKeyResolver, LfPartyId, RequestCounter, checked}
 
 import java.util.UUID
+import scala.annotation.unused
 import scala.concurrent.{ExecutionContext, Future}
 import scala.math.Ordered.orderingToOrdered
 
 /** Allows for checking model conformance of a list of transaction view trees.
   * If successful, outputs the received transaction as LfVersionedTransaction along with TransactionMetadata.
   *
-  * @param reinterpret reinterprets the lf command to a transaction.
+  * @param hasReinterpret reinterprets the lf command to a transaction.
   * @param transactionTreeFactory reconstructs a transaction view from the reinterpreted action description.
+  * @param getReferencedPackageIds extracts from view package ids to be vetted pre-reinterpretation
+  * @param checkUsedPackages if this flag is set the used package ids reported by the engine will also be vetted post-reinterpretation
   */
 class ModelConformanceChecker(
-    val reinterpret: (
-        ContractLookupAndVerification,
-        Set[LfPartyId],
-        LfCommand,
-        CantonTimestamp,
-        CantonTimestamp,
-        Option[LfHash],
-        Boolean,
-        ViewHash,
-        TraceContext,
-        Map[PackageName, PackageId],
-    ) => EitherT[
-      Future,
-      DAMLeError,
-      (LfVersionedTransaction, TransactionMetadata, LfKeyResolver),
-    ],
-    val validateContract: (
-        SerializableContract,
-        TraceContext,
-    ) => EitherT[Future, ContractValidationFailure, Unit],
+    val hasReinterpret: HasReinterpret,
+    val validateContract: SerializableContractValidation,
     val transactionTreeFactory: TransactionTreeFactory,
-    participantId: ParticipantId,
+    val participantId: ParticipantId,
     val serializableContractAuthenticator: SerializableContractAuthenticator,
     val packageResolver: PackageResolver,
+    val getReferencedPackageIds: PackageIdsOfView,
+    val checkUsedPackages: Boolean,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
@@ -215,7 +200,7 @@ class ModelConformanceChecker(
   ): EitherT[Future, Error, Map[LfContractId, StoredContract]] = {
     view.tryFlattenToParticipantViews
       .flatMap(_.viewParticipantData.coreInputs)
-      .parTraverse { case (cid, inputContract @ InputContract(contract, _)) =>
+      .parTraverse { case (cid, _ @InputContract(contract, _)) =>
         validateContract(contract, traceContext)
           .leftMap {
             case DAMLeFailure(error) =>
@@ -283,7 +268,9 @@ class ModelConformanceChecker(
 
     for {
       viewInputContracts <- validateInputContracts(view, requestCounter)
-      _ <- validatePackageVettings(view, topologySnapshot)
+
+      _ <- checkPackageVettingPreReinterpretation(view, topologySnapshot)
+
       contractLookupAndVerification =
         new ExtendedContractLookup(
           // all contracts and keys specified explicitly
@@ -295,20 +282,24 @@ class ModelConformanceChecker(
 
       packagePreference <- buildPackageNameMap(packageIdPreference)
 
-      lfTxAndMetadata <- reinterpret(
-        contractLookupAndVerification,
-        authorizers,
-        cmd,
-        ledgerTime,
-        submissionTime,
-        seed,
-        failed,
-        view.viewHash,
-        traceContext,
-        packagePreference,
-      )
+      lfTxAndMetadata <- hasReinterpret
+        .reinterpret(
+          contractLookupAndVerification,
+          authorizers,
+          cmd,
+          ledgerTime,
+          submissionTime,
+          seed,
+          packagePreference,
+          failed,
+        )(traceContext)
+        .leftMap(DAMLeError(_, view.viewHash))
         .leftWiden[Error]
-      (lfTx, metadata, resolverFromReinterpretation) = lfTxAndMetadata
+
+      (lfTx, metadata, resolverFromReinterpretation, usedPackages) = lfTxAndMetadata
+
+      _ <- checkPackageVettingPostReinterpretation(view, topologySnapshot, usedPackages)
+
       // For transaction views of protocol version 3 or higher,
       // the `resolverFromReinterpretation` is the same as the `resolverFromView`.
       // The `TransactionTreeFactoryImplV3` rebuilds the `resolverFromReinterpreation`
@@ -347,20 +338,14 @@ class ModelConformanceChecker(
     } yield WithRollbackScope(rbContext.rollbackScope, suffixedTx)
   }
 
-  // TODO(i17472) Needs to be updated to consider upgraded contracts and package interface resolution
-  private def validatePackageVettings(view: TransactionView, snapshot: TopologySnapshot)(implicit
-      traceContext: TraceContext
+  private def checkPackageVetting(
+      view: TransactionView,
+      snapshot: TopologySnapshot,
+      packageIds: Set[PackageId],
   ): EitherT[Future, Error, Unit] = {
-    val referencedContracts =
-      (view.inputContracts.fmap(_.contract) ++ view.createdContracts.fmap(_.contract)).values.toSet
-    val packageIdsOfContracts =
-      referencedContracts.map(_.contractInstance.unversioned.template.packageId)
 
-    val packageIdsOfKeys = view.globalKeyInputs.keySet.flatMap(_.packageId)
-
-    val packageIds = packageIdsOfContracts ++ packageIdsOfKeys
-
-    val informees = view.viewCommonData.tryUnwrap.viewConfirmationParameters.informeesIds
+    val informees: Set[LfPartyId] =
+      view.viewCommonData.tryUnwrap.viewConfirmationParameters.informeesIds
 
     EitherT(for {
       informeeParticipantsByParty <- snapshot.activeParticipantsOfParties(informees.toSeq)
@@ -383,11 +368,33 @@ class ModelConformanceChecker(
     })
   }
 
+  private def checkPackageVettingPreReinterpretation(
+      view: TransactionView,
+      snapshot: TopologySnapshot,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, Error, Unit] = {
+    val packageIds = getReferencedPackageIds(view, implicitly[NamedLoggingContext])
+    checkPackageVetting(view, snapshot, packageIds)
+  }
+
+  private def checkPackageVettingPostReinterpretation(
+      view: TransactionView,
+      snapshot: TopologySnapshot,
+      usedPackageIds: Set[PackageId],
+  ): EitherT[Future, Error, Unit] = {
+    if (checkUsedPackages)
+      checkPackageVetting(view, snapshot, usedPackageIds)
+    else
+      EitherT.pure(())
+  }
+
 }
 
 object ModelConformanceChecker {
+
   def apply(
-      damle: DAMLe,
+      damlE: DAMLe,
       transactionTreeFactory: TransactionTreeFactory,
       serializableContractAuthenticator: SerializableContractAuthenticator,
       protocolVersion: ProtocolVersion,
@@ -395,39 +402,28 @@ object ModelConformanceChecker {
       packageResolver: PackageResolver,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): ModelConformanceChecker = {
-    def reinterpret(
-        contracts: ContractLookupAndVerification,
-        submitters: Set[LfPartyId],
-        command: LfCommand,
-        ledgerTime: CantonTimestamp,
-        submissionTime: CantonTimestamp,
-        rootSeed: Option[LfHash],
-        expectFailure: Boolean,
-        viewHash: ViewHash,
-        traceContext: TraceContext,
-        packageResolution: Map[PackageName, PackageId],
-    ): EitherT[Future, DAMLeError, (LfVersionedTransaction, TransactionMetadata, LfKeyResolver)] =
-      damle
-        .reinterpret(
-          contracts,
-          submitters,
-          command,
-          ledgerTime,
-          submissionTime,
-          rootSeed,
-          expectFailure,
-          packageResolution,
-        )(traceContext)
-        .leftMap(DAMLeError(_, viewHash))
+
+    val validateContract: SerializableContractValidation =
+      if (protocolVersion >= ProtocolVersion.v5)
+        validateSerializedContract(damlE)
+      else
+        noSerializedContractValidation
+
+    val preReinterpretationPackageIds: PackageIdsOfView =
+      if (protocolVersion >= ProtocolVersion.v6)
+        packageIdsOfActionDescription
+      else
+        legacyPackageIdsOfView
 
     new ModelConformanceChecker(
-      reinterpret,
-      if (protocolVersion >= ProtocolVersion.v5) validateSerializedContract(damle)
-      else noSerializedContractValidation,
+      damlE,
+      validateContract,
       transactionTreeFactory,
       participantId,
       serializableContractAuthenticator,
       packageResolver,
+      preReinterpretationPackageIds,
+      checkUsedPackages = protocolVersion >= ProtocolVersion.v6,
       loggerFactory,
     )
   }
@@ -440,14 +436,17 @@ object ModelConformanceChecker {
       expected: LfNodeCreate,
   ) extends ContractValidationFailure
 
+  private type SerializableContractValidation =
+    (SerializableContract, TraceContext) => EitherT[Future, ContractValidationFailure, Unit]
+
   private def noSerializedContractValidation(
-      contract: SerializableContract,
-      traceContext: TraceContext,
+      @unused contract: SerializableContract,
+      @unused traceContext: TraceContext,
   )(implicit ec: ExecutionContext): EitherT[Future, ContractValidationFailure, Unit] = {
     EitherT.pure[Future, ContractValidationFailure](())
   }
 
-  private def validateSerializedContract(damle: DAMLe)(
+  private def validateSerializedContract(damlE: DAMLe)(
       contract: SerializableContract,
       traceContext: TraceContext,
   )(implicit ec: ExecutionContext): EitherT[Future, ContractValidationFailure, Unit] = {
@@ -457,7 +456,7 @@ object ModelConformanceChecker {
     val metadata = contract.metadata
 
     for {
-      actual <- damle
+      actual <- damlE
         .replayCreate(
           metadata.signatories,
           LfCreateCommand(unversioned.template, unversioned.arg),
@@ -508,25 +507,9 @@ object ModelConformanceChecker {
     )
   }
 
-  /** Indicates that [[ModelConformanceChecker.reinterpret]] has failed. */
+  /** Indicates that [[ModelConformanceChecker.hasReinterpret]] has failed. */
   final case class DAMLeError(cause: engine.Error, viewHash: ViewHash) extends Error {
     override def pretty: Pretty[DAMLeError] = adHocPrettyInstance
-  }
-
-  /** Indicates a different number of declared and reconstructed create nodes. */
-  final case class CreatedContractsDeclaredIncorrectly(
-      declaredCreateNodes: Seq[CreatedContract],
-      reconstructedCreateNodes: Seq[LfNodeCreate],
-      viewHash: ViewHash,
-  ) extends Error {
-    override def pretty: Pretty[CreatedContractsDeclaredIncorrectly] = prettyOfClass(
-      param("declaredCreateNodes", _.declaredCreateNodes),
-      param(
-        "reconstructedCreateNodes",
-        _.reconstructedCreateNodes.map(_.templateId),
-      ),
-      unnamedParam(_.viewHash),
-    )
   }
 
   final case class TransactionNotWellformed(cause: String, viewHash: ViewHash) extends Error {
@@ -561,14 +544,6 @@ object ModelConformanceChecker {
       param("cause", _.cause.unquoted),
       param("received", _.received),
       param("reconstructed", _.reconstructed),
-    )
-  }
-
-  final case class JoinedTransactionNotWellFormed(
-      cause: String
-  ) extends Error {
-    override def pretty: Pretty[JoinedTransactionNotWellFormed] = prettyOfClass(
-      param("cause", _.cause.unquoted)
     )
   }
 
@@ -635,5 +610,48 @@ object ModelConformanceChecker {
       transactionId: TransactionId,
       suffixedTransaction: WellFormedTransaction[WithSuffixesAndMerged],
   )
+
+  type PackageIdsOfView = (TransactionView, NamedLoggingContext) => Set[PackageId]
+
+  private[validation] def legacyPackageIdsOfView(
+      view: TransactionView,
+      context: NamedLoggingContext,
+  ): Set[PackageId] = {
+
+    implicit val loggingContext: NamedLoggingContext = context
+
+    val referencedContracts =
+      (view.inputContracts.fmap(_.contract) ++ view.createdContracts.fmap(_.contract)).values.toSet
+
+    val packageIdsOfContracts =
+      referencedContracts.map(_.contractInstance.unversioned.template.packageId)
+
+    val packageIdsOfKeys = view.globalKeyInputs.keySet.map(_.templateId.packageId)
+
+    packageIdsOfContracts ++ packageIdsOfKeys
+  }
+
+  private[validation] def packageIdsOfActionDescription(
+      view: TransactionView,
+      context: NamedLoggingContext,
+  ): Set[PackageId] = {
+
+    implicit val loggingContext: NamedLoggingContext = context
+
+    val actionPackageIds = view.viewParticipantData.tryUnwrap.actionDescription match {
+      case ad: CreateActionDescription =>
+        view.createdContracts
+          .get(ad.contractId)
+          .map(_.contract.contractInstance.unversioned.template.packageId)
+      case ad: ExerciseActionDescription =>
+        ad.packagePreference ++ ad.templateId.map(_.packageId)
+      case ad: LookupByKeyActionDescription =>
+        Set(ad.key.templateId.packageId)
+      case ad: FetchActionDescription =>
+        ad.templateId.map(_.packageId)
+    }
+
+    actionPackageIds.iterator.toSet
+  }
 
 }

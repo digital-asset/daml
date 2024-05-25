@@ -196,7 +196,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       case LfNodeFetch(
             inputContract,
             _packageName,
-            _templateId,
+            templateId,
             actingParties,
             _signatories,
             _stakeholders,
@@ -215,9 +215,15 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
             actingParties,
             InvalidActionDescription("Fetch node without acting parties"),
           )
-        } yield FetchActionDescription(inputContract, actors, byKey, version)(
-          protocolVersionRepresentativeFor(protocolVersion)
-        )
+          actionDescription <- FetchActionDescription.create(
+            inputContract,
+            actors,
+            byKey,
+            version,
+            Option.when(protocolVersion >= ProtocolVersion.v6)(templateId),
+            protocolVersionRepresentativeFor(protocolVersion),
+          )
+        } yield actionDescription
 
       case LfNodeLookupByKey(_, _, keyWithMaintainers, _result, version) =>
         for {
@@ -473,7 +479,32 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       inputContractId <- ProtoConverter.parseLfContractId(inputContractIdP)
       actors <- actorsP.traverse(ProtoConverter.parseLfPartyId).map(_.toSet)
       version <- lfVersionFromProtoVersioned(versionP)
-    } yield FetchActionDescription(inputContractId, actors, byKey, version)(pv)
+      actionDescription <- FetchActionDescription
+        .create(inputContractId, actors, byKey, version, None, pv)
+        .leftMap(err => OtherError(err.message))
+    } yield actionDescription
+  }
+
+  private def fromFetchProtoV1(
+      f: v1.ActionDescription.FetchActionDescription,
+      pv: RepresentativeProtocolVersion[ActionDescription.type],
+  ): ParsingResult[FetchActionDescription] = {
+    val v1.ActionDescription.FetchActionDescription(
+      inputContractIdP,
+      actorsP,
+      byKey,
+      versionP,
+      templateIdP,
+    ) = f
+    for {
+      inputContractId <- ProtoConverter.parseLfContractId(inputContractIdP)
+      actors <- actorsP.traverse(ProtoConverter.parseLfPartyId).map(_.toSet)
+      version <- lfVersionFromProtoVersioned(versionP)
+      templateId <- templateIdP.traverse(RefIdentifierSyntax.fromProtoPrimitive)
+      actionDescription <- FetchActionDescription
+        .create(inputContractId, actors, byKey, version, templateId, pv)
+        .leftMap(err => OtherError(err.message))
+    } yield actionDescription
   }
 
   private[data] def fromProtoV0(
@@ -538,7 +569,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       description match {
         case Create(create) => fromCreateProtoV0(create, pv)
         case Exercise(exercise) => fromExerciseProtoV3(exercise, pv)
-        case Fetch(fetch) => fromFetchProtoV0(fetch, pv)
+        case Fetch(fetch) => fromFetchProtoV1(fetch, pv)
         case LookupByKey(lookup) => fromLookupByKeyProtoV1(lookup, pv)
         case Empty => Left(FieldNotSet("description"))
       }
@@ -790,11 +821,12 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
     }
   }
 
-  final case class FetchActionDescription(
+  final case class FetchActionDescription private (
       inputContractId: LfContractId,
       actors: Set[LfPartyId],
       override val byKey: Boolean,
       override val version: LfTransactionVersion,
+      templateId: Option[LfTemplateId],
   )(
       override val representativeProtocolVersion: RepresentativeProtocolVersion[
         ActionDescription.type
@@ -821,7 +853,15 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       v2.ActionDescription.Description.Fetch(toProtoDescriptionV0.value)
 
     override protected def toProtoDescriptionV3: v3.ActionDescription.Description.Fetch =
-      v3.ActionDescription.Description.Fetch(toProtoDescriptionV0.value)
+      v3.ActionDescription.Description.Fetch(
+        v1.ActionDescription.FetchActionDescription(
+          inputContractId = inputContractId.toProtoPrimitive,
+          actors = actors.toSeq,
+          byKey = byKey,
+          version = version.protoValue,
+          templateId = templateId.map(i => new RefIdentifierSyntax(i).toProtoPrimitive),
+        )
+      )
 
     override def pretty: Pretty[FetchActionDescription] = prettyOfClass(
       param("input contract id", _.inputContractId),
@@ -829,6 +869,51 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       paramIfTrue("by key", _.byKey),
       param("version", _.version),
     )
+  }
+
+  object FetchActionDescription {
+
+    private[data] val templateIdSupportedSince
+        : RepresentativeProtocolVersion[ActionDescription.type] =
+      protocolVersionRepresentativeFor(ProtocolVersion.v6)
+
+    def tryCreate(
+        inputContractId: LfContractId,
+        actors: Set[LfPartyId],
+        byKey: Boolean,
+        version: LfTransactionVersion,
+        templateId: Option[LfTemplateId],
+        protocolVersion: RepresentativeProtocolVersion[ActionDescription.type],
+    ): FetchActionDescription = {
+      create(inputContractId, actors, byKey, version, templateId, protocolVersion).valueOr(err =>
+        throw err
+      )
+    }
+
+    def create(
+        inputContractId: LfContractId,
+        actors: Set[LfPartyId],
+        byKey: Boolean,
+        version: LfTransactionVersion,
+        templateId: Option[LfTemplateId],
+        protocolVersion: RepresentativeProtocolVersion[ActionDescription.type],
+    ): Either[InvalidActionDescription, FetchActionDescription] = {
+
+      val canHaveTemplateId = protocolVersion >= templateIdSupportedSince
+
+      for {
+        _ <- Either.cond(
+          templateId.isEmpty || canHaveTemplateId,
+          (),
+          InvalidActionDescription(
+            s"Protocol version is equivalent to ${protocolVersion.representative} but template id is supported since protocol version $templateIdSupportedSince"
+          ),
+        )
+      } yield new FetchActionDescription(inputContractId, actors, byKey, version, templateId)(
+        protocolVersion
+      )
+    }
+
   }
 
   final case class LookupByKeyActionDescription private (

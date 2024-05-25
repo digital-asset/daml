@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.ledger.participant.state.v2.metrics
 
-import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
@@ -12,16 +11,10 @@ import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.offset.Offset
-import com.digitalasset.canton.ledger.participant.state.v2.{
-  PruningResult,
-  ReassignmentCommand,
-  SubmissionResult,
-  SubmitterInfo,
-  TransactionMeta,
-  WriteService,
-}
+import com.digitalasset.canton.ledger.participant.state.v2.*
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.tracing.TraceContext
+import com.google.protobuf.ByteString
 
 import java.util.concurrent.CompletionStage
 
@@ -75,14 +68,14 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
 
   override def uploadPackages(
       submissionId: Ref.SubmissionId,
-      archives: List[DamlLf.Archive],
+      dar: ByteString,
       sourceDescription: Option[String],
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] =
     Timed.completionStage(
       metrics.daml.services.write.uploadPackages,
-      delegate.uploadPackages(submissionId, archives, sourceDescription),
+      delegate.uploadPackages(submissionId, dar, sourceDescription),
     )
 
   override def allocateParty(
