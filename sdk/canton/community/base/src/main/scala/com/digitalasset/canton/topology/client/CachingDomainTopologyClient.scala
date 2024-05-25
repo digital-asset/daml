@@ -7,6 +7,7 @@ import cats.data.EitherT
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
+import com.digitalasset.canton.crypto.SigningPublicKey
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -308,6 +309,11 @@ private class ForwardingTopologySnapshotClient(
       parties: Set[LfPartyId]
   )(implicit traceContext: TraceContext): Future[PartyTopologySnapshotClient.AuthorityOfResponse] =
     parent.authorityOf(parties)
+
+  override def signingKeysUS(owner: Member)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[SigningPublicKey]] =
+    parent.signingKeysUS(owner)
 }
 
 class CachingTopologySnapshot(
@@ -511,4 +517,9 @@ class CachingTopologySnapshot(
       parties: Set[LfPartyId]
   )(implicit traceContext: TraceContext): Future[PartyTopologySnapshotClient.AuthorityOfResponse] =
     authorityOfCache.get(parties)
+
+  override def signingKeysUS(owner: Member)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[SigningPublicKey]] =
+    FutureUnlessShutdown.outcomeF(signingKeys(owner))
 }

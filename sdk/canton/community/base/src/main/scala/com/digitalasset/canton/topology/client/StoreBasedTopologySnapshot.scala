@@ -7,9 +7,10 @@ import cats.data.EitherT
 import cats.syntax.functorFilter.*
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.crypto.KeyPurpose
+import com.digitalasset.canton.crypto.{KeyPurpose, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DynamicDomainParametersWithValidity
 import com.digitalasset.canton.topology.*
@@ -686,4 +687,7 @@ class StoreBasedTopologySnapshot(
     transactions.lastOption
   }
 
+  override def signingKeysUS(owner: Member)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[SigningPublicKey]] = FutureUnlessShutdown.outcomeF(signingKeys(owner))
 }

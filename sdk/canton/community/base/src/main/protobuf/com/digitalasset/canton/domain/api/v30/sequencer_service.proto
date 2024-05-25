@@ -23,16 +23,16 @@ service SequencerService {
   //
   // The sequencer may or may not accept a request.
   // If an incoming request is valid (i.e., it can be parsed and every field meets its documented validity conditions)
-  // the sequencer will accept requests in a best effort manner, provided resource limits are met.
+  // an honest sequencer will accept requests in a best effort manner, provided resource limits are met.
   //
   // For every accepted request, the sequencer assigns a unique sequencing timestamp to the request.
-  // The sequencer will deliver an event to the sender and to those domain members that are intended to receive at least one envelope.
+  // All honest sequencers of the domain will deliver an event to the sender and
+  // to those domain members that are intended to receive at least one envelope.
   // An event for a domain member contains only those envelopes of the batch of the request
   // that the member is intended to receive and
   // the recipients of an envelope contains only those that the member is supposed to learn about.
   // A member will receive the envelopes of the same request within a single event.
   // A member will receive events ordered by sequencing timestamp.
-  // A member will only receive events corresponding to prior requests and no other events.
   //
   // If a request is accepted, the sender will receive a corresponding event, called "receipt";
   // so that the sender is informed that the sequencer has accepted the request.
@@ -52,6 +52,12 @@ service SequencerService {
   //   The sequencer will reject any further request that could otherwise be accepted.
   //   Consequently, events for the request are delivered only once even if the threshold is attained multiple times.
   //
+  // If the request does not contain an aggregation rule, even honest sequencers may deliver events for the request
+  // more than once (with different sequencing timestamps), as malicious sequencers may replay a request internally.
+  // Clients need to implement appropriate deduplication, if at-most-once delivery is needed.
+  // Once request.max_sequencing_time has elapsed (i.e. an event with an equal or higher timestamp has been emitted),
+  // an honest sequencer will not emit events corresponding to request anymore.
+  //
   // The sequencer may reject a request, e.g., because the request is invalid or the sequencer is overloaded.
   // The sequencer will indicate a rejection (independently of whether there is an aggregation rule)
   // in exactly one of the following ways:
@@ -59,6 +65,8 @@ service SequencerService {
   // (2) asynchronously, by emitting an error in the response to SubscribeVersioned to the sender and
   //     possibly an empty batch to non-sender recipients
   // (3) by not emitting a receipt to the sender until request.max_sequencing_time
+  // Note that only (2) and (3) can be trusted. A malicious sequencer may synchronously return an error and
+  // still accept the request internally and therefore emit events later on.
   rpc SendAsyncVersioned(SendAsyncVersionedRequest) returns (SendAsyncVersionedResponse);
 
   // Submit an unauthenticated request to the sequencer.

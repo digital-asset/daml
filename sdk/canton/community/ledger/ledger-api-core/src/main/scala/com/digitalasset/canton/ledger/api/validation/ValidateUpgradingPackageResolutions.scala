@@ -10,6 +10,7 @@ import com.daml.lf.data.Ref.{PackageId, PackageName, PackageVersion}
 import com.digitalasset.canton.ledger.api.validation.ValidateUpgradingPackageResolutions.ValidatedCommandPackageResolutionsSnapshot
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadataStore
+import com.google.common.annotations.VisibleForTesting
 import io.grpc.StatusRuntimeException
 
 trait ValidateUpgradingPackageResolutions {
@@ -92,22 +93,17 @@ object ValidateUpgradingPackageResolutions {
   def apply(packageMetadataStore: PackageMetadataStore): ValidateUpgradingPackageResolutions =
     new ValidateUpgradingPackageResolutionsImpl(packageMetadataStore)
 
-  val UpgradingDisabled: ValidateUpgradingPackageResolutions =
+  @VisibleForTesting
+  val Empty: ValidateUpgradingPackageResolutions =
     new ValidateUpgradingPackageResolutions {
-      override def apply(
-          userPackageIdPreferences: Seq[String]
-      )(implicit
+      override def apply(userPackageIdPreferences: Seq[String])(implicit
           contextualizedErrorLogger: ContextualizedErrorLogger
       ): Either[StatusRuntimeException, ValidatedCommandPackageResolutionsSnapshot] =
-        Either.cond(
-          userPackageIdPreferences.isEmpty,
+        Right(
           ValidatedCommandPackageResolutionsSnapshot(
             Map.empty,
             Set.empty,
-          ),
-          invalidArgument(
-            "package_id_selection_preference can only be set with smart contract upgrading feature enabled"
-          ),
+          )
         )
     }
 }

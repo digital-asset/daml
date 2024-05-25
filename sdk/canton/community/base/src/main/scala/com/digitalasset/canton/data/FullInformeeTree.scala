@@ -4,8 +4,8 @@
 package com.digitalasset.canton.data
 
 import cats.syntax.either.*
+import cats.syntax.functor.*
 import com.digitalasset.canton.*
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{v30, *}
@@ -44,15 +44,12 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
   lazy val domainId: DomainId = commonMetadata.domainId
   lazy val mediator: MediatorGroupRecipient = commonMetadata.mediator
 
-  lazy val informeesAndThresholdByViewPosition: Map[ViewPosition, (Set[Informee], NonNegativeInt)] =
-    FullInformeeTree.viewCommonDataByViewPosition(tree).map { case (position, viewCommonData) =>
-      position -> ((viewCommonData.informees, viewCommonData.threshold))
-    }
+  lazy val informeesAndThresholdByViewPosition: Map[ViewPosition, ViewConfirmationParameters] =
+    FullInformeeTree.viewCommonDataByViewPosition(tree).fmap(_.viewConfirmationParameters)
 
   lazy val allInformees: Set[LfPartyId] = FullInformeeTree
     .viewCommonDataByViewPosition(tree)
-    .flatMap { case (_, viewCommonData) => viewCommonData.informees }
-    .map(_.party)
+    .flatMap { case (_, viewCommonData) => viewCommonData.viewConfirmationParameters.informees }
     .toSet
 
   lazy val transactionUuid: UUID = checked(tree.commonMetadata.tryUnwrap).uuid

@@ -13,18 +13,16 @@ import com.digitalasset.canton.crypto.{
   PrivateKey,
   SigningPrivateKey,
 }
-import com.google.protobuf.ByteString
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import org.scalatest.wordspec.AsyncWordSpec
-
-import java.util.UUID
-import scala.concurrent.Future
 
 trait CryptoPrivateStoreTest extends BaseTest { this: AsyncWordSpec =>
 
-  def uniqueKeyName(name: String): String =
-    name + getClass.getSimpleName + "_" + UUID.randomUUID().toString
+  def uniqueKeyName(name: String): String = name + getClass.getSimpleName
 
-  lazy val crypto = SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
+  lazy val crypto: SymbolicCrypto =
+    SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
+  crypto.setRandomKeysFlag(true)
 
   lazy val sigKey1Name: String = uniqueKeyName("sigKey1_")
   lazy val encKey1Name: String = uniqueKeyName("encKey1_")
@@ -32,14 +30,10 @@ trait CryptoPrivateStoreTest extends BaseTest { this: AsyncWordSpec =>
   lazy val sigKey1: SigningPrivateKey = crypto.newSymbolicSigningKeyPair().privateKey
   lazy val sigKey1WithName: SigningPrivateKeyWithName =
     SigningPrivateKeyWithName(sigKey1, Some(KeyName.tryCreate(sigKey1Name)))
-  lazy val sigKey1BytesWithName: (ByteString, Option[KeyName]) =
-    (sigKey1.toByteString(testedReleaseProtocolVersion.v), sigKey1WithName.name)
 
   lazy val encKey1: EncryptionPrivateKey = crypto.newSymbolicEncryptionKeyPair().privateKey
   lazy val encKey1WithName: EncryptionPrivateKeyWithName =
     EncryptionPrivateKeyWithName(encKey1, Some(KeyName.tryCreate(encKey1Name)))
-  lazy val encKey1BytesWithName: (ByteString, Option[KeyName]) =
-    (encKey1.toByteString(testedReleaseProtocolVersion.v), encKey1WithName.name)
 
   def cryptoPrivateStore(
       newStore: => CryptoPrivateStore,
@@ -48,28 +42,26 @@ trait CryptoPrivateStoreTest extends BaseTest { this: AsyncWordSpec =>
           PrivateKey,
           Fingerprint,
           Option[KeyName],
-      ) => EitherT[Future, CryptoPrivateStoreError, Unit],
-      encrypted: Boolean,
+      ) => EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit],
   ): Unit = {
 
     "check existence of private key" in {
       val store = newStore
       for {
-        _ <- storePrivateKey(store, sigKey1, sigKey1.id, sigKey1WithName.name)
-        _ <- storePrivateKey(store, encKey1, encKey1.id, encKey1WithName.name)
+        _ <- storePrivateKey(store, sigKey1, sigKey1.id, sigKey1WithName.name).failOnShutdown
+        _ <- storePrivateKey(store, encKey1, encKey1.id, encKey1WithName.name).failOnShutdown
         signRes <- store.existsSigningKey(sigKey1.id).failOnShutdown
         encRes <- store.existsDecryptionKey(encKey1.id).failOnShutdown
       } yield {
         signRes shouldBe true
         encRes shouldBe true
       }
-
     }
 
     "delete key successfully" in {
       val store = newStore
       for {
-        _ <- storePrivateKey(store, sigKey1, sigKey1.id, sigKey1WithName.name)
+        _ <- storePrivateKey(store, sigKey1, sigKey1.id, sigKey1WithName.name).failOnShutdown
         _ <- store.removePrivateKey(sigKey1.id).failOnShutdown
         res <- store.existsSigningKey(sigKey1.id).failOnShutdown
       } yield res shouldBe false

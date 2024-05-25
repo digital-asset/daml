@@ -524,9 +524,9 @@ class TransactionProcessingSteps(
           bytes: ByteString
       ): Either[DefaultDeserializationError, LightTransactionViewTree] =
         LightTransactionViewTree
-          .fromTrustedByteString((pureCrypto, protocolVersion))(
+          .fromByteString(pureCrypto, protocolVersion)(
             bytes
-          ) // FIXME(i18236): validate the proto version to mitigate downgrading attacks
+          )
           .leftMap(err => DefaultDeserializationError(err.message))
 
       def decryptTree(
@@ -1324,7 +1324,11 @@ class TransactionProcessingSteps(
       hashOps: HashOps,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
+  ): EitherT[
+    FutureUnlessShutdown,
+    TransactionProcessorError,
+    CommitAndStoreContractsAndPublishEvent,
+  ] = {
     val ts = event.event.content.timestamp
     val submitterMetaO = pendingRequestData.transactionValidationResult.submitterMetadataO
     val completionInfoO = submitterMetaO.flatMap(
@@ -1447,7 +1451,7 @@ class TransactionProcessingSteps(
           )
         }
     } yield res
-  }
+  }.mapK(FutureUnlessShutdown.outcomeK)
 
   override def postProcessResult(verdict: Verdict, pendingSubmission: Nothing)(implicit
       traceContext: TraceContext

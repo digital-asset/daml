@@ -34,7 +34,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
 import com.digitalasset.canton.domain.sequencing.traffic.EnterpriseSequencerRateLimitManager.TrafficStateUpdateResult
 import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficPurchasedStore
 import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
-import com.digitalasset.canton.lifecycle.*
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, *}
 import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
@@ -64,7 +64,7 @@ import scala.util.chaining.*
 import scala.util.{Failure, Success}
 
 class BlockSequencer(
-    blockSequencerOps: BlockSequencerOps,
+    blockOrderer: BlockOrderer,
     name: String,
     domainId: DomainId,
     cryptoApi: DomainSyncCryptoClient,
@@ -149,7 +149,7 @@ class BlockSequencer(
       unifiedSequencer = unifiedSequencer,
     )(CloseContext(cryptoApi))
 
-    val driverSource = blockSequencerOps
+    val driverSource = blockOrderer
       .subscribe()(TraceContext.empty)
       // Explicit async to make sure that the block processing runs in parallel with the block retrieval
       .async
@@ -232,7 +232,7 @@ class BlockSequencer(
     sendAsyncSignedInternal(signedContent)
   }
 
-  override def adminServices: Seq[ServerServiceDefinition] = blockSequencerOps.adminServices
+  override def adminServices: Seq[ServerServiceDefinition] = blockOrderer.adminServices
 
   private def signOrderingRequest[A <: HasCryptographicEvidence](
       content: SignedContent[SubmissionRequest]
@@ -302,7 +302,7 @@ class BlockSequencer(
             .supervised(
               s"Sending submission request with id ${submission.messageId} from $sender to ${batch.allRecipients}"
             )(
-              blockSequencerOps.send(signedOrderingRequest).value
+              blockOrderer.send(signedOrderingRequest).value
             )
         ).mapK(FutureUnlessShutdown.outcomeK)
     } yield ()
@@ -404,7 +404,7 @@ class BlockSequencer(
     val waitForAcknowledgementF =
       stateManager.waitForAcknowledgementToComplete(req.member, req.timestamp)
     for {
-      _ <- blockSequencerOps.acknowledge(signedAcknowledgeRequest)
+      _ <- blockOrderer.acknowledge(signedAcknowledgeRequest)
       _ <- waitForAcknowledgementF
     } yield ()
   }
@@ -519,7 +519,7 @@ class BlockSequencer(
       traceContext: TraceContext
   ): Future[SequencerHealthStatus] =
     for {
-      ledgerStatus <- blockSequencerOps.health
+      ledgerStatus <- blockOrderer.health
       isStorageActive = storage.isActive
       _ = logger.trace(s"Storage active: ${storage.isActive}")
     } yield {
@@ -550,7 +550,7 @@ class BlockSequencer(
         super[DatabaseSequencer].onClosed(),
       ),
       AsyncCloseable("done", done, timeouts.shutdownProcessing),
-      SyncCloseable("blockSequencerOps.close()", blockSequencerOps.close()),
+      SyncCloseable("blockOrderer.close()", blockOrderer.close()),
     )
   }
 

@@ -136,8 +136,8 @@ class TransactionsTreeStreamReader(
       //   * Exercise consuming stakeholder
       //   * Exercise consuming non-stakeholder
       //   * Exercise non-consuming
-      //   * Assing
-      //   * Unassing
+      //   * Assign
+      //   * Unassign
       // To account for that we assign a seventh of the working memory to each table.
       workingMemoryInBytesForIdPages = maxWorkingMemoryInBytesForIdPages / 7,
       numOfDecomposedFilters = filterParties.size,
@@ -163,7 +163,7 @@ class TransactionsTreeStreamReader(
                 eventStorageBackend.transactionStreamingQueries.fetchEventIdsForInformee(
                   target = target
                 )(
-                  informee = filterParty,
+                  informeeO = Some(filterParty), // TODO(#18362) add filters for transaction trees
                   startExclusive = state.fromIdExclusive,
                   endInclusive = queryRange.endInclusiveEventSeqId,
                   limit = state.pageSize,
@@ -307,13 +307,15 @@ class TransactionsTreeStreamReader(
           queryRange = queryRange,
           filteringConstraints = TemplatePartiesFilter(
             relation = Map.empty,
-            wildcardParties = requestingParties,
+            templateWildcardParties = Some(requestingParties),
           ),
           eventProjectionProperties = eventProjectionProperties,
           payloadQueriesLimiter = payloadQueriesLimiter,
           deserializationQueriesLimiter = deserializationQueriesLimiter,
           idPageSizing = idPageSizing,
-          decomposedFilters = requestingParties.map(DecomposedFilter(_, None)).toVector,
+          decomposedFilters = requestingParties // TODO(#18362) add filters for transaction trees
+            .map(p => DecomposedFilter(Some(p), None))
+            .toVector,
           maxParallelIdAssignQueries = maxParallelIdAssignQueries,
           maxParallelIdUnassignQueries = maxParallelIdUnassignQueries,
           maxPagesPerIdPagesBuffer = maxPagesPerIdPagesBuffer,

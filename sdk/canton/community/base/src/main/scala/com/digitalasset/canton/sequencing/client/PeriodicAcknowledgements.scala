@@ -33,7 +33,7 @@ import scala.jdk.DurationConverters.*
 class PeriodicAcknowledgements(
     isHealthy: => Boolean,
     interval: FiniteDuration,
-    fetchLatestCleanTimestamp: TraceContext => Future[Option[CantonTimestamp]],
+    fetchLatestCleanTimestamp: TraceContext => FutureUnlessShutdown[Option[CantonTimestamp]],
     acknowledge: Traced[CantonTimestamp] => EitherT[FutureUnlessShutdown, String, Boolean],
     clock: Clock,
     override protected val timeouts: ProcessingTimeout,
@@ -63,7 +63,6 @@ class PeriodicAcknowledgements(
             for {
               latestClean <- EitherT
                 .right(fetchLatestCleanTimestamp(traceContext))
-                .mapK(FutureUnlessShutdown.outcomeK)
               result <- latestClean.fold(EitherT.rightT[FutureUnlessShutdown, String](true))(
                 ackIfChanged
               )
@@ -105,8 +104,8 @@ class PeriodicAcknowledgements(
 }
 
 object PeriodicAcknowledgements {
-  type FetchCleanTimestamp = TraceContext => Future[Option[CantonTimestamp]]
-  val noAcknowledgements: FetchCleanTimestamp = _ => Future.successful(None)
+  type FetchCleanTimestamp = TraceContext => FutureUnlessShutdown[Option[CantonTimestamp]]
+  val noAcknowledgements: FetchCleanTimestamp = _ => FutureUnlessShutdown.pure(None)
 
   def create(
       interval: FiniteDuration,
@@ -140,7 +139,9 @@ object PeriodicAcknowledgements {
   )(implicit executionContext: ExecutionContext): FetchCleanTimestamp =
     traceContext =>
       for {
-        cursorO <- counterTrackerStore.preheadSequencerCounter(traceContext)
+        cursorO <- FutureUnlessShutdown.outcomeF(
+          counterTrackerStore.preheadSequencerCounter(traceContext)
+        )
         timestampO = cursorO.map(_.timestamp)
       } yield timestampO
 }

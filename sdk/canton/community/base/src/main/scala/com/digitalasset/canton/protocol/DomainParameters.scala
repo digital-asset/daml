@@ -196,6 +196,10 @@ object StaticDomainParameters
   */
 sealed trait OnboardingRestriction extends Product with Serializable {
   def toProtoV30: v30.OnboardingRestriction
+  def isLocked: Boolean
+  def isRestricted: Boolean
+  final def isOpen: Boolean = !isLocked
+  final def isUnrestricted: Boolean = !isRestricted
 }
 object OnboardingRestriction {
   def fromProtoV30(
@@ -218,12 +222,18 @@ object OnboardingRestriction {
   final case object UnrestrictedOpen extends OnboardingRestriction {
     override def toProtoV30: v30.OnboardingRestriction =
       v30.OnboardingRestriction.ONBOARDING_RESTRICTION_UNRESTRICTED_OPEN
+
+    override def isLocked: Boolean = false
+    override def isRestricted: Boolean = false
   }
 
   /** In theory, anyone can join, except now, the registration procedure is closed */
   final case object UnrestrictedLocked extends OnboardingRestriction {
     override def toProtoV30: v30.OnboardingRestriction =
       v30.OnboardingRestriction.ONBOARDING_RESTRICTION_UNRESTRICTED_LOCKED
+
+    override def isLocked: Boolean = true
+    override def isRestricted: Boolean = false
   }
 
   /** Only participants on the allowlist can join
@@ -233,12 +243,18 @@ object OnboardingRestriction {
   final case object RestrictedOpen extends OnboardingRestriction {
     override def toProtoV30: v30.OnboardingRestriction =
       v30.OnboardingRestriction.ONBOARDING_RESTRICTION_RESTRICTED_OPEN
+
+    override def isLocked: Boolean = false
+    override def isRestricted: Boolean = true
   }
 
   /** Only participants on the allowlist can join in theory, except now, the registration procedure is closed */
   final case object RestrictedLocked extends OnboardingRestriction {
     override def toProtoV30: v30.OnboardingRestriction =
       v30.OnboardingRestriction.ONBOARDING_RESTRICTION_RESTRICTED_LOCKED
+
+    override def isLocked: Boolean = true
+    override def isRestricted: Boolean = true
   }
 
 }

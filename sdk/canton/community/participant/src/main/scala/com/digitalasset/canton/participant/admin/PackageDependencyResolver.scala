@@ -22,7 +22,7 @@ import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
 class PackageDependencyResolver(
-    private[admin] val damlPackageStore: DamlPackageStore,
+    val damlPackageStore: DamlPackageStore,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit

@@ -4,10 +4,15 @@
 package com.digitalasset.canton.sequencing.authentication.grpc
 
 import cats.data.EitherT
-import cats.implicits.*
+import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.lifecycle.{
+  FutureUnlessShutdown,
+  PromiseUnlessShutdown,
+  UnlessShutdown,
+}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.authentication.{
   AuthenticationToken,
   AuthenticationTokenManagerConfig,
@@ -18,7 +23,7 @@ import com.digitalasset.canton.util.Thereafter.syntax.*
 import io.grpc.Status
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 final case class AuthenticationTokenWithExpiry(
@@ -32,18 +37,23 @@ final case class AuthenticationTokenWithExpiry(
   * `getToken` always returns a `EitherT[Future, ...]` but if a token is already available will be completed immediately with that token.
   */
 class AuthenticationTokenManager(
-    obtainToken: TraceContext => EitherT[Future, Status, AuthenticationTokenWithExpiry],
+    obtainToken: TraceContext => EitherT[
+      FutureUnlessShutdown,
+      Status,
+      AuthenticationTokenWithExpiry,
+    ],
     isClosed: => Boolean,
     config: AuthenticationTokenManagerConfig,
     clock: Clock,
     protected val loggerFactory: NamedLoggerFactory,
-)(implicit executionContext: ExecutionContext)
+)(implicit executionContext: ExecutionContext, traceContext: TraceContext)
     extends NamedLogging {
 
   sealed trait State
   case object NoToken extends State
-  case class Refreshing(pending: EitherT[Future, Status, AuthenticationTokenWithExpiry])
-      extends State
+  case class Refreshing(
+      pending: EitherT[FutureUnlessShutdown, Status, AuthenticationTokenWithExpiry]
+  ) extends State
   case class HaveToken(token: AuthenticationToken) extends State
 
   private val state = new AtomicReference[State](NoToken)
@@ -53,7 +63,7 @@ class AuthenticationTokenManager(
     * If there is no token it will cause a token refresh to start and be completed once obtained.
     * If there is a refresh already in progress it will be completed with this refresh.
     */
-  def getToken: EitherT[Future, Status, AuthenticationToken] =
+  def getToken: EitherT[FutureUnlessShutdown, Status, AuthenticationToken] =
     refreshToken(refreshWhenHaveToken = false)
 
   /** Invalid the current token if it matches the provided value.
@@ -68,9 +78,13 @@ class AuthenticationTokenManager(
 
   private def refreshToken(
       refreshWhenHaveToken: Boolean
-  ): EitherT[Future, Status, AuthenticationToken] = {
-    val refreshTokenPromise = Promise[Either[Status, AuthenticationTokenWithExpiry]]()
-    val refreshingState = Refreshing(EitherT(refreshTokenPromise.future))
+  ): EitherT[FutureUnlessShutdown, Status, AuthenticationToken] = {
+    val refreshTokenPromise =
+      new PromiseUnlessShutdown[Either[Status, AuthenticationTokenWithExpiry]](
+        "refreshToken",
+        FutureSupervisor.Noop,
+      )(ecl = ErrorLoggingContext.fromTracedLogger(logger), ec = executionContext)
+    val refreshingState = Refreshing(EitherT(refreshTokenPromise.futureUS))
 
     state.getAndUpdate {
       case NoToken => refreshingState
@@ -82,7 +96,7 @@ class AuthenticationTokenManager(
       // we have a token, so share it
       case HaveToken(token) =>
         if (refreshWhenHaveToken) createRefreshTokenFuture(refreshTokenPromise)
-        else EitherT.rightT[Future, Status](token)
+        else EitherT.rightT[FutureUnlessShutdown, Status](token)
       // there is no token yet, so start refreshing and return pending result
       case NoToken =>
         createRefreshTokenFuture(refreshTokenPromise)
@@ -90,12 +104,12 @@ class AuthenticationTokenManager(
   }
 
   private def createRefreshTokenFuture(
-      promise: Promise[Either[Status, AuthenticationTokenWithExpiry]]
-  ): EitherT[Future, Status, AuthenticationToken] = {
+      promise: PromiseUnlessShutdown[Either[Status, AuthenticationTokenWithExpiry]]
+  ): EitherT[FutureUnlessShutdown, Status, AuthenticationToken] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     logger.debug("Refreshing authentication token")
 
-    val currentRefresh = promise.future
+    val currentRefresh = promise.futureUS
     def completeRefresh(result: State): Unit = {
       state.updateAndGet {
         case Refreshing(pending) if pending.value == currentRefresh => result
@@ -123,13 +137,18 @@ class AuthenticationTokenManager(
           case _ => logger.warn("Token refresh failed", exception)
         }
         completeRefresh(NoToken)
-      case Success(Left(error)) =>
+      case Success(UnlessShutdown.AbortedDueToShutdown) =>
+        logger.warn(s"Token refresh aborted due to shutdown.")
+        completeRefresh(NoToken)
+      case Success(UnlessShutdown.Outcome(Left(error))) =>
         if (error.getCode == Status.Code.CANCELLED)
           logger.debug("Token refresh cancelled due to shutdown")
         else
           logger.warn(s"Token refresh encountered error: $error")
         completeRefresh(NoToken)
-      case Success(Right(AuthenticationTokenWithExpiry(newToken, expiresAt))) =>
+      case Success(
+            UnlessShutdown.Outcome(Right(AuthenticationTokenWithExpiry(newToken, expiresAt)))
+          ) =>
         logger.debug("Token refresh complete")
         completeRefresh(HaveToken(newToken))
         scheduleRefreshBefore(expiresAt)

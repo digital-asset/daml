@@ -76,7 +76,7 @@ class RecipientsValidator[I](
     )
 
     val allInformees = inputs
-      .flatMap { viewOfInput(_).informees.map(_.party) }
+      .flatMap { viewOfInput(_).informees }
       .distinct
       .toList
 
@@ -132,7 +132,7 @@ class RecipientsValidator[I](
         val view = viewOfInput(input)
         snapshot
           .activeParticipantsOfParties(
-            view.informees.map(_.party).toList
+            view.informees.toList
           )
           .map(view.viewPosition.position -> _)
       }

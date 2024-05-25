@@ -585,7 +585,6 @@ abstract class SequencerClientImpl(
         } else
           sequencersTransportState.transport
             .sendAsyncUnauthenticatedVersioned(request, timeout)
-            .mapK(FutureUnlessShutdown.outcomeK)
       }
       .leftSemiflatMap { err =>
         // increment appropriate error metrics
@@ -844,7 +843,6 @@ abstract class SequencerClientImpl(
       )
       result <- sequencersTransportState.transport
         .acknowledgeSigned(signedRequest)
-        .mapK(FutureUnlessShutdown.outcomeK)
     } yield result
   }
 

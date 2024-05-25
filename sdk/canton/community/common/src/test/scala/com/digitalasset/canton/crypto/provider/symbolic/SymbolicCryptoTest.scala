@@ -11,9 +11,8 @@ import com.digitalasset.canton.crypto.{
   RandomTest,
   SigningTest,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import org.scalatest.wordspec.AsyncWordSpec
-
-import scala.concurrent.Future
 
 class SymbolicCryptoTest
     extends AsyncWordSpec
@@ -25,8 +24,8 @@ class SymbolicCryptoTest
 
   "SymbolicCrypto" can {
 
-    def symbolicCrypto(): Future[Crypto] =
-      Future.successful(
+    def symbolicCrypto(): FutureUnlessShutdown[Crypto] =
+      FutureUnlessShutdown.pure(
         SymbolicCrypto.create(
           testedReleaseProtocolVersion,
           timeouts,

@@ -37,7 +37,7 @@ trait TransferStore extends TransferLookup {
     */
   def addTransfer(transferData: TransferData)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferStoreError, Unit]
+  ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit]
 
   /** Adds the given [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]] to the transfer data in the store,
     * provided that the transfer data has previously been stored.
@@ -53,7 +53,7 @@ trait TransferStore extends TransferLookup {
     */
   def addTransferOutResult(transferOutResult: DeliveredTransferOutResult)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferStoreError, Unit]
+  ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit]
 
   /** Adds the given offsets to the transfer data in the store, provided that the transfer data has previously been stored.
     *

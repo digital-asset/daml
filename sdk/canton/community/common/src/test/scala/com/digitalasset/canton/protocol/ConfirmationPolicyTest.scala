@@ -4,7 +4,12 @@
 package com.digitalasset.canton.protocol
 
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.data.{ConfirmingParty, PlainInformee}
+import com.digitalasset.canton.data.{
+  ConfirmingParty,
+  PlainInformee,
+  Quorum,
+  ViewConfirmationParameters,
+}
 import com.digitalasset.canton.protocol.ConfirmationPolicy.Signatory
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   signatoryParticipant,
@@ -172,33 +177,141 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
           ConfirmingParty(bob, PositiveInt.one),
           ConfirmingParty(charlie, PositiveInt.one),
         )
+        val oldInformeesId = oldInformees.map(informee => informee.party)
         val oldThreshold = NonNegativeInt.tryCreate(2)
+        val oldQuorum =
+          Seq(
+            Quorum(
+              Map(
+                bob -> PositiveInt.one,
+                charlie -> PositiveInt.one,
+              ),
+              oldThreshold,
+            )
+          )
+        val oldViewConfirmationParameters =
+          ViewConfirmationParameters.tryCreate(oldInformeesId, oldQuorum)
 
         ConfirmationPolicy.Signatory
-          .withSubmittingAdminParty(None)(oldInformees, oldThreshold) shouldBe
-          oldInformees -> oldThreshold
+          .withSubmittingAdminParty(None)(oldViewConfirmationParameters) shouldBe
+          oldViewConfirmationParameters
 
         ConfirmationPolicy.Signatory
-          .withSubmittingAdminParty(Some(alice))(oldInformees, oldThreshold) shouldBe
-          Set(
-            ConfirmingParty(alice, PositiveInt.one),
-            ConfirmingParty(bob, PositiveInt.one),
-            ConfirmingParty(charlie, PositiveInt.one),
-          ) -> NonNegativeInt.tryCreate(3)
+          .withSubmittingAdminParty(Some(alice))(oldViewConfirmationParameters) shouldBe
+          ViewConfirmationParameters.tryCreate(
+            oldInformeesId,
+            oldQuorum :+
+              Quorum(
+                Map(alice -> PositiveInt.one),
+                NonNegativeInt.one,
+              ),
+          )
 
         ConfirmationPolicy.Signatory
-          .withSubmittingAdminParty(Some(bob))(oldInformees, oldThreshold) shouldBe
-          oldInformees -> oldThreshold
+          .withSubmittingAdminParty(Some(bob))(oldViewConfirmationParameters) shouldBe
+          ViewConfirmationParameters.tryCreate(
+            oldInformeesId,
+            oldQuorum :+
+              Quorum(
+                Map(bob -> PositiveInt.one),
+                NonNegativeInt.one,
+              ),
+          )
 
         ConfirmationPolicy.Signatory
-          .withSubmittingAdminParty(Some(charlie))(oldInformees, oldThreshold) shouldBe
-          oldInformees -> oldThreshold
+          .withSubmittingAdminParty(Some(charlie))(oldViewConfirmationParameters) shouldBe
+          ViewConfirmationParameters.tryCreate(
+            oldInformeesId,
+            oldQuorum :+
+              Quorum(
+                Map(charlie -> PositiveInt.one),
+                NonNegativeInt.one,
+              ),
+          )
 
         ConfirmationPolicy.Signatory
-          .withSubmittingAdminParty(Some(david))(oldInformees, oldThreshold) shouldBe
-          oldInformees + ConfirmingParty(david, PositiveInt.one) ->
-          NonNegativeInt.tryCreate(3)
+          .withSubmittingAdminParty(Some(david))(oldViewConfirmationParameters) shouldBe
+          ViewConfirmationParameters.tryCreate(
+            oldInformeesId + david,
+            oldQuorum :+
+              Quorum(
+                Map(david -> PositiveInt.one),
+                NonNegativeInt.one,
+              ),
+          )
       }
     }
+
+    "multiple quorums" in {
+      val informees = Set(alice, bob, charlie)
+      val quorums = Seq(
+        Quorum(
+          Map(
+            alice -> PositiveInt.one
+          ),
+          NonNegativeInt.one,
+        ),
+        Quorum(
+          Map(
+            bob -> PositiveInt.one,
+            charlie -> PositiveInt.one,
+          ),
+          NonNegativeInt.tryCreate(2),
+        ),
+      )
+
+      val oldViewConfirmationParameters =
+        ViewConfirmationParameters.tryCreate(informees, quorums)
+
+      ConfirmationPolicy.Signatory
+        .withSubmittingAdminParty(Some(david))(
+          oldViewConfirmationParameters
+        ) shouldBe {
+        ViewConfirmationParameters.tryCreate(
+          informees + david,
+          quorums :+
+            Quorum(
+              Map(david -> PositiveInt.one),
+              NonNegativeInt.one,
+            ),
+        )
+      }
+    }
+
+    "no superfluous quorum is added" in {
+      val informees = Set(alice, bob, charlie)
+      val QuorumMultiple =
+        Seq(
+          Quorum(
+            Map(
+              alice -> PositiveInt.one
+            ),
+            NonNegativeInt.one,
+          ),
+          Quorum(
+            Map(
+              alice -> PositiveInt.one,
+              bob -> PositiveInt.one,
+              charlie -> PositiveInt.one,
+            ),
+            NonNegativeInt.tryCreate(3),
+          ),
+          Quorum(
+            Map(
+              bob -> PositiveInt.one
+            ),
+            NonNegativeInt.one,
+          ),
+        )
+      val viewConfirmationParametersMultiple =
+        ViewConfirmationParameters.tryCreate(informees, QuorumMultiple)
+
+      ConfirmationPolicy.Signatory
+        .withSubmittingAdminParty(Some(alice))(
+          viewConfirmationParametersMultiple
+        ) shouldBe viewConfirmationParametersMultiple
+
+    }
+
   }
 }

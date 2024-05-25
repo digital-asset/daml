@@ -39,7 +39,7 @@ private[dao] sealed class EventsReader(
       // Used by LfEngineToApi
       verbose = true,
       // Needed to get create arguments mapped
-      wildcardWitnesses = requestingParties.map(_.toString),
+      templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
     )
 
     for {

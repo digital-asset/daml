@@ -25,53 +25,111 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
 
   import StorageBackendTestValues.*
 
+  val contractId1 = hashCid("#1")
+  val contractId2 = hashCid("#2")
+  val contractId3 = hashCid("#3")
+  val contractId4 = hashCid("#4")
+  val signatory = Ref.Party.assertFromString("party")
+  val someParty = Ref.Party.assertFromString(signatory)
+
   behavior of "StorageBackend events"
 
   it should "return the correct created_at" in {
+
+    val create = dtoCreate(
+      offset = offset(1),
+      eventSequentialId = 1L,
+      contractId = contractId1,
+      signatory = signatory,
+    )
+
+    ingestDtos(Vector(create))
+
     testCreatedAt(
-      "party",
-      dtoCreate(
-        offset = offset(1),
-        eventSequentialId = 1L,
-        contractId = hashCid("#1"),
-        signatory = "party",
-      ),
-      Timestamp(someTime.toInstant),
+      partiesO = Some(Set(someParty)),
+      expectedCreatedAt = Timestamp(someTime.toInstant),
+    )
+
+    testCreatedAt(
+      partiesO = None,
+      expectedCreatedAt = Timestamp(someTime.toInstant),
     )
   }
 
-  private def ingestAndFetch(signatory: String, create: DbDto.EventCreate) = {
-    val someParty = Ref.Party.assertFromString(signatory)
+  it should "return the correct stream contents for acs" in {
+    val creates = Vector(
+      dtoCreate(offset(1), 1L, contractId = contractId1, signatory = signatory),
+      dtoCreate(offset(1), 2L, contractId = contractId2, signatory = signatory),
+      dtoCreate(offset(1), 3L, contractId = contractId3, signatory = signatory),
+      dtoCreate(offset(1), 4L, contractId = contractId4, signatory = signatory),
+    )
 
+    ingestDtos(creates)
+
+    val someParty = Ref.Party.assertFromString(signatory)
+    val (
+      // TODO(#18362) extend this test when transaction streams w/ party-wildcard are implemented
+      _flatTransactionEvents,
+      _transactionTreeEvents,
+      _flatTransaction,
+      _transactionTree,
+      acs,
+    ) = fetch(Some(Set(someParty)))
+
+    acs.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
+
+    val (
+      _,
+      _,
+      _,
+      _,
+      acsSuperReader,
+    ) = fetch(None)
+
+    acsSuperReader.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
+
+  }
+
+  private def ingestDtos(creates: Vector[DbDto.EventCreate]) = {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(ingest(Vector(create), _))
-    executeSql(updateLedgerEnd(offset(1), 1L))
+    executeSql(ingest(creates, _))
+    executeSql(updateLedgerEnd(offset(1), creates.size.toLong))
+  }
+
+  private def fetch(filterParties: Option[Set[Ref.Party]]) = {
 
     val flatTransactionEvents = executeSql(
       backend.event.transactionStreamingQueries.fetchEventPayloadsFlat(
         EventPayloadSourceForFlatTx.Create
-      )(eventSequentialIds = Seq(1L), Set(someParty))
+      )(eventSequentialIds = Seq(1L), filterParties)
     )
     val transactionTreeEvents = executeSql(
       backend.event.transactionStreamingQueries.fetchEventPayloadsTree(
         EventPayloadSourceForTreeTx.Create
-      )(eventSequentialIds = Seq(1L), Set(someParty))
+      )(eventSequentialIds = Seq(1L), filterParties.getOrElse(Set.empty))
     )
     val flatTransaction = executeSql(
-      backend.event.transactionPointwiseQueries.fetchFlatTransactionEvents(1L, 1L, Set(someParty))
+      backend.event.transactionPointwiseQueries
+        .fetchFlatTransactionEvents(1L, 1L, filterParties.getOrElse(Set.empty))
     )
     val transactionTree = executeSql(
-      backend.event.transactionPointwiseQueries.fetchTreeTransactionEvents(1L, 1L, Set(someParty))
+      backend.event.transactionPointwiseQueries
+        .fetchTreeTransactionEvents(1L, 1L, filterParties.getOrElse(Set.empty))
     )
     val acs = executeSql(
-      backend.event.activeContractCreateEventBatchV2(Seq(1L), Set(someParty), 1L)
+      backend.event.activeContractCreateEventBatch(Seq(1L, 2L, 3L, 4L), filterParties, 4L)
     )
-    (flatTransactionEvents, transactionTreeEvents, flatTransaction, transactionTree, acs)
+    (
+      flatTransactionEvents,
+      transactionTreeEvents,
+      flatTransaction,
+      transactionTree,
+      acs,
+    )
   }
 
   private def testCreatedAt(
-      signatory: String,
-      create: DbDto.EventCreate,
+      partiesO: Option[Set[Ref.Party]],
       expectedCreatedAt: Timestamp,
   ): Assertion = {
     val (
@@ -80,7 +138,7 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
       flatTransaction,
       transactionTree,
       acs,
-    ) = ingestAndFetch(signatory, create)
+    ) = fetch(partiesO)
 
     extractCreatedAtFrom[FlatEvent.Created, FlatEvent](
       in = flatTransactionEvents,

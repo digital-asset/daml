@@ -454,7 +454,7 @@ class TransferOutProcessingSteps(
         transferGlobalOffset = None,
       )
       _ <- ifThenET(transferringParticipant) {
-        transferCoordination.addTransferOutRequest(transferData).mapK(FutureUnlessShutdown.outcomeK)
+        transferCoordination.addTransferOutRequest(transferData)
       }
       confirmingStakeholders <- EitherT.right(
         FutureUnlessShutdown.outcomeF(
@@ -539,7 +539,11 @@ class TransferOutProcessingSteps(
       hashOps: HashOps,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, CommitAndStoreContractsAndPublishEvent] = {
+  ): EitherT[
+    FutureUnlessShutdown,
+    TransferProcessorError,
+    CommitAndStoreContractsAndPublishEvent,
+  ] = {
     val PendingTransferOut(
       requestId,
       requestCounter,
@@ -592,7 +596,7 @@ class TransferOutProcessingSteps(
         for {
           _ <- ifThenET(transferringParticipant) {
             EitherT
-              .fromEither[Future](DeliveredTransferOutResult.create(event))
+              .fromEither[FutureUnlessShutdown](DeliveredTransferOutResult.create(event))
               .leftMap(err => TransferOutProcessorError.InvalidResult(transferId, err))
               .flatMap(deliveredResult =>
                 transferCoordination.addTransferOutResult(targetDomain, deliveredResult)
@@ -603,7 +607,7 @@ class TransferOutProcessingSteps(
           _ <-
             if (notInitiator && transferringParticipant)
               triggerTransferInWhenExclusivityTimeoutExceeded(pendingRequestData)
-            else EitherT.pure[Future, TransferProcessorError](())
+            else EitherT.pure[FutureUnlessShutdown, TransferProcessorError](())
 
           transferOutEvent <- createTransferredOut(
             contractId,
@@ -618,7 +622,7 @@ class TransferOutProcessingSteps(
             isTransferringParticipant = transferringParticipant,
             transferCounter,
             hostedStakeholders.toList,
-          )
+          ).mapK(FutureUnlessShutdown.outcomeK)
         } yield CommitAndStoreContractsAndPublishEvent(
           commitSetFO,
           Seq.empty,
@@ -631,9 +635,10 @@ class TransferOutProcessingSteps(
           ),
         )
 
-      case reasons: Verdict.ParticipantReject => rejected(reasons.keyEvent)
+      case reasons: Verdict.ParticipantReject =>
+        rejected(reasons.keyEvent).mapK(FutureUnlessShutdown.outcomeK)
 
-      case rejection: MediatorReject => rejected(rejection)
+      case rejection: MediatorReject => rejected(rejection).mapK(FutureUnlessShutdown.outcomeK)
     }
   }
 
@@ -687,7 +692,9 @@ class TransferOutProcessingSteps(
 
   private[this] def triggerTransferInWhenExclusivityTimeoutExceeded(
       pendingRequestData: RequestType#PendingRequestData
-  )(implicit traceContext: TraceContext): EitherT[Future, TransferProcessorError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
 
     val targetDomain = pendingRequestData.targetDomain
     val t0 = pendingRequestData.targetTimeProof.timestamp
@@ -701,7 +708,7 @@ class TransferOutProcessingSteps(
       participantId,
       t0,
     )
-  }
+  }.mapK(FutureUnlessShutdown.outcomeK)
 
   private[this] def deleteTransfer(targetDomain: TargetDomainId, transferOutRequestId: RequestId)(
       implicit traceContext: TraceContext

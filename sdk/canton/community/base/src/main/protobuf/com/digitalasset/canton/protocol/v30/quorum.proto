@@ -1,0 +1,23 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v30;
+
+// Quorum
+
+message Quorum {
+  // The list of confirmers that constitute a quorum. Each confirmer is represented by their index in the
+  // 'informees' field of the 'ViewCommonData' message.
+  repeated PartyIndexAndWeight party_index_and_weight = 1;
+  int32 threshold = 2;
+}
+
+// PartyIndexAndWeight
+
+message PartyIndexAndWeight {
+  // The index of the confirming party in the 'informees' field of the 'ViewCommonData' message.
+  int32 index = 1;
+  int32 weight = 2;
+}

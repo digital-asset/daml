@@ -190,9 +190,13 @@ class TransferCoordination(
   /** Stores the given transfer data on the target domain. */
   private[transfer] def addTransferOutRequest(
       transferData: TransferData
-  )(implicit traceContext: TraceContext): EitherT[Future, TransferProcessorError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
     for {
-      transferStore <- EitherT.fromEither[Future](transferStoreFor(transferData.targetDomain))
+      transferStore <- EitherT.fromEither[FutureUnlessShutdown](
+        transferStoreFor(transferData.targetDomain)
+      )
       _ <- transferStore
         .addTransfer(transferData)
         .leftMap[TransferProcessorError](TransferStoreFailed(transferData.transferId, _))
@@ -205,9 +209,9 @@ class TransferCoordination(
       transferOutResult: DeliveredTransferOutResult,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
     for {
-      transferStore <- EitherT.fromEither[Future](transferStoreFor(domain))
+      transferStore <- EitherT.fromEither[FutureUnlessShutdown](transferStoreFor(domain))
       _ <- transferStore
         .addTransferOutResult(transferOutResult)
         .leftMap[TransferProcessorError](TransferStoreFailed(transferOutResult.transferId, _))

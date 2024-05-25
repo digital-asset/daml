@@ -64,7 +64,7 @@ private class JdbcLedgerDao(
     globalMaxEventPayloadQueries: Int,
     tracer: Tracer,
     val loggerFactory: NamedLoggerFactory,
-    incompleteOffsets: (Offset, Set[Ref.Party], TraceContext) => Future[Vector[Offset]],
+    incompleteOffsets: (Offset, Option[Set[Ref.Party]], TraceContext) => Future[Vector[Offset]],
     contractLoader: ContractLoader,
 ) extends LedgerDao
     with NamedLogging {
@@ -646,7 +646,7 @@ private[platform] object JdbcLedgerDao {
       globalMaxEventPayloadQueries: Int,
       tracer: Tracer,
       loggerFactory: NamedLoggerFactory,
-      incompleteOffsets: (Offset, Set[Ref.Party], TraceContext) => Future[Vector[Offset]],
+      incompleteOffsets: (Offset, Option[Set[Ref.Party]], TraceContext) => Future[Vector[Offset]],
       contractLoader: ContractLoader = ContractLoader.dummyLoader,
   ): LedgerReadDao =
     new JdbcLedgerDao(

@@ -6,8 +6,7 @@ package com.digitalasset.canton.domain.mediator
 import cats.data.OptionT
 import cats.syntax.parallel.*
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.data.{CantonTimestamp, ConfirmingParty, Informee, ViewPosition}
+import com.digitalasset.canton.data.{CantonTimestamp, ViewConfirmationParameters, ViewPosition}
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
@@ -67,7 +66,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
     implicit val tc: TraceContext = loggingContext.traceContext
     def authorizedPartiesOfSender(
         viewKey: VKEY,
-        declaredConfirmingParties: Set[ConfirmingParty],
+        declaredConfirmingParties: Set[LfPartyId],
     ): OptionT[Future, Set[LfPartyId]] = {
       localVerdict match {
         case malformed: LocalReject if malformed.isMalformed =>
@@ -77,7 +76,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
           val hostedConfirmingPartiesF =
             topologySnapshot.canConfirm(
               sender,
-              declaredConfirmingParties.map(_.party),
+              declaredConfirmingParties,
             )
           val res = hostedConfirmingPartiesF.map { hostedConfirmingParties =>
             loggingContext.debug(
@@ -88,7 +87,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
           OptionT(res)
         case _: LocalVerdict =>
           val unexpectedConfirmingParties =
-            confirmingParties -- declaredConfirmingParties.map(_.party)
+            confirmingParties -- declaredConfirmingParties
           for {
             _ <-
               if (unexpectedConfirmingParties.isEmpty) OptionT.some[Future](())
@@ -102,15 +101,15 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
               }
 
             expectedConfirmingParties =
-              declaredConfirmingParties.filter(p => confirmingParties.contains(p.party))
+              declaredConfirmingParties.intersect(confirmingParties)
             unauthorizedConfirmingParties <- OptionT.liftF(
               topologySnapshot
                 .canConfirm(
                   sender,
-                  expectedConfirmingParties.map(_.party),
+                  expectedConfirmingParties,
                 )
                 .map { confirmingParties =>
-                  (expectedConfirmingParties.map(_.party) -- confirmingParties)
+                  expectedConfirmingParties -- confirmingParties
                 }
             )
             _ <-
@@ -156,11 +155,11 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
 
             val informeesByView = ViewKey[VKEY].informeesAndThresholdByKey(request)
             val ret = informeesByView.toList
-              .parTraverseFilter { case (viewKey, (informees, _threshold)) =>
-                val confirmingParties = informees.collect { case cp: ConfirmingParty => cp.party }
+              .parTraverseFilter { case (viewKey, viewConfirmationParameters) =>
+                val confirmingParties = viewConfirmationParameters.confirmers
                 topologySnapshot.canConfirm(sender, confirmingParties).map { partiesCanConfirm =>
                   val hostedConfirmingParties = confirmingParties.toSeq
-                    .filter(partiesCanConfirm.contains(_))
+                    .filter(partiesCanConfirm.contains)
                   Option.when(hostedConfirmingParties.nonEmpty)(
                     viewKey -> hostedConfirmingParties.toSet
                   )
@@ -168,14 +167,14 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
               }
               .map { viewsWithConfirmingPartiesForSender =>
                 loggingContext.debug(
-                  s"Malformed response $responseTimestamp from $sender considered as a rejection for ${viewsWithConfirmingPartiesForSender}"
+                  s"Malformed response $responseTimestamp from $sender considered as a rejection for $viewsWithConfirmingPartiesForSender"
                 )
                 viewsWithConfirmingPartiesForSender
               }
             OptionT.liftF(ret)
           case Some(viewKey) =>
             for {
-              informeesAndThreshold <- OptionT.fromOption[Future](
+              viewConfirmationParameters <- OptionT.fromOption[Future](
                 ViewKey[VKEY].informeesAndThresholdByKey(request).get(viewKey).orElse {
                   val cause =
                     s"Received a confirmation response at $responseTimestamp by $sender for request $requestId with an unknown view position $viewKey. Discarding response..."
@@ -185,8 +184,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
                   None
                 }
               )
-              (informees, _) = informeesAndThreshold
-              declaredConfirmingParties = informees.collect { case p: ConfirmingParty => p }
+              declaredConfirmingParties = viewConfirmationParameters.confirmers
               authorizedConfirmingParties <- authorizedPartiesOfSender(
                 viewKey,
                 declaredConfirmingParties,
@@ -206,7 +204,7 @@ trait ViewKey[VKEY] extends Pretty[VKEY] with Product with Serializable {
 
   def informeesAndThresholdByKey(
       request: MediatorConfirmationRequest
-  ): Map[VKEY, (Set[Informee], NonNegativeInt)]
+  ): Map[VKEY, ViewConfirmationParameters]
 }
 object ViewKey {
   def apply[VKEY: ViewKey]: ViewKey[VKEY] = implicitly[ViewKey[VKEY]]
@@ -219,8 +217,8 @@ object ViewKey {
 
     override def informeesAndThresholdByKey(
         request: MediatorConfirmationRequest
-    ): Map[ViewPosition, (Set[Informee], NonNegativeInt)] =
-      request.informeesAndThresholdByViewPosition
+    ): Map[ViewPosition, ViewConfirmationParameters] =
+      request.informeesAndConfirmationParamsByViewPosition
 
     override def treeOf(t: ViewPosition): Tree = t.pretty.treeOf(t)
   }

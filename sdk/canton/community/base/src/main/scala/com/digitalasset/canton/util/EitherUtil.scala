@@ -4,6 +4,7 @@
 package com.digitalasset.canton.util
 
 import cats.syntax.either.*
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 
 import scala.concurrent.Future
 
@@ -38,6 +39,11 @@ object EitherUtil {
     def toFuture(f: L => Throwable): Future[R] = either match {
       case Left(value) => Future.failed(f(value))
       case Right(value) => Future.successful(value)
+    }
+
+    def toFutureUS(f: L => Throwable): FutureUnlessShutdown[R] = either match {
+      case Left(value) => FutureUnlessShutdown.failed(f(value))
+      case Right(value) => FutureUnlessShutdown.pure(value)
     }
   }
 

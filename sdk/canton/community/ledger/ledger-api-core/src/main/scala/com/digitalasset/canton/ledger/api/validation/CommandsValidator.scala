@@ -32,8 +32,7 @@ import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable
 
 final class CommandsValidator(
-    validateUpgradingPackageResolutions: ValidateUpgradingPackageResolutions =
-      ValidateUpgradingPackageResolutions.UpgradingDisabled,
+    validateUpgradingPackageResolutions: ValidateUpgradingPackageResolutions,
     validateDisclosedContracts: ValidateDisclosedContracts = new ValidateDisclosedContracts,
 ) {
 

@@ -7,7 +7,7 @@ import com.digitalasset.canton.config.{CommunityStorageConfig, NonNegativeFinite
 import com.digitalasset.canton.domain.sequencing.sequencer.DatabaseSequencerConfig.TestingInterceptor
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.{
   CommunityReferenceSequencerDriverFactory,
-  ReferenceBlockOrderer,
+  ReferenceSequencerDriver,
 }
 import com.digitalasset.canton.time.Clock
 import pureconfig.ConfigCursor
@@ -91,7 +91,7 @@ object CommunitySequencerConfig {
       ConfigCursor(
         driverFactory
           .configWriter(confidential = false)
-          .to(ReferenceBlockOrderer.Config(storage = CommunityStorageConfig.Memory())),
+          .to(ReferenceSequencerDriver.Config(storage = CommunityStorageConfig.Memory())),
         List(),
       ),
       None,

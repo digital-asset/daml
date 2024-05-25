@@ -319,7 +319,10 @@ class TransactionTreeFactoryImplV3(
       seed = view.rootSeed
       packagePreference <- EitherT.fromEither[Future](buildPackagePreference(view))
       actionDescription = createActionDescription(suffixedRootNode, seed, packagePreference)
-      viewCommonData = createViewCommonData(view, viewCommonDataSalt)
+      viewCommonData = createViewCommonData(view, viewCommonDataSalt).fold(
+        ErrorUtil.internalError,
+        identity,
+      )
       viewKeyInputs = state.csmState.globalKeyInputs
       resolvedK <- EitherT.fromEither[Future](
         resolvedKeys(

@@ -125,12 +125,12 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       request.content.messageId,
       timeout,
       SendAsyncUnauthenticatedVersionedResponse.fromSendAsyncVersionedResponseProto,
-    ).mapK(FutureUnlessShutdown.outcomeK)
+    )
   }
 
   override def sendAsyncUnauthenticatedVersioned(request: SubmissionRequest, timeout: Duration)(
       implicit traceContext: TraceContext
-  ): EitherT[Future, SendAsyncClientResponseError, Unit] = sendInternal(
+  ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] = sendInternal(
     stub =>
       stub.sendAsyncUnauthenticatedVersioned(
         v30.SendAsyncUnauthenticatedVersionedRequest(submissionRequest = request.toByteString)
@@ -147,7 +147,9 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       messageId: MessageId,
       timeout: Duration,
       fromResponseProto: Resp => ParsingResult[SendAsyncUnauthenticatedVersionedResponse],
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientResponseError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] = {
     // sends are at-most-once so we cannot retry when unavailable as we don't know if the request has been accepted
     val sendAtMostOnce = retryPolicy(retryOnUnavailable = false)
     val response =
@@ -159,10 +161,12 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         logPolicy = noLoggingShutdownErrorsLogPolicy,
         retryPolicy = sendAtMostOnce,
       )
-    response.biflatMap(
-      fromGrpcError(_, messageId).toEitherT,
-      fromResponse(_, fromResponseProto).toEitherT,
-    )
+    response
+      .biflatMap(
+        fromGrpcError(_, messageId).toEitherT,
+        fromResponse(_, fromResponseProto).toEitherT,
+      )
+      .mapK(FutureUnlessShutdown.outcomeK)
   }
 
   private def fromResponse[Proto](
@@ -245,7 +249,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
 
   override def acknowledgeSigned(signedRequest: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Boolean] = {
+  ): EitherT[FutureUnlessShutdown, String, Boolean] = {
     val request = signedRequest.content
     val timestamp = request.timestamp
     logger.debug(s"Acknowledging timestamp: $timestamp")
@@ -267,6 +271,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         case x if x.status == io.grpc.Status.UNAVAILABLE => false
       }
       .leftMap(_.toString)
+      .mapK(FutureUnlessShutdown.outcomeK)
   }
 
   override def downloadTopologyStateForInit(request: TopologyStateForInitRequest)(implicit

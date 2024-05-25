@@ -5,7 +5,6 @@ package com.digitalasset.canton.data
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.*
 
@@ -28,8 +27,7 @@ object TransactionViewDecomposition {
     * This is the case for all root nodes of the underlying transaction or if the parent node has fewer informee participants.
     *
     * @param rootNode the node constituting the view
-    * @param informees the informees of rootNode
-    * @param threshold the threshold of rootNode
+    * @param viewConfirmationParameters contains both the informees of rootNode and quorums
     * @param rootSeed the seed of the rootNode
     * @param tailNodes all core nodes except `rootNode` and all child views, sorted in pre-order traversal order
     *
@@ -37,8 +35,7 @@ object TransactionViewDecomposition {
     */
   final case class NewView(
       rootNode: LfActionNode,
-      informees: Set[Informee],
-      threshold: NonNegativeInt,
+      viewConfirmationParameters: ViewConfirmationParameters,
       rootSeed: Option[LfHash],
       override val nodeId: LfNodeId,
       tailNodes: Seq[TransactionViewDecomposition],
@@ -47,9 +44,9 @@ object TransactionViewDecomposition {
 
     childViews.foreach { sv =>
       require(
-        (sv.informees, sv.threshold) != ((informees, threshold)),
-        s"Children must have different informees or thresholds than parent. " +
-          s"Found threshold $threshold and informees $informees",
+        sv.viewConfirmationParameters != viewConfirmationParameters,
+        s"Children must have different informees or quorums than parent. " +
+          s"Found informees ${viewConfirmationParameters.informees} and quorums ${viewConfirmationParameters.quorums}",
       )
     }
 
@@ -61,23 +58,26 @@ object TransactionViewDecomposition {
 
     def childViews: Seq[NewView] = tailNodes.collect { case v: NewView => v }
 
-    /** This view with the submittingAdminParty (if defined) added as extra confirming party.
+    /** This view with the submittingAdminParty (if defined) added as an extra confirming party.
       * This needs to be called on root views to guarantee proper authorization.
+      * It adds an extra quorum with the submitting party.
       */
     def withSubmittingAdminParty(
         submittingAdminPartyO: Option[LfPartyId],
         confirmationPolicy: ConfirmationPolicy,
     ): NewView = {
-      val (newInformees, newThreshold) =
-        confirmationPolicy.withSubmittingAdminParty(submittingAdminPartyO)(informees, threshold)
-
-      copy(informees = newInformees, threshold = newThreshold)
+      val newViewConfirmationParameters =
+        confirmationPolicy.withSubmittingAdminParty(submittingAdminPartyO)(
+          viewConfirmationParameters
+        )
+      copy(
+        viewConfirmationParameters = newViewConfirmationParameters
+      )
     }
 
     override def pretty: Pretty[NewView] = prettyOfClass(
       param("root node template", _.rootNode.templateId),
-      param("informees", _.informees),
-      param("threshold", _.threshold),
+      param("view confirmation parameters", _.viewConfirmationParameters),
       param("node ID", _.nodeId),
       param("rollback context", _.rbContext),
       param("tail nodes", _.tailNodes),
@@ -106,9 +106,9 @@ object TransactionViewDecomposition {
     views match {
       case head +: rest =>
         head match {
-          case (newView: TransactionViewDecomposition.NewView) =>
+          case newView: TransactionViewDecomposition.NewView =>
             countNestedViews(newView.tailNodes ++ rest, count + 1)
-          case (_: TransactionViewDecomposition.SameView) =>
+          case _: TransactionViewDecomposition.SameView =>
             countNestedViews(rest, count)
         }
       case _ => // scala compiler is not happy matching on Seq() thinking that there is some other missing case

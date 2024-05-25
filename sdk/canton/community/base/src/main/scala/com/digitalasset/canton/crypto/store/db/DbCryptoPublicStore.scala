@@ -9,6 +9,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.*
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.DbStorage.DbAction
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
@@ -17,7 +18,7 @@ import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import slick.jdbc.{GetResult, SetParameter}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class DbCryptoPublicStore(
     override protected val storage: DbStorage,
@@ -68,35 +69,39 @@ class DbCryptoPublicStore(
   private def insertKey[K <: PublicKey: SetParameter, KN <: PublicKeyWithName: GetResult](
       key: K,
       name: Option[KeyName],
-  )(implicit traceContext: TraceContext): EitherT[Future, CryptoPublicStoreError, Unit] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPublicStoreError, Unit] =
     for {
-      inserted <- EitherT.right(storage.update(insertKeyUpdate(key, name), functionFullName))
+      inserted <- EitherT.right(
+        storage.updateUnlessShutdown(insertKeyUpdate(key, name), functionFullName)
+      )
       res <-
         if (inserted == 0) {
           // If no key was inserted by the insert query, check that the existing value matches
           storage
-            .querySingle(queryKey(key.id, key.purpose), functionFullName)
+            .querySingleUnlessShutdown(queryKey(key.id, key.purpose), functionFullName)
             .toRight(
               CryptoPublicStoreError.FailedToInsertKey(key.id, "No key inserted and no key found")
             )
             .flatMap { existingKey =>
               EitherT
-                .cond[Future](
+                .cond[FutureUnlessShutdown](
                   existingKey.publicKey == key && existingKey.name == name,
                   (),
                   CryptoPublicStoreError.KeyAlreadyExists(key.id, existingKey.name.map(_.unwrap)),
                 )
                 .leftWiden[CryptoPublicStoreError]
             }
-        } else EitherT.rightT[Future, CryptoPublicStoreError](())
+        } else EitherT.rightT[FutureUnlessShutdown, CryptoPublicStoreError](())
     } yield res
 
   override def readSigningKey(signingKeyId: Fingerprint)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPublicStoreError, Option[SigningPublicKeyWithName]] =
+  ): EitherT[FutureUnlessShutdown, CryptoPublicStoreError, Option[SigningPublicKeyWithName]] =
     EitherTUtil.fromFuture(
       storage
-        .querySingle(
+        .querySingleUnlessShutdown(
           queryKey[SigningPublicKeyWithName](signingKeyId, KeyPurpose.Signing),
           functionFullName,
         )
@@ -106,10 +111,10 @@ class DbCryptoPublicStore(
 
   override def readEncryptionKey(encryptionKeyId: Fingerprint)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPublicStoreError, Option[EncryptionPublicKeyWithName]] =
+  ): EitherT[FutureUnlessShutdown, CryptoPublicStoreError, Option[EncryptionPublicKeyWithName]] =
     EitherTUtil.fromFuture(
       storage
-        .querySingle(
+        .querySingleUnlessShutdown(
           queryKey[EncryptionPublicKeyWithName](encryptionKeyId, KeyPurpose.Encryption),
           functionFullName,
         )
@@ -119,29 +124,35 @@ class DbCryptoPublicStore(
 
   override protected def writeSigningKey(key: SigningPublicKey, name: Option[KeyName])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPublicStoreError, Unit] =
+  ): EitherT[FutureUnlessShutdown, CryptoPublicStoreError, Unit] =
     insertKey[SigningPublicKey, SigningPublicKeyWithName](key, name)
 
   override protected def writeEncryptionKey(key: EncryptionPublicKey, name: Option[KeyName])(
       implicit traceContext: TraceContext
-  ): EitherT[Future, CryptoPublicStoreError, Unit] =
+  ): EitherT[FutureUnlessShutdown, CryptoPublicStoreError, Unit] =
     insertKey[EncryptionPublicKey, EncryptionPublicKeyWithName](key, name)
 
   override private[store] def listSigningKeys(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPublicStoreError, Set[SigningPublicKeyWithName]] =
+  ): EitherT[FutureUnlessShutdown, CryptoPublicStoreError, Set[SigningPublicKeyWithName]] =
     EitherTUtil.fromFuture(
-      storage.query(queryKeys[SigningPublicKeyWithName](KeyPurpose.Signing), functionFullName),
+      storage.queryUnlessShutdown(
+        queryKeys[SigningPublicKeyWithName](KeyPurpose.Signing),
+        functionFullName,
+      ),
       err => CryptoPublicStoreError.FailedToListKeys(err.toString),
     )
 
   override private[store] def listEncryptionKeys(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPublicStoreError, Set[EncryptionPublicKeyWithName]] =
+  ): EitherT[FutureUnlessShutdown, CryptoPublicStoreError, Set[EncryptionPublicKeyWithName]] =
     EitherTUtil
       .fromFuture(
         storage
-          .query(queryKeys[EncryptionPublicKeyWithName](KeyPurpose.Encryption), functionFullName),
+          .queryUnlessShutdown(
+            queryKeys[EncryptionPublicKeyWithName](KeyPurpose.Encryption),
+            functionFullName,
+          ),
         err => CryptoPublicStoreError.FailedToListKeys(err.toString),
       )
 }

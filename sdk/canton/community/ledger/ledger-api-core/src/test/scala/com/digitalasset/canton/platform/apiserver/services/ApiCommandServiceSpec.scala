@@ -149,7 +149,7 @@ object ApiCommandServiceSpec {
   private val submissionIdPrefix = "submissionId-"
 
   private val commandsValidator = CommandsValidator(
-    validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.UpgradingDisabled
+    validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.Empty
   )
 
   def createMockCommandService: CommandService & AutoCloseable = {

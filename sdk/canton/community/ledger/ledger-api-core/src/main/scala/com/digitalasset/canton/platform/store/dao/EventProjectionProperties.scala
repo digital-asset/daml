@@ -15,26 +15,32 @@ import scala.collection.View
   *  interfaces and templates implementing them.
   *
   * @param verbose enriching in verbose mode
-  * @param wildcardWitnesses all the wildcard parties for which contract arguments will be populated
+  * @param templateWildcardWitnesses all the parties for which contract arguments will be
+  *                                  populated for all the templates,if None then contract arguments
+  *                                  for all the parties and for all the templates will be populated
   * @param witnessTemplateProjections per witness party, per template projections
   */
 final case class EventProjectionProperties(
     verbose: Boolean,
-    wildcardWitnesses: Set[String],
-    // Map(witness -> Map(template -> projection))
-    witnessTemplateProjections: Map[String, Map[Identifier, Projection]] = Map.empty,
+    templateWildcardWitnesses: Option[Set[String]],
+    // Map((witness or wildcard) -> Map(template -> projection)), where a None key denotes a party wildcard
+    witnessTemplateProjections: Map[Option[String], Map[Identifier, Projection]] = Map.empty,
     alwaysPopulateCreatedEventBlob: Boolean = false,
 ) {
-  def render(witnesses: Set[String], templateId: Identifier): Projection =
-    witnesses.iterator
+  def render(witnesses: Set[String], templateId: Identifier): Projection = {
+    (witnesses.iterator.map(Some(_))
+      ++ Iterator(None)) // for the party-wildcard template specific projections)
       .flatMap(witnessTemplateProjections.get(_).iterator)
       .flatMap(_.get(templateId).iterator)
       .foldLeft(
         Projection(
-          contractArguments = witnesses.exists(wildcardWitnesses),
+          contractArguments = templateWildcardWitnesses.fold(witnesses.nonEmpty)(parties =>
+            witnesses.exists(parties)
+          ),
           createdEventBlob = alwaysPopulateCreatedEventBlob,
         )
       )(_ append _)
+  }
 }
 
 object EventProjectionProperties {
@@ -70,38 +76,64 @@ object EventProjectionProperties {
   ): EventProjectionProperties =
     EventProjectionProperties(
       verbose = verbose,
-      wildcardWitnesses = wildcardWitnesses(transactionFilter, alwaysPopulateArguments),
-      witnessTemplateProjections =
-        witnessTemplateProjections(transactionFilter, interfaceImplementedBy, resolveTemplateIds),
+      templateWildcardWitnesses =
+        templateWildcardWitnesses(transactionFilter, alwaysPopulateArguments),
+      witnessTemplateProjections = witnessTemplateProjections(
+        transactionFilter,
+        interfaceImplementedBy,
+        resolveTemplateIds,
+      ),
       alwaysPopulateCreatedEventBlob = transactionFilter.alwaysPopulateCreatedEventBlob,
     )
 
-  private def wildcardWitnesses(
+  private def templateWildcardWitnesses(
       domainTransactionFilter: domain.TransactionFilter,
       alwaysPopulateArguments: Boolean,
-  ): Set[String] =
-    if (alwaysPopulateArguments)
-      domainTransactionFilter.filtersByParty.keysIterator
-        .map(_.toString)
-        .toSet
-    else
-      domainTransactionFilter.filtersByParty.iterator
-        .collect {
-          case (party, Filters(None)) => party
-          case (party, Filters(Some(empty)))
-              if empty.templateFilters.isEmpty && empty.interfaceFilters.isEmpty =>
-            party
-        }
-        .map(_.toString)
-        .toSet
+  ): Option[Set[String]] =
+    if (alwaysPopulateArguments) {
+      domainTransactionFilter.filtersForAnyParty match {
+        case Some(_) => None
+        // filters for any party (party-wildcard) is not defined, getting the template wildcard witnesses from the filters by party
+        case None =>
+          Some(
+            domainTransactionFilter.filtersByParty.keysIterator
+              .map(_.toString)
+              .toSet
+          )
+      }
+    } else
+      domainTransactionFilter.filtersForAnyParty match {
+        case Some(Filters(None)) => None
+        case Some(Filters(Some(inclusive)))
+            if inclusive.templateFilters.isEmpty && inclusive.interfaceFilters.isEmpty =>
+          None
+        // filters for any party (party-wildcard) not defined at all or defined but for specific templates, getting the template wildcard witnesses from the filters by party
+        case _ =>
+          Some(
+            domainTransactionFilter.filtersByParty.iterator
+              .collect {
+                case (party, Filters(None)) => party
+                case (party, Filters(Some(empty)))
+                    if empty.templateFilters.isEmpty && empty.interfaceFilters.isEmpty =>
+                  party
+              }
+              .map(_.toString)
+              .toSet
+          )
+      }
 
   private def witnessTemplateProjections(
       domainTransactionFilter: domain.TransactionFilter,
       interfaceImplementedBy: Identifier => Set[Identifier],
       resolveTemplateIds: TypeConRef => Set[Identifier],
-  ): Map[String, Map[Identifier, Projection]] =
+  ): Map[Option[String], Map[Identifier, Projection]] = {
+    val partyFilterPairs =
+      domainTransactionFilter.filtersByParty.view.map { case (p, f) =>
+        (Some(p), f)
+      } ++
+        domainTransactionFilter.filtersForAnyParty.toList.view.map((None, _))
     (for {
-      (party, filters) <- domainTransactionFilter.filtersByParty.view
+      (partyO, filters) <- partyFilterPairs
       inclusiveFilters <- filters.inclusive.toList.view
     } yield {
       val interfaceFilterProjections = for {
@@ -121,8 +153,9 @@ object EventProjectionProperties {
           .mapValues(_.foldLeft(Projection())(_ append _))
           .toMap
 
-      party -> projectionsForParty
+      partyO -> projectionsForParty
     }).toMap
+  }
 
   private def getTemplateProjections(
       inclusiveFilters: InclusiveFilters,

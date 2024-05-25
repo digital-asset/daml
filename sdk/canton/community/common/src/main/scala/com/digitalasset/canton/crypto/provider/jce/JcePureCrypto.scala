@@ -17,7 +17,7 @@ import com.digitalasset.canton.serialization.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, ShowUtil}
-import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
+import com.digitalasset.canton.version.{HasToByteString, HasVersionedToByteString, ProtocolVersion}
 import com.google.crypto.tink.hybrid.subtle.AeadOrDaead
 import com.google.crypto.tink.subtle.EllipticCurves.EcdsaEncoding
 import com.google.crypto.tink.subtle.Enums.HashType
@@ -472,10 +472,9 @@ class JcePureCrypto(
       publicKey.fingerprint,
     )
 
-  override def encryptWith[M <: HasVersionedToByteString](
-      message: M,
+  private def encryptWith[M](
+      bytes: ByteString,
       publicKey: EncryptionPublicKey,
-      version: ProtocolVersion,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     publicKey.scheme match {
       case EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm =>
@@ -504,11 +503,7 @@ class JcePureCrypto(
             .leftMap(err => EncryptionError.InvalidEncryptionKey(err.toString))
           ciphertext <- Either
             .catchOnly[GeneralSecurityException](
-              encrypter
-                .encrypt(
-                  message.toByteString(version).toByteArray,
-                  Array[Byte](),
-                )
+              encrypter.encrypt(bytes.toByteArray, Array[Byte]())
             )
             .leftMap(err => EncryptionError.FailedToEncrypt(err.toString))
           encrypted = new AsymmetricEncrypted[M](
@@ -517,18 +512,23 @@ class JcePureCrypto(
           )
         } yield encrypted
       case EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc =>
-        encryptWithEciesP256HmacSha256Aes128Cbc(
-          message.toByteString(version),
-          publicKey,
-          JceSecureRandom.random.get(),
-        )
+        encryptWithEciesP256HmacSha256Aes128Cbc(bytes, publicKey, JceSecureRandom.random.get())
       case EncryptionKeyScheme.Rsa2048OaepSha256 =>
-        encryptWithRSA2048OaepSha256(
-          message.toByteString(version),
-          publicKey,
-          JceSecureRandom.random.get(),
-        )
+        encryptWithRSA2048OaepSha256(bytes, publicKey, JceSecureRandom.random.get())
     }
+
+  override def encryptWith[M <: HasVersionedToByteString](
+      message: M,
+      publicKey: EncryptionPublicKey,
+      version: ProtocolVersion,
+  ): Either[EncryptionError, AsymmetricEncrypted[M]] =
+    encryptWith(message.toByteString(version), publicKey)
+
+  override def encryptWith[M <: HasToByteString](
+      message: M,
+      publicKey: EncryptionPublicKey,
+  ): Either[EncryptionError, AsymmetricEncrypted[M]] =
+    encryptWith(message.toByteString, publicKey)
 
   override def encryptDeterministicWith[M <: HasVersionedToByteString](
       message: M,
@@ -697,10 +697,9 @@ class JcePureCrypto(
     }
   }
 
-  override def encryptWith[M <: HasVersionedToByteString](
-      message: M,
+  private def encryptWith[M](
+      bytes: ByteString,
       symmetricKey: SymmetricKey,
-      version: ProtocolVersion,
   ): Either[EncryptionError, Encrypted[M]] =
     symmetricKey.scheme match {
       case SymmetricKeyScheme.Aes128Gcm =>
@@ -710,13 +709,23 @@ class JcePureCrypto(
             Set(CryptoKeyFormat.Raw),
             EncryptionError.InvalidSymmetricKey,
           )
-          encryptedBytes <- encryptAes128Gcm(
-            message.toByteString(version),
-            symmetricKey.key,
-          )
+          encryptedBytes <- encryptAes128Gcm(bytes, symmetricKey.key)
           encrypted = new Encrypted[M](encryptedBytes)
         } yield encrypted
     }
+
+  override def encryptWith[M <: HasVersionedToByteString](
+      message: M,
+      symmetricKey: SymmetricKey,
+      version: ProtocolVersion,
+  ): Either[EncryptionError, Encrypted[M]] =
+    encryptWith(message.toByteString(version), symmetricKey)
+
+  override def encryptWith[M <: HasToByteString](
+      message: M,
+      symmetricKey: SymmetricKey,
+  ): Either[EncryptionError, Encrypted[M]] =
+    encryptWith(message.toByteString, symmetricKey)
 
   override def decryptWith[M](encrypted: Encrypted[M], symmetricKey: SymmetricKey)(
       deserialize: ByteString => Either[DeserializationError, M]

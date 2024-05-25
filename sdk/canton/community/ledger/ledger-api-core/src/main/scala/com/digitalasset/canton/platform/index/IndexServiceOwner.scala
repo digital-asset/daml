@@ -50,7 +50,7 @@ final class IndexServiceOwner(
     inMemoryState: InMemoryState,
     tracer: Tracer,
     val loggerFactory: NamedLoggerFactory,
-    incompleteOffsets: (Offset, Set[Ref.Party], TraceContext) => Future[Vector[Offset]],
+    incompleteOffsets: (Offset, Option[Set[Ref.Party]], TraceContext) => Future[Vector[Offset]],
     contractLoader: ContractLoader,
 ) extends ResourceOwner[IndexService]
     with NamedLogging {

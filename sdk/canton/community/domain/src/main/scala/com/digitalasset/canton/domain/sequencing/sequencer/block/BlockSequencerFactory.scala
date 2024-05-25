@@ -258,8 +258,12 @@ object BlockSequencerFactory {
 
   object OrderingTimeFixMode {
 
+    /** Ordering timestamps are not necessarily unique or increasing.
+      * Clients should adjust timestamps to enforce that.
+      */
     final case object MakeStrictlyIncreasing extends OrderingTimeFixMode
 
+    /** Ordering timestamps are strictly monotonically increasing. */
     final case object ValidateOnly extends OrderingTimeFixMode
   }
 }

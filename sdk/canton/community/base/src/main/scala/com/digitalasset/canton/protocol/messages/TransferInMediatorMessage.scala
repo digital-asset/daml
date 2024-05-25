@@ -6,7 +6,12 @@ package com.digitalasset.canton.protocol.messages
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{HashOps, Signature}
-import com.digitalasset.canton.data.{Informee, TransferInViewTree, ViewPosition, ViewType}
+import com.digitalasset.canton.data.{
+  TransferInViewTree,
+  ViewConfirmationParameters,
+  ViewPosition,
+  ViewType,
+}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
@@ -54,14 +59,12 @@ final case class TransferInMediatorMessage(
 
   override def requestUuid: UUID = commonData.uuid
 
-  override def informeesAndThresholdByViewPosition
-      : Map[ViewPosition, (Set[Informee], NonNegativeInt)] = {
+  override def informeesAndConfirmationParamsByViewPosition
+      : Map[ViewPosition, ViewConfirmationParameters] = {
     val confirmingParties = commonData.confirmingParties
     val threshold = NonNegativeInt.tryCreate(confirmingParties.size)
-    Map(tree.viewPosition -> ((confirmingParties, threshold)))
+    Map(tree.viewPosition -> ViewConfirmationParameters.create(confirmingParties, threshold))
   }
-
-  override def minimumThreshold(informees: Set[Informee]): NonNegativeInt = NonNegativeInt.one
 
   override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
     v30.EnvelopeContent.SomeEnvelopeContent.TransferInMediatorMessage(toProtoV30)
@@ -105,7 +108,7 @@ object TransferInMediatorMessage
     for {
       tree <- ProtoConverter
         .required("TransferInMediatorMessage.tree", treePO)
-        .flatMap(TransferInViewTree.fromProtoV30(context, _))
+        .flatMap(TransferInViewTree.fromProtoV30(context))
       _ <- EitherUtil.condUnitE(
         tree.commonData.isFullyUnblinded,
         OtherError(s"Transfer-in common data is blinded in request ${tree.rootHash}"),

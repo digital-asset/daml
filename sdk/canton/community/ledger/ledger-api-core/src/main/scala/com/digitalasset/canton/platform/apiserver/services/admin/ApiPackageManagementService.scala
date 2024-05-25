@@ -131,8 +131,12 @@ private[apiserver] final class ApiPackageManagementService private (
         if (disableUpgradeValidation) {
           logger.info(s"Skipping upgrade validation for package ${decodedDar.main._1}.")
           Future { () }
-        } else
-          packageUpgradeValidator.validateUpgrade(decodedDar.main)
+        } else {
+          packageUpgradeValidator
+            .validateUpgrade(decodedDar.main)
+            .leftSemiflatMap(err => Future.failed(err.asGrpcError))
+            .merge
+        }
     } yield dar
   }
 
@@ -192,7 +196,7 @@ private[apiserver] object ApiPackageManagementService {
   ): PackageManagementServiceGrpc.PackageManagementService & GrpcApiService = {
     val packageUpgradeValidator =
       new PackageUpgradeValidator(
-        getPackageMap = _ => Right(packageMetadataStore.getSnapshot.getUpgradablePackageMap),
+        getPackageMap = _ => packageMetadataStore.getSnapshot.getUpgradablePackageMap,
         getLfArchive = implicit loggingContextWithTrace => pkgId => readBackend.getLfArchive(pkgId),
         loggerFactory = loggerFactory,
       )

@@ -1085,7 +1085,7 @@ class SequencerClientTest
 
     override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
         traceContext: TraceContext
-    ): EitherT[Future, String, Boolean] =
+    ): EitherT[FutureUnlessShutdown, String, Boolean] =
       EitherT.rightT(true)
 
     private def sendAsync(
@@ -1108,7 +1108,7 @@ class SequencerClientTest
         timeout: Duration,
     )(implicit
         traceContext: TraceContext
-    ): EitherT[Future, SendAsyncClientResponseError, Unit] = ???
+    ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] = ???
 
     override def subscribe[E](request: SubscriptionRequest, handler: SerializedEventHandler[E])(
         implicit traceContext: TraceContext

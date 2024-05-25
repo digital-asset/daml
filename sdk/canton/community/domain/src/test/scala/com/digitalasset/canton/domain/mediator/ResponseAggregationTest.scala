@@ -67,16 +67,20 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
     val emptySubviews = TransactionSubviews.empty(testedProtocolVersion, hashOps)
 
     val viewCommonData2 =
-      ViewCommonData.create(hashOps)(
-        Set(bob, charlie),
-        NonNegativeInt.tryCreate(2),
+      ViewCommonData.tryCreate(hashOps)(
+        ViewConfirmationParameters.tryCreate(
+          Set(bob.party, charlie.party),
+          Seq(Quorum.create(Set(bob), NonNegativeInt.tryCreate(2))),
+        ),
         salt(54170),
         testedProtocolVersion,
       )
     val viewCommonData1 =
-      ViewCommonData.create(hashOps)(
-        Set(alice, bob),
-        NonNegativeInt.tryCreate(3),
+      ViewCommonData.tryCreate(hashOps)(
+        ViewConfirmationParameters.tryCreate(
+          Set(alice.party, bob.party),
+          Seq(Quorum.create(Set(alice, bob), NonNegativeInt.tryCreate(3))),
+        ),
         salt(54171),
         testedProtocolVersion,
       )
@@ -181,18 +185,16 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
         sut.state shouldBe Right(
           Map(
             view1Position -> ViewState(
-              Set(alice, bob),
               Map(
                 alice.party -> ConsortiumVotingState(),
                 bob.party -> ConsortiumVotingState(),
               ),
-              3,
+              Seq(Quorum.create(Set(alice, bob), NonNegativeInt.tryCreate(3))),
               Nil,
             ),
             view2Position -> ViewState(
-              Set(bob),
               Map(bob.party -> ConsortiumVotingState()),
-              2,
+              Seq(Quorum.create(Set(bob), NonNegativeInt.tryCreate(2))),
               Nil,
             ),
           )
@@ -217,7 +219,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
             .futureValue,
           _.shouldBeCantonError(
             MediatorError.MalformedMessage,
-            _ shouldBe show"Received a confirmation response at $responseTs by $solo for request $requestId with an invalid root hash ${someOtherRootHash} instead of ${rootHash}. Discarding response...",
+            _ shouldBe show"Received a confirmation response at $responseTs by $solo for request $requestId with an invalid root hash $someOtherRootHash instead of $rootHash. Discarding response...",
           ),
         )
         result shouldBe None
@@ -226,7 +228,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
       when(
         topologySnapshot.canConfirm(eqTo(solo), any[Set[LfPartyId]])(anyTraceContext)
       )
-        .thenAnswer { (participantId: ParticipantId, parties: Set[LfPartyId]) =>
+        .thenAnswer { (_: ParticipantId, parties: Set[LfPartyId]) =>
           Future.successful(parties)
         }
 
@@ -277,18 +279,16 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
               Right(
                 Map(
                   view1Position -> ViewState(
-                    Set(alice),
                     Map(
                       alice.party -> ConsortiumVotingState(),
                       bob.party -> ConsortiumVotingState(rejections = Set(solo)),
                     ),
-                    3,
+                    Seq(Quorum.create(Set(alice), NonNegativeInt.tryCreate(3))),
                     List(Set(bob.party) -> testReject()),
                   ),
                   view2Position -> ViewState(
-                    Set(bob),
                     Map(bob.party -> ConsortiumVotingState()),
-                    2,
+                    Seq(Quorum.create(Set(bob), NonNegativeInt.tryCreate(2))),
                     Nil,
                   ),
                 )
@@ -371,18 +371,16 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
             Right(
               Map(
                 view1Position -> ViewState(
-                  Set(alice),
                   Map(
                     alice.party -> ConsortiumVotingState(),
                     bob.party -> ConsortiumVotingState(approvals = Set(solo)),
                   ),
-                  1,
+                  Seq(Quorum.create(Set(alice), NonNegativeInt.one)),
                   Nil,
                 ),
                 view2Position -> ViewState(
-                  Set(bob),
                   Map(bob.party -> ConsortiumVotingState()),
-                  2,
+                  Seq(Quorum.create(Set(bob), NonNegativeInt.tryCreate(2))),
                   Nil,
                 ),
               )
@@ -462,15 +460,19 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
 
     describe("response Malformed") {
 
-      val viewCommonData1 = ViewCommonData.create(hashOps)(
-        Set(alice, bob, charlie),
-        NonNegativeInt.tryCreate(3),
+      val viewCommonData1 = ViewCommonData.tryCreate(hashOps)(
+        ViewConfirmationParameters.tryCreate(
+          Set(alice.party, bob.party, charlie.party),
+          Seq(Quorum.create(Set(alice, bob), NonNegativeInt.tryCreate(3))),
+        ),
         salt(54170),
         testedProtocolVersion,
       )
-      val viewCommonData2 = ViewCommonData.create(hashOps)(
-        Set(alice, bob, dave),
-        NonNegativeInt.tryCreate(3),
+      val viewCommonData2 = ViewCommonData.tryCreate(hashOps)(
+        ViewConfirmationParameters.tryCreate(
+          Set(alice.party, bob.party, dave.party),
+          Seq(Quorum.create(Set(alice, bob, dave), NonNegativeInt.tryCreate(3))),
+        ),
         salt(54171),
         testedProtocolVersion,
       )
@@ -564,22 +566,20 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
           result.state shouldBe Right(
             Map(
               view1Position -> ViewState(
-                Set(alice),
                 Map(
                   alice.party -> ConsortiumVotingState(),
                   bob.party -> ConsortiumVotingState(rejections = Set(solo)),
                 ),
-                3,
+                Seq(Quorum.create(Set(alice), NonNegativeInt.tryCreate(3))),
                 List(Set(bob.party) -> testReject("malformed view")),
               ),
               view2Position -> ViewState(
-                Set(alice, bob, dave),
                 Map(
                   alice.party -> ConsortiumVotingState(),
                   bob.party -> ConsortiumVotingState(),
                   dave.party -> ConsortiumVotingState(),
                 ),
-                3,
+                Seq(Quorum.create(Set(alice, bob, dave), NonNegativeInt.tryCreate(3))),
                 Nil,
               ),
             )
@@ -611,22 +611,20 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
           result.state shouldBe Right(
             Map(
               view1Position -> ViewState(
-                Set(alice),
                 Map(
                   alice.party -> ConsortiumVotingState(),
                   bob.party -> ConsortiumVotingState(rejections = Set(solo)),
                 ),
-                3,
+                Seq(Quorum.create(Set(alice), NonNegativeInt.tryCreate(3))),
                 List(Set(bob.party) -> testReject(rejectMsg)),
               ),
               view2Position -> ViewState(
-                Set(alice),
                 Map(
                   alice.party -> ConsortiumVotingState(),
                   bob.party -> ConsortiumVotingState(rejections = Set(solo)),
                   dave.party -> ConsortiumVotingState(rejections = Set(solo)),
                 ),
-                3,
+                Seq(Quorum.create(Set(alice), NonNegativeInt.tryCreate(3))),
                 List(Set(bob.party, dave.party) -> testReject(rejectMsg)),
               ),
             )
@@ -637,58 +635,58 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
 
     describe("consortium state") {
       it("should work for threshold = 1") {
-        ConsortiumVotingState(approvals = Set(solo)).isApproved shouldBe (true)
-        ConsortiumVotingState(approvals = Set(solo)).isRejected shouldBe (false)
-        ConsortiumVotingState(rejections = Set(solo)).isApproved shouldBe (false)
-        ConsortiumVotingState(rejections = Set(solo)).isRejected shouldBe (true)
+        ConsortiumVotingState(approvals = Set(solo)).isApproved shouldBe true
+        ConsortiumVotingState(approvals = Set(solo)).isRejected shouldBe false
+        ConsortiumVotingState(rejections = Set(solo)).isApproved shouldBe false
+        ConsortiumVotingState(rejections = Set(solo)).isRejected shouldBe true
       }
 
       it("should work for threshold >= 2") {
         ConsortiumVotingState(
           PositiveInt.tryCreate(2),
           approvals = Set(uno),
-        ).isApproved shouldBe (false)
+        ).isApproved shouldBe false
         ConsortiumVotingState(
           PositiveInt.tryCreate(2),
           approvals = Set(uno),
-        ).isRejected shouldBe (false)
+        ).isRejected shouldBe false
         ConsortiumVotingState(
           PositiveInt.tryCreate(2),
           approvals = Set(uno, duo),
-        ).isApproved shouldBe (true)
+        ).isApproved shouldBe true
         ConsortiumVotingState(
           PositiveInt.tryCreate(2),
           approvals = Set(uno, duo),
           rejections = Set(tre),
-        ).isApproved shouldBe (true)
+        ).isApproved shouldBe true
         ConsortiumVotingState(
           PositiveInt.tryCreate(2),
           approvals = Set(uno),
           rejections = Set(duo, tre),
-        ).isApproved shouldBe (false)
+        ).isApproved shouldBe false
         ConsortiumVotingState(
           PositiveInt.tryCreate(2),
           approvals = Set(uno),
           rejections = Set(duo, tre),
-        ).isRejected shouldBe (true)
+        ).isRejected shouldBe true
         ConsortiumVotingState(
           PositiveInt.tryCreate(3),
           approvals = Set(uno),
           rejections = Set(duo, tre),
-        ).isApproved shouldBe (false)
+        ).isApproved shouldBe false
         ConsortiumVotingState(
           PositiveInt.tryCreate(3),
           approvals = Set(uno),
           rejections = Set(duo, tre),
-        ).isRejected shouldBe (false)
+        ).isRejected shouldBe false
         ConsortiumVotingState(
           PositiveInt.tryCreate(3),
           approvals = Set(uno, duo, tre),
-        ).isApproved shouldBe (true)
+        ).isApproved shouldBe true
         ConsortiumVotingState(
           PositiveInt.tryCreate(3),
           rejections = Set(uno, duo, tre),
-        ).isRejected shouldBe (true)
+        ).isRejected shouldBe true
       }
     }
 
@@ -736,18 +734,16 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
         sut.state shouldBe Right(
           Map(
             view1Position -> ViewState(
-              Set(alice, bob),
               Map(
                 alice.party -> ConsortiumVotingState(PositiveInt.tryCreate(2)),
                 bob.party -> ConsortiumVotingState(PositiveInt.tryCreate(3)),
               ),
-              3,
+              Seq(Quorum.create(Set(alice, bob), NonNegativeInt.tryCreate(3))),
               Nil,
             ),
             view2Position -> ViewState(
-              Set(bob),
               Map(bob.party -> ConsortiumVotingState(PositiveInt.tryCreate(3))),
-              2,
+              Seq(Quorum.create(Set(bob), NonNegativeInt.tryCreate(2))),
               Nil,
             ),
           )
@@ -759,7 +755,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
           anyTraceContext
         )
       )
-        .thenAnswer { (participantId: ParticipantId, parties: Set[LfPartyId]) =>
+        .thenAnswer { (_: ParticipantId, parties: Set[LfPartyId]) =>
           Future.successful(parties)
         }
 
@@ -809,7 +805,6 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
               Right(
                 Map(
                   view1Position -> ViewState(
-                    Set(alice, bob),
                     Map(
                       alice.party -> ConsortiumVotingState(PositiveInt.tryCreate(2)),
                       bob.party -> ConsortiumVotingState(
@@ -817,13 +812,12 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
                         rejections = Set(uno),
                       ),
                     ),
-                    3,
+                    Seq(Quorum.create(Set(alice, bob), NonNegativeInt.tryCreate(3))),
                     Nil,
                   ),
                   view2Position -> ViewState(
-                    Set(bob),
                     Map(bob.party -> ConsortiumVotingState(PositiveInt.tryCreate(3))),
-                    2,
+                    Seq(Quorum.create(Set(bob), NonNegativeInt.tryCreate(2))),
                     Nil,
                   ),
                 )
@@ -872,7 +866,6 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
               Right(
                 Map(
                   view1Position -> ViewState(
-                    Set(alice, bob),
                     Map(
                       alice.party -> ConsortiumVotingState(PositiveInt.tryCreate(2)),
                       bob.party -> ConsortiumVotingState(
@@ -880,13 +873,12 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
                         approvals = Set(uno),
                       ),
                     ),
-                    3,
+                    Seq(Quorum.create(Set(alice, bob), NonNegativeInt.tryCreate(3))),
                     Nil,
                   ),
                   view2Position -> ViewState(
-                    Set(bob),
                     Map(bob.party -> ConsortiumVotingState(PositiveInt.tryCreate(3))),
-                    2,
+                    Seq(Quorum.create(Set(bob), NonNegativeInt.tryCreate(2))),
                     Nil,
                   ),
                 )
@@ -936,7 +928,6 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
             rejected1a.state shouldBe Right(
               Map(
                 view1Position -> ViewState(
-                  Set(alice, bob),
                   Map(
                     alice.party -> ConsortiumVotingState(
                       PositiveInt.tryCreate(2),
@@ -944,13 +935,12 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
                     ),
                     bob.party -> ConsortiumVotingState(PositiveInt.tryCreate(3)),
                   ),
-                  3,
+                  Seq(Quorum.create(Set(alice, bob), NonNegativeInt.tryCreate(3))),
                   Nil,
                 ),
                 view2Position -> ViewState(
-                  Set(bob),
                   Map(bob.party -> ConsortiumVotingState(PositiveInt.tryCreate(3))),
-                  2,
+                  Seq(Quorum.create(Set(bob), NonNegativeInt.tryCreate(2))),
                   Nil,
                 ),
               )
@@ -1009,7 +999,6 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
               Right(
                 Map(
                   view1Position -> ViewState(
-                    Set(alice),
                     Map(
                       alice.party -> ConsortiumVotingState(PositiveInt.tryCreate(2)),
                       bob.party -> ConsortiumVotingState(
@@ -1017,13 +1006,12 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
                         rejections = Set(uno, duo, tre),
                       ),
                     ),
-                    3,
+                    Seq(Quorum.create(Set(alice), NonNegativeInt.tryCreate(3))),
                     List(Set(bob.party) -> testReject()),
                   ),
                   view2Position -> ViewState(
-                    Set(bob),
                     Map(bob.party -> ConsortiumVotingState(PositiveInt.tryCreate(3))),
-                    2,
+                    Seq(Quorum.create(Set(bob), NonNegativeInt.tryCreate(2))),
                     Nil,
                   ),
                 )
@@ -1147,7 +1135,6 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
             Right(
               Map(
                 view1Position -> ViewState(
-                  Set(alice),
                   Map(
                     alice.party -> ConsortiumVotingState(PositiveInt.tryCreate(2)),
                     bob.party -> ConsortiumVotingState(
@@ -1155,13 +1142,12 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
                       approvals = Set(uno, duo, tre),
                     ),
                   ),
-                  1,
+                  Seq(Quorum.create(Set(alice), NonNegativeInt.one)),
                   Nil,
                 ),
                 view2Position -> ViewState(
-                  Set(bob),
                   Map(bob.party -> ConsortiumVotingState(PositiveInt.tryCreate(3))),
-                  2,
+                  Seq(Quorum.create(Set(bob), NonNegativeInt.tryCreate(2))),
                   Nil,
                 ),
               )

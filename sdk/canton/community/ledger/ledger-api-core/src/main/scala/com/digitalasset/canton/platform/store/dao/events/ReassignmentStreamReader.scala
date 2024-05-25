@@ -256,7 +256,7 @@ object ReassignmentStreamReader {
   @FunctionalInterface
   trait IdDbQuery {
     def fetchIds(
-        stakeholder: Party,
+        stakeholder: Option[Party],
         templateIdO: Option[Ref.Identifier],
         startExclusive: Long,
         endInclusive: Long,
@@ -268,7 +268,7 @@ object ReassignmentStreamReader {
   trait PayloadDbQuery[T] {
     def fetchPayloads(
         eventSequentialIds: Iterable[Long],
-        allFilterParties: Set[Ref.Party],
+        allFilterParties: Option[Set[Ref.Party]],
     ): Connection => Vector[T]
   }
 }
