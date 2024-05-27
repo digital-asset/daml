@@ -64,10 +64,13 @@ trait TestNodeBuilder {
 
     val maintainers: Set[Party] = keyOpt.fold(Set.empty[Party])(_.maintainers)
 
+    import Ordering.Implicits._
+
     Node.Create(
       coid = id,
       packageName = packageName,
-      packageVersion = packageVersion,
+      packageVersion =
+        packageVersion.filter(_ => transactionVersion >= TransactionVersion.minPackageVersion),
       templateId = templateId,
       arg = argument,
       signatories = signatories ++ maintainers,

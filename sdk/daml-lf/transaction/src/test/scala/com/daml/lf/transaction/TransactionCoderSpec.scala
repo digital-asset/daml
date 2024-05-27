@@ -173,17 +173,19 @@ class TransactionCoderSpec
       }
 
     "do tx with a lot of root nodes" in {
+      val version = TransactionVersion.maxNonDev
       val node =
         Node.Create(
           coid = absCid("#test-cid"),
           packageName = dummyPackageName,
-          packageVersion = dummyPackageVersion,
+          packageVersion =
+            dummyPackageVersion.filter(_ => version >= TransactionVersion.minPackageVersion),
           templateId = Identifier.assertFromString("pkg-id:Test:Name"),
           arg = Value.ValueParty(Party.assertFromString("francesco")),
           signatories = Set(Party.assertFromString("alice")),
           stakeholders = Set(Party.assertFromString("alice"), Party.assertFromString("bob")),
           keyOpt = None,
-          version = TransactionVersion.minVersion,
+          version = version,
         )
 
       forEvery(transactionVersions) { version =>
