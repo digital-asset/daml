@@ -12,7 +12,6 @@ import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
 import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.language.implicitConversions
 
 /** Information about a metric used for documentation and online help
   *
@@ -30,18 +29,10 @@ final case class MetricInfo(
   def extend(extension: String): MetricInfo = copy(name = name :+ extension)
 }
 
-object MetricInfo {
-
-  /** temporary implicit conversion to enable refactoring */
-  implicit def fromName(name: MetricName): MetricInfo =
-    MetricInfo(name, "", MetricQualification.Debug)
-}
-
-// TODO(#17917) move to daml repository and adapt QualificationFilteringMetricsFactory
-//   and ensure we add a MetricQualification.All variable
+/** Small utility class to filter metrics according to configuration */
 class MetricsInfoFilter(
-    val filters: Seq[MetricsFilterConfig], // move back to non val when moved to daml repository
-    val qualifications: Set[MetricQualification],
+    filters: Seq[MetricsFilterConfig],
+    qualifications: Set[MetricQualification],
 ) {
 
   private val nameFilter = new MetricsFilter(filters)
@@ -77,11 +68,6 @@ object MetricHandle {
         context: MetricsContext
     ): Gauge[T]
 
-    // TODO(#17917) remove once migration to MetricInfo is completed
-    private[api] def gauge[T](name: MetricName, initial: T, description: String)(implicit
-        context: MetricsContext
-    ): Gauge[T] = gauge(MetricInfo(name, "", MetricQualification.Debug, description), initial)
-
     /** Same as a gauge, but the value is read using the `gaugeSupplier` only when the metrics are observed.
       */
     def gaugeWithSupplier[T](
@@ -91,16 +77,6 @@ object MetricHandle {
         context: MetricsContext
     ): CloseableGauge
 
-    // TODO(#17917) remove once migration to MetricInfo is completed
-    private[api] def gaugeWithSupplier[T](
-        name: MetricName,
-        gaugeSupplier: () => T,
-        description: String,
-    )(implicit
-        context: MetricsContext
-    ): CloseableGauge =
-      gaugeWithSupplier(MetricInfo(name, "", MetricQualification.Debug, description), gaugeSupplier)
-
     /** A meter represents a monotonically increasing value.
       * In Prometheus this is actually represented by a `Counter`.
       * Note that meters should never decrease as the data is then skewed and unusable!
@@ -108,11 +84,6 @@ object MetricHandle {
     def meter(info: MetricInfo)(implicit
         context: MetricsContext
     ): Meter
-
-    // TODO(#17917) remove once migration to MetricInfo is completed
-    private[api] def meter(name: MetricName, description: String)(implicit
-        context: MetricsContext = MetricsContext.Empty
-    ): Meter = meter(MetricInfo(name, "", MetricQualification.Debug, description))
 
     /** A counter represents a value that can go up and down.
       *  A counter is actually represented as a gauge.

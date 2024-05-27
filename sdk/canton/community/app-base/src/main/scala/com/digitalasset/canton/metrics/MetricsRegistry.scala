@@ -210,8 +210,7 @@ final case class MetricsRegistry(
               if (testingSupportAdhocMetrics) Some(logger.underlying) else None,
             globalMetricsContext = extraContext,
           ),
-          baseFilter.qualifications,
-          baseFilter.filters,
+          baseFilter
         )
     }
   }

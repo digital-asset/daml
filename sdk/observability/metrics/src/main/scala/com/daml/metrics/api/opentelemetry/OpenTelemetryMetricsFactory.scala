@@ -3,21 +3,9 @@
 
 package com.daml.metrics.api.opentelemetry
 
-import com.daml.metrics.{MetricsFilter, MetricsFilterConfig}
-import com.daml.metrics.api.MetricQualification
-
-import java.time.Duration
-import java.util.concurrent.TimeUnit
 import com.daml.metrics.api.MetricHandle.Gauge.{CloseableGauge, SimpleCloseableGauge}
 import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
-import com.daml.metrics.api.MetricHandle.{
-  Counter,
-  Gauge,
-  Histogram,
-  LabeledMetricsFactory,
-  Meter,
-  Timer,
-}
+import com.daml.metrics.api.MetricHandle._
 import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer.{
   DurationSuffix,
@@ -25,7 +13,7 @@ import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer.{
   TimerUnitAndSuffix,
   convertNanosecondsToSeconds,
 }
-import com.daml.metrics.api.{MetricHandle, MetricInfo, MetricName, MetricsContext}
+import com.daml.metrics.api._
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.metrics.{
   DoubleHistogram,
@@ -36,19 +24,18 @@ import io.opentelemetry.api.metrics.{
 }
 import org.slf4j.Logger
 
+import java.time.Duration
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
 /** Filtering metrics factory to ensure that we only build the metrics that matter */
 class QualificationFilteringMetricsFactory(
     parent: LabeledMetricsFactory,
-    qualifications: Set[MetricQualification],
-    filters: Seq[MetricsFilterConfig],
+    filter: MetricsInfoFilter,
 ) extends LabeledMetricsFactory {
 
-  private val filter = new MetricsFilter(filters)
-
   private def include(info: MetricInfo): Boolean =
-    filter.includeMetric(info.name.toString) && qualifications.contains(info.qualification)
+    filter.includeMetric(info)
 
   override def timer(info: MetricInfo)(implicit context: MetricsContext): Timer = if (include(info))
     parent.timer(info)
