@@ -191,6 +191,7 @@ data UpgradeError
   | TemplateAddedKey !TypeConName !TemplateKey
   | TriedToUpgradeIface !TypeConName
   | MissingImplementation !TypeConName !TypeConName
+  | DependencyHasLowerVersionDespiteUpgrade !PackageName !PackageVersion !PackageVersion
   deriving (Eq, Ord, Show)
 
 data UpgradedRecordOrigin
@@ -595,6 +596,11 @@ instance Pretty UpgradeError where
     TemplateAddedKey template _key -> "The upgraded template " <> pPrint template <> " cannot add a key where it didn't have one previously."
     TriedToUpgradeIface iface -> "Tried to upgrade interface " <> pPrint iface <> ", but interfaces cannot be upgraded. They should be removed in any upgrading package."
     MissingImplementation tpl iface -> "Implementation of interface " <> pPrint iface <> " by template " <> pPrint tpl <> " appears in package that is being upgraded, but does not appear in this package."
+    DependencyHasLowerVersionDespiteUpgrade pkgName presentVersion pastVersion ->
+      vcat
+        [ "Dependency " <> pPrint pkgName <> " has version " <> pPrint presentVersion <> " on the upgrading package, which is older than version " <> pPrint pastVersion <> " on the upgraded package."
+        , "Dependency versions of upgrading packages must always be greater or equal to the dependency versions on upgraded packages."
+        ]
 
 instance Pretty UpgradedRecordOrigin where
   pPrint = \case
@@ -654,6 +660,8 @@ data Warning
   | WShouldDefineIfacesAndTemplatesSeparately
   | WShouldDefineIfaceWithoutImplementation !TypeConName ![TypeConName]
   | WShouldDefineTplInSeparatePackage !TypeConName !TypeConName
+  | WPastDependencyHasUnparseableVersion !PackageName !PackageVersion
+  | WPresentDependencyHasUnparseableVersion !PackageName !PackageVersion
   deriving (Show)
 
 warningLocation :: Warning -> Maybe SourceLoc
@@ -694,6 +702,10 @@ instance Pretty Warning where
         [ "The template " <> pPrint tpl <> " has implemented interface " <> pPrint iface <> ", which is defined in a previous version of this package."
         , "However, it is recommended that interfaces are defined in their own package separate from their implementations."
         ]
+    WPastDependencyHasUnparseableVersion pkgName version ->
+      "Dependency " <> pPrint pkgName <> " of upgrading package has a version which cannot be parsed: '" <> pPrint version <> "'"
+    WPresentDependencyHasUnparseableVersion pkgName version ->
+      "Dependency " <> pPrint pkgName <> " of upgraded package has a version which cannot be parsed: '" <> pPrint version <> "'"
 
 instance ToDiagnostic Warning where
   toDiagnostic warning = Diagnostic

@@ -569,6 +569,22 @@ trait LongTests { this: UpgradesSpec =>
         ),
       )
     }
+
+    "Fails when adding deps downgrade versions." in {
+      for {
+        _ <- uploadPackage("test-common/upgrades-FailsWhenDepsDowngradeVersions-dep-v1.dar")
+        _ <- uploadPackage("test-common/upgrades-FailsWhenDepsDowngradeVersions-dep-v2.dar")
+        result <- testPackagePair(
+          "test-common/upgrades-FailsWhenDepsDowngradeVersions-v1.dar",
+          "test-common/upgrades-FailsWhenDepsDowngradeVersions-v2.dar",
+          assertPackageUpgradeCheck(
+            Some(
+              "Dependency upgrades-example-FailsWhenDepsDowngradeVersions-dep has version 1.0.0 on the upgrading package, which is older than version 2.0.0 on the upgraded package."
+            )
+          ),
+        )
+      } yield result
+    }
   }
 }
 

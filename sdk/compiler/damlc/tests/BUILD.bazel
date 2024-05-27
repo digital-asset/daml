@@ -446,7 +446,6 @@ da_haskell_test(
 da_haskell_test(
     name = "upgrades",
     srcs = ["src/DA/Test/DamlcUpgrades.hs"],
-    compiler_flags = ["-Wno-unused-local-binds"],
     data = [
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
@@ -462,6 +461,7 @@ da_haskell_test(
         "//test-common:upgrades-FailsWhenATopLevelVariantRemovesAVariant-files",
         "//test-common:upgrades-FailsWhenAnInstanceIsDropped-files",
         "//test-common:upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-files",
+        "//test-common:upgrades-FailsWhenDepsDowngradeVersions-files",
         "//test-common:upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-files",
         "//test-common:upgrades-FailsWhenExistingFieldInTemplateIsChanged-files",
         "//test-common:upgrades-FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType-files",

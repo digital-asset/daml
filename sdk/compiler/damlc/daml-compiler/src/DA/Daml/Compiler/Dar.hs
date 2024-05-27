@@ -136,15 +136,21 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
                  lfVersion <- lift getDamlLfVersion
                  mbUpgradedPackage <-
                    forM pUpgradedPackagePath $ \path -> do
-                     ExtractedDar{edMain} <- liftIO $ extractDar path
-                     let bs = BSL.toStrict $ ZipArchive.fromEntry edMain
-                     case Archive.decodeArchive Archive.DecodeAsMain bs of
+                     ExtractedDar{edMain,edDalfs} <- liftIO $ extractDar path
+                     let bsMain = BSL.toStrict $ ZipArchive.fromEntry edMain
+                     let bsDeps = BSL.toStrict . ZipArchive.fromEntry <$> edDalfs
+                     let mainAndDeps :: Either Archive.ArchiveError ((LF.PackageId, LF.Package), [(LF.PackageId, LF.Package)])
+                         mainAndDeps = do
+                            main <- Archive.decodeArchive Archive.DecodeAsMain bsMain
+                            deps <- Archive.decodeArchive Archive.DecodeAsDependency `traverse` bsDeps
+                            pure (main, deps)
+                     case mainAndDeps of
                         Left _ -> error $ "Could not decode path " ++ path
-                        Right (pid, package) -> return (pid, package)
+                        Right mainAndDeps -> pure mainAndDeps
                  let pMeta = LF.PackageMetadata
                         { packageName = pName
                         , packageVersion = fromMaybe (LF.PackageVersion "0.0.0") pVersion
-                        , upgradedPackageId = fst <$> mbUpgradedPackage
+                        , upgradedPackageId = fst . fst <$> mbUpgradedPackage
                         }
                  pkg <- case optShakeFiles opts of
                      Nothing -> mergePkgs pMeta lfVersion . map fst <$> usesE GeneratePackage files
@@ -152,7 +158,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
 
                  MaybeT $
                      runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
-                         TypeChecker.Upgrade.checkUpgrade lfVersion pTypecheckUpgrades pkg mbUpgradedPackage
+                         TypeChecker.Upgrade.checkUpgrade lfVersion pTypecheckUpgrades pkg (fst <$> mbUpgradedPackage)
                  MaybeT $ finalPackageCheck (toNormalizedFilePath' pSrc) pkg
 
                  let pkgModuleNames = map (Ghc.mkModuleName . T.unpack) $ LF.packageModuleNames pkg
@@ -174,6 +180,9 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
                          [ (T.pack $ unitIdString unitId, LF.dalfPackageBytes pkg, LF.dalfPackageId pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0
                          ]
+                 MaybeT $
+                     runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
+                         TypeChecker.Upgrade.checkUpgradeDependencies lfVersion pTypecheckUpgrades pkg (Map.elems dalfDependencies0) mbUpgradedPackage
                  unstableDeps <- getUnstableDalfDependencies files
                  let confFile = mkConfFile pName pVersion (Map.keys unstableDeps) pExposedModules pkgModuleNames pkgId
                  let dataFiles = [confFile]
