@@ -320,6 +320,20 @@ object TypecheckUpgrades {
         tc.check()
     }
   }
+
+  def typecheckUpgrades(
+      present: (
+          Ref.PackageId,
+          Ast.Package,
+      ),
+      pastPackageId: Ref.PackageId,
+      mbPastPkg: Option[Ast.Package],
+  ): Try[Unit] = {
+    val emptyPackageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty
+    val presentWithNoDeps = (present._1, present._2, emptyPackageMap)
+    val mbPastPkgWithNoDeps = mbPastPkg.map((_, emptyPackageMap))
+    TypecheckUpgrades.typecheckUpgrades(presentWithNoDeps, pastPackageId, mbPastPkgWithNoDeps)
+  }
 }
 
 case class TypecheckUpgrades(
