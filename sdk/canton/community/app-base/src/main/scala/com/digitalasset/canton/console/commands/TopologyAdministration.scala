@@ -84,10 +84,13 @@ class TopologyAdministrationGroup(
                       |Automatic node initialisation is usually turned off to preserve the identity of a participant or domain
                       |node (during major version upgrades) or if the topology transactions are managed through
                       |a different topology manager than the one integrated into this node.""")
-  def init_id(identifier: UniqueIdentifier): Unit =
+  def init_id(identifier: UniqueIdentifier, waitForReady: Boolean = true): Unit = {
+    if (waitForReady) instance.health.wait_for_ready_for_id()
+
     consoleEnvironment.run {
       adminCommand(TopologyAdminCommands.Init.InitId(identifier.toProtoPrimitive))
     }
+  }
 
   private def getIdCommand(): ConsoleCommandResult[UniqueIdentifier] =
     adminCommand(TopologyAdminCommands.Init.GetId())
@@ -246,10 +249,15 @@ class TopologyAdministrationGroup(
         )
       }
 
-    def load(transactions: Seq[GenericSignedTopologyTransaction], store: String): Unit =
+    def load(
+        transactions: Seq[GenericSignedTopologyTransaction],
+        store: String,
+        forceChanges: ForceFlag*
+    ): Unit =
       consoleEnvironment.run {
         adminCommand(
-          TopologyAdminCommands.Write.AddTransactions(transactions, store)
+          TopologyAdminCommands.Write
+            .AddTransactions(transactions, store, ForceFlags(forceChanges*))
         )
       }
 
@@ -604,7 +612,7 @@ class TopologyAdministrationGroup(
         serial = serial,
         change = TopologyChangeOp.Replace,
         mustFullyAuthorize = mustFullyAuthorize,
-        forceChange = false,
+        forceChanges = ForceFlags.none,
         store = store,
       )
 
@@ -675,7 +683,7 @@ class TopologyAdministrationGroup(
           serial = serial,
           change = TopologyChangeOp.Replace,
           mustFullyAuthorize = mustFullyAuthorize,
-          forceChange = false,
+          forceChanges = ForceFlags.none,
         )
       )
 
@@ -729,7 +737,7 @@ class TopologyAdministrationGroup(
               serial = serial,
               change = TopologyChangeOp.Remove,
               mustFullyAuthorize = mustFullyAuthorize,
-              forceChange = force,
+              forceChanges = ForceFlags.none,
             )
           )
 
@@ -920,7 +928,7 @@ class TopologyAdministrationGroup(
       synchronize,
       add = true,
       mustFullyAuthorize,
-      force = false,
+      force = ForceFlags.none,
       instance,
     )
 
@@ -952,7 +960,7 @@ class TopologyAdministrationGroup(
         ),
         // configurable in case of a key under a decentralized namespace
         mustFullyAuthorize: Boolean = true,
-        force: Boolean = false,
+        force: ForceFlags = ForceFlags.none,
     ): Unit = update(
       key,
       purpose,
@@ -1060,7 +1068,7 @@ class TopologyAdministrationGroup(
         ),
         add: Boolean,
         mustFullyAuthorize: Boolean = true,
-        force: Boolean = false,
+        force: ForceFlags = ForceFlags.none,
         nodeInstance: InstanceReference,
     ): Unit = {
       // Ensure the specified key has a private key in the vault.
@@ -1157,7 +1165,7 @@ class TopologyAdministrationGroup(
         ),
         // configurable in case of a key under a decentralized namespace
         mustFullyAuthorize: Boolean = true,
-        force: Boolean = false,
+        force: ForceFlags = ForceFlags.none,
     ): SignedTopologyTransaction[TopologyChangeOp, OwnerToKeyMapping] =
       synchronisation.runAdminCommand(synchronize)(
         TopologyAdminCommands.Write.Propose(
@@ -1167,7 +1175,7 @@ class TopologyAdministrationGroup(
           change = ops,
           serial = Some(serial),
           mustFullyAuthorize = mustFullyAuthorize,
-          forceChange = force,
+          forceChanges = force,
         )
       )
   }
@@ -2146,7 +2154,7 @@ class TopologyAdministrationGroup(
         serial = serial,
         change = TopologyChangeOp.Replace,
         mustFullyAuthorize = mustFullyAuthorize,
-        forceChange = false,
+        forceChanges = ForceFlags.none,
         store = store.getOrElse(domainId.filterString),
       )
 
@@ -2187,7 +2195,7 @@ class TopologyAdministrationGroup(
         serial = Some(mediatorStateResult.context.serial.increment),
         change = TopologyChangeOp.Remove,
         mustFullyAuthorize = mustFullyAuthorize,
-        forceChange = false,
+        forceChanges = ForceFlags.none,
         store = store.getOrElse(domainId.filterString),
       )
 
@@ -2264,7 +2272,7 @@ class TopologyAdministrationGroup(
             serial = serial,
             change = TopologyChangeOp.Replace,
             mustFullyAuthorize = mustFullyAuthorize,
-            forceChange = false,
+            forceChanges = ForceFlags.none,
             store = store.getOrElse(domainId.filterString),
           )
         )
@@ -2351,7 +2359,7 @@ class TopologyAdministrationGroup(
           consoleEnvironment.commandTimeouts.bounded
         ),
         waitForParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
-        force: Boolean = false,
+        force: ForceFlags = ForceFlags.none,
     ): SignedTopologyTransaction[TopologyChangeOp, DomainParametersState] = { // TODO(#15815): Don't expose internal TopologyMapping and TopologyChangeOp classes
 
       val parametersInternal =
@@ -2367,7 +2375,7 @@ class TopologyAdministrationGroup(
           serial = serial,
           mustFullyAuthorize = mustFullyAuthorize,
           store = store.getOrElse(domainId.filterString),
-          forceChange = force,
+          forceChanges = force,
         )
       )
 
@@ -2428,7 +2436,7 @@ class TopologyAdministrationGroup(
           consoleEnvironment.commandTimeouts.bounded
         ),
         waitForParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
-        force: Boolean = false,
+        force: ForceFlags = ForceFlags.none,
     ): Unit = {
       val domainStore = domainId.filterString
 
@@ -2490,7 +2498,7 @@ class TopologyAdministrationGroup(
           propose_update(
             domainId,
             _.update(ledgerTimeRecordTimeTolerance = newLedgerTimeRecordTimeTolerance),
-            force = true,
+            force = ForceFlags(ForceFlag.LedgerTimeRecordTimeToleranceIncrease),
           )
         }
       }
@@ -2614,7 +2622,7 @@ class TopologyAdministrationGroup(
       propose_update(
         domainId,
         _.copy(ledgerTimeRecordTimeTolerance = newLedgerTimeRecordTimeTolerance),
-        force = true,
+        force = ForceFlags(ForceFlag.LedgerTimeRecordTimeToleranceIncrease),
       )
     }
   }

@@ -4,9 +4,10 @@
 package com.digitalasset.canton.topology.transaction
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.protocol.{DynamicDomainParameters, OnboardingRestriction}
 import com.digitalasset.canton.topology.DefaultTestIdentities.{mediatorId, sequencerId}
+import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.TopologyTransactionRejection.InvalidTopologyMapping
@@ -23,12 +24,14 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Submission,
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.{DefaultTestIdentities, ParticipantId, TestingOwnerWithKeys}
+import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, ProtocolVersionChecksAnyWordSpec}
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.annotation.nowarn
 import scala.language.implicitConversions
 
+@nowarn("msg=match may not be exhaustive")
 class ValidatingTopologyMappingChecksTest
     extends AnyWordSpec
     with BaseTest
@@ -48,7 +51,15 @@ class ValidatingTopologyMappingChecksTest
   }
 
   "TopologyMappingChecks" when {
-    import DefaultTestIdentities.{domainId, participant1, participant2, participant3, party1}
+    import DefaultTestIdentities.{
+      domainId,
+      participant1,
+      participant2,
+      participant3,
+      party1,
+      party2,
+      party3,
+    }
     import factory.TestingTransactions.*
 
     def checkTransaction(
@@ -274,6 +285,136 @@ class ValidatingTopologyMappingChecksTest
       }
     }
 
+    "validating MediatorDomainState" should {
+      def generateMediatorIdentities(
+          numMediators: Int
+      ): (Seq[MediatorId], Seq[GenericSignedTopologyTransaction]) = {
+        val allKeys = {
+          import factory.SigningKeys.*
+          Seq(key1, key2, key3, key4, key5, key6)
+        }
+        val (mediatorIds, identityTransactions) = (1 to numMediators).map { idx =>
+          val key = allKeys(idx)
+          val med = MediatorId(UniqueIdentifier.tryCreate(s"med$idx", Namespace(key.fingerprint)))
+          med -> List(
+            factory.mkAdd(
+              NamespaceDelegation.tryCreate(med.namespace, key, isRootDelegation = true),
+              key,
+            ),
+            factory.mkAdd(OwnerToKeyMapping(med, None, NonEmpty(Seq, key)), key),
+          )
+        }.unzip
+
+        mediatorIds -> identityTransactions.flatten
+      }
+
+      "report no errors for valid mappings" in {
+        val (checks, store) = mk()
+        val (Seq(med1, med2), transactions) = generateMediatorIdentities(2)
+        addToStore(store, transactions*)
+
+        val mds1 = factory.mkAdd(
+          MediatorDomainState
+            .create(
+              domainId,
+              NonNegativeInt.zero,
+              PositiveInt.one,
+              active = Seq(med1),
+              Seq.empty,
+            )
+            .value,
+          // the signing key is not relevant for the test
+          factory.SigningKeys.key1,
+        )
+
+        val mds2 = factory.mkAdd(
+          MediatorDomainState
+            .create(
+              domainId,
+              NonNegativeInt.zero,
+              PositiveInt.one,
+              active = Seq(med1, med2),
+              Seq.empty,
+            )
+            .value,
+          // the signing key is not relevant for the test
+          factory.SigningKeys.key1,
+        )
+
+        checkTransaction(checks, mds1) shouldBe Right(())
+        checkTransaction(checks, mds2, Some(mds1)) shouldBe Right(())
+      }
+
+      "report MissingMappings for mediators with partial or missing identity transactions" in {
+        val (checks, store) = mk()
+        val (Seq(med1, med2, med3, med4), transactions) = generateMediatorIdentities(4)
+
+        val incompleteIdentities = transactions.filter { transaction =>
+          (transaction.mapping.code, transaction.mapping.namespace) match {
+            case (Code.OwnerToKeyMapping, namespace) =>
+              Set(med1, med3).map(_.namespace).contains(namespace)
+            case (Code.NamespaceDelegation, namespace) =>
+              Set(med1, med2).map(_.namespace).contains(namespace)
+            case otherwise => fail(s"unexpected mapping: $otherwise")
+          }
+        }
+        addToStore(store, incompleteIdentities*)
+
+        val mds1 = factory.mkAdd(
+          MediatorDomainState
+            .create(
+              domainId,
+              NonNegativeInt.zero,
+              PositiveInt.one,
+              active = Seq(med1, med2, med3, med4),
+              Seq.empty,
+            )
+            .value,
+          // the signing key is not relevant for the test
+          factory.SigningKeys.key1,
+        )
+
+        checkTransaction(checks, mds1, None) shouldBe Left(
+          TopologyTransactionRejection.MissingMappings(
+            Map(
+              med2 -> Seq(Code.OwnerToKeyMapping),
+              med3 -> Seq(Code.NamespaceDelegation),
+              med4 -> Seq(Code.NamespaceDelegation, Code.OwnerToKeyMapping),
+            )
+          )
+        )
+      }
+
+      "report ThresholdTooHigh" in {
+        val (checks, store) = mk()
+        val (Seq(med1, med2), transactions) = generateMediatorIdentities(2)
+        addToStore(store, transactions*)
+
+        // using reflection to create an instance via the private constructor
+        // so we can bypass the checks in MediatorDomainState.create
+        val ctr = classOf[MediatorDomainState].getConstructor(
+          classOf[DomainId],
+          classOf[NonNegativeInt],
+          classOf[PositiveInt],
+          classOf[Object],
+          classOf[Seq[MediatorId]],
+        )
+        val invalidMapping = ctr.newInstance(
+          domainId,
+          NonNegativeInt.zero,
+          PositiveInt.three, // threshold higher than number of active mediators
+          NonEmpty(Seq, med1, med2),
+          Seq.empty,
+        )
+
+        val mds = factory.mkAdd(invalidMapping, factory.SigningKeys.key1)
+
+        checkTransaction(checks, mds) shouldBe Left(
+          TopologyTransactionRejection.ThresholdTooHigh(3, 2)
+        )
+      }
+    }
+
     "validating OwnerToKeyMapping" should {
       "report no errors for valid mappings" in {
         val (checks, _) = mk()
@@ -329,6 +470,68 @@ class ValidatingTopologyMappingChecksTest
           InvalidTopologyMapping(
             "OwnerToKeyMapping for participants must contain at least 1 encryption key."
           )
+        )
+      }
+    }
+
+    "validating AuthorityOf" should {
+      val ptps @ Seq(p1_ptp, p2_ptp, p3_ptp) = Seq(party1, party2, party3).map { party =>
+        factory.mkAdd(
+          PartyToParticipant(
+            party,
+            None,
+            PositiveInt.one,
+            Seq(HostingParticipant(participant1, ParticipantPermission.Confirmation)),
+            groupAddressing = false,
+          )
+        )
+      }
+      "report no errors for valid mappings" in {
+        val (checks, store) = mk()
+        addToStore(store, ptps*)
+
+        val authorityOf =
+          factory.mkAdd(AuthorityOf(party1, None, PositiveInt.two, Seq(party2, party3)))
+        checkTransaction(checks, authorityOf) shouldBe Right(())
+      }
+
+      "report UnknownParties for missing PTPs for referenced parties" in {
+        val (checks, store) = mk()
+        addToStore(store, p1_ptp)
+
+        val missingAuthorizingParty =
+          factory.mkAdd(AuthorityOf(party2, None, PositiveInt.one, Seq(party1)))
+        checkTransaction(checks, missingAuthorizingParty) shouldBe Left(
+          TopologyTransactionRejection.UnknownParties(Seq(party2))
+        )
+
+        val missingAuthorizedParty =
+          factory.mkAdd(AuthorityOf(party1, None, PositiveInt.one, Seq(party2)))
+        checkTransaction(checks, missingAuthorizedParty) shouldBe Left(
+          TopologyTransactionRejection.UnknownParties(Seq(party2))
+        )
+
+        val missingAllParties =
+          factory.mkAdd(AuthorityOf(party2, None, PositiveInt.one, Seq(party3)))
+        checkTransaction(checks, missingAllParties) shouldBe Left(
+          TopologyTransactionRejection.UnknownParties(Seq(party2, party3))
+        )
+
+        val missingMixedParties =
+          factory.mkAdd(AuthorityOf(party2, None, PositiveInt.one, Seq(party1, party3)))
+        checkTransaction(checks, missingMixedParties) shouldBe Left(
+          TopologyTransactionRejection.UnknownParties(Seq(party2, party3))
+        )
+      }
+
+      "report ThresholdTooHigh if the threshold is higher than the number of authorized parties" in {
+        val (checks, store) = mk()
+        addToStore(store, ptps*)
+
+        val thresholdTooHigh =
+          factory.mkAdd(AuthorityOf(party1, None, PositiveInt.three, Seq(party2, party3)))
+        checkTransaction(checks, thresholdTooHigh) shouldBe Left(
+          TopologyTransactionRejection.ThresholdTooHigh(3, 2)
         )
       }
     }

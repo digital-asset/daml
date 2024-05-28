@@ -10,6 +10,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.OnboardingRestriction
+import com.digitalasset.canton.topology.transaction.TopologyMapping
 import com.digitalasset.canton.topology.{
   DomainId,
   Member,
@@ -54,6 +55,15 @@ object TopologyTransactionRejection {
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) = {
       TopologyManagerError.InvalidThreshold.ThresholdTooHigh(actual, mustBeAtMost)
     }
+  }
+
+  final case class UnknownParties(parties: Seq[PartyId]) extends TopologyTransactionRejection {
+    override def asString: String = s"Parties ${parties.sorted.mkString(", ")} are unknown."
+
+    override def pretty: Pretty[UnknownParties.this.type] = prettyOfString(_ => asString)
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.UnknownParties.Failure(parties)
+
   }
 
   final case class OnboardingRestrictionInPlace(
@@ -170,5 +180,23 @@ object TopologyTransactionRejection {
         participantId,
         parties,
       )
+  }
+
+  final case class MissingMappings(missing: Map[Member, Seq[TopologyMapping.Code]])
+      extends TopologyTransactionRejection {
+    override def asString: String = {
+      val mappingString = missing.toSeq
+        .sortBy(_._1)
+        .map { case (member, mappings) =>
+          s"$member: ${mappings.mkString(", ")}"
+        }
+        .mkString("; ")
+      s"The following members are missing certain topology mappings: $mappingString"
+    }
+
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.MissingTopologyMapping.Reject(missing)
+
+    override def pretty: Pretty[MissingMappings.this.type] = prettyOfString(_ => asString)
   }
 }

@@ -173,7 +173,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar {
       .thenAnswer(Future.successful(SortedMap.from(snapshot)))
 
     val cs = mock[ContractStore]
-    when(cs.lookupManyUncached(any[Seq[LfContractId]]))
+    when(cs.lookupManyExistingUncached(any[Seq[LfContractId]]))
       .thenAnswer { (contractIds: Seq[LfContractId]) =>
         OptionT
           .fromOption[Future](NonEmpty.from(contractIds.filter(missingContracts)))

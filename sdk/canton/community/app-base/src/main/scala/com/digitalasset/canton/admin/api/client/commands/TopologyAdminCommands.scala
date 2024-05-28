@@ -21,16 +21,7 @@ import com.digitalasset.canton.topology.admin.v30.IdentityInitializationServiceG
 import com.digitalasset.canton.topology.admin.v30.TopologyAggregationServiceGrpc.TopologyAggregationServiceStub
 import com.digitalasset.canton.topology.admin.v30.TopologyManagerReadServiceGrpc.TopologyManagerReadServiceStub
 import com.digitalasset.canton.topology.admin.v30.TopologyManagerWriteServiceGrpc.TopologyManagerWriteServiceStub
-import com.digitalasset.canton.topology.admin.v30.{
-  AddTransactionsRequest,
-  AddTransactionsResponse,
-  AuthorizeRequest,
-  AuthorizeResponse,
-  ImportTopologySnapshotRequest,
-  ImportTopologySnapshotResponse,
-  SignTransactionsRequest,
-  SignTransactionsResponse,
-}
+import com.digitalasset.canton.topology.admin.v30.*
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
@@ -676,9 +667,16 @@ object TopologyAdminCommands {
     final case class AddTransactions(
         transactions: Seq[GenericSignedTopologyTransaction],
         store: String,
+        forceChanges: ForceFlags,
     ) extends BaseWriteCommand[AddTransactionsRequest, AddTransactionsResponse, Unit] {
       override def createRequest(): Either[String, AddTransactionsRequest] = {
-        Right(AddTransactionsRequest(transactions.map(_.toProtoV30), forceChange = false, store))
+        Right(
+          AddTransactionsRequest(
+            transactions.map(_.toProtoV30),
+            forceChanges = forceChanges.toProtoV30,
+            store,
+          )
+        )
       }
       override def submitRequest(
           service: TopologyManagerWriteServiceStub,
@@ -699,7 +697,6 @@ object TopologyAdminCommands {
         Right(
           ImportTopologySnapshotRequest(
             topologySnapshot,
-            forceChange = false,
             store,
           )
         )
@@ -746,7 +743,7 @@ object TopologyAdminCommands {
         change: TopologyChangeOp,
         serial: Option[PositiveInt],
         mustFullyAuthorize: Boolean,
-        forceChange: Boolean,
+        forceChanges: ForceFlags,
         store: String,
     ) extends BaseWriteCommand[
           AuthorizeRequest,
@@ -764,7 +761,7 @@ object TopologyAdminCommands {
             )
           ),
           mustFullyAuthorize = mustFullyAuthorize,
-          forceChange = forceChange,
+          forceChanges = forceChanges.toProtoV30,
           signedBy = signedBy.map(_.toProtoPrimitive),
           store,
         )
@@ -798,9 +795,9 @@ object TopologyAdminCommands {
           serial: Option[PositiveInt] = None,
           change: TopologyChangeOp = TopologyChangeOp.Replace,
           mustFullyAuthorize: Boolean = false,
-          forceChange: Boolean = false,
+          forceChanges: ForceFlags = ForceFlags.none,
       ): Propose[M] =
-        Propose(Right(mapping), signedBy, change, serial, mustFullyAuthorize, forceChange, store)
+        Propose(Right(mapping), signedBy, change, serial, mustFullyAuthorize, forceChanges, store)
 
     }
 
@@ -819,7 +816,7 @@ object TopologyAdminCommands {
         AuthorizeRequest(
           TransactionHash(transactionHash),
           mustFullyAuthorize = mustFullyAuthorize,
-          forceChange = false,
+          forceChanges = Seq.empty,
           signedBy = signedBy.map(_.toProtoPrimitive),
           store = store,
         )

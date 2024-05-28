@@ -3,14 +3,10 @@
 
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE GADTs #-}
 
 -- We generate missing instances for SignatureHelpParams
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -190,5 +186,5 @@ filePathFromURI miState uri =
           vr <- uriToVirtualResource parsedUri
           pure $ LSP.fromNormalizedFilePath $ vrScenarioFile vr
         "untitled:" ->
-          pure $ unPackageHome $ defaultPackagePath miState
+          pure $ unPackageHome $ misDefaultPackagePath miState
         _ -> Nothing

@@ -1626,7 +1626,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           buildDisclosedContract(contractId, alice, alice, templateId, withKey = false)
         val contractInfo = ContractInfo(
           version = txVersion,
-          packageName = pkg.name,
+          packageName = pkg.pkgName,
+          packageVersion = pkg.pkgVersion,
           templateId = templateId,
           value = disclosedContract.argument,
           signatories = Set(alice),
@@ -1654,7 +1655,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
               contractId -> Versioned(
                 version = version,
                 Value.ContractInstance(
-                  packageName = pkg.name,
+                  packageName = pkg.pkgName,
+                  packageVersion = pkg.pkgVersion,
                   template = templateId,
                   arg = disclosedContract.argument.toUnnormalizedValue,
                 ),
@@ -1674,12 +1676,13 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val cachedKey = CachedKey(
           pkgName,
           GlobalKeyWithMaintainers
-            .assertBuild(templateId, key.toUnnormalizedValue, Set(alice), pkg.name),
+            .assertBuild(templateId, key.toUnnormalizedValue, Set(alice), pkg.pkgName),
           key,
         )
         val contractInfo = ContractInfo(
           version = txVersion,
-          packageName = pkg.name,
+          packageName = pkg.pkgName,
+          packageVersion = pkg.pkgVersion,
           templateId = templateId,
           value = disclosedContract.argument,
           signatories = Set(alice),
@@ -1709,7 +1712,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
                 Value.ContractInstance(
                   template = templateId,
                   arg = disclosedContract.argument.toUnnormalizedValue,
-                  packageName = pkg.name,
+                  packageName = pkg.pkgName,
+                  packageVersion = pkg.pkgVersion,
                 ),
               )
             ),
@@ -1917,7 +1921,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
             templateId,
             key.toUnnormalizedValue,
             Set(maintainer),
-            pkg.name,
+            pkg.pkgName,
           )
         )
       } else {

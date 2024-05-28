@@ -71,7 +71,12 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(basePkg.name, iouId, iouPayload),
+                ContractInstance(
+                  packageName = basePkg.pkgName,
+                  packageVersion = basePkg.pkgVersion,
+                  template = iouId,
+                  arg = iouPayload,
+                ),
               )
             ),
             getPkg = PartialFunction.empty,
@@ -88,7 +93,7 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(extraPkgName, extraIouId, iouPayload),
+                ContractInstance(extraPkgName, extraPkgVersion, extraIouId, iouPayload),
               )
             ),
             getPkg = PartialFunction.empty,
@@ -105,7 +110,7 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(extraPkgName, extraIouId, iouPayload),
+                ContractInstance(extraPkgName, extraPkgVersion, extraIouId, iouPayload),
               )
             ),
             getPkg = { case `extraPkgId` =>
@@ -166,13 +171,13 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
 
   val Ast.TTyCon(iouId) = t"'$basePkgId':Mod:Iou"
 
-  // We assume extraPkg use the same version as basePkg
   val extraPkgName = Ref.PackageName.assertFromString("-extra-package-name-")
+  val extraPkgVersion = Some(Ref.PackageVersion.assertFromString("2.0.0"))
   val extraPkgId = Ref.PackageId.assertFromString("-extra-package-id-")
   require(extraPkgId != basePkgId)
 
   val basePkgNameMap =
-    Map(basePkg.name -> basePkgId, extraPkgName -> extraPkgId)
+    Map(basePkg.pkgName -> basePkgId, extraPkgName -> extraPkgId)
 
   lazy val extendedPkgs = {
 

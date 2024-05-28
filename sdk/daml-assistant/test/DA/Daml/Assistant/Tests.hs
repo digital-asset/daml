@@ -313,6 +313,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
     [ Tasty.testCase "getDispatchEnv should be idempotent" $ do
         withSystemTempDirectory "test-getDispatchEnv" $ \base -> do
             version <- requiredE "testGetDispatchEnv: expected a valid version" $ unsafeParseOldReleaseVersion "1.0.1"
+            let unresolvedVersion = unresolvedVersionFromReleaseVersion version
             let cachePath = CachePath (base </> ".cache")
             createDirectoryIfMissing True (unwrapCachePath cachePath)
             writeFileUTF8 (unwrapCachePath cachePath </> "versions.txt") "1.0.1"
@@ -321,7 +322,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
                     , envCachePath = cachePath
                     , envDamlAssistantPath = DamlAssistantPath (base </> ".daml" </> "bin" </> "strange-daml")
                     , envDamlAssistantSdkVersion = Just $ DamlAssistantSdkVersion version
-                    , envSdkVersion = Just version
+                    , envSdkVersion = Just unresolvedVersion
                     , envFreshStableSdkVersionForCheck = pure (Just version)
                     , envSdkPath = Just $ SdkPath (base </> "sdk")
                     , envProjectPath = Just $ ProjectPath (base </> "proj")
@@ -333,6 +334,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
     , Tasty.testCase "getDispatchEnv should override getDamlEnv" $ do
         withSystemTempDirectory "test-getDispatchEnv" $ \base -> do
             version <- requiredE "testGetDispatchEnv: expected a valid version" $ unsafeParseOldReleaseVersion "1.0.1"
+            let unresolvedVersion = unresolvedVersionFromReleaseVersion version
             let cachePath = CachePath (base </> ".cache")
             createDirectoryIfMissing True (unwrapCachePath cachePath)
             writeFileUTF8 (unwrapCachePath cachePath </> "versions.txt") "1.0.1"
@@ -341,7 +343,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
                     , envCachePath = cachePath
                     , envDamlAssistantPath = DamlAssistantPath (base </> ".daml" </> "bin" </> "strange-daml")
                     , envDamlAssistantSdkVersion = Just $ DamlAssistantSdkVersion version
-                    , envSdkVersion = Just version
+                    , envSdkVersion = Just unresolvedVersion
                     , envFreshStableSdkVersionForCheck = pure (Just version)
                     , envSdkPath = Just $ SdkPath (base </> "sdk")
                     , envProjectPath = Just $ ProjectPath (base </> "proj")

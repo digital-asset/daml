@@ -3,11 +3,6 @@
 
 module Main where
 
-import Daml.Script
-
-main : Script ()
-main = pure ()
-
 data Struct = Struct with
   field1 : Int
 

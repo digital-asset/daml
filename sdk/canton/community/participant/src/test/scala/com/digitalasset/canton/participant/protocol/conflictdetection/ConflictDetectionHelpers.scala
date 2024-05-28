@@ -99,7 +99,7 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
             .markContractCreated(coid -> initialTransferCounter, toc)
             .value
         case (coid, toc, Archived) => acs.archiveContract(coid, toc).value
-        case (coid, toc, Purged) => acs.purgeContracts(Seq(coid), toc).value
+        case (coid, toc, Purged) => acs.purgeContracts(Seq((coid, toc))).value
         case (coid, toc, TransferredAway(targetDomain, transferCounter)) =>
           acs.transferOutContract(coid, toc, targetDomain, transferCounter).value
       }

@@ -117,7 +117,7 @@ private[daml] sealed class StablePackagesImpl(
     StablePackage(
       moduleName = pkgAst.modules.head._1,
       packageId = pkgId,
-      name = pkgAst.name,
+      name = pkgAst.pkgName,
       languageVersion = pkgAst.languageVersion,
     )
   }

@@ -166,6 +166,7 @@ private[dao] object ContractsReader {
     )
     Contract(
       packageName = PackageName.assertFromString(packageName),
+      packageVersion = None,
       template = Identifier.assertFromString(templateId),
       arg = deserialized,
     )
@@ -178,6 +179,7 @@ private[dao] object ContractsReader {
   ): Contract =
     Contract(
       packageName = PackageName.assertFromString(packageName),
+      packageVersion = None,
       template = Identifier.assertFromString(templateId),
       arg = createArgument,
     )

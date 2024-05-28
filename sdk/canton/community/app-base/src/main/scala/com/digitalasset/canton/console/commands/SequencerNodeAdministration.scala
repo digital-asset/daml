@@ -9,14 +9,14 @@ import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdmi
   InitializeFromOnboardingState,
 }
 import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters
-import com.digitalasset.canton.console.Help
+import com.digitalasset.canton.console.{Help, SequencerReference}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.admin.grpc.InitializeSequencerResponse
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerSnapshot
 import com.digitalasset.canton.topology.SequencerId
 import com.google.protobuf.ByteString
 
-class SequencerSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGroup.Impl(parent) {
+class SequencerSetupGroup(node: SequencerReference) extends ConsoleCommandGroup.Impl(node) {
 
   @Help.Summary(
     "Download sequencer snapshot at given point in time to bootstrap another sequencer"
@@ -79,7 +79,10 @@ class SequencerSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGro
   def assign_from_genesis_state(
       genesisState: ByteString,
       domainParameters: StaticDomainParameters,
-  ): InitializeSequencerResponse =
+      waitForReady: Boolean = true,
+  ): InitializeSequencerResponse = {
+    if (waitForReady) node.health.wait_for_ready_for_initialization()
+
     consoleEnvironment.run {
       runner.adminCommand(
         InitializeFromGenesisState(
@@ -88,16 +91,23 @@ class SequencerSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGro
         )
       )
     }
+  }
 
   @Help.Summary(
     "Dynamically initialize a sequencer from a point later than the beginning of the event stream." +
       "This is called as part of the sequencer.setup.onboard_new_sequencer command, so you are unlikely to need to call this directly."
   )
-  def assign_from_onboarding_state(onboardingState: ByteString): InitializeSequencerResponse =
+  def assign_from_onboarding_state(
+      onboardingState: ByteString,
+      waitForReady: Boolean = true,
+  ): InitializeSequencerResponse = {
+    if (waitForReady) node.health.wait_for_ready_for_initialization()
+
     consoleEnvironment.run {
       runner.adminCommand(
         InitializeFromOnboardingState(onboardingState)
       )
     }
+  }
 
 }

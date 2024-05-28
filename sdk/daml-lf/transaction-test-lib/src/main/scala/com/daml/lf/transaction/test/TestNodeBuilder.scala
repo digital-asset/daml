@@ -14,15 +14,21 @@ import com.daml.lf.value.Value.ContractId
 
 trait TestNodeBuilder {
 
-  def packageVersion(packageId: PackageId): Option[TransactionVersion] = None
+  def transactionVersion(packageId: PackageId): Option[TransactionVersion] = None
 
   private def assertPackageVersion(packageId: PackageId): TransactionVersion =
-    packageVersion(packageId).getOrElse(
+    transactionVersion(packageId).getOrElse(
       throw new IllegalArgumentException(s"Could not lookup transaction version for $packageId")
     )
 
-  private def contractPackageVersion(contract: Node.Create): TransactionVersion =
-    packageVersion(contract.templateId.packageId).getOrElse(contract.version)
+  private[this] def contractTransactionVersion(contract: Node.Create): TransactionVersion =
+    transactionVersion(contract.templateId.packageId).getOrElse(contract.version)
+
+  val defaultPackageName: Ref.PackageName =
+    Ref.PackageName.assertFromString("-default-package-name-")
+  val defaultPackageVersion: Option[Ref.PackageVersion] = Some(
+    Ref.PackageVersion.assertFromString("1.0.0")
+  )
 
   def create(
       id: ContractId,
@@ -32,7 +38,8 @@ trait TestNodeBuilder {
       observers: Set[Party] = Set.empty,
       key: CreateKey = CreateKey.NoKey,
       // TODO https://github.com/digital-asset/daml/issues/17995
-      packageName: PackageName = Ref.PackageName.assertFromString("package-name"),
+      packageName: PackageName = defaultPackageName,
+      packageVersion: Option[Ref.PackageVersion] = defaultPackageVersion,
       version: CreateTransactionVersion = CreateTransactionVersion.StableMax,
   ): Node.Create = {
 
@@ -57,9 +64,13 @@ trait TestNodeBuilder {
 
     val maintainers: Set[Party] = keyOpt.fold(Set.empty[Party])(_.maintainers)
 
+    import Ordering.Implicits._
+
     Node.Create(
       coid = id,
       packageName = packageName,
+      packageVersion =
+        packageVersion.filter(_ => transactionVersion >= TransactionVersion.minPackageVersion),
       templateId = templateId,
       arg = argument,
       signatories = signatories ++ maintainers,
@@ -98,7 +109,7 @@ trait TestNodeBuilder {
       exerciseResult = result,
       keyOpt = contract.keyOpt,
       byKey = byKey,
-      version = contractPackageVersion(contract),
+      version = contractTransactionVersion(contract),
     )
 
   def fetch(
@@ -114,7 +125,7 @@ trait TestNodeBuilder {
       stakeholders = contract.stakeholders,
       keyOpt = contract.keyOpt,
       byKey = byKey,
-      version = contractPackageVersion(contract),
+      version = contractTransactionVersion(contract),
     )
 
   def lookupByKey(contract: Node.Create, found: Boolean = true): Node.LookupByKey =
@@ -127,7 +138,7 @@ trait TestNodeBuilder {
         )
       ),
       result = if (found) Some(contract.coid) else None,
-      version = contractPackageVersion(contract),
+      version = contractTransactionVersion(contract),
     )
 
   def rollback(children: ImmArray[NodeId] = ImmArray.empty): Node.Rollback =

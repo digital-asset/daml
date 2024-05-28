@@ -1234,7 +1234,17 @@ object Ast {
       languageVersion: LanguageVersion,
       metadata: PackageMetadata,
   ) {
-    private[lf] val name: Ref.PackageName = metadata.name
+    private[lf] def pkgName: Ref.PackageName = metadata.name
+    private[lf] def pkgVersion: Option[Ref.PackageVersion] = {
+      import Ordering.Implicits._
+      if (languageVersion < LanguageVersion.Features.persistedPackageVersion)
+        None
+      else
+        Some(metadata.version)
+    }
+    private[lf] def pkgNameVersion: (Ref.PackageName, Option[Ref.PackageVersion]) =
+      pkgName -> pkgVersion
+
   }
 
   final class GenPackageCompanion[E] private[Ast] {

@@ -543,12 +543,7 @@ class GrpcSequencerService(
 
     sender match {
       // Rate limiting only if participants send to participants.
-      case participantId: ParticipantId if request.batch.allRecipients.exists {
-            case AllMembersOfDomain => true
-            case MemberRecipient(_: ParticipantId) => true
-            case ParticipantsOfParty(_) => true
-            case _: Recipient => false
-          } =>
+      case participantId: ParticipantId if request.isConfirmationRequest =>
         for {
           confirmationRequestsMaxRate <- EitherTUtil
             .fromFuture(

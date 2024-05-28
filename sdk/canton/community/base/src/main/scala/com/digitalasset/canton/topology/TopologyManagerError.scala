@@ -306,6 +306,33 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
+    """This error indicates that a dangerous owner to key mapping authorization was rejected.
+      |This is the case if a command is run that could break a node.
+      |If the command was run to assign a key for the given node, then the command
+      |was rejected because the key is not in the node's private store.
+      |If the command is run on a node to issue transactions for another node,
+      |then such commands must be run with force, as they are very dangerous and could easily break
+      |the node.
+      |As an example, if we assign an encryption key to a participant that the participant does not
+      |have, then the participant will be unable to process an incoming transaction. Therefore we must
+      |be very careful to not create such situations.
+      | """
+  )
+  @Resolution("Set the ForceFlag.AlienMember if you really know what you are doing.")
+  object DangerousKeyUseCommandRequiresForce
+      extends ErrorCode(
+        id = "DANGEROUS_KEY_USE_COMMAND_REQUIRES_FORCE_ALIEN_MEMBER",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class AlienMember(member: Member)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = "Issuing owner to key mappings for alien members requires ForceFlag.AlienMember"
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
     """This error indicates that the attempted key removal would create dangling topology transactions, making the node unusable."""
   )
   @Resolution(
@@ -335,9 +362,9 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
       |
       |Use ``myDomain.service.set_ledger_time_record_time_tolerance`` for securely increasing ledgerTimeRecordTimeTolerance.
       |
-      |Alternatively, add the ``force = true`` flag to your command, if security is not a concern for you.
+      |Alternatively, add the flag ``ForceFlag.LedgerTimeRecordTimeToleranceIncrease`` to your command, if security is not a concern for you.
       |The security checks will be effective again after twice the new value of ``ledgerTimeRecordTimeTolerance``.
-      |Using ``force = true`` is safe upon domain bootstrapping.
+      |Using ``ForceFlag.LedgerTimeRecordTimeToleranceIncrease`` is safe upon domain bootstrapping.
       |"""
   )
   object IncreaseOfLedgerTimeRecordTimeTolerance
@@ -452,6 +479,26 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
+    "This error indicates that the topology transaction references parties that are currently unknown."
+  )
+  @Resolution(
+    """Wait for the onboarding of the parties to be become active or remove the unknown parties from the topology transaction.
+      |The metadata details of this error contain the unknown parties in the field ``parties``."""
+  )
+  object UnknownParties
+      extends ErrorCode(
+        id = "UNKNOWN_PARTIES",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+      ) {
+    final case class Failure(parties: Seq[PartyId])(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"Parties ${parties.sorted.mkString(", ")} are unknown."
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
     """This error indicates that a participant is trying to rescind their domain trust certificate
       |while still being hosting parties."""
   )
@@ -501,8 +548,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
-    """This error indicates that a participant is trying to rescind their domain trust certificate
-      |while still hosting parties."""
+    """This error indicates that the submitted topology mapping was invalid."""
   )
   @Resolution(
     """The participant should work with the owners of the parties mentioned in the ``parties`` field in the
@@ -523,6 +569,28 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         with TopologyManagerError
   }
 
+  object MissingTopologyMapping
+      extends ErrorCode(
+        id = "MISSING_TOPOLOGY_MAPPING",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+      ) {
+    final case class Reject(
+        missingMappings: Map[Member, Seq[TopologyMapping.Code]]
+    )(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = {
+            val mappingString = missingMappings.toSeq
+              .sortBy(_._1)
+              .map { case (member, mappings) =>
+                s"$member: ${mappings.mkString(", ")}"
+              }
+              .mkString("; ")
+            s"The following members are missing certain topology mappings: $mappingString"
+          }
+        )
+        with TopologyManagerError
+  }
   abstract class DomainErrorGroup extends ErrorGroup()
   abstract class ParticipantErrorGroup extends ErrorGroup()
 

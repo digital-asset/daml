@@ -83,6 +83,13 @@ defaultSdkPath damlPath releaseVersion =
         damlPath
         (V.toString (L.set V.metadata [] (releaseVersionFromReleaseVersion releaseVersion)))
 
+-- | Default way of constructing sdk paths.
+defaultSdkPathUnresolved :: DamlPath -> UnresolvedReleaseVersion -> SdkPath
+defaultSdkPathUnresolved damlPath unresolvedVersion =
+    mkSdkPath
+        damlPath
+        (V.toString (L.set V.metadata [] (unwrapUnresolvedReleaseVersion unresolvedVersion)))
+
 mkSdkPath :: DamlPath -> String -> SdkPath
 mkSdkPath (DamlPath root) str = SdkPath (root </> "sdk" </> str)
 

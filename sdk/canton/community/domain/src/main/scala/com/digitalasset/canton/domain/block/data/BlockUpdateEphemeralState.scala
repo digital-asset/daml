@@ -15,7 +15,7 @@ import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.topology.Member
 
 /** Subset of the [[EphemeralState]] that is used by the block processing stage
-  * of the [[com.digitalasset.canton.domain.block.BlockUpdateGenerator]]
+  * of the [[com.digitalasset.canton.domain.block.update.BlockUpdateGenerator]]
   */
 final case class BlockUpdateEphemeralState(
     checkpoints: Map[Member, CounterCheckpoint],

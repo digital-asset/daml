@@ -13,12 +13,22 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.block
 import com.digitalasset.canton.domain.block.BlockSequencerStateManager.HeadState
-import com.digitalasset.canton.domain.block.BlockUpdateGenerator.BlockChunk
 import com.digitalasset.canton.domain.block.data.{
   BlockEphemeralState,
   BlockInfo,
   EphemeralState,
   SequencerBlockStore,
+}
+import com.digitalasset.canton.domain.block.update.BlockUpdateGenerator.BlockChunk
+import com.digitalasset.canton.domain.block.update.{
+  BlockUpdate,
+  BlockUpdateGenerator,
+  ChunkUpdate,
+  CompleteBlockUpdate,
+  LocalBlockUpdate,
+  OrderedBlockUpdate,
+  SignedChunkEvents,
+  UnsignedChunkEvents,
 }
 import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.MemberCounters
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer
@@ -78,14 +88,14 @@ trait BlockSequencerStateManagerBase extends FlagCloseableAsync {
   def isMemberEnabled(member: Member): Boolean
 
   /** Flow to turn [[com.digitalasset.canton.domain.block.BlockEvents]] of one block
-    * into a series of [[com.digitalasset.canton.domain.block.OrderedBlockUpdate]]s
+    * into a series of [[update.OrderedBlockUpdate]]s
     * that are to be persisted subsequently using [[applyBlockUpdate]].
     */
   def processBlock(
       bug: BlockUpdateGenerator
   ): Flow[BlockEvents, Traced[OrderedBlockUpdate[SignedChunkEvents]], NotUsed]
 
-  /** Persists the [[com.digitalasset.canton.domain.block.BlockUpdate]]s and completes the waiting RPC calls
+  /** Persists the [[update.BlockUpdate]]s and completes the waiting RPC calls
     * as necessary.
     */
   def applyBlockUpdate(

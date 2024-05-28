@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.traverse.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.health.admin.data.WaitingForExternalInput
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
@@ -70,6 +71,9 @@ abstract class BootstrapStage[T <: CantonNode, StageResult <: BootstrapStageOrLe
   protected def addCloseable[C <: AutoCloseable](item: C): Unit = {
     closeables.updateAndGet(_ :+ item).discard
   }
+
+  /** indicates the type of external input the stage might be waiting for */
+  def waitingFor: Option[WaitingForExternalInput] = None
 
   /** main handler to implement where we attempt to init this stage
     * if we return None, then the init was okay but stopped at this level (waiting for

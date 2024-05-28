@@ -1,12 +1,8 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE PolyKinds           #-}
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE ApplicativeDo       #-}
-{-# LANGUAGE RankNTypes       #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 
 module DA.Cli.Damlc.Command.MultiIde.Util (
@@ -154,7 +150,7 @@ initializeResult = LSP.InitializeResult
     true = Just (LSP.InL True)
     false = Just (LSP.InL False)
 
-initializeRequest :: InitParams -> SubIDEInstance -> LSP.FromClientMessage
+initializeRequest :: InitParams -> SubIdeInstance -> LSP.FromClientMessage
 initializeRequest initParams ide = LSP.FromClientMess LSP.SInitialize LSP.RequestMessage 
   { _id = LSP.IdString $ ideMessageIdPrefix ide <> "-init"
   , _method = LSP.SInitialize
@@ -177,7 +173,15 @@ openFileNotification path content = LSP.FromClientMess LSP.STextDocumentDidOpen 
       }
     }
   , _jsonrpc = "2.0"
-  } 
+  }
+
+closeFileNotification :: DamlFile -> LSP.FromClientMessage
+closeFileNotification path = LSP.FromClientMess LSP.STextDocumentDidClose LSP.NotificationMessage
+  {_method = LSP.STextDocumentDidClose
+  , _params = LSP.DidCloseTextDocumentParams $ LSP.TextDocumentIdentifier $
+      LSP.filePathToUri $ unDamlFile path
+  , _jsonrpc = "2.0"
+  }
 
 registerFileWatchersMessage :: LSP.RequestMessage 'LSP.ClientRegisterCapability
 registerFileWatchersMessage =

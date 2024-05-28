@@ -285,7 +285,7 @@ class IdeLedgerClient(
       .getOrElse(throw new IllegalArgumentException(s"Unknown package ${templateId.packageId}"))
 
     GlobalKey
-      .build(templateId, keyValue, pkg.name)
+      .build(templateId, keyValue, pkg.pkgName)
       .fold(keyBuilderError(_), Future.successful(_))
       .flatMap { gkey =>
         ledger.ledgerData.activeKeys.get(gkey) match {
@@ -595,6 +595,7 @@ class IdeLedgerClient(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       disclosures: List[Disclosure],
+      optPackagePreference: Option[List[PackageId]],
       commands: List[ScriptLedgerClient.CommandWithMeta],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
@@ -606,6 +607,9 @@ class IdeLedgerClient(
     ScriptLedgerClient.SubmitFailure,
     (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
   ]] = Future {
+    optPackagePreference.foreach(_ =>
+      throw new IllegalArgumentException("IDE Ledger does not support Package Preference")
+    )
     synchronized {
       unsafeSubmit(actAs, readAs, disclosures, commands, optLocation) match {
         case Right(ScenarioRunner.Commit(result, _, tx)) =>

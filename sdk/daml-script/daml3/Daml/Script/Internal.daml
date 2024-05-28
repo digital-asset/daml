@@ -24,13 +24,15 @@ module Daml.Script.Internal
   , unvetDarOnParticipant
   , unsafeUnvetDarOnParticipant
 
+  , -- Upgrades EA features
+    PackageId (..)  
+  , packagePreference
+
   , -- Concurrent submit
     concurrently
   , trySubmitConcurrently
 
-  , -- Exceptions
-    -- TODO: consider exposing this normally.
-    tryToEither
+    -- Exceptions
   , throwAnyException
 
   , -- Internal submit error

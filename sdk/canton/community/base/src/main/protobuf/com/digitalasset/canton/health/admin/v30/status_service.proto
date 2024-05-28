@@ -57,7 +57,15 @@ message StatusResponse {
   }
 
   message NotInitialized {
+    enum WaitingForExternalInput {
+      WAITING_FOR_EXTERNAL_INPUT_UNSPECIFIED = 0;
+      WAITING_FOR_EXTERNAL_INPUT_ID = 1;
+      WAITING_FOR_EXTERNAL_INPUT_NODE_TOPOLOGY = 2;
+      WAITING_FOR_EXTERNAL_INPUT_INITIALIZATION = 3;
+    }
+
     bool active = 1; // Indicate if the node is active, usually true unless it's a replicated node that is passive
+    WaitingForExternalInput waiting_for_external_input = 2; // Indicates whether the node is waiting for external input
   }
 
   oneof response {

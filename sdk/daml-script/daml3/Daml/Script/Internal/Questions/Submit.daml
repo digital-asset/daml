@@ -26,11 +26,15 @@ data Submission = Submission with
   sActAs : NonEmpty Party
   sReadAs : [Party]
   sDisclosures : [Disclosure]
+  sPackagePreference : Optional [PackageId]
   sErrorBehaviour : ErrorBehaviour
   sCommands : [CommandWithMeta]
   sLocation : Optional (Text, SrcLoc)
 
 data ErrorBehaviour = MustSucceed | MustFail | Try
+
+-- | HIDE Package-id newtype for package preference
+newtype PackageId = PackageId Text deriving (Show, Eq)
 
 -- | Options to detemine the stakeholders of a transaction, as well as disclosures.
 -- Intended to be specified using the `actAs`, `readAs` and `disclose` builders, combined using the Semigroup concat `(<>)` operator.
@@ -47,10 +51,17 @@ data SubmitOptions = SubmitOptions with
   soActAs : [Party]
   soReadAs : [Party]
   soDisclosures : [Disclosure]
+  soPackagePreference : Optional [PackageId]
+
+-- Optional doesn't have Semigroup instance?
+combineOptional : Semigroup a => Optional a -> Optional a -> Optional a
+combineOptional (Some a) (Some b) = Some (a <> b)
+combineOptional None r = r
+combineOptional l _ = l
 
 -- | Semigroup instance allowing for combination via (<>)
 instance Semigroup SubmitOptions where
-  SubmitOptions a b c <> SubmitOptions a' b' c' = SubmitOptions (a <> a') (b <> b') (c <> c')
+  SubmitOptions a b c d <> SubmitOptions a' b' c' d' = SubmitOptions (a <> a') (b <> b') (c <> c') (d `combineOptional` d')
 
 -- | Builds a SubmitOptions with given actAs parties.
 -- Any given submission must include at least one actAs party.
@@ -62,8 +73,8 @@ instance Semigroup SubmitOptions where
 -- Set Party
 -- Optional Party
 -- ```
-actAs : IsParties p => p -> SubmitOptions
-actAs p = SubmitOptions (toParties p) [] []
+actAs : IsParties parties => parties -> SubmitOptions
+actAs p = SubmitOptions (toParties p) [] [] None
 
 -- | Builds a SubmitOptions with given readAs parties.
 -- A given submission may omit any readAs parties and still be valid.
@@ -75,20 +86,24 @@ actAs p = SubmitOptions (toParties p) [] []
 -- Set Party
 -- Optional Party
 -- ```
-readAs : IsParties p => p -> SubmitOptions
-readAs p = SubmitOptions [] (toParties p) []
+readAs : IsParties parties => parties -> SubmitOptions
+readAs p = SubmitOptions [] (toParties p) [] None
 
 -- | Provides many Explicit Disclosures to the transaction.
 discloseMany : [Disclosure] -> SubmitOptions
-discloseMany ds = SubmitOptions [] [] ds
+discloseMany ds = SubmitOptions [] [] ds None
 
 -- | Provides an Explicit Disclosure to the transaction.
 disclose : Disclosure -> SubmitOptions
 disclose d = discloseMany [d]
 
+-- | Provide a package id selection preference for upgrades for a submission
+packagePreference : [PackageId] -> SubmitOptions
+packagePreference = SubmitOptions [] [] [] . Some
+
 -- | Defines a type that can be transformed into a SubmitOptions
-class IsSubmitOptions a where
-  toSubmitOptions : a -> SubmitOptions
+class IsSubmitOptions options where
+  toSubmitOptions : options -> SubmitOptions
 
 instance IsSubmitOptions SubmitOptions where
   toSubmitOptions = identity
@@ -132,13 +147,24 @@ actAsNonEmpty ps = case ps of
 -- | Allows for concurrent submission of transactions, using an applicative, similar to Commands.
 -- Concurrently takes a computation in `ConcurrentSubmits`, which supports all the existing `submit` functions
 -- that `Script` supports. It however does not implement `Action`, and thus does not support true binding and computation interdependence
+-- NOTE: The submission order of transactions within `concurrently` is deterministic, this function is not intended to test contention.
+-- It is only intended to allow faster submission of many unrelated transactions, by not waiting for completion for each transaction before
+-- sending the next.
+-- Example:
+-- ```
+-- exerciseResult <- concurrently $ do
+--   alice `submit` createCmd ...
+--   res <- alice `submit` exerciseCmd ...
+--   bob `submit` createCmd ...
+--   pure res
+-- ```
 concurrently : HasCallStack => ConcurrentSubmits a -> Script a
 concurrently submissions = fmap submissions.continue $ lift $ Submit with
   submissions = submissions.submits
 
 -- | Defines an applicative that can run transaction submissions. Usually this is simply `Script`.
-class Applicative m => ScriptSubmit m where
-  liftSubmission : HasCallStack => ConcurrentSubmits a -> m a
+class Applicative script => ScriptSubmit script where
+  liftSubmission : HasCallStack => ConcurrentSubmits a -> script a
 
 instance ScriptSubmit ConcurrentSubmits where
   liftSubmission : HasCallStack => ConcurrentSubmits a -> ConcurrentSubmits a
@@ -148,13 +174,14 @@ instance ScriptSubmit Script where
   liftSubmission : HasCallStack => ConcurrentSubmits a -> Script a
   liftSubmission = concurrently
 
-submitInternal : (HasCallStack, ScriptSubmit m) => SubmitOptions -> ErrorBehaviour -> Commands a -> m (Either SubmitError (a, TransactionTree))
+submitInternal : (HasCallStack, ScriptSubmit script) => SubmitOptions -> ErrorBehaviour -> Commands a -> script (Either SubmitError (a, TransactionTree))
 submitInternal opts errorBehaviour cmds = liftSubmission $ ConcurrentSubmits with
   submits =
     [ Submission with
         sActAs = actAsNonEmpty opts.soActAs
         sReadAs = opts.soReadAs
         sDisclosures = opts.soDisclosures
+        sPackagePreference = opts.soPackagePreference
         sErrorBehaviour = errorBehaviour
         sCommands = cmds.commands
         sLocation = head getExposedCallStack
@@ -177,50 +204,53 @@ mustFail = \case
 
 -- ##### Main API #####
 -- | Equivalent to `submit` but returns the result and the full transaction tree.
-submitResultAndTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m (a, TransactionTree)
+submitResultAndTree : (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script (a, TransactionTree)
 submitResultAndTree opts cmds = mustSucceed <$> submitInternal (toSubmitOptions opts) MustSucceed cmds
 
 -- | Equivalent to `trySubmit` but returns the result and the full transaction tree.
-trySubmitResultAndTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m (Either SubmitError (a, TransactionTree))
+trySubmitResultAndTree : (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script (Either SubmitError (a, TransactionTree))
 trySubmitResultAndTree opts cmds = submitInternal (toSubmitOptions opts) Try cmds
 
 -- | Equivalent to `submitMustFail` but returns the error thrown.
-submitWithError : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m SubmitError
+submitWithError : (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script SubmitError
 submitWithError opts cmds = mustFail <$> submitInternal (toSubmitOptions opts) MustFail cmds
 
 -- | `submit p cmds` submits the commands `cmds` as a single transaction
 -- from party `p` and returns the value returned by `cmds`.
+-- The `options` field can either be any "Parties" like type (See `IsParties`) or `SubmitOptions`
+-- which allows for finer control over parameters of the submission.
 --
 -- If the transaction fails, `submit` also fails.
-submit : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m a
+submit : (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script a
 submit opts cmds = fst <$> submitResultAndTree opts cmds
 
 {-# DEPRECATED submitWithOptions "Daml 2.9 compatibility helper, use 'submit' instead " #-}
-submitWithOptions : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m a
+submitWithOptions : (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script a
 submitWithOptions = submit
 
 -- | Equivalent to `submit` but returns the full transaction tree.
-submitTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m TransactionTree
+submitTree : (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script TransactionTree
 submitTree opts cmds = snd <$> submitResultAndTree opts cmds
 
 -- | Submit a transaction and recieve back either the result, or a `SubmitError`.
 -- In the majority of failures, this will not crash at runtime.
-trySubmit : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m (Either SubmitError a)
+trySubmit : (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script (Either SubmitError a)
 trySubmit opts cmds = fmap fst <$> trySubmitResultAndTree opts cmds
 
 -- | Equivalent to `trySubmit` but returns the full transaction tree.
-trySubmitTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m (Either SubmitError TransactionTree)
+trySubmitTree : (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script (Either SubmitError TransactionTree)
 trySubmitTree opts cmds = fmap snd <$> trySubmitResultAndTree opts cmds
 
 -- | `submitMustFail p cmds` submits the commands `cmds` as a single transaction
 -- from party `p`.
+-- See submitWithOptions for details on the `options` field
 --
 -- It only succeeds if the submitting the transaction fails.
-submitMustFail : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m ()
+submitMustFail : (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script ()
 submitMustFail opts cmds = void $ submitWithError opts cmds
 
 {-# DEPRECATED submitMustFailWithOptions "Daml 2.9 compatibility helper, use 'submitMustFail' instead " #-}
-submitMustFailWithOptions : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m ()
+submitMustFailWithOptions : (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script ()
 submitMustFailWithOptions = submitMustFail
 
 -- ##### Old compatibility conveniences #####
@@ -231,7 +261,7 @@ submitMustFailWithOptions = submitMustFail
 -- 
 -- Note: This behaviour can be achieved using `submit (actAs actors <> readAs readers) cmds`
 -- and is only provided for backwards compatibility.
-submitMulti : (HasCallStack, ScriptSubmit m) => [Party] -> [Party] -> Commands a -> m a
+submitMulti : (HasCallStack, ScriptSubmit script) => [Party] -> [Party] -> Commands a -> script a
 submitMulti actors readers cmds = submit (actAs actors <> readAs readers) cmds
 
 -- | `submitMultiMustFail actAs readAs cmds` behaves like `submitMulti actAs readAs cmds`
@@ -239,21 +269,21 @@ submitMulti actors readers cmds = submit (actAs actors <> readAs readers) cmds
 --
 -- Note: This behaviour can be achieved using `submitMustFail (actAs actors <> readAs readers) cmds`
 -- and is only provided for backwards compatibility.
-submitMultiMustFail : (HasCallStack, ScriptSubmit m) => [Party] -> [Party] -> Commands a -> m ()
+submitMultiMustFail : (HasCallStack, ScriptSubmit script) => [Party] -> [Party] -> Commands a -> script ()
 submitMultiMustFail actors readers cmds = submitMustFail (actAs actors <> readAs readers) cmds
 
 -- | Equivalent to `submitMulti` but returns the full transaction tree.
 -- 
 -- Note: This behaviour can be achieved using `submitTree (actAs actors <> readAs readers) cmds`
 -- and is only provided for backwards compatibility.
-submitTreeMulti : (HasCallStack, ScriptSubmit m) => [Party] -> [Party] -> Commands a -> m TransactionTree
+submitTreeMulti : (HasCallStack, ScriptSubmit script) => [Party] -> [Party] -> Commands a -> script TransactionTree
 submitTreeMulti actors readers cmds = submitTree (actAs actors <> readAs readers) cmds
 
 -- | Alternate version of `trySubmit` that allows specifying the actAs and readAs parties.
 -- 
 -- Note: This behaviour can be achieved using `trySubmit (actAs actors <> readAs readers) cmds`
 -- and is only provided for backwards compatibility.
-trySubmitMulti : (HasCallStack, ScriptSubmit m) => [Party] -> [Party] -> Commands a -> m (Either SubmitError a)
+trySubmitMulti : (HasCallStack, ScriptSubmit script) => [Party] -> [Party] -> Commands a -> script (Either SubmitError a)
 trySubmitMulti actors readers cmds = trySubmit (actAs actors <> readAs readers) cmds
 
 -- #### Provided for testing for now, likely to be removed #####

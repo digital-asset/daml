@@ -16,8 +16,11 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, L
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.TopologyManagerError.IncreaseOfLedgerTimeRecordTimeTolerance
 import com.digitalasset.canton.topology.TopologyManagerError.InternalError.TopologySigningError
+import com.digitalasset.canton.topology.TopologyManagerError.{
+  DangerousKeyUseCommandRequiresForce,
+  IncreaseOfLedgerTimeRecordTimeTolerance,
+}
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, DomainStore}
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
@@ -26,7 +29,7 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{MonadUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.util.{EitherTUtil, MonadUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 
 import java.util.concurrent.atomic.AtomicReference
@@ -152,7 +155,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
     * @param signingKeys     the key which should be used to sign
     * @param protocolVersion the protocol version corresponding to the transaction
     * @param expectFullAuthorization whether the transaction must be fully signed and authorized by keys on this node
-    * @param force           force dangerous operations, such as removing the last signing key of a participant
+    * @param forceChanges    force dangerous operations, such as removing the last signing key of a participant
     * @return the domain state (initialized or not initialized) or an error code of why the addition failed
     */
   def proposeAndAuthorize(
@@ -162,7 +165,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
       signingKeys: Seq[Fingerprint],
       protocolVersion: ProtocolVersion,
       expectFullAuthorization: Boolean,
-      force: Boolean = false,
+      forceChanges: ForceFlags = ForceFlags.none,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, GenericSignedTopologyTransaction] = {
@@ -172,7 +175,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
         FutureUnlessShutdown.outcomeK
       )
       signedTx <- signTransaction(tx, signingKeys, isProposal = !expectFullAuthorization)
-      _ <- add(Seq(signedTx), force = force, expectFullAuthorization)
+      _ <- add(Seq(signedTx), forceChanges, expectFullAuthorization)
     } yield signedTx
   }
 
@@ -190,7 +193,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
   def accept(
       transactionHash: TxHash,
       signingKeys: Seq[Fingerprint],
-      force: Boolean,
+      forceChanges: ForceFlags,
       expectFullAuthorization: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -223,8 +226,8 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
       extendedTransaction <- extendSignature(existingTransaction, signingKeys)
       _ <- add(
         Seq(extendedTransaction),
-        force = force,
         expectFullAuthorization = expectFullAuthorization,
+        forceChanges = forceChanges,
       )
     } yield {
       extendedTransaction
@@ -405,11 +408,11 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
 
   /** sequential(!) adding of topology transactions
     *
-    * @param force force a dangerous change (such as revoking the last key)
+    * @param forceChanges force a dangerous change (such as revoking the last key)
     */
   def add(
       transactionsToAdd: Seq[GenericSignedTopologyTransaction],
-      force: Boolean,
+      forceChanges: ForceFlags,
       expectFullAuthorization: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -420,9 +423,11 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
         for {
           // TODO(#18524): Remove this after CN has upgraded to 3.1
           transactions <- addMissingOtkSignaturesForSigningKeys(transactionsToAdd)
+
           _ <- MonadUtil
-            .sequentialTraverse_(transactions)(transactionIsNotDangerous(_, force))
+            .sequentialTraverse_(transactions)(transactionIsNotDangerous(_, forceChanges))
             .mapK(FutureUnlessShutdown.outcomeK)
+
           transactionsInStore <- EitherT
             .liftF(
               store.findTransactionsByTxHash(
@@ -456,7 +461,6 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
                   SequencedTime(ts),
                   EffectiveTime(ts),
                   newTransactionsOrAdditionalSignatures,
-                  abortIfCascading = !force,
                   expectFullAuthorization,
                 )
                 .leftFlatMap(rejectedTransactions =>
@@ -485,19 +489,30 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
 
   private def transactionIsNotDangerous(
       transaction: SignedTopologyTransaction[TopologyChangeOp, TopologyMapping],
-      force: Boolean,
+      forceChanges: ForceFlags,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TopologyManagerError, Unit] = transaction.mapping match {
     case DomainParametersState(domainId, newDomainParameters) =>
-      checkLedgerTimeRecordTimeToleranceNotIncreasing(domainId, newDomainParameters, force)
+      checkLedgerTimeRecordTimeToleranceNotIncreasing(domainId, newDomainParameters, forceChanges)
+    case OwnerToKeyMapping(member, _, _) =>
+      checkOwnerToKeyMappingIsForCurrentMember(member, forceChanges)
     case _ => EitherT.rightT(())
+  }
+
+  private def checkOwnerToKeyMappingIsForCurrentMember(member: Member, forceChanges: ForceFlags)(
+      implicit traceContext: TraceContext
+  ): EitherT[Future, TopologyManagerError, Unit] = {
+    EitherTUtil.condUnitET(
+      member.uid == nodeId || forceChanges.permits(ForceFlag.AlienMember),
+      DangerousKeyUseCommandRequiresForce.AlienMember(member),
+    )
   }
 
   private def checkLedgerTimeRecordTimeToleranceNotIncreasing(
       domainId: DomainId,
       newDomainParameters: DynamicDomainParameters,
-      force: Boolean,
+      forceChanges: ForceFlags,
   )(implicit traceContext: TraceContext): EitherT[Future, TopologyManagerError, Unit] = {
     // See i9028 for a detailed design.
 
@@ -519,6 +534,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
         case Some(domainParameters) =>
           val changeIsDangerous =
             newDomainParameters.ledgerTimeRecordTimeTolerance > domainParameters.ledgerTimeRecordTimeTolerance
+          val force = forceChanges.permits(ForceFlag.LedgerTimeRecordTimeToleranceIncrease)
           if (changeIsDangerous && force) {
             logger.info(
               s"Forcing dangerous increase of ledger time record time tolerance from ${domainParameters.ledgerTimeRecordTimeTolerance} to ${newDomainParameters.ledgerTimeRecordTimeTolerance}"

@@ -2061,7 +2061,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
 
     def withMetadataSeq(cids: Seq[LfContractId]): Future[Seq[StoredContract]] =
       contractStore
-        .lookupManyUncached(cids)(namedLoggingContext.traceContext)
+        .lookupManyExistingUncached(cids)(namedLoggingContext.traceContext)
         .valueOr { missingContractId =>
           ErrorUtil.internalError(
             new IllegalStateException(

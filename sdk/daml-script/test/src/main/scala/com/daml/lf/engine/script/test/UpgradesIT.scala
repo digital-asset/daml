@@ -128,10 +128,27 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
     val testCaseRoot = Files.createDirectory(tempDir.resolve(testCase.name))
     val testCasePkg = Files.createDirectory(testCaseRoot.resolve("test-case"))
     val dars: Seq[Dar] = testCase.pkgDefs.map(_.build(testCaseRoot))
+    // For package preference tests, we need to know package ids
+    // These cannot be hard coded due to sdk version changes
+    val packageIdsModuleSource =
+      s"""module PackageIds where
+         |import qualified DA.Map as Map
+         |import DA.Optional (fromSomeNote)
+         |import UpgradeTestLib (PackageId (..))
+         |packageIds : Map.Map Text PackageId
+         |packageIds = Map.fromList [${dars
+          .map(dar => s"(\"${dar.versionedName}\",PackageId \"${dar.mainPackageId}\")")
+          .mkString(",")}]
+         |getPackageId : Text -> PackageId
+         |getPackageId name = fromSomeNote ("Couldn't find package id of " <> name) $$ Map.lookup name packageIds
+      """.stripMargin
 
     val darPath = assertBuildDar(
       name = testCase.name,
-      modules = Map((testCase.name, Files.readString(testCase.damlPath))),
+      modules = Map(
+        (testCase.name, Files.readString(testCase.damlPath)),
+        ("PackageIds", packageIdsModuleSource),
+      ),
       dataDeps = Seq(DataDep(upgradeTestLibDar)) :++ dars.map { dar =>
         DataDep(
           path = dar.path,

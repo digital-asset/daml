@@ -21,6 +21,7 @@ import com.digitalasset.canton.console.{
   FeatureFlagFilter,
   Help,
   Helpful,
+  MediatorReference,
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -127,22 +128,26 @@ class MediatorPruningAdministrationGroup(
 
 }
 
-class MediatorSetupGroup(consoleCommandGroup: ConsoleCommandGroup)
-    extends ConsoleCommandGroup.Impl(consoleCommandGroup) {
+class MediatorSetupGroup(node: MediatorReference) extends ConsoleCommandGroup.Impl(node) {
   @Help.Summary("Assign a mediator to a domain")
   def assign(
       domainId: DomainId,
       sequencerConnections: SequencerConnections,
       sequencerConnectionValidation: SequencerConnectionValidation =
         SequencerConnectionValidation.All,
-  ): Unit = consoleEnvironment.run {
-    runner.adminCommand(
-      Initialize(
-        domainId,
-        sequencerConnections,
-        sequencerConnectionValidation,
+      waitForReady: Boolean = true,
+  ): Unit = {
+    if (waitForReady) node.health.wait_for_ready_for_initialization()
+
+    consoleEnvironment.run {
+      runner.adminCommand(
+        Initialize(
+          domainId,
+          sequencerConnections,
+          sequencerConnectionValidation,
+        )
       )
-    )
+    }
   }
 
 }

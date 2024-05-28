@@ -44,7 +44,6 @@ import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.store.memory.InMemoryPrunableByTime
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{RequestCounter, TransferCounter}
@@ -75,26 +74,25 @@ class InMemoryActiveContractStore(
   private[this] val table = TrieMap.empty[LfContractId, ContractStatus]
 
   override def markContractsCreatedOrAdded(
-      contracts: Seq[(LfContractId, TransferCounter)],
-      toc: TimeOfChange,
+      contracts: Seq[(LfContractId, TransferCounter, TimeOfChange)],
       isCreation: Boolean,
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] = {
-    val activeContractsDataE = ActiveContractsData.create(protocolVersion, toc, contracts)
+    val activeContractsDataE = ActiveContractsData.create(contracts)
     activeContractsDataE match {
       case Left(errorMessage) =>
         CheckedT.abortT(ActiveContractsDataInvariantViolation(errorMessage))
       case Right(activeContractsData) =>
         CheckedT(Future.successful {
           logger.trace(
-            show"Creating contracts at ${activeContractsData.toc}: ${activeContractsData.contractIds}"
+            s"Creating contracts ${activeContractsData.contracts.toList}"
           )
 
-          activeContractsData.asSeq.to(LazyList).traverse_ { transferableContract =>
+          activeContractsData.asSeq.to(LazyList).traverse_ { activeContractData =>
             updateTable(
-              transferableContract.contractId,
-              _.addCreation(transferableContract, activeContractsData.toc, isCreation = isCreation),
+              activeContractData.contractId,
+              _.addCreation(activeContractData, activeContractData.toc, isCreation = isCreation),
             )
           }
         })
@@ -102,18 +100,20 @@ class InMemoryActiveContractStore(
   }
 
   override def purgeOrArchiveContracts(
-      archivals: Seq[LfContractId],
-      toc: TimeOfChange,
+      contracts: Seq[(LfContractId, TimeOfChange)],
       isArchival: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
+  ): CheckedT[Future, AcsError, AcsWarning, Unit] = {
+    val operation = if (isArchival) "Archiving" else "Purging"
+
     CheckedT(Future.successful {
-      logger.trace(show"Archiving contracts at $toc: $archivals")
-      archivals.to(LazyList).traverse_ { contractId =>
+      logger.trace(s"$operation contracts: $contracts")
+      contracts.to(LazyList).traverse_ { case (contractId, toc) =>
         updateTable(contractId, _.addArchival(contractId, toc, isArchival = isArchival))
       }
     })
+  }
 
   override def fetchStates(
       contractIds: Iterable[LfContractId]

@@ -244,7 +244,8 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
   val implementsContract: Versioned[Value.ContractInstance] = Versioned(
     TransactionVersion.assignNodeVersion(newVersion),
     Value.ContractInstance(
-      implementsPkg.name,
+      implementsPkg.pkgName,
+      implementsPkg.pkgVersion,
       implementsTemplateId,
       Value.ValueRecord(
         None,
