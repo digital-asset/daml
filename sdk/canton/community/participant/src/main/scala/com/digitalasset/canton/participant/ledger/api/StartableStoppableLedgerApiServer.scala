@@ -19,6 +19,8 @@ import com.digitalasset.canton.concurrent.{
   FutureSupervisor,
 }
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.connection.GrpcApiInfoService
+import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.http.HttpApiServer
 import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader
 import com.digitalasset.canton.ledger.api.domain
@@ -30,9 +32,12 @@ import com.digitalasset.canton.ledger.participant.state.v2.metrics.{
 }
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.{ApiRequestLogger, ClientChannelBuilder}
+import com.digitalasset.canton.networking.grpc.{
+  ApiRequestLogger,
+  CantonGrpcUtil,
+  ClientChannelBuilder,
+}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.admin.MutablePackageNameMapResolver
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.platform.LedgerApiServer
@@ -57,7 +62,7 @@ import com.digitalasset.canton.platform.store.DbSupport.ParticipantDataSourceCon
 import com.digitalasset.canton.platform.store.dao.events.ContractLoader
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
-import io.grpc.ServerInterceptor
+import io.grpc.{BindableService, ServerInterceptor, ServerServiceDefinition}
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTracing
 import org.apache.pekko.actor.ActorSystem
@@ -81,7 +86,6 @@ class StartableStoppableLedgerApiServer(
     futureSupervisor: FutureSupervisor,
     multiDomainEnabled: Boolean,
     parameters: ParticipantNodeParameters,
-    packageNameMapResolver: MutablePackageNameMapResolver,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     actorSystem: ActorSystem,
@@ -198,6 +202,12 @@ class StartableStoppableLedgerApiServer(
 
     val jwtVerifierLoader = new CachedJwtVerifierLoader(metrics = config.metrics)
 
+    val apiInfoService = new GrpcApiInfoService(CantonGrpcUtil.ApiName.LedgerApi)
+      with BindableService {
+      override def bindService(): ServerServiceDefinition =
+        ApiInfoServiceGrpc.bindService(this, executionContext)
+    }
+
     for {
       (inMemoryState, inMemoryStateUpdaterFlow) <-
         LedgerApiServer.createInMemoryStateAndUpdater(
@@ -215,11 +225,6 @@ class StartableStoppableLedgerApiServer(
       packageMetadataStore = new InMemoryPackageMetadataStore(
         inMemoryState.packageMetadataView
       )
-      _ <- ResourceOwner.forReleasable(() =>
-        packageNameMapResolver.setReference(() =>
-          packageMetadataStore.getSnapshot.getUpgradablePackageMap
-        )
-      )(_ => Future.successful(packageNameMapResolver.unset()))
       timedReadService = new TimedReadService(config.syncService, config.metrics)
       indexerHealth <- new IndexerServiceOwner(
         config.participantId,
@@ -334,7 +339,7 @@ class StartableStoppableLedgerApiServer(
         ),
         metrics = config.metrics,
         timeServiceBackend = config.testingTimeService,
-        otherServices = Nil,
+        otherServices = Seq(apiInfoService),
         otherInterceptors = getInterceptors(dbSupport.dbDispatcher.executor),
         engine = config.engine,
         authorityResolver = config.syncService.cantonAuthorityResolver,

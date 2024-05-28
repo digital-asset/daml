@@ -7,6 +7,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash.KeyPackageName
+import com.daml.lf.data.Ref.PackageName
 import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey
@@ -60,7 +61,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
   object TxBuilder {
     def apply(): NodeIdTransactionBuilder & TestNodeBuilder = new NodeIdTransactionBuilder
-      with TestNodeBuilder
+      with TestNodeBuilder {
+      override val defaultPackageName: Option[PackageName] =
+        Some(Ref.PackageName.assertFromString("package-name"))
+    }
   }
 
   "UpdateToDbDto" should {

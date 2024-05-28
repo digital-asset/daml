@@ -6,6 +6,8 @@ package com.digitalasset.canton.domain.mediator
 import cats.data.EitherT
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{DomainTimeTrackerConfig, ProcessingTimeout}
+import com.digitalasset.canton.connection.GrpcApiInfoService
+import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.domain.admin.v0.EnterpriseMediatorAdministrationServiceGrpc
 import com.digitalasset.canton.domain.api.v0.DomainTimeServiceGrpc
@@ -18,7 +20,7 @@ import com.digitalasset.canton.domain.metrics.MediatorMetrics
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.StaticGrpcServices
+import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, StaticGrpcServices}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.store.{SequencedEventStore, SequencerCounterTrackerStore}
@@ -40,10 +42,13 @@ trait MediatorRuntime extends FlagCloseable {
   final def registerAdminGrpcServices(register: ServerServiceDefinition => Unit): Unit = {
     register(timeService)
     register(enterpriseAdministrationService)
+    register(apiInfoService)
   }
 
   def timeService: ServerServiceDefinition
   def enterpriseAdministrationService: ServerServiceDefinition
+  def apiInfoService: ServerServiceDefinition
+
   def start()(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -71,6 +76,8 @@ private[mediator] class CommunityMediatorRuntime(
       EnterpriseMediatorAdministrationServiceGrpc.SERVICE,
       logger,
     )
+  override val apiInfoService: ServerServiceDefinition =
+    ApiInfoServiceGrpc.bindService(new GrpcApiInfoService(CantonGrpcUtil.ApiName.AdminApi), ec)
 }
 
 trait MediatorRuntimeFactory {

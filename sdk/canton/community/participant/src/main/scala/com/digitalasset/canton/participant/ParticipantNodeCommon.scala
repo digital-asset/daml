@@ -25,16 +25,9 @@ import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics as LedgerApiServerMetrics
+import com.digitalasset.canton.participant.admin.*
 import com.digitalasset.canton.participant.admin.grpc.*
 import com.digitalasset.canton.participant.admin.v0.*
-import com.digitalasset.canton.participant.admin.{
-  DomainConnectivityService,
-  MutablePackageNameMapResolver,
-  PackageDependencyResolver,
-  PackageOps,
-  PackageService,
-  ResourceManagementService,
-}
 import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.domain.grpc.GrpcDomainRegistry
 import com.digitalasset.canton.participant.domain.{
@@ -99,7 +92,6 @@ class CantonLedgerApiServerFactory(
       httpApiMetrics: HttpApiMetrics,
       tracerProvider: TracerProvider,
       adminToken: CantonAdminToken,
-      packageNameMapResolver: MutablePackageNameMapResolver,
   )(implicit
       executionContext: ExecutionContextIdlenessExecutorService,
       traceContext: TraceContext,
@@ -166,7 +158,6 @@ class CantonLedgerApiServerFactory(
           futureSupervisor = futureSupervisor,
           multiDomainEnabled = multiDomainEnabled,
           parameters = parameters,
-          packageNameMapResolver = packageNameMapResolver,
         )(executionContext, actorSystem)
         .leftMap { err =>
           // The MigrateOnEmptySchema exception is private, thus match on the expected message
@@ -247,6 +238,7 @@ trait ParticipantNodeBootstrapCommon {
       crypto: Crypto,
       storage: Storage,
       persistentStateFactory: ParticipantNodePersistentStateFactory,
+      packageUploaderFactory: PackageUploaderFactory,
       engine: Engine,
       ledgerApiServerFactory: CantonLedgerApiServerFactory,
       indexedStringStore: IndexedStringStore,
@@ -355,23 +347,28 @@ trait ParticipantNodeBootstrapCommon {
         futureSupervisor,
         loggerFactory,
       )
-
-      // Package Store and Management
-      // TODO(#17635): Remove this inverse dependency between the PackageService and the LedgerAPI IndexService
-      //               with the unification of the Ledger API and Admin API package services.
-      //               This is a temporary solution for allowing exposure of the package-map contained in the [[InMemoryState]]
-      //               to the Admin API PackageService for package upload validation.
-      packageNameMapResolver = new MutablePackageNameMapResolver()
+      packageUploader <- EitherT.right(
+        packageUploaderFactory.create(() =>
+          PackageUploader.createAndInitialize(
+            engine = engine,
+            hashOps = syncCrypto.pureCrypto,
+            eventPublisher = ephemeralState.participantEventPublisher,
+            packageDependencyResolver = packageDependencyResolver,
+            enableUpgradeValidation = !parameterConfig.disableUpgradeValidation,
+            clock = clock,
+            futureSupervisor = futureSupervisor,
+            timeouts = timeouts,
+            loggerFactory = loggerFactory,
+          )
+        )
+      )
       packageService =
         new PackageService(
-          engine,
           packageDependencyResolver,
-          ephemeralState.participantEventPublisher,
+          packageUploader,
           syncCrypto.pureCrypto,
           componentFactory.createPackageOps(syncDomainPersistentStateManager, syncCrypto),
           arguments.metrics,
-          parameterConfig.disableUpgradeValidation,
-          packageNameMapResolver,
           parameterConfig.processingTimeouts,
           loggerFactory,
         )
@@ -500,7 +497,6 @@ trait ParticipantNodeBootstrapCommon {
           arguments.metrics.httpApiServer,
           tracerProvider,
           adminToken,
-          packageNameMapResolver,
         )
 
     } yield {
@@ -511,7 +507,6 @@ trait ParticipantNodeBootstrapCommon {
           packageService,
           sync,
           participantId,
-          syncCrypto.pureCrypto,
           clock,
           adminServerRegistry,
           adminToken,

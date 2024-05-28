@@ -71,7 +71,7 @@ final case class TransferOutRequest(
         sourceProtocolVersion,
         targetProtocolVersion,
       )
-    val tree = TransferOutViewTree(commonData, view, sourceProtocolVersion.v, hashOps)
+    val tree = TransferOutViewTree(commonData, view, sourceProtocolVersion, hashOps)
     FullTransferOutTree(tree)
   }
 }

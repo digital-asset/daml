@@ -85,5 +85,5 @@ object HashPurpose {
   val UnionspaceNamespace = HashPurpose(37, "UnionspaceNamespace")
   val SignedProtocolMessageSignature = HashPurpose(38, "SignedProtocolMessageSignature")
   val AggregationId = HashPurpose(39, "AggregationId")
-
+  val CantonScript = HashPurpose(40, "CantonScriptHash")
 }

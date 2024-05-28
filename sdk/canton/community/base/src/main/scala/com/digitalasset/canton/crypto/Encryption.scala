@@ -24,6 +24,7 @@ import com.digitalasset.canton.serialization.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.{
+  HasToByteString,
   HasVersionedMessageCompanion,
   HasVersionedMessageCompanionDbHelpers,
   HasVersionedToByteString,
@@ -62,11 +63,21 @@ trait EncryptionOps {
       scheme: SymmetricKeyScheme = defaultSymmetricKeyScheme,
   ): Either[EncryptionKeyCreationError, SymmetricKey]
 
-  /** Encrypts the given bytes using the given public key */
+  /** Encrypts the bytes of the serialized message using the given public key.
+    * The given protocol version determines the message serialization.
+    */
   def encryptWith[M <: HasVersionedToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
       version: ProtocolVersion,
+  ): Either[EncryptionError, AsymmetricEncrypted[M]]
+
+  /** Encrypts the bytes of the serialized message using the given public key.
+    * Where the message embedded protocol version determines the message serialization.
+    */
+  def encryptWith[M <: HasToByteString](
+      message: M,
+      publicKey: EncryptionPublicKey,
   ): Either[EncryptionError, AsymmetricEncrypted[M]]
 
   /** Deterministically encrypts the given bytes using the given public key.
@@ -92,11 +103,21 @@ trait EncryptionOps {
     message <- decryptWithInternal(encrypted, privateKey)(deserialize)
   } yield message
 
-  /** Encrypts the given message with the given symmetric key */
+  /** Encrypts the bytes of the serialized message using the given symmetric key.
+    * The given protocol version determines the message serialization.
+    */
   def encryptWith[M <: HasVersionedToByteString](
       message: M,
       symmetricKey: SymmetricKey,
       version: ProtocolVersion,
+  ): Either[EncryptionError, Encrypted[M]]
+
+  /** Encrypts the bytes of the serialized message using the given symmetric key.
+    * Where the message embedded protocol version determines the message serialization.
+    */
+  def encryptWith[M <: HasToByteString](
+      message: M,
+      symmetricKey: SymmetricKey,
   ): Either[EncryptionError, Encrypted[M]]
 
   /** Decrypts a message encrypted using `encryptWith` */

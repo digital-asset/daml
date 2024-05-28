@@ -10,6 +10,7 @@ import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
 import com.digitalasset.canton.protocol.{v0, v1, v2, v3}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
@@ -120,7 +121,7 @@ object EnvelopeContent
       context: (HashOps, ProtocolVersion),
       envelopeContent: v0.EnvelopeContent,
   ): ParsingResult[EnvelopeContent] = {
-    val (_, expectedProtocolVersion) = context
+    val (hashOps, expectedProtocolVersion) = context
     import v0.EnvelopeContent.SomeEnvelopeContent as Content
     val messageE = (envelopeContent.someEnvelopeContent match {
       case Content.InformeeMessage(messageP) =>
@@ -132,9 +133,13 @@ object EnvelopeContent
       case Content.SignedMessage(messageP) =>
         SignedProtocolMessage.fromProtoV0(context, messageP)
       case Content.TransferOutMediatorMessage(messageP) =>
-        TransferOutMediatorMessage.fromProtoV0(context)(messageP)
+        TransferOutMediatorMessage.fromProtoV0(
+          (hashOps, SourceProtocolVersion(expectedProtocolVersion))
+        )(messageP)
       case Content.TransferInMediatorMessage(messageP) =>
-        TransferInMediatorMessage.fromProtoV0(context)(messageP)
+        TransferInMediatorMessage.fromProtoV0(
+          (hashOps, TargetProtocolVersion(expectedProtocolVersion))
+        )(messageP)
       case Content.RootHashMessage(messageP) =>
         RootHashMessage.fromProtoV0(SerializedRootHashMessagePayload.fromByteString)(messageP)
       case Content.RegisterTopologyTransactionRequest(messageP) =>
@@ -151,7 +156,7 @@ object EnvelopeContent
       context: (HashOps, ProtocolVersion),
       envelopeContent: v1.EnvelopeContent,
   ): ParsingResult[EnvelopeContent] = {
-    val (_, expectedProtocolVersion) = context
+    val (hashOps, expectedProtocolVersion) = context
     import v1.EnvelopeContent.SomeEnvelopeContent as Content
     val messageE = (envelopeContent.someEnvelopeContent match {
       case Content.InformeeMessage(messageP) =>
@@ -163,9 +168,13 @@ object EnvelopeContent
       case Content.SignedMessage(messageP) =>
         SignedProtocolMessage.fromProtoV0(context, messageP)
       case Content.TransferOutMediatorMessage(messageP) =>
-        TransferOutMediatorMessage.fromProtoV1(context)(messageP)
+        TransferOutMediatorMessage.fromProtoV1(
+          (hashOps, SourceProtocolVersion(expectedProtocolVersion))
+        )(messageP)
       case Content.TransferInMediatorMessage(messageP) =>
-        TransferInMediatorMessage.fromProtoV1(context)(messageP)
+        TransferInMediatorMessage.fromProtoV1(
+          (hashOps, TargetProtocolVersion(expectedProtocolVersion))
+        )(messageP)
       case Content.RootHashMessage(messageP) =>
         RootHashMessage.fromProtoV0(SerializedRootHashMessagePayload.fromByteString)(messageP)
       case Content.RegisterTopologyTransactionRequest(messageP) =>
@@ -182,7 +191,7 @@ object EnvelopeContent
       context: (HashOps, ProtocolVersion),
       envelopeContent: v2.EnvelopeContent,
   ): ParsingResult[EnvelopeContent] = {
-    val (_, expectedProtocolVersion) = context
+    val (hashOps, expectedProtocolVersion) = context
     import v2.EnvelopeContent.SomeEnvelopeContent as Content
     val messageE = (envelopeContent.someEnvelopeContent match {
       case Content.InformeeMessage(messageP) =>
@@ -197,9 +206,13 @@ object EnvelopeContent
       case Content.SignedMessage(messageP) =>
         SignedProtocolMessage.fromProtoV0(context, messageP)
       case Content.TransferOutMediatorMessage(messageP) =>
-        TransferOutMediatorMessage.fromProtoV1(context)(messageP)
+        TransferOutMediatorMessage.fromProtoV1(
+          (hashOps, SourceProtocolVersion(expectedProtocolVersion))
+        )(messageP)
       case Content.TransferInMediatorMessage(messageP) =>
-        TransferInMediatorMessage.fromProtoV1(context)(messageP)
+        TransferInMediatorMessage.fromProtoV1(
+          (hashOps, TargetProtocolVersion(expectedProtocolVersion))
+        )(messageP)
       case Content.RootHashMessage(messageP) =>
         RootHashMessage.fromProtoV0(SerializedRootHashMessagePayload.fromByteString)(messageP)
       case Content.RegisterTopologyTransactionRequest(messageP) =>
@@ -215,7 +228,7 @@ object EnvelopeContent
       context: (HashOps, ProtocolVersion),
       envelopeContent: v3.EnvelopeContent,
   ): ParsingResult[EnvelopeContent] = {
-    val (_, expectedProtocolVersion) = context
+    val (hashOps, expectedProtocolVersion) = context
     import v3.EnvelopeContent.SomeEnvelopeContent as Content
     val messageE = (envelopeContent.someEnvelopeContent match {
       case Content.InformeeMessage(messageP) =>
@@ -230,9 +243,13 @@ object EnvelopeContent
       case Content.SignedMessage(messageP) =>
         SignedProtocolMessage.fromProtoV0(context, messageP)
       case Content.TransferOutMediatorMessage(messageP) =>
-        TransferOutMediatorMessage.fromProtoV1(context)(messageP)
+        TransferOutMediatorMessage.fromProtoV1(
+          (hashOps, SourceProtocolVersion(expectedProtocolVersion))
+        )(messageP)
       case Content.TransferInMediatorMessage(messageP) =>
-        TransferInMediatorMessage.fromProtoV1(context)(messageP)
+        TransferInMediatorMessage.fromProtoV1(
+          (hashOps, TargetProtocolVersion(expectedProtocolVersion))
+        )(messageP)
       case Content.RootHashMessage(messageP) =>
         RootHashMessage.fromProtoV0(SerializedRootHashMessagePayload.fromByteString)(messageP)
       case Content.RegisterTopologyTransactionRequest(messageP) =>

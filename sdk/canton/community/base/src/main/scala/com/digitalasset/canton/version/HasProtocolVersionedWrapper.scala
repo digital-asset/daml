@@ -14,6 +14,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.version.ProtocolVersion.ProtocolVersionWithStatus
+import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{DiscardOps, ProtoDeserializationError, checked}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.{ByteString, InvalidProtocolBufferException}
@@ -92,7 +93,8 @@ object RepresentativeProtocolVersion {
   * instead.
   */
 trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion]
-    extends HasRepresentativeProtocolVersion {
+    extends HasRepresentativeProtocolVersion
+    with HasToByteString {
   self: ValueClass =>
 
   @transient
@@ -1286,6 +1288,50 @@ trait HasProtocolVersionedWithContextAndValidationCompanion[
       bytes: OriginalByteString
   ): ParsingResult[ValueClass] =
     super.fromByteString(expectedProtocolVersion)((context, expectedProtocolVersion))(bytes)
+}
+
+/** Similar to [[HasProtocolVersionedWithContextAndValidationCompanion]] but the deserialization
+  * context contains a [[com.digitalasset.canton.version.Transfer.TargetProtocolVersion]] for validation.
+  */
+trait HasProtocolVersionedWithContextAndValidationWithTargetProtocolVersionCompanion[
+    ValueClass <: HasRepresentativeProtocolVersion,
+    RawContext,
+] extends HasProtocolVersionedWithContextCompanion[
+      ValueClass,
+      (RawContext, TargetProtocolVersion),
+    ] {
+  def fromByteString(context: RawContext, expectedProtocolVersion: TargetProtocolVersion)(
+      bytes: OriginalByteString
+  ): ParsingResult[ValueClass] =
+    super.fromByteString(expectedProtocolVersion.v)((context, expectedProtocolVersion))(bytes)
+}
+
+/** Similar to [[HasProtocolVersionedWithContextAndValidationCompanion]] but the deserialization
+  * context contains a [[com.digitalasset.canton.version.Transfer.SourceProtocolVersion]] for validation.
+  */
+trait HasProtocolVersionedWithContextAndValidationWithSourceProtocolVersionCompanion[
+    ValueClass <: HasRepresentativeProtocolVersion,
+    RawContext,
+] extends HasProtocolVersionedWithContextCompanion[
+      ValueClass,
+      (RawContext, SourceProtocolVersion),
+    ] {
+  def fromByteString(context: RawContext, expectedProtocolVersion: SourceProtocolVersion)(
+      bytes: OriginalByteString
+  ): ParsingResult[ValueClass] =
+    super.fromByteString(expectedProtocolVersion.v)((context, expectedProtocolVersion))(bytes)
+}
+
+/** Similar to [[HasProtocolVersionedWithContextAndValidationCompanion]] but the deserialization
+  * context contains '''only''' the protocol version for validation.
+  */
+trait HasProtocolVersionedWithValidationCompanion[
+    ValueClass <: HasRepresentativeProtocolVersion
+] extends HasProtocolVersionedWithContextCompanion[ValueClass, ProtocolVersion] {
+  def fromByteString(expectedProtocolVersion: ProtocolVersion)(
+      bytes: OriginalByteString
+  ): ParsingResult[ValueClass] =
+    super.fromByteString(expectedProtocolVersion)(expectedProtocolVersion)(bytes)
 }
 
 /** Similar to [[HasProtocolVersionedWithContextAndValidationCompanion]] but the deserialization

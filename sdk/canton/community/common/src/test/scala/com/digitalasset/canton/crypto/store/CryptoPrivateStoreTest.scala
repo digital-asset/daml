@@ -16,15 +16,15 @@ import com.digitalasset.canton.crypto.{
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.util.UUID
 import scala.concurrent.Future
 
 trait CryptoPrivateStoreTest extends BaseTest { this: AsyncWordSpec =>
 
   def uniqueKeyName(name: String): String =
-    name + getClass.getSimpleName
+    name + UUID.randomUUID().toString
 
   val sigKey1Name: String = uniqueKeyName("sigKey1_")
-
   val encKey1Name: String = uniqueKeyName("encKey1_")
 
   val sigKey1: SigningPrivateKey = SymbolicCrypto.signingPrivateKey(sigKey1Name)

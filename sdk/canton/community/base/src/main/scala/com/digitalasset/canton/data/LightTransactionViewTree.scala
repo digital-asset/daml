@@ -28,8 +28,12 @@ import scala.collection.mutable
   */
 sealed abstract class LightTransactionViewTree private[data] (
     val tree: GenTransactionTree
+)(
+    override val representativeProtocolVersion: RepresentativeProtocolVersion[
+      LightTransactionViewTree.type
+    ]
 ) extends TransactionViewTree
-    with HasVersionedWrapper[LightTransactionViewTree]
+    with HasProtocolVersionedWrapper[LightTransactionViewTree]
     with PrettyPrinting {
 
   @tailrec
@@ -68,7 +72,8 @@ sealed abstract class LightTransactionViewTree private[data] (
 
   } yield this
 
-  override protected def companionObj = LightTransactionViewTree
+  @transient override protected lazy val companionObj: LightTransactionViewTree.type =
+    LightTransactionViewTree
 
   def toProtoV0: v0.LightTransactionViewTree =
     v0.LightTransactionViewTree(tree = Some(tree.toProtoV0))
@@ -87,7 +92,8 @@ sealed abstract class LightTransactionViewTree private[data] (
   */
 private final case class LightTransactionViewTreeV0 private[data] (
     override val tree: GenTransactionTree
-) extends LightTransactionViewTree(tree) {
+)(rpv: RepresentativeProtocolVersion[LightTransactionViewTree.type])
+    extends LightTransactionViewTree(tree)(rpv) {
   override val subviewHashes: Seq[ViewHash] = view.subviews.trySubviewHashes
 }
 
@@ -100,24 +106,23 @@ private final case class LightTransactionViewTreeV0 private[data] (
 private final case class LightTransactionViewTreeV1 private[data] (
     override val tree: GenTransactionTree,
     override val subviewHashes: Seq[ViewHash],
-) extends LightTransactionViewTree(tree)
+)(rpv: RepresentativeProtocolVersion[LightTransactionViewTree.type])
+    extends LightTransactionViewTree(tree)(rpv)
 
 object LightTransactionViewTree
-    extends HasVersionedMessageWithContextCompanion[
+    extends HasProtocolVersionedWithContextAndValidationCompanion[
       LightTransactionViewTree,
-      (HashOps, ProtocolVersion),
+      HashOps,
     ] {
   override val name: String = "LightTransactionViewTree"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> ProtoCodec(
-      ProtocolVersion.v3,
-      supportedProtoVersion(v0.LightTransactionViewTree)(fromProtoV0),
+    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.LightTransactionViewTree)(
+      supportedProtoVersion(_)((context, proto) => fromProtoV0(context)(proto)),
       _.toProtoV0.toByteString,
     ),
-    ProtoVersion(1) -> ProtoCodec(
-      ProtocolVersion.v4,
-      supportedProtoVersion(v1.LightTransactionViewTree)(fromProtoV1),
+    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v4)(v1.LightTransactionViewTree)(
+      supportedProtoVersion(_)((context, proto) => fromProtoV1(context)(proto)),
       _.toProtoV1.toByteString,
     ),
   )
@@ -130,47 +135,55 @@ object LightTransactionViewTree
   def tryCreate(
       tree: GenTransactionTree,
       subviewHashes: Seq[ViewHash],
+      protocolVersion: ProtocolVersion,
   ): LightTransactionViewTree =
-    create(tree, subviewHashes).valueOr(err => throw InvalidLightTransactionViewTree(err))
+    create(tree, subviewHashes, protocolVersionRepresentativeFor(protocolVersion)).valueOr(err =>
+      throw InvalidLightTransactionViewTree(err)
+    )
 
   def create(
       tree: GenTransactionTree,
       subviewHashes: Seq[ViewHash],
-  ): Either[String, LightTransactionViewTree] = createV1(tree, subviewHashes)
+      rpv: RepresentativeProtocolVersion[LightTransactionViewTree.type],
+  ): Either[String, LightTransactionViewTree] = createV1(tree, subviewHashes, rpv)
 
-  private def createV0(tree: GenTransactionTree): Either[String, LightTransactionViewTree] =
-    LightTransactionViewTreeV0(tree).validated
+  private def createV0(
+      tree: GenTransactionTree,
+      rpv: RepresentativeProtocolVersion[LightTransactionViewTree.type],
+  ): Either[String, LightTransactionViewTree] =
+    LightTransactionViewTreeV0(tree)(rpv).validated
 
   private def createV1(
       tree: GenTransactionTree,
       subviewHashes: Seq[ViewHash],
+      rpv: RepresentativeProtocolVersion[LightTransactionViewTree.type],
   ): Either[String, LightTransactionViewTree] =
-    LightTransactionViewTreeV1(tree, subviewHashes).validated
+    LightTransactionViewTreeV1(tree, subviewHashes)(rpv).validated
 
-  private def fromProtoV0(
-      context: (HashOps, ProtocolVersion),
-      protoT: v0.LightTransactionViewTree,
+  private def fromProtoV0(context: (HashOps, ProtocolVersion))(
+      protoT: v0.LightTransactionViewTree
   ): ParsingResult[LightTransactionViewTree] =
     for {
       protoTree <- ProtoConverter.required("tree", protoT.tree)
       tree <- GenTransactionTree.fromProtoV0(context, protoTree)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
       result <- LightTransactionViewTree
-        .createV0(tree)
+        .createV0(tree, rpv)
         .leftMap(e =>
           ProtoDeserializationError.InvariantViolation(s"Unable to create transaction tree: $e")
         )
     } yield result
 
-  private def fromProtoV1(
-      context: (HashOps, ProtocolVersion),
-      protoT: v1.LightTransactionViewTree,
+  private def fromProtoV1(context: (HashOps, ProtocolVersion))(
+      protoT: v1.LightTransactionViewTree
   ): ParsingResult[LightTransactionViewTree] =
     for {
       protoTree <- ProtoConverter.required("tree", protoT.tree)
       tree <- GenTransactionTree.fromProtoV1(context, protoTree)
       subviewHashes <- protoT.subviewHashes.traverse(ViewHash.fromProtoPrimitive)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))
       result <- LightTransactionViewTree
-        .createV1(tree, subviewHashes)
+        .createV1(tree, subviewHashes, rpv)
         .leftMap(e =>
           ProtoDeserializationError.InvariantViolation(s"Unable to create transaction tree: $e")
         )
@@ -263,13 +276,14 @@ object LightTransactionViewTree
 
   /** Turns a full transaction view tree into a lightweight one. Not stack-safe. */
   def fromTransactionViewTree(
-      tvt: FullTransactionViewTree
+      tvt: FullTransactionViewTree,
+      protocolVersion: ProtocolVersion,
   ): LightTransactionViewTree = {
     val withBlindedSubviews = tvt.view.copy(subviews = tvt.view.subviews.blindFully)
     val genTransactionTree =
       tvt.tree.mapUnblindedRootViews(_.replace(tvt.viewHash, withBlindedSubviews))
     // By definition, the view in a TransactionViewTree has all subviews unblinded
-    LightTransactionViewTree.tryCreate(genTransactionTree, tvt.subviewHashes)
+    LightTransactionViewTree.tryCreate(genTransactionTree, tvt.subviewHashes, protocolVersion)
   }
 
 }

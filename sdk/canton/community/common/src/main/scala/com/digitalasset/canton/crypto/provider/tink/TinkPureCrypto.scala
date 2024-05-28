@@ -19,7 +19,7 @@ import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
+import com.digitalasset.canton.version.{HasToByteString, HasVersionedToByteString, ProtocolVersion}
 import com.google.crypto.tink
 import com.google.crypto.tink.config.TinkConfig
 import com.google.crypto.tink.proto.{AesGcmKeyFormat, KeyTemplate, OutputPrefixType}
@@ -131,14 +131,13 @@ class TinkPureCrypto private (
       )
       .leftMap(err => errFn(show"Failed to get primitive: $err"))
 
-  private def encryptWith[M <: HasVersionedToByteString](
-      message: M,
+  private def encryptWith[M](
+      bytes: ByteString,
       encrypt: Array[Byte] => Array[Byte],
-      version: ProtocolVersion,
   ): Either[EncryptionError, Encrypted[M]] = {
-    val bytes = message.toByteString(version).toByteArray
+    val byteArray = bytes.toByteArray
     Either
-      .catchOnly[GeneralSecurityException](encrypt(bytes))
+      .catchOnly[GeneralSecurityException](encrypt(byteArray))
       .bimap(
         err => EncryptionError.FailedToEncrypt(ErrorUtil.messageWithStacktrace(err)),
         enc => new Encrypted[M](ByteString.copyFrom(enc)),
@@ -253,11 +252,9 @@ class TinkPureCrypto private (
     }
   }
 
-  /** Encrypts the given bytes with the given symmetric key */
-  override def encryptWith[M <: HasVersionedToByteString](
-      message: M,
+  private def encryptWith[M](
+      bytes: ByteString,
       symmetricKey: SymmetricKey,
-      version: ProtocolVersion,
   ): Either[EncryptionError, Encrypted[M]] =
     for {
       keysetHandle <- parseAndGetPrivateKey(
@@ -268,8 +265,21 @@ class TinkPureCrypto private (
         keysetHandle,
         EncryptionError.InvalidSymmetricKey,
       )
-      encrypted <- encryptWith(message, in => aead.encrypt(in, Array[Byte]()), version)
+      encrypted <- encryptWith(bytes, in => aead.encrypt(in, Array[Byte]()))
     } yield encrypted
+
+  override def encryptWith[M <: HasVersionedToByteString](
+      message: M,
+      symmetricKey: SymmetricKey,
+      version: ProtocolVersion,
+  ): Either[EncryptionError, Encrypted[M]] =
+    encryptWith(message.toByteString(version), symmetricKey)
+
+  override def encryptWith[M <: HasToByteString](
+      message: M,
+      symmetricKey: SymmetricKey,
+  ): Either[EncryptionError, Encrypted[M]] =
+    encryptWith(message.toByteString, symmetricKey)
 
   /** Decrypts a message encrypted using `encryptWith` */
   override def decryptWith[M](encrypted: Encrypted[M], symmetricKey: SymmetricKey)(
@@ -302,11 +312,9 @@ class TinkPureCrypto private (
     } yield msg
   }
 
-  /** Encrypts the given message using the given public key. */
-  override def encryptWith[M <: HasVersionedToByteString](
-      message: M,
+  private def encryptWith[M](
+      bytes: ByteString,
       publicKey: EncryptionPublicKey,
-      version: ProtocolVersion,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     for {
       keysetHandle <- parseAndGetPublicKey(publicKey, EncryptionError.InvalidEncryptionKey)
@@ -315,8 +323,21 @@ class TinkPureCrypto private (
         keysetHandle,
         EncryptionError.InvalidEncryptionKey,
       )
-      encrypted <- encryptWith(message, in => hybrid.encrypt(in, Array[Byte]()), version)
+      encrypted <- encryptWith(bytes, in => hybrid.encrypt(in, Array[Byte]()))
     } yield AsymmetricEncrypted(encrypted.ciphertext, publicKey.fingerprint)
+
+  override def encryptWith[M <: HasVersionedToByteString](
+      message: M,
+      publicKey: EncryptionPublicKey,
+      version: ProtocolVersion,
+  ): Either[EncryptionError, AsymmetricEncrypted[M]] =
+    encryptWith(message.toByteString(version), publicKey)
+
+  override def encryptWith[M <: HasToByteString](
+      message: M,
+      publicKey: EncryptionPublicKey,
+  ): Either[EncryptionError, AsymmetricEncrypted[M]] =
+    encryptWith(message.toByteString, publicKey)
 
   override protected def decryptWithInternal[M](
       encrypted: AsymmetricEncrypted[M],

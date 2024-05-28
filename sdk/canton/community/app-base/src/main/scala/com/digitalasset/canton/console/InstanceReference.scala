@@ -408,7 +408,7 @@ class ExternalLedgerApiClient(
   override protected[console] def ledgerApiCommand[Result](
       command: GrpcAdminCommand[_, _, Result]
   ): ConsoleCommandResult[Result] =
-    consoleEnvironment.grpcAdminCommandRunner
+    consoleEnvironment.grpcLedgerCommandRunner
       .runCommand("sourceLedger", command, ClientConfig(hostname, port, tls), token)
 
   override protected def optionallyAwait[Tx](
@@ -536,7 +536,7 @@ sealed trait RemoteParticipantReferenceCommon
   override protected[console] def ledgerApiCommand[Result](
       command: GrpcAdminCommand[_, _, Result]
   ): ConsoleCommandResult[Result] =
-    consoleEnvironment.grpcAdminCommandRunner.runCommand(
+    consoleEnvironment.grpcLedgerCommandRunner.runCommand(
       name,
       command,
       config.clientLedgerApi,
@@ -598,7 +598,7 @@ sealed trait LocalParticipantReferenceCommon
       command: GrpcAdminCommand[_, _, Result]
   ): ConsoleCommandResult[Result] =
     runCommandIfRunning(
-      consoleEnvironment.grpcAdminCommandRunner
+      consoleEnvironment.grpcLedgerCommandRunner
         .runCommand(name, command, config.clientLedgerApi, adminToken)
     )
 

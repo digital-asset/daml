@@ -14,7 +14,6 @@ import com.digitalasset.canton.concurrent.*
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.console.{
   ConsoleEnvironment,
-  ConsoleGrpcAdminCommandRunner,
   ConsoleOutput,
   GrpcAdminCommandRunner,
   HealthDumpGenerator,
@@ -30,6 +29,7 @@ import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.MetricsConfig.Prometheus
 import com.digitalasset.canton.metrics.MetricsFactory
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.participant.{
   ParticipantNode,
@@ -99,11 +99,9 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   def isEnterprise: Boolean
 
   def createConsole(
-      consoleOutput: ConsoleOutput = StandardConsoleOutput,
-      createAdminCommandRunner: ConsoleEnvironment => ConsoleGrpcAdminCommandRunner =
-        new ConsoleGrpcAdminCommandRunner(_),
+      consoleOutput: ConsoleOutput = StandardConsoleOutput
   ): Console = {
-    val console = _createConsole(consoleOutput, createAdminCommandRunner)
+    val console = _createConsole(consoleOutput)
     healthDumpGenerator
       .putIfAbsent(createHealthDumpGenerator(console.grpcAdminCommandRunner))
       .discard
@@ -111,9 +109,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   }
 
   protected def _createConsole(
-      consoleOutput: ConsoleOutput = StandardConsoleOutput,
-      createAdminCommandRunner: ConsoleEnvironment => ConsoleGrpcAdminCommandRunner =
-        new ConsoleGrpcAdminCommandRunner(_),
+      consoleOutput: ConsoleOutput = StandardConsoleOutput
   ): Console
 
   protected def createHealthDumpGenerator(
@@ -137,7 +133,12 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
             TracerProvider.Factory(configuredOpenTelemetry, "admin_command_runner")
           implicit val tracer: Tracer = tracerProvider.tracer
 
-          val commandRunner = new GrpcAdminCommandRunner(this, config.parameters.timeouts.console)
+          val commandRunner =
+            new GrpcAdminCommandRunner(
+              this,
+              config.parameters.timeouts.console,
+              CantonGrpcUtil.ApiName.AdminApi,
+            )
           val newGenerator = createHealthDumpGenerator(commandRunner)
           val previous = healthDumpGenerator.putIfAbsent(newGenerator)
           previous match {

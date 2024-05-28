@@ -95,7 +95,7 @@ object EncryptedViewMessageFactory {
           )
         encryptedView <- eitherT(
           EncryptedView
-            .compressed[VT](cryptoPureApi, symmetricViewKey, viewType, protocolVersion)(viewTree)
+            .compressed[VT](cryptoPureApi, symmetricViewKey, viewType)(viewTree)
             .leftMap(FailedToEncryptViewMessage)
         )
       } yield EncryptedViewMessageCommon(
