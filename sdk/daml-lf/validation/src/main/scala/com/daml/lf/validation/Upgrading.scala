@@ -343,7 +343,7 @@ case class TypecheckUpgrades(
 ) {
   import TypecheckUpgrades._
 
-  private lazy val _package: Upgrading[Ast.Package] = packages.map(_._2)
+  private lazy val `package`: Upgrading[Ast.Package] = packages.map(_._2)
   private lazy val dependencies
       : Upgrading[Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]] = packages.map(_._3)
 
@@ -351,7 +351,7 @@ case class TypecheckUpgrades(
     for {
       (upgradedModules, newModules @ _) <-
         checkDeleted(
-          _package.map(_.modules),
+          `package`.map(_.modules),
           (name: Ref.ModuleName, _: Ast.Module) => UpgradeError.MissingModule(name),
         )
       _ <- checkDeps()
@@ -360,7 +360,7 @@ case class TypecheckUpgrades(
   }
 
   private def checkDeps(): Try[Unit] = {
-    val (_new @ _, existing, _deleted @ _) = extractDelExistNew(dependencies.map(_.values.toMap))
+    val (_deleted @ _, existing, _new @ _) = extractDelExistNew(dependencies.map(_.values.toMap))
     tryAll(existing, checkDep).map(_ => ())
   }
 
