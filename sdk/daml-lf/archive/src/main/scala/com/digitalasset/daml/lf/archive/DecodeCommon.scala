@@ -68,8 +68,9 @@ private[archive] class DecodeCommon(languageVersion: LV) {
     val internedTypes = Work.run(decodeInternedTypes(env0, lfPackage))
     val env = env0.copy(internedTypes = internedTypes)
 
+    val modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_))
     Package.build(
-      modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_)),
+      modules = modules,
       directDeps = dependencyTracker.getDependencies,
       languageVersion = languageVersion,
       metadata = metadata,
