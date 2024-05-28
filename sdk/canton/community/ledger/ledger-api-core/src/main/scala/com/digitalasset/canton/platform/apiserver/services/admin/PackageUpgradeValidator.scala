@@ -193,7 +193,7 @@ class PackageUpgradeValidator(
       typecheckPhase: TypecheckUpgrades.UploadPhaseCheck,
       optNewDar1: Option[(Ref.PackageId, Ast.Package)],
       optOldDar2: Option[(Ref.PackageId, Ast.Package)],
-      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
+      packageMap: PackageMap,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit] = {
