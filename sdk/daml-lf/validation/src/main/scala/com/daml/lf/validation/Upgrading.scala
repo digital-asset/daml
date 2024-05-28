@@ -169,6 +169,15 @@ object UpgradeError {
     override def message: String =
       s"Implementation of interface $iface by template $tpl appears in package that is being upgraded, but does not appear in this package."
   }
+
+  final case class DependencyHasLowerVersionDespiteUpgrade(
+      depName: Ref.PackageName,
+      depPresentVersion: Ref.PackageVersion,
+      depPastVersion: Ref.PackageVersion,
+  ) extends Error {
+    override def message: String =
+      s"Dependency $depName has version $depPresentVersion on the upgrading package, which is older than version $depPastVersion on the upgraded package.\nDependency versions of upgrading packages must always be greater or equal to the dependency versions on upgraded packages."
+  }
 }
 
 sealed abstract class UpgradedRecordOrigin
@@ -295,24 +304,48 @@ object TypecheckUpgrades {
     Try(t.map(f(_).get).toSeq)
 
   def typecheckUpgrades(
-      present: (Ref.PackageId, Ast.Package),
+      present: (
+          Ref.PackageId,
+          Ast.Package,
+          Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
+      ),
       pastPackageId: Ref.PackageId,
-      mbPastPkg: Option[Ast.Package],
+      mbPastPkg: Option[(Ast.Package, Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)])],
   ): Try[Unit] = {
     mbPastPkg match {
       case None =>
         fail(UpgradeError.CouldNotResolveUpgradedPackageId(Upgrading(pastPackageId, present._1)));
-      case Some(pastPkg) =>
-        val tc = TypecheckUpgrades(Upgrading((pastPackageId, pastPkg), present))
+      case Some((pastPkg, pastPkgDeps)) =>
+        val tc = TypecheckUpgrades(Upgrading((pastPackageId, pastPkg, pastPkgDeps), present))
         tc.check()
     }
   }
+
+  def typecheckUpgrades(
+      present: (
+          Ref.PackageId,
+          Ast.Package,
+      ),
+      pastPackageId: Ref.PackageId,
+      mbPastPkg: Option[Ast.Package],
+  ): Try[Unit] = {
+    val emptyPackageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty
+    val presentWithNoDeps = (present._1, present._2, emptyPackageMap)
+    val mbPastPkgWithNoDeps = mbPastPkg.map((_, emptyPackageMap))
+    TypecheckUpgrades.typecheckUpgrades(presentWithNoDeps, pastPackageId, mbPastPkgWithNoDeps)
+  }
 }
 
-case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
+case class TypecheckUpgrades(
+    packages: Upgrading[
+      (Ref.PackageId, Ast.Package, Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)])
+    ]
+) {
   import TypecheckUpgrades._
 
-  private lazy val _package: Upgrading[Ast.Package] = packagesAndIds.map(_._2)
+  private lazy val _package: Upgrading[Ast.Package] = packages.map(_._2)
+  private lazy val dependencies
+      : Upgrading[Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]] = packages.map(_._3)
 
   private def check(): Try[Unit] = {
     for {
@@ -321,8 +354,26 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
           _package.map(_.modules),
           (name: Ref.ModuleName, _: Ast.Module) => UpgradeError.MissingModule(name),
         )
+      _ <- checkDeps()
       _ <- tryAll(upgradedModules.values, checkModule(_))
     } yield ()
+  }
+
+  private def checkDeps(): Try[Unit] = {
+    val (_new @ _, existing, _deleted @ _) = extractDelExistNew(dependencies.map(_.values.toMap))
+    tryAll(existing, checkDep).map(_ => ())
+  }
+
+  private def checkDep(dep: (Ref.PackageName, Upgrading[Ref.PackageVersion])): Try[Unit] = {
+    val (depName, depVersions) = dep
+    failIf(
+      depVersions.present < depVersions.past,
+      UpgradeError.DependencyHasLowerVersionDespiteUpgrade(
+        depName,
+        depVersions.present,
+        depVersions.past,
+      ),
+    )
   }
 
   private def splitModuleDts(
