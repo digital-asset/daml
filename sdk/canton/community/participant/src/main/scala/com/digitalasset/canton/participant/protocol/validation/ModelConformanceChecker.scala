@@ -372,7 +372,7 @@ class ModelConformanceChecker(
 
     val packageIds = packageIdsOfContracts ++ packageIdsOfKeys
 
-    val informees = view.viewCommonData.tryUnwrap.informees.map(_.party)
+    val informees = view.viewCommonData.tryUnwrap.viewConfirmationParameters.informees
 
     EitherT(for {
       informeeParticipantsByParty <- snapshot.activeParticipantsOfParties(informees.toSeq)
@@ -480,13 +480,17 @@ object ModelConformanceChecker {
         // The contract id is already validated by SerializableContractAuthenticator,
         // as contract is an input contract of the underlying transaction.
         coid = actual.coid,
-        contract = instance.contractInstance,
+        packageName = unversioned.packageName,
+        templateId = unversioned.template,
+        arg = unversioned.arg,
         signatories = metadata.signatories,
         stakeholders = metadata.stakeholders,
-        key = metadata.maybeKeyWithMaintainers,
+        keyOpt = metadata.maybeKeyWithMaintainers,
+        version = instance.contractInstance.version,
       )
       _ <- EitherT.cond[Future](
-        actual == expected,
+        // do not delete the package version, once protocol version handle it.
+        actual.copy(packageVersion = None) == expected,
         (),
         ContractMismatch(actual, expected): ContractValidationFailure,
       )

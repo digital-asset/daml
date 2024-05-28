@@ -96,7 +96,7 @@ private[dao] final class TransactionsReader(
       requestingParties = requestingParties,
       eventProjectionProperties = EventProjectionProperties(
         verbose = true,
-        wildcardWitnesses = requestingParties.map(_.toString),
+        templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
       ),
     )
   }
@@ -112,7 +112,7 @@ private[dao] final class TransactionsReader(
       requestingParties = requestingParties,
       eventProjectionProperties = EventProjectionProperties(
         verbose = true,
-        wildcardWitnesses = requestingParties.map(_.toString),
+        templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
       ),
     )
   }

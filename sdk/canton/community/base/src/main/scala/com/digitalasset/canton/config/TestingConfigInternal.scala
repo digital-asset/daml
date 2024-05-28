@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.config
 
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.metrics.MetricsFactoryType
 import com.digitalasset.canton.metrics.MetricsFactoryType.External
 
@@ -30,6 +31,8 @@ import com.digitalasset.canton.metrics.MetricsFactoryType.External
   *                                    }}}
   *
   *                                    See also the example in `EngineComputationAbortIntegrationTest`.
+  *  @param maxCommitmentSendDelayMillis The maximum delay for sending commitments in milliseconds. If not set,
+  *                                      commitment sending is delayed by a random amount at most the default value.
   */
 final case class TestingConfigInternal(
     testSequencerClientFor: Set[TestSequencerClientFor] = Set.empty,
@@ -38,6 +41,7 @@ final case class TestingConfigInternal(
     initializeGlobalOpenTelemetry: Boolean = true,
     doNotUseCommitmentCachingFor: Set[String] = Set.empty,
     reinterpretationTestHookFor: String => () => Unit = _ => () => (),
+    maxCommitmentSendDelayMillis: Option[NonNegativeInt] = None,
 )
 
 /** @param environmentId ID used to disambiguate tests running in parallel

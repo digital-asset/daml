@@ -4,8 +4,7 @@
 package com.digitalasset.canton.platform.index
 
 import cats.data.NonEmptyVector
-import cats.implicits.{catsSyntaxSemigroup, toBifunctorOps}
-import com.daml.daml_lf_dev.DamlLf
+import cats.implicits.toBifunctorOps
 import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref.HexString
@@ -13,7 +12,6 @@ import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node.{Create, Exercise}
 import com.daml.lf.transaction.NodeId
-import com.daml.metrics.Timed
 import com.daml.timer.FutureCheck.*
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.digitalasset.canton.data.Offset
@@ -27,8 +25,6 @@ import com.digitalasset.canton.platform.store.CompletionFromTransaction
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
 import com.digitalasset.canton.platform.{Contract, InMemoryState, Key, Party}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import org.apache.pekko.NotUsed
@@ -83,7 +79,6 @@ private[platform] object InMemoryStateUpdater {
       lastOffset: Offset,
       lastEventSequentialId: Long,
       lastTraceContext: TraceContext,
-      packageMetadata: PackageMetadata,
   )
   type UpdaterFlow = Flow[(Vector[(Offset, Traced[Update])], Long), Unit, NotUsed]
   def owner(
@@ -114,32 +109,11 @@ private[platform] object InMemoryStateUpdater {
     metrics = metrics,
     logger = logger,
   )(
-    prepare = prepare(
-      archiveToMetadata = archive =>
-        Timed.value(
-          metrics.index.packageMetadata.decodeArchive,
-          PackageMetadata.from(archive),
-        )
-    ),
+    prepare = prepare,
     update = update(inMemoryState, logger),
   )
 
-  private[index] def extractMetadataFromUploadedPackages(
-      archiveToMetadata: DamlLf.Archive => PackageMetadata
-  )(
-      batch: Vector[(Offset, Traced[Update])]
-  ): PackageMetadata =
-    batch.view
-      .collect { case (_, Traced(packageUpload: Update.PublicPackageUpload)) => packageUpload }
-      .foldLeft(PackageMetadata()) { case (pkgMeta, packageUpload) =>
-        packageUpload.archives.view
-          .map(archiveToMetadata)
-          .foldLeft(pkgMeta)(_ |+| _)
-      }
-
   private[index] def prepare(
-      archiveToMetadata: DamlLf.Archive => PackageMetadata
-  )(
       batch: Vector[(Offset, Traced[Update])],
       lastEventSequentialId: Long,
   ): PrepareResult = {
@@ -158,7 +132,6 @@ private[platform] object InMemoryStateUpdater {
       lastOffset = offset,
       lastEventSequentialId = lastEventSequentialId,
       lastTraceContext = traceContext,
-      packageMetadata = extractMetadataFromUploadedPackages(archiveToMetadata)(batch),
     )
   }
 
@@ -166,7 +139,6 @@ private[platform] object InMemoryStateUpdater {
       inMemoryState: InMemoryState,
       logger: TracedLogger,
   )(result: PrepareResult): Unit = {
-    inMemoryState.packageMetadataView.update(result.packageMetadata)
     updateCaches(inMemoryState, result.updates)
     // must be the last update: see the comment inside the method for more details
     // must be after cache updates: see the comment inside the method for more details

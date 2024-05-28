@@ -119,7 +119,7 @@ class SequencerAuthenticationServerInterceptor(
               logger.warn(s"Authentication token verification caused an unexpected exception", ex)
               setNextListener(
                 failVerification(
-                  s"Verification failed for participant $memberId with exception $ex",
+                  s"Verification failed for participant $memberId with an internal error",
                   serverCall,
                   headers,
                   Some(TokenVerificationException(memberId).code),

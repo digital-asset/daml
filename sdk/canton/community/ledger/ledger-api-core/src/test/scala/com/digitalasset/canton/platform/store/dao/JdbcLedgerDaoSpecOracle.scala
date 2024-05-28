@@ -11,7 +11,6 @@ class JdbcLedgerDaoSpecOracle
     with Matchers
     with JdbcLedgerDaoSuite
     with JdbcLedgerDaoBackendOracle
-    with JdbcLedgerDaoPackagesSpec
     with JdbcLedgerDaoActiveContractsSpec
     with JdbcLedgerDaoCompletionsSpec
     with JdbcLedgerDaoContractsSpec

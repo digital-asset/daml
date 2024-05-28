@@ -14,12 +14,9 @@ class DbDtoEqSpec extends AnyWordSpec with Matchers {
 
     "compare DbDto when used with `decided` keyword" in {
 
-      val dto0 = DbDto.PackageEntry(
-        ledger_offset = "",
-        recorded_at = 0,
-        submission_id = None,
-        typ = "",
-        rejection_reason = None,
+      val dto0 = DbDto.StringInterningDto(
+        internalId = 1337,
+        externalString = "leet",
       )
 
       val dto1 = dto0.copy()

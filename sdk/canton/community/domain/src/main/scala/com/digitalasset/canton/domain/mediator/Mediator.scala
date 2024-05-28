@@ -120,12 +120,9 @@ private[mediator] class Mediator(
   )
 
   private val eventsProcessor = MediatorEventsProcessor(
-    state,
-    syncCrypto,
     topologyTransactionProcessor.createHandler(domain),
     processor,
     deduplicator,
-    protocolVersion,
     metrics,
     loggerFactory,
   )

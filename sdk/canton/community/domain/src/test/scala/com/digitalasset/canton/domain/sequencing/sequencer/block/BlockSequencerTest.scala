@@ -75,7 +75,7 @@ class BlockSequencerTest
 
   "BlockSequencer" should {
     "process a lot of blocks during catch up" in withEnv { implicit env =>
-      env.fakeBlockSequencerOps.completed.future.map(_ => succeed)
+      env.fakeBlockOrderer.completed.future.map(_ => succeed)
     }
   }
 
@@ -137,6 +137,7 @@ class BlockSequencerTest
       // This works even though the crypto owner is the domain manager!!!
       topologyTransactionFactory.cryptoApi.crypto,
       CachingConfigs.testing,
+      defaultStaticDomainParameters,
       DefaultProcessingTimeouts.testing,
       FutureSupervisor.Noop,
       loggerFactory,
@@ -147,12 +148,12 @@ class BlockSequencerTest
 
     private val balanceStore = new InMemoryTrafficPurchasedStore(loggerFactory)
 
-    val fakeBlockSequencerOps = new FakeBlockSequencerOps(N)
+    val fakeBlockOrderer = new FakeBlockOrderer(N)
     private val fakeBlockSequencerStateManager = new FakeBlockSequencerStateManager
     private val storage = new MemoryStorage(loggerFactory, timeouts)
     private val blockSequencer =
       new BlockSequencer(
-        fakeBlockSequencerOps,
+        fakeBlockOrderer,
         name = "test",
         domainId,
         cryptoApi,
@@ -188,7 +189,7 @@ class BlockSequencerTest
     }
   }
 
-  class FakeBlockSequencerOps(n: Int) extends BlockSequencerOps {
+  class FakeBlockOrderer(n: Int) extends BlockOrderer {
 
     val completed: Promise[Unit] = Promise()
 
@@ -220,6 +221,10 @@ class BlockSequencerTest
     override def acknowledge(signedAcknowledgeRequest: SignedContent[AcknowledgeRequest])(implicit
         traceContext: TraceContext
     ): Future[Unit] = ???
+
+    override def firstBlockHeight: Long = ???
+
+    override def orderingTimeFixMode: OrderingTimeFixMode = ???
   }
 
   class FakeBlockSequencerStateManager extends BlockSequencerStateManagerBase {

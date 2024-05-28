@@ -39,6 +39,7 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext,
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.mediator.admin.v30.MediatorInitializationServiceGrpc
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
+import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.sequencing.client.{
@@ -217,7 +218,11 @@ class MediatorNodeBootstrap(
       mediatorId: MediatorId,
       authorizedTopologyManager: AuthorizedTopologyManager,
       healthService: DependenciesHealthService,
-  ) extends BootstrapStageWithStorage[MediatorNode, StartupNode, DomainId](
+  ) extends BootstrapStageWithStorage[
+        MediatorNode,
+        StartupNode,
+        (StaticDomainParameters, DomainId),
+      ](
         "wait-for-mediator-to-domain-init",
         bootstrapStageCallback,
         storage,
@@ -247,17 +252,25 @@ class MediatorNodeBootstrap(
 
     override protected def stageCompleted(implicit
         traceContext: TraceContext
-    ): Future[Option[DomainId]] = domainConfigurationStore.fetchConfiguration.toOption
-      .mapFilter {
-        case Some(mediatorDomainConfiguration) => Some(mediatorDomainConfiguration.domainId)
-        case None => None
-      }
-      .value
-      .onShutdown(None)
+    ): Future[Option[(StaticDomainParameters, DomainId)]] =
+      domainConfigurationStore.fetchConfiguration.toOption
+        .mapFilter {
+          case Some(mediatorDomainConfiguration) =>
+            Some(
+              (mediatorDomainConfiguration.domainParameters, mediatorDomainConfiguration.domainId)
+            )
+          case None => None
+        }
+        .value
+        .onShutdown(None)
 
     override protected def buildNextStage(
-        domainId: DomainId
+        result: (
+            StaticDomainParameters,
+            DomainId,
+        )
     ): EitherT[FutureUnlessShutdown, String, StartupNode] = {
+      val (staticDomainParameters, domainId) = result
       val domainTopologyStore =
         TopologyStore(DomainStore(domainId), storage, timeouts, loggerFactory)
       addCloseable(domainTopologyStore)
@@ -267,6 +280,7 @@ class MediatorNodeBootstrap(
           storage,
           crypto,
           mediatorId,
+          staticDomainParameters,
           authorizedTopologyManager,
           domainId,
           domainConfigurationStore,
@@ -281,7 +295,7 @@ class MediatorNodeBootstrap(
     )
 
     override protected def autoCompleteStage()
-        : EitherT[FutureUnlessShutdown, String, Option[DomainId]] =
+        : EitherT[FutureUnlessShutdown, String, Option[(StaticDomainParameters, DomainId)]] =
       EitherT.rightT(None) // this stage doesn't have auto-init
 
     override def initialize(request: InitializeMediatorRequest)(implicit
@@ -309,6 +323,11 @@ class MediatorNodeBootstrap(
               )
               .mapK(FutureUnlessShutdown.outcomeK)
               .leftMap(error => s"Error loading sequencer endpoint information: $error")
+
+            _ <- CryptoHandshakeValidator
+              .validate(sequencerAggregatedInfo.staticDomainParameters, cryptoConfig)
+              .toEitherT[FutureUnlessShutdown]
+
             configToStore = MediatorDomainConfiguration(
               request.domainId,
               sequencerAggregatedInfo.staticDomainParameters,
@@ -318,7 +337,7 @@ class MediatorNodeBootstrap(
               domainConfigurationStore
                 .saveConfiguration(configToStore)
                 .leftMap(_.toString)
-          } yield request.domainId
+          } yield (sequencerAggregatedInfo.staticDomainParameters, request.domainId)
         }.map(_ => InitializeMediatorResponse())
       }
     }
@@ -329,6 +348,7 @@ class MediatorNodeBootstrap(
       storage: Storage,
       crypto: Crypto,
       mediatorId: MediatorId,
+      staticDomainParameters: StaticDomainParameters,
       authorizedTopologyManager: AuthorizedTopologyManager,
       domainId: DomainId,
       domainConfigurationStore: MediatorDomainConfigurationStore,
@@ -432,6 +452,7 @@ class MediatorNodeBootstrap(
                   saveConfig,
                   storage,
                   crypto,
+                  staticDomainParameters,
                   domainTopologyStore,
                   topologyManagerStatus = TopologyManagerStatus
                     .combined(authorizedTopologyManager, domainTopologyManager),
@@ -487,6 +508,7 @@ class MediatorNodeBootstrap(
       saveConfig: MediatorDomainConfiguration => EitherT[Future, String, Unit],
       storage: Storage,
       crypto: Crypto,
+      staticDomainParameters: StaticDomainParameters,
       domainTopologyStore: TopologyStore[DomainStore],
       topologyManagerStatus: TopologyManagerStatus,
       domainTopologyStateInit: DomainTopologyInitializationCallback,
@@ -500,10 +522,6 @@ class MediatorNodeBootstrap(
       .map(_.map(_.sequencerConnections))
 
     for {
-      _ <- CryptoHandshakeValidator
-        .validate(domainConfig.domainParameters, config.crypto)
-        .toEitherT
-        .mapK(FutureUnlessShutdown.outcomeK)
       indexedDomainId <- EitherT
         .right(IndexedDomain.indexed(indexedStringStore)(domainId))
         .mapK(FutureUnlessShutdown.outcomeK)
@@ -550,6 +568,7 @@ class MediatorNodeBootstrap(
         topologyClient,
         crypto,
         parameters.cachingConfigs,
+        staticDomainParameters,
         timeouts,
         futureSupervisor,
         domainLoggerFactory,

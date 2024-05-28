@@ -93,6 +93,7 @@ abstract class ProtocolProcessor[
     crypto: DomainSyncCryptoClient,
     sequencerClient: SequencerClientSend,
     domainId: DomainId,
+    staticDomainParameters: StaticDomainParameters,
     protocolVersion: ProtocolVersion,
     override protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
@@ -102,6 +103,7 @@ abstract class ProtocolProcessor[
       ephemeral,
       crypto,
       sequencerClient,
+      staticDomainParameters,
       protocolVersion,
     )
     with RequestProcessor[RequestViewType] {
@@ -1484,7 +1486,6 @@ abstract class ProtocolProcessor[
                 steps.pendingSubmissions(ephemeral),
                 crypto.pureCrypto,
               )
-              .mapK(FutureUnlessShutdown.outcomeK)
           } yield {
             val steps.CommitAndStoreContractsAndPublishEvent(
               commitSetOF,

@@ -231,6 +231,7 @@ final class TransferOutProcessingStepsTest
       damle,
       transferCoordination,
       seedGenerator,
+      defaultStaticDomainParameters,
       SourceProtocolVersion(testedProtocolVersion),
       loggerFactory,
     )(executorService)
@@ -857,6 +858,7 @@ final class TransferOutProcessingStepsTest
               state.pendingTransferOutSubmissions,
               crypto.pureCrypto,
             )
+            .failOnShutdown
         )("get commit set and contract to be stored and event")
       } yield succeed
     }

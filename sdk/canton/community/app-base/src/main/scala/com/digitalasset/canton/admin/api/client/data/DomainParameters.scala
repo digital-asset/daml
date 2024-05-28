@@ -56,7 +56,7 @@ final case class StaticDomainParameters(
     BinaryFileUtil.writeByteStringToFile(outputFile, toInternal.toByteString)
 
   private[canton] def toInternal: StaticDomainParametersInternal =
-    StaticDomainParametersInternal.create(
+    StaticDomainParametersInternal(
       requiredSigningKeySchemes = NonEmptyUtil.fromUnsafe(
         requiredSigningKeySchemes.map(_.transformInto[DomainCrypto.SigningKeyScheme])
       ),

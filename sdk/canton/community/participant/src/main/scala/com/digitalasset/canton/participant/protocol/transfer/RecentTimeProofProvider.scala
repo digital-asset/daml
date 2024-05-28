@@ -13,7 +13,7 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingS
   NoTimeProofFromDomain,
   TransferProcessorError,
 }
-import com.digitalasset.canton.protocol.TargetDomainId
+import com.digitalasset.canton.protocol.{StaticDomainParameters, TargetDomainId}
 import com.digitalasset.canton.sequencing.protocol.TimeProof
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DomainId
@@ -38,7 +38,7 @@ private[transfer] class RecentTimeProofProvider(
     else
       exclusivityTimeout / transferTimeProofFreshnessProportion
 
-  def get(targetDomainId: TargetDomainId)(implicit
+  def get(targetDomainId: TargetDomainId, staticDomainParameters: StaticDomainParameters)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransferProcessorError, TimeProof] = {
     val domain = targetDomainId.unwrap
@@ -50,7 +50,7 @@ private[transfer] class RecentTimeProofProvider(
 
       crypto <- EitherT.fromEither[FutureUnlessShutdown](
         syncCryptoApi
-          .forDomain(domain)
+          .forDomain(domain, staticDomainParameters)
           .toRight(NoTimeProofFromDomain(domain, "getting the crypto client"))
       )
 

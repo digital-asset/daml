@@ -20,7 +20,6 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.participant.protocol.EngineController
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
   ParsedRequest,
@@ -54,8 +53,8 @@ import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{DefaultTestIdentities, DomainId, Member, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
-import com.digitalasset.canton.{BaseTest, RequestCounter, SequencerCounter}
+import com.digitalasset.canton.version.HasToByteString
+import com.digitalasset.canton.{BaseTest, LfPartyId, RequestCounter, SequencerCounter}
 import com.google.protobuf.ByteString
 
 import scala.collection.concurrent
@@ -64,7 +63,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class TestProcessingSteps(
     pendingSubmissionMap: concurrent.Map[Int, Unit],
     pendingRequestData: Option[TestPendingRequestData],
-    informeesOfView: ViewHash => Set[Informee] = _ => Set.empty,
+    informeesOfView: ViewHash => Set[LfPartyId] = _ => Set.empty,
     submissionDataForTrackerO: Option[SubmissionData] = None,
 )(implicit val ec: ExecutionContext)
     extends ProcessingSteps[
@@ -290,9 +289,9 @@ class TestProcessingSteps(
       hashOps: HashOps,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TestProcessingError, CommitAndStoreContractsAndPublishEvent] = {
+  ): EitherT[FutureUnlessShutdown, TestProcessingError, CommitAndStoreContractsAndPublishEvent] = {
     val result = CommitAndStoreContractsAndPublishEvent(None, Seq.empty, None)
-    EitherT.pure[Future, TestProcessingError](result)
+    EitherT.pure[FutureUnlessShutdown, TestProcessingError](result)
   }
 
   override def postProcessSubmissionRejectedCommand(
@@ -317,16 +316,17 @@ object TestProcessingSteps {
   final case class TestViewTree(
       viewHash: ViewHash,
       rootHash: RootHash,
-      informees: Set[Informee] = Set.empty,
+      informees: Set[LfPartyId] = Set.empty,
       viewPosition: ViewPosition = ViewPosition(List(MerkleSeqIndex(List.empty))),
       domainId: DomainId = DefaultTestIdentities.domainId,
       mediator: MediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.zero),
   ) extends ViewTree
-      with HasVersionedToByteString {
+      with HasToByteString {
 
     def toBeSigned: Option[RootHash] = None
     override def pretty: Pretty[TestViewTree] = adHocPrettyInstance
-    override def toByteString(version: ProtocolVersion): ByteString =
+
+    override def toByteString: ByteString =
       throw new UnsupportedOperationException("TestViewTree cannot be serialized")
   }
 

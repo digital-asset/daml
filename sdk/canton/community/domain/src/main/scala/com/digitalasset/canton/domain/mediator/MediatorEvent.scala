@@ -5,6 +5,7 @@ package com.digitalasset.canton.domain.mediator
 
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.{OpenEnvelope, Recipients}
@@ -15,7 +16,7 @@ import com.digitalasset.canton.sequencing.protocol.{OpenEnvelope, Recipients}
   * structure so the [[ConfirmationResponseProcessor]] processes these events without having to perform the same extraction
   * and error handling of the original SequencerEvent.
   */
-private[mediator] sealed trait MediatorEvent {
+private[mediator] sealed trait MediatorEvent extends PrettyPrinting {
   val requestId: RequestId
   val counter: SequencerCounter
   val timestamp: CantonTimestamp
@@ -30,6 +31,11 @@ private[mediator] object MediatorEvent {
       batchAlsoContainsTopologyTransaction: Boolean,
   ) extends MediatorEvent {
     override val requestId: RequestId = RequestId(timestamp)
+
+    override def pretty: Pretty[Request] = prettyOfClass(
+      param("timestamp", _.timestamp),
+      param("request", _.request),
+    )
   }
 
   /** A response to a mediator confirmation request.
@@ -43,11 +49,11 @@ private[mediator] object MediatorEvent {
       recipients: Recipients,
   ) extends MediatorEvent {
     override val requestId: RequestId = response.message.requestId
-  }
 
-  final case class Timeout(
-      counter: SequencerCounter,
-      timestamp: CantonTimestamp,
-      requestId: RequestId,
-  ) extends MediatorEvent
+    override def pretty: Pretty[Response] = prettyOfClass(
+      param("timestamp", _.timestamp),
+      param("response", _.response),
+      param("recipient", _.recipients),
+    )
+  }
 }

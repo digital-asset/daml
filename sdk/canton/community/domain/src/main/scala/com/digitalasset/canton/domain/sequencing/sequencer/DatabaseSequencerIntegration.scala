@@ -20,7 +20,7 @@ trait SequencerIntegration {
   def blockSequencerRegisterMembers(members: Map[Member, CantonTimestamp])(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[Unit]
+  ): EitherT[Future, String, Unit]
 
   def blockSequencerWrites(
       orderedOutcomes: Seq[SubmissionOutcome]
@@ -35,7 +35,8 @@ object SequencerIntegration {
     override def blockSequencerRegisterMembers(members: Map[Member, CantonTimestamp])(implicit
         executionContext: ExecutionContext,
         traceContext: TraceContext,
-    ): Future[Unit] = Future.unit
+    ): EitherT[Future, String, Unit] =
+      EitherT.pure[Future, String](())
 
     override def blockSequencerWrites(
         orderedOutcomes: Seq[SubmissionOutcome]
@@ -52,16 +53,16 @@ trait DatabaseSequencerIntegration extends SequencerIntegration {
   override def blockSequencerRegisterMembers(members: Map[Member, CantonTimestamp])(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[Unit] =
+  ): EitherT[Future, String, Unit] =
     // TODO(#18394): Implement batch db write for member registration
     members.toSeq.parTraverse_ { case (member, timestamp) =>
       for {
-        isRegistered <- this.isRegistered(member)
+        isRegistered <- EitherT.right(this.isRegistered(member))
         _ <-
           if (!isRegistered) {
-            this.registerMemberInternal(member, timestamp)
+            this.registerMemberInternal(member, timestamp).leftMap(_.toString)
           } else {
-            Future.unit
+            EitherT.pure[Future, String](())
           }
       } yield ()
     }

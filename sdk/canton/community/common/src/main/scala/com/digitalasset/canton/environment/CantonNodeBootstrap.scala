@@ -698,7 +698,6 @@ abstract class CantonNodeBootstrapImpl[
         namespaceKeyO <- crypto.cryptoPublicStore
           .signingKey(nodeId.fingerprint)
           .leftMap(_.toString)
-          .mapK(FutureUnlessShutdown.outcomeK)
         namespaceKey <- EitherT.fromEither[FutureUnlessShutdown](
           namespaceKeyO.toRight(
             s"Performing auto-init but can't find key ${nodeId.fingerprint} from previous step"
@@ -819,7 +818,11 @@ object CantonNodeBootstrapImpl {
 
   private def getKeyByFingerprint[P <: PublicKey](
       typ: String,
-      findPubKeyIdByFingerprint: Fingerprint => EitherT[Future, CryptoPublicStoreError, Option[P]],
+      findPubKeyIdByFingerprint: Fingerprint => EitherT[
+        FutureUnlessShutdown,
+        CryptoPublicStoreError,
+        Option[P],
+      ],
       existPrivateKeyByFp: Fingerprint => EitherT[
         FutureUnlessShutdown,
         CryptoPrivateStoreError,
@@ -831,7 +834,6 @@ object CantonNodeBootstrapImpl {
       .leftMap(err =>
         s"Failure while looking for $typ fingerprint $fingerprint in public store: $err"
       )
-      .mapK(FutureUnlessShutdown.outcomeK)
     pubKey <- keyIdO.fold(
       EitherT.leftT[FutureUnlessShutdown, P](
         s"$typ key with fingerprint $fingerprint does not exist"
@@ -853,7 +855,9 @@ object CantonNodeBootstrapImpl {
 
   private def getOrCreateKey[P <: PublicKey](
       typ: String,
-      findPubKeyIdByName: KeyName => EitherT[Future, CryptoPublicStoreError, Option[P]],
+      findPubKeyIdByName: KeyName => EitherT[FutureUnlessShutdown, CryptoPublicStoreError, Option[
+        P
+      ]],
       generateKey: Option[KeyName] => EitherT[FutureUnlessShutdown, String, P],
       existPrivateKeyByFp: Fingerprint => EitherT[
         FutureUnlessShutdown,
@@ -865,7 +869,6 @@ object CantonNodeBootstrapImpl {
     keyName <- EitherT.fromEither[FutureUnlessShutdown](KeyName.create(name))
     keyIdO <- findPubKeyIdByName(keyName)
       .leftMap(err => s"Failure while looking for $typ key $name in public store: $err")
-      .mapK(FutureUnlessShutdown.outcomeK)
     pubKey <- keyIdO.fold(
       generateKey(Some(keyName))
         .leftMap(err => s"Failure while generating $typ key for $name: $err")

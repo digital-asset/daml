@@ -1,7 +1,15 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-create table par_daml_packages (package_id varchar(300) not null primary key, data binary large object not null, source_description varchar not null default 'default');
+create table par_daml_packages (
+    package_id varchar(300) not null primary key,
+    data binary large object not null,
+    source_description varchar(300) not null default 'default',
+    -- UTC timestamp stored in microseconds relative to EPOCH
+    uploaded_at bigint not null,
+    -- The size of the archive payload (i.e., the serialized DAML-LF package), in bytes
+    package_size bigint not null
+);
 
 create table par_dars (
     hash_hex varchar(300) not null  primary key,

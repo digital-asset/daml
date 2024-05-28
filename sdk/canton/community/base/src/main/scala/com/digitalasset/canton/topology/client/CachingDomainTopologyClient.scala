@@ -7,10 +7,14 @@ import cats.data.EitherT
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
+import com.digitalasset.canton.crypto.SigningPublicKey
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.protocol.DynamicDomainParametersWithValidity
+import com.digitalasset.canton.protocol.{
+  DynamicDomainParametersWithValidity,
+  DynamicSequencingParametersWithValidity,
+}
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
@@ -284,10 +288,20 @@ private class ForwardingTopologySnapshotClient(
   override def isMemberKnown(member: Member)(implicit traceContext: TraceContext): Future[Boolean] =
     parent.isMemberKnown(member)
 
+  override def memberFirstKnownAt(member: Member)(implicit
+      traceContext: TraceContext
+  ): Future[Option[CantonTimestamp]] =
+    parent.memberFirstKnownAt(member)
+
   override def findDynamicDomainParameters()(implicit
       traceContext: TraceContext
   ): Future[Either[String, DynamicDomainParametersWithValidity]] =
     parent.findDynamicDomainParameters()
+
+  override def findDynamicSequencingParameters()(implicit
+      traceContext: TraceContext
+  ): Future[Either[String, DynamicSequencingParametersWithValidity]] =
+    parent.findDynamicSequencingParameters()
 
   /** List all the dynamic domain parameters (past and current) */
   override def listDynamicDomainParametersChanges()(implicit
@@ -308,6 +322,11 @@ private class ForwardingTopologySnapshotClient(
       parties: Set[LfPartyId]
   )(implicit traceContext: TraceContext): Future[PartyTopologySnapshotClient.AuthorityOfResponse] =
     parent.authorityOf(parties)
+
+  override def signingKeysUS(owner: Member)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[SigningPublicKey]] =
+    parent.signingKeysUS(owner)
 }
 
 class CachingTopologySnapshot(
@@ -389,6 +408,11 @@ class CachingTopologySnapshot(
 
   private val domainParametersCache =
     new AtomicReference[Option[Future[Either[String, DynamicDomainParametersWithValidity]]]](None)
+
+  private val sequencingDynamicParametersCache =
+    new AtomicReference[Option[Future[Either[String, DynamicSequencingParametersWithValidity]]]](
+      None
+    )
 
   private val domainParametersChangesCache =
     new AtomicReference[
@@ -480,6 +504,17 @@ class CachingTopologySnapshot(
   override def isMemberKnown(member: Member)(implicit traceContext: TraceContext): Future[Boolean] =
     memberCache.get(member)
 
+  override def memberFirstKnownAt(
+      member: Member
+  )(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] = {
+    isMemberKnown(member).flatMap {
+      // TODO(#18399): Consider caching this call as well,
+      //  should only happen during first time member is registered at a sequencer
+      case true => parent.memberFirstKnownAt(member)
+      case false => Future.successful(None)
+    }
+  }
+
   /** Returns the value if it is present in the cache. Otherwise, use the
     * `getter` to fetch it and cache the result.
     */
@@ -498,6 +533,11 @@ class CachingTopologySnapshot(
   ): Future[Either[String, DynamicDomainParametersWithValidity]] =
     getAndCache(domainParametersCache, parent.findDynamicDomainParameters())
 
+  override def findDynamicSequencingParameters()(implicit
+      traceContext: TraceContext
+  ): Future[Either[String, DynamicSequencingParametersWithValidity]] =
+    getAndCache(sequencingDynamicParametersCache, parent.findDynamicSequencingParameters())
+
   /** List all the dynamic domain parameters (past and current) */
   override def listDynamicDomainParametersChanges()(implicit
       traceContext: TraceContext
@@ -511,4 +551,9 @@ class CachingTopologySnapshot(
       parties: Set[LfPartyId]
   )(implicit traceContext: TraceContext): Future[PartyTopologySnapshotClient.AuthorityOfResponse] =
     authorityOfCache.get(parties)
+
+  override def signingKeysUS(owner: Member)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[SigningPublicKey]] =
+    FutureUnlessShutdown.outcomeF(signingKeys(owner))
 }

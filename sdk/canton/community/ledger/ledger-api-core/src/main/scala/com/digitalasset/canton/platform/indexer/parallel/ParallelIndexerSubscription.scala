@@ -9,7 +9,6 @@ import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.Update
-import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
   LoggingContextWithTrace,
   NamedLoggerFactory,
@@ -266,8 +265,6 @@ object ParallelIndexerSubscription {
               .tap(_ => lastTransactionMetaEventSeqId = eventSeqId)
 
           case unChanged: DbDto.CommandCompletion => unChanged
-          case unChanged: DbDto.Package => unChanged
-          case unChanged: DbDto.PackageEntry => unChanged
           case unChanged: DbDto.PartyEntry => unChanged
           case unChanged: DbDto.StringInterningDto => unChanged
           case unChanged: DbDto.TransactionMetering => unChanged

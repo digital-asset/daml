@@ -11,7 +11,12 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
 import com.digitalasset.canton.protocol.messages.ConfirmationResponse
-import com.digitalasset.canton.protocol.{LocalRejectError, RequestId, RootHash}
+import com.digitalasset.canton.protocol.{
+  LocalRejectError,
+  RequestId,
+  RootHash,
+  StaticDomainParameters,
+}
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, Recipients}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
@@ -27,6 +32,7 @@ class BadRootHashMessagesRequestProcessor(
     sequencerClient: SequencerClient,
     domainId: DomainId,
     participantId: ParticipantId,
+    staticDomainParameters: StaticDomainParameters,
     protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -35,6 +41,7 @@ class BadRootHashMessagesRequestProcessor(
       ephemeral,
       crypto,
       sequencerClient,
+      staticDomainParameters,
       protocolVersion,
     ) {
 

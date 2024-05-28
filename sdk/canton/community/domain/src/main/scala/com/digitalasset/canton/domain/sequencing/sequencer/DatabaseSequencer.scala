@@ -5,7 +5,6 @@ package com.digitalasset.canton.domain.sequencing.sequencer
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import cats.syntax.functor.*
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.SequencerCounter
@@ -14,11 +13,12 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeL
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
+import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.RegisterError
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.*
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerStore.SequencerPruningResult
 import com.digitalasset.canton.domain.sequencing.sequencer.store.*
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
-import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
+import com.digitalasset.canton.health.admin.data.{SequencerAdminStatus, SequencerHealthStatus}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.MetricsHelper
@@ -46,9 +46,9 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.FutureUtil.doNotAwait
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
@@ -156,14 +156,16 @@ class DatabaseSequencer(
     unifiedSequencer = unifiedSequencer,
   )
 
+  private lazy val storageForAdminChanges: Storage = exclusiveStorage.getOrElse(
+    storage // no exclusive storage in non-ha setups
+  )
+
   override val pruningScheduler: Option[PruningScheduler] =
-    pruningSchedulerBuilder.map(
-      _(
-        exclusiveStorage.getOrElse(
-          storage // no exclusive storage in non-ha setups
-        )
-      )
-    )
+    pruningSchedulerBuilder.map(_(storageForAdminChanges))
+
+  override def adminStatus: SequencerAdminStatus = SequencerAdminStatus(
+    storageForAdminChanges.isActive
+  )
 
   private val store = writer.generalStore
 
@@ -239,23 +241,49 @@ class DatabaseSequencer(
 
   override def registerMember(member: Member)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencerWriteError[RegisterMemberError], Unit] = {
-    // use a timestamp which is definitively lower than the subsequent sequencing timestamp
-    // otherwise, if the timestamp we use to register the member is equal or higher than the
-    // first message to the member, we'd ignore the first message by accident
-    val nowMs =
-      clock
-        .monotonicTime()
-        .toMicros - 500000L // TODO(#18399): Get rid of the workaround, will not be needed once fully implicit member registration based on topology is implemented
-    val uniqueMicros = nowMs - (nowMs % TotalNodeCountValues.MaxNodeCount) - 1
-    EitherT.right(store.registerMember(member, CantonTimestamp.assertFromLong(uniqueMicros)).void)
+  ): EitherT[Future, RegisterError, Unit] = {
+    if (!member.isAuthenticated) {
+      for {
+        isRegistered <- EitherT.right[RegisterError](isRegistered(member))
+        _ <- EitherTUtil.ifThenET[Future, RegisterError](
+          !isRegistered
+        ) {
+          registerMemberInternal(member, clock.now)
+        }
+      } yield ()
+    } else {
+      for {
+        firstKnownAtO <- EitherT.right[RegisterError](
+          cryptoApi.headSnapshot.ipsSnapshot.memberFirstKnownAt(member)
+        )
+        _ <- firstKnownAtO match {
+          case Some(firstKnownAt) =>
+            logger.debug(s"Registering member $member with timestamp $firstKnownAt")
+            registerMemberInternal(member, firstKnownAt)
+
+          case None =>
+            val error: RegisterError =
+              OperationError[RegisterMemberError](
+                RegisterMemberError.UnexpectedError(
+                  member,
+                  s"Member $member is not known in the topology",
+                )
+              )
+            EitherT.leftT[Future, Unit](error)
+        }
+      } yield ()
+    }
   }
 
-  // TODO(#18399): Change this method to not hide errors, or remove it entirely in favor of `registerMember`
-  //  once fully implicit member registration based on topology is implemented
-  protected def registerMemberInternal(member: Member, timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): Future[Unit] = store.registerMember(member, timestamp).void
+  /**  Package private to use access method in tests, see `TestDatabaseSequencerWrapper`.
+    */
+  final private[sequencer] def registerMemberInternal(member: Member, timestamp: CantonTimestamp)(
+      implicit traceContext: TraceContext
+  ): EitherT[Future, RegisterError, Unit] = {
+    EitherT
+      .right[RegisterError](store.registerMember(member, timestamp))
+      .map(_ => ())
+  }
 
   override protected def sendAsyncInternal(submission: SubmissionRequest)(implicit
       traceContext: TraceContext
@@ -311,22 +339,13 @@ class DatabaseSequencer(
           isKnown <- EitherT.right[CreateSubscriptionError](
             cryptoApi.currentSnapshotApproximation.ipsSnapshot.isMemberKnown(member)
           )
-          _ <- EitherT.cond[Future](
+          _ <- EitherTUtil.condUnitET[Future](
             isKnown,
-            (),
             CreateSubscriptionError.UnknownMember(member): CreateSubscriptionError,
           )
-          // TODO(#18399): make the idempotent check for member handle all the cases and do not throw internal errors
-          storeMemberO <- EitherT.right(store.lookupMember(member))
-          _ <- {
-            if (storeMemberO.isEmpty) {
-              // TODO(#18399): Register at the actual topology tx timestamp; fold the error into the output error type
-              registerMember(member).leftMap(e =>
-                ErrorUtil.internalError(new RuntimeException(e.toString))
-              )
-            } else {
-              EitherT.pure[Future, CreateSubscriptionError](())
-            }
+          isRegistered <- EitherT.right(isRegistered(member))
+          _ <- EitherTUtil.ifThenET[Future, CreateSubscriptionError](!isRegistered) {
+            registerMember(member).leftMap(CreateSubscriptionError.MemberRegisterError)
           }
           eventSource <- reader.read(member, offset)
         } yield eventSource

@@ -112,21 +112,6 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
 
   }
 
-  @Explanation("""Package vetting has been aborted because the participant is shutting down.""")
-  @Resolution(
-    """Re-submit the vetting request when the participant node is available again."""
-  )
-  object ParticipantShuttingDown
-      extends ErrorCode(
-        id = "SHUTDOWN_INTERRUPTED_PACKAGE_VETTING",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-    final case class Error()(implicit val loggingContext: ContextualizedErrorLogger)
-        extends DamlError(
-          cause = "Participant has been pruned only partially due to shutdown."
-        )
-  }
-
   @Explanation("""This error indicates an internal issue within the package service.""")
   @Resolution("Inspect the error message and contact support.")
   object InternalError

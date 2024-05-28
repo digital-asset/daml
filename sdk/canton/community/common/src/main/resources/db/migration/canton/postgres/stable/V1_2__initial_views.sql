@@ -112,7 +112,9 @@ create or replace view debug.par_daml_packages as
   select
     package_id,
     data,
-    source_description
+    source_description,
+    uploaded_at,
+    package_size
   from par_daml_packages;
 
 create or replace view debug.par_dars as

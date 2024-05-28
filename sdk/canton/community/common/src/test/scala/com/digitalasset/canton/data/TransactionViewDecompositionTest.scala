@@ -11,8 +11,6 @@ import com.digitalasset.canton.data.TransactionViewDecomposition.*
 import com.digitalasset.canton.protocol.RollbackContext.{RollbackScope, RollbackSibling}
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{PartyId, UniqueIdentifier}
 import com.digitalasset.canton.util.LfTransactionUtil
 import com.digitalasset.canton.{
   BaseTest,
@@ -31,7 +29,7 @@ class TransactionViewDecompositionTest
     with ComparesLfTransactions
     with NeedsNewLfContractIds {
 
-  lazy val factory: TransactionViewDecompositionFactory = TransactionViewDecompositionFactory.V2
+  lazy val factory: TransactionViewDecompositionFactory.type = TransactionViewDecompositionFactory
   s"With factory ${factory.getClass.getSimpleName}" when {
 
     ConfirmationPolicy.values foreach { confirmationPolicy =>
@@ -67,13 +65,14 @@ class TransactionViewDecompositionTest
 
         val node = createNode(unsuffixedId(0))
         val informees =
-          Set[Informee](ConfirmingParty(signatory, PositiveInt.one))
+          Map(signatory -> NonNegativeInt.one)
         val rootSeed = ExampleTransactionFactory.lfHash(-1)
+        val viewConfirmationParameters =
+          ViewConfirmationParameters.create(informees, NonNegativeInt.one)
         val child =
           NewView(
             node,
-            informees,
-            NonNegativeInt.one,
+            viewConfirmationParameters,
             Some(rootSeed),
             LfNodeId(0),
             Seq.empty,
@@ -83,8 +82,7 @@ class TransactionViewDecompositionTest
         an[IllegalArgumentException] should be thrownBy
           NewView(
             node,
-            informees,
-            NonNegativeInt.one,
+            viewConfirmationParameters,
             Some(rootSeed),
             LfNodeId(0),
             Seq(child),
@@ -98,10 +96,10 @@ class TransactionViewDecompositionTest
         val flatTransactionSize = 10000
 
         val decomposition = timeouts.default.await("Decomposing test transaction")(
-          TransactionViewDecompositionFactory.V2.fromTransaction(
+          TransactionViewDecompositionFactory.fromTransaction(
             ConfirmationPolicy.Signatory,
-            mock[TopologySnapshot],
-            wftWithCreateNodes(flatTransactionSize),
+            defaultTopologySnapshot,
+            wftWithCreateNodes(flatTransactionSize, signatory, observer),
             RollbackContext.empty,
             None,
           )
@@ -118,9 +116,9 @@ class TransactionViewDecompositionTest
 
       object tif extends TestIdFactory
 
-      val alice: LfPartyId = LfPartyId.assertFromString("alice::default")
-      val bob: LfPartyId = LfPartyId.assertFromString("bob::default")
-      val carol: LfPartyId = LfPartyId.assertFromString("carol::default")
+      val alice: LfPartyId = signatory
+      val bob: LfPartyId = observer
+      val carol: LfPartyId = extra
 
       val embeddedRollbackExample: LfVersionedTransaction = toVersionedTransaction(
         exerciseNode(tif.newCid, signatories = Set(alice)).withChildren(
@@ -128,10 +126,10 @@ class TransactionViewDecompositionTest
             TestNodeBuilder
               .rollback()
               .withChildren(
-                exerciseNode(tif.newCid, signatories = Set(alice, carol))
+                exerciseNode(tif.newCid, signatories = Set(alice), observers = Set(carol))
               )
           ),
-          exerciseNode(tif.newCid, signatories = Set(alice, bob)),
+          exerciseNode(tif.newCid, signatories = Set(alice), observers = Set(bob)),
         )
       )
 
@@ -149,7 +147,7 @@ class TransactionViewDecompositionTest
 
       "does not re-used rollback contexts" in {
 
-        val decomposition = TransactionViewDecompositionFactory.V2
+        val decomposition = TransactionViewDecompositionFactory
           .fromTransaction(
             ConfirmationPolicy.Signatory,
             defaultTopologySnapshot,
@@ -176,8 +174,10 @@ class TransactionViewDecompositionTest
         nextThreshold = nextThreshold + NonNegativeInt.one
         NewView(
           node,
-          Set.empty,
-          nextThreshold,
+          ViewConfirmationParameters.tryCreate(
+            Set.empty,
+            Seq(Quorum(Map.empty, nextThreshold)),
+          ),
           None,
           LfNodeId(0),
           children,
@@ -213,9 +213,13 @@ class TransactionViewDecompositionTest
 
   }
 
-  private def wftWithCreateNodes(size: Int): WellFormedTransaction[WithoutSuffixes] = {
-    val alice = PartyId(UniqueIdentifier.tryFromProtoPrimitive(s"alice::party")).toLf
-    val bob = PartyId(UniqueIdentifier.tryFromProtoPrimitive(s"bob::party")).toLf
+  private def wftWithCreateNodes(
+      size: Int,
+      signatory: LfPartyId,
+      observer: LfPartyId,
+  ): WellFormedTransaction[WithoutSuffixes] = {
+    val alice = signatory
+    val bob = observer
 
     val tx = TreeTransactionBuilder.toVersionedTransaction(
       (0 until size)
@@ -282,7 +286,7 @@ object RollbackDecomposition {
         case view: NewView =>
           RbNewTree(
             view.rbContext.enterRollback.rollbackScope.toList,
-            view.informees.map(_.party),
+            view.viewConfirmationParameters.informees,
             rollbackDecomposition(view.tailNodes),
           )
         case view: SameView =>

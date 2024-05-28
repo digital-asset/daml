@@ -10,20 +10,22 @@ import com.digitalasset.canton.domain.block.{
   SequencerDriverHealthStatus,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequest
+import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.stream.*
 import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class DriverBlockSequencerOps(
+class DriverBlockOrderer(
     driver: SequencerDriver,
-    protocolVersion: ProtocolVersion,
+    override val orderingTimeFixMode: OrderingTimeFixMode,
 )(implicit executionContext: ExecutionContext)
-    extends BlockSequencerOps {
+    extends BlockOrderer {
+
+  override def firstBlockHeight: Long = driver.firstBlockHeight
 
   override def subscribe()(implicit
       traceContext: TraceContext

@@ -22,14 +22,14 @@ import com.digitalasset.canton.time.{Clock, PeriodicAction}
 import com.digitalasset.canton.topology.{DomainMember, Member, UnauthenticatedMemberId}
 import com.digitalasset.canton.tracing.Spanning.SpanWrapper
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
+import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
 import io.opentelemetry.api.trace.Tracer
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Provides additional functionality that is common between sequencer implementations:
-  *  - auto registers unknown recipients addressed in envelopes from the domain topology manager
-  *    (avoids explicit registration from the domain node -> sequencer which will be useful when separate processes)
+/** Implements parts of [[Sequencer]] interface, common to all sequencers.
+  * Adds `*Internal` methods without implementation for variance among specific sequencer subclasses.
   */
 abstract class BaseSequencer(
     protected val loggerFactory: NamedLoggerFactory,
@@ -53,25 +53,6 @@ abstract class BaseSequencer(
     )(tc => healthInternal(tc).map(reportHealthState(_)(tc)))
   )
 
-  private def ensureMemberRegistered(member: Member)(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
-  ): EitherT[Future, WriteRequestRefused, Unit] =
-    ensureRegistered(member).leftFlatMap {
-      // due to the way ensureRegistered executes it is unlikely (I think impossible) for the already registered error
-      // to be returned, however in this circumstance it's actually fine as we want them registered regardless.
-      case OperationError(RegisterMemberError.AlreadyRegisteredError(member)) =>
-        logger.debug(
-          s"Went to auto register member but found they were already registered: $member"
-        )
-        EitherT.pure[Future, WriteRequestRefused](())
-      case OperationError(RegisterMemberError.UnexpectedError(member, message)) =>
-        // TODO(#11062) consider whether to propagate these errors further
-        logger.error(s"An unexpected error occurred whilst registering member $member: $message")
-        EitherT.pure[Future, WriteRequestRefused](())
-      case error: WriteRequestRefused => EitherT.leftT(error)
-    }
-
   override def sendAsyncSigned(signedSubmission: SignedContent[SubmissionRequest])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] = withSpan("Sequencer.sendAsyncSigned") {
@@ -88,7 +69,11 @@ abstract class BaseSequencer(
           )
           .leftMap(e => SendAsyncError.RequestRefused(e))
           .mapK(FutureUnlessShutdown.outcomeK)
-        _ <- checkMemberRegistration(submission).mapK(FutureUnlessShutdown.outcomeK)
+        _ <- EitherT
+          .right(
+            autoRegisterUnauthenticatedSender(submission)
+          )
+          .mapK(FutureUnlessShutdown.outcomeK) // TODO(#18399): Propagate FUS
         _ <- sendAsyncSignedInternal(signedSubmissionWithFixedTs)
       } yield ()
   }
@@ -117,7 +102,11 @@ abstract class BaseSequencer(
     withSpan("Sequencer.sendAsync") { implicit traceContext => span =>
       setSpanAttributes(span, submission)
       for {
-        _ <- checkMemberRegistration(submission).mapK(FutureUnlessShutdown.outcomeK)
+        _ <- EitherT
+          .right(
+            autoRegisterUnauthenticatedSender(submission)
+          )
+          .mapK(FutureUnlessShutdown.outcomeK) // TODO(#18399): Propagate FUS
         _ <- sendAsyncInternal(submission)
       } yield ()
     }
@@ -127,21 +116,16 @@ abstract class BaseSequencer(
     span.setAttribute("message_id", submission.messageId.unwrap)
   }
 
-  private def checkMemberRegistration(
+  private def autoRegisterUnauthenticatedSender(
       submission: SubmissionRequest
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] =
-    (for {
-      _ <- submission.sender match {
-        case member: UnauthenticatedMemberId =>
-          ensureMemberRegistered(member)
-        case _ => EitherT.pure[Future, WriteRequestRefused](())
-      }
-    } yield ()).leftSemiflatMap { registrationError =>
-      logger.error(s"Failed to auto-register members: $registrationError")
-      // this error won't exist once sendAsync is fully implemented, so temporarily we'll just return a failed future
-      Future.failed(
-        new RuntimeException(s"Failed to auto-register members: $registrationError")
-      )
+  )(implicit traceContext: TraceContext): Future[Unit] =
+    submission.sender match {
+      case member: UnauthenticatedMemberId =>
+        registerMember(member).valueOr(error =>
+          // this error should not happen, as currently registration errors are only for authenticated users
+          ErrorUtil.invalidState(s"Unexpected error: $error")
+        )
+      case _ => Future.unit
     }
 
   protected def localSequencerMember: DomainMember
@@ -180,13 +164,7 @@ abstract class BaseSequencer(
       traceContext: TraceContext
   ): EitherT[Future, CreateSubscriptionError, Sequencer.EventSource] =
     for {
-      _ <- member match {
-        case _: UnauthenticatedMemberId =>
-          ensureMemberRegistered(member)
-            .leftMap(CreateSubscriptionError.RegisterUnauthenticatedMemberError)
-        case _ =>
-          EitherT.pure[Future, CreateSubscriptionError](())
-      }
+      _ <- registerMember(member).leftMap(CreateSubscriptionError.MemberRegisterError)
       source <- readInternal(member, offset)
     } yield source
 

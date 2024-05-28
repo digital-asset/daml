@@ -7,6 +7,7 @@ package com.digitalasset.canton.protocol.v30;
 
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/protocol/v30/domain_parameters.proto";
+import "com/digitalasset/canton/protocol/v30/sequencing_parameters.proto";
 import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
 
@@ -234,6 +235,16 @@ message DomainParametersState {
   DynamicDomainParameters domain_parameters = 2;
 }
 
+// which sequencing dynamic parameters are supposed to be used on the given domain; defaults are used when not set
+// authorization: whoever controls the domain
+// UNIQUE(domain)
+message DynamicSequencingParametersState {
+  // domain affected by the new domain parameters
+  string domain = 1;
+
+  DynamicSequencingParameters sequencing_parameters = 2;
+}
+
 // which mediators and mediator groups are active on the given domain
 // authorization: whoever controls the domain
 // UNIQUE(domain, group)
@@ -307,6 +318,7 @@ message TopologyMapping {
     MediatorDomainState mediator_domain_state = 12;
     SequencerDomainState sequencer_domain_state = 13;
     PurgeTopologyTransaction purge_topology_txs = 14;
+    DynamicSequencingParametersState sequencing_dynamic_parameters_state = 15;
   }
 }
 

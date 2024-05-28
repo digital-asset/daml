@@ -36,17 +36,14 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
   def ts(n: Int): CantonTimestamp = CantonTimestamp.Epoch.plusSeconds(n.toLong)
   def requestIdTs(n: Int): RequestId = RequestId(ts(n))
 
-  val requestId = RequestId(CantonTimestamp.Epoch)
-  val fullInformeeTree = {
+  val requestId: RequestId = RequestId(CantonTimestamp.Epoch)
+  val fullInformeeTree: FullInformeeTree = {
     val domainId = DefaultTestIdentities.domainId
     val participantId = DefaultTestIdentities.participant1
 
     val alice = LfPartyId.assertFromString("alice")
-    val aliceInformee = PlainInformee(alice)
-    val bobConfirmingParty = ConfirmingParty(
-      LfPartyId.assertFromString("bob"),
-      PositiveInt.tryCreate(2),
-    )
+    val bob = LfPartyId.assertFromString("bob")
+    val bobCp = Map(bob -> PositiveInt.tryCreate(2))
     val hashOps = new SymbolicPureCrypto
 
     def h(i: Int): Hash = TestHash.digest(i)
@@ -54,9 +51,11 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
     def s(i: Int): Salt = TestSalt.generateSalt(i)
 
     val viewCommonData =
-      ViewCommonData.create(hashOps)(
-        Set(aliceInformee, bobConfirmingParty),
-        NonNegativeInt.tryCreate(2),
+      ViewCommonData.tryCreate(hashOps)(
+        ViewConfirmationParameters.tryCreate(
+          Set(alice, bob),
+          Seq(Quorum(bobCp, NonNegativeInt.tryCreate(2))),
+        ),
         s(999),
         testedProtocolVersion,
       )
@@ -96,9 +95,9 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
       testedProtocolVersion,
     )
   }
-  val informeeMessage =
+  val informeeMessage: InformeeMessage =
     InformeeMessage(fullInformeeTree, Signature.noSignature)(testedProtocolVersion)
-  val currentVersion = FinalizedResponse(
+  val currentVersion: FinalizedResponse = FinalizedResponse(
     requestId,
     informeeMessage,
     requestId.unwrap,

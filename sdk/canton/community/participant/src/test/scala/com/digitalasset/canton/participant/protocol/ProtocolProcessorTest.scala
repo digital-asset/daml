@@ -21,7 +21,7 @@ import com.digitalasset.canton.config.{
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.data.PeanoQueue.{BeforeHead, NotInserted}
-import com.digitalasset.canton.data.{CantonTimestamp, ConfirmingParty, PeanoQueue}
+import com.digitalasset.canton.data.{CantonTimestamp, PeanoQueue}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.CompletionInfo
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
@@ -328,7 +328,7 @@ class ProtocolProcessorTest
     val steps = new TestProcessingSteps(
       pendingSubmissionMap = pendingSubmissionMap,
       overrideConstructedPendingRequestDataO,
-      informeesOfView = _ => Set(ConfirmingParty(party.toLf, PositiveInt.one)),
+      informeesOfView = _ => Set(party.toLf),
       submissionDataForTrackerO = submissionDataForTrackerO,
     )
 
@@ -345,6 +345,7 @@ class ProtocolProcessorTest
         crypto,
         sequencerClient,
         domainId = DefaultTestIdentities.domainId,
+        defaultStaticDomainParameters,
         testedProtocolVersion,
         loggerFactory,
         FutureSupervisor.Noop,

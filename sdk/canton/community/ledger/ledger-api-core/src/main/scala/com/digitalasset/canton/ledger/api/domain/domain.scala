@@ -20,6 +20,7 @@ import scala.collection.immutable
 
 final case class TransactionFilter(
     filtersByParty: immutable.Map[Ref.Party, Filters],
+    filtersForAnyParty: Option[Filters] = None,
     alwaysPopulateCreatedEventBlob: Boolean = false,
 )
 
@@ -152,21 +153,6 @@ object Commands {
       "deduplicationPeriod" -> commands.deduplicationPeriod,
     )
   }
-}
-
-sealed abstract class PackageEntry() extends Product with Serializable
-
-object PackageEntry {
-  final case class PackageUploadAccepted(
-      submissionId: String,
-      recordTime: Timestamp,
-  ) extends PackageEntry
-
-  final case class PackageUploadRejected(
-      submissionId: String,
-      recordTime: Timestamp,
-      reason: String,
-  ) extends PackageEntry
 }
 
 object Logging {

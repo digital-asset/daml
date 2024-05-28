@@ -8,7 +8,10 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.lf.data.Ref.PackageId
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.BaseTest.testedReleaseProtocolVersion
+import com.digitalasset.canton.BaseTest.{
+  defaultStaticDomainParameters,
+  testedReleaseProtocolVersion,
+}
 import com.digitalasset.canton.concurrent.{
   DirectExecutionContext,
   FutureSupervisor,
@@ -260,7 +263,7 @@ class TestingIdentityFactory(
       domain: DomainId = DefaultTestIdentities.domainId,
       availableUpToInclusive: CantonTimestamp = CantonTimestamp.MaxValue,
   ): DomainSyncCryptoClient =
-    forOwner(owner, availableUpToInclusive).tryForDomain(domain)
+    forOwner(owner, availableUpToInclusive).tryForDomain(domain, defaultStaticDomainParameters)
 
   private def ips(upToInclusive: CantonTimestamp): IdentityProvidingServiceClient = {
     val ips = new IdentityProvidingServiceClient()

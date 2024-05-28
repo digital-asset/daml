@@ -13,7 +13,7 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingS
 }
 import com.digitalasset.canton.participant.store.memory.InMemoryTransferStore
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
-import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
+import com.digitalasset.canton.protocol.{SourceDomainId, StaticDomainParameters, TargetDomainId}
 import com.digitalasset.canton.time.TimeProofTestUtil
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Confirmation,
@@ -40,7 +40,11 @@ private[transfer] object TestTransferCoordination {
   )(implicit ec: ExecutionContext): TransferCoordination = {
 
     val recentTimeProofProvider = mock[RecentTimeProofProvider]
-    when(recentTimeProofProvider.get(any[TargetDomainId])(any[TraceContext]))
+    when(
+      recentTimeProofProvider.get(any[TargetDomainId], any[StaticDomainParameters])(
+        any[TraceContext]
+      )
+    )
       .thenReturn(EitherT.pure(TimeProofTestUtil.mkTimeProof(timeProofTimestamp)))
 
     val transferStores =
@@ -60,19 +64,21 @@ private[transfer] object TestTransferCoordination {
 
       override def awaitTransferOutTimestamp(
           sourceDomain: SourceDomainId,
+          staticDomainParameters: StaticDomainParameters,
           timestamp: CantonTimestamp,
       )(implicit
           traceContext: TraceContext
       ): Either[TransferProcessingSteps.UnknownDomain, Future[Unit]] = {
         awaitTimestampOverride match {
           case None =>
-            super.awaitTransferOutTimestamp(sourceDomain, timestamp)
+            super.awaitTransferOutTimestamp(sourceDomain, staticDomainParameters, timestamp)
           case Some(overridden) => Right(overridden.getOrElse(Future.unit))
         }
       }
 
       override def awaitTimestamp(
           domainId: DomainId,
+          staticDomainParameters: StaticDomainParameters,
           timestamp: CantonTimestamp,
           waitForEffectiveTime: Boolean,
       )(implicit
@@ -80,15 +86,19 @@ private[transfer] object TestTransferCoordination {
       ): Either[TransferProcessorError, Option[Future[Unit]]] =
         awaitTimestampOverride match {
           case None =>
-            super.awaitTimestamp(domainId, timestamp, waitForEffectiveTime)
+            super.awaitTimestamp(domainId, staticDomainParameters, timestamp, waitForEffectiveTime)
           case Some(overridden) => Right(overridden)
         }
 
-      override def cryptoSnapshot(domain: DomainId, timestamp: CantonTimestamp)(implicit
+      override def cryptoSnapshot(
+          domain: DomainId,
+          staticDomainParameters: StaticDomainParameters,
+          timestamp: CantonTimestamp,
+      )(implicit
           traceContext: TraceContext
       ): EitherT[Future, TransferProcessorError, DomainSnapshotSyncCryptoApi] = {
         snapshotOverride match {
-          case None => super.cryptoSnapshot(domain, timestamp)
+          case None => super.cryptoSnapshot(domain, staticDomainParameters, timestamp)
           case Some(cs) => EitherT.pure[Future, TransferProcessorError](cs)
         }
       }

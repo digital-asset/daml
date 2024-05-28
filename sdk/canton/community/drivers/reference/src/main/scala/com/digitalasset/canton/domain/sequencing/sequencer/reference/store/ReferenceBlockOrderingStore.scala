@@ -6,8 +6,8 @@ package com.digitalasset.canton.domain.sequencing.sequencer.reference.store
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.{CantonTimestamp, Counter, PeanoTreeQueue}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.domain.block.BlockOrderer
-import com.digitalasset.canton.domain.block.BlockOrderingSequencer.BatchTag
+import com.digitalasset.canton.domain.block.BlockFormat
+import com.digitalasset.canton.domain.block.BlockFormat.BatchTag
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore.{
   BlockCounter,
   CounterDiscriminator,
@@ -23,11 +23,11 @@ import scala.concurrent.{ExecutionContext, Future, blocking}
 
 trait ReferenceBlockOrderingStore {
 
-  def insertRequest(request: BlockOrderer.OrderedRequest)(implicit
+  def insertRequest(request: BlockFormat.OrderedRequest)(implicit
       traceContext: TraceContext
   ): Future[Unit]
 
-  def insertRequestWithHeight(blockHeight: Long, request: BlockOrderer.OrderedRequest)(implicit
+  def insertRequestWithHeight(blockHeight: Long, request: BlockFormat.OrderedRequest)(implicit
       traceContext: TraceContext
   ): Future[Unit]
 
@@ -57,7 +57,7 @@ object ReferenceBlockOrderingStore {
     }
 
   final case class TimestampedBlock(
-      block: BlockOrderer.Block,
+      block: BlockFormat.Block,
       timestamp: CantonTimestamp,
       lastTopologyTimestamp: CantonTimestamp,
   )
@@ -66,25 +66,25 @@ object ReferenceBlockOrderingStore {
 class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore {
   import java.util.concurrent.ConcurrentLinkedDeque
 
-  private val deque = new ConcurrentLinkedDeque[Traced[BlockOrderer.OrderedRequest]]()
+  private val deque = new ConcurrentLinkedDeque[Traced[BlockFormat.OrderedRequest]]()
   private val peanoQueue =
-    new PeanoTreeQueue[CounterDiscriminator, BlockOrderer.OrderedRequest](BlockCounter(0L))
+    new PeanoTreeQueue[CounterDiscriminator, BlockFormat.OrderedRequest](BlockCounter(0L))
 
   override def insertRequest(
-      request: BlockOrderer.OrderedRequest
+      request: BlockFormat.OrderedRequest
   )(implicit traceContext: TraceContext): Future[Unit] = {
     insertRequestInternal(request)
     Future.unit
   }
 
   private def insertRequestInternal(
-      request: BlockOrderer.OrderedRequest
+      request: BlockFormat.OrderedRequest
   )(implicit traceContext: TraceContext): Unit =
     blocking(deque.synchronized {
       deque.add(Traced(request)).discard
     })
 
-  def insertRequestWithHeight(blockHeight: Long, request: BlockOrderer.OrderedRequest)(implicit
+  def insertRequestWithHeight(blockHeight: Long, request: BlockFormat.OrderedRequest)(implicit
       traceContext: TraceContext
   ): Future[Unit] = {
 
@@ -149,7 +149,7 @@ class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore 
           requestsWithTimestampsAndLastTopologyTimestamps.zip(LazyList.from(initial.toInt)).map {
             case ((blockTimestamp, tracedRequests, lastTopologyTimestamp), blockHeight) =>
               TimestampedBlock(
-                BlockOrderer.Block(blockHeight.toLong, tracedRequests),
+                BlockFormat.Block(blockHeight.toLong, tracedRequests),
                 CantonTimestamp.ofEpochMicro(blockTimestamp),
                 lastTopologyTimestamp,
               )

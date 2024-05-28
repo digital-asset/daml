@@ -67,7 +67,7 @@ class GenTransactionTreeTest
 
       val expectedInformeesAndThresholdByView = example.transactionViewTrees.map { viewTree =>
         val viewCommonData = viewTree.view.viewCommonData.tryUnwrap
-        viewTree.viewPosition -> ((viewCommonData.informees, viewCommonData.threshold))
+        viewTree.viewPosition -> viewCommonData.viewConfirmationParameters
       }.toMap
 
       "compute the set of informees" in {
@@ -86,18 +86,18 @@ class GenTransactionTreeTest
           fullInformeeTree.toByteString
         ) shouldEqual Right(fullInformeeTree)
 
-        forAll(example.transactionTree.allLightTransactionViewTrees()) { lt =>
+        forAll(example.transactionTree.allLightTransactionViewTrees(testedProtocolVersion)) { lt =>
           LightTransactionViewTree.fromTrustedByteString(
             (example.cryptoOps, testedProtocolVersion)
           )(
-            lt.toByteString(testedProtocolVersion)
+            lt.toByteString
           ) shouldBe Right(lt)
         }
       }
 
       "correctly reconstruct the full transaction view trees from the lightweight ones" in {
         val allLightTrees =
-          example.transactionTree.allLightTransactionViewTrees()
+          example.transactionTree.allLightTransactionViewTrees(testedProtocolVersion)
         val allTrees = example.transactionTree.allTransactionViewTrees
         LightTransactionViewTree
           .toFullViewTrees(PIso.id, testedProtocolVersion, factory.cryptoOps, topLevelOnly = false)(
@@ -107,7 +107,7 @@ class GenTransactionTreeTest
 
       "correctly reconstruct the top-level transaction view trees from the lightweight ones" in {
         val allLightTrees =
-          example.transactionTree.allLightTransactionViewTrees()
+          example.transactionTree.allLightTransactionViewTrees(testedProtocolVersion)
         val allTrees = example.transactionTree.allTransactionViewTrees.filter(_.isTopLevel)
 
         LightTransactionViewTree
@@ -125,6 +125,7 @@ class GenTransactionTreeTest
           .allLightTransactionViewTreesWithWitnessesAndSeeds(
             seed,
             hkdfOps,
+            testedProtocolVersion,
           )
           .valueOrFail("Cant get the light transaction trees")
         val allTrees = example.transactionTree.allTransactionViewTrees.toList
@@ -156,7 +157,7 @@ class GenTransactionTreeTest
 
       "correctly report missing subviews" in {
         val allLightTrees =
-          example.transactionTree.allLightTransactionViewTrees()
+          example.transactionTree.allLightTransactionViewTrees(testedProtocolVersion)
         val removedLightTreeO = allLightTrees.find(_.viewPosition.position.sizeIs > 1)
         val inputLightTrees = allLightTrees.filterNot(removedLightTreeO.contains)
         val badLightTrees = inputLightTrees.filter(tree =>
@@ -181,7 +182,8 @@ class GenTransactionTreeTest
       }
 
       "correctly process duplicate views" in {
-        val allLightTrees = example.transactionTree.allLightTransactionViewTrees()
+        val allLightTrees =
+          example.transactionTree.allLightTransactionViewTrees(testedProtocolVersion)
         val allFullTrees = example.transactionTree.allTransactionViewTrees
 
         val inputLightTrees1 = allLightTrees.flatMap(tree => Seq(tree, tree))
@@ -198,7 +200,8 @@ class GenTransactionTreeTest
       }
 
       "correctly process views in an unusual order" in {
-        val allLightTrees = example.transactionTree.allLightTransactionViewTrees()
+        val allLightTrees =
+          example.transactionTree.allLightTransactionViewTrees(testedProtocolVersion)
         val inputLightTrees = allLightTrees.sortBy(_.viewPosition.position.size)
         val allFullTrees = example.transactionTree.allTransactionViewTrees
         LightTransactionViewTree
@@ -396,18 +399,18 @@ class GenTransactionTreeTest
       "given consistent subview hashes" must {
         s"pass sanity tests at creation (for the $index-th transaction view tree)" in {
           noException should be thrownBy LightTransactionViewTree
-            .tryCreate(genTransactionTree, tvt.subviewHashes)
+            .tryCreate(genTransactionTree, tvt.subviewHashes, testedProtocolVersion)
         }
       }
 
       "given inconsistent subview hashes" must {
         s"reject creation (for the $index-th transaction view tree)" in {
           an[InvalidLightTransactionViewTree] should be thrownBy LightTransactionViewTree
-            .tryCreate(genTransactionTree, mangledSubviewHashes)
+            .tryCreate(genTransactionTree, mangledSubviewHashes, testedProtocolVersion)
 
           if (tvt.subviewHashes.nonEmpty)
             an[InvalidLightTransactionViewTree] should be thrownBy LightTransactionViewTree
-              .tryCreate(genTransactionTree, Seq.empty)
+              .tryCreate(genTransactionTree, Seq.empty, testedProtocolVersion)
         }
       }
     }
@@ -607,7 +610,7 @@ class GenTransactionTreeTest
 object GenTransactionTreeTest {
   private[data] def party(i: Int): LfPartyId = LfPartyId.assertFromString(s"party$i::1")
 
-  private[data] def informee(i: Int): Informee = PlainInformee(party(i))
+  private[data] def informee(i: Int): LfPartyId = party(i)
 
   private[data] def participant(i: Int): ParticipantId = ParticipantId(s"participant$i")
 }

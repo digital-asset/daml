@@ -46,7 +46,7 @@ class TransactionStreamingQueries(
   import EventStorageBackendTemplate.*
 
   def fetchEventIdsForStakeholder(target: EventIdSourceForStakeholders)(
-      stakeholder: Party,
+      stakeholderO: Option[Party],
       templateIdO: Option[Identifier],
       startExclusive: Long,
       endInclusive: Long,
@@ -54,7 +54,7 @@ class TransactionStreamingQueries(
   )(connection: Connection): Vector[Long] = target match {
     case EventIdSourceForStakeholders.Consuming =>
       fetchIdsOfConsumingEventsForStakeholder(
-        stakeholder,
+        stakeholderO,
         templateIdO,
         startExclusive,
         endInclusive,
@@ -62,7 +62,7 @@ class TransactionStreamingQueries(
       )(connection)
     case EventIdSourceForStakeholders.Create =>
       fetchIdsOfCreateEventsForStakeholder(
-        stakeholder,
+        stakeholderO,
         templateIdO,
         startExclusive,
         endInclusive,
@@ -71,19 +71,19 @@ class TransactionStreamingQueries(
   }
 
   def fetchEventIdsForInformee(target: EventIdSourceForInformees)(
-      informee: Party,
+      informeeO: Option[Party],
       startExclusive: Long,
       endInclusive: Long,
       limit: Int,
   )(connection: Connection): Vector[Long] = target match {
     case EventIdSourceForInformees.ConsumingStakeholder =>
-      fetchIdsOfConsumingEventsForStakeholder(informee, None, startExclusive, endInclusive, limit)(
+      fetchIdsOfConsumingEventsForStakeholder(informeeO, None, startExclusive, endInclusive, limit)(
         connection
       )
     case EventIdSourceForInformees.ConsumingNonStakeholder =>
       TransactionStreamingQueries.fetchEventIds(
         tableName = "lapi_pe_consuming_id_filter_non_stakeholder_informee",
-        witness = informee,
+        witnessO = informeeO,
         templateIdO = None,
         startExclusive = startExclusive,
         endInclusive = endInclusive,
@@ -91,13 +91,13 @@ class TransactionStreamingQueries(
         stringInterning = stringInterning,
       )(connection)
     case EventIdSourceForInformees.CreateStakeholder =>
-      fetchIdsOfCreateEventsForStakeholder(informee, None, startExclusive, endInclusive, limit)(
+      fetchIdsOfCreateEventsForStakeholder(informeeO, None, startExclusive, endInclusive, limit)(
         connection
       )
     case EventIdSourceForInformees.CreateNonStakeholder =>
       TransactionStreamingQueries.fetchEventIds(
         tableName = "lapi_pe_create_id_filter_non_stakeholder_informee",
-        witness = informee,
+        witnessO = informeeO,
         templateIdO = None,
         startExclusive = startExclusive,
         endInclusive = endInclusive,
@@ -107,7 +107,7 @@ class TransactionStreamingQueries(
     case EventIdSourceForInformees.NonConsumingInformee =>
       TransactionStreamingQueries.fetchEventIds(
         tableName = "lapi_pe_non_consuming_id_filter_informee",
-        witness = informee,
+        witnessO = informeeO,
         templateIdO = None,
         startExclusive = startExclusive,
         endInclusive = endInclusive,
@@ -118,7 +118,7 @@ class TransactionStreamingQueries(
 
   def fetchEventPayloadsFlat(target: EventPayloadSourceForFlatTx)(
       eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Ref.Party],
+      allFilterParties: Option[Set[Ref.Party]],
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
     target match {
       case EventPayloadSourceForFlatTx.Consuming =>
@@ -171,7 +171,7 @@ class TransactionStreamingQueries(
   }
 
   def fetchIdsOfCreateEventsForStakeholder(
-      stakeholder: Ref.Party,
+      stakeholderO: Option[Ref.Party],
       templateIdO: Option[Ref.Identifier],
       startExclusive: Long,
       endInclusive: Long,
@@ -179,7 +179,7 @@ class TransactionStreamingQueries(
   )(connection: Connection): Vector[Long] = {
     TransactionStreamingQueries.fetchEventIds(
       tableName = "lapi_pe_create_id_filter_stakeholder",
-      witness = stakeholder,
+      witnessO = stakeholderO,
       templateIdO = templateIdO,
       startExclusive = startExclusive,
       endInclusive = endInclusive,
@@ -189,7 +189,7 @@ class TransactionStreamingQueries(
   }
 
   private def fetchIdsOfConsumingEventsForStakeholder(
-      stakeholder: Ref.Party,
+      stakeholder: Option[Ref.Party],
       templateIdO: Option[Ref.Identifier],
       startExclusive: Long,
       endInclusive: Long,
@@ -197,7 +197,7 @@ class TransactionStreamingQueries(
   )(connection: Connection): Vector[Long] = {
     TransactionStreamingQueries.fetchEventIds(
       tableName = "lapi_pe_consuming_id_filter_stakeholder",
-      witness = stakeholder,
+      witnessO = stakeholder,
       templateIdO = templateIdO,
       startExclusive = startExclusive,
       endInclusive = endInclusive,
@@ -210,12 +210,15 @@ class TransactionStreamingQueries(
       tableName: String,
       selectColumns: String,
       eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Ref.Party],
+      allFilterParties: Option[Set[Ref.Party]],
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
-    val internedAllParties: Set[Int] = allFilterParties.iterator
-      .map(stringInterning.party.tryInternalize)
-      .flatMap(_.iterator)
-      .toSet
+    val internedAllParties: Option[Set[Int]] = allFilterParties
+      .map(
+        _.iterator
+          .map(stringInterning.party.tryInternalize)
+          .flatMap(_.iterator)
+          .toSet
+      )
     SQL"""
         SELECT
           #$selectColumns,
@@ -263,50 +266,68 @@ class TransactionStreamingQueries(
 object TransactionStreamingQueries {
 
   /** @param tableName   one of filter tables for create, consuming or non-consuming events
+    * @param witnessO    the party for which to fetch the event ids, if None the event ids for all the parties should be fetched
     * @param templateIdO NOTE: this parameter is not applicable for tree tx stream only oriented filters
     */
   def fetchEventIds(
       tableName: String,
-      witness: Ref.Party,
+      witnessO: Option[Ref.Party],
       templateIdO: Option[Ref.Identifier],
       startExclusive: Long,
       endInclusive: Long,
       limit: Int,
       stringInterning: StringInterning,
   )(connection: Connection): Vector[Long] = {
-    (
-      stringInterning.party.tryInternalize(witness),
-      templateIdO.map(stringInterning.templateId.tryInternalize),
-    ) match {
-      case (None, _) => Vector.empty // partyFilter never seen
-      case (_, Some(None)) => Vector.empty // templateIdFilter never seen
-      case (Some(internedPartyFilter), internedTemplateIdFilterNested: Option[Option[Int]]) =>
-        val (templateIdFilterClause, templateIdOrderingClause) =
-          internedTemplateIdFilterNested.flatten // flatten works for both None, Some(Some(x)) case, Some(None) excluded before
-          match {
-            case Some(internedTemplateId) =>
-              (
-                cSQL"AND filters.template_id = $internedTemplateId",
-                cSQL"filters.template_id,",
-              )
-            case None => (cSQL"", cSQL"")
-          }
+    val partyIdFilterO = witnessO match {
+      case Some(witness) =>
+        stringInterning.party
+          .tryInternalize(witness) match {
+          case Some(internedPartyFilter) =>
+            // use ordering by party_id even though we are restricting the query to a single party_id
+            // to ensure that the correct db index is used
+            Some((cSQL"AND filters.party_id = $internedPartyFilter", cSQL"filters.party_id,"))
+          case None => None // partyFilter never seen
+        }
+      case None =>
+        // do not filter by party, fetch event for all parties
+        Some((cSQL"", cSQL""))
+    }
+
+    val templateIdFilterO = templateIdO.map(stringInterning.templateId.tryInternalize) match {
+      case Some(None) => None // templateIdFilter never seen
+      case internedTemplateIdFilterNested =>
+        internedTemplateIdFilterNested.flatten // flatten works for both None, Some(Some(x)) case, Some(None) excluded before
+        match {
+          case Some(internedTemplateId) =>
+            // use ordering by template_id even though we are restricting the query to a single template_id
+            // to ensure that the correct db index is used
+            Some((cSQL"AND filters.template_id = $internedTemplateId", cSQL"filters.template_id,"))
+          case None => Some((cSQL"", cSQL""))
+        }
+    }
+
+    (partyIdFilterO, templateIdFilterO) match {
+      case (
+            Some((partyIdFilterClause, partyIdOrderingClause)),
+            Some((templateIdFilterClause, templateIdOrderingClause)),
+          ) =>
         SQL"""
          SELECT filters.event_sequential_id
          FROM
            #$tableName filters
          WHERE
-           filters.party_id = $internedPartyFilter
-           $templateIdFilterClause
-           AND $startExclusive < event_sequential_id
+           $startExclusive < event_sequential_id
            AND event_sequential_id <= $endInclusive
+           $partyIdFilterClause
+           $templateIdFilterClause
          ORDER BY
-           filters.party_id,
+           $partyIdOrderingClause
            $templateIdOrderingClause
            filters.event_sequential_id -- deliver in index order
          ${QueryStrategy.limitClause(Some(limit))}
        """
           .asVectorOf(long("event_sequential_id"))(connection)
+      case _ => Vector.empty
     }
   }
 

@@ -7,6 +7,7 @@ import cats.data.EitherT
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.RegisterError
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   CreateSubscriptionError,
   RegisterMemberError,
@@ -17,7 +18,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerRateLimitManager,
   SequencerTrafficStatus,
 }
-import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
+import com.digitalasset.canton.health.admin.data.{SequencerAdminStatus, SequencerHealthStatus}
 import com.digitalasset.canton.health.{AtomicHealthElement, CloseableHealthQuasiComponent}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLogging}
@@ -30,13 +31,12 @@ import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.TrafficCo
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.Done
 import org.apache.pekko.stream.KillSwitch
 import org.apache.pekko.stream.scaladsl.Source
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 /** Errors from pruning */
 sealed trait PruningError {
@@ -78,11 +78,19 @@ trait Sequencer
     SequencerHealthStatus(isActive = true)
   override def closingState: SequencerHealthStatus = SequencerHealthStatus.shutdownStatus
 
+  /** True if member is registered in sequencer persistent state / storage (i.e. database).
+    */
   def isRegistered(member: Member)(implicit traceContext: TraceContext): Future[Boolean]
 
+  /** Registers member within the sequencer's persistent state.
+    *  For authenticated member requires it to be known in topology at head.
+    *  Authenticated members are always registered at their first topology tx effective timestamp.
+    *  Unauthenticated members are registered at the current time using sequencer's `clock`.
+    *  Idempotent, can be called multiple times for the same member.
+    */
   def registerMember(member: Member)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencerWriteError[RegisterMemberError], Unit]
+  ): EitherT[Future, RegisterError, Unit]
 
   def sendAsyncSigned(signedSubmission: SignedContent[SubmissionRequest])(implicit
       traceContext: TraceContext
@@ -107,16 +115,6 @@ trait Sequencer
   def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, SequencerSnapshot]
-
-  /** First check is the member is registered and if not call `registerMember` */
-  def ensureRegistered(member: Member)(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
-  ): EitherT[Future, SequencerWriteError[RegisterMemberError], Unit] =
-    for {
-      isRegistered <- EitherT.right[SequencerWriteError[RegisterMemberError]](isRegistered(member))
-      _ <- EitherTUtil.ifThenET(!isRegistered)(registerMember(member))
-    } yield ()
 
   /** Disable the provided member. Should prevent them from reading or writing in the future (although they can still be addressed).
     * Their unread data can also be pruned.
@@ -166,6 +164,10 @@ trait Sequencer
   def rateLimitManager: Option[SequencerRateLimitManager] = None
 
   def adminServices: Seq[ServerServiceDefinition] = Seq.empty
+
+  /** Status relating to administrative sequencer operations.
+    */
+  def adminStatus: SequencerAdminStatus
 }
 
 /** Sequencer pruning interface.
@@ -304,4 +306,6 @@ object Sequencer extends HasLoggerName {
     def submissionRequest: SubmissionRequest = signedSubmissionRequest.content
     def toByteString = value.toByteString
   }
+
+  type RegisterError = SequencerWriteError[RegisterMemberError]
 }

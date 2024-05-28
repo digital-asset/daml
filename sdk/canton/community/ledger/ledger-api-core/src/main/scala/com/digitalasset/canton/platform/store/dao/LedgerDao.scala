@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
@@ -20,12 +19,12 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
-import com.digitalasset.canton.ledger.participant.state.index.{IndexerPartyDetails, PackageDetails}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.digitalasset.canton.platform.store.entries.{PackageLedgerEntry, PartyLedgerEntry}
+import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
@@ -129,24 +128,6 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContextWithTrace): Source[(Offset, PartyLedgerEntry), NotUsed]
 
-  /** Returns a list of all known Daml-LF packages */
-  def listLfPackages()(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Map[PackageId, PackageDetails]]
-
-  /** Returns the given Daml-LF archive */
-  def getLfArchive(packageId: PackageId)(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Option[Archive]]
-
-  /** Returns a stream of package upload entries.
-    * @return a stream of package entries tupled with their offset
-    */
-  def getPackageEntries(
-      startExclusive: Offset,
-      endInclusive: Offset,
-  )(implicit loggingContext: LoggingContextWithTrace): Source[(Offset, PackageLedgerEntry), NotUsed]
-
   /** Prunes participant events and completions in archived history and remembers largest
     * pruning offset processed thus far.
     *
@@ -213,16 +194,6 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
     * @return Ok when the operation was successful otherwise a Duplicate
     */
   def storePartyEntry(offset: Offset, partyEntry: PartyLedgerEntry)(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[PersistenceResponse]
-
-  /** Store a Daml-LF package upload result.
-    */
-  def storePackageEntry(
-      offset: Offset,
-      packages: List[(Archive, PackageDetails)],
-      optEntry: Option[PackageLedgerEntry],
-  )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[PersistenceResponse]
 

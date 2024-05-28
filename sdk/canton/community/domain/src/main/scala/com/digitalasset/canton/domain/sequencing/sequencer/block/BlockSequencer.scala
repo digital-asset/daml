@@ -22,11 +22,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.{
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
-import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
-  CreateSubscriptionError,
-  RegisterMemberError,
-  SequencerWriteError,
-}
+import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerRateLimitManager,
   SequencerTrafficStatus,
@@ -34,7 +30,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
 import com.digitalasset.canton.domain.sequencing.traffic.EnterpriseSequencerRateLimitManager.TrafficStateUpdateResult
 import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficPurchasedStore
 import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
-import com.digitalasset.canton.lifecycle.*
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, *}
 import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
@@ -64,7 +60,7 @@ import scala.util.chaining.*
 import scala.util.{Failure, Success}
 
 class BlockSequencer(
-    blockSequencerOps: BlockSequencerOps,
+    blockOrderer: BlockOrderer,
     name: String,
     domainId: DomainId,
     cryptoApi: DomainSyncCryptoClient,
@@ -149,7 +145,7 @@ class BlockSequencer(
       unifiedSequencer = unifiedSequencer,
     )(CloseContext(cryptoApi))
 
-    val driverSource = blockSequencerOps
+    val driverSource = blockOrderer
       .subscribe()(TraceContext.empty)
       // Explicit async to make sure that the block processing runs in parallel with the block retrieval
       .async
@@ -232,7 +228,7 @@ class BlockSequencer(
     sendAsyncSignedInternal(signedContent)
   }
 
-  override def adminServices: Seq[ServerServiceDefinition] = blockSequencerOps.adminServices
+  override def adminServices: Seq[ServerServiceDefinition] = blockOrderer.adminServices
 
   private def signOrderingRequest[A <: HasCryptographicEvidence](
       content: SignedContent[SubmissionRequest]
@@ -277,6 +273,7 @@ class BlockSequencer(
       _ <- validateMaxSequencingTime(submission).mapK(FutureUnlessShutdown.outcomeK)
       memberCheck <- EitherT
         .right[SendAsyncError](
+          // TODO(#18399): currentApproximation vs headSnapshot?
           cryptoApi.currentSnapshotApproximation.ipsSnapshot
             .allMembers()
             .map(allMembers =>
@@ -284,6 +281,7 @@ class BlockSequencer(
             )
         )
         .mapK(FutureUnlessShutdown.outcomeK)
+      // TODO(#18399): Why we don't check group recipients here?
       _ <- SequencerValidations
         .checkSenderAndRecipientsAreRegistered(
           submission,
@@ -302,7 +300,7 @@ class BlockSequencer(
             .supervised(
               s"Sending submission request with id ${submission.messageId} from $sender to ${batch.allRecipients}"
             )(
-              blockSequencerOps.send(signedOrderingRequest).value
+              blockOrderer.send(signedOrderingRequest).value
             )
         ).mapK(FutureUnlessShutdown.outcomeK)
     } yield ()
@@ -342,17 +340,6 @@ class BlockSequencer(
     } else {
       if (!member.isAuthenticated) Future.successful(true)
       else cryptoApi.headSnapshot.ipsSnapshot.isMemberKnown(member)
-    }
-  }
-
-  override def registerMember(member: Member)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, SequencerWriteError[RegisterMemberError], Unit] = {
-    if (unifiedSequencer) {
-      super.registerMember(member)
-    } else {
-      // there is nothing extra to be done for member registration in Canton 3.x
-      EitherT.rightT[Future, SequencerWriteError[RegisterMemberError]](())
     }
   }
 
@@ -404,7 +391,7 @@ class BlockSequencer(
     val waitForAcknowledgementF =
       stateManager.waitForAcknowledgementToComplete(req.member, req.timestamp)
     for {
-      _ <- blockSequencerOps.acknowledge(signedAcknowledgeRequest)
+      _ <- blockOrderer.acknowledge(signedAcknowledgeRequest)
       _ <- waitForAcknowledgementF
     } yield ()
   }
@@ -426,7 +413,10 @@ class BlockSequencer(
               .tap(snapshot =>
                 if (logger.underlying.isDebugEnabled()) {
                   logger.debug(
-                    s"Snapshot for timestamp $timestamp: $snapshot with ephemeral state: $blockEphemeralState"
+                    s"Snapshot for timestamp $timestamp generated from ephemeral state:\n$blockEphemeralState"
+                  )
+                  logger.debug(
+                    s"Resulting snapshot for timestamp $timestamp:\n$snapshot"
                   )
                 }
               ),
@@ -519,7 +509,7 @@ class BlockSequencer(
       traceContext: TraceContext
   ): Future[SequencerHealthStatus] =
     for {
-      ledgerStatus <- blockSequencerOps.health
+      ledgerStatus <- blockOrderer.health
       isStorageActive = storage.isActive
       _ = logger.trace(s"Storage active: ${storage.isActive}")
     } yield {
@@ -550,7 +540,7 @@ class BlockSequencer(
         super[DatabaseSequencer].onClosed(),
       ),
       AsyncCloseable("done", done, timeouts.shutdownProcessing),
-      SyncCloseable("blockSequencerOps.close()", blockSequencerOps.close()),
+      SyncCloseable("blockOrderer.close()", blockOrderer.close()),
     )
   }
 
@@ -586,6 +576,8 @@ class BlockSequencer(
           // Filter by authenticated, enabled members that have been requested
           val disabledMembers = headEphemeral.status.disabledMembers
           val knownValidMembers = headEphemeral.status.membersMap.keySet.collect {
+            // TODO(#18399): Sequencers are giving warnings in the logs, but are excluded?
+            // case m @ (_: ParticipantId | _: MediatorId | _: SequencerId)
             case m @ (_: ParticipantId | _: MediatorId)
                 if !disabledMembers.contains(m) &&
                   (requestedMembers.isEmpty || requestedMembers.contains(m)) =>

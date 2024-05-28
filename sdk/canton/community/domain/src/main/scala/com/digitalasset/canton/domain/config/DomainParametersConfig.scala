@@ -97,7 +97,7 @@ final case class DomainParametersConfig(
         cryptoConfig.provider.supportedCryptoKeyFormatsForProtocol(protocolVersion)
       )
     } yield {
-      StaticDomainParameters.create(
+      StaticDomainParameters(
         requiredSigningKeySchemes = newRequiredSigningKeySchemes,
         requiredEncryptionKeySchemes = newRequiredEncryptionKeySchemes,
         requiredSymmetricKeySchemes = newRequiredSymmetricKeySchemes,

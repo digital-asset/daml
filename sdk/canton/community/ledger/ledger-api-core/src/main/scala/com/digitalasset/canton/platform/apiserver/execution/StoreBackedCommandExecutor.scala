@@ -16,11 +16,8 @@ import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, DisclosedContract}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.index.{
-  ContractState,
-  ContractStore,
-  IndexPackagesService,
-}
+import com.digitalasset.canton.ledger.participant.state.ReadService
+import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -48,7 +45,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[apiserver] final class StoreBackedCommandExecutor(
     engine: Engine,
     participant: Ref.ParticipantId,
-    packagesService: IndexPackagesService,
+    readService: ReadService,
     contractStore: ContractStore,
     authorityResolver: AuthorityResolver,
     authenticateContract: AuthenticateContract,
@@ -259,7 +256,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           packageLoader
             .loadPackage(
               packageId = packageId,
-              delegate = packageId => packagesService.getLfArchive(packageId)(loggingContext),
+              delegate = readService.getLfArchive(_)(loggingContext.traceContext),
               metric = metrics.execution.getLfPackage,
             )
             .flatMap { maybePackage =>
@@ -283,13 +280,15 @@ private[apiserver] final class StoreBackedCommandExecutor(
           // is true, then the Record Time (assigned later on when the transaction is sequenced) is already
           // out of bounds, and the sequencer will reject the transaction. We can therefore abort the
           // interpretation and return an error to the application.
+
+          // Using a `Future` as a trampoline to make the recursive call to `resolveStep` stack safe.
           def resume(): Future[Either[ErrorCause, A]] =
-            resolveStep(
+            Future {
               Tracked.value(
                 metrics.execution.engineRunning,
                 trackSyncExecution(interpretationTimeNanos)(continue()),
               )
-            )
+            }.flatMap(resolveStep)
 
           ledgerTimeRecordTimeToleranceO match {
             // Fall back to not checking if the tolerance could not be retrieved
@@ -525,7 +524,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
           unusedTxVersion,
           ContractInstance(
             packageName = disclosedContract.packageName,
-            packageVersion = None,
             template = disclosedContract.templateId,
             arg = disclosedContract.argument,
           ),

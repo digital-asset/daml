@@ -10,14 +10,14 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
-import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.mutable
+import scala.concurrent.Promise
 import scala.concurrent.duration.*
-import scala.concurrent.{Future, Promise}
 import scala.jdk.DurationConverters.*
 
-class PeriodicAcknowledgementsTest extends AsyncWordSpec with BaseTest with HasExecutionContext {
+class PeriodicAcknowledgementsTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   class Env(
       initialCleanTimestamp: Option[CantonTimestamp] = None,
@@ -32,7 +32,7 @@ class PeriodicAcknowledgementsTest extends AsyncWordSpec with BaseTest with HasE
     val sut = new PeriodicAcknowledgements(
       true,
       interval,
-      fetchLatestCleanTimestamp = _ => Future.successful(latestCleanTimestamp),
+      fetchLatestCleanTimestamp = _ => FutureUnlessShutdown.pure(latestCleanTimestamp),
       acknowledge = tts => {
         acknowledgements.append(tts.value)
         acknowledged.trySuccess(tts.value)

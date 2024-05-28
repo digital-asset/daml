@@ -171,6 +171,7 @@ class MainIndexDBHistograms(val prefix: MetricName)(implicit
   )
 
   private val translationPrefix = prefix :+ "translation"
+  // TODO(#17635): It's not an IndexDB op anymore
   private[metrics] val getLfPackage: Item = Item(
     translationPrefix :+ "get_lf_package",
     summary = "The time needed to deserialize and decode a Daml-LF archive.",
@@ -313,10 +314,6 @@ class MainIndexDBMetrics(
   )
   val loadParties: DatabaseMetrics = createDbMetrics("load_parties")
   val loadAllParties: DatabaseMetrics = createDbMetrics("load_all_parties")
-  val loadPackages: DatabaseMetrics = createDbMetrics("load_packages")
-  val loadArchive: DatabaseMetrics = createDbMetrics("load_archive")
-  val storePackageEntryDbMetrics: DatabaseMetrics = createDbMetrics("store_package_entry")
-  val loadPackageEntries: DatabaseMetrics = createDbMetrics("load_package_entries")
   val pruneDbMetrics: DatabaseMetrics = createDbMetrics("prune")
   val fetchPruningOffsetsMetrics: DatabaseMetrics = createDbMetrics("fetch_pruning_offsets")
   val lookupCreatedContractsDbMetrics: DatabaseMetrics = createDbMetrics("lookup_created_contracts")

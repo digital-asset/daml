@@ -8,12 +8,11 @@ import com.digitalasset.canton.config.CommunityCryptoProvider.Jce
 import com.digitalasset.canton.crypto.CryptoTestHelper.TestMessage
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.tracing.NoReportingTracerProvider
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
-
-import scala.concurrent.Future
 
 class JceCryptoTest
     extends AsyncWordSpec
@@ -27,7 +26,7 @@ class JceCryptoTest
 
   "JceCrypto" can {
 
-    def jceCrypto(): Future[Crypto] =
+    def jceCrypto(): FutureUnlessShutdown[Crypto] =
       new CommunityCryptoFactory()
         .create(
           CommunityCryptoConfig(provider = Jce),
@@ -38,7 +37,7 @@ class JceCryptoTest
           loggerFactory,
           NoReportingTracerProvider,
         )
-        .valueOrFailShutdown("failed to create crypto")
+        .valueOrFail("failed to create crypto")
 
     behave like signingProvider(Jce.signing.supported, jceCrypto())
     behave like encryptionProvider(
@@ -81,7 +80,7 @@ class JceCryptoTest
                 .valueOrFail("encrypt")
               _ = assert(message.bytes != encrypted2.ciphertext)
             } yield encrypted1.ciphertext shouldEqual encrypted2.ciphertext
-          }
+          }.failOnShutdown
         }
     }
 
@@ -98,7 +97,7 @@ class JceCryptoTest
       Jce.signing.supported,
       Jce.encryption.supported,
       Jce.supportedCryptoKeyFormats,
-      jceCrypto(),
+      jceCrypto().failOnShutdown,
     )
   }
 }

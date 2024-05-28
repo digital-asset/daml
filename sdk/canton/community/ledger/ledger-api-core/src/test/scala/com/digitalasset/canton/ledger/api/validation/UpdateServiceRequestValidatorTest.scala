@@ -133,7 +133,7 @@ class UpdateServiceRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: filtersByParty cannot be empty",
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: filtersByParty and filtersForAnyParty cannot be empty simultaneously",
           metadata = Map.empty,
         )
       }

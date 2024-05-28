@@ -18,7 +18,13 @@ import com.daml.lf.transaction.{CommittedTransaction, NodeId}
 import com.daml.lf.value.Value
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.FinalReason
-import com.digitalasset.canton.ledger.participant.state.*
+import com.digitalasset.canton.ledger.participant.state.{
+  CompletionInfo,
+  Reassignment,
+  ReassignmentInfo,
+  TransactionMeta,
+  Update,
+}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
@@ -32,7 +38,6 @@ import com.digitalasset.canton.platform.store.cache.{
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.CreatedEvent
 import com.digitalasset.canton.platform.store.interning.StringInterningView
-import com.digitalasset.canton.platform.store.packagemeta.{PackageMetadata, PackageMetadataView}
 import com.digitalasset.canton.platform.{DispatcherState, InMemoryState}
 import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
 import com.digitalasset.canton.topology.DomainId
@@ -64,13 +69,11 @@ class InMemoryStateUpdaterSpec
       Seq(
         Vector(update1, metadataChangedUpdate) -> 1L,
         Vector(update3, update4) -> 3L,
-        Vector(update5, update7, update8) -> 6L,
       )
     )
     cacheUpdates should contain theSameElementsInOrderAs Seq(
       result(1L),
       result(3L),
-      result(6L),
     )
   }
 
@@ -81,25 +84,23 @@ class InMemoryStateUpdaterSpec
         Vector.empty -> 1L,
         Vector(update3) -> 3L,
         Vector(anotherMetadataChangedUpdate) -> 3L,
-        Vector(update5) -> 4L,
       )
     )
 
     cacheUpdates should contain theSameElementsInOrderAs Seq(
       result(3L),
       result(3L), // Results in empty batch after processing
-      result(4L), // Should still have effect on ledger end updates
     )
   }
 
   "prepare" should "throw exception for an empty vector" in new Scope {
     an[NoSuchElementException] should be thrownBy {
-      InMemoryStateUpdater.prepare(emptyArchiveToMetadata)(Vector.empty, 0L)
+      InMemoryStateUpdater.prepare(Vector.empty, 0L)
     }
   }
 
   "prepare" should "prepare a batch of a single update" in new Scope {
-    InMemoryStateUpdater.prepare(emptyArchiveToMetadata)(
+    InMemoryStateUpdater.prepare(
       Vector(update1),
       0L,
     ) shouldBe PrepareResult(
@@ -107,12 +108,11 @@ class InMemoryStateUpdaterSpec
       offset(1L),
       0L,
       update1._2.traceContext,
-      PackageMetadata(),
     )
   }
 
   "prepare" should "prepare a batch with reassignments" in new Scope {
-    InMemoryStateUpdater.prepare(emptyArchiveToMetadata)(
+    InMemoryStateUpdater.prepare(
       Vector(update1, update7, update8),
       0L,
     ) shouldBe PrepareResult(
@@ -120,12 +120,11 @@ class InMemoryStateUpdaterSpec
       offset(8L),
       0L,
       update1._2.traceContext,
-      PackageMetadata(),
     )
   }
 
   "prepare" should "set last offset and eventSequentialId to last element" in new Scope {
-    InMemoryStateUpdater.prepare(emptyArchiveToMetadata)(
+    InMemoryStateUpdater.prepare(
       Vector(update1, metadataChangedUpdate),
       6L,
     ) shouldBe PrepareResult(
@@ -133,35 +132,12 @@ class InMemoryStateUpdaterSpec
       offset(2L),
       6L,
       metadataChangedUpdate._2.traceContext,
-      PackageMetadata(),
-    )
-  }
-
-  "prepare" should "append package metadata" in new Scope {
-    def metadata: DamlLf.Archive => PackageMetadata = {
-      case archive if archive.getHash == "00001" =>
-        PackageMetadata(templates = Set(templateId))
-      case archive if archive.getHash == "00002" =>
-        PackageMetadata(templates = Set(templateId2))
-      case _ => fail("unexpected archive hash")
-    }
-
-    InMemoryStateUpdater.prepare(metadata)(
-      Vector(update5, update6),
-      0L,
-    ) shouldBe PrepareResult(
-      Vector(),
-      offset(6L),
-      0L,
-      update6._2.traceContext,
-      PackageMetadata(templates = Set(templateId, templateId2)),
     )
   }
 
   "update" should "update the in-memory state" in new Scope {
     InMemoryStateUpdater.update(inMemoryState, logger)(prepareResult)
 
-    inOrder.verify(packageMetadataView).update(packageMetadata)
     // TODO(i12283) LLP: Unit test contract state event conversion and cache updating
 
     inOrder
@@ -206,7 +182,6 @@ object InMemoryStateUpdaterSpec {
 
     override def handleFailure(message: String) = fail(message)
 
-    val emptyArchiveToMetadata: DamlLf.Archive => PackageMetadata = _ => PackageMetadata()
     val cacheUpdates = ArrayBuffer.empty[PrepareResult]
     val cachesUpdateCaptor =
       (v: PrepareResult) => cacheUpdates.addOne(v).pipe(_ => ())
@@ -316,7 +291,6 @@ object InMemoryStateUpdaterSpec {
     val inMemoryFanoutBuffer: InMemoryFanoutBuffer = mock[InMemoryFanoutBuffer]
     val stringInterningView: StringInterningView = mock[StringInterningView]
     val dispatcherState: DispatcherState = mock[DispatcherState]
-    val packageMetadataView: PackageMetadataView = mock[PackageMetadataView]
     val submissionTracker: SubmissionTracker = mock[SubmissionTracker]
     val dispatcher: Dispatcher[Offset] = mock[Dispatcher[Offset]]
 
@@ -326,7 +300,6 @@ object InMemoryStateUpdaterSpec {
       inMemoryFanoutBuffer,
       stringInterningView,
       dispatcherState,
-      packageMetadataView,
       submissionTracker,
       dispatcher,
     )
@@ -339,7 +312,6 @@ object InMemoryStateUpdaterSpec {
       inMemoryFanoutBuffer = inMemoryFanoutBuffer,
       stringInterningView = stringInterningView,
       dispatcherState = dispatcherState,
-      packageMetadataView = packageMetadataView,
       submissionTracker = submissionTracker,
       loggerFactory = loggerFactory,
     )(executorService)
@@ -413,7 +385,6 @@ object InMemoryStateUpdaterSpec {
           completionDetails = tx_rejected_completionDetails,
         )
       )(emptyTraceContext)
-    val packageMetadata: PackageMetadata = PackageMetadata(templates = Set(templateId))
 
     val lastOffset: Offset = tx_rejected_offset
     val lastEventSeqId = 123L
@@ -428,7 +399,6 @@ object InMemoryStateUpdaterSpec {
       lastOffset = lastOffset,
       lastEventSequentialId = lastEventSeqId,
       emptyTraceContext,
-      packageMetadata = packageMetadata,
     )
 
     def result(lastEventSequentialId: Long): PrepareResult =
@@ -437,7 +407,6 @@ object InMemoryStateUpdaterSpec {
         offset(1L),
         lastEventSequentialId,
         emptyTraceContext,
-        PackageMetadata(),
       )
 
     def runFlow(
@@ -552,24 +521,6 @@ object InMemoryStateUpdaterSpec {
     .setHashFunction(DamlLf.HashFunction.SHA256)
     .setPayload(ByteString.copyFromUtf8("payload 2"))
     .build
-
-  private val update5 = offset(5L) -> Traced[Update](
-    Update.PublicPackageUpload(
-      archives = List(archive),
-      sourceDescription = None,
-      recordTime = Timestamp.Epoch,
-      submissionId = None,
-    )
-  )
-
-  private val update6 = offset(6L) -> Traced[Update](
-    Update.PublicPackageUpload(
-      archives = List(archive2),
-      sourceDescription = None,
-      recordTime = Timestamp.Epoch,
-      submissionId = None,
-    )
-  )
 
   private val update7 = offset(7L) -> Traced[Update](
     Update.ReassignmentAccepted(

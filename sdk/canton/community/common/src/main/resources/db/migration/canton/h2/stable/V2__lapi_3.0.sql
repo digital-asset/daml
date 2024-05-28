@@ -21,45 +21,6 @@ CREATE TABLE lapi_parameters (
 );
 
 ---------------------------------------------------------------------------------------------------
--- List of packages
---
--- A table for tracking DAML-LF packages.
----------------------------------------------------------------------------------------------------
-CREATE TABLE lapi_packages (
-    package_id VARCHAR(4000) PRIMARY KEY NOT NULL,
-    upload_id VARCHAR(1000) NOT NULL,
-    source_description VARCHAR(1000),
-    package_size BIGINT NOT NULL,
-    known_since BIGINT NOT NULL,
-    ledger_offset VARCHAR(4000) NOT NULL,
-    package BINARY LARGE OBJECT NOT NULL
-);
-
-CREATE INDEX lapi_packages_ledger_offset_idx ON lapi_packages (ledger_offset);
-
----------------------------------------------------------------------------------------------------
--- Package entries
---
--- A table for tracking DAML-LF package submissions
--- It includes id to track the package submission and status
----------------------------------------------------------------------------------------------------
-CREATE TABLE lapi_package_entries (
-    ledger_offset VARCHAR(4000) PRIMARY KEY NOT NULL,
-    recorded_at BIGINT NOT NULL,
-    submission_id VARCHAR(1000),
-    typ VARCHAR(1000) NOT NULL,
-    rejection_reason VARCHAR(1000),
-
-    CONSTRAINT check_package_entry_type
-        CHECK (
-          (typ = 'accept' AND rejection_reason IS NULL) OR
-          (typ = 'reject' AND rejection_reason IS NOT NULL)
-        )
-);
-
-CREATE INDEX lapi_package_entries_idx ON lapi_package_entries (submission_id);
-
----------------------------------------------------------------------------------------------------
 -- Party entries
 --
 -- A table for tracking party allocation submissions
@@ -422,6 +383,7 @@ CREATE TABLE lapi_pe_create_id_filter_stakeholder (
 );
 CREATE INDEX lapi_pe_create_id_filter_stakeholder_pts_idx ON lapi_pe_create_id_filter_stakeholder(party_id, template_id, event_sequential_id);
 CREATE INDEX lapi_pe_create_id_filter_stakeholder_pt_idx ON lapi_pe_create_id_filter_stakeholder(party_id, event_sequential_id);
+CREATE INDEX lapi_pe_create_id_filter_stakeholder_ts_idx ON lapi_pe_create_id_filter_stakeholder(template_id, event_sequential_id);
 CREATE INDEX lapi_pe_create_id_filter_stakeholder_s_idx ON lapi_pe_create_id_filter_stakeholder(event_sequential_id);
 
 CREATE TABLE lapi_pe_create_id_filter_non_stakeholder_informee (
@@ -438,6 +400,7 @@ CREATE TABLE lapi_pe_consuming_id_filter_stakeholder (
 );
 CREATE INDEX lapi_pe_consuming_id_filter_stakeholder_pts_idx ON lapi_pe_consuming_id_filter_stakeholder(party_id, template_id, event_sequential_id);
 CREATE INDEX lapi_pe_consuming_id_filter_stakeholder_ps_idx  ON lapi_pe_consuming_id_filter_stakeholder(party_id, event_sequential_id);
+CREATE INDEX lapi_pe_consuming_id_filter_stakeholder_ts_idx  ON lapi_pe_consuming_id_filter_stakeholder(template_id, event_sequential_id);
 CREATE INDEX lapi_pe_consuming_id_filter_stakeholder_s_idx   ON lapi_pe_consuming_id_filter_stakeholder(event_sequential_id);
 
 CREATE TABLE lapi_pe_unassign_id_filter_stakeholder (
@@ -447,6 +410,7 @@ CREATE TABLE lapi_pe_unassign_id_filter_stakeholder (
 );
 CREATE INDEX lapi_pe_unassign_id_filter_stakeholder_pts_idx ON lapi_pe_unassign_id_filter_stakeholder(party_id, template_id, event_sequential_id);
 CREATE INDEX lapi_pe_unassign_id_filter_stakeholder_ps_idx  ON lapi_pe_unassign_id_filter_stakeholder(party_id, event_sequential_id);
+CREATE INDEX lapi_pe_unassign_id_filter_stakeholder_ts_idx  ON lapi_pe_unassign_id_filter_stakeholder(template_id, event_sequential_id);
 CREATE INDEX lapi_pe_unassign_id_filter_stakeholder_s_idx   ON lapi_pe_unassign_id_filter_stakeholder(event_sequential_id);
 
 CREATE TABLE lapi_pe_assign_id_filter_stakeholder (
@@ -456,6 +420,7 @@ CREATE TABLE lapi_pe_assign_id_filter_stakeholder (
 );
 CREATE INDEX lapi_pe_assign_id_filter_stakeholder_pts_idx ON lapi_pe_assign_id_filter_stakeholder(party_id, template_id, event_sequential_id);
 CREATE INDEX lapi_pe_assign_id_filter_stakeholder_ps_idx  ON lapi_pe_assign_id_filter_stakeholder(party_id, event_sequential_id);
+CREATE INDEX lapi_pe_assign_id_filter_stakeholder_ts_idx  ON lapi_pe_assign_id_filter_stakeholder(template_id, event_sequential_id);
 CREATE INDEX lapi_pe_assign_id_filter_stakeholder_s_idx   ON lapi_pe_assign_id_filter_stakeholder(event_sequential_id);
 
 CREATE TABLE lapi_pe_consuming_id_filter_non_stakeholder_informee (

@@ -16,7 +16,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.TransferProcessorError
 import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
 import com.digitalasset.canton.participant.util.DAMLe
-import com.digitalasset.canton.protocol.TargetDomainId
+import com.digitalasset.canton.protocol.{StaticDomainParameters, TargetDomainId}
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
@@ -27,6 +27,7 @@ class TransferInProcessor(
     domainId: TargetDomainId,
     override val participantId: ParticipantId,
     damle: DAMLe,
+    staticDomainParameters: StaticDomainParameters,
     transferCoordination: TransferCoordination,
     inFlightSubmissionTracker: InFlightSubmissionTracker,
     ephemeral: SyncDomainEphemeralState,
@@ -51,6 +52,7 @@ class TransferInProcessor(
         damle,
         transferCoordination,
         seedGenerator,
+        staticDomainParameters,
         targetProtocolVersion,
         loggerFactory,
       ),
@@ -59,6 +61,7 @@ class TransferInProcessor(
       domainCrypto,
       sequencerClient,
       domainId.unwrap,
+      staticDomainParameters,
       targetProtocolVersion.v,
       loggerFactory,
       futureSupervisor,

@@ -66,6 +66,7 @@ private[transfer] class TransferInProcessingSteps(
     val engine: DAMLe,
     transferCoordination: TransferCoordination,
     seedGenerator: SeedGenerator,
+    staticDomainParameters: StaticDomainParameters,
     targetProtocolVersion: TargetProtocolVersion,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -95,6 +96,7 @@ private[transfer] class TransferInProcessingSteps(
 
   private val transferInValidation = new TransferInValidation(
     domainId,
+    staticDomainParameters,
     participantId,
     engine,
     transferCoordination,
@@ -267,6 +269,7 @@ private[transfer] class TransferInProcessingSteps(
   ]] =
     EncryptedViewMessage
       .decryptFor(
+        staticDomainParameters,
         snapshot,
         sessionKeyStore,
         envelope.protocolMessage,
@@ -520,7 +523,11 @@ private[transfer] class TransferInProcessingSteps(
       hashOps: HashOps,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, CommitAndStoreContractsAndPublishEvent] = {
+  ): EitherT[
+    FutureUnlessShutdown,
+    TransferProcessorError,
+    CommitAndStoreContractsAndPublishEvent,
+  ] = {
     val PendingTransferIn(
       requestId,
       requestCounter,
@@ -597,7 +604,7 @@ private[transfer] class TransferInProcessingSteps(
 
       case rejection: Verdict.MediatorReject => rejected(rejection)
     }
-  }
+  }.mapK(FutureUnlessShutdown.outcomeK)
 
   private[transfer] def createTransferredIn(
       contract: SerializableContract,
@@ -617,7 +624,6 @@ private[transfer] class TransferInProcessingSteps(
         coid = contract.contractId,
         templateId = contractInst.template,
         packageName = contractInst.packageName,
-        packageVersion = None,
         arg = contractInst.arg,
         signatories = contract.metadata.signatories,
         stakeholders = contract.metadata.stakeholders,
@@ -747,7 +753,7 @@ object TransferInProcessingSteps {
           transferCounter,
         )
         .leftMap(reason => InvalidTransferView(reason))
-      tree = TransferInViewTree(commonData, view)(pureCrypto)
+      tree = TransferInViewTree(commonData, view, targetProtocolVersion, pureCrypto)
     } yield FullTransferInTree(tree)
   }
 }

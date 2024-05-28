@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol.validation
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.data.ViewPosition.MerkleSeqIndex
-import com.digitalasset.canton.data.{CantonTimestamp, Informee, PlainInformee, ViewPosition}
+import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.WrongRecipients
 import com.digitalasset.canton.participant.protocol.TestProcessingSteps.TestViewTree
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
@@ -53,8 +53,6 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
 
   def mkRootHash(i: Int): RootHash = RootHash(TestHash.digest(i))
 
-  def informeeOf(parties: LfPartyId*): Set[Informee] = parties.map(PlainInformee).toSet
-
   @tailrec
   final def mkViewPosition(depth: Int, acc: ViewPosition = ViewPosition.root): ViewPosition =
     if (depth <= 0) acc else mkViewPosition(depth - 1, MerkleSeqIndex(List.empty) +: acc)
@@ -81,7 +79,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
     val viewTree = TestViewTree(
       viewHash(1),
       mkRootHash(rootHash),
-      informeeOf(informees*),
+      informees.toSet,
       viewPosition = mkViewPosition(viewDepth),
     )
     val recipients = Recipients.cc(members.head1, members.tail1*)
@@ -97,7 +95,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
     val viewTree = TestViewTree(
       viewHash(1),
       mkRootHash(rootHash),
-      informeeOf(informees*),
+      informees.toSet,
       viewPosition = mkViewPosition(viewDepth),
     )
     TestInput(viewTree, recipients)

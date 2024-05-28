@@ -3,16 +3,15 @@
 
 package com.digitalasset.canton.crypto
 
-import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.google.protobuf.ByteString
-import org.scalatest.wordspec.AsyncWordSpecLike
+import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
-
-trait CryptoTestHelper extends BaseTest {
-  this: AsyncWordSpecLike =>
+trait CryptoTestHelper extends BaseTest with HasExecutionContext {
+  this: AsyncWordSpec =>
 
   /** Gets a new encryption key by generating a new key.
     *
@@ -24,18 +23,17 @@ trait CryptoTestHelper extends BaseTest {
   protected def getEncryptionPublicKey(
       crypto: Crypto,
       scheme: EncryptionKeyScheme,
-  ): Future[EncryptionPublicKey] =
+  ): FutureUnlessShutdown[EncryptionPublicKey] =
     crypto
       .generateEncryptionKey(scheme)
       .valueOrFail("generate encryption key")
-      .failOnShutdown
 
   /** Helper method to get two different encryption public keys.
     */
   protected def getTwoEncryptionPublicKeys(
       crypto: Crypto,
       scheme: EncryptionKeyScheme,
-  ): Future[(EncryptionPublicKey, EncryptionPublicKey)] =
+  ): FutureUnlessShutdown[(EncryptionPublicKey, EncryptionPublicKey)] =
     for {
       pubKey1 <- getEncryptionPublicKey(crypto, scheme)
       pubKey2 <- getEncryptionPublicKey(crypto, scheme)
@@ -51,11 +49,10 @@ trait CryptoTestHelper extends BaseTest {
   protected def getSigningPublicKey(
       crypto: Crypto,
       scheme: SigningKeyScheme,
-  ): Future[SigningPublicKey] = {
+  ): FutureUnlessShutdown[SigningPublicKey] = {
     crypto
       .generateSigningKey(scheme)
       .valueOrFail("generate signing key")
-      .failOnShutdown
   }
 
   /** Helper method to get two different signing public keys.
@@ -63,7 +60,7 @@ trait CryptoTestHelper extends BaseTest {
   protected def getTwoSigningPublicKeys(
       crypto: Crypto,
       scheme: SigningKeyScheme,
-  ): Future[(SigningPublicKey, SigningPublicKey)] =
+  ): FutureUnlessShutdown[(SigningPublicKey, SigningPublicKey)] =
     for {
       pubKey1 <- getSigningPublicKey(crypto, scheme)
       pubKey2 <- getSigningPublicKey(crypto, scheme)

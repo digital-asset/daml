@@ -6,13 +6,14 @@ package com.digitalasset.canton.participant.domain.grpc
 import cats.Eval
 import cats.data.EitherT
 import cats.instances.future.*
+import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.*
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
 import com.digitalasset.canton.config.{CryptoConfig, ProcessingTimeout, TestingConfigInternal}
-import com.digitalasset.canton.crypto.SyncCryptoApiProvider
+import com.digitalasset.canton.crypto.{CryptoHandshakeValidator, SyncCryptoApiProvider}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
@@ -136,6 +137,11 @@ class GrpcDomainRegistry(
         .mapK(
           FutureUnlessShutdown.outcomeK
         )
+
+      _ <- CryptoHandshakeValidator
+        .validate(info.staticDomainParameters, cryptoConfig)
+        .leftMap(DomainRegistryError.HandshakeErrors.DomainCryptoHandshakeFailed.Error(_))
+        .toEitherT[FutureUnlessShutdown]
 
       _ <- aliasManager
         .processHandshake(config.domain, info.domainId)

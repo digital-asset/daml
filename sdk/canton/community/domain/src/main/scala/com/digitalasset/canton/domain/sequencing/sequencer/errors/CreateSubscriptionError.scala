@@ -15,7 +15,7 @@ object CreateSubscriptionError {
   final case class UnknownMember(member: Member) extends CreateSubscriptionError
 
   /** Problem registering an unauthenticated member */
-  final case class RegisterUnauthenticatedMemberError(e: SequencerWriteError[RegisterMemberError])
+  final case class MemberRegisterError(e: SequencerWriteError[RegisterMemberError])
       extends CreateSubscriptionError
 
   /** The member has been disabled and can no longer read. */

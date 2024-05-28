@@ -45,7 +45,6 @@ import com.digitalasset.canton.platform.config.{
   PartyManagementServiceConfig,
   UserManagementServiceConfig,
 }
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadataStore
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
@@ -79,7 +78,6 @@ object ApiServices {
       readService: ReadService,
       indexService: IndexService,
       userManagementStore: UserManagementStore,
-      packageMetadataStore: PackageMetadataStore,
       identityProviderConfigStore: IdentityProviderConfigStore,
       partyRecordStore: PartyRecordStore,
       authorizer: Authorizer,
@@ -107,7 +105,6 @@ object ApiServices {
       telemetry: Telemetry,
       val loggerFactory: NamedLoggerFactory,
       dynParamGetter: DynamicDomainParameterGetter,
-      disableUpgradeValidation: Boolean,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -115,7 +112,6 @@ object ApiServices {
   ) extends ResourceOwner[ApiServices]
       with NamedLogging {
 
-    private val packagesService: IndexPackagesService = indexService
     private val activeContractsService: IndexActiveContractsService = indexService
     private val transactionsService: IndexTransactionsService = indexService
     private val eventQueryService: IndexEventQueryService = indexService
@@ -190,7 +186,7 @@ object ApiServices {
         )
         val apiEventQueryService =
           new ApiEventQueryService(eventQueryService, telemetry, loggerFactory)
-        val apiPackageService = new ApiPackageService(packagesService, telemetry, loggerFactory)
+        val apiPackageService = new ApiPackageService(readService, telemetry, loggerFactory)
         val apiUpdateService =
           new ApiUpdateService(
             transactionsService,
@@ -301,7 +297,7 @@ object ApiServices {
             new StoreBackedCommandExecutor(
               engine,
               participantId,
-              packagesService,
+              readService,
               contractStore,
               authorityResolver,
               authenticateContract,
@@ -320,8 +316,10 @@ object ApiServices {
         )
 
         val validateUpgradingPackageResolutions =
-          ValidateUpgradingPackageResolutions(packageMetadataStore)
-        val commandsValidator = CommandsValidator(
+          new ValidateUpgradingPackageResolutionsImpl(
+            getPackageMetadataSnapshot = readService.getPackageMetadataSnapshot(_)
+          )
+        val commandsValidator = new CommandsValidator(
           validateUpgradingPackageResolutions = validateUpgradingPackageResolutions
         )
         val commandSubmissionService =
@@ -350,17 +348,13 @@ object ApiServices {
           loggerFactory = loggerFactory,
         )
 
-        val apiPackageManagementService = ApiPackageManagementService.createApiService(
-          indexService,
-          transactionsService,
-          packageMetadataStore,
-          writeService,
-          managementServiceTimeout,
-          engine,
-          telemetry = telemetry,
-          loggerFactory = loggerFactory,
-          disableUpgradeValidation = disableUpgradeValidation,
-        )
+        val apiPackageManagementService =
+          ApiPackageManagementService.createApiService(
+            readService = readService,
+            writeBackend = writeService,
+            telemetry = telemetry,
+            loggerFactory = loggerFactory,
+          )
 
         val participantPruningService = ApiParticipantPruningService.createApiService(
           indexService,

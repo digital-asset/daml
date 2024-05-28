@@ -11,6 +11,7 @@ import cats.syntax.parallel.*
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
+import com.digitalasset.canton.data.ViewConfirmationParameters.InvalidViewConfirmationParameters
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
@@ -56,8 +57,7 @@ abstract class TransactionTreeFactoryImpl(
 
   private val unicumGenerator = new UnicumGenerator(cryptoOps)
   private val cantonContractIdVersion = AuthenticatedContractIdVersionV10
-  private val transactionViewDecompositionFactory: TransactionViewDecompositionFactory =
-    TransactionViewDecompositionFactory()
+  private val transactionViewDecompositionFactory = TransactionViewDecompositionFactory
   private val contractEnrichmentFactory = ContractEnrichmentFactory()
 
   protected type State <: TransactionTreeFactoryImpl.State
@@ -300,10 +300,10 @@ abstract class TransactionTreeFactoryImpl(
   ): Map[LfPartyId, Set[PackageId]] = {
     def requiredPackagesByParty(
         rootViewDecomposition: TransactionViewDecomposition.NewView,
-        parentInformee: Set[LfPartyId],
+        parentInformees: Set[LfPartyId],
     ): Map[LfPartyId, Set[PackageId]] = {
-      val rootInformees = rootViewDecomposition.informees.map(_.party)
-      val allInformees = parentInformee ++ rootInformees
+      val allInformees =
+        parentInformees ++ rootViewDecomposition.viewConfirmationParameters.informees
       val childRequirements =
         rootViewDecomposition.tailNodes.foldLeft(Map.empty[LfPartyId, Set[PackageId]]) {
           case (acc, newView: TransactionViewDecomposition.NewView) =>
@@ -483,8 +483,12 @@ abstract class TransactionTreeFactoryImpl(
   protected def createViewCommonData(
       rootView: TransactionViewDecomposition.NewView,
       salt: Salt,
-  ): ViewCommonData =
-    ViewCommonData.create(cryptoOps)(rootView.informees, rootView.threshold, salt, protocolVersion)
+  ): Either[InvalidViewConfirmationParameters, ViewCommonData] =
+    ViewCommonData.create(cryptoOps)(
+      rootView.viewConfirmationParameters,
+      salt,
+      protocolVersion,
+    )
 
   protected def createViewParticipantData(
       coreCreatedNodes: List[(LfNodeCreate, RollbackScope)],

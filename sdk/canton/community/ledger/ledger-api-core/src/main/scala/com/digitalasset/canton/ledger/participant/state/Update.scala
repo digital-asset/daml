@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.GrpcStatuses
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Bytes, Ref}
@@ -14,8 +13,6 @@ import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.topology.DomainId
 import com.google.rpc.status.Status as RpcStatus
-
-import java.time.Duration
 
 /** An update to the (abstract) participant state.
   *
@@ -128,72 +125,6 @@ object Update {
           Logging.recordTime(recordTime),
           Logging.submissionId(submissionId),
           Logging.participantId(participantId),
-          Logging.rejectionReason(rejectionReason),
-        )
-    }
-  }
-
-  /** Signal that a set of new packages has been uploaded.
-    *
-    * @param archives          The new packages that have been accepted.
-    * @param sourceDescription Description of the upload, if provided by the submitter.
-    * @param recordTime        The ledger-provided timestamp at which the package upload was
-    *                          committed.
-    * @param submissionId      The submission id of the upload. Unset if this participant was not the
-    *                          submitter.
-    */
-  final case class PublicPackageUpload(
-      archives: List[DamlLf.Archive],
-      sourceDescription: Option[String],
-      recordTime: Timestamp,
-      submissionId: Option[Ref.SubmissionId],
-  ) extends Update {
-    override def pretty: Pretty[PublicPackageUpload] =
-      prettyOfClass(
-        param("recordTime", _.recordTime),
-        param("archives", _.archives.map(_.getHash.readableHash)),
-        paramIfDefined("sourceDescription", _.sourceDescription.map(_.singleQuoted)),
-      )
-
-  }
-
-  object PublicPackageUpload {
-    implicit val `PublicPackageUpload to LoggingValue`: ToLoggingValue[PublicPackageUpload] = {
-      case PublicPackageUpload(_, sourceDescription, recordTime, submissionId) =>
-        LoggingValue.Nested.fromEntries(
-          Logging.recordTime(recordTime),
-          Logging.submissionIdOpt(submissionId),
-          Logging.sourceDescriptionOpt(sourceDescription),
-        )
-    }
-  }
-
-  /** Signal that a package upload has been rejected.
-    *
-    * @param submissionId    The submission id of the upload.
-    * @param recordTime      The ledger-provided timestamp at which the package upload was
-    *                        committed.
-    * @param rejectionReason Reason why the upload was rejected.
-    */
-  final case class PublicPackageUploadRejected(
-      submissionId: Ref.SubmissionId,
-      recordTime: Timestamp,
-      rejectionReason: String,
-  ) extends Update {
-    override def pretty: Pretty[PublicPackageUploadRejected] =
-      prettyOfClass(
-        param("recordTime", _.recordTime),
-        param("rejectionReason", _.rejectionReason.singleQuoted),
-      )
-  }
-
-  object PublicPackageUploadRejected {
-    implicit val `PublicPackageUploadRejected to LoggingValue`
-        : ToLoggingValue[PublicPackageUploadRejected] = {
-      case PublicPackageUploadRejected(submissionId, recordTime, rejectionReason) =>
-        LoggingValue.Nested.fromEntries(
-          Logging.recordTime(recordTime),
-          Logging.submissionId(submissionId),
           Logging.rejectionReason(rejectionReason),
         )
     }
@@ -423,12 +354,6 @@ object Update {
       PartyAddedToParticipant.`PartyAddedToParticipant to LoggingValue`.toLoggingValue(update)
     case update: PartyAllocationRejected =>
       PartyAllocationRejected.`PartyAllocationRejected to LoggingValue`.toLoggingValue(update)
-    case update: PublicPackageUpload =>
-      PublicPackageUpload.`PublicPackageUpload to LoggingValue`.toLoggingValue(update)
-    case update: PublicPackageUploadRejected =>
-      PublicPackageUploadRejected.`PublicPackageUploadRejected to LoggingValue`.toLoggingValue(
-        update
-      )
     case update: TransactionAccepted =>
       TransactionAccepted.`TransactionAccepted to LoggingValue`.toLoggingValue(update)
     case update: CommandRejected =>
@@ -471,12 +396,6 @@ object Update {
     def submissionTime(time: Timestamp): LoggingEntry =
       "submissionTime" -> time.toInstant
 
-    def configGeneration(generation: Long): LoggingEntry =
-      "configGeneration" -> generation
-
-    def maxDeduplicationDuration(time: Duration): LoggingEntry =
-      "maxDeduplicationDuration" -> time
-
     def deduplicationPeriod(period: Option[DeduplicationPeriod]): LoggingEntry =
       "deduplicationPeriod" -> period
 
@@ -490,9 +409,6 @@ object Update {
 
     def displayName(name: String): LoggingEntry =
       "displayName" -> name
-
-    def sourceDescriptionOpt(description: Option[String]): LoggingEntry =
-      "sourceDescription" -> description
 
     def submitter(parties: List[Ref.Party]): LoggingEntry =
       "submitter" -> parties

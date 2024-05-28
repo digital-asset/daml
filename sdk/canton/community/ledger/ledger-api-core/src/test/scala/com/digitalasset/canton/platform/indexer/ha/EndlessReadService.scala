@@ -84,14 +84,8 @@ final case class EndlessReadService(
               recordTime(i),
               Some(submissionId(i)),
             )
-          case i @ 3 =>
-            offset(i) -> Update.PublicPackageUpload(
-              List(),
-              Some("Package"),
-              recordTime(i),
-              Some(submissionId(i)),
-            )
-          case i if i % 2 == 0 =>
+          // On odd, create a contract
+          case i if i % 2 == 1 =>
             offset(i) -> Update.TransactionAccepted(
               completionInfoO = Some(completionInfo(i)),
               transactionMeta = transactionMeta(i),
@@ -103,6 +97,7 @@ final case class EndlessReadService(
               contractMetadata = Map.empty,
               domainId = DomainId.tryFromString("da::default"),
             )
+          // On even, exercise a contract
           case i =>
             offset(i) -> Update.TransactionAccepted(
               completionInfoO = Some(completionInfo(i)),

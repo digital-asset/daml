@@ -98,6 +98,8 @@ class GrpcTopologyManagerWriteService(
               IdentifierDelegation.fromProtoV30(mapping)
             case Mapping.DomainParametersState(mapping) =>
               DomainParametersState.fromProtoV30(mapping)
+            case Mapping.SequencingDynamicParametersState(mapping) =>
+              DynamicSequencingParametersState.fromProtoV30(mapping)
             case Mapping.MediatorDomainState(mapping) =>
               MediatorDomainState.fromProtoV30(mapping)
             case Mapping.SequencerDomainState(mapping) =>

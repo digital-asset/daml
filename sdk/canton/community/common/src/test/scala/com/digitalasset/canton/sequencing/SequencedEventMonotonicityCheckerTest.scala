@@ -89,11 +89,11 @@ class SequencedEventMonotonicityCheckerTest
       val event1 = createEvent(
         timestamp = CantonTimestamp.ofEpochSecond(2),
         counter = 2L,
-      ).futureValue
+      ).futureValueUS
       val event2 = createEvent(
         timestamp = CantonTimestamp.ofEpochSecond(2),
         counter = 3L,
-      ).futureValue
+      ).futureValueUS
 
       val checker = new SequencedEventMonotonicityChecker(
         SequencerCounter(2L),
@@ -158,11 +158,11 @@ class SequencedEventMonotonicityCheckerTest
       val event1 = createEvent(
         timestamp = CantonTimestamp.ofEpochSecond(2),
         counter = 2L,
-      ).futureValue
+      ).futureValueUS
       val event2 = createEvent(
         timestamp = CantonTimestamp.ofEpochSecond(2),
         counter = 3L,
-      ).futureValue
+      ).futureValueUS
 
       val checker = new SequencedEventMonotonicityChecker(
         SequencerCounter(2L),

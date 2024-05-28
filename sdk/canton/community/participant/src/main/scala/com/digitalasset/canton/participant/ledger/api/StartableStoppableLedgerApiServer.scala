@@ -39,7 +39,6 @@ import com.digitalasset.canton.networking.grpc.{
   ClientChannelBuilder,
 }
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.admin.MutablePackageNameMapResolver
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.platform.LedgerApiServer
@@ -58,8 +57,7 @@ import com.digitalasset.canton.platform.indexer.{
 }
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.DbSupport.ParticipantDataSourceConfig
-import com.digitalasset.canton.platform.store.dao.events.ContractLoader
-import com.digitalasset.canton.platform.store.packagemeta.InMemoryPackageMetadataStore
+import com.digitalasset.canton.platform.store.dao.events.{ContractLoader, LfValueTranslation}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
 import io.grpc.{BindableService, ServerInterceptor, ServerServiceDefinition}
@@ -86,7 +84,6 @@ class StartableStoppableLedgerApiServer(
     dbConfig: DbSupport.DbConfig,
     telemetry: Telemetry,
     futureSupervisor: FutureSupervisor,
-    packageNameMapResolver: MutablePackageNameMapResolver,
     parameters: ParticipantNodeParameters,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
@@ -220,14 +217,6 @@ class StartableStoppableLedgerApiServer(
           tracer,
           loggerFactory,
         )
-      packageMetadataStore = new InMemoryPackageMetadataStore(
-        inMemoryState.packageMetadataView
-      )
-      _ <- ResourceOwner.forReleasable(() =>
-        packageNameMapResolver.setReference(() =>
-          packageMetadataStore.getSnapshot.getUpgradablePackageMap
-        )
-      )(_ => Future.successful(packageNameMapResolver.unset()))
       timedReadService = new TimedReadService(config.syncService, config.metrics)
       dbSupport <- DbSupport
         .owner(
@@ -284,8 +273,17 @@ class StartableStoppableLedgerApiServer(
         inMemoryState = inMemoryState,
         tracer = config.tracerProvider.tracer,
         loggerFactory = loggerFactory,
-        incompleteOffsets = timedReadService.incompleteReassignmentOffsets(_, _)(_),
+        incompleteOffsets = (off, ps, tc) =>
+          timedReadService.incompleteReassignmentOffsets(off, ps.getOrElse(Set.empty))(tc),
         contractLoader = contractLoader,
+        getPackageMetadataSnapshot = timedReadService.getPackageMetadataSnapshot(_),
+        lfValueTranslation = new LfValueTranslation(
+          metrics = config.metrics,
+          engineO = Some(config.engine),
+          loadPackage = (packageId, loggingContext) =>
+            timedReadService.getLfArchive(packageId)(loggingContext.traceContext),
+          loggerFactory = loggerFactory,
+        ),
       )
       _ = timedReadService.registerInternalStateService(new InternalStateService {
         override def activeContracts(
@@ -295,6 +293,8 @@ class StartableStoppableLedgerApiServer(
           indexService.getActiveContracts(
             filter = TransactionFilter(
               filtersByParty = partyIds.view.map(_ -> Filters.noFilter).toMap,
+              filtersForAnyParty =
+                None, // TODO(#18362) use Some(Filters.noFilter) and remove the filtersByParty?
               alwaysPopulateCreatedEventBlob = true,
             ),
             verbose = false,
@@ -322,7 +322,6 @@ class StartableStoppableLedgerApiServer(
         submissionTracker = inMemoryState.submissionTracker,
         indexService = indexService,
         userManagementStore = userManagementStore,
-        packageMetadataStore = packageMetadataStore,
         identityProviderConfigStore = getIdentityProviderConfigStore(
           dbSupport,
           config.serverConfig.identityProviderManagement,
@@ -370,7 +369,6 @@ class StartableStoppableLedgerApiServer(
         loggerFactory = loggerFactory,
         authenticateContract = authenticateContract,
         dynParamGetter = config.syncService.dynamicDomainParameterGetter,
-        disableUpgradeValidation = config.cantonParameterConfig.disableUpgradeValidation,
       )
       _ <- startHttpApiIfEnabled
       _ <- {

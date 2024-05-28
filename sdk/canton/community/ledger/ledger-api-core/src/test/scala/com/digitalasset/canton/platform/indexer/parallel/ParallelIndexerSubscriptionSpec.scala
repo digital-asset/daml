@@ -55,8 +55,9 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
 
   private val someTime = Instant.now
 
-  private val somePackageUploadRejected = state.Update.PublicPackageUploadRejected(
+  private val somePartyAllocationRejected = state.Update.PartyAllocationRejected(
     submissionId = Ref.SubmissionId.assertFromString("abc"),
+    participantId = Ref.ParticipantId.assertFromString("participant"),
     recordTime = Timestamp.assertFromInstant(someTime),
     rejectionReason = "reason",
   )
@@ -180,11 +181,11 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
       .map(offset)
       .zip(
         Vector(
-          somePackageUploadRejected,
-          somePackageUploadRejected
-            .copy(recordTime = somePackageUploadRejected.recordTime.addMicros(1000)),
-          somePackageUploadRejected
-            .copy(recordTime = somePackageUploadRejected.recordTime.addMicros(2000)),
+          somePartyAllocationRejected,
+          somePartyAllocationRejected
+            .copy(recordTime = somePartyAllocationRejected.recordTime.addMicros(1000)),
+          somePartyAllocationRejected
+            .copy(recordTime = somePartyAllocationRejected.recordTime.addMicros(2000)),
         ).map(Traced[Update])
       )
 

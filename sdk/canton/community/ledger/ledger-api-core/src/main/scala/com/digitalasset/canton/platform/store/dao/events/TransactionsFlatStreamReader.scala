@@ -153,7 +153,7 @@ class TransactionsFlatStreamReader(
                     eventStorageBackend.transactionStreamingQueries.fetchEventIdsForStakeholder(
                       target = target
                     )(
-                      stakeholder = filter.party,
+                      stakeholderO = filter.party,
                       templateIdO = filter.templateId,
                       startExclusive = state.fromIdExclusive,
                       endInclusive = queryRange.endInclusiveEventSeqId,

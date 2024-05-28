@@ -14,7 +14,7 @@ import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeCo
 import com.digitalasset.canton.domain.sequencing.sequencer.CommunitySequencerConfig
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.{
   CommunityReferenceSequencerDriverFactory,
-  ReferenceBlockOrderer,
+  ReferenceSequencerDriver,
 }
 import com.digitalasset.canton.environment.CommunityEnvironment
 import com.digitalasset.canton.integration.CommunityConfigTransforms
@@ -56,7 +56,7 @@ class UseCommunityReferenceBlockSequencer[S <: CommunityStorageConfig](
           driverFactory
             .configWriter(confidential = false)
             .to(
-              ReferenceBlockOrderer
+              ReferenceSequencerDriver
                 .Config(storageConfigs.getOrElse(sequencerName, defaultStorageConfig))
             ),
           List(),

@@ -33,9 +33,9 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
     executeSql(ingest(Vector(create), _))
     executeSql(updateLedgerEnd(offset(1), 1L))
 
-    val events = backend.event.activeContractCreateEventBatchV2(
+    val events = backend.event.activeContractCreateEventBatch(
       List(1L),
-      Set(Ref.Party.assertFromString("signatory")),
+      Some(Set(Ref.Party.assertFromString("signatory"))),
       1L,
     )(_)
     val events1 = executeSql(events)

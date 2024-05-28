@@ -84,13 +84,6 @@ message HealthDumpResponse {
   bytes chunk = 1; // A chunk of of the health dump file
 }
 
-// domain node specific extra status info
-message DomainStatusInfo {
-  repeated string connected_participants = 1;
-  // optional - only set if a sequencer is being run by the domain
-  SequencerHealthStatus sequencer = 2;
-}
-
 // participant node specific extra status info
 message ParticipantStatusInfo {
   message ConnectedDomain {
@@ -108,6 +101,7 @@ message SequencerNodeStatus {
   // required - status of the sequencer component it is running
   SequencerHealthStatus sequencer = 2;
   string domain_id = 3;
+  SequencerAdminStatus admin = 4;
 }
 
 // status of the sequencer component
@@ -116,6 +110,13 @@ message SequencerHealthStatus {
   bool active = 1;
   // optionally set details on how sequencer is healthy/unhealthy
   google.protobuf.StringValue details = 2;
+}
+
+// status of sequencer node administration
+message SequencerAdminStatus {
+  // Indicate if the sequencer node accepts administration changes, particularly relevant for HA sequencers
+  // where admin change ability is determined via active-passive model
+  bool accepts_admin_changes = 1;
 }
 
 message MediatorNodeStatus {

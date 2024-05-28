@@ -28,7 +28,6 @@ object ProcessedDisclosedContract {
   def apply(
       templateId: Ref.Identifier,
       packageName: Ref.PackageName,
-      packageVersion: Option[Ref.PackageVersion],
       contractId: Value.ContractId,
       argument: Value,
       createdAt: Time.Timestamp,
@@ -42,7 +41,6 @@ object ProcessedDisclosedContract {
       create = Node.Create(
         templateId = templateId,
         packageName = packageName,
-        packageVersion = packageVersion,
         coid = contractId,
         arg = argument,
         signatories = signatories,

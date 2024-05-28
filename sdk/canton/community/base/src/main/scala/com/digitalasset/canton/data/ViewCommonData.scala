@@ -5,21 +5,21 @@ package com.digitalasset.canton.data
 
 import cats.syntax.either.*
 import cats.syntax.traverse.*
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.logging.pretty.Pretty
+import com.digitalasset.canton.data.ViewConfirmationParameters.InvalidViewConfirmationParameters
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{ConfirmationPolicy, v30}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
+import com.digitalasset.canton.util.NoCopy
 import com.digitalasset.canton.version.*
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
 /** Information concerning every '''member''' involved in processing the underlying view.
-  *
-  * @param threshold If the sum of the weights of the parties approving the view attains the threshold,
-  *                  the view is considered approved.
   */
 // This class is a reference example of serialization best practices, demonstrating:
 // - memoized serialization, which is required if we need to compute a signature or cryptographic hash of a class
@@ -30,8 +30,7 @@ import com.google.protobuf.ByteString
 //
 // Optional parameters are strongly discouraged, as each parameter needs to be consciously set in a production context.
 final case class ViewCommonData private (
-    informees: Set[Informee],
-    threshold: NonNegativeInt,
+    viewConfirmationParameters: ViewConfirmationParameters,
     salt: Salt,
 )(
     hashOps: HashOps,
@@ -53,14 +52,21 @@ final case class ViewCommonData private (
 
   @transient override protected lazy val companionObj: ViewCommonData.type = ViewCommonData
 
+  // Ensures the invariants related to default values hold
+  validateInstance().valueOr(err => throw InvalidViewConfirmationParameters(err))
+
   // We use named parameters, because then the code remains correct even when the ProtoBuf code generator
   // changes the order of parameters.
-  def toProtoV30: v30.ViewCommonData =
+  def toProtoV30: v30.ViewCommonData = {
+    val informees = viewConfirmationParameters.informees.toSeq
     v30.ViewCommonData(
-      informees = informees.map(_.toProtoV30).toSeq,
-      threshold = threshold.unwrap,
+      informees = informees,
+      quorums = viewConfirmationParameters.quorums.map(
+        _.tryToProtoV30(informees)
+      ),
       salt = Some(salt.toProtoV30),
     )
+  }
 
   // When serializing the class to an anonymous binary format, we serialize it to an UntypedVersionedMessage version of the
   // corresponding Protobuf message
@@ -69,18 +75,20 @@ final case class ViewCommonData private (
   override val hashPurpose: HashPurpose = HashPurpose.ViewCommonData
 
   override def pretty: Pretty[ViewCommonData] = prettyOfClass(
-    param("informees", _.informees),
-    param("threshold", _.threshold),
+    param("view confirmation parameters", _.viewConfirmationParameters),
     param("salt", _.salt),
   )
 
   @VisibleForTesting
   def copy(
-      informees: Set[Informee] = this.informees,
-      threshold: NonNegativeInt = this.threshold,
+      viewConfirmationParameters: ViewConfirmationParameters = this.viewConfirmationParameters,
       salt: Salt = this.salt,
   ): ViewCommonData =
-    ViewCommonData(informees, threshold, salt)(hashOps, representativeProtocolVersion, None)
+    ViewCommonData(viewConfirmationParameters, salt)(
+      hashOps,
+      representativeProtocolVersion,
+      None,
+    )
 }
 
 object ViewCommonData
@@ -106,40 +114,139 @@ object ViewCommonData
   // to not confuse the Idea compiler by overloading "apply".
   // (This is not a problem with this particular class, but it has been a problem with other classes.)
   def create(hashOps: HashOps)(
-      informees: Set[Informee],
-      threshold: NonNegativeInt,
+      viewConfirmationParameters: ViewConfirmationParameters,
+      salt: Salt,
+      protocolVersion: ProtocolVersion,
+  ): Either[InvalidViewConfirmationParameters, ViewCommonData] =
+    Either
+      .catchOnly[InvalidViewConfirmationParameters] {
+        // The deserializedFrom field is set to "None" as this is for creating "fresh" instances.
+        new ViewCommonData(viewConfirmationParameters, salt)(
+          hashOps,
+          protocolVersionRepresentativeFor(protocolVersion),
+          None,
+        )
+      }
+
+  def tryCreate(hashOps: HashOps)(
+      viewConfirmationParameters: ViewConfirmationParameters,
       salt: Salt,
       protocolVersion: ProtocolVersion,
   ): ViewCommonData =
-    // The deserializedFrom field is set to "None" as this is for creating "fresh" instances.
-    new ViewCommonData(informees, threshold, salt)(
-      hashOps,
-      protocolVersionRepresentativeFor(protocolVersion),
-      None,
-    )
+    create(hashOps)(viewConfirmationParameters, salt, protocolVersion)
+      .valueOr(err => throw err)
 
   private def fromProtoV30(
       context: (HashOps, ConfirmationPolicy),
       viewCommonDataP: v30.ViewCommonData,
   )(bytes: ByteString): ParsingResult[ViewCommonData] = {
-    val (hashOps, _confirmationPolicy) = context
+    // TODO(#19152): remove confirmation policy
+    val (hashOps, _) = context
     for {
-      informees <- viewCommonDataP.informees.traverse(Informee.fromProtoV30)
-
+      informees <- viewCommonDataP.informees.traverse(informee =>
+        ProtoConverter.parseLfPartyId(informee)
+      )
       salt <- ProtoConverter
         .parseRequired(Salt.fromProtoV30, "salt", viewCommonDataP.salt)
         .leftMap(_.inField("salt"))
-
-      threshold <- NonNegativeInt
-        .create(viewCommonDataP.threshold)
-        .leftMap(InvariantViolation.toProtoDeserializationError)
-        .leftMap(_.inField("threshold"))
-
+      quorums <- viewCommonDataP.quorums.traverse(Quorum.fromProtoV30(_, informees))
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield new ViewCommonData(informees.toSet, threshold, salt)(
+      viewConfirmationParameters <- ViewConfirmationParameters.create(informees.toSet, quorums)
+    } yield new ViewCommonData(viewConfirmationParameters, salt)(
       hashOps,
       rpv,
       Some(bytes),
     )
   }
+}
+
+/** Stores the necessary information necessary to confirm a view.
+  *
+  * @param informees list of all members ids that must be informed of this view.
+  * @param quorums multiple lists of confirmers => threshold (i.e., a quorum) that needs
+  *               to be met for the view to be approved. We make sure that the parties listed
+  *               in the quorums are informees of the view during
+  *               deserialization.
+  */
+final case class ViewConfirmationParameters private (
+    informees: Set[LfPartyId],
+    quorums: Seq[Quorum],
+) extends PrettyPrinting
+    with NoCopy {
+
+  override def pretty: Pretty[ViewConfirmationParameters] = prettyOfClass(
+    param("informees", _.informees),
+    param("quorums", _.quorums),
+  )
+
+  lazy val confirmers: Set[LfPartyId] = quorums.flatMap { _.confirmers.keys }.toSet
+}
+
+object ViewConfirmationParameters {
+
+  /** Indicates an attempt to create an invalid [[ViewConfirmationParameters]]. */
+  final case class InvalidViewConfirmationParameters(message: String)
+      extends RuntimeException(message)
+
+  /** Creates a [[ViewConfirmationParameters]] with a single quorum consisting of all confirming parties and a given threshold.
+    */
+  def create(
+      informees: Map[LfPartyId, NonNegativeInt],
+      threshold: NonNegativeInt,
+  ): ViewConfirmationParameters =
+    ViewConfirmationParameters(
+      informees.keySet,
+      Seq(
+        Quorum(
+          informees
+            .filter { case (_, weight) => weight.unwrap > 0 }
+            .map { case (partyId, weight) => partyId -> PositiveInt.tryCreate(weight.unwrap) },
+          threshold,
+        )
+      ),
+    )
+
+  /** Creates a [[ViewConfirmationParameters]] where all informees are confirmers and
+    * includes a single quorum consisting of all confirming parties and a given threshold.
+    */
+  def createOnlyWithConfirmers(
+      confirmers: Map[LfPartyId, PositiveInt],
+      threshold: NonNegativeInt,
+  ): ViewConfirmationParameters =
+    ViewConfirmationParameters(
+      confirmers.keySet,
+      Seq(
+        Quorum(
+          confirmers,
+          threshold,
+        )
+      ),
+    )
+
+  /** There can be multiple quorums/threshold. Therefore, we need to make sure those quorums confirmers
+    * are present in the list of informees.
+    */
+  def create(
+      informees: Set[LfPartyId],
+      quorums: Seq[Quorum],
+  ): Either[InvariantViolation, ViewConfirmationParameters] = {
+    val allConfirmers = quorums.flatMap(_.confirmers.keys)
+    val notAnInformee = allConfirmers.filterNot(informees.contains)
+    Either.cond(
+      notAnInformee.isEmpty,
+      ViewConfirmationParameters(informees, quorums),
+      InvariantViolation(s"confirming parties $notAnInformee are not in the list of informees"),
+    )
+  }
+
+  def tryCreate(
+      informees: Set[LfPartyId],
+      quorums: Seq[Quorum],
+  ): ViewConfirmationParameters =
+    create(informees, quorums).valueOr(err => throw InvalidViewConfirmationParameters(err.toString))
+
+  /** Extracts all confirming parties' distinct IDs from the list of quorums */
+  def confirmersIdsFromQuorums(quorums: Seq[Quorum]): Set[LfPartyId] =
+    quorums.flatMap(_.confirmers.keySet).toSet
+
 }

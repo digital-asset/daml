@@ -4,7 +4,7 @@
 package com.digitalasset.canton.data
 
 import com.daml.lf.value.Value.ValueInt64
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{GeneratorsCrypto, Salt, TestHash}
 import com.digitalasset.canton.data.ActionDescription.{
   CreateActionDescription,
@@ -24,6 +24,7 @@ import com.digitalasset.canton.protocol.messages.{
 }
 import com.digitalasset.canton.sequencing.protocol.{Batch, MediatorGroupRecipient, SignedContent}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.util.SeqUtil
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
 import com.digitalasset.canton.{LfInterfaceId, LfPackageId, LfPartyId, LfVersioned}
@@ -32,6 +33,7 @@ import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.EitherValues.*
 
 import scala.concurrent.ExecutionContext
+import scala.util.Random
 
 final class GeneratorsData(
     protocolVersion: ProtocolVersion,
@@ -127,12 +129,44 @@ final class GeneratorsData(
     )
   )
 
-  implicit val viewCommonDataArb: Arbitrary[ViewCommonData] = Arbitrary(for {
-    informees <- Gen.containerOf[Set, Informee](Arbitrary.arbitrary[Informee])
-    threshold <- Arbitrary.arbitrary[NonNegativeInt]
-    salt <- Arbitrary.arbitrary[Salt]
-    hashOps = TestHash // Not used for serialization
-  } yield ViewCommonData.create(hashOps)(informees, threshold, salt, protocolVersion))
+  implicit val viewConfirmationParametersArb: Arbitrary[ViewConfirmationParameters] = Arbitrary(
+    for {
+      informees <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
+      viewConfirmationParameters <-
+        Gen
+          .containerOf[Seq, Quorum](Arbitrary.arbitrary[Quorum](quorumArb(informees.toSeq)))
+          .map(ViewConfirmationParameters.tryCreate(informees, _))
+    } yield viewConfirmationParameters
+  )
+
+  def quorumArb(informees: Seq[LfPartyId]): Arbitrary[Quorum] = Arbitrary(
+    for {
+      confirmersWeights <- Gen
+        .containerOfN[Seq, PositiveInt](informees.size, Arbitrary.arbitrary[PositiveInt])
+
+      random = new Random()
+      shuffledInformees = SeqUtil.randomSubsetShuffle(
+        informees.toIndexedSeq,
+        informees.size,
+        random,
+      )
+
+      confirmers = shuffledInformees.zip(confirmersWeights).toMap
+      threshold <- Arbitrary.arbitrary[NonNegativeInt]
+    } yield Quorum(confirmers, threshold)
+  )
+
+  implicit val viewCommonDataArb: Arbitrary[ViewCommonData] = Arbitrary(
+    for {
+      viewConfirmationParameters <- Arbitrary.arbitrary[ViewConfirmationParameters]
+      salt <- Arbitrary.arbitrary[Salt]
+      hashOps = TestHash // Not used for serialization
+    } yield ViewCommonData.tryCreate(hashOps)(
+      viewConfirmationParameters,
+      salt,
+      protocolVersion,
+    )
+  )
 
   private def createActionDescriptionGenFor(
       rpv: RepresentativeProtocolVersion[ActionDescription.type]
@@ -338,6 +372,23 @@ final class GeneratorsData(
         .apply(Seq(transactionViewWithEmptySubview))(protocolVersion, hashOps)
     } yield TransactionView.tryCreate(hashOps)(
       viewCommonData = viewCommonData,
+      viewParticipantData = viewParticipantData,
+      subviews = subviews,
+      protocolVersion,
+    )
+  )
+
+  private val transactionViewForInformeeTreeArb: Arbitrary[TransactionView] = Arbitrary(
+    for {
+      viewCommonData <- viewCommonDataArb.arbitrary
+      viewParticipantData <- viewParticipantDataArb.arbitrary
+      hashOps = TestHash
+      transactionViewWithEmptySubview <-
+        transactionViewWithEmptyTransactionSubviewArb.arbitrary
+      subviews = TransactionSubviews
+        .apply(Seq(transactionViewWithEmptySubview))(protocolVersion, hashOps)
+    } yield TransactionView.tryCreate(hashOps)(
+      viewCommonData = viewCommonData,
       viewParticipantData =
         viewParticipantData.blindFully, // The view participant data in an informee tree must be blinded
       subviews = subviews,
@@ -350,7 +401,7 @@ final class GeneratorsData(
       submitterMetadata <- submitterMetadataArb.arbitrary
       commonData <- commonMetadataArb.arbitrary
       participantData <- participantMetadataArb.arbitrary
-      rootViews <- transactionViewArb.arbitrary
+      rootViews <- transactionViewForInformeeTreeArb.arbitrary
       hashOps = TestHash
       rootViewsMerkleSeq = MerkleSeq.fromSeq(hashOps, protocolVersion)(Seq(rootViews))
       genTransactionTree = GenTransactionTree
@@ -541,8 +592,8 @@ final class GeneratorsData(
     } yield TransferOutView
       .create(hashOps)(
         salt,
-        creatingTransactionId,
         contract,
+        creatingTransactionId,
         targetDomain,
         timeProof,
         sourceProtocolVersion,
@@ -556,7 +607,12 @@ final class GeneratorsData(
       commonData <- transferInCommonDataArb.arbitrary
       transferInView <- transferInViewArb.arbitrary
       hash = TestHash
-    } yield TransferInViewTree(commonData, transferInView.blindFully)(hash)
+    } yield TransferInViewTree(
+      commonData,
+      transferInView.blindFully,
+      TargetProtocolVersion(protocolVersion),
+      hash,
+    )
   )
 
   implicit val transferOutViewTreeArb: Arbitrary[TransferOutViewTree] = Arbitrary(
@@ -564,6 +620,76 @@ final class GeneratorsData(
       commonData <- transferOutCommonData.arbitrary
       transferOutView <- transferOutViewArb.arbitrary
       hash = TestHash
-    } yield TransferOutViewTree(commonData, transferOutView.blindFully, protocolVersion, hash)
+    } yield TransferOutViewTree(
+      commonData,
+      transferOutView.blindFully,
+      SourceProtocolVersion(protocolVersion),
+      hash,
+    )
   )
+
+  private val fullyBlindedTransactionViewWithEmptyTransactionSubviewArb
+      : Arbitrary[TransactionView] = Arbitrary(
+    for {
+      viewCommonData <- viewCommonDataArb.arbitrary
+      viewParticipantData <- viewParticipantDataArb.arbitrary
+      hashOps = TestHash
+      emptySubviews = TransactionSubviews.empty(
+        protocolVersion,
+        hashOps,
+      ) // empty TransactionSubviews
+    } yield TransactionView.tryCreate(hashOps)(
+      viewCommonData = viewCommonData.blindFully,
+      viewParticipantData = viewParticipantData.blindFully,
+      subviews = emptySubviews.blindFully,
+      protocolVersion,
+    )
+  )
+
+  private var unblindedSubviewHashesForLightTransactionTree: Seq[ViewHash] = _
+
+  private val transactionViewForLightTransactionTreeArb: Arbitrary[TransactionView] = Arbitrary(
+    for {
+      viewCommonData <- viewCommonDataArb.arbitrary
+      viewParticipantData <- viewParticipantDataArb.arbitrary
+      hashOps = TestHash
+      transactionViewWithEmptySubview <-
+        fullyBlindedTransactionViewWithEmptyTransactionSubviewArb.arbitrary
+      subviews = TransactionSubviews
+        .apply(Seq(transactionViewWithEmptySubview))(protocolVersion, hashOps)
+      subviewHashes = subviews.trySubviewHashes
+    } yield {
+      unblindedSubviewHashesForLightTransactionTree = subviewHashes
+      TransactionView.tryCreate(hashOps)(
+        viewCommonData = viewCommonData,
+        viewParticipantData = viewParticipantData,
+        subviews =
+          subviews.blindFully, // only a single view in a LightTransactionTree can be unblinded
+        protocolVersion,
+      )
+    }
+  )
+
+  implicit val lightTransactionViewTreeArb: Arbitrary[LightTransactionViewTree] = Arbitrary(
+    for {
+      submitterMetadata <- submitterMetadataArb.arbitrary
+      commonData <- commonMetadataArb.arbitrary
+      participantData <- participantMetadataArb.arbitrary
+      rootViews <- transactionViewForLightTransactionTreeArb.arbitrary
+      hashOps = TestHash
+      rootViewsMerkleSeq = MerkleSeq.fromSeq(hashOps, protocolVersion)(Seq(rootViews))
+      genTransactionTree = GenTransactionTree
+        .tryCreate(hashOps)(
+          submitterMetadata,
+          commonData,
+          participantData,
+          rootViews = rootViewsMerkleSeq,
+        )
+    } yield LightTransactionViewTree.tryCreate(
+      tree = genTransactionTree,
+      unblindedSubviewHashesForLightTransactionTree,
+      protocolVersion,
+    )
+  )
+
 }

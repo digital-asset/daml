@@ -17,6 +17,7 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.version.ProtocolVersion
+import com.google.protobuf.ByteString
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 
@@ -39,7 +40,7 @@ final class GeneratorsProtocol(
       requiredHashAlgorithms <- nonEmptySetGen[HashAlgorithm]
       requiredCryptoKeyFormats <- nonEmptySetGen[CryptoKeyFormat]
 
-      parameters = StaticDomainParameters.create(
+      parameters = StaticDomainParameters(
         requiredSigningKeySchemes,
         requiredEncryptionKeySchemes,
         requiredSymmetricKeySchemes,
@@ -111,6 +112,16 @@ final class GeneratorsProtocol(
       )(representativePV)
 
     } yield dynamicDomainParameters
+  )
+
+  implicit val dynamicSequencingParametersArb: Arbitrary[DynamicSequencingParameters] = Arbitrary(
+    for {
+      payload <- Arbitrary.arbitrary[Option[ByteString]]
+      representativePV = DynamicSequencingParameters.protocolVersionRepresentativeFor(
+        protocolVersion
+      )
+      dynamicSequencingParameters = DynamicSequencingParameters(payload)(representativePV)
+    } yield dynamicSequencingParameters
   )
 
   implicit val rootHashArb: Arbitrary[RootHash] = Arbitrary(

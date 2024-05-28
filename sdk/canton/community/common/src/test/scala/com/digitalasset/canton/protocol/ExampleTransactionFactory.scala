@@ -94,6 +94,7 @@ object ExampleTransactionFactory {
     LfContractInst(
       packageName = packageName,
       template = templateId,
+      packageVersion = None,
       arg = versionedValueCapturing(capturedIds.toList),
     )
 
@@ -107,7 +108,12 @@ object ExampleTransactionFactory {
     LfVersioned(transactionVersion, veryDeepValue)
 
   val veryDeepContractInstance: LfContractInst =
-    LfContractInst(packageName = packageName, template = templateId, arg = veryDeepVersionedValue)
+    LfContractInst(
+      packageName = packageName,
+      template = templateId,
+      packageVersion = None,
+      arg = veryDeepVersionedValue,
+    )
 
   def globalKey(
       templateId: LfTemplateId,
@@ -328,8 +334,11 @@ object ExampleTransactionFactory {
 
   val submittingParticipant: ParticipantId = ParticipantId("submittingParticipant")
   val signatoryParticipant: ParticipantId = ParticipantId("signatoryParticipant")
+  val observerParticipant: ParticipantId = ParticipantId("observerParticipant")
+  val extraParticipant: ParticipantId = ParticipantId("extraParticipant")
   val signatory: LfPartyId = LfPartyId.assertFromString("signatory::default")
   val observer: LfPartyId = LfPartyId.assertFromString("observer::default")
+  val extra: LfPartyId = LfPartyId.assertFromString("extra::default")
   val submitter: LfPartyId = submittingParticipant.adminParty.toLf
   val submitters: List[LfPartyId] = List(submitter)
 
@@ -347,15 +356,19 @@ object ExampleTransactionFactory {
           signatoryParticipant -> Confirmation
         ),
         observer -> Map(
-          signatoryParticipant -> Observation
+          observerParticipant -> Observation
+        ),
+        extra -> Map(
+          extraParticipant -> Observation
         ),
       ),
       participants = Map(submittingParticipant -> ParticipantAttributes(Submission)),
-      packages = Seq(submittingParticipant, signatoryParticipant)
-        .map(
-          _ -> Seq(ExampleTransactionFactory.packageId)
-        )
-        .toMap,
+      packages =
+        Seq(submittingParticipant, signatoryParticipant, observerParticipant, extraParticipant)
+          .map(
+            _ -> Seq(ExampleTransactionFactory.packageId)
+          )
+          .toMap,
     )
 
   def defaultTestingIdentityFactory: TestingIdentityFactory =
@@ -421,8 +434,7 @@ class ExampleTransactionFactory(
       .map { case (viewInformees, viewThreshold) =>
         val result = NewView(
           rootNode,
-          viewInformees,
-          viewThreshold,
+          ViewConfirmationParameters.create(viewInformees, viewThreshold),
           rootSeed,
           rootNodeId,
           tailNodes,
@@ -586,15 +598,14 @@ class ExampleTransactionFactory(
         confirmationPolicy.informeesAndThreshold(node, topologySnapshot),
         10.seconds,
       )
-    val (informees, threshold) = confirmationPolicy.withSubmittingAdminParty(submittingAdminPartyO)(
-      rawInformees,
-      rawThreshold,
-    )
+    val viewConfirmationParameters =
+      confirmationPolicy.withSubmittingAdminParty(submittingAdminPartyO)(
+        ViewConfirmationParameters.create(rawInformees, rawThreshold)
+      )
 
     val viewCommonData =
-      ViewCommonData.create(cryptoOps)(
-        informees,
-        threshold,
+      ViewCommonData.tryCreate(cryptoOps)(
+        viewConfirmationParameters,
         commonDataSalt(viewIndex),
         protocolVersion,
       )
@@ -918,7 +929,12 @@ class ExampleTransactionFactory(
         (
           rootTransactionViewTree(view0),
           (transaction(Seq(0), reinterpretedNode), metadata, keyResolver),
-          Witnesses(NonEmpty(List, view0.viewCommonData.tryUnwrap.informees)),
+          Witnesses(
+            NonEmpty(
+              List,
+              view0.viewCommonData.tryUnwrap.viewConfirmationParameters.informees,
+            )
+          ),
         )
       )
   }
@@ -1257,7 +1273,12 @@ class ExampleTransactionFactory(
         (
           rootTransactionViewTree(rootViewsWithOneViewUnblinded*),
           (transactionFrom(Seq(i), i, example.reinterpretedNode), example.metadata, Map.empty),
-          Witnesses(NonEmpty(List, example.view0.viewCommonData.tryUnwrap.informees)),
+          Witnesses(
+            NonEmpty(
+              List,
+              example.view0.viewCommonData.tryUnwrap.viewConfirmationParameters.informees,
+            )
+          ),
         )
       }
     }
@@ -1358,8 +1379,9 @@ class ExampleTransactionFactory(
         cid,
         contractInstance = create130Inst,
         signatories = Set(signatory),
+        observers = Set(extra),
       )
-    val create130disc: LfHash = discriminator(create130seed, Set(signatory))
+    val create130disc: LfHash = discriminator(create130seed, Set(signatory, extra))
     val lfCreate130: LfNodeCreate = genCreate130(LfContractId.V1(create130disc))
 
     def genExercise131(cid: LfContractId): LfNodeExercises =
@@ -1377,8 +1399,13 @@ class ExampleTransactionFactory(
     def create1310Inst: LfContractInst = contractInstance()
     val create1310seed: LfHash = deriveNodeSeed(1, 3, 1, 0)
     def genCreate1310(cid: LfContractId): LfNodeCreate =
-      createNode(cid, contractInstance = create1310Inst, signatories = Set(submitter))
-    val create1310disc: LfHash = discriminator(create1310seed, Set(submitter))
+      createNode(
+        cid,
+        contractInstance = create1310Inst,
+        signatories = Set(submitter),
+        observers = Set(extra),
+      )
+    val create1310disc: LfHash = discriminator(create1310seed, Set(submitter, extra))
     val lfCreate1310: LfNodeCreate = genCreate1310(LfContractId.V1(create1310disc))
 
     override lazy val versionedUnsuffixedTransaction: LfVersionedTransaction =
@@ -1532,6 +1559,7 @@ class ExampleTransactionFactory(
         create130Inst,
         create130disc,
         signatories = Set(signatory),
+        observers = Set(extra),
       )
     val create130: LfNodeCreate = genCreate130(create130Id)
 
@@ -1548,6 +1576,7 @@ class ExampleTransactionFactory(
         create1310Inst,
         create1310disc,
         signatories = Set(submitter),
+        observers = Set(extra),
       )
     val create1310: LfNodeCreate = genCreate1310(create1310Id)
 
@@ -1833,7 +1862,7 @@ class ExampleTransactionFactory(
         cid,
         children = List(nodeId(childIndex)),
         signatories = Set(signatory),
-        observers = Set.empty,
+        observers = Set(extra),
         actingParties = Set(signatory),
       )
 
@@ -2456,14 +2485,14 @@ class ExampleTransactionFactory(
         cid,
         consuming = false,
         actingParties = Set(submitter),
-        signatories = Set(submitter),
+        signatories = Set(submitter, signatory),
         observers = Set(observer),
         children = List(nodeId(childIndex)),
       )
     val lfExercise11: LfNodeExercises = genExerciseN(lfCreate10Id, 4)
 
     val create110seed: LfHash = deriveNodeSeed(1, 1, 0)
-    val create110disc: LfHash = discriminator(create110seed, Set(submitter))
+    val create110disc: LfHash = discriminator(create110seed, Set(submitter, signatory))
     def genCreate110(
         cid: LfContractId,
         contractInst: LfContractInst,
@@ -2471,7 +2500,7 @@ class ExampleTransactionFactory(
       createNode(
         cid,
         contractInstance = contractInst,
-        signatories = Set(submitter),
+        signatories = Set(submitter, signatory),
         observers = Set.empty,
       )
 
@@ -2593,7 +2622,7 @@ class ExampleTransactionFactory(
         0,
         create110Inst,
         create110disc,
-        signatories = Set(submitter),
+        signatories = Set(submitter, signatory),
       )
     val create110: LfNodeCreate = genCreate110(create110Id, create110Inst)
 

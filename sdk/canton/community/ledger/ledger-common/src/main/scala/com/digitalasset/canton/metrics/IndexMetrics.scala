@@ -22,26 +22,6 @@ class IndexHistograms(val prefix: MetricName)(implicit
                           |the latency. This metric represents the time for each such computation.""",
     qualification = MetricQualification.Debug,
   )
-
-  private val packageMetadataPrefix = prefix :+ "package_metadata"
-
-  private[metrics] val decodeArchive: Item = Item(
-    packageMetadataPrefix :+ "decode_archive",
-    summary = "The time to decode a package archive to extract metadata information.",
-    description = """This metric represents the time spent scanning each uploaded package for new
-            |interfaces and corresponding templates.""",
-    qualification = MetricQualification.Debug,
-  )
-
-  private[metrics] val viewInitialisation: Item = Item(
-    packageMetadataPrefix :+ "view_init",
-    summary = "The time to initialize package metadata view.",
-    description = """As the mapping between interfaces and templates is not persistent - it is
-                        |computed for each Indexer restart by loading all packages which were ever
-                        |uploaded and scanning them to extract metadata information.""",
-    qualification = MetricQualification.Debug,
-  )
-
 }
 
 class IndexMetrics(
@@ -139,13 +119,5 @@ class IndexMetrics(
 
     val computeInterfaceView: Timer =
       openTelemetryMetricsFactory.timer(inventory.computeInterfaceView.info)
-  }
-
-  object packageMetadata {
-
-    val decodeArchive: Timer = openTelemetryMetricsFactory.timer(inventory.decodeArchive.info)
-
-    val viewInitialisation: Timer =
-      openTelemetryMetricsFactory.timer(inventory.viewInitialisation.info)
   }
 }

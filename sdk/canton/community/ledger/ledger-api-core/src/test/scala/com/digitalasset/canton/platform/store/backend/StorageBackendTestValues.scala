@@ -90,24 +90,6 @@ private[store] object StorageBackendTestValues {
     )
   }
 
-  def dtoPackage(offset: Offset): DbDto.Package = DbDto.Package(
-    package_id = someArchive.getHash,
-    upload_id = "upload_id",
-    source_description = Some("source_description"),
-    package_size = someArchive.getPayload.size.toLong,
-    known_since = someTime.micros,
-    ledger_offset = offset.toHexString,
-    _package = someArchive.toByteArray,
-  )
-
-  def dtoPackageEntry(offset: Offset): DbDto.PackageEntry = DbDto.PackageEntry(
-    ledger_offset = offset.toHexString,
-    recorded_at = someTime.micros,
-    submission_id = Some("submission_id"),
-    typ = JdbcLedgerDao.acceptType,
-    rejection_reason = None,
-  )
-
   /** A simple create event.
     * Corresponds to a transaction with a single create node.
     */

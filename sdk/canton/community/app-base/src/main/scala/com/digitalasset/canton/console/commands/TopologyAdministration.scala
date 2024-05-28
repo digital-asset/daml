@@ -1748,15 +1748,11 @@ class TopologyAdministrationGroup(
                 - "<domain-id>": the topology transaction will be directly submitted to the specified domain without
                               storing it locally first. This also means it will _not_ be synchronized to other domains
                               automatically.
-        filterParticipant: Filter for participants starting with the given filter string.
-        mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
+         filterParticipant: Filter for participants starting with the given filter string.
+         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
                           sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
                           when set to false, the proposal retains the proposal status until enough signatures are accumulated to
                           satisfy the mapping's authorization requirements.
-         serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
-                     This transaction will be rejected if another fully authorized transaction with the same serial already
-                     exists, or if there is a gap between this serial and the most recently used serial.
-                     If None, the serial will be automatically selected by the node.
          signedBy: the fingerprint of the key to be used to sign this proposal
          |"""
     )
@@ -1771,7 +1767,6 @@ class TopologyAdministrationGroup(
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-        serial: Option[PositiveInt] = None,
         signedBy: Option[Fingerprint] = Some(
           instance.id.fingerprint
         ), // TODO(#12945) don't use the instance's root namespace key by default.
@@ -1788,9 +1783,13 @@ class TopologyAdministrationGroup(
             "Ensure that at least one of the two parameters (adds or removes) is not empty."
           )
         case (_, _) =>
-          val newDiffPackageIds = current0 match {
-            case Some(value) => ((value.item.packageIds ++ adds).diff(removes)).distinct
-            case None => (adds.diff(removes)).distinct
+          val (newSerial, newDiffPackageIds) = current0 match {
+            case Some(value) =>
+              (
+                value.context.serial.increment,
+                ((value.item.packageIds ++ adds).diff(removes)).distinct,
+              )
+            case None => (PositiveInt.one, (adds.diff(removes)).distinct)
           }
 
           propose(
@@ -1800,7 +1799,7 @@ class TopologyAdministrationGroup(
             store,
             mustFullyAuthorize,
             synchronize,
-            serial,
+            Some(newSerial),
             signedBy,
           )
       }
@@ -2044,20 +2043,21 @@ class TopologyAdministrationGroup(
         .verifyProposalConsistency(adds, removes, observerAdds, observerRemoves, updateThreshold)
         .valueOr(err => throw new IllegalArgumentException(err))
 
-      def queryStore(proposals: Boolean): Option[MediatorDomainState] = expectAtMostOneResult(
-        list(
-          domainId.filterString,
-          group = Some(group),
-          operation = Some(TopologyChangeOp.Replace),
-          proposals = proposals,
-        )
-      ).map(_.item)
+      def queryStore(proposals: Boolean): Option[(PositiveInt, MediatorDomainState)] =
+        expectAtMostOneResult(
+          list(
+            domainId.filterString,
+            group = Some(group),
+            operation = Some(TopologyChangeOp.Replace),
+            proposals = proposals,
+          )
+        ).map(result => (result.context.serial, result.item))
 
-      val mdsO = queryStore(proposals = false)
+      val maybeSerialAndMediatorDomainState = queryStore(proposals = false)
 
       MediatorGroupDeltaComputations
         .verifyProposalAgainstCurrentState(
-          mdsO,
+          maybeSerialAndMediatorDomainState.map(_._2),
           adds,
           removes,
           observerAdds,
@@ -2066,15 +2066,16 @@ class TopologyAdministrationGroup(
         )
         .valueOr(err => throw new IllegalArgumentException(err))
 
-      val (threshold, active, observers) = mdsO match {
-        case Some(mds) =>
+      val (serial, threshold, active, observers) = maybeSerialAndMediatorDomainState match {
+        case Some((currentSerial, mds)) =>
           (
+            currentSerial.increment,
             mds.threshold,
             mds.active.forgetNE.concat(adds).diff(removes),
             mds.observers.concat(observerAdds).diff(observerRemoves),
           )
         case None =>
-          (PositiveInt.one, adds, observerAdds)
+          (PositiveInt.one, PositiveInt.one, adds, observerAdds)
       }
 
       propose(
@@ -2087,15 +2088,18 @@ class TopologyAdministrationGroup(
         synchronize = None, // no synchronize - instead rely on await below
         mustFullyAuthorize = mustFullyAuthorize,
         signedBy = signedBy,
+        serial = Some(serial),
       ).discard
 
       await.foreach { timeout =>
         ConsoleMacros.utils.retry_until_true(timeout) {
-          def areAllChangesPersisted(mds: MediatorDomainState): Boolean = {
-            adds.forall(mds.active.contains) && removes.forall(!mds.active.contains(_)) &&
-            observerAdds.forall(mds.observers.contains) && observerRemoves.forall(
-              !mds.observers.contains(_)
-            ) && updateThreshold.forall(_ == mds.threshold)
+          def areAllChangesPersisted: ((PositiveInt, MediatorDomainState)) => Boolean = {
+            case (serialFound, mds) =>
+              serialFound == serial &&
+              adds.forall(mds.active.contains) && removes.forall(!mds.active.contains(_)) &&
+              observerAdds.forall(mds.observers.contains) && observerRemoves.forall(
+                !mds.observers.contains(_)
+              ) && updateThreshold.forall(_ == mds.threshold)
           }
 
           if (mustFullyAuthorize) {

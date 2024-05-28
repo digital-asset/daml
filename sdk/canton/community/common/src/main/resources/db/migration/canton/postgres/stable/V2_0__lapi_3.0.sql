@@ -41,65 +41,6 @@ CREATE TABLE lapi_transaction_metering (
 CREATE INDEX lapi_transaction_metering_ledger_offset_idx ON lapi_transaction_metering USING btree (ledger_offset);
 
 ---------------------------------------------------------------------------------------------------
--- Package entries
---
--- A table for tracking DAML-LF package submissions.
--- It includes id to track the package submission and status.
----------------------------------------------------------------------------------------------------
-CREATE TABLE lapi_package_entries (
-    ledger_offset varchar(4000) collate "C" primary key not null,
-    recorded_at bigint not null, --with timezone
-    -- SubmissionId for package to be uploaded
-    submission_id varchar(1000) collate "C",
-    -- The type of entry, one of 'accept' or 'reject'
-    typ varchar(1000) collate "C" not null,
-    -- If the type is 'reject', then the rejection reason is set.
-    -- Rejection reason is a human-readable description why the change was rejected.
-    rejection_reason varchar(1000) collate "C",
-    constraint check_package_entry_type
-        check (
-                (typ = 'accept' and rejection_reason is null) or
-                (typ = 'reject' and rejection_reason is not null)
-            )
-);
-
--- Index for retrieving the package entry by submission id
-CREATE INDEX lapi_package_entries_idx ON lapi_package_entries USING btree (submission_id);
-
----------------------------------------------------------------------------------------------------
--- List of packages
---
--- A table for tracking DAML-LF packages.
----------------------------------------------------------------------------------------------------
-CREATE TABLE lapi_packages (
-    -- The unique identifier of the package (the hash of its content)
-    package_id varchar(4000) collate "C" primary key not null,
-    -- Packages are uploaded as DAR files (i.e., in groups)
-    -- This field can be used to find out which packages were uploaded together
-    upload_id varchar(1000) collate "C" not null,
-    -- A human readable description of the package source
-    source_description varchar(1000) collate "C",
-    -- The size of the archive payload (i.e., the serialized DAML-LF package), in bytes
-    package_size bigint not null,
-    -- The time when the package was added
-    known_since bigint not null,
-    -- The ledger end at the time when the package was added
-    ledger_offset varchar(4000) collate "C" not null,
-    -- The DAML-LF archive, serialized using the protobuf message `daml_lf.Archive`.
-    --  See also `daml-lf/archive/da/daml_lf.proto`.
-    package bytea not null
-);
-
----------------------------------------------------------------------------------------------------
--- Indices to speed up indexer initialization
---
--- At startup, the indexer deletes all entries with an offset beyond the stored ledger end.
--- Such entries can be written when the indexer crashes right before updating the ledger end.
--- This migration adds missing indices to speed up the deletion of such entries.
----------------------------------------------------------------------------------------------------
-CREATE INDEX lapi_packages_ledger_offset_idx ON lapi_packages USING btree (ledger_offset);
-
----------------------------------------------------------------------------------------------------
 -- Parameters
 --
 -- This table is meant to have a single row storing all the parameters we have.
@@ -599,6 +540,7 @@ CREATE TABLE lapi_pe_assign_id_filter_stakeholder (
 );
 CREATE INDEX lapi_pe_assign_id_filter_stakeholder_pts_idx ON lapi_pe_assign_id_filter_stakeholder(party_id, template_id, event_sequential_id);
 CREATE INDEX lapi_pe_assign_id_filter_stakeholder_ps_idx  ON lapi_pe_assign_id_filter_stakeholder(party_id, event_sequential_id);
+CREATE INDEX lapi_pe_assign_id_filter_stakeholder_ts_idx  ON lapi_pe_assign_id_filter_stakeholder(template_id, event_sequential_id);
 CREATE INDEX lapi_pe_assign_id_filter_stakeholder_s_idx   ON lapi_pe_assign_id_filter_stakeholder(event_sequential_id);
 
 
@@ -616,9 +558,10 @@ CREATE TABLE lapi_pe_consuming_id_filter_stakeholder (
     party_id integer not null
 );
 
-CREATE INDEX lapi_pe_consuming_id_filter_stakeholder_ps_idx ON lapi_pe_consuming_id_filter_stakeholder USING btree (party_id, event_sequential_id);
+CREATE INDEX lapi_pe_consuming_id_filter_stakeholder_ps_idx  ON lapi_pe_consuming_id_filter_stakeholder USING btree (party_id, event_sequential_id);
 CREATE INDEX lapi_pe_consuming_id_filter_stakeholder_pts_idx ON lapi_pe_consuming_id_filter_stakeholder USING btree (party_id, template_id, event_sequential_id);
-CREATE INDEX lapi_pe_consuming_id_filter_stakeholder_s_idx ON lapi_pe_consuming_id_filter_stakeholder USING btree (event_sequential_id);
+CREATE INDEX lapi_pe_consuming_id_filter_stakeholder_ts_idx  ON lapi_pe_consuming_id_filter_stakeholder USING btree (template_id, event_sequential_id);
+CREATE INDEX lapi_pe_consuming_id_filter_stakeholder_s_idx   ON lapi_pe_consuming_id_filter_stakeholder USING btree (event_sequential_id);
 
 CREATE TABLE lapi_pe_create_id_filter_non_stakeholder_informee (
     event_sequential_id bigint not null,
@@ -635,9 +578,10 @@ CREATE TABLE lapi_pe_create_id_filter_stakeholder (
     party_id integer not null
 );
 
-CREATE INDEX lapi_pe_create_id_filter_stakeholder_pt_idx ON lapi_pe_create_id_filter_stakeholder USING btree (party_id, event_sequential_id);
+CREATE INDEX lapi_pe_create_id_filter_stakeholder_pt_idx  ON lapi_pe_create_id_filter_stakeholder USING btree (party_id, event_sequential_id);
 CREATE INDEX lapi_pe_create_id_filter_stakeholder_pts_idx ON lapi_pe_create_id_filter_stakeholder USING btree (party_id, template_id, event_sequential_id);
-CREATE INDEX lapi_pe_create_id_filter_stakeholder_s_idx ON lapi_pe_create_id_filter_stakeholder USING btree (event_sequential_id);
+CREATE INDEX lapi_pe_create_id_filter_stakeholder_ts_idx  ON lapi_pe_create_id_filter_stakeholder USING btree (template_id, event_sequential_id);
+CREATE INDEX lapi_pe_create_id_filter_stakeholder_s_idx   ON lapi_pe_create_id_filter_stakeholder USING btree (event_sequential_id);
 
 CREATE TABLE lapi_pe_non_consuming_id_filter_informee (
     event_sequential_id bigint not null,
@@ -655,6 +599,7 @@ CREATE TABLE lapi_pe_unassign_id_filter_stakeholder (
 
 CREATE INDEX lapi_pe_unassign_id_filter_stakeholder_ps_idx ON lapi_pe_unassign_id_filter_stakeholder USING btree (party_id, event_sequential_id);
 CREATE INDEX lapi_pe_unassign_id_filter_stakeholder_pts_idx ON lapi_pe_unassign_id_filter_stakeholder USING btree (party_id, template_id, event_sequential_id);
+CREATE INDEX lapi_pe_unassign_id_filter_stakeholder_ts_idx ON lapi_pe_unassign_id_filter_stakeholder USING btree (template_id, event_sequential_id);
 CREATE INDEX lapi_pe_unassign_id_filter_stakeholder_s_idx ON lapi_pe_unassign_id_filter_stakeholder USING btree (event_sequential_id);
 
 CREATE TABLE lapi_string_interning (

@@ -13,7 +13,7 @@ import com.daml.ledger.api.v2.command_service.{
 import com.daml.ledger.api.v2.commands.Commands
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.client.services.commands.CommandServiceClient.statusFromThrowable
-import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
+import com.digitalasset.canton.tracing.TraceContext
 import com.google.rpc.status.Status
 import io.grpc.protobuf.StatusProto
 
@@ -112,8 +112,7 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
       token: Option[String],
   )(implicit traceContext: TraceContext): CommandServiceStub = {
     val withToken: CommandServiceStub = LedgerClient
-      .stub(service, token)
-      .withOption(TraceContextGrpc.TraceContextOptionsKey, traceContext)
+      .stubWithTracing(service, token)
 
     timeout
       .fold(withToken) { timeout =>

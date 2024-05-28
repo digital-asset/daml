@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
+import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
@@ -30,7 +31,11 @@ import com.digitalasset.canton.platform.store.DbSupport.{ConnectionPoolConfig, D
 import com.digitalasset.canton.platform.store.backend.StorageBackendFactory
 import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDaoBackend.TestParticipantId
-import com.digitalasset.canton.platform.store.dao.events.{CompressionStrategy, ContractLoader}
+import com.digitalasset.canton.platform.store.dao.events.{
+  CompressionStrategy,
+  ContractLoader,
+  LfValueTranslation,
+}
 import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.store.{DbSupport, DbType, FlywayMigrations}
 import com.digitalasset.canton.tracing.TraceContext
@@ -38,7 +43,7 @@ import io.opentelemetry.api.OpenTelemetry
 import org.scalatest.Suite
 
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 object JdbcLedgerDaoBackend {
 
@@ -59,6 +64,8 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
   protected def dbType: DbType
 
   protected def jdbcUrl: String
+
+  protected def loadPackage: Ref.PackageId => Future[Option[Archive]]
 
   protected def daoOwner(
       eventsPageSize: Int,
@@ -110,44 +117,53 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
         parallelism = 5,
         loggerFactory = loggerFactory,
       )
-    } yield JdbcLedgerDao.write(
-      dbSupport = dbSupport,
-      sequentialWriteDao = SequentialWriteDao(
-        participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
-        metrics = metrics,
-        compressionStrategy = CompressionStrategy.none(metrics),
-        ledgerEndCache = ledgerEndCache,
-        stringInterningView = stringInterningView,
-        ingestionStorageBackend = storageBackendFactory.createIngestionStorageBackend,
-        parameterStorageBackend = storageBackendFactory.createParameterStorageBackend,
-        loggerFactory = loggerFactory,
-      ),
-      servicesExecutionContext = ec,
-      metrics = metrics,
-      engine = Some(
+    } yield {
+      val engine = Some(
         new Engine(EngineConfig(LanguageVersion.StableVersions(LanguageMajorVersion.V2)))
-      ),
-      participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
-      ledgerEndCache = ledgerEndCache,
-      stringInterning = stringInterningView,
-      completionsPageSize = 1000,
-      activeContractsServiceStreamsConfig = ActiveContractsServiceStreamsConfig(
-        maxPayloadsPerPayloadsPage = eventsPageSize,
-        maxIdsPerIdPage = acsIdPageSize,
-        maxPagesPerIdPagesBuffer = 1,
-        maxWorkingMemoryInBytesForIdPages = 100 * 1024 * 1024,
-        maxParallelIdCreateQueries = acsIdFetchingParallelism,
-        maxParallelPayloadCreateQueries = acsContractFetchingParallelism,
-        contractProcessingParallelism = eventsProcessingParallelism,
-      ),
-      transactionFlatStreamsConfig = TransactionFlatStreamsConfig.default,
-      transactionTreeStreamsConfig = TransactionTreeStreamsConfig.default,
-      globalMaxEventIdQueries = 20,
-      globalMaxEventPayloadQueries = 10,
-      tracer = OpenTelemetry.noop().getTracer("test"),
-      loggerFactory = loggerFactory,
-      contractLoader = contractLoader,
-    )
+      )
+      JdbcLedgerDao.write(
+        dbSupport = dbSupport,
+        sequentialWriteDao = SequentialWriteDao(
+          participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
+          metrics = metrics,
+          compressionStrategy = CompressionStrategy.none(metrics),
+          ledgerEndCache = ledgerEndCache,
+          stringInterningView = stringInterningView,
+          ingestionStorageBackend = storageBackendFactory.createIngestionStorageBackend,
+          parameterStorageBackend = storageBackendFactory.createParameterStorageBackend,
+          loggerFactory = loggerFactory,
+        ),
+        servicesExecutionContext = ec,
+        metrics = metrics,
+        engine = engine,
+        participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
+        ledgerEndCache = ledgerEndCache,
+        stringInterning = stringInterningView,
+        completionsPageSize = 1000,
+        activeContractsServiceStreamsConfig = ActiveContractsServiceStreamsConfig(
+          maxPayloadsPerPayloadsPage = eventsPageSize,
+          maxIdsPerIdPage = acsIdPageSize,
+          maxPagesPerIdPagesBuffer = 1,
+          maxWorkingMemoryInBytesForIdPages = 100 * 1024 * 1024,
+          maxParallelIdCreateQueries = acsIdFetchingParallelism,
+          maxParallelPayloadCreateQueries = acsContractFetchingParallelism,
+          contractProcessingParallelism = eventsProcessingParallelism,
+        ),
+        transactionFlatStreamsConfig = TransactionFlatStreamsConfig.default,
+        transactionTreeStreamsConfig = TransactionTreeStreamsConfig.default,
+        globalMaxEventIdQueries = 20,
+        globalMaxEventPayloadQueries = 10,
+        tracer = OpenTelemetry.noop().getTracer("test"),
+        loggerFactory = loggerFactory,
+        contractLoader = contractLoader,
+        lfValueTranslation = new LfValueTranslation(
+          metrics = metrics,
+          engineO = engine,
+          loadPackage = (packageId, _loggingContext) => loadPackage(packageId),
+          loggerFactory = loggerFactory,
+        ),
+      )
+    }
   }
 
   protected final var ledgerDao: LedgerDao = _
