@@ -834,6 +834,7 @@ scala_library(
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_netty_netty_handler",
         "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_scalaland_chimney_2_13",
         "@maven//:junit_junit",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_postgresql_postgresql",
