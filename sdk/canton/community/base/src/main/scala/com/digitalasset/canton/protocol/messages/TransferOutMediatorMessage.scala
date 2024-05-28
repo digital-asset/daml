@@ -62,7 +62,12 @@ final case class TransferOutMediatorMessage(
       : Map[ViewPosition, ViewConfirmationParameters] = {
     val confirmingParties = commonData.confirmingParties
     val threshold = NonNegativeInt.tryCreate(confirmingParties.size)
-    Map(tree.viewPosition -> ViewConfirmationParameters.create(confirmingParties, threshold))
+    Map(
+      tree.viewPosition -> ViewConfirmationParameters.createOnlyWithConfirmers(
+        confirmingParties,
+        threshold,
+      )
+    )
   }
 
   def toProtoV30: v30.TransferOutMediatorMessage =

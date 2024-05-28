@@ -174,8 +174,8 @@ final case class TransferOutCommonData private (
 
   override def hashPurpose: HashPurpose = HashPurpose.TransferOutCommonData
 
-  def confirmingParties: Set[Informee] =
-    (stakeholders ++ adminParties).map(ConfirmingParty(_, PositiveInt.one))
+  def confirmingParties: Map[LfPartyId, PositiveInt] =
+    (stakeholders ++ adminParties).map(_ -> PositiveInt.one).toMap
 
   override def pretty: Pretty[TransferOutCommonData] = prettyOfClass(
     param("submitter metadata", _.submitterMetadata),
@@ -442,7 +442,7 @@ final case class FullTransferOutTree(tree: TransferOutViewTree)
 
   override def mediator: MediatorGroupRecipient = commonData.sourceMediator
 
-  override def informees: Set[LfPartyId] = commonData.confirmingParties.map(_.party)
+  override def informees: Set[LfPartyId] = commonData.confirmingParties.keySet
 
   override def toBeSigned: Option[RootHash] = Some(tree.rootHash)
 

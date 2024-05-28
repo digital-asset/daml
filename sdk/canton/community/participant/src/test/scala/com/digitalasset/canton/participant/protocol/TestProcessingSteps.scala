@@ -63,7 +63,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class TestProcessingSteps(
     pendingSubmissionMap: concurrent.Map[Int, Unit],
     pendingRequestData: Option[TestPendingRequestData],
-    informeesOfView: ViewHash => Set[Informee] = _ => Set.empty,
+    informeesOfView: ViewHash => Set[LfPartyId] = _ => Set.empty,
     submissionDataForTrackerO: Option[SubmissionData] = None,
 )(implicit val ec: ExecutionContext)
     extends ProcessingSteps[
@@ -167,7 +167,7 @@ class TestProcessingSteps(
     def treeFor(viewHash: ViewHash, hash: Hash): TestViewTree = {
       val rootHash = RootHash(hash)
       val informees = informeesOfView(viewHash)
-      TestViewTree(viewHash, rootHash, informees.map(_.party))
+      TestViewTree(viewHash, rootHash, informees)
     }
 
     val decryptedViewTrees = batch.map { envelope =>

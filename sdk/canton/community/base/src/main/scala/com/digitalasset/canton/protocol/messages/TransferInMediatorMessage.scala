@@ -63,7 +63,12 @@ final case class TransferInMediatorMessage(
       : Map[ViewPosition, ViewConfirmationParameters] = {
     val confirmingParties = commonData.confirmingParties
     val threshold = NonNegativeInt.tryCreate(confirmingParties.size)
-    Map(tree.viewPosition -> ViewConfirmationParameters.create(confirmingParties, threshold))
+    Map(
+      tree.viewPosition -> ViewConfirmationParameters.createOnlyWithConfirmers(
+        confirmingParties,
+        threshold,
+      )
+    )
   }
 
   override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =

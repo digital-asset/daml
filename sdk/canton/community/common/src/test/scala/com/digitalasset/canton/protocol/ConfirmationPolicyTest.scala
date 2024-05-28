@@ -4,12 +4,7 @@
 package com.digitalasset.canton.protocol
 
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.data.{
-  ConfirmingParty,
-  PlainInformee,
-  Quorum,
-  ViewConfirmationParameters,
-}
+import com.digitalasset.canton.data.{Quorum, ViewConfirmationParameters}
 import com.digitalasset.canton.protocol.ConfirmationPolicy.Signatory
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   signatoryParticipant,
@@ -172,12 +167,7 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
   "The signatory policy" when {
     "adding a submitting admin party" should {
       "correctly update informees and thresholds" in {
-        val oldInformees = Set(
-          PlainInformee(alice),
-          ConfirmingParty(bob, PositiveInt.one),
-          ConfirmingParty(charlie, PositiveInt.one),
-        )
-        val oldInformeesId = oldInformees.map(informee => informee.party)
+        val oldInformees = Set(alice, bob, charlie)
         val oldThreshold = NonNegativeInt.tryCreate(2)
         val oldQuorum =
           Seq(
@@ -190,7 +180,7 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
             )
           )
         val oldViewConfirmationParameters =
-          ViewConfirmationParameters.tryCreate(oldInformeesId, oldQuorum)
+          ViewConfirmationParameters.tryCreate(oldInformees, oldQuorum)
 
         ConfirmationPolicy.Signatory
           .withSubmittingAdminParty(None)(oldViewConfirmationParameters) shouldBe
@@ -199,7 +189,7 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
         ConfirmationPolicy.Signatory
           .withSubmittingAdminParty(Some(alice))(oldViewConfirmationParameters) shouldBe
           ViewConfirmationParameters.tryCreate(
-            oldInformeesId,
+            oldInformees,
             oldQuorum :+
               Quorum(
                 Map(alice -> PositiveInt.one),
@@ -210,7 +200,7 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
         ConfirmationPolicy.Signatory
           .withSubmittingAdminParty(Some(bob))(oldViewConfirmationParameters) shouldBe
           ViewConfirmationParameters.tryCreate(
-            oldInformeesId,
+            oldInformees,
             oldQuorum :+
               Quorum(
                 Map(bob -> PositiveInt.one),
@@ -221,7 +211,7 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
         ConfirmationPolicy.Signatory
           .withSubmittingAdminParty(Some(charlie))(oldViewConfirmationParameters) shouldBe
           ViewConfirmationParameters.tryCreate(
-            oldInformeesId,
+            oldInformees,
             oldQuorum :+
               Quorum(
                 Map(charlie -> PositiveInt.one),
@@ -232,7 +222,7 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
         ConfirmationPolicy.Signatory
           .withSubmittingAdminParty(Some(david))(oldViewConfirmationParameters) shouldBe
           ViewConfirmationParameters.tryCreate(
-            oldInformeesId + david,
+            oldInformees + david,
             oldQuorum :+
               Quorum(
                 Map(david -> PositiveInt.one),

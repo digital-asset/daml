@@ -30,25 +30,23 @@ import com.digitalasset.canton.participant.admin.PackageService.{
   catchUpstreamErrors,
 }
 import com.digitalasset.canton.participant.store.memory.MutablePackageMetadataView
-import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, ParticipantEventPublisher}
 import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.Thereafter.syntax.{ThereafterAsyncOps, ThereafterOps}
+import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.digitalasset.canton.util.{EitherTUtil, PathUtils, SimpleExecutionQueue}
 import com.digitalasset.canton.{LedgerSubmissionId, LfPackageId}
 import com.google.protobuf.ByteString
 
 import java.nio.file.Paths
 import java.util.zip.ZipInputStream
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
 class PackageUploader(
     clock: Clock,
     engine: Engine,
-    eventPublisher: ParticipantEventPublisher,
     enableUpgradeValidation: Boolean,
     futureSupervisor: FutureSupervisor,
     hashOps: HashOps,
@@ -167,14 +165,6 @@ class PackageUploader(
         // with the information about the package not being present (with a None)
         // now, that the package is loaded, we need to get rid of this None.
         _ = packageDependencyResolver.clearPackagesNotPreviouslyFound()
-        _ <- eventPublisher.publish(
-          LedgerSyncEvent.PublicPackageUpload(
-            archives = allPackages.map(_._1),
-            sourceDescription = Some(sourceDescription.unwrap),
-            recordTime = ParticipantEventPublisher.now.toLf,
-            submissionId = Some(submissionId),
-          )
-        )
         _ = logger.debug(
           s"Managed to upload one or more archives in submissionId $submissionId and sourceDescription $sourceDescription"
         )
@@ -210,37 +200,9 @@ class PackageUploader(
           s"Failed to upload one or more archives in submissionId $submissionId and sourceDescription $sourceDescription",
           e,
         )
-        eventPublisher
-          .publish(
-            LedgerSyncEvent.PublicPackageUploadRejected(
-              rejectionReason = e.getMessage,
-              recordTime = ParticipantEventPublisher.now.toLf,
-              submissionId = submissionId,
-            )
-          )
-          .transformWith {
-            case Success(UnlessShutdown.AbortedDueToShutdown) =>
-              FutureUnlessShutdown.abortedDueToShutdown
-            case Success(_) =>
-              FutureUnlessShutdown.failed[Unit](e)
-            case Failure(exception) =>
-              // The LedgerSyncEvent publishing failed as well so log its error
-              // and return the original error
-              logger.warn(
-                s"Publishing PublicPackageUploadRejected failed for submissionId $submissionId and sourceDescription $sourceDescription",
-                exception,
-              )
-              FutureUnlessShutdown.failed[Unit](e)
-          }
-          .thereafterF {
-            case Success(UnlessShutdown.AbortedDueToShutdown) =>
-              // Do nothing, node is shutting down
-              Future.unit
-            case _other =>
-              // If JDBC insertion call failed, we don't know whether the DB was updated or not
-              // hence ensure the package metadata view stays in sync by re-initializing it from the DB.
-              packageMetadataView.refreshState.onShutdown(())
-          }
+        // If JDBC insertion call failed, we don't know whether the DB was updated or not
+        // hence ensure the package metadata view stays in sync by re-initializing it from the DB.
+        packageMetadataView.refreshState.transformWith(_ => FutureUnlessShutdown.failed(e))
     }
 
   private def validatePackages(

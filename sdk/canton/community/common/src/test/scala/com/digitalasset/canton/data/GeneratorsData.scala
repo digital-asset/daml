@@ -4,7 +4,7 @@
 package com.digitalasset.canton.data
 
 import com.daml.lf.value.Value.ValueInt64
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{GeneratorsCrypto, Salt, TestHash}
 import com.digitalasset.canton.data.ActionDescription.{
   CreateActionDescription,
@@ -24,6 +24,7 @@ import com.digitalasset.canton.protocol.messages.{
 }
 import com.digitalasset.canton.sequencing.protocol.{Batch, MediatorGroupRecipient, SignedContent}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.util.SeqUtil
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
 import com.digitalasset.canton.{LfInterfaceId, LfPackageId, LfPartyId, LfVersioned}
@@ -32,6 +33,7 @@ import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.EitherValues.*
 
 import scala.concurrent.ExecutionContext
+import scala.util.Random
 
 final class GeneratorsData(
     protocolVersion: ProtocolVersion,
@@ -139,11 +141,19 @@ final class GeneratorsData(
 
   def quorumArb(informees: Seq[LfPartyId]): Arbitrary[Quorum] = Arbitrary(
     for {
-      confirmers <- Gen.sequence[Set[ConfirmingParty], ConfirmingParty](
-        informees.map(pId => Arbitrary.arbitrary[ConfirmingParty].map(cp => cp.copy(party = pId)))
+      confirmersWeights <- Gen
+        .containerOfN[Seq, PositiveInt](informees.size, Arbitrary.arbitrary[PositiveInt])
+
+      random = new Random()
+      shuffledInformees = SeqUtil.randomSubsetShuffle(
+        informees.toIndexedSeq,
+        informees.size,
+        random,
       )
+
+      confirmers = shuffledInformees.zip(confirmersWeights).toMap
       threshold <- Arbitrary.arbitrary[NonNegativeInt]
-    } yield Quorum.create(confirmers, threshold)
+    } yield Quorum(confirmers, threshold)
   )
 
   implicit val viewCommonDataArb: Arbitrary[ViewCommonData] = Arbitrary(

@@ -121,26 +121,6 @@ create or replace view debug.lapi_transaction_metering as
     ledger_offset
   from lapi_transaction_metering;
 
-create or replace view debug.lapi_package_entries as
-  select
-    ledger_offset,
-    debug.canton_timestamp(recorded_at) as recorded_at,
-    submission_id,
-    typ,
-    rejection_reason
-  from lapi_package_entries;
-
-create or replace view debug.lapi_packages as
-  select
-    package_id,
-    upload_id,
-    source_description,
-    package_size,
-    debug.canton_timestamp(known_since) as known_since,
-    ledger_offset,
-    package
-  from lapi_packages;
-
 create or replace view debug.lapi_parameters as
   select
     ledger_end,

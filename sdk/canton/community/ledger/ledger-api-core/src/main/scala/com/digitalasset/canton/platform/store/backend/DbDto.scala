@@ -122,26 +122,6 @@ object DbDto {
       record_time: Long,
   ) extends DbDto
 
-  // TODO(#17635): Remove me
-  final case class PackageEntry(
-      ledger_offset: String,
-      recorded_at: Long,
-      submission_id: Option[String],
-      typ: String,
-      rejection_reason: Option[String],
-  ) extends DbDto
-
-  // TODO(#17635): Remove me
-  final case class Package(
-      package_id: String,
-      upload_id: String,
-      source_description: Option[String],
-      package_size: Long,
-      known_since: Long,
-      ledger_offset: String,
-      _package: Array[Byte],
-  ) extends DbDto
-
   final case class PartyEntry(
       ledger_offset: String,
       recorded_at: Long,

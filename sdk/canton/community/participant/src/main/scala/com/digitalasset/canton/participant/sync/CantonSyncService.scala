@@ -32,8 +32,8 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.health.MutableHealthComponent
 import com.digitalasset.canton.ledger.api.health.HealthStatus
+import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.ledger.error.{CommonErrors, PackageServiceErrors}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.ReadService.ConnectedDomainResponse
 import com.digitalasset.canton.ledger.participant.state.*
@@ -665,7 +665,7 @@ class CantonSyncService(
             synchronizeVetting = false,
           )
           .map(_ => SubmissionResult.Acknowledged)
-          .onShutdown(Left(PackageServiceErrors.ParticipantShuttingDown.Error()))
+          .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
           .valueOr(err => SubmissionResult.SynchronousError(err.rpcStatus()))
       }
     }
@@ -681,7 +681,7 @@ class CantonSyncService(
         packageService.value
           .validateDar(dar, darName)
           .map(_ => SubmissionResult.Acknowledged)
-          .onShutdown(Left(PackageServiceErrors.ParticipantShuttingDown.Error()))
+          .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
           .valueOr(err => SubmissionResult.SynchronousError(err.rpcStatus()))
       }
     }

@@ -489,7 +489,8 @@ object ModelConformanceChecker {
         version = instance.contractInstance.version,
       )
       _ <- EitherT.cond[Future](
-        actual == expected,
+        // do not delete the package version, once protocol version handle it.
+        actual.copy(packageVersion = None) == expected,
         (),
         ContractMismatch(actual, expected): ContractValidationFailure,
       )

@@ -50,23 +50,11 @@ final case class Quorum(
       }.toSeq,
       threshold = threshold.unwrap,
     )
-
-  def getConfirmingParties: Set[ConfirmingParty] =
-    confirmers.map { case (pId, weight) => ConfirmingParty(pId, weight) }.toSet
-
 }
 
 object Quorum {
 
   lazy val empty: Quorum = Quorum(Map.empty, NonNegativeInt.zero)
-
-  def create(confirmers: Set[ConfirmingParty], threshold: NonNegativeInt): Quorum =
-    Quorum(
-      confirmers.map { case ConfirmingParty(id, weight) =>
-        id -> weight
-      }.toMap,
-      threshold,
-    )
 
   def fromProtoV30(
       quorumP: v30.Quorum,

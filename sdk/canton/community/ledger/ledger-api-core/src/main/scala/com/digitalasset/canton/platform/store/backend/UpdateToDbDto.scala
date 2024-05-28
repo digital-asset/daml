@@ -20,8 +20,6 @@ import com.digitalasset.canton.platform.store.dao.events.*
 import com.digitalasset.canton.tracing.{SerializableTraceContext, Traced}
 import io.grpc.Status
 
-import java.util.UUID
-
 object UpdateToDbDto {
 
   def apply(
@@ -102,51 +100,6 @@ object UpdateToDbDto {
               typ = JdbcLedgerDao.rejectType,
               rejection_reason = Some(u.rejectionReason),
               is_local = None,
-            )
-          )
-
-        case u: PublicPackageUpload =>
-          incrementCounterForEvent(
-            metrics.indexerEvents,
-            IndexedUpdatesMetrics.Labels.eventType.packageUpload,
-            IndexedUpdatesMetrics.Labels.status.accepted,
-          )
-          val uploadId = u.submissionId.getOrElse(UUID.randomUUID().toString)
-          val packages = u.archives.iterator.map { archive =>
-            DbDto.Package(
-              package_id = archive.getHash,
-              upload_id = uploadId,
-              source_description = u.sourceDescription,
-              package_size = archive.getPayload.size.toLong,
-              known_since = u.recordTime.micros,
-              ledger_offset = offset.toHexString,
-              _package = archive.toByteArray,
-            )
-          }
-          val packageEntries = u.submissionId.iterator.map(submissionId =>
-            DbDto.PackageEntry(
-              ledger_offset = offset.toHexString,
-              recorded_at = u.recordTime.micros,
-              submission_id = Some(submissionId),
-              typ = JdbcLedgerDao.acceptType,
-              rejection_reason = None,
-            )
-          )
-          packages ++ packageEntries
-
-        case u: PublicPackageUploadRejected =>
-          incrementCounterForEvent(
-            metrics.indexerEvents,
-            IndexedUpdatesMetrics.Labels.eventType.packageUpload,
-            IndexedUpdatesMetrics.Labels.status.rejected,
-          )
-          Iterator(
-            DbDto.PackageEntry(
-              ledger_offset = offset.toHexString,
-              recorded_at = u.recordTime.micros,
-              submission_id = Some(u.submissionId),
-              typ = JdbcLedgerDao.rejectType,
-              rejection_reason = Some(u.rejectionReason),
             )
           )
 

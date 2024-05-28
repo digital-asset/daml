@@ -539,7 +539,7 @@ class GenTransactionTreeTest
 
     "correctly compute recipients from witnesses" in {
       def mkWitnesses(setup: NonEmpty[Seq[Set[Int]]]): Witnesses =
-        Witnesses(setup.map(_.map(informee).map(_.party)))
+        Witnesses(setup.map(_.map(informee)))
 
       // Maps parties to participants; parties have IDs that start at 1, participants have IDs that start at 11
       val topologyMap = Map(
@@ -610,7 +610,7 @@ class GenTransactionTreeTest
 object GenTransactionTreeTest {
   private[data] def party(i: Int): LfPartyId = LfPartyId.assertFromString(s"party$i::1")
 
-  private[data] def informee(i: Int): Informee = PlainInformee(party(i))
+  private[data] def informee(i: Int): LfPartyId = party(i)
 
   private[data] def participant(i: Int): ParticipantId = ParticipantId(s"participant$i")
 }

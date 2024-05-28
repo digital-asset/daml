@@ -27,8 +27,6 @@ private[backend] class IngestionStorageBackendTemplate(
     val lastEventSequentialId = ledgerEnd.lastEventSeqId
 
     List(
-      SQL"DELETE FROM lapi_package_entries WHERE ${queryStrategy.offsetIsGreater("ledger_offset", ledgerOffset)}",
-      SQL"DELETE FROM lapi_packages WHERE ${queryStrategy.offsetIsGreater("ledger_offset", ledgerOffset)}",
       SQL"DELETE FROM lapi_command_completions WHERE ${queryStrategy
           .offsetIsGreater("completion_offset", ledgerOffset)}",
       SQL"DELETE FROM lapi_events_create WHERE ${queryStrategy.offsetIsGreater("event_offset", ledgerOffset)}",

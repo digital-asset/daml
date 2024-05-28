@@ -94,6 +94,7 @@ object ExampleTransactionFactory {
     LfContractInst(
       packageName = packageName,
       template = templateId,
+      packageVersion = None,
       arg = versionedValueCapturing(capturedIds.toList),
     )
 
@@ -107,7 +108,12 @@ object ExampleTransactionFactory {
     LfVersioned(transactionVersion, veryDeepValue)
 
   val veryDeepContractInstance: LfContractInst =
-    LfContractInst(packageName = packageName, template = templateId, arg = veryDeepVersionedValue)
+    LfContractInst(
+      packageName = packageName,
+      template = templateId,
+      packageVersion = None,
+      arg = veryDeepVersionedValue,
+    )
 
   def globalKey(
       templateId: LfTemplateId,

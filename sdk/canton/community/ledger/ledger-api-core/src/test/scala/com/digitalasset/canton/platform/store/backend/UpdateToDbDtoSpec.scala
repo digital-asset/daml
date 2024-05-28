@@ -142,65 +142,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
     }
 
-    "handle PublicPackageUpload (two archives)" in {
-      val sourceDescription = "Test source description"
-      val update = state.Update.PublicPackageUpload(
-        List(someArchive1, someArchive2),
-        Some(sourceDescription),
-        someRecordTime,
-        Some(someSubmissionId),
-      )
-      val dtos = updateToDtos(update)
-
-      dtos should contain theSameElementsInOrderAs List(
-        DbDto.Package(
-          package_id = someArchive1.getHash,
-          upload_id = someSubmissionId,
-          source_description = Some(sourceDescription),
-          package_size = someArchive1.getPayload.size.toLong,
-          known_since = someRecordTime.micros,
-          ledger_offset = someOffset.toHexString,
-          _package = someArchive1.toByteArray,
-        ),
-        DbDto.Package(
-          package_id = someArchive2.getHash,
-          upload_id = someSubmissionId,
-          source_description = Some(sourceDescription),
-          package_size = someArchive2.getPayload.size.toLong,
-          known_since = someRecordTime.micros,
-          ledger_offset = someOffset.toHexString,
-          _package = someArchive2.toByteArray,
-        ),
-        DbDto.PackageEntry(
-          ledger_offset = someOffset.toHexString,
-          recorded_at = someRecordTime.micros,
-          submission_id = Some(someSubmissionId),
-          typ = JdbcLedgerDao.acceptType,
-          rejection_reason = None,
-        ),
-      )
-    }
-
-    "handle PublicPackageUploadRejected" in {
-      val rejectionReason = "Test package rejection reason"
-      val update = state.Update.PublicPackageUploadRejected(
-        someSubmissionId,
-        someRecordTime,
-        rejectionReason,
-      )
-      val dtos = updateToDtos(update)
-
-      dtos should contain theSameElementsInOrderAs List(
-        DbDto.PackageEntry(
-          ledger_offset = someOffset.toHexString,
-          recorded_at = someRecordTime.micros,
-          submission_id = Some(someSubmissionId),
-          typ = JdbcLedgerDao.rejectType,
-          rejection_reason = Some(rejectionReason),
-        )
-      )
-    }
-
     "handle CommandRejected" in {
       val status = StatusProto.of(Status.Code.ABORTED.value(), "test reason", Seq.empty)
       val completionInfo = someCompletionInfo

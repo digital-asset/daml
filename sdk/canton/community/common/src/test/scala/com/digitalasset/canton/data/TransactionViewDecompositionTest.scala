@@ -65,7 +65,7 @@ class TransactionViewDecompositionTest
 
         val node = createNode(unsuffixedId(0))
         val informees =
-          Set[Informee](ConfirmingParty(signatory, PositiveInt.one))
+          Map(signatory -> NonNegativeInt.one)
         val rootSeed = ExampleTransactionFactory.lfHash(-1)
         val viewConfirmationParameters =
           ViewConfirmationParameters.create(informees, NonNegativeInt.one)
@@ -176,7 +176,7 @@ class TransactionViewDecompositionTest
           node,
           ViewConfirmationParameters.tryCreate(
             Set.empty,
-            Seq(Quorum.create(Set.empty, nextThreshold)),
+            Seq(Quorum(Map.empty, nextThreshold)),
           ),
           None,
           LfNodeId(0),

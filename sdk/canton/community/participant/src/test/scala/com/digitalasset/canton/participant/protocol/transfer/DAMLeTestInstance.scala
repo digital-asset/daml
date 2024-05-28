@@ -19,7 +19,6 @@ import com.digitalasset.canton.participant.admin.{
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.EngineController.GetEngineAbortStatus
 import com.digitalasset.canton.participant.store.memory.*
-import com.digitalasset.canton.participant.sync.ParticipantEventPublisher
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.participant.util.DAMLe.ReinterpretationError
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
@@ -28,7 +27,6 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
-import org.mockito.MockitoSugar.mock
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -51,7 +49,6 @@ object DAMLeTestInstance {
       clock = new SimClock(loggerFactory = loggerFactory),
       engine = engine,
       hashOps = pureCrypto,
-      eventPublisher = mock[ParticipantEventPublisher],
       packageDependencyResolver = packageDependencyResolver,
       enableUpgradeValidation = false,
       futureSupervisor = FutureSupervisor.Noop,

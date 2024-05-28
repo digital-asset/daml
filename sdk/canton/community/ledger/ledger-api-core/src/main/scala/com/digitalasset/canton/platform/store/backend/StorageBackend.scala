@@ -8,11 +8,11 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
+import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.{
   ParticipantMetering,
   ReportData,
 }
-import com.digitalasset.canton.ledger.participant.state.index.{IndexerPartyDetails, PackageDetails}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.EventSequentialId
@@ -29,7 +29,7 @@ import com.digitalasset.canton.platform.store.backend.common.{
   TransactionStreamingQueries,
 }
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
-import com.digitalasset.canton.platform.store.entries.{PackageLedgerEntry, PartyLedgerEntry}
+import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.tracing.TraceContext
@@ -185,19 +185,6 @@ trait PartyStorageBackend {
   def knownParties(fromExcl: Option[Party], maxResults: Int)(
       connection: Connection
   ): List[IndexerPartyDetails]
-}
-
-trait PackageStorageBackend {
-  def lfPackages(connection: Connection): Map[PackageId, PackageDetails]
-
-  def lfArchive(packageId: PackageId)(connection: Connection): Option[Array[Byte]]
-
-  def packageEntries(
-      startExclusive: Offset,
-      endInclusive: Offset,
-      pageSize: Int,
-      queryOffset: Long,
-  )(connection: Connection): Vector[(Offset, PackageLedgerEntry)]
 }
 
 trait CompletionStorageBackend {

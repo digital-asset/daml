@@ -3,36 +3,16 @@
 
 package com.digitalasset.canton.participant.sync
 
-import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.GrpcStatuses
 import com.daml.lf.CantonOnly
 import com.daml.lf.data.{Bytes, ImmArray}
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.{
-  CompletionInfo,
-  DivulgedContract,
-  Reassignment,
-  ReassignmentInfo,
-  TransactionMeta,
-  Update,
-}
+import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.ProcessingSteps
-import com.digitalasset.canton.protocol.{
-  LfCommittedTransaction,
-  LfContractId,
-  LfHash,
-  LfNode,
-  LfNodeCreate,
-  LfNodeExercises,
-  LfNodeId,
-  LfTemplateId,
-  SourceDomainId,
-  TargetDomainId,
-  TransferId,
-}
+import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.{
   LedgerParticipantId,
@@ -64,8 +44,6 @@ sealed trait LedgerSyncEvent extends Product with Serializable with PrettyPrinti
           recordTime = timestamp,
           transactionMeta = ta.transactionMeta.copy(submissionTime = timestamp),
         )
-      case ev: LedgerSyncEvent.PublicPackageUpload => ev.copy(recordTime = timestamp)
-      case ev: LedgerSyncEvent.PublicPackageUploadRejected => ev.copy(recordTime = timestamp)
       case ev: LedgerSyncEvent.CommandRejected => ev.copy(recordTime = timestamp)
       case ev: LedgerSyncEvent.PartyAddedToParticipant => ev.copy(recordTime = timestamp)
       case ev: LedgerSyncEvent.PartyAllocationRejected => ev.copy(recordTime = timestamp)
@@ -186,46 +164,6 @@ object LedgerSyncEvent {
 
     override def toDamlUpdate: Option[Update] = Some(
       this.transformInto[Update.PartyAllocationRejected]
-    )
-  }
-
-  final case class PublicPackageUpload(
-      archives: List[DamlLf.Archive],
-      sourceDescription: Option[String],
-      recordTime: LfTimestamp,
-      submissionId: Option[LedgerSubmissionId],
-  ) extends LedgerSyncEvent {
-    override def description: String =
-      s"Public package upload: ${archives.map(_.getHash).mkString(", ")}"
-
-    override def pretty: Pretty[PublicPackageUpload] =
-      prettyOfClass(
-        param("recordTime", _.recordTime),
-        param("submissionId", _.submissionId.showValueOrNone),
-        param("sourceDescription", _.sourceDescription.map(_.doubleQuoted).showValueOrNone),
-        paramWithoutValue("archives"),
-      )
-
-    override def toDamlUpdate: Option[Update] = Some(this.transformInto[Update.PublicPackageUpload])
-  }
-
-  final case class PublicPackageUploadRejected(
-      submissionId: LedgerSubmissionId,
-      recordTime: LfTimestamp,
-      rejectionReason: String,
-  ) extends LedgerSyncEvent {
-    override def description: String =
-      s"Public package upload rejected, correlationId=$submissionId reason='$rejectionReason'"
-
-    override def pretty: Pretty[PublicPackageUploadRejected] =
-      prettyOfClass(
-        param("recordTime", _.recordTime),
-        param("submissionId", _.submissionId),
-        param("rejectionReason", _.rejectionReason.doubleQuoted),
-      )
-
-    override def toDamlUpdate: Option[Update] = Some(
-      this.transformInto[Update.PublicPackageUploadRejected]
     )
   }
 

@@ -190,8 +190,9 @@ object SequentialWriteDaoSpec {
   private def offset(s: String): Offset = Offset.fromHexString(Ref.HexString.assertFromString(s))
 
   private def someUpdate(key: String) = Some(
-    Update.PublicPackageUploadRejected(
+    Update.PartyAllocationRejected(
       submissionId = Ref.SubmissionId.assertFromString("abc"),
+      participantId = Ref.ParticipantId.assertFromString("participant"),
       recordTime = Timestamp.now(),
       rejectionReason = key,
     )
@@ -269,11 +270,11 @@ object SequentialWriteDaoSpec {
     record_time = 0,
   )
 
-  val singlePartyFixture: Option[Update.PublicPackageUploadRejected] =
+  val singlePartyFixture: Option[Update.PartyAllocationRejected] =
     someUpdate("singleParty")
-  val partyAndCreateFixture: Option[Update.PublicPackageUploadRejected] =
+  val partyAndCreateFixture: Option[Update.PartyAllocationRejected] =
     someUpdate("partyAndCreate")
-  val allEventsFixture: Option[Update.PublicPackageUploadRejected] =
+  val allEventsFixture: Option[Update.PartyAllocationRejected] =
     someUpdate("allEventsFixture")
 
   @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
@@ -290,7 +291,7 @@ object SequentialWriteDaoSpec {
 
   private val updateToDbDtoFixture: Offset => Traced[Update] => Iterator[DbDto] =
     _ => {
-      case Traced(r: Update.PublicPackageUploadRejected) =>
+      case Traced(r: Update.PartyAllocationRejected) =>
         someUpdateToDbDtoFixture(r.rejectionReason).iterator
       case _ => throw new Exception
     }

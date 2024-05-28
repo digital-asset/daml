@@ -155,21 +155,6 @@ object Commands {
   }
 }
 
-sealed abstract class PackageEntry() extends Product with Serializable
-
-object PackageEntry {
-  final case class PackageUploadAccepted(
-      submissionId: String,
-      recordTime: Timestamp,
-  ) extends PackageEntry
-
-  final case class PackageUploadRejected(
-      submissionId: String,
-      recordTime: Timestamp,
-      reason: String,
-  ) extends PackageEntry
-}
-
 object Logging {
   implicit def `tagged value to LoggingValue`[T: ToLoggingValue, Tag]: ToLoggingValue[T @@ Tag] =
     value => value.unwrap

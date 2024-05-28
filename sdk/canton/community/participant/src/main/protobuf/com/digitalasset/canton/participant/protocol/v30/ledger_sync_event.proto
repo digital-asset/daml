@@ -16,18 +16,16 @@ message LedgerSyncEvent {
 
   oneof value {
     PartyAddedToParticipant party_added_to_participant = 1;
-    PublicPackageUpload public_package_upload = 2;
-    TransactionAccepted transaction_accepted = 3;
-    CommandRejected command_rejected = 4;
-    PartyAllocationRejected party_allocation_rejected = 5;
-    PublicPackageUploadRejected public_package_upload_rejected = 6;
-    TransferredOut transferred_out = 7;
-    TransferredIn transferred_in = 8;
-    ContractsAdded contracts_added = 9;
-    ContractsPurged contracts_purged = 10;
-    PartiesAddedToParticipant parties_added = 11;
-    PartiesRemovedFromParticipant parties_removed = 12;
-    Init init = 13;
+    TransactionAccepted transaction_accepted = 2;
+    CommandRejected command_rejected = 3;
+    PartyAllocationRejected party_allocation_rejected = 4;
+    TransferredOut transferred_out = 5;
+    TransferredIn transferred_in = 6;
+    ContractsAdded contracts_added = 7;
+    ContractsPurged contracts_purged = 8;
+    PartiesAddedToParticipant parties_added = 9;
+    PartiesRemovedFromParticipant parties_removed = 10;
+    Init init = 11;
   }
 }
 
@@ -44,19 +42,6 @@ message PartyAllocationRejected {
   string participant_id = 2;
   int64 record_time = 3; // in microseconds of UTC time since Unix epoch
   string rejection_reason = 4;
-}
-
-message PublicPackageUpload {
-  repeated bytes archives = 1;
-  google.protobuf.StringValue source_description = 2;
-  int64 record_time = 3; // in microseconds of UTC time since Unix epoch
-  string submission_id = 4;
-}
-
-message PublicPackageUploadRejected {
-  string submission_id = 1;
-  int64 record_time = 2; // in microseconds of UTC time since Unix epoch
-  string rejection_reason = 3;
 }
 
 message TransactionAccepted {

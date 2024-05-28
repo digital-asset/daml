@@ -188,25 +188,40 @@ object ViewConfirmationParameters {
   final case class InvalidViewConfirmationParameters(message: String)
       extends RuntimeException(message)
 
-  /** Creates a [[ViewConfirmationParameters]] with a single quorum consisting of all confirming parties in the
-    * list of informees and a given threshold.
+  /** Creates a [[ViewConfirmationParameters]] with a single quorum consisting of all confirming parties and a given threshold.
     */
   def create(
-      informees: Set[Informee],
+      informees: Map[LfPartyId, NonNegativeInt],
       threshold: NonNegativeInt,
-  ): ViewConfirmationParameters = {
+  ): ViewConfirmationParameters =
     ViewConfirmationParameters(
-      informees.map(_.party),
+      informees.keySet,
       Seq(
         Quorum(
-          informees.collect { case c: ConfirmingParty =>
-            c.party -> PositiveInt.tryCreate(c.weight.unwrap)
-          }.toMap,
+          informees
+            .filter { case (_, weight) => weight.unwrap > 0 }
+            .map { case (partyId, weight) => partyId -> PositiveInt.tryCreate(weight.unwrap) },
           threshold,
         )
       ),
     )
-  }
+
+  /** Creates a [[ViewConfirmationParameters]] where all informees are confirmers and
+    * includes a single quorum consisting of all confirming parties and a given threshold.
+    */
+  def createOnlyWithConfirmers(
+      confirmers: Map[LfPartyId, PositiveInt],
+      threshold: NonNegativeInt,
+  ): ViewConfirmationParameters =
+    ViewConfirmationParameters(
+      confirmers.keySet,
+      Seq(
+        Quorum(
+          confirmers,
+          threshold,
+        )
+      ),
+    )
 
   /** There can be multiple quorums/threshold. Therefore, we need to make sure those quorums confirmers
     * are present in the list of informees.

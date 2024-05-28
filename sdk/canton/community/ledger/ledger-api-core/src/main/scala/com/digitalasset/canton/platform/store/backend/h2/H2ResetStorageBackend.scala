@@ -14,8 +14,6 @@ object H2ResetStorageBackend extends ResetStorageBackend {
   override def resetAll(connection: Connection): Unit = {
     SQL"""
       set referential_integrity false;
-      truncate table lapi_packages;
-      truncate table lapi_package_entries;
       truncate table lapi_parameters;
       truncate table lapi_command_completions;
       truncate table lapi_events_create;

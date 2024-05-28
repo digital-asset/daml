@@ -42,11 +42,8 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
     val participantId = DefaultTestIdentities.participant1
 
     val alice = LfPartyId.assertFromString("alice")
-    val aliceInformee = PlainInformee(alice)
-    val bobConfirmingParty = ConfirmingParty(
-      LfPartyId.assertFromString("bob"),
-      PositiveInt.tryCreate(2),
-    )
+    val bob = LfPartyId.assertFromString("bob")
+    val bobCp = Map(bob -> PositiveInt.tryCreate(2))
     val hashOps = new SymbolicPureCrypto
 
     def h(i: Int): Hash = TestHash.digest(i)
@@ -56,8 +53,8 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
     val viewCommonData =
       ViewCommonData.tryCreate(hashOps)(
         ViewConfirmationParameters.tryCreate(
-          Set(aliceInformee.party, bobConfirmingParty.party),
-          Seq(Quorum.create(Set(bobConfirmingParty), NonNegativeInt.tryCreate(2))),
+          Set(alice, bob),
+          Seq(Quorum(bobCp, NonNegativeInt.tryCreate(2))),
         ),
         s(999),
         testedProtocolVersion,

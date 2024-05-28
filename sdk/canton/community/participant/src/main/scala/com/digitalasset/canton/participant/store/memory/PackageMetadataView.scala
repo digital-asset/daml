@@ -120,7 +120,7 @@ class MutablePackageMetadataViewImpl(
   )(implicit tc: TraceContext): Future[PackageMetadata] =
     PackageService
       .catchUpstreamErrors(Decode.decodeArchive(archive))
-      .onShutdown(Left(PackageServiceErrors.ParticipantShuttingDown.Error()))
+      .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
       .leftSemiflatMap(err => Future.failed(err.asGrpcError))
       .merge
       .map { case (pkgId, pkg) => PackageMetadata.from(pkgId, pkg) }

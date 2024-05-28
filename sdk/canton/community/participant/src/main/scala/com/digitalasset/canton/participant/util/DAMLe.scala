@@ -281,6 +281,7 @@ class DAMLe(
               template = nc.templateId,
               arg = Versioned(nc.version, nc.arg),
               packageName = nc.packageName,
+              packageVersion = None,
             ),
             nc.signatories,
             nc.stakeholders,
@@ -365,7 +366,8 @@ class DAMLe(
             .flatMap(optInst => handleResultInternal(contracts, resume(optInst)))
         case ResultError(err) => Future.successful(Left(EngineError(err)))
         case ResultInterruption(continue) =>
-          // Run the interruption loop asynchronously to avoid blocking the calling thread
+          // Run the interruption loop asynchronously to avoid blocking the calling thread.
+          // Using a `Future` as a trampoline also makes the recursive call to `handleResult` stack safe.
           Future(iterateOverInterrupts(continue)).flatMap {
             case Left(abort) => Future.successful(Left(abort))
             case Right(result) => handleResultInternal(contracts, result)

@@ -555,7 +555,6 @@ class ParticipantNodeBootstrap(
               engine = engine,
               packageDependencyResolver = packageDependencyResolver,
               enableUpgradeValidation = !parameterConfig.disableUpgradeValidation,
-              eventPublisher = ephemeralState.participantEventPublisher,
               futureSupervisor = futureSupervisor,
               hashOps = syncCrypto.pureCrypto,
               loggerFactory = loggerFactory,

@@ -35,50 +35,38 @@ private[backend] trait StorageBackendTestsInitializeIngestion
   {
     val dtos = Vector(
       // 1: party allocation
-      dtoPartyEntry(offset(1), "party1"),
-      // 2: package upload
-      dtoPackage(offset(2)),
-      dtoPackageEntry(offset(2)),
+      dtoPartyEntry(offset(1), "party1")
     )
-    it should "delete overspill entries - parties, packages" in {
+    it should "delete overspill entries - parties" in {
       fixture(
         dtos1 = dtos,
         lastOffset1 = 2L,
         lastEventSeqId1 = 0L,
         dtos2 = Vector(
           // 3: party allocation
-          dtoPartyEntry(offset(3), "party2"),
-          // 4: package upload
-          dtoPackage(offset(4)),
-          dtoPackageEntry(offset(4)),
+          dtoPartyEntry(offset(3), "party2")
         ),
-        lastOffset2 = 4L,
+        lastOffset2 = 3L,
         lastEventSeqId2 = 0L,
         checkContentsBefore = () => {
           val parties = executeSql(backend.party.knownParties(None, 10))
-          val packages = executeSql(backend.packageBackend.lfPackages)
           parties should have length 1
-          packages should have size 1
         },
         checkContentsAfter = () => {
           val parties = executeSql(backend.party.knownParties(None, 10))
-          val packages = executeSql(backend.packageBackend.lfPackages)
           parties should have length 1
-          packages should have size 1
         },
       )
     }
 
-    it should "delete overspill entries written before first ledger end update - parties, packages" in {
+    it should "delete overspill entries written before first ledger end update - parties" in {
       fixtureOverspillEntriesPriorToFirstLedgerEndUpdate(
         dtos = dtos,
         lastOffset = 3,
         lastEventSeqId = 0L,
         checkContentsAfter = () => {
           val parties2 = executeSql(backend.party.knownParties(None, 10))
-          val packages2 = executeSql(backend.packageBackend.lfPackages)
           parties2 shouldBe empty
-          packages2 shouldBe empty
         },
       )
     }

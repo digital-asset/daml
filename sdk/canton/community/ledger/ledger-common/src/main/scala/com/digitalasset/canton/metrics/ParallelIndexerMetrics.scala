@@ -49,7 +49,7 @@ class ParallelIndexerMetrics(
       prefix :+ "updates",
       summary = "The number of the state updates persisted to the database.",
       description = """The number of the state updates persisted to the database. There are
-                    |updates such as accepted transactions, configuration changes, package uloads,
+                    |updates such as accepted transactions, configuration changes,
                     |party allocations, rejections, etc.""",
       qualification = MetricQualification.Traffic,
     )

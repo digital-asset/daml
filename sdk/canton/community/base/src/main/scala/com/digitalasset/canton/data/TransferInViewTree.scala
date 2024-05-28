@@ -178,8 +178,8 @@ final case class TransferInCommonData private (
 
   override def hashPurpose: HashPurpose = HashPurpose.TransferInCommonData
 
-  def confirmingParties: Set[Informee] =
-    stakeholders.map(ConfirmingParty(_, PositiveInt.one))
+  def confirmingParties: Map[LfPartyId, PositiveInt] =
+    stakeholders.map(_ -> PositiveInt.one).toMap
 
   override def pretty: Pretty[TransferInCommonData] = prettyOfClass(
     param("submitter metadata", _.submitterMetadata),
@@ -462,7 +462,7 @@ final case class FullTransferInTree(tree: TransferInViewTree)
 
   override def mediator: MediatorGroupRecipient = commonData.targetMediator
 
-  override def informees: Set[LfPartyId] = commonData.confirmingParties.map(_.party)
+  override def informees: Set[LfPartyId] = commonData.confirmingParties.keySet
 
   override def toBeSigned: Option[RootHash] = Some(tree.rootHash)
 

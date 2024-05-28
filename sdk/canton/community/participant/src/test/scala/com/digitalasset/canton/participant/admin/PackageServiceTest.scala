@@ -29,7 +29,6 @@ import com.digitalasset.canton.participant.admin.PackageServiceTest.readCantonEx
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.participant.store.memory.InMemoryDamlPackageStore
-import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, ParticipantEventPublisher}
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.platform.indexer.PackageMetadataViewConfig
 import com.digitalasset.canton.protocol.PackageDescription
@@ -73,9 +72,6 @@ class PackageServiceTest
   private val examplePackages: List[Archive] = readCantonExamples()
   private val bytes = PackageServiceTest.readCantonExamplesBytes()
   private val darName = String255.tryCreate("CantonExamples")
-  private val eventPublisher = mock[ParticipantEventPublisher]
-  when(eventPublisher.publish(any[LedgerSyncEvent])(anyTraceContext))
-    .thenAnswer(FutureUnlessShutdown.unit)
   private val participantId = DefaultTestIdentities.participant1
 
   private class Env(now: CantonTimestamp) {
@@ -86,14 +82,12 @@ class PackageServiceTest
     private val engine =
       DAMLe.newEngine(enableLfDev = false, enableStackTraces = false)
 
-    val clock = new SimClock(start = now, loggerFactory = loggerFactory)
     val sut: PackageService = PackageService
       .createAndInitialize(
-        clock = clock,
+        clock = new SimClock(start = now, loggerFactory = loggerFactory),
         engine = engine,
         packageDependencyResolver = packageDependencyResolver,
         enableUpgradeValidation = true,
-        eventPublisher = eventPublisher,
         futureSupervisor = FutureSupervisor.Noop,
         hashOps = new SymbolicPureCrypto(),
         loggerFactory = loggerFactory,

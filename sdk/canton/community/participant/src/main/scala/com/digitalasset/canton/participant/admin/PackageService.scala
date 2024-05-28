@@ -40,7 +40,6 @@ import com.digitalasset.canton.participant.store.memory.{
   MutablePackageMetadataViewImpl,
   PackageMetadataView,
 }
-import com.digitalasset.canton.participant.sync.ParticipantEventPublisher
 import com.digitalasset.canton.platform.indexer.PackageMetadataViewConfig
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.protocol.{PackageDescription, PackageInfoService}
@@ -373,7 +372,6 @@ object PackageService {
       engine: Engine,
       packageDependencyResolver: PackageDependencyResolver,
       enableUpgradeValidation: Boolean,
-      eventPublisher: ParticipantEventPublisher,
       futureSupervisor: FutureSupervisor,
       hashOps: HashOps,
       loggerFactory: NamedLoggerFactory,
@@ -397,7 +395,6 @@ object PackageService {
     val packageUploader = new PackageUploader(
       clock,
       engine,
-      eventPublisher,
       enableUpgradeValidation,
       futureSupervisor,
       hashOps,
