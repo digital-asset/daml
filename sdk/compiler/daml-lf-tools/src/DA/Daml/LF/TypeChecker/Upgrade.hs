@@ -92,10 +92,11 @@ checkUpgrade version shouldTypecheckUpgrades warnBadInterfaceInstances presentPk
         singlePkgDiagnostics =
             let world = initWorldSelf [] presentPkg
             in
-            runGamma world version $ do
-                local addBadIfaceSwapIndicator $ do
-                    checkNewInterfacesAreUnused presentPkg
-                    checkNewInterfacesHaveNoTemplates presentPkg
+            runGamma world version $
+                local addBadIfaceSwapIndicator $
+                    when shouldTypecheckUpgrades $ do
+                        checkNewInterfacesAreUnused presentPkg
+                        checkNewInterfacesHaveNoTemplates presentPkg
 
         extractDiagnostics :: Either Error ((), [Warning]) -> [Diagnostic]
         extractDiagnostics result =
