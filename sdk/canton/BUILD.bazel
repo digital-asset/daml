@@ -1451,8 +1451,6 @@ proto_jars(
     ],
 )
 
-ledger_api_value_proto_source_root = "daml-lf/ledger-api-value/src/main/protobuf"
-
 google_protobuf_src = "external/com_google_protobuf/src"
 
 genrule(
@@ -1520,6 +1518,8 @@ filegroup(
 ledger_api_haskellpb_sources = [
     "V2/PackageService.hs",
 ]
+
+ledger_api_value_proto_source_root = "daml-lf/ledger-api-value/src/main/protobuf"
 
 genrule(
     name = "ledger-api-haskellpb-sources",

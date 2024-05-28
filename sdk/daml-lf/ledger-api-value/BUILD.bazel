@@ -3,8 +3,6 @@
 
 load("//bazel_tools:proto.bzl", "proto_jars")
 
-ledger_api_value_proto_source_root = "daml-lf/ledger-api-value/src/main/protobuf"
-
 filegroup(
     name = "ledger-api-value-protos-fg",
     srcs = glob(["src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
