@@ -6,9 +6,11 @@ version: v1beta1
 build:
   roots:
     - sdk/canton/community/ledger-api/src/main/protobuf
+    - sdk/daml-lf/ledger-api-value/src/main/protobuf
     - sdk/3rdparty/protobuf
   excludes:
     - sdk/canton/community/ledger-api/src/main/protobuf/com/daml/ledger/api/scalapb
+    - sdk/daml-lf/ledger-api-value/src/main/protobuf/com/daml/ledger/api/scalapb
 
 breaking:
   use:
@@ -21,9 +23,3 @@ breaking:
     # to select the fields to update, see https://github.com/protocolbuffers/protobuf/blob/main/src/google/protobuf/field_mask.proto
 
   ignore_only:
-    FIELD_NO_DELETE:
-      - com/daml/ledger/api/v1/commands.proto
-      - com/daml/ledger/api/v1/event.proto
-      - com/daml/ledger/api/v1/transaction_filter.proto
-    ONEOF_NO_DELETE:
-      - com/daml/ledger/api/v1/commands.proto

@@ -114,7 +114,7 @@ def _protos_zip_impl(ctx):
     )
     tools = [ctx.executable.tar, ctx.executable.gzip]
     ctx.actions.run_shell(
-        inputs = [ctx.file.ledger_api_tarball] + ctx.files.daml_lf_tarballs,
+        inputs = [ctx.file.ledger_api_tarball] + ctx.files.daml_lf_tarballs + ctx.files.ledger_api_value_tarball,
         outputs = [tmp_dir],
         tools = tools,
         command = """
@@ -125,8 +125,10 @@ def _protos_zip_impl(ctx):
           do
               tar xf $file -C {tmp_dir}
           done
+          tar xf {ledger_api_value_tarball} -C {tmp_dir}
         """.format(
             ledger_api_tarball = ctx.file.ledger_api_tarball.path,
+            ledger_api_value_tarball = ctx.file.ledger_api_value_tarball.path,
             tmp_dir = tmp_dir.path,
             lf_tarballs = " ".join([f.path for f in ctx.files.daml_lf_tarballs]),
             path = ":".join(["$PWD/`dirname {tool}`".format(tool = tool.path) for tool in tools]),
@@ -168,6 +170,10 @@ protos_zip = rule(
         "ledger_api_tarball": attr.label(
             allow_single_file = True,
             default = Label("//canton:ledger_api_proto_tar.tar.gz"),
+        ),
+        "ledger_api_value_tarball": attr.label(
+            allow_single_file = True,
+            default = Label("//daml-lf/ledger-api-value:ledger_api_value_proto_tar.tar.gz"),
         ),
         "zipper": attr.label(
             default = Label("@bazel_tools//tools/zip:zipper"),
