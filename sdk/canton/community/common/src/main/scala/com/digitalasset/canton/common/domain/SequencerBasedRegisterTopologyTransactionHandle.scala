@@ -13,7 +13,6 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.sequencing.{ApplicationHandler, EnvelopeHandler, NoEnvelopeBox}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.{DomainId, Member}
@@ -29,10 +28,6 @@ trait RegisterTopologyTransactionHandle extends FlagCloseable {
   def submit(transactions: Seq[GenericSignedTopologyTransaction])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[TopologyTransactionsBroadcast.State]]
-
-  // we don't need to register a specific message handler, because we use SequencerClientSend's SendTracker
-  val processor: EnvelopeHandler =
-    ApplicationHandler.success[NoEnvelopeBox, DefaultOpenEnvelope]()
 }
 
 class SequencerBasedRegisterTopologyTransactionHandle(

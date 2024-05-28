@@ -7,6 +7,7 @@ import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
+import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
   AggregationRule,
@@ -14,7 +15,9 @@ import com.digitalasset.canton.sequencing.protocol.{
   ClosedEnvelope,
   GeneratorsProtocol as GeneratorsProtocolSequencing,
   MaxRequestSizeToDeserialize,
+  SequencedEvent,
   SequencingSubmissionCost,
+  SignedContent,
   SubmissionRequest,
   SubscriptionRequest,
   TopologyStateForInitRequest,
@@ -72,23 +75,27 @@ class SerializationDeserializationTest
 
     s"Serialization and deserialization methods using protocol version $version" should {
       "compose to the identity" in {
-        testProtocolVersioned(StaticDomainParameters)
-        testProtocolVersioned(DynamicDomainParameters)
+        testProtocolVersioned(StaticDomainParameters, version)
+        testProtocolVersioned(DynamicDomainParameters, version)
+        testProtocolVersioned(DynamicSequencingParameters, version)
 
-        testProtocolVersioned(AcsCommitment)
-        testProtocolVersioned(Verdict)
-        testProtocolVersioned(ConfirmationResponse)
-        testMemoizedProtocolVersionedWithCtx(TypedSignedProtocolMessageContent, version)
-        testProtocolVersionedWithCtx(SignedProtocolMessage, version)
+        testProtocolVersioned(AcsCommitment, version)
+        testProtocolVersioned(Verdict, version)
+        testProtocolVersioned(ConfirmationResponse, version)
+        testMemoizedProtocolVersionedWithCtxAndValidation(
+          TypedSignedProtocolMessageContent,
+          version,
+        )
+        testProtocolVersionedAndValidation(SignedProtocolMessage, version)
 
-        testProtocolVersioned(LocalVerdict)
-        testProtocolVersionedWithCtx(EnvelopeContent, (TestHash, version))
-        testMemoizedProtocolVersioned(ConfirmationResultMessage)
+        testProtocolVersioned(LocalVerdict, version)
+        testProtocolVersionedWithCtxAndValidation(EnvelopeContent, TestHash, version)
+        testMemoizedProtocolVersioned(ConfirmationResultMessage, version)
 
-        testProtocolVersioned(AcknowledgeRequest)
-        testProtocolVersioned(AggregationRule)
-        testProtocolVersioned(ClosedEnvelope)
-        testProtocolVersioned(SequencingSubmissionCost)
+        testProtocolVersioned(AcknowledgeRequest, version)
+        testProtocolVersioned(AggregationRule, version)
+        testProtocolVersioned(ClosedEnvelope, version)
+        testProtocolVersioned(SequencingSubmissionCost, version)
 
         testVersioned(ContractMetadata)(
           generatorsProtocol.contractMetadataArb(canHaveEmptyKey = true)
@@ -97,7 +104,7 @@ class SerializationDeserializationTest
           generatorsProtocol.serializableContractArb(canHaveEmptyKey = true)
         )
 
-        testProtocolVersioned(ActionDescription)
+        testProtocolVersioned(ActionDescription, version)
 
         // Merkle tree leaves
         testMemoizedProtocolVersionedWithCtx(CommonMetadata, TestHash)
@@ -105,12 +112,12 @@ class SerializationDeserializationTest
         testMemoizedProtocolVersionedWithCtx(SubmitterMetadata, TestHash)
         testMemoizedProtocolVersionedWithCtx(
           TransferInCommonData,
-          (TestHash, TargetProtocolVersion(testedProtocolVersion)),
+          (TestHash, TargetProtocolVersion(version)),
         )
         testMemoizedProtocolVersionedWithCtx(TransferInView, TestHash)
         testMemoizedProtocolVersionedWithCtx(
           TransferOutCommonData,
-          (TestHash, SourceProtocolVersion(testedProtocolVersion)),
+          (TestHash, SourceProtocolVersion(version)),
         )
         testMemoizedProtocolVersionedWithCtx(TransferOutView, TestHash)
 
@@ -119,43 +126,46 @@ class SerializationDeserializationTest
           (TestHash, ConfirmationPolicy.Signatory),
         )
 
-        testMemoizedProtocolVersioned(TopologyTransaction)
+        testMemoizedProtocolVersioned(TopologyTransaction, version)
         testProtocolVersionedWithCtx(
           SignedTopologyTransaction,
           ProtocolVersionValidation(version),
         )
 
         testMemoizedProtocolVersionedWithCtx(
-          com.digitalasset.canton.data.ViewParticipantData,
+          ViewParticipantData,
           TestHash,
         )
-        testProtocolVersioned(Batch)
-        testProtocolVersioned(SetTrafficPurchasedMessage)
+        testProtocolVersioned(Batch, version)
+        testProtocolVersioned(SetTrafficPurchasedMessage, version)
         testMemoizedProtocolVersionedWithCtx(
           SubmissionRequest,
           MaxRequestSizeToDeserialize.NoLimit,
         )
-        testVersioned(com.digitalasset.canton.sequencing.SequencerConnections)
-        testProtocolVersioned(TopologyStateForInitRequest)
-        testProtocolVersioned(SubscriptionRequest)
+        testVersioned(SequencerConnections)
+        testProtocolVersioned(TopologyStateForInitRequest, version)
+        testProtocolVersioned(SubscriptionRequest, version)
         testMemoizedProtocolVersioned2(
-          com.digitalasset.canton.sequencing.protocol.SequencedEvent
+          SequencedEvent,
+          version,
         )
         testMemoizedProtocolVersioned2(
-          com.digitalasset.canton.sequencing.protocol.SignedContent
+          SignedContent,
+          version,
         )
         testProtocolVersionedWithCtx(
-          com.digitalasset.canton.data.TransactionView,
+          TransactionView,
           (TestHash, ConfirmationPolicy.Signatory, version),
         )
         testProtocolVersionedWithCtxAndValidation(
-          com.digitalasset.canton.data.FullInformeeTree,
+          FullInformeeTree,
           TestHash,
           version,
         )
+
         // testing MerkleSeq structure with specific VersionedMerkleTree: SubmitterMetadata.
         testProtocolVersionedWithCtxAndValidation(
-          com.digitalasset.canton.data.MerkleSeq,
+          MerkleSeq,
           (
             TestHash,
             (bytes: ByteString) => SubmitterMetadata.fromTrustedByteString(TestHash)(bytes),
@@ -163,6 +173,18 @@ class SerializationDeserializationTest
           version,
         )
 
+        testProtocolVersionedWithCtxAndValidation(LightTransactionViewTree, TestHash, version)
+
+        testProtocolVersionedWithCtxAndValidationWithTargetProtocolVersion(
+          TransferInViewTree,
+          TestHash,
+          TargetProtocolVersion(version),
+        )
+        testProtocolVersionedWithCtxAndValidationWithSourceProtocolVersion(
+          TransferOutViewTree,
+          TestHash,
+          SourceProtocolVersion(version),
+        )
       }
     }
   }

@@ -252,7 +252,7 @@ class TransactionConfirmationRequestFactory(
     for {
       lightTreesWithMetadata <- EitherT.fromEither[FutureUnlessShutdown](
         transactionTree
-          .allLightTransactionViewTreesWithWitnessesAndSeeds(keySeed, pureCrypto)
+          .allLightTransactionViewTreesWithWitnessesAndSeeds(keySeed, pureCrypto, protocolVersion)
           .leftMap(KeySeedError)
       )
 

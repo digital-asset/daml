@@ -6,19 +6,18 @@ package com.digitalasset.canton.crypto
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.CryptoTestHelper.TestMessage
 import com.digitalasset.canton.crypto.DecryptionError.FailedToDecrypt
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
-
-trait EncryptionTest extends BaseTest with CryptoTestHelper { this: AsyncWordSpec =>
+trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
 
   def encryptionProvider(
       supportedEncryptionKeySchemes: Set[EncryptionKeyScheme],
       supportedSymmetricKeySchemes: Set[SymmetricKeyScheme],
-      newCrypto: => Future[Crypto],
+      newCrypto: => FutureUnlessShutdown[Crypto],
   ): Unit = {
 
     forAll(supportedSymmetricKeySchemes) { symmetricKeyScheme =>
@@ -44,7 +43,7 @@ trait EncryptionTest extends BaseTest with CryptoTestHelper { this: AsyncWordSpe
             keyBytes = key.toByteString(testedProtocolVersion)
             key2 = SymmetricKey.fromTrustedByteString(keyBytes).valueOrFail("serialize key")
           } yield key shouldEqual key2
-        }
+        }.failOnShutdown
 
         "encrypt and decrypt with a symmetric key" in {
           for {
@@ -61,7 +60,7 @@ trait EncryptionTest extends BaseTest with CryptoTestHelper { this: AsyncWordSpe
             message.bytes !== encrypted.ciphertext
             message shouldEqual message2
           }
-        }
+        }.failOnShutdown
 
         "fail decrypt with a different symmetric key" in {
           for {
@@ -74,7 +73,7 @@ trait EncryptionTest extends BaseTest with CryptoTestHelper { this: AsyncWordSpe
               .valueOrFail("encrypt")
             message2 = crypto.pureCrypto.decryptWith(encrypted, key2)(TestMessage.fromByteString)
           } yield message2.left.value shouldBe a[FailedToDecrypt]
-        }
+        }.failOnShutdown
 
         "encrypt and decrypt with secure randomness" in {
           for {
@@ -91,7 +90,7 @@ trait EncryptionTest extends BaseTest with CryptoTestHelper { this: AsyncWordSpe
             message.bytes !== encrypted.ciphertext
             message shouldEqual message2
           }
-        }
+        }.failOnShutdown
 
         "fail decrypt with a different secure randomness" in {
           for {
@@ -104,7 +103,7 @@ trait EncryptionTest extends BaseTest with CryptoTestHelper { this: AsyncWordSpe
               .valueOrFail("encrypt")
             message2 = crypto.pureCrypto.decryptWith(encrypted, key2)(TestMessage.fromByteString)
           } yield message2.left.value shouldBe a[FailedToDecrypt]
-        }
+        }.failOnShutdown
 
       }
     }
@@ -133,7 +132,7 @@ trait EncryptionTest extends BaseTest with CryptoTestHelper { this: AsyncWordSpe
               .valueOrFail("encrypt")
             _ = assert(message.bytes != encrypted2.ciphertext)
           } yield encrypted1.ciphertext should not equal encrypted2.ciphertext
-        }
+        }.failOnShutdown
 
       }
     }
@@ -146,8 +145,8 @@ trait EncryptionTest extends BaseTest with CryptoTestHelper { this: AsyncWordSpe
           TestMessage,
           EncryptionPublicKey,
           ProtocolVersion,
-      ) => Future[Either[EncryptionError, AsymmetricEncrypted[TestMessage]]],
-      newCrypto: => Future[Crypto],
+      ) => FutureUnlessShutdown[Either[EncryptionError, AsymmetricEncrypted[TestMessage]]],
+      newCrypto: => FutureUnlessShutdown[Crypto],
   ): Unit = {
 
     "serialize and deserialize encryption public key via protobuf" in {
@@ -157,7 +156,7 @@ trait EncryptionTest extends BaseTest with CryptoTestHelper { this: AsyncWordSpe
         keyP = key.toProtoVersioned(testedProtocolVersion)
         key2 = EncryptionPublicKey.fromProtoVersioned(keyP).valueOrFail("serialize key")
       } yield key shouldEqual key2
-    }
+    }.failOnShutdown
 
     "encrypt and decrypt with an encryption keypair" in {
       val message = TestMessage(ByteString.copyFromUtf8("foobar"))
@@ -170,15 +169,15 @@ trait EncryptionTest extends BaseTest with CryptoTestHelper { this: AsyncWordSpe
         message2 <- crypto.privateCrypto
           .decrypt(encrypted)(TestMessage.fromByteString)
           .valueOrFail("decrypt")
-          .failOnShutdown
       } yield message shouldEqual message2
-    }
+    }.failOnShutdown
 
     "fail decrypt with a different encryption private key" in {
       val message = TestMessage(ByteString.copyFromUtf8("foobar"))
       val res = for {
         crypto <- newCrypto
-        (publicKey, publicKey2) <- getTwoEncryptionPublicKeys(crypto, encryptionKeyScheme)
+        publicKeys <- getTwoEncryptionPublicKeys(crypto, encryptionKeyScheme)
+        (publicKey, publicKey2) = publicKeys
         _ = assert(publicKey != publicKey2)
         encryptedE <- encryptWith(message, publicKey, testedProtocolVersion)
         encrypted = encryptedE.valueOrFail("encrypt")
@@ -190,8 +189,7 @@ trait EncryptionTest extends BaseTest with CryptoTestHelper { this: AsyncWordSpe
         message2 <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
           crypto.privateCrypto
             .decrypt(encrypted2)(TestMessage.fromByteString)
-            .value
-            .failOnShutdown,
+            .value,
           LogEntry.assertLogSeq(
             Seq.empty,
             Seq(
@@ -203,7 +201,7 @@ trait EncryptionTest extends BaseTest with CryptoTestHelper { this: AsyncWordSpe
       } yield message2
 
       res.map(res => res.left.value shouldBe a[FailedToDecrypt])
-    }
+    }.failOnShutdown
   }
 
 }

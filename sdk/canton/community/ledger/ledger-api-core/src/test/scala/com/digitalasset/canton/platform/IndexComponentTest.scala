@@ -35,7 +35,8 @@ import com.digitalasset.canton.platform.store.DbSupport.{
   DbConfig,
   ParticipantDataSourceConfig,
 }
-import com.digitalasset.canton.platform.store.dao.events.ContractLoader
+import com.digitalasset.canton.platform.store.dao.events.{ContractLoader, LfValueTranslation}
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
@@ -87,6 +88,10 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
 
     val testReadService = new TestReadService()
     val indexerConfig = IndexerConfig()
+
+    val engine = new Engine(
+      EngineConfig(LanguageVersion.StableVersions(LanguageMajorVersion.V2))
+    )
 
     val indexResourceOwner =
       for {
@@ -155,6 +160,14 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
           loggerFactory = loggerFactory,
           incompleteOffsets = (_, _, _) => Future.successful(Vector.empty),
           contractLoader = contractLoader,
+          getPackageMetadataSnapshot = _ => PackageMetadata(),
+          lfValueTranslation = new LfValueTranslation(
+            metrics = LedgerApiServerMetrics.ForTesting,
+            engineO = Some(engine),
+            // Not used
+            loadPackage = (_packageId, _loggingContext) => Future(None),
+            loggerFactory = loggerFactory,
+          ),
         )
       } yield indexService
 

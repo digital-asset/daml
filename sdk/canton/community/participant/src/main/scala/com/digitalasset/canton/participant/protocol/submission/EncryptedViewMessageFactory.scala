@@ -45,7 +45,7 @@ object EncryptedViewMessageFactory {
     val randomness: SecureRandomness =
       optRandomness.getOrElse(cryptoPureApi.generateSecureRandomness(randomnessLength))
 
-    val informeeParties = viewTree.informees.map(_.party).toList
+    val informeeParties = viewTree.informees.toList
 
     def eitherT[B](
         value: Either[EncryptedViewMessageCreationError, B]
@@ -247,7 +247,7 @@ object EncryptedViewMessageFactory {
         )
       encryptedView <- eitherTUS(
         EncryptedView
-          .compressed[VT](cryptoPureApi, symmetricViewKey, viewType, protocolVersion)(viewTree)
+          .compressed[VT](cryptoPureApi, symmetricViewKey, viewType)(viewTree)
           .leftMap(FailedToEncryptViewMessage)
       )
       message <- createEncryptedViewMessage(recipientsInfo, signature, encryptedView).mapK(

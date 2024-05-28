@@ -17,7 +17,6 @@ import com.digitalasset.canton.platform.store.interning.{
   StringInterningView,
   UpdatingStringInterningView,
 }
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadataView
 import com.digitalasset.canton.tracing.TraceContext
 import io.opentelemetry.api.trace.Tracer
 
@@ -32,7 +31,6 @@ private[platform] class InMemoryState(
     val inMemoryFanoutBuffer: InMemoryFanoutBuffer,
     val stringInterningView: StringInterningView,
     val dispatcherState: DispatcherState,
-    val packageMetadataView: PackageMetadataView,
     val submissionTracker: SubmissionTracker,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -45,8 +43,7 @@ private[platform] class InMemoryState(
     * NOTE: This method is not thread-safe. Calling it concurrently leads to undefined behavior.
     */
   final def initializeTo(ledgerEnd: LedgerEnd)(
-      updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit],
-      updatePackageMetadataView: PackageMetadataView => Future[Unit],
+      updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit]
   )(implicit traceContext: TraceContext): Future[Unit] = {
     logger.info(s"Initializing participant in-memory state to ledger end: $ledgerEnd")
 
@@ -58,8 +55,6 @@ private[platform] class InMemoryState(
       _ <- dispatcherState.stopDispatcher()
       // Reset the string interning view to the latest ledger end
       _ <- updateStringInterningView(stringInterningView, ledgerEnd)
-      // Reset the package metadata view
-      _ <- updatePackageMetadataView(packageMetadataView)
       // Reset the Ledger API caches to the latest ledger end
       _ <- Future {
         contractStateCaches.reset(ledgerEnd.lastOffset)
@@ -116,7 +111,6 @@ object InMemoryState {
         loggerFactory = loggerFactory,
       ),
       stringInterningView = new StringInterningView(loggerFactory),
-      packageMetadataView = PackageMetadataView.create,
       submissionTracker = submissionTracker,
       loggerFactory = loggerFactory,
     )(executionContext)

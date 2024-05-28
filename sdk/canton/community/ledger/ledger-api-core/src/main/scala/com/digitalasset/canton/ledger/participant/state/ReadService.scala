@@ -3,12 +3,18 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.error.ContextualizedErrorLogger
+import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
+import com.digitalasset.canton.ledger.participant.state.index.PackageDetails
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.{DomainAlias, LfPartyId}
+import com.google.protobuf.ByteString
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -48,7 +54,7 @@ trait ReadService extends ReportsHealth with InternalStateServiceProvider {
     *   strictly smaller than `o2`.
     *
     * - *initialize before transaction acceptance*: before any
-    *   [[Update.TransactionAccepted]], there are [[Update.PublicPackageUpload]] updates for all
+    *   [[Update.TransactionAccepted]], DARs have been uploaded for all
     *   packages referenced by the [[Update.TransactionAccepted]].
     *
     * - *causal monotonicity*: given a [[Update.TransactionAccepted]] with an associated
@@ -155,6 +161,29 @@ trait ReadService extends ReportsHealth with InternalStateServiceProvider {
     val _ = traceContext
     Future.successful(Vector.empty)
   }
+
+  def getPackageMetadataSnapshot(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): PackageMetadata =
+    throw new UnsupportedOperationException()
+
+  def listLfPackages()(implicit
+      traceContext: TraceContext
+  ): Future[Map[PackageId, PackageDetails]] =
+    throw new UnsupportedOperationException()
+
+  def getLfArchive(packageId: PackageId)(implicit
+      traceContext: TraceContext
+  ): Future[Option[Archive]] =
+    throw new UnsupportedOperationException()
+
+  def validateDar(
+      dar: ByteString,
+      darName: String,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[SubmissionResult] =
+    throw new UnsupportedOperationException()
 }
 
 object ReadService {

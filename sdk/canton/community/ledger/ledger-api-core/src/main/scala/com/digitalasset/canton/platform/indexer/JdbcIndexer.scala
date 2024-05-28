@@ -27,7 +27,6 @@ import com.digitalasset.canton.platform.store.backend.{
   StorageBackendFactory,
   StringInterningStorageBackend,
 }
-import com.digitalasset.canton.platform.store.cache.ImmutableLedgerEndCache
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import com.digitalasset.canton.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.digitalasset.canton.platform.store.interning.UpdatingStringInterningView
@@ -136,18 +135,7 @@ object JdbcIndexer {
                   dbDispatcher,
                   updatingStringInterningView,
                   ledgerEnd,
-                ),
-              updatePackageMetadataView = UpdatePackageMetadataView(
-                factory.createPackageStorageBackend(
-                  ImmutableLedgerEndCache(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
-                ),
-                metrics,
-                dbDispatcher,
-                _,
-                executionContext,
-                config.packageMetadataView,
-                loggerFactory,
-              ),
+                )
             ),
         loggerFactory = loggerFactory,
         indexerDbDispatcherOverride = indexerDbDispatcherOverride,

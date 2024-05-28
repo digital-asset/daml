@@ -11,6 +11,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.api.v0.{Hello, HelloServiceGrpc}
 import com.digitalasset.canton.domain.sequencing.authentication.*
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.sequencing.authentication.grpc.{
   AuthenticationTokenManagerTest,
@@ -144,8 +145,8 @@ class SequencerAuthenticationServerInterceptorTest
           Seq,
           (
             Endpoint("localhost", Port.tryCreate(10)),
-            (_ => EitherT.pure[Future, Status](token)): TraceContext => EitherT[
-              Future,
+            (_ => EitherT.pure[FutureUnlessShutdown, Status](token)): TraceContext => EitherT[
+              FutureUnlessShutdown,
               Status,
               AuthenticationTokenWithExpiry,
             ],
@@ -194,8 +195,10 @@ class SequencerAuthenticationServerInterceptorTest
           Seq,
           (
             Endpoint("localhost", Port.tryCreate(10)),
-            (_ => EitherT.pure[Future, Status](incorrectToken)): TraceContext => EitherT[
-              Future,
+            (
+                _ => EitherT.pure[FutureUnlessShutdown, Status](incorrectToken)
+            ): TraceContext => EitherT[
+              FutureUnlessShutdown,
               Status,
               AuthenticationTokenWithExpiry,
             ],
@@ -233,8 +236,8 @@ class SequencerAuthenticationServerInterceptorTest
           Seq,
           (
             Endpoint("localhost", Port.tryCreate(10)),
-            (_ => EitherT.pure[Future, Status](token)): TraceContext => EitherT[
-              Future,
+            (_ => EitherT.pure[FutureUnlessShutdown, Status](token)): TraceContext => EitherT[
+              FutureUnlessShutdown,
               Status,
               AuthenticationTokenWithExpiry,
             ],

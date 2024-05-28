@@ -25,7 +25,7 @@ import slick.dbio.DBIOAction
 import slick.jdbc.GetResult
 import slick.sql.SqlAction
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Represents the data to be stored in the crypto_private_keys table.
   * If wrapperKeyId is set (Some(wrapperKeyId)) then the data field is encrypted
@@ -102,7 +102,7 @@ class DbCryptoPrivateStore(
 
   private def insertKey(key: StoredPrivateKey)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPrivateStoreError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] = {
 
     def equalKeys(existingKey: StoredPrivateKey, newKey: StoredPrivateKey): Boolean = {
       if (existingKey.wrapperKeyId.isEmpty) {
@@ -119,13 +119,13 @@ class DbCryptoPrivateStore(
 
     for {
       inserted <- EitherT.right(
-        storage.update(insertKeyUpdate(key), functionFullName)
+        storage.updateUnlessShutdown(insertKeyUpdate(key), functionFullName)
       )
       res <-
         if (inserted == 0) {
           // If no key was inserted by the insert query, check that the existing value matches
           storage
-            .querySingle(queryKey(key.id, key.purpose), functionFullName)
+            .querySingleUnlessShutdown(queryKey(key.id, key.purpose), functionFullName)
             // If we don't find the duplicate key, it may have been concurrently deleted and we could retry to insert it.
             .toRight(
               CryptoPrivateStoreError
@@ -133,14 +133,14 @@ class DbCryptoPrivateStore(
             )
             .flatMap { existingKey =>
               EitherT
-                .cond[Future](
+                .cond[FutureUnlessShutdown](
                   equalKeys(existingKey, key),
                   (),
                   CryptoPrivateStoreError.KeyAlreadyExists(key.id, existingKey.name.map(_.unwrap)),
                 )
                 .leftWiden[CryptoPrivateStoreError]
             }
-        } else EitherT.rightT[Future, CryptoPrivateStoreError](())
+        } else EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError](())
     } yield res
   }
 
@@ -167,7 +167,7 @@ class DbCryptoPrivateStore(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] =
-    insertKey(key).mapK(FutureUnlessShutdown.outcomeK)
+    insertKey(key)
 
   @VisibleForTesting
   private[canton] def listPrivateKeys(purpose: KeyPurpose, encrypted: Boolean)(implicit
@@ -208,10 +208,10 @@ class DbCryptoPrivateStore(
 
   private[crypto] def deletePrivateKey(keyId: Fingerprint)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPrivateStoreError, Unit] =
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] =
     EitherTUtil.fromFuture(
       storage
-        .update_(deleteKey(keyId), functionFullName),
+        .updateUnlessShutdown_(deleteKey(keyId), functionFullName),
       err => CryptoPrivateStoreError.FailedToDeleteKey(keyId, err.toString),
     )
 
@@ -234,10 +234,10 @@ class DbCryptoPrivateStore(
 
   private[crypto] def getWrapperKeyId()(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPrivateStoreError, Option[String300]] =
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[String300]] =
     EitherTUtil
       .fromFuture(
-        storage.query(
+        storage.queryUnlessShutdown(
           {
             sql"select distinct wrapper_key_id from common_crypto_private_keys"
               .as[Option[String300]]

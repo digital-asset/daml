@@ -221,7 +221,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             requestingParties = Set(alice, bob, charlie),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              wildcardWitnesses = Set(alice, bob, charlie),
+              templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
             ),
           )
       )
@@ -230,7 +230,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     }
   }
 
-  it should "filter correctly by party" in {
+  it should "filter correctly by party" in { // TODO(#18362) add test case for wildcard
     for {
       from <- ledgerDao.lookupLedgerEnd()
       (_, tx) <- store(
@@ -254,7 +254,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             requestingParties = Set(alice),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              wildcardWitnesses = Set(alice),
+              templateWildcardWitnesses = Some(Set(alice)),
             ),
           )
       )
@@ -266,7 +266,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             requestingParties = Set(bob),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              wildcardWitnesses = Set(bob),
+              templateWildcardWitnesses = Some(Set(bob)),
             ),
           )
       )
@@ -278,7 +278,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             requestingParties = Set(charlie),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              wildcardWitnesses = Set(charlie),
+              templateWildcardWitnesses = Some(Set(charlie)),
             ),
           )
       )

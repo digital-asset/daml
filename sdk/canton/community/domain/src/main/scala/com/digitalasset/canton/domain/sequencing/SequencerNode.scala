@@ -552,6 +552,7 @@ class SequencerNodeBootstrap(
             topologyClient,
             crypto,
             parameters.cachingConfigs,
+            staticDomainParameters,
             parameters.processingTimeouts,
             futureSupervisor,
             loggerFactory,
@@ -816,6 +817,7 @@ class SequencerNode(
       participants,
       healthStatus,
       topologyQueue = sequencer.topologyQueue,
+      admin = sequencer.adminStatus,
       healthData,
     )
   }

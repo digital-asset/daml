@@ -12,7 +12,7 @@ import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.*
-import com.daml.lf.data.Ref.{Party, SubmissionId}
+import com.daml.lf.data.Ref.{PackageId, Party, SubmissionId}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
 import com.daml.nameof.NameOf.functionFullName
@@ -20,7 +20,6 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.CantonRequireTypes.String256M
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiProvider}
@@ -38,6 +37,7 @@ import com.digitalasset.canton.ledger.error.{CommonErrors, PackageServiceErrors}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.ReadService.ConnectedDomainResponse
 import com.digitalasset.canton.ledger.participant.state.*
+import com.digitalasset.canton.ledger.participant.state.index.PackageDetails
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
@@ -86,6 +86,7 @@ import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.traffic.TrafficStateController
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.resource.Storage
@@ -103,6 +104,7 @@ import com.digitalasset.canton.util.OptionUtils.OptionExtension
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
+import com.google.protobuf.ByteString
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Materializer
@@ -136,7 +138,7 @@ class CantonSyncService(
     private[canton] val participantNodePersistentState: Eval[ParticipantNodePersistentState],
     participantNodeEphemeralState: ParticipantNodeEphemeralState,
     private[canton] val syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
-    private[canton] val packageService: PackageService,
+    private[canton] val packageService: Eval[PackageService],
     topologyManagerOps: ParticipantTopologyManagerOps,
     identityPusher: ParticipantTopologyDispatcher,
     partyNotifier: LedgerServerPartyNotifier,
@@ -340,7 +342,7 @@ class CantonSyncService(
 
   private val repairServiceDAMLe =
     new DAMLe(
-      pkgId => traceContext => packageService.getPackage(pkgId)(traceContext),
+      pkgId => traceContext => packageService.value.getPackage(pkgId)(traceContext),
       // The repair service should not need any topology-aware authorisation because it only needs DAMLe
       // to check contract instance arguments, which cannot trigger a ResultNeedAuthority.
       CantonAuthorityResolver.topologyUnawareAuthorityResolver,
@@ -363,7 +365,7 @@ class CantonSyncService(
   val repairService: RepairService = new RepairService(
     participantId,
     syncCrypto,
-    packageService.dependencyResolver,
+    packageService.value.packageDependencyResolver,
     repairServiceDAMLe,
     participantNodePersistentState.map(_.multiDomainEventLog),
     syncDomainPersistentStateManager,
@@ -645,47 +647,70 @@ class CantonSyncService(
   ): CompletionStage[SubmissionResult] =
     partyAllocation.allocate(hint, displayName, rawSubmissionId)
 
-  override def uploadPackages(
-      submissionId: LedgerSubmissionId,
-      archives: List[DamlLf.Archive],
-      sourceDescription: Option[String],
-  )(implicit
+  override def uploadDar(dar: ByteString, submissionId: Ref.SubmissionId)(implicit
       traceContext: TraceContext
-  ): CompletionStage[SubmissionResult] = {
+  ): Future[SubmissionResult] =
     withSpan("CantonSyncService.uploadPackages") { implicit traceContext => span =>
       if (!isActive()) {
         logger.debug(s"Rejecting package upload on passive replica.")
         Future.successful(SyncServiceError.Synchronous.PassiveNode)
       } else {
         span.setAttribute("submission_id", submissionId)
-        logger.debug(
-          s"Processing ledger-api package upload of ${archives.length} packages from source ${sourceDescription}"
-        )
-        // The API Package service has already decoded and validated the archives,
-        // so we can simply store them here without revalidating them.
-        val ret = for {
-          sourceDescriptionLenLimit <- EitherT.fromEither[Future](
-            String256M
-              .create(sourceDescription.getOrElse(""), Some("package source description"))
-              .leftMap(PackageServiceErrors.InternalError.Generic.apply)
+        packageService.value
+          .upload(
+            darBytes = dar,
+            fileNameO = None,
+            submissionIdO = Some(submissionId),
+            vetAllPackages = true,
+            synchronizeVetting = false,
           )
-          _ <- packageService
-            .storeValidatedPackagesAndSyncEvent(
-              archives,
-              sourceDescriptionLenLimit,
-              submissionId,
-              dar = None,
-              vetAllPackages = true,
-              synchronizeVetting = false,
-            )
-            .onShutdown(Left(PackageServiceErrors.ParticipantShuttingDown.Error()))
-        } yield SubmissionResult.Acknowledged
-        ret.valueOr(err =>
-          SyncServiceError.Synchronous.internalError(CantonError.stringFromContext(err))
-        )
+          .map(_ => SubmissionResult.Acknowledged)
+          .onShutdown(Left(PackageServiceErrors.ParticipantShuttingDown.Error()))
+          .valueOr(err => SubmissionResult.SynchronousError(err.rpcStatus()))
       }
     }
-  }.asJava
+
+  override def validateDar(dar: ByteString, darName: String)(implicit
+      traceContext: TraceContext
+  ): Future[SubmissionResult] =
+    withSpan("CantonSyncService.validateDar") { implicit traceContext => span =>
+      if (!isActive()) {
+        logger.debug(s"Rejecting DAR validation request on passive replica.")
+        Future.successful(SyncServiceError.Synchronous.PassiveNode)
+      } else {
+        packageService.value
+          .validateDar(dar, darName)
+          .map(_ => SubmissionResult.Acknowledged)
+          .onShutdown(Left(PackageServiceErrors.ParticipantShuttingDown.Error()))
+          .valueOr(err => SubmissionResult.SynchronousError(err.rpcStatus()))
+      }
+    }
+
+  override def getLfArchive(packageId: PackageId)(implicit
+      traceContext: TraceContext
+  ): Future[Option[DamlLf.Archive]] =
+    packageService.value.getLfArchive(packageId)
+
+  override def listLfPackages()(implicit
+      traceContext: TraceContext
+  ): Future[Map[PackageId, PackageDetails]] =
+    packageService.value
+      .listPackages()
+      .map(
+        _.view
+          .map { pkgDesc =>
+            pkgDesc.packageId -> PackageDetails(
+              size = pkgDesc.packageSize.toLong,
+              knownSince = pkgDesc.uploadedAt.underlying,
+              sourceDescription = Some(pkgDesc.sourceDescription.str),
+            )
+          }
+          .toMap
+      )
+
+  override def getPackageMetadataSnapshot(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): PackageMetadata = packageService.value.packageMetadataView.getSnapshot
 
   /** Executes ordered sequence of steps to recover any state that might have been lost if the participant previously
     * crashed. Needs to be invoked after the input stores have been created, but before they are made available to
@@ -1298,7 +1323,7 @@ class CantonSyncService(
         domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
         persistent = domainHandle.domainPersistentState
 
-        domainCrypto = syncCrypto.tryForDomain(domainId, Some(domainAlias))
+        domainCrypto = syncCrypto.tryForDomain(domainId, domainHandle.staticParameters)
 
         ephemeral <- EitherT.right[SyncServiceError](
           FutureUnlessShutdown.outcomeF(
@@ -1604,7 +1629,6 @@ class CantonSyncService(
       repairService,
       pruningProcessor,
     ) ++ syncCrypto.ips.allDomains.toSeq ++ connectedDomainsMap.values.toSeq ++ Seq(
-      packageService,
       domainRouter,
       domainRegistry,
       inFlightSubmissionTracker,
@@ -1841,7 +1865,7 @@ object CantonSyncService {
         participantNodePersistentState: Eval[ParticipantNodePersistentState],
         participantNodeEphemeralState: ParticipantNodeEphemeralState,
         syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
-        packageService: PackageService,
+        packageService: Eval[PackageService],
         topologyManagerOps: ParticipantTopologyManagerOps,
         identityPusher: ParticipantTopologyDispatcher,
         partyNotifier: LedgerServerPartyNotifier,
@@ -1871,7 +1895,7 @@ object CantonSyncService {
         participantNodePersistentState: Eval[ParticipantNodePersistentState],
         participantNodeEphemeralState: ParticipantNodeEphemeralState,
         syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
-        packageService: PackageService,
+        packageService: Eval[PackageService],
         topologyManagerOps: ParticipantTopologyManagerOps,
         identityPusher: ParticipantTopologyDispatcher,
         partyNotifier: LedgerServerPartyNotifier,

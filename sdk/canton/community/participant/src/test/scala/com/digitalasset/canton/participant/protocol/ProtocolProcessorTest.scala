@@ -345,6 +345,7 @@ class ProtocolProcessorTest
         crypto,
         sequencerClient,
         domainId = DefaultTestIdentities.domainId,
+        defaultStaticDomainParameters,
         testedProtocolVersion,
         loggerFactory,
         FutureSupervisor.Noop,

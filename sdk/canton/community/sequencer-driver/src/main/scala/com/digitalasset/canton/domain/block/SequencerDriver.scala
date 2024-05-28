@@ -120,6 +120,8 @@ trait SequencerDriverFactory {
   */
 trait SequencerDriver extends AutoCloseable {
 
+  def firstBlockHeight: Long
+
   // Admin end points
 
   /** Services for administering the ledger driver.

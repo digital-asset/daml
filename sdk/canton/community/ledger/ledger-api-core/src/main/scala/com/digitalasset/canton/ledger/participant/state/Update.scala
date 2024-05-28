@@ -142,6 +142,7 @@ object Update {
     * @param submissionId      The submission id of the upload. Unset if this participant was not the
     *                          submitter.
     */
+  // TODO(#17635): Remove me
   final case class PublicPackageUpload(
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String],
@@ -175,6 +176,7 @@ object Update {
     *                        committed.
     * @param rejectionReason Reason why the upload was rejected.
     */
+  // TODO(#17635): Remove me
   final case class PublicPackageUploadRejected(
       submissionId: Ref.SubmissionId,
       recordTime: Timestamp,

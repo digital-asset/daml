@@ -8,7 +8,6 @@ import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
@@ -28,15 +27,13 @@ import com.digitalasset.canton.domain.sequencing.authentication.{
 }
 import com.digitalasset.canton.domain.sequencing.config.SequencerNodeParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.*
-import com.digitalasset.canton.domain.sequencing.sequencer.errors.RegisterMemberError.AlreadyRegisteredError
-import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
-  OperationError,
-  RegisterMemberError,
-  SequencerWriteError,
-}
 import com.digitalasset.canton.domain.sequencing.service.*
 import com.digitalasset.canton.health.HealthListener
-import com.digitalasset.canton.health.admin.data.{SequencerHealthStatus, TopologyQueueStatus}
+import com.digitalasset.canton.health.admin.data.{
+  SequencerAdminStatus,
+  SequencerHealthStatus,
+  TopologyQueueStatus,
+}
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
@@ -76,12 +73,24 @@ import com.digitalasset.canton.store.{IndexedDomain, SequencerCounterTrackerStor
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
-import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
+import com.digitalasset.canton.topology.processing.{
+  EffectiveTime,
+  SequencedTime,
+  TopologyTransactionProcessingSubscriber,
+  TopologyTransactionProcessor,
+}
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{TopologyStateForInitializationService, TopologyStore}
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.{
+  DomainTrustCertificate,
+  MediatorDomainState,
+  SequencerDomainState,
+}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.FutureUtil
+import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
+import com.digitalasset.canton.{SequencerCounter, config, lifecycle}
 import io.grpc.{ServerInterceptors, ServerServiceDefinition}
 import org.apache.pekko.actor.ActorSystem
 
@@ -167,17 +176,7 @@ class SequencerRuntime(
       // only register the sequencer itself if we have remote sequencers that will necessitate topology transactions
       // being sent to them
       staticMembersToRegister
-        .parTraverse(
-          sequencer
-            .ensureRegistered(_)
-            .leftFlatMap[Unit, SequencerWriteError[RegisterMemberError]] {
-              // if other sibling sequencers are initializing at the same time and try to run this step,
-              // or if a sequencer automatically registers the idm (eg the Ethereum sequencer)
-              // we might get AlreadyRegisteredError which we can safely ignore
-              case OperationError(_: AlreadyRegisteredError) => EitherT.pure(())
-              case otherError => EitherT.leftT(otherError)
-            }
-        )
+        .parTraverse_(sequencer.registerMember)
     }
 
     for {
@@ -279,6 +278,9 @@ class SequencerRuntime(
     clients = topologyClient.numPendingChanges,
   )
 
+  def adminStatus: SequencerAdminStatus =
+    sequencer.adminStatus
+
   def fetchActiveMembers(): Future[Seq[Member]] =
     Future.successful(sequencerService.membersWithActiveSubscriptions)
 
@@ -364,6 +366,40 @@ class SequencerRuntime(
       timeouts,
       loggerFactory,
     )
+
+  if (localNodeParameters.useUnifiedSequencer) {
+    logger.info("Subscribing to topology transactions for auto-registering members")
+    // TODO(#18399): This listener runs after the snapshot became available, thus can be late with registering a member,
+    //  if a concurrent code is already using that member. Need to find a solution to that.
+    topologyProcessor.subscribe(new TopologyTransactionProcessingSubscriber {
+      override def observed(
+          sequencedTimestamp: SequencedTime,
+          effectiveTimestamp: EffectiveTime,
+          sequencerCounter: SequencerCounter,
+          transactions: Seq[GenericSignedTopologyTransaction],
+      )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+
+        val possibleNewMembers = transactions.map(_.mapping).flatMap {
+          case dtc: DomainTrustCertificate => Seq(dtc.participantId)
+          case mds: MediatorDomainState => mds.active ++ mds.observers
+          case sds: SequencerDomainState => sds.active ++ sds.observers
+          case _ => Seq.empty
+        }
+
+        // TODO(#18399): Batch the member registrations?
+        // TODO(#18399): Change F to FUS in registerMember
+        val f = possibleNewMembers
+          .parTraverse_ { member =>
+            logger.info(s"Topology change has triggered sequencer registration of member $member")
+            sequencer.registerMember(member)
+          }
+          .valueOr(e =>
+            ErrorUtil.internalError(new RuntimeException(s"Failed to register member: $e"))
+          )
+        lifecycle.FutureUnlessShutdown.outcomeF(f)
+      }
+    })
+  }
 
   private lazy val domainOutboxO: Option[DomainOutboxHandle] =
     maybeDomainOutboxFactory

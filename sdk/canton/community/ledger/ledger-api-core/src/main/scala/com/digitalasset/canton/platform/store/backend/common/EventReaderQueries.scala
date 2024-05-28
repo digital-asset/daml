@@ -113,7 +113,7 @@ class EventReaderQueries(
         FROM max_event
         JOIN lapi_events_create c on c.event_sequential_id = max_event.sequential_id
       """
-      query.as(createdFlatEventParser(intRequestingParties, stringInterning).singleOpt)(
+      query.as(createdFlatEventParser(Some(intRequestingParties), stringInterning).singleOpt)(
         conn
       ) match {
         case Some(c) if c.event.stakeholders.exists(extRequestingParties) =>
@@ -138,7 +138,7 @@ class EventReaderQueries(
           FROM lapi_events_consuming_exercise
           WHERE contract_id = $contractId
         """
-    query.as(archivedFlatEventParser(intRequestingParties, stringInterning).singleOpt)(conn)
+    query.as(archivedFlatEventParser(Some(intRequestingParties), stringInterning).singleOpt)(conn)
   }
 
   def fetchNextKeyEvents(
@@ -171,10 +171,12 @@ class EventReaderQueries(
       requestingParties: Set[Party]
   ): RowParser[EventStorageBackend.Entry[Raw.FlatEvent]] =
     rawFlatEventParser(
-      requestingParties.iterator
-        .map(stringInterning.party.tryInternalize)
-        .flatMap(_.iterator)
-        .toSet,
+      Some(
+        requestingParties.iterator
+          .map(stringInterning.party.tryInternalize)
+          .flatMap(_.iterator)
+          .toSet
+      ),
       stringInterning,
     )
 

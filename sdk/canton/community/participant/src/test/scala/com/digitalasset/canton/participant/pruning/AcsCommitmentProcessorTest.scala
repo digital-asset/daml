@@ -9,7 +9,7 @@ import cats.syntax.parallel.*
 import com.daml.lf.data.Ref
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
-import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveNumeric}
 import com.digitalasset.canton.config.{
   DefaultProcessingTimeouts,
   NonNegativeDuration,
@@ -63,7 +63,7 @@ import com.digitalasset.canton.store.memory.{
   InMemoryIndexedStringStore,
   InMemorySequencerCounterTrackerStore,
 }
-import com.digitalasset.canton.time.PositiveSeconds
+import com.digitalasset.canton.time.{PositiveSeconds, SimClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
@@ -343,6 +343,9 @@ sealed trait AcsCommitmentProcessorBaseTest
       false,
       loggerFactory,
       TestingConfigInternal(),
+      new SimClock(loggerFactory = loggerFactory),
+      // do not delay sending commitments for testing, because tests often expect to see commitments after an interval
+      Some(NonNegativeInt.zero),
     )
     (acsCommitmentProcessor, store, sequencerClient, changes)
   }

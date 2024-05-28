@@ -297,6 +297,9 @@ trait BaseTest
 
     def failOnShutdown(implicit ec: ExecutionContext, pos: Position): EitherT[Future, E, A] =
       eitherT.onShutdown(fail("Unexpected shutdown"))
+
+    def futureValueUS(implicit pos: Position): Either[E, A] =
+      eitherT.value.futureValueUS
   }
 
   implicit class EitherTUnlessShutdownSyntax[E, A](
@@ -419,7 +422,7 @@ object BaseTest {
   def defaultStaticDomainParametersWith(
       protocolVersion: ProtocolVersion = testedProtocolVersion,
       acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpConfig] = None,
-  ): StaticDomainParameters = StaticDomainParameters.create(
+  ): StaticDomainParameters = StaticDomainParameters(
     requiredSigningKeySchemes = SymbolicCryptoProvider.supportedSigningKeySchemes,
     requiredEncryptionKeySchemes = SymbolicCryptoProvider.supportedEncryptionKeySchemes,
     requiredSymmetricKeySchemes = SymbolicCryptoProvider.supportedSymmetricKeySchemes,

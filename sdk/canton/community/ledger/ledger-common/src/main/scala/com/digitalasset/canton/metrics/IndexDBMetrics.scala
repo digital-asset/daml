@@ -171,6 +171,7 @@ class MainIndexDBHistograms(val prefix: MetricName)(implicit
   )
 
   private val translationPrefix = prefix :+ "translation"
+  // TODO(#17635): It's not an IndexDB op anymore
   private[metrics] val getLfPackage: Item = Item(
     translationPrefix :+ "get_lf_package",
     summary = "The time needed to deserialize and decode a Daml-LF archive.",

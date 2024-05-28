@@ -173,7 +173,9 @@ class InMemoryCryptoPrivateStore(
 
   private[crypto] def deletePrivateKey(
       keyId: Fingerprint
-  )(implicit traceContext: TraceContext): EitherT[Future, CryptoPrivateStoreError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] = {
     storedSigningKeyMap.remove(keyId).discard
     storedDecryptionKeyMap.remove(keyId).discard
     EitherT.rightT(())
@@ -185,7 +187,7 @@ class InMemoryCryptoPrivateStore(
     newKeys
       .parTraverse { newKey =>
         for {
-          _ <- deletePrivateKey(newKey.id).mapK(FutureUnlessShutdown.outcomeK)
+          _ <- deletePrivateKey(newKey.id)
           _ <- writePrivateKey(newKey)
         } yield ()
       }

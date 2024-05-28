@@ -81,6 +81,16 @@ object TopologyTransactionRejection {
     }
   }
 
+  final case class NoCorrespondingActiveTxToRevoke(mapping: TopologyMapping)
+      extends TopologyTransactionRejection {
+    override def asString: String =
+      s"There is no active topology transaction matching the mapping of the revocation request: $mapping"
+    override def pretty: Pretty[NoCorrespondingActiveTxToRevoke.this.type] =
+      prettyOfString(_ => asString)
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.NoCorrespondingActiveTxToRevoke.Mapping(mapping)
+  }
+
   final case class InvalidTopologyMapping(err: String) extends TopologyTransactionRejection {
     override def asString: String = s"Invalid mapping: $err"
     override def pretty: Pretty[InvalidTopologyMapping] = prettyOfString(_ => asString)

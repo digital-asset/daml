@@ -323,6 +323,15 @@ object UpdateToDbDto {
           events ++ completions ++ Seq(transactionMeta)
 
         case u: ReassignmentAccepted =>
+          withOptionalMetricLabels(
+            IndexedUpdatesMetrics.Labels.applicationId -> u.optCompletionInfo.map(_.applicationId)
+          ) { implicit mc: MetricsContext =>
+            incrementCounterForEvent(
+              metrics.indexerEvents,
+              IndexedUpdatesMetrics.Labels.eventType.reassignment,
+              IndexedUpdatesMetrics.Labels.status.accepted,
+            )
+          }
           val events = u.reassignment match {
             case unassign: Reassignment.Unassign =>
               val flatEventWitnesses = unassign.stakeholders.map(_.toString)

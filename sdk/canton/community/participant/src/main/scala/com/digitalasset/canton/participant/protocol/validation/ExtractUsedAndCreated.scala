@@ -32,7 +32,7 @@ object ExtractUsedAndCreated {
       participant: ViewParticipantData,
       common: ViewCommonData,
   ) {
-    def informees: Set[LfPartyId] = common.informees.map(_.party)
+    def informees: Set[LfPartyId] = common.viewConfirmationParameters.informees
 
     def transientContracts(): Seq[LfContractId] = {
 
@@ -219,8 +219,11 @@ private[validation] class ExtractUsedAndCreated(
 
     (for {
       viewData <- dataViews
-      hosts = hostsAny(viewData.informees)
-      created <- viewData.participant.createdCore
+      createdAndHosts <-
+        viewData.participant.createdCore.map { cc =>
+          (cc, hostsAny(cc.contract.metadata.stakeholders))
+        }
+      (created, hosts) = createdAndHosts
       rolledBack = viewData.participant.rollbackContext.inRollback || created.rolledBack
       contract = created.contract
     } yield {
@@ -295,8 +298,8 @@ private[validation] class ExtractUsedAndCreated(
 
   private def hostsAny(
       parties: IterableOnce[LfPartyId]
-  )(implicit loggingContext: ErrorLoggingContext): Boolean = {
-    parties.iterator.exists(party =>
+  )(implicit loggingContext: ErrorLoggingContext): Boolean =
+    parties.iterator.exists(party => {
       hostedParties.getOrElse(
         party, {
           loggingContext.error(
@@ -305,7 +308,6 @@ private[validation] class ExtractUsedAndCreated(
           false
         },
       )
-    )
-  }
+    })
 
 }

@@ -7,8 +7,8 @@ import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.block.BlockOrderer
-import com.digitalasset.canton.domain.block.BlockOrderingSequencer.BatchTag
+import com.digitalasset.canton.domain.block.BlockFormat
+import com.digitalasset.canton.domain.block.BlockFormat.BatchTag
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.DbReferenceBlockOrderingStore.deserializeBytes
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore.TimestampedBlock
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.v1 as proto
@@ -48,7 +48,7 @@ class DbReferenceBlockOrderingStore(
 
   private val profile = storage.profile
 
-  private implicit val requestGetResult: GetResult[Traced[BlockOrderer.OrderedRequest]] =
+  private implicit val requestGetResult: GetResult[Traced[BlockFormat.OrderedRequest]] =
     GetResult(s =>
       deserializeBytes(s.nextBytes()) match {
         case Right(ev) => ev
@@ -58,7 +58,7 @@ class DbReferenceBlockOrderingStore(
     )
 
   @unused // used implicitly by database
-  private implicit val requestSetParam: SetParameter[Traced[BlockOrderer.OrderedRequest]] =
+  private implicit val requestSetParam: SetParameter[Traced[BlockFormat.OrderedRequest]] =
     (v, pp) => {
       val traceContext = v.traceContext
       val traceparent = traceContext.asW3CTraceContext.map(_.parent).getOrElse("")
@@ -72,7 +72,7 @@ class DbReferenceBlockOrderingStore(
       pp.setBytes(protoRequest.toByteArray)
     }
 
-  def insertRequestWithHeight(blockHeight: Long, request: BlockOrderer.OrderedRequest)(implicit
+  def insertRequestWithHeight(blockHeight: Long, request: BlockFormat.OrderedRequest)(implicit
       traceContext: TraceContext
   ): Future[Unit] = {
     val uuid = LengthLimitedString.getUuid // uuid is only used so that inserts are idempotent
@@ -99,7 +99,7 @@ class DbReferenceBlockOrderingStore(
     )
   }
 
-  override def insertRequest(request: BlockOrderer.OrderedRequest)(implicit
+  override def insertRequest(request: BlockFormat.OrderedRequest)(implicit
       traceContext: TraceContext
   ): Future[Unit] = {
     val uuid =
@@ -184,7 +184,7 @@ class DbReferenceBlockOrderingStore(
     storage
       .query(
         sql"""select id, request, uuid from blocks where id >= $initialHeight order by id"""
-          .as[(Long, Traced[BlockOrderer.OrderedRequest], String)]
+          .as[(Long, Traced[BlockFormat.OrderedRequest], String)]
           .transactionally
           // Serializable isolation level to prevent skipping over blocks producing gaps
           .withTransactionIsolation(TransactionIsolation.Serializable),
@@ -195,7 +195,7 @@ class DbReferenceBlockOrderingStore(
         // never return a sequence of blocks with a gap
         val requestsUntilFirstGap = requests
           .foldLeft(
-            (initialHeight - 1, List[(Long, Traced[BlockOrderer.OrderedRequest], UUID)]())
+            (initialHeight - 1, List[(Long, Traced[BlockFormat.OrderedRequest], UUID)]())
           ) { case ((previousHeight, list), (currentHeight, element, uuid)) =>
             if (currentHeight == previousHeight + 1)
               (currentHeight, list :+ (currentHeight, element, UUID.fromString(uuid)))
@@ -221,7 +221,7 @@ class DbReferenceBlockOrderingStore(
           val blockTimestamp =
             CantonTimestamp.ofEpochMicro(tracedRequest.value.microsecondsSinceEpoch)
           TimestampedBlock(
-            BlockOrderer.Block(height, orderedRequests),
+            BlockFormat.Block(height, orderedRequests),
             blockTimestamp,
             lastTopologyTimestamp,
           )
@@ -233,16 +233,16 @@ object DbReferenceBlockOrderingStore {
 
   def deserializeBytes(
       bytes: Array[Byte]
-  ): Either[ProtoDeserializationError, Traced[BlockOrderer.OrderedRequest]] = for {
+  ): Either[ProtoDeserializationError, Traced[BlockFormat.OrderedRequest]] = for {
     protoRequest <- ProtoConverter
       .protoParserArray(proto.TracedBlockOrderingRequest.parseFrom)(bytes)
   } yield fromProto(protoRequest)
 
   def fromProto(
       protoRequest: proto.TracedBlockOrderingRequest
-  ): Traced[BlockOrderer.OrderedRequest] = {
+  ): Traced[BlockFormat.OrderedRequest] = {
     val request =
-      BlockOrderer.OrderedRequest(
+      BlockFormat.OrderedRequest(
         protoRequest.microsecondsSinceEpoch,
         protoRequest.tag,
         protoRequest.body,

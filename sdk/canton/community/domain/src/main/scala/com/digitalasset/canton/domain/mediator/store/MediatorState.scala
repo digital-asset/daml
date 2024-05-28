@@ -175,6 +175,15 @@ private[mediator] class MediatorState(
   def pendingRequestIdsBefore(cutoff: CantonTimestamp): List[RequestId] =
     pendingRequests.keySet().headSet(RequestId(cutoff)).asScala.toList
 
+  /** Fetch pending requests that have a timeout below the provided `cutoff` */
+  def pendingTimedoutRequest(cutoff: CantonTimestamp): List[RequestId] =
+    pendingRequests
+      .values()
+      .asScala
+      .filter(resp => resp.timeout < cutoff)
+      .map(resp => resp.requestId)
+      .toList
+
   /** Fetch a response aggregation from the pending requests collection. */
   def getPending(requestId: RequestId): Option[ResponseAggregation[?]] = Option(
     pendingRequests.get(requestId)

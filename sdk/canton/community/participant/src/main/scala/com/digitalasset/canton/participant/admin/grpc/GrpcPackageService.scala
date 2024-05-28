@@ -34,7 +34,8 @@ class GrpcPackageService(
     for {
       activePackages <- service.listPackages(OptionUtil.zeroAsNone(request.limit))
     } yield ListPackagesResponse(activePackages.map {
-      case protocol.PackageDescription(pid, sourceDescription) =>
+      case protocol.PackageDescription(pid, sourceDescription, _uploadedAt, _size) =>
+        // TODO(#17635): Extend PB package description definition
         v30.PackageDescription(pid, sourceDescription.unwrap)
     })
   }
@@ -43,10 +44,7 @@ class GrpcPackageService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret =
       service
-        .validateByteString(
-          request.data,
-          request.filename,
-        )
+        .validateDar(request.data, request.filename)
         .map((hash: Hash) => ValidateDarResponse(hash.toHexString))
     EitherTUtil.toFuture(
       ret
@@ -59,11 +57,12 @@ class GrpcPackageService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret =
       for {
-        hash <- service.appendDarFromByteString(
-          request.data,
-          request.filename,
-          request.vetAllPackages,
-          request.synchronizeVetting,
+        hash <- service.upload(
+          darBytes = request.data,
+          fileNameO = Some(request.filename),
+          submissionIdO = None,
+          vetAllPackages = request.vetAllPackages,
+          synchronizeVetting = request.synchronizeVetting,
         )
       } yield UploadDarResponse(
         UploadDarResponse.Value.Success(UploadDarResponse.Success(hash.toHexString))

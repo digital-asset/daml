@@ -7,11 +7,15 @@ import cats.data.EitherT
 import cats.syntax.functorFilter.*
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.crypto.KeyPurpose
+import com.digitalasset.canton.crypto.{KeyPurpose, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.protocol.DynamicDomainParametersWithValidity
+import com.digitalasset.canton.protocol.{
+  DynamicDomainParametersWithValidity,
+  DynamicSequencingParametersWithValidity,
+}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.{
   AuthorityOfDelegation,
@@ -147,6 +151,32 @@ class StoreBasedTopologySnapshot(
           )
         }
       } yield domainParameters
+    }
+
+  override def findDynamicSequencingParameters()(implicit
+      traceContext: TraceContext
+  ): Future[Either[String, DynamicSequencingParametersWithValidity]] =
+    findTransactions(
+      asOfInclusive = false,
+      types = Seq(TopologyMapping.Code.SequencingDynamicParametersState),
+      filterUid = None,
+      filterNamespace = None,
+    ).map { transactions =>
+      for {
+        storedTx <- collectLatestTransaction(
+          TopologyMapping.Code.SequencingDynamicParametersState,
+          transactions
+            .collectOfMapping[DynamicSequencingParametersState]
+            .result,
+        ).toRight(s"Unable to fetch sequencing parameters at $timestamp")
+
+        mapping = storedTx.mapping
+      } yield DynamicSequencingParametersWithValidity(
+        mapping.parameters,
+        storedTx.validFrom.value,
+        storedTx.validUntil.map(_.value),
+        mapping.domain,
+      )
     }
 
   /** List all the dynamic domain parameters (past and current) */
@@ -655,6 +685,25 @@ class StoreBasedTopologySnapshot(
     }
   }
 
+  override def memberFirstKnownAt(
+      member: Member
+  )(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] = {
+    member match {
+      case participantId: ParticipantId =>
+        store.findFirstTrustCertificateForParticipant(participantId).map(_.map(_.validFrom.value))
+      case mediatorId: MediatorId =>
+        store.findFirstMediatorStateForMediator(mediatorId).map(_.map(_.validFrom.value))
+      case sequencerId: SequencerId =>
+        store.findFirstSequencerStateForSequencer(sequencerId).map(_.map(_.validFrom.value))
+      case _ =>
+        Future.failed(
+          new IllegalArgumentException(
+            s"Checking whether member is known for an unexpected member type: $member"
+          )
+        )
+    }
+  }
+
   private def collectLatestMapping[T <: TopologyMapping](
       typ: TopologyMapping.Code,
       transactions: Seq[StoredTopologyTransaction[TopologyChangeOp.Replace, T]],
@@ -686,4 +735,7 @@ class StoreBasedTopologySnapshot(
     transactions.lastOption
   }
 
+  override def signingKeysUS(owner: Member)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[SigningPublicKey]] = FutureUnlessShutdown.outcomeF(signingKeys(owner))
 }

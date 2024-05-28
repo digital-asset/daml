@@ -13,7 +13,6 @@ final class JdbcLedgerDaoSpecPostgres
     with Matchers
     with JdbcLedgerDaoSuite
     with JdbcLedgerDaoBackendPostgresql
-    with JdbcLedgerDaoPackagesSpec
     with JdbcLedgerDaoActiveContractsSpec
     with JdbcLedgerDaoCompletionsSpec
     with JdbcLedgerDaoContractsSpec

@@ -16,11 +16,8 @@ import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, DisclosedContract}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.index.{
-  ContractState,
-  ContractStore,
-  IndexPackagesService,
-}
+import com.digitalasset.canton.ledger.participant.state.ReadService
+import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -48,7 +45,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[apiserver] final class StoreBackedCommandExecutor(
     engine: Engine,
     participant: Ref.ParticipantId,
-    packagesService: IndexPackagesService,
+    readService: ReadService,
     contractStore: ContractStore,
     authorityResolver: AuthorityResolver,
     authenticateContract: AuthenticateContract,
@@ -259,7 +256,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           packageLoader
             .loadPackage(
               packageId = packageId,
-              delegate = packageId => packagesService.getLfArchive(packageId)(loggingContext),
+              delegate = readService.getLfArchive(_)(loggingContext.traceContext),
               metric = metrics.execution.getLfPackage,
             )
             .flatMap { maybePackage =>
@@ -525,7 +522,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
           unusedTxVersion,
           ContractInstance(
             packageName = disclosedContract.packageName,
-            packageVersion = None,
             template = disclosedContract.templateId,
             arg = disclosedContract.argument,
           ),

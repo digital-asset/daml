@@ -66,12 +66,12 @@ class ReplayingEventsSequencerClientTransport(
   /** Does nothing */
   override def sendAsyncUnauthenticatedVersioned(request: SubmissionRequest, timeout: Duration)(
       implicit traceContext: TraceContext
-  ): EitherT[Future, SendAsyncClientResponseError, Unit] = EitherT.rightT(())
+  ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] = EitherT.rightT(())
 
   /** Does nothing */
   override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Boolean] =
+  ): EitherT[FutureUnlessShutdown, String, Boolean] =
     EitherT.rightT(true)
 
   /** Replays all events in `replayPath` to the handler. */

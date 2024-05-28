@@ -22,6 +22,7 @@ object SequencerValidations {
         s"Sender is unknown: ${submission.sender}"
       ): SendAsyncError,
     )
+    // TODO(#18399): Why we don't check group recipients here?
     unregisteredRecipients = submission.batch.allMembers.toList.filterNot(isRegistered)
     _ <- Either.cond(
       unregisteredRecipients.isEmpty,

@@ -146,7 +146,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
       Eval.now(participantNodePersistentState),
       participantNodeEphemeralState,
       syncDomainPersistentStateManager,
-      packageService,
+      Eval.now(packageService),
       topologyManagerOps,
       identityPusher,
       partyNotifier,

@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
@@ -15,8 +13,8 @@ import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
-import com.digitalasset.canton.ledger.participant.state.index.{IndexerPartyDetails, PackageDetails}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
   withEnrichedLoggingContext,
@@ -34,7 +32,7 @@ import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.Le
 import com.digitalasset.canton.platform.store.backend.{ParameterStorageBackend, ReadStorageBackend}
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.dao.events.*
-import com.digitalasset.canton.platform.store.entries.{PackageLedgerEntry, PartyLedgerEntry}
+import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.store.utils.QueueBasedConcurrencyLimiter
 import com.digitalasset.canton.topology.DomainId
@@ -64,8 +62,9 @@ private class JdbcLedgerDao(
     globalMaxEventPayloadQueries: Int,
     tracer: Tracer,
     val loggerFactory: NamedLoggerFactory,
-    incompleteOffsets: (Offset, Set[Ref.Party], TraceContext) => Future[Vector[Offset]],
+    incompleteOffsets: (Offset, Option[Set[Ref.Party]], TraceContext) => Future[Vector[Offset]],
     contractLoader: ContractLoader,
+    translation: LfValueTranslation,
 ) extends LedgerDao
     with NamedLogging {
 
@@ -233,105 +232,6 @@ private class JdbcLedgerDao(
         readStorageBackend.partyStorageBackend.knownParties(fromExcl, maxResults)
       )
 
-  override def listLfPackages()(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Map[PackageId, PackageDetails]] =
-    dbDispatcher
-      .executeSql(metrics.index.db.loadPackages)(
-        readStorageBackend.packageStorageBackend.lfPackages
-      )
-
-  override def getLfArchive(
-      packageId: PackageId
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[Archive]] =
-    dbDispatcher
-      .executeSql(metrics.index.db.loadArchive)(
-        readStorageBackend.packageStorageBackend.lfArchive(packageId)
-      )
-      .map(_.map(data => ArchiveParser.assertFromByteArray(data)))(
-        servicesExecutionContext
-      )
-
-  override def storePackageEntry(
-      offset: Offset,
-      packages: List[(Archive, PackageDetails)],
-      optEntry: Option[PackageLedgerEntry],
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[PersistenceResponse] = {
-    logger.info("Storing package entry")
-    dbDispatcher.executeSql(metrics.index.db.storePackageEntryDbMetrics) { implicit connection =>
-      // Note on knownSince and recordTime:
-      // - There are two different time values in the input: PackageDetails.knownSince and PackageUploadAccepted.recordTime
-      // - There is only one time value in the intermediate values: PublicPackageUpload.recordTime
-      // - There are two different time values in the database schema: packages.known_since and lapi_package_entries.recorded_at
-      // This is not an issue since all callers of this method always use the same value for all knownSince and recordTime times.
-      //
-      // Note on sourceDescription:
-      // - In the input, each package can have its own source description (see PackageDetails.sourceDescription)
-      // - In the intermediate value, there is only one source description for all packages (see PublicPackageUpload.sourceDescription)
-      // - In the database schema, each package can have its own source description (see packages.source_description)
-      // This is again not an issue since all callers of this method always use the same value for all source descriptions.
-      val update = optEntry match {
-        case None =>
-          // Calling storePackageEntry() without providing a PackageLedgerEntry is used to copy initial packages,
-          // or in the case where the submission ID is unknown (package was submitted through a different participant).
-          state.Update.PublicPackageUpload(
-            archives = packages.view.map(_._1).toList,
-            sourceDescription = packages.headOption.flatMap(
-              _._2.sourceDescription
-            ),
-            recordTime = packages.headOption
-              .map(
-                _._2.knownSince
-              )
-              .getOrElse(Timestamp.Epoch),
-            submissionId =
-              None, // If the submission ID is missing, this update will not insert a row in the lapi_package_entries table
-          )
-
-        case Some(PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime)) =>
-          state.Update.PublicPackageUpload(
-            archives = packages.view.map(_._1).toList,
-            sourceDescription = packages.headOption.flatMap(
-              _._2.sourceDescription
-            ),
-            recordTime = recordTime,
-            submissionId = Some(submissionId),
-          )
-
-        case Some(PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime, reason)) =>
-          state.Update.PublicPackageUploadRejected(
-            submissionId = submissionId,
-            recordTime = recordTime,
-            rejectionReason = reason,
-          )
-      }
-      sequentialIndexer.store(connection, offset, Some(Traced[Update](update)))
-      PersistenceResponse.Ok
-    }
-  }
-
-  override def getPackageEntries(
-      startExclusive: Offset,
-      endInclusive: Offset,
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, PackageLedgerEntry), NotUsed] =
-    paginatingAsyncStream.streamFromLimitOffsetPagination(PageSize) { queryOffset =>
-      withEnrichedLoggingContext("queryOffset" -> queryOffset: LoggingEntry) {
-        implicit loggingContext =>
-          dbDispatcher.executeSql(metrics.index.db.loadPackageEntries)(
-            readStorageBackend.packageStorageBackend.packageEntries(
-              startExclusive = startExclusive,
-              endInclusive = endInclusive,
-              pageSize = PageSize,
-              queryOffset = queryOffset,
-            )
-          )
-      }
-    }
-
   /** Prunes the events and command completions tables.
     *
     * @param pruneUpToInclusive         Offset up to which to prune archived history inclusively.
@@ -420,14 +320,6 @@ private class JdbcLedgerDao(
       parameterStorageBackend.prunedUpToInclusive(conn) -> parameterStorageBackend
         .participantAllDivulgedContractsPrunedUpToInclusive(conn)
     }
-
-  private val translation: LfValueTranslation =
-    new LfValueTranslation(
-      metrics = metrics,
-      engineO = engine,
-      loadPackage = (packageId, loggingContext) => this.getLfArchive(packageId)(loggingContext),
-      loggerFactory = loggerFactory,
-    )
 
   private val queryValidRange = QueryValidRangeImpl(parameterStorageBackend, loggerFactory)
 
@@ -646,8 +538,9 @@ private[platform] object JdbcLedgerDao {
       globalMaxEventPayloadQueries: Int,
       tracer: Tracer,
       loggerFactory: NamedLoggerFactory,
-      incompleteOffsets: (Offset, Set[Ref.Party], TraceContext) => Future[Vector[Offset]],
+      incompleteOffsets: (Offset, Option[Set[Ref.Party]], TraceContext) => Future[Vector[Offset]],
       contractLoader: ContractLoader = ContractLoader.dummyLoader,
+      lfValueTranslation: LfValueTranslation,
   ): LedgerReadDao =
     new JdbcLedgerDao(
       dbDispatcher = dbSupport.dbDispatcher,
@@ -670,6 +563,7 @@ private[platform] object JdbcLedgerDao {
       loggerFactory = loggerFactory,
       incompleteOffsets = incompleteOffsets,
       contractLoader = contractLoader,
+      translation = lfValueTranslation,
     )
 
   def write(
@@ -690,6 +584,7 @@ private[platform] object JdbcLedgerDao {
       tracer: Tracer,
       loggerFactory: NamedLoggerFactory,
       contractLoader: ContractLoader = ContractLoader.dummyLoader,
+      lfValueTranslation: LfValueTranslation,
   ): LedgerDao =
     new JdbcLedgerDao(
       dbDispatcher = dbSupport.dbDispatcher,
@@ -712,6 +607,7 @@ private[platform] object JdbcLedgerDao {
       loggerFactory = loggerFactory,
       incompleteOffsets = (_, _, _) => Future.successful(Vector.empty),
       contractLoader = contractLoader,
+      translation = lfValueTranslation,
     )
 
   val acceptType = "accept"

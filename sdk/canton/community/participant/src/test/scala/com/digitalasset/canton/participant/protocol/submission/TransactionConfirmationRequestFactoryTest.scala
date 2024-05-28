@@ -86,6 +86,7 @@ class TransactionConfirmationRequestFactoryTest
     submittingParticipant -> Seq(submitter, signatory),
     observerParticipant1 -> Seq(observer),
     observerParticipant2 -> Seq(observer),
+    extraParticipant -> Seq(extra),
   )
 
   // Collaborators
@@ -281,7 +282,6 @@ class TransactionConfirmationRequestFactoryTest
           .valueOrFail("failed to create symmetric key from randomness")
 
         val participants = tree.informees
-          .map(_.party)
           .map(cryptoSnapshot.ipsSnapshot.activeParticipantsOf(_).futureValue)
           .flatMap(_.keySet)
 
@@ -290,9 +290,8 @@ class TransactionConfirmationRequestFactoryTest
             cryptoPureApi,
             symmetricKey,
             TransactionViewType,
-            testedProtocolVersion,
           )(
-            LightTransactionViewTree.fromTransactionViewTree(tree)
+            LightTransactionViewTree.fromTransactionViewTree(tree, testedProtocolVersion)
           )
           .valueOr(err => fail(s"Failed to encrypt view tree: $err"))
 

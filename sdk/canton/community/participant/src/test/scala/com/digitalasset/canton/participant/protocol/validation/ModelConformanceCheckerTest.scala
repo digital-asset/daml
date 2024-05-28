@@ -340,7 +340,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           fetchNode(
             subviewMissing.contractId,
             actingParties = Set(submitter),
-            signatories = Set(submitter),
+            signatories = Set(submitter, extra),
           ),
         )
         val sut = new ModelConformanceChecker(

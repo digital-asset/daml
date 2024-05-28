@@ -3,15 +3,14 @@
 
 package com.digitalasset.canton.crypto
 
-import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.util.HexString
+import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
-
 trait HkdfTest {
-  this: AsyncWordSpec with BaseTest =>
+  this: AsyncWordSpec & BaseTest & HasExecutionContext =>
 
   private case class TestCase(
       ikm: ByteString,
@@ -98,7 +97,7 @@ trait HkdfTest {
     ),
   )
 
-  def hkdfProvider(providerF: => Future[HkdfOps with RandomOps]): Unit = {
+  def hkdfProvider(providerF: => FutureUnlessShutdown[HkdfOps with RandomOps]): Unit = {
     "derive keys using HMAC" should {
       "pass golden tests from RFC 5869 for extract-and-expand" in {
         val algo = HmacAlgorithm.HmacSha256
@@ -117,7 +116,7 @@ trait HkdfTest {
             expanded.unwrap shouldBe testCase.okm
           }
         }
-      }
+      }.failOnShutdown
     }
   }
 }

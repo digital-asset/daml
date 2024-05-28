@@ -36,22 +36,21 @@ import java.util.UUID
 final case class TransferInViewTree(
     commonData: MerkleTreeLeaf[TransferInCommonData],
     view: MerkleTree[TransferInView],
-)(hashOps: HashOps)
-    extends GenTransferViewTree[
+)(
+    override val representativeProtocolVersion: RepresentativeProtocolVersion[
+      TransferInViewTree.type
+    ],
+    hashOps: HashOps,
+) extends GenTransferViewTree[
       TransferInCommonData,
       TransferInView,
       TransferInViewTree,
       TransferInMediatorMessage,
-    ](commonData, view)(hashOps) {
+    ](commonData, view)(hashOps)
+    with HasProtocolVersionedWrapper[TransferInViewTree] {
 
   def submittingParticipant: ParticipantId =
     commonData.tryUnwrap.submitterMetadata.submittingParticipant
-
-  override def createMediatorMessage(
-      blindedTree: TransferInViewTree,
-      submittingParticipantSignature: Signature,
-  ): TransferInMediatorMessage =
-    TransferInMediatorMessage(blindedTree, submittingParticipantSignature)
 
   override private[data] def withBlindedSubtrees(
       optimizedBlindingPolicy: PartialFunction[RootHash, MerkleTree.BlindingCommand]
@@ -68,43 +67,68 @@ final case class TransferInViewTree(
     TransferInViewTree(
       commonData,
       view.doBlind(optimizedBlindingPolicy),
-    )(hashOps)
+    )(representativeProtocolVersion, hashOps)
   }
+
+  protected[this] override def createMediatorMessage(
+      blindedTree: TransferInViewTree,
+      submittingParticipantSignature: Signature,
+  ): TransferInMediatorMessage =
+    TransferInMediatorMessage(blindedTree, submittingParticipantSignature)
 
   override def pretty: Pretty[TransferInViewTree] = prettyOfClass(
     param("common data", _.commonData),
     param("view", _.view),
   )
+
+  @transient override protected lazy val companionObj: TransferInViewTree.type =
+    TransferInViewTree
 }
 
 object TransferInViewTree
-    extends HasVersionedMessageWithContextCompanion[
+    extends HasProtocolVersionedWithContextAndValidationWithTargetProtocolVersionCompanion[
       TransferInViewTree,
-      (HashOps, TargetProtocolVersion),
+      HashOps,
     ] {
+
   override val name: String = "TransferInViewTree"
 
-  val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v31,
-      supportedProtoVersion(v30.TransferViewTree)(fromProtoV30),
+  val supportedProtoVersions = SupportedProtoVersions(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.TransferViewTree)(
+      supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
       _.toProtoV30.toByteString,
     )
   )
 
-  def fromProtoV30(
-      context: (HashOps, TargetProtocolVersion),
-      transferInViewTreeP: v30.TransferViewTree,
-  ): ParsingResult[TransferInViewTree] = {
-    val (hashOps, targetProtocolVersion) = context
-    GenTransferViewTree.fromProtoV30(
-      TransferInCommonData.fromByteString(targetProtocolVersion.v)(
-        (hashOps, targetProtocolVersion)
-      ),
-      TransferInView.fromByteString(targetProtocolVersion.v)(hashOps),
-    )((commonData, view) => new TransferInViewTree(commonData, view)(hashOps))(
-      transferInViewTreeP
+  def apply(
+      commonData: MerkleTreeLeaf[TransferInCommonData],
+      view: MerkleTree[TransferInView],
+      targetProtocolVersion: TargetProtocolVersion,
+      hashOps: HashOps,
+  ): TransferInViewTree =
+    TransferInViewTree(commonData, view)(
+      TransferInViewTree.protocolVersionRepresentativeFor(targetProtocolVersion.v),
+      hashOps,
     )
+
+  def fromProtoV30(context: (HashOps, TargetProtocolVersion))(
+      transferInViewTreeP: v30.TransferViewTree
+  ): ParsingResult[TransferInViewTree] = {
+    val (hashOps, expectedProtocolVersion) = context
+    for {
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+      res <- GenTransferViewTree.fromProtoV30(
+        TransferInCommonData.fromByteString(expectedProtocolVersion.v)(
+          (hashOps, expectedProtocolVersion)
+        ),
+        TransferInView.fromByteString(expectedProtocolVersion.v)(hashOps),
+      )((commonData, view) =>
+        TransferInViewTree(commonData, view)(
+          rpv,
+          hashOps,
+        )
+      )(transferInViewTreeP)
+    } yield res
   }
 }
 
@@ -132,15 +156,12 @@ final case class TransferInCommonData private (
     with HasProtocolVersionedWrapper[TransferInCommonData]
     with ProtocolVersionedMemoizedEvidence {
 
+  @transient override protected lazy val companionObj: TransferInCommonData.type =
+    TransferInCommonData
+
   override val representativeProtocolVersion
       : RepresentativeProtocolVersion[TransferInCommonData.type] =
     TransferInCommonData.protocolVersionRepresentativeFor(targetProtocolVersion.v)
-
-  def confirmingParties: Set[Informee] =
-    stakeholders.map(ConfirmingParty(_, PositiveInt.one))
-
-  @transient override protected lazy val companionObj: TransferInCommonData.type =
-    TransferInCommonData
 
   protected def toProtoV30: v30.TransferInCommonData =
     v30.TransferInCommonData(
@@ -152,10 +173,13 @@ final case class TransferInCommonData private (
       submitterMetadata = Some(submitterMetadata.toProtoV30),
     )
 
-  override def hashPurpose: HashPurpose = HashPurpose.TransferInCommonData
-
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
+
+  override def hashPurpose: HashPurpose = HashPurpose.TransferInCommonData
+
+  def confirmingParties: Set[Informee] =
+    stakeholders.map(ConfirmingParty(_, PositiveInt.one))
 
   override def pretty: Pretty[TransferInCommonData] = prettyOfClass(
     param("submitter metadata", _.submitterMetadata),
@@ -212,8 +236,8 @@ object TransferInCommonData
       uuidP,
       targetMediatorP,
       submitterMetadataPO,
-    ) =
-      transferInCommonDataP
+    ) = transferInCommonDataP
+
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
       targetDomain <- TargetDomainId.fromProtoPrimitive(targetDomainP, "target_domain")
@@ -226,6 +250,7 @@ object TransferInCommonData
       submitterMetadata <- ProtoConverter
         .required("submitter_metadata", submitterMetadataPO)
         .flatMap(TransferSubmitterMetadata.fromProtoV30)
+
     } yield TransferInCommonData(
       salt,
       targetDomain,
@@ -233,11 +258,7 @@ object TransferInCommonData
       stakeholders.toSet,
       uuid,
       submitterMetadata,
-    )(
-      hashOps,
-      targetProtocolVersion,
-      Some(bytes),
-    )
+    )(hashOps, targetProtocolVersion, Some(bytes))
   }
 }
 
@@ -265,9 +286,12 @@ final case class TransferInView private (
     with HasProtocolVersionedWrapper[TransferInView]
     with ProtocolVersionedMemoizedEvidence {
 
-  override def hashPurpose: HashPurpose = HashPurpose.TransferInView
-
   @transient override protected lazy val companionObj: TransferInView.type = TransferInView
+
+  override protected[this] def toByteStringUnmemoized: ByteString =
+    super[HasProtocolVersionedWrapper].toByteString
+
+  def hashPurpose: HashPurpose = HashPurpose.TransferInView
 
   protected def toProtoV30: v30.TransferInView =
     v30.TransferInView(
@@ -279,14 +303,15 @@ final case class TransferInView private (
       transferCounter = transferCounter.toProtoPrimitive,
     )
 
-  override protected[this] def toByteStringUnmemoized: ByteString =
-    super[HasProtocolVersionedWrapper].toByteString
-
   override def pretty: Pretty[TransferInView] = prettyOfClass(
-    param("contract", _.contract), // TODO(#3269) this may contain confidential data
-    param("transfer counter", _.transferCounter),
     param("creating transaction id", _.creatingTransactionId),
-    param("transfer out result", _.transferOutResultEvent),
+    param("transfer out result event", _.transferOutResultEvent),
+    param("source protocol version", _.sourceProtocolVersion.v),
+    param("transfer counter", _.transferCounter),
+    param(
+      "contract id",
+      _.contract.contractId,
+    ), // do not log contract details because it contains confidential data
     param("salt", _.salt),
   )
 }
@@ -294,42 +319,6 @@ final case class TransferInView private (
 object TransferInView
     extends HasMemoizedProtocolVersionedWithContextCompanion[TransferInView, HashOps] {
   override val name: String = "TransferInView"
-
-  private[TransferInView] final case class CommonData(
-      salt: Salt,
-      creatingTransactionId: TransactionId,
-      transferOutResultEvent: DeliveredTransferOutResult,
-      sourceProtocolVersion: SourceProtocolVersion,
-  )
-
-  private[TransferInView] object CommonData {
-    def fromProto(
-        hashOps: HashOps,
-        saltP: Option[com.digitalasset.canton.crypto.v30.Salt],
-        transferOutResultEventP: ByteString,
-        creatingTransactionIdP: ByteString,
-        sourceProtocolVersion: ProtocolVersion,
-    ): ParsingResult[CommonData] = {
-      for {
-        salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
-        // TransferOutResultEvent deserialization
-        transferOutResultEventMC <- SignedContent
-          .fromByteString(sourceProtocolVersion)(transferOutResultEventP)
-          .flatMap(
-            _.deserializeContent(SequencedEvent.fromByteStringOpen(hashOps, sourceProtocolVersion))
-          )
-        transferOutResultEvent <- DeliveredTransferOutResult
-          .create(NoOpeningErrors(transferOutResultEventMC))
-          .leftMap(err => OtherError(err.toString))
-        creatingTransactionId <- TransactionId.fromProtoPrimitive(creatingTransactionIdP)
-      } yield CommonData(
-        salt,
-        creatingTransactionId,
-        transferOutResultEvent,
-        SourceProtocolVersion(sourceProtocolVersion),
-      )
-    }
-  }
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.TransferInView)(
@@ -373,12 +362,13 @@ object TransferInView
       transferInViewP
     for {
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(sourceProtocolVersionP)
+      sourceProtocolVersion = SourceProtocolVersion(protocolVersion)
       commonData <- CommonData.fromProto(
         hashOps,
         saltP,
         transferOutResultEventP,
         creatingTransactionIdP,
-        protocolVersion,
+        sourceProtocolVersion,
       )
       contract <- ProtoConverter
         .required("contract", contractP)
@@ -393,6 +383,44 @@ object TransferInView
       TransferCounter(transferCounterP),
     )(hashOps, rpv, Some(bytes))
   }
+
+  private[TransferInView] final case class CommonData(
+      salt: Salt,
+      creatingTransactionId: TransactionId,
+      transferOutResultEvent: DeliveredTransferOutResult,
+      sourceProtocolVersion: SourceProtocolVersion,
+  )
+
+  private[TransferInView] object CommonData {
+    def fromProto(
+        hashOps: HashOps,
+        saltP: Option[com.digitalasset.canton.crypto.v30.Salt],
+        transferOutResultEventP: ByteString,
+        creatingTransactionIdP: ByteString,
+        sourceProtocolVersion: SourceProtocolVersion,
+    ): ParsingResult[CommonData] = {
+      for {
+        salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
+        // TransferOutResultEvent deserialization
+        transferOutResultEventMC <- SignedContent
+          .fromByteString(sourceProtocolVersion.v)(transferOutResultEventP)
+          .flatMap(
+            _.deserializeContent(
+              SequencedEvent.fromByteStringOpen(hashOps, sourceProtocolVersion.v)
+            )
+          )
+        transferOutResultEvent <- DeliveredTransferOutResult
+          .create(NoOpeningErrors(transferOutResultEventMC))
+          .leftMap(err => OtherError(err.toString))
+        creatingTransactionId <- TransactionId.fromProtoPrimitive(creatingTransactionIdP)
+      } yield CommonData(
+        salt,
+        creatingTransactionId,
+        transferOutResultEvent,
+        sourceProtocolVersion,
+      )
+    }
+  }
 }
 
 /** A fully unblinded [[TransferInViewTree]]
@@ -401,7 +429,7 @@ object TransferInView
   */
 final case class FullTransferInTree(tree: TransferInViewTree)
     extends TransferViewTree
-    with HasVersionedToByteString
+    with HasToByteString
     with PrettyPrinting {
   require(tree.isFullyUnblinded, "A transfer-in request must be fully unblinded")
 
@@ -428,26 +456,26 @@ final case class FullTransferInTree(tree: TransferInViewTree)
       submittingParticipantSignature: Signature
   ): TransferInMediatorMessage = tree.mediatorMessage(submittingParticipantSignature)
 
-  override def domainId: DomainId = commonData.targetDomain.unwrap
-
   def targetDomain: TargetDomainId = commonData.targetDomain
+
+  override def domainId: DomainId = commonData.targetDomain.unwrap
 
   override def mediator: MediatorGroupRecipient = commonData.targetMediator
 
-  override def informees: Set[Informee] = commonData.confirmingParties
+  override def informees: Set[LfPartyId] = commonData.confirmingParties.map(_.party)
 
   override def toBeSigned: Option[RootHash] = Some(tree.rootHash)
 
   override def viewHash: ViewHash = tree.viewHash
 
+  override def rootHash: RootHash = tree.rootHash
+
   override def isTransferringParticipant(participantId: ParticipantId): Boolean =
     transferOutResultEvent.unwrap.informees.contains(participantId.adminParty.toLf)
 
-  override def toByteString(version: ProtocolVersion): ByteString = tree.toByteString(version)
-
-  override def rootHash: RootHash = tree.rootHash
-
   override def pretty: Pretty[FullTransferInTree] = prettyOfClass(unnamedParam(_.tree))
+
+  override def toByteString: ByteString = tree.toByteString
 }
 
 object FullTransferInTree {
@@ -456,9 +484,7 @@ object FullTransferInTree {
       targetProtocolVersion: TargetProtocolVersion,
   )(bytes: ByteString): ParsingResult[FullTransferInTree] =
     for {
-      tree <- TransferInViewTree.fromTrustedByteString((crypto, targetProtocolVersion))(
-        bytes
-      ) // FIXME(i18236): validate the proto version to mitigate downgrading attacks
+      tree <- TransferInViewTree.fromByteString(crypto, targetProtocolVersion)(bytes)
       _ <- EitherUtil.condUnitE(
         tree.isFullyUnblinded,
         OtherError(s"Transfer-in request ${tree.rootHash} is not fully unblinded"),

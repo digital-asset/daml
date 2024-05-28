@@ -27,6 +27,7 @@ final class StateServiceAuthorization(
   ): Unit =
     authorizer.requireReadClaimsForTransactionFilterOnStream(
       request.filter.map(_.filtersByParty),
+      request.filter.flatMap(_.filtersForAnyParty).nonEmpty,
       service.getActiveContracts,
     )(request, responseObserver)
 

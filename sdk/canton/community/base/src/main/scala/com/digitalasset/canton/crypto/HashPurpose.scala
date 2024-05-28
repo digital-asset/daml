@@ -90,4 +90,5 @@ object HashPurpose {
   val _SetTrafficPurchased = HashPurpose(41, "SetTrafficPurchased")
   val OrderingRequestSignature = HashPurpose(42, "OrderingRequestSignature")
   val TopologyMappingUniqueKey = HashPurpose(43, "TopologyMappingUniqueKey")
+  val CantonScript = HashPurpose(44, "CantonScriptHash")
 }

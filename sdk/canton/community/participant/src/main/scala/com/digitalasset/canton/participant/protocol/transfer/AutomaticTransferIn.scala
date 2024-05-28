@@ -29,6 +29,7 @@ private[participant] object AutomaticTransferIn {
   def perform(
       id: TransferId,
       targetDomain: TargetDomainId,
+      staticDomainParameters: StaticDomainParameters,
       transferCoordination: TransferCoordination,
       stakeholders: Set[LfPartyId],
       transferOutSubmitterMetadata: TransferSubmitterMetadata,
@@ -57,7 +58,7 @@ private[participant] object AutomaticTransferIn {
     def performAutoInOnce: EitherT[Future, TransferProcessorError, com.google.rpc.status.Status] = {
       for {
         targetIps <- transferCoordination
-          .getTimeProofAndSnapshot(targetDomain)
+          .getTimeProofAndSnapshot(targetDomain, staticDomainParameters)
           .map(_._2)
           .onShutdown(Left(DomainNotReady(targetDomain.unwrap, "Shutdown of time tracker")))
         possibleSubmittingParties <- EitherT.right(hostedStakeholders(targetIps.ipsSnapshot))
@@ -141,6 +142,7 @@ private[participant] object AutomaticTransferIn {
             for {
               _ <- transferCoordination.awaitTimestamp(
                 targetDomain.unwrap,
+                staticDomainParameters,
                 exclusivityLimit,
                 waitForEffectiveTime = false,
                 Future.successful(logger.debug(s"Automatic transfer-in triggered immediately")),
@@ -166,7 +168,11 @@ private[participant] object AutomaticTransferIn {
     }
 
     for {
-      targetIps <- transferCoordination.cryptoSnapshot(targetDomain.unwrap, t0)
+      targetIps <- transferCoordination.cryptoSnapshot(
+        targetDomain.unwrap,
+        staticDomainParameters,
+        t0,
+      )
       targetSnapshot = targetIps.ipsSnapshot
 
       targetDomainParameters <- EitherT(

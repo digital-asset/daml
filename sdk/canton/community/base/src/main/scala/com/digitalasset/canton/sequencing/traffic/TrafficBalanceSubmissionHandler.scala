@@ -4,6 +4,7 @@
 package com.digitalasset.canton.sequencing.traffic
 
 import cats.data.EitherT
+import cats.implicits.catsSyntaxAlternativeSeparate
 import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
@@ -62,6 +63,41 @@ class TrafficPurchasedSubmissionHandler(
   ): EitherT[FutureUnlessShutdown, TrafficControlError, CantonTimestamp] = {
     val topology: DomainSnapshotSyncCryptoApi = cryptoApi.currentSnapshotApproximation
     val snapshot = topology.ipsSnapshot
+
+    def send(
+        maxSequencingTimes: NonEmpty[Seq[CantonTimestamp]],
+        batch: Batch[OpenEnvelope[SignedProtocolMessage[SetTrafficPurchasedMessage]]],
+        aggregationRule: AggregationRule,
+    ): EitherT[FutureUnlessShutdown, TrafficControlError, CantonTimestamp] = {
+      // We don't simply `parTraverse` over `maxSequencingTimes` because as long as at least one request was
+      // successfully sent, errors (such as max sequencing time already expired) should not result in a failure.
+
+      val fut = for {
+        resultsE <- maxSequencingTimes.forgetNE.parTraverse { maxSequencingTime =>
+          logger.debug(
+            s"Submitting traffic purchased entry request for $member with balance ${totalTrafficPurchased.value}, serial ${serial.value} and max sequencing time $maxSequencingTime"
+          )
+          sendRequest(sequencerClient, batch, aggregationRule, maxSequencingTime).value
+        }
+        (errors, successes) = resultsE.separate
+      } yield (NonEmpty.from(errors), NonEmpty.from(successes)) match {
+        case (None, None) =>
+          // This should never happen because `maxSequencingTimes` is non-empty
+          throw new IllegalStateException(
+            "No error or success for a non-empty list of max-sequencing-time"
+          )
+
+        case (Some(errorsNE), None) =>
+          // None of the requests was successfully sent -- return the first error
+          Left(errorsNE.head1)
+
+        case (_, Some(successesNE)) =>
+          // At least one of the requests was successfully sent -- return the latest max-sequencing-time
+          Right(successesNE.last1)
+      }
+
+      EitherT(fut)
+    }
 
     for {
       trafficParams <- EitherT
@@ -123,13 +159,8 @@ class TrafficPurchasedSubmissionHandler(
         ),
       )
       maxSequencingTimes = computeMaxSequencingTimes(trafficParams)
-      _ <- maxSequencingTimes.forgetNE.parTraverse_ { maxSequencingTime =>
-        logger.debug(
-          s"Submitting traffic purchased entry request for $member with balance ${totalTrafficPurchased.value}, serial ${serial.value} and max sequencing time $maxSequencingTime"
-        )
-        sendRequest(sequencerClient, batch, aggregationRule, maxSequencingTime)
-      }
-    } yield maxSequencingTimes.last1
+      latestMaxSequencingTime <- send(maxSequencingTimes, batch, aggregationRule)
+    } yield latestMaxSequencingTime
   }
 
   private def sendRequest(
@@ -140,7 +171,7 @@ class TrafficPurchasedSubmissionHandler(
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, TrafficControlError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, TrafficControlError, CantonTimestamp] = {
     val callback = SendCallback.future
     for {
       _ <- sequencerClient
@@ -175,7 +206,7 @@ class TrafficPurchasedSubmissionHandler(
               )
           }
       ).leftWiden[TrafficControlError]
-    } yield ()
+    } yield maxSequencingTime
   }
 
   private def computeMaxSequencingTimes(

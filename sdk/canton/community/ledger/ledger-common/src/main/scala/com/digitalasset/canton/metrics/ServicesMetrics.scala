@@ -144,6 +144,10 @@ class ServicesHistograms(val prefix: MetricName)(implicit
   private[metrics] val readIncompleteReassignmentOffsets: Item =
     extend("incomplete_reassignment_offsets", readBaseInfo)
 
+  private[metrics] val readListLfPackages: Item = extend("list_lf_packages", readBaseInfo)
+  private[metrics] val readGetLfArchive: Item = extend("get_lf_archive", readBaseInfo)
+  private[metrics] val readValidateDar: Item = extend("validate_dar", readBaseInfo)
+
   private[metrics] val writeBaseInfo = MetricInfo(
     indexPrefix :+ "write",
     summary = "The time to execute a write service operation.",
@@ -294,6 +298,10 @@ class ServicesMetrics(
 
     val incompleteReassignmentOffsets: Timer =
       openTelemetryMetricsFactory.timer(inventory.readIncompleteReassignmentOffsets.info)
+
+    val listLfPackages: Timer = openTelemetryMetricsFactory.timer(inventory.readListLfPackages.info)
+    val getLfArchive: Timer = openTelemetryMetricsFactory.timer(inventory.readGetLfArchive.info)
+    val validateDar: Timer = openTelemetryMetricsFactory.timer(inventory.readValidateDar.info)
   }
 
   object write {

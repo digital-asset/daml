@@ -4,7 +4,11 @@
 create table par_daml_packages (
   package_id varchar(300) collate "C" not null primary key,
   data bytea not null,
-  source_description varchar not null default 'default'
+  source_description varchar(300) collate "C" not null default 'default',
+    -- UTC timestamp is stored in microseconds relative to EPOCH
+  uploaded_at bigint not null,
+    -- The size of the archive payload (i.e., the serialized DAML-LF package), in bytes
+  package_size bigint not null
 );
 
 create table par_dars (

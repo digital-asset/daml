@@ -15,7 +15,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30.Enums
 import com.digitalasset.canton.protocol.v30.TopologyMapping.Mapping
-import com.digitalasset.canton.protocol.{DynamicDomainParameters, v30}
+import com.digitalasset.canton.protocol.{DynamicDomainParameters, DynamicSequencingParameters, v30}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
@@ -27,6 +27,7 @@ import com.digitalasset.canton.topology.transaction.TopologyMapping.{
   RequiredAuth,
 }
 import com.digitalasset.canton.util.OptionUtil
+import com.digitalasset.canton.version.ProtoVersion
 import com.digitalasset.canton.{LfPackageId, ProtoDeserializationError}
 import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.SetParameter
@@ -115,6 +116,8 @@ object TopologyMapping {
 
     object PurgeTopologyTransaction extends Code(15, "ptt")
     object TrafficControlState extends Code(16, "tcs")
+
+    object SequencingDynamicParametersState extends Code(17, "sep")
 
     lazy val all: Seq[Code] = Seq(
       NamespaceDelegation,
@@ -316,6 +319,8 @@ object TopologyMapping {
       case Mapping.PartyToParticipant(value) => PartyToParticipant.fromProtoV30(value)
       case Mapping.AuthorityOf(value) => AuthorityOf.fromProtoV30(value)
       case Mapping.DomainParametersState(value) => DomainParametersState.fromProtoV30(value)
+      case Mapping.SequencingDynamicParametersState(value) =>
+        DynamicSequencingParametersState.fromProtoV30(value)
       case Mapping.MediatorDomainState(value) => MediatorDomainState.fromProtoV30(value)
       case Mapping.SequencerDomainState(value) => SequencerDomainState.fromProtoV30(value)
       case Mapping.PurgeTopologyTxs(value) => PurgeTopologyTransaction.fromProtoV30(value)
@@ -1267,6 +1272,64 @@ object DomainParametersState {
         domainParametersP,
       )
     } yield DomainParametersState(domainId, parameters)
+  }
+}
+
+/** Dynamic sequencing parameter settings for the domain
+  *
+  * Each domain has a set of sequencing parameters that can be changed at runtime.
+  * These changes are authorized by the owner of the domain and distributed
+  * to all nodes accordingly.
+  */
+final case class DynamicSequencingParametersState(
+    domain: DomainId,
+    parameters: DynamicSequencingParameters,
+) extends TopologyMapping {
+
+  def toProtoV30: v30.TopologyMapping =
+    v30.TopologyMapping(
+      v30.TopologyMapping.Mapping.SequencingDynamicParametersState(
+        v30.DynamicSequencingParametersState(
+          domain = domain.toProtoPrimitive,
+          sequencingParameters = Some(parameters.toProtoV30),
+        )
+      )
+    )
+
+  def code: TopologyMapping.Code = Code.SequencingDynamicParametersState
+
+  override def namespace: Namespace = domain.namespace
+  override def maybeUid: Option[UniqueIdentifier] = Some(domain.uid)
+
+  override def restrictedToDomain: Option[DomainId] = Some(domain)
+
+  override def requiredAuth(
+      previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
+  ): RequiredAuth = RequiredUids(Set(domain.uid))
+
+  override def uniqueKey: MappingHash = DomainParametersState.uniqueKey(domain)
+}
+
+object DynamicSequencingParametersState {
+
+  def uniqueKey(domainId: DomainId): MappingHash =
+    TopologyMapping.buildUniqueKey(code)(_.add(domainId.toProtoPrimitive))
+
+  def code: TopologyMapping.Code = Code.SequencingDynamicParametersState
+
+  def fromProtoV30(
+      value: v30.DynamicSequencingParametersState
+  ): ParsingResult[DynamicSequencingParametersState] = {
+    val v30.DynamicSequencingParametersState(domainIdP, sequencingParametersP) = value
+    for {
+      domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain")
+      representativeProtocolVersion <- DynamicSequencingParameters.protocolVersionRepresentativeFor(
+        ProtoVersion(30)
+      )
+      parameters <- sequencingParametersP
+        .map(DynamicSequencingParameters.fromProtoV30)
+        .getOrElse(Right(DynamicSequencingParameters.default(representativeProtocolVersion)))
+    } yield DynamicSequencingParametersState(domainId, parameters)
   }
 }
 

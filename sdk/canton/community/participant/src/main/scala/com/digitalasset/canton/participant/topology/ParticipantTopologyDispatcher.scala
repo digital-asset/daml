@@ -27,8 +27,8 @@ import com.digitalasset.canton.participant.domain.{
 import com.digitalasset.canton.participant.store.SyncDomainPersistentState
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
 import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.sequencing.client.{SequencerClient, SequencerClientFactory}
-import com.digitalasset.canton.sequencing.{EnvelopeHandler, SequencerConnections}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
@@ -60,8 +60,6 @@ trait ParticipantTopologyDispatcherHandle {
   def domainConnected()(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, DomainRegistryError, Unit]
-
-  def processor: EnvelopeHandler
 
 }
 
@@ -331,9 +329,6 @@ class ParticipantTopologyDispatcher(
               )
             )
           }
-
-      override def processor: EnvelopeHandler = handle.processor
-
     }
   }
 

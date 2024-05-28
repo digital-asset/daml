@@ -893,6 +893,7 @@ abstract class SequencerReference(
         val currentActive = currentMediators.item.active
         val currentObservers = currentMediators.item.observers
         val current = currentActive ++ currentObservers
+        val serial = currentMediators.context.serial.increment
 
         val newMediators =
           (additionalActive ++ additionalObservers).filterNot(m => current.contains(m.id))
@@ -910,6 +911,7 @@ abstract class SequencerReference(
             active = (currentActive ++ additionalActive.map(_.id)).distinct,
             observers = (currentObservers ++ additionalObservers.map(_.id)).distinct,
             group = group,
+            serial = Some(serial),
           )
           .discard
 

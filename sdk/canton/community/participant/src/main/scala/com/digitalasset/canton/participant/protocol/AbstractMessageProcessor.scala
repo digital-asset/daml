@@ -13,12 +13,12 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, H
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.participant.protocol.conflictdetection.ActivenessSet
 import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
-import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.{
   ConfirmationResponse,
   ProtocolMessage,
   SignedProtocolMessage,
 }
+import com.digitalasset.canton.protocol.{RequestId, StaticDomainParameters}
 import com.digitalasset.canton.sequencing.client.{SendCallback, SequencerClientSend}
 import com.digitalasset.canton.sequencing.protocol.{Batch, MessageId, Recipients}
 import com.digitalasset.canton.tracing.TraceContext
@@ -34,6 +34,7 @@ abstract class AbstractMessageProcessor(
     ephemeral: SyncDomainEphemeralState,
     crypto: DomainSyncCryptoClient,
     sequencerClient: SequencerClientSend,
+    staticDomainParameters: StaticDomainParameters,
     protocolVersion: ProtocolVersion,
 )(implicit ec: ExecutionContext)
     extends NamedLogging

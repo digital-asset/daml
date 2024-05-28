@@ -6,6 +6,7 @@ package com.digitalasset.canton.data
 import cats.data.EitherT
 import cats.syntax.foldable.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.protocol.{
   MemberRecipient,
@@ -24,10 +25,10 @@ import scala.concurrent.{ExecutionContext, Future}
   * By convention, the order is: the view's informees are at the head of the list, then the parent's views informees,
   * then the grandparent's, etc.
   */
-final case class Witnesses(unwrap: NonEmpty[Seq[Set[Informee]]]) {
+final case class Witnesses(unwrap: NonEmpty[Seq[Set[LfPartyId]]]) {
   import Witnesses.*
 
-  def prepend(informees: Set[Informee]) = Witnesses(informees +: unwrap)
+  def prepend(informees: Set[LfPartyId]): Witnesses = Witnesses(informees +: unwrap)
 
   /** Derive a recipient tree that mirrors the given hierarchy of witnesses. */
   def toRecipients(
@@ -39,7 +40,7 @@ final case class Witnesses(unwrap: NonEmpty[Seq[Set[Informee]]]) {
     for {
       recipientsList <- unwrap.forgetNE.foldLeftM(Seq.empty[RecipientsTree]) {
         (children, informees) =>
-          val parties = informees.map(_.party).toList
+          val parties = informees.toList
           for {
             informeeParticipants <- EitherT
               .right[InvalidWitnesses](
@@ -82,7 +83,7 @@ final case class Witnesses(unwrap: NonEmpty[Seq[Set[Informee]]]) {
       recipients = Recipients(NonEmptyUtil.fromUnsafe(recipientsList))
     } yield recipients
 
-  def flatten: Set[Informee] = unwrap.foldLeft(Set.empty[Informee])(_ union _)
+  def flatten: Set[LfPartyId] = unwrap.foldLeft(Set.empty[LfPartyId])(_ union _)
 
 }
 

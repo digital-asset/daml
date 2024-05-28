@@ -15,6 +15,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, S
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.digitalasset.canton.crypto.Hash
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.PackageService
@@ -80,8 +81,8 @@ class DbDamlPackageStore(
             |  ) as excluded
             |  on (par_daml_packages.package_id = excluded.package_id)
             |  when not matched then
-            |    insert (package_id, data, source_description)
-            |    values (excluded.package_id, ?, excluded.source_description)
+            |    insert (package_id, data, source_description, uploaded_at, package_size)
+            |    values (excluded.package_id, ?, excluded.source_description, ?, ?)
             |  when matched and ? then
             |    update set
             |      source_description = excluded.source_description""".stripMargin
@@ -96,16 +97,16 @@ class DbDamlPackageStore(
             |  ) excluded
             |  on (par_daml_packages.package_id = excluded.package_id)
             |  when not matched then
-            |    insert (package_id, data, source_description)
-            |    values (excluded.package_id, ?, excluded.source_description)
+            |    insert (package_id, data, source_description, uploaded_at, package_size)
+            |    values (excluded.package_id, ?, excluded.source_description, ?, ?)
             |  when matched then
             |    update set
             |      source_description = excluded.source_description
             |      where ? = 1""".stripMargin // Strangely (or not), it looks like Oracle does not have a Boolean type...
         case _: DbStorage.Profile.Postgres =>
           """insert
-              |  into par_daml_packages (package_id, source_description, data)
-              |  values (?, ?, ?)
+              |  into par_daml_packages (package_id, source_description, data, uploaded_at, package_size)
+              |  values (?, ?, ?, ?, ?)
               |  on conflict (package_id) do
               |    update set source_description = excluded.source_description
               |    where ?""".stripMargin
@@ -116,6 +117,8 @@ class DbDamlPackageStore(
         pp >> (if (sourceDescription.nonEmpty) sourceDescription
                else String256M.tryCreate("default"))
         pp >> pkg.data
+        pp >> pkg.uploadedAt
+        pp >> pkg.packageSize
         pp >> sourceDescription.nonEmpty
       }
     }
@@ -155,6 +158,7 @@ class DbDamlPackageStore(
 
   override def append(
       pkgs: List[DamlLf.Archive],
+      uploadedAt: CantonTimestamp,
       sourceDescription: String256M,
       dar: Option[PackageService.Dar],
   )(implicit
@@ -162,7 +166,9 @@ class DbDamlPackageStore(
   ): FutureUnlessShutdown[Unit] = {
 
     val insertPkgs = insertOrUpdatePackages(
-      pkgs.map(pkg => DamlPackage(readPackageId(pkg), pkg.toByteArray)),
+      pkgs.map(pkg =>
+        DamlPackage(readPackageId(pkg), pkg.toByteArray, pkg.getPayload.size(), uploadedAt)
+      ),
       dar.map(_.descriptor),
       sourceDescription,
     )
@@ -201,7 +207,7 @@ class DbDamlPackageStore(
   ): Future[Option[PackageDescription]] = {
     storage
       .querySingle(
-        sql"select package_id, source_description from par_daml_packages where package_id = $packageId"
+        sql"select package_id, source_description, uploaded_at, package_size from par_daml_packages where package_id = $packageId"
           .as[PackageDescription]
           .headOption,
         functionFullName,
@@ -213,7 +219,8 @@ class DbDamlPackageStore(
       limit: Option[Int]
   )(implicit traceContext: TraceContext): Future[Seq[PackageDescription]] =
     storage.query(
-      sql"select package_id, source_description from par_daml_packages #${limit.fold("")(storage.limit(_))}"
+      sql"select package_id, source_description, uploaded_at, package_size from par_daml_packages #${limit
+          .fold("")(storage.limit(_))}"
         .as[PackageDescription],
       functionFullName,
     )
@@ -347,7 +354,12 @@ class DbDamlPackageStore(
 }
 
 object DbDamlPackageStore {
-  private final case class DamlPackage(packageId: LfPackageId, data: Array[Byte])
+  private final case class DamlPackage(
+      packageId: LfPackageId,
+      data: Array[Byte],
+      packageSize: Int,
+      uploadedAt: CantonTimestamp,
+  )
 
   private final case class DarRecord(hash: Hash, data: Array[Byte], name: DarName)
 }

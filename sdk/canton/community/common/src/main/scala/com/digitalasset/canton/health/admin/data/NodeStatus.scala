@@ -220,6 +220,34 @@ object SequencerHealthStatus extends PrettyUtil with ShowUtil {
     )
 }
 
+/** Admin status of the sequencer node.
+  * @param acceptsAdminChanges implementation specific flag indicating whether the sequencer node accepts administration commands
+  */
+final case class SequencerAdminStatus(acceptsAdminChanges: Boolean)
+    extends ToComponentHealthState
+    with PrettyPrinting {
+  def toProtoV30: v30.SequencerAdminStatus = v30.SequencerAdminStatus(acceptsAdminChanges)
+
+  override def toComponentHealthState: ComponentHealthState =
+    ComponentHealthState.Ok(Option.when(acceptsAdminChanges)("sequencer accepts admin commands"))
+
+  override def pretty: Pretty[SequencerAdminStatus] =
+    SequencerAdminStatus.prettySequencerHealthStatus
+}
+
+object SequencerAdminStatus extends PrettyUtil with ShowUtil {
+  def fromProto(
+      statusP: v30.SequencerAdminStatus
+  ): ParsingResult[SequencerAdminStatus] =
+    Right(SequencerAdminStatus(statusP.acceptsAdminChanges))
+
+  implicit val implicitPrettyString: Pretty[String] = PrettyInstances.prettyString
+  implicit val prettySequencerHealthStatus: Pretty[SequencerAdminStatus] =
+    prettyOfClass[SequencerAdminStatus](
+      param("admin", _.acceptsAdminChanges)
+    )
+}
+
 /** Topology manager queue status
   *
   * Status around topology management queues
@@ -248,74 +276,6 @@ object TopologyQueueStatus {
     val v30.TopologyQueueStatus(manager, dispatcher, clients) = statusP
     Right(TopologyQueueStatus(manager = manager, dispatcher = dispatcher, clients = clients))
   }
-}
-
-final case class DomainStatus(
-    uid: UniqueIdentifier,
-    uptime: Duration,
-    ports: Map[String, Port],
-    connectedParticipants: Seq[ParticipantId],
-    sequencer: SequencerHealthStatus,
-    topologyQueue: TopologyQueueStatus,
-    components: Seq[ComponentStatus],
-) extends NodeStatus.Status {
-  val id: DomainId = DomainId(uid)
-
-  // A domain node is not replicated and always active
-  override def active: Boolean = true
-
-  override def pretty: Pretty[DomainStatus] =
-    prettyOfString(_ =>
-      Seq(
-        s"Domain id: ${uid.toProtoPrimitive}",
-        show"Uptime: $uptime",
-        s"Ports: ${portsString(ports)}",
-        s"Connected Participants: ${multiline(connectedParticipants.map(_.toString))}",
-        show"Sequencer: $sequencer",
-        s"Components: ${multiline(components.map(_.toString))}",
-      ).mkString(System.lineSeparator())
-    )
-
-  def toProtoV30: v30.StatusResponse.Status = {
-    val participants = connectedParticipants.map(_.toProtoPrimitive)
-    SimpleStatus(uid, uptime, ports, active, topologyQueue, components).toProtoV30
-      .copy(
-        extra = v30.DomainStatusInfo(participants, Some(sequencer.toProtoV30)).toByteString
-      )
-  }
-}
-
-object DomainStatus {
-  def fromProtoV30(proto: v30.StatusResponse.Status): ParsingResult[DomainStatus] =
-    for {
-      status <- SimpleStatus.fromProtoV30(proto)
-      domainStatus <- ProtoConverter
-        .parse[DomainStatus, v30.DomainStatusInfo](
-          v30.DomainStatusInfo.parseFrom,
-          domainStatusInfoP => {
-            for {
-              participants <- domainStatusInfoP.connectedParticipants.traverse(pId =>
-                ParticipantId.fromProtoPrimitive(pId, s"DomainStatus.connectedParticipants")
-              )
-              sequencer <- ProtoConverter.parseRequired(
-                SequencerHealthStatus.fromProto,
-                "sequencer",
-                domainStatusInfoP.sequencer,
-              )
-
-            } yield DomainStatus(
-              status.uid,
-              status.uptime,
-              status.ports,
-              participants,
-              sequencer,
-              status.topologyQueue,
-              status.components,
-            )
-          },
-          proto.extra,
-        )
-    } yield domainStatus
 }
 
 final case class ParticipantStatus(
@@ -399,6 +359,7 @@ final case class SequencerNodeStatus(
     connectedParticipants: Seq[ParticipantId],
     sequencer: SequencerHealthStatus,
     topologyQueue: TopologyQueueStatus,
+    admin: SequencerAdminStatus,
     components: Seq[ComponentStatus],
 ) extends NodeStatus.Status {
   override def active: Boolean = sequencer.isActive
@@ -406,7 +367,12 @@ final case class SequencerNodeStatus(
     val participants = connectedParticipants.map(_.toProtoPrimitive)
     SimpleStatus(uid, uptime, ports, active, topologyQueue, components).toProtoV30.copy(
       extra = v30
-        .SequencerNodeStatus(participants, sequencer.toProtoV30.some, domainId.toProtoPrimitive)
+        .SequencerNodeStatus(
+          participants,
+          sequencer.toProtoV30.some,
+          domainId.toProtoPrimitive,
+          admin.toProtoV30.some,
+        )
         .toByteString
     )
   }
@@ -420,6 +386,7 @@ final case class SequencerNodeStatus(
         s"Ports: ${portsString(ports)}",
         s"Connected Participants: ${multiline(connectedParticipants.map(_.toString))}",
         show"Sequencer: $sequencer",
+        s"Accepts admin changes: ${admin.acceptsAdminChanges}",
         s"details-extra: ${sequencer.details}",
         s"Components: ${multiline(components.map(_.toString))}",
       ).mkString(System.lineSeparator())
@@ -448,6 +415,11 @@ object SequencerNodeStatus {
               sequencerNodeStatusP.domainId,
               s"SequencerNodeStatus.domainId",
             )
+            admin <- ProtoConverter.parseRequired(
+              SequencerAdminStatus.fromProto,
+              "admin",
+              sequencerNodeStatusP.admin,
+            )
           } yield SequencerNodeStatus(
             status.uid,
             domainId,
@@ -456,6 +428,7 @@ object SequencerNodeStatus {
             participants,
             sequencer,
             status.topologyQueue,
+            admin,
             status.components,
           ),
         sequencerP.extra,

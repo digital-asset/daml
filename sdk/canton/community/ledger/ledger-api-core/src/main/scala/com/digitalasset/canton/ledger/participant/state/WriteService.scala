@@ -31,7 +31,7 @@ import java.util.concurrent.CompletionStage
   * The following methods are currently available for changing the state of a Daml ledger:
   * - submitting a transaction using [[WriteService!.submitTransaction]]
   * - allocating a new party using [[WritePartyService!.allocateParty]]
-  * - uploading a new package using [[WritePackagesService!.uploadPackages]]
+  * - uploading a new package using [[WritePackagesService!.uploadDar]]
   * - pruning a participant ledger using [[WriteParticipantPruningService!.prune]]
   */
 trait WriteService

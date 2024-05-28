@@ -34,15 +34,15 @@ class IndexedUpdatesMetrics(prefix: MetricName, metricFactory: LabeledMetricsFac
     metricFactory.meter(
       MetricInfo(
         prefix :+ "events",
-        summary = "Number of transactions processed.",
+        summary = "Number of ledger events processed.",
         description =
-          "Represents the total number of transaction acceptance, transaction rejection, package upload, party allocation, etc. events processed.",
+          "Represents the total number of ledger events processed (transactions, package uploads, party allocations, etc.).",
         qualification = MetricQualification.Debug,
         labelsWithDescription = Map(
           "participant_id" -> "The id of the participant.",
           "application_id" -> "The application generating the events.",
-          "event_type" -> "The type of ledger event processed (transaction, package upload, party allocation, configuration change).",
-          "status" -> "Indicates if the transaction was accepted or not. Possible values accepted|rejected.",
+          "event_type" -> "The type of ledger event processed (transaction, reassignment, package_upload, party_allocation).",
+          "status" -> "Indicates if the event was accepted or not. Possible values accepted|rejected.",
         ),
       )
     )
@@ -61,6 +61,7 @@ object IndexedUpdatesMetrics {
       val partyAllocation = "party_allocation"
       val packageUpload = "package_upload"
       val transaction = "transaction"
+      val reassignment = "reassignment"
     }
 
     object status {

@@ -54,9 +54,11 @@ class MediatorStateTest
       val s: Int => Salt = TestSalt.generateSalt
       def rh(index: Int): RootHash = RootHash(h(index))
       val viewCommonData =
-        ViewCommonData.create(hashOps)(
-          Set(alice, bob),
-          NonNegativeInt.tryCreate(2),
+        ViewCommonData.tryCreate(hashOps)(
+          ViewConfirmationParameters.tryCreate(
+            Set(alice.party, bob.party),
+            Seq(Quorum.create(Set(bob), NonNegativeInt.tryCreate(2))),
+          ),
           s(999),
           testedProtocolVersion,
         )
@@ -108,6 +110,7 @@ class MediatorStateTest
         .fromRequest(
           requestId,
           informeeMessage,
+          requestId.unwrap.plusSeconds(300),
           mockTopologySnapshot,
         )(traceContext, executorService)
         .futureValue // without explicit ec it deadlocks on AnyTestSuite.serialExecutionContext

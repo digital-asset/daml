@@ -15,7 +15,7 @@ import com.digitalasset.canton.common.domain.SequencerConnectClient
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader.SequencerAggregatedInfo
 import com.digitalasset.canton.concurrent.HasFutureSupervision
 import com.digitalasset.canton.config.{CryptoConfig, ProcessingTimeout, TestingConfigInternal}
-import com.digitalasset.canton.crypto.{CryptoHandshakeValidator, SyncCryptoApiProvider}
+import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
@@ -86,11 +86,6 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
         .right(syncDomainPersistentStateManager.indexedDomainId(domainId))
         .mapK(FutureUnlessShutdown.outcomeK)
 
-      _ <- CryptoHandshakeValidator
-        .validate(sequencerAggregatedInfo.staticDomainParameters, cryptoConfig)
-        .leftMap(DomainRegistryError.HandshakeErrors.DomainCryptoHandshakeFailed.Error(_))
-        .toEitherT[FutureUnlessShutdown]
-
       _ <- EitherT
         .fromEither[Future](verifyDomainId(config, domainId))
         .mapK(FutureUnlessShutdown.outcomeK)
@@ -142,7 +137,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
 
       domainCryptoApi <- EitherT.fromEither[FutureUnlessShutdown](
         cryptoApiProvider
-          .forDomain(domainId)
+          .forDomain(domainId, sequencerAggregatedInfo.staticDomainParameters)
           .toRight(
             DomainRegistryError.DomainRegistryInternalError
               .InvalidState("crypto api for domain is unavailable"): DomainRegistryError

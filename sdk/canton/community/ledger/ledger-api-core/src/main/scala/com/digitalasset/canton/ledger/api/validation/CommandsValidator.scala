@@ -32,8 +32,7 @@ import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable
 
 final class CommandsValidator(
-    validateUpgradingPackageResolutions: ValidateUpgradingPackageResolutions =
-      ValidateUpgradingPackageResolutions.UpgradingDisabled,
+    validateUpgradingPackageResolutions: ValidateUpgradingPackageResolutions,
     validateDisclosedContracts: ValidateDisclosedContracts = new ValidateDisclosedContracts,
 ) {
 
@@ -261,8 +260,6 @@ final class CommandsValidator(
 }
 
 object CommandsValidator {
-  def apply(validateUpgradingPackageResolutions: ValidateUpgradingPackageResolutions) =
-    new CommandsValidator(validateUpgradingPackageResolutions)
 
   /** Effective submitters of a command
     * @param actAs Guaranteed to be non-empty. Will contain exactly one element in most cases.

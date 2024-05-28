@@ -11,18 +11,18 @@ import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, DomainSyncCryptoClient}
-import com.digitalasset.canton.data.{CantonTimestamp, ConfirmingParty, ViewType}
+import com.digitalasset.canton.data.{CantonTimestamp, ViewConfirmationParameters, ViewType}
 import com.digitalasset.canton.domain.mediator.store.MediatorState
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
-import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.HandlerResult
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.time.DomainTimeTracker
+import com.digitalasset.canton.time.{DomainTimeTracker, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
@@ -37,34 +37,6 @@ import org.slf4j.event.Level
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
-
-/** small helper class to extract appropriate data for logging
-  *
-  * please once we rewrite the mediator event stage stuff, we should
-  * clean this up again.
-  */
-// TODO(#15627) remove me
-private[mediator] final case class MediatorResultLog(
-    sender: ParticipantId,
-    ts: CantonTimestamp,
-    approved: Int = 0,
-    rejected: Seq[LocalReject] = Seq.empty,
-)(val traceContext: TraceContext)
-    extends PrettyPrinting {
-  override def pretty: Pretty[MediatorResultLog] = prettyNode(
-    "ParticipantResponse",
-    param("sender", _.sender),
-    param("ts", _.ts),
-    param("approved", _.approved, _.approved > 0),
-    paramIfNonEmpty("rejected", _.rejected),
-  )
-
-  def extend(result: LocalVerdict): MediatorResultLog = result match {
-    case _: LocalApprove => copy(approved = approved + 1)(traceContext)
-    case reject: LocalReject => copy(rejected = rejected :+ reject)(traceContext)
-  }
-
-}
 
 /** Scalable service to validate the received MediatorConfirmationRequests and ConfirmationResponses,
   * derive a verdict, and send ConfirmationResultMessages to informee participants.
@@ -85,44 +57,27 @@ private[mediator] class ConfirmationResponseProcessor(
     with FlagCloseable
     with HasCloseContext {
 
-  private def extractEventsForLogging(
-      events: Seq[Traced[MediatorEvent]]
-  ): Seq[MediatorResultLog] =
-    events
-      .collect { case tr @ Traced(MediatorEvent.Response(_, timestamp, response, _, _)) =>
-        (response.message.sender, timestamp, tr.traceContext, response.message.localVerdict)
-      }
-      .groupBy { case (sender, ts, traceContext, _) => (sender, ts, traceContext) }
-      .map { case ((sender, ts, traceContext), results) =>
-        results.foldLeft(MediatorResultLog(sender, ts)(traceContext)) {
-          case (acc, (_, _, _, result)) =>
-            acc.extend(result)
-        }
-      }
-      .toSeq
-
-  /** Handle events for a single request-id.
-    * Callers should ensure all events are for the same request and ordered by sequencer time.
-    */
   def handleRequestEvents(
-      requestId: RequestId,
-      events: Seq[Traced[MediatorEvent]],
+      timestamp: CantonTimestamp,
+      event: Option[Traced[MediatorEvent]],
       callerTraceContext: TraceContext,
   ): HandlerResult = {
 
-    val requestTs = requestId.unwrap
-    // // TODO(#15627) clean me up after removing the MediatorStageEvent stuff
     if (logger.underlying.isInfoEnabled()) {
-      extractEventsForLogging(events).foreach { result =>
-        logger.info(
-          show"Phase 5: Received responses for request=${requestId}: $result"
-        )(result.traceContext)
-      }
+      event.foreach(e =>
+        e.value match {
+          case response: MediatorEvent.Response =>
+            logger.info(show"Phase 5: Received responses for request=${timestamp}: ${response}")(
+              e.traceContext
+            )
+          case _ => ()
+        }
+      )
     }
 
     val future = for {
       // FIXME(i12903): do not block if requestId is far in the future
-      snapshot <- crypto.ips.awaitSnapshotUS(requestId.unwrap)(callerTraceContext)
+      snapshot <- crypto.ips.awaitSnapshotUS(timestamp)(callerTraceContext)
 
       domainParameters <- FutureUnlessShutdown.outcomeF(
         snapshot
@@ -131,59 +86,71 @@ private[mediator] class ConfirmationResponseProcessor(
       )
 
       participantResponseDeadline <- FutureUnlessShutdown.outcomeF(
-        domainParameters.participantResponseDeadlineForF(requestTs)
+        domainParameters.participantResponseDeadlineForF(timestamp)
       )
-      decisionTime <- FutureUnlessShutdown.outcomeF(domainParameters.decisionTimeForF(requestTs))
+      decisionTime <- FutureUnlessShutdown.outcomeF(domainParameters.decisionTimeForF(timestamp))
+      confirmationResponseTimeout = domainParameters.parameters.confirmationResponseTimeout
+      _ <-
+        handleTimeouts(timestamp)(
+          callerTraceContext
+        )
 
-      _ <- MonadUtil.sequentialTraverse_[FutureUnlessShutdown, Traced[MediatorEvent]](events) {
-        _.withTraceContext[FutureUnlessShutdown[Unit]] { implicit traceContext =>
-          {
-            case MediatorEvent.Request(
-                  counter,
-                  _,
-                  request,
-                  rootHashMessages,
-                  batchAlsoContainsTopologyTransaction,
-                ) =>
-              processRequest(
-                requestId,
+      _ <- event.traverse_(e =>
+        e.value match {
+          case MediatorEvent.Request(
                 counter,
-                participantResponseDeadline,
-                decisionTime,
+                _,
                 request,
                 rootHashMessages,
                 batchAlsoContainsTopologyTransaction,
-              )
-            case MediatorEvent.Response(
-                  counter,
-                  timestamp,
-                  response,
-                  topologyTimestamp,
-                  recipients,
-                ) =>
-              processResponse(
-                timestamp,
+              ) =>
+            processRequest(
+              RequestId(timestamp),
+              counter,
+              participantResponseDeadline,
+              decisionTime,
+              confirmationResponseTimeout,
+              request,
+              rootHashMessages,
+              batchAlsoContainsTopologyTransaction,
+            )(e.traceContext)
+          case MediatorEvent.Response(
                 counter,
-                participantResponseDeadline,
-                decisionTime,
+                timestamp,
                 response,
                 topologyTimestamp,
                 recipients,
-              )
-            case MediatorEvent.Timeout(_counter, timestamp, requestId) =>
-              handleTimeout(requestId, timestamp, decisionTime)
-          }
+              ) =>
+            processResponse(
+              timestamp,
+              counter,
+              participantResponseDeadline,
+              decisionTime,
+              response,
+              topologyTimestamp,
+              recipients,
+            )(e.traceContext)
         }
-      }
+      )
     } yield ()
     HandlerResult.synchronous(future)
+  }
+
+  private[mediator] def handleTimeouts(
+      timestamp: CantonTimestamp
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    mediatorState
+      .pendingTimedoutRequest(timestamp) match {
+      case Nil => FutureUnlessShutdown.unit
+      case nonEmptyTimeouts =>
+        nonEmptyTimeouts.map(handleTimeout(_, timestamp)).sequence_
+    }
   }
 
   @VisibleForTesting
   private[mediator] def handleTimeout(
       requestId: RequestId,
       timestamp: CantonTimestamp,
-      decisionTime: CantonTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     def pendingRequestNotFound: FutureUnlessShutdown[Unit] = {
       logger.debug(
@@ -203,12 +170,28 @@ private[mediator] class ConfirmationResponseProcessor(
         )
 
       val timeout = responseAggregation.timeout(version = timestamp)
-      mediatorState
-        .replace(responseAggregation, timeout)
-        .semiflatMap { _ =>
-          sendResultIfDone(timeout, decisionTime)
-        }
-        .getOrElse(())
+      for {
+        snapshot <- crypto.ips.awaitSnapshotUS(timestamp)(traceContext)
+
+        domainParameters <- FutureUnlessShutdown.outcomeF(
+          snapshot
+            .findDynamicDomainParameters()(traceContext)
+            .flatMap(_.toFuture(new IllegalStateException(_)))
+        )
+        decisionTime = domainParameters.decisionTimeFor(responseAggregation.requestId.unwrap)
+        state <- mediatorState
+          .replace(responseAggregation, timeout)
+          .semiflatMap { _ =>
+            decisionTime.fold(
+              string =>
+                FutureUnlessShutdown
+                  .failed(new IllegalStateException(s"failed to retrieve decision time: $string")),
+              dec => sendResultIfDone(timeout, dec),
+            )
+          }
+          .getOrElse(())
+
+      } yield state
     }
   }
 
@@ -222,75 +205,79 @@ private[mediator] class ConfirmationResponseProcessor(
       counter: SequencerCounter,
       participantResponseDeadline: CantonTimestamp,
       decisionTime: CantonTimestamp,
+      confirmationResponseTimeout: NonNegativeFiniteDuration,
       request: MediatorConfirmationRequest,
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       batchAlsoContainsTopologyTransaction: Boolean,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     withSpan("TransactionConfirmationResponseProcessor.processRequest") {
-      implicit traceContext => span =>
-        span.setAttribute("request_id", requestId.toString)
-        span.setAttribute("counter", counter.toString)
+      val timeout = requestId.unwrap.plus(confirmationResponseTimeout.unwrap)
+      implicit traceContext =>
+        span =>
+          span.setAttribute("request_id", requestId.toString)
+          span.setAttribute("counter", counter.toString)
 
-        for {
-          snapshot <- crypto.awaitSnapshotUS(requestId.unwrap)
+          for {
+            snapshot <- crypto.awaitSnapshotUS(requestId.unwrap)
 
-          unitOrVerdictO <- FutureUnlessShutdown.outcomeF {
-            validateRequest(
-              requestId,
-              request,
-              rootHashMessages,
-              snapshot,
-              batchAlsoContainsTopologyTransaction,
-            )
-          }
-
-          // Take appropriate actions based on unitOrVerdictO
-          _ <- unitOrVerdictO match {
-            // Request is well-formed, but not yet finalized
-            case Right(()) =>
-              val aggregationF = FutureUnlessShutdown.outcomeF(
-                ResponseAggregation.fromRequest(
-                  requestId,
-                  request,
-                  snapshot.ipsSnapshot,
-                )
+            unitOrVerdictO <- FutureUnlessShutdown.outcomeF {
+              validateRequest(
+                requestId,
+                request,
+                rootHashMessages,
+                snapshot,
+                batchAlsoContainsTopologyTransaction,
               )
+            }
 
-              for {
-                aggregation <- aggregationF
-                _ <- mediatorState.add(aggregation)
-              } yield {
-                timeTracker.requestTick(participantResponseDeadline)
-                logger.info(
-                  show"Phase 2: Registered request=${requestId.unwrap} with ${request.informeesAndThresholdByViewPosition.size} view(s). Initial state: ${aggregation.showMergedState}"
-                )
-              }
-
-            // Request is finalized, approve / reject immediately
-            case Left(Some(rejection)) =>
-              val verdict = rejection.toVerdict(protocolVersion)
-              logger.debug(show"$requestId: finalizing immediately with verdict $verdict...")
-              for {
-                _ <-
-                  verdictSender.sendReject(
+            // Take appropriate actions based on unitOrVerdictO
+            _ <- unitOrVerdictO match {
+              // Request is well-formed, but not yet finalized
+              case Right(()) =>
+                val aggregationF = FutureUnlessShutdown.outcomeF(
+                  ResponseAggregation.fromRequest(
                     requestId,
-                    Some(request),
-                    rootHashMessages,
-                    verdict,
-                    decisionTime,
+                    request,
+                    timeout,
+                    snapshot.ipsSnapshot,
                   )
-                _ <-
-                  mediatorState.add(
-                    FinalizedResponse(requestId, request, requestId.unwrap, verdict)(traceContext)
-                  )
-              } yield ()
+                )
 
-            // Discard request
-            case Left(None) =>
-              logger.debug(show"$requestId: discarding request...")
-              FutureUnlessShutdown.pure(None)
-          }
-        } yield ()
+                for {
+                  aggregation <- aggregationF
+                  _ <- mediatorState.add(aggregation)
+                } yield {
+                  timeTracker.requestTick(participantResponseDeadline)
+                  logger.info(
+                    show"Phase 2: Registered request=${requestId.unwrap} with ${request.informeesAndConfirmationParamsByViewPosition.size} view(s). Initial state: ${aggregation.showMergedState}"
+                  )
+                }
+
+              // Request is finalized, approve / reject immediately
+              case Left(Some(rejection)) =>
+                val verdict = rejection.toVerdict(protocolVersion)
+                logger.debug(show"$requestId: finalizing immediately with verdict $verdict...")
+                for {
+                  _ <-
+                    verdictSender.sendReject(
+                      requestId,
+                      Some(request),
+                      rootHashMessages,
+                      verdict,
+                      decisionTime,
+                    )
+                  _ <-
+                    mediatorState.add(
+                      FinalizedResponse(requestId, request, requestId.unwrap, verdict)(traceContext)
+                    )
+                } yield ()
+
+              // Discard request
+              case Left(None) =>
+                logger.debug(show"$requestId: discarding request...")
+                FutureUnlessShutdown.pure(None)
+            }
+          } yield ()
     }
   }
 
@@ -533,15 +520,15 @@ private[mediator] class ConfirmationResponseProcessor(
       request: MediatorConfirmationRequest,
   )(implicit loggingContext: ErrorLoggingContext): Either[MediatorVerdict.MediatorReject, Unit] = {
 
-    request.informeesAndThresholdByViewPosition.toSeq
-      .traverse_ { case (viewPosition, (informees, threshold)) =>
-        val minimumThreshold = request.minimumThreshold(informees)
+    request.informeesAndConfirmationParamsByViewPosition.toSeq
+      .traverse_ { case (viewPosition, ViewConfirmationParameters(_, quorums)) =>
+        val minimumThreshold = NonNegativeInt.one
         EitherUtil.condUnitE(
-          threshold >= minimumThreshold,
+          quorums.exists(quorum => quorum.threshold >= minimumThreshold),
           MediatorVerdict.MediatorReject(
             MediatorError.MalformedMessage
               .Reject(
-                s"Received a mediator confirmation request with id $requestId having threshold $threshold for transaction view at $viewPosition, which is below the confirmation policy's minimum threshold of $minimumThreshold. Rejecting request..."
+                s"Received a mediator confirmation request with id $requestId for transaction view at $viewPosition, where no quorum of the list satisfies the minimum threshold. Rejecting request..."
               )
               .reported()
           ),
@@ -556,34 +543,45 @@ private[mediator] class ConfirmationResponseProcessor(
   )(implicit
       loggingContext: ErrorLoggingContext
   ): EitherT[Future, MediatorVerdict.MediatorReject, Unit] = {
-    request.informeesAndThresholdByViewPosition.toList
-      .parTraverse_ { case (viewPosition, (informees, threshold)) =>
+    request.informeesAndConfirmationParamsByViewPosition.toList
+      .parTraverse_ { case (viewPosition, viewConfirmationParameters) =>
         // sorting parties to get deterministic error messages
         val declaredConfirmingParties =
-          informees.collect { case p: ConfirmingParty => p }.toSeq.sortBy(_.party)
+          viewConfirmationParameters.confirmers.toSeq.sortBy(pId => pId)
 
         for {
           partitionedConfirmingParties <- EitherT.right[MediatorVerdict.MediatorReject](
             snapshot
               .isHostedByAtLeastOneParticipantF(
-                declaredConfirmingParties.map(_.party).toSet,
-                (p, attr) => attr.permission.canConfirm,
+                declaredConfirmingParties.toSet,
+                (_, attr) => attr.permission.canConfirm,
               )(loggingContext)
               .map { hostedConfirmingParties =>
                 declaredConfirmingParties.map(cp =>
-                  Either.cond(hostedConfirmingParties.contains(cp.party), cp, cp)
+                  Either.cond(hostedConfirmingParties.contains(cp), cp, cp)
                 )
               }
           )
 
           (unauthorized, authorized) = partitionedConfirmingParties.separate
 
+          authorizedIds = authorized
+
+          confirmed = viewConfirmationParameters.quorums.forall { quorum =>
+            // For the authorized informees that belong to each quorum, verify if their combined weight is enough
+            // to meet the quorum's threshold.
+            quorum.confirmers
+              .filter { case (partyId, _) => authorizedIds.contains(partyId) }
+              .values
+              .map(_.unwrap)
+              .sum >= quorum.threshold.unwrap
+          }
+
           _ <- EitherTUtil.condUnitET[Future](
-            authorized.map(_.weight.unwrap).sum >= threshold.value, {
+            confirmed, {
               val insufficientPermissionHint =
                 if (unauthorized.nonEmpty)
-                  show"\nParties without participant having permission to confirm: ${unauthorized
-                      .map(_.party)}"
+                  show"\nParties without participant having permission to confirm: $unauthorized"
                 else ""
 
               val authorizedPartiesHint =
@@ -592,7 +590,7 @@ private[mediator] class ConfirmationResponseProcessor(
               val rejection = MediatorError.MalformedMessage
                 .Reject(
                   s"Received a mediator confirmation request with id $requestId with insufficient authorized confirming parties for transaction view at $viewPosition. " +
-                    s"Rejecting request. Threshold: $threshold." +
+                    s"Rejecting request." +
                     insufficientPermissionHint +
                     authorizedPartiesHint
                 )
@@ -647,7 +645,7 @@ private[mediator] class ConfirmationResponseProcessor(
             if (ts <= participantResponseDeadline) OptionT.some[FutureUnlessShutdown](())
             else {
               logger.warn(
-                s"Response ${ts} is too late as request ${response.requestId} has already exceeded the participant response deadline [$participantResponseDeadline]"
+                s"Response $ts is too late as request ${response.requestId} has already exceeded the participant response deadline [$participantResponseDeadline]"
               )
               OptionT.none[FutureUnlessShutdown, Unit]
             }

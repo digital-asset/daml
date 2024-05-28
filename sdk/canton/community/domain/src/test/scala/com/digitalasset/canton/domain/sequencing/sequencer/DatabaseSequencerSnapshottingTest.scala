@@ -29,7 +29,7 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
   def createSequencerWithSnapshot(
       crypto: DomainSyncCryptoClient,
       initialSnapshot: Option[SequencerSnapshot],
-  )(implicit materializer: Materializer): CantonSequencer = {
+  )(implicit materializer: Materializer): DatabaseSequencer = {
     if (clock == null)
       clock = createClock()
     val crypto = TestingIdentityFactory(
@@ -83,9 +83,20 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
       val request: SubmissionRequest = createSendRequest(sender, messageContent, recipients)
       val request2: SubmissionRequest = createSendRequest(sender, messageContent2, recipients)
 
+      val testSequencerWrapper =
+        TestDatabaseSequencerWrapper(sequencer.asInstanceOf[DatabaseSequencer])
+
       for {
-        _ <- valueOrFail(sequencer.registerMember(sender))("Register mediator")
-        _ <- valueOrFail(sequencer.registerMember(sequencerId))("Register sequencer")
+        _ <- valueOrFail(
+          testSequencerWrapper.registerMemberInternal(sender, CantonTimestamp.Epoch)
+        )(
+          "Register mediator"
+        )
+        _ <- valueOrFail(
+          testSequencerWrapper.registerMemberInternal(sequencerId, CantonTimestamp.Epoch)
+        )(
+          "Register sequencer"
+        )
 
         _ <- sequencer.sendAsync(request).valueOrFailShutdown("Sent async")
         messages <- readForMembers(List(sender), sequencer)

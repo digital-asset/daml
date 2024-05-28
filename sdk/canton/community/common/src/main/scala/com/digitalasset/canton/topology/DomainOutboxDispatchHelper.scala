@@ -113,7 +113,8 @@ trait StoreBasedDomainOutboxDispatchHelper extends DomainOutboxDispatchHelper {
             .toRight("")
             .leftFlatMap { _ =>
               // We did not find a topology transaction with the correct version, so we try to convert and resign
-              SignedTopologyTransaction.asVersion(tx, protocolVersion)(crypto)
+              SignedTopologyTransaction
+                .asVersion(tx, protocolVersion)(crypto)
             }
         }
       }
@@ -136,7 +137,8 @@ trait QueueBasedDomainOutboxDispatchHelper extends DomainOutboxDispatchHelper {
           // Transaction already in the correct version, nothing to do here
           EitherT.rightT[FutureUnlessShutdown, String](tx)
         } else {
-          SignedTopologyTransaction.asVersion(tx, protocolVersion)(crypto)
+          SignedTopologyTransaction
+            .asVersion(tx, protocolVersion)(crypto)
         }
       }
   }
