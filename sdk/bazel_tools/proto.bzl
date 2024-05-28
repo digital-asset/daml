@@ -303,7 +303,7 @@ def proto_jars(
         tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_scala_suffix),
         unused_dependency_checker_mode = "error",
         visibility = visibility,
-        deps = all_scala_deps + (["{}_java".format(name)] if java_conversions else []),
+        deps = all_scala_deps + (["{}_java".format(name)] if java_conversions else []) + scala_deps,
         exports = all_scala_deps,
     )
 

@@ -1257,7 +1257,10 @@ scala_binary(
 
 proto_gen(
     name = "ledger-api-java",
-    srcs = [":ledger_api_proto"],
+    srcs = [
+        ":ledger_api_proto",
+        ":ledger_api_value_proto",
+    ],
     plugin_name = "java",
     visibility = [
         "//visibility:public",
@@ -1289,7 +1292,10 @@ java_library(
 
 proto_gen(
     name = "ledger-api-java-grpc",
-    srcs = [":ledger_api_proto"],
+    srcs = [
+        ":ledger_api_proto",
+        ":ledger_api_value_proto",
+    ],
     plugin_exec = "@io_grpc_grpc_java//compiler:grpc_java_plugin",
     plugin_name = "java-grpc",
     visibility = [
@@ -1427,7 +1433,35 @@ proto_jars(
     maven_artifact_prefix = "ledger-api",
     maven_artifact_scala_suffix = "scalapb",
     maven_group = "com.daml",
+    proto_deps = [":ledger_api_value_proto"],
+    scala_deps = [":ledger_api_value_proto_java"],
     strip_import_prefix = "community/ledger-api/src/main/protobuf",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:descriptor_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:field_mask_proto",
+        "@com_google_protobuf//:struct_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
+        "@go_googleapis//google/rpc:errdetails_proto",
+        "@go_googleapis//google/rpc:status_proto",
+    ],
+)
+
+ledger_api_value_proto_source_root = "canton/community/ledger-api-value/src/main/protobuf"
+
+proto_jars(
+    name = "ledger_api_value_proto",
+    srcs = glob(["community/ledger-api-value/src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
+    grpc = True,
+    java_conversions = True,
+    maven_artifact_prefix = "ledger-api-value",
+    maven_artifact_scala_suffix = "scalapb",
+    maven_group = "com.daml",
+    strip_import_prefix = "community/ledger-api-value/src/main/protobuf",
     visibility = ["//visibility:public"],
     deps = [
         "@com_google_protobuf//:any_proto",
@@ -1505,6 +1539,7 @@ filegroup(
     srcs = glob(
         [
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/*.proto",
+            "community/ledger-api-value/src/main/protobuf/com/daml/ledger/api/v2/*.proto",
         ],
     ),
     visibility = ["//visibility:private"],
@@ -1528,6 +1563,7 @@ genrule(
             $(location @proto3-suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
                 --includeDir """ + google_rpc_src + """ \
+                --includeDir """ + ledger_api_value_proto_source_root + """ \
                 --includeDir """ + ledger_api_proto_source_root + """ \
                 --proto com/daml/ledger/api/v2/$$(basename $$src) \
                 --out $(@D)
