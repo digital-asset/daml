@@ -327,11 +327,15 @@ splitUnitId (unitIdString -> unitId) = fromMaybe (PackageName (T.pack unitId), N
 
 -- | Take a package version of regex "(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*" into
 -- a list of integers [Integer]
-splitPackageVersion :: PackageVersion -> Maybe [Integer]
-splitPackageVersion (PackageVersion raw) =
+splitPackageVersion
+  :: (PackageVersion -> a) -> PackageVersion
+  -> Either a [Integer]
+splitPackageVersion mkError version@(PackageVersion raw) =
   let pieces = T.split (== '.') raw
   in
-  traverse (readMaybe . T.unpack) pieces
+  case traverse (readMaybe . T.unpack) pieces of
+    Nothing -> Left (mkError version)
+    Just versions -> Right versions
 
 data ComparePackageVersionError
   = FirstVersionUnparseable PackageVersion
@@ -339,15 +343,11 @@ data ComparePackageVersionError
   deriving (Show, Eq, Ord)
 
 comparePackageVersion :: PackageVersion -> PackageVersion -> Either ComparePackageVersionError Ordering
-comparePackageVersion v1 v2 =
-  case splitPackageVersion v1 of
-    Nothing -> Left $ FirstVersionUnparseable v1
-    Just v1Pieces ->
-      case splitPackageVersion v2 of
-        Nothing -> Left $ SecondVersionUnparseable v2
-        Just v2Pieces ->
-          let pad xs target
-                | length xs < length target = xs ++ replicate (length target - length xs) 0
-                | otherwise = xs
-          in
-          pure $ compare (pad v1Pieces v2Pieces) (pad v2Pieces v1Pieces)
+comparePackageVersion v1 v2 = do
+  v1Pieces <- splitPackageVersion FirstVersionUnparseable v1
+  v2Pieces <- splitPackageVersion SecondVersionUnparseable v2
+  let pad xs target =
+        take
+          (length target `max` length xs)
+          (xs ++ repeat 0)
+  pure $ compare (pad v1Pieces v2Pieces) (pad v2Pieces v1Pieces)
