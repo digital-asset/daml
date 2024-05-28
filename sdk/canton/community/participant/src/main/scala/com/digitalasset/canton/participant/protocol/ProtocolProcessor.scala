@@ -51,7 +51,7 @@ import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.{AsyncResult, HandlerResult}
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId, SubmissionTopologyHelper}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
 import com.digitalasset.canton.util.EitherUtil.RichEither
@@ -723,12 +723,24 @@ abstract class ProtocolProcessor[
           viewsWithCorrectRootHash.map { case (view, _) => view.unwrap }
         )
 
+        submissionTopologyTimestamp = rootHashMessage.submissionTopologyTimestamp
+        submissionTopologySnapshotO <- EitherT.right(
+          SubmissionTopologyHelper.getSubmissionTopologySnapshot(
+            timeouts,
+            ts,
+            submissionTopologyTimestamp,
+            crypto,
+            logger,
+          )
+        )
+
         checkRecipientsResult <- EitherT.right(
           FutureUnlessShutdown.outcomeF(
             recipientsValidator.retainInputsWithValidRecipients(
               requestId,
               viewsWithCorrectRootHash,
               snapshot.ipsSnapshot,
+              submissionTopologySnapshotO,
             )
           )
         )
@@ -1931,9 +1943,24 @@ object ProtocolProcessor {
     )
   }
 
-  final case class WrongRecipients(viewTree: ViewTree) extends MalformedPayload {
+  sealed trait WrongRecipientsBase extends MalformedPayload
+
+  final case class WrongRecipients(viewTree: ViewTree) extends WrongRecipientsBase {
 
     override def pretty: Pretty[WrongRecipients] =
+      prettyOfClass(
+        param("viewHash", _.viewTree.viewHash),
+        param("viewPosition", _.viewTree.viewPosition),
+      )
+
+    def dueToTopologyChange: WrongRecipientsDueToTopologyChange =
+      WrongRecipientsDueToTopologyChange(viewTree)
+  }
+
+  final case class WrongRecipientsDueToTopologyChange(viewTree: ViewTree)
+      extends WrongRecipientsBase {
+
+    override def pretty: Pretty[WrongRecipientsDueToTopologyChange] =
       prettyOfClass(
         param("viewHash", _.viewTree.viewHash),
         param("viewPosition", _.viewTree.viewPosition),

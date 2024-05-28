@@ -3,13 +3,17 @@
 
 package com.digitalasset.canton.participant.protocol.validation
 
+import cats.data.OptionT
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.ViewPosition.MerklePathElement
 import com.digitalasset.canton.data.{ViewPosition, ViewTree}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.protocol.ProtocolProcessor.WrongRecipients
+import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
+  WrongRecipients,
+  WrongRecipientsBase,
+}
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.sequencing.protocol.{
@@ -24,6 +28,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{ErrorUtil, IterableUtil}
 
+import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 class RecipientsValidator[I](
@@ -58,16 +63,108 @@ class RecipientsValidator[I](
     * - Every informee participant of v has received every descendant of v.
     * - Every informee participant of v can evaluate the above conditions 1-4 for v and will conclude that v should be kept.
     *
-    * @return inputs with valid recipients
+    * As for all other validations, the recipients validation is performed using the topology effective at the sequencing time
+    * of the request. The submitter, however, creates the request using the latest topology available locally. Therefore, it is
+    * possible that a change in topology between submission and sequencing time results in errors detected by the
+    * recipients validator: for example, a party can be newly or no longer hosted on a participant, thereby affecting
+    * the recipients.
+    * These situations are quite common on a busy network with concurrent changes, and logging them at a high severity
+    * is overkill and possibly confusing. Therefore, if the errors detected can possibly be attributed to a change in the
+    * topology, we perform the check again using the topology at submission time. If no error occurs then, the original
+    * errors are logged at a lower severity.
+    * Note that the *outcome* of the validation is itself not affected: in other words, the request will still be rejected.
+    * The only change is the severity of the logs.
+    *
+    * @return errors for the incorrect recipients and inputs with valid recipients
     * @throws java.lang.IllegalArgumentException if the views corresponding to inputs have different root hashes
     */
   def retainInputsWithValidRecipients(
       requestId: RequestId,
       inputs: Seq[I],
+      sequencingSnapshot: PartyTopologySnapshotClient,
+      submissionSnapshotO: Option[PartyTopologySnapshotClient],
+  )(implicit
+      traceContext: TraceContext
+  ): Future[(Seq[WrongRecipientsBase], Seq[I])] = {
+    def handleAsMalicious(
+        errors: RecipientsValidatorErrors,
+        wrongRecipients: Seq[WrongRecipients],
+    ): Seq[WrongRecipientsBase] = {
+      errors.alarm()
+      wrongRecipients
+    }
+
+    def handleAsNonMalicious(
+        errors: RecipientsValidatorErrors,
+        wrongRecipients: Seq[WrongRecipients],
+    ): Seq[WrongRecipientsBase] = {
+      errors.logDueToTopologyChange()
+
+      // Tag the malformed payloads as due to a topology change
+      wrongRecipients.map(_.dueToTopologyChange)
+    }
+
+    for {
+      resultsWithSequencingSnapshot <- retainInputsWithValidRecipientsInternal(
+        requestId,
+        inputs,
+        sequencingSnapshot,
+      )
+      (wrongRecipients, goodInputs, errors) = resultsWithSequencingSnapshot
+
+      actualWrongRecupients <- {
+        if (errors.isEmpty) {
+          // The recipients check reported no error.
+          Future.successful(wrongRecipients)
+        } else if (errors.mayBeDueToTopologyChange) {
+          // The recipients check reported only errors that may be due to a topology change.
+
+          (for {
+            submissionSnapshot <- OptionT.fromOption[Future](submissionSnapshotO)
+
+            // Perform the recipients check using the topology at submission time.
+            resultWithSubmissionSnapshot <- OptionT.liftF(
+              retainInputsWithValidRecipientsInternal(
+                requestId,
+                inputs,
+                submissionSnapshot,
+              )
+            )
+            (_, _, errorsWithSubmissionSnapshot) = resultWithSubmissionSnapshot
+          } yield
+            if (errorsWithSubmissionSnapshot.isEmpty) {
+              // The recipients are correct when checked with the topology at submission time.
+              // Consider the request as non-malicious.
+              handleAsNonMalicious(errors, wrongRecipients)
+            } else {
+              // We still have errors. Consider the request as malicious.
+              handleAsMalicious(errors, wrongRecipients)
+            }).getOrElse {
+            // The submission snapshot is too old. Consider the request as malicious.
+            handleAsMalicious(errors, wrongRecipients)
+          }
+        } else {
+          // At least some of the reported errors are not due to a topology change.
+          // Consider the request as malicious.
+          Future.successful(handleAsMalicious(errors, wrongRecipients))
+        }
+      }
+    } yield {
+      (actualWrongRecupients, goodInputs)
+    }
+  }
+
+  def retainInputsWithValidRecipientsInternal(
+      requestId: RequestId,
+      inputs: Seq[I],
       snapshot: PartyTopologySnapshotClient,
   )(implicit
       traceContext: TraceContext
-  ): Future[(Seq[WrongRecipients], Seq[I])] = {
+  ): Future[(Seq[WrongRecipients], Seq[I], RecipientsValidatorErrors)] = {
+
+    // Used to accumulate all the errors to report later.
+    // Each error also has an associated flag indicating  whether it may be due to a topology change.
+    val errorBuilder = Seq.newBuilder[Error]
 
     val rootHashes = inputs.map(viewOfInput(_).rootHash).distinct
     ErrorUtil.requireArgument(
@@ -96,13 +193,23 @@ class RecipientsValidator[I](
       // This checks Condition 2 and 3.
       val invalidRecipientPositions =
         inputs.mapFilter(input =>
-          checkRecipientsTree(context, viewOfInput(input).viewPosition, recipientsOfInput(input))
+          checkRecipientsTree(
+            context,
+            viewOfInput(input).viewPosition,
+            recipientsOfInput(input),
+            errorBuilder,
+          )
         )
 
-      val badViewPositions = invalidRecipientPositions ++ inactivePartyPositions
+      val badViewPositions = (invalidRecipientPositions ++ inactivePartyPositions).map {
+        case BadViewPosition(badViewPosition, error, mayBeDueToTopologyChange) =>
+          // Collect all the errors from the bad positions
+          errorBuilder += Error(error, mayBeDueToTopologyChange)
+          badViewPosition
+      }
 
       // Check Condition 4, i.e., remove inputs that have a bad view position as descendant.
-      inputs.partitionMap { input =>
+      val (wrongRecipients, goodInputs) = inputs.partitionMap { input =>
         val viewTree = viewOfInput(input)
 
         val isGood = badViewPositions.forall(badViewPosition =>
@@ -115,6 +222,30 @@ class RecipientsValidator[I](
           WrongRecipients(viewTree),
         )
       }
+
+      val errorsToReport = new RecipientsValidatorErrors(errorBuilder.result())
+
+      (wrongRecipients, goodInputs, errorsToReport)
+    }
+  }
+
+  class RecipientsValidatorErrors(private val errors: Seq[Error]) {
+    lazy val isEmpty: Boolean = errors.isEmpty
+
+    lazy val mayBeDueToTopologyChange: Boolean = errors.forall(_.mayBeDueToTopologyChange)
+
+    def alarm()(implicit traceContext: TraceContext): Unit = errors.foreach {
+      case Error(error, _) =>
+        SyncServiceAlarm.Warn(error).report()
+    }
+
+    def logDueToTopologyChange()(implicit traceContext: TraceContext): Unit = errors.foreach {
+      case Error(error, _) =>
+        logger.info(
+          error +
+            """ This error is due to a change of topology state between the declared topology timestamp used
+              | for submission and the sequencing time of the request.""".stripMargin
+        )
     }
   }
 
@@ -142,9 +273,7 @@ class RecipientsValidator[I](
 
   /** Yields the positions of those views that have an informee without an active participant.
     */
-  private def computeInactivePartyPositions(
-      context: Context
-  )(implicit traceContext: TraceContext): Seq[ViewPosition] = {
+  private def computeInactivePartyPositions(context: Context): Seq[BadViewPosition] = {
     val Context(requestId, _, informeeParticipantsOfPositionAndParty) = context
 
     informeeParticipantsOfPositionAndParty.toSeq.mapFilter {
@@ -157,15 +286,14 @@ class RecipientsValidator[I](
           }.toSet
 
         Option.when(inactiveParties.nonEmpty) {
-          SyncServiceAlarm
-            .Warn(
-              s"Received a request with id $requestId where the view at $viewPosition has " +
-                s"informees without an active participant: $inactiveParties. " +
-                s"Discarding $viewPosition..."
-            )
-            .report()
+          val error =
+            s"Received a request with id $requestId where the view at $viewPosition has " +
+              s"informees without an active participant: $inactiveParties. " +
+              s"Discarding $viewPosition..."
 
-          viewPosition
+          // This may be due to a topology change, e.g. if all party-to-participant mappings for an informee
+          // are removed, or if a participant is disabled
+          BadViewPosition(viewPosition, error, mayBeDueToTopologyChange = true)
         }
     }
   }
@@ -186,32 +314,31 @@ class RecipientsValidator[I](
       context: Context,
       mainViewPosition: ViewPosition,
       recipients: Recipients,
+      errorBuilder: mutable.Builder[Error, Seq[Error]],
   )(implicit
       traceContext: TraceContext
-  ): Option[ViewPosition] = {
+  ): Option[BadViewPosition] = {
 
     val allRecipientPathsViewToRoot = recipients.allPaths.map(_.reverse)
 
     if (allRecipientPathsViewToRoot.sizeCompare(1) > 0) {
-      SyncServiceAlarm
-        .Warn(
-          s"Received a request with id ${context.requestId} where the view at $mainViewPosition has a non-linear recipients tree. " +
-            s"Processing all paths of the tree.\n$recipients"
-        )
-        .report()
+      errorBuilder += Error(
+        s"Received a request with id ${context.requestId} where the view at $mainViewPosition has a non-linear recipients tree. " +
+          s"Processing all paths of the tree.\n$recipients",
+        mayBeDueToTopologyChange = false,
+      )
     }
 
-    val badViewPositions = allRecipientPathsViewToRoot
-      .map(checkRecipientsPath(context, recipients, mainViewPosition.position, _))
+    val badViewPositions = allRecipientPathsViewToRoot.map(
+      checkRecipientsPath(context, recipients, mainViewPosition.position, _, errorBuilder)
+    )
 
     val res = badViewPositions.minBy1 {
-      case Some((viewPosition, _)) => viewPosition.position.size
+      case Some(BadViewPosition(viewPosition, _, _)) => viewPosition.position.size
       case None => 0
     }
-    res.map { case (viewPosition, alarm) =>
-      alarm.report()
-      viewPosition
-    }
+
+    res
   }
 
   /** Yields the closest (i.e. bottom-most) ancestor of a view (if any)
@@ -230,7 +357,8 @@ class RecipientsValidator[I](
       mainRecipients: Recipients,
       mainViewPosition: List[MerklePathElement],
       recipientsPathViewToRoot: Seq[Set[Recipient]],
-  )(implicit traceContext: TraceContext): Option[(ViewPosition, SyncServiceAlarm.Warn)] = {
+      errorBuilder: mutable.Builder[Error, Seq[Error]],
+  )(implicit traceContext: TraceContext): Option[BadViewPosition] = {
     val Context(requestId, informeesWithGroupAddressing, informeeParticipantsOfPositionAndParty) =
       context
 
@@ -246,11 +374,11 @@ class RecipientsValidator[I](
 
         case (Some(_recipientGroup), None) =>
           // recipientsPathViewToRoot is too long. This is not a problem for transparency, but it can be a problem for privacy.
-          SyncServiceAlarm
-            .Warn(
-              s"Received a request with id $requestId where the view at $mainViewPosition has too many levels of recipients. Continue processing...\n$mainRecipients"
-            )
-            .report()
+          errorBuilder += Error(
+            s"Received a request with id $requestId where the view at $mainViewPosition has too many levels of recipients. Continue processing...\n$mainRecipients",
+            mayBeDueToTopologyChange = false,
+          )
+
           None
 
         case (None, Some(viewPosition)) =>
@@ -258,14 +386,14 @@ class RecipientsValidator[I](
             // If we receive a view, we also need to receive corresponding recipient groups for the view and all descendants.
             // This is not the case here, so we need to discard the view at viewPosition.
 
-            val alarm = SyncServiceAlarm
-              .Warn(
-                s"Received a request with id $requestId where the view at $mainViewPosition has " +
-                  s"no recipients group for $viewPosition. " +
-                  s"Discarding $viewPosition with all ancestors..."
-              )
+            val error =
+              s"Received a request with id $requestId where the view at $mainViewPosition has " +
+                s"no recipients group for $viewPosition. " +
+                s"Discarding $viewPosition with all ancestors..."
 
-            Some(ViewPosition(viewPosition) -> alarm)
+            Some(
+              BadViewPosition(ViewPosition(viewPosition), error, mayBeDueToTopologyChange = false)
+            )
 
           } else {
             // We have not received the view at viewPosition. So there is no point in discarding it.
@@ -279,14 +407,11 @@ class RecipientsValidator[I](
           // an ancestor thereof contains this participant as recipient. (Property guaranteed by the sequencer.)
           // Hence, we should have received the current view.
           // Alarm, as this is not the case.
+          val error =
+            s"Received a request with id $requestId where the view at $viewPosition is missing. " +
+              s"Discarding all ancestors of $viewPosition..."
 
-          val alarm = SyncServiceAlarm
-            .Warn(
-              s"Received a request with id $requestId where the view at $viewPosition is missing. " +
-                s"Discarding all ancestors of $viewPosition..."
-            )
-
-          Some(ViewPosition(viewPosition) -> alarm)
+          Some(BadViewPosition(ViewPosition(viewPosition), error, mayBeDueToTopologyChange = false))
 
         case (Some(recipientGroup), Some(viewPosition)) =>
           // We have received a view and there is a recipient group.
@@ -304,24 +429,29 @@ class RecipientsValidator[I](
           }.toSet
 
           val extraRecipients = recipientGroup -- informeeRecipients
-          if (extraRecipients.nonEmpty)
-            SyncServiceAlarm
-              .Warn(
-                s"Received a request with id $requestId where the view at $mainViewPosition has " +
-                  s"extra recipients $extraRecipients for the view at $viewPosition. " +
-                  s"Continue processing..."
-              )
-              .report()
+
+          if (extraRecipients.nonEmpty) {
+            errorBuilder += Error(
+              s"Received a request with id $requestId where the view at $mainViewPosition has " +
+                s"extra recipients $extraRecipients for the view at $viewPosition. " +
+                s"Continue processing...",
+              // This may be due to a topology change, e.g. if a party-to-participant mapping is removed for an informee
+              mayBeDueToTopologyChange = true,
+            )
+          }
 
           val missingRecipients = informeeRecipients -- recipientGroup
-          lazy val missingRecipientsAlarm = SyncServiceAlarm
-            .Warn(
-              s"Received a request with id $requestId where the view at $mainViewPosition has " +
-                s"missing recipients $missingRecipients for the view at $viewPosition. " +
-                s"Discarding $viewPosition with all ancestors..."
-            )
+          lazy val error =
+            s"Received a request with id $requestId where the view at $mainViewPosition has " +
+              s"missing recipients $missingRecipients for the view at $viewPosition. " +
+              s"Discarding $viewPosition with all ancestors..."
           Option.when(missingRecipients.nonEmpty)(
-            ViewPosition(viewPosition) -> missingRecipientsAlarm
+            BadViewPosition(
+              ViewPosition(viewPosition),
+              error,
+              // This may be due to a topology change, e.g. if a party-to-participant mapping is added for an informee
+              mayBeDueToTopologyChange = true,
+            )
           )
       }
       .collectFirst { case Some(result) => result }
@@ -338,4 +468,16 @@ object RecipientsValidator {
         Map[LfPartyId, Set[ParticipantId]],
       ],
   )
+
+  private final case class BadViewPosition(
+      viewPosition: ViewPosition,
+      error: String,
+      mayBeDueToTopologyChange: Boolean,
+  )
+
+  private final case class Error(
+      error: String,
+      mayBeDueToTopologyChange: Boolean,
+  )
+
 }

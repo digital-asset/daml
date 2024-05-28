@@ -84,6 +84,8 @@ final class TransferOutProcessingStepsTest
 
   private implicit val ec: ExecutionContext = executorService
 
+  private val testTopologyTimestamp = CantonTimestamp.Epoch
+
   private lazy val sourceDomain = SourceDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("source::domain"))
   )
@@ -891,6 +893,7 @@ final class TransferOutProcessingStepsTest
       sourceDomain.unwrap,
       testedProtocolVersion,
       TransferOutViewType,
+      testTopologyTimestamp,
       SerializedRootHashMessagePayload.empty,
     )
 }

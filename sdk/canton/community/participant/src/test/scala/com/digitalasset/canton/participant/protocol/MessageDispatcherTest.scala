@@ -79,6 +79,7 @@ trait MessageDispatcherTest {
   import MessageDispatcherTest.*
 
   private val domainId = DomainId.tryFromString("messageDispatcher::domain")
+  private val testTopologyTimestamp = CantonTimestamp.Epoch
   private val participantId =
     ParticipantId.tryFromProtoPrimitive("PAR::messageDispatcher::participant")
   private val otherParticipant = ParticipantId.tryFromProtoPrimitive("PAR::other::participant")
@@ -729,6 +730,7 @@ trait MessageDispatcherTest {
           domainId,
           testedProtocolVersion,
           UnknownTestViewType,
+          testTopologyTimestamp,
           SerializedRootHashMessagePayload.empty,
         )
       val event = mkDeliver(
@@ -815,6 +817,7 @@ trait MessageDispatcherTest {
             domainId,
             testedProtocolVersion,
             viewType,
+            testTopologyTimestamp,
             SerializedRootHashMessagePayload.empty,
           )
         val event =
@@ -842,6 +845,7 @@ trait MessageDispatcherTest {
             domainId,
             testedProtocolVersion,
             viewType,
+            testTopologyTimestamp,
             SerializedRootHashMessagePayload.empty,
           )
         // Batch -> expected alarms -> expected reaction
@@ -956,6 +960,7 @@ trait MessageDispatcherTest {
             domainId,
             testedProtocolVersion,
             viewType,
+            testTopologyTimestamp,
             SerializedRootHashMessagePayload.empty,
           )
         val fatalBatches = List(
@@ -1012,6 +1017,7 @@ trait MessageDispatcherTest {
             domainId,
             testedProtocolVersion,
             viewType,
+            testTopologyTimestamp,
             SerializedRootHashMessagePayload.empty,
           )
         val badBatches = List(
@@ -1089,6 +1095,7 @@ trait MessageDispatcherTest {
             domainId,
             testedProtocolVersion,
             viewType,
+            testTopologyTimestamp,
             SerializedRootHashMessagePayload.empty,
           )
         val event =

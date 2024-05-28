@@ -59,6 +59,8 @@ class ConfirmationResponseProcessorTest
   protected val passiveMediator3 = MediatorId(UniqueIdentifier.tryCreate("mediator", "three"))
   protected val activeMediator4 = MediatorId(UniqueIdentifier.tryCreate("mediator", "four"))
 
+  protected val testTopologyTimestamp = CantonTimestamp.Epoch
+
   private def mediatorGroup0(mediators: NonEmpty[Seq[MediatorId]]) =
     MediatorGroup(MediatorGroupIndex.zero, mediators, Seq.empty, PositiveInt.one)
 
@@ -306,6 +308,7 @@ class ConfirmationResponseProcessorTest
           domainId,
           testedProtocolVersion,
           TransactionViewType,
+          testTopologyTimestamp,
           SerializedRootHashMessagePayload.empty,
         ),
         Recipients.cc(MemberRecipient(participant), mediatorGroupRecipient),
@@ -492,6 +495,7 @@ class ConfirmationResponseProcessorTest
           domainId,
           testedProtocolVersion,
           correctViewType,
+          testTopologyTimestamp,
           SerializedRootHashMessagePayload.empty,
         )
 
@@ -556,6 +560,7 @@ class ConfirmationResponseProcessorTest
           domainId,
           testedProtocolVersion,
           correctViewType,
+          testTopologyTimestamp,
           SerializedRootHashMessagePayload.empty,
         )
       val wrongRootHashMessage = correctRootHashMessage.copy(rootHash = wrongRootHash)
@@ -747,6 +752,7 @@ class ConfirmationResponseProcessorTest
         domainId,
         testedProtocolVersion,
         mediatorRequest.viewType,
+        testTopologyTimestamp,
         SerializedRootHashMessagePayload.empty,
       )
 
@@ -794,6 +800,7 @@ class ConfirmationResponseProcessorTest
         domainId,
         testedProtocolVersion,
         ViewType.TransactionViewType,
+        testTopologyTimestamp,
         SerializedRootHashMessagePayload.empty,
       )
       val mockTopologySnapshot = mock[TopologySnapshot]
@@ -1064,6 +1071,7 @@ class ConfirmationResponseProcessorTest
         domainId,
         testedProtocolVersion,
         ViewType.TransactionViewType,
+        testTopologyTimestamp,
         SerializedRootHashMessagePayload.empty,
       )
 
@@ -1196,6 +1204,7 @@ class ConfirmationResponseProcessorTest
         domainId,
         testedProtocolVersion,
         ViewType.TransactionViewType,
+        testTopologyTimestamp,
         SerializedRootHashMessagePayload.empty,
       )
 
@@ -1252,6 +1261,7 @@ class ConfirmationResponseProcessorTest
         domainId,
         testedProtocolVersion,
         mediatorRequest.viewType,
+        testTopologyTimestamp,
         SerializedRootHashMessagePayload.empty,
       )
 
@@ -1347,6 +1357,7 @@ class ConfirmationResponseProcessorTest
         domainId,
         testedProtocolVersion,
         mediatorRequest.viewType,
+        testTopologyTimestamp,
         SerializedRootHashMessagePayload.empty,
       )
 

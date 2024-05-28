@@ -215,6 +215,7 @@ class TransferOutProcessingSteps(
           domainId.unwrap,
           sourceDomainProtocolVersion.v,
           ViewType.TransferOutViewType,
+          sourceRecentSnapshot.ipsSnapshot.timestamp,
           EmptyRootHashMessagePayload,
         )
       val rootHashRecipients =

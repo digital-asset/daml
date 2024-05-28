@@ -12,6 +12,7 @@ import com.digitalasset.canton.crypto.{
   SymmetricKeyScheme,
 }
 import com.digitalasset.canton.data.{
+  CantonTimestamp,
   CantonTimestampSecond,
   FullInformeeTree,
   GeneratorsData,
@@ -231,12 +232,14 @@ final class GeneratorsMessages(
         rootHash <- Arbitrary.arbitrary[RootHash]
         domainId <- Arbitrary.arbitrary[DomainId]
         viewType <- viewTypeArb.arbitrary
+        submissionTopologyTime <- Arbitrary.arbitrary[CantonTimestamp]
         payload <- Arbitrary.arbitrary[RootHashMessagePayload]
       } yield RootHashMessage.apply(
         rootHash,
         domainId,
         protocolVersion,
         viewType,
+        submissionTopologyTime,
         payload,
       )
     )

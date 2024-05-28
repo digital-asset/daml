@@ -45,7 +45,7 @@ object EitherTUtil {
       case _ => ()
     }
 
-  /** Lifts an `if (cond) then ... else ()` into the `EitherT` a  pplicative */
+  /** Lifts an `if (cond) then ... else ()` into the `EitherT` applicative */
   def ifThenET[F[_], L](cond: Boolean)(`then`: => EitherT[F, L, _])(implicit
       F: Applicative[F]
   ): EitherT[F, L, Unit] =

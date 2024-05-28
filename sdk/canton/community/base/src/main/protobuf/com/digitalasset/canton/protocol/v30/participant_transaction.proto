@@ -40,7 +40,8 @@ message RootHashMessage {
   bytes root_hash = 1;
   string domain_id = 2;
   ViewType view_type = 3;
-  bytes payload = 4; // optional
+  int64 submission_topology_time = 4; // in microseconds of UTC time since Unix epoch
+  bytes payload = 5; // optional
 }
 
 // Messages sent by a participant as part of the transaction protocol

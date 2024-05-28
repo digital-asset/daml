@@ -25,6 +25,9 @@ import scala.concurrent.duration.*
   * @param activeInitRetryDelay delay between attempts while waiting for initialization of the active replica
   * @param sequencerInfo how long are we going to try to get the sequencer connection information. setting this high means that
   *                      connect calls will take quite a while if one of the sequencers is offline.
+  * @param topologyChangeWarnDelay maximum delay between the timestamp of the topology snapshot used during
+  *                                submission and the sequencing timestamp, after which we log inconsistency
+  *                                errors as warnings
   */
 final case class ProcessingTimeout(
     unbounded: NonNegativeDuration = DefaultProcessingTimeouts.unbounded,
@@ -42,6 +45,7 @@ final case class ProcessingTimeout(
     slowFutureWarn: NonNegativeDuration = DefaultProcessingTimeouts.slowFutureWarn,
     activeInitRetryDelay: NonNegativeDuration = DefaultProcessingTimeouts.activeInitRetryDelay,
     sequencerInfo: NonNegativeDuration = DefaultProcessingTimeouts.sequencerInfo,
+    topologyChangeWarnDelay: NonNegativeDuration = DefaultProcessingTimeouts.topologyChangeWarnDelay,
 )
 
 /** Reasonable default timeouts */
@@ -77,6 +81,8 @@ object DefaultProcessingTimeouts {
   val slowFutureWarn: NonNegativeDuration = NonNegativeDuration.tryFromDuration(5.seconds)
 
   val sequencerInfo: NonNegativeDuration = NonNegativeDuration.tryFromDuration(30.seconds)
+
+  val topologyChangeWarnDelay: NonNegativeDuration = NonNegativeDuration.tryFromDuration(2.minutes)
 
   @VisibleForTesting
   lazy val testing: ProcessingTimeout = ProcessingTimeout()
