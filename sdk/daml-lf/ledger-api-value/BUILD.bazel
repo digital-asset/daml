@@ -1,0 +1,36 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:proto.bzl", "proto_jars")
+
+ledger_api_value_proto_source_root = "daml-lf/ledger-api-value/src/main/protobuf"
+
+filegroup(
+    name = "ledger-api-value-protos-fg",
+    srcs = glob(["src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
+    visibility = ["//visibility:public"],
+)
+
+proto_jars(
+    name = "ledger_api_value_proto",
+    srcs = glob(["src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
+    grpc = True,
+    java_conversions = True,
+    maven_artifact_prefix = "ledger-api-value",
+    maven_artifact_scala_suffix = "scalapb",
+    maven_group = "com.daml",
+    strip_import_prefix = "src/main/protobuf",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:descriptor_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:field_mask_proto",
+        "@com_google_protobuf//:struct_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
+        "@go_googleapis//google/rpc:errdetails_proto",
+        "@go_googleapis//google/rpc:status_proto",
+    ],
+)
