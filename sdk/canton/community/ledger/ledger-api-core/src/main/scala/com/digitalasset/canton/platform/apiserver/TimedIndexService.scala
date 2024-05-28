@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver
 
-import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
@@ -24,7 +23,6 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{ParticipantOffset, TransactionId}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.participant.state.index
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.ledger.participant.state.index.*
 import com.digitalasset.canton.logging.LoggingContextWithTrace
@@ -36,24 +34,6 @@ import scala.concurrent.Future
 
 final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMetrics)
     extends IndexService {
-
-  override def listLfPackages()(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Map[Ref.PackageId, index.PackageDetails]] =
-    Timed.future(metrics.services.index.listLfPackages, delegate.listLfPackages())
-
-  override def getLfArchive(packageId: Ref.PackageId)(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Option[DamlLf.Archive]] =
-    Timed.future(metrics.services.index.getLfArchive, delegate.getLfArchive(packageId))
-
-  override def packageEntries(
-      startExclusive: Option[ParticipantOffset.Absolute]
-  )(implicit loggingContext: LoggingContextWithTrace): Source[domain.PackageEntry, NotUsed] =
-    Timed.source(
-      metrics.services.index.packageEntries,
-      delegate.packageEntries(startExclusive),
-    )
 
   override def currentLedgerEnd(): Future[ParticipantOffset.Absolute] =
     Timed.future(metrics.services.index.currentLedgerEnd, delegate.currentLedgerEnd())

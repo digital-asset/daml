@@ -5,10 +5,13 @@ package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.PackageVersion
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ledger.api.validation.ValidateUpgradingPackageResolutions.ValidatedCommandPackageResolutionsSnapshot
-import com.digitalasset.canton.platform.store.packagemeta.{
-  PackageMetadataSnapshot,
-  PackageMetadataStore,
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
+  LocalPackagePreference,
+  PackageResolution,
 }
 import io.grpc.Status.Code.INVALID_ARGUMENT
 import io.grpc.StatusRuntimeException
@@ -96,15 +99,22 @@ class ValidateUpgradingPackageResolutionsTest
 
     protected implicit val contextualizedErrorLogger: ContextualizedErrorLogger = NoLogging
 
-    private val packageMetadataSnapshot = mock[PackageMetadataSnapshot]
-    when(packageMetadataSnapshot.getUpgradablePackagePreferenceMap).thenReturn(
-      preferenceMapSnapshot
+    private val getPackageMetadataSnapshot = (_: ContextualizedErrorLogger) =>
+      PackageMetadata().copy(
+        packageIdVersionMap = packageMapSnapshot,
+        packageNameMap = preferenceMapSnapshot.view.mapValues { preferredPackage =>
+          PackageResolution(
+            preference = LocalPackagePreference(
+              version = PackageVersion.assertFromString("0.0.0"), // unused
+              packageId = preferredPackage,
+            ),
+            allPackageIdsForName = NonEmpty.mk(Set, preferredPackage),
+          )
+        }.toMap,
+      )
+    protected val validator = new ValidateUpgradingPackageResolutionsImpl(
+      getPackageMetadataSnapshot
     )
-    when(packageMetadataSnapshot.getUpgradablePackageMap)
-      .thenReturn(packageMapSnapshot)
-    private val packageMetadataStore = mock[PackageMetadataStore]
-    when(packageMetadataStore.getSnapshot).thenReturn(packageMetadataSnapshot)
-    protected val validator = new ValidateUpgradingPackageResolutionsImpl(packageMetadataStore)
 
     def testResolutions(
         userPreference: Seq[String],

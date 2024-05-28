@@ -76,7 +76,11 @@ class ACSReader(
     queryValidRange: QueryValidRange,
     eventStorageBackend: EventStorageBackend,
     lfValueTranslation: LfValueTranslation,
-    incompleteOffsets: (Offset, Set[Ref.Party], TraceContext) => Future[Vector[Offset]],
+    incompleteOffsets: (
+        Offset,
+        Option[Set[Ref.Party]],
+        TraceContext,
+    ) => Future[Vector[Offset]],
     metrics: LedgerApiServerMetrics,
     tracer: Tracer,
     val loggerFactory: NamedLoggerFactory,
@@ -147,7 +151,7 @@ class ACSReader(
     val idQueryPageSizing = IdPageSizing.calculateFrom(
       maxIdPageSize = config.maxIdsPerIdPage,
       workingMemoryInBytesForIdPages =
-        // to accomodate for the fact that we have queues for Assign and Create events as well
+        // to accommodate for the fact that we have queues for Assign and Create events as well
         config.maxWorkingMemoryInBytesForIdPages / 2,
       numOfDecomposedFilters = decomposedFilters.size,
       numOfPagesInIdPageBuffer = config.maxPagesPerIdPagesBuffer,
@@ -166,7 +170,7 @@ class ACSReader(
               val ids =
                 eventStorageBackend.transactionStreamingQueries
                   .fetchIdsOfCreateEventsForStakeholder(
-                    stakeholder = filter.party,
+                    stakeholderO = filter.party,
                     templateIdO = filter.templateId,
                     startExclusive = state.fromIdExclusive,
                     endInclusive = activeAtEventSeqId,
@@ -194,7 +198,7 @@ class ACSReader(
             dispatcher.executeSql(metrics.index.db.getActiveContractIdsForAssigned) { connection =>
               val ids =
                 eventStorageBackend.fetchAssignEventIdsForStakeholder(
-                  stakeholder = filter.party,
+                  stakeholderO = filter.party,
                   templateId = filter.templateId,
                   startExclusive = state.fromIdExclusive,
                   endInclusive = activeAtEventSeqId,
@@ -219,7 +223,7 @@ class ACSReader(
           dispatcher.executeSql(metrics.index.db.getActiveContractBatchForCreated) {
             implicit connection =>
               val result = withValidatedActiveAt(
-                eventStorageBackend.activeContractCreateEventBatchV2(
+                eventStorageBackend.activeContractCreateEventBatch(
                   eventSequentialIds = ids,
                   allFilterParties = allFilterParties,
                   endInclusive = activeAtEventSeqId,
@@ -448,13 +452,20 @@ class ACSReader(
           .map(rawUnassignEvent -> _)
       )
 
-    val stringWildcardParties = filter.wildcardParties.map(_.toString)
+    val stringWildcardParties = filter.templateWildcardParties.map(_.map(_.toString))
     val stringTemplateFilters = filter.relation.map { case (key, value) =>
       key -> value
     }
     def eventMeetsConstraints(templateId: Identifier, witnesses: Set[String]): Boolean =
-      witnesses.exists(stringWildcardParties) ||
-        stringTemplateFilters.get(templateId).exists(_.exists(witnesses))
+      stringWildcardParties.fold(true)(_.exists(witnesses)) || (
+        stringTemplateFilters.get(templateId) match {
+          case Some(Some(filterParties)) => filterParties.exists(witnesses)
+          case Some(None) => true // party wildcard
+          case None =>
+            false // templateId is not in the filter // TODO(#18362) handle template wildcards
+        }
+      )
+
     def unassignMeetsConstraints(rawUnassignEvent: RawUnassignEvent): Boolean =
       eventMeetsConstraints(
         rawUnassignEvent.templateId,

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.index
 
+import com.daml.error.ContextualizedErrorLogger
 import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
@@ -33,6 +34,7 @@ import com.digitalasset.canton.platform.store.dao.{
   LedgerReadDao,
 }
 import com.digitalasset.canton.platform.store.interning.StringInterning
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.tracing.TraceContext
 import io.opentelemetry.api.trace.Tracer
 
@@ -50,8 +52,10 @@ final class IndexServiceOwner(
     inMemoryState: InMemoryState,
     tracer: Tracer,
     val loggerFactory: NamedLoggerFactory,
-    incompleteOffsets: (Offset, Set[Ref.Party], TraceContext) => Future[Vector[Offset]],
+    incompleteOffsets: (Offset, Option[Set[Ref.Party]], TraceContext) => Future[Vector[Offset]],
     contractLoader: ContractLoader,
+    getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata,
+    lfValueTranslation: LfValueTranslation,
 ) extends ResourceOwner[IndexService]
     with NamedLogging {
   private val initializationRetryDelay = 100.millis
@@ -62,6 +66,7 @@ final class IndexServiceOwner(
       ledgerEndCache = inMemoryState.ledgerEndCache,
       stringInterning = inMemoryState.stringInterningView,
       contractLoader = contractLoader,
+      lfValueTranslation = lfValueTranslation,
     )
 
     for {
@@ -74,14 +79,6 @@ final class IndexServiceOwner(
         contractStateCaches = inMemoryState.contractStateCaches,
         loggerFactory = loggerFactory,
       )(servicesExecutionContext)
-
-      lfValueTranslation = new LfValueTranslation(
-        metrics = metrics,
-        engineO = Some(engine),
-        loadPackage = (packageId, loggingContext) =>
-          ledgerDao.getLfArchive(packageId)(loggingContext),
-        loggerFactory = loggerFactory,
-      )
 
       inMemoryFanOutExecutionContext <- buildInMemoryFanOutExecutionContext(
         metrics = metrics,
@@ -114,7 +111,7 @@ final class IndexServiceOwner(
         contractStore = contractStore,
         pruneBuffers = inMemoryState.inMemoryFanoutBuffer.prune,
         dispatcher = () => inMemoryState.dispatcherState.getDispatcher,
-        packageMetadataView = inMemoryState.packageMetadataView,
+        getPackageMetadataSnapshot = getPackageMetadataSnapshot,
         metrics = metrics,
         loggerFactory = loggerFactory,
       )
@@ -185,6 +182,7 @@ final class IndexServiceOwner(
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
       contractLoader: ContractLoader,
+      lfValueTranslation: LfValueTranslation,
   ): LedgerReadDao =
     JdbcLedgerDao.read(
       dbSupport = dbSupport,
@@ -204,6 +202,7 @@ final class IndexServiceOwner(
       loggerFactory = loggerFactory,
       incompleteOffsets = incompleteOffsets,
       contractLoader = contractLoader,
+      lfValueTranslation = lfValueTranslation,
     )
 
   private def buildInMemoryFanOutExecutionContext(

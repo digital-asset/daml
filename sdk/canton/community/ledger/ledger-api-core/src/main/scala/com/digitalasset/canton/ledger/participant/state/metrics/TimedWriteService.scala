@@ -3,26 +3,20 @@
 
 package com.digitalasset.canton.ledger.participant.state.metrics
 
-import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.metrics.Timed
 import com.digitalasset.canton.data.{Offset, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.participant.state.{
-  PruningResult,
-  ReassignmentCommand,
-  SubmissionResult,
-  SubmitterInfo,
-  TransactionMeta,
-  WriteService,
-}
+import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
+import com.google.protobuf.ByteString
 
 import java.util.concurrent.CompletionStage
+import scala.concurrent.Future
 
 final class TimedWriteService(delegate: WriteService, metrics: LedgerApiServerMetrics)
     extends WriteService {
@@ -75,16 +69,15 @@ final class TimedWriteService(delegate: WriteService, metrics: LedgerApiServerMe
       ),
     )
 
-  override def uploadPackages(
+  override def uploadDar(
+      dar: ByteString,
       submissionId: Ref.SubmissionId,
-      archives: List[DamlLf.Archive],
-      sourceDescription: Option[String],
   )(implicit
       traceContext: TraceContext
-  ): CompletionStage[SubmissionResult] =
-    Timed.completionStage(
+  ): Future[SubmissionResult] =
+    Timed.future(
       metrics.services.write.uploadPackages,
-      delegate.uploadPackages(submissionId, archives, sourceDescription),
+      delegate.uploadDar(dar, submissionId),
     )
 
   override def allocateParty(

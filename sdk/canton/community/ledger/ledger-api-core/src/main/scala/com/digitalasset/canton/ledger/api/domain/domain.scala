@@ -20,6 +20,7 @@ import scala.collection.immutable
 
 final case class TransactionFilter(
     filtersByParty: immutable.Map[Ref.Party, Filters],
+    filtersForAnyParty: Option[Filters] = None,
     alwaysPopulateCreatedEventBlob: Boolean = false,
 )
 

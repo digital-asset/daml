@@ -6,8 +6,7 @@ package com.digitalasset.canton.ledger.participant.state.index
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
 
 trait IndexService
-    extends IndexPackagesService
-    with IndexCompletionsService
+    extends IndexCompletionsService
     with IndexTransactionsService
     with IndexEventQueryService
     with IndexActiveContractsService

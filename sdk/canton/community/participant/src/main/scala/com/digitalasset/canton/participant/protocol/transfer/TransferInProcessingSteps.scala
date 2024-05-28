@@ -617,7 +617,6 @@ private[transfer] class TransferInProcessingSteps(
         coid = contract.contractId,
         templateId = contractInst.template,
         packageName = contractInst.packageName,
-        packageVersion = None,
         arg = contractInst.arg,
         signatories = contract.metadata.signatories,
         stakeholders = contract.metadata.stakeholders,

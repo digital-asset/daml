@@ -41,10 +41,10 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = before.lastOffset,
-            filter = TemplatePartiesFilter(Map.empty, Set(alice, bob, charlie)),
+            filter = TemplatePartiesFilter(Map.empty, Some(Set(alice, bob, charlie))),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              wildcardWitnesses = Set(alice, bob, charlie),
+              templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
             ),
           )
       )
@@ -52,10 +52,10 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = after.lastOffset,
-            filter = TemplatePartiesFilter(Map.empty, Set(alice, bob, charlie)),
+            filter = TemplatePartiesFilter(Map.empty, Some(Set(alice, bob, charlie))),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              wildcardWitnesses = Set(alice, bob, charlie),
+              templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
             ),
           )
       )
@@ -78,10 +78,10 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = offset,
-            filter = TemplatePartiesFilter(Map.empty, Set(alice, bob, charlie)),
+            filter = TemplatePartiesFilter(Map.empty, Some(Set(alice, bob, charlie))),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              wildcardWitnesses = Set(alice, bob, charlie),
+              templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
             ),
           )
       )
@@ -95,10 +95,10 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = offset,
-            filter = TemplatePartiesFilter(Map.empty, Set(alice, bob, charlie)),
+            filter = TemplatePartiesFilter(Map.empty, Some(Set(alice, bob, charlie))),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              wildcardWitnesses = Set(alice, bob, charlie),
+              templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
             ),
           )
       )
@@ -126,12 +126,13 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = ledgerEnd.lastOffset,
-            filter = TemplatePartiesFilter(Map(otherTemplateId -> Set(party1)), Set.empty),
+            filter =
+              TemplatePartiesFilter(Map(otherTemplateId -> Some(Set(party1))), Some(Set.empty)),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              wildcardWitnesses = Set.empty,
+              templateWildcardWitnesses = Some(Set.empty),
               witnessTemplateProjections =
-                Map(party1 -> Map(otherTemplateId -> Projection(contractArguments = true))),
+                Map(Some(party1) -> Map(otherTemplateId -> Projection(contractArguments = true))),
             ),
           )
       )
@@ -163,16 +164,16 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd.lastOffset,
             filter = TemplatePartiesFilter(
               Map(
-                otherTemplateId -> Set(party1, party2)
+                otherTemplateId -> Some(Set(party1, party2))
               ),
-              Set.empty,
+              Some(Set.empty),
             ),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              wildcardWitnesses = Set.empty,
+              templateWildcardWitnesses = Some(Set.empty),
               witnessTemplateProjections = Map(
-                party1 -> Map(otherTemplateId -> Projection(contractArguments = true)),
-                party2 -> Map(otherTemplateId -> Projection(contractArguments = true)),
+                Some(party1) -> Map(otherTemplateId -> Projection(contractArguments = true)),
+                Some(party2) -> Map(otherTemplateId -> Projection(contractArguments = true)),
               ),
             ),
           )
@@ -188,6 +189,55 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       val create2 = activeContracts(1)
       create2.witnessParties.loneElement shouldBe party1
       create2.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
+    }
+  }
+
+  it should "filter correctly by party-wildcard with the same template" in {
+    val party1 = Party.assertFromString(UUID.randomUUID.toString)
+    val party2 = Party.assertFromString(UUID.randomUUID.toString)
+    for {
+      _ <- store(
+        multipleCreates(
+          operator = "operator",
+          signatoriesAndTemplates = Seq(
+            (party1, someTemplateId, someContractArgument),
+            (party2, otherTemplateId2, otherContractArgument),
+            (party1, otherTemplateId2, otherContractArgument),
+          ),
+        )
+      )
+      ledgerEnd <- ledgerDao.lookupLedgerEnd()
+      result <- activeContractsOf(
+        ledgerDao.transactionsReader
+          .getActiveContracts(
+            activeAt = ledgerEnd.lastOffset,
+            filter = TemplatePartiesFilter(
+              Map(
+                otherTemplateId2 -> None
+              ),
+              Some(Set.empty),
+            ),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              templateWildcardWitnesses = Some(Set.empty),
+              witnessTemplateProjections = Map(
+                Some(party1) -> Map(otherTemplateId2 -> Projection(contractArguments = true)),
+                Some(party2) -> Map(otherTemplateId2 -> Projection(contractArguments = true)),
+              ),
+            ),
+          )
+      )
+    } yield {
+      val activeContracts = result.toArray
+      activeContracts should have length 2
+
+      val create1 = activeContracts(0)
+      create1.witnessParties.loneElement shouldBe party2
+      create1.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId2)
+
+      val create2 = activeContracts(1)
+      create2.witnessParties.loneElement shouldBe party1
+      create2.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId2)
     }
   }
 
@@ -212,17 +262,17 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd.lastOffset,
             filter = TemplatePartiesFilter(
               Map(
-                someTemplateId -> Set(party1),
-                otherTemplateId -> Set(party2),
+                someTemplateId -> Some(Set(party1)),
+                otherTemplateId -> Some(Set(party2)),
               ),
-              Set.empty,
+              Some(Set.empty),
             ),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              wildcardWitnesses = Set.empty,
+              templateWildcardWitnesses = Some(Set.empty),
               witnessTemplateProjections = Map(
-                party1 -> Map(otherTemplateId -> Projection(contractArguments = true)),
-                party2 -> Map(otherTemplateId -> Projection(contractArguments = true)),
+                Some(party1) -> Map(otherTemplateId -> Projection(contractArguments = true)),
+                Some(party2) -> Map(otherTemplateId -> Projection(contractArguments = true)),
               ),
             ),
           )
@@ -238,6 +288,56 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       val create1 = activeContracts(1)
       create1.witnessParties.loneElement shouldBe party2
       create1.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
+    }
+  }
+
+  it should "filter correctly by party-wildcard with different templates" in {
+    val party1 = Party.assertFromString(UUID.randomUUID.toString)
+    val party2 = Party.assertFromString(UUID.randomUUID.toString)
+    for {
+      _ <- store(
+        multipleCreates(
+          operator = "operator",
+          signatoriesAndTemplates = Seq(
+            (party1, otherTemplateId3, someContractArgument),
+            (party2, otherTemplateId4, otherContractArgument),
+            (party1, otherTemplateId4, otherContractArgument),
+          ),
+        )
+      )
+      ledgerEnd <- ledgerDao.lookupLedgerEnd()
+      result <- activeContractsOf(
+        ledgerDao.transactionsReader
+          .getActiveContracts(
+            activeAt = ledgerEnd.lastOffset,
+            filter = TemplatePartiesFilter(
+              Map(
+                otherTemplateId3 -> None,
+                otherTemplateId4 -> None,
+              ),
+              Some(Set.empty),
+            ),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              templateWildcardWitnesses = Some(Set.empty),
+              witnessTemplateProjections = Map(
+                Some(party1) -> Map(otherTemplateId4 -> Projection(contractArguments = true)),
+                Some(party2) -> Map(otherTemplateId4 -> Projection(contractArguments = true)),
+              ),
+            ),
+          )
+      )
+    } yield {
+      val activeContracts = result.toArray
+      activeContracts should have length 3
+
+      val create2 = activeContracts(0)
+      create2.witnessParties.loneElement shouldBe party1
+      create2.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId3)
+
+      val create1 = activeContracts(1)
+      create1.witnessParties.loneElement shouldBe party2
+      create1.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId4)
     }
   }
 
@@ -262,15 +362,15 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd.lastOffset,
             filter = TemplatePartiesFilter(
               Map(
-                someTemplateId -> Set(party1)
+                someTemplateId -> Some(Set(party1))
               ),
-              Set(party2),
+              Some(Set(party2)),
             ),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              wildcardWitnesses = Set(party2),
+              templateWildcardWitnesses = Some(Set(party2)),
               witnessTemplateProjections = Map(
-                party1 -> Map(someTemplateId -> Projection(contractArguments = true))
+                Some(party1) -> Map(someTemplateId -> Projection(contractArguments = true))
               ),
             ),
           )
@@ -282,6 +382,54 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       val create2 = activeContracts(0)
       create2.witnessParties.loneElement shouldBe party1
       create2.templateId.value shouldBe LfEngineToApi.toApiIdentifier(someTemplateId)
+
+      val create1 = activeContracts(1)
+      create1.witnessParties.loneElement shouldBe party2
+      create1.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
+    }
+  }
+
+  it should "filter correctly by multiple parties with different template and party- and template- wildcards" in {
+    val party1 = Party.assertFromString(UUID.randomUUID.toString)
+    val party2 = Party.assertFromString(UUID.randomUUID.toString)
+    for {
+      _ <- store(
+        multipleCreates(
+          operator = "operator",
+          signatoriesAndTemplates = Seq(
+            (party1, otherTemplateId5, otherContractArgument5),
+            (party2, otherTemplateId, otherContractArgument),
+            (party1, otherTemplateId, otherContractArgument),
+          ),
+        )
+      )
+      ledgerEnd <- ledgerDao.lookupLedgerEnd()
+      result <- activeContractsOf(
+        ledgerDao.transactionsReader
+          .getActiveContracts(
+            activeAt = ledgerEnd.lastOffset,
+            filter = TemplatePartiesFilter(
+              relation = Map(
+                otherTemplateId5 -> None
+              ),
+              templateWildcardParties = Some(Set(party2)),
+            ),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              templateWildcardWitnesses = Some(Set(party2)),
+              witnessTemplateProjections = Map(
+                Some(party1) -> Map(otherTemplateId5 -> Projection(contractArguments = true))
+              ),
+            ),
+          )
+      )
+    } yield {
+      val activeContracts = result.toArray
+      activeContracts should have length 2
+
+      val create2 = activeContracts(0)
+      create2.witnessParties.loneElement shouldBe party1
+      create2.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId5)
 
       val create1 = activeContracts(1)
       create1.witnessParties.loneElement shouldBe party2
@@ -316,15 +464,15 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd.lastOffset,
             filter = TemplatePartiesFilter(
               Map(
-                someTemplateId -> Set(party1)
+                someTemplateId -> Some(Set(party1))
               ),
-              Set(party2),
+              Some(Set(party2)),
             ),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              wildcardWitnesses = Set(party2),
+              templateWildcardWitnesses = Some(Set(party2)),
               witnessTemplateProjections = Map(
-                party1 -> Map(someTemplateId -> Projection(contractArguments = true))
+                Some(party1) -> Map(someTemplateId -> Projection(contractArguments = true))
               ),
             ),
           )
@@ -335,15 +483,15 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd.lastOffset,
             filter = TemplatePartiesFilter(
               Map(
-                someTemplateId -> Set(party1)
+                someTemplateId -> Some(Set(party1))
               ),
-              Set(party2, unknownParty),
+              Some(Set(party2, unknownParty)),
             ),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              wildcardWitnesses = Set(party2, unknownParty),
+              templateWildcardWitnesses = Some(Set(party2, unknownParty)),
               witnessTemplateProjections = Map(
-                party1 -> Map(someTemplateId -> Projection(contractArguments = true))
+                Some(party1) -> Map(someTemplateId -> Projection(contractArguments = true))
               ),
             ),
           )
@@ -354,16 +502,40 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd.lastOffset,
             filter = TemplatePartiesFilter(
               Map(
-                someTemplateId -> Set(party1),
-                unknownTemplate -> Set(party1),
+                someTemplateId -> Some(Set(party1)),
+                unknownTemplate -> Some(Set(party1)),
               ),
-              Set(party2),
+              Some(Set(party2)),
             ),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              wildcardWitnesses = Set(party2),
+              templateWildcardWitnesses = Some(Set(party2)),
               witnessTemplateProjections = Map(
-                party1 -> Map(
+                Some(party1) -> Map(
+                  someTemplateId -> Projection(contractArguments = true),
+                  unknownTemplate -> Projection(contractArguments = true),
+                )
+              ),
+            ),
+          )
+      )
+      resultUnknownTemplatePartyWildcard <- activeContractsOf(
+        ledgerDao.transactionsReader
+          .getActiveContracts(
+            activeAt = ledgerEnd.lastOffset,
+            filter = TemplatePartiesFilter(
+              Map(
+                someTemplateId -> Some(Set(party1)),
+                unknownTemplate -> None,
+              ),
+              Some(Set(party2)),
+            ),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              templateWildcardWitnesses = None,
+              witnessTemplateProjections = Map(
+                // TODO(#18362) wildcard for unknownTemplate
+                Some(party1) -> Map(
                   someTemplateId -> Projection(contractArguments = true),
                   unknownTemplate -> Projection(contractArguments = true),
                 )
@@ -377,16 +549,16 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd.lastOffset,
             filter = TemplatePartiesFilter(
               Map(
-                someTemplateId -> Set(party1),
-                unknownTemplate -> Set(party1),
+                someTemplateId -> Some(Set(party1)),
+                unknownTemplate -> Some(Set(party1)),
               ),
-              Set(party2, unknownParty),
+              Some(Set(party2, unknownParty)),
             ),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              wildcardWitnesses = Set(party2, unknownParty),
+              templateWildcardWitnesses = Some(Set(party2, unknownParty)),
               witnessTemplateProjections = Map(
-                party1 -> Map(
+                Some(party1) -> Map(
                   someTemplateId -> Projection(contractArguments = true),
                   unknownTemplate -> Projection(contractArguments = true),
                 )
@@ -400,15 +572,15 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd.lastOffset,
             filter = TemplatePartiesFilter(
               Map(
-                unknownTemplate -> Set(unknownParty)
+                unknownTemplate -> Some(Set(unknownParty))
               ),
-              Set.empty,
+              Some(Set.empty),
             ),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              wildcardWitnesses = Set.empty,
+              templateWildcardWitnesses = Some(Set.empty),
               witnessTemplateProjections = Map(
-                unknownParty -> Map(
+                Some(unknownParty) -> Map(
                   unknownTemplate -> Projection(contractArguments = true)
                 )
               ),
@@ -419,6 +591,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       result should have length 2
       resultUnknownParty should contain theSameElementsAs result
       resultUnknownTemplate should contain theSameElementsAs result
+      resultUnknownTemplatePartyWildcard should contain theSameElementsAs result
       resultUnknownPartyAndTemplate should contain theSameElementsAs result
 
       resultUnknownsOnly shouldBe empty
@@ -433,8 +606,8 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       activeContracts <- ledgerDao.transactionsReader
         .getActiveContracts(
           activeAt = end.lastOffset,
-          filter = TemplatePartiesFilter(Map.empty, Set(alice)),
-          eventProjectionProperties = EventProjectionProperties(verbose = true, Set(alice)),
+          filter = TemplatePartiesFilter(Map.empty, Some(Set(alice))),
+          eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set(alice))),
         )
         .runWith(Sink.seq)
 

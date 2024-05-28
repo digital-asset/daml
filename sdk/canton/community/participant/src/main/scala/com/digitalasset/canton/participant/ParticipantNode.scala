@@ -27,35 +27,13 @@ import com.digitalasset.canton.crypto.{
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.*
+import com.digitalasset.canton.health.*
 import com.digitalasset.canton.health.admin.data.ParticipantStatus
-import com.digitalasset.canton.health.{
-  ComponentStatus,
-  DependenciesHealthService,
-  GrpcHealthReporter,
-  LivenessHealthService,
-  MutableHealthComponent,
-}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, StaticGrpcServices}
-import com.digitalasset.canton.participant.admin.grpc.{
-  GrpcDomainConnectivityService,
-  GrpcInspectionService,
-  GrpcParticipantRepairService,
-  GrpcPartyNameManagementService,
-  GrpcPruningService,
-  GrpcResourceManagementService,
-  GrpcTrafficControlService,
-  GrpcTransferService,
-}
-import com.digitalasset.canton.participant.admin.{
-  MutablePackageNameMapResolver,
-  PackageDependencyResolver,
-  PackageOps,
-  PackageOpsImpl,
-  PackageService,
-  ResourceManagementService,
-}
+import com.digitalasset.canton.participant.admin.*
+import com.digitalasset.canton.participant.admin.grpc.*
 import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.domain.grpc.GrpcDomainRegistry
 import com.digitalasset.canton.participant.domain.{DomainAliasManager, DomainAliasResolution}
@@ -75,13 +53,7 @@ import com.digitalasset.canton.participant.scheduler.{
   SchedulersWithParticipantPruning,
 }
 import com.digitalasset.canton.participant.store.*
-import com.digitalasset.canton.participant.sync.{
-  CantonSyncService,
-  ParticipantEventPublisher,
-  SyncDomain,
-  SyncDomainPersistentStateManager,
-  SyncServiceError,
-}
+import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
 import com.digitalasset.canton.participant.topology.{
   LedgerServerPartyNotifier,
@@ -97,6 +69,7 @@ import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.time.admin.v30.DomainTimeServiceGrpc
+import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{
   DomainTopologyClient,
   IdentityProvidingServiceClient,
@@ -110,15 +83,6 @@ import com.digitalasset.canton.topology.transaction.{
   ParticipantPermission,
   PartyToParticipant,
   TopologyChangeOp,
-}
-import com.digitalasset.canton.topology.{
-  AuthorizedTopologyManager,
-  DomainId,
-  DomainTopologyManager,
-  Member,
-  ParticipantId,
-  PartyId,
-  UniqueIdentifier,
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, SingleUseCell}
@@ -151,6 +115,7 @@ class ParticipantNodeBootstrap(
     createSchedulers: ParticipantSchedulersParameters => Future[SchedulersWithParticipantPruning] =
       _ => Future.successful(SchedulersWithParticipantPruning.noop),
     private[canton] val persistentStateFactory: ParticipantNodePersistentStateFactory,
+    packageServiceFactory: PackageServiceFactory,
     ledgerApiServerFactory: CantonLedgerApiServerFactory,
     setInitialized: () => Unit,
 )(implicit
@@ -356,6 +321,7 @@ class ParticipantNodeBootstrap(
         crypto,
         storage,
         persistentStateFactory,
+        packageServiceFactory,
         engine,
         ledgerApiServerFactory,
         indexedStringStore,
@@ -486,6 +452,7 @@ class ParticipantNodeBootstrap(
       crypto: Crypto,
       storage: Storage,
       persistentStateFactory: ParticipantNodePersistentStateFactory,
+      packageServiceFactory: PackageServiceFactory,
       engine: Engine,
       ledgerApiServerFactory: CantonLedgerApiServerFactory,
       indexedStringStore: IndexedStringStore,
@@ -580,26 +547,26 @@ class ParticipantNodeBootstrap(
         loggerFactory,
       )
 
-      // TODO(#17635): Remove this inverse dependency between the PackageService and the LedgerAPI IndexService
-      //               with the unification of the Ledger API and Admin API package services.
-      //               This is a temporary solution for allowing exposure of the package-map contained in the [[InMemoryState]]
-      //               to the Admin API PackageService for package upload validation.
-      packageNameMapResolver = new MutablePackageNameMapResolver()
-      // Package Store and Management
-      packageService =
-        new PackageService(
-          engine,
-          packageDependencyResolver,
-          ephemeralState.participantEventPublisher,
-          syncCrypto.pureCrypto,
-          createPackageOps(syncDomainPersistentStateManager),
-          arguments.metrics,
-          parameterConfig.disableUpgradeValidation,
-          packageNameMapResolver,
-          parameterConfig.processingTimeouts,
-          loggerFactory,
+      packageService <- EitherT.right(
+        packageServiceFactory.create(
+          createAndInitialize = () =>
+            PackageService.createAndInitialize(
+              clock = clock,
+              engine = engine,
+              packageDependencyResolver = packageDependencyResolver,
+              enableUpgradeValidation = !parameterConfig.disableUpgradeValidation,
+              eventPublisher = ephemeralState.participantEventPublisher,
+              futureSupervisor = futureSupervisor,
+              hashOps = syncCrypto.pureCrypto,
+              loggerFactory = loggerFactory,
+              metrics = arguments.metrics,
+              packageMetadataViewConfig =
+                config.parameters.ledgerApiServer.indexer.packageMetadataView,
+              packageOps = createPackageOps(syncDomainPersistentStateManager),
+              timeouts = parameterConfig.processingTimeouts,
+            )
         )
-
+      )
       sequencerInfoLoader = new SequencerInfoLoader(
         parameterConfig.processingTimeouts,
         parameterConfig.tracing.propagation,
@@ -720,7 +687,6 @@ class ParticipantNodeBootstrap(
           arguments.metrics.httpApiServer,
           tracerProvider,
           adminToken,
-          packageNameMapResolver,
         )
 
     } yield {
@@ -731,7 +697,6 @@ class ParticipantNodeBootstrap(
           packageService,
           sync,
           participantId,
-          syncCrypto.pureCrypto,
           clock,
           adminServerRegistry,
           adminToken,
@@ -976,6 +941,7 @@ object ParticipantNodeBootstrap {
         createResourceService(arguments),
         createReplicationServiceFactory(arguments),
         persistentStateFactory = ParticipantNodePersistentStateFactory,
+        packageServiceFactory = PackageServiceFactory,
         ledgerApiServerFactory = ledgerApiServerFactory,
         setInitialized = () => (),
       )

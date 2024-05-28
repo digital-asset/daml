@@ -18,7 +18,6 @@ import com.digitalasset.canton.platform.store.interning.{
   StringInterningView,
   UpdatingStringInterningView,
 }
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadataView
 import org.mockito.{InOrder, Mockito, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -30,7 +29,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
   private val className = classOf[InMemoryState].getSimpleName
 
   s"$className.initialized" should "return false if not initialized" in withTestFixture {
-    case (inMemoryState, _, _, _, _, _, _, _, _, _, _) =>
+    case (inMemoryState, _, _, _, _, _, _, _, _) =>
       inMemoryState.initialized shouldBe false
   }
 
@@ -42,9 +41,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
           inMemoryFanoutBuffer,
           stringInterningView,
           dispatcherState,
-          packageMetadataView,
           updateStringInterningView,
-          updatePackageMetadataView,
           submissionTracker,
           inOrder,
         ) =>
@@ -56,15 +53,13 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
         .LedgerEnd(initOffset, initEventSequentialId, initStringInterningId)
 
       when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(Future.unit)
-      when(updatePackageMetadataView(packageMetadataView)).thenReturn(Future.unit)
       when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
       when(dispatcherState.isRunning).thenReturn(true)
 
       for {
         // INITIALIZED THE STATE
         _ <- inMemoryState.initializeTo(initLedgerEnd)(
-          updateStringInterningView,
-          updatePackageMetadataView,
+          updateStringInterningView
         )
 
         _ = {
@@ -72,7 +67,6 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
 
           inOrder.verify(dispatcherState).stopDispatcher()
           inOrder.verify(updateStringInterningView)(stringInterningView, initLedgerEnd)
-          inOrder.verify(updatePackageMetadataView)(packageMetadataView)
           inOrder.verify(contractStateCaches).reset(initOffset)
           inOrder.verify(inMemoryFanoutBuffer).flush()
           inOrder.verify(mutableLedgerEndCache).set(initOffset -> initEventSequentialId)
@@ -95,12 +89,10 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
             contractStateCaches,
             inMemoryFanoutBuffer,
             updateStringInterningView,
-            updatePackageMetadataView,
           )
           when(updateStringInterningView(stringInterningView, reInitLedgerEnd)).thenReturn(
             Future.unit
           )
-          when(updatePackageMetadataView(packageMetadataView)).thenReturn(Future.unit)
 
           when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
         }
@@ -111,8 +103,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
             case (`stringInterningView`, ledgerEnd: LedgerEnd) =>
               updateStringInterningView(stringInterningView, ledgerEnd)
             case (other, _) => fail(s"Unexpected stringInterningView reference $other")
-          },
-          updatePackageMetadataView,
+          }
         )
 
         // ASSERT STATE RE-INITIALIZED
@@ -122,7 +113,6 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
           when(dispatcherState.isRunning).thenReturn(false)
           inMemoryState.initialized shouldBe false
           inOrder.verify(updateStringInterningView)(stringInterningView, reInitLedgerEnd)
-          inOrder.verify(updatePackageMetadataView)(packageMetadataView)
           inOrder.verify(contractStateCaches).reset(reInitOffset)
           inOrder.verify(inMemoryFanoutBuffer).flush()
           inOrder.verify(mutableLedgerEndCache).set(reInitOffset -> reInitEventSequentialId)
@@ -142,9 +132,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
           InMemoryFanoutBuffer,
           StringInterningView,
           DispatcherState,
-          PackageMetadataView,
           (UpdatingStringInterningView, LedgerEnd) => Future[Unit],
-          PackageMetadataView => Future[Unit],
           SubmissionTracker,
           InOrder,
       ) => Future[Assertion]
@@ -154,9 +142,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
     val inMemoryFanoutBuffer = mock[InMemoryFanoutBuffer]
     val stringInterningView = mock[StringInterningView]
     val dispatcherState = mock[DispatcherState]
-    val packageMetadataView = mock[PackageMetadataView]
     val updateStringInterningView = mock[(UpdatingStringInterningView, LedgerEnd) => Future[Unit]]
-    val updatePackageMetadataView = mock[PackageMetadataView => Future[Unit]]
     val submissionTracker = mock[SubmissionTracker]
 
     // Mocks should be called in the asserted order
@@ -167,7 +153,6 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
       stringInterningView,
       dispatcherState,
       updateStringInterningView,
-      updatePackageMetadataView,
       submissionTracker,
     )
 
@@ -177,7 +162,6 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
       inMemoryFanoutBuffer = inMemoryFanoutBuffer,
       stringInterningView = stringInterningView,
       dispatcherState = dispatcherState,
-      packageMetadataView = packageMetadataView,
       submissionTracker = submissionTracker,
       loggerFactory = loggerFactory,
     )
@@ -189,9 +173,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
       inMemoryFanoutBuffer,
       stringInterningView,
       dispatcherState,
-      packageMetadataView,
       updateStringInterningView,
-      updatePackageMetadataView,
       submissionTracker,
       inOrderMockCalls,
     )

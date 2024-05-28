@@ -43,7 +43,6 @@ import com.digitalasset.canton.platform.config.{
   PartyManagementServiceConfig,
   UserManagementServiceConfig,
 }
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadataStore
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.{BindableService, ServerInterceptor}
 import io.opentelemetry.api.trace.Tracer
@@ -70,7 +69,6 @@ object ApiServiceOwner {
       maxDeduplicationDuration: NonNegativeFiniteDuration,
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
       tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration],
-      disableUpgradeValidation: Boolean,
       // immutable configuration parameters
       participantId: Ref.ParticipantId,
       meteringReportKey: MeteringReportKey = CommunityKey,
@@ -78,7 +76,6 @@ object ApiServiceOwner {
       indexService: IndexService,
       submissionTracker: SubmissionTracker,
       userManagementStore: UserManagementStore,
-      packageMetadataStore: PackageMetadataStore,
       identityProviderConfigStore: IdentityProviderConfigStore,
       partyRecordStore: PartyRecordStore,
       command: CommandServiceConfig = ApiServiceOwner.DefaultCommandServiceConfig,
@@ -163,7 +160,6 @@ object ApiServiceOwner {
         managementServiceTimeout = managementServiceTimeout.underlying,
         checkOverloaded = checkOverloaded,
         userManagementStore = userManagementStore,
-        packageMetadataStore = packageMetadataStore,
         identityProviderConfigStore = identityProviderConfigStore,
         partyRecordStore = partyRecordStore,
         ledgerFeatures = ledgerFeatures,
@@ -176,7 +172,6 @@ object ApiServiceOwner {
         loggerFactory = loggerFactory,
         authenticateContract = authenticateContract,
         dynParamGetter = dynParamGetter,
-        disableUpgradeValidation = disableUpgradeValidation,
       )(materializer, executionSequencerFactory, tracer)
         .map(_.withServices(otherServices))
       apiService <- new LedgerApiService(

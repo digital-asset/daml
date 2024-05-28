@@ -60,7 +60,11 @@ import org.scalatest.wordspec.AsyncWordSpec
 import java.util.UUID
 import scala.concurrent.Future
 
-class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with HasTestCloseContext {
+class TransferInProcessingStepsTest
+    extends AsyncWordSpec
+    with BaseTest
+    with HasTestCloseContext
+    with HasExecutionContext {
   private lazy val sourceDomain = SourceDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
   )

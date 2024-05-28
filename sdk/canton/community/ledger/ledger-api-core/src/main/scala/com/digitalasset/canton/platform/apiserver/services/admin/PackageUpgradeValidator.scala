@@ -3,8 +3,9 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
+import cats.data.EitherT
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.error.{ContextualizedErrorLogger, DamlError}
+import com.daml.error.DamlError
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
@@ -20,69 +21,69 @@ import scalaz.std.scalaFuture.futureInstance
 import scalaz.syntax.traverse.*
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.control.NonFatal
 
 class PackageUpgradeValidator(
-    getPackageMap: ContextualizedErrorLogger => Either[
-      DamlError,
-      Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
+    getPackageMap: LoggingContextWithTrace => Map[
+      Ref.PackageId,
+      (Ref.PackageName, Ref.PackageVersion),
     ],
     getLfArchive: LoggingContextWithTrace => Ref.PackageId => Future[Option[Archive]],
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
 
-  // TODO(##17635): Package upgrade validation is racy and can lead to actually allowing
-  //                upgrade-conflicting packages to be uploaded when DARs are uploaded concurrently.
   def validateUpgrade(upgradingPackage: (Ref.PackageId, Ast.Package))(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Unit] =
-    for {
-      packageMap <- getPackageMap(errorLoggingContext).fold(
-        err => Future.failed(err.asGrpcError),
-        Future.successful,
-      )
-      (upgradingPackageId, upgradingPackageAst) = upgradingPackage
-      optUpgradingDar = Some((upgradingPackageId, upgradingPackageAst))
-      _ = logger.info(
-        s"Uploading DAR file for $upgradingPackageId in submission ID ${loggingContext.serializeFiltered("submissionId")}."
-      )
-      result <- existingVersionedPackageId(upgradingPackageAst, packageMap) match {
-        case Some(uploadedPackageId) =>
-          if (uploadedPackageId == upgradingPackageId) {
-            logger.info(
-              s"Ignoring upload of package $upgradingPackageId as it has been previously uploaded"
-            )
-            Future.unit
-          } else {
-            Future.failed(
-              Validation.UpgradeVersion
-                .Error(uploadedPackageId, upgradingPackageId, upgradingPackageAst.metadata.version)
-                .asGrpcError
-            )
-          }
+  ): EitherT[Future, DamlError, Unit] = {
+    val packageMap = getPackageMap(loggingContext)
+    val (upgradingPackageId, upgradingPackageAst) = upgradingPackage
+    val optUpgradingDar = Some(upgradingPackage)
+    logger.info(
+      s"Uploading DAR file for $upgradingPackageId in submission ID ${loggingContext.serializeFiltered("submissionId")}."
+    )
+    existingVersionedPackageId(upgradingPackageAst, packageMap) match {
+      case Some(uploadedPackageId) =>
+        if (uploadedPackageId == upgradingPackageId) {
+          logger.info(
+            s"Ignoring upload of package $upgradingPackageId as it has been previously uploaded"
+          )
+          EitherT.rightT[Future, DamlError](())
+        } else {
+          EitherT.leftT[Future, Unit](
+            Validation.UpgradeVersion
+              .Error(
+                uploadedPackageId,
+                upgradingPackageId,
+                upgradingPackageAst.metadata.version,
+              ): DamlError
+          )
+        }
 
-        case None =>
-          for {
-            optMaximalDar <- maximalVersionedDar(
+      case None =>
+        for {
+          optMaximalDar <- EitherT.right[DamlError](
+            maximalVersionedDar(
               upgradingPackageAst,
               packageMap,
             )
-            _ <- typecheckUpgrades(
-              TypecheckUpgrades.MaximalDarCheck,
-              optUpgradingDar,
-              optMaximalDar,
-            )
-            optMinimalDar <- minimalVersionedDar(upgradingPackageAst, packageMap)
-            _ <- typecheckUpgrades(
-              TypecheckUpgrades.MinimalDarCheck,
-              optMinimalDar,
-              optUpgradingDar,
-            )
-            _ = logger.info(s"Typechecking upgrades for $upgradingPackageId succeeded.")
-          } yield ()
-      }
-    } yield result
+          )
+          _ <- typecheckUpgrades(
+            TypecheckUpgrades.MaximalDarCheck,
+            optUpgradingDar,
+            optMaximalDar,
+          )
+          optMinimalDar <- EitherT.right[DamlError](
+            minimalVersionedDar(upgradingPackageAst, packageMap)
+          )
+          _ <- typecheckUpgrades(
+            TypecheckUpgrades.MinimalDarCheck,
+            optMinimalDar,
+            optUpgradingDar,
+          )
+          _ = logger.info(s"Typechecking upgrades for $upgradingPackageId succeeded.")
+        } yield ()
+    }
+  }
 
   private def lookupDar(pkgId: Ref.PackageId)(implicit
       loggingContextWithTrace: LoggingContextWithTrace
@@ -148,41 +149,31 @@ class PackageUpgradeValidator(
       optOldPkg2: Option[Ast.Package],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Unit] = {
-    LoggingContextWithTrace.withEnrichedLoggingContext(
-      "upgradeTypecheckPhase" -> OfString(phase.toString)
-    ) { implicit loggingContext =>
-      optNewDar1 match {
-        case None =>
-          Future.unit
+  ): EitherT[Future, DamlError, Unit] = {
+    LoggingContextWithTrace
+      .withEnrichedLoggingContext("upgradeTypecheckPhase" -> OfString(phase.toString)) {
+        implicit loggingContext =>
+          optNewDar1 match {
+            case None => EitherT.rightT(())
 
-        case Some((newPkgId1, newPkg1)) =>
-          logger.info(s"Package $newPkgId1 claims to upgrade package id $oldPkgId2")
-          Future
-            .fromTry(
-              TypecheckUpgrades.typecheckUpgrades((newPkgId1, newPkg1), oldPkgId2, optOldPkg2)
-            )
-            .recoverWith {
-              case err: UpgradeError =>
-                Future.failed(
-                  Validation.Upgradeability
-                    .Error(newPkgId1, oldPkgId2, err)
-                    .asGrpcError
+            case Some((newPkgId1, newPkg1)) =>
+              logger.info(s"Package $newPkgId1 claims to upgrade package id $oldPkgId2")
+              EitherT(
+                Future(
+                  TypecheckUpgrades
+                    .typecheckUpgrades((newPkgId1, newPkg1), oldPkgId2, optOldPkg2)
+                    .toEither
                 )
-              case NonFatal(err) =>
-                Future.failed(
-                  InternalError
-                    .Unhandled(
-                      err,
-                      Some(
-                        s"Typechecking upgrades for $oldPkgId2 failed with unknown error."
-                      ),
-                    )
-                    .asGrpcError
-                )
-            }
+              ).leftMap[DamlError] {
+                case err: UpgradeError => Validation.Upgradeability.Error(newPkgId1, oldPkgId2, err)
+                case unhandledErr =>
+                  InternalError.Unhandled(
+                    unhandledErr,
+                    Some(s"Typechecking upgrades for $oldPkgId2 failed with unknown error."),
+                  )
+              }
+          }
       }
-    }
   }
 
   private def typecheckUpgrades(
@@ -191,10 +182,10 @@ class PackageUpgradeValidator(
       optOldDar2: Option[(Ref.PackageId, Ast.Package)],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Unit] = {
+  ): EitherT[Future, DamlError, Unit] =
     (optNewDar1, optOldDar2) match {
       case (None, _) | (_, None) =>
-        Future.unit
+        EitherT.rightT[Future, DamlError](())
 
       case (Some((newPkgId1, newPkg1)), Some((oldPkgId2, oldPkg2))) =>
         strictTypecheckUpgrades(
@@ -204,5 +195,4 @@ class PackageUpgradeValidator(
           Some(oldPkg2),
         )
     }
-  }
 }

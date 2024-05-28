@@ -195,9 +195,10 @@ class AdminWorkflowServices(
       withResource(AdminWorkflowServices.adminWorkflowDarInputStream())(ByteString.readFrom)
     handleDamlErrorDuringPackageLoading(
       packageService
-        .appendDarFromByteString(
-          bytes,
-          AdminWorkflowServices.AdminWorkflowDarResourceName,
+        .upload(
+          darBytes = bytes,
+          fileNameO = Some(AdminWorkflowServices.AdminWorkflowDarResourceName),
+          submissionIdO = None,
           vetAllPackages = true,
           synchronizeVetting = false,
         )

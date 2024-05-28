@@ -179,7 +179,7 @@ class SubmitRequestValidatorTest
       .thenReturn(Right(internal.disclosedContracts))
 
     new CommandsValidator(
-      validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.UpgradingDisabled,
+      validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.Empty,
       validateDisclosedContracts = validateDisclosedContractsMock,
     )
   }
@@ -463,7 +463,8 @@ class SubmitRequestValidatorTest
           )
 
         val failingDisclosedContractsValidator = new CommandsValidator(
-          validateDisclosedContracts = validateDisclosedContractsMock
+          validateDisclosedContracts = validateDisclosedContractsMock,
+          validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.Empty,
         )
 
         requestMustFailWith(

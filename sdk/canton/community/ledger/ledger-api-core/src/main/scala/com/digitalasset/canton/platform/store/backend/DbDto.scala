@@ -122,6 +122,7 @@ object DbDto {
       record_time: Long,
   ) extends DbDto
 
+  // TODO(#17635): Remove me
   final case class PackageEntry(
       ledger_offset: String,
       recorded_at: Long,
@@ -130,6 +131,7 @@ object DbDto {
       rejection_reason: Option[String],
   ) extends DbDto
 
+  // TODO(#17635): Remove me
   final case class Package(
       package_id: String,
       upload_id: String,

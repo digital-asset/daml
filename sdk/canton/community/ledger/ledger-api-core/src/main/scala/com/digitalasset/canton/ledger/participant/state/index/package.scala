@@ -73,6 +73,7 @@ package index {
     * @param sourceDescription : Optional description provided by the backing
     *   participant describing where it got the package from.
     */
+  // TODO(#17635): Consider using PackageDescription instead
   final case class PackageDetails(
       size: Long,
       knownSince: Timestamp,

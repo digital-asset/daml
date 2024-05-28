@@ -25,7 +25,7 @@ import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.grpc.Logging.traceId
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.ledger.participant.state.index.IndexPackagesService
+import com.digitalasset.canton.ledger.participant.state.ReadService
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
@@ -43,7 +43,7 @@ import io.grpc.ServerServiceDefinition
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiPackageService(
-    backend: IndexPackagesService,
+    readService: ReadService,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -59,9 +59,10 @@ private[apiserver] final class ApiPackageService(
   override def close(): Unit = ()
 
   override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] = {
-    implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
+    implicit val loggingContextWithTrace: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory, telemetry)
     logger.info(s"Received request to list packages: $request")
-    backend
+    readService
       .listLfPackages()
       .map(p => ListPackagesResponse(p.keys.toSeq))
       .andThen(logger.logErrorsOnCall[ListPackagesResponse])
@@ -74,7 +75,7 @@ private[apiserver] final class ApiPackageService(
     ) { implicit loggingContext =>
       logger.info(s"Received request for a package: $request")
       withValidatedPackageId(request.packageId, request) { packageId =>
-        backend
+        readService
           .getLfArchive(packageId)
           .flatMap {
             case None =>
@@ -99,7 +100,7 @@ private[apiserver] final class ApiPackageService(
     ) { implicit loggingContext =>
       logger.info(s"Received request for a package status: $request")
       withValidatedPackageId(request.packageId, request) { packageId =>
-        backend
+        readService
           .listLfPackages()
           .map { packages =>
             val result = if (packages.contains(packageId)) {
