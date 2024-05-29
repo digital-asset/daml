@@ -917,7 +917,7 @@ scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
-        # "//daml-lf/validation",
+        "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
         "//libs-scala/executors",
         "//libs-scala/jwt",
@@ -1077,6 +1077,7 @@ scala_library(
         "@maven//:org_codehaus_janino_janino",  # for parsing conditionals in logback configuration
     ],
     deps = [
+        "@maven//:com_google_protobuf_protobuf_java",
         ":community_app-base",
         ":community_base",
         ":community_buildinfo",
