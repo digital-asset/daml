@@ -102,7 +102,7 @@ scaladoc_jar(
 da_scala_library(
     name = "test-lib",
     srcs = glob(
-        ["src/test-lib/scala/**/*.scala"]
+        ["src/test-lib/scala/**/*.scala"],
     ),
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
