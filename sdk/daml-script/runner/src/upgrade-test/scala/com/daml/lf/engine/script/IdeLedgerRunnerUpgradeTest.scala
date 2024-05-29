@@ -42,6 +42,7 @@ final class IdeLedgerRunnerUpgradeTest extends AsyncWordSpec with RunnerTestBase
             Seq(
               "--ide-ledger",
               s"--script-name=${testCase.name}:main",
+              "--enable-contract-upgrading",
             ),
             Right(Seq()),
           )
@@ -306,6 +307,5 @@ final class IdeLedgerRunnerUpgradeTest extends AsyncWordSpec with RunnerTestBase
       }
     }
   }
-
 
 }

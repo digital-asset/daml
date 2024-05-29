@@ -79,12 +79,12 @@ explicitRemovedV1ChoiceV2Contract = choiceTest @V1.AddedRemovedChoiceTemplate (`
 implicitRemovedV1ChoiceV2Contract : Script ()
 implicitRemovedV1ChoiceV2Contract =
   genericUpgradeTest @V1.AddedRemovedChoiceTemplate (`V2.AddedRemovedChoiceTemplate` None) V1.OldRemovedChoice False $ \case
-    Left (UnknownError msg) | "unknown choice OldRemovedChoice" `isInfixOf` msg -> pure ()
+    Left (UnknownError msg) | "OldRemovedChoice" `isInfixOf` msg -> pure ()
     res -> assertFail $ "Expected unknown choice error, got " <> show res
 
 implicitRemovedV1ChoiceV1Contract : Script ()
 implicitRemovedV1ChoiceV1Contract =
   genericUpgradeTest @V1.AddedRemovedChoiceTemplate V1.AddedRemovedChoiceTemplate V1.OldRemovedChoice False $ \case
-    Left (UnknownError msg) | "unknown choice OldRemovedChoice" `isInfixOf` msg -> pure ()
+    Left (UnknownError msg) | "OldRemovedChoice" `isInfixOf` msg -> pure ()
     res -> assertFail $ "Expected unknown choice error, got " <> show res
 
