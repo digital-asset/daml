@@ -340,6 +340,7 @@ class ApiCodecCompressedSpec
     )
 
     // For Java 17+, we expect Instant.parse to succeed for these cases when parsing ISO 8601 timestamps
+    // - see https://bugs.openjdk.org/browse/JDK-8166138
     val java17Successes = Seq(
       c("\"1969-12-31T23:00:00Z\"", VA.timestamp)(Time.Timestamp.assertFromLong(-3600000000L), "\"1970-01-01T00:00:00+01:00\""),
     )
@@ -379,6 +380,7 @@ class ApiCodecCompressedSpec
     )
 
     // For Java 11, we expect Instant.parse to fail for these cases when parsing ISO 8601 timestamps
+    // - see https://bugs.openjdk.org/browse/JDK-8166138
     val java11Failures = Seq(
       ("\"1970-01-01T00:00:00+01:00\"", VA.timestamp, ""),
     )
