@@ -13,8 +13,7 @@ import com.daml.lf.language.Ast.EVal
 import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SExpr.{SEValue, SExpr}
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
-import com.daml.lf.value.Value
+import com.daml.lf.transaction.{FatContractInstance, GlobalKey, NodeId, SubmittedTransaction}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.Speedy.{Control, Machine, ScenarioMachine}
@@ -76,7 +75,7 @@ private[lf] class CollectAuthorityState {
   // The maps are indexed by step number.
   private var cachedParty: Map[Int, Party] = Map()
   private var cachedCommit: Map[Int, SValue] = Map()
-  private var cachedContract: Map[Int, Value.VersionedContractInstance] = Map()
+  private var cachedContract: Map[Int, FatContractInstance] = Map()
 
   // This is function that we benchmark
   def run(): Unit = {
@@ -173,33 +172,33 @@ private[lf] class CollectAuthorityState {
 private[lf] class CachedLedgerApi(initStep: Int, ledger: ScenarioLedger)
     extends ScenarioRunner.ScenarioLedgerApi(ledger) {
   var step = initStep
-  var cachedContract: Map[Int, Value.VersionedContractInstance] = Map()
+  var cachedContract: Map[Int, FatContractInstance] = Map()
   override def lookupContract(
       coid: ContractId,
       actAs: Set[Party],
       readAs: Set[Party],
-      callback: Value.VersionedContractInstance => Unit,
+      callback: FatContractInstance => Unit,
   ): Either[scenario.Error, Unit] = {
     step += 1
     super.lookupContract(
       coid,
       actAs,
       readAs,
-      { coinst => cachedContract += step -> coinst; callback(coinst) },
+      { fcoinst => cachedContract += step -> fcoinst; callback(fcoinst) },
     )
   }
 }
 
 private[lf] class CannedLedgerApi(
     initStep: Int,
-    cachedContract: Map[Int, Value.VersionedContractInstance],
+    cachedContract: Map[Int, FatContractInstance],
 ) extends ScenarioRunner.LedgerApi[Unit] {
   var step = initStep
   override def lookupContract(
       coid: ContractId,
       actAs: Set[Party],
       readAs: Set[Party],
-      callback: Value.VersionedContractInstance => Unit,
+      callback: FatContractInstance => Unit,
   ): Either[scenario.Error, Unit] = {
     step += 1
     val coinst = cachedContract(step)
