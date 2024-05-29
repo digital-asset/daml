@@ -12,7 +12,7 @@ class ProtocolVersionCompatibilityTest extends AnyWordSpec with BaseTest {
     "version check" should {
       "be successful for matching unstable versions" in {
         canClientConnectToServer(
-          clientSupportedVersions = Seq(ProtocolVersion.latest, ProtocolVersion.dev),
+          clientSupportedVersions = Seq(testedProtocolVersion, ProtocolVersion.dev),
           server = ProtocolVersion.dev,
           None,
         ) shouldBe Right(())
@@ -20,8 +20,8 @@ class ProtocolVersionCompatibilityTest extends AnyWordSpec with BaseTest {
 
       "be successful for matching stable versions" in {
         canClientConnectToServer(
-          clientSupportedVersions = Seq(ProtocolVersion.latest),
-          server = ProtocolVersion.latest,
+          clientSupportedVersions = Seq(testedProtocolVersion),
+          server = testedProtocolVersion,
           None,
         ) shouldBe Right(())
       }

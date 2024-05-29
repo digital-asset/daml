@@ -66,7 +66,7 @@ import com.digitalasset.canton.topology.{
   ParticipantId,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
+import com.digitalasset.canton.version.HasToByteString
 import com.digitalasset.canton.{BaseTest, LfPartyId, RequestCounter, SequencerCounter}
 import com.google.protobuf.ByteString
 
@@ -327,11 +327,11 @@ object TestProcessingSteps {
       domainId: DomainId = DefaultTestIdentities.domainId,
       mediator: MediatorRef = MediatorRef(DefaultTestIdentities.mediator),
   ) extends ViewTree
-      with HasVersionedToByteString {
+      with HasToByteString {
 
     def toBeSigned: Option[RootHash] = None
     override def pretty: Pretty[TestViewTree] = adHocPrettyInstance
-    override def toByteString(version: ProtocolVersion): ByteString =
+    override def toByteString: ByteString =
       throw new UnsupportedOperationException("TestViewTree cannot be serialized")
   }
 

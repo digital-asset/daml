@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.admin
 
+import cats.Eval
 import cats.data.EitherT
 import cats.implicits.toBifunctorOps
 import cats.syntax.either.*
@@ -11,23 +12,18 @@ import cats.syntax.parallel.*
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.daml.lf.archive
-import com.daml.lf.archive.{DarParser, Decode, Error as LfArchiveError}
+import com.daml.lf.archive.{DarParser, Error as LfArchiveError}
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast.Package
+import com.digitalasset.canton.LedgerSubmissionId
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.DarName
-import com.digitalasset.canton.config.CantonRequireTypes.{String255, String256M}
+import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.{Hash, HashOps, HashPurpose}
 import com.digitalasset.canton.error.CantonError
-import com.digitalasset.canton.ledger.error.{CommonErrors, PackageServiceErrors}
+import com.digitalasset.canton.ledger.error.PackageServiceErrors
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
-import com.digitalasset.canton.logging.{
-  ErrorLoggingContext,
-  LoggingContextWithTrace,
-  NamedLoggerFactory,
-  NamedLogging,
-}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode.{
   CannotRemoveOnlyDarForPackage,
@@ -37,25 +33,19 @@ import com.digitalasset.canton.participant.admin.CantonPackageServiceError.Packa
 }
 import com.digitalasset.canton.participant.admin.PackageService.*
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
-import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.participant.store.DamlPackageStore.readPackageId
-import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, ParticipantEventPublisher}
-import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.protocol.{PackageDescription, PackageInfoService}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{EitherTUtil, PathUtils}
-import com.digitalasset.canton.{LedgerSubmissionId, LfPackageId, LfPackageName, LfPackageVersion}
 import com.google.protobuf.ByteString
 import slick.jdbc.GetResult
 
 import java.nio.file.Paths
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.ZipInputStream
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 trait DarService {
   def appendDarFromByteString(
@@ -71,14 +61,11 @@ trait DarService {
 }
 
 class PackageService(
-    engine: Engine,
     val dependencyResolver: PackageDependencyResolver,
-    eventPublisher: ParticipantEventPublisher,
+    packageUploader: Eval[PackageUploader],
     hashOps: HashOps,
     packageOps: PackageOps,
     metrics: ParticipantMetrics,
-    disableUpgradeValidation: Boolean,
-    packageNameMapResolver: PackageNameMapResolver,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -89,11 +76,6 @@ class PackageService(
 
   private val packageLoader = new DeduplicatingPackageLoader()
   private val packagesDarsStore = dependencyResolver.damlPackageStore
-  private val packageUpgradeValidator = new PackageUpgradeValidator(
-    implicit contextualizedErrorLogger => packageNameMapResolver.getPackageNameMap,
-    loggingContextWithTrace => pkgId => getLfArchive(pkgId)(loggingContextWithTrace.traceContext),
-    loggerFactory,
-  )
 
   def getLfArchive(packageId: PackageId)(implicit
       traceContext: TraceContext
@@ -297,70 +279,18 @@ class PackageService(
       filename: String,
       vetAllPackages: Boolean,
       synchronizeVetting: Boolean,
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Hash] =
-    appendDar(
-      payload,
-      PathUtils.getFilenameWithoutExtension(Paths.get(filename).getFileName),
-      vetAllPackages,
-      synchronizeVetting,
-    )
-
-  private def catchUpstreamErrors[E](
-      attempt: Either[LfArchiveError, E]
-  )(implicit traceContext: TraceContext): EitherT[Future, DamlError, E] =
-    EitherT.fromEither(attempt match {
-      case Right(value) => Right(value)
-      case Left(LfArchiveError.InvalidDar(entries, cause)) =>
-        Left(PackageServiceErrors.Reading.InvalidDar.Error(entries.entries.keys.toSeq, cause))
-      case Left(LfArchiveError.InvalidZipEntry(name, entries)) =>
-        Left(
-          PackageServiceErrors.Reading.InvalidZipEntry.Error(name, entries.entries.keys.toSeq)
-        )
-      case Left(LfArchiveError.InvalidLegacyDar(entries)) =>
-        Left(PackageServiceErrors.Reading.InvalidLegacyDar.Error(entries.entries.keys.toSeq))
-      case Left(LfArchiveError.ZipBomb) =>
-        Left(PackageServiceErrors.Reading.ZipBomb.Error(LfArchiveError.ZipBomb.getMessage))
-      case Left(e: LfArchiveError) =>
-        Left(PackageServiceErrors.Reading.ParseError.Error(e.msg))
-      case Left(e) =>
-        Left(PackageServiceErrors.InternalError.Unhandled(e))
-    })
-
-  private def appendDar(
-      payload: ByteString,
-      darName: String,
-      vetAllPackages: Boolean,
-      synchronizeVetting: Boolean,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Hash] = {
     val hash = hashOps.digest(HashPurpose.DarIdentifier, payload)
-    val stream = new ZipInputStream(payload.newInput())
-    val ret: EitherT[FutureUnlessShutdown, DamlError, Hash] = for {
-      lengthValidatedName <- EitherT
-        .fromEither[FutureUnlessShutdown](
-          String255
-            .create(darName, Some("DAR file name"))
-        )
-        .leftMap(PackageServiceErrors.Reading.InvalidDarFileName.Error(_))
-      dar <- catchUpstreamErrors(DarParser.readArchive(darName, stream))
-        .mapK(FutureUnlessShutdown.outcomeK)
-      // Validate the packages before storing them in the DAR store or the package store
-      _ <- validateArchives(dar).mapK(FutureUnlessShutdown.outcomeK)
-      _ <- storeValidatedPackagesAndSyncEvent(
-        dar.all,
-        lengthValidatedName.asString1GB,
-        LedgerSubmissionId.assertFromString(UUID.randomUUID().toString),
-        Some(
-          PackageService.Dar(DarDescriptor(hash, lengthValidatedName), payload.toByteArray)
-        ),
-        vetAllPackages = vetAllPackages,
-        synchronizeVetting = synchronizeVetting,
-      )
+    val darName = PathUtils.getFilenameWithoutExtension(Paths.get(filename).getFileName)
 
-    } yield hash
-    ret.transform { res =>
-      stream.close()
-      res
-    }
+    upload(
+      darBytes = payload,
+      fileNameO = Some(darName),
+      sourceDescriptionO = None,
+      submissionId = LedgerSubmissionId.assertFromString(UUID.randomUUID().toString),
+      vetAllPackages = vetAllPackages,
+      synchronizeVetting = synchronizeVetting,
+    ).map(_ => hash)
   }
 
   override def getDar(hash: Hash)(implicit
@@ -382,43 +312,6 @@ class PackageService(
         .map(_.toRight(s"No such dar ${darId}").flatMap(PackageService.darToLf))
     )
 
-  private def validateArchives(archives: archive.Dar[DamlLf.Archive])(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, DamlError, Unit] =
-    for {
-      mainPackage <- catchUpstreamErrors(Decode.decodeArchive(archives.main))
-      dependencies <- archives.dependencies
-        .parTraverse(archive => catchUpstreamErrors(Decode.decodeArchive(archive)))
-      _ <- EitherT.fromEither[Future](
-        engine
-          .validatePackages((mainPackage :: dependencies).toMap)
-          .leftMap(
-            PackageServiceErrors.Validation.handleLfEnginePackageError(_): DamlError
-          )
-      )
-      _ <-
-        if (disableUpgradeValidation) {
-          logger.info(
-            s"Package upgrade validation is disabled. Skipping upgrade validation for package ${mainPackage._1}."
-          )
-          EitherT.rightT[Future, DamlError](())
-        } else
-          mainPackage._2.metadata match {
-            case Some(packageMetadata) =>
-              EitherT
-                .right[DamlError](
-                  packageUpgradeValidator.validateUpgrade(mainPackage, packageMetadata)(
-                    LoggingContextWithTrace(loggerFactory)
-                  )
-                )
-            case None =>
-              logger.info(
-                s"Package metadata is not defined for ${mainPackage._1}. Skipping upgrade validation."
-              )
-              EitherT.rightT[Future, DamlError](())
-          }
-    } yield ()
-
   def vetPackages(packages: Seq[PackageId], syncVetting: Boolean)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, DamlError, Unit] =
@@ -429,73 +322,42 @@ class PackageService(
         CantonPackageServiceError.IdentityManagerParentError(err)
       }
 
-  /** Stores archives in the store and sends package upload event to participant event log for inclusion in ledger
-    * sync event stream. This allows the ledger api server to update its package store accordingly and unblock
-    * synchronous upload request if the request originated in the ledger api.
-    * @param archives The archives to store. They must have been decoded and package-validated before.
-    * @param sourceDescription description of the source of the package
+  /** Performs the upload DAR flow:
+    *   1. Decodes the provided DAR payload
+    *   2. Validates the resulting Daml packages
+    *   3. Persists the DAR and decoded archives in the DARs and package stores
+    *   4. Dispatches the package upload event for inclusion in the ledger sync event stream
+    *   5. Updates the in-memory package-id resolution state used for subsequent validations
+    *   6. Issues a package vetting topology transaction for all uploaded packages (if `vetAllPackages` is enabled) and waits for
+    *      for its completion (if `synchronizeVetting` is enabled).
+    * @param darBytes The DAR payload to store.
+    * @param fileNameO The DAR filename, present if uploaded via the Admin API.
+    * @param sourceDescriptionO description of the source of the package
     * @param submissionId upstream submissionId for ledger api server to recognize previous package upload requests
     * @param vetAllPackages if true, then the packages will be vetted automatically
     * @param synchronizeVetting if true, the future will terminate once the participant observed the package vetting on all connected domains
-    * @return future holding whether storing and/or event sending failed (relevant to upstream caller)
     */
-  def storeValidatedPackagesAndSyncEvent(
-      archives: List[DamlLf.Archive],
-      sourceDescription: String256M,
+  def upload(
+      darBytes: ByteString,
+      fileNameO: Option[String],
+      sourceDescriptionO: Option[String],
       submissionId: LedgerSubmissionId,
-      dar: Option[Dar],
       vetAllPackages: Boolean,
       synchronizeVetting: Boolean,
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Unit] = {
-
-    EitherT
-      .right(
-        packagesDarsStore
-          .append(archives, sourceDescription, dar)
-          .map { _ =>
-            // update our dependency cache
-            // we need to do this due to an issue we can hit if we have pre-populated the cache
-            // with the information about the package not being present (with a None)
-            // now, that the package is loaded, we need to get rid of this None.
-            dependencyResolver.clearPackagesNotPreviouslyFound()
-          }
-          .transformWith {
-            case Success(_) =>
-              logger.debug(
-                s"Managed to upload one or more archives in submissionId $submissionId and sourceDescription $sourceDescription"
-              )
-              eventPublisher.publish(
-                LedgerSyncEvent.PublicPackageUpload(
-                  archives = archives,
-                  sourceDescription = Some(sourceDescription.unwrap),
-                  recordTime = ParticipantEventPublisher.now.toLf,
-                  submissionId = Some(submissionId),
-                )
-              )
-            case Failure(e) =>
-              logger.warn(
-                s"Failed to upload one or more archives in submissionId $submissionId and sourceDescription $sourceDescription",
-                e,
-              )
-              eventPublisher.publish(
-                LedgerSyncEvent.PublicPackageUploadRejected(
-                  rejectionReason = e.getMessage,
-                  recordTime = ParticipantEventPublisher.now.toLf,
-                  submissionId = submissionId,
-                )
-              )
-          }
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Unit] =
+    for {
+      uploadedPackageIds <- packageUploader.value.validateAndStorePackages(
+        darPayload = darBytes,
+        fileNameO = fileNameO,
+        sourceDescriptionO = sourceDescriptionO,
+        submissionId = submissionId,
       )
-      .flatMap { _ =>
-        if (vetAllPackages)
-          vetPackages(archives.map(DamlPackageStore.readPackageId), synchronizeVetting)
-        else
-          EitherT.rightT(())
-      }
-  }
+      _ <- EitherTUtil.ifThenET(vetAllPackages)(
+        vetPackages(uploadedPackageIds, synchronizeVetting)
+      )
+    } yield ()
 
   override def onClosed(): Unit = Lifecycle.close(packagesDarsStore)(logger)
-
 }
 
 object PackageService {
@@ -521,6 +383,29 @@ object PackageService {
       GetResult(r => Dar(r.<<, r.<<))
   }
 
+  def catchUpstreamErrors[T](
+      attempt: Either[LfArchiveError, T]
+  )(implicit
+      executionContext: ExecutionContext,
+      contextualizedErrorLogger: ContextualizedErrorLogger,
+  ): EitherT[FutureUnlessShutdown, DamlError, T] = {
+
+    EitherT.fromEither {
+      attempt.leftMap {
+        case LfArchiveError.InvalidDar(entries, cause) =>
+          PackageServiceErrors.Reading.InvalidDar.Error(entries.entries.keys.toSeq, cause)
+        case LfArchiveError.InvalidZipEntry(name, entries) =>
+          PackageServiceErrors.Reading.InvalidZipEntry.Error(name, entries.entries.keys.toSeq)
+        case LfArchiveError.InvalidLegacyDar(entries) =>
+          PackageServiceErrors.Reading.InvalidLegacyDar.Error(entries.entries.keys.toSeq)
+        case LfArchiveError.ZipBomb =>
+          PackageServiceErrors.Reading.ZipBomb.Error(LfArchiveError.ZipBomb.getMessage)
+        case e: LfArchiveError => PackageServiceErrors.Reading.ParseError.Error(e.msg)
+        case e => PackageServiceErrors.InternalError.Unhandled(e)
+      }
+    }
+  }
+
   private def darToLf(
       dar: Dar
   ): Either[String, (DarDescriptor, archive.Dar[DamlLf.Archive])] = {
@@ -536,38 +421,4 @@ object PackageService {
         x => Right(dar.descriptor -> x),
       )
   }
-
-}
-
-// TODO(#17635): Remove this inverse mutable reference wrapper
-//               with the unification of the Ledger API and Admin API package services
-sealed trait PackageNameMapResolver {
-  def getPackageNameMap(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[DamlError, Map[LfPackageId, (LfPackageName, LfPackageVersion)]]
-}
-
-final class MutablePackageNameMapResolver extends PackageNameMapResolver {
-  private val ref
-      : AtomicReference[Option[() => Map[LfPackageId, (LfPackageName, LfPackageVersion)]]] =
-    new AtomicReference(None)
-  def getPackageNameMap(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[DamlError, Map[LfPackageId, (LfPackageName, LfPackageVersion)]] =
-    ref
-      .get()
-      .map(_())
-      .toRight(CommonErrors.ServiceNotRunning.Reject("PackageNameMapResolver"))
-
-  def setReference(f: () => Map[LfPackageId, (LfPackageName, LfPackageVersion)]): Unit =
-    ref.set(Some(f))
-
-  def unset(): Unit = ref.set(None)
-}
-
-object PackageNameMapResolverForTesting extends PackageNameMapResolver {
-  override def getPackageNameMap(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[DamlError, Map[PackageId, (LfPackageName, LfPackageVersion)]] =
-    Right(Map.empty)
 }

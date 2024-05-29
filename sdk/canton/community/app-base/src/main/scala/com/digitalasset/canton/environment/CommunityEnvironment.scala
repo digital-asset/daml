@@ -13,7 +13,6 @@ import com.digitalasset.canton.console.{
   CommunityRemoteDomainReference,
   ConsoleEnvironment,
   ConsoleEnvironmentBinding,
-  ConsoleGrpcAdminCommandRunner,
   ConsoleOutput,
   DomainReference,
   FeatureFlag,
@@ -48,10 +47,9 @@ class CommunityEnvironment(
   override type Console = CommunityConsoleEnvironment
 
   override protected def _createConsole(
-      consoleOutput: ConsoleOutput,
-      createAdminCommandRunner: ConsoleEnvironment => ConsoleGrpcAdminCommandRunner,
+      consoleOutput: ConsoleOutput
   ): CommunityConsoleEnvironment =
-    new CommunityConsoleEnvironment(this, consoleOutput, createAdminCommandRunner)
+    new CommunityConsoleEnvironment(this, consoleOutput)
 
   override protected lazy val migrationsFactory: DbMigrationsFactory =
     new CommunityDbMigrationsFactory(loggerFactory)
@@ -77,8 +75,6 @@ object CommunityEnvironmentFactory extends EnvironmentFactory[CommunityEnvironme
 class CommunityConsoleEnvironment(
     val environment: CommunityEnvironment,
     val consoleOutput: ConsoleOutput = StandardConsoleOutput,
-    protected val createAdminCommandRunner: ConsoleEnvironment => ConsoleGrpcAdminCommandRunner =
-      new ConsoleGrpcAdminCommandRunner(_),
 ) extends ConsoleEnvironment {
   override type Env = CommunityEnvironment
   override type DomainLocalRef = CommunityLocalDomainReference

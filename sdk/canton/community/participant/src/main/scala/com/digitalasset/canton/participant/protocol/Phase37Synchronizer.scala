@@ -87,6 +87,7 @@ class Phase37Synchronizer(
       val requestRelation: RequestRelation[requestType.PendingRequestData] = RequestRelation(
         promise.future
           .map(_.onShutdown(None).orElse {
+            logger.debug(s"Removing request $requestId from pending requests.")
             blocking(synchronized {
               pendingRequests.remove_(ts)
             })

@@ -17,7 +17,7 @@ import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.participant.store.memory.InMemoryDamlPackageStore.defaultPackageDescription
 import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{DiscardOps, LfPackageId}
+import com.digitalasset.canton.{DiscardOps, LfPackageId, LfPackageName, LfPackageVersion}
 
 import java.util.concurrent.ConcurrentHashMap
 import scala.collection.concurrent
@@ -30,8 +30,14 @@ class InMemoryDamlPackageStore(override protected val loggerFactory: NamedLogger
     with NamedLogging {
   import DamlPackageStore.*
 
-  private val pkgData: concurrent.Map[LfPackageId, (DamlLf.Archive, String256M)] =
-    new ConcurrentHashMap[LfPackageId, (DamlLf.Archive, String256M)].asScala
+  private val pkgData: concurrent.Map[
+    LfPackageId,
+    (DamlLf.Archive, String256M, Option[LfPackageName], Option[LfPackageVersion]),
+  ] =
+    new ConcurrentHashMap[
+      LfPackageId,
+      (DamlLf.Archive, String256M, Option[LfPackageName], Option[LfPackageVersion]),
+    ].asScala
 
   private val darData: concurrent.Map[Hash, (Array[Byte], String255)] =
     new ConcurrentHashMap[Hash, (Array[Byte], String255)].asScala
@@ -40,29 +46,31 @@ class InMemoryDamlPackageStore(override protected val loggerFactory: NamedLogger
     new ConcurrentHashMap[Hash, Set[LfPackageId]].asScala
 
   override def append(
-      pkgs: List[DamlLf.Archive],
+      pkgs: Seq[(DamlLf.Archive, Option[LfPackageName], Option[LfPackageVersion])],
       sourceDescription: String256M,
       dar: Option[PackageService.Dar],
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
 
-    val pkgIds = pkgs.map(readPackageId)
+    val pkgIds = pkgs.map(pkg => readPackageId(pkg._1))
 
-    pkgs.foreach { pkgArchive =>
+    pkgs.foreach { case (pkgArchive, packageNameO, packageVersionO) =>
       val packageId = readPackageId(pkgArchive)
       // only update the description if the given one is not empty
       if (sourceDescription.nonEmpty)
         pkgData
-          .put(packageId, (pkgArchive, sourceDescription))
-          .discard[Option[(DamlLf.Archive, String256M)]]
+          .put(packageId, (pkgArchive, sourceDescription, packageNameO, packageVersionO))
+          .discard
       else
         pkgData
           .updateWith(packageId) {
-            case None => Some(pkgArchive -> defaultPackageDescription)
-            case Some((_, oldDescription)) => Some(pkgArchive -> oldDescription)
+            case None =>
+              Some((pkgArchive, defaultPackageDescription, packageNameO, packageVersionO))
+            case Some((_, oldDescription, _, _)) =>
+              Some((pkgArchive, oldDescription, packageNameO, packageVersionO))
           }
-          .discard[Option[(DamlLf.Archive, String256M)]]
+          .discard
     }
 
     dar.foreach { dar =>
@@ -83,9 +91,11 @@ class InMemoryDamlPackageStore(override protected val loggerFactory: NamedLogger
   override def getPackageDescription(
       packageId: LfPackageId
   )(implicit traceContext: TraceContext): Future[Option[PackageDescription]] =
-    Future.successful(pkgData.get(packageId).map { case (_, sourceDescription) =>
-      PackageDescription(packageId, sourceDescription)
-    })
+    Future.successful(
+      pkgData.get(packageId).map { case (_, sourceDescription, packageNameO, packageVersionO) =>
+        PackageDescription(packageId, sourceDescription, packageNameO, packageVersionO)
+      }
+    )
 
   override def listPackages(
       limit: Option[Int]
@@ -93,8 +103,8 @@ class InMemoryDamlPackageStore(override protected val loggerFactory: NamedLogger
     Future.successful(
       pkgData
         .take(limit.getOrElse(Int.MaxValue))
-        .map { case (pid, (_, sourceDescription)) =>
-          PackageDescription(pid, sourceDescription)
+        .map { case (pid, (_, sourceDescription, pkgNameO, pkgVersionO)) =>
+          PackageDescription(pid, sourceDescription, pkgNameO, pkgVersionO)
         }
         .to(Seq)
     )

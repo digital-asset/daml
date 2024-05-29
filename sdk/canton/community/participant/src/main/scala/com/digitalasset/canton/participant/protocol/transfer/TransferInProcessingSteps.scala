@@ -267,7 +267,7 @@ private[transfer] class TransferInProcessingSteps(
         targetProtocolVersion.v,
       ) { bytes =>
         FullTransferInTree
-          .fromByteString(snapshot.pureCrypto, targetProtocolVersion.v)(bytes)
+          .fromByteString(snapshot.pureCrypto, targetProtocolVersion)(bytes)
           .leftMap(e => DefaultDeserializationError(e.toString))
       }
       .map(WithRecipients(_, envelope.recipients))
@@ -699,7 +699,7 @@ object TransferInProcessingSteps {
           targetProtocolVersion,
         )
         .leftMap(reason => InvalidTransferView(reason))
-      tree = TransferInViewTree(commonData, view)(pureCrypto)
+      tree = TransferInViewTree(commonData, view, targetProtocolVersion, pureCrypto)
     } yield FullTransferInTree(tree)
   }
 

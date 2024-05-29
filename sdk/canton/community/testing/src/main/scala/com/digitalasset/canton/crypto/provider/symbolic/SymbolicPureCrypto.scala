@@ -9,7 +9,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.serialization.{DeserializationError, DeterministicEncoding}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ByteStringUtil
-import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
+import com.digitalasset.canton.version.{HasToByteString, HasVersionedToByteString, ProtocolVersion}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
@@ -99,10 +99,9 @@ class SymbolicPureCrypto() extends CryptoPureApi {
   ): Either[EncryptionKeyCreationError, SymmetricKey] =
     Right(SymmetricKey(CryptoKeyFormat.Symbolic, bytes.unwrap, scheme))
 
-  private def encryptWith[M <: HasVersionedToByteString](
-      message: M,
+  private def encryptWith[M](
+      bytes: ByteString,
       publicKey: EncryptionPublicKey,
-      version: ProtocolVersion,
       randomized: Boolean,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     for {
@@ -114,11 +113,7 @@ class SymbolicPureCrypto() extends CryptoPureApi {
       // For a symbolic encrypted message, prepend the key id that was used to encrypt
       payload = DeterministicEncoding
         .encodeString(publicKey.id.toProtoPrimitive)
-        .concat(
-          DeterministicEncoding.encodeBytes(
-            message.toByteString(version)
-          )
-        )
+        .concat(DeterministicEncoding.encodeBytes(bytes))
       iv =
         if (randomized && !neverRandomizeAsymmetricEncryption.get())
           generateRandomByteString(ivForAsymmetricEncryptInBytes)
@@ -132,14 +127,20 @@ class SymbolicPureCrypto() extends CryptoPureApi {
       publicKey: EncryptionPublicKey,
       version: ProtocolVersion,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
-    encryptWith(message, publicKey, version, randomized = true)
+    encryptWith(message.toByteString(version), publicKey, randomized = true)
+
+  override def encryptWith[M <: HasToByteString](
+      message: M,
+      publicKey: EncryptionPublicKey,
+  ): Either[EncryptionError, AsymmetricEncrypted[M]] =
+    encryptWith(message.toByteString, publicKey, randomized = true)
 
   def encryptDeterministicWith[M <: HasVersionedToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
       version: ProtocolVersion,
   )(implicit traceContext: TraceContext): Either[EncryptionError, AsymmetricEncrypted[M]] =
-    encryptWith(message, publicKey, version, randomized = false)
+    encryptWith(message.toByteString(version), publicKey, randomized = false)
 
   override protected def decryptWithInternal[M](
       encrypted: AsymmetricEncrypted[M],
@@ -189,10 +190,9 @@ class SymbolicPureCrypto() extends CryptoPureApi {
 
     } yield message
 
-  override def encryptWith[M <: HasVersionedToByteString](
-      message: M,
+  private def encryptWith[M](
+      bytes: ByteString,
       symmetricKey: SymmetricKey,
-      version: ProtocolVersion,
   ): Either[EncryptionError, Encrypted[M]] =
     for {
       _ <- Either.cond(
@@ -203,13 +203,22 @@ class SymbolicPureCrypto() extends CryptoPureApi {
       // For a symbolic symmetric encrypted message, prepend the symmetric key
       payload = DeterministicEncoding
         .encodeBytes(symmetricKey.key)
-        .concat(
-          DeterministicEncoding.encodeBytes(
-            message.toByteString(version)
-          )
-        )
+        .concat(DeterministicEncoding.encodeBytes(bytes))
       encrypted = new Encrypted[M](payload)
     } yield encrypted
+
+  override def encryptWith[M <: HasVersionedToByteString](
+      message: M,
+      symmetricKey: SymmetricKey,
+      version: ProtocolVersion,
+  ): Either[EncryptionError, Encrypted[M]] =
+    encryptWith(message.toByteString(version), symmetricKey)
+
+  override def encryptWith[M <: HasToByteString](
+      message: M,
+      symmetricKey: SymmetricKey,
+  ): Either[EncryptionError, Encrypted[M]] =
+    encryptWith(message.toByteString, symmetricKey)
 
   override def decryptWith[M](encrypted: Encrypted[M], symmetricKey: SymmetricKey)(
       deserialize: ByteString => Either[DeserializationError, M]

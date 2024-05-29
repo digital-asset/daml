@@ -306,13 +306,15 @@ private[apiserver] final class StoreBackedCommandExecutor(
           // is true, then the Record Time (assigned later on when the transaction is sequenced) is already
           // out of bounds, and the sequencer will reject the transaction. We can therefore abort the
           // interpretation and return an error to the application.
+
+          // Using a `Future` as a trampoline to make the recursive call to `resolveStep` stack safe.
           def resume(): Future[Either[ErrorCause, A]] =
-            resolveStep(
+            Future {
               Tracked.value(
                 metrics.daml.execution.engineRunning,
                 trackSyncExecution(interpretationTimeNanos)(continue()),
               )
-            )
+            }.flatMap(resolveStep)
 
           ledgerTimeRecordTimeToleranceO match {
             // Fall back to not checking if the tolerance could not be retrieved

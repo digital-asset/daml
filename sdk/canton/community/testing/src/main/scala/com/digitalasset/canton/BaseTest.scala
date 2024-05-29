@@ -396,11 +396,7 @@ object BaseTest {
     testedProtocolVersion
   )
 
-  lazy val pvPackageName: Option[PackageName] = {
-    Option.when(testedProtocolVersion >= ProtocolVersion.dev)(
-      PackageName.assertFromString("package_name")
-    )
-  }
+  lazy val pvPackageName: Option[PackageName] = Some(PackageName.assertFromString("package_name"))
 
   lazy val pvTransactionVersion: TransactionVersion = {
     if (testedProtocolVersion >= ProtocolVersion.dev) TransactionVersion.maxVersion

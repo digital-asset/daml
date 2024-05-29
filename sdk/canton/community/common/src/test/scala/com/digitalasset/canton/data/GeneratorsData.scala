@@ -27,6 +27,7 @@ import com.digitalasset.canton.protocol.{
   LfTemplateId,
   LfTransactionVersion,
   RollbackContext,
+  ViewHash,
 }
 import com.digitalasset.canton.topology.transaction.TrustLevel
 import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
@@ -236,7 +237,19 @@ final class GeneratorsData(
       actors <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       byKey <- Gen.oneOf(true, false)
       version <- Arbitrary.arbitrary[LfTransactionVersion]
-    } yield FetchActionDescription(inputContractId, actors, byKey, version)(rpv)
+      templateId <-
+        if (rpv >= FetchActionDescription.templateIdSupportedSince)
+          Gen.option(Arbitrary.arbitrary[LfTemplateId])
+        else
+          Gen.const(None)
+    } yield FetchActionDescription.tryCreate(
+      inputContractId,
+      actors,
+      byKey,
+      version,
+      templateId,
+      rpv,
+    )
 
   private def lookupByKeyActionDescriptionGenFor(
       rpv: RepresentativeProtocolVersion[ActionDescription.type]
@@ -366,6 +379,89 @@ final class GeneratorsData(
       ViewType.TransactionViewType,
       ViewType.TransferInViewType,
       ViewType.TransferOutViewType,
+    )
+  )
+
+  private val fullyBlindedTransactionViewWithEmptyTransactionSubviewArb
+      : Arbitrary[TransactionView] = Arbitrary(
+    for {
+      viewCommonData <- viewCommonDataArb.arbitrary
+      viewParticipantData <- viewParticipantDataArb.arbitrary
+      hashOps = TestHash
+      emptySubviews = TransactionSubviews.empty(
+        protocolVersion,
+        hashOps,
+      ) // empty TransactionSubviews
+    } yield TransactionView.tryCreate(hashOps)(
+      viewCommonData = viewCommonData.blindFully,
+      viewParticipantData = viewParticipantData.blindFully,
+      subviews = emptySubviews.blindFully,
+      protocolVersion,
+    )
+  )
+
+  implicit val transactionViewArb: Arbitrary[TransactionView] = Arbitrary(
+    for {
+      viewCommonData <- viewCommonDataArb.arbitrary
+      viewParticipantData <- viewParticipantDataArb.arbitrary
+      hashOps = TestHash
+      transactionViewWithEmptySubview <-
+        fullyBlindedTransactionViewWithEmptyTransactionSubviewArb.arbitrary
+      subviews = TransactionSubviews
+        .apply(Seq(transactionViewWithEmptySubview))(protocolVersion, hashOps)
+    } yield {
+      TransactionView.tryCreate(hashOps)(
+        viewCommonData = viewCommonData,
+        viewParticipantData = viewParticipantData,
+        subviews = subviews,
+        protocolVersion,
+      )
+    }
+  )
+
+  private var unblindedSubviewHashesForLightTransactionTree: Seq[ViewHash] = _
+
+  private val transactionViewForLightTransactionTreeArb: Arbitrary[TransactionView] = Arbitrary(
+    for {
+      viewCommonData <- viewCommonDataArb.arbitrary
+      viewParticipantData <- viewParticipantDataArb.arbitrary
+      hashOps = TestHash
+      transactionViewWithEmptySubview <-
+        fullyBlindedTransactionViewWithEmptyTransactionSubviewArb.arbitrary
+      subviews = TransactionSubviews
+        .apply(Seq(transactionViewWithEmptySubview))(protocolVersion, hashOps)
+      subviewHashes = subviews.trySubviewHashes
+    } yield {
+      unblindedSubviewHashesForLightTransactionTree = subviewHashes
+      TransactionView.tryCreate(hashOps)(
+        viewCommonData = viewCommonData,
+        viewParticipantData = viewParticipantData,
+        subviews =
+          subviews.blindFully, // only a single view in a LightTransactionTree can be unblinded
+        protocolVersion,
+      )
+    }
+  )
+
+  implicit val lightTransactionViewTreeArb: Arbitrary[LightTransactionViewTree] = Arbitrary(
+    for {
+      submitterMetadata <- submitterMetadataArb.arbitrary
+      commonData <- commonMetadataArb.arbitrary
+      participantData <- participantMetadataArb.arbitrary
+      rootViews <- transactionViewForLightTransactionTreeArb.arbitrary
+      hashOps = TestHash
+      rootViewsMerkleSeq = MerkleSeq.fromSeq(hashOps, protocolVersion)(Seq(rootViews))
+      genTransactionTree = GenTransactionTree
+        .tryCreate(hashOps)(
+          submitterMetadata,
+          commonData,
+          participantData,
+          rootViews = rootViewsMerkleSeq,
+        )
+    } yield LightTransactionViewTree.tryCreate(
+      tree = genTransactionTree,
+      unblindedSubviewHashesForLightTransactionTree,
+      protocolVersion,
     )
   )
 

@@ -28,6 +28,8 @@ message EncryptedViewMessage {
 }
 
 message LightTransactionViewTree {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
   GenTransactionTree tree = 1;
 }
 

@@ -157,6 +157,17 @@ class SerializationDeserializationTest
           com.digitalasset.canton.sequencing.SequencerConnections,
           version,
         )
+
+        if (version >= ProtocolVersion.v5) {
+          testProtocolVersionedWithCtx(
+            TransactionView,
+            (TestHash, ConfirmationPolicy.Signatory, version),
+          )
+        }
+
+        if (version >= ProtocolVersion.v5) {
+          testProtocolVersionedWithCtxAndValidation(LightTransactionViewTree, TestHash, version)
+        }
       }
 
     }
