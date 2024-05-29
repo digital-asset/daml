@@ -35,7 +35,7 @@ class MeteringReportEndpointTest extends AnyFreeSpec with Matchers {
     }
 
     "should convert to timestamp to protobuf timestamp" in {
-      val expected = Timestamp.fromInstant(Instant.parse("2022-02-03T00:00:00Z"))
+      val expected = Timestamp.assertFromInstant(Instant.parse("2022-02-03T00:00:00Z"))
       val actual = toTimestamp(LocalDate.of(2022, 2, 3))
       actual shouldBe expected
     }
