@@ -261,8 +261,7 @@ class ApiCodecCompressedSpec
     val numCodec = ApiCodecCompressed.copy(false, false)
 
     @nowarn("cat=lint-infer-any")
-    val successes = Table(
-      ("line#", "serialized", "serializedNumerically", "type", "parsed", "alternates"),
+    val commonSuccesses = Seq(
       c(
         "\"0000000000000000000000000000000000000000000000000000000000000000000123\"",
         VA.contractId,
@@ -343,8 +342,25 @@ class ApiCodecCompressedSpec
       ),
     )
 
-    val failures = Table(
-      ("JSON", "type", "errorSubstring"),
+    // For Java 17+, we expect Instant.parse to succeed for these cases when parsing ISO 8601 timestamps
+    @nowarn("cat=lint-infer-any")
+    val java17Successes = Seq(
+      c("\"1970-01-01T00:00:00+01:00\"", VA.timestamp)(Time.Timestamp assertFromLong -3600000000L)
+    )
+
+    val successes = if (Runtime.version().feature() >= 17) {
+      Table(
+        ("line#", "serialized", "serializedNumerically", "type", "parsed", "alternates"),
+        commonSuccesses ++ java17Successes: _*
+      )
+    } else {
+      Table(
+        ("line#", "serialized", "serializedNumerically", "type", "parsed", "alternates"),
+        commonSuccesses: _*
+      )
+    }
+
+    val commonFailures = Seq(
       ("42.3", VA.int64, ""),
       ("\"42.3\"", VA.int64, ""),
       ("9223372036854775808", VA.int64, ""),
@@ -352,7 +368,6 @@ class ApiCodecCompressedSpec
       ("\"garbage\"", VA.int64, ""),
       ("\"   42 \"", VA.int64, ""),
       ("\"1970-01-01T00:00:00\"", VA.timestamp, ""),
-      ("\"1970-01-01T00:00:00+01:00\"", VA.timestamp, ""),
       ("\"1970-01-01T00:00:00+01:00[Europe/Paris]\"", VA.timestamp, ""),
       ("\"0000-01-01\"", VA.date, "Invalid date: 0000-01-01"),
       ("\"9999-99-99\"", VA.date, "Invalid date: 9999-99-99"),
@@ -366,6 +381,23 @@ class ApiCodecCompressedSpec
       ("\"\"", VA.party, "Daml-LF Party is empty"),
       (List.fill(256)('a').mkString("\"", "", "\""), VA.party, "Daml-LF Party is too long"),
     )
+
+    // For Java 11, we expect Instant.parse to fail for these cases when parsing ISO 8601 timestamps
+    val java11Failures = Seq(
+      ("\"1970-01-01T00:00:00+01:00\"", VA.timestamp, "")
+    )
+
+    val failures = if (Runtime.version().feature() <= 11) {
+      Table(
+        ("JSON", "type", "errorSubstring"),
+        commonFailures ++ java11Failures: _*
+      )
+    } else {
+      Table(
+        ("JSON", "type", "errorSubstring"),
+        commonFailures: _*
+      )
+    }
 
     "dealing with particular formats" should {
       "succeed in cases" in forEvery(successes) {
