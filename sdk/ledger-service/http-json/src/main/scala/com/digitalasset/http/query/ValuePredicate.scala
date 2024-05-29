@@ -33,6 +33,9 @@ import doobie.Fragment
 import doobie.implicits._
 import scalaz.\&/.Both
 
+import java.time.Instant
+import scala.util.Try
+
 sealed abstract class ValuePredicate extends Product with Serializable {
   import ValuePredicate._
   def toFunPredicate: LfV => Boolean = {
@@ -373,7 +376,11 @@ object ValuePredicate {
   )(V.ValueDate)
   private[this] val TimestampRangeExpr = RangeExpr(
     { case JsString(q) =>
-      Time.Timestamp.fromString(q).fold(predicateParseError(_), identity)
+      val optTimestamp = for {
+        instant <- Try(Instant.parse(q)).toEither.left.map(_.getMessage)
+        timestamp <- Time.Timestamp.fromInstant(instant)
+      } yield timestamp
+      optTimestamp.fold(predicateParseError, identity)
     },
     { case V.ValueTimestamp(v) => v },
   )(V.ValueTimestamp)
