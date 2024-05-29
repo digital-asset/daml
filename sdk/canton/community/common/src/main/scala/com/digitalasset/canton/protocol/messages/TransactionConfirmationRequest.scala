@@ -4,9 +4,10 @@
 package com.digitalasset.canton.protocol.messages
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.data.ViewType
+import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
+import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.sequencing.protocol.{
   Batch,
   MediatorGroupRecipient,
@@ -30,10 +31,15 @@ final case class TransactionConfirmationRequest(
 
   def mediator: MediatorGroupRecipient = informeeMessage.mediator
 
-  lazy val rootHashMessage: RootHashMessage[EmptyRootHashMessagePayload.type] = RootHashMessage(
-    rootHash = informeeMessage.fullInformeeTree.transactionId.toRootHash,
+  lazy val rootHash: RootHash = informeeMessage.fullInformeeTree.transactionId.toRootHash
+
+  private def rootHashMessage(
+      submissionTopologyTime: CantonTimestamp
+  ): RootHashMessage[EmptyRootHashMessagePayload.type] = RootHashMessage(
+    rootHash = rootHash,
     domainId = informeeMessage.domainId,
     viewType = ViewType.TransactionViewType,
+    submissionTopologyTime = submissionTopologyTime,
     payload = EmptyRootHashMessagePayload,
     protocolVersion = protocolVersion,
   )
@@ -72,7 +78,11 @@ final case class TransactionConfirmationRequest(
                   Recipients.recipientGroups(
                     recipientsNE.map(NonEmpty.mk(Set, _, mediator))
                   )
-              List(OpenEnvelope(rootHashMessage, rootHashMessageRecipients)(protocolVersion))
+              List(
+                OpenEnvelope(rootHashMessage(ipsSnapshot.timestamp), rootHashMessageRecipients)(
+                  protocolVersion
+                )
+              )
             case None =>
               loggingContext.warn("Confirmation request without root hash message recipients")
               List.empty

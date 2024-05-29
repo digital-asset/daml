@@ -4,9 +4,13 @@
 package com.digitalasset.canton.participant.protocol.validation
 
 import cats.syntax.parallel.*
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.protocol.ProtocolProcessor.MalformedPayload
+import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
+  MalformedPayload,
+  WrongRecipientsDueToTopologyChange,
+}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -290,7 +294,15 @@ class TransactionConfirmationResponseFactory(
       requestId: RequestId,
       rootHash: RootHash,
       malformedPayloads: Seq[MalformedPayload],
-  )(implicit traceContext: TraceContext): ConfirmationResponse =
+  )(implicit traceContext: TraceContext): ConfirmationResponse = {
+    val rejectError = LocalRejectError.MalformedRejects.Payloads.Reject(malformedPayloads.toString)
+
+    val dueToTopologyChange = malformedPayloads.forall {
+      case WrongRecipientsDueToTopologyChange(_) => true
+      case _ => false
+    }
+    if (!dueToTopologyChange) logged(requestId, rejectError).discard
+
     checked(
       ConfirmationResponse
         .tryCreate(
@@ -300,15 +312,12 @@ class TransactionConfirmationResponseFactory(
           // The mediator will interpret this as a rejection
           // for all views and on behalf of all declared confirming parties hosted by the participant.
           None,
-          logged(
-            requestId,
-            LocalRejectError.MalformedRejects.Payloads
-              .Reject(malformedPayloads.toString),
-          ).toLocalReject(protocolVersion),
+          rejectError.toLocalReject(protocolVersion),
           rootHash,
           Set.empty,
           domainId,
           protocolVersion,
         )
     )
+  }
 }

@@ -364,6 +364,7 @@ class ProtocolProcessorTest
   }
 
   private lazy val rootHash = RootHash(TestHash.digest(1))
+  private lazy val testTopologyTimestamp = CantonTimestamp.Epoch
   private lazy val viewHash = ViewHash(TestHash.digest(2))
   private lazy val encryptedView =
     EncryptedView(TestViewType)(Encrypted.fromByteString(rootHash.toProtoPrimitive))
@@ -382,6 +383,7 @@ class ProtocolProcessorTest
     DefaultTestIdentities.domainId,
     testedProtocolVersion,
     TestViewType,
+    testTopologyTimestamp,
     SerializedRootHashMessagePayload.empty,
   )
   private lazy val someRecipients = Recipients.cc(participant)

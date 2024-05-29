@@ -35,7 +35,7 @@ import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
-import com.digitalasset.canton.util.{EitherTUtil, PathUtils, SimpleExecutionQueue}
+import com.digitalasset.canton.util.{PathUtils, SimpleExecutionQueue}
 import com.digitalasset.canton.{LedgerSubmissionId, LfPackageId}
 import com.google.protobuf.ByteString
 
@@ -219,11 +219,15 @@ class PackageUploader(
             PackageServiceErrors.Validation.handleLfEnginePackageError(_): DamlError
           )
       )
-      _ <- EitherTUtil.ifThenET(enableUpgradeValidation)(
-        packageUpgradeValidator
-          .validateUpgrade(mainPackage)(LoggingContextWithTrace(loggerFactory))
-          .mapK(FutureUnlessShutdown.outcomeK)
-      )
+      _ <-
+        if (enableUpgradeValidation) {
+          packageUpgradeValidator
+            .validateUpgrade(mainPackage)(LoggingContextWithTrace(loggerFactory))
+            .mapK(FutureUnlessShutdown.outcomeK)
+        } else {
+          logger.info(s"Skipping upgrade validation for package ${mainPackage._1}.")
+          EitherT.pure[FutureUnlessShutdown, DamlError](())
+        }
     } yield ()
 
   private def readDarFromPayload(darPayload: ByteString, darNameO: Option[String])(implicit

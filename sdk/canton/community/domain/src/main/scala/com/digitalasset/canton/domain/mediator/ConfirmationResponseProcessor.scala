@@ -9,6 +9,7 @@ import cats.syntax.alternative.*
 import cats.syntax.foldable.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
@@ -419,7 +420,7 @@ private[mediator] class ConfirmationResponseProcessor(
       requestId: RequestId,
       request: MediatorConfirmationRequest,
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
-      topologySnapshot: TopologySnapshot,
+      sequencingTopologySnapshot: TopologySnapshot,
   )(implicit
       loggingContext: ErrorLoggingContext
   ): EitherT[Future, MediatorVerdict.MediatorReject, Unit] = {
@@ -459,61 +460,204 @@ private[mediator] class ConfirmationResponseProcessor(
     def wrongViewType(expectedViewType: ViewType): Seq[ViewType] =
       rootHashMessages.map(_.protocolMessage.viewType).filterNot(_ == expectedViewType).distinct
 
+    def checkWrongMembers(
+        wrongMembers: RootHashMessageRecipients.WrongMembers
+    )(implicit traceContext: TraceContext): EitherT[Future, RejectionReason, Unit] =
+      NonEmpty.from(wrongMemberErrors(wrongMembers)) match {
+        // The check using the sequencing topology snapshot reported no error
+        case None => EitherT.pure[Future, RejectionReason](())
+
+        case Some(errorsNE) =>
+          val mayBeDueToTopologyChange = errorsNE.forall(_.mayBeDueToTopologyChange)
+
+          val dueToTopologyChangeF = if (mayBeDueToTopologyChange) {
+            // The check reported only errors that may be due to a topology change.
+            val dueToTopologyChangeOF = for {
+              submissionTopologySnapshot <- OptionT(getSubmissionTopologySnapshot)
+
+              // Perform the check using the topology at submission time.
+              wrongMembersAtSubmission <- OptionT.liftF(
+                RootHashMessageRecipients.wrongMembers(
+                  rootHashMessagesRecipients,
+                  request,
+                  submissionTopologySnapshot,
+                )(ec, loggingContext)
+              )
+              // If there are no errors using the topology at submission time, consider that the errors
+              // are due to a topology change.
+            } yield wrongMemberErrors(wrongMembersAtSubmission).isEmpty
+
+            dueToTopologyChangeOF.getOrElse {
+              // We could not obtain a submission topology snapshot.
+              // Consider that the errors are NOT due to a topology change.
+              false
+            }
+          } else {
+            // At least some of the reported errors are not due to a topology change
+            Future.successful(false)
+          }
+
+          // Use the first error for the rejection
+          val firstError = errorsNE.head1
+          EitherT.left[Unit](dueToTopologyChangeF.map(firstError.toRejectionReason))
+      }
+
+    def wrongMemberErrors(
+        wrongMembers: RootHashMessageRecipients.WrongMembers
+    ): Seq[WrongMemberError] = {
+      val missingInformeeParticipantsO = Option.when(
+        wrongMembers.missingInformeeParticipants.nonEmpty
+      )(
+        WrongMemberError(
+          show"Missing root hash message for informee participants: ${wrongMembers.missingInformeeParticipants}",
+          // This may be due to a topology change, e.g. if a party-to-participant mapping is added for an informee
+          mayBeDueToTopologyChange = true,
+        )
+      )
+
+      val superfluousMembersO = Option.when(wrongMembers.superfluousMembers.nonEmpty)(
+        WrongMemberError(
+          show"Superfluous root hash message for members: ${wrongMembers.superfluousMembers}",
+          // This may be due to a topology change, e.g. if a party-to-participant mapping is removed for an informee
+          mayBeDueToTopologyChange = true,
+        )
+      )
+
+      val superfluousInformeesO = Option.when(wrongMembers.superfluousInformees.nonEmpty)(
+        WrongMemberError(
+          show"Superfluous root hash message for group addressed parties: ${wrongMembers.superfluousInformees}",
+          mayBeDueToTopologyChange = false,
+        )
+      )
+
+      missingInformeeParticipantsO.toList ++ superfluousMembersO ++ superfluousInformeesO
+    }
+
+    // Retrieve the topology snapshot at submission time. Return `None` in case of error.
+    def getSubmissionTopologySnapshot(implicit
+        traceContext: TraceContext
+    ): Future[Option[TopologySnapshot]] = {
+      val submissionTopologyTimestamps = rootHashMessages
+        .map(_.protocolMessage.submissionTopologyTimestamp)
+        .distinct
+
+      submissionTopologyTimestamps match {
+        case Seq(submissionTopologyTimestamp) =>
+          val sequencingTimestamp = requestId.unwrap
+          SubmissionTopologyHelper
+            .getSubmissionTopologySnapshot(
+              timeouts,
+              sequencingTimestamp,
+              submissionTopologyTimestamp,
+              crypto,
+              logger,
+            )
+            .unwrap
+            .map(
+              _.onShutdown {
+                // TODO(i19352): Propagate `FutureUnlessShutdown` in the request validation
+                logger.debug(
+                  "Returning `None` for the submission topology snapshot due to shutting down"
+                )
+                None
+              }
+            )
+
+        case Seq() =>
+          // This can only happen if there are no root hash messages.
+          // This will be detected during the wrong members check and logged as a warning, so we can log at info level.
+          logger.info(
+            s"No declared submission topology timestamp found. Inconsistencies will be logged as warnings."
+          )
+          Future.successful(None)
+
+        case _ =>
+          // Log at warning level because this is not detected by another check
+          logger.warn(
+            s"Found ${submissionTopologyTimestamps.size} different declared submission topology timestamps. Inconsistencies will be logged as warnings."
+          )
+          Future.successful(None)
+      }
+    }
+
     val unitOrRejectionReason = for {
       _ <- EitherTUtil
         .condUnitET[Future](
           wrongRecipients.isEmpty,
-          show"Root hash messages with wrong recipients tree: $wrongRecipients",
+          RejectionReason(
+            show"Root hash messages with wrong recipients tree: $wrongRecipients",
+            dueToTopologyChange = false,
+          ),
         )
       repeated = repeatedMembers(rootHashMessagesRecipients)
       _ <- EitherTUtil.condUnitET[Future](
         repeated.isEmpty,
-        show"Several root hash messages for recipients: $repeated",
+        RejectionReason(
+          show"Several root hash messages for recipients: $repeated",
+          dueToTopologyChange = false,
+        ),
       )
       _ <- EitherTUtil.condUnitET[Future](
         distinctPayloads.sizeCompare(1) <= 0,
-        show"Different payloads in root hash messages. Sizes: ${distinctPayloads.map(_.bytes.size).mkShow()}.",
+        RejectionReason(
+          show"Different payloads in root hash messages. Sizes: ${distinctPayloads.map(_.bytes.size).mkShow()}.",
+          dueToTopologyChange = false,
+        ),
       )
       wrongHashes = wrongRootHashes(request.rootHash)
       wrongViewTypes = wrongViewType(request.viewType)
+
       wrongMembersF = RootHashMessageRecipients.wrongMembers(
         rootHashMessagesRecipients,
         request,
-        topologySnapshot,
+        sequencingTopologySnapshot,
       )(ec, loggingContext)
       _ <- for {
         _ <- EitherTUtil
-          .condUnitET[Future](wrongHashes.isEmpty, show"Wrong root hashes: $wrongHashes")
-        wrongMems <- EitherT.liftF(wrongMembersF)
+          .condUnitET[Future](
+            wrongHashes.isEmpty,
+            RejectionReason(show"Wrong root hashes: $wrongHashes", dueToTopologyChange = false),
+          )
+        wrongMembers <- EitherT.liftF(wrongMembersF)
         _ <- EitherTUtil.condUnitET[Future](
           wrongViewTypes.isEmpty,
-          show"View types in root hash messages differ from expected view type ${request.viewType}: $wrongViewTypes",
+          RejectionReason(
+            show"View types in root hash messages differ from expected view type ${request.viewType}: $wrongViewTypes",
+            dueToTopologyChange = false,
+          ),
         )
-        _ <-
-          EitherTUtil.condUnitET[Future](
-            wrongMems.missingInformeeParticipants.isEmpty,
-            show"Missing root hash message for informee participants: ${wrongMems.missingInformeeParticipants}",
-          )
-        _ <- EitherTUtil.condUnitET[Future](
-          wrongMems.superfluousMembers.isEmpty,
-          show"Superfluous root hash message for members: ${wrongMems.superfluousMembers}",
-        )
-        _ <- EitherTUtil.condUnitET[Future](
-          wrongMems.superfluousInformees.isEmpty,
-          show"Superfluous root hash message for group addressed parties: ${wrongMems.superfluousInformees}",
-        )
+        _ <- checkWrongMembers(wrongMembers)(loggingContext)
       } yield ()
     } yield ()
 
-    unitOrRejectionReason.leftMap { rejectionReason =>
-      val rejection = MediatorError.MalformedMessage
-        .Reject(
-          s"Received a mediator confirmation request with id $requestId with invalid root hash messages. Rejecting... Reason: $rejectionReason"
-        )
-        .reported()(loggingContext)
+    unitOrRejectionReason.leftMap { case RejectionReason(reason, dueToTopologyChange) =>
+      val message =
+        s"Received a mediator confirmation request with id $requestId with invalid root hash messages. Rejecting... Reason: $reason"
+      val rejection = MediatorError.MalformedMessage.Reject(message)
+
+      // If the errors are due to a topology change, we consider the request as non-malicious.
+      // Otherwise, we consider it malicious.
+      if (dueToTopologyChange) logErrorDueToTopologyChange(message)(loggingContext)
+      else rejection.reported()(loggingContext)
+
       MediatorVerdict.MediatorReject(rejection)
     }
   }
+
+  private case class WrongMemberError(reason: String, mayBeDueToTopologyChange: Boolean) {
+    def toRejectionReason(dueToTopologyChange: Boolean): RejectionReason =
+      RejectionReason(reason, dueToTopologyChange)
+  }
+
+  private case class RejectionReason(reason: String, dueToTopologyChange: Boolean)
+
+  private def logErrorDueToTopologyChange(
+      error: String
+  )(implicit traceContext: TraceContext): Unit = logger.info(
+    error +
+      """ This error is due to a change of topology state between the declared topology timestamp used
+        | for submission and the sequencing time of the request.""".stripMargin
+  )
 
   private def validateMinimumThreshold(
       requestId: RequestId,

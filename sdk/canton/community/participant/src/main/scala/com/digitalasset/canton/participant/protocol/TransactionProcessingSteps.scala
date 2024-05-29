@@ -386,11 +386,9 @@ class TransactionProcessingSteps(
         val batchSize = batch.toProtoVersioned.serializedSize
         metrics.protocolMessages.confirmationRequestSize.update(batchSize)(MetricsContext.Empty)
 
-        val rootHash = request.rootHashMessage.rootHash
-
         new PreparedTransactionBatch(
           batch,
-          rootHash,
+          request.rootHash,
           submitterInfoWithDedupPeriod.toCompletionInfo(),
         ): PreparedBatch
       }
@@ -595,7 +593,7 @@ class TransactionProcessingSteps(
             case ParticipantsOfParty(party) => party
           }
           if (parties.nonEmpty) {
-            crypto.ips.currentSnapshotApproximation
+            snapshot.ipsSnapshot
               .activeParticipantsOfParties(
                 parties.toSeq.map(_.toLf)
               )

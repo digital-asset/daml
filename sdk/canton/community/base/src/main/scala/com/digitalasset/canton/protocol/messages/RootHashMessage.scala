@@ -5,7 +5,7 @@ package com.digitalasset.canton.protocol.messages
 
 import cats.Functor
 import com.digitalasset.canton.ProtoDeserializationError.ValueDeserializationError
-import com.digitalasset.canton.data.ViewType
+import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
 import com.digitalasset.canton.protocol.messages.RootHashMessage.RootHashMessagePayloadCast
@@ -32,6 +32,7 @@ final case class RootHashMessage[+Payload <: RootHashMessagePayload](
     rootHash: RootHash,
     override val domainId: DomainId,
     viewType: ViewType,
+    submissionTopologyTimestamp: CantonTimestamp,
     payload: Payload,
 )(override val representativeProtocolVersion: RepresentativeProtocolVersion[RootHashMessage.type])
     extends UnsignedProtocolMessage
@@ -44,6 +45,7 @@ final case class RootHashMessage[+Payload <: RootHashMessagePayload](
     rootHash = rootHash.toProtoPrimitive,
     domainId = domainId.toProtoPrimitive,
     viewType = viewType.toProtoEnum,
+    submissionTopologyTime = submissionTopologyTimestamp.toProtoPrimitive,
     payload = payload.getCryptographicEvidence,
   )
 
@@ -73,11 +75,13 @@ final case class RootHashMessage[+Payload <: RootHashMessagePayload](
       rootHash: RootHash = rootHash,
       payload: Payload2 = payload,
       viewType: ViewType = viewType,
+      submissionTopologyTime: CantonTimestamp = submissionTopologyTimestamp,
   ): RootHashMessage[Payload2] =
     RootHashMessage(
       rootHash,
       domainId,
       viewType,
+      submissionTopologyTime,
       payload,
     )(representativeProtocolVersion)
 
@@ -101,11 +105,13 @@ object RootHashMessage
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
       viewType: ViewType,
+      submissionTopologyTime: CantonTimestamp,
       payload: Payload,
   ): RootHashMessage[Payload] = RootHashMessage(
     rootHash,
     domainId,
     viewType,
+    submissionTopologyTime,
     payload,
   )(protocolVersionRepresentativeFor(protocolVersion))
 
@@ -114,17 +120,20 @@ object RootHashMessage
   )(
       rootHashMessageP: v30.RootHashMessage
   ): ParsingResult[RootHashMessage[Payload]] = {
-    val v30.RootHashMessage(rootHashP, domainIdP, viewTypeP, payloadP) = rootHashMessageP
+    val v30.RootHashMessage(rootHashP, domainIdP, viewTypeP, submissionTopologyTimeP, payloadP) =
+      rootHashMessageP
     for {
       rootHash <- RootHash.fromProtoPrimitive(rootHashP)
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
       viewType <- ViewType.fromProtoEnum(viewTypeP)
+      submissionTopologyTime <- CantonTimestamp.fromProtoPrimitive(submissionTopologyTimeP)
       payloadO <- payloadDeserializer(payloadP)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield RootHashMessage(
       rootHash,
       domainId,
       viewType,
+      submissionTopologyTime,
       payloadO,
     )(rpv)
   }

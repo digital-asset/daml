@@ -216,6 +216,7 @@ private[transfer] class TransferInProcessingSteps(
           domainId.unwrap,
           targetProtocolVersion.v,
           ViewType.TransferInViewType,
+          recentSnapshot.ipsSnapshot.timestamp,
           EmptyRootHashMessagePayload,
         )
       // Each member gets a message sent to itself and to the mediator

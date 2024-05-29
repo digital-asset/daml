@@ -167,6 +167,7 @@ class DefaultVerdictSenderTest
     val domainId: DomainId = DomainId(
       UniqueIdentifier.tryFromProtoPrimitive("domain::test")
     )
+    val testTopologyTimestamp = CantonTimestamp.Epoch
 
     val factory =
       new ExampleTransactionFactory()(domainId = domainId, mediatorGroup = transactionMediatorGroup)
@@ -179,6 +180,7 @@ class DefaultVerdictSenderTest
       domainId,
       testedProtocolVersion,
       ViewType.TransactionViewType,
+      testTopologyTimestamp,
       SerializedRootHashMessagePayload.empty,
     )
     val participant: ParticipantId = ExampleTransactionFactory.submittingParticipant
