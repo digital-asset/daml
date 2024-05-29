@@ -22,7 +22,6 @@ import shapeless.record.Record as HRecord
 import spray.json.*
 import scalaz.syntax.show.*
 
-import scala.annotation.nowarn
 import scala.util.{Success, Try}
 import scala.util.Random.shuffle
 
@@ -259,7 +258,6 @@ class ApiCodecCompressedSpec
 
     val numCodec = ApiCodecCompressed.copy(false, false)
 
-    @nowarn("cat=lint-infer-any")
     val commonSuccesses = Seq(
       c(
         "\"0000000000000000000000000000000000000000000000000000000000000000000123\"",
@@ -342,9 +340,8 @@ class ApiCodecCompressedSpec
     )
 
     // For Java 17+, we expect Instant.parse to succeed for these cases when parsing ISO 8601 timestamps
-    @nowarn("cat=lint-infer-any")
     val java17Successes = Seq(
-      c("\"1970-01-01T00:00:00+01:00\"", VA.timestamp)(Time.Timestamp assertFromLong -3600000000L),
+      c("\"1969-12-31T23:00:00Z\"", VA.timestamp)(Time.Timestamp.assertFromLong(-3600000000L), "\"1970-01-01T00:00:00+01:00\""),
     )
 
     val successes = if (Runtime.version().feature() >= 17) {
