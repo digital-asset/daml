@@ -20,6 +20,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, MediatorRef}
 import com.digitalasset.canton.util.EitherUtil
+import com.digitalasset.canton.version.Transfer.SourceProtocolVersion
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWithContextCompanion,
   ProtoVersion,
@@ -46,7 +47,7 @@ final case class TransferOutMediatorMessage(
 
   private[this] val commonData = tree.commonData.tryUnwrap
 
-  val protocolVersion = commonData.protocolVersion
+  val protocolVersion: SourceProtocolVersion = commonData.sourceProtocolVersion
 
   override val representativeProtocolVersion
       : RepresentativeProtocolVersion[TransferOutMediatorMessage.type] =
@@ -125,7 +126,7 @@ final case class TransferOutMediatorMessage(
 object TransferOutMediatorMessage
     extends HasProtocolVersionedWithContextCompanion[
       TransferOutMediatorMessage,
-      (HashOps, ProtocolVersion),
+      (HashOps, SourceProtocolVersion),
     ] {
 
   val supportedProtoVersions = SupportedProtoVersions(
@@ -143,7 +144,7 @@ object TransferOutMediatorMessage
     ),
   )
 
-  def fromProtoV0(context: (HashOps, ProtocolVersion))(
+  def fromProtoV0(context: (HashOps, SourceProtocolVersion))(
       transferOutMediatorMessageP: v0.TransferOutMediatorMessage
   ): ParsingResult[TransferOutMediatorMessage] =
     for {
@@ -160,7 +161,7 @@ object TransferOutMediatorMessage
       )
     } yield TransferOutMediatorMessage(tree)
 
-  def fromProtoV1(context: (HashOps, ProtocolVersion))(
+  def fromProtoV1(context: (HashOps, SourceProtocolVersion))(
       transferOutMediatorMessageP: v1.TransferOutMediatorMessage
   ): ParsingResult[TransferOutMediatorMessage] =
     for {

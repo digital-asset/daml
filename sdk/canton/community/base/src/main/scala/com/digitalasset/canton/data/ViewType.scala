@@ -7,14 +7,14 @@ import com.digitalasset.canton.ProtoDeserializationError.{FieldNotSet, ValueConv
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{RequestProcessor, v0}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.version.HasVersionedToByteString
+import com.digitalasset.canton.version.HasToByteString
 
 /** Reifies the subclasses of [[ViewTree]] as values */
 // This trait does not extend ProtoSerializable because v0.EncryptedViewMessage.ViewType is an enum, not a message.
 sealed trait ViewType extends Product with Serializable with PrettyPrinting {
 
   /** The subclass of [[ViewTree]] that is reified. */
-  type View <: ViewTree with HasVersionedToByteString
+  type View <: ViewTree with HasToByteString
 
   type FullView <: ViewTree
 
@@ -49,7 +49,7 @@ object ViewType {
   type TransactionViewType = TransactionViewType.type
 
   sealed trait TransferViewType extends ViewType {
-    type View <: TransferViewTree with HasVersionedToByteString
+    type View <: TransferViewTree with HasToByteString
     type FullView = View
   }
 

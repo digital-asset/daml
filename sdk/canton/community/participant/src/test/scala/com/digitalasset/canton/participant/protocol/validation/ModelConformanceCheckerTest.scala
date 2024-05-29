@@ -7,16 +7,20 @@ import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{PackageId, PackageName}
-import com.daml.lf.engine
+import com.daml.lf.engine.Error as LfError
 import com.daml.lf.language.Ast.{Expr, GenPackage}
 import com.daml.lf.language.LanguageVersion
+import com.daml.lf.value.Value
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.digitalasset.canton.crypto.{HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.{
   CantonTimestamp,
   FreeKey,
   FullTransactionViewTree,
+  SerializableKeyResolution,
   TransactionView,
 }
+import com.digitalasset.canton.logging.NamedLoggingContext
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactoryImpl
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.*
@@ -24,22 +28,33 @@ import com.digitalasset.canton.participant.protocol.{
   SerializableContractAuthenticator,
   TransactionProcessingSteps,
 }
-import com.digitalasset.canton.participant.store.ContractLookup
-import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
-import com.digitalasset.canton.protocol.ExampleTransactionFactory.{lfHash, submitterParticipant}
+import com.digitalasset.canton.participant.store.ContractLookupAndVerification
+import com.digitalasset.canton.participant.util.DAMLe.{HasReinterpret, PackageResolver}
+import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.VettedPackages
 import com.digitalasset.canton.topology.{TestingIdentityFactory, TestingTopology}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.{BaseTest, LfCommand, LfKeyResolver, LfPartyId, RequestCounter}
+import com.digitalasset.canton.util.LfTransactionBuilder.{defaultKeyPackageName, defaultTemplateId}
+import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{
+  BaseTest,
+  LfCommand,
+  LfKeyResolver,
+  LfPackageId,
+  LfPartyId,
+  RequestCounter,
+}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 import pprint.Tree
 
 import java.time.Duration
+import scala.annotation.unused
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Left
 
 class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
 
@@ -52,50 +67,61 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
   val ledgerTimeRecordTimeTolerance: Duration = Duration.ofSeconds(10)
 
   def validateContractOk(
-      contract: SerializableContract,
-      context: TraceContext,
+      @unused _contract: SerializableContract,
+      @unused _context: TraceContext,
   ): EitherT[Future, ContractValidationFailure, Unit] = EitherT.pure(())
 
-  def reinterpret(example: ExampleTransaction)(
-      _contracts: ContractLookup,
-      _submitters: Set[LfPartyId],
-      cmd: LfCommand,
-      ledgerTime: CantonTimestamp,
-      submissionTime: CantonTimestamp,
-      rootSeed: Option[LfHash],
-      _inRollback: Boolean,
-      _viewHash: ViewHash,
-      _traceContext: TraceContext,
-      _packageResolution: Map[PackageName, PackageId],
-  ): EitherT[Future, DAMLeError, (LfVersionedTransaction, TransactionMetadata, LfKeyResolver)] = {
+  def reinterpretExample(
+      example: ExampleTransaction,
+      usedPackages: Set[PackageId] = Set.empty,
+  ): HasReinterpret = new HasReinterpret {
+    override def reinterpret(
+        contracts: ContractLookupAndVerification,
+        submitters: Set[LfPartyId],
+        command: LfCommand,
+        ledgerTime: CantonTimestamp,
+        submissionTime: CantonTimestamp,
+        rootSeed: Option[LfHash],
+        packageResolution: Map[PackageName, PackageId],
+        expectFailure: Boolean,
+    )(traceContext: TraceContext): EitherT[
+      Future,
+      LfError,
+      (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
+    ] = {
+      ledgerTime shouldEqual factory.ledgerTime
+      submissionTime shouldEqual factory.submissionTime
 
-    ledgerTime shouldEqual factory.ledgerTime
-    submissionTime shouldEqual factory.submissionTime
+      val (_, (reinterpretedTx, metadata, keyResolver), _) =
+        example.reinterpretedSubtransactions.find { case (viewTree, (tx, md, _), _) =>
+          viewTree.viewParticipantData.rootAction().command == command &&
+          // Commands are otherwise not sufficiently unique (whereas with nodes, we can produce unique nodes, e.g.
+          // based on LfNodeCreate.agreementText not part of LfCreateCommand.
+          rootSeed == md.seeds.get(tx.roots(0))
+        }.value
 
-    val (_viewTree, (reinterpretedTx, metadata, keyResolver), _witnesses) =
-      example.reinterpretedSubtransactions.find { case (viewTree, (tx, md, keyResolver), _) =>
-        viewTree.viewParticipantData.rootAction().command == cmd &&
-        // Commands are otherwise not sufficiently unique (whereas with nodes, we can produce unique nodes, e.g.
-        // based on LfNodeCreate.agreementText not part of LfCreateCommand.
-        rootSeed == md.seeds.get(tx.roots(0))
-      }.value
-
-    EitherT.rightT[Future, DAMLeError]((reinterpretedTx, metadata, keyResolver))
+      EitherT.rightT[Future, LfError]((reinterpretedTx, metadata, keyResolver, usedPackages))
+    }
   }
 
-  def failOnReinterpret(
-      _contracts: ContractLookup,
-      _submitters: Set[LfPartyId],
-      cmd: LfCommand,
-      ledgerTime: CantonTimestamp,
-      submissionTime: CantonTimestamp,
-      rootSeed: Option[LfHash],
-      _inRollback: Boolean,
-      _viewHash: ViewHash,
-      _traceContext: TraceContext,
-      _packageResolution: Map[PackageName, PackageId],
-  ): EitherT[Future, DAMLeError, (LfVersionedTransaction, TransactionMetadata, LfKeyResolver)] =
-    fail("Reinterpret should not be called by this test case.")
+  val failOnReinterpret: HasReinterpret = new HasReinterpret {
+    override def reinterpret(
+        contracts: ContractLookupAndVerification,
+        submitters: Set[LfPartyId],
+        command: LfCommand,
+        ledgerTime: CantonTimestamp,
+        submissionTime: CantonTimestamp,
+        rootSeed: Option[LfHash],
+        packageResolution: Map[PackageName, PackageId],
+        expectFailure: Boolean,
+    )(traceContext: TraceContext): EitherT[
+      Future,
+      LfError,
+      (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
+    ] = {
+      fail("Reinterpret should not be called by this test case.")
+    }
+  }
 
   def viewsWithNoInputKeys(
       rootViews: Seq[FullTransactionViewTree]
@@ -103,7 +129,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     NonEmptyUtil.fromUnsafe(rootViews.map { viewTree =>
       // Include resolvers for all the subviews
       val resolvers =
-        viewTree.view.allSubviewsWithPosition(viewTree.viewPosition).map { case (view, _viewPos) =>
+        viewTree.view.allSubviewsWithPosition(viewTree.viewPosition).map { case (view, _) =>
           view -> (Map.empty: LfKeyResolver)
         }
       (viewTree, resolvers)
@@ -135,14 +161,31 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
   ): EitherT[Future, ErrorWithSubTransaction, Result] = {
     val rootViewTrees = views.map(_._1)
     val commonData = TransactionProcessingSteps.tryCommonData(rootViewTrees)
-    val keyResolvers = views.forgetNE.flatMap { case (_vt, resolvers) => resolvers }.toMap
+    val keyResolvers = views.forgetNE.flatMap { case (_, resolvers) => resolvers }.toMap
     mcc.check(rootViewTrees, keyResolvers, RequestCounter(0), ips, commonData)
   }
 
-  val packageName = PackageName.assertFromString("package-name")
-  val genPackage = GenPackage[Expr](Map.empty, Set.empty, LanguageVersion.default, None)
-  val packageResolver: PackageResolver = pkgId =>
-    traceContext => Future.successful(Some(genPackage))
+  private val genPackage = GenPackage[Expr](Map.empty, Set.empty, LanguageVersion.default, None)
+  private val packageResolver: PackageResolver = _ => _ => Future.successful(Some(genPackage))
+
+  val preReinterpretationPackageIds: PackageIdsOfView =
+    if (testedProtocolVersion >= ProtocolVersion.v6)
+      packageIdsOfActionDescription
+    else
+      legacyPackageIdsOfView
+
+  def buildUnderTest(reinterpretCommand: HasReinterpret): ModelConformanceChecker =
+    new ModelConformanceChecker(
+      reinterpretCommand,
+      validateContractOk,
+      transactionTreeFactory,
+      submitterParticipant,
+      dummyAuthenticator,
+      packageResolver,
+      preReinterpretationPackageIds,
+      checkUsedPackages = (testedProtocolVersion >= ProtocolVersion.v6),
+      loggerFactory,
+    )
 
   "A model conformance checker" when {
     val relevantExamples = factory.standardHappyCases.filter {
@@ -154,16 +197,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     forEvery(relevantExamples) { example =>
       s"checking $example" must {
 
-        val sut =
-          new ModelConformanceChecker(
-            reinterpret(example),
-            validateContractOk,
-            transactionTreeFactory,
-            submitterParticipant,
-            dummyAuthenticator,
-            packageResolver,
-            loggerFactory,
-          )
+        val sut = buildUnderTest(reinterpretExample(example))
 
         "yield the correct result" in {
           for {
@@ -205,15 +239,8 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     }
 
     "transaction id is inconsistent" must {
-      val sut = new ModelConformanceChecker(
-        failOnReinterpret,
-        validateContractOk,
-        transactionTreeFactory,
-        submitterParticipant,
-        dummyAuthenticator,
-        packageResolver,
-        loggerFactory,
-      )
+
+      val sut = buildUnderTest(failOnReinterpret)
 
       val singleCreate = factory.SingleCreate(seed = ExampleTransactionFactory.lfHash(0))
       val viewTreesWithInconsistentTransactionIds = Seq(
@@ -237,20 +264,28 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         override def treeOf(t: ViewHash): Tree = Apply("[ViewHash]", Seq.empty.iterator)
       })
 
-      val error = DAMLeError(mock[engine.Error], mockViewHash)
+      val lfError = mock[LfError]
+      val error = DAMLeError(lfError, mockViewHash)
 
-      val sut = new ModelConformanceChecker(
-        (_, _, _, _, _, _, _, _, _, _) =>
-          EitherT.leftT[Future, (LfVersionedTransaction, TransactionMetadata, LfKeyResolver)](
-            error
-          ),
-        validateContractOk,
-        transactionTreeFactory,
-        submitterParticipant,
-        dummyAuthenticator,
-        packageResolver,
-        loggerFactory,
-      )
+      val sut = buildUnderTest(new HasReinterpret {
+        override def reinterpret(
+            contracts: ContractLookupAndVerification,
+            submitters: Set[LfPartyId],
+            command: LfCommand,
+            ledgerTime: CantonTimestamp,
+            submissionTime: CantonTimestamp,
+            rootSeed: Option[LfHash],
+            packageResolution: Map[PackageName, PackageId],
+            expectFailure: Boolean,
+        )(traceContext: TraceContext): EitherT[
+          Future,
+          LfError,
+          (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
+        ] = {
+          EitherT.leftT(lfError)
+        }
+      })
+
       val example = factory.MultipleRootsAndViewNestings
 
       def countLeaves(views: NonEmpty[Seq[TransactionView]]): Int =
@@ -271,26 +306,17 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
               viewsWithNoInputKeys(example.rootTransactionViewTrees),
             )
           )("reinterpretation fails")
-        } yield failure.errors shouldBe Seq.fill(nbLeafViews)(error) // One error per leaf
+        } yield failure.errors.size shouldBe Seq.fill(nbLeafViews)(error).size // One error per leaf
       }
     }
 
-    "contract upgrading is enabled" should {
+    "checking an upgraded contract" should {
 
       val example: factory.UpgradedSingleExercise = factory.UpgradedSingleExercise(lfHash(0))
 
-      "the choice package may differ from the contract package" in {
+      "allow the choice package may differ from the contract package" in {
 
-        val sut =
-          new ModelConformanceChecker(
-            reinterpret(example),
-            validateContractOk,
-            transactionTreeFactory,
-            submitterParticipant,
-            dummyAuthenticator,
-            packageResolver,
-            loggerFactory,
-          )
+        val sut = buildUnderTest(reinterpretExample(example))
 
         valueOrFail(
           check(sut, viewsWithNoInputKeys(example.rootTransactionViewTrees))
@@ -313,18 +339,28 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
             signatories = Set(submitter, extra),
           ),
         )
-        val sut = new ModelConformanceChecker(
-          (_, _, _, _, _, _, _, _, _, _) =>
-            EitherT.pure[Future, DAMLeError](
-              (reinterpreted, subviewMissing.metadata, subviewMissing.keyResolver)
-            ),
-          validateContractOk,
-          transactionTreeFactory,
-          submitterParticipant,
-          dummyAuthenticator,
-          packageResolver,
-          loggerFactory,
-        )
+
+        val sut = buildUnderTest(new HasReinterpret {
+          override def reinterpret(
+              contracts: ContractLookupAndVerification,
+              submitters: Set[LfPartyId],
+              command: LfCommand,
+              ledgerTime: CantonTimestamp,
+              submissionTime: CantonTimestamp,
+              rootSeed: Option[LfHash],
+              packageResolution: Map[PackageName, PackageId],
+              expectFailure: Boolean,
+          )(traceContext: TraceContext): EitherT[
+            Future,
+            LfError,
+            (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
+          ] = {
+            EitherT.pure[Future, LfError](
+              (reinterpreted, subviewMissing.metadata, subviewMissing.keyResolver, Set.empty)
+            )
+          }
+        })
+
         for {
           result <- leftOrFail(
             check(sut, viewsWithNoInputKeys(subviewMissing.rootTransactionViewTrees))
@@ -358,21 +394,20 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       }
     }
 
-    "a package (referenced by key lookup) is not vetted by some participant" must {
+    "a package (referenced by exercise) is not vetted by some participant" must {
       "yield an error" in {
         import ExampleTransactionFactory.*
-
-        val key = defaultGlobalKey
-        val maintainers = Set(submitter)
+        val exercise = factory.SingleExercise(lfHash(0))
         val view = factory.view(
-          lookupByKeyNode(key, Set(submitter), None),
-          0,
-          Set.empty,
-          Seq.empty,
-          Seq.empty,
-          Map(key -> FreeKey(maintainers)(LfTransactionVersion.minVersion)),
-          None,
+          node = exerciseNode(exercise.contractId, signatories = Set(signatory)),
+          viewIndex = 0,
+          consumed = Set.empty,
+          coreInputs = exercise.inputContracts.values.toSeq,
+          created = Seq.empty,
+          resolvedKeys = Map.empty,
+          seed = Some(exercise.seed),
           isRoot = true,
+          Set.empty,
         )
         val viewTree = factory.rootTransactionViewTree(view)
 
@@ -381,7 +416,11 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           // The package is not vetted for submitterParticipant
           vettings = Seq.empty,
           packageDependenciesLookup = _ => EitherT.rightT(Set()),
-          expectedError = UnvettedPackages(Map(submitterParticipant -> Set(key.packageId.value))),
+          expectedError = UnvettedPackages(
+            Map(
+              submitterParticipant -> Set(exercise.contractInstance.unversioned.template.packageId)
+            )
+          ),
         )
       }
     }
@@ -394,15 +433,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     ): Future[Assertion] = {
       import ExampleTransactionFactory.*
 
-      val sut = new ModelConformanceChecker(
-        reinterpret = failOnReinterpret,
-        validateContract = validateContractOk,
-        transactionTreeFactory = transactionTreeFactory,
-        participantId = submitterParticipant,
-        serializableContractAuthenticator = dummyAuthenticator,
-        packageResolver = packageResolver,
-        loggerFactory,
-      )
+      val sut = buildUnderTest(failOnReinterpret)
 
       val snapshot = TestingIdentityFactory(
         TestingTopology(
@@ -438,6 +469,149 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           packageDependenciesLookup = EitherT.leftT(_),
           expectedError = UnvettedPackages(Map(submitterParticipant -> Set(packageId))),
         )
+      }
+    }
+
+    "package ids used for pre-reinterpretation vetting" must {
+
+      val seed: LfHash = lfHash(0)
+
+      def mkPackageContractInstance(i: Int): (PackageId, SerializableContract) = {
+        val packageId = PackageId.assertFromString(s"package-$i")
+        val lfH = lfHash(i)
+        val cH = com.digitalasset.canton.crypto.Hash
+          .digest(HashPurpose.Unicum, lfH.bytes.toByteString, HashAlgorithm.Sha256)
+        val cId = NonAuthenticatedContractId.fromDiscriminator(lfH, Unicum(cH))
+        val contract =
+          asSerializable(cId, contractInstance(templateId = defaultTemplateId.copy(packageId)))
+        packageId -> contract
+      }
+
+      val (p1, c1) = mkPackageContractInstance(1)
+      val (p2, c2) = mkPackageContractInstance(2)
+      val (p3, c3) = mkPackageContractInstance(3)
+      val (p4, c4) = mkPackageContractInstance(4)
+      val (_, c5) = mkPackageContractInstance(5)
+      val (p6, _) = mkPackageContractInstance(6)
+
+      def keyOf(c: SerializableContract): LfGlobalKey = LfGlobalKey.assertBuild(
+        c.contractInstance.unversioned.template,
+        Value.ValueUnit,
+        defaultKeyPackageName,
+      )
+
+      def mkView(
+          node: LfActionNode,
+          coreInputs: Seq[SerializableContract] = Seq.empty,
+          created: Seq[SerializableContract] = Seq.empty,
+          resolvedKeys: Map[LfGlobalKey, SerializableKeyResolution] = Map.empty,
+          packagePreference: Set[LfPackageId] = Set.empty,
+          seedO: Option[LfHash] = Some(seed),
+      ) = {
+        factory.view(
+          node = node,
+          viewIndex = 0,
+          consumed = Set.empty,
+          coreInputs = coreInputs,
+          created = created,
+          resolvedKeys = resolvedKeys,
+          seed = seedO,
+          isRoot = true,
+          packagePreference = packagePreference,
+        )
+      }
+
+      "support legacy package id computation" in {
+        val view = mkView(
+          node = exerciseNode(c1.contractId, signatories = Set(submitter)),
+          created = Seq(c2),
+          coreInputs = Seq(c3),
+          resolvedKeys = Map(keyOf(c4) -> FreeKey(Set(submitter))(c4.contractInstance.version)),
+        )
+        val actual = legacyPackageIdsOfView(view, implicitly[NamedLoggingContext])
+        actual shouldBe Set(p2, p3, p4)
+      }
+
+      "support upgraded creations" in {
+        val view = mkView(
+          node = createNode(c1.contractId, c1.contractInstance, signatories = Set(submitter)),
+          created = Seq(c1),
+        )
+        val actual = packageIdsOfActionDescription(view, implicitly[NamedLoggingContext])
+        actual shouldBe Set(p1)
+      }
+
+      "support upgraded executions" in {
+        val view = mkView(
+          node = exerciseNode(
+            targetCoid = c1.contractId,
+            templateId = c2.contractInstance.unversioned.template,
+            signatories = Set(submitter),
+          ),
+          created = Seq(c3),
+          coreInputs = Seq(c4),
+          resolvedKeys = Map(keyOf(c5) -> FreeKey(Set(submitter))(LfTransactionVersion.maxVersion)),
+          packagePreference = Set(p6),
+        )
+        val actual = packageIdsOfActionDescription(view, implicitly[NamedLoggingContext])
+        actual shouldBe Set(p2, p6)
+      }
+
+      "support upgraded lookupByKey" in {
+        val node =
+          lookupByKeyNode(keyOf(c2), maintainers = Set(submitter), resolution = Some(c1.contractId))
+        val view = mkView(node, seedO = None)
+        val actual = packageIdsOfActionDescription(view, implicitly[NamedLoggingContext])
+        actual shouldBe Set(p2)
+      }
+
+      if (testedProtocolVersion >= ProtocolVersion.v6) {
+        "support upgraded fetch" in {
+          // Here the templateId is coming from the (possibly upgraded) package the fetch is targeted at
+          val node = fetchNode(
+            c1.contractId,
+            signatories = Set(submitter),
+            actingParties = Set(signatory),
+            templateId = c2.contractInstance.unversioned.template,
+          )
+          val view = mkView(node, coreInputs = Seq(c1), seedO = None)
+          val actual = packageIdsOfActionDescription(view, implicitly[NamedLoggingContext])
+          actual shouldBe Set(p2)
+        }
+      }
+
+    }
+
+    if (testedProtocolVersion >= ProtocolVersion.v6) {
+
+      "post-reinterpretation used package vetting" must {
+
+        "fail conformance if an un-vetted package is used" in {
+          val unexpectedPackageId = PackageId.assertFromString("unexpected-pkg")
+          val example = factory.SingleCreate(seed = factory.deriveNodeSeed(0))
+          val sut =
+            buildUnderTest(reinterpretExample(example, usedPackages = Set(unexpectedPackageId)))
+          val expected = Left(
+            ErrorWithSubTransaction(
+              NonEmpty(
+                Seq,
+                UnvettedPackages(
+                  Map(
+                    submitterParticipant -> Set(unexpectedPackageId),
+                    observerParticipant -> Set(unexpectedPackageId),
+                  )
+                ),
+              ),
+              None,
+              Seq.empty,
+            )
+          )
+          for {
+            actual <- check(sut, viewsWithNoInputKeys(example.rootTransactionViewTrees)).value
+          } yield {
+            actual shouldBe expected
+          }
+        }
       }
     }
   }

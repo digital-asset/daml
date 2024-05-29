@@ -26,6 +26,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.protocol.SerializableContract
 import com.digitalasset.canton.sequencing.{
   GrpcSequencerConnection,
@@ -94,8 +95,13 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
     (x: LocalInstanceReferenceCommon, y: LocalInstanceReferenceCommon) =>
       startupOrderPrecedence(x) compare startupOrderPrecedence(y)
 
-  /** allows for injecting a custom admin command runner during tests */
-  protected def createAdminCommandRunner: ConsoleEnvironment => ConsoleGrpcAdminCommandRunner
+  /** allows for injecting a custom admin command runner during tests
+    * @param apiName API name checked against and expected on the server-side
+    */
+  protected def createAdminCommandRunner(
+      consoleEnvironment: ConsoleEnvironment,
+      apiName: String,
+  ): ConsoleGrpcAdminCommandRunner = new ConsoleGrpcAdminCommandRunner(consoleEnvironment, apiName)
 
   protected override val loggerFactory: NamedLoggerFactory = environment.loggerFactory
 
@@ -207,7 +213,14 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
   }
 
   // lazy to prevent publication of this before this has been fully initialized
-  lazy val grpcAdminCommandRunner: ConsoleGrpcAdminCommandRunner = createAdminCommandRunner(this)
+  lazy val grpcAdminCommandRunner: ConsoleGrpcAdminCommandRunner =
+    createAdminCommandRunner(this, CantonGrpcUtil.ApiName.AdminApi)
+
+  lazy val grpcLedgerCommandRunner: ConsoleGrpcAdminCommandRunner =
+    createAdminCommandRunner(this, CantonGrpcUtil.ApiName.LedgerApi)
+
+  lazy val grpcDomainCommandRunner: ConsoleGrpcAdminCommandRunner =
+    createAdminCommandRunner(this, CantonGrpcUtil.ApiName.SequencerPublicApi)
 
   def runE[E, A](result: => Either[E, A]): A = {
     run(ConsoleCommandResult.fromEither(result.leftMap(_.toString)))
@@ -463,11 +476,18 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
   protected def selfAlias(): Bind[_] = Bind(ConsoleEnvironmentBinding.BindingName, this)
 
   override def onClosed(): Unit = {
-    Lifecycle.close(grpcAdminCommandRunner, environment)(logger)
+    Lifecycle.close(
+      grpcAdminCommandRunner,
+      grpcLedgerCommandRunner,
+      grpcDomainCommandRunner,
+      environment,
+    )(logger)
   }
 
   def closeChannels(): Unit = {
     grpcAdminCommandRunner.closeChannels()
+    grpcLedgerCommandRunner.closeChannels()
+    grpcDomainCommandRunner.closeChannels()
   }
 
   def startAll(): Unit = runE(environment.startAll())

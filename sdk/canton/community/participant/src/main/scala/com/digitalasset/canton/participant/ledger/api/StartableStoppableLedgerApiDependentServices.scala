@@ -5,9 +5,10 @@ package com.digitalasset.canton.participant.ledger.api
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.crypto.HashOps
+import com.digitalasset.canton.connection.GrpcApiInfoService
+import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.CantonMutableHandlerRegistry
+import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, CantonMutableHandlerRegistry}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.grpc.{GrpcPackageService, GrpcPingService}
 import com.digitalasset.canton.participant.admin.v0.{PackageServiceGrpc, PingServiceGrpc}
@@ -37,11 +38,10 @@ import scala.concurrent.{ExecutionContextExecutor, blocking}
   */
 class StartableStoppableLedgerApiDependentServices(
     config: LocalParticipantConfig,
-    testingConfig: ParticipantNodeParameters,
+    participantNodeParameters: ParticipantNodeParameters,
     packageService: PackageService,
     syncService: CantonSyncService,
     participantId: ParticipantId,
-    hashOps: HashOps,
     clock: Clock,
     registry: CantonMutableHandlerRegistry,
     adminToken: CantonAdminToken,
@@ -58,17 +58,18 @@ class StartableStoppableLedgerApiDependentServices(
     with NamedLogging {
   private type PackageServiceGrpc = ServerServiceDefinition
   private type PingServiceGrpc = ServerServiceDefinition
+  private type ApiInfoServiceGrpc = ServerServiceDefinition
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   @volatile private var servicesRef =
-    Option.empty[(AdminWorkflowServices, PackageServiceGrpc, PingServiceGrpc)]
+    Option.empty[(AdminWorkflowServices, PackageServiceGrpc, PingServiceGrpc, ApiInfoServiceGrpc)]
 
   // Start on initialization if pertaining to an active participant replica.
   if (syncService.isActive()) start()(TraceContext.empty)
 
   def adminWorkflowServices(implicit traceContext: TraceContext): AdminWorkflowServices =
     servicesRef match {
-      case Some((adminWorkflowServices, _, _)) => adminWorkflowServices
+      case Some((adminWorkflowServices, _, _, _)) => adminWorkflowServices
       case None =>
         ErrorUtil.invalidState(
           "Attempted to access adminWorkflowServices when it is shutdown"
@@ -89,7 +90,7 @@ class StartableStoppableLedgerApiDependentServices(
             val adminWorkflowServices =
               new AdminWorkflowServices(
                 config,
-                testingConfig,
+                participantNodeParameters,
                 packageService,
                 syncService,
                 participantId.adminParty,
@@ -116,7 +117,17 @@ class StartableStoppableLedgerApiDependentServices(
                 PingServiceGrpc.bindService(new GrpcPingService(adminWorkflowServices.ping), ec)
               )
 
-            servicesRef = Some((adminWorkflowServices, packageServiceGrpc, pingServiceGrpc))
+            val (apiInfoServiceGrpc, _) =
+              registry
+                .addService(
+                  ApiInfoServiceGrpc.bindService(
+                    new GrpcApiInfoService(CantonGrpcUtil.ApiName.AdminApi),
+                    ec,
+                  )
+                )
+
+            servicesRef =
+              Some((adminWorkflowServices, packageServiceGrpc, pingServiceGrpc, apiInfoServiceGrpc))
         }
       }
     }
@@ -125,11 +136,14 @@ class StartableStoppableLedgerApiDependentServices(
     blocking {
       synchronized {
         servicesRef match {
-          case Some((adminWorkflowServices, packageServiceGrpc, pingGrpcService)) =>
+          case Some(
+                (adminWorkflowServices, packageServiceGrpc, pingGrpcService, apiInfiServiceGrpc)
+              ) =>
             logger.debug("Stopping Ledger API-dependent Canton services")(TraceContext.empty)
             servicesRef = None
             registry.removeServiceU(pingGrpcService)
             registry.removeServiceU(packageServiceGrpc)
+            registry.removeServiceU(apiInfiServiceGrpc)
             adminWorkflowServices.close()
           case None =>
             logger.debug("Ledger API-dependent Canton services already stopped")(TraceContext.empty)

@@ -122,8 +122,8 @@ class GenTransactionTreeTest
         )
 
         forAll(example.transactionTree.allLightTransactionViewTrees(testedProtocolVersion)) { lt =>
-          LightTransactionViewTree.fromByteString((example.cryptoOps, testedProtocolVersion))(
-            lt.toByteString(testedProtocolVersion)
+          LightTransactionViewTree.fromByteString(example.cryptoOps, testedProtocolVersion)(
+            lt.toByteString
           ) shouldBe Right(lt)
         }
       }
@@ -431,18 +431,18 @@ class GenTransactionTreeTest
       "given consistent subview hashes" must {
         s"pass sanity tests at creation (for the $index-th transaction view tree)" in {
           noException should be thrownBy LightTransactionViewTree
-            .tryCreate(genTransactionTree, tvt.subviewHashes)
+            .tryCreate(genTransactionTree, tvt.subviewHashes, testedProtocolVersion)
         }
       }
 
       "given inconsistent subview hashes" must {
         s"reject creation (for the $index-th transaction view tree)" in {
           an[InvalidLightTransactionViewTree] should be thrownBy LightTransactionViewTree
-            .tryCreate(genTransactionTree, mangledSubviewHashes)
+            .tryCreate(genTransactionTree, mangledSubviewHashes, testedProtocolVersion)
 
           if (tvt.subviewHashes.nonEmpty)
             an[InvalidLightTransactionViewTree] should be thrownBy LightTransactionViewTree
-              .tryCreate(genTransactionTree, Seq.empty)
+              .tryCreate(genTransactionTree, Seq.empty, testedProtocolVersion)
         }
       }
     }

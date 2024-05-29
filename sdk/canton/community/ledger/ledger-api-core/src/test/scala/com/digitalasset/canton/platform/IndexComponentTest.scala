@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.PackageName
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder}
 import com.digitalasset.canton.BaseTest
@@ -173,7 +174,10 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
 
   protected object TxBuilder {
     def apply(): NodeIdTransactionBuilder & TestNodeBuilder = new NodeIdTransactionBuilder
-      with TestNodeBuilder
+      with TestNodeBuilder {
+      override val defaultPackageName: Option[PackageName] =
+        None
+    }
   }
 }
 

@@ -33,7 +33,7 @@ import com.google.protobuf.ByteString
 import java.util.UUID
 
 /** A blindable Merkle tree for transfer-out requests */
-final case class TransferOutViewTree private (
+final case class TransferOutViewTree(
     commonData: MerkleTree[TransferOutCommonData],
     view: MerkleTree[TransferOutView],
 )(
@@ -47,7 +47,7 @@ final case class TransferOutViewTree private (
       TransferOutViewTree,
       TransferOutMediatorMessage,
     ](commonData, view)(hashOps)
-    with HasRepresentativeProtocolVersion {
+    with HasProtocolVersionedWrapper[TransferOutViewTree] {
 
   override private[data] def withBlindedSubtrees(
       optimizedBlindingPolicy: PartialFunction[RootHash, MerkleTree.BlindingCommand]
@@ -72,7 +72,7 @@ final case class TransferOutViewTree private (
 }
 
 object TransferOutViewTree
-    extends HasProtocolVersionedWithContextAndValidationCompanion[
+    extends HasProtocolVersionedWithContextAndValidationWithSourceProtocolVersionCompanion[
       TransferOutViewTree,
       HashOps,
     ] {
@@ -93,15 +93,15 @@ object TransferOutViewTree
   def apply(
       commonData: MerkleTree[TransferOutCommonData],
       view: MerkleTree[TransferOutView],
-      protocolVersion: ProtocolVersion,
+      sourceProtocolVersion: SourceProtocolVersion,
       hashOps: HashOps,
   ): TransferOutViewTree =
     TransferOutViewTree(commonData, view)(
-      TransferOutViewTree.protocolVersionRepresentativeFor(protocolVersion),
+      TransferOutViewTree.protocolVersionRepresentativeFor(sourceProtocolVersion.v),
       hashOps,
     )
 
-  def fromProtoV0(context: (HashOps, ProtocolVersion))(
+  def fromProtoV0(context: (HashOps, SourceProtocolVersion))(
       transferOutViewTreeP: v0.TransferViewTree
   ): ParsingResult[TransferOutViewTree] = {
     val (hashOps, expectedProtocolVersion) = context
@@ -109,8 +109,8 @@ object TransferOutViewTree
     for {
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
       transferOutViewTree <- GenTransferViewTree.fromProtoV0(
-        TransferOutCommonData.fromByteString(expectedProtocolVersion)(hashOps),
-        TransferOutView.fromByteString(expectedProtocolVersion)(hashOps),
+        TransferOutCommonData.fromByteString(expectedProtocolVersion.v)(hashOps),
+        TransferOutView.fromByteString(expectedProtocolVersion.v)(hashOps),
       )((commonData, view) =>
         TransferOutViewTree(commonData, view)(
           rpv,
@@ -120,7 +120,7 @@ object TransferOutViewTree
     } yield transferOutViewTree
   }
 
-  def fromProtoV1(context: (HashOps, ProtocolVersion))(
+  def fromProtoV1(context: (HashOps, SourceProtocolVersion))(
       transferOutViewTreeP: v1.TransferViewTree
   ): ParsingResult[TransferOutViewTree] = {
     val (hashOps, expectedProtocolVersion) = context
@@ -128,8 +128,8 @@ object TransferOutViewTree
     for {
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))
       transferOutViewTree <- GenTransferViewTree.fromProtoV1(
-        TransferOutCommonData.fromByteString(expectedProtocolVersion)(hashOps),
-        TransferOutView.fromByteString(expectedProtocolVersion)(hashOps),
+        TransferOutCommonData.fromByteString(expectedProtocolVersion.v)(hashOps),
+        TransferOutView.fromByteString(expectedProtocolVersion.v)(hashOps),
       )((commonData, view) =>
         TransferOutViewTree(commonData, view)(
           rpv,
@@ -158,7 +158,7 @@ final case class TransferOutCommonData private (
     uuid: UUID,
 )(
     hashOps: HashOps,
-    val protocolVersion: SourceProtocolVersion,
+    val sourceProtocolVersion: SourceProtocolVersion,
     override val deserializedFrom: Option[ByteString],
 ) extends MerkleTreeLeaf[TransferOutCommonData](hashOps)
     with HasProtocolVersionedWrapper[TransferOutCommonData]
@@ -169,7 +169,7 @@ final case class TransferOutCommonData private (
 
   override val representativeProtocolVersion
       : RepresentativeProtocolVersion[TransferOutCommonData.type] =
-    TransferOutCommonData.protocolVersionRepresentativeFor(protocolVersion.v)
+    TransferOutCommonData.protocolVersionRepresentativeFor(sourceProtocolVersion.v)
 
   protected def toProtoV0: v0.TransferOutCommonData =
     v0.TransferOutCommonData(
@@ -189,7 +189,7 @@ final case class TransferOutCommonData private (
       stakeholders = stakeholders.toSeq,
       adminParties = adminParties.toSeq,
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
-      sourceProtocolVersion = protocolVersion.v.toProtoPrimitive,
+      sourceProtocolVersion = sourceProtocolVersion.v.toProtoPrimitive,
     )
 
   override protected[this] def toByteStringUnmemoized: ByteString =
@@ -235,16 +235,15 @@ object TransferOutCommonData
       stakeholders: Set[LfPartyId],
       adminParties: Set[LfPartyId],
       uuid: UUID,
-      protocolVersion: SourceProtocolVersion,
-  ): TransferOutCommonData =
-    TransferOutCommonData(
-      salt,
-      sourceDomain,
-      sourceMediator,
-      stakeholders,
-      adminParties,
-      uuid,
-    )(hashOps, protocolVersion, None)
+      sourceProtocolVersion: SourceProtocolVersion,
+  ): TransferOutCommonData = TransferOutCommonData(
+    salt,
+    sourceDomain,
+    sourceMediator,
+    stakeholders,
+    adminParties,
+    uuid,
+  )(hashOps, sourceProtocolVersion, None)
 
   private[this] def fromProtoV0(hashOps: HashOps, transferOutCommonDataP: v0.TransferOutCommonData)(
       bytes: ByteString
@@ -654,7 +653,7 @@ object TransferOutView
   */
 final case class FullTransferOutTree(tree: TransferOutViewTree)
     extends TransferViewTree
-    with HasVersionedToByteString
+    with HasToByteString
     with PrettyPrinting {
   require(tree.isFullyUnblinded, "A transfer-out request must be fully unblinded")
 
@@ -696,7 +695,7 @@ final case class FullTransferOutTree(tree: TransferOutViewTree)
 
   override def pretty: Pretty[FullTransferOutTree] = prettyOfClass(unnamedParam(_.tree))
 
-  override def toByteString(version: ProtocolVersion): ByteString = tree.toByteString(version)
+  override def toByteString: ByteString = tree.toByteString
 }
 
 object FullTransferOutTree {
@@ -710,9 +709,9 @@ object FullTransferOutTree {
         // thus resulting in data dumps that fail deserialization validation (which expects protoV0 for pv <= 3, protoV1
         // otherwise).
         if (sourceProtocolVersion.v <= ProtocolVersion.v5) {
-          TransferOutViewTree.fromByteStringUnsafe((crypto, sourceProtocolVersion.v))(bytes)
+          TransferOutViewTree.fromByteStringUnsafe((crypto, sourceProtocolVersion))(bytes)
         } else {
-          TransferOutViewTree.fromByteString(crypto, sourceProtocolVersion.v)(bytes)
+          TransferOutViewTree.fromByteString(crypto, sourceProtocolVersion)(bytes)
         }
       }
       _ <- EitherUtil.condUnitE(

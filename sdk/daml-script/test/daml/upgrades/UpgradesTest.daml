@@ -82,9 +82,9 @@ tests = mconcat
     , ("Downgrade a contract with Nones when fetching", fetchDowngradedNone)
     , ("Fail to downgrade a contract with Somes when fetching", fetchDowngradedSome)
 
-    , -- Fetching tests with unvetted sources (BROKEN)
-      broken ("Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
-    , broken ("Downgrade a contract with Nones when fetching where the source package (V2) is unvetted", fetchDowngradedNoneSourceUnvetted)
+    , -- Fetching tests with unvetted sources
+      ("Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
+    , ("Downgrade a contract with Nones when fetching where the source package (V2) is unvetted", fetchDowngradedNoneSourceUnvetted)
 
     , -- Template payload upgrading/downgrading from exercises within choice bodies
       -- The expected behaviour here is that the outer templates have fixed the choice version they wish to call

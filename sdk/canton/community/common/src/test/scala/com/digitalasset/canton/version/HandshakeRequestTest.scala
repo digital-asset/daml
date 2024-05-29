@@ -35,7 +35,7 @@ class HandshakeRequestTest extends AnyWordSpec with BaseTest {
         s"fail deserialization for minimal pv=$deletedPV" in {
           deletedPV.isDeleted shouldBe true
           val req =
-            HandshakeRequest(Seq(ProtocolVersion.latest), minimumProtocolVersion = Some(deletedPV))
+            HandshakeRequest(Seq(testedProtocolVersion), minimumProtocolVersion = Some(deletedPV))
           val res = HandshakeRequest.fromProtoV0(req.toProtoV0)
 
           res.left.value.message shouldBe ProtocolVersion.unsupportedErrorMessage(deletedPV)

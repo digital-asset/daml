@@ -101,10 +101,9 @@ object EncryptedView {
       encryptionOps: EncryptionOps,
       viewKey: SymmetricKey,
       aViewType: VT,
-      version: ProtocolVersion,
   )(aViewTree: aViewType.View): Either[EncryptionError, EncryptedView[VT]] =
     encryptionOps
-      .encryptWith(CompressedView(aViewTree), viewKey, version)
+      .encryptWith(CompressedView(aViewTree), viewKey)
       .map(apply(aViewType))
 
   def decrypt[VT <: ViewType](
@@ -127,17 +126,16 @@ object EncryptedView {
     * and we want to avoid that this is applied to [[com.digitalasset.canton.serialization.HasCryptographicEvidence]]
     * instances.
     */
-  final case class CompressedView[+V <: HasVersionedToByteString] private (value: V)
-      extends HasVersionedToByteString {
-    override def toByteString(version: ProtocolVersion): ByteString =
-      ByteStringUtil.compressGzip(value.toByteString(version))
+  final case class CompressedView[+V <: HasToByteString] private (value: V)
+      extends HasToByteString {
+    override def toByteString: ByteString = ByteStringUtil.compressGzip(value.toByteString)
   }
 
   object CompressedView {
-    private[EncryptedView] def apply[V <: HasVersionedToByteString](value: V): CompressedView[V] =
+    private[EncryptedView] def apply[V <: HasToByteString](value: V): CompressedView[V] =
       new CompressedView(value)
 
-    private[EncryptedView] def fromByteString[V <: HasVersionedToByteString](
+    private[EncryptedView] def fromByteString[V <: HasToByteString](
         deserialize: ByteString => Either[DeserializationError, V]
     )(bytes: ByteString): Either[DeserializationError, CompressedView[V]] =
       // TODO(i10428) Make sure that this view does not explode into an arbitrarily large object

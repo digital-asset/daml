@@ -563,7 +563,7 @@ class TransactionProcessingSteps(
           bytes: ByteString
       ): Either[DefaultDeserializationError, LightTransactionViewTree] =
         LightTransactionViewTree
-          .fromByteString((pureCrypto, protocolVersion))(bytes)
+          .fromByteString(pureCrypto, protocolVersion)(bytes)
           .leftMap(err => DefaultDeserializationError(err.message))
 
       def decryptTree(
@@ -1569,7 +1569,26 @@ class TransactionProcessingSteps(
           EitherT.right[TransactionProcessorError](
             Future.failed(new IllegalArgumentException("Timeout message after decision time"))
           )
-      res <- getCommitSetAndContractsToBeStoredAndEvent(topologySnapshot)
+
+      resultTopologySnapshot <- EitherT.right[TransactionProcessorError](
+        crypto.ips.awaitSnapshot(ts)
+      )
+      mediatorActiveAtResultTs <- EitherT.right[TransactionProcessorError](
+        resultTopologySnapshot.isMediatorActive(pendingRequestData.mediator)
+      )
+      res <-
+        if (mediatorActiveAtResultTs) getCommitSetAndContractsToBeStoredAndEvent(topologySnapshot)
+        else {
+          // Additional validation requested during security audit as DIA-003-013.
+          // Activeness of the mediator already gets checked in Phase 3,
+          // this additional validation covers the case that the mediator gets deactivated between Phase 3 and Phase 7.
+          rejected(
+            LocalReject.MalformedRejects.MalformedRequest.Reject(
+              s"The mediator ${pendingRequestData.mediator} has been deactivated while processing the request. Rolling back.",
+              protocolVersion,
+            )
+          )
+        }
     } yield res
   }
 

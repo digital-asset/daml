@@ -82,6 +82,18 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       companion.fromByteStringUnsafe(context),
     )
 
+  protected def testProtocolVersionedWithCtxAndValidation[T <: HasProtocolVersionedWrapper[
+    T
+  ], Context](
+      companion: HasProtocolVersionedWithContextAndValidationCompanion[T, Context],
+      context: Context,
+      protocolVersion: ProtocolVersion,
+  )(implicit arb: Arbitrary[T]): Assertion =
+    testProtocolVersionedCommon(
+      companion,
+      companion.fromByteString(context, protocolVersion),
+    )
+
   /*
    Test for classes extending `HasProtocolVersionedWrapper` (protocol version embedded in the instance),
    with context for deserialization.
@@ -153,14 +165,6 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       withClue(
         s"Comparing ${companion.name} with representative ${instance.representativeProtocolVersion}"
       ) {
-        if (instance != deserializedInstance) {
-          println("spm")
-        }
-        if (
-          instance.representativeProtocolVersion != deserializedInstance.representativeProtocolVersion
-        ) {
-          println("spm")
-        }
         instance shouldBe deserializedInstance
         instance.representativeProtocolVersion shouldBe deserializedInstance.representativeProtocolVersion
       }

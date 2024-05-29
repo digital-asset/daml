@@ -12,7 +12,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   RegisterMemberError,
   SequencerWriteError,
 }
-import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
+import com.digitalasset.canton.health.admin.data.{SequencerAdminStatus, SequencerHealthStatus}
 import com.digitalasset.canton.health.{AtomicHealthElement, CloseableHealthQuasiComponent}
 import com.digitalasset.canton.lifecycle.HasCloseContext
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLogging}
@@ -153,6 +153,10 @@ trait Sequencer
     * This should not be exposed externally as is as it contains information not relevant to external consumers.
     */
   def trafficStates: Future[Map[Member, TrafficState]] = Future.successful(Map.empty)
+
+  /** Status relating to administrative sequencer operations.
+    */
+  def adminStatus: SequencerAdminStatus
 }
 
 /** Sequencer pruning interface.
