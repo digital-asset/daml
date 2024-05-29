@@ -162,9 +162,6 @@ class Engine(val config: EngineConfig) {
     * single rollback node. (This is achieving by compiling with `unsafeCompileForReinterpretation`
     * which wraps the command with a catch-everything exception handler.)
     *
-    * The reinterpretation does not recompute the package dependencies, so the field `usedPackages` in the
-    * `Tx.MetaData` component of the output is always set to `empty`.
-    *
     * @param nodeSeed the seed of the root node as generated during submission.
     *                 If undefined the contract IDs are derive using V0 scheme.
     *                 The value does not matter for other kind of nodes.
