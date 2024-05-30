@@ -73,8 +73,6 @@ message ViewCommonData {
 }
 
 message Informee {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
-
   string party = 1;
   int32 weight = 2; // optional: only set if party is confirming
   com.digitalasset.canton.protocol.v0.TrustLevel required_trust_level = 3;

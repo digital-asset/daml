@@ -18,7 +18,7 @@ import "scalapb/scalapb.proto";
 // ViewCommonData
 
 message ViewCommonData {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   com.digitalasset.canton.crypto.v0.Salt salt = 1;
   // Replaced informees data type to only contain the PartyId and TrustLevel of the informee since their weight
@@ -44,7 +44,7 @@ message SessionKeyLookup {
 // EncryptedViewMessage
 
 message EncryptedViewMessage {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   bytes view_tree = 1;
 

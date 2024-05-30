@@ -11,7 +11,7 @@ import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
 
 message Verdict {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   oneof some_verdict {
     google.protobuf.Empty approve = 1;
@@ -21,7 +21,7 @@ message Verdict {
 }
 
 message TransactionResultMessage {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   google.protobuf.Timestamp request_id = 1;
   Verdict verdict = 2; // v2.Verdict -> v3.Verdict
@@ -30,7 +30,7 @@ message TransactionResultMessage {
 }
 
 message TransferResult {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   google.protobuf.Timestamp request_id = 1;
   oneof domain {

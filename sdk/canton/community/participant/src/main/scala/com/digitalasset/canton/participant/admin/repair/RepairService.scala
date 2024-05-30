@@ -854,15 +854,16 @@ final class RepairService(
       .batchedSequentialTraverse(threadsAvailableForWriting * PositiveInt.two, batchSize)(
         contractIds
       )(
-        MigrateContracts(
-          _,
-          repairSource,
-          repairTarget,
-          skipInactive,
-          participantId,
-          syncCrypto,
-          loggerFactory,
-        )
+        MigrateContracts
+          .apply(
+            _,
+            repairSource,
+            repairTarget,
+            skipInactive,
+            participantId,
+            syncCrypto,
+            loggerFactory,
+          )
           .map(_ => Seq[Unit]())
       )
       .map(_ => ())

@@ -9,11 +9,11 @@ import com.digitalasset.canton.topology.PartyId
 import scala.jdk.CollectionConverters.*
 
 object IouSyntax {
-  def testIou(payer: PartyId, owner: PartyId): iou.Iou =
+  def testIou(payer: PartyId, owner: PartyId, amount: Int = 100): iou.Iou =
     new iou.Iou(
       payer.toProtoPrimitive,
       owner.toProtoPrimitive,
-      new iou.Amount(100.toBigDecimal, "USD"),
+      new iou.Amount(amount.toBigDecimal, "USD"),
       List.empty.asJava,
     )
 }
