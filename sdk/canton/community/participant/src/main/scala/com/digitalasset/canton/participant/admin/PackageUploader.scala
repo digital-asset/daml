@@ -264,21 +264,25 @@ class PackageUploader(
             PackageServiceErrors.Validation.handleLfEnginePackageError(_): DamlError
           )
       )
-      _ <- EitherTUtil.ifThenET(enableUpgradeValidation)(
-        mainPackage._2.metadata match {
-          case Some(packageMetadata) =>
-            packageUpgradeValidator
-              .validateUpgrade(mainPackage, packageMetadata)(
-                LoggingContextWithTrace(loggerFactory)
+      _ <-
+        if (enableUpgradeValidation)
+          mainPackage._2.metadata match {
+            case Some(packageMetadata) =>
+              packageUpgradeValidator
+                .validateUpgrade(mainPackage, packageMetadata)(
+                  LoggingContextWithTrace(loggerFactory)
+                )
+                .mapK(FutureUnlessShutdown.outcomeK)
+            case None =>
+              logger.info(
+                s"Package metadata is not defined for ${mainPackage._1}. Skipping upgrade validation."
               )
-              .mapK(FutureUnlessShutdown.outcomeK)
-          case None =>
-            logger.info(
-              s"Package metadata is not defined for ${mainPackage._1}. Skipping upgrade validation."
-            )
-            EitherTUtil.unitUS[DamlError]
+              EitherTUtil.unitUS[DamlError]
+          }
+        else {
+          logger.info(s"Skipping upgrade validation for package ${mainPackage._1}.")
+          EitherT.pure[FutureUnlessShutdown, DamlError](())
         }
-      )
     } yield ()
 
   private def updateWithPackage(
