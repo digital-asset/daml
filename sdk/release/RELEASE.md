@@ -1,8 +1,12 @@
 # Making a Release
 
-Daml releases are made in the [assembly] repo by combining the releases of
-individual components. SDK releases are triggered in this repo by modifying the
-[`LATEST`] file.
+Daml Enterprise releases are made in the [assembly] repo by combining the
+releases of individual components (as of 2024-05-28, those are SDK (this repo),
+canton, drivers, scribe, and finance). SDK releases are triggered in this repo
+by modifying the [`LATEST`] file.
+
+If you're looking for broader context on Daml Enterprise releases, please see
+the [assembly] repo.
 
 ## Release Branches
 
@@ -28,9 +32,9 @@ The steps to create a release are:
    commit sha of the code you want to release (at this point typically the tip
    of the release branch), the version number you want to attribute to the
    build, and the words `SPLIT_RELEASE` (for historical reason dating to
-   pre-2.0 days).  For a release candidate, one can generate a snapshot version
+   pre-2.0 days).  For a snapshot release, one can generate a snapshot version
    string using the `release.sh` script. For example, to create a PR for a
-   2.0.0 release candidate:
+   2.0.0 snapshot release:
 
    ```
    $ git fetch
@@ -40,27 +44,30 @@ The steps to create a release are:
    You should put that line in the file in order to preserve semver ordering,
    and overwrite any existing snapshot with the same prefix.
 
-   Stable releases should use the same code as the last RC, so instead of
-   adding a new line you should simply remove the `-snapshot.*` part of the
-   version string on the appropriate line of the [`LATEST`] file.
+   For a stable release, follow the same steps but remove the `-snapshot.*`
+   part of the generated string.
 
 2. Make a PR **targeting the `main` branch** with just that one line added,
    touching no other file. Add the `Standard-Change` label to that PR.
 
+   **The main branch is the only one that triggers releases, even for "release
+   line" releases.**
+
 4. When the PR is merged, the build of the corresponding commit on `main` will
-   create a "split release" bundle and push it to Artifactory. It should notify
-   on `#team-canton` on Slack.
+   create a "split release" bundle and push it to Artifactory. It then notifies
+   on `#team-internal-releases` on Slack.
 
 ## Daily Snapshots
 
-CI will automatically create a daily snapshot using the tip of the main branch.
-This does not appear in the [`LATEST`] file but is otherwise identical to a
-snapshot one would have created on the same commit using the steps in the
-previous section.
+CI will automatically create a daily snapshot using the tip of the `main` and
+`main-2.x` branch.  This does not appear in the [`LATEST`] file but is
+otherwise identical to a snapshot one would have created on the same commit
+using the steps in the previous section.
 
 ## Testing
 
-This testing procedure starts once the release is listed on the [releases page].
+This testing procedure starts once the release is listed on the [releases
+page]. That is, _after_ the [assembly] step has finished.
 
 In the following notes, we assume that `$VERSION` contains the full version tag
 for the release you are testing - in other words, the full version as recorded
