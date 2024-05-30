@@ -9,9 +9,10 @@ module DA.Cli.Damlc.Command.MultiIde.Util (
   module DA.Cli.Damlc.Command.MultiIde.Util
 ) where
 
+import Control.Concurrent.Async (AsyncCancelled (..))
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TMVar
-import Control.Exception (SomeException, handle, try)
+import Control.Exception (SomeException, fromException, handle, try, tryJust)
 import Control.Lens ((^.))
 import Control.Monad (void)
 import Control.Monad.STM

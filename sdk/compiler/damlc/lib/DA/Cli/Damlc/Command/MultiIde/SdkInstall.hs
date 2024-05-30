@@ -15,7 +15,7 @@ module DA.Cli.Damlc.Command.MultiIde.SdkInstall (
 import Control.Concurrent.Async
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TMVar
-import Control.Exception (SomeException, tryJust, displayException, fromException)
+import Control.Exception (SomeException, displayException)
 import Control.Lens ((^.))
 import Control.Monad (foldM, forM_)
 import Control.Monad.STM
@@ -29,6 +29,7 @@ import DA.Cli.Damlc.Command.MultiIde.OpenFiles
 import DA.Cli.Damlc.Command.MultiIde.Parsing
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Cli.Damlc.Command.MultiIde.Util
+import DA.Daml.Assistant.Cache (CacheTimeout (..))
 import DA.Daml.Assistant.Env
 import DA.Daml.Assistant.Install
 import DA.Daml.Assistant.Types
@@ -187,7 +188,7 @@ installSdk unresolvedVersion outputLogVar report = do
   damlPath <- getDamlPath
   cachePath <- getCachePath
   -- Override the cache timeout to 5 minutes, to be sure we have a recent cache
-  let useCache = mkUseCache cachePath damlPath {overrideTimeout = Just $ CacheTimeout 300}
+  let useCache = (mkUseCache cachePath damlPath) {overrideTimeout = Just $ CacheTimeout 300}
 
   version <- resolveReleaseVersionUnsafe useCache unresolvedVersion
   damlConfigE <- tryConfig $ readDamlConfig damlPath
