@@ -114,7 +114,6 @@ class TransactionConfirmationRequestFactory(
           validatePackageVettings = true,
         )
         .leftMap(TransactionTreeFactoryError)
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       rootViews = transactionTree.rootViews.unblindedElements.toList
       inputContracts = ExtractUsedContractsFromRootViews(rootViews)

@@ -69,7 +69,7 @@ class TransactionsTreeStreamReader(
 
   def streamTreeTransaction(
       queryRange: EventsRange,
-      requestingParties: Set[Party],
+      requestingParties: Option[Set[Party]],
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -112,7 +112,7 @@ class TransactionsTreeStreamReader(
 
   private def doStreamTreeTransaction(
       queryRange: EventsRange,
-      requestingParties: Set[Party],
+      requestingParties: Option[Set[Party]],
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -127,7 +127,8 @@ class TransactionsTreeStreamReader(
       new QueueBasedConcurrencyLimiter(maxParallelPayloadQueries, executionContext)
     val deserializationQueriesLimiter =
       new QueueBasedConcurrencyLimiter(transactionsProcessingParallelism, executionContext)
-    val filterParties = requestingParties.toVector
+    val filterParties: Vector[Option[Party]] =
+      requestingParties.fold(Vector(None: Option[Party]))(_.map(Some(_)).toVector)
     val idPageSizing = IdPageSizing.calculateFrom(
       maxIdPageSize = maxIdsPerIdPage,
       // The ids for tree transactions are retrieved from seven separate id tables:
@@ -146,7 +147,7 @@ class TransactionsTreeStreamReader(
     )
 
     def fetchIds(
-        filterParty: Party,
+        filterParty: Option[Party],
         target: EventIdSourceForInformees,
         maxParallelIdQueriesLimiter: QueueBasedConcurrencyLimiter,
         metric: DatabaseMetrics,
@@ -163,7 +164,7 @@ class TransactionsTreeStreamReader(
                 eventStorageBackend.transactionStreamingQueries.fetchEventIdsForInformee(
                   target = target
                 )(
-                  informeeO = Some(filterParty), // TODO(#18362) add filters for transaction trees
+                  informeeO = filterParty,
                   startExclusive = state.fromIdExclusive,
                   endInclusive = queryRange.endInclusiveEventSeqId,
                   limit = state.pageSize,
@@ -307,15 +308,13 @@ class TransactionsTreeStreamReader(
           queryRange = queryRange,
           filteringConstraints = TemplatePartiesFilter(
             relation = Map.empty,
-            templateWildcardParties = Some(requestingParties),
+            templateWildcardParties = requestingParties,
           ),
           eventProjectionProperties = eventProjectionProperties,
           payloadQueriesLimiter = payloadQueriesLimiter,
           deserializationQueriesLimiter = deserializationQueriesLimiter,
           idPageSizing = idPageSizing,
-          decomposedFilters = requestingParties // TODO(#18362) add filters for transaction trees
-            .map(p => DecomposedFilter(Some(p), None))
-            .toVector,
+          decomposedFilters = filterParties.map(DecomposedFilter(_, None)),
           maxParallelIdAssignQueries = maxParallelIdAssignQueries,
           maxParallelIdUnassignQueries = maxParallelIdUnassignQueries,
           maxPagesPerIdPagesBuffer = maxPagesPerIdPagesBuffer,

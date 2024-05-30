@@ -111,7 +111,7 @@ class QueueBasedDomainOutboxTest
       domainId,
       protocolVersion = testedProtocolVersion,
       store = target,
-      packageDependencies = StoreBasedDomainTopologyClient.NoPackageDependencies,
+      packageDependenciesResolver = StoreBasedDomainTopologyClient.NoPackageDependencies,
       timeouts = timeouts,
       futureSupervisor = futureSupervisor,
       loggerFactory = loggerFactory,

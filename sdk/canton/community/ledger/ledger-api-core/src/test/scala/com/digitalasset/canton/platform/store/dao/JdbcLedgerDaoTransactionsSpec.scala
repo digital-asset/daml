@@ -171,7 +171,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   }
 
   behavior of "JdbcLedgerDao (getFlatTransactions)"
-  // TODO(#18362) extend for party-wildcard
 
   it should "match the results of lookupFlatTransactionById" in {
     for {
@@ -305,14 +304,27 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
             filter = TemplatePartiesFilter(
-              Map(
+              relation = Map(
                 otherTemplateId -> Some(Set(alice, bob))
               ),
-              Some(Set.empty),
+              templateWildcardParties = Some(Set.empty),
             ),
             eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
           )
       )
+      resultPartyWildcard <- transactionsOf(
+        ledgerDao.transactionsReader
+          .getFlatTransactions(
+            startExclusive = from.lastOffset,
+            endInclusive = to.lastOffset,
+            filter = TemplatePartiesFilter(
+              relation = Map(otherTemplateId -> None),
+              templateWildcardParties = Some(Set.empty),
+            ),
+            eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+          )
+      )
+
     } yield {
       val events = result.loneElement.events.toArray
       events should have length 2
@@ -324,6 +336,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         create.witnessParties.loneElement shouldBe alice
         create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
       }
+      // clear out commandId since submitter is not in the querying parties for flat transactions in the non-wildcard query
+      resultPartyWildcard.loneElement.copy(commandId = "") shouldBe result.loneElement
     }
   }
 
@@ -347,11 +361,26 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
             filter = TemplatePartiesFilter(
-              Map(
+              relation = Map(
                 otherTemplateId -> Some(Set(bob)),
                 someTemplateId -> Some(Set(alice)),
               ),
-              Some(Set.empty),
+              templateWildcardParties = Some(Set.empty),
+            ),
+            eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+          )
+      )
+      resultPartyWildcard <- transactionsOf(
+        ledgerDao.transactionsReader
+          .getFlatTransactions(
+            startExclusive = from.lastOffset,
+            endInclusive = to.lastOffset,
+            filter = TemplatePartiesFilter(
+              relation = Map(
+                otherTemplateId -> None,
+                someTemplateId -> None,
+              ),
+              templateWildcardParties = Some(Set.empty),
             ),
             eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
           )
@@ -367,6 +396,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         create.witnessParties.loneElement shouldBe bob
         create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
       }
+      val eventsPartyWildcard = resultPartyWildcard.loneElement.events.toArray
+      eventsPartyWildcard should have length 3
     }
   }
 
@@ -398,6 +429,20 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
           )
       )
+      resultPartyWildcard <- transactionsOf(
+        ledgerDao.transactionsReader
+          .getFlatTransactions(
+            startExclusive = from.lastOffset,
+            endInclusive = to.lastOffset,
+            filter = TemplatePartiesFilter(
+              Map(
+                otherTemplateId -> None
+              ),
+              Some(Set(bob)),
+            ),
+            eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+          )
+      )
     } yield {
       val events = result.loneElement.events.toArray
       events should have length 2
@@ -409,6 +454,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         create.witnessParties.loneElement shouldBe alice
         create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
       }
+      // clear out commandId since submitter is not in the querying parties for flat transactions in the non-wildcard query
+      resultPartyWildcard.loneElement.copy(commandId = "") shouldBe result.loneElement
     }
   }
 

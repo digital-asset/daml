@@ -42,7 +42,7 @@ private[events] class BufferedTransactionsReader(
       GetUpdatesResponse,
     ],
     bufferedTransactionTreesReader: BufferedStreamsReader[
-      (Set[Party], EventProjectionProperties),
+      (Option[Set[Party]], EventProjectionProperties),
       GetUpdateTreesResponse,
     ],
     bufferedFlatTransactionByIdReader: BufferedTransactionByIdReader[
@@ -89,7 +89,7 @@ private[events] class BufferedTransactionsReader(
   override def getTransactionTrees(
       startExclusive: Offset,
       endInclusive: Offset,
-      requestingParties: Set[Party],
+      requestingParties: Option[Set[Party]],
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -178,18 +178,18 @@ private[platform] object BufferedTransactionsReader {
 
     val transactionTreesStreamReader =
       new BufferedStreamsReader[
-        (Set[Party], EventProjectionProperties),
+        (Option[Set[Party]], EventProjectionProperties),
         GetUpdateTreesResponse,
       ](
         inMemoryFanoutBuffer = transactionsBuffer,
         fetchFromPersistence = new FetchFromPersistence[
-          (Set[Party], EventProjectionProperties),
+          (Option[Set[Party]], EventProjectionProperties),
           GetUpdateTreesResponse,
         ] {
           override def apply(
               startExclusive: Offset,
               endInclusive: Offset,
-              filter: (Set[Party], EventProjectionProperties),
+              filter: (Option[Set[Party]], EventProjectionProperties),
           )(implicit
               loggingContext: LoggingContextWithTrace
           ): Source[(Offset, GetUpdateTreesResponse), NotUsed] = {

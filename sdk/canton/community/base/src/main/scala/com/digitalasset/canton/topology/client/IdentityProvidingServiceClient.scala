@@ -33,7 +33,6 @@ import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.{
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessingSubscriber
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.SingleUseCell
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, checked}
@@ -475,8 +474,7 @@ trait VettedPackagesSnapshotClient {
   def findUnvettedPackagesOrDependencies(
       participantId: ParticipantId,
       packages: Set[PackageId],
-  )(implicit traceContext: TraceContext): EitherT[Future, PackageId, Set[PackageId]]
-
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]]
 }
 
 trait DomainGovernanceSnapshotClient {
@@ -886,21 +884,21 @@ trait VettedPackagesSnapshotLoader extends VettedPackagesSnapshotClient {
   private[client] def loadUnvettedPackagesOrDependencies(
       participant: ParticipantId,
       packageId: PackageId,
-  )(implicit traceContext: TraceContext): EitherT[Future, PackageId, Set[PackageId]]
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]]
 
   protected def findUnvettedPackagesOrDependenciesUsingLoader(
       participantId: ParticipantId,
       packages: Set[PackageId],
-      loader: (ParticipantId, PackageId) => EitherT[Future, PackageId, Set[PackageId]],
-  ): EitherT[Future, PackageId, Set[PackageId]] =
+      loader: (ParticipantId, PackageId) => EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]],
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
     packages.toList
-      .parFlatTraverse(packageId => loader(participantId, packageId).map(_.toList))
-      .map(_.toSet)
+      .parTraverse(packageId => loader(participantId, packageId))
+      .map(_.flatten.toSet)
 
   override def findUnvettedPackagesOrDependencies(
       participantId: ParticipantId,
       packages: Set[PackageId],
-  )(implicit traceContext: TraceContext): EitherT[Future, PackageId, Set[PackageId]] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
     findUnvettedPackagesOrDependenciesUsingLoader(
       participantId,
       packages,

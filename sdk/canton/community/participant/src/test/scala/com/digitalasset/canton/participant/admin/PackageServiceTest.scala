@@ -194,7 +194,7 @@ class PackageServiceTest
       val dar = PackageServiceTest.loadExampleDar()
       val mainPackageId = DamlPackageStore.readPackageId(dar.main)
       val dependencyIds = com.daml.lf.archive.Decode.assertDecodeArchive(dar.main)._2.directDeps
-      for {
+      (for {
         _ <- sut
           .upload(
             darBytes = ByteString.copyFrom(bytes),
@@ -204,8 +204,7 @@ class PackageServiceTest
             synchronizeVetting = false,
           )
           .valueOrFail("appending dar")
-          .failOnShutdown
-        deps <- packageDependencyResolver.packageDependencies(List(mainPackageId)).value
+        deps <- packageDependencyResolver.packageDependencies(mainPackageId).value
       } yield {
         // test for explict dependencies
         deps match {
@@ -214,7 +213,7 @@ class PackageServiceTest
             // all direct dependencies should be part of this
             (dependencyIds -- loaded) shouldBe empty
         }
-      }
+      }).unwrap.map(_.failOnShutdown)
     }
 
     "validateDar validates the package" in withEnv { env =>

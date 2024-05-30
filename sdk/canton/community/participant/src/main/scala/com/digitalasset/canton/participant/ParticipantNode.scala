@@ -594,7 +594,7 @@ class ParticipantNodeBootstrap(
         arguments.testingConfig,
         recordSequencerInteractions,
         replaySequencerConfig,
-        packageId => packageDependencyResolver.packageDependencies(List(packageId)),
+        packageDependencyResolver,
         arguments.metrics.domainMetrics,
         sequencerInfoLoader,
         partyNotifier,

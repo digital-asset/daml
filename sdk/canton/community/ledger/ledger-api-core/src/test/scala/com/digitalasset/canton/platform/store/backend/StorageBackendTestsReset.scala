@@ -70,12 +70,12 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       executeSql(
         backend.event.transactionStreamingQueries.fetchEventPayloadsTree(
           EventPayloadSourceForTreeTx.Create
-        )(List(1L), Set.empty)
+        )(List(1L), Some(Set.empty))
       ) ++
         executeSql(
           backend.event.transactionStreamingQueries.fetchEventPayloadsTree(
             EventPayloadSourceForTreeTx.Consuming
-          )(List(2L), Set.empty)
+          )(List(2L), Some(Set.empty))
         )
     }
 

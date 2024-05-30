@@ -9,13 +9,12 @@ import cats.syntax.parallel.*
 import com.daml.lf.data.Ref.PackageId
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.protocol.PackageDescription
-import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
+import com.digitalasset.canton.tracing.{TraceContext, TracedAsyncLoadingCache, TracedScaffeine}
 import com.github.blemale.scaffeine.Scaffeine
 
 import scala.concurrent.duration.*
@@ -28,38 +27,28 @@ class PackageDependencyResolver(
 )(implicit
     ec: ExecutionContext
 ) extends NamedLogging
-    with FlagCloseable {
+    with FlagCloseable
+    with PackageDependencyResolverUS {
 
-  def packageDependencies(packages: List[PackageId]): EitherT[Future, PackageId, Set[PackageId]] =
-    packages
-      .parTraverse(pkgId => OptionT(dependencyCache.get(pkgId)).toRight(pkgId))
-      .map(_.flatten.toSet -- packages)
+  private val dependencyCache
+      : TracedAsyncLoadingCache[PackageId, Either[PackageId, Set[PackageId]]] =
+    TracedScaffeine.buildTracedAsyncFutureUS[PackageId, Either[PackageId, Set[PackageId]]](
+      cache = Scaffeine().maximumSize(10000).expireAfterAccess(15.minutes),
+      loader = t => p => loadPackageDependencies(p)(t).value,
+      allLoader = None,
+    )(logger)
+
+  def packageDependencies(packageId: PackageId)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] = {
+    EitherT(dependencyCache.getUS(packageId).map(_.map(_ - packageId)))
+  }
 
   def getPackageDescription(packageId: PackageId)(implicit
       traceContext: TraceContext
   ): Future[Option[PackageDescription]] = damlPackageStore.getPackageDescription(packageId)
 
-  def clearPackagesNotPreviouslyFound(): Unit = {
-    dependencyCache
-      .synchronous()
-      .asMap()
-      // .filterInPlace modifies the cache removing all packageId's from the cache that didn't exist when
-      // queried/cached previously.
-      .filterInPlace { case (_, deps) => deps.isDefined }
-      .discard
-  }
-
-  private val dependencyCache = Scaffeine()
-    .maximumSize(10000)
-    .expireAfterAccess(15.minutes)
-    .buildAsyncFuture[PackageId, Option[Set[PackageId]]] { packageId =>
-      loadPackageDependencies(packageId)(TraceContext.empty).value
-        .map(
-          // Turn a "package does not exist"-error to a None in the cache value
-          _.toOption
-        )
-        .onShutdown(None)
-    }
+  def clearPackagesNotPreviouslyFound(): Unit = dependencyCache.clear((_, e) => e.isLeft)
 
   private def loadPackageDependencies(packageId: PackageId)(implicit
       traceContext: TraceContext

@@ -293,8 +293,7 @@ class StartableStoppableLedgerApiServer(
           indexService.getActiveContracts(
             filter = TransactionFilter(
               filtersByParty = partyIds.view.map(_ -> Filters.noFilter).toMap,
-              filtersForAnyParty =
-                None, // TODO(#18362) use Some(Filters.noFilter) and remove the filtersByParty?
+              filtersForAnyParty = None,
               alwaysPopulateCreatedEventBlob = true,
             ),
             verbose = false,

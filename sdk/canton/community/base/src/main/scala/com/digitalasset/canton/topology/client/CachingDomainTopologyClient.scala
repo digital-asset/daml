@@ -19,7 +19,11 @@ import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.processing.*
-import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
+import com.digitalasset.canton.topology.store.{
+  PackageDependencyResolverUS,
+  TopologyStore,
+  TopologyStoreId,
+}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{TraceContext, TracedScaffeine}
@@ -184,7 +188,7 @@ object CachingDomainTopologyClient {
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
       store: TopologyStore[TopologyStoreId.DomainStore],
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
+      packageDependenciesResolver: PackageDependencyResolverUS,
       cachingConfigs: CachingConfigs,
       batchingConfig: BatchingConfig,
       timeouts: ProcessingTimeout,
@@ -200,7 +204,7 @@ object CachingDomainTopologyClient {
         domainId,
         protocolVersion,
         store,
-        packageDependencies,
+        packageDependenciesResolver,
         timeouts,
         futureSupervisor,
         loggerFactory,
@@ -264,13 +268,13 @@ private class ForwardingTopologySnapshotClient(
   override def findUnvettedPackagesOrDependencies(
       participantId: ParticipantId,
       packages: Set[PackageId],
-  )(implicit traceContext: TraceContext): EitherT[Future, PackageId, Set[PackageId]] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
     parent.findUnvettedPackagesOrDependencies(participantId, packages)
 
   override private[client] def loadUnvettedPackagesOrDependencies(
       participant: ParticipantId,
       packageId: PackageId,
-  )(implicit traceContext: TraceContext): EitherT[Future, PackageId, Set[PackageId]] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
     parent.loadUnvettedPackagesOrDependencies(participant, packageId)
 
   /** returns the list of currently known mediators */
@@ -388,7 +392,7 @@ class CachingTopologySnapshot(
 
   private val packageVettingCache =
     TracedScaffeine
-      .buildTracedAsyncFuture[(ParticipantId, PackageId), Either[PackageId, Set[PackageId]]](
+      .buildTracedAsyncFutureUS[(ParticipantId, PackageId), Either[PackageId, Set[PackageId]]](
         cache = cachingConfigs.packageVettingCache.buildScaffeine(),
         traceContext => x => loadUnvettedPackagesOrDependencies(x._1, x._2)(traceContext).value,
       )(logger)
@@ -457,20 +461,21 @@ class CachingTopologySnapshot(
       participants: Seq[ParticipantId]
   )(implicit traceContext: TraceContext): Future[Map[ParticipantId, ParticipantAttributes]] =
     participantCache.getAll(participants).map(_.collect { case (k, Some(v)) => (k, v) })
+
   override def findUnvettedPackagesOrDependencies(
       participantId: ParticipantId,
       packages: Set[PackageId],
-  )(implicit traceContext: TraceContext): EitherT[Future, PackageId, Set[PackageId]] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
     findUnvettedPackagesOrDependenciesUsingLoader(
       participantId,
       packages,
-      (x, y) => EitherT(packageVettingCache.get((x, y))),
+      (x, y) => EitherT(packageVettingCache.getUS((x, y))),
     )
 
   private[client] def loadUnvettedPackagesOrDependencies(
       participant: ParticipantId,
       packageId: PackageId,
-  )(implicit traceContext: TraceContext): EitherT[Future, PackageId, Set[PackageId]] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
     parent.loadUnvettedPackagesOrDependencies(participant, packageId)
 
   override def inspectKeys(

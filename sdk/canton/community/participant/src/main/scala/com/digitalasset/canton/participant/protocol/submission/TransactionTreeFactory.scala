@@ -14,6 +14,7 @@ import com.digitalasset.canton.data.{
   ViewPosition,
 }
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.{
   SerializableContractOfId,
@@ -52,7 +53,7 @@ trait TransactionTreeFactory {
       validatePackageVettings: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionTreeConversionError, GenTransactionTree]
+  ): EitherT[FutureUnlessShutdown, TransactionTreeConversionError, GenTransactionTree]
 
   /** Reconstructs a transaction view from a reinterpreted action description,
     * using the supplied salts.

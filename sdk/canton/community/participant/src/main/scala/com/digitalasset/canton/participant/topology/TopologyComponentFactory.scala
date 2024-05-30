@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.participant.topology
 
-import cats.data.EitherT
-import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{
   BatchingConfig,
@@ -23,8 +21,8 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.client.*
 import com.digitalasset.canton.topology.processing.{EffectiveTime, TopologyTransactionProcessor}
-import com.digitalasset.canton.topology.store.TopologyStore
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.{PackageDependencyResolverUS, TopologyStore}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -79,14 +77,14 @@ class TopologyComponentFactory(
 
   def createTopologyClient(
       protocolVersion: ProtocolVersion,
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
+      packageDependencyResolver: PackageDependencyResolverUS,
   )(implicit executionContext: ExecutionContext): DomainTopologyClientWithInit =
     new StoreBasedDomainTopologyClient(
       clock,
       domainId,
       protocolVersion,
       topologyStore,
-      packageDependencies,
+      packageDependencyResolver,
       timeouts,
       futureSupervisor,
       loggerFactory,
@@ -94,7 +92,7 @@ class TopologyComponentFactory(
 
   def createCachingTopologyClient(
       protocolVersion: ProtocolVersion,
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
+      packageDependencyResolver: PackageDependencyResolverUS,
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -103,7 +101,7 @@ class TopologyComponentFactory(
     domainId,
     protocolVersion,
     topologyStore,
-    packageDependencies,
+    packageDependencyResolver,
     caching,
     batching,
     timeouts,
@@ -113,13 +111,13 @@ class TopologyComponentFactory(
 
   def createTopologySnapshot(
       asOf: CantonTimestamp,
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
+      packageDependencyResolver: PackageDependencyResolverUS,
       preferCaching: Boolean,
   )(implicit executionContext: ExecutionContext): TopologySnapshot = {
     val snapshot = new StoreBasedTopologySnapshot(
       asOf,
       topologyStore,
-      packageDependencies,
+      packageDependencyResolver,
       loggerFactory,
     )
     if (preferCaching) {

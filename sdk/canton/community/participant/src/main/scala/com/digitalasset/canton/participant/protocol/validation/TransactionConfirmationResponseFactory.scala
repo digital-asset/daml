@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.protocol.validation
 import cats.syntax.parallel.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.TransactionError
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
   MalformedPayload,
@@ -41,7 +42,7 @@ class TransactionConfirmationResponseFactory(
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): Future[Seq[ConfirmationResponse]] = {
+  ): FutureUnlessShutdown[Seq[ConfirmationResponse]] = {
 
     def hostedConfirmingPartiesOfView(
         viewValidationResult: ViewValidationResult
@@ -133,11 +134,13 @@ class TransactionConfirmationResponseFactory(
 
     def responsesForWellformedPayloads(
         transactionValidationResult: TransactionValidationResult
-    ): Future[Seq[ConfirmationResponse]] =
+    ): FutureUnlessShutdown[Seq[ConfirmationResponse]] =
       transactionValidationResult.viewValidationResults.toSeq.parTraverseFilter {
         case (viewPosition, viewValidationResult) =>
           for {
-            hostedConfirmingParties <- hostedConfirmingPartiesOfView(viewValidationResult)
+            hostedConfirmingParties <- FutureUnlessShutdown.outcomeF(
+              hostedConfirmingPartiesOfView(viewValidationResult)
+            )
             modelConformanceResultE <- transactionValidationResult.modelConformanceResultET.value
           } yield {
 
@@ -269,7 +272,7 @@ class TransactionConfirmationResponseFactory(
       }
 
     if (malformedPayloads.nonEmpty) {
-      Future.successful(
+      FutureUnlessShutdown.pure(
         Seq(
           createConfirmationResponsesForMalformedPayloads(
             requestId,

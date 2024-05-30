@@ -47,7 +47,7 @@ private[platform] trait LedgerDaoTransactionsReader {
   def getTransactionTrees(
       startExclusive: Offset,
       endInclusive: Offset,
-      requestingParties: Set[Party],
+      requestingParties: Option[Set[Party]],
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace

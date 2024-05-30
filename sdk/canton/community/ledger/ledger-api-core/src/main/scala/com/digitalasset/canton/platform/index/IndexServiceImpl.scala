@@ -170,7 +170,10 @@ private[index] class IndexServiceImpl(
       transactionFilter,
       getPackageMetadataSnapshot(contextualizedErrorLogger),
     ) {
-      val parties = transactionFilter.filtersByParty.keySet
+      val parties =
+        if (transactionFilter.filtersForAnyParty.isEmpty)
+          Some(transactionFilter.filtersByParty.keySet)
+        else None // party-wildcard
       between(startExclusive, endInclusive) { (from, to) =>
         from.foreach(offset =>
           Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
@@ -196,7 +199,9 @@ private[index] class IndexServiceImpl(
                       .getTransactionTrees(
                         startExclusive,
                         endInclusive,
-                        parties, // on the query filter side we treat every party as template-wildcard party // TODO(#18362) [transaction trees] take into account party-wildcard
+                        // on the query filter side we treat every party as template-wildcard party,
+                        // if the party-wildcard is given then the transactions for all the templates and all the parties are fetched
+                        parties,
                         eventProjectionProperties,
                       )
                   }
@@ -611,8 +616,7 @@ object IndexServiceImpl {
       metadata: PackageMetadata,
       alwaysPopulateArguments: Boolean,
   ): Option[(TemplatePartiesFilter, EventProjectionProperties)] = {
-    val templateFilter
-        : Map[Identifier, Option[Set[Party]]] = // TODO(#18362) use type SetOrWildcard[Party] (see at the bottom of the file its definition)
+    val templateFilter: Map[Identifier, Option[Set[Party]]] =
       IndexServiceImpl.templateFilter(metadata, transactionFilter)
 
     val templateWildcardFilter: Option[Set[Party]] =
@@ -741,18 +745,5 @@ object IndexServiceImpl {
         }.toSet)
     }
   }
-
-// TODO(#18362)
-//  sealed trait SetOrWildcard[A]  {
-//    final def isWildcard: Boolean = this eq Wildcard
-//    def isEmpty: Boolean
-//  }
-//  final object Wildcard extends SetOrWildcard[Nothing] {
-//    def isEmpty: Boolean = false
-//
-//  }
-//  final case class ExplicitSet[A](set: Set[A]) extends SetOrWildcard[A] {
-//    def isEmpty: Boolean = set.isEmpty
-//  }
 
 }
