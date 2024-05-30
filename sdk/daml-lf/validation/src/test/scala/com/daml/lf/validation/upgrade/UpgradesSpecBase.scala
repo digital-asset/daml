@@ -624,9 +624,8 @@ abstract class UpgradesSpec(val suffix: String)
     val (testPackageV1Id, uploadV1Result) = v1
     val (testPackageV2Id, uploadV2Result) = v2
     if (disableUpgradeValidation) {
-      // TODO: Re-enable these checks once # goes in
-      // cantonLogSrc should include(s"Skipping upgrade validation for package $testPackageV1Id")
-      // cantonLogSrc should include(s"Skipping upgrade validation for package $testPackageV2Id")
+      cantonLogSrc should include(s"Skipping upgrade validation for package $testPackageV1Id")
+      cantonLogSrc should include(s"Skipping upgrade validation for package $testPackageV2Id")
       cantonLogSrc should not include regex(
         s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade."
       )
