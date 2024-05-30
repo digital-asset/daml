@@ -1121,7 +1121,7 @@ semigroups 0.19.2 : BSD 3-clause "New" or "Revised" License
 semirings 0.6 : BSD 3-clause "New" or "Revised" License
 semver 0.4.0.1 : Mozilla Public License 2.0
 senchalabs / connect 3.7.0 : MIT License
-Send for Node.js 0.18.0 : MIT License
+send 0.18.0 : MIT License
 serve-index 1.9.1 : MIT License
 serve-static 1.15.0 : MIT License
 set-blocking 2.0.0 : ISC License
@@ -1138,6 +1138,7 @@ shallow-equal 1.2.1 : MIT License
 shama/gaze 1.1.3 : MIT License
 shasum-object 1.0.0 : Apache License 2.0
 side-channel 1.0.4 : MIT License
+signal-exit 3.0.7 : ISC License
 silently 1.2.5.3 : BSD 3-clause "New" or "Revised" License
 simonmar/async 2.2.4 : BSD 3-clause "New" or "Revised" License
 simple-concat 1.0.1 : MIT License
@@ -1205,7 +1206,6 @@ symbol-observable 2.0.3 : MIT License
 system-fileio 0.3.16.4 : MIT License
 system-filepath 0.4.14 : MIT License
 tagged v0.8.6.1 : BSD 3-clause "New" or "Revised" License
-tapjs/signal-exit 3.0.7 : ISC License
 tar-conduit 0.3.2 : MIT License
 tasty-ant-xml 1.1.8 : BSD 3-clause "New" or "Revised" License
 tasty-golden 2.3.5 : MIT License
@@ -7188,7 +7188,7 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE
 ---
 
 ISC License
-(tapjs/signal-exit 3.0.7)
+(signal-exit 3.0.7)
 
 The ISC License
 
@@ -11799,7 +11799,7 @@ THE SOFTWARE
 ---
 
 MIT License
-(Send for Node.js 0.18.0)
+(send 0.18.0)
 
 (The MIT License)
 
