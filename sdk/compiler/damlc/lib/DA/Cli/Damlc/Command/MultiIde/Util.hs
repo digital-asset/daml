@@ -325,3 +325,9 @@ toPosixFilePath = uncurry joinDrive . first lower . NativeFilePath.splitDrive . 
 -- Attempts to exact the percent amount from a string containing strings like 30%
 extractPercentFromText :: T.Text -> Maybe Integer
 extractPercentFromText = readMaybe . T.unpack . T.dropWhile (==' ') . T.takeEnd 3 . T.dropEnd 1 . fst . T.breakOnEnd "%"
+
+-- try @SomeException that doesn't catch AsyncCancelled exceptions
+tryForwardAsync :: IO a -> IO (Either SomeException a)
+tryForwardAsync = tryJust @SomeException $ \case
+  (fromException -> Just AsyncCancelled) -> Nothing
+  e -> Just e

@@ -201,7 +201,7 @@ clientMessageHandler miState unblock bs = do
            in traverse_ (`unsafeSendSubIdeSTM` newMsg) $ mIde >>= ideDataMain
 
     LSP.FromClientMess (LSP.SCustomMethod t) (LSP.NotMess notif) | t == damlSdkInstallCancelMethod ->
-      handleSdkInstallCancelled miState notif
+      handleSdkInstallClientCancelled miState notif
 
     -- Special handing for STextDocumentDefinition to ask multiple IDEs (the W approach)
     -- When a getDefinition is requested, we cast this request into a tryGetDefinition
@@ -238,7 +238,7 @@ clientMessageHandler miState unblock bs = do
             let home = PackageHome $ takeDirectory changedPath
             logInfo miState $ "daml.yaml change in " <> unPackageHome home <> ". Shutting down IDE"
             atomically $ sourceFileHomeHandleDamlYamlChanged miState home
-            allowSdkInstall miState home
+            allowIdeSdkInstall miState home
             case changeType of
               LSP.FcDeleted -> do
                 shutdownIdeByHome miState home
@@ -315,5 +315,5 @@ clientMessageHandler miState unblock bs = do
       case (method, _id) of
         (LSP.SClientRegisterCapability, Just (LSP.IdString "MultiIdeWatchedFiles")) ->
           either (\err -> logError miState $ "Watched file registration failed with " <> show err) (const $ logDebug miState "Successfully registered watched files") _result
-        (LSP.SWindowShowMessageRequest, Just lspId) -> handleShowMessageResponse miState lspId _result
+        (LSP.SWindowShowMessageRequest, Just lspId) -> handleSdkInstallPromptResponse miState lspId _result
         _ -> pure ()

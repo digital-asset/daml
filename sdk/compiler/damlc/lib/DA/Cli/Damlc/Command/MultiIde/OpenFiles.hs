@@ -24,14 +24,14 @@ import qualified Data.Text.Extended as TE
 import GHC.Conc (unsafeIOToSTM)
 import System.FilePath ((</>))
 
-ideDiagnosticFiles :: SubIdeData -> [FilePath]
-ideDiagnosticFiles ideData = (unPackageHome (ideDataHome ideData) </> "daml.yaml") : fmap unDamlFile (Set.toList $ ideDataOpenFiles ideData)
-
 sendPackageDiagnostic :: MultiIdeState -> SubIdeData -> STM ()
-sendPackageDiagnostic miState ideData@SubIdeData {ideDataDisabled = IdeDataDisabled {iddSeverity, iddMessage}} =
-  traverse_ (sendClientSTM miState) $ fullFileDiagnostic iddSeverity (T.unpack iddMessage) <$> ideDiagnosticFiles ideData
-sendPackageDiagnostic miState ideData =
-  traverse_ (sendClientSTM miState) $ clearDiagnostics <$> ideDiagnosticFiles ideData
+sendPackageDiagnostic miState ideData = do
+  let makeMessage =
+        case ideDataDisabled ideData of
+          IdeDataDisabled {iddSeverity, iddMessage} -> fullFileDiagnostic iddSeverity $ T.unpack iddMessage
+          _ -> clearDiagnostics
+      files = (unPackageHome (ideDataHome ideData) </> "daml.yaml") : fmap unDamlFile (Set.toList $ ideDataOpenFiles ideData)
+   in traverse_ (sendClientSTM miState) $ makeMessage <$> files 
 
 onOpenFiles :: MultiIdeState -> PackageHome -> (Set.Set DamlFile -> Set.Set DamlFile) -> STM ()
 onOpenFiles miState home f = modifyTMVarM (misSubIdesVar miState) $ \ides -> do

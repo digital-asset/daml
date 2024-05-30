@@ -82,7 +82,7 @@ unsafeAddNewSubIdeAndSend miState ides home mMsg = do
   let unCheckedIdeData = lookupSubIde home ides
 
   ideData <- case ePackageSummary of 
-    Right packageSummary -> ensureSdkInstalled miState (psReleaseVersion packageSummary) home unCheckedIdeData
+    Right packageSummary -> ensureIdeSdkInstalled miState (psReleaseVersion packageSummary) home unCheckedIdeData
     Left _ -> pure unCheckedIdeData
 
   let disableIdeWithError :: T.Text -> IO SubIdes
