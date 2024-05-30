@@ -14,9 +14,11 @@ import Model.{DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
 import ApiValueImplicits._
 import spray.json._
 import scalaz.{@@, Equal, Order, Tag}
-
 import scalaz.syntax.equal._
 import scalaz.syntax.std.string._
+
+import java.time.Instant
+import scala.util.Try
 
 /** A compressed encoding of API values.
   *
@@ -135,7 +137,11 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
       }
       case Model.DamlLfPrimType.Unit => { case JsObject(_) => V.ValueUnit }
       case Model.DamlLfPrimType.Timestamp => { case JsString(v) =>
-        V.ValueTimestamp(assertDE(Time.Timestamp fromString v))
+        val optTimestamp = for {
+          instant <- Try(Instant.parse(v)).toEither.left.map(_.getMessage)
+          timestamp <- Time.Timestamp.fromInstant(instant)
+        } yield timestamp
+        V.ValueTimestamp(assertDE(optTimestamp))
       }
       case Model.DamlLfPrimType.Date => { case JsString(v) =>
         try {

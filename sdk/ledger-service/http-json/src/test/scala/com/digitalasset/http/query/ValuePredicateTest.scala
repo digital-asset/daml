@@ -23,6 +23,8 @@ import org.scalatest.wordspec.AnyWordSpec
 import scalaz.\/
 import spray.json._
 
+import java.time.Instant
+
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class ValuePredicateTest
     extends AnyWordSpec
@@ -140,7 +142,7 @@ class ValuePredicateTest
         true,
       ),
       c("""{"%gte": "1980-01-01T00:00:00Z", "%lt": "2000-01-01T00:00:00Z"}""", VA.timestamp)(
-        Time.Timestamp assertFromString "1986-06-21T00:00:00Z",
+        Time.Timestamp.assertFromInstant(Instant.parse("1986-06-21T00:00:00Z")),
         true,
       ),
     )
