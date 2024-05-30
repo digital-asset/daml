@@ -7,8 +7,6 @@ import io.opentelemetry.api.common.Attributes
 
 /** *
   * Represents labels that are added to metrics.
-  * Please note that labels are only being supported by the OpenTelemetry metrics implementation,
-  * the Dropwizard implementation just ignores them as it supports metric names only.
   */
 case class MetricsContext(labels: Map[String, String]) {
 

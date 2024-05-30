@@ -8,7 +8,7 @@ import com.daml.metrics.api.MetricsContext
 import com.github.benmanes.caffeine.cache.RemovalCause
 import com.github.benmanes.caffeine.cache.stats.{CacheStats, StatsCounter}
 
-private[caching] final class DropwizardStatsCounter(
+private[caching] final class CaffeineMetricsStatsCounter(
     metrics: CacheMetrics
 ) extends StatsCounter {
 

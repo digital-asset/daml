@@ -6,15 +6,10 @@ package com.digitalasset.canton.environment
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.metrics.api.{MetricsInfoFilter, HistogramInventory}
 import com.digitalasset.canton.concurrent.*
 import com.digitalasset.canton.config.*
-import com.digitalasset.canton.console.{
-  ConsoleEnvironment,
-  ConsoleOutput,
-  GrpcAdminCommandRunner,
-  HealthDumpGenerator,
-  StandardConsoleOutput,
-}
+import com.digitalasset.canton.console.{ConsoleEnvironment, ConsoleOutput, GrpcAdminCommandRunner, HealthDumpGenerator, StandardConsoleOutput}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.mediator.{MediatorNodeBootstrap, MediatorNodeParameters}
@@ -25,15 +20,11 @@ import com.digitalasset.canton.environment.Environment.*
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.MetricsConfig.JvmMetrics
-import com.digitalasset.canton.metrics.{CantonHistograms, HistogramInventory, MetricsRegistry}
+import com.digitalasset.canton.metrics.{CantonHistograms, MetricsRegistry}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.resource.DbMigrationsFactory
-import com.digitalasset.canton.telemetry.{
-  ConfiguredOpenTelemetry,
-  MetricsInfoFilter,
-  OpenTelemetryFactory,
-}
+import com.digitalasset.canton.telemetry.{ConfiguredOpenTelemetry, OpenTelemetryFactory}
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext

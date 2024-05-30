@@ -23,7 +23,7 @@ object CaffeineCache {
     metrics match {
       case None => new SimpleCaffeineCache(builder.build[Key, Value])
       case Some(metrics) =>
-        builder.recordStats(() => new DropwizardStatsCounter(metrics))
+        builder.recordStats(() => new CaffeineMetricsStatsCounter(metrics))
         new InstrumentedCaffeineCache(builder.build[Key, Value], metrics)
     }
 

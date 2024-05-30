@@ -8,13 +8,13 @@ import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Histogram, LabeledMetricsFactory, Meter}
 import com.daml.metrics.api.noop.NoOpGauge
-import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
+import com.daml.metrics.api.{HistogramInventory, MetricInfo, MetricName, MetricQualification, MetricsContext}
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.data.TaskSchedulerMetrics
 import com.digitalasset.canton.environment.BaseMetrics
 import com.digitalasset.canton.http.metrics.{HttpApiHistograms, HttpApiMetrics}
-import com.digitalasset.canton.metrics.HistogramInventory.Item
+import com.daml.metrics.api.HistogramInventory.Item
 import com.digitalasset.canton.metrics.*
 import com.digitalasset.canton.participant.metrics.PruningMetrics as ParticipantPruningMetrics
 

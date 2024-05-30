@@ -3,13 +3,12 @@
 
 package com.digitalasset.canton.metrics
 
-import com.daml.metrics.HealthMetrics
-import com.daml.metrics.api.MetricHandle.{Histogram, LabeledMetricsFactory}
+import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
-import com.daml.metrics.api.{MetricName, MetricQualification}
-import com.daml.metrics.grpc.DamlGrpcServerMetrics
-import com.digitalasset.canton.metrics.HistogramInventory.Item
+import com.daml.metrics.api.{HistogramInventory, MetricName}
+import com.daml.metrics.grpc.{DamlGrpcServerHistograms, DamlGrpcServerMetrics}
+import com.daml.metrics.{DatabaseMetricsHistograms, HealthMetrics}
 import com.typesafe.scalalogging.LazyLogging
 import io.opentelemetry.api.metrics.Meter
 
@@ -99,30 +98,11 @@ final class LedgerApiServerMetrics(
 
 }
 
-// TODO(#17917) move upstream
-class DamlGrpcServerHistograms(implicit
-    inventory: HistogramInventory
-) {
-  private val prefix = MetricName.Daml :+ "grpc"
-
-  val damlGrpcServerCallTimer: Item = Item(
-    prefix,
-    MetricName("server"),
-    summary = "Distribution of the durations of serving gRPC requests.",
-    qualification = MetricQualification.Latency,
-  )
-  val damlGrpcServerReceived: Item = Item(
-    prefix :+ "server" :+ "messages" :+ "received",
-    Histogram.Bytes,
-    summary = "Distribution of payload sizes in gRPC messages received (both unary and streaming).",
-    qualification = MetricQualification.Traffic,
-  )
-
-}
-
 class LedgerApiServerHistograms(val prefix: MetricName)(implicit
     inventory: HistogramInventory
 ) {
+
+
 
   private[metrics] val services = new ServicesHistograms(prefix :+ "services")
   private[metrics] val commands = new CommandHistograms(prefix :+ "commands")
@@ -130,6 +110,10 @@ class LedgerApiServerHistograms(val prefix: MetricName)(implicit
   private[metrics] val index = new IndexHistograms(prefix :+ "index")
   private[metrics] val parallelIndexer = new ParallelIndexerHistograms(prefix :+ "parallel_indexer")
 
-  // TODO(#17917) move upstream
   private val _grpc = new DamlGrpcServerHistograms()
+  // the ledger api server creates these metrics all over the place, but their prefix
+  // is anyway hardcoded
+  private val _db = new DatabaseMetricsHistograms()
+
+
 }
