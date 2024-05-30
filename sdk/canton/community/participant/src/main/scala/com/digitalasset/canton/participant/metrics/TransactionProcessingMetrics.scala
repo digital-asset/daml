@@ -5,8 +5,8 @@ package com.digitalasset.canton.participant.metrics
 
 import com.daml.metrics.api.MetricHandle.{Histogram, LabeledMetricsFactory, Timer}
 import com.daml.metrics.api.{MetricName, MetricQualification, MetricsContext}
-import com.daml.metrics.api.HistogramInventory
-import com.daml.metrics.api.HistogramInventory.Item
+import com.digitalasset.canton.metrics.HistogramInventory
+import com.digitalasset.canton.metrics.HistogramInventory.Item
 
 class TransactionProcessingHistograms(val prefix: MetricName)(implicit
     inventory: HistogramInventory

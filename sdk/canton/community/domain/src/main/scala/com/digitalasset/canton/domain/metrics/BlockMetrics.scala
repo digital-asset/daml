@@ -56,14 +56,12 @@ class BlockMetrics(
       )
     )(MetricsContext.Empty)
 
-  private val ackGaugeInfo = MetricInfo(prefix :+ "acknowledgments_micros", "Acknowledgments by senders in Micros", MetricQualification.Latency, labelsWithDescription = Map("sender" -> "The sender of the acknowledgment"))
-
   def updateAcknowledgementGauge(sender: String, value: Long): Unit =
     acknowledgments
       .getOrElseUpdate(
         sender, {
           Eval.later(
-            openTelemetryMetricsFactory.gauge(ackGaugeInfo, value)(
+            openTelemetryMetricsFactory.gauge(prefix :+ "acknowledgments_micros", value)(
               MetricsContext("sender" -> sender)
             )
           )

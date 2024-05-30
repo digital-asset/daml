@@ -4,8 +4,8 @@
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.api.MetricHandle.*
-import com.daml.metrics.api.{HistogramInventory, MetricInfo, MetricName, MetricQualification, MetricsContext}
-import com.daml.metrics.api.HistogramInventory.Item
+import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
+import com.digitalasset.canton.metrics.HistogramInventory.Item
 
 class ServicesHistograms(val prefix: MetricName)(implicit
     inventory: HistogramInventory

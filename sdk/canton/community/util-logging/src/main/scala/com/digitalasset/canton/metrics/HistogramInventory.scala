@@ -1,27 +1,18 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.metrics.api
+package com.digitalasset.canton.metrics
 
-import com.daml.metrics.api.HistogramInventory.Item
+import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification}
+import com.digitalasset.canton.metrics.HistogramInventory.Item
+import com.typesafe.scalalogging.LazyLogging
+
 import java.util.concurrent.atomic.AtomicBoolean
 
-/** A helper class to register histogram items
-  *
-  * This class is used to register histogram items in a lazy way. It is used to ensure that all
-  * histogram items are registered before the actual metrics are created.
-  * This is necessary as open telemetry needs to know about the histogram views before
-  * the actual metrics are created.
-  *
-  * Therefore, metrics definitions are split into two parts:
-  *   - first, define the histogram names
-  *   - seconds, pass that definition into the actual metric definition
-  */
-class HistogramInventory {
+class HistogramInventory extends LazyLogging {
 
   private val items = collection.mutable.ListBuffer[Item]()
   private val complete = new AtomicBoolean(false)
-  private lazy val logger = org.slf4j.LoggerFactory.getLogger(getClass)
 
   def register(item: Item): Unit = {
     if (complete.get()) {

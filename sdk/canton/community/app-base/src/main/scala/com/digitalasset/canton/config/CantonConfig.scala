@@ -82,7 +82,7 @@ import com.digitalasset.canton.pureconfigutils.HttpServerConfig
 import com.digitalasset.canton.pureconfigutils.SharedConfigReaders.catchConvertError
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
-import com.daml.metrics.HistogramDefinition
+import com.digitalasset.canton.telemetry.HistogramDefinition
 import com.digitalasset.canton.time.EnrichedDurations.RichNonNegativeFiniteDurationConfig
 import com.digitalasset.canton.tracing.TracingConfig
 import com.typesafe.config.ConfigException.UnresolvedSubstitution

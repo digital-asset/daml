@@ -149,6 +149,8 @@
   type: jar-scala
 - target: //observability/tracing:tracing-test-lib
   type: jar-scala
+- target: //observability/telemetry:telemetry
+  type: jar-scala
 - target: //observability/pekko-http-metrics:pekko-http-metrics
   type: jar-scala
 - target: //canton:community_ledger_ledger-common
