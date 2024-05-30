@@ -57,19 +57,19 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
       "head authorized store has the package vetted" in withTestSetup { env =>
         import env.*
         unvettedPackagesForSnapshots(Set.empty, Set(pkgId1))
-        packageOps.isPackageVetted(pkgId1).map(_ shouldBe true)
+        packageOps.isPackageVetted(pkgId1).failOnShutdown.map(_ shouldBe true)
       }
 
       "one domain topology snapshot has the package vetted" in withTestSetup { env =>
         import env.*
         unvettedPackagesForSnapshots(Set(pkgId1), Set.empty)
-        packageOps.isPackageVetted(pkgId1).map(_ shouldBe true)
+        packageOps.isPackageVetted(pkgId1).failOnShutdown.map(_ shouldBe true)
       }
 
       "all topology snapshots have the package vetted" in withTestSetup { env =>
         import env.*
         unvettedPackagesForSnapshots(Set.empty, Set.empty)
-        packageOps.isPackageVetted(pkgId1).map(_ shouldBe true)
+        packageOps.isPackageVetted(pkgId1).failOnShutdown.map(_ shouldBe true)
       }
     }
 
@@ -77,7 +77,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
       "all topology snapshots have the package unvetted" in withTestSetup { env =>
         import env.*
         unvettedPackagesForSnapshots(Set(pkgId1), Set(pkgId1))
-        packageOps.isPackageVetted(pkgId1).map(_ shouldBe false)
+        packageOps.isPackageVetted(pkgId1).failOnShutdown.map(_ shouldBe false)
       }
     }
 
@@ -99,6 +99,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
 
         packageOps
           .isPackageVetted(pkgId1)
+          .failOnShutdown
           .leftOrFail("missing package id")
           .map(_ shouldBe PackageMissingDependencies.Reject(pkgId1, missingPkgId))
       }

@@ -120,7 +120,7 @@ private[dao] final class TransactionsReader(
   override def getTransactionTrees(
       startExclusive: Offset,
       endInclusive: Offset,
-      requestingParties: Set[Party],
+      requestingParties: Option[Set[Party]],
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace

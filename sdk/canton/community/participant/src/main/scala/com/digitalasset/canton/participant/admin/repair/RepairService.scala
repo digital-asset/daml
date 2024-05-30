@@ -291,7 +291,7 @@ final class RepairService(
 
       topologySnapshot = topologyFactory.createTopologySnapshot(
         startingPoints.processing.prenextTimestamp,
-        packageId => packageDependencyResolver.packageDependencies(List(packageId)),
+        packageDependencyResolver,
         preferCaching = true,
       )
       domainParameters <- OptionT(persistentState.parameterStore.lastParameters)

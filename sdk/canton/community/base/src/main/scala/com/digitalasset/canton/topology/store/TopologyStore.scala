@@ -3,7 +3,9 @@
 
 package com.digitalasset.canton.topology.store
 
+import cats.data.EitherT
 import cats.syntax.traverse.*
+import com.daml.lf.data.Ref.PackageId
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String255}
@@ -548,4 +550,12 @@ object TimeQuery {
           toO <- value.until.traverse(CantonTimestamp.fromProtoTimestamp)
         } yield Range(fromO, toO)
     }
+}
+
+trait PackageDependencyResolverUS {
+
+  def packageDependencies(packageId: PackageId)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]]
+
 }

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.topology.client
 
 import cats.data.EitherT
-import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.lf.data.Ref.PackageId
 import com.daml.nameof.NameOf.functionFullName
@@ -18,7 +17,11 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.time.{Clock, TimeAwaiter}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
+import com.digitalasset.canton.topology.store.{
+  PackageDependencyResolverUS,
+  TopologyStore,
+  TopologyStoreId,
+}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
@@ -116,7 +119,7 @@ class StoreBasedDomainTopologyClient(
     val domainId: DomainId,
     protocolVersion: ProtocolVersion,
     store: TopologyStore[TopologyStoreId],
-    packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
+    packageDependenciesResolver: PackageDependencyResolverUS,
     override val timeouts: ProcessingTimeout,
     override protected val futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
@@ -246,7 +249,7 @@ class StoreBasedDomainTopologyClient(
     new StoreBasedTopologySnapshot(
       timestamp,
       store,
-      packageDependencies,
+      packageDependenciesResolver,
       loggerFactory,
     )
   }
@@ -315,7 +318,12 @@ class StoreBasedDomainTopologyClient(
 
 object StoreBasedDomainTopologyClient {
 
-  def NoPackageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]] = { _ =>
-    EitherT(Future.successful(Either.right(Set.empty[PackageId])))
+  object NoPackageDependencies extends PackageDependencyResolverUS {
+    override def packageDependencies(packagesId: PackageId)(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
+      EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]](
+        FutureUnlessShutdown.pure(Right(Set.empty[PackageId]))
+      )
   }
 }

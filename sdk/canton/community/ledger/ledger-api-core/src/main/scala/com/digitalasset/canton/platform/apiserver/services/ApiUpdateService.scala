@@ -70,7 +70,8 @@ final class ApiUpdateService(
         validation.fold(
           t => Source.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
           req =>
-            if (req.filter.filtersByParty.isEmpty) Source.empty
+            if (req.filter.filtersByParty.isEmpty && req.filter.filtersForAnyParty.isEmpty)
+              Source.empty
             else {
               LoggingContextWithTrace.withEnrichedLoggingContext(
                 logging.startExclusive(req.startExclusive),
@@ -118,7 +119,8 @@ final class ApiUpdateService(
         validation.fold(
           t => Source.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
           req =>
-            if (req.filter.filtersByParty.isEmpty) Source.empty
+            if (req.filter.filtersByParty.isEmpty && req.filter.filtersForAnyParty.isEmpty)
+              Source.empty
             else {
               LoggingContextWithTrace.withEnrichedLoggingContext(
                 logging.startExclusive(req.startExclusive),

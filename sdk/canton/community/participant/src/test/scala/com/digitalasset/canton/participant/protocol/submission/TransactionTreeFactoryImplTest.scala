@@ -4,9 +4,10 @@
 package com.digitalasset.canton.participant.protocol.submission
 
 import cats.data.EitherT
-import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.data.Ref.{IdString, PackageId}
 import com.digitalasset.canton.*
 import com.digitalasset.canton.data.GenTransactionTree
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.DefaultParticipantStateValues
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.*
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
@@ -16,6 +17,8 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -58,20 +61,22 @@ final class TransactionTreeFactoryImplTest extends AsyncWordSpec with BaseTest {
       snapshot: TopologySnapshot = factory.topologySnapshot,
   ): EitherT[Future, TransactionTreeConversionError, GenTransactionTree] = {
     val submitterInfo = DefaultParticipantStateValues.submitterInfo(actAs)
-    treeFactory.createTransactionTree(
-      transaction,
-      submitterInfo,
-      factory.confirmationPolicy,
-      Some(WorkflowId.assertFromString("testWorkflowId")),
-      factory.mediatorGroup,
-      factory.transactionSeed,
-      factory.transactionUuid,
-      snapshot,
-      contractInstanceOfId,
-      keyResolver,
-      factory.ledgerTime.plusSeconds(100),
-      validatePackageVettings = true,
-    )
+    treeFactory
+      .createTransactionTree(
+        transaction,
+        submitterInfo,
+        factory.confirmationPolicy,
+        Some(WorkflowId.assertFromString("testWorkflowId")),
+        factory.mediatorGroup,
+        factory.transactionSeed,
+        factory.transactionUuid,
+        snapshot,
+        contractInstanceOfId,
+        keyResolver,
+        factory.ledgerTime.plusSeconds(100),
+        validatePackageVettings = true,
+      )
+      .failOnShutdown
   }
 
   "TransactionTreeFactoryImpl@testedVersion" should {
@@ -139,7 +144,6 @@ final class TransactionTreeFactoryImplTest extends AsyncWordSpec with BaseTest {
 
       "checking package vettings" must {
         lazy val treeFactory = createTransactionTreeFactory(testedProtocolVersion)
-        lazy val banana = PackageId.assertFromString("banana")
         "fail if the main package is not vetted" in {
           val example = factory.standardHappyCases(2)
           createTransactionTree(
@@ -160,17 +164,12 @@ final class TransactionTreeFactoryImplTest extends AsyncWordSpec with BaseTest {
               successfulLookup(example),
               example.keyResolver,
               snapshot = defaultTestingIdentityFactory.topologySnapshot(
-                packageDependencies = x =>
-                  EitherT.rightT(
-                    if (x == ExampleTransactionFactory.packageId)
-                      Set(banana)
-                    else Set.empty[PackageId]
-                  )
+                packageDependencyResolver = TestPackageDependencyResolver
               ),
             ).value
           } yield inside(err) { case Left(UnknownPackageError(unknownTo)) =>
             forEvery(unknownTo) {
-              _.packageId shouldBe banana
+              _.packageId shouldBe TestPackageDependencyResolver.exampleDependency
             }
             unknownTo should not be empty
           }
@@ -185,17 +184,44 @@ final class TransactionTreeFactoryImplTest extends AsyncWordSpec with BaseTest {
               successfulLookup(example),
               example.keyResolver,
               snapshot = defaultTestingIdentityFactory.topologySnapshot(
-                packageDependencies = x =>
-                  if (x == ExampleTransactionFactory.packageId)
-                    EitherT.leftT(banana)
-                  else EitherT.rightT(Set.empty[PackageId])
+                packageDependencyResolver = MisconfiguredPackageDependencyResolver
               ),
             ).value
-          } yield inside(err) { case Left(UnknownPackageError(unknownTo)) =>
-            unknownTo should not be empty
+          } yield {
+            inside(err) { case Left(UnknownPackageError(unknownTo)) =>
+              forEvery(unknownTo) {
+                _.packageId shouldBe ExampleTransactionFactory.packageId
+              }
+              unknownTo should not be empty
+            }
           }
         }
       }
     }
   }
+
+  object TestPackageDependencyResolver extends PackageDependencyResolverUS {
+    import cats.syntax.either.*
+    val exampleDependency: IdString.PackageId = PackageId.assertFromString("example-dependency")
+    override def packageDependencies(packageId: PackageId)(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] = {
+      packageId match {
+        case ExampleTransactionFactory.packageId =>
+          Right(Set(exampleDependency)).toEitherT[FutureUnlessShutdown]
+        case _ => Right(Set.empty[PackageId]).toEitherT[FutureUnlessShutdown]
+      }
+    }
+  }
+
+  object MisconfiguredPackageDependencyResolver extends PackageDependencyResolverUS {
+    import cats.syntax.either.*
+    val exampleDependency: IdString.PackageId = PackageId.assertFromString("example-dependency")
+    override def packageDependencies(packageId: PackageId)(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] = {
+      Left(packageId).toEitherT[FutureUnlessShutdown]
+    }
+  }
+
 }

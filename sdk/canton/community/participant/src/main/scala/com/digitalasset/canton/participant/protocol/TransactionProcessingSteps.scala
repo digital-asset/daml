@@ -972,14 +972,13 @@ class TransactionProcessingSteps(
           activenessResult,
         )
         // The responses depend on the result of the model conformance check, and are therefore also delayed.
-        val responsesF = FutureUnlessShutdown.outcomeF(
+        val responsesF =
           confirmationResponseFactory.createConfirmationResponses(
             requestId,
             malformedPayloads,
             transactionValidationResult,
             ipsSnapshot,
           )
-        )
 
         val pendingTransaction =
           createPendingTransaction(
@@ -1159,7 +1158,7 @@ class TransactionProcessingSteps(
       mediator,
       locallyRejectedF,
       engineController.abort,
-      FutureUnlessShutdown.outcomeF(engineAbortStatusF),
+      engineAbortStatusF,
     )
   }
 
@@ -1337,12 +1336,17 @@ class TransactionProcessingSteps(
 
     def getCommitSetAndContractsToBeStoredAndEvent(
         topologySnapshot: TopologySnapshot
-    ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
+    ): EitherT[
+      FutureUnlessShutdown,
+      TransactionProcessorError,
+      CommitAndStoreContractsAndPublishEvent,
+    ] = {
       val resultFE = for {
         modelConformanceResultE <-
           pendingRequestData.transactionValidationResult.modelConformanceResultET.value
 
         resultET = (verdict, modelConformanceResultE) match {
+
           // Positive verdict: we commit
           case (_: Verdict.Approve, _) => handleApprovedVerdict(topologySnapshot)
 
@@ -1351,17 +1355,22 @@ class TransactionProcessingSteps(
           //   a negative verdict; we then reject with the verdict, as it is the best information we have
           // - otherwise, we reject with the actual error
           case (reasons: Verdict.ParticipantReject, Left(error)) =>
-            if (error.engineAbortStatus.isAborted) rejected(reasons.keyEvent)
+            if (error.engineAbortStatus.isAborted)
+              rejected(reasons.keyEvent)
             else rejectedWithModelConformanceError(error)
+
           case (reject: Verdict.MediatorReject, Left(error)) =>
-            if (error.engineAbortStatus.isAborted) rejected(reject)
+            if (error.engineAbortStatus.isAborted)
+              rejected(reject)
             else rejectedWithModelConformanceError(error)
 
           // No model conformance check error: we reject with the verdict
           case (reasons: Verdict.ParticipantReject, _) =>
             rejected(reasons.keyEvent)
+
           case (reject: Verdict.MediatorReject, _) =>
             rejected(reject)
+
         }
         result <- resultET.value
       } yield result
@@ -1371,7 +1380,11 @@ class TransactionProcessingSteps(
 
     def handleApprovedVerdict(topologySnapshot: TopologySnapshot)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] =
+    ): EitherT[
+      FutureUnlessShutdown,
+      TransactionProcessorError,
+      CommitAndStoreContractsAndPublishEvent,
+    ] =
       pendingRequestData.transactionValidationResult.modelConformanceResultET.biflatMap(
         {
           case ErrorWithSubTransaction(
@@ -1385,7 +1398,7 @@ class TransactionProcessingSteps(
               validSubTransaction,
               validSubViewsNE,
               topologySnapshot,
-            )
+            ).mapK(FutureUnlessShutdown.outcomeK)
 
           case error =>
             // There is no valid subview
@@ -1397,7 +1410,7 @@ class TransactionProcessingSteps(
             pendingRequestData,
             completionInfoO,
             modelConformanceResult,
-          )
+          ).mapK(FutureUnlessShutdown.outcomeK)
         },
       )
 
@@ -1408,34 +1421,51 @@ class TransactionProcessingSteps(
           .toLocalReject(protocolVersion)
       )
 
-    def rejected(rejection: TransactionRejection) = {
-      for {
+    def rejected(
+        rejection: TransactionRejection
+    ): EitherT[
+      FutureUnlessShutdown,
+      TransactionProcessorError,
+      CommitAndStoreContractsAndPublishEvent,
+    ] = {
+      (for {
         event <- EitherT.fromEither[Future](
           createRejectionEvent(RejectionArgs(pendingRequestData, rejection))
         )
-      } yield CommitAndStoreContractsAndPublishEvent(None, Seq(), event)
+      } yield CommitAndStoreContractsAndPublishEvent(None, Seq(), event))
+        .mapK(FutureUnlessShutdown.outcomeK)
     }
 
     for {
-      topologySnapshot <- EitherT.right[TransactionProcessorError](
-        crypto.ips.awaitSnapshot(pendingRequestData.requestTime)
-      )
+      topologySnapshot <- EitherT
+        .right[TransactionProcessorError](
+          crypto.ips.awaitSnapshot(pendingRequestData.requestTime)
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
+
       maxDecisionTime <- ProcessingSteps
         .getDecisionTime(topologySnapshot, pendingRequestData.requestTime)
         .leftMap(DomainParametersError(domainId, _))
-      _ <-
-        if (ts <= maxDecisionTime) EitherT.pure[Future, TransactionProcessorError](())
-        else
-          EitherT.right[TransactionProcessorError](
-            Future.failed(new IllegalArgumentException("Timeout message after decision time"))
-          )
+        .mapK(FutureUnlessShutdown.outcomeK)
 
-      resultTopologySnapshot <- EitherT.right[TransactionProcessorError](
-        crypto.ips.awaitSnapshot(ts)
-      )
-      mediatorActiveAtResultTs <- EitherT.right[TransactionProcessorError](
-        resultTopologySnapshot.isMediatorActive(pendingRequestData.mediator)
-      )
+      _ <-
+        (if (ts <= maxDecisionTime) EitherT.pure[Future, TransactionProcessorError](())
+         else
+           EitherT.right[TransactionProcessorError](
+             Future.failed(new IllegalArgumentException("Timeout message after decision time"))
+           )).mapK(FutureUnlessShutdown.outcomeK)
+
+      resultTopologySnapshot <- EitherT
+        .right[TransactionProcessorError](
+          crypto.ips.awaitSnapshotUS(ts)
+        )
+
+      mediatorActiveAtResultTs <- EitherT
+        .right[TransactionProcessorError](
+          resultTopologySnapshot.isMediatorActive(pendingRequestData.mediator)
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
+
       res <-
         if (mediatorActiveAtResultTs) getCommitSetAndContractsToBeStoredAndEvent(topologySnapshot)
         else {
@@ -1451,7 +1481,7 @@ class TransactionProcessingSteps(
           )
         }
     } yield res
-  }.mapK(FutureUnlessShutdown.outcomeK)
+  }
 
   override def postProcessResult(verdict: Verdict, pendingSubmission: Nothing)(implicit
       traceContext: TraceContext
@@ -1518,7 +1548,7 @@ object TransactionProcessingSteps {
       consistencyResultE: Either[List[ReferenceToFutureContractError], Unit],
       authorizationResult: Map[ViewPosition, String],
       conformanceResultET: EitherT[
-        Future,
+        FutureUnlessShutdown,
         ModelConformanceChecker.ErrorWithSubTransaction,
         ModelConformanceChecker.Result,
       ],

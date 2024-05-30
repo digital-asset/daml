@@ -462,7 +462,7 @@ class ACSReader(
           case Some(Some(filterParties)) => filterParties.exists(witnesses)
           case Some(None) => true // party wildcard
           case None =>
-            false // templateId is not in the filter // TODO(#18362) handle template wildcards
+            false // templateId is not in the filter
         }
       )
 

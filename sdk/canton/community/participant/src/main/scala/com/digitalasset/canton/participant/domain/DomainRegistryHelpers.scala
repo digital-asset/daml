@@ -9,7 +9,6 @@ import cats.instances.future.*
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.*
 import com.digitalasset.canton.common.domain.SequencerConnectClient
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader.SequencerAggregatedInfo
@@ -38,6 +37,7 @@ import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
+import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, ResourceUtil}
@@ -72,7 +72,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
       recordSequencerInteractions: AtomicReference[Option[RecordingConfig]],
       replaySequencerConfig: AtomicReference[Option[ReplayConfig]],
       topologyDispatcher: ParticipantTopologyDispatcher,
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
+      packageDependencyResolver: PackageDependencyResolverUS,
       partyNotifier: LedgerServerPartyNotifier,
       metrics: DomainAlias => SyncDomainMetrics,
       participantSettings: Eval[ParticipantSettingsLookup],
@@ -129,7 +129,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
         performUnlessClosingF("create caching client")(
           topologyFactory.createCachingTopologyClient(
             sequencerAggregatedInfo.staticDomainParameters.protocolVersion,
-            packageDependencies,
+            packageDependencyResolver,
           )
         )
       )

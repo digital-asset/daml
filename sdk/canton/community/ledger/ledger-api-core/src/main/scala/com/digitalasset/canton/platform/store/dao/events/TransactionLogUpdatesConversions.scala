@@ -112,7 +112,7 @@ private[events] object TransactionLogUpdatesConversions {
       case traced @ Traced(reassignmentAccepted: TransactionLogUpdate.ReassignmentAccepted) =>
         toReassignment(
           reassignmentAccepted,
-          filter.allFilterParties.getOrElse(Set()), // TODO(#18362) [flat transactions]
+          filter.allFilterParties,
           eventProjectionProperties,
           lfValueTranslation,
           traced.traceContext,
@@ -135,7 +135,7 @@ private[events] object TransactionLogUpdatesConversions {
     ): Future[Option[GetTransactionResponse]] =
       filter(Some(requestingParties), Map.empty, Some(requestingParties))(
         transactionLogUpdate
-      ) // TODO(#18362) [pointwise queries]
+      )
         .collect {
           case traced @ Traced(transactionAccepted: TransactionLogUpdate.TransactionAccepted) =>
             toFlatTransaction(
@@ -170,7 +170,7 @@ private[events] object TransactionLogUpdatesConversions {
           .traverse(transactionAccepted.events)(event =>
             toFlatEvent(
               event,
-              filter.allFilterParties.getOrElse(Set.empty),
+              filter.allFilterParties,
               eventProjectionProperties,
               lfValueTranslation,
             )
@@ -217,15 +217,14 @@ private[events] object TransactionLogUpdatesConversions {
         .get(event.templateId) match {
         case Some(Some(filterParties)) => filterParties.exists(event.flatEventWitnesses)
         case Some(None) => true // party wildcard
-        case None =>
-          false // templateId is not in the filter // TODO(#18362) handle template wildcards
+        case None => false // templateId is not in the filter
       })
 
     }
 
     private def toFlatEvent(
         event: TransactionLogUpdate.Event,
-        requestingParties: Set[Party],
+        requestingParties: Option[Set[Party]],
         eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
     )(implicit
@@ -249,7 +248,7 @@ private[events] object TransactionLogUpdatesConversions {
       }
 
     private def exercisedToFlatEvent(
-        requestingParties: Set[Party],
+        requestingParties: Option[Set[Party]],
         exercisedEvent: ExercisedEvent,
     ): apiEvent.Event =
       apiEvent.Event(
@@ -259,8 +258,11 @@ private[events] object TransactionLogUpdatesConversions {
             contractId = exercisedEvent.contractId.coid,
             templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
             packageName = exercisedEvent.packageName,
-            witnessParties =
-              requestingParties.iterator.filter(exercisedEvent.flatEventWitnesses).toSeq,
+            witnessParties = requestingParties match {
+              case Some(parties) => parties.iterator.filter(exercisedEvent.flatEventWitnesses).toSeq
+              // party-wildcard
+              case None => exercisedEvent.flatEventWitnesses.toSeq
+            },
           )
         )
       )
@@ -268,7 +270,7 @@ private[events] object TransactionLogUpdatesConversions {
 
   object ToTransactionTree {
     def filter(
-        requestingParties: Set[Party]
+        requestingParties: Option[Set[Party]]
     ): Traced[TransactionLogUpdate] => Option[Traced[TransactionLogUpdate]] = traced =>
       traced.traverse {
         case transaction: TransactionLogUpdate.TransactionAccepted =>
@@ -281,7 +283,7 @@ private[events] object TransactionLogUpdatesConversions {
         case _: TransactionLogUpdate.TransactionRejected => None
         case u: TransactionLogUpdate.ReassignmentAccepted =>
           Option.when(
-            u.reassignmentInfo.hostedStakeholders.exists(requestingParties)
+            requestingParties.fold(true)(u.reassignmentInfo.hostedStakeholders.exists(_))
           )(u)
       }
 
@@ -293,11 +295,11 @@ private[events] object TransactionLogUpdatesConversions {
         loggingContext: LoggingContextWithTrace,
         executionContext: ExecutionContext,
     ): Future[Option[GetTransactionTreeResponse]] =
-      filter(requestingParties)(transactionLogUpdate)
+      filter(Some(requestingParties))(transactionLogUpdate)
         .collect { case traced @ Traced(tx: TransactionLogUpdate.TransactionAccepted) =>
           toTransactionTree(
             transactionAccepted = tx,
-            requestingParties,
+            Some(requestingParties),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
@@ -310,7 +312,7 @@ private[events] object TransactionLogUpdatesConversions {
         .getOrElse(Future.successful(None))
 
     def toGetTransactionTreesResponse(
-        requestingParties: Set[Party],
+        requestingParties: Option[Set[Party]],
         eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
     )(implicit
@@ -347,7 +349,7 @@ private[events] object TransactionLogUpdatesConversions {
 
     private def toTransactionTree(
         transactionAccepted: TransactionLogUpdate.TransactionAccepted,
-        requestingParties: Set[Party],
+        requestingParties: Option[Set[Party]],
         eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
         traceContext: TraceContext,
@@ -380,7 +382,7 @@ private[events] object TransactionLogUpdatesConversions {
 
             TransactionTree(
               updateId = transactionAccepted.transactionId,
-              commandId = getCommandId(transactionAccepted.events, Some(requestingParties)),
+              commandId = getCommandId(transactionAccepted.events, requestingParties),
               workflowId = transactionAccepted.workflowId,
               effectiveAt = Some(TimestampConversion.fromLf(transactionAccepted.effectiveAt)),
               offset = ApiOffset.toApiString(transactionAccepted.offset),
@@ -394,7 +396,7 @@ private[events] object TransactionLogUpdatesConversions {
       }
 
     private def toTransactionTreeEvent(
-        requestingParties: Set[Party],
+        requestingParties: Option[Set[Party]],
         eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
     )(event: TransactionLogUpdate.Event)(implicit
@@ -421,7 +423,7 @@ private[events] object TransactionLogUpdatesConversions {
       }
 
     private def exercisedToTransactionTreeEvent(
-        requestingParties: Set[Party],
+        requestingParties: Option[Set[Party]],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
         exercisedEvent: ExercisedEvent,
@@ -481,7 +483,11 @@ private[events] object TransactionLogUpdatesConversions {
             choiceArgument = Some(choiceArgument),
             actingParties = exercisedEvent.actingParties.toSeq,
             consuming = exercisedEvent.consuming,
-            witnessParties = requestingParties.view.filter(exercisedEvent.treeEventWitnesses).toSeq,
+            witnessParties = requestingParties
+              .fold(exercisedEvent.treeEventWitnesses)(
+                _.filter(exercisedEvent.treeEventWitnesses)
+              )
+              .toSeq,
             childEventIds = exercisedEvent.children,
             exerciseResult = maybeExerciseResult,
           )
@@ -490,16 +496,18 @@ private[events] object TransactionLogUpdatesConversions {
     }
 
     private def transactionTreePredicate(
-        requestingParties: Set[Party]
+        requestingPartiesO: Option[Set[Party]]
     ): TransactionLogUpdate.Event => Boolean = {
-      case createdEvent: CreatedEvent => requestingParties.exists(createdEvent.treeEventWitnesses)
-      case exercised: ExercisedEvent => requestingParties.exists(exercised.treeEventWitnesses)
+      case createdEvent: CreatedEvent =>
+        requestingPartiesO.fold(true)(_.exists(createdEvent.treeEventWitnesses))
+      case exercised: ExercisedEvent =>
+        requestingPartiesO.fold(true)(_.exists(exercised.treeEventWitnesses))
       case _ => false
     }
   }
 
   private def createdToApiCreatedEvent(
-      requestingParties: Set[Party],
+      requestingPartiesO: Option[Set[Party]],
       eventProjectionProperties: EventProjectionProperties,
       lfValueTranslation: LfValueTranslation,
       createdEvent: CreatedEvent,
@@ -533,12 +541,16 @@ private[events] object TransactionLogUpdatesConversions {
           )
         )
 
+    val createdEventWitnesses = createdWitnesses(createdEvent)
+    val witnesses = requestingPartiesO
+      .fold(createdEventWitnesses)(_.view.filter(createdEventWitnesses).toSet)
+      .map(_.toString)
     lfValueTranslation
       .toApiContractData(
         value = createdEvent.createArgument,
         key = createdEvent.contractKey,
         templateId = createdEvent.templateId,
-        witnesses = requestingParties.view.filter(createdWitnesses(createdEvent)).toSet,
+        witnesses = witnesses,
         eventProjectionProperties = eventProjectionProperties,
         fatContractInstance = getFatContractInstance,
       )
@@ -552,7 +564,7 @@ private[events] object TransactionLogUpdatesConversions {
           createArguments = apiContractData.createArguments,
           createdEventBlob = apiContractData.createdEventBlob.getOrElse(ByteString.EMPTY),
           interfaceViews = apiContractData.interfaceViews,
-          witnessParties = requestingParties.view.filter(createdWitnesses(createdEvent)).toSeq,
+          witnessParties = witnesses.toSeq,
           signatories = createdEvent.createSignatories.toSeq,
           observers = createdEvent.createObservers.toSeq,
           createdAt = Some(TimestampConversion.fromLf(createdEvent.ledgerEffectiveTime)),
@@ -573,7 +585,7 @@ private[events] object TransactionLogUpdatesConversions {
 
   private def toReassignment(
       reassignmentAccepted: TransactionLogUpdate.ReassignmentAccepted,
-      requestingParties: Set[Party],
+      requestingParties: Option[Set[Party]],
       eventProjectionProperties: EventProjectionProperties,
       lfValueTranslation: LfValueTranslation,
       traceContext: TraceContext,
@@ -581,12 +593,12 @@ private[events] object TransactionLogUpdatesConversions {
       loggingContext: LoggingContextWithTrace,
       executionContext: ExecutionContext,
   ): Future[ApiReassignment] = {
-    val stringRequestingParties = requestingParties.map(_.toString)
+    val stringRequestingParties = requestingParties.map(_.map(_.toString))
     val info = reassignmentAccepted.reassignmentInfo
     (reassignmentAccepted.reassignment match {
       case TransactionLogUpdate.ReassignmentAccepted.Assigned(createdEvent) =>
         createdToApiCreatedEvent(
-          requestingParties = requestingParties,
+          requestingPartiesO = requestingParties,
           eventProjectionProperties = eventProjectionProperties,
           lfValueTranslation = lfValueTranslation,
           createdEvent = createdEvent,
@@ -605,6 +617,7 @@ private[events] object TransactionLogUpdatesConversions {
         )
 
       case TransactionLogUpdate.ReassignmentAccepted.Unassigned(unassign) =>
+        val stakeholders = reassignmentAccepted.reassignmentInfo.hostedStakeholders
         Future.successful(
           ApiReassignment.Event.UnassignedEvent(
             ApiUnassignedEvent(
@@ -618,8 +631,7 @@ private[events] object TransactionLogUpdatesConversions {
               packageName = unassign.packageName,
               assignmentExclusivity =
                 unassign.assignmentExclusivity.map(TimestampConversion.fromLf),
-              witnessParties = reassignmentAccepted.reassignmentInfo.hostedStakeholders
-                .filter(requestingParties),
+              witnessParties = requestingParties.fold(stakeholders)(stakeholders.filter),
             )
           )
         )
@@ -627,7 +639,7 @@ private[events] object TransactionLogUpdatesConversions {
       ApiReassignment(
         updateId = reassignmentAccepted.updateId,
         commandId = reassignmentAccepted.completionDetails
-          .filter(_.submitters.exists(stringRequestingParties))
+          .filter(details => stringRequestingParties.fold(true)(details.submitters.exists))
           .flatMap(_.completionStreamResponse.completion)
           .map(_.commandId)
           .getOrElse(""),

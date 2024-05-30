@@ -218,7 +218,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           .getTransactionTrees(
             startExclusive = from,
             endInclusive = to,
-            requestingParties = Set(alice, bob, charlie),
+            requestingParties = Some(Set(alice, bob, charlie)),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
@@ -230,7 +230,39 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     }
   }
 
-  it should "filter correctly by party" in { // TODO(#18362) add test case for wildcard
+  it should "work correctly for party-wildcard" in {
+    for {
+      (from, to, _) <- storeTestFixture()
+      result <- transactionsOf(
+        ledgerDao.transactionsReader
+          .getTransactionTrees(
+            startExclusive = from,
+            endInclusive = to,
+            requestingParties = Some(Set(alice, bob, charlie)),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
+            ),
+          )
+      )
+      resultPartyWildcard <- transactionsOf(
+        ledgerDao.transactionsReader
+          .getTransactionTrees(
+            startExclusive = from,
+            endInclusive = to,
+            requestingParties = None,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              templateWildcardWitnesses = None,
+            ),
+          )
+      )
+    } yield {
+      comparable(result) should contain theSameElementsInOrderAs comparable(resultPartyWildcard)
+    }
+  }
+
+  it should "filter correctly by party" in {
     for {
       from <- ledgerDao.lookupLedgerEnd()
       (_, tx) <- store(
@@ -251,7 +283,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           .getTransactionTrees(
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
-            requestingParties = Set(alice),
+            requestingParties = Some(Set(alice)),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               templateWildcardWitnesses = Some(Set(alice)),
@@ -263,7 +295,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           .getTransactionTrees(
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
-            requestingParties = Set(bob),
+            requestingParties = Some(Set(bob)),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               templateWildcardWitnesses = Some(Set(bob)),
@@ -275,7 +307,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           .getTransactionTrees(
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
-            requestingParties = Set(charlie),
+            requestingParties = Some(Set(charlie)),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               templateWildcardWitnesses = Some(Set(charlie)),

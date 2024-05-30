@@ -266,7 +266,7 @@ object EventStorageBackendTemplate {
     )
 
   private def createdTreeEventParser(
-      allQueryingParties: Set[Int],
+      allQueryingPartiesO: Option[Set[Int]],
       stringInterning: StringInterning,
   ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent.Created]] =
     createdEventRow map {
@@ -284,7 +284,7 @@ object EventStorageBackendTemplate {
           ledgerEffectiveTime = ledgerEffectiveTime,
           commandId = commandId
             .filter(commandId =>
-              commandId != "" && submitters.getOrElse(Array.empty).exists(allQueryingParties)
+              commandId != "" && submittersInQueryingParties(submitters, allQueryingPartiesO)
             )
             .getOrElse(""),
           workflowId = workflowId.getOrElse(""),
@@ -309,10 +309,12 @@ object EventStorageBackendTemplate {
               .map(_.map(stringInterning.party.unsafe.externalize))
               .getOrElse(Array.empty),
             eventWitnesses = ArraySeq.unsafeWrapArray(
-              eventWitnesses.view
-                .filter(allQueryingParties)
+              allQueryingPartiesO
+                .fold(eventWitnesses)(allQueryingParties =>
+                  eventWitnesses
+                    .filter(allQueryingParties)
+                )
                 .map(stringInterning.party.unsafe.externalize)
-                .toArray
             ),
             driverMetadata = driverMetadata,
           ),
@@ -323,7 +325,7 @@ object EventStorageBackendTemplate {
     }
 
   private def exercisedTreeEventParser(
-      allQueryingParties: Set[Int],
+      allQueryingPartiesO: Option[Set[Int]],
       stringInterning: StringInterning,
   ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent.Exercised]] =
     exercisedEventRow map {
@@ -340,7 +342,7 @@ object EventStorageBackendTemplate {
           ledgerEffectiveTime = ledgerEffectiveTime,
           commandId = commandId
             .filter(commandId =>
-              commandId.nonEmpty && submitters.getOrElse(Array.empty).exists(allQueryingParties)
+              commandId.nonEmpty && submittersInQueryingParties(submitters, allQueryingPartiesO)
             )
             .getOrElse(""),
           workflowId = workflowId.getOrElse(""),
@@ -361,10 +363,12 @@ object EventStorageBackendTemplate {
             ),
             exerciseChildEventIds = ArraySeq.unsafeWrapArray(exerciseChildEventIds),
             eventWitnesses = ArraySeq.unsafeWrapArray(
-              eventWitnesses.view
-                .filter(allQueryingParties)
+              allQueryingPartiesO
+                .fold(eventWitnesses)(allQueryingParties =>
+                  eventWitnesses
+                    .filter(allQueryingParties)
+                )
                 .map(stringInterning.party.unsafe.externalize)
-                .toArray
             ),
           ),
           domainId = stringInterning.domainId.unsafe.externalize(internedDomainId),
@@ -374,7 +378,7 @@ object EventStorageBackendTemplate {
     }
 
   def rawTreeEventParser(
-      allQueryingParties: Set[Int],
+      allQueryingParties: Option[Set[Int]],
       stringInterning: StringInterning,
   ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent]] =
     createdTreeEventParser(allQueryingParties, stringInterning) | exercisedTreeEventParser(

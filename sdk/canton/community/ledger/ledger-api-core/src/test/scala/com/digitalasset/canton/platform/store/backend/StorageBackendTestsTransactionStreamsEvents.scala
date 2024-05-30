@@ -16,7 +16,6 @@ import org.scalatest.{Assertion, OptionValues}
 
 import scala.reflect.ClassTag
 
-// TODO(i12294): Complete test suite for asserting flat/tree/ACS streams contents
 private[backend] trait StorageBackendTestsTransactionStreamsEvents
     extends Matchers
     with OptionValues
@@ -68,23 +67,42 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
 
     val someParty = Ref.Party.assertFromString(signatory)
     val (
-      // TODO(#18362) extend this test when transaction streams w/ party-wildcard are implemented
-      _flatTransactionEvents,
-      _transactionTreeEvents,
+      flatTransactionEvents,
+      transactionTreeEvents,
       _flatTransaction,
       _transactionTree,
       acs,
     ) = fetch(Some(Set(someParty)))
 
+    flatTransactionEvents.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
+    flatTransactionEvents.map(_.event).collect { case created: FlatEvent.Created =>
+      created.partial.contractId
+    } shouldBe Vector(contractId1, contractId2, contractId3, contractId4).map(_.coid)
+
+    transactionTreeEvents.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
+    transactionTreeEvents.map(_.event).collect { case created: TreeEvent.Created =>
+      created.partial.contractId
+    } shouldBe Vector(contractId1, contractId2, contractId3, contractId4).map(_.coid)
+
     acs.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
 
     val (
-      _,
-      _,
+      flatTransactionEventsSuperReader,
+      transactionTreeEventsSuperReader,
       _,
       _,
       acsSuperReader,
     ) = fetch(None)
+
+    flatTransactionEventsSuperReader.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
+    flatTransactionEventsSuperReader.map(_.event).collect { case created: FlatEvent.Created =>
+      created.partial.contractId
+    } shouldBe Vector(contractId1, contractId2, contractId3, contractId4).map(_.coid)
+
+    transactionTreeEventsSuperReader.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
+    transactionTreeEventsSuperReader.map(_.event).collect { case created: TreeEvent.Created =>
+      created.partial.contractId
+    } shouldBe Vector(contractId1, contractId2, contractId3, contractId4).map(_.coid)
 
     acsSuperReader.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
 
@@ -101,12 +119,12 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
     val flatTransactionEvents = executeSql(
       backend.event.transactionStreamingQueries.fetchEventPayloadsFlat(
         EventPayloadSourceForFlatTx.Create
-      )(eventSequentialIds = Seq(1L), filterParties)
+      )(eventSequentialIds = Seq(1L, 2L, 3L, 4L), filterParties)
     )
     val transactionTreeEvents = executeSql(
       backend.event.transactionStreamingQueries.fetchEventPayloadsTree(
         EventPayloadSourceForTreeTx.Create
-      )(eventSequentialIds = Seq(1L), filterParties.getOrElse(Set.empty))
+      )(eventSequentialIds = Seq(1L, 2L, 3L, 4L), filterParties)
     )
     val flatTransaction = executeSql(
       backend.event.transactionPointwiseQueries

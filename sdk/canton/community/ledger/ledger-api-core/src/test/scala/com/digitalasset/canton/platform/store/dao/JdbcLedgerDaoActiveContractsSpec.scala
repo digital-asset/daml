@@ -524,21 +524,22 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
           .getActiveContracts(
             activeAt = ledgerEnd.lastOffset,
             filter = TemplatePartiesFilter(
-              Map(
+              relation = Map(
                 someTemplateId -> Some(Set(party1)),
                 unknownTemplate -> None,
               ),
-              Some(Set(party2)),
+              templateWildcardParties = Some(Set(party2)),
             ),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              templateWildcardWitnesses = None,
+              templateWildcardWitnesses = Some(Set(party2)),
               witnessTemplateProjections = Map(
-                // TODO(#18362) wildcard for unknownTemplate
                 Some(party1) -> Map(
-                  someTemplateId -> Projection(contractArguments = true),
-                  unknownTemplate -> Projection(contractArguments = true),
-                )
+                  someTemplateId -> Projection(contractArguments = true)
+                ),
+                None -> Map(
+                  unknownTemplate -> Projection(contractArguments = true)
+                ),
               ),
             ),
           )

@@ -17,6 +17,7 @@ import com.digitalasset.canton.data.{
   FullTransactionViewTree,
   TransactionView,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.participant.protocol.EngineController.{
   EngineAbortStatus,
@@ -33,6 +34,7 @@ import com.digitalasset.canton.participant.util.DAMLe.{EngineError, PackageResol
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{lfHash, submittingParticipant}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
 import com.digitalasset.canton.topology.transaction.VettedPackages
 import com.digitalasset.canton.topology.{TestingIdentityFactory, TestingTopology}
 import com.digitalasset.canton.tracing.TraceContext
@@ -157,14 +159,16 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     val rootViewTrees = views.map(_._1)
     val commonData = TransactionProcessingSteps.tryCommonData(rootViewTrees)
     val keyResolvers = views.forgetNE.flatMap { case (_vt, resolvers) => resolvers }.toMap
-    mcc.check(
-      rootViewTrees,
-      keyResolvers,
-      RequestCounter(0),
-      ips,
-      commonData,
-      getEngineAbortStatus = () => EngineAbortStatus.notAborted,
-    )
+    mcc
+      .check(
+        rootViewTrees,
+        keyResolvers,
+        RequestCounter(0),
+        ips,
+        commonData,
+        getEngineAbortStatus = () => EngineAbortStatus.notAborted,
+      )
+      .failOnShutdown
   }
 
   val packageName: LfPackageName = PackageName.assertFromString("package-name")
@@ -382,7 +386,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           NonEmpty.from(factory.SingleCreate(lfHash(0)).rootTransactionViewTrees).value,
           // The package is not vetted for signatoryParticipant
           vettings = Seq(VettedPackages(submittingParticipant, None, Seq(packageId))),
-          packageDependenciesLookup = _ => EitherT.rightT(Set()),
+          packageDependenciesLookup = new TestPackageResolver(Right(Set.empty)),
           expectedError = UnvettedPackages(Map(signatoryParticipant -> Set(packageId))),
         )
       }
@@ -410,7 +414,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           NonEmpty(Seq, viewTree),
           // The package is not vetted for submittingParticipant
           vettings = Seq.empty,
-          packageDependenciesLookup = _ => EitherT.rightT(Set()),
+          packageDependenciesLookup = new TestPackageResolver(Right(Set.empty)),
           expectedError = UnvettedPackages(Map(submittingParticipant -> Set(key.packageId.value))),
         )
       }
@@ -419,7 +423,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     def testVettingError(
         rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]],
         vettings: Seq[VettedPackages],
-        packageDependenciesLookup: PackageId => EitherT[Future, PackageId, Set[PackageId]],
+        packageDependenciesLookup: PackageDependencyResolverUS,
         expectedError: UnvettedPackages,
     ): Future[Assertion] = {
       import ExampleTransactionFactory.*
@@ -440,7 +444,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           .withPackages(vettings.map(vetting => vetting.participantId -> vetting.packageIds).toMap),
         loggerFactory,
         TestDomainParameters.defaultDynamic,
-      ).topologySnapshot(packageDependencies = packageDependenciesLookup)
+      ).topologySnapshot(packageDependencyResolver = packageDependenciesLookup)
 
       for {
         error <- check(sut, viewsWithNoInputKeys(rootViewTrees), snapshot).value
@@ -465,10 +469,21 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           // Submitter participant is unable to lookup dependencies.
           // Therefore, the validation concludes that the package is not in the store
           // and thus that the package is not vetted.
-          packageDependenciesLookup = EitherT.leftT(_),
+          packageDependenciesLookup = new TestPackageResolver(Left(packageId)),
           expectedError = UnvettedPackages(Map(submittingParticipant -> Set(packageId))),
         )
       }
     }
   }
+
+  class TestPackageResolver(result: Either[PackageId, Set[PackageId]])
+      extends PackageDependencyResolverUS {
+    import cats.syntax.either.*
+    override def packageDependencies(packageId: PackageId)(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] = {
+      result.toEitherT
+    }
+  }
+
 }

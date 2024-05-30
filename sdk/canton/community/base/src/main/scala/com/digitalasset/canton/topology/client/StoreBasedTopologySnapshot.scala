@@ -34,12 +34,12 @@ import scala.reflect.ClassTag
   *
   * @param timestamp the asOf timestamp to use
   * @param store the db store to use
-  * @param packageDependencies lookup function to determine the direct and indirect package dependencies
+  * @param packageDependencyResolver provides a way determine the direct and indirect package dependencies
   */
 class StoreBasedTopologySnapshot(
     val timestamp: CantonTimestamp,
     store: TopologyStore[TopologyStoreId],
-    packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
+    packageDependencyResolver: PackageDependencyResolverUS,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val executionContext: ExecutionContext)
     extends TopologySnapshotLoader
@@ -66,9 +66,11 @@ class StoreBasedTopologySnapshot(
   override private[client] def loadUnvettedPackagesOrDependencies(
       participant: ParticipantId,
       packageId: PackageId,
-  )(implicit traceContext: TraceContext): EitherT[Future, PackageId, Set[PackageId]] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] = {
 
-    val vettedET = EitherT.right[PackageId](
+    val vettedF = FutureUnlessShutdown.outcomeF(
       findTransactions(
         asOfInclusive = false,
         types = Seq(TopologyMapping.Code.VettedPackages),
@@ -82,9 +84,9 @@ class StoreBasedTopologySnapshot(
       }
     )
 
-    val requiredPackagesET = store.storeId match {
+    val requiredPackagesF = store.storeId match {
       case _: TopologyStoreId.DomainStore =>
-        EitherT.right[PackageId](
+        FutureUnlessShutdown.outcomeF(
           findTransactions(
             asOfInclusive = false,
             types = Seq(TopologyMapping.Code.DomainParametersState),
@@ -96,31 +98,30 @@ class StoreBasedTopologySnapshot(
               transactions.collectOfMapping[DomainParametersState].result,
             ).getOrElse(throw new IllegalStateException("Unable to locate domain parameters state"))
               .discard
-
             // TODO(#14054) Once the non-proto DynamicDomainParameters is available, use it
             //   _.parameters.requiredPackages
-            Seq.empty[PackageId]
+            Set.empty[PackageId]
           }
         )
 
       case TopologyStoreId.AuthorizedStore =>
-        EitherT.pure[Future, PackageId](Seq.empty)
+        FutureUnlessShutdown.pure(Set.empty)
     }
 
-    lazy val dependenciesET = packageDependencies(packageId)
+    lazy val dependenciesET = packageDependencyResolver.packageDependencies(packageId).value
 
-    for {
-      vetted <- vettedET
-      requiredPackages <- requiredPackagesET
+    EitherT(for {
+      vetted <- vettedF
+      requiredPackages <- requiredPackagesF
       // check that the main package is vetted
       res <-
         if (!vetted.contains(packageId))
-          EitherT.rightT[Future, PackageId](Set(packageId)) // main package is not vetted
+          FutureUnlessShutdown.pure(Right(Set(packageId))) // main package is not vetted
         else {
           // check which of the dependencies aren't vetted
-          dependenciesET.map(deps => (deps ++ requiredPackages) -- vetted)
+          dependenciesET.map(_.map(_ ++ requiredPackages -- vetted))
         }
-    } yield res
+    } yield res)
 
   }
 

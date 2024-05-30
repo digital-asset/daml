@@ -3,10 +3,8 @@
 
 package com.digitalasset.canton.topology
 
-import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functor.*
-import com.daml.lf.data.Ref.PackageId
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BaseTest.{
   defaultStaticDomainParameters,
@@ -34,7 +32,11 @@ import com.digitalasset.canton.topology.DefaultTestIdentities.*
 import com.digitalasset.canton.topology.client.*
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
-import com.digitalasset.canton.topology.store.{TopologyStoreId, ValidatedTopologyTransaction}
+import com.digitalasset.canton.topology.store.{
+  PackageDependencyResolverUS,
+  TopologyStoreId,
+  ValidatedTopologyTransaction,
+}
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Remove
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
@@ -352,7 +354,7 @@ class TestingIdentityFactory(
 
   def topologySnapshot(
       domainId: DomainId = DefaultTestIdentities.domainId,
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]] =
+      packageDependencyResolver: PackageDependencyResolverUS =
         StoreBasedDomainTopologyClient.NoPackageDependencies,
       timestampForDomainParameters: CantonTimestamp = CantonTimestamp.Epoch,
   ): TopologySnapshot = {
@@ -432,7 +434,7 @@ class TestingIdentityFactory(
     new StoreBasedTopologySnapshot(
       CantonTimestamp.Epoch,
       store,
-      packageDependencies,
+      packageDependencyResolver,
       loggerFactory,
     )
   }

@@ -4,11 +4,9 @@
 package com.digitalasset.canton.participant.domain.grpc
 
 import cats.Eval
-import cats.data.EitherT
 import cats.instances.future.*
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.*
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
@@ -39,12 +37,13 @@ import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, Sequen
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
+import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
 import com.digitalasset.canton.tracing.TraceContext
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.ExecutionContextExecutor
 
 /** Domain registry used to connect to domains over GRPC
   *
@@ -66,7 +65,7 @@ class GrpcDomainRegistry(
     testingConfig: TestingConfigInternal,
     recordSequencerInteractions: AtomicReference[Option[RecordingConfig]],
     replaySequencerConfig: AtomicReference[Option[ReplayConfig]],
-    packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
+    packageDependencyResolver: PackageDependencyResolverUS,
     metrics: DomainAlias => SyncDomainMetrics,
     sequencerInfoLoader: SequencerInfoLoader,
     partyNotifier: LedgerServerPartyNotifier,
@@ -162,7 +161,7 @@ class GrpcDomainRegistry(
         recordSequencerInteractions,
         replaySequencerConfig,
         topologyDispatcher,
-        packageDependencies,
+        packageDependencyResolver,
         partyNotifier,
         metrics,
         participantSettings,

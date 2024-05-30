@@ -140,7 +140,7 @@ class TransactionStreamingQueries(
 
   def fetchEventPayloadsTree(target: EventPayloadSourceForTreeTx)(
       eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Ref.Party],
+      allFilterParties: Option[Set[Ref.Party]],
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] = {
     target match {
       case EventPayloadSourceForTreeTx.Consuming =>
@@ -239,12 +239,15 @@ class TransactionStreamingQueries(
       tableName: String,
       selectColumns: String,
       eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Ref.Party],
+      allFilterParties: Option[Set[Ref.Party]],
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] = {
-    val internedAllParties: Set[Int] = allFilterParties.iterator
-      .map(stringInterning.party.tryInternalize)
-      .flatMap(_.iterator)
-      .toSet
+    val internedAllParties: Option[Set[Int]] = allFilterParties
+      .map(
+        _.iterator
+          .map(stringInterning.party.tryInternalize)
+          .flatMap(_.iterator)
+          .toSet
+      )
     SQL"""
         SELECT
           #$selectColumns,
