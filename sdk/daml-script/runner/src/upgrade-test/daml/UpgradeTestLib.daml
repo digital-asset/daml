@@ -37,6 +37,7 @@ brokenScript act = do
     Right _ -> assertFail "Expected failed and got success! Did you fix this logic? Remove the wrapping `broken` to mark this as working."
     Left _ -> pure ()
 
+-- | WARNING: These will not work on IDE Ledger
 withUnvettedDarOnParticipant : Text -> ParticipantName -> Script a -> Script a
 withUnvettedDarOnParticipant darName participant act = do
   unvetDarOnParticipant darName participant
@@ -46,6 +47,7 @@ withUnvettedDarOnParticipant darName participant act = do
     Left e -> throwAnyException e
     Right r -> pure r
 
+-- | WARNING: These will not work on IDE Ledger
 withUnvettedDar : Text -> Script a -> Script a
 withUnvettedDar darName act = do
   unsafeUnvetDarOnParticipant darName (Some participant0)

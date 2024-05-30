@@ -48,7 +48,7 @@ main = tests
   , ("Explicitly call a V2 choice on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded.", explicitV2ChoiceV1Contract)
   , ("Call a V1 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, contract + argument upgraded, daml-script downgrades return type.", inferredV1ChoiceV1Contract)
   , ("Call a V2 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded.", inferredV2ChoiceV1Contract)
-  , broken ("Call a V2 choice without package ID on a V1 contract over the ledger-api, with V2 unvetted, expect V1 implementation used, argument downgraded, daml-script upgrades return type.", inferredV1ChoiceV1ContractWithoutV2)
+  -- , broken ("Call a V2 choice without package ID on a V1 contract over the ledger-api, with V2 unvetted, expect V1 implementation used, argument downgraded, daml-script upgrades return type.", inferredV1ChoiceV1ContractWithoutV2)
   , ("Explicitly call a V1 choice on a V2 contract over the ledger-api, expect V1 implementation used, and contract downgraded.", explicitV1ChoiceV2Contract)
   , ("Explicitly call a V2 choice on a V2 contract over the ledger-api, expect V2 implementation used.", explicitV2ChoiceV2Contract)
   ]
@@ -90,13 +90,11 @@ inferredV2ChoiceV1Contract =
   choiceTest @V2.UpgradedChoiceTemplate V1.UpgradedChoiceTemplate (V2.UpgradedChoice "v2 to v1" $ Some "extra") False (V2.UpgradedChoiceReturn "v2 to v1:V2:Some \"extra\"" $ Some "extra")
 
 -- If v2 isn't vetted, then omitting a package id and giving v1 arguments should use the v1 implementation
--- TODO: This test fails for several reasons:
---   first it tries to use v2 even through its unvetted <- this is not correct behaviour
---   second it doesn't hit a NO_DOMAIN_FOR_SUBMISSION error before attempting to directly upgrade the data type <- this is also not correct behaviour
-inferredV1ChoiceV1ContractWithoutV2 : Script ()
-inferredV1ChoiceV1ContractWithoutV2 =
-  withUnvettedDar "ledger-api-choice-upgrades-2.0.0" $
-    choiceTest @V1.UpgradedChoiceTemplate V1.UpgradedChoiceTemplate (V1.UpgradedChoice "v1 to v1") False (V1.UpgradedChoiceReturn "v1 to v1:V1")
+-- withUnvettedDar is not supported on IDELedger, skip this test
+-- inferredV1ChoiceV1ContractWithoutV2 : Script ()
+-- inferredV1ChoiceV1ContractWithoutV2 =
+--   withUnvettedDar "ledger-api-choice-upgrades-2.0.0" $
+--     choiceTest @V1.UpgradedChoiceTemplate V1.UpgradedChoiceTemplate (V1.UpgradedChoice "v1 to v1") False (V1.UpgradedChoiceReturn "v1 to v1:V1")
 
 explicitV1ChoiceV2Contract : Script ()
 explicitV1ChoiceV2Contract =
