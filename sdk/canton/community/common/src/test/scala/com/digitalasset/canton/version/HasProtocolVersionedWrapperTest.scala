@@ -87,13 +87,13 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
       protocolVersionRepresentative(3).representative shouldBe ProtocolVersion.v3
       protocolVersionRepresentative(4).representative shouldBe ProtocolVersion.v3
       protocolVersionRepresentative(5).representative shouldBe ProtocolVersion.v5
-      protocolVersionRepresentative(6).representative shouldBe ProtocolVersion(6)
-      protocolVersionRepresentative(7).representative shouldBe ProtocolVersion(6)
-      protocolVersionRepresentative(8).representative shouldBe ProtocolVersion(6)
+      protocolVersionRepresentative(6).representative shouldBe ProtocolVersion.v6
+      protocolVersionRepresentative(7).representative shouldBe ProtocolVersion.v6
+      protocolVersionRepresentative(8).representative shouldBe ProtocolVersion.v6
     }
 
     "return the highest inclusive protocol representative for an unknown protocol version" in {
-      protocolVersionRepresentative(-1).representative shouldBe ProtocolVersion(6)
+      protocolVersionRepresentative(-1).representative shouldBe ProtocolVersion.v6
     }
 
     "fail for an unknown proto version" in {
@@ -108,19 +108,19 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
 
     "fail deserialization when the representative protocol version from the proto version does not match the expected (representative) protocol version" in {
       val message = VersionedMessageV1("Hey", 42).toByteString
-      fromByteString(message, 1, ProtocolVersion(6)).left.value should have message
-        Message.unexpectedProtoVersionError(ProtocolVersion(6), ProtocolVersion(5)).message
+      fromByteString(message, 1, ProtocolVersion.v6).left.value should have message
+        Message.unexpectedProtoVersionError(ProtocolVersion.v6, ProtocolVersion.v5).message
     }
 
     "validate proto version against expected (representative) protocol version" in {
       Message
-        .validateDeserialization(ProtocolVersionValidation(ProtocolVersion(5)), ProtocolVersion(5))
+        .validateDeserialization(ProtocolVersionValidation(ProtocolVersion.v5), ProtocolVersion.v5)
         .value shouldBe ()
       Message
-        .validateDeserialization(ProtocolVersionValidation(ProtocolVersion(6)), ProtocolVersion(5))
+        .validateDeserialization(ProtocolVersionValidation(ProtocolVersion.v6), ProtocolVersion.v5)
         .left
         .value should have message Message
-        .unexpectedProtoVersionError(ProtocolVersion(6), ProtocolVersion(5))
+        .unexpectedProtoVersionError(ProtocolVersion.v6, ProtocolVersion.v5)
         .message
       Message
         .validateDeserialization(

@@ -265,7 +265,7 @@ class PackageUploader(
           )
       )
       _ <-
-        if (enableUpgradeValidation) {
+        if (enableUpgradeValidation)
           mainPackage._2.metadata match {
             case Some(packageMetadata) =>
               packageUpgradeValidator
@@ -279,11 +279,10 @@ class PackageUploader(
               )
               EitherTUtil.unitUS[DamlError]
           }
-        } else {
+        else {
           logger.info(s"Skipping upgrade validation for package ${mainPackage._1}.")
-          EitherTUtil.unitUS[DamlError]
+          EitherT.pure[FutureUnlessShutdown, DamlError](())
         }
-        
     } yield ()
 
   private def updateWithPackage(

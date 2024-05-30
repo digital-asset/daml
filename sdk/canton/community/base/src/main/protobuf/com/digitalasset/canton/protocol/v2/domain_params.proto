@@ -15,7 +15,7 @@ message CatchUpConfig {
 }
 
 message DynamicDomainParameters {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   google.protobuf.Duration participant_response_timeout = 1;
   google.protobuf.Duration mediator_reaction_timeout = 2;

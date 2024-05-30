@@ -17,7 +17,7 @@ import "scalapb/scalapb.proto";
 // Messages depending on both participant_transaction.proto and participant_transfer.proto.
 
 message EnvelopeContent {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   oneof some_envelope_content {
     v1.InformeeMessage informee_message = 1;

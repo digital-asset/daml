@@ -396,11 +396,15 @@ object BaseTest {
     testedProtocolVersion
   )
 
-  lazy val pvPackageName: Option[PackageName] = Some(PackageName.assertFromString("package_name"))
+  lazy val pvPackageName: Option[PackageName] = Option.when(
+    testedProtocolVersion >= ProtocolVersion.v6
+  )(PackageName.assertFromString("package_name"))
 
-  lazy val pvTransactionVersion: TransactionVersion = {
-    if (testedProtocolVersion >= ProtocolVersion.dev) TransactionVersion.maxVersion
-    else TransactionVersion.StableVersions.max
+  lazy val pvTransactionVersion: TransactionVersion = testedProtocolVersion match {
+    case ProtocolVersion.`dev` => TransactionVersion.maxVersion
+    case ProtocolVersion.`v6` => TransactionVersion.V16
+    case ProtocolVersion.`v5` => TransactionVersion.V15
+    case unexpectedPV => sys.error(s"Unexpected protocol version $unexpectedPV.")
   }
 
   lazy val CantonExamplesPath: String = getResourcePath("CantonExamples.dar")
