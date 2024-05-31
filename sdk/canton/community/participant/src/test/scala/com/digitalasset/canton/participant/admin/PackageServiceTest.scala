@@ -6,16 +6,13 @@ package com.digitalasset.canton.participant.admin
 import better.files.*
 import cats.Eval
 import cats.data.EitherT
-import com.daml.SdkVersion
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.DamlError
-import com.daml.lf.archive.testing.Encode
-import com.daml.lf.archive.{Dar as LfDar, DarParser, DarWriter}
+import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
-import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String256M}
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -43,7 +40,6 @@ import org.scalatest.wordspec.AsyncWordSpec
 import java.io.File
 import java.nio.file.{Files, Paths}
 import scala.concurrent.Future
-import scala.util.Using
 
 object PackageServiceTest {
 
@@ -151,7 +147,7 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest with HasExecutionCo
       val fileName = "CantonExamples.dar"
       val pkgName = "somePkgName"
       val pkgVersion = "1.2.3"
-      val archive = createLf1_16_Archive { implicit parserParameters =>
+      val archive = PackagesTestUtils.createLfArchive { implicit parserParameters =>
         p"""
         metadata ( '$pkgName' : '$pkgVersion' )
         module Mod {
@@ -164,7 +160,8 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest with HasExecutionCo
             agreement "Agreement";
           };
        }"""
-      }
+      }(LanguageVersion.v1_16, Ref.PackageId.assertFromString("-self-"))
+
       val pkgId = DamlPackageStore.readPackageId(archive)
       val expectedPackageIdAndState = PackageDescription(
         packageId = pkgId,
@@ -172,7 +169,7 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest with HasExecutionCo
         packageName = Some(LfPackageName.assertFromString(pkgName)),
         packageVersion = Some(LfPackageVersion.assertFromString(pkgVersion)),
       )
-      val payload = encodeDarArchive(archive)
+      val payload = PackagesTestUtils.encodeDarArchive(archive)
       for {
         hash <- sut
           .appendDarFromByteString(
@@ -277,7 +274,7 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest with HasExecutionCo
       // Upload DARs concurrently
       val concurrentDarUploadsF =
         upgradeIncompatibleDars.map { case (darName, archive) =>
-          val payload = encodeDarArchive(archive)
+          val payload = PackagesTestUtils.encodeDarArchive(archive)
           EitherT
             .rightT[FutureUnlessShutdown, DamlError](())
             // Delegate the future within
@@ -366,7 +363,7 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest with HasExecutionCo
     )
 
   private def testArchive(idx: Int)(discriminatorField: String) =
-    s"incompatible$idx.dar" -> createLf1_16_Archive { implicit parserParameters =>
+    s"incompatible$idx.dar" -> PackagesTestUtils.createLfArchive { implicit parserParameters =>
       p"""
         metadata ( 'incompatibleUpgrade' : '$idx.0.0' )
         module Mod {
@@ -379,28 +376,5 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest with HasExecutionCo
             agreement "Agreement";
           };
        }"""
-    }
-
-  private def createLf1_16_Archive(defn: ParserParameters[?] => Ast.Package): Archive = {
-    val lfVersion = LanguageVersion.v1_16
-    val selfPkgId = Ref.PackageId.assertFromString("-self-")
-    implicit val parseParameters: ParserParameters[Nothing] = ParserParameters(
-      defaultPackageId = selfPkgId,
-      languageVersion = lfVersion,
-    )
-
-    val pkg = defn(parseParameters)
-
-    Encode.encodeArchive(selfPkgId -> pkg, lfVersion)
-  }
-
-  private def encodeDarArchive(archive: Archive) =
-    Using(ByteString.newOutput()) { os =>
-      DarWriter.encode(
-        SdkVersion.sdkVersion,
-        LfDar(("archive.dalf", archive.toByteArray), List()),
-        os,
-      )
-      os.toByteString
-    }.get
+    }(LanguageVersion.v1_16, Ref.PackageId.assertFromString("-self-"))
 }
