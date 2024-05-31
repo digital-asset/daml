@@ -56,7 +56,12 @@ class BlockMetrics(
       )
     )(MetricsContext.Empty)
 
-  private val ackGaugeInfo = MetricInfo(prefix :+ "acknowledgments_micros", "Acknowledgments by senders in Micros", MetricQualification.Latency, labelsWithDescription = Map("sender" -> "The sender of the acknowledgment"))
+  private val ackGaugeInfo = MetricInfo(
+    prefix :+ "acknowledgments_micros",
+    "Acknowledgments by senders in Micros",
+    MetricQualification.Latency,
+    labelsWithDescription = Map("sender" -> "The sender of the acknowledgment"),
+  )
 
   def updateAcknowledgementGauge(sender: String, value: Long): Unit =
     acknowledgments

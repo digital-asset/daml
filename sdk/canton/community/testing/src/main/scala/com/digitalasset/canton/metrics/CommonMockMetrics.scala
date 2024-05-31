@@ -4,7 +4,7 @@
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.api.noop.NoOpMetricsFactory
-import com.daml.metrics.api.{MetricName, MetricsContext}
+import com.daml.metrics.api.{HistogramInventory, MetricName, MetricsContext}
 
 object CommonMockMetrics {
 

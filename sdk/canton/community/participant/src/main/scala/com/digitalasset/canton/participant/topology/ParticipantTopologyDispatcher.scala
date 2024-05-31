@@ -6,29 +6,25 @@ package com.digitalasset.canton.participant.topology
 import cats.data.EitherT
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
-import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.common.domain.{
-  RegisterTopologyTransactionHandle,
   SequencerBasedRegisterTopologyTransactionHandle,
+  SequencerConnectClient,
 }
 import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
-import com.digitalasset.canton.config.{DomainTimeTrackerConfig, LocalNodeConfig, ProcessingTimeout}
+import com.digitalasset.canton.config.{LocalNodeConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.domain.{
-  DomainRegistryError,
-  ParticipantInitializeTopology,
-}
+import com.digitalasset.canton.participant.domain.DomainRegistryError
 import com.digitalasset.canton.participant.store.SyncDomainPersistentState
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
 import com.digitalasset.canton.protocol.StaticDomainParameters
-import com.digitalasset.canton.sequencing.SequencerConnections
-import com.digitalasset.canton.sequencing.client.{SequencerClient, SequencerClientFactory}
+import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
@@ -39,13 +35,10 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DomainAlias, SequencerAlias}
-import io.opentelemetry.api.trace.Tracer
-import org.apache.pekko.stream.Materializer
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.*
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 trait ParticipantTopologyDispatcherHandle {
 
@@ -219,36 +212,25 @@ class ParticipantTopologyDispatcher(
   def onboardToDomain(
       domainId: DomainId,
       alias: DomainAlias,
-      timeTrackerConfig: DomainTimeTrackerConfig,
-      sequencerConnections: SequencerConnections,
-      sequencerClientFactory: SequencerClientFactory,
+      sequencerConnectClient: SequencerConnectClient,
       protocolVersion: ProtocolVersion,
-      expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
   )(implicit
       executionContext: ExecutionContextExecutor,
-      executionSequencerFactory: ExecutionSequencerFactory,
-      materializer: Materializer,
-      tracer: Tracer,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, DomainRegistryError, Boolean] = {
     getState(domainId).flatMap { state =>
-      (new ParticipantInitializeTopology(
-        domainId,
-        alias,
-        participantId,
-        manager.store,
-        state.topologyStore,
-        clock,
-        timeTrackerConfig,
-        timeouts,
-        loggerFactory.append("domainId", domainId.toString),
-        sequencerClientFactory,
-        sequencerConnections,
-        crypto,
-        config.topology,
-        protocolVersion,
-        expectedSequencers,
-      )).run()
+      DomainOnboardingOutbox
+        .initiateOnboarding(
+          alias,
+          domainId,
+          protocolVersion,
+          participantId,
+          sequencerConnectClient,
+          manager.store,
+          timeouts,
+          loggerFactory.append("domainId", domainId.toString),
+          crypto,
+        )
     }
   }
 
@@ -353,14 +335,13 @@ private class DomainOnboardingOutbox(
     val domainId: DomainId,
     val protocolVersion: ProtocolVersion,
     participantId: ParticipantId,
-    val handle: RegisterTopologyTransactionHandle,
+    sequencerConnectClient: SequencerConnectClient,
     val authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore],
-    val targetStore: TopologyStore[TopologyStoreId.DomainStore],
     val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
     override protected val crypto: Crypto,
-) extends DomainOutboxDispatch
-    with StoreBasedDomainOutboxDispatchHelper {
+) extends StoreBasedDomainOutboxDispatchHelper
+    with FlagCloseable {
 
   override protected val memberId: Member = participantId
 
@@ -372,12 +353,12 @@ private class DomainOnboardingOutbox(
     _ = logger.debug(
       s"Sending ${initialTransactions.size} onboarding transactions to ${domain}"
     )
-    result <- dispatch(domain, initialTransactions).leftMap[DomainRegistryError](
-      DomainRegistryError.InitialOnboardingError.Error(_)
-    )
-  } yield {
-    result.forall(res => isExpectedState(res))
-  }).thereafter { _ =>
+    _result <- dispatch(initialTransactions)
+      .mapK(FutureUnlessShutdown.outcomeK)
+      .leftMap(err =>
+        DomainRegistryError.InitialOnboardingError.Error(err.toString): DomainRegistryError
+      )
+  } yield true).thereafter { _ =>
     close()
   }
 
@@ -392,13 +373,10 @@ private class DomainOnboardingOutbox(
             .findParticipantOnboardingTransactions(participantId, domainId)
         )
       )
-      applicablePossiblyPresent <- EitherT.right(
+      applicable <- EitherT.right(
         performUnlessClosingF(functionFullName)(onlyApplicable(candidates))
       )
-      _ <- EitherT.fromEither[FutureUnlessShutdown](initializedWith(applicablePossiblyPresent))
-      applicable <- EitherT.right(
-        performUnlessClosingF(functionFullName)(notAlreadyPresent(applicablePossiblyPresent))
-      )
+      _ <- EitherT.fromEither[FutureUnlessShutdown](initializedWith(applicable))
       // Try to convert if necessary the topology transactions for the required protocol version of the domain
       convertedTxs <- performUnlessClosingEitherUSF(functionFullName) {
         convertTransactions(applicable).leftMap[DomainRegistryError](
@@ -406,6 +384,16 @@ private class DomainOnboardingOutbox(
         )
       }
     } yield convertedTxs
+
+  private def dispatch(
+      transactions: Seq[GenericSignedTopologyTransaction]
+  )(implicit traceContext: TraceContext): EitherT[Future, SequencerConnectClient.Error, Unit] = {
+    sequencerConnectClient.registerOnboardingTopologyTransactions(
+      domain,
+      participantId,
+      transactions,
+    )
+  }
 
   private def initializedWith(
       initial: Seq[GenericSignedTopologyTransaction]
@@ -442,9 +430,8 @@ object DomainOnboardingOutbox {
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
       participantId: ParticipantId,
-      handle: RegisterTopologyTransactionHandle,
+      sequencerConnectClient: SequencerConnectClient,
       authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore],
-      targetStore: TopologyStore[TopologyStoreId.DomainStore],
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
       crypto: Crypto,
@@ -457,9 +444,8 @@ object DomainOnboardingOutbox {
       domainId,
       protocolVersion,
       participantId,
-      handle,
+      sequencerConnectClient,
       authorizedStore,
-      targetStore,
       timeouts,
       loggerFactory,
       crypto,

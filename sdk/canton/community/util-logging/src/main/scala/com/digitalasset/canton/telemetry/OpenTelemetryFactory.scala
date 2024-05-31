@@ -16,14 +16,17 @@ import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter
 import io.opentelemetry.exporter.zipkin.ZipkinSpanExporter
 import io.opentelemetry.sdk.OpenTelemetrySdk
 import io.opentelemetry.sdk.metrics.{SdkMeterProvider, SdkMeterProviderBuilder}
-import io.opentelemetry.sdk.trace.`export`.{BatchSpanProcessor, BatchSpanProcessorBuilder, SpanExporter}
+import io.opentelemetry.sdk.trace.`export`.{
+  BatchSpanProcessor,
+  BatchSpanProcessorBuilder,
+  SpanExporter,
+}
 import io.opentelemetry.sdk.trace.samplers.Sampler
 import io.opentelemetry.sdk.trace.{SdkTracerProvider, SdkTracerProviderBuilder}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.jdk.DurationConverters.ScalaDurationOps
 import scala.util.chaining.scalaUtilChainingOps
-
 
 object OpenTelemetryFactory {
 
@@ -75,13 +78,15 @@ object OpenTelemetryFactory {
       else builder
 
     val meterProviderBuilder =
-      OpenTelemetryUtil.addViewsToProvider(
-        SdkMeterProvider.builder,
-        testingSupportAdhocMetrics,
-        histogramInventory,
-        histogramFilter,
-        histogramConfigs,
-      ).pipe(setMetricsReader)
+      OpenTelemetryUtil
+        .addViewsToProvider(
+          SdkMeterProvider.builder,
+          testingSupportAdhocMetrics,
+          histogramInventory,
+          histogramFilter,
+          histogramConfigs,
+        )
+        .pipe(setMetricsReader)
 
     val configuredSdk = OpenTelemetrySdk.builder
       .setTracerProvider(tracerProviderBuilder.build)
@@ -126,6 +131,5 @@ object OpenTelemetryFactory {
     }
     if (config.parentBased) Sampler.parentBased(sampler) else sampler
   }
-
 
 }

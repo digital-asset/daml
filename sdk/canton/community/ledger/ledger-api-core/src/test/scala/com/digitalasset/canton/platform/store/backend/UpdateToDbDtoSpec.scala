@@ -40,7 +40,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks.*
 import org.scalatest.wordspec.AnyWordSpec
 
-import java.time.Duration
+import java.time.{Duration, Instant}
 import scala.concurrent.{ExecutionContext, Future}
 
 // Note: this suite contains hand-crafted updates that are impossible to produce on some ledgers
@@ -1630,7 +1630,8 @@ object UpdateToDbDtoSpec {
   private val otherParticipantId =
     Ref.ParticipantId.assertFromString("UpdateToDbDtoSpecRemoteParticipant")
   private val someOffset = Offset.fromHexString(Ref.HexString.assertFromString("abcdef"))
-  private val someRecordTime = Time.Timestamp.assertFromString("2000-01-01T00:00:00.000000Z")
+  private val someRecordTime =
+    Time.Timestamp.assertFromInstant(Instant.parse(("2000-01-01T00:00:00.000000Z")))
   private val someApplicationId =
     Ref.ApplicationId.assertFromString("UpdateToDbDtoSpecApplicationId")
   private val someCommandId = Ref.CommandId.assertFromString("UpdateToDbDtoSpecCommandId")

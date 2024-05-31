@@ -4,8 +4,11 @@
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
+import com.daml.metrics.api.opentelemetry.{
+  OpenTelemetryMetricsFactory,
+  QualificationFilteringMetricsFactory,
+}
 import com.daml.metrics.api.{MetricQualification, MetricsContext, MetricsInfoFilter}
-import com.daml.metrics.api.opentelemetry.{OpenTelemetryMetricsFactory, QualificationFilteringMetricsFactory}
 import com.daml.metrics.grpc.DamlGrpcServerMetrics
 import com.daml.metrics.{HealthMetrics, HistogramDefinition, MetricsFilterConfig}
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
@@ -210,7 +213,7 @@ final case class MetricsRegistry(
               if (testingSupportAdhocMetrics) Some(logger.underlying) else None,
             globalMetricsContext = extraContext,
           ),
-          baseFilter
+          baseFilter,
         )
     }
   }

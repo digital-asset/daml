@@ -16,7 +16,8 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.protocol.{HandshakeRequest, HandshakeResponse}
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnection}
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, SequencerId}
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.{DomainId, Member, ParticipantId, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -61,6 +62,12 @@ trait SequencerConnectClient extends NamedLogging with AutoCloseable {
     case v30.SequencerConnect.VerifyActiveResponse.Value.Empty =>
       Left(Error.InvalidResponse("Missing response from VerifyActive"))
   }
+
+  def registerOnboardingTopologyTransactions(
+      domainAlias: DomainAlias,
+      member: Member,
+      topologyTransactions: Seq[GenericSignedTopologyTransaction],
+  )(implicit traceContext: TraceContext): EitherT[Future, Error, Unit]
 }
 
 object SequencerConnectClient {

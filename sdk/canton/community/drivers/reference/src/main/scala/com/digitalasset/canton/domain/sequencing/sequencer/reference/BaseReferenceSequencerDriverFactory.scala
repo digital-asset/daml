@@ -5,7 +5,15 @@ package com.digitalasset.canton.domain.sequencing.sequencer.reference
 
 import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.{HistogramInventory, MetricName, MetricsContext}
-import com.digitalasset.canton.config.{BatchAggregatorConfig, BatchingConfig, ConnectionAllocation, DbParametersConfig, ProcessingTimeout, QueryCostMonitoringConfig, StorageConfig}
+import com.digitalasset.canton.config.{
+  BatchAggregatorConfig,
+  BatchingConfig,
+  ConnectionAllocation,
+  DbParametersConfig,
+  ProcessingTimeout,
+  QueryCostMonitoringConfig,
+  StorageConfig,
+}
 import com.digitalasset.canton.domain.block.BlockFormat.DefaultFirstBlockHeight
 import com.digitalasset.canton.domain.block.{SequencerDriver, SequencerDriverFactory}
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.BaseReferenceSequencerDriverFactory.createClock

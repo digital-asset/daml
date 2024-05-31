@@ -40,7 +40,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
 
   def isFinalized: Boolean
 
-  /** Validate the additional confirmation response received and record if unless already finalized.
+  /** Validate the additional confirmation response received and record unless already finalized.
     */
   def validateAndProgress(
       responseTimestamp: CantonTimestamp,

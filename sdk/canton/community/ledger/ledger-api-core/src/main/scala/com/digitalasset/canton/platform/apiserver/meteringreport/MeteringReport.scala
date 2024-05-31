@@ -7,10 +7,10 @@ import com.daml.lf.data.Ref.{ApplicationId, ParticipantId}
 import com.daml.lf.data.Time.Timestamp
 import spray.json.{DefaultJsonProtocol, RootJsonFormat, *}
 
-import DefaultJsonProtocol.*
-
 import java.time.Instant
 import scala.util.Try
+
+import DefaultJsonProtocol.*
 
 object MeteringReport {
 
@@ -38,10 +38,11 @@ object MeteringReport {
   final case class ApplicationReport(application: ApplicationId, events: Long)
 
   implicit val TimestampFormat: RootJsonFormat[Timestamp] =
-    stringJsonFormat(v => for {
-      instant <- Try(Instant.parse(v)).toEither.left.map(_.getMessage)
-      timestamp <- Timestamp.fromInstant(instant)
-    } yield timestamp
+    stringJsonFormat(v =>
+      for {
+        instant <- Try(Instant.parse(v)).toEither.left.map(_.getMessage)
+        timestamp <- Timestamp.fromInstant(instant)
+      } yield timestamp
     )(_.toString)
 
   implicit val ApplicationIdFormat: RootJsonFormat[ApplicationId] =

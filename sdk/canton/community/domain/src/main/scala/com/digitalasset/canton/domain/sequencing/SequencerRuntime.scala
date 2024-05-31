@@ -127,6 +127,7 @@ class SequencerRuntime(
     val metrics: SequencerMetrics,
     indexedDomain: IndexedDomain,
     syncCrypto: DomainSyncCryptoClient,
+    domainTopologyManager: DomainTopologyManager,
     topologyStore: TopologyStore[DomainStore],
     topologyClient: DomainTopologyClientWithInit,
     topologyProcessor: TopologyTransactionProcessor,
@@ -208,6 +209,7 @@ class SequencerRuntime(
     sequencerDomainParamsLookup,
     localNodeParameters,
     staticDomainParameters.protocolVersion,
+    domainTopologyManager,
     topologyStateForInitializationService,
     loggerFactory,
   )
@@ -322,6 +324,7 @@ class SequencerRuntime(
             domainId,
             sequencerId,
             staticDomainParameters,
+            domainTopologyManager,
             syncCrypto,
             loggerFactory,
           )(
@@ -369,9 +372,9 @@ class SequencerRuntime(
 
   if (localNodeParameters.useUnifiedSequencer) {
     logger.info("Subscribing to topology transactions for auto-registering members")
-    // TODO(#18399): This listener runs after the snapshot became available, thus can be late with registering a member,
-    //  if a concurrent code is already using that member. Need to find a solution to that.
     topologyProcessor.subscribe(new TopologyTransactionProcessingSubscriber {
+      override val executionOrder: Int = 5
+
       override def observed(
           sequencedTimestamp: SequencedTime,
           effectiveTimestamp: EffectiveTime,
@@ -391,7 +394,7 @@ class SequencerRuntime(
         val f = possibleNewMembers
           .parTraverse_ { member =>
             logger.info(s"Topology change has triggered sequencer registration of member $member")
-            sequencer.registerMember(member)
+            sequencer.registerMemberInternal(member, effectiveTimestamp.value)
           }
           .valueOr(e =>
             ErrorUtil.internalError(new RuntimeException(s"Failed to register member: $e"))

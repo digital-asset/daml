@@ -3,10 +3,9 @@
 
 package com.digitalasset.canton.metrics
 
-import com.daml.metrics.api.MetricQualification
 import com.daml.metrics.api.testing.InMemoryMetricsFactory
+import com.daml.metrics.api.{HistogramInventory, MetricQualification, MetricsInfoFilter}
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.telemetry.MetricsInfoFilter
 import io.opentelemetry.api.OpenTelemetry
 import org.scalatest.wordspec.AnyWordSpec
 

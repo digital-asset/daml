@@ -7,8 +7,8 @@ import com.daml.error.utils.DecodedCantonError
 import com.digitalasset.canton.error.ErrorCodeUtils.errorCategoryFromString
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.{
+  MemberAccessDisabled,
   MissingToken,
-  ParticipantAccessDisabled,
 }
 import com.digitalasset.canton.sequencing.authentication.grpc.Constant
 import com.digitalasset.canton.tracing.TraceContext
@@ -201,7 +201,7 @@ object GrpcError {
       case INVALID_ARGUMENT | UNAUTHENTICATED
           if !checkAuthenticationError(
             optTrailers,
-            Seq(MissingToken.toString, ParticipantAccessDisabled.toString),
+            Seq(MissingToken.toString, MemberAccessDisabled.toString),
           ) =>
         GrpcClientError(request, serverName, status, optTrailers, decodedError)
 

@@ -29,7 +29,8 @@ import com.digitalasset.canton.admin.participant.v30.ResourceManagementServiceGr
 import com.digitalasset.canton.admin.participant.v30.TransferServiceGrpc.TransferServiceStub
 import com.digitalasset.canton.admin.participant.v30.{ResourceLimits as _, *}
 import com.digitalasset.canton.admin.pruning
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.admin.pruning.v30.{NoWaitCommitmentsSetup, WaitCommitmentsSetup}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.admin.ResourceLimits
@@ -38,11 +39,13 @@ import com.digitalasset.canton.participant.admin.grpc.{
   TransferSearchResult,
 }
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig as CDomainConnectionConfig
+import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.SharedContractsState
 import com.digitalasset.canton.participant.sync.UpstreamOffsetConvert
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.InstantConverter
-import com.digitalasset.canton.topology.{DomainId, PartyId}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.traffic.MemberTrafficStatus
 import com.digitalasset.canton.util.BinaryFileUtil
@@ -1007,6 +1010,160 @@ object ParticipantAdminCommands {
         Right(response.offset)
     }
 
+    // TODO(#10436) R7: The code below should be sufficient.
+    final case class SetConfigForSlowCounterParticipants(
+        configs: Seq[SlowCounterParticipantDomainConfig]
+    ) extends Base[
+          v30.SetConfigForSlowCounterParticipants.Request,
+          v30.SetConfigForSlowCounterParticipants.Response,
+          Unit,
+        ] {
+
+      override def createRequest() = Right(
+        v30.SetConfigForSlowCounterParticipants
+          .Request(
+            configs.map(_.toProtoV30)
+          )
+      )
+
+      override def submitRequest(
+          service: InspectionServiceStub,
+          request: v30.SetConfigForSlowCounterParticipants.Request,
+      ): Future[v30.SetConfigForSlowCounterParticipants.Response] =
+        service.setConfigForSlowCounterParticipants(request)
+
+      override def handleResponse(
+          response: v30.SetConfigForSlowCounterParticipants.Response
+      ): Right[
+        String,
+        Unit,
+      ] = Right(())
+    }
+
+    final case class SlowCounterParticipantDomainConfig(
+        domainIds: Seq[DomainId],
+        distinguishedParticipants: Seq[ParticipantId],
+        thresholdDistinguished: NonNegativeInt,
+        thresholdDefault: NonNegativeInt,
+        participantsMetrics: Seq[ParticipantId],
+    ) {
+      def toProtoV30: v30.SlowCounterParticipantDomainConfig = {
+        v30.SlowCounterParticipantDomainConfig(
+          domainIds.map(_.toProtoPrimitive),
+          distinguishedParticipants.map(_.toProtoPrimitive),
+          thresholdDistinguished.value.toLong,
+          thresholdDefault.value.toLong,
+          participantsMetrics.map(_.toProtoPrimitive),
+        )
+      }
+    }
+
+    object SlowCounterParticipantDomainConfig {
+      def fromProtoV30(
+          config: v30.SlowCounterParticipantDomainConfig
+      ): Either[String, SlowCounterParticipantDomainConfig] = {
+        val thresholdDistinguished = NonNegativeInt.tryCreate(config.thresholdDistinguished.toInt)
+        val thresholdDefault = NonNegativeInt.tryCreate(config.thresholdDefault.toInt)
+        val distinguishedParticipants =
+          config.distinguishedParticipantUids.map(ParticipantId.tryFromProtoPrimitive)
+        val participantsMetrics =
+          config.participantUidsMetrics.map(ParticipantId.tryFromProtoPrimitive)
+        for {
+          domainIds <- config.domainIds.map(DomainId.fromString).sequence
+        } yield SlowCounterParticipantDomainConfig(
+          domainIds,
+          distinguishedParticipants,
+          thresholdDistinguished,
+          thresholdDefault,
+          participantsMetrics,
+        )
+      }
+    }
+
+    // TODO(#10436) R7: The code below should be sufficient.
+    final case class GetConfigForSlowCounterParticipants(
+        domainIds: Seq[DomainId]
+    ) extends Base[
+          v30.GetConfigForSlowCounterParticipants.Request,
+          v30.GetConfigForSlowCounterParticipants.Response,
+          Seq[SlowCounterParticipantDomainConfig],
+        ] {
+
+      override def createRequest() = Right(
+        v30.GetConfigForSlowCounterParticipants
+          .Request(
+            domainIds.map(_.toProtoPrimitive)
+          )
+      )
+
+      override def submitRequest(
+          service: InspectionServiceStub,
+          request: v30.GetConfigForSlowCounterParticipants.Request,
+      ): Future[v30.GetConfigForSlowCounterParticipants.Response] =
+        service.getConfigForSlowCounterParticipants(request)
+
+      override def handleResponse(
+          response: v30.GetConfigForSlowCounterParticipants.Response
+      ): Either[String, Seq[SlowCounterParticipantDomainConfig]] =
+        response.configs.map(SlowCounterParticipantDomainConfig.fromProtoV30).sequence
+    }
+
+    final case class CounterParticipantInfo(
+        participantId: ParticipantId,
+        domainId: DomainId,
+        intervalsBehind: PositiveInt,
+        asOfSequencingTimestamp: Instant,
+    )
+
+    // TODO(#10436) R7: The code below should be sufficient.
+    final case class GetIntervalsBehindForCounterParticipants(
+        counterParticipants: Seq[ParticipantId],
+        domainIds: Seq[DomainId],
+        threshold: NonNegativeInt,
+    ) extends Base[
+          v30.GetIntervalsBehindForCounterParticipants.Request,
+          v30.GetIntervalsBehindForCounterParticipants.Response,
+          Seq[CounterParticipantInfo],
+        ] {
+
+      override def createRequest() = Right(
+        v30.GetIntervalsBehindForCounterParticipants
+          .Request(
+            counterParticipants.map(_.toProtoPrimitive),
+            domainIds.map(_.toProtoPrimitive),
+            Some(threshold.value.toLong),
+          )
+      )
+
+      override def submitRequest(
+          service: InspectionServiceStub,
+          request: v30.GetIntervalsBehindForCounterParticipants.Request,
+      ): Future[v30.GetIntervalsBehindForCounterParticipants.Response] =
+        service.getIntervalsBehindForCounterParticipants(request)
+
+      override def handleResponse(
+          response: v30.GetIntervalsBehindForCounterParticipants.Response
+      ): Either[String, Seq[CounterParticipantInfo]] = {
+        response.intervalsBehind.map { info =>
+          for {
+            domainId <- DomainId.fromString(info.domainId)
+            asOf <- ProtoConverter
+              .parseRequired(
+                CantonTimestamp.fromProtoTimestamp,
+                "as_of",
+                info.asOfSequencingTimestamp,
+              )
+              .leftMap(_.toString)
+          } yield CounterParticipantInfo(
+            ParticipantId.tryFromProtoPrimitive(info.counterParticipantUid),
+            domainId,
+            PositiveInt.tryCreate(info.intervalsBehind.toInt),
+            asOf.toInstant,
+          )
+        }.sequence
+      }
+    }
+
   }
 
   object Pruning {
@@ -1104,6 +1261,245 @@ object ParticipantAdminCommands {
         response match {
           case pruning.v30.SetParticipantSchedule.Response() => Right(())
         }
+    }
+
+    // TODO(#18453) R6: The code below should be sufficient.
+    final case class SetNoWaitCommitmentsFrom(
+        counterParticipants: Seq[ParticipantId],
+        domainIds: Seq[DomainId],
+        startingAt: Either[Instant, ParticipantOffset],
+    ) extends Base[
+          pruning.v30.SetNoWaitCommitmentsFrom.Request,
+          pruning.v30.SetNoWaitCommitmentsFrom.Response,
+          Map[ParticipantId, Seq[DomainId]],
+        ] {
+      override def createRequest(): Either[String, pruning.v30.SetNoWaitCommitmentsFrom.Request] = {
+        for {
+          tsOrOffset <- startingAt match {
+            case Right(offset) =>
+              offset.value match {
+                case Value.Absolute(value) =>
+                  Right(Right(value).withLeft[CantonTimestamp]).withLeft[String]
+                case other => Left(s"Unable to convert ledger_end `$other` to absolute value")
+              }
+            case Left(ts) =>
+              CantonTimestamp.fromInstant(ts) match {
+                case Left(value) => Left(value)
+                case Right(value) => Right(Left(value).withRight[String]).withLeft[String]
+              }
+          }
+        } yield pruning.v30.SetNoWaitCommitmentsFrom.Request(
+          counterParticipants.map(_.toProtoPrimitive),
+          tsOrOffset match {
+            case Left(ts) =>
+              pruning.v30.SetNoWaitCommitmentsFrom.Request.TimestampOrOffset
+                .SequencingTimestamp(ts.toProtoTimestamp)
+            case Right(offset) =>
+              pruning.v30.SetNoWaitCommitmentsFrom.Request.TimestampOrOffset.PruningOffset(offset)
+          },
+          domainIds.map(_.toProtoPrimitive),
+        )
+      }
+
+      override def submitRequest(
+          service: Svc,
+          request: pruning.v30.SetNoWaitCommitmentsFrom.Request,
+      ): Future[pruning.v30.SetNoWaitCommitmentsFrom.Response] =
+        service.setNoWaitCommitmentsFrom(request)
+
+      override def handleResponse(
+          response: pruning.v30.SetNoWaitCommitmentsFrom.Response
+      ): Either[String, Map[ParticipantId, Seq[DomainId]]] = {
+
+        val m = response.participantDomainsMapping
+          .map { case (participant, domains) =>
+            ParticipantId.tryFromProtoPrimitive(participant) ->
+              domains.domainIds.map(DomainId.fromString).sequence
+          }
+
+        if (m.forall(_._2.isRight)) Right(m.map { case (id, either) =>
+          id -> either.getOrElse(Seq.empty)
+        })
+        else
+          Left("Error parsing response of setNoWaitCommitmentsFrom")
+      }
+    }
+
+    // TODO(#18453) R6: The code below should be sufficient.
+    final case class NoWaitCommitments(
+        counterParticipant: ParticipantId,
+        startingAt: Either[Instant, ParticipantOffset],
+        domains: Seq[DomainId],
+        state: SharedContractsState,
+    )
+
+    object NoWaitCommitments {
+      def fromSetup(setup: Seq[NoWaitCommitmentsSetup]): Either[String, Seq[NoWaitCommitments]] = {
+        val s = setup.map(setup =>
+          for {
+            ts <- setup.timestampOrOffsetActive match {
+              case NoWaitCommitmentsSetup.TimestampOrOffsetActive.SequencingTimestamp(ts) =>
+                CantonTimestamp.fromProtoTimestamp(ts).leftMap(_.toString)
+              case _ => Left("Conversion error for timestamp in ignoredParticipants")
+            }
+            offset <- setup.timestampOrOffsetActive match {
+              case NoWaitCommitmentsSetup.TimestampOrOffsetActive.PruningOffset(offset) =>
+                Right(UpstreamOffsetConvert.toParticipantOffset(offset))
+              case _ => Left("Conversion error for Offset in ignoredParticipants")
+            }
+            domains <- setup.domainIds.traverse(_.domainIds.traverse(DomainId.fromString))
+            state <- SharedContractsState
+              .fromProtoV30(setup.counterParticipantState)
+              .leftMap(_.toString)
+          } yield NoWaitCommitments(
+            ParticipantId.tryFromProtoPrimitive(setup.counterParticipantUid),
+            setup.timestampOrOffsetActive match {
+              case NoWaitCommitmentsSetup.TimestampOrOffsetActive.SequencingTimestamp(_) =>
+                ts.toInstant.asLeft[ParticipantOffset]
+              case _ => offset.asRight[Instant]
+            },
+            domains.getOrElse(Seq.empty),
+            state,
+          )
+        )
+        if (s.forall(_.isRight)) {
+          Right(
+            s.map(
+              _.getOrElse(
+                NoWaitCommitments(
+                  ParticipantId.tryFromProtoPrimitive("error"),
+                  Left(Instant.EPOCH),
+                  Seq.empty,
+                  SharedContractsState.NoSharedContracts,
+                )
+              )
+            )
+          )
+        } else
+          Left("Error parsing response of getNoWaitCommitmentsFrom")
+      }
+    }
+
+    // TODO(#18453) R6: The code below should be sufficient.
+    final case class SetWaitCommitmentsFrom(
+        counterParticipants: Seq[ParticipantId],
+        domainIds: Seq[DomainId],
+    ) extends Base[
+          pruning.v30.ResetNoWaitCommitmentsFrom.Request,
+          pruning.v30.ResetNoWaitCommitmentsFrom.Response,
+          Map[ParticipantId, Seq[DomainId]],
+        ] {
+      override def createRequest(): Right[String, pruning.v30.ResetNoWaitCommitmentsFrom.Request] =
+        Right(
+          pruning.v30.ResetNoWaitCommitmentsFrom.Request(
+            counterParticipants.map(_.toProtoPrimitive),
+            domainIds.map(_.toProtoPrimitive),
+          )
+        )
+
+      override def submitRequest(
+          service: Svc,
+          request: pruning.v30.ResetNoWaitCommitmentsFrom.Request,
+      ): Future[pruning.v30.ResetNoWaitCommitmentsFrom.Response] =
+        service.resetNoWaitCommitmentsFrom(request)
+
+      override def handleResponse(
+          response: pruning.v30.ResetNoWaitCommitmentsFrom.Response
+      ): Either[String, Map[ParticipantId, Seq[DomainId]]] = {
+
+        val m = response.participantDomainsMapping
+          .map { case (participant, domains) =>
+            ParticipantId.tryFromProtoPrimitive(participant) ->
+              domains.domainIds.map(DomainId.fromString).sequence
+          }
+
+        if (m.forall(_._2.isRight)) Right(m.map { case (id, either) =>
+          id -> either.getOrElse(Seq.empty)
+        })
+        else
+          Left("Error parsing response of resetNoWaitCommitmentsFrom")
+      }
+    }
+
+    // TODO(#18453) R6: The code below should be sufficient.
+    final case class WaitCommitments(
+        counterParticipant: ParticipantId,
+        domains: Seq[DomainId],
+        state: SharedContractsState,
+    )
+
+    object WaitCommitments {
+      def fromSetup(setup: Seq[WaitCommitmentsSetup]): Either[String, Seq[WaitCommitments]] = {
+        val s = setup.map(setup =>
+          for {
+            domains <- setup.domainIds.traverse(_.domainIds.traverse(DomainId.fromString))
+            state <- SharedContractsState
+              .fromProtoV30(setup.counterParticipantState)
+              .leftMap(_.toString)
+          } yield WaitCommitments(
+            ParticipantId.tryFromProtoPrimitive(setup.counterParticipantUid),
+            domains.getOrElse(Seq.empty),
+            state,
+          )
+        )
+        if (s.forall(_.isRight)) {
+          Right(
+            s.map(
+              _.getOrElse(
+                WaitCommitments(
+                  ParticipantId.tryFromProtoPrimitive("error"),
+                  Seq.empty,
+                  SharedContractsState.NoSharedContracts,
+                )
+              )
+            )
+          )
+        } else
+          Left("Error parsing response of getNoWaitCommitmentsFrom")
+      }
+    }
+
+    // TODO(#18453) R6: The code below should be sufficient.
+    final case class GetNoWaitCommitmentsFrom(
+        domains: Seq[DomainId],
+        counterParticipants: Seq[ParticipantId],
+    ) extends Base[
+          pruning.v30.GetNoWaitCommitmentsFrom.Request,
+          pruning.v30.GetNoWaitCommitmentsFrom.Response,
+          (Seq[NoWaitCommitments], Seq[WaitCommitments]),
+        ] {
+
+      override def createRequest(): Right[String, pruning.v30.GetNoWaitCommitmentsFrom.Request] =
+        Right(
+          pruning.v30.GetNoWaitCommitmentsFrom.Request(
+            domains.map(_.toProtoPrimitive),
+            counterParticipants.map(_.toProtoPrimitive),
+          )
+        )
+
+      override def submitRequest(
+          service: Svc,
+          request: pruning.v30.GetNoWaitCommitmentsFrom.Request,
+      ): Future[pruning.v30.GetNoWaitCommitmentsFrom.Response] =
+        service.getNoWaitCommitmentsFrom(request)
+
+      override def handleResponse(
+          response: pruning.v30.GetNoWaitCommitmentsFrom.Response
+      ): Either[String, (Seq[NoWaitCommitments], Seq[WaitCommitments])] = {
+        val ignoredCounterParticipants = NoWaitCommitments.fromSetup(response.ignoredParticipants)
+        val nonIgnoredCounterParticipants =
+          WaitCommitments.fromSetup(response.notIgnoredParticipants)
+        if (ignoredCounterParticipants.isLeft || nonIgnoredCounterParticipants.isLeft) {
+          Left("Error parsing response of getNoWaitCommitmentsFrom")
+        } else {
+          Right(
+            (
+              ignoredCounterParticipants.getOrElse(Seq.empty),
+              nonIgnoredCounterParticipants.getOrElse(Seq.empty),
+            )
+          )
+        }
+      }
     }
 
     final case class GetParticipantScheduleCommand()

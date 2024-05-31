@@ -162,8 +162,7 @@ class GrpcSequencerAuthenticationService(
     def maliciousOrFaulty(): Status =
       Status.INTERNAL.withDescription(err.reason)
     err match {
-      case MemberAuthentication.ParticipantAccessDisabled(_) |
-          MemberAuthentication.MediatorAccessDisabled(_) =>
+      case MemberAuthentication.MemberAccessDisabled(_) =>
         Status.PERMISSION_DENIED.withDescription(err.reason)
       case MemberAuthentication.NonMatchingDomainId(_, _) =>
         Status.FAILED_PRECONDITION.withDescription(err.reason)

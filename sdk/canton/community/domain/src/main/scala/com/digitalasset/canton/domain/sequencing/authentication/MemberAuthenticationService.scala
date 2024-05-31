@@ -198,11 +198,11 @@ class MemberAuthenticationService(
     member match {
       case participant: ParticipantId =>
         EitherT(isParticipantActive(participant).map {
-          if (_) Right(()) else Left(ParticipantAccessDisabled(participant))
+          Either.cond(_, (), MemberAccessDisabled(participant))
         })
       case mediator: MediatorId =>
         EitherT(isMediatorActive(mediator).map {
-          if (_) Right(()) else Left(MediatorAccessDisabled(mediator))
+          Either.cond(_, (), MemberAccessDisabled(mediator))
         })
       case _ =>
         // TODO(#4933) check if sequencer is active

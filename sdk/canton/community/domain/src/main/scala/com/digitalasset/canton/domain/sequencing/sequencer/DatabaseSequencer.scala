@@ -277,8 +277,8 @@ class DatabaseSequencer(
 
   /**  Package private to use access method in tests, see `TestDatabaseSequencerWrapper`.
     */
-  final private[sequencer] def registerMemberInternal(member: Member, timestamp: CantonTimestamp)(
-      implicit traceContext: TraceContext
+  override final def registerMemberInternal(member: Member, timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
   ): EitherT[Future, RegisterError, Unit] = {
     EitherT
       .right[RegisterError](store.registerMember(member, timestamp))

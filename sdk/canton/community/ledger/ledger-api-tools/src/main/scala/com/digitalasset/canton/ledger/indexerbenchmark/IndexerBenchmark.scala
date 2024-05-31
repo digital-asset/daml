@@ -4,8 +4,8 @@
 package com.digitalasset.canton.ledger.indexerbenchmark
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.noop.NoOpMetricsFactory
+import com.daml.metrics.api.{HistogramInventory, MetricName}
 import com.daml.resources
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.Offset
@@ -17,11 +17,7 @@ import com.digitalasset.canton.ledger.participant.state.{
   Update,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.{
-  HistogramInventory,
-  LedgerApiServerHistograms,
-  LedgerApiServerMetrics,
-}
+import com.digitalasset.canton.metrics.{LedgerApiServerHistograms, LedgerApiServerMetrics}
 import com.digitalasset.canton.platform.LedgerApiServer
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
 import com.digitalasset.canton.platform.indexer.{Indexer, IndexerServiceOwner, JdbcIndexer}

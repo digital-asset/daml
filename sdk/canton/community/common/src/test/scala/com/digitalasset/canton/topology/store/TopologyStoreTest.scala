@@ -524,7 +524,6 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase {
             )
 
             onboardingTransactionUnlessShutdown.onShutdown(fail()) shouldBe Seq(
-              tx4_DND,
               tx5_DTC,
               tx6_DTC_Update,
             )

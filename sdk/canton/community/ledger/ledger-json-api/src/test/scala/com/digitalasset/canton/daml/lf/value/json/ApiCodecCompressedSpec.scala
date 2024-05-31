@@ -22,6 +22,7 @@ import shapeless.record.Record as HRecord
 import spray.json.*
 import scalaz.syntax.show.*
 
+import java.time.Instant
 import scala.annotation.nowarn
 import scala.util.{Success, Try}
 import scala.util.Random.shuffle
@@ -126,7 +127,7 @@ abstract class ApiCodecCompressedSpec
         fListOfText = Vector("foo", "bar"),
         fListOfUnit = Vector((), ()),
         fDate = Time.Date assertFromString "2019-01-28",
-        fTimestamp = Time.Timestamp assertFromString "2019-01-28T12:44:33.22Z",
+        fTimestamp = Time.Timestamp.assertFromInstant(Instant.parse("2019-01-28T12:44:33.22Z")),
         fOptionalText = None,
         fOptionalUnit = Some(()),
         fOptOptText = Some(Some("foo")),
@@ -258,15 +259,15 @@ class ApiCodecCompressedSpecStable extends ApiCodecCompressedSpec {
     }
 
     def cn(canonical: String, numerically: String, typ: VA)(
-      expected: typ.Inj,
-      alternates: String*
+        expected: typ.Inj,
+        alternates: String*
     )(implicit pos: source.Position) =
       (pos.lineNumber, canonical, numerically, typ, expected, alternates)
 
     def c(canonical: String, typ: VA)(expected: typ.Inj, alternates: String*)(implicit
-                                                                              pos: source.Position
+        pos: source.Position
     ) =
-      cn(canonical, canonical, typ)(expected, alternates: _*)(pos)
+      cn(canonical, canonical, typ)(expected, alternates*)(pos)
 
     object VAs {
       val ooi = VA.optional(VA.optional(VA.int64))
@@ -324,11 +325,15 @@ class ApiCodecCompressedSpecStable extends ApiCodecCompressedSpec {
         "\"0.12345123445001\"",
       ),
       c("\"1990-11-09T04:30:23.123456Z\"", VA.timestamp)(
-        Time.Timestamp assertFromString "1990-11-09T04:30:23.123456Z",
+        Time.Timestamp.assertFromInstant(Instant.parse("1990-11-09T04:30:23.123456Z")),
         "\"1990-11-09T04:30:23.1234569Z\"",
       ),
       c("\"1970-01-01T00:00:00Z\"", VA.timestamp)(Time.Timestamp assertFromLong 0),
-      c("\"1969-12-31T23:00:00Z\"", VA.timestamp)(Time.Timestamp.assertFromLong(-3600000000L), "\"1970-01-01T00:00:00+01:00\""),
+      // Ensure ISO 8601 timestamps with offsets are successfully parsed by comparing to (epoch - 1 hour)
+      c("\"1969-12-31T23:00:00Z\"", VA.timestamp)(
+        Time.Timestamp.assertFromLong(-3600000000L),
+        "\"1970-01-01T00:00:00+01:00\"",
+      ),
       cn("\"42\"", "42", VA.int64)(42, "\"+42\""),
       cn("\"0\"", "0", VA.int64)(0, "-0", "\"+0\"", "\"-0\""),
       c("\"Alice\"", VA.party)(Ref.Party assertFromString "Alice"),
@@ -392,7 +397,7 @@ class ApiCodecCompressedSpecStable extends ApiCodecCompressedSpec {
           typ.prj(parsed) should ===(Some(expected))
           apiValueToJsValue(parsed) should ===(json)
           numCodec.apiValueToJsValue(parsed) should ===(numJson)
-          val tAlternates = Table("alternate", alternates: _*)
+          val tAlternates = Table("alternate", alternates*)
           forEvery(tAlternates) { alternate =>
             val aJson = alternate.parseJson
             typ.prj(jsValueToApiValue(aJson, typ.t, typeLookup)) should ===(Some(expected))

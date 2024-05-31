@@ -6,10 +6,16 @@ package com.digitalasset.canton.environment
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.metrics.api.{MetricsInfoFilter, HistogramInventory}
+import com.daml.metrics.api.{HistogramInventory, MetricsInfoFilter}
 import com.digitalasset.canton.concurrent.*
 import com.digitalasset.canton.config.*
-import com.digitalasset.canton.console.{ConsoleEnvironment, ConsoleOutput, GrpcAdminCommandRunner, HealthDumpGenerator, StandardConsoleOutput}
+import com.digitalasset.canton.console.{
+  ConsoleEnvironment,
+  ConsoleOutput,
+  GrpcAdminCommandRunner,
+  HealthDumpGenerator,
+  StandardConsoleOutput,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.mediator.{MediatorNodeBootstrap, MediatorNodeParameters}

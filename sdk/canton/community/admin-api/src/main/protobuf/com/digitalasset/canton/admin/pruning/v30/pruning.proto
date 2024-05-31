@@ -84,3 +84,93 @@ message LocatePruningTimestamp {
     google.protobuf.Timestamp timestamp = 1;
   }
 }
+
+// overwrites previous no-wait-configuration on the given domains for the given counter participants
+message SetNoWaitCommitmentsFrom {
+  message Request {
+    // ignore the given participants; an empty list has no effect
+    repeated string counter_participant_uids = 1;
+    // pruning calls with an offset larger or equal to (the given pruning_offset/ to the offset equivalent to the given
+    // sequencing time) will disregard the given counter participants
+    oneof timestamp_or_offset {
+      google.protobuf.Timestamp sequencing_timestamp = 3;
+      string pruning_offset = 4;
+    }
+    // ignore the given participants on these domains
+    // an empty list has no effect
+    repeated string domain_ids = 5;
+  }
+
+  message Response {
+    // counter participants for which we updated the no-wait-config and on which domains
+    map <string, Domains> participant_domains_mapping = 1;
+  }
+}
+
+// deletes previous no-wait-configuration on the given domains for the given counter participants
+message ResetNoWaitCommitmentsFrom {
+  message Request {
+    // an empty list has no effect
+    repeated string counter_participant_uids = 1;
+    // an empty list has no effect
+    repeated string domain_ids = 2;
+  }
+
+  message Response {
+    // counter participants for which we updated the no-wait-config and on which domains
+    map <string, Domains> participant_domains_mapping = 1;
+  }
+}
+
+
+message Domains {
+  repeated string domain_ids = 1;
+}
+
+// Returns the state of no-wait-config at the time the request executes, with optional filtering on domains and
+// counter participants
+// The response includes the status of the specified counter participants on the specified domains, regardless of
+// whether these counter participants have shared contracts with the participant at the time the call executes.
+// If no counter participants / domains are specified, the response includes all counter participants that are
+// known to the local participant at the time when the call executes, regardless of whether they have shared contracts
+// with the participant at the time the call executes.
+// Even if some participants may not be connected to some domains at the time the query executes, the response still
+// includes them if they are known to the participant or specified in the arguments.
+message GetNoWaitCommitmentsFrom {
+  message Request {
+    repeated string domain_ids = 1;
+    repeated string participant_uids = 2;
+  }
+
+  message Response {
+    // participants that are ignored
+    repeated NoWaitCommitmentsSetup ignored_participants = 1;
+    // participants that are not ignored
+    repeated WaitCommitmentsSetup not_ignored_participants = 2;
+  }
+}
+
+message NoWaitCommitmentsSetup {
+  string counter_participant_uid = 1;
+  // since when the counter participant is ignored
+  oneof timestamp_or_offset_active {
+    google.protobuf.Timestamp sequencing_timestamp = 2;
+    string pruning_offset = 3;
+  }
+  Domains domain_ids = 4;
+  SharedContractsState counter_participant_state = 5;
+}
+
+message WaitCommitmentsSetup {
+  string counter_participant_uid = 1;
+  Domains domain_ids = 2;
+  SharedContractsState counter_participant_state = 3;
+}
+
+enum SharedContractsState {
+  STATE_UNSPECIFIED = 0;
+  // the participant has shared contracts with the counter participant
+  SHARED_CONTRACTS = 1;
+  // the participant knows the counter participant but has no shared contracts
+  NO_SHARED_CONTRACTS = 2;
+}

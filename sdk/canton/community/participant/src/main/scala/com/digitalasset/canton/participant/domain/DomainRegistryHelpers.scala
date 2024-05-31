@@ -208,14 +208,12 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
             s"Participant is not yet active on domain ${domainId}. Initialising topology"
           )
           for {
+            sequencerConnectClient <- sequencerConnectClient(sequencerAggregatedInfo)
             success <- topologyDispatcher.onboardToDomain(
               domainId,
               config.domain,
-              config.timeTracker,
-              sequencerAggregatedInfo.sequencerConnections,
-              sequencerClientFactory,
+              sequencerConnectClient,
               sequencerAggregatedInfo.staticDomainParameters.protocolVersion,
-              sequencerAggregatedInfo.expectedSequencers,
             )
             _ <- EitherT.cond[FutureUnlessShutdown](
               success,

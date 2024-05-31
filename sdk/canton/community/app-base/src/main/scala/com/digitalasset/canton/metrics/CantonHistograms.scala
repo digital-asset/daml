@@ -7,9 +7,6 @@ import com.daml.metrics.api.{HistogramInventory, MetricName}
 import com.digitalasset.canton.domain.metrics.{MediatorHistograms, SequencerHistograms}
 import com.digitalasset.canton.participant.metrics.ParticipantHistograms
 
-
-
-
 /** Pre-register histogram metrics
   *
   * Open telemetry requires us to define the histogram buckets before defining the actual metric.
@@ -22,6 +19,5 @@ class CantonHistograms()(implicit val inventory: HistogramInventory) {
     new ParticipantHistograms(prefix)
   private[metrics] val mediator: MediatorHistograms = new MediatorHistograms(prefix)
   private[metrics] val sequencer: SequencerHistograms = new SequencerHistograms(prefix)
-
 
 }

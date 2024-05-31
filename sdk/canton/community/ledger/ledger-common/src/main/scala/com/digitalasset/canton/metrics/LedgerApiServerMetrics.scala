@@ -102,8 +102,6 @@ class LedgerApiServerHistograms(val prefix: MetricName)(implicit
     inventory: HistogramInventory
 ) {
 
-
-
   private[metrics] val services = new ServicesHistograms(prefix :+ "services")
   private[metrics] val commands = new CommandHistograms(prefix :+ "commands")
   private[metrics] val execution = new ExecutionHistograms(prefix :+ "execution")
@@ -114,6 +112,5 @@ class LedgerApiServerHistograms(val prefix: MetricName)(implicit
   // the ledger api server creates these metrics all over the place, but their prefix
   // is anyway hardcoded
   private val _db = new DatabaseMetricsHistograms()
-
 
 }

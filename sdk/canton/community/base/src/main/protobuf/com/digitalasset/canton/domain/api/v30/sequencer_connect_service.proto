@@ -6,12 +6,14 @@ syntax = "proto3";
 package com.digitalasset.canton.domain.api.v30;
 
 import "com/digitalasset/canton/protocol/v30/sequencing.proto";
+import "com/digitalasset/canton/protocol/v30/topology.proto";
 
 service SequencerConnectService {
   rpc Handshake(SequencerConnect.HandshakeRequest) returns (SequencerConnect.HandshakeResponse);
   rpc GetDomainId(SequencerConnect.GetDomainIdRequest) returns (SequencerConnect.GetDomainIdResponse);
   rpc GetDomainParameters(SequencerConnect.GetDomainParametersRequest) returns (SequencerConnect.GetDomainParametersResponse);
   rpc VerifyActive(SequencerConnect.VerifyActiveRequest) returns (SequencerConnect.VerifyActiveResponse);
+  rpc RegisterOnboardingTopologyTransactions(SequencerConnect.RegisterOnboardingTopologyTransactionsRequest) returns (SequencerConnect.RegisterOnboardingTopologyTransactionsResponse);
 }
 
 message SequencerConnect {
@@ -55,4 +57,10 @@ message SequencerConnect {
       Failure failure = 2;
     }
   }
+
+  message RegisterOnboardingTopologyTransactionsRequest {
+    repeated com.digitalasset.canton.protocol.v30.SignedTopologyTransaction topology_transactions = 1;
+  }
+
+  message RegisterOnboardingTopologyTransactionsResponse {}
 }

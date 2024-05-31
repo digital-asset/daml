@@ -367,7 +367,7 @@ object TaskSchedulerTest {
   class MockTaskSchedulerMetrics extends TaskSchedulerMetrics {
     val prefix: MetricName = MetricName("test")
     override val sequencerCounterQueue: metrics.api.MetricHandle.Counter = NoOpCounter(
-      prefix :+ "counter"
+      MetricInfo(prefix :+ "counter", "", MetricQualification.Debug)
     )
 
     override def taskQueue(size: () => Int): Gauge.CloseableGauge =
