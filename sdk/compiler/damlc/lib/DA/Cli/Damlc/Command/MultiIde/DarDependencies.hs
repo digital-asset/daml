@@ -89,10 +89,11 @@ unpackDar miState darFile = do
       includesSdkPackage pkgName = any (isSdkPackage pkgName) $ zEntries archive
       sdkPackages = ["daml-script", "daml3-script", "daml-trigger"]
       deps = ["daml-prim", "daml-stdlib"] <> filter includesSdkPackage sdkPackages
+      packageMeta = getPackageMetadata mainPkg
       damlYamlContent = unlines $
         [ "sdk-version: " <> sdkVersion manifest
-        , "name: " <> T.unpack (LF.unPackageName $ LF.packageName $ LF.packageMetadata mainPkg)
-        , "version: " <> T.unpack (LF.unPackageVersion $ LF.packageVersion $ LF.packageMetadata mainPkg)
+        , "name: " <> T.unpack (LF.unPackageName $ LF.packageName packageMeta)
+        , "version: " <> T.unpack (LF.unPackageVersion $ LF.packageVersion packageMeta)
         , "source: daml"
         , "build-options:"
         , "  - --target=" <> LF.renderVersion (LF.packageLfVersion mainPkg)
@@ -103,6 +104,9 @@ unpackDar miState darFile = do
         <> fmap (\(path, _) -> "  - " <> makeRelative darUnpackLocation path) darDepArchives
 
   writeFile (darUnpackLocation </> projectConfigName) damlYamlContent
+
+getPackageMetadata :: LF.Package -> LF.PackageMetadata
+getPackageMetadata = fromMaybe (LF.PackageMetadata (LF.PackageName "unknown-package-name") (LF.PackageVersion "1.0.0") Nothing) . LF.packageMetadata
 
 extractPackageMetadataFromEntry :: Entry -> (String, String, String)
 extractPackageMetadataFromEntry = extractPackageMetadataFromDalfPath . eRelativePath
@@ -141,12 +145,10 @@ readDalfConf entry =
   let (pkgId :: LF.PackageId, pkg :: LF.Package) = either (error . show) id $ decodeArchive DecodeAsMain $ BSL.toStrict $ fromEntry entry
       moduleNames :: [Ghc.ModuleName]
       moduleNames = Ghc.mkModuleName . T.unpack . T.intercalate "." . LF.unModuleName <$> NM.names (LF.packageModules pkg)
-      pkgName :: LF.PackageName
-      pkgName = LF.packageName $ LF.packageMetadata pkg
-      pkgVersion :: LF.PackageVersion
-      pkgVersion = LF.packageVersion $ LF.packageMetadata pkg
+      pkgMetadata :: LF.PackageMetadata
+      pkgMetadata = getPackageMetadata pkg
       -- TODO[SW]: the `depends` list is empty right now, as we don't have the full dar dependency tree.
-   in second BSL.fromStrict $ mkConfFile pkgName (Just pkgVersion) [] Nothing moduleNames pkgId
+   in second BSL.fromStrict $ mkConfFile (LF.packageName pkgMetadata) (Just $ LF.packageVersion pkgMetadata) [] Nothing moduleNames pkgId
 
 -- Copies all dalf files over, changing their directory to match the new main package
 -- Updates the Name, Main-Dalf and Dalfs fields in the manifest to reflect the new main package/dalf locations

@@ -197,6 +197,7 @@ installSdk unresolvedVersion outputLogVar report = do
             { iTargetM = Nothing
             , iSnapshots = False
             , iAssistant = InstallAssistant No
+            , iActivate = ActivateInstall False
             , iForce = ForceInstall True
             , iQuiet = QuietInstall False
             , iSetPath = SetPath No
