@@ -8,9 +8,9 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.{Nonce, Signature}
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.{
+  MemberAccessDisabled,
   MissingToken,
   NonMatchingDomainId,
-  ParticipantAccessDisabled,
 }
 import com.digitalasset.canton.sequencing.authentication.grpc.AuthenticationTokenWithExpiry
 import com.digitalasset.canton.sequencing.authentication.{AuthenticationToken, MemberAuthentication}
@@ -131,8 +131,8 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest {
           "token validation should fail"
         )
       } yield {
-        generateNonceError shouldBe ParticipantAccessDisabled(p1)
-        validateSignatureError shouldBe ParticipantAccessDisabled(p1)
+        generateNonceError shouldBe MemberAccessDisabled(p1)
+        validateSignatureError shouldBe MemberAccessDisabled(p1)
         validateTokenError shouldBe MissingToken(p1)
       }
     }

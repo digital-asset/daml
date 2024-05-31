@@ -10,6 +10,11 @@ import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.admin.grpc.{GrpcPruningScheduler, HasPruningScheduler}
 import com.digitalasset.canton.admin.participant.v30.*
 import com.digitalasset.canton.admin.pruning.v30
+import com.digitalasset.canton.admin.pruning.v30.{
+  GetNoWaitCommitmentsFrom,
+  ResetNoWaitCommitmentsFrom,
+  SetNoWaitCommitmentsFrom,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.PruningServiceErrorGroup
@@ -174,6 +179,31 @@ class GrpcPruningService(
         )
       case Some(scheduler) => Future.successful(scheduler)
     }
+
+  /** TODO(#18453) R6
+    * Enable or disable waiting for commitments from the given counter-participants
+    * Disabling waiting for commitments disregards these counter-participants w.r.t. pruning, which gives up
+    * non-repudiation for those counter-participants, but increases pruning resilience to failures
+    * and slowdowns of those counter-participants and/or the network
+    */
+  override def setNoWaitCommitmentsFrom(
+      request: SetNoWaitCommitmentsFrom.Request
+  ): Future[SetNoWaitCommitmentsFrom.Response] = ???
+
+  /** TODO(#18453) R6
+    * Retrieve the configuration of waiting for commitments from counter-participants
+    */
+  override def getNoWaitCommitmentsFrom(
+      request: GetNoWaitCommitmentsFrom.Request
+  ): Future[GetNoWaitCommitmentsFrom.Response] = ???
+
+  /** TODO(#18453) R6
+    * Enable waiting for commitments from the given counter-participants
+    * Waiting for commitments is the default behavior; explicitly enabling it is useful if it was explicitly disabled
+    */
+  override def resetNoWaitCommitmentsFrom(
+      request: ResetNoWaitCommitmentsFrom.Request
+  ): Future[ResetNoWaitCommitmentsFrom.Response] = ???
 }
 
 sealed trait PruningServiceError extends CantonError

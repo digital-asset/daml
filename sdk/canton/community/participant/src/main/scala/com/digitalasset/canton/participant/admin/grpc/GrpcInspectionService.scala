@@ -8,10 +8,13 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.LedgerTransactionId
 import com.digitalasset.canton.admin.participant.v30.InspectionServiceGrpc.InspectionService
 import com.digitalasset.canton.admin.participant.v30.{
+  GetConfigForSlowCounterParticipants,
+  GetIntervalsBehindForCounterParticipants,
   LookupContractDomain,
   LookupOffsetByIndex,
   LookupOffsetByTime,
   LookupTransactionDomain,
+  SetConfigForSlowCounterParticipants,
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
@@ -111,4 +114,27 @@ class GrpcInspectionService(syncStateInspection: SyncStateInspection)(implicit
         )
     }
   }
+
+  /** Configure metrics for slow counter-participants (i.e., that are behind in sending commitments) and
+    * configure thresholds for when a counter-participant is deemed slow.
+    * TODO(#10436) R7
+    */
+  override def setConfigForSlowCounterParticipants(
+      request: SetConfigForSlowCounterParticipants.Request
+  ): Future[SetConfigForSlowCounterParticipants.Response] = ???
+
+  /** Get the current configuration for metrics for slow counter-participants.
+    * TODO(#10436) R7
+    */
+  override def getConfigForSlowCounterParticipants(
+      request: GetConfigForSlowCounterParticipants.Request
+  ): Future[GetConfigForSlowCounterParticipants.Response] = ???
+
+  /** Get the number of intervals that counter-participants are behind in sending commitments.
+    * Can be used to decide whether to ignore slow counter-participants w.r.t. pruning.
+    * TODO(#10436) R7
+    */
+  override def getIntervalsBehindForCounterParticipants(
+      request: GetIntervalsBehindForCounterParticipants.Request
+  ): Future[GetIntervalsBehindForCounterParticipants.Response] = ???
 }

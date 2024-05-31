@@ -4,10 +4,13 @@
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
-import com.daml.metrics.api.{MetricQualification, MetricsContext, MetricsInfoFilter}
-import com.daml.metrics.api.opentelemetry.{OpenTelemetryMetricsFactory, QualificationFilteringMetricsFactory}
+import com.daml.metrics.api.opentelemetry.{
+  OpenTelemetryMetricsFactory,
+  QualificationFilteringMetricsFactory,
+}
+import com.daml.metrics.api.{MetricQualification, MetricsContext}
 import com.daml.metrics.grpc.DamlGrpcServerMetrics
-import com.daml.metrics.{HealthMetrics, HistogramDefinition, MetricsFilterConfig}
+import com.daml.metrics.{HealthMetrics, MetricsFilterConfig}
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -16,6 +19,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.MetricsConfig.JvmMetrics
 import com.digitalasset.canton.metrics.MetricsReporterConfig.{Csv, Logging, Prometheus}
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
+import com.digitalasset.canton.telemetry.{HistogramDefinition, MetricsInfoFilter}
 import com.typesafe.scalalogging.LazyLogging
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.metrics.Meter
@@ -210,7 +214,8 @@ final case class MetricsRegistry(
               if (testingSupportAdhocMetrics) Some(logger.underlying) else None,
             globalMetricsContext = extraContext,
           ),
-          baseFilter
+          baseFilter.qualifications,
+          baseFilter.filters,
         )
     }
   }

@@ -25,6 +25,17 @@ service InspectionService {
   rpc LookupOffsetByTime(LookupOffsetByTime.Request) returns (LookupOffsetByTime.Response);
   // Look up the ledger offset by an index, e.g. 1 returns the first offset, 2 the second, etc.
   rpc LookupOffsetByIndex(LookupOffsetByIndex.Request) returns (LookupOffsetByIndex.Response);
+  // Configure metrics for slow counter-participants (i.e., that are behind in sending commitments) and
+  // configure thresholds for when a counter-participant is deemed slow.
+  // TODO(#10436) R7
+  rpc SetConfigForSlowCounterParticipants(SetConfigForSlowCounterParticipants.Request) returns (SetConfigForSlowCounterParticipants.Response);
+  // Get the current configuration for metrics for slow counter-participants.
+  // TODO(#10436) R7
+  rpc GetConfigForSlowCounterParticipants(GetConfigForSlowCounterParticipants.Request) returns (GetConfigForSlowCounterParticipants.Response);
+  // Get the number of intervals that counter-participants are behind in sending commitments.
+  // Can be used to decide whether to ignore slow counter-participants w.r.t. pruning.
+  // TODO(#10436) R7
+  rpc GetIntervalsBehindForCounterParticipants(GetIntervalsBehindForCounterParticipants.Request) returns (GetIntervalsBehindForCounterParticipants.Response);
 }
 
 message LookupContractDomain {
@@ -76,5 +87,73 @@ message LookupOffsetByIndex {
     // the absolute offset as a string corresponding to the specified index.
     // empty string if no such offset exists.
     string offset = 1;
+  }
+}
+
+/*
+The configuration concerns the following metrics, and each of the metrics is issued per domain:
+ - The maximum number of intervals that a distiguished participant falls behind
+ - The maximum number of intervals that a participant in the "default" group falls behind
+ - The number of participants in the distiguished group that are behind by at least `thresholdDistiguished`
+ reconciliation intervals.
+ - The number of participants in the "default" group that are behind by at least `thresholdDefault`
+ reconciliation intervals.
+ - Selected participants for which we publish independent metrics counting how many intervals they are behind
+ */
+
+message SlowCounterParticipantDomainConfig {
+  // the domains for which we apply the settings below
+  repeated string domain_ids = 1;
+  // all non-distinguished counter-participants are implicitly part of the group "default"
+  repeated string distinguished_participant_uids = 2;
+  // the number of reconciliation intervals for a distiguished counter-participant to be considered slow
+  uint64 threshold_distinguished = 3;
+  // the number of reconciliation intervals for an "other" counter-participant to be considered slow
+  uint64 threshold_default = 4;
+  // participants for which we publish independent metrics counting how many intervals they are behind
+  repeated string participant_uids_metrics = 5;
+}
+
+message SetConfigForSlowCounterParticipants {
+  message Request {
+    // we can specify multiple configurations, each being applied to one or more domains
+    // if the domain IDs in the different configs overlap, the latest config in the order of the "configs" takes precedence
+    repeated SlowCounterParticipantDomainConfig configs = 1;
+  }
+  message Response {}
+}
+
+message GetConfigForSlowCounterParticipants {
+  message Request {
+    // filters by domains
+    repeated string domain_ids = 2;
+  }
+  message Response {
+    repeated SlowCounterParticipantDomainConfig configs = 1;
+  }
+}
+
+message GetIntervalsBehindForCounterParticipants {
+
+  message CounterParticipantInfo {
+    string counter_participant_uid = 1;
+    string domain_id = 2;
+    // MaxInt means that the counter-participant never sent a commitment
+    uint64 intervals_behind = 3;
+    // the "as of" sequencing timestamp at which this information was obtained
+    google.protobuf.Timestamp as_of_sequencing_timestamp = 4;
+  }
+
+  message Request {
+    // if empty, all counter-participants are considered
+    repeated string counter_participant_uids = 1;
+    // if empty, all domains are considered
+    repeated string domain_ids = 2;
+    // if set, only counter-participants that are behind by at least this number of intervals are returned
+    optional uint64 threshold = 3;
+  }
+
+  message Response {
+    repeated CounterParticipantInfo intervals_behind = 1;
   }
 }

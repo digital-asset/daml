@@ -51,6 +51,22 @@ service PruningService {
 
   // Retrieve the automatic, participant-specific pruning configuration.
   rpc GetParticipantSchedule(com.digitalasset.canton.admin.pruning.v30.GetParticipantSchedule.Request) returns (com.digitalasset.canton.admin.pruning.v30.GetParticipantSchedule.Response);
+
+  // TODO(#18453) R6
+  // Disable waiting for commitments from the given counter-participants
+  // Disabling waiting for commitments disregards these counter-participants w.r.t. pruning, which gives up
+  // non-repudiation for those counter-participants, but increases pruning resilience to failures
+  // and slowdowns of those counter-participants and/or the network
+  rpc SetNoWaitCommitmentsFrom(com.digitalasset.canton.admin.pruning.v30.SetNoWaitCommitmentsFrom.Request) returns (com.digitalasset.canton.admin.pruning.v30.SetNoWaitCommitmentsFrom.Response);
+
+  // TODO(#18453) R6
+  // Enable waiting for commitments from the given counter-participants
+  // Waiting for commitments is the default behavior; explicitly enabling it is useful if it was explicitly disabled
+  rpc ResetNoWaitCommitmentsFrom(com.digitalasset.canton.admin.pruning.v30.ResetNoWaitCommitmentsFrom.Request) returns (com.digitalasset.canton.admin.pruning.v30.ResetNoWaitCommitmentsFrom.Response);
+
+  // TODO(#18453) R6
+  // Retrieve the configuration of waiting for commitments from counter-participants
+  rpc GetNoWaitCommitmentsFrom(com.digitalasset.canton.admin.pruning.v30.GetNoWaitCommitmentsFrom.Request) returns (com.digitalasset.canton.admin.pruning.v30.GetNoWaitCommitmentsFrom.Response);
 }
 
 message PruneRequest {

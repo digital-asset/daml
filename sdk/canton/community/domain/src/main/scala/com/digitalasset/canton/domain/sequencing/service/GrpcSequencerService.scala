@@ -113,6 +113,7 @@ object GrpcSequencerService {
       domainParamsLookup: DynamicDomainParametersLookup[SequencerDomainParameters],
       parameters: SequencerParameters,
       protocolVersion: ProtocolVersion,
+      domainTopologyManager: DomainTopologyManager,
       topologyStateForInitializationService: TopologyStateForInitializationService,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext, materializer: Materializer): GrpcSequencerService =
@@ -134,6 +135,7 @@ object GrpcSequencerService {
       ),
       domainParamsLookup,
       parameters,
+      domainTopologyManager,
       topologyStateForInitializationService,
       protocolVersion,
     )
@@ -244,6 +246,7 @@ class GrpcSequencerService(
     directSequencerSubscriptionFactory: DirectSequencerSubscriptionFactory,
     domainParamsLookup: DynamicDomainParametersLookup[SequencerDomainParameters],
     parameters: SequencerParameters,
+    domainTopologyManager: DomainTopologyManager,
     topologyStateForInitializationService: TopologyStateForInitializationService,
     protocolVersion: ProtocolVersion,
     maxItemsInTopologyResponse: PositiveInt = PositiveInt.tryCreate(100),

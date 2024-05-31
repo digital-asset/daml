@@ -114,6 +114,14 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
       newlyRegisteredMembers.add(member)
       EitherT.pure(())
     }
+
+    override def registerMemberInternal(member: Member, timestamp: CantonTimestamp)(implicit
+        traceContext: TraceContext
+    ): EitherT[Future, RegisterError, Unit] = {
+      newlyRegisteredMembers.add(member)
+      EitherT.pure(())
+    }
+
     override def readInternal(member: Member, offset: SequencerCounter)(implicit
         traceContext: TraceContext
     ): EitherT[Future, CreateSubscriptionError, Sequencer.EventSource] =

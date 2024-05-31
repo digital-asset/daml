@@ -450,8 +450,6 @@ object TopologyStore {
     TopologyMapping.Code.OwnerToKeyMapping,
     // TODO(#14060) - potentially revisit this once we implement TopologyStore.filterInitialParticipantDispatchingTransactions
     TopologyMapping.Code.NamespaceDelegation,
-    TopologyMapping.Code.IdentifierDelegation,
-    TopologyMapping.Code.DecentralizedNamespaceDefinition,
   )
 
   def filterInitialParticipantDispatchingTransactions(

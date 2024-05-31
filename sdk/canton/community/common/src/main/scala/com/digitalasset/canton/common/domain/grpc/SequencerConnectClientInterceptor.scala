@@ -5,13 +5,13 @@ package com.digitalasset.canton.common.domain.grpc
 
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.authentication.grpc.Constant
-import com.digitalasset.canton.topology.ParticipantId
+import com.digitalasset.canton.topology.Member
 import io.grpc.ClientCall.Listener
 import io.grpc.ForwardingClientCall.SimpleForwardingClientCall
 import io.grpc.*
 
 class SequencerConnectClientInterceptor(
-    participantId: ParticipantId,
+    member: Member,
     val loggerFactory: NamedLoggerFactory,
 ) extends ClientInterceptor
     with NamedLogging {
@@ -22,7 +22,7 @@ class SequencerConnectClientInterceptor(
   ): ClientCall[ReqT, RespT] =
     new SimpleForwardingClientCall[ReqT, RespT](next.newCall(method, callOptions)) {
       override def start(responseListener: Listener[RespT], headers: Metadata): Unit = {
-        headers.put(Constant.MEMBER_ID_METADATA_KEY, participantId.toProtoPrimitive)
+        headers.put(Constant.MEMBER_ID_METADATA_KEY, member.toProtoPrimitive)
 
         super.start(responseListener, headers)
       }

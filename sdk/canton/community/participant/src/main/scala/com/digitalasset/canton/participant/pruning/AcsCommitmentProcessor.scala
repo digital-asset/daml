@@ -12,6 +12,7 @@ import cats.syntax.traverse.*
 import cats.syntax.validated.*
 import com.daml.error.*
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.admin.pruning
 import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveNumeric}
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
@@ -55,6 +56,7 @@ import com.digitalasset.canton.protocol.{
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.RequestRefused
 import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, Recipients, SendAsyncError}
+import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.SequencerCounterTrackerStore
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.processing.EffectiveTime
@@ -66,7 +68,7 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.retry.Policy
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{LfPartyId, TransferCounter}
+import com.digitalasset.canton.{LfPartyId, ProtoDeserializationError, TransferCounter}
 import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.atomic.AtomicReference
@@ -2289,4 +2291,36 @@ object AcsCommitmentProcessor extends HasLoggerName {
       }
     }
   }
+
+  sealed trait SharedContractsState {
+    def toProtoV30: pruning.v30.SharedContractsState
+  }
+
+  object SharedContractsState {
+    object SharedContracts extends SharedContractsState {
+      override val toProtoV30: pruning.v30.SharedContractsState =
+        pruning.v30.SharedContractsState.SHARED_CONTRACTS
+    }
+
+    object NoSharedContracts extends SharedContractsState {
+      override val toProtoV30: pruning.v30.SharedContractsState =
+        pruning.v30.SharedContractsState.NO_SHARED_CONTRACTS
+    }
+
+    def fromProtoV30(
+        proto: pruning.v30.SharedContractsState
+    ): ParsingResult[SharedContractsState] =
+      proto match {
+        case pruning.v30.SharedContractsState.NO_SHARED_CONTRACTS => Right(NoSharedContracts)
+        case pruning.v30.SharedContractsState.SHARED_CONTRACTS => Right(SharedContracts)
+        case _ =>
+          Left(
+            ProtoDeserializationError.ValueConversionError(
+              "no wait commitments from",
+              s"Unknown value: $proto",
+            )
+          )
+      }
+  }
+
 }

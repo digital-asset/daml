@@ -28,7 +28,7 @@ object ForceFlag {
     *   other choice, eg. when importing a topology snapshot.</li>
     * </ul>
     */
-  private[topology] val all: Map[v30.ForceFlag, ForceFlag] =
+  val all: Map[v30.ForceFlag, ForceFlag] =
     Seq[ForceFlag](AlienMember, LedgerTimeRecordTimeToleranceIncrease)
       .map(ff => ff.toProtoV30 -> ff)
       .toMap
@@ -55,7 +55,7 @@ object ForceFlags {
   val none: ForceFlags = ForceFlags()
 
   /** @see [[ForceFlag.all]] */
-  private[topology] val all: ForceFlags = ForceFlags(ForceFlag.all.values.toSet)
+  val all: ForceFlags = ForceFlags(ForceFlag.all.values.toSet)
 
   def fromProtoV30(flags: Seq[v30.ForceFlag]): ParsingResult[ForceFlags] =
     flags.traverse(ForceFlag.fromProtoV30).map(flags => ForceFlags(flags.toSet))

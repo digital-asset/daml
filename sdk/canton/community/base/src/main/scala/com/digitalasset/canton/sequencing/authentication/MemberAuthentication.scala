@@ -72,18 +72,11 @@ object MemberAuthentication extends MemberAuthentication {
         show"Domain id $domainId provided by member $member does not match the domain id of the domain the ${member.description} is trying to connect to",
         "NonMatchingDomainId",
       )
-  final case class ParticipantAccessDisabled(participantId: ParticipantId)
+  final case class MemberAccessDisabled(member: Member)
       extends AuthenticationError(
-        s"Participant $participantId access is disabled",
-        "ParticipantAccessDisabled",
+        s"Member $member access is disabled",
+        "MemberAccessDisabled",
       )
-
-  final case class MediatorAccessDisabled(mediator: MediatorId)
-      extends AuthenticationError(
-        s"Mediator $mediator access is disabled",
-        "MediatorAccessDisabled",
-      )
-
   final case class TokenVerificationException(member: String)
       extends AuthenticationError(
         s"Due to an internal error, the server side token lookup for member $member failed",

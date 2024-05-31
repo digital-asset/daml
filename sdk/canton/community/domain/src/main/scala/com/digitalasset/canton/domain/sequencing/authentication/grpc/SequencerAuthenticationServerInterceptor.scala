@@ -18,13 +18,7 @@ import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.{
   TokenVerificationException,
 }
 import com.digitalasset.canton.sequencing.authentication.grpc.Constant
-import com.digitalasset.canton.topology.{
-  AuthenticatedMember,
-  DomainId,
-  Member,
-  UnauthenticatedMemberId,
-  UniqueIdentifier,
-}
+import com.digitalasset.canton.topology.{DomainId, Member, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.*
 
@@ -69,21 +63,15 @@ class SequencerAuthenticationServerInterceptor(
               .map(DomainId(_))
               .leftMap(err => VerifyTokenError.GeneralError(err.message))
               .toEitherT[Future]
-            storedTokenO <- member match {
-              case _: UnauthenticatedMemberId =>
-                EitherT.pure[Future, VerifyTokenError](None: Option[StoredAuthenticationToken])
-              case authenticatedMember: AuthenticatedMember =>
-                for {
-                  token <- tokenO
-                    .toRight(
-                      VerifyTokenError.GeneralError("Authentication headers are missing for token")
-                    )
-                    .toEitherT[Future]
-                  storedToken <- verifyToken(authenticatedMember, intendedDomainId, token).map(
-                    _.some
+            storedTokenO <-
+              for {
+                token <- tokenO
+                  .toRight[VerifyTokenError](
+                    VerifyTokenError.GeneralError("Authentication headers are missing for token")
                   )
-                } yield storedToken
-            }
+                  .toEitherT[Future]
+                storedToken <- verifyToken(member, intendedDomainId, token)
+              } yield Some(storedToken)
           } yield {
             val contextWithAuthorizedMember = originalContext
               .withValue(IdentityContextHelper.storedAuthenticationTokenContextKey, storedTokenO)
@@ -132,7 +120,7 @@ class SequencerAuthenticationServerInterceptor(
 
   /** Checks the supplied authentication token for the member. */
   private def verifyToken(
-      member: AuthenticatedMember,
+      member: Member,
       intendedDomain: DomainId,
       token: AuthenticationToken,
   )(implicit

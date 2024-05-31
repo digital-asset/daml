@@ -7,11 +7,13 @@ import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -42,8 +44,7 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.ProtocolVersion
 
-import java.util.concurrent.atomic.AtomicBoolean
-import scala.collection.mutable.ListBuffer
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.math.Ordering.Implicits.*
 
@@ -72,7 +73,14 @@ class TopologyTransactionProcessor(
 
   private val initialised = new AtomicBoolean(false)
 
-  private val listeners = ListBuffer[TopologyTransactionProcessingSubscriber]()
+  // Outer list designate listener groups, different groups are to be executed sequentially,
+  // priority is determined by the `TopologyTransactionProcessingSubscriber.executionOrder`.
+  // Inner list (subscribers with the same priority) can be executed in parallel.
+  // Code calling the listeners is assuming that the structure is kept as described above,
+  // with no further manipulations needed.
+  private val listeners = new AtomicReference(
+    List[NonEmpty[List[TopologyTransactionProcessingSubscriber]]]()
+  )
 
   private val timeAdjuster =
     new TopologyTimestampPlusEpsilonTracker(timeouts, loggerFactory, futureSupervisor)
@@ -86,7 +94,16 @@ class TopologyTransactionProcessor(
 
   /** assumption: subscribers don't do heavy lifting */
   final def subscribe(listener: TopologyTransactionProcessingSubscriber): Unit = {
-    listeners += listener
+    listeners
+      .getAndUpdate(oldListeners =>
+        // we add the new listener to the pile, and then re-sort the list into groups by execution order
+        (oldListeners.flatten :+ listener).distinct // .distinct guards against double subscription
+          .groupBy1(_.executionOrder)
+          .toList
+          .sortBy { case (order, _) => order }
+          .map { case (_, groupListeners) => groupListeners }
+      )
+      .discard
   }
 
   private def initialise(
@@ -178,7 +195,7 @@ class TopologyTransactionProcessor(
     logger.debug(
       s"Updating listener heads to ${effective} and ${approximate}. Potential changes: ${potentialChanges}"
     )
-    listeners.toList.foreach(_.updateHead(effective, approximate, potentialChanges))
+    listeners.get().flatten.foreach(_.updateHead(effective, approximate, potentialChanges))
   }
 
   /** Inform the topology manager where the subscription starts when using [[processEnvelopes]] rather than [[createHandler]] */
@@ -398,19 +415,24 @@ class TopologyTransactionProcessor(
         effectiveTimestamp,
         validated,
       )
-      _ = logger.debug(
-        s"Notifying listeners of ${sequencingTimestamp}, ${effectiveTimestamp} and SC ${sc}"
-      )
 
+      validTransactions = validated.collect {
+        case tx if tx.rejectionReason.isEmpty => tx.transaction
+      }
       _ <- performUnlessClosingUSF("notify-topology-transaction-observers")(
-        listeners.toList.parTraverse_(
-          _.observed(
-            sequencingTimestamp,
-            effectiveTimestamp,
-            sc,
-            validated.collect { case tx if tx.rejectionReason.isEmpty => tx.transaction },
+        MonadUtil.sequentialTraverse_(listeners.get())(listenerGroup => {
+          logger.debug(
+            s"Notifying listener group (${listenerGroup.head1.executionOrder}) of ${sequencingTimestamp}, ${effectiveTimestamp} and SC ${sc}"
           )
-        )
+          listenerGroup.forgetNE.parTraverse_(
+            _.observed(
+              sequencingTimestamp,
+              effectiveTimestamp,
+              sc,
+              validTransactions,
+            )
+          )
+        })
       )
 
       // TODO(#15089): do not notify the terminate processing for replayed events.

@@ -656,6 +656,7 @@ class SequencerNodeBootstrap(
             arguments.metrics,
             indexedDomain,
             syncCrypto,
+            domainTopologyManager,
             domainTopologyStore,
             topologyClient,
             topologyProcessor,

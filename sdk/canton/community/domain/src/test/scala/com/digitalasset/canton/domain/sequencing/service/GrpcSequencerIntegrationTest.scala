@@ -100,6 +100,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
   def timeouts = DefaultProcessingTimeouts.testing
   private val futureSupervisor = FutureSupervisor.Noop
   private val topologyClient = mock[DomainTopologyClient]
+  private val mockDomainTopologyManager = mock[DomainTopologyManager]
   private val mockTopologySnapshot = mock[TopologySnapshot]
   private val confirmationRequestsMaxRate =
     DynamicDomainParameters.defaultConfirmationRequestsMaxRate
@@ -183,6 +184,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       sequencerSubscriptionFactory,
       domainParamsLookup,
       params,
+      mockDomainTopologyManager,
       topologyStateForInitializationService,
       BaseTest.testedProtocolVersion,
     )
@@ -191,6 +193,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
     sequencerId = sequencerId,
     staticDomainParameters = BaseTest.defaultStaticDomainParameters,
     cryptoApi = cryptoApi,
+    domainTopologyManager = mockDomainTopologyManager,
     loggerFactory = loggerFactory,
   )
 

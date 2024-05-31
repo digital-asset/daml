@@ -8,9 +8,21 @@ import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Inspection.{
+  CounterParticipantInfo,
+  GetConfigForSlowCounterParticipants,
+  GetIntervalsBehindForCounterParticipants,
+  SetConfigForSlowCounterParticipants,
+  SlowCounterParticipantDomainConfig,
+}
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Pruning.{
+  GetNoWaitCommitmentsFrom,
   GetParticipantScheduleCommand,
+  NoWaitCommitments,
+  SetNoWaitCommitmentsFrom,
   SetParticipantScheduleCommand,
+  SetWaitCommitmentsFrom,
+  WaitCommitments,
 }
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Resources.{
   GetResourceLimits,
@@ -25,7 +37,7 @@ import com.digitalasset.canton.admin.api.client.data.{
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc
 import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc.PruningServiceStub
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{DomainTimeTrackerConfig, NonNegativeDuration}
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
@@ -755,6 +767,207 @@ class LocalCommitmentsAdministrationGroup(
       )
     }
 
+  // TODO(#18453) R6: The code below should be sufficient.
+  @Help.Summary(
+    "Disable waiting for commitments from the given counter-participants."
+  )
+  @Help.Description(
+    """Disabling waiting for commitments disregards these counter-participants w.r.t. pruning,
+      |which gives up non-repudiation for those counter-participants, but increases pruning resilience
+      |to failures and slowdowns of those counter-participants and/or the network.
+      |The command returns a map of counter-participants and the domains for which the setting was changed.
+      |Returns an error if `startingAt` does not translate to an existing offset.
+      |If the participant set is empty, the command does nothing."""
+  )
+  def setNoWaitCommitmentsFrom(
+      counterParticipants: Seq[ParticipantId],
+      domainIds: Seq[DomainId],
+      startingAt: Either[Instant, ParticipantOffset],
+  ): Map[ParticipantId, Seq[DomainId]] = {
+    consoleEnvironment.run(
+      runner.adminCommand(
+        SetNoWaitCommitmentsFrom(
+          counterParticipants,
+          domainIds,
+          startingAt,
+        )
+      )
+    )
+  }
+
+  // TODO(#18453) R6: The code below should be sufficient.
+  @Help.Summary(
+    "Enable waiting for commitments from the given counter-participants. This is the default behavior; enabling waiting" +
+      "for commitments is only necessary if it was previously disabled."
+  )
+  @Help.Description(
+    """Enables waiting for commitments, which blocks pruning at offsets where commitments from these counter-participants
+      |are missing.
+      |The command returns a map of counter-participants and the domains for which the setting was changed.
+      |If the participant set is empty or the domain set is empty, the command does nothing."""
+  )
+  def setWaitCommitmentsFrom(
+      counterParticipants: Seq[ParticipantId],
+      domainIds: Seq[DomainId],
+  ): Map[ParticipantId, Seq[DomainId]] = {
+    consoleEnvironment.run(
+      runner.adminCommand(
+        SetWaitCommitmentsFrom(
+          counterParticipants,
+          domainIds,
+        )
+      )
+    )
+  }
+
+  // TODO(#18453) R6: The code below should be sufficient.
+  @Help.Summary(
+    "Retrieves the latest (i.e., w.r.t. the query execution time) configuration of waiting for commitments from counter-participants."
+  )
+  @Help.Description(
+    """The configuration for waiting for commitments from counter-participants is returned as two sets:
+      |a set of ignored counter-participants, the domains and the timestamp, and a set of not-ignored
+      |counter-participants and the domains.
+      |Filters by the specified counter-participants and domains. If the counter-participant and / or
+      |domains are empty, it considers all domains and participants known to the participant, regardless of
+      |whether they share contracts with the participant.
+      |Even if some participants may not be connected to some domains at the time the query executes, the response still
+      |includes them if they are known to the participant or specified in the arguments."""
+  )
+  def getNoWaitCommitmentsFrom(
+      domains: Seq[DomainId],
+      counterParticipants: Seq[ParticipantId],
+  ): (Seq[NoWaitCommitments], Seq[WaitCommitments]) =
+    consoleEnvironment.run(
+      runner.adminCommand(
+        GetNoWaitCommitmentsFrom(
+          domains,
+          counterParticipants,
+        )
+      )
+    )
+
+  // TODO(#10436) R7: The code below should be sufficient.
+  @Help.Summary(
+    "Configure metrics for slow counter-participants (i.e., that are behind in sending commitments) and" +
+      "configure thresholds for when a counter-participant is deemed slow."
+  )
+  @Help.Description("""The configurations are per domain or set of domains and concern the following metrics
+        |issued per domain:
+        | - The maximum number of intervals that a distinguished participant falls
+        | behind. All participants that are not in the distinguished group are automatically part of the default group
+        | - The maximum number of intervals that a participant in the default groups falls behind
+        | - The number of participants in the distinguished group that are behind by at least `thresholdDistinguished`
+        | reconciliation intervals.
+        | - The number of participants not in the distinguished group that are behind by at least `thresholdDefault`
+        | reconciliation intervals.
+        | - Separate metric for each participant in `individualMetrics` argument tracking how many intervals that
+        |participant is behind""")
+  def setConfigForSlowCounterParticipants(
+      configs: Seq[SlowCounterParticipantDomainConfig]
+  ): Unit = {
+    consoleEnvironment.run(
+      runner.adminCommand(
+        SetConfigForSlowCounterParticipants(
+          configs
+        )
+      )
+    )
+  }
+
+  // TODO(#10436) R7
+  def addConfigForSlowCounterParticipants(
+      counterParticipantsDistinguished: Seq[ParticipantId],
+      domains: Seq[DomainId],
+  ) = ???
+
+  // TODO(#10436) R7
+  def removeConfigForSlowCounterParticipants(
+      counterParticipantsDistinguished: Seq[ParticipantId],
+      domains: Seq[DomainId],
+  ) = ???
+
+  // TODO(#10436) R7
+  def addParticipanttoIndividualMetrics(
+      individualMetrics: Seq[ParticipantId],
+      domains: Seq[DomainId],
+  ) = ???
+
+  // TODO(#10436) R7
+  def removeParticipantFromIndividualMetrics(
+      individualMetrics: Seq[ParticipantId],
+      domains: Seq[DomainId],
+  ) = ???
+
+  // TODO(#10436) R7: The code below should be sufficient.
+  @Help.Summary(
+    "Lists for the given domains the configuration of metrics for slow counter-participants (i.e., that" +
+      "are behind in sending commitments)"
+  )
+  @Help.Description("""Lists the following config per domain. If `domains` is empty, the command lists config for all
+                       domains:
+      "| - The participants in the distinguished group, which have two metrics:
+      the maximum number of intervals that a participant is behind, and the number of participants that are behind
+      by at least `thresholdDistinguished` reconciliation intervals
+      | - The participants not in the distinguished group, which have two metrics: the maximum number of intervals that a participant
+      | is behind, and the number of participants that are behind by at least `thresholdDefault` reconciliation intervals
+      | - Parameters `thresholdDistinguished` and `thresholdDefault`
+      | - The participants in `individualMetrics`, which have individual metrics per participant showing how many
+      reconciliation intervals that participant is behind""")
+  def getConfigForSlowCounterParticipants(
+      domains: Seq[DomainId]
+  ): Seq[SlowCounterParticipantDomainConfig] = {
+    consoleEnvironment.run(
+      runner.adminCommand(
+        GetConfigForSlowCounterParticipants(
+          domains
+        )
+      )
+    )
+  }
+
+  case class SlowCounterParticipantInfo(
+      domains: Seq[DomainId],
+      distinguished: Seq[ParticipantId],
+      default: Seq[ParticipantId],
+      individualMetrics: Seq[ParticipantId],
+      thresholdDistinguished: NonNegativeInt,
+      thresholdDefault: NonNegativeInt,
+  )
+
+  // TODO(#10436) R7: Return the slow counter participant config for the given domains and counterParticipants
+  //  Filter the gRPC response of `getConfigForSlowCounterParticipants` with `counterParticipants`
+  def getConfigForSlowCounterParticipant(
+      domains: Seq[DomainId],
+      counterParticipants: Seq[ParticipantId],
+  ): Seq[SlowCounterParticipantInfo] = Seq.empty
+
+  // TODO(#10436) R7: The code below should be sufficient.
+  @Help.Summary(
+    "Lists for every participant and domain the number of intervals that the participant is behind in sending commitments" +
+      "if that participant is behind by at least threshold intervals."
+  )
+  @Help.Description("""If `counterParticipants` is empty, the command considers all counter-participants.
+      |If `domains` is empty, the command considers all domains.
+      |If `threshold` is not set, the command considers 0.
+      |Counter-participants that never sent a commitment appear in the output only if they're explicitly given in
+      |`counterParticipants`. For such counter-participant that never sent a commitment, the output shows they are
+      |behind by MaxInt""")
+  def getIntervalsBehindForCounterParticipants(
+      counterParticipants: Seq[ParticipantId],
+      domains: Seq[DomainId],
+      threshold: Option[NonNegativeInt],
+  ): Seq[CounterParticipantInfo] = {
+    consoleEnvironment.run(
+      runner.adminCommand(
+        GetIntervalsBehindForCounterParticipants(
+          counterParticipants,
+          domains,
+          threshold.getOrElse(NonNegativeInt.zero),
+        )
+      )
+    )
+  }
 }
 
 class ParticipantReplicationAdministrationGroup(

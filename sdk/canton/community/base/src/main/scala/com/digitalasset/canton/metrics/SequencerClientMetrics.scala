@@ -5,9 +5,9 @@ package com.digitalasset.canton.metrics
 
 import cats.Eval
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, LabeledMetricsFactory, Timer}
-import com.daml.metrics.api.{HistogramInventory, MetricInfo, MetricName, MetricQualification, MetricsContext}
+import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
 import com.digitalasset.canton.SequencerAlias
-import com.daml.metrics.api.HistogramInventory.Item
+import com.digitalasset.canton.metrics.HistogramInventory.Item
 
 import scala.collection.concurrent.TrieMap
 

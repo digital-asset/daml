@@ -9,9 +9,6 @@ import spray.json.{DefaultJsonProtocol, RootJsonFormat, *}
 
 import DefaultJsonProtocol.*
 
-import java.time.Instant
-import scala.util.Try
-
 object MeteringReport {
 
   type Scheme = String
@@ -38,11 +35,7 @@ object MeteringReport {
   final case class ApplicationReport(application: ApplicationId, events: Long)
 
   implicit val TimestampFormat: RootJsonFormat[Timestamp] =
-    stringJsonFormat(v => for {
-      instant <- Try(Instant.parse(v)).toEither.left.map(_.getMessage)
-      timestamp <- Timestamp.fromInstant(instant)
-    } yield timestamp
-    )(_.toString)
+    stringJsonFormat(Timestamp.fromString(_))(_.toString)
 
   implicit val ApplicationIdFormat: RootJsonFormat[ApplicationId] =
     stringJsonFormat(ApplicationId.fromString)(identity)

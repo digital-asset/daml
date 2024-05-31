@@ -22,7 +22,8 @@ import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.GrpcSequencerConnection
 import com.digitalasset.canton.sequencing.protocol.{HandshakeRequest, HandshakeResponse}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, SequencerId}
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.{DomainId, Member, ParticipantId, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
 import com.digitalasset.canton.util.retry.Success
@@ -202,6 +203,34 @@ class GrpcSequencerConnectClient(
         .Pause(logger, this, maxRetries, interval, "verify active")
         .apply(verifyActive(), AllExnRetryable)
     ).thereafter(_ => closeableChannel.close())
+  }
+
+  override def registerOnboardingTopologyTransactions(
+      domainAlias: DomainAlias,
+      member: Member,
+      topologyTransactions: Seq[GenericSignedTopologyTransaction],
+  )(implicit traceContext: TraceContext): EitherT[Future, Error, Unit] = {
+    val interceptor = new SequencerConnectClientInterceptor(member, loggerFactory)
+    CantonGrpcUtil
+      .sendSingleGrpcRequest(
+        serverName = domainAlias.unwrap,
+        requestDescription = "register-onboarding-topology-transactions",
+        channel = builder.build(),
+        stubFactory = channel =>
+          v30.SequencerConnectServiceGrpc.stub(ClientInterceptors.intercept(channel, interceptor)),
+        timeout = timeouts.network.unwrap,
+        logger = logger,
+        logPolicy = CantonGrpcUtil.silentLogPolicy,
+        retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
+      )(
+        _.registerOnboardingTopologyTransactions(
+          SequencerConnect.RegisterOnboardingTopologyTransactionsRequest(
+            topologyTransactions.map(_.toProtoV30)
+          )
+        )
+      )
+      .bimap(err => Error.Transport(err.toString), _ => ())
+
   }
 }
 

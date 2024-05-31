@@ -88,7 +88,14 @@ trait Sequencer
     *  Unauthenticated members are registered at the current time using sequencer's `clock`.
     *  Idempotent, can be called multiple times for the same member.
     */
+  // TODO(#18399): This method is pretty much useless,
+  //  will be fully useless with unauth. members gone,
+  //  to be removed in favor of `registerMemberInternal`.
   def registerMember(member: Member)(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, RegisterError, Unit]
+
+  def registerMemberInternal(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[Future, RegisterError, Unit]
 

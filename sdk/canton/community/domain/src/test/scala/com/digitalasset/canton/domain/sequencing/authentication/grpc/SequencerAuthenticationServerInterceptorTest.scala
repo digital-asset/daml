@@ -16,7 +16,6 @@ import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.sequencing.authentication.grpc.{
   AuthenticationTokenManagerTest,
   AuthenticationTokenWithExpiry,
-  SequencerClientNoAuthentication,
   SequencerClientTokenAuthentication,
 }
 import com.digitalasset.canton.sequencing.authentication.{
@@ -24,12 +23,7 @@ import com.digitalasset.canton.sequencing.authentication.{
   AuthenticationTokenManagerConfig,
 }
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.{
-  DomainId,
-  ParticipantId,
-  UnauthenticatedMemberId,
-  UniqueIdentifier,
-}
+import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
@@ -64,6 +58,7 @@ class SequencerAuthenticationServerInterceptorTest
 
     lazy val store: MemberAuthenticationStore = new InMemoryMemberAuthenticationStore()
     lazy val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("popo::pipi"))
+
     lazy val authService = new MemberAuthenticationService(
       domainId,
       null,
@@ -164,20 +159,6 @@ class SequencerAuthenticationServerInterceptorTest
           AuthenticationTokenManagerTest.mockClock,
           loggerFactory,
         )
-      channel = InProcessChannelBuilder
-        .forName(channelName)
-        .build()
-      val client = clientAuthentication(HelloServiceGrpc.stub(channel))
-      client.hello(Hello.Request("hi")).futureValue.msg shouldBe "hello back"
-    }
-
-    "succeed request if client does not need authentication" in new GrpcContext {
-      store
-        .saveToken(StoredAuthenticationToken(participantId, neverExpire, token.token))
-        .futureValue
-
-      val clientAuthentication =
-        new SequencerClientNoAuthentication(domainId, unauthenticatedMemberId)
       channel = InProcessChannelBuilder
         .forName(channelName)
         .build()

@@ -4,8 +4,8 @@
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory, Timer}
-import com.daml.metrics.api.{HistogramInventory, MetricInfo, MetricName, MetricQualification, MetricsContext}
-import com.daml.metrics.api.HistogramInventory.Item
+import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
+import com.digitalasset.canton.metrics.HistogramInventory.Item
 
 class DbStorageHistograms(val parent: MetricName)(implicit
     inventory: HistogramInventory

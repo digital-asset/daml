@@ -35,4 +35,8 @@ trait TopologyTransactionProcessingSubscriber {
       transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
+  /** The order in which the subscriber should be executed among all the subscriptions.
+    * Lower values are executed first.
+    */
+  def executionOrder: Int = 10
 }
