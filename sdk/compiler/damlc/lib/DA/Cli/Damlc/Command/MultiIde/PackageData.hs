@@ -24,6 +24,7 @@ import Data.Foldable (traverse_)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes, isJust)
 import qualified Data.Set as Set
+import qualified Language.LSP.Types as LSP
 import System.Directory (doesFileExist)
 import System.FilePath.Posix ((</>))
 
@@ -80,7 +81,7 @@ updatePackageData miState = do
             void $ tryPutTMVar (misMultiPackageMappingVar miState) Map.empty
             void $ tryPutTMVar (misDarDependentPackagesVar miState) Map.empty
           -- Show the failure as a diagnostic on the multi-package.yaml
-          sendClient miState $ fullFileDiagnostic ("Error reading multi-package.yaml:\n" <> displayException err) multiPackagePath
+          sendClient miState $ fullFileDiagnostic LSP.DsError ("Error reading multi-package.yaml:\n" <> displayException err) multiPackagePath
           pure []
   where
     -- Gets the unit id of a dar if it can, caches result in stateT
@@ -105,11 +106,11 @@ updatePackageData miState = do
         -- load cache with all multi-package dars, so they'll be present in darUnitIds
         traverse_ getDarUnitId darPaths
         fmap (bimap catMaybes catMaybes . unzip) $ forM packagePaths $ \packagePath -> do
-          mUnitIdAndDeps <- lift $ fmap eitherToMaybe $ unitIdAndDepsFromDamlYaml packagePath
-          case mUnitIdAndDeps of
-            Just (unitId, deps) -> do
-              allDepsValid <- isJust . sequence <$> traverse getDarUnitId deps
-              pure (if allDepsValid then Nothing else Just packagePath, Just (packagePath, unitId, deps))
+          mPackageSummary <- lift $ fmap eitherToMaybe $ packageSummaryFromDamlYaml packagePath
+          case mPackageSummary of
+            Just packageSummary -> do
+              allDepsValid <- isJust . sequence <$> traverse getDarUnitId (psDeps packageSummary)
+              pure (if allDepsValid then Nothing else Just packagePath, Just (packagePath, psUnitId packageSummary, psDeps packageSummary))
             _ -> pure (Just packagePath, Nothing)
 
       let invalidHomes :: [PackageHome]
