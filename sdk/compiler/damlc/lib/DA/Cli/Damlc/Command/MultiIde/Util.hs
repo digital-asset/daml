@@ -9,9 +9,10 @@ module DA.Cli.Damlc.Command.MultiIde.Util (
   module DA.Cli.Damlc.Command.MultiIde.Util
 ) where
 
+import Control.Concurrent.Async (AsyncCancelled (..))
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TMVar
-import Control.Exception (SomeException, handle, try)
+import Control.Exception (SomeException, fromException, handle, try, tryJust)
 import Control.Lens ((^.))
 import Control.Monad (void)
 import Control.Monad.STM
@@ -20,7 +21,7 @@ import Control.Monad.Trans.Except
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Daml.Project.Config (readProjectConfig, queryProjectConfig, queryProjectConfigRequired)
 import DA.Daml.Project.Consts (projectConfigName)
-import DA.Daml.Project.Types (ConfigError)
+import DA.Daml.Project.Types (ConfigError (..), parseUnresolvedVersion)
 import Data.Aeson (Value (Null))
 import Data.Bifunctor (first)
 import Data.List.Extra (lower, replace)
@@ -33,6 +34,7 @@ import System.Directory (doesDirectoryExist, listDirectory, withCurrentDirectory
 import qualified System.FilePath as NativeFilePath
 import System.FilePath.Posix (joinDrive, takeDirectory, takeExtension)
 import System.IO (Handle, hClose, hFlush)
+import Text.Read (readMaybe)
 
 er :: Show x => String -> Either x a -> a
 er _msg (Right a) = a
@@ -183,16 +185,17 @@ closeFileNotification path = LSP.FromClientMess LSP.STextDocumentDidClose LSP.No
   , _jsonrpc = "2.0"
   }
 
-registerFileWatchersMessage :: LSP.RequestMessage 'LSP.ClientRegisterCapability
+registerFileWatchersMessage :: LSP.FromServerMessage
 registerFileWatchersMessage =
-  LSP.RequestMessage "2.0" (LSP.IdString "MultiIdeWatchedFiles") LSP.SClientRegisterCapability $ LSP.RegistrationParams $ LSP.List
-    [ LSP.SomeRegistration $ LSP.Registration "MultiIdeWatchedFiles" LSP.SWorkspaceDidChangeWatchedFiles $ LSP.DidChangeWatchedFilesRegistrationOptions $ LSP.List
-      [ LSP.FileSystemWatcher "**/multi-package.yaml" Nothing
-      , LSP.FileSystemWatcher "**/daml.yaml" Nothing
-      , LSP.FileSystemWatcher "**/*.dar" Nothing
-      , LSP.FileSystemWatcher "**/*.daml" Nothing
+  LSP.FromServerMess LSP.SClientRegisterCapability $
+    LSP.RequestMessage "2.0" (LSP.IdString "MultiIdeWatchedFiles") LSP.SClientRegisterCapability $ LSP.RegistrationParams $ LSP.List
+      [ LSP.SomeRegistration $ LSP.Registration "MultiIdeWatchedFiles" LSP.SWorkspaceDidChangeWatchedFiles $ LSP.DidChangeWatchedFilesRegistrationOptions $ LSP.List
+        [ LSP.FileSystemWatcher "**/multi-package.yaml" Nothing
+        , LSP.FileSystemWatcher "**/daml.yaml" Nothing
+        , LSP.FileSystemWatcher "**/*.dar" Nothing
+        , LSP.FileSystemWatcher "**/*.daml" Nothing
+        ]
       ]
-    ]
 
 castLspId :: LSP.LspId m -> LSP.LspId m'
 castLspId (LSP.IdString s) = LSP.IdString s
@@ -215,8 +218,8 @@ findHome path = do
             then pure Nothing
             else aux newPath
 
-unitIdAndDepsFromDamlYaml :: PackageHome -> IO (Either ConfigError (UnitId, [DarFile]))
-unitIdAndDepsFromDamlYaml path = do
+packageSummaryFromDamlYaml :: PackageHome -> IO (Either ConfigError PackageSummary)
+packageSummaryFromDamlYaml path = do
   handle (\(e :: ConfigError) -> return $ Left e) $ runExceptT $ do
     project <- lift $ readProjectConfig $ toProjectPath path
     dataDeps <- except $ fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
@@ -225,7 +228,16 @@ unitIdAndDepsFromDamlYaml path = do
     canonDeps <- lift $ withCurrentDirectory (unPackageHome path) $ traverse canonicalizePath $ dataDeps <> directDarDeps
     name <- except $ queryProjectConfigRequired ["name"] project
     version <- except $ queryProjectConfigRequired ["version"] project
-    pure (UnitId $ name <> "-" <> version, DarFile . toPosixFilePath <$> canonDeps)
+    releaseVersion <- except $ queryProjectConfigRequired ["sdk-version"] project
+    -- Default error gives too much information, e.g. `Invalid SDK version  "2.8.e": Failed reading: takeWhile1`
+    -- Just saying its invalid is enough
+    unresolvedReleaseVersion <- except $ first (const $ ConfigFieldInvalid "project" ["sdk-version"] $ "Invalid Daml SDK version: " <> T.unpack releaseVersion) 
+      $ parseUnresolvedVersion releaseVersion
+    pure PackageSummary
+      { psUnitId = UnitId $ name <> "-" <> version
+      , psDeps = DarFile . toPosixFilePath <$> canonDeps
+      , psReleaseVersion = unresolvedReleaseVersion
+      }
 
 -- LSP requires all requests are replied to. When we don't have a working IDE (say the daml.yaml is malformed), we need to reply
 -- We don't want to reply with LSP errors, as there will be too many. Instead, we show our error in diagnostics, and send empty replies
@@ -257,11 +269,11 @@ noIDEReply (LSP.FromClientMess method params) =
 noIDEReply _ = Nothing
 
 -- | Publishes an error diagnostic for a file containing the given message
-fullFileDiagnostic :: String -> FilePath -> LSP.FromServerMessage
-fullFileDiagnostic message path = LSP.FromServerMess LSP.STextDocumentPublishDiagnostics $ LSP.NotificationMessage "2.0" LSP.STextDocumentPublishDiagnostics 
+fullFileDiagnostic :: LSP.DiagnosticSeverity -> String -> FilePath -> LSP.FromServerMessage
+fullFileDiagnostic severity message path = LSP.FromServerMess LSP.STextDocumentPublishDiagnostics $ LSP.NotificationMessage "2.0" LSP.STextDocumentPublishDiagnostics 
   $ LSP.PublishDiagnosticsParams (LSP.filePathToUri path) Nothing $ LSP.List [LSP.Diagnostic 
     { _range = LSP.Range (LSP.Position 0 0) (LSP.Position 0 1000)
-    , _severity = Just LSP.DsError
+    , _severity = Just severity
     , _code = Nothing
     , _source = Just "Daml Multi-IDE"
     , _message = T.pack message
@@ -273,6 +285,15 @@ fullFileDiagnostic message path = LSP.FromServerMess LSP.STextDocumentPublishDia
 clearDiagnostics :: FilePath -> LSP.FromServerMessage
 clearDiagnostics path = LSP.FromServerMess LSP.STextDocumentPublishDiagnostics $ LSP.NotificationMessage "2.0" LSP.STextDocumentPublishDiagnostics 
   $ LSP.PublishDiagnosticsParams (LSP.filePathToUri path) Nothing $ LSP.List []
+
+showMessageRequest :: LSP.LspId 'LSP.WindowShowMessageRequest -> LSP.MessageType -> T.Text -> [T.Text] -> LSP.FromServerMessage
+showMessageRequest lspId messageType message options = LSP.FromServerMess LSP.SWindowShowMessageRequest $
+  LSP.RequestMessage "2.0" lspId LSP.SWindowShowMessageRequest $ LSP.ShowMessageRequestParams messageType message $
+    Just $ LSP.MessageActionItem <$> options
+
+showMessage :: LSP.MessageType -> T.Text -> LSP.FromServerMessage
+showMessage messageType message = LSP.FromServerMess LSP.SWindowShowMessage $
+  LSP.NotificationMessage "2.0" LSP.SWindowShowMessage $ LSP.ShowMessageParams messageType message
 
 fromClientRequestLspId :: LSP.FromClientMessage -> Maybe LSP.SomeLspId
 fromClientRequestLspId (LSP.FromClientMess method params) =
@@ -301,3 +322,13 @@ hTryFlush handle = void $ try @SomeException $ hFlush handle
 -- Need native filepath for splitDrive, as Posix version just takes first n `/`s
 toPosixFilePath :: FilePath -> FilePath
 toPosixFilePath = uncurry joinDrive . first lower . NativeFilePath.splitDrive . replace "\\" "/"
+
+-- Attempts to exact the percent amount from a string containing strings like 30%
+extractPercentFromText :: T.Text -> Maybe Integer
+extractPercentFromText = readMaybe . T.unpack . T.dropWhile (==' ') . T.takeEnd 3 . T.dropEnd 1 . fst . T.breakOnEnd "%"
+
+-- try @SomeException that doesn't catch AsyncCancelled exceptions
+tryForwardAsync :: IO a -> IO (Either SomeException a)
+tryForwardAsync = tryJust @SomeException $ \case
+  (fromException -> Just AsyncCancelled) -> Nothing
+  e -> Just e

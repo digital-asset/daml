@@ -18,6 +18,7 @@ module DA.Cli.Damlc.Command.MultiIde.Parsing (
   putReqMethodSingleFromServer,
   putReqMethodSingleFromServerCoordinator,
   putFromServerMessage,
+  putFromServerCoordinatorMessage,
   putSingleFromClientMessage,
 ) where
 
@@ -92,6 +93,15 @@ putFromServerMessage miState home (LSP.FromServerMess method mess) =
     (LSP.IsServerEither, LSP.ReqMess mess) -> putReqMethodSingleFromServer (misFromServerMethodTrackerVar miState) home (mess ^. LSP.id) method
     _ -> pure ()
 putFromServerMessage _ _ _ = pure ()
+
+-- Takes a message from server coordinator and stores it if its a request, so that later messages from the client can deduce response context
+putFromServerCoordinatorMessage :: MultiIdeState -> LSP.FromServerMessage -> IO ()
+putFromServerCoordinatorMessage miState (LSP.FromServerMess method mess) =
+  case (LSP.splitServerMethod method, mess) of
+    (LSP.IsServerReq, _) -> putReqMethodSingleFromServerCoordinator (misFromServerMethodTrackerVar miState) (mess ^. LSP.id) method
+    (LSP.IsServerEither, LSP.ReqMess mess) -> putReqMethodSingleFromServerCoordinator (misFromServerMethodTrackerVar miState) (mess ^. LSP.id) method
+    _ -> pure ()
+putFromServerCoordinatorMessage _ _ = pure ()
 
 putReqMethodSingleFromClient
   :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)

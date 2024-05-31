@@ -16,6 +16,7 @@ module DA.Daml.Assistant.Install
     , pattern RawInstallTarget_Project
     ) where
 
+import Control.Concurrent.MVar (newMVar, modifyMVar_)
 import DA.Directory
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
@@ -94,6 +95,8 @@ data InstallEnvF a = InstallEnv
         -- ^ Artifactoyr API key used to fetch SDK EE tarball.
     , output :: String -> IO ()
         -- ^ output an informative message
+    , downloadProgressObserver :: Maybe (Int -> IO ())
+        -- ^ optional alternative handler for http download progresss
     }
 
 instance Functor InstallEnvF where
@@ -407,11 +410,25 @@ httpInstall env@InstallEnv{targetVersionM = releaseVersion, ..} = do
 
         observeProgress :: MonadResource m =>
             Int -> ConduitT BS.ByteString BS.ByteString m ()
-        observeProgress totalSize = do
-            pb <- liftIO $ newProgressBar defStyle 10 (Progress 0 totalSize ())
-            List.mapM $ \bs -> do
-                liftIO $ incProgress pb (BS.length bs)
-                pure bs
+        observeProgress totalSize =
+            case downloadProgressObserver of
+                -- When no explicit observer, use the progressBar library (which prints to stderr and cannot not use `output`)
+                Nothing -> do
+                    pb <- liftIO $ newProgressBar defStyle 10 (Progress 0 totalSize ())
+                    List.mapM $ \bs -> do
+                        liftIO $ incProgress pb (BS.length bs)
+                        pure bs
+                -- When an observer is given, track state and call observer whenever percent int changes
+                Just observer -> do
+                    progressVar <- liftIO $ newMVar (0, 0)
+                    List.mapM $ \bs -> do
+                        liftIO $ modifyMVar_ progressVar $ \(lastProgress, lastReportedPercent) -> do
+                          let newProgress = lastProgress + BS.length bs
+                              newPercent = (newProgress * 100) `div` totalSize
+                          if newPercent - lastReportedPercent > 0
+                            then (newProgress, newPercent) <$ observer newPercent
+                            else pure (newProgress, lastReportedPercent)
+                        pure bs
 
 -- | Perform an action with a file lock from DAML_HOME/sdk/.lock
 -- This function blocks until the lock has been obtained.
@@ -543,6 +560,7 @@ install options damlPath useCache projectPathM assistantVersion =
             targetVersionM = () -- determined later
             output = putStrLn -- Output install messages to stdout.
             artifactoryApiKeyM = DAVersion.queryArtifactoryApiKey =<< eitherToMaybe damlConfigE
+            downloadProgressObserver = Nothing
             env = InstallEnv {..}
             warnAboutAnyInstallFlags command = do
                 when (unInstallWithInternalVersion (iInstallWithInternalVersion options)) $

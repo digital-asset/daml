@@ -22,6 +22,7 @@ import DA.Cli.Damlc.Command.MultiIde.OpenFiles
 import DA.Cli.Damlc.Command.MultiIde.PackageData
 import DA.Cli.Damlc.Command.MultiIde.Parsing
 import DA.Cli.Damlc.Command.MultiIde.Prefixing
+import DA.Cli.Damlc.Command.MultiIde.SdkInstall
 import DA.Cli.Damlc.Command.MultiIde.SubIdeManagement
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Cli.Damlc.Command.MultiIde.Util
@@ -79,8 +80,10 @@ subIdeMessageHandler miState unblock ide bs = do
     case msg of
       LSP.FromServerRsp LSP.SInitialize LSP.ResponseMessage {_result} -> do
         logDebug miState "Got initialization reply, sending initialized and unblocking"
-        -- Dangerous call here is acceptable as this only happens while the ide is booting, before unblocking
-        unsafeSendSubIde ide $ LSP.FromClientMess LSP.SInitialized $ LSP.NotificationMessage "2.0" LSP.SInitialized (Just LSP.InitializedParams)
+        holdingIDEsAtomic miState $ \ides -> do
+          let ideData = lookupSubIde (ideHome ide) ides
+          sendPackageDiagnostic miState ideData
+          unsafeSendSubIdeSTM ide $ LSP.FromClientMess LSP.SInitialized $ LSP.NotificationMessage "2.0" LSP.SInitialized (Just LSP.InitializedParams)
         unblock
       LSP.FromServerRsp LSP.SShutdown (LSP.ResponseMessage {_id}) | maybe False isCoordinatorShutdownLspId _id -> handleExit miState ide
 
@@ -184,10 +187,8 @@ clientMessageHandler miState unblock bs = do
       unblock
 
       -- Register watchers for daml.yaml, multi-package.yaml and *.dar files
-      let LSP.RequestMessage {_id, _method} = registerFileWatchersMessage
-      putReqMethodSingleFromServerCoordinator (misFromServerMethodTrackerVar miState) _id _method
-
-      sendClient miState $ LSP.FromServerMess _method registerFileWatchersMessage
+      putFromServerCoordinatorMessage miState registerFileWatchersMessage
+      sendClient miState registerFileWatchersMessage
 
     LSP.FromClientMess LSP.SWindowWorkDoneProgressCancel notif -> do
       let (newNotif, mPrefix) = stripWorkDoneProgressCancelTokenPrefix notif
@@ -198,6 +199,9 @@ clientMessageHandler miState unblock bs = do
         Just prefix -> holdingIDEsAtomic miState $ \ides ->
           let mIde = find (\ideData -> (ideMessageIdPrefix <$> ideDataMain ideData) == Just prefix) ides
            in traverse_ (`unsafeSendSubIdeSTM` newMsg) $ mIde >>= ideDataMain
+
+    LSP.FromClientMess (LSP.SCustomMethod t) (LSP.NotMess notif) | t == damlSdkInstallCancelMethod ->
+      handleSdkInstallClientCancelled miState notif
 
     -- Special handing for STextDocumentDefinition to ask multiple IDEs (the W approach)
     -- When a getDefinition is requested, we cast this request into a tryGetDefinition
@@ -234,6 +238,7 @@ clientMessageHandler miState unblock bs = do
             let home = PackageHome $ takeDirectory changedPath
             logInfo miState $ "daml.yaml change in " <> unPackageHome home <> ". Shutting down IDE"
             atomically $ sourceFileHomeHandleDamlYamlChanged miState home
+            allowIdeSdkInstall miState home
             case changeType of
               LSP.FcDeleted -> do
                 shutdownIdeByHome miState home
@@ -310,4 +315,5 @@ clientMessageHandler miState unblock bs = do
       case (method, _id) of
         (LSP.SClientRegisterCapability, Just (LSP.IdString "MultiIdeWatchedFiles")) ->
           either (\err -> logError miState $ "Watched file registration failed with " <> show err) (const $ logDebug miState "Successfully registered watched files") _result
+        (LSP.SWindowShowMessageRequest, Just lspId) -> handleSdkInstallPromptResponse miState lspId _result
         _ -> pure ()

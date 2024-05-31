@@ -6,6 +6,7 @@ module DA.Cli.Damlc.Command.MultiIde.OpenFiles (
   removeOpenFile,
   handleRemovedPackageOpenFiles,
   handleCreatedPackageOpenFiles,
+  sendPackageDiagnostic,
 ) where
 
 import Control.Monad
@@ -18,15 +19,26 @@ import Data.Foldable (traverse_)
 import Data.List (isPrefixOf)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Data.Text as T
 import qualified Data.Text.Extended as TE
 import GHC.Conc (unsafeIOToSTM)
+import System.FilePath ((</>))
+
+sendPackageDiagnostic :: MultiIdeState -> SubIdeData -> STM ()
+sendPackageDiagnostic miState ideData = do
+  let makeMessage =
+        case ideDataDisabled ideData of
+          IdeDataDisabled {iddSeverity, iddMessage} -> fullFileDiagnostic iddSeverity $ T.unpack iddMessage
+          _ -> clearDiagnostics
+      files = (unPackageHome (ideDataHome ideData) </> "daml.yaml") : fmap unDamlFile (Set.toList $ ideDataOpenFiles ideData)
+   in traverse_ (sendClientSTM miState) $ makeMessage <$> files 
 
 onOpenFiles :: MultiIdeState -> PackageHome -> (Set.Set DamlFile -> Set.Set DamlFile) -> STM ()
-onOpenFiles miState home f = modifyTMVarM (misSubIdesVar miState) $ \subIdes -> do
-  let ideData = lookupSubIde home subIdes
+onOpenFiles miState home f = modifyTMVarM (misSubIdesVar miState) $ \ides -> do
+  let ideData = lookupSubIde home ides
       ideData' = ideData {ideDataOpenFiles = f $ ideDataOpenFiles ideData}
-  when (ideDataDisabled ideData') $ traverse_ (sendClientSTM miState) $ disableIdeDiagnosticMessages ideData'
-  pure $ Map.insert home ideData' subIdes
+  sendPackageDiagnostic miState ideData'
+  pure $ Map.insert home ideData' ides
 
 addOpenFile :: MultiIdeState -> PackageHome -> DamlFile -> STM ()
 addOpenFile miState home file = do
@@ -53,7 +65,7 @@ handleRemovedPackageOpenFiles miState home = withIDEsAtomic_ miState $ \ides -> 
         let newHomeIdeData = lookupSubIde newHome ides
             newHomeIdeData' = newHomeIdeData {ideDataOpenFiles = Set.insert openFile $ ideDataOpenFiles newHomeIdeData}
         -- If we're moving the file to a disabled IDE, it should get the new warning
-        when (ideDataDisabled newHomeIdeData') $ traverse_ (sendClientSTM miState) $ disableIdeDiagnosticMessages newHomeIdeData'
+        sendPackageDiagnostic miState newHomeIdeData'
         forM_ (ideDataMain newHomeIdeData) $ \ide -> do
           -- Acceptable IO as read only operation
           content <- unsafeIOToSTM $ TE.readFileUtf8 $ unDamlFile openFile

@@ -17,23 +17,10 @@ import DA.Cli.Damlc.Command.MultiIde.Util
 import DA.Cli.Damlc.Command.MultiIde.Types
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, mapMaybe)
-import qualified Data.Set as Set
 import GHC.Conc (unsafeIOToSTM)
 import qualified Language.LSP.Types as LSP
 import System.Directory (doesFileExist)
-import System.FilePath.Posix (takeDirectory, (</>))
-
-disableIdeDiagnosticMessages :: SubIdeData -> [LSP.FromServerMessage]
-disableIdeDiagnosticMessages ideData =
-  fullFileDiagnostic 
-    ( "Daml IDE environment failed to start with the following error:\n"
-    <> fromMaybe "No information" (ideDataLastError ideData)
-    )
-    <$> ((unPackageHome (ideDataHome ideData) </> "daml.yaml") : fmap unDamlFile (Set.toList $ ideDataOpenFiles ideData))
-
-clearIdeDiagnosticMessages :: SubIdeData -> [LSP.FromServerMessage]
-clearIdeDiagnosticMessages ideData =
-  clearDiagnostics <$> ((unPackageHome (ideDataHome ideData) </> "daml.yaml") : fmap unDamlFile (Set.toList $ ideDataOpenFiles ideData))
+import System.FilePath.Posix (takeDirectory)
 
 -- Communication logic
 
