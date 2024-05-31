@@ -26,7 +26,6 @@ import scala.concurrent.Future
 import scala.io.Source
 import scala.util.{Success, Failure}
 
-
 abstract class UpgradesSpecAdminAPI(override val suffix: String) extends UpgradesSpec(suffix) {
   override def uploadPackage(
       entry: (PackageId, ByteString)
