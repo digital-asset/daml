@@ -172,7 +172,7 @@ private[mediator] class ConfirmationResponseProcessor(
 
       val timeout = responseAggregation.timeout(version = timestamp)
       for {
-        snapshot <- crypto.ips.awaitSnapshotUS(timestamp)(traceContext)
+        snapshot <- crypto.ips.awaitSnapshotUS(responseAggregation.requestId.unwrap)(traceContext)
 
         domainParameters <- FutureUnlessShutdown.outcomeF(
           snapshot
