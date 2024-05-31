@@ -670,10 +670,12 @@ object Transaction {
     * @param submissionSeed   Populated with the submission seed when returned from [[com.daml.lf.engine.Engine.submit]].
     * @param submissionTime   The submission time
     * @param usedPackages     The set of all packages that are needed for the interpretation of the command. This
-    *                         will be all the [[Node.Action.packageIds]] used in the output transaction action nodes
-    *                         and their depedent packages.
+    *                         is done by first by establishing all the packages directly associated with action nodes
+    *                         in the transaction (by calling [[Node.Action.packageIds]]). The [[usedPackages]] will then
+    *                         be this set of packages combined with all packages on which there is a transitive
+    *                         dependency (for details see [[com.daml.lf.engine.Engine.deps]]).
     * @param dependsOnTime    Indicates that the transaction computation depends on ledger time.
-    * @param nodeSeeds        An association list that maps the node-id of crate and exercise
+    * @param nodeSeeds        An association list that maps the node-id of create and exercise
     *                         nodes to their seed.
     * @param globalKeyMapping Input key mappings inferred during interpretation.
     * @param disclosedEvents  Disclosed create events that have been used in this transaction.
