@@ -13,10 +13,13 @@ import NavigatorModelAliases.{DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
 import ApiValueImplicits.*
 import com.digitalasset.canton.daml.lf.value.json.NavigatorModelAliases as Model
 import spray.json.*
+import scala.util.Try
 import scalaz.{@@, Equal, Order, Tag}
 
 import scalaz.syntax.equal.*
 import scalaz.syntax.std.string.*
+
+import java.time.Instant
 
 /** A compressed encoding of API values.
   *
@@ -135,7 +138,11 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
       }
       case Model.DamlLfPrimType.Unit => { case JsObject(_) => V.ValueUnit }
       case Model.DamlLfPrimType.Timestamp => { case JsString(v) =>
-        V.ValueTimestamp(assertDE(Time.Timestamp fromString v))
+        val optTimestamp = for {
+          instant <- Try(Instant.parse(v)).toEither.left.map(_.getMessage)
+          timestamp <- Time.Timestamp.fromInstant(instant)
+        } yield timestamp
+        V.ValueTimestamp(assertDE(optTimestamp))
       }
       case Model.DamlLfPrimType.Date => { case JsString(v) =>
         try {
