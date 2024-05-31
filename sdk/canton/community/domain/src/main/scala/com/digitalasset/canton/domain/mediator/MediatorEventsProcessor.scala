@@ -55,7 +55,7 @@ private[mediator] class MediatorEventsProcessor(
       lastEvent = events.last1
 
       determinedStages <- FutureUnlessShutdown.pure(
-        uniqueEnvelopesByEvent.flatMap { case (event, envelope) => determine(event, envelope) }
+        uniqueEnvelopesByEvent.flatMap { case (event, envelopes) => determine(event, envelopes) }
       )
 
       // we need to advance time on the confirmation response even if there is no relevant mediator events
@@ -103,7 +103,7 @@ private[mediator] class MediatorEventsProcessor(
 
   private def determine(
       tracedProtocolEvent: TracedProtocolEvent,
-      envelope: Seq[DefaultOpenEnvelope],
+      envelopes: Seq[DefaultOpenEnvelope],
   ): Seq[Traced[MediatorEvent]] = {
     implicit val traceContext: TraceContext = tracedProtocolEvent.traceContext
     val event = tracedProtocolEvent.value
@@ -111,7 +111,8 @@ private[mediator] class MediatorEventsProcessor(
       case deliver: Deliver[?] => deliver.topologyTimestampO
       case _ => None
     }
-    val stages = extractMediatorEvents(event.counter, event.timestamp, topologyTimestampO, envelope)
+    val stages =
+      extractMediatorEvents(event.counter, event.timestamp, topologyTimestampO, envelopes)
 
     stages.map(Traced(_))
   }

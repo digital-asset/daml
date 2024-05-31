@@ -5,14 +5,19 @@ package com.digitalasset.canton.domain.metrics
 
 import com.daml.metrics.api.MetricHandle.*
 import com.daml.metrics.api.noop.NoOpMetricsFactory
-import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
+import com.daml.metrics.api.{
+  HistogramInventory,
+  MetricInfo,
+  MetricName,
+  MetricQualification,
+  MetricsContext,
+}
 import com.daml.metrics.grpc.{DamlGrpcServerMetrics, GrpcServerMetrics}
 import com.daml.metrics.{CacheMetrics, HealthMetrics}
 import com.digitalasset.canton.environment.BaseMetrics
 import com.digitalasset.canton.metrics.{
   DbStorageHistograms,
   DbStorageMetrics,
-  HistogramInventory,
   SequencerClientHistograms,
   SequencerClientMetrics,
 }

@@ -5,8 +5,8 @@ package com.digitalasset.canton.platform.apiserver
 
 import com.daml.error.{DamlError, ErrorGenerator}
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
+import com.daml.metrics.api.{HistogramInventory, MetricName}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.domain.api.v0
 import com.digitalasset.canton.domain.api.v0.Hello
@@ -23,11 +23,7 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   SuppressingLogger,
 }
-import com.digitalasset.canton.metrics.{
-  HistogramInventory,
-  LedgerApiServerHistograms,
-  LedgerApiServerMetrics,
-}
+import com.digitalasset.canton.metrics.{LedgerApiServerHistograms, LedgerApiServerMetrics}
 import com.digitalasset.canton.platform.apiserver.GrpcServerSpec.*
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
 import com.digitalasset.canton.platform.apiserver.ratelimiting.{

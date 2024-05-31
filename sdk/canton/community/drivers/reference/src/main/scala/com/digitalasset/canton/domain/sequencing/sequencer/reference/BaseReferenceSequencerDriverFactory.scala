@@ -4,7 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.reference
 
 import com.daml.metrics.api.noop.NoOpMetricsFactory
-import com.daml.metrics.api.{MetricName, MetricsContext}
+import com.daml.metrics.api.{HistogramInventory, MetricName, MetricsContext}
 import com.digitalasset.canton.config.{
   BatchAggregatorConfig,
   BatchingConfig,
@@ -20,7 +20,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.reference.BaseReferen
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.{DbStorageHistograms, DbStorageMetrics, HistogramInventory}
+import com.digitalasset.canton.metrics.{DbStorageHistograms, DbStorageMetrics}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.time.{Clock, TimeProvider, TimeProviderClock}
 import com.digitalasset.canton.tracing.TraceContext

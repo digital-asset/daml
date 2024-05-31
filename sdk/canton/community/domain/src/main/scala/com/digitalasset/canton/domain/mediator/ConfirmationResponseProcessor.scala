@@ -298,7 +298,7 @@ private[mediator] class ConfirmationResponseProcessor(
   ): Future[Either[Option[MediatorVerdict.MediatorReject], Unit]] = {
     val topologySnapshot = snapshot.ipsSnapshot
     (for {
-      // Bail out, if this mediator or group is passive, except is the mediator itself is passive in an active group.
+      // Bail out, if this mediator or group is passive, except if the mediator itself is passive in an active group.
       isActive <- EitherT.right[Option[MediatorVerdict.MediatorReject]](
         topologySnapshot.isMediatorActive(mediatorId)
       )

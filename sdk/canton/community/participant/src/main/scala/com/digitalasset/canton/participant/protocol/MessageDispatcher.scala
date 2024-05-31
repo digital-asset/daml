@@ -340,21 +340,30 @@ trait MessageDispatcher { this: NamedLogging =>
       }
     }
 
-    val checkedRootHashMessagesC =
-      checkRootHashMessageAndViews(ts, rootHashMessages, encryptedViews)
+    val checkedRootHashMessagesC = checkRootHashMessageAndViews(rootHashMessages, encryptedViews)
     checkedRootHashMessagesC.nonaborts.iterator.foreach(alarm(sc, ts, _))
     for {
       result <- checkedRootHashMessagesC.toEither match {
         case Right(goodRequest) =>
-          if (!containsTopologyTransactions)
-            processRequest(goodRequest)
-          else {
+          if (containsTopologyTransactions) {
             /* A batch should not contain a request and a topology transaction.
              * Handling of such a batch is done consistently with the case [[ExpectMalformedMediatorConfirmationRequestResult]] below.
+             *
+             * In order to safely drop the confirmation request, we must make sure that every other participant will be able to make
+             * the same decision, otherwise we will break transparency.
+             * Here, the decision is based on the fact that the batch contained a valid topology transaction. These transactions are
+             * addressed to `AllMembersOfDomain`, which by definition means that everyone will receive them.
+             * Therefore, anyone who received this confirmation request has also received the topology transaction, and will
+             * be able to make the same decision and drop the confirmation request.
+             *
+             * Note that we could instead decide to process both the confirmation request and the topology transactions.
+             * This would not have a conceptual problem, because the topology transactions always become effective *after*
+             * their sequencing time, but it would likely make the code more complicated than relying on the above argument.
              */
             alarm(sc, ts, "Invalid batch containing both a request and topology transaction")
             tickRecordOrderPublisher(sc, ts)
-          }
+          } else
+            processRequest(goodRequest)
 
         case Left(DoNotExpectMediatorResult) =>
           if (containsTopologyTransactions) {
@@ -387,7 +396,6 @@ trait MessageDispatcher { this: NamedLogging =>
     * @return [[com.digitalasset.canton.util.Checked.Abort]] indicates a really malformed request and the appropriate reaction
     */
   private def checkRootHashMessageAndViews(
-      ts: CantonTimestamp,
       rootHashMessages: List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       encryptedViews: List[OpenEnvelope[EncryptedViewMessage[ViewType]]],
   )(implicit

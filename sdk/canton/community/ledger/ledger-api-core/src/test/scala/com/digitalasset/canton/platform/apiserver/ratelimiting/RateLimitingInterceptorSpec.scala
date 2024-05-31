@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.apiserver.ratelimiting
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.metrics.api.MetricsContext
+import com.daml.metrics.api.{MetricInfo, MetricQualification, MetricsContext}
 import com.daml.ports.Port
 import com.daml.scalautil.Statement.discard
 import com.daml.tracing.NoOpTelemetry
@@ -99,7 +99,13 @@ final class RateLimitingInterceptorSpec
 
   it should "allow metadata requests even when over limit" in {
     metrics.openTelemetryMetricsFactory
-      .meter(metrics.lapi.threadpool.apiServices :+ "submitted")(MetricsContext.Empty)
+      .meter(
+        MetricInfo(
+          metrics.lapi.threadpool.apiServices :+ "submitted",
+          "",
+          MetricQualification.Debug,
+        )
+      )(MetricsContext.Empty)
       .mark(config.maxApiServicesQueueSize.toLong + 1)(MetricsContext.Empty) // Over limit
 
     val protoService = ProtoReflectionService.newInstance()
@@ -131,7 +137,13 @@ final class RateLimitingInterceptorSpec
 
   it should "allow health checks event when over limit" in {
     metrics.openTelemetryMetricsFactory
-      .meter(metrics.lapi.threadpool.apiServices :+ "submitted")(MetricsContext.Empty)
+      .meter(
+        MetricInfo(
+          metrics.lapi.threadpool.apiServices :+ "submitted",
+          "",
+          MetricQualification.Debug,
+        )
+      )(MetricsContext.Empty)
       .mark(config.maxApiServicesQueueSize.toLong + 1)(MetricsContext.Empty) // Over limit
 
     val healthService =

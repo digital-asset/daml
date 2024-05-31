@@ -22,6 +22,8 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.time.Instant
+
 class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
 
   import DbDtoEq.*
@@ -44,7 +46,8 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
 
     val someHash = Hash.hashPrivateKey("p0")
 
-    val someRecordTime = Time.Timestamp.assertFromString("2000-01-01T00:00:00.000000Z")
+    val someRecordTime =
+      Time.Timestamp.assertFromInstant(Instant.parse("2000-01-01T00:00:00.000000Z"))
 
     val someCompletionInfo = state.CompletionInfo(
       actAs = Nil,

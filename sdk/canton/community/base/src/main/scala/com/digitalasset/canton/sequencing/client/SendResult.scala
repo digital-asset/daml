@@ -45,9 +45,16 @@ object SendResult {
     case UnlessShutdown.Outcome(SendResult.Success(deliver)) =>
       logger.trace(s"$sendDescription was sequenced at ${deliver.timestamp}")
     case UnlessShutdown.Outcome(SendResult.Error(error)) =>
-      logger.warn(
-        s"$sendDescription was rejected by the sequencer at ${error.timestamp} because [${error.reason}]"
-      )
+      error match {
+        case DeliverError(_, _, _, _, SequencerErrors.AggregateSubmissionAlreadySent(_)) =>
+          logger.info(
+            s"$sendDescription was rejected by the sequencer at ${error.timestamp} because [${error.reason}]"
+          )
+        case _ =>
+          logger.warn(
+            s"$sendDescription was rejected by the sequencer at ${error.timestamp} because [${error.reason}]"
+          )
+      }
     case UnlessShutdown.Outcome(SendResult.Timeout(sequencerTime)) =>
       logger.warn(s"$sendDescription timed out at $sequencerTime")
     case UnlessShutdown.AbortedDueToShutdown =>

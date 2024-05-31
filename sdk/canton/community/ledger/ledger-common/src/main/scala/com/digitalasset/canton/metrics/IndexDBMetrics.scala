@@ -4,9 +4,15 @@
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.DatabaseMetrics
+import com.daml.metrics.api.HistogramInventory.Item
 import com.daml.metrics.api.MetricHandle.{Counter, Histogram, LabeledMetricsFactory, Timer}
-import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
-import com.digitalasset.canton.metrics.HistogramInventory.Item
+import com.daml.metrics.api.{
+  HistogramInventory,
+  MetricInfo,
+  MetricName,
+  MetricQualification,
+  MetricsContext,
+}
 
 trait TransactionStreamsDbHistograms {
 

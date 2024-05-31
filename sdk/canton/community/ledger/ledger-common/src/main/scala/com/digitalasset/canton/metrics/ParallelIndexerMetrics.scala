@@ -4,9 +4,15 @@
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.DatabaseMetrics
+import com.daml.metrics.api.HistogramInventory.Item
 import com.daml.metrics.api.MetricHandle.*
-import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
-import com.digitalasset.canton.metrics.HistogramInventory.Item
+import com.daml.metrics.api.{
+  HistogramInventory,
+  MetricInfo,
+  MetricName,
+  MetricQualification,
+  MetricsContext,
+}
 
 class ParallelIndexerHistograms(val prefix: MetricName)(implicit
     inventory: HistogramInventory

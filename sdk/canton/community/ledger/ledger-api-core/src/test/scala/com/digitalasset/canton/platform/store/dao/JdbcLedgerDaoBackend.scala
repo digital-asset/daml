@@ -9,18 +9,14 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
-import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.noop.NoOpMetricsFactory
+import com.daml.metrics.api.{HistogramInventory, MetricName}
 import com.daml.resources.PureResource
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.logging.LoggingContextWithTrace.withNewLoggingContext
 import com.digitalasset.canton.logging.SuppressingLogger
-import com.digitalasset.canton.metrics.{
-  HistogramInventory,
-  LedgerApiServerHistograms,
-  LedgerApiServerMetrics,
-}
+import com.digitalasset.canton.metrics.{LedgerApiServerHistograms, LedgerApiServerMetrics}
 import com.digitalasset.canton.platform.config.{
   ActiveContractsServiceStreamsConfig,
   ServerRole,

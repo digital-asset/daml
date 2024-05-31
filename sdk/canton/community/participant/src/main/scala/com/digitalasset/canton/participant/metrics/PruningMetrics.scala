@@ -3,10 +3,15 @@
 
 package com.digitalasset.canton.participant.metrics
 
+import com.daml.metrics.api.HistogramInventory.Item
 import com.daml.metrics.api.MetricHandle.{Gauge, LabeledMetricsFactory, Timer}
-import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
-import com.digitalasset.canton.metrics.HistogramInventory
-import com.digitalasset.canton.metrics.HistogramInventory.Item
+import com.daml.metrics.api.{
+  HistogramInventory,
+  MetricInfo,
+  MetricName,
+  MetricQualification,
+  MetricsContext,
+}
 
 class PruningHistograms(parent: MetricName)(implicit inventory: HistogramInventory) {
   private[metrics] val prefix = parent :+ "pruning"
