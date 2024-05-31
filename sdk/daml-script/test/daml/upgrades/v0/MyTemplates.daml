@@ -1,0 +1,26 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module MyTemplates where
+
+template ValidUpgrade
+  with
+    party : Party
+  where
+    signatory party
+
+    nonconsuming choice Noop : () with
+        ctl : Party
+      controller ctl
+      do pure ()
+
+template ValidUpgradeUtils
+  with
+    party : Party
+  where
+    signatory party
+
+    choice ValidUpgradeFetch : ValidUpgrade with
+        cid : ContractId ValidUpgrade
+      controller party
+      do fetch cid

@@ -7,7 +7,7 @@ package speedy
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageMajorVersion
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.daml.lf.speedy.SValue.SContractId
@@ -41,7 +41,40 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   private[this] implicit def parserParameters(implicit
       pkgId: Ref.PackageId
   ): ParserParameters[this.type] =
-    ParserParameters(pkgId, languageVersion = majorLanguageVersion.dev)
+    ParserParameters(pkgId, languageVersion = majorLanguageVersion.maxStableVersion)
+
+  lazy val pkgId0 = Ref.PackageId.assertFromString("-pkg0-")
+  private lazy val pkg0 = {
+    import Ordering.Implicits._
+    implicit def parserParameters: ParserParameters[this.type] = ParserParameters(
+      pkgId0,
+      languageVersion = LanguageVersion.All.filter(_ < majorLanguageVersion.maxStableVersion).max,
+    )
+    p""" metadata ( '-upgrade-test-' : '1.0.0' )
+    module M {
+
+      record @serializable T = { sig: Party, obs: Party, aNumber: Int64 };
+      template (this: T) = {
+        precondition True;
+        signatories M:mkList (M:T {sig} this) (None @Party);
+        observers M:mkList (M:T {obs} this) (None @Party);
+        agreement "Agreement";
+        key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
+      };
+
+      val do_fetch: ContractId M:T -> Update M:T =
+        \(cId: ContractId M:T) ->
+          fetch_template @M:T cId;
+
+      val mkList: Party -> Option Party -> List Party =
+        \(sig: Party) -> \(optSig: Option Party) ->
+          case optSig of
+            None -> Cons @Party [sig] Nil @Party
+          | Some extraSig -> Cons @Party [sig, extraSig] Nil @Party;
+
+    }
+    """
+  }
 
   val pkgId1 = Ref.PackageId.assertFromString("-pkg1-")
   private lazy val pkg1 = {
@@ -144,13 +177,17 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   val pkgName = {
-    assert(pkg1.name == pkg2.name && pkg2.name == pkg3.name && pkg3.name == pkg4.name)
+    assert(
+      pkg0.metadata.map(
+        _.name
+      ) == pkg1.name && pkg1.name == pkg2.name && pkg2.name == pkg3.name && pkg3.name == pkg4.name
+    )
     pkg1.name
   }
 
   private lazy val pkgs =
     PureCompiledPackages.assertBuild(
-      Map(pkgId1 -> pkg1, pkgId2 -> pkg2, pkgId3 -> pkg3, pkgId4 -> pkg4),
+      Map(pkgId0 -> pkg0, pkgId1 -> pkg1, pkgId2 -> pkg2, pkgId3 -> pkg3, pkgId4 -> pkg4),
       Compiler.Config.Dev(majorLanguageVersion),
     )
 
@@ -236,6 +273,19 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     )
 
   "upgrade attempted" - {
+
+    "contract is LF < 1.16 -- should be reject" in {
+      val v =
+        makeRecord(
+          ValueParty(alice),
+          ValueParty(bob),
+          ValueInt64(100),
+        )
+
+      go(e"'-pkg1-':M:do_fetch", ContractInstance(pkg0.name, i"'-pkg0-':M:T", v)) shouldBe a[
+        Left[_, _]
+      ]
+    }
 
     "missing optional field -- None is manufactured" in {
 

@@ -178,6 +178,11 @@ object Value {
 
     def mapCid(f: ContractId => ContractId): ContractInstance =
       copy(arg = arg.mapCid(f))
+
+    def upgradable: Boolean = {
+      // package is defined iff the package version of the template >= 1.16
+      packageName.isDefined
+    }
   }
 
   final case class ContractInstanceWithAgreement(

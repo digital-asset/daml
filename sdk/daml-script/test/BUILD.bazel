@@ -22,6 +22,8 @@ DEV_LF_VERSION = "1.dev"
 
 UPGRADE_LF_VERSION = "1.16"
 
+NON_UPGRADE_LF_VERSION = "1.15"
+
 [
     genrule(
         name = "script-test",
@@ -297,6 +299,7 @@ daml_compile(
     name = "upgrades-test",
     srcs = [":daml/upgrades/UpgradesTest.daml"],
     data_dependencies = [
+        "//daml-script/test:upgrades-my-templates-v0.dar",
         "//daml-script/test:upgrades-my-templates-v1.dar",
         "//daml-script/test:upgrades-my-templates-v2.dar",
     ],
@@ -304,12 +307,21 @@ daml_compile(
         "//daml-script/daml3:daml3-script-1.dev.dar",
     ],
     module_prefixes = {
+        "upgrades-my-templates-0.0.0": "V0",
         "upgrades-my-templates-1.0.0": "V1",
         "upgrades-my-templates-2.0.0": "V2",
     },
     project_name = "upgrades-test",
     target = "1.dev",
     version = "0.0.1",
+)
+
+daml_compile(
+    name = "upgrades-my-templates-v0",
+    srcs = [":daml/upgrades/v0/MyTemplates.daml"],
+    project_name = "upgrades-my-templates",
+    target = NON_UPGRADE_LF_VERSION,
+    version = "0.0.0",
 )
 
 daml_compile(
@@ -407,6 +419,7 @@ da_scala_test_suite(
         ":coin-v2.dar",
         ":coin-v2-new-field.dar",
         ":coin-v3.dar",
+        ":upgrades-my-templates-v0.dar",
         ":upgrades-my-templates-v1.dar",
         ":upgrades-my-templates-v2.dar",
         ":upgrades-test.dar",
