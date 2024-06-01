@@ -103,7 +103,7 @@ abstract class CantonNodeBootstrapBase[
       loggerFactory,
     )
 
-  override val crypto: Some[Crypto] = Some(
+  override val crypto: Crypto =
     timeouts.unbounded.await(
       description = "initialize CryptoFactory",
       logFailing = Some(Level.ERROR),
@@ -120,7 +120,7 @@ abstract class CantonNodeBootstrapBase[
         )
         .valueOr(err => throw new RuntimeException(s"Failed to initialize crypto: $err"))
     )
-  )
+
   locally {
     registerHealthGauge()
   }
@@ -129,7 +129,7 @@ abstract class CantonNodeBootstrapBase[
     VaultServiceGrpc.bindService(
       arguments.grpcVaultServiceFactory
         .create(
-          crypto.value,
+          crypto,
           parameterConfig.enablePreviewFeatures,
           timeouts,
           loggerFactory,
@@ -153,7 +153,7 @@ abstract class CantonNodeBootstrapBase[
           new GrpcTopologyManagerReadService(
             sequencedTopologyStores,
             ips,
-            crypto.value,
+            crypto,
             loggerFactory,
           ),
           executionContext,
@@ -165,7 +165,7 @@ abstract class CantonNodeBootstrapBase[
     .addService(
       InitializationServiceGrpc
         .bindService(
-          new GrpcInitializationService(clock, this, crypto.value.cryptoPublicStore),
+          new GrpcInitializationService(clock, this, crypto.cryptoPublicStore),
           executionContext,
         )
     )
@@ -189,7 +189,7 @@ abstract class CantonNodeBootstrapBase[
           new GrpcTopologyManagerReadService(
             sequencedTopologyStores :+ authorizedTopologyStore,
             ips,
-            crypto.value,
+            crypto,
             loggerFactory,
           ),
           executionContext,
@@ -388,7 +388,7 @@ abstract class CantonNodeBootstrapBase[
     TopologyManagerWriteServiceGrpc.bindService(
       new GrpcTopologyManagerWriteService(
         topologyManager,
-        crypto.value.cryptoPublicStore,
+        crypto.cryptoPublicStore,
         parameterConfig.initialProtocolVersion,
         loggerFactory,
       ),
@@ -443,6 +443,7 @@ abstract class CantonNodeBootstrapBase[
     nodeHealthService: DependenciesHealthService,
     nodeLivenessService: LivenessHealthService,
   ) = mkNodeHealthService(storage)
+
   protected val (healthReporter, grpcHealthServer) =
     mkHealthComponents(nodeHealthService, nodeLivenessService)
 
@@ -471,7 +472,7 @@ abstract class CantonNodeBootstrapBase[
         adminServerRegistry,
         adminServer,
       ) ++ grpcHealthServer.toList ++ getNode.toList ++ stores ++ List(
-        crypto.value,
+        crypto,
         storage,
         clock,
         nodeHealthService,

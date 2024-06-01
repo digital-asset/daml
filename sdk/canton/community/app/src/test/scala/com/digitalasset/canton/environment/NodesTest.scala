@@ -46,7 +46,7 @@ class NodesTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   class TestNodeBootstrap extends CantonNodeBootstrap[TestNode] {
     override def name: InstanceName = ???
     override def clock: Clock = ???
-    override def crypto: Option[Crypto] = ???
+    override def crypto: Crypto = ???
     override def getId: Option[NodeId] = ???
     override def isInitialized: Boolean = ???
     override def start(): EitherT[Future, String, Unit] = EitherT.pure[Future, String](())
