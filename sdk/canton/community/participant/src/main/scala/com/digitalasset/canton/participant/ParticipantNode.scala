@@ -295,9 +295,13 @@ class ParticipantNodeBootstrap(
       val partyMetadataStore =
         PartyMetadataStore(storage, parameterConfig.processingTimeouts, loggerFactory)
       addCloseable(partyMetadataStore)
-      val adminToken = CantonAdminToken.create(crypto.pureCrypto)
-      // upstream party information update generator
 
+      // admin token is taken from the config or created per session
+      val adminToken: CantonAdminToken = config.ledgerApi.adminToken.fold(
+        CantonAdminToken.create(crypto.pureCrypto)
+      )(token => CantonAdminToken(secret = token))
+
+      // upstream party information update generator
       val partyNotifierFactory = (eventPublisher: ParticipantEventPublisher) => {
         val partyNotifier = new LedgerServerPartyNotifier(
           participantId,

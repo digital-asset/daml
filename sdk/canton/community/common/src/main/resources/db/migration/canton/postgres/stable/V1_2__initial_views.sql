@@ -705,6 +705,13 @@ create or replace view debug.ord_pbft_messages as
     from_sequencer_id
   from ord_pbft_messages;
 
+create or replace view debug.ord_metadata_output_blocks as
+  select
+    block_number,
+    bft_ts,
+    last_topology_ts
+  from ord_metadata_output_blocks;
+
 create or replace view debug.common_static_strings as
   select
     id,
