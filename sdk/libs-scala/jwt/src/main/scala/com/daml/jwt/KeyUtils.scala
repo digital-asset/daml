@@ -97,7 +97,7 @@ object KeyUtils {
       }
     } yield key
 
-  /** Generates a JWKS JSON object for the given map of KeyID->Key
+  /** Generates a JWKS JSON object for the given map of KeyID->Key for RSA
     *
     * Note: this uses the same format as Google OAuth, see https://www.googleapis.com/oauth2/v3/certs
     */
@@ -111,6 +111,35 @@ object KeyUtils {
          |      "e": "${java.util.Base64.getUrlEncoder
           .encodeToString(key.getPublicExponent.toByteArray)}",
          |      "n": "${java.util.Base64.getUrlEncoder.encodeToString(key.getModulus.toByteArray)}"
+         |    }""".stripMargin
+
+    s"""
+       |{
+       |  "keys": [
+       |${keys.toList.map { case (keyId, key) => generateKeyEntry(keyId, key) }.mkString(",\n")}
+       |  ]
+       |}
+    """.stripMargin
+  }
+
+  /** Generates a JWKS JSON object for the given map of KeyID->Key for EC
+    *
+    * Note: this uses the same format as Google OAuth, see https://www.gstatic.com/iap/verify/public_key-jwk
+    */
+  def generateECJwks(keys: Map[String, ECPublicKey]): String = {
+    def generateKeyEntry(keyId: String, key: ECPublicKey): String =
+      s"""    {
+         |      "kid": "$keyId",
+         |      "kty": "EC",
+         |      "alg": "ES${key.getParams.getCurve.getField.getFieldSize}",
+         |      "use": "sig",
+         |      "crv": "P-${key.getParams.getCurve.getField.getFieldSize}",
+         |      "x": "${java.util.Base64.getUrlEncoder.encodeToString(
+          key.getW.getAffineX.toByteArray
+        )}",
+         |      "y": "${java.util.Base64.getUrlEncoder.encodeToString(
+          key.getW.getAffineY.toByteArray
+        )}"
          |    }""".stripMargin
 
     s"""
