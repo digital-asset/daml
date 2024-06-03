@@ -8,35 +8,79 @@ import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.DamlError
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.language.Util.dependenciesInTopologicalOrder
 import com.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
 import com.daml.logging.entries.LoggingValue.OfString
 import com.digitalasset.canton.ledger.error.PackageServiceErrors.{InternalError, Validation}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.admin.PackageUpgradeValidator.PackageMap
 import com.digitalasset.canton.participant.admin.PackageUploader.ErrorValidations
 import com.digitalasset.canton.tracing.TraceContext
-import scalaz.std.either.*
-import scalaz.std.option.*
+import scalaz.std.either._
+import scalaz.std.option._
 import scalaz.std.scalaFuture.futureInstance
-import scalaz.syntax.traverse.*
+import scalaz.syntax.traverse._
+import scalaz.std.list._
 
+import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.concurrent.{ExecutionContext, Future}
 
+object PackageUpgradeValidator {
+  type PackageMap = Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]
+}
+
 class PackageUpgradeValidator(
-    getPackageMap: TraceContext => Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
+    getPackageMap: TraceContext => PackageMap,
     getLfArchive: TraceContext => Ref.PackageId => Future[Option[Archive]],
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
 
   def validateUpgrade(
+      upgradingPackages: List[(Ref.PackageId, Ast.Package)]
+  )(implicit
+    loggingContext: LoggingContextWithTrace
+  ): EitherT[Future, DamlError, Unit] = {
+    val upgradingPackagesMap = upgradingPackages.toMap
+    val deps = dependenciesInTopologicalOrder(upgradingPackages.map(_._1), upgradingPackagesMap)
+    val packageMap = getPackageMap(loggingContext.traceContext)
+
+    def go(packageMap: PackageMap, deps: List[Ref.PackageId]): EitherT[Future, DamlError, PackageMap] = deps match {
+      case Nil => EitherT.pure[Future, DamlError](packageMap)
+      case (pkgId :: rest) => {
+        val pkg = upgradingPackagesMap(pkgId)
+        val supportsUpgrades = pkg.languageVersion >= LanguageVersion.Features.packageUpgrades
+        // TODO: If pkgA-V1 (1.16) and pkgA-V2 (1.16) depend on pkgB (1.15)
+        // the pkgB in V1 and V2 must have the same package id (as defined by its package name + version)
+        // Consider transitivity?
+        pkg.metadata match {
+          case Some(pkgMetadata) if supportsUpgrades =>
+            for {
+              _ <- validatePackageUpgrade((pkgId, pkg), pkgMetadata, packageMap)
+              res <- go(packageMap + ((pkgId, (pkgMetadata.name, pkgMetadata.version))), rest)
+            } yield res
+          case None => {
+            logger.info(
+              s"Package metadata is not defined for ${pkgId}. Skipping upgrade validation."
+            )
+            go(packageMap, rest)
+          }
+        }
+      }
+    }
+    go(packageMap, deps).map(_ => ())
+  }
+
+  def validatePackageUpgrade(
       upgradingPackage: (Ref.PackageId, Ast.Package),
       upgradingPackageMetadata: Ast.PackageMetadata,
+      packageMap: PackageMap,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): EitherT[Future, DamlError, Unit] = {
-    val packageMap = getPackageMap(loggingContext.traceContext)
     val upgradingPackageId = upgradingPackage._1
     val optUpgradingDar = Some(upgradingPackage)
     logger.info(
