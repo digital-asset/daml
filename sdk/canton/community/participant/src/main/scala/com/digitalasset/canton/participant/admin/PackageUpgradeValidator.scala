@@ -59,7 +59,6 @@ class PackageUpgradeValidator(
         val supportsUpgrades = pkg.languageVersion >= LanguageVersion.Features.packageUpgrades
         // TODO: If pkgA-V1 (1.16) and pkgA-V2 (1.16) depend on pkgB (1.15)
         // the pkgB in V1 and V2 must have the same package id (as defined by its package name + version)
-        // Consider transitivity?
         pkg.metadata match {
           case Some(pkgMetadata) =>
             for {
