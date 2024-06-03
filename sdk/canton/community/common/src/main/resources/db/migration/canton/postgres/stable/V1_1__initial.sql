@@ -1009,3 +1009,13 @@ create table ord_pbft_messages(
   -- we won't differentiate that at the database level.
   primary key (block_number, from_sequencer_id, discriminator)
 );
+
+-- Stores metadata for blocks that have been assigned timestamps in the output module
+create table ord_metadata_output_blocks (
+  block_number bigint not null,
+  bft_ts bigint not null,
+  last_topology_ts bigint not null,
+  primary key (block_number),
+  -- enable idempotent writes: "on conflict, do nothing"
+  constraint unique_output_block unique (block_number, bft_ts, last_topology_ts)
+);
