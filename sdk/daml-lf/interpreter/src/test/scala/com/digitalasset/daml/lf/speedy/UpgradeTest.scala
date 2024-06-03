@@ -45,11 +45,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   lazy val pkgId0 = Ref.PackageId.assertFromString("-pkg0-")
   private lazy val pkg0 = {
-    import Ordering.Implicits._
-    implicit def parserParameters: ParserParameters[this.type] = ParserParameters(
-      pkgId0,
-      languageVersion = LanguageVersion.v1_15,
-    )
+    implicit def parserParameters: ParserParameters[this.type] =
+      ParserParameters(defaultPackageId = pkgId0, languageVersion = LanguageVersion.v1_15)
     p""" metadata ( '-upgrade-test-' : '1.0.0' )
     module M {
 
