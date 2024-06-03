@@ -103,6 +103,7 @@ checkPkgConfig PackageConfigFields {pName, pVersion} =
 
 data MultiPackageConfigFields = MultiPackageConfigFields
     { mpPackagePaths :: [FilePath]
+    , mpDars :: [FilePath]
     }
 
 -- | Intermediate of MultiPackageConfigFields that carries links to other config files, before being flattened into a single MultiPackageConfigFields
@@ -114,7 +115,9 @@ data MultiPackageConfigFieldsIntermediate = MultiPackageConfigFieldsIntermediate
 -- | Parse the multi-package.yaml file for auto rebuilds/IDE intelligence in multi-package projects
 parseMultiPackageConfig :: MultiPackageConfig -> Either ConfigError MultiPackageConfigFieldsIntermediate
 parseMultiPackageConfig multiPackage = do
-    mpiConfigFields <- MultiPackageConfigFields . fromMaybe [] <$> queryMultiPackageConfig ["packages"] multiPackage
+    mpPackagePaths <- fromMaybe [] <$> queryMultiPackageConfig ["packages"] multiPackage
+    mpDars <- fromMaybe [] <$> queryMultiPackageConfig ["dars"] multiPackage
+    let mpiConfigFields = MultiPackageConfigFields {..}
     mpiOtherConfigFiles <- fromMaybe [] <$> queryMultiPackageConfig ["projects"] multiPackage
     Right MultiPackageConfigFieldsIntermediate {..}
 
@@ -195,10 +198,10 @@ findMultiPackageConfig projectPath = do
         in pure $ if path == newPath then Right Nothing else Left newPath
 
 canonicalizeMultiPackageConfigIntermediate :: ProjectPath -> MultiPackageConfigFieldsIntermediate -> IO MultiPackageConfigFieldsIntermediate
-canonicalizeMultiPackageConfigIntermediate projectPath (MultiPackageConfigFieldsIntermediate (MultiPackageConfigFields packagePaths) multiPackagePaths) =
+canonicalizeMultiPackageConfigIntermediate projectPath (MultiPackageConfigFieldsIntermediate (MultiPackageConfigFields packagePaths darPaths) multiPackagePaths) =
   withCurrentDirectory (unwrapProjectPath projectPath) $ do
     MultiPackageConfigFieldsIntermediate
-      <$> (MultiPackageConfigFields <$> traverse canonicalizePath packagePaths)
+      <$> (MultiPackageConfigFields <$> traverse canonicalizePath packagePaths <*> traverse canonicalizePath darPaths)
       <*> traverse canonicalizePath multiPackagePaths
 
 -- Given some computation to give a result and dependencies, we explore the entire cyclic graph to give the combined
@@ -225,7 +228,7 @@ fullParseMultiPackageConfig startPath = do
     canonMultiPackageConfigI <- canonicalizeMultiPackageConfigIntermediate projectPath multiPackageConfigI
     pure (ProjectPath <$> mpiOtherConfigFiles canonMultiPackageConfigI, mpiConfigFields canonMultiPackageConfigI)
 
-  pure $ MultiPackageConfigFields $ nubOrd $ concatMap mpPackagePaths mpcs
+  pure $ MultiPackageConfigFields (nubOrd $ concatMap mpPackagePaths mpcs) (nubOrd $ concatMap mpDars mpcs)
 
 -- Gives the filepath where the multipackage was found if its not the same as project path.
 withMultiPackageConfig :: ProjectPath -> (MultiPackageConfigFields -> IO a) -> IO a

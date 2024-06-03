@@ -177,6 +177,7 @@ autoInstall env@Env{..} = do
                     -- and we don't want to mess up the other command's
                     -- output / have the install messages be gobbled
                     -- up by a pipe.
+                , downloadProgressObserver = Nothing
                 }
         versionInstall installEnv
         pure env { envSdkPath = Just (defaultSdkPathUnresolved envDamlPath sdkVersion) }

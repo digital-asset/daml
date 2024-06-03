@@ -15,7 +15,8 @@
         "onLanguage:daml",
         "onCommand:daml.openDamlDocs",
         "onCommand:daml.resetTelemetryConsent",
-        "onCommand:daml.showResource"
+        "onCommand:daml.showResource",
+        "workspaceContains:daml.yaml"
     ],
     "main": "./out/src/extension",
     "contributes": {
@@ -78,15 +79,16 @@
             "type": "object",
             "title": "Daml Studio configuration",
             "properties": {
-                "daml.debug": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable debug logging in the Daml Language Server."
-                },
-                "daml.experimental": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable experimental features in the IDE, this may break things"
+                "daml.logLevel": {
+                    "enum": [
+                        "Telemetry",
+                        "Debug",
+                        "Info",
+                        "Warning",
+                        "Error"
+                    ],
+                    "default": "Warning",
+                    "description": "Sets the logging threshold of the daml-ide and multi-ide"
                 },
                 "daml.profile": {
                     "type": "boolean",
@@ -111,6 +113,11 @@
                     "type": "string",
                     "default": "",
                     "description": "Extra arguments passed to `damlc ide`. This can be used to enable additional warnings via `--ghc-option -W`"
+                },
+                "daml.multiPackageIdeSupport": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "EXPERIMENTAL: Enables the incomplete and experimental multi-ide feature."
                 }
             }
         },
