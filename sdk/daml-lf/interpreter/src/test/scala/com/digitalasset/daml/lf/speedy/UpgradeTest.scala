@@ -48,7 +48,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     import Ordering.Implicits._
     implicit def parserParameters: ParserParameters[this.type] = ParserParameters(
       pkgId0,
-      languageVersion = LanguageVersion.All.filter(_ < majorLanguageVersion.maxStableVersion).max,
+      languageVersion = LanguageVersion.v1_15,
     )
     p""" metadata ( '-upgrade-test-' : '1.0.0' )
     module M {
