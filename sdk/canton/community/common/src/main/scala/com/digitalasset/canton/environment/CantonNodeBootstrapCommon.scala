@@ -70,7 +70,8 @@ trait CantonNodeBootstrap[+T <: CantonNode] extends FlagCloseable with NamedLogg
   def getNode: Option[T]
 
   /** Access to the private and public store to support local key inspection commands */
-  def crypto: Option[Crypto]
+  def crypto: Crypto
+
   def isActive: Boolean
 }
 
@@ -214,6 +215,7 @@ abstract class CantonNodeBootstrapCommon[
   protected def mkNodeHealthService(
       storage: Storage
   ): (DependenciesHealthService, LivenessHealthService)
+
   protected def mkHealthComponents(
       nodeHealthService: HealthService,
       nodeLivenessService: LivenessHealthService,

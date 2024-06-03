@@ -52,13 +52,13 @@ trait DomainTopologyManagerIdentityInitialization[StoredNodeConfig] {
       id <- Identifier.create(idName).toEitherT[FutureUnlessShutdown]
       // first, we create the namespace key for this node
       namespaceKey <- CantonNodeBootstrapCommon
-        .getOrCreateSigningKey(crypto.value)(
+        .getOrCreateSigningKey(crypto)(
           s"$name-namespace"
         )
         .mapK(FutureUnlessShutdown.outcomeK)
       // then, we create the topology manager signing key
       topologyManagerSigningKey <- CantonNodeBootstrapCommon
-        .getOrCreateSigningKey(crypto.value)(
+        .getOrCreateSigningKey(crypto)(
           s"$name-topology-manager-signing"
         )
         .mapK(FutureUnlessShutdown.outcomeK)

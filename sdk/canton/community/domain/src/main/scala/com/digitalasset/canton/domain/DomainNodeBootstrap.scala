@@ -263,7 +263,7 @@ class DomainNodeBootstrap(
     val mediatorId = MediatorId(domainId)
     for {
       mediatorKey <- CantonNodeBootstrapCommon
-        .getOrCreateSigningKey(crypto.value)(
+        .getOrCreateSigningKey(crypto)(
           s"$name-mediator-signing"
         )
         .mapK(FutureUnlessShutdown.outcomeK)
@@ -288,7 +288,7 @@ class DomainNodeBootstrap(
       namespaceKey: SigningPublicKey,
   ): EitherT[FutureUnlessShutdown, String, PublicKey] = for {
     sequencerKey <- CantonNodeBootstrapCommon
-      .getOrCreateSigningKey(crypto.value)(
+      .getOrCreateSigningKey(crypto)(
         s"$name-sequencer-signing"
       )
       .mapK(FutureUnlessShutdown.outcomeK)
@@ -316,7 +316,7 @@ class DomainNodeBootstrap(
         DomainTopologyManagerId(nodeId.identity),
         clock,
         authorizedTopologyStore,
-        crypto.value,
+        crypto,
         parameters.processingTimeouts,
         protocolVersion,
         loggerFactory,
@@ -464,7 +464,7 @@ class DomainNodeBootstrap(
             manager.id,
             domainId,
             protocolVersion,
-            crypto.value,
+            crypto,
             SigningPublicKey.collect(initialKeys),
             staticDomainParameters,
             parameters,
@@ -480,7 +480,7 @@ class DomainNodeBootstrap(
             arguments.metrics,
             client,
             parameters,
-            crypto.value,
+            crypto,
             staticDomainParameters,
             arguments.testingConfig,
             clock,
@@ -493,7 +493,7 @@ class DomainNodeBootstrap(
           new SyncCryptoApiProvider(
             manager.id,
             ips,
-            crypto.value,
+            crypto,
             parameters.cachingConfigs,
             timeouts,
             futureSupervisor,
@@ -509,7 +509,7 @@ class DomainNodeBootstrap(
               .create(
                 agreementFile.toScala,
                 storage,
-                crypto.value.pureCrypto,
+                crypto.pureCrypto,
                 staticDomainParameters.protocolVersion,
                 timeouts,
                 loggerFactory,
@@ -530,7 +530,7 @@ class DomainNodeBootstrap(
           .create(
             domainId,
             SequencerId(domainId.uid),
-            crypto.value,
+            crypto,
             // The sequencer is using the topology manager's topology client
             manager.id,
             topologyClient,
@@ -585,7 +585,7 @@ class DomainNodeBootstrap(
           domainId,
           storage,
           clock,
-          crypto.value,
+          crypto,
           syncCrypto,
           sequencedTopologyStore,
           SequencerConnections.single(publicSequencerConnection),
@@ -608,7 +608,7 @@ class DomainNodeBootstrap(
           parameters,
           staticDomainParameters.protocolVersion,
           clock,
-          crypto.value,
+          crypto,
           mediatorTopologyStore.initOrGet(DomainStore(domainId, discriminator = "M")),
           config.timeTracker,
           storage,
