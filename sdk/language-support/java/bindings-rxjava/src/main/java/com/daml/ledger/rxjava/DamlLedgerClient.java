@@ -45,6 +45,8 @@ public final class DamlLedgerClient implements LedgerClient {
     private Optional<String> accessToken = Optional.empty();
     private Optional<Duration> timeout = Optional.empty();
 
+    public static final int DefaultMaxInboundMessageSize = 10 * 1024 * 1024;
+
     private Builder(@NonNull NettyChannelBuilder channelBuilder) {
       this.builder = channelBuilder;
       this.builder.usePlaintext();
@@ -66,6 +68,11 @@ public final class DamlLedgerClient implements LedgerClient {
       return this;
     }
 
+    public Builder withMaxInboundMessageSize(int maxInboundMessageSize) {
+      this.builder.maxInboundMessageSize(maxInboundMessageSize);
+      return this;
+    }
+
     public DamlLedgerClient build() {
       return new DamlLedgerClient(this.builder, this.accessToken, this.timeout);
     }
@@ -83,7 +90,9 @@ public final class DamlLedgerClient implements LedgerClient {
    * builder's capabilities
    */
   public static Builder newBuilder(@NonNull String host, int port) {
-    return new Builder(NettyChannelBuilder.forAddress(host, port));
+    return new Builder(
+        NettyChannelBuilder.forAddress(host, port)
+            .maxInboundMessageSize(Builder.DefaultMaxInboundMessageSize));
   }
 
   /**
