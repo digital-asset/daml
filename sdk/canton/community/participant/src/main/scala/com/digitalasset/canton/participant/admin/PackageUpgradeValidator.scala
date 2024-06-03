@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.admin
 
+import cats.Applicative
 import cats.data.EitherT
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.DamlError
@@ -42,13 +43,16 @@ class PackageUpgradeValidator(
   def validateUpgrade(
       upgradingPackages: List[(Ref.PackageId, Ast.Package)]
   )(implicit
-    loggingContext: LoggingContextWithTrace
+      loggingContext: LoggingContextWithTrace
   ): EitherT[Future, DamlError, Unit] = {
     val upgradingPackagesMap = upgradingPackages.toMap
     val deps = dependenciesInTopologicalOrder(upgradingPackages.map(_._1), upgradingPackagesMap)
     val packageMap = getPackageMap(loggingContext.traceContext)
 
-    def go(packageMap: PackageMap, deps: List[Ref.PackageId]): EitherT[Future, DamlError, PackageMap] = deps match {
+    def go(
+        packageMap: PackageMap,
+        deps: List[Ref.PackageId],
+    ): EitherT[Future, DamlError, PackageMap] = deps match {
       case Nil => EitherT.pure[Future, DamlError](packageMap)
       case (pkgId :: rest) => {
         val pkg = upgradingPackagesMap(pkgId)
@@ -57,9 +61,11 @@ class PackageUpgradeValidator(
         // the pkgB in V1 and V2 must have the same package id (as defined by its package name + version)
         // Consider transitivity?
         pkg.metadata match {
-          case Some(pkgMetadata) if supportsUpgrades =>
+          case Some(pkgMetadata) =>
             for {
-              _ <- validatePackageUpgrade((pkgId, pkg), pkgMetadata, packageMap)
+              _ <- Applicative[EitherT[Future, DamlError, *]].whenA(supportsUpgrades)(
+                validatePackageUpgrade((pkgId, pkg), pkgMetadata, packageMap)
+              )
               res <- go(packageMap + ((pkgId, (pkgMetadata.name, pkgMetadata.version))), rest)
             } yield res
           case None => {
