@@ -106,3 +106,97 @@ Therefore, the vast majority of releases are made using a target commit from a
 
 Release branches do not run CI on their own commits - instead, CI is run on PRs
 targeting them, and we enforce linear merges.
+
+## Working with Azure Pipelines
+
+### Understanding what gets built
+
+Azure Pipelines does not build your branch or your PR; instead, what it builds
+is the result of merging your branch into its target (in most cases, `main` or
+`main-2.x`). This has some nice properties (you don't need to explicitly
+rebase/merge to be confident your PR builds against current head), but it can
+also cause some subtle issues because **this is done per job**.
+
+Meaning that, within a single build, two separate jobs may not be building the
+same code. This is particularly problematic for the platform-independence test,
+in rare cases where the various platform jobs don't start at the same time and
+the changes on main in-between change the produced DAR file.
+
+### Restarting a failed build
+
+Azure Pipelines should trigger a build on every pull request (but not every
+branch). If a build has failed and you believe the failure to be flaky, you can
+re-run the build by navigating to the "Checks" tab of your PR, and clicking the
+"Re-run failed checks" button in the top right.
+
+**This will only work once the build is finished, whether successfully or
+not.** The button does nothing if some jobs (from that build) are still
+running. You can identify builds and jobs on the GitHub Checks page by their
+name, which is of the form `[Pipeline] ([Job])`, e.g. `PRs
+(compatibility_linux)` where `PRs` is the name of the pipeline and
+`compatibility_linux` is the job. A build is an instance of running all the
+jobs in a pipeline.
+
+Note that the `Re-run all jobs` button reruns all the jobs, which means you
+take a chance with the ones that have already succeeded. This is sometimes
+necessary, but the only case I can think of is when the platform-independence
+test fails because of a race condition.
+
+### Finding logs for a build
+
+From the same Checks tab (or the equivalent for main branch commits), you can
+click on the "View more details on Azure Pipelines" link to get access to the
+running logs of a job.
+
+Note that logs at this level are per step, not per job. You can look at logs
+scrolling by for a running step, or download the entirety of the logs as a text
+file with the "View raw log" button in the top right.
+
+On the build page view (when no specific job or step is selected), you can see
+the build artifacts. Most of these artifacts are additional logs, presumably
+more detailed.
+
+### Managing jobs in Azure Pipeleines
+
+Only a few people have access to Azure Pipelines directly. Those people can
+additionally use the Azure Pipelines UI to:
+
+- Cancel a running build. Note that we cannot cancel individual jobs, and the
+  cancellation is a request - some stops react more quickly than others.
+- Manually start a build from a pipeline on an arbitrary git commit - this is
+  easily abusable and the reason why not many people are given access.
+
+Direct access to Azure Pipelines does not help with most routine tasks, e.g. it
+does not allow one to restart a failed job while other jobs in the same build
+are still running.
+
+### Managing CI pools
+
+Direct access to Azure Pipelines also allows one to manage the pools of CI
+machines:
+
+- See how many jobs are running and how many jobs are queued, which may
+  indicate a need for more machines. There is no auto-scaling, so scaling may
+  need to be done manually.
+- Disable (and then re-enable) individual machines in a pool. A disabled
+  machine will finish any ongoing job but will not be assigned new jobs.
+- Delete a machine from a pool. This removes it from Azure Pipelines, but does
+  not free up the corresponding resources on Azure. Prefer [Bracin] for machine
+  deletion.
+- Add (or remove) "capabilities" to a machine, which is a set of flags that can
+  be used in "demands" in job configuration. By default, all jobs require the
+  `assignment` capability to be equal to `default` (this is an explicit demand in
+  our YAML files, not a statement about Azure Pipelines defaults), and all
+  machines start with the `assignment` capability equal to `default` (this is
+  explicitly set in our startup scripts in [daml-ci], not a statement about the
+  Azure Agent's defaults). Changing capabilities can allow fine-grained
+  selection of which PR runs on which machine, which is generally seen as a bad
+  thing we should not do, but is occasionally needed while working on the CI
+  infrastructure, for example to test out a new version of the base VM that
+  machines run from.
+
+Scaling machines requires access to Azure (which is separate from Azure
+Pipelines despite the naming similarity), or the feature to be added to
+[Bracin].
+
+[Bracin]: https://daml-ci.da-int.net
