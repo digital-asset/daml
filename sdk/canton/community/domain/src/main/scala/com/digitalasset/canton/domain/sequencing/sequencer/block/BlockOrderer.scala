@@ -5,12 +5,12 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block
 
 import cats.data.EitherT
 import com.digitalasset.canton.domain.block.{RawLedgerBlock, SequencerDriverHealthStatus}
-import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequest
+import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SenderSigned
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
   SendAsyncError,
-  SignedContent,
+  SubmissionRequest,
 }
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.ServerServiceDefinition
@@ -63,12 +63,8 @@ trait BlockOrderer extends AutoCloseable {
   /** Orders a submission.
     * If the sequencer node is honest, this normally results in a [[com.digitalasset.canton.domain.block.RawLedgerBlock.RawBlockEvent.Send]].
     * In exceptional cases (crashes, high load, ...), a sequencer may drop submissions.
-    * There's a double [[com.digitalasset.canton.sequencing.protocol.SignedContent]] wrapping because
-    * the outer signature is the sequencer's, and the inner signature is the sender's.
-    * The sequencer signature may be used by the implementation to ensure that the submission originates from the
-    * expected sequencer node. This may be necessary if the implementation is split across multiple processes.
     */
-  def send(signedSubmission: SignedOrderingRequest)(implicit
+  def send(signedSubmissionRequest: SenderSigned[SubmissionRequest])(implicit
       traceContext: TraceContext
   ): EitherT[Future, SendAsyncError, Unit]
 
@@ -76,7 +72,7 @@ trait BlockOrderer extends AutoCloseable {
     * If the sequencer node is honest, this normally results in a [[com.digitalasset.canton.domain.block.RawLedgerBlock.RawBlockEvent.Acknowledgment]].
     * In exceptional cases (crashes, high load, ...), a sequencer may drop acknowledgements.
     */
-  def acknowledge(signedAcknowledgeRequest: SignedContent[AcknowledgeRequest])(implicit
+  def acknowledge(signedAcknowledgeRequest: SenderSigned[AcknowledgeRequest])(implicit
       traceContext: TraceContext
   ): Future[Unit]
 

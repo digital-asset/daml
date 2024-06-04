@@ -712,9 +712,7 @@ private[update] final class SubmissionRequestValidator(
 
     // If we haven't seen any topology transactions yet, then we cannot verify signatures, so we skip it.
     // In practice this should only happen for the first ever transaction, which contains the initial topology data.
-    val skipCheck =
-      latestSequencerEventTimestamp.isEmpty || !submissionRequest.sender.isAuthenticated
-    if (skipCheck) {
+    if (latestSequencerEventTimestamp.isEmpty) {
       EitherT.pure[FutureUnlessShutdown, SubmissionRequestOutcome](())
     } else {
       val alarm = for {

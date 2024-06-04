@@ -34,7 +34,7 @@ import com.digitalasset.canton.resource.IdempotentInsert.insertVerifyingConflict
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.TrafficState
-import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId}
+import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SequencerCounter, resource}
@@ -152,20 +152,14 @@ class DbSequencerBlockStore(
     val addMember = sequencerStore.addMemberDBIO(_, _)
     val addAcks = sequencerStore.acknowledgeDBIO _
     val addEvents = sequencerStore.addEventsDBIO(trafficState)(_)
-    val (unauthenticated, disabledMembers) = membersDisabled.partitionMap {
-      case unauthenticated: UnauthenticatedMemberId => Left(unauthenticated)
-      case other => Right(other)
-    }
     val disableMember = sequencerStore.disableMemberDBIO _
-    val unregisterUnauthenticatedMember = sequencerStore.unregisterUnauthenticatedMember _
 
     val dbio = DBIO
       .seq(
         newMembers.toSeq.map(addMember.tupled) ++
           acknowledgments.toSeq.map(addAcks.tupled) ++
-          unauthenticated.map(unregisterUnauthenticatedMember) ++
           Seq(sequencerStore.addInFlightAggregationUpdatesDBIO(inFlightAggregationUpdates)) ++
-          disabledMembers.map(disableMember): _*
+          membersDisabled.map(disableMember): _*
       )
       .transactionally
 

@@ -78,8 +78,6 @@ class GrpcSequencerServiceTest
 
   private lazy val participant = DefaultTestIdentities.participant1
   private lazy val crypto = new SymbolicPureCrypto
-  private lazy val unauthenticatedMember =
-    UnauthenticatedMemberId.tryCreate(participant.namespace)(crypto)
 
   class Environment(member: Member) extends Matchers {
     val sequencer: Sequencer = mock[Sequencer]
@@ -251,67 +249,45 @@ class GrpcSequencerServiceTest
       signedContent(request.toByteString)
 
     def sendProto(
-        versionedRequest: ByteString,
-        versionedSignedRequest: ByteString,
-        authenticated: Boolean,
+        versionedSignedRequest: ByteString
     )(implicit
         env: Environment
-    ): Future[ParsingResult[SendAsyncUnauthenticatedVersionedResponse]] = {
+    ): Future[ParsingResult[SendAsyncVersionedResponse]] = {
       import env.*
 
-      if (!authenticated) {
-        val requestP = v30.SendAsyncUnauthenticatedVersionedRequest(versionedRequest)
-        val response = service.sendAsyncUnauthenticatedVersioned(requestP)
-        response.map(
-          SendAsyncUnauthenticatedVersionedResponse.fromSendAsyncUnauthenticatedVersionedResponseProto
-        )
-      } else {
-        val requestP = v30.SendAsyncVersionedRequest(versionedSignedRequest)
-        val response = service.sendAsyncVersioned(requestP)
+      val requestP = v30.SendAsyncVersionedRequest(versionedSignedRequest)
+      val response = service.sendAsyncVersioned(requestP)
 
-        response.map(SendAsyncUnauthenticatedVersionedResponse.fromSendAsyncVersionedResponseProto)
-      }
+      response.map(SendAsyncVersionedResponse.fromProtoV30)
     }
 
-    def send(request: SubmissionRequest, authenticated: Boolean)(implicit
+    def send(request: SubmissionRequest)(implicit
         env: Environment
-    ): Future[ParsingResult[SendAsyncUnauthenticatedVersionedResponse]] = {
-      val signedRequest = signedSubmissionReq(request)
-      sendProto(
-        request.toByteString,
-        signedRequest.toByteString,
-        authenticated,
-      )
+    ): Future[ParsingResult[SendAsyncVersionedResponse]] = {
+      sendProto(signedSubmissionReq(request).toByteString)
     }
 
     def sendAndCheckSucceed(request: SubmissionRequest)(implicit
         env: Environment
     ): Future[Assertion] =
-      send(request, authenticated = true).map { responseP =>
+      send(request).map { responseP =>
         responseP.value.error shouldBe None
       }
 
     def sendAndCheckError(
-        request: SubmissionRequest,
-        authenticated: Boolean = true,
+        request: SubmissionRequest
     )(assertion: PartialFunction[SendAsyncError, Assertion])(implicit
         env: Environment
     ): Future[Assertion] =
-      send(request, authenticated).map { responseP =>
+      send(request).map { responseP =>
         assertion(responseP.value.error.value)
       }
 
     def sendProtoAndCheckError(
-        versionedRequest: ByteString,
         versionedSignedRequest: ByteString,
         assertion: PartialFunction[SendAsyncError, Assertion],
-        authenticated: Boolean = true,
     )(implicit env: Environment): Future[Assertion] =
-      sendProto(
-        versionedRequest,
-        versionedSignedRequest,
-        authenticated,
-      ).map { responseP =>
+      sendProto(versionedSignedRequest).map { responseP =>
         assertion(responseP.value.error.value)
       }
 
@@ -332,7 +308,6 @@ class GrpcSequencerServiceTest
 
       loggerFactory.assertLogs(
         sendProtoAndCheckError(
-          VersionedMessage(requestV1.toByteString, 0).toByteString,
           signedRequestV0.toByteString,
           { case SendAsyncError.RequestInvalid(message) =>
             message should startWith("ValueConversionError(sender,Invalid member ``")
@@ -367,7 +342,6 @@ class GrpcSequencerServiceTest
       )
       loggerFactory.assertLogs(
         sendProtoAndCheckError(
-          VersionedMessage(requestV1.toByteString, 0).toByteString,
           signedRequestV0.toByteString,
           { case SendAsyncError.RequestInvalid(message) =>
             message should startWith(
@@ -418,56 +392,14 @@ class GrpcSequencerServiceTest
       )
     }
 
-    "reject unauthenticated member that uses authenticated send" in { _ =>
-      val request = defaultRequest
-        .focus(_.sender)
-        .replace(unauthenticatedMember)
-
-      loggerFactory.assertLogs(
-        sendAndCheckError(request, authenticated = true) {
-          case SendAsyncError.RequestRefused(message) =>
-            message should include("needs to use unauthenticated send operation")
-        }(new Environment(unauthenticatedMember)),
-        _.warningMessage should include("needs to use unauthenticated send operation"),
-      )
-    }
-
-    "reject non domain manager authenticated member sending message to unauthenticated member" in {
-      implicit env =>
-        val request = defaultRequest
-          .focus(_.batch)
-          .replace(
-            Batch(
-              List(
-                ClosedEnvelope.create(
-                  content,
-                  Recipients.cc(unauthenticatedMember),
-                  Seq.empty,
-                  testedProtocolVersion,
-                )
-              ),
-              testedProtocolVersion,
-            )
-          )
-        loggerFactory.assertLogs(
-          sendAndCheckError(request, authenticated = true) {
-            case SendAsyncError.RequestRefused(message) =>
-              message should include("Member is trying to send message to unauthenticated")
-          },
-          _.warningMessage should include(
-            "Member is trying to send message to unauthenticated"
-          ),
-        )
-    }
-
     "reject on confirmation rate excess" in { implicit env =>
       def expectSuccess(): Future[Assertion] = {
         sendAndCheckSucceed(defaultConfirmationRequest)
       }
 
       def expectOneSuccessOneOverloaded(): Future[Assertion] = {
-        val result1F = send(defaultConfirmationRequest, authenticated = true)
-        val result2F = send(defaultConfirmationRequest, authenticated = true)
+        val result1F = send(defaultConfirmationRequest)
+        val result2F = send(defaultConfirmationRequest)
         for {
           result1 <- result1F
           result2 <- result2F
@@ -592,63 +524,6 @@ class GrpcSequencerServiceTest
       ),
     )
 
-    "reject requests to unauthenticated members with a signing key timestamps" in { implicit env =>
-      val request = defaultRequest
-        .focus(_.topologyTimestamp)
-        .replace(Some(CantonTimestamp.ofEpochSecond(1)))
-        .focus(_.batch)
-        .replace(
-          Batch(
-            List(
-              ClosedEnvelope.create(
-                content,
-                Recipients.cc(unauthenticatedMember),
-                Seq.empty,
-                testedProtocolVersion,
-              )
-            ),
-            testedProtocolVersion,
-          )
-        )
-
-      loggerFactory.assertLogs(
-        sendAndCheckError(request) { case SendAsyncError.RequestRefused(message) =>
-          message should include(
-            "Requests sent from or to unauthenticated members must not specify the topology timestamp"
-          )
-        },
-        _.warningMessage should include(
-          "Requests sent from or to unauthenticated members must not specify the topology timestamp"
-        ),
-      )
-    }
-
-    "reject unauthenticated eligible members in aggregation rule" in { implicit env =>
-      val request = defaultRequest
-        .focus(_.topologyTimestamp)
-        .replace(Some(CantonTimestamp.ofEpochSecond(1)))
-        .focus(_.aggregationRule)
-        .replace(
-          Some(
-            AggregationRule(
-              eligibleMembers = NonEmpty(Seq, participant, unauthenticatedMember),
-              threshold = PositiveInt.tryCreate(1),
-              testedProtocolVersion,
-            )
-          )
-        )
-      loggerFactory.assertLogs(
-        sendAndCheckError(request) { case SendAsyncError.RequestInvalid(message) =>
-          message should include(
-            "Eligible senders in aggregation rule must be authenticated, but found unauthenticated members"
-          )
-        },
-        _.warningMessage should include(
-          "Eligible senders in aggregation rule must be authenticated, but found unauthenticated members"
-        ),
-      )
-    }
-
     "reject unachievable threshold in aggregation rule" in { implicit env =>
       val request = defaultRequest
         .focus(_.topologyTimestamp)
@@ -691,71 +566,6 @@ class GrpcSequencerServiceTest
         },
         _.warningMessage should include(
           "Sender is not eligible according to the aggregation rule"
-        ),
-      )
-    }
-
-    "reject unauthenticated member sending message to anything other than broadcast" in { _ =>
-      val request = defaultRequest
-        .focus(_.sender)
-        .replace(unauthenticatedMember)
-
-      val errorMsg =
-        "Unauthenticated member is trying to send message to members other than the topology broadcast address All"
-
-      loggerFactory.assertLogs(
-        sendAndCheckError(request, authenticated = false) {
-          case SendAsyncError.RequestRefused(message) =>
-            message should include(errorMsg)
-        }(new Environment(unauthenticatedMember)),
-        _.warningMessage should include(errorMsg),
-      )
-    }
-
-    "reject authenticated member that uses unauthenticated send" in { implicit env =>
-      val request = defaultRequest
-        .focus(_.sender)
-        .replace(DefaultTestIdentities.participant1)
-
-      loggerFactory.assertLogs(
-        sendAndCheckError(request, authenticated = false) {
-          case SendAsyncError.RequestRefused(message) =>
-            message should include("needs to use authenticated send operation")
-        },
-        _.warningMessage should include("needs to use authenticated send operation"),
-      )
-    }
-
-    "reject requests from unauthenticated senders with a signing key timestamp" in { _ =>
-      val request = defaultRequest
-        .focus(_.sender)
-        .replace(unauthenticatedMember)
-        .focus(_.topologyTimestamp)
-        .replace(Some(CantonTimestamp.Epoch))
-        .focus(_.batch)
-        .replace(
-          Batch(
-            List(
-              ClosedEnvelope.create(
-                content,
-                Recipients.cc(DefaultTestIdentities.sequencerId),
-                Seq.empty,
-                testedProtocolVersion,
-              )
-            ),
-            testedProtocolVersion,
-          )
-        )
-
-      loggerFactory.assertLogs(
-        sendAndCheckError(request, authenticated = false) {
-          case SendAsyncError.RequestRefused(message) =>
-            message should include(
-              "Requests sent from or to unauthenticated members must not specify the topology timestamp"
-            )
-        }(new Environment(unauthenticatedMember)),
-        _.warningMessage should include(
-          "Requests sent from or to unauthenticated members must not specify the topology timestamp"
         ),
       )
     }
@@ -816,42 +626,6 @@ class GrpcSequencerServiceTest
       val requestP =
         SubscriptionRequest(
           ParticipantId("Wrong participant"),
-          SequencerCounter.Genesis,
-          testedProtocolVersion,
-        ).toProtoV30
-
-      loggerFactory.suppressWarningsAndErrors {
-        env.service.subscribeVersioned(requestP, observer)
-      }
-
-      observer.items.toSeq should matchPattern {
-        case Seq(StreamError(err: StatusException)) if err.getStatus.getCode == PERMISSION_DENIED =>
-      }
-    }
-
-    "return error if authenticated member sending request unauthenticated endpoint" in { env =>
-      val observer = new MockServerStreamObserver[v30.VersionedSubscriptionResponse]()
-      val requestP =
-        SubscriptionRequest(
-          participant,
-          SequencerCounter.Genesis,
-          testedProtocolVersion,
-        ).toProtoV30
-
-      loggerFactory.suppressWarningsAndErrors {
-        env.service.subscribeUnauthenticatedVersioned(requestP, observer)
-      }
-
-      observer.items.toSeq should matchPattern {
-        case Seq(StreamError(err: StatusException)) if err.getStatus.getCode == PERMISSION_DENIED =>
-      }
-    }
-
-    "return error if unauthenticated member sending request authenticated endpoint" in { env =>
-      val observer = new MockServerStreamObserver[v30.VersionedSubscriptionResponse]()
-      val requestP =
-        SubscriptionRequest(
-          unauthenticatedMember,
           SequencerCounter.Genesis,
           testedProtocolVersion,
         ).toProtoV30

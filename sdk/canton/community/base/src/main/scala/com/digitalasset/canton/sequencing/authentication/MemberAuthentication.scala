@@ -44,7 +44,6 @@ object MemberAuthentication extends MemberAuthentication {
   def apply(member: Member): Either[AuthenticationError, MemberAuthentication] = member match {
     case _: ParticipantId | _: MediatorId => Right(this)
     case _: SequencerId => Left(AuthenticationNotSupportedForMember(member))
-    case _: UnauthenticatedMemberId => Left(AuthenticationNotSupportedForMember(member))
   }
 
   sealed abstract class AuthenticationError(val reason: String, val code: String)

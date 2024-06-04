@@ -24,7 +24,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.TrafficState
-import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId}
+import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import org.apache.pekko.NotUsed
@@ -208,9 +208,6 @@ class InMemorySequencerStateManagerStore(
     def disableMember(member: Member): State =
       copy(indices = indices + (member -> indices(member).disable()))
 
-    def unregisterUnauthenticatedMember(member: UnauthenticatedMemberId): State =
-      copy(indices = indices - member)
-
     def addEvents(
         events: Map[Member, OrdinarySerializedEvent],
         trafficSate: Map[Member, TrafficState],
@@ -306,15 +303,6 @@ class InMemorySequencerStateManagerStore(
   override def disableMember(member: Member)(implicit traceContext: TraceContext): Future[Unit] = {
     state.getAndUpdate {
       _.disableMember(member)
-    }
-    Future.unit
-  }
-
-  def unregisterUnauthenticatedMember(
-      member: UnauthenticatedMemberId
-  ): Future[Unit] = {
-    state.getAndUpdate {
-      _.unregisterUnauthenticatedMember(member)
     }
     Future.unit
   }

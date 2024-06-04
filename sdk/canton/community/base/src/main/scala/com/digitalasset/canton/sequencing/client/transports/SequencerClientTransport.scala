@@ -32,13 +32,6 @@ trait SequencerClientTransportCommon extends FlagCloseable with SupportsHandshak
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit]
 
-  def sendAsyncUnauthenticatedVersioned(
-      request: SubmissionRequest,
-      timeout: Duration,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit]
-
   /** Acknowledge that we have successfully processed all events up to and including the given timestamp.
     * The client should then never subscribe for events from before this point.
     *
@@ -65,10 +58,6 @@ trait SequencerClientTransport extends SequencerClientTransportCommon {
     */
   def subscribe[E](request: SubscriptionRequest, handler: SerializedEventHandler[E])(implicit
       traceContext: TraceContext
-  ): SequencerSubscription[E]
-
-  def subscribeUnauthenticated[E](request: SubscriptionRequest, handler: SerializedEventHandler[E])(
-      implicit traceContext: TraceContext
   ): SequencerSubscription[E]
 
   /** The transport can decide which errors will cause the sequencer client to not try to reestablish a subscription */

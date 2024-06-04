@@ -25,25 +25,11 @@ import com.digitalasset.canton.metrics.MetricsHelper
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
 import com.digitalasset.canton.sequencing.client.SequencerClient
-import com.digitalasset.canton.sequencing.protocol.{
-  AcknowledgeRequest,
-  MemberRecipient,
-  SendAsyncError,
-  SignedContent,
-  SubmissionRequest,
-  TrafficState,
-}
+import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
-import com.digitalasset.canton.topology.{
-  AuthenticatedMember,
-  DomainId,
-  DomainMember,
-  Member,
-  SequencerId,
-  UnauthenticatedMemberId,
-}
+import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.util.FutureUtil.doNotAwait
@@ -242,37 +228,26 @@ class DatabaseSequencer(
   override def registerMember(member: Member)(implicit
       traceContext: TraceContext
   ): EitherT[Future, RegisterError, Unit] = {
-    if (!member.isAuthenticated) {
-      for {
-        isRegistered <- EitherT.right[RegisterError](isRegistered(member))
-        _ <- EitherTUtil.ifThenET[Future, RegisterError](
-          !isRegistered
-        ) {
-          registerMemberInternal(member, clock.now)
-        }
-      } yield ()
-    } else {
-      for {
-        firstKnownAtO <- EitherT.right[RegisterError](
-          cryptoApi.headSnapshot.ipsSnapshot.memberFirstKnownAt(member)
-        )
-        _ <- firstKnownAtO match {
-          case Some(firstKnownAt) =>
-            logger.debug(s"Registering member $member with timestamp $firstKnownAt")
-            registerMemberInternal(member, firstKnownAt)
+    for {
+      firstKnownAtO <- EitherT.right[RegisterError](
+        cryptoApi.headSnapshot.ipsSnapshot.memberFirstKnownAt(member)
+      )
+      _ <- firstKnownAtO match {
+        case Some(firstKnownAt) =>
+          logger.debug(s"Registering member $member with timestamp $firstKnownAt")
+          registerMemberInternal(member, firstKnownAt)
 
-          case None =>
-            val error: RegisterError =
-              OperationError[RegisterMemberError](
-                RegisterMemberError.UnexpectedError(
-                  member,
-                  s"Member $member is not known in the topology",
-                )
+        case None =>
+          val error: RegisterError =
+            OperationError[RegisterMemberError](
+              RegisterMemberError.UnexpectedError(
+                member,
+                s"Member $member is not known in the topology",
               )
-            EitherT.leftT[Future, Unit](error)
-        }
-      } yield ()
-    }
+            )
+          EitherT.leftT[Future, Unit](error)
+      }
+    } yield ()
   }
 
   /**  Package private to use access method in tests, see `TestDatabaseSequencerWrapper`.
@@ -329,27 +304,20 @@ class DatabaseSequencer(
     if (!unifiedSequencer) {
       reader.read(member, offset)
     } else {
-      if (!member.isAuthenticated) {
-        // allowing unauthenticated members to read events is the same as automatically registering an unauthenticated member
-        // and then proceeding with the subscription.
-        // optimization: if the member is unauthenticated, we don't need to fetch all members from the snapshot
-        reader.read(member, offset)
-      } else {
-        for {
-          isKnown <- EitherT.right[CreateSubscriptionError](
-            cryptoApi.currentSnapshotApproximation.ipsSnapshot.isMemberKnown(member)
-          )
-          _ <- EitherTUtil.condUnitET[Future](
-            isKnown,
-            CreateSubscriptionError.UnknownMember(member): CreateSubscriptionError,
-          )
-          isRegistered <- EitherT.right(isRegistered(member))
-          _ <- EitherTUtil.ifThenET[Future, CreateSubscriptionError](!isRegistered) {
-            registerMember(member).leftMap(CreateSubscriptionError.MemberRegisterError)
-          }
-          eventSource <- reader.read(member, offset)
-        } yield eventSource
-      }
+      for {
+        isKnown <- EitherT.right[CreateSubscriptionError](
+          cryptoApi.currentSnapshotApproximation.ipsSnapshot.isMemberKnown(member)
+        )
+        _ <- EitherTUtil.condUnitET[Future](
+          isKnown,
+          CreateSubscriptionError.UnknownMember(member): CreateSubscriptionError,
+        )
+        isRegistered <- EitherT.right(isRegistered(member))
+        _ <- EitherTUtil.ifThenET[Future, CreateSubscriptionError](!isRegistered) {
+          registerMember(member).leftMap(CreateSubscriptionError.MemberRegisterError)
+        }
+        eventSource <- reader.read(member, offset)
+      } yield eventSource
     }
   }
 
@@ -375,19 +343,13 @@ class DatabaseSequencer(
       member: Member
   )(implicit traceContext: TraceContext): Future[Unit] = {
     withExpectedRegisteredMember(member, "Disable member") { memberId =>
-      member match {
-        // Unauthenticated members being disabled get automatically unregistered
-        case unauthenticated: UnauthenticatedMemberId =>
-          store.unregisterUnauthenticatedMember(unauthenticated)
-        case _: AuthenticatedMember =>
-          store.disableMember(memberId)
-      }
+      store.disableMember(memberId)
     }
   }
 
   // For the database sequencer, the SequencerId serves as the local sequencer identity/member
   // until the database and block sequencers are unified.
-  override protected def localSequencerMember: DomainMember = SequencerId(domainId.uid)
+  override protected def localSequencerMember: Member = SequencerId(domainId.uid)
 
   /** helper for performing operations that are expected to be called with a registered member so will just throw if we
     * find the member is unregistered.

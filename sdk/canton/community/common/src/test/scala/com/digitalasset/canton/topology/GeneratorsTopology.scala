@@ -10,8 +10,6 @@ import org.scalacheck.Arbitrary
 object GeneratorsTopology {
   import com.digitalasset.canton.config.GeneratorsConfig.*
 
-  implicit val domainMemberArb: Arbitrary[DomainMember] = genArbitrary
-  implicit val authenticatedMemberArb: Arbitrary[AuthenticatedMember] = genArbitrary
   implicit val fingerprintArb: Arbitrary[Fingerprint] = Arbitrary(
     string68Arb.arbitrary.map(Fingerprint.tryCreate)
   )

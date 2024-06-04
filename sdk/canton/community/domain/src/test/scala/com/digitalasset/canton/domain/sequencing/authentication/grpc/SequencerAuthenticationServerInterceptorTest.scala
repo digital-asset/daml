@@ -23,7 +23,7 @@ import com.digitalasset.canton.sequencing.authentication.{
   AuthenticationTokenManagerConfig,
 }
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
@@ -93,11 +93,6 @@ class SequencerAuthenticationServerInterceptorTest
 
     val participantId =
       UniqueIdentifier.fromProtoPrimitive_("p1::default").map(new ParticipantId(_)).value
-    val unauthenticatedMemberId =
-      UniqueIdentifier
-        .fromProtoPrimitive_("unm1::default")
-        .map(new UnauthenticatedMemberId(_))
-        .value
     val neverExpire = CantonTimestamp.MaxValue
     val crypto = new SymbolicPureCrypto
     val token = AuthenticationTokenWithExpiry(AuthenticationToken.generate(crypto), neverExpire)

@@ -9,7 +9,7 @@ import com.digitalasset.canton.domain.block.{
   SequencerDriver,
   SequencerDriverHealthStatus,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequest
+import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SenderSigned
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.tracing.TraceContext
@@ -33,14 +33,14 @@ class DriverBlockOrderer(
     driver.subscribe()
 
   override def send(
-      signedSubmission: SignedOrderingRequest
+      signedSubmissionRequest: SenderSigned[SubmissionRequest]
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] =
     // The driver API doesn't provide error reporting, so we don't attempt to translate the exception
     EitherT.right(
-      driver.send(signedSubmission.toByteString)
+      driver.send(signedSubmissionRequest.toByteString)
     )
 
-  override def acknowledge(signedAcknowledgeRequest: SignedContent[AcknowledgeRequest])(implicit
+  override def acknowledge(signedAcknowledgeRequest: SenderSigned[AcknowledgeRequest])(implicit
       traceContext: TraceContext
   ): Future[Unit] =
     driver.acknowledge(signedAcknowledgeRequest.toByteString)

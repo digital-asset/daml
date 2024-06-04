@@ -31,7 +31,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.TrafficState
-import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId}
+import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import monocle.macros.syntax.lens.*
 import org.apache.pekko.NotUsed
@@ -112,11 +112,6 @@ class InMemorySequencerBlockStore(
     val addEvents = sequencerStore.addEvents(_, trafficState)
     val addAcks = sequencerStore.acknowledge(_, _)
     val disableMember = sequencerStore.disableMember(_)
-    val unregisterUnauthenticatedMember = sequencerStore.unregisterUnauthenticatedMember(_)
-    val (unauthenticated, disabledMembers) = membersDisabled.partitionMap {
-      case unauthenticated: UnauthenticatedMemberId => Left(unauthenticated)
-      case other => Right(other)
-    }
     // Since these updates are being run sequentially from the state manager, there is no problem with this
     // implementation not being atomic.
     // Also because this is an in-mem implementation, there is no concern about crashing mid update since all state
@@ -125,8 +120,7 @@ class InMemorySequencerBlockStore(
       _ <- Future.traverse(newMembers.toSeq)(addMember.tupled)
       _ <- Future.traverse(events)(addEvents)
       _ <- Future.traverse(acknowledgments.toSeq)(addAcks.tupled)
-      _ <- Future.traverse(disabledMembers)(disableMember)
-      _ <- Future.traverse(unauthenticated)(unregisterUnauthenticatedMember)
+      _ <- Future.traverse(membersDisabled)(disableMember)
       _ <- sequencerStore.addInFlightAggregationUpdates(inFlightAggregationUpdates)
     } yield ()
   }

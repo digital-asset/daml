@@ -64,11 +64,6 @@ class ReplayingEventsSequencerClientTransport(
     EitherT.rightT(())
 
   /** Does nothing */
-  override def sendAsyncUnauthenticatedVersioned(request: SubmissionRequest, timeout: Duration)(
-      implicit traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] = EitherT.rightT(())
-
-  /** Does nothing */
   override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Boolean] =
@@ -113,11 +108,6 @@ class ReplayingEventsSequencerClientTransport(
     new ReplayingSequencerSubscription(timeouts, loggerFactory)
   }
 
-  override def subscribeUnauthenticated[E](
-      request: SubscriptionRequest,
-      handler: SerializedEventHandler[E],
-  )(implicit traceContext: TraceContext): SequencerSubscription[E] = subscribe(request, handler)
-
   /** Will never request a retry. */
   override def subscriptionRetryPolicy: SubscriptionErrorRetryPolicy =
     SubscriptionErrorRetryPolicy.never
@@ -146,10 +136,6 @@ class ReplayingEventsSequencerClientTransport(
     ErrorUtil.internalError(
       new UnsupportedOperationException("subscribe(SubmissionRequest) is not yet implemented")
     )
-
-  override def subscribeUnauthenticated(request: SubscriptionRequest)(implicit
-      traceContext: TraceContext
-  ): SequencerSubscriptionPekko[Nothing] = subscribe(request)
 
   override def subscriptionRetryPolicyPekko: SubscriptionErrorRetryPolicyPekko[Nothing] =
     SubscriptionErrorRetryPolicyPekko.never

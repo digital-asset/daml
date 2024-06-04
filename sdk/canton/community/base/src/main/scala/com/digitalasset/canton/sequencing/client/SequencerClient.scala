@@ -8,7 +8,6 @@ import cats.data.EitherT
 import cats.implicits.catsSyntaxOptionId
 import cats.syntax.alternative.*
 import cats.syntax.either.*
-import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.daml.metrics.Timed
@@ -101,31 +100,6 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
     */
   def trafficStateController: TrafficStateController
 
-  /** Sends a request to sequence a deliver event to the sequencer.
-    * This method merely dispatches to one of the other methods (`sendAsync` or `sendAsyncUnauthenticated`)
-    * depending if member is Authenticated or Unauthenticated.
-    */
-  def sendAsyncUnauthenticatedOrNot(
-      batch: Batch[DefaultOpenEnvelope],
-      topologyTimestamp: Option[CantonTimestamp] = None,
-      maxSequencingTime: CantonTimestamp = generateMaxSequencingTime,
-      messageId: MessageId = generateMessageId,
-      aggregationRule: Option[AggregationRule] = None,
-      callback: SendCallback = SendCallback.empty,
-      amplify: Boolean = false,
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit]
-
-  /** Does the same as [[sendAsync]], except that this method is supposed to be used
-    * only by unauthenticated members for very specific operations that do not require authentication
-    * such as requesting that a participant's topology data gets accepted by the topology manager
-    */
-  def sendAsyncUnauthenticated(
-      batch: Batch[DefaultOpenEnvelope],
-      maxSequencingTime: CantonTimestamp = generateMaxSequencingTime,
-      messageId: MessageId = generateMessageId,
-      callback: SendCallback = SendCallback.empty,
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit]
-
   /** Create a subscription for sequenced events for this member,
     * starting after the prehead in the `sequencerCounterTrackerStore`.
     *
@@ -168,15 +142,6 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
       eventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
       timeTracker: DomainTimeTracker,
       fetchCleanTimestamp: PeriodicAcknowledgements.FetchCleanTimestamp,
-  )(implicit traceContext: TraceContext): Future[Unit]
-
-  /** Does the same as [[subscribeAfter]], except that this method is supposed to be used
-    * only by unauthenticated members
-    */
-  def subscribeAfterUnauthenticated(
-      priorTimestamp: CantonTimestamp,
-      eventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
-      timeTracker: DomainTimeTracker,
   )(implicit traceContext: TraceContext): Future[Unit]
 
   /** Acknowledge that we have successfully processed all events up to and including the given timestamp.
@@ -250,37 +215,6 @@ abstract class SequencerClientImpl(
   private lazy val printer =
     new CantonPrettyPrinter(loggingConfig.api.maxStringLength, loggingConfig.api.maxMessageLines)
 
-  override def sendAsyncUnauthenticatedOrNot(
-      batch: Batch[DefaultOpenEnvelope],
-      topologyTimestamp: Option[CantonTimestamp],
-      maxSequencingTime: CantonTimestamp,
-      messageId: MessageId,
-      aggregationRule: Option[AggregationRule],
-      callback: SendCallback,
-      amplify: Boolean,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
-    member match {
-      case _: AuthenticatedMember =>
-        sendAsync(
-          batch = batch,
-          topologyTimestamp = topologyTimestamp,
-          maxSequencingTime = maxSequencingTime,
-          messageId = messageId,
-          aggregationRule = aggregationRule,
-          callback = callback,
-        )
-      case _: UnauthenticatedMemberId =>
-        sendAsyncUnauthenticated(
-          batch = batch,
-          maxSequencingTime = maxSequencingTime,
-          messageId = messageId,
-          callback = callback,
-        )
-    }
-  }
-
   override def sendAsync(
       batch: Batch[DefaultOpenEnvelope],
       topologyTimestamp: Option[CantonTimestamp],
@@ -293,29 +227,9 @@ abstract class SequencerClientImpl(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] =
     for {
-      _ <- EitherT.cond[FutureUnlessShutdown](
-        member.isAuthenticated,
-        (),
-        SendAsyncClientError.RequestInvalid(
-          "Only authenticated members can use the authenticated send operation"
-        ): SendAsyncClientError,
-      )
       // TODO(#12950): Validate that group addresses map to at least one member
-      _ <- EitherT.cond[FutureUnlessShutdown](
-        topologyTimestamp.isEmpty || batch.envelopes.forall(
-          _.recipients.allRecipients.forall {
-            case MemberRecipient(m) => m.isAuthenticated
-            case _ => true
-          }
-        ),
-        (),
-        SendAsyncClientError.RequestInvalid(
-          "Requests addressed to unauthenticated members must not specify a topology timestamp"
-        ): SendAsyncClientError,
-      )
       result <- sendAsyncInternal(
         batch,
-        requiresAuthentication = true,
         topologyTimestamp,
         maxSequencingTime,
         messageId,
@@ -324,37 +238,6 @@ abstract class SequencerClientImpl(
         amplify,
       )
     } yield result
-
-  /** Does the same as [[sendAsync]], except that this method is supposed to be used
-    * only by unauthenticated members for very specific operations that do not require authentication
-    * such as requesting that a participant's topology data gets accepted by the topology manager
-    */
-  override def sendAsyncUnauthenticated(
-      batch: Batch[DefaultOpenEnvelope],
-      maxSequencingTime: CantonTimestamp = generateMaxSequencingTime,
-      messageId: MessageId = generateMessageId,
-      callback: SendCallback = SendCallback.empty,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] =
-    if (member.isAuthenticated)
-      EitherT.leftT(
-        SendAsyncClientError.RequestInvalid(
-          "Only unauthenticated members can use the unauthenticated send operation"
-        )
-      )
-    else
-      sendAsyncInternal(
-        batch,
-        requiresAuthentication = false,
-        // Requests involving unauthenticated members must not specify a topology timestamp
-        topologyTimestamp = None,
-        maxSequencingTime = maxSequencingTime,
-        messageId = messageId,
-        aggregationRule = None,
-        callback = callback,
-        amplify = false,
-      )
 
   private def checkRequestSize(
       request: SubmissionRequest,
@@ -375,7 +258,6 @@ abstract class SequencerClientImpl(
 
   private def sendAsyncInternal(
       batch: Batch[DefaultOpenEnvelope],
-      requiresAuthentication: Boolean,
       topologyTimestamp: Option[CantonTimestamp],
       maxSequencingTime: CantonTimestamp,
       messageId: MessageId,
@@ -523,7 +405,6 @@ abstract class SequencerClientImpl(
           _ <- performSend(
             messageId,
             request,
-            requiresAuthentication,
             amplify,
             () => peekAtSendResult(),
             syncCryptoApi,
@@ -537,7 +418,6 @@ abstract class SequencerClientImpl(
   private def performSend(
       messageId: MessageId,
       request: SubmissionRequest,
-      requiresAuthentication: Boolean,
       amplify: Boolean,
       peekAtSendResult: () => Option[UnlessShutdown[SendResult]],
       topologySnapshot: SyncCryptoApi,
@@ -546,45 +426,41 @@ abstract class SequencerClientImpl(
   ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
     EitherTUtil
       .timed(metrics.submissions.sends) {
-        val timeout = timeouts.network.duration
-        if (requiresAuthentication) {
-          val (sequencerId, transport, patienceO) =
-            sequencersTransportState.nextAmplifiedTransport(Seq.empty)
-          // Do not add an aggregation rule for amplifiable requests if amplification has not been configured
-          val amplifiableRequest =
-            if (amplify && request.aggregationRule.isEmpty && patienceO.isDefined) {
-              val aggregationRule =
-                AggregationRule(NonEmpty(Seq, member), PositiveInt.one, protocolVersion)
-              logger.debug(
-                s"Adding aggregation rule $aggregationRule to submission request with message ID $messageId"
-              )
-              request.copy(aggregationRule = aggregationRule.some)
-            } else request
-
-          for {
-            signedContent <- requestSigner
-              .signRequest(
-                amplifiableRequest,
-                HashPurpose.SubmissionRequestSignature,
-                Some(topologySnapshot),
-              )
-              .leftMap { err =>
-                val message = s"Error signing submission request $err"
-                logger.error(message)
-                SendAsyncClientError.RequestRefused(SendAsyncError.RequestRefused(message))
-              }
-
-            _ <- amplifiedSend(
-              signedContent,
-              sequencerId,
-              transport,
-              if (amplify) patienceO else None,
-              peekAtSendResult,
+        val (sequencerId, transport, patienceO) =
+          sequencersTransportState.nextAmplifiedTransport(Seq.empty)
+        // Do not add an aggregation rule for amplifiable requests if amplification has not been configured
+        val amplifiableRequest =
+          if (amplify && request.aggregationRule.isEmpty && patienceO.isDefined) {
+            val aggregationRule =
+              AggregationRule(NonEmpty(Seq, member), PositiveInt.one, protocolVersion)
+            logger.debug(
+              s"Adding aggregation rule $aggregationRule to submission request with message ID $messageId"
             )
-          } yield ()
-        } else
-          sequencersTransportState.transport
-            .sendAsyncUnauthenticatedVersioned(request, timeout)
+            request.copy(aggregationRule = aggregationRule.some)
+          } else request
+
+        for {
+          signedContent <- requestSigner
+            .signRequest(
+              amplifiableRequest,
+              HashPurpose.SubmissionRequestSignature,
+              Some(topologySnapshot),
+            )
+            .leftMap { err =>
+              val message = s"Error signing submission request $err"
+              logger.error(message)
+              SendAsyncClientError.RequestRefused(SendAsyncError.RequestRefused(message))
+            }
+
+          _ <- amplifiedSend(
+            signedContent,
+            sequencerId,
+            transport,
+            if (amplify) patienceO else None,
+            peekAtSendResult,
+          )
+        } yield ()
+
       }
       .leftSemiflatMap { err =>
         // increment appropriate error metrics
@@ -796,27 +672,6 @@ abstract class SequencerClientImpl(
       eventHandler,
       timeTracker,
       fetchCleanTimestamp,
-      requiresAuthentication = true,
-    )
-
-  /** Does the same as [[subscribeAfter]], except that this method is supposed to be used
-    * only by unauthenticated members
-    *
-    * The method does not verify the signature of the server.
-    */
-  def subscribeAfterUnauthenticated(
-      priorTimestamp: CantonTimestamp,
-      eventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
-      timeTracker: DomainTimeTracker,
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    subscribeAfterInternal(
-      priorTimestamp,
-      // We do not track cleanliness for unauthenticated subscriptions
-      cleanPreheadTsO = None,
-      eventHandler,
-      timeTracker,
-      PeriodicAcknowledgements.noAcknowledgements,
-      requiresAuthentication = false,
     )
 
   protected def subscribeAfterInternal(
@@ -825,7 +680,6 @@ abstract class SequencerClientImpl(
       nonThrottledEventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
       timeTracker: DomainTimeTracker,
       fetchCleanTimestamp: PeriodicAcknowledgements.FetchCleanTimestamp,
-      requiresAuthentication: Boolean,
   )(implicit traceContext: TraceContext): Future[Unit]
 
   /** Acknowledge that we have successfully processed all events up to and including the given timestamp.
@@ -967,7 +821,6 @@ class RichSequencerClientImpl(
       nonThrottledEventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
       timeTracker: DomainTimeTracker,
       fetchCleanTimestamp: PeriodicAcknowledgements.FetchCleanTimestamp,
-      requiresAuthentication: Boolean,
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val throttledEventHandler = ThrottlingApplicationEventHandler.throttle(
       config.maximumInFlightEventBatches,
@@ -1054,7 +907,6 @@ class RichSequencerClientImpl(
               sequencerAlias,
               sequencerTransport.sequencerId,
               preSubscriptionEvent,
-              requiresAuthentication,
               eventHandler,
             ).discard
         }
@@ -1062,21 +914,19 @@ class RichSequencerClientImpl(
         // periodically acknowledge that we've successfully processed up to the clean counter
         // We only need to it setup once; the sequencer client will direct the acknowledgements to the
         // right transport.
-        if (requiresAuthentication) { // unauthenticated members don't need to ack
-          periodicAcknowledgementsRef.set(
-            PeriodicAcknowledgements
-              .create(
-                config.acknowledgementInterval.underlying,
-                deferredSubscriptionHealth.getState.isOk,
-                RichSequencerClientImpl.this,
-                fetchCleanTimestamp,
-                clock,
-                timeouts,
-                loggerFactory,
-              )
-              .some
-          )
-        }
+        periodicAcknowledgementsRef.set(
+          PeriodicAcknowledgements
+            .create(
+              config.acknowledgementInterval.underlying,
+              deferredSubscriptionHealth.getState.isOk,
+              RichSequencerClientImpl.this,
+              fetchCleanTimestamp,
+              clock,
+              timeouts,
+              loggerFactory,
+            )
+            .some
+        )
       }
     }
 
@@ -1095,14 +945,13 @@ class RichSequencerClientImpl(
       sequencerAlias: SequencerAlias,
       sequencerId: SequencerId,
       preSubscriptionEvent: Option[PossiblyIgnoredSerializedEvent],
-      requiresAuthentication: Boolean,
       eventHandler: OrdinaryApplicationHandler[ClosedEnvelope],
   )(implicit
       traceContext: TraceContext
   ): ResilientSequencerSubscription[SequencerClientSubscriptionError] = {
     // previously seen counter takes precedence over the lower bound
     val nextCounter = preSubscriptionEvent.fold(initialCounterLowerBound)(_.counter)
-    val eventValidator = eventValidatorFactory.create(unauthenticated = !requiresAuthentication)
+    val eventValidator = eventValidatorFactory.create()
     logger.info(
       s"Starting subscription for alias=$sequencerAlias, id=$sequencerId at timestamp ${preSubscriptionEvent
           .map(_.timestamp)}; next counter $nextCounter"
@@ -1145,7 +994,6 @@ class RichSequencerClientImpl(
       config.warnDisconnectDelay.underlying,
       config.maxConnectionRetryDelay.underlying,
       timeouts,
-      requiresAuthentication,
       loggerFactory,
     )
 
@@ -1598,7 +1446,6 @@ class SequencerClientImplPekko[E: Pretty](
       nonThrottledEventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
       timeTracker: DomainTimeTracker,
       fetchCleanTimestamp: FetchCleanTimestamp,
-      requiresAuthentication: Boolean,
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val throttledEventHandler = ThrottlingApplicationEventHandler.throttle(
       config.maximumInFlightEventBatches,
@@ -1671,7 +1518,7 @@ class SequencerClientImplPekko[E: Pretty](
         }
         logger.debug(subscriptionStartLogMessage)
 
-        val eventValidator = eventValidatorFactory.create(unauthenticated = !requiresAuthentication)
+        val eventValidator = eventValidatorFactory.create()
         val aggregator = new SequencerAggregatorPekko(
           domainId,
           eventValidator,
@@ -1707,7 +1554,6 @@ class SequencerClientImplPekko[E: Pretty](
               SequencerSubscriptionFactoryPekko.fromTransport(
                 transportContainer.sequencerId,
                 transportContainer.clientTransport,
-                requiresAuthentication,
                 member,
                 protocolVersion,
               )
@@ -1827,21 +1673,19 @@ class SequencerClientImplPekko[E: Pretty](
         // periodically acknowledge that we've successfully processed up to the clean counter
         // We only need to it setup once; the sequencer client will direct the acknowledgements to the
         // right transport.
-        if (requiresAuthentication) { // unauthenticated members don't need to ack
-          periodicAcknowledgementsRef.set(
-            PeriodicAcknowledgements
-              .create(
-                config.acknowledgementInterval.underlying,
-                health.getState.isOk,
-                this,
-                fetchCleanTimestamp,
-                clock,
-                timeouts,
-                loggerFactory,
-              )
-              .some
-          )
-        }
+        periodicAcknowledgementsRef.set(
+          PeriodicAcknowledgements
+            .create(
+              config.acknowledgementInterval.underlying,
+              health.getState.isOk,
+              this,
+              fetchCleanTimestamp,
+              clock,
+              timeouts,
+              loggerFactory,
+            )
+            .some
+        )
 
         replayCompleted.futureUS
       }

@@ -689,43 +689,6 @@ abstract class SequencerApiTest
           }
         }
       }
-
-      "require all eligible senders be authenticated" onlyRunWhen testAggregation in { env =>
-        import env.*
-
-        val unauthenticatedMember =
-          UnauthenticatedMemberId(UniqueIdentifier.tryCreate("unauthenticated", "member"))
-        // TODO(i10412): See above
-        val aggregationRule = AggregationRule(
-          NonEmpty(Seq, p19, unauthenticatedMember),
-          PositiveInt.tryCreate(1),
-          testedProtocolVersion,
-        )
-
-        val messageId = MessageId.tryCreate("unreachable-threshold")
-        val request = SubmissionRequest.tryCreate(
-          p19,
-          messageId,
-          Batch.empty(testedProtocolVersion),
-          maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
-          topologyTimestamp = None,
-          aggregationRule = Some(aggregationRule),
-          Option.empty[SequencingSubmissionCost],
-          testedProtocolVersion,
-        )
-
-        for {
-          _ <- sequencer.sendAsync(request).valueOrFailShutdown("Sent async")
-          reads <- readForMembers(Seq(p19), sequencer)
-        } yield {
-          checkRejection(reads, p19, messageId) {
-            case SequencerErrors.SubmissionRequestMalformed(reason) =>
-              reason should include(
-                "Eligible senders in aggregation rule must be authenticated, but found unauthenticated members"
-              )
-          }
-        }
-      }
     }
   }
 }

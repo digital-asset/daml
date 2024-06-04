@@ -9,17 +9,14 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
-import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose, Signature}
+import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.BlockSequencerStateManagerBase
 import com.digitalasset.canton.domain.block.data.SequencerBlockStore
 import com.digitalasset.canton.domain.block.update.{BlockUpdateGeneratorImpl, LocalBlockUpdate}
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.PruningError.UnsafePruningPoint
-import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.{
-  EventSource,
-  SignedOrderingRequest,
-}
+import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.EventSource
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
@@ -42,7 +39,6 @@ import com.digitalasset.canton.sequencing.traffic.{
   TrafficControlErrors,
   TrafficPurchasedSubmissionHandler,
 }
-import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -230,26 +226,6 @@ class BlockSequencer(
 
   override def adminServices: Seq[ServerServiceDefinition] = blockOrderer.adminServices
 
-  private def signOrderingRequest[A <: HasCryptographicEvidence](
-      content: SignedContent[SubmissionRequest]
-  )(implicit
-      tc: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncError.Internal, SignedOrderingRequest] = {
-    val privateCrypto = cryptoApi.currentSnapshotApproximation
-    for {
-      signed <- SignedContent
-        .create(
-          cryptoApi.pureCrypto,
-          privateCrypto,
-          content,
-          Some(privateCrypto.ipsSnapshot.timestamp),
-          HashPurpose.OrderingRequestSignature,
-          protocolVersion,
-        )
-        .leftMap(error => SendAsyncError.Internal(s"Could not sign ordering request: $error"))
-    } yield signed
-  }
-
   override protected def sendAsyncSignedInternal(
       signedSubmission: SignedContent[SubmissionRequest]
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] = {
@@ -276,9 +252,7 @@ class BlockSequencer(
           // TODO(#18399): currentApproximation vs headSnapshot?
           cryptoApi.currentSnapshotApproximation.ipsSnapshot
             .allMembers()
-            .map(allMembers =>
-              (member: Member) => allMembers.contains(member) || !member.isAuthenticated
-            )
+            .map(allMembers => (member: Member) => allMembers.contains(member))
         )
         .mapK(FutureUnlessShutdown.outcomeK)
       // TODO(#18399): Why we don't check group recipients here?
@@ -293,14 +267,13 @@ class BlockSequencer(
           s"Invoking send operation on the ledger with the following protobuf message serialized to bytes ${prettyPrinter
               .printAdHoc(submission.toProtoVersioned)}"
         )
-      signedOrderingRequest <- signOrderingRequest(signedSubmission)
       _ <-
         EitherT(
           futureSupervisor
             .supervised(
               s"Sending submission request with id ${submission.messageId} from $sender to ${batch.allRecipients}"
             )(
-              blockOrderer.send(signedOrderingRequest).value
+              blockOrderer.send(signedSubmission).value
             )
         ).mapK(FutureUnlessShutdown.outcomeK)
     } yield ()
@@ -313,22 +286,15 @@ class BlockSequencer(
     if (unifiedSequencer) {
       super.readInternal(member, offset)
     } else {
-      if (!member.isAuthenticated) {
-        // allowing unauthenticated members to read events is the same as automatically registering an unauthenticated member
-        // and then proceeding with the subscription.
-        // optimization: if the member is unauthenticated, we don't need to fetch all members from the snapshot
-        EitherT.fromEither[Future](stateManager.readEventsForMember(member, offset))
-      } else {
-        EitherT
-          .right(cryptoApi.currentSnapshotApproximation.ipsSnapshot.isMemberKnown(member))
-          .flatMap { isKnown =>
-            if (isKnown) {
-              EitherT.fromEither[Future](stateManager.readEventsForMember(member, offset))
-            } else {
-              EitherT.leftT(CreateSubscriptionError.UnknownMember(member))
-            }
+      EitherT
+        .right(cryptoApi.currentSnapshotApproximation.ipsSnapshot.isMemberKnown(member))
+        .flatMap { isKnown =>
+          if (isKnown) {
+            EitherT.fromEither[Future](stateManager.readEventsForMember(member, offset))
+          } else {
+            EitherT.leftT(CreateSubscriptionError.UnknownMember(member))
           }
-      }
+        }
     }
   }
 
@@ -338,8 +304,7 @@ class BlockSequencer(
     if (unifiedSequencer) {
       super.isRegistered(member)
     } else {
-      if (!member.isAuthenticated) Future.successful(true)
-      else cryptoApi.headSnapshot.ipsSnapshot.isMemberKnown(member)
+      cryptoApi.headSnapshot.ipsSnapshot.isMemberKnown(member)
     }
   }
 
@@ -374,7 +339,7 @@ class BlockSequencer(
     }
   }
 
-  override protected def localSequencerMember: DomainMember = sequencerId
+  override protected def localSequencerMember: Member = sequencerId
 
   override def acknowledge(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext

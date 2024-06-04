@@ -6,7 +6,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.errors
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.error.BaseCantonError
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup
-import com.digitalasset.canton.topology.DomainMember
+import com.digitalasset.canton.topology.Member
 
 sealed trait SequencerAdministrationError extends BaseCantonError
 
@@ -26,7 +26,7 @@ object SequencerAdministrationError extends SequencerErrorGroup {
         "CANNOT_DISABLE_LOCAL_SEQUENCER_MEMBER",
         ErrorCategory.InvalidIndependentOfSystemState,
       ) {
-    final case class Error(sequencerMember: DomainMember)
+    final case class Error(sequencerMember: Member)
         extends BaseCantonError.Impl(
           cause = s"Sequencer ${sequencerMember} cannot disable its local sequencer subscription"
         )

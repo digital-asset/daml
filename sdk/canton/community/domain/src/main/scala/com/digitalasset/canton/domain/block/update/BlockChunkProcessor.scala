@@ -364,11 +364,9 @@ private[update] final class BlockChunkProcessor(
           sequencedSubmission
 
         def recipientIsKnown(member: Member): Future[Option[Member]] = {
-          if (!member.isAuthenticated) Future.successful(None)
-          else
-            sequencingSnapshot.ipsSnapshot
-              .isMemberKnown(member)
-              .map(Option.when(_)(member))
+          sequencingSnapshot.ipsSnapshot
+            .isMemberKnown(member)
+            .map(Option.when(_)(member))
         }
 
         val topologySnapshot = topologySnapshotO.getOrElse(sequencingSnapshot).ipsSnapshot
@@ -394,10 +392,9 @@ private[update] final class BlockChunkProcessor(
           )
         } yield {
           val knownGroupMembers = groupToMembers.values.flatten
-          val allowUnauthenticatedSender = Option.when(!sender.isAuthenticated)(sender).toList
 
           val allMembersInSubmission =
-            Set.empty ++ knownGroupMembers ++ knownMemberRecipientsOrSender ++ allowUnauthenticatedSender
+            Set.empty ++ knownGroupMembers ++ knownMemberRecipientsOrSender
           (allMembersInSubmission -- state.ephemeral.registeredMembers)
             .map(_ -> sequencingTimestamp)
             .toSeq
@@ -474,7 +471,7 @@ private[update] final class BlockChunkProcessor(
       value.foreach(_.withTraceContext { implicit traceContext =>
         {
           case LedgerBlockEvent.Send(_, signedSubmissionRequest, payloadSize) =>
-            signedSubmissionRequest.content.content.batch.allRecipients
+            signedSubmissionRequest.content.batch.allRecipients
               .foldLeft(RecipientStats()) {
                 case (acc, MemberRecipient(ParticipantId(_)) | ParticipantsOfParty(_)) =>
                   acc.copy(participants = true)
@@ -482,15 +479,10 @@ private[update] final class BlockChunkProcessor(
                   acc.copy(mediators = true)
                 case (acc, MemberRecipient(SequencerId(_)) | SequencersOfDomain) =>
                   acc.copy(sequencers = true)
-                case (
-                      acc,
-                      MemberRecipient(UnauthenticatedMemberId(_)),
-                    ) =>
-                  acc // not used
                 case (acc, AllMembersOfDomain) => acc.copy(broadcast = true)
               }
               .updateMetric(
-                signedSubmissionRequest.content.content.sender,
+                signedSubmissionRequest.content.sender,
                 payloadSize,
                 logger,
                 metrics,

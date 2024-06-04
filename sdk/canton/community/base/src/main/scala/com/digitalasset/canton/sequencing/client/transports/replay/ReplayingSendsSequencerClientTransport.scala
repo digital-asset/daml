@@ -384,14 +384,6 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
   ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] =
     EitherT.rightT(())
 
-  /** We're replaying sends so shouldn't allow the app to send any new ones */
-  override def sendAsyncUnauthenticatedVersioned(
-      request: SubmissionRequest,
-      timeout: Duration,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] = EitherT.rightT(())
-
   override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Boolean] =
@@ -451,11 +443,6 @@ class ReplayingSendsSequencerClientTransportImpl(
     ): Unit = closeReasonPromise.trySuccess(reason).discard[Boolean]
   }
 
-  override def subscribeUnauthenticated[E](
-      request: SubscriptionRequest,
-      handler: SerializedEventHandler[E],
-  )(implicit traceContext: TraceContext): SequencerSubscription[E] = subscribe(request, handler)
-
   override def subscriptionRetryPolicy: SubscriptionErrorRetryPolicy =
     SubscriptionErrorRetryPolicy.never
 
@@ -470,11 +457,6 @@ class ReplayingSendsSequencerClientTransportImpl(
   override def subscribe(request: SubscriptionRequest)(implicit
       traceContext: TraceContext
   ): SequencerSubscriptionPekko[SubscriptionError] = underlyingTransport.subscribe(request)
-
-  override def subscribeUnauthenticated(request: SubscriptionRequest)(implicit
-      traceContext: TraceContext
-  ): SequencerSubscriptionPekko[SubscriptionError] =
-    underlyingTransport.subscribeUnauthenticated(request)
 
   override def subscriptionRetryPolicyPekko: SubscriptionErrorRetryPolicyPekko[SubscriptionError] =
     SubscriptionErrorRetryPolicyPekko.never

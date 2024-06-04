@@ -166,7 +166,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
 
         def ifParticipant[C](configO: Option[C]): Member => Option[C] = {
           case _: ParticipantId => configO
-          case _ => None // unauthenticated members don't need it
+          case _ => None
         }
         SequencerClientFactory(
           domainId,

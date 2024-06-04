@@ -10,24 +10,13 @@ import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.{CantonTimestamp, Counter}
 import com.digitalasset.canton.domain.sequencing.sequencer.DomainSequencingTestUtils.mockDeliverStoreEvent
+import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SaveLowerBoundError.BoundLowerThanExisting
-import com.digitalasset.canton.domain.sequencing.sequencer.{
-  CommitMode,
-  DomainSequencingTestUtils,
-  SequencerMemberStatus,
-  SequencerPruningStatus,
-  SequencerSnapshot,
-}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext}
 import com.digitalasset.canton.sequencing.protocol.{MessageId, SequencerErrors}
 import com.digitalasset.canton.store.db.DbTest
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.{
-  Member,
-  ParticipantId,
-  UnauthenticatedMemberId,
-  UniqueIdentifier,
-}
+import com.digitalasset.canton.topology.{Member, ParticipantId}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.{BaseTest, ProtocolVersionChecksAsyncWordSpec, SequencerCounter}
 import com.google.protobuf.ByteString
@@ -940,25 +929,6 @@ trait SequencerStoreTest
         _ <- store.disableMember(aliceId)
         _ <- store.disableMember(bobId)
         _ <- store.disableMember(caroleId)
-      } yield succeed
-    }
-
-    "unregister unauthenticated members" in {
-      val env = Env()
-      import env.*
-
-      val unauthenticatedAlice: UnauthenticatedMemberId =
-        UnauthenticatedMemberId(UniqueIdentifier.tryCreate("alice_unauthenticated", "fingerprint"))
-
-      for {
-        id <- store.registerMember(unauthenticatedAlice, ts1)
-        aliceLookup1 <- store.lookupMember(unauthenticatedAlice)
-        _ = aliceLookup1 shouldBe Some(RegisteredMember(id, ts1))
-        _ <- store.unregisterUnauthenticatedMember(unauthenticatedAlice)
-        aliceLookup2 <- store.lookupMember(unauthenticatedAlice)
-        _ = aliceLookup2 shouldBe empty
-        // should also be idempotent
-        _ <- store.unregisterUnauthenticatedMember(unauthenticatedAlice)
       } yield succeed
     }
 

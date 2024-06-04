@@ -56,12 +56,6 @@ object SequencerValidations {
         (),
         "Sender is not eligible according to the aggregation rule",
       )
-      unauthenticatedEligibleSenders = eligibleSenders.filterNot(_.isAuthenticated)
-      _ <- Either.cond(
-        unauthenticatedEligibleSenders.isEmpty,
-        (),
-        s"Eligible senders in aggregation rule must be authenticated, but found unauthenticated members $unauthenticatedEligibleSenders",
-      )
     } yield ()
   }
 

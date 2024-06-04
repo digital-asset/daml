@@ -124,29 +124,16 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       "send-async-versioned",
       request.content.messageId,
       timeout,
-      SendAsyncUnauthenticatedVersionedResponse.fromSendAsyncVersionedResponseProto,
+      SendAsyncVersionedResponse.fromProtoV30,
     )
   }
-
-  override def sendAsyncUnauthenticatedVersioned(request: SubmissionRequest, timeout: Duration)(
-      implicit traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] = sendInternal(
-    stub =>
-      stub.sendAsyncUnauthenticatedVersioned(
-        v30.SendAsyncUnauthenticatedVersionedRequest(submissionRequest = request.toByteString)
-      ),
-    "send-async-unauthenticated-versioned",
-    request.messageId,
-    timeout,
-    SendAsyncUnauthenticatedVersionedResponse.fromSendAsyncUnauthenticatedVersionedResponseProto,
-  )
 
   private def sendInternal[Resp](
       send: SequencerServiceStub => Future[Resp],
       endpoint: String,
       messageId: MessageId,
       timeout: Duration,
-      fromResponseProto: Resp => ParsingResult[SendAsyncUnauthenticatedVersionedResponse],
+      fromResponseProto: Resp => ParsingResult[SendAsyncVersionedResponse],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] = {
@@ -171,7 +158,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
 
   private def fromResponse[Proto](
       p: Proto,
-      deserializer: Proto => ParsingResult[SendAsyncUnauthenticatedVersionedResponse],
+      deserializer: Proto => ParsingResult[SendAsyncVersionedResponse],
   ): Either[SendAsyncClientResponseError, Unit] = {
     for {
       response <- deserializer(p)
@@ -333,13 +320,6 @@ class GrpcSequencerClientTransport(
   override def subscribe[E](
       subscriptionRequest: SubscriptionRequest,
       handler: SerializedEventHandler[E],
-  )(implicit traceContext: TraceContext): SequencerSubscription[E] =
-    subscribeInternal(subscriptionRequest, handler, requiresAuthentication = true)
-
-  private def subscribeInternal[E](
-      subscriptionRequest: SubscriptionRequest,
-      handler: SerializedEventHandler[E],
-      requiresAuthentication: Boolean,
   )(implicit traceContext: TraceContext): SequencerSubscription[E] = {
     // we intentionally don't use `Context.current()` as we don't want to inherit the
     // cancellation scope from upstream requests
@@ -355,28 +335,15 @@ class GrpcSequencerClientTransport(
 
     context.run(() =>
       TraceContextGrpc.withGrpcContext(traceContext) {
-        if (requiresAuthentication) {
-          sequencerServiceClient.subscribeVersioned(
-            subscriptionRequest.toProtoV30,
-            subscription.observer,
-          )
-        } else {
-          sequencerServiceClient.subscribeUnauthenticatedVersioned(
-            subscriptionRequest.toProtoV30,
-            subscription.observer,
-          )
-        }
+        sequencerServiceClient.subscribeVersioned(
+          subscriptionRequest.toProtoV30,
+          subscription.observer,
+        )
       }
     )
 
     subscription
   }
-
-  override def subscribeUnauthenticated[E](
-      request: SubscriptionRequest,
-      handler: SerializedEventHandler[E],
-  )(implicit traceContext: TraceContext): SequencerSubscription[E] =
-    subscribeInternal(request, handler, requiresAuthentication = false)
 
   override def subscriptionRetryPolicy: SubscriptionErrorRetryPolicy =
     new GrpcSubscriptionErrorRetryPolicy(loggerFactory)

@@ -133,7 +133,7 @@ class DomainTopologyService(
   ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
     logger.debug(s"Broadcasting topology transaction: ${request.broadcasts}")
     EitherTUtil.logOnErrorU(
-      sequencerClient.sendAsyncUnauthenticatedOrNot(
+      sequencerClient.sendAsync(
         Batch.of(protocolVersion, (request, Recipients.cc(TopologyBroadcastAddress.recipient))),
         maxSequencingTime =
           clock.now.add(topologyConfig.topologyTransactionRegistrationTimeout.toInternal.duration),
