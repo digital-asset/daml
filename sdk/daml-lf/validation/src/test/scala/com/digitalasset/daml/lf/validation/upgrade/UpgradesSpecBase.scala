@@ -634,6 +634,28 @@ trait LongTests { this: UpgradesSpec =>
         mkTrivialPkg("-decreasing-lf-version-", "2.0.0", LanguageVersion.v2_1),
         assertPackageUpgradeCheck(Some("The upgraded package uses an older LF version")),
       )
+
+    "Succeeds when v2 depends on v2dep which is a valid upgrade of v1dep" in
+      testPackagePair(
+        "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgrades-v1.dar",
+        "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgrades-v2.dar",
+        assertPackageDependenciesUpgradeCheck(
+          "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgradesDep-v1.dar",
+          "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgradesDep-v2.dar",
+          None,
+        ),
+      )
+
+    "report upgrade errors when v2 depends on v2dep which is an invalid upgrade of v1dep" in
+      testPackagePair(
+        "test-common/upgrades-UploadFailsWhenDepsAreInvalidUpgrades-v1.dar",
+        "test-common/upgrades-UploadFailsWhenDepsAreInvalidUpgrades-v2.dar",
+        assertPackageDependenciesUpgradeCheck(
+          "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v1.dar",
+          "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v2.dar",
+          Some("The upgraded template A has changed the types of some of its original fields."),
+        ),
+      )
   }
 }
 
@@ -701,11 +723,11 @@ abstract class UpgradesSpec(val suffix: String)
     val (testPackageV1Id, uploadV1Result) = v1
     val (testPackageV2Id, uploadV2Result) = v2
     if (disableUpgradeValidation) {
-      filterLog(cantonLogSrc, testPackageV1Id) should include(
-        s"Skipping upgrade validation for package $testPackageV1Id"
+      filterLog(cantonLogSrc, testPackageV1Id) should include regex (
+        s"Skipping upgrade validation for packages .*$testPackageV1Id".r
       )
-      filterLog(cantonLogSrc, testPackageV2Id) should include(
-        s"Skipping upgrade validation for package $testPackageV2Id"
+      filterLog(cantonLogSrc, testPackageV2Id) should include regex (
+        s"Skipping upgrade validation for packages .*$testPackageV2Id".r
       )
       filterLog(cantonLogSrc, testPackageV2Id) should not include regex(
         s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade."
@@ -883,6 +905,22 @@ abstract class UpgradesSpec(val suffix: String)
       )
     ) { a => a }
   }
+
+  def assertPackageDependenciesUpgradeCheck(
+      v1dep: String,
+      v2dep: String,
+      failureMessage: Option[String],
+  )(
+      v1: (PackageId, Option[Throwable]),
+      v2: (PackageId, Option[Throwable]),
+  )(cantonLogSrc: String): Assertion = {
+    val v1depId = loadPackageIdAndBS(v1dep)._1
+    val v2depId = loadPackageIdAndBS(v2dep)._1
+    assertPackageUpgradeCheckGeneral(failureMessage)((v1depId, v1._2), (v2depId, v2._2), true)(
+      cantonLogSrc
+    )
+  }
+
 
   def filterLog(log: String, str: String): String =
     log.split("\n").view.filter(_.contains(str)).mkString("\n")
