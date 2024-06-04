@@ -271,11 +271,15 @@ class PackageUploader(
             PackageServiceErrors.Validation.handleLfEnginePackageError(_): DamlError
           )
       )
-      _ <- EitherTUtil.ifThenET(enableUpgradeValidation)(
-        packageUpgradeValidator.validateUpgrade(mainPackage :: dependencies)
-          (LoggingContextWithTrace(loggerFactory))
-          .mapK(FutureUnlessShutdown.outcomeK)
-      )
+      _ <-
+        if (enableUpgradeValidation) {
+          packageUpgradeValidator
+            .validateUpgrade(mainPackage :: dependencies)(LoggingContextWithTrace(loggerFactory))
+            .mapK(FutureUnlessShutdown.outcomeK)
+        } else {
+          logger.info(s"Skipping upgrade validation for package ${mainPackage._1} and its dependencies.")
+          EitherT.pure[FutureUnlessShutdown, DamlError](())
+        }
     } yield ()
 
   private def updateWithPackage(

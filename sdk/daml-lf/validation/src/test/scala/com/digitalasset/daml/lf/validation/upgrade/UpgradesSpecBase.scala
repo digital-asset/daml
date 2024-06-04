@@ -665,10 +665,10 @@ abstract class UpgradesSpec(val suffix: String)
     val (testPackageV2Id, uploadV2Result) = v2
     if (disableUpgradeValidation) {
       filterLog(cantonLogSrc, testPackageV1Id) should include(
-        s"Skipping upgrade validation for package $testPackageV1Id"
+        s"Skipping upgrade validation for package $testPackageV1Id and its dependencies"
       )
       filterLog(cantonLogSrc, testPackageV2Id) should include(
-        s"Skipping upgrade validation for package $testPackageV2Id"
+        s"Skipping upgrade validation for package $testPackageV2Id and its dependencies"
       )
     } else {
       uploadV1Result match {
