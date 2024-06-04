@@ -122,6 +122,28 @@ same code. This is particularly problematic for the platform-independence test,
 in rare cases where the various platform jobs don't start at the same time and
 the changes on main in-between change the produced DAR file.
 
+### When a build doesn't start
+
+There are two situations where a build will not start for a PR:
+
+- The PR does not match our security rule "has been opened by an account with
+  write access". This covers bot-opened PRs (bots can create branches directly
+  on the repo but don't count as having write access, because reasons) as well as
+  any PR "from a fork", regardless of who opens it (i.e. if you have write access
+  but choose to make a fork instead of pushing your branch directly to the repo,
+  CI won't start).
+- Sometimes either GitHub or Azure Pipelines has a temporary network issue.
+  Builds are triggered by GitHub sending events to Azure Pipelines (PR opened,
+  new commit pushed, etc.); there is no polling. So if there's any issue with
+  that one notification, the build has been "missed" and won't be started.
+
+Remediation depends on the situation. In most cases, if you have write access
+to the repo you can trigger a PR build by adding a comment that reads `/azp
+run` on the PR. The comment has to be just thoss 8 characters.
+
+Alternatively, in the second case, operations like pushing a new commit or
+closing and reopening the PR can trigger a new notification.
+
 ### Restarting a failed build
 
 Azure Pipelines should trigger a build on every pull request (but not every
@@ -141,6 +163,9 @@ Note that the `Re-run all jobs` button reruns all the jobs, which means you
 take a chance with the ones that have already succeeded. This is sometimes
 necessary, but the only case I can think of is when the platform-independence
 test fails because of a race condition.
+
+A PR-triggered build gets canceled if a new commit is pushed to the
+corresponding branch.
 
 ### Finding logs for a build
 
