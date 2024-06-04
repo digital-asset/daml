@@ -272,7 +272,7 @@ class PackageUploader(
           )
       )
       _ <- EitherTUtil.ifThenET(enableUpgradeValidation)(
-        packageUpgradeValidator.validateUpgrade((mainPackage :: dependencies))
+        packageUpgradeValidator.validateUpgrade(mainPackage :: dependencies)
           (LoggingContextWithTrace(loggerFactory))
           .mapK(FutureUnlessShutdown.outcomeK)
       )

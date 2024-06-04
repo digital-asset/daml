@@ -3,31 +3,29 @@
 
 package com.digitalasset.canton.participant.admin
 
-import cats.Applicative
 import cats.data.EitherT
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.DamlError
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
-import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.language.Util.dependenciesInTopologicalOrder
+import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
 import com.daml.logging.entries.LoggingValue.OfString
 import com.digitalasset.canton.ledger.error.PackageServiceErrors.{InternalError, Validation}
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.PackageUpgradeValidator.PackageMap
 import com.digitalasset.canton.participant.admin.PackageUploader.ErrorValidations
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.EitherTUtil
 import scalaz.std.either._
 import scalaz.std.option._
 import scalaz.std.scalaFuture.futureInstance
 import scalaz.syntax.traverse._
-import scalaz.std.list._
 
-import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.concurrent.{ExecutionContext, Future}
+import scala.math.Ordering.Implicits.infixOrderingOps
 
 object PackageUpgradeValidator {
   type PackageMap = Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]
@@ -54,7 +52,7 @@ class PackageUpgradeValidator(
         deps: List[Ref.PackageId],
     ): EitherT[Future, DamlError, PackageMap] = deps match {
       case Nil => EitherT.pure[Future, DamlError](packageMap)
-      case (pkgId :: rest) => {
+      case pkgId :: rest =>
         val pkg = upgradingPackagesMap(pkgId)
         val supportsUpgrades = pkg.languageVersion >= LanguageVersion.Features.packageUpgrades
         // TODO: If pkgA-V1 (1.16) and pkgA-V2 (1.16) depend on pkgB (1.15)
@@ -62,19 +60,17 @@ class PackageUpgradeValidator(
         pkg.metadata match {
           case Some(pkgMetadata) =>
             for {
-              _ <- Applicative[EitherT[Future, DamlError, *]].whenA(supportsUpgrades)(
+              _ <- EitherTUtil.ifThenET(supportsUpgrades)(
                 validatePackageUpgrade((pkgId, pkg), pkgMetadata, packageMap)
               )
               res <- go(packageMap + ((pkgId, (pkgMetadata.name, pkgMetadata.version))), rest)
             } yield res
-          case None => {
+          case None =>
             logger.info(
               s"Package metadata is not defined for ${pkgId}. Skipping upgrade validation."
             )
             go(packageMap, rest)
-          }
         }
-      }
     }
     go(packageMap, deps).map(_ => ())
   }
