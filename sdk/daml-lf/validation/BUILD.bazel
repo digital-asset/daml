@@ -160,6 +160,10 @@ da_scala_test_suite(
             "//test-common:upgrades-TemplateChangedKeyType-v2.dar",
             "//test-common:upgrades-ValidUpgrade-v1.dar",
             "//test-common:upgrades-ValidUpgrade-v2.dar",
+            "//test-common:upgrades-UploadSucceedsWhenDepsAreValidUpgrades-v1.dar",
+            "//test-common:upgrades-UploadSucceedsWhenDepsAreValidUpgrades-v2.dar",
+            "//test-common:upgrades-UploadFailsWhenDepsAreInvalidUpgrades-v1.dar",
+            "//test-common:upgrades-UploadFailsWhenDepsAreInvalidUpgrades-v2.dar",
 
             # Ported from DamlcUpgrades.hs
             "//test-common:upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-v1.dar",
