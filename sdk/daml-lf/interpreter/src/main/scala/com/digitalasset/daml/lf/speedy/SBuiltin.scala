@@ -2213,11 +2213,11 @@ private[lf] object SBuiltin {
           f(SValue.SAnyContract(templateId, templateArg))
         }
       case None =>
-        machine.lookupContract(coid) { case V.ContractInstance(_, srcTmplId, coinstArg) =>
+        machine.lookupContract(coid) { case coinst @ V.ContractInstance(_, srcTmplId, coinstArg) =>
           val (upgradingIsEnabled, dstTmplId) = optTargetTemplateId match {
-            case Some(tycon) =>
+            case Some(tycon) if coinst.upgradable =>
               (true, tycon)
-            case None =>
+            case _ =>
               (false, srcTmplId) // upgrading not enabled; import at source type
           }
           if (srcTmplId.qualifiedName != dstTmplId.qualifiedName) {

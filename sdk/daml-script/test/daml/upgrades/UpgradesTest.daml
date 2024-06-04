@@ -13,6 +13,7 @@ import DA.Text
 import DA.Time
 import Daml.Script
 import Daml.Script.Internal
+import qualified V0.MyTemplates as V0
 import qualified V1.MyTemplates as V1
 import qualified V2.MyTemplates as V2
 import V1.MyTemplates hiding (ValidUpgrade, SameTypeChoice)
@@ -78,7 +79,9 @@ tests = mconcat
     , ("Fail to downgrade a contract with Somes when querying", queryDowngradedSome)
 
     , -- Fetching tests
-      ("Upgrade a contract when fetching", fetchUpgraded)
+      ("Fetch a LF < 1.16 contract with a LF >= 1.16 template ID, expect LF 1.16 implementation to attempt to be used, but fail upgrade", fetchNonUpgradableLfFail)
+    , ("Fetch a LF >= 1.16 contract with a LF < 1.16 template ID, expect LF 1.15 implementation to attempt to be used, but fail upgrade", fetchNonUpgradingLfFail)
+    , ("Upgrade a contract when fetching", fetchUpgraded)
     , ("Downgrade a contract with Nones when fetching", fetchDowngradedNone)
     , ("Fail to downgrade a contract with Somes when fetching", fetchDowngradedSome)
 
@@ -89,7 +92,9 @@ tests = mconcat
     , -- Template payload upgrading/downgrading from exercises within choice bodies
       -- The expected behaviour here is that the outer templates have fixed the choice version they wish to call
       -- So the ledger must coerce the real data to match the expected data. Regardless of what the "most recent" version of that package is
-      ("Call a V1 choice on a V1 contract from within a choice body, expect V1 implementation is used regardless of the possible upgrade.", exerciseV1ChoiceV1ContractSameType)
+      ("Call a LF >= 1.16 choice on a LF < 1.16 contract, expect LF 1.16 implementation to attempt to be used, but fail upgrade", exerciseNonUpgradableLfFail)
+    , ("Call a LF < 1.15 choice on a LF >= 1.15 contract, expect LF 1.15 implementation to attempt to be used, but fail upgrade", exerciseNonUpgradingLfFail)
+    , ("Call a V1 choice on a V1 contract from within a choice body, expect V1 implementation is used regardless of the possible upgrade.", exerciseV1ChoiceV1ContractSameType)
     , ("Call a V1 choice on a V2 contract from within a choice body, expect V1 implementation is used, via a downgrade.", exerciseV1ChoiceV2ContractSameType)
     , ("Call a V1 choice on a V2 contract with Some field from within a choice body, expect V1 implementation to attempt to be used, but fail downgrade", exerciseV1ChoiceV2ContractSameTypeSome)
     , ("Call a V2 choice on a V1 contract from within a choice body, expect V2 implementation is used, via an upgrade", exerciseV2ChoiceV1ContractSameType)
@@ -120,7 +125,7 @@ tests = mconcat
       ("Succeeds explicitly calling a removed V1 choice on a V2 contract", explicitRemovedV1ChoiceV2Contract)
     , ("Fails implicitly calling a removed V1 choice on a V2 contract, as V2 is selected", implicitRemovedV1ChoiceV2Contract)
     , ("Fails implicitly calling a removed V1 choice on a V1 contract, as V2 is selected", implicitRemovedV1ChoiceV1Contract)
-    
+
     , -- Invalid signatory/observer changes
       ("Succeeds if the signatories don't change", unchangedSignatoryUpgrade)
     , ("Fails if the signatories set gets larger", largerSignatoryUpgrade)
@@ -156,7 +161,7 @@ tests = mconcat
 
     , -- Disclosures
       ("Disclosure retrieved with an upgraded template ID are valid disclosures" , queriedDisclosuresAreValid)
-  
+
     , -- Edge behaviour
       -- https://github.com/DACH-NY/canton/issues/14718
       broken ("Chooses the v1 contract if v2 is unvetted and package id is omitted.", packageSelectionChoosesUnvettedPackages)
@@ -205,11 +210,36 @@ exerciseV1Util p c = p `submit` createAndExerciseExactCmd (V1.ValidUpgradeUtils 
 exerciseV2Util : Choice V2.ValidUpgradeUtils c r => Party -> c -> Script r
 exerciseV2Util p c = p `submit` createAndExerciseExactCmd (V2.ValidUpgradeUtils with party = p) c
 
+tryExerciseV0Util : Choice V0.ValidUpgradeUtils c r => Party -> c -> Script (Either SubmitError r)
+tryExerciseV0Util p c = p `trySubmit` createAndExerciseExactCmd (V0.ValidUpgradeUtils with party = p) c
+
 tryExerciseV1Util : Choice V1.ValidUpgradeUtils c r => Party -> c -> Script (Either SubmitError r)
 tryExerciseV1Util p c = p `trySubmit` createAndExerciseExactCmd (V1.ValidUpgradeUtils with party = p) c
 
 tryExerciseV2Util : Choice V2.ValidUpgradeUtils c r => Party -> c -> Script (Either SubmitError r)
 tryExerciseV2Util p c = p `trySubmit` createAndExerciseExactCmd (V2.ValidUpgradeUtils with party = p) c
+
+mustBeWronglyTypedContract : Either SubmitError r -> Script ()
+mustBeWronglyTypedContract (Left (WronglyTypedContract {})) = pure ()
+mustBeWronglyTypedContract  _ = assertFail "Wrong"
+
+fetchNonUpgradableLfFail : Script ()
+fetchNonUpgradableLfFail = do
+    a  <- allocatePartyOn "alice" participant0
+    v0Cid <- a `submit` createExactCmd V0.ValidUpgrade with party = a
+    let v1Cid = coerceContractId @V0.ValidUpgrade @V1.ValidUpgrade v0Cid
+
+    res <- a `tryExerciseV1Util` V1.ValidUpgradeFetch with cid = v1Cid
+    mustBeWronglyTypedContract res
+
+fetchNonUpgradingLfFail : Script ()
+fetchNonUpgradingLfFail = do
+    a  <- allocatePartyOn "alice" participant0
+    v1Cid <- a `submit` createExactCmd V1.ValidUpgrade with party = a
+    let v0Cid = coerceContractId @V1.ValidUpgrade @V0.ValidUpgrade v1Cid
+
+    res <- a `tryExerciseV0Util` V0.ValidUpgradeFetch with cid = v0Cid
+    mustBeWronglyTypedContract res
 
 fetchUpgraded : Script ()
 fetchUpgraded = do
@@ -273,6 +303,22 @@ fetchDowngradedNoneSourceUnvetted = do
 
   -- Cleanup
   vetDarOnParticipant v2DarName participant0
+
+exerciseNonUpgradableLfFail: Script ()
+exerciseNonUpgradableLfFail = do
+    a  <- allocatePartyOn "alice" participant0
+    v0Cid <- a `submit` createExactCmd V0.ValidUpgrade with party = a
+    let v1Cid = coerceContractId @V0.ValidUpgrade @V1.ValidUpgrade v0Cid
+    res <- a `trySubmit` exerciseExactCmd @V1.ValidUpgrade v1Cid (V1.Noop a)
+    mustBeWronglyTypedContract res
+
+exerciseNonUpgradingLfFail: Script ()
+exerciseNonUpgradingLfFail = do
+    a  <- allocatePartyOn "alice" participant0
+    v1Cid <- a `submit` createExactCmd V1.ValidUpgrade with party = a
+    let v0Cid = coerceContractId @V1.ValidUpgrade @V0.ValidUpgrade v1Cid
+    res <- a `trySubmit` exerciseExactCmd @V0.ValidUpgrade v0Cid (V0.Noop a)
+    mustBeWronglyTypedContract res
 
 exerciseV1ChoiceV1ContractSameType : Script ()
 exerciseV1ChoiceV1ContractSameType = do

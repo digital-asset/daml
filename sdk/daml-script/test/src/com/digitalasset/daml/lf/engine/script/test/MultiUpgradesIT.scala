@@ -28,6 +28,7 @@ class MultiUpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside 
     CompiledDar.read(testDarPath, Runner.compilerConfig(LanguageMajorVersion.V1))
 
   override protected lazy val darFiles = List(
+    rlocation(Paths.get(s"daml-script/test/upgrades-my-templates-v0.dar")),
     rlocation(Paths.get(s"daml-script/test/upgrades-my-templates-v1.dar")),
     rlocation(Paths.get(s"daml-script/test/upgrades-my-templates-v2.dar")),
   )
