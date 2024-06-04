@@ -17,7 +17,11 @@ load(
 load("//ledger-test-tool:conformance.bzl", "testtool_lf_versions")
 load("//test-common:test-common.bzl", "da_scala_dar_resources_library")
 load("//test-common:test-common.bzl", "merge_test_dars_versioned")
-load("//rules_daml:daml.bzl", "daml_compile")
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+    "default_damlc_opts",
+)
 load("//daml-lf/language:daml-lf.bzl", "mangle_for_java")
 
 alias(
@@ -197,22 +201,20 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-dep-v1".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep-v1/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
-            enable_interfaces = True,
+            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}-dep".format(identifier),
-            target = "2.dev",
+            target = "1.dev",
             version = "1.0.0",
             visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-dep-v2".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep-v2/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
-            enable_interfaces = True,
+            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}-dep".format(identifier),
-            target = "2.dev",
+            target = "1.dev",
             # We want to check the validity of this upgrade on the ledger
             # client, not during compilation
             typecheck_upgrades = False,
@@ -224,11 +226,10 @@ da_scala_dar_resources_library(
             name = "upgrades-{}-v1".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v1/*.daml".format(identifier)]),
             data_dependencies = ["//test-common:upgrades-{}-dep-v2.dar".format(identifier)],
-            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
-            enable_interfaces = True,
+            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}".format(identifier),
-            target = "2.dev",
+            target = "1.dev",
             version = "1.0.0",
             visibility = ["//visibility:public"],
         ),
@@ -236,11 +237,10 @@ da_scala_dar_resources_library(
             name = "upgrades-{}-v2".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v2/*.daml".format(identifier)]),
             data_dependencies = ["//test-common:upgrades-{}-dep-v1.dar".format(identifier)],
-            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
-            enable_interfaces = True,
+            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}".format(identifier),
-            target = "2.dev",
+            target = "1.dev",
             # We want to check the validity of this upgrade on the ledger
             # client, not during compilation
             typecheck_upgrades = False,
