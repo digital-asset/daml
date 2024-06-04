@@ -44,7 +44,8 @@ class PackageUpgradeValidator(
       loggingContext: LoggingContextWithTrace
   ): EitherT[Future, DamlError, Unit] = {
     val upgradingPackagesMap = upgradingPackages.toMap
-    val packagesInTopologicalOrder = dependenciesInTopologicalOrder(upgradingPackages.map(_._1), upgradingPackagesMap)
+    val packagesInTopologicalOrder =
+      dependenciesInTopologicalOrder(upgradingPackages.map(_._1), upgradingPackagesMap)
     val packageMap = getPackageMap(loggingContext.traceContext)
 
     def go(
@@ -116,6 +117,7 @@ class PackageUpgradeValidator(
             TypecheckUpgrades.MaximalDarCheck,
             optUpgradingDar,
             optMaximalDar,
+            packageMap,
           )
           optMinimalDar <- EitherT.right[DamlError](
             minimalVersionedDar(upgradingPackageMetadata, packageMap)
@@ -124,6 +126,7 @@ class PackageUpgradeValidator(
             TypecheckUpgrades.MinimalDarCheck,
             optMinimalDar,
             optUpgradingDar,
+            packageMap,
           )
           _ = logger.info(s"Typechecking upgrades for $upgradingPackageId succeeded.")
         } yield r
@@ -189,9 +192,9 @@ class PackageUpgradeValidator(
 
   private def strictTypecheckUpgrades(
       phase: TypecheckUpgrades.UploadPhaseCheck,
-      optNewDar1: Option[(Ref.PackageId, Ast.Package)],
+      optNewDar1: Option[(Ref.PackageId, Ast.Package, PackageMap)],
       oldPkgId2: Ref.PackageId,
-      optOldPkg2: Option[Ast.Package],
+      optOldPkg2: Option[(Ast.Package, PackageMap)],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): EitherT[Future, DamlError, Unit] = {
@@ -201,12 +204,12 @@ class PackageUpgradeValidator(
       optNewDar1 match {
         case None => EitherT.rightT(())
 
-        case Some((newPkgId1, newPkg1)) =>
+        case Some((newPkgId1, newPkg1, newPkgDeps1)) =>
           logger.info(s"Package $newPkgId1 claims to upgrade package id $oldPkgId2")
           EitherT(
             Future(
               TypecheckUpgrades
-                .typecheckUpgrades((newPkgId1, newPkg1), oldPkgId2, optOldPkg2)
+                .typecheckUpgrades((newPkgId1, newPkg1, newPkgDeps1), oldPkgId2, optOldPkg2)
                 .toEither
             )
           ).leftMap[DamlError] {
@@ -225,18 +228,31 @@ class PackageUpgradeValidator(
       typecheckPhase: TypecheckUpgrades.UploadPhaseCheck,
       optNewDar1: Option[(Ref.PackageId, Ast.Package)],
       optOldDar2: Option[(Ref.PackageId, Ast.Package)],
+      packageMap: PackageMap,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): EitherT[Future, DamlError, Unit] =
+  ): EitherT[Future, DamlError, Unit] = {
+    def toPackageMap(
+        packageIds: Set[Ref.PackageId]
+    ): PackageMap =
+      packageIds.flatMap(pkgId => packageMap.get(pkgId).map(pkgId -> _)).toMap
+
     (optNewDar1, optOldDar2) match {
       case (None, _) | (_, None) => EitherT.rightT(())
 
       case (Some((newPkgId1, newPkg1)), Some((oldPkgId2, oldPkg2))) =>
         strictTypecheckUpgrades(
           typecheckPhase,
-          Some((newPkgId1, newPkg1)),
+          Some(
+            (
+              newPkgId1,
+              newPkg1,
+              toPackageMap(newPkg1.directDeps),
+            )
+          ),
           oldPkgId2,
-          Some(oldPkg2),
+          Some(oldPkg2, toPackageMap(oldPkg2.directDeps)),
         )
     }
+  }
 }
