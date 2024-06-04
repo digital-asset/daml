@@ -1269,6 +1269,27 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     }
 
     @Help.Summary(
+      "Macro to connect a participant to a domain that supports a single sequencer connection"
+    )
+    @Help.Description("""Calls a `connect_multi` macro with a single sequencer connection. This is
+        |particularly useful if we have a reference to a remote sequencer and can easily get
+        |the respective sequencer connection <sequencer>.sequencerConnection.
+        The arguments are:
+          domainAlias - The name you will be using to refer to this domain. Can not be changed anymore.
+          sequencerConnection - A single sequencer connection to connect to this domain. I.e. https://url:port
+          synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
+        """)
+    def connect_single(
+        domainAlias: DomainAlias,
+        sequencerConnection: SequencerConnection,
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+    ): DomainConnectionConfig = {
+      connect_multi(domainAlias, Seq(sequencerConnection), synchronize)
+    }
+
+    @Help.Summary(
       "Deprecated macro to connect a participant to a domain that supports connecting via many endpoints"
     )
     @Help.Description("""Use the command connect_ha with the updated arguments list""")

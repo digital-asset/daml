@@ -19,6 +19,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json.{JsArray, JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue, enrichAny}
 
+import java.time.Instant
+
 class JcsSpec extends AnyWordSpec with Matchers {
 
   private val uno: JsValue = JsNumber(1)
@@ -72,8 +74,8 @@ class JcsSpec extends AnyWordSpec with Matchers {
     }
     "serialize report" in {
       val application = Ref.ApplicationId.assertFromString("a0")
-      val from = Timestamp.assertFromString("2022-01-01T00:00:00Z")
-      val to = Timestamp.assertFromString("2022-01-01T00:00:00Z")
+      val from = Timestamp.assertFromInstant(Instant.parse("2022-01-01T00:00:00Z"))
+      val to = Timestamp.assertFromInstant(Instant.parse("2022-01-01T00:00:00Z"))
       val report = ParticipantReport(
         participant = Ref.ParticipantId.assertFromString("p0"),
         request = Request(from, Some(to), Some(application)),

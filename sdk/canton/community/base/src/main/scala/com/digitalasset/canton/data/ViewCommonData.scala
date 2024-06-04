@@ -65,7 +65,7 @@ final case class ViewCommonData private (
   @transient override protected lazy val companionObj: ViewCommonData.type = ViewCommonData
 
   // Ensures the invariants related to default values hold
-  validateInstance().valueOr(err => throw new IllegalArgumentException(err))
+  validateInstance().valueOr(err => throw InvalidViewConfirmationParameters(err))
 
   private def extractInformeesFromQuorum(quorum: Quorum): Seq[Informee] =
     viewConfirmationParameters.informees.toSeq.map { case (partyId, requiredTrustLevel) =>
@@ -181,7 +181,7 @@ object ViewCommonData
       protocolVersion: ProtocolVersion,
   ): Either[InvalidViewConfirmationParameters, ViewCommonData] =
     Either
-      .catchOnly[IllegalArgumentException] {
+      .catchOnly[InvalidViewConfirmationParameters] {
         // The deserializedFrom field is set to "None" as this is for creating "fresh" instances.
         new ViewCommonData(viewConfirmationParameters, salt)(
           hashOps,
@@ -189,7 +189,6 @@ object ViewCommonData
           None,
         )
       }
-      .leftMap(e => InvalidViewConfirmationParameters(e.getMessage))
 
   def tryCreate(hashOps: HashOps)(
       viewConfirmationParameters: ViewConfirmationParameters,
@@ -197,7 +196,7 @@ object ViewCommonData
       protocolVersion: ProtocolVersion,
   ): ViewCommonData =
     create(hashOps)(viewConfirmationParameters, salt, protocolVersion)
-      .valueOr(err => throw new IllegalArgumentException(err))
+      .valueOr(err => throw err)
 
   private def fromProtoV0(
       context: (HashOps, ConfirmationPolicy),

@@ -63,6 +63,7 @@ class ParticipantRepairAdministration(
       |stakeholders are no longer available to agree to their archival. The participant needs to be disconnected from
       |the domain on which the contracts with "contractIds" reside at the time of the call, and as of now the domain
       |cannot have had any inflight requests.
+      |The effects of the command will take affect upon reconnecting to the sync domain.
       |The "ignoreAlreadyPurged" flag makes it possible to invoke the command multiple times with the same
       |parameters in case an earlier command invocation has failed.
       |As repair commands are powerful tools to recover from unforeseen data corruption, but dangerous under normal
@@ -325,6 +326,7 @@ class ParticipantRepairAdministration(
         |contracts have somehow gotten out of sync and need to be manually created. The participant needs to be
         |disconnected from the specified "domain" at the time of the call, and as of now the domain cannot have had
         |any inflight requests.
+        |The effects of the command will take affect upon reconnecting to the sync domain.
         |As repair commands are powerful tools to recover from unforeseen data corruption, but dangerous under normal
         |operation, use of this command requires (temporarily) enabling the "features.enable-repair-commands"
         |configuration. In addition repair commands can run for an unbounded time depending on the number of

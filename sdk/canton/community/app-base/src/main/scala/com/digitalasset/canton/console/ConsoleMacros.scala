@@ -19,7 +19,10 @@ import com.daml.ledger.api.v1.value.{
 }
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.DomainAlias
-import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.ContractData
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.{
+  ContractData,
+  WrappedCreatedEvent,
+}
 import com.digitalasset.canton.admin.api.client.data.{ListPartiesResult, TemplateId}
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.NonNegativeDuration
@@ -30,14 +33,16 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NodeLoggingUtil}
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.admin.repair.RepairService
+import com.digitalasset.canton.participant.admin.v0
 import com.digitalasset.canton.participant.config.{AuthServiceConfig, BaseParticipantConfig}
 import com.digitalasset.canton.participant.ledger.api.JwtTokenUtilities
+import com.digitalasset.canton.participant.ledger.api.client.ValueRemapper
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.BinaryFileUtil
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.version.{ProtocolVersion, VersionedMessage}
 import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.Encoder
@@ -332,6 +337,67 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
             )
         }
       )
+
+    @Help.Summary("Migrates dars from one participant to another.")
+    @Help.Description(
+      """The `utils.migrate_dars` copies all dars (not part of the AdminWorkflows) from a participant,
+        |saves them in a temporary file and then uploads them to another participant."""
+    )
+    def migrate_dars(
+        participantOld: ParticipantReference,
+        participantNew: ParticipantReference,
+    ): Unit =
+      File.usingTemporaryDirectory(s"dar-migration-${participantOld.name}") { tempDir =>
+        val dars = participantOld.dars.list().filter(_.name != "AdminWorkflows")
+        dars.foreach { dar =>
+          logger.info(s"Downloading ${dar.name} from ${participantOld.name}")
+          participantOld.dars.download(dar.hash, tempDir.canonicalPath)
+        }
+
+        tempDir.list(_.canonicalPath.endsWith(".dar")).foreach { darFile =>
+          logger.info(s"Uploading ${darFile.name} to ${participantNew.name}")
+          val _ = participantNew.dars.upload(darFile.canonicalPath)
+        }
+      }
+
+    @Help.Summary("Change the party ids referenced by a sequence of contracts.")
+    @Help.Description(
+      """The `utils.change_contracts_party_ids` changes the party ids of multiple contracts based on a map
+        |of old party ids to new party ids. This is typically used during an ACS migration when the
+        |reference party ids have changed (e.g. due to them being recreated in another participant in a different
+        |namespace). This function also requires the selection of a specific ledger create time
+        |according to the domain's clock. It is also possible to modify the domain and protocol version for
+        |those contracts, which can be useful when contracts are being migrated to a participant
+        |connected to a domain and/or protocol version."""
+    )
+    def change_contracts_party_ids(
+        partiesOldToPartiesNew: Map[PartyId, PartyId],
+        acs: Seq[WrappedCreatedEvent],
+        domainId: DomainId,
+        ledgerCreateTime: Instant,
+        targetProtocolVersion: ProtocolVersion,
+    )(implicit env: ConsoleEnvironment) = {
+      acs.map { event =>
+        val converted = ValueRemapper.convertEvent(
+          identity,
+          partiesOldToPartiesNew.map { case (oldId, newId) =>
+            oldId.toProtoPrimitive -> newId.toProtoPrimitive
+          }(_),
+        )(event.event)
+        val contract = contract_data_to_instance(
+          WrappedCreatedEvent(converted).toContractData,
+          ledgerCreateTime,
+        )
+        VersionedMessage(
+          v0.ActiveContract(
+            targetProtocolVersion.toProtoPrimitive,
+            domainId.toProtoPrimitive,
+            contract.toByteString(targetProtocolVersion),
+          ).toByteString,
+          targetProtocolVersion.v,
+        )
+      }
+    }
 
     @Help.Summary("Recompute authenticated contract ids.")
     @Help.Description(
